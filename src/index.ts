@@ -4,7 +4,7 @@
 import { Http, type HttpOptions, type TokenStore } from "./http.js";
 import { crmResources } from "./resources/crm.js";
 import { whatsappResources } from "./resources/whatsapp.js";
-import type { Body, Envelope, LoginResult } from "./types.js";
+import type { Envelope, LoginCredentials, LoginData } from "./types.js";
 
 export * from "./http.js";
 export * from "./types.js";
@@ -66,17 +66,17 @@ export class VendePlayClient {
   // ---- Autenticación ----
 
   /**
-   * POST /auth/login. Guarda el accessToken (y refreshToken si viene) en el
-   * TokenStore configurado. Devuelve el payload de tokens.
+   * POST /auth/login con `{ email, password }`. Respuesta confirmada:
+   * `{ data: { accessToken, user } }`. Guarda el accessToken en el TokenStore;
+   * devuelve `data` (accessToken + user) para que persistas el usuario si querés.
    */
-  async login(credentials: Body): Promise<LoginResult> {
-    const res = await this.http.post<Envelope<LoginResult>>("/auth/login", credentials, { auth: false });
-    const data = (res?.data ?? res) as LoginResult;
+  async login<User = unknown>(credentials: LoginCredentials): Promise<LoginData<User>> {
+    const res = await this.http.post<Envelope<LoginData<User>>>("/auth/login", credentials, { auth: false });
+    const data = (res?.data ?? res) as LoginData<User>;
     if (!data?.accessToken) {
       throw new Error("Respuesta de login sin accessToken (forma inesperada).");
     }
     await this.http.tokens.setAccess(data.accessToken);
-    if (data.refreshToken) await this.http.tokens.setRefresh(data.refreshToken);
     return data;
   }
 

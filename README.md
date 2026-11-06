@@ -63,8 +63,12 @@ npm run typecheck   # o: npm run build
 - **Stack:** React + Vite, servido por Caddy (HTTP/2/3). Build parece test/staging
   (claves Stripe `pk_test`, RevenueCat `rcb_sb`).
 - **API base:** `https://api.vendeplay.com/streaming-head-seller/v1` (axios).
-- **Auth:** `POST /auth/login` → `data.data.accessToken` → `localStorage["auth_token"]`;
-  `Authorization: Bearer`; refresh en `/auth/refresh`; usuario en `/auth/me`.
+- **Auth (confirmado por decompilación):** `POST /auth/login` con `{ email, password }` →
+  `{ data: { accessToken, user } }`; guarda `accessToken` en `localStorage["auth_token"]` y
+  `user` en `localStorage["user_data"]`. `Authorization: Bearer`. `logout` borra ambas claves.
+  `checkAuth` usa `POST /auth/me` → `data.data`. El login **no** guarda refreshToken
+  (el refresh por `/auth/refresh` es probablemente por cookie httpOnly; en el SDK va best-effort
+  con `credentials: "include"`).
 - **Pagos:** MercadoPago (`/billing/mp/*`), RevenueCat (`/rcbilling`, `/v1/subscribers`),
   y SDKs de Stripe/Paddle cargados en el front.
 - **Dominio:** reventa de cuentas de streaming (clientes, proveedores, cuentas/servicios,

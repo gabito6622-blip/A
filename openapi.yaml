@@ -28,18 +28,25 @@ components:
       additionalProperties: true
     LoginRequest:
       type: object
-      description: Credenciales de acceso (campos exactos no verificados).
+      description: Credenciales de acceso (confirmado por decompilación del front).
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
       additionalProperties: true
     LoginResponse:
       type: object
+      description: >
+        Respuesta de /auth/login (confirmado): el front lee `data.data.accessToken`
+        y `data.data.user`. No se observó refreshToken en el login (refresh probablemente por cookie).
       properties:
         data:
           type: object
           properties:
-            accessToken:
-              type: string
-            refreshToken:
-              type: string
+            accessToken: { type: string }
+            user:
+              type: object
+              additionalProperties: true
           additionalProperties: true
       additionalProperties: true
 security:

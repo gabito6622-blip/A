@@ -1,8 +1,7 @@
 // Ejemplo de uso del SDK. Ejecutar (Node 22+):
 //   VP_EMAIL=... VP_PASSWORD=... node --experimental-strip-types examples/demo.ts
 //
-// Nota: los nombres de los campos de login (email/password/usuario…) NO fueron
-// verificados; ajustá `credentials` a lo que espere tu backend.
+// Campos de login confirmados por decompilación del front: { email, password }.
 
 import { VendePlayClient } from "../src/index.js";
 
@@ -10,8 +9,8 @@ async function main() {
   const client = new VendePlayClient();
 
   const credentials = {
-    email: process.env.VP_EMAIL,
-    password: process.env.VP_PASSWORD,
+    email: process.env.VP_EMAIL ?? "",
+    password: process.env.VP_PASSWORD ?? "",
   };
 
   console.log("Login…");

@@ -25,12 +25,14 @@ export class MemoryTokenStore implements TokenStore {
 }
 
 /**
- * Store sobre localStorage (navegador). Usa por defecto la misma clave que el
- * front oficial: `auth_token` para el access token.
+ * Store sobre localStorage (navegador). Usa por defecto las mismas claves que el
+ * front oficial: `auth_token` para el access token y `user_data` para el usuario.
+ * (El login no guarda refreshToken; `refreshKey` es best-effort.)
  */
 export function localStorageTokenStore(
   accessKey = "auth_token",
   refreshKey = "refresh_token",
+  userKey = "user_data",
 ): TokenStore {
   const ls = (globalThis as any).localStorage as Storage | undefined;
   if (!ls) throw new Error("localStorage no disponible en este runtime");
@@ -39,7 +41,7 @@ export function localStorageTokenStore(
     setAccess: (t) => (t == null ? ls.removeItem(accessKey) : ls.setItem(accessKey, t)),
     getRefresh: () => ls.getItem(refreshKey),
     setRefresh: (t) => (t == null ? ls.removeItem(refreshKey) : ls.setItem(refreshKey, t)),
-    clear: () => { ls.removeItem(accessKey); ls.removeItem(refreshKey); },
+    clear: () => { ls.removeItem(accessKey); ls.removeItem(refreshKey); ls.removeItem(userKey); },
   };
 }
 
@@ -160,7 +162,12 @@ export class Http {
     return data as T;
   }
 
-  /** Renueva el access token vía POST /auth/refresh. Dedupe concurrente. */
+  /**
+   * Renueva el access token vía POST /auth/refresh. Dedupe concurrente.
+   * El mecanismo exacto de refresh NO está confirmado: el login no guarda un
+   * refreshToken, así que es probable que el backend use cookie httpOnly. Por eso
+   * se envía con `credentials: "include"` y, si hubiera un refresh guardado, en el body.
+   */
   async tryRefresh(): Promise<boolean> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
@@ -169,6 +176,7 @@ export class Http {
         const res = await this.fetchImpl(this.buildUrl("/auth/refresh"), {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
+          credentials: "include",
           body: JSON.stringify(refresh ? { refreshToken: refresh } : {}),
         });
         if (!res.ok) { await this.tokens.clear(); this.onUnauthorized?.(); return false; }
