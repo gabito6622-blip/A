@@ -82,7 +82,6 @@ export class Http {
   private readonly fetchImpl: typeof fetch;
   private readonly onUnauthorized?: () => void;
   private readonly defaultHeaders: Record<string, string>;
-  private refreshing: Promise<boolean> | null = null;
 
   constructor(opts: HttpOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
@@ -137,17 +136,17 @@ export class Http {
       });
     };
 
-    let res = await doFetch();
-
-    // 401 -> intentar refresh una vez y reintentar.
-    if (res.status === 401 && opts.auth !== false) {
-      const ok = await this.tryRefresh();
-      if (ok) res = await doFetch();
-    }
-
+    const res = await doFetch();
     return this.parse<T>(res);
   }
 
+  /**
+   * Parsea la respuesta. El backend (Express/NestJS) usa un envelope estándar
+   * `{ code, message, status, meta: { traceId }, data }`; en error se lanza
+   * HttpError con ese body. En 401 se limpia el access token y se notifica
+   * `onUnauthorized` (no hay endpoint de refresh: `/auth/refresh` responde 404,
+   * así que un 401 implica volver a iniciar sesión).
+   */
   private async parse<T>(res: Response): Promise<T> {
     const text = await res.text();
     let data: unknown = text;
@@ -156,44 +155,13 @@ export class Http {
       try { data = JSON.parse(text); } catch { /* deja texto */ }
     }
     if (!res.ok) {
-      if (res.status === 401) this.onUnauthorized?.();
+      if (res.status === 401) {
+        await this.tokens.setAccess(null);
+        this.onUnauthorized?.();
+      }
       throw new HttpError(res.status, `${res.status} ${res.statusText} en ${res.url}`, data);
     }
     return data as T;
-  }
-
-  /**
-   * Renueva el access token vía POST /auth/refresh. Dedupe concurrente.
-   * El mecanismo exacto de refresh NO está confirmado: el login no guarda un
-   * refreshToken, así que es probable que el backend use cookie httpOnly. Por eso
-   * se envía con `credentials: "include"` y, si hubiera un refresh guardado, en el body.
-   */
-  async tryRefresh(): Promise<boolean> {
-    if (this.refreshing) return this.refreshing;
-    this.refreshing = (async () => {
-      try {
-        const refresh = await this.tokens.getRefresh();
-        const res = await this.fetchImpl(this.buildUrl("/auth/refresh"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          credentials: "include",
-          body: JSON.stringify(refresh ? { refreshToken: refresh } : {}),
-        });
-        if (!res.ok) { await this.tokens.clear(); this.onUnauthorized?.(); return false; }
-        const json: any = await res.json().catch(() => ({}));
-        const d = json?.data ?? json;
-        const access = d?.accessToken ?? d?.token ?? null;
-        const newRefresh = d?.refreshToken ?? null;
-        if (access) await this.tokens.setAccess(access);
-        if (newRefresh) await this.tokens.setRefresh(newRefresh);
-        return Boolean(access);
-      } catch {
-        return false;
-      } finally {
-        this.refreshing = null;
-      }
-    })();
-    return this.refreshing;
   }
 
   get<T = unknown>(path: string, query?: Record<string, unknown>, o: RequestOptions = {}) {

@@ -48,21 +48,19 @@ test("POST manda JSON con content-type", async () => {
   assert.equal(call.init.body, JSON.stringify({ name: "Ana" }));
 });
 
-test("401 dispara refresh y reintenta una vez", async () => {
+test("401 limpia el token, notifica onUnauthorized y lanza (sin refresh)", async () => {
   const tokens = new MemoryTokenStore();
   tokens.setAccess("OLD");
-  const f = fakeFetch([
-    { status: 401, body: { message: "expired" } },          // 1er intento
-    { status: 200, body: { data: { accessToken: "NEW" } } }, // /auth/refresh
-    { status: 200, body: { data: { ok: 1 } } },              // reintento
-  ]);
-  const http = new Http({ tokens, fetchImpl: f });
-  const out = await http.get("/metrics/dashboard");
-  assert.deepEqual(out, { data: { ok: 1 } });
-  assert.equal(await tokens.getAccess(), "NEW");
-  assert.equal(f.calls.length, 3);
-  assert.match(f.calls[1].url, /\/auth\/refresh$/);
-  assert.equal(f.calls[2].init.headers.Authorization, "Bearer NEW");
+  let unauthorized = 0;
+  const f = fakeFetch([{ status: 401, body: { code: "ERROR", message: "Unauthorized", status: 401 } }]);
+  const http = new Http({ tokens, fetchImpl: f, onUnauthorized: () => { unauthorized++; } });
+  await assert.rejects(
+    () => http.get("/metrics/dashboard"),
+    (e) => e instanceof HttpError && e.status === 401 && e.body.message === "Unauthorized",
+  );
+  assert.equal(f.calls.length, 1);              // no reintento ni /auth/refresh
+  assert.equal(await tokens.getAccess(), null); // token limpiado
+  assert.equal(unauthorized, 1);
 });
 
 test("error no-OK lanza HttpError con status y body", async () => {

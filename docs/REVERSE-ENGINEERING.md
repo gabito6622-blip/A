@@ -3,11 +3,14 @@
 - **Objetivo:** `https://crm.vendeplay.com/login` (CRM propio/autorizado).
 - **Método:** análisis **estático** del front-end público (SPA React/Vite) con **REA**
   (`analyze_javascript_application`) + extracción de strings del bundle.
-- **Render en vivo (no autenticado):** la página de login sí se renderizó con Chromium
-  (host `crm.vendeplay.com` permitido) → ver [`assets/login.png`](assets/login.png) y los
-  campos del formulario confirmados desde el DOM. La **API** (`api.vendeplay.com`) quedó
-  bloqueada por política de red, así que no hubo captura runtime autenticada. El resto es
-  observación estática / decompilación de handlers, no ejecución.
+- **Render en vivo (no autenticado):** la página de login se renderizó con Chromium
+  → ver [`assets/login.png`](assets/login.png) y los campos del formulario confirmados
+  desde el DOM.
+- **Probes runtime (no autenticados) a la API:** se hicieron llamadas diagnósticas a
+  `api.vendeplay.com` (login dummy, request sin token) que confirmaron el envelope de
+  error, el shape de 401 y que `/auth/refresh` no existe (ver sección Runtime). No hubo
+  captura **autenticada** (sin credenciales), así que las formas de los payloads de datos
+  siguen sin observarse. El resto es estático / decompilación.
 
 ## Stack / build
 - SPA **React + Vite**: un único bundle `index-Dh8Ent8G.js` (~3.1 MB) + `index-DnnQ7EOv.css`.
@@ -53,7 +56,8 @@
 ## Inventario de endpoints (verbos observados)
 
 ### API principal (Bearer)
-- **Auth:** `POST /auth/login`, `POST /auth/refresh`, `POST /auth/me`, `POST /auth/logout`
+- **Auth:** `POST /auth/login`, `POST /auth/me`, `POST /auth/logout`
+  (ojo: `/auth/refresh` **no existe** — 404 en runtime)
 - **Accounts/billing:** `GET /account-plugins`, `GET /accounts/plans|subscription|billing-history`,
   `GET|POST /billing-rules`, `GET|PUT|DELETE /billing-rules/{id}`, `PATCH /billing-rules/{id}/toggle`,
   `POST /billing/mp/preference`, `GET /billing/mp/status`, `POST /billing/mp/cancel`,
@@ -95,7 +99,23 @@ CRM para **revendedores de cuentas de streaming**: gestiona clientes, proveedore
 cuentas/servicios de streaming, suscripciones y combos; cobra con MercadoPago/RevenueCat;
 incluye un módulo de **mensajería WhatsApp** (gateway `self.ws`) y un panel de **métricas**.
 
+## Runtime (contrato real — probes no autenticados a `api.vendeplay.com`)
+- **Backend:** Express (`x-powered-by: Express`) tras Caddy; estilo de errores NestJS.
+  `access-control-allow-origin: *`.
+- **Envelope de error estándar:**
+  ```json
+  { "code": "BAD_REQUEST", "message": ["password is not strong enough"],
+    "status": 400, "meta": { "traceId": "…" }, "data": ["…"] }
+  ```
+  `message` puede ser string o array (validación tipo class-validator).
+- **`POST /auth/login`** con body inválido → **400** `BAD_REQUEST` (valida fuerza de password).
+- **`GET /clients`** sin token → **401** `{ "code":"ERROR","message":"Unauthorized","status":401 }`.
+- **`POST /auth/refresh`** → **404** `Cannot POST …/auth/refresh` → **no hay refresh**; un 401
+  significa re-login. (El SDK se corrigió: en 401 limpia el token y notifica, sin reintentar.)
+
 ## Límites
-- Solo front-end sin autenticar: no revela lógica del backend ni validaciones del servidor.
+- No hubo captura **autenticada** (sin credenciales): las formas de los payloads de datos
+  (clients, suppliers, etc.) siguen inferidas, no observadas.
+- Solo front-end + probes sin auth: no revela la lógica interna del backend.
 - El grafo semántico de REA quedó parcial (heap de 1 GiB agotado en el bundle minificado).
 - Las formas de payload (salvo login y sendText) son inferidas, no observadas en ejecución.

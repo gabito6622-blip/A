@@ -1,7 +1,7 @@
 {
   "item": [
     {
-      "id": "9df4820f-f93a-4cac-a3f1-5d6890a5b12a",
+      "id": "7edac9da-1d8c-41fa-af0a-a80a11b13a1e",
       "name": "Iniciar sesión",
       "request": {
         "name": "Iniciar sesión",
@@ -41,7 +41,7 @@
       },
       "response": [
         {
-          "id": "fda31bcf-2e83-4f93-aa3d-b7d407f61de9",
+          "id": "505b4746-b85f-4d0d-a6c0-13f6a888384b",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -88,45 +88,18 @@
               "value": "application/json"
             }
           ],
-          "body": "{\n  \"data\": {\n    \"accessToken\": \"eu dolore deserunt sed veniam\",\n    \"user\": {\n      \"Loremf5e\": -83790127.10225973,\n      \"labore_ba5\": -87137684\n    },\n    \"nisi_b\": -10371130,\n    \"ide9\": true,\n    \"sunt_6cd\": -97511914,\n    \"dolore1\": -7871005.410887703\n  }\n}",
+          "body": "{\n  \"data\": {\n    \"accessToken\": \"aute dolore ea magna sit\",\n    \"user\": {\n      \"sint_ab3\": \"mollit aliquip\",\n      \"elit_2\": true\n    },\n    \"cupidatat_\": 63699565,\n    \"laborum_\": 99055340.28932887\n  },\n  \"culpa_b\": -87786514.15824154,\n  \"veniamc4a\": 79157368.46059978\n}",
           "cookie": [],
           "_postman_previewlanguage": "json"
-        }
-      ],
-      "event": [],
-      "protocolProfileBehavior": {
-        "disableBodyPruning": true
-      }
-    },
-    {
-      "id": "7c82d1b2-d643-42e0-b36a-9446d0aba031",
-      "name": "Renovar token",
-      "request": {
-        "name": "Renovar token",
-        "description": {},
-        "url": {
-          "path": [
-            "auth",
-            "refresh"
-          ],
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "query": [],
-          "variable": []
         },
-        "method": "POST",
-        "auth": null
-      },
-      "response": [
         {
-          "id": "25dd3710-d2b7-40e6-a4bf-ca969af6d55e",
-          "name": "OK",
+          "id": "26bf2b10-bc88-43e8-8860-99bcf924e80a",
+          "name": "Validación fallida",
           "originalRequest": {
             "url": {
               "path": [
                 "auth",
-                "refresh"
+                "login"
               ],
               "host": [
                 "{{baseUrl}}"
@@ -142,22 +115,86 @@
                 },
                 "key": "Authorization",
                 "value": "Bearer <token>"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
               }
             ],
             "method": "POST",
-            "body": {}
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountCode\": \"ACC-12345\",\n  \"username\": \"<string>\",\n  \"password\": \"<string>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
-          "status": "OK",
-          "code": 200,
+          "status": "Bad Request",
+          "code": 400,
           "header": [
             {
               "key": "Content-Type",
-              "value": "text/plain"
+              "value": "application/json"
             }
           ],
-          "body": "",
+          "body": "{\n  \"code\": \"BAD_REQUEST\",\n  \"status\": 400,\n  \"message\": \"est anim dolore\",\n  \"meta\": {\n    \"traceId\": \"cupidatat sunt Ut\"\n  },\n  \"data\": {}\n}",
           "cookie": [],
-          "_postman_previewlanguage": "text"
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "id": "658bdc0f-c995-45bb-92c9-fe069d3cb79c",
+          "name": "Credenciales inválidas",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "auth",
+                "login"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountCode\": \"ACC-12345\",\n  \"username\": \"<string>\",\n  \"password\": \"<string>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Unauthorized",
+          "code": 401,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"code\": \"BAD_REQUEST\",\n  \"status\": 400,\n  \"message\": \"est anim dolore\",\n  \"meta\": {\n    \"traceId\": \"cupidatat sunt Ut\"\n  },\n  \"data\": {}\n}",
+          "cookie": [],
+          "_postman_previewlanguage": "json"
         }
       ],
       "event": [],
@@ -166,7 +203,7 @@
       }
     },
     {
-      "id": "b21dd1e9-e8a6-4cac-be3a-ccc213db1e75",
+      "id": "280b0798-0785-4c6e-a909-a7d539cc76bf",
       "name": "Usuario actual (observado como POST en el front)",
       "request": {
         "name": "Usuario actual (observado como POST en el front)",
@@ -187,7 +224,7 @@
       },
       "response": [
         {
-          "id": "50bc2f34-fb32-4ab0-b5a6-ff1cdff615db",
+          "id": "4befca40-de41-4b10-8f09-1df584f6b917",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -233,7 +270,7 @@
       }
     },
     {
-      "id": "369bab2c-8724-462d-b851-58a03fe325fa",
+      "id": "7c2fa0d2-0d13-4581-b517-7c1bd2544eb6",
       "name": "Cerrar sesión",
       "request": {
         "name": "Cerrar sesión",
@@ -254,7 +291,7 @@
       },
       "response": [
         {
-          "id": "f05fd337-1601-4a4b-9781-9a2365a194c8",
+          "id": "4aa03072-4d89-4ab4-848b-7df51c911664",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -300,7 +337,7 @@
       }
     },
     {
-      "id": "8c387bf9-2cc0-4e30-86c3-68fadd426ffd",
+      "id": "e0b53312-9ca8-4513-9089-6faefadcfd45",
       "name": "Planes disponibles",
       "request": {
         "name": "Planes disponibles",
@@ -321,7 +358,7 @@
       },
       "response": [
         {
-          "id": "742e908d-2f4c-44f6-b1be-195edaf21f75",
+          "id": "5e0c4aba-8f59-413c-990d-083ecb29d0fb",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -367,7 +404,7 @@
       }
     },
     {
-      "id": "f3fc9630-402c-453b-9b76-8761aac9b72c",
+      "id": "04ca1266-d2f2-447d-a689-97ac6a100eb5",
       "name": "Suscripción de la cuenta",
       "request": {
         "name": "Suscripción de la cuenta",
@@ -388,7 +425,7 @@
       },
       "response": [
         {
-          "id": "014a791c-7444-44be-a110-a01733e8f88d",
+          "id": "07c2656b-fabd-4623-b561-d3e5b375999e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -434,7 +471,7 @@
       }
     },
     {
-      "id": "46700295-0ef1-4336-8992-fd0f6c9b0c7b",
+      "id": "b7f30a59-154b-44d8-9f57-a50bc120d61c",
       "name": "Historial de facturación",
       "request": {
         "name": "Historial de facturación",
@@ -455,7 +492,7 @@
       },
       "response": [
         {
-          "id": "13f8c854-fb7f-45d7-9a25-fad8dee1f6e5",
+          "id": "ee431730-5a74-4990-bcec-5f37964c4feb",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -501,7 +538,7 @@
       }
     },
     {
-      "id": "29af29ee-e0a4-4286-9b18-164048cc7499",
+      "id": "bfa2f783-8b1d-4f2f-b3df-d038679dcc81",
       "name": "Plugins de la cuenta",
       "request": {
         "name": "Plugins de la cuenta",
@@ -521,7 +558,7 @@
       },
       "response": [
         {
-          "id": "8b81123d-f72d-47ca-bb6b-0edb4dc2926f",
+          "id": "4e76e562-90d7-4476-a9c8-37d1a589c72f",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -566,7 +603,7 @@
       }
     },
     {
-      "id": "5b94d865-73dc-40f4-9357-2a01685aff04",
+      "id": "066f2744-2b37-484e-8738-13e1b5800ee2",
       "name": "Listar reglas de facturación",
       "request": {
         "name": "Listar reglas de facturación",
@@ -586,7 +623,7 @@
       },
       "response": [
         {
-          "id": "7226c16c-bad1-48f8-b6c9-c71209a4b43b",
+          "id": "df96fd6e-a859-44a6-b108-55c1dfd74864",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -631,7 +668,7 @@
       }
     },
     {
-      "id": "e3ec81e2-6106-40aa-945e-db681defda03",
+      "id": "3ae0f431-d281-477c-b5c3-314137f0299f",
       "name": "Crear regla de facturación",
       "request": {
         "name": "Crear regla de facturación",
@@ -651,7 +688,7 @@
       },
       "response": [
         {
-          "id": "5d1e9b51-d5c8-4824-9639-f67e1449f721",
+          "id": "6fd6b6f6-ef1a-4418-976a-79a5f553f3c8",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -696,7 +733,7 @@
       }
     },
     {
-      "id": "ae1141d3-9d9e-4701-a8be-872bcf97df1c",
+      "id": "853122f7-337e-47b7-a313-f34a56c20081",
       "name": "Obtener regla",
       "request": {
         "name": "Obtener regla",
@@ -725,7 +762,7 @@
       },
       "response": [
         {
-          "id": "c9e2378c-2f87-4d19-80c7-c78d746ef782",
+          "id": "48bb5245-151b-4083-be34-841c9990fa5d",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -779,7 +816,7 @@
       }
     },
     {
-      "id": "614dbede-b37b-49c8-a642-fb5ff94adf6c",
+      "id": "d069ddf5-3a5b-473d-97ef-8e77414e4b29",
       "name": "Actualizar regla",
       "request": {
         "name": "Actualizar regla",
@@ -808,7 +845,7 @@
       },
       "response": [
         {
-          "id": "7e26caf5-db02-4c62-bbc1-ea95f68c8137",
+          "id": "1a5e0d2f-a201-4e77-9b6a-ad37459cb52c",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -862,7 +899,7 @@
       }
     },
     {
-      "id": "798414be-0fac-47d5-85f3-d3871d87ecfb",
+      "id": "ab591c68-40b8-49dc-976f-f55c8a7d3268",
       "name": "Eliminar regla",
       "request": {
         "name": "Eliminar regla",
@@ -891,7 +928,7 @@
       },
       "response": [
         {
-          "id": "6498bf21-6d44-427a-af9a-0b7985b18c93",
+          "id": "e0c10b4d-4cde-4e63-9a03-5e1b033deba9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -945,7 +982,7 @@
       }
     },
     {
-      "id": "c34e8e1c-ff06-4058-9bb0-b27fc8a1885b",
+      "id": "4c46be1a-5885-452a-b99a-9ae0803bbe2a",
       "name": "Activar/desactivar regla",
       "request": {
         "name": "Activar/desactivar regla",
@@ -975,7 +1012,7 @@
       },
       "response": [
         {
-          "id": "acfb6edc-75c3-4a44-886d-86615ba4b086",
+          "id": "a0276d88-5fba-4c2d-8330-284097bdced9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1030,7 +1067,7 @@
       }
     },
     {
-      "id": "4922cb54-ece3-469d-bf31-4739f7695f5e",
+      "id": "45f3880a-37bd-4c31-8f5e-dfa9f12bd769",
       "name": "Crear preferencia MercadoPago",
       "request": {
         "name": "Crear preferencia MercadoPago",
@@ -1052,7 +1089,7 @@
       },
       "response": [
         {
-          "id": "05279250-6db3-453a-a115-6f0986bd9dc3",
+          "id": "1a6dfe03-8cd7-4024-9c3b-1468127b070f",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1099,7 +1136,7 @@
       }
     },
     {
-      "id": "e34022ea-9c60-4e4f-a3ca-7dc0bb3e539c",
+      "id": "03cecef2-b3cc-4714-bdfd-96e5b82b94e1",
       "name": "Estado de cobro MercadoPago",
       "request": {
         "name": "Estado de cobro MercadoPago",
@@ -1121,7 +1158,7 @@
       },
       "response": [
         {
-          "id": "762e0205-0d67-46e3-9b6e-ee11261b2850",
+          "id": "ee25b556-0869-4075-8567-d453f2e3c312",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1168,7 +1205,7 @@
       }
     },
     {
-      "id": "e76979cf-86cc-4c4c-a9ac-39caebbf5f0a",
+      "id": "ada107dc-a26b-469f-aa7d-dbc5f5cbcbc1",
       "name": "Cancelar cobro MercadoPago",
       "request": {
         "name": "Cancelar cobro MercadoPago",
@@ -1190,7 +1227,7 @@
       },
       "response": [
         {
-          "id": "d1e07d09-4a09-43bc-9316-04cc83d0be58",
+          "id": "89cc97a1-3428-40cb-aadc-8f19e42334fd",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1237,7 +1274,7 @@
       }
     },
     {
-      "id": "a25d1b44-7ed8-457c-a728-c2217325063b",
+      "id": "b6061a30-1be0-44ef-b01f-f0efdb9f4bb0",
       "name": "Listar clientes",
       "request": {
         "name": "Listar clientes",
@@ -1257,7 +1294,7 @@
       },
       "response": [
         {
-          "id": "12a5145d-5176-4780-9fe1-c3d1f0f84957",
+          "id": "30a66f59-8ef5-4e99-a8c0-7fcdf66d4d7d",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1302,7 +1339,7 @@
       }
     },
     {
-      "id": "4d1884cb-a2f3-4bac-a7d2-25bdbc25293c",
+      "id": "7144fae2-b496-4f95-9d83-af6fcab0e63c",
       "name": "Crear cliente",
       "request": {
         "name": "Crear cliente",
@@ -1322,7 +1359,7 @@
       },
       "response": [
         {
-          "id": "07092b22-9605-4ab8-8f80-5210ccc9d505",
+          "id": "6f96c30e-a48b-4538-b6bc-512fd5ef126b",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1367,7 +1404,7 @@
       }
     },
     {
-      "id": "91012b55-38fb-4485-941e-4480e200791f",
+      "id": "f5b66027-a75d-4526-9b1a-b5dfe1f0d985",
       "name": "Importar clientes",
       "request": {
         "name": "Importar clientes",
@@ -1388,7 +1425,7 @@
       },
       "response": [
         {
-          "id": "0a92b2fc-71f5-48ea-871d-374cc88fae8c",
+          "id": "ee1af368-6ec7-4e32-89a4-79d87a535f5b",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1434,7 +1471,7 @@
       }
     },
     {
-      "id": "d82498de-a20b-4b34-bd43-4c3511329d69",
+      "id": "5b7bc2a0-26a4-42e6-856c-6bf0339fa540",
       "name": "Exportar clientes",
       "request": {
         "name": "Exportar clientes",
@@ -1455,7 +1492,7 @@
       },
       "response": [
         {
-          "id": "35b09bfc-5277-449e-ac27-f9ba0b5f262d",
+          "id": "1b94fb4c-96f6-4c59-9790-b33bcecaaf65",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1501,7 +1538,7 @@
       }
     },
     {
-      "id": "c8f1d2dc-4664-4077-a77a-275a5b6e7638",
+      "id": "fa36b2d3-d1eb-4964-92a0-06117c134977",
       "name": "Obtener cliente",
       "request": {
         "name": "Obtener cliente",
@@ -1530,7 +1567,7 @@
       },
       "response": [
         {
-          "id": "f2115fc5-54e9-48a1-97aa-9cafff462ff3",
+          "id": "829f0be6-2156-4d95-b4f9-1a9062c16f61",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1584,7 +1621,7 @@
       }
     },
     {
-      "id": "f992ccd1-1396-4f60-b598-3a00202ec9ca",
+      "id": "545779ae-4a24-44f4-bb45-ed944f820c05",
       "name": "Actualizar cliente",
       "request": {
         "name": "Actualizar cliente",
@@ -1613,7 +1650,7 @@
       },
       "response": [
         {
-          "id": "63093fc6-42f8-4b7e-8b36-c0d65a00d6ed",
+          "id": "8757dad9-dc47-4a49-8292-3bf037616814",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1667,7 +1704,7 @@
       }
     },
     {
-      "id": "d215789f-cc7a-4708-a201-2efb8cbc9890",
+      "id": "ab4692aa-c079-4ea6-a081-adf9d1818b6d",
       "name": "Listar proveedores",
       "request": {
         "name": "Listar proveedores",
@@ -1687,7 +1724,7 @@
       },
       "response": [
         {
-          "id": "ff62ba19-91de-43ec-a280-ccaa53e1698c",
+          "id": "57a6187c-94b0-4cf9-aaf8-36bbf9a2f0f7",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1732,7 +1769,7 @@
       }
     },
     {
-      "id": "9bf06e91-f654-4297-a2ac-52c3e6a4f5d2",
+      "id": "7417ed0f-65a9-4f71-b297-f832972ddab7",
       "name": "Crear proveedor",
       "request": {
         "name": "Crear proveedor",
@@ -1752,7 +1789,7 @@
       },
       "response": [
         {
-          "id": "ffa76581-3d93-4e12-bf59-4ca8d55963db",
+          "id": "15ddff81-e861-4166-8e4d-2d7fbc36b018",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1797,7 +1834,7 @@
       }
     },
     {
-      "id": "d30d6950-ea76-4d95-b35b-08414bfad0f6",
+      "id": "cb7d949f-c324-4e8b-97e8-88df0d94b0e7",
       "name": "Importar proveedores",
       "request": {
         "name": "Importar proveedores",
@@ -1818,7 +1855,7 @@
       },
       "response": [
         {
-          "id": "24110790-9fd9-4f48-a5ba-828f61991d88",
+          "id": "1772b3e9-8f50-4904-a7f7-529139eff11e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1864,7 +1901,7 @@
       }
     },
     {
-      "id": "9925dda0-fe75-46ce-8985-e151aec93fa1",
+      "id": "ac015026-4429-4dc1-913a-2aca855d4d85",
       "name": "Exportar proveedores",
       "request": {
         "name": "Exportar proveedores",
@@ -1885,7 +1922,7 @@
       },
       "response": [
         {
-          "id": "b9c6bcb1-65f5-415c-bca1-f42018905cf3",
+          "id": "998aab6d-6f54-4586-a31a-ecbf1843e941",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -1931,7 +1968,7 @@
       }
     },
     {
-      "id": "cac736e9-3409-402b-b5fb-3b997c7a2e1f",
+      "id": "2fb56273-2288-420d-a49c-a45e1d142790",
       "name": "Obtener proveedor",
       "request": {
         "name": "Obtener proveedor",
@@ -1960,7 +1997,7 @@
       },
       "response": [
         {
-          "id": "c3b2a91f-ba48-4f71-a167-7e282b3ca7af",
+          "id": "e4689f14-f8da-43eb-b9d6-9321ff271d42",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2014,7 +2051,7 @@
       }
     },
     {
-      "id": "492f0744-65e8-40ca-b792-2dbcf0c05247",
+      "id": "e78889fe-f371-4bec-bd26-27358c3ac7fe",
       "name": "Actualizar proveedor",
       "request": {
         "name": "Actualizar proveedor",
@@ -2043,7 +2080,7 @@
       },
       "response": [
         {
-          "id": "b9cd036f-d1bd-4721-b0bf-351b44a171cf",
+          "id": "f10fc7af-2a91-4f92-9a65-a498c9a18cb9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2097,7 +2134,7 @@
       }
     },
     {
-      "id": "877d6e48-3d24-4faf-99d9-a42e4f4a762c",
+      "id": "0617b089-6e41-4042-b901-4dd6b06f2687",
       "name": "Servicios del proveedor",
       "request": {
         "name": "Servicios del proveedor",
@@ -2127,7 +2164,7 @@
       },
       "response": [
         {
-          "id": "885f0794-a8ea-4052-ab45-916815416545",
+          "id": "e4e0f469-a89a-4216-aeff-45aea1fe4fe9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2182,7 +2219,7 @@
       }
     },
     {
-      "id": "ebc399c7-82cc-492a-97cb-530db32fca7c",
+      "id": "669a81b5-3727-47f9-89c0-a1032c20564b",
       "name": "Agregar servicio al proveedor",
       "request": {
         "name": "Agregar servicio al proveedor",
@@ -2212,7 +2249,7 @@
       },
       "response": [
         {
-          "id": "838a7640-358b-48ac-8537-65ede5ecccd4",
+          "id": "e3efc548-77e1-49d8-85b5-3ac2de0c9e22",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2267,7 +2304,7 @@
       }
     },
     {
-      "id": "abd36e10-1614-4bd5-be3d-96f2212168aa",
+      "id": "f50018c1-fccf-4d0e-91f4-a879ce8f1e9a",
       "name": "Actualizar servicio del proveedor",
       "request": {
         "name": "Actualizar servicio del proveedor",
@@ -2305,7 +2342,7 @@
       },
       "response": [
         {
-          "id": "70cfcd51-a599-48d9-b5bb-5c489025a042",
+          "id": "b3c844f6-41f0-4b1b-a429-cc86efc6f3bb",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2368,7 +2405,7 @@
       }
     },
     {
-      "id": "2aaa92c6-1125-426e-98f7-f11ffb012443",
+      "id": "d21fe2bc-f95f-49c1-a3f0-1790514d3b89",
       "name": "Price plans del proveedor",
       "request": {
         "name": "Price plans del proveedor",
@@ -2398,7 +2435,7 @@
       },
       "response": [
         {
-          "id": "c260dd59-8d90-4c82-8d4d-a1fc48cd2c0a",
+          "id": "66ba1415-8ba2-49df-8daf-847201bfee78",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2453,7 +2490,7 @@
       }
     },
     {
-      "id": "9d46cc0c-42f3-44c1-8d74-1ee1cfac5f78",
+      "id": "12c8c1cc-713a-46f0-8021-344209075fcf",
       "name": "Listar cuentas de streaming",
       "request": {
         "name": "Listar cuentas de streaming",
@@ -2473,7 +2510,7 @@
       },
       "response": [
         {
-          "id": "6c211d64-9594-40ce-b62c-92b2726c12c4",
+          "id": "16373cd9-bab9-4d3a-a2b1-90e6290f3919",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2518,7 +2555,7 @@
       }
     },
     {
-      "id": "b00ec53f-acfd-4868-a492-e07c632677de",
+      "id": "1fa282b5-a98e-4802-8335-afd27b654d72",
       "name": "Crear cuenta de streaming",
       "request": {
         "name": "Crear cuenta de streaming",
@@ -2538,7 +2575,7 @@
       },
       "response": [
         {
-          "id": "4d6f4c60-f047-4b6b-bcc9-4df358c8220b",
+          "id": "e065af79-2ad8-4332-8b1a-c21a4ade6f12",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2583,7 +2620,7 @@
       }
     },
     {
-      "id": "740712b5-6678-414e-8f35-7bbb6af092da",
+      "id": "500ffc2f-1cad-425f-b967-0f117700af2b",
       "name": "Importar cuentas",
       "request": {
         "name": "Importar cuentas",
@@ -2604,7 +2641,7 @@
       },
       "response": [
         {
-          "id": "e2a3ec45-01a5-4cf8-bc18-82a757136427",
+          "id": "d3111ac9-de65-4171-93e7-cf743d44a371",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2650,7 +2687,7 @@
       }
     },
     {
-      "id": "ebeba85d-ce3c-48e5-9ad8-340089776eea",
+      "id": "29c650d7-d0d0-4a7a-a267-4f53cca06064",
       "name": "Exportar cuentas",
       "request": {
         "name": "Exportar cuentas",
@@ -2671,7 +2708,7 @@
       },
       "response": [
         {
-          "id": "8be293d7-a667-4233-984a-72e9e7cf9038",
+          "id": "89df5a2e-4afe-4727-b747-39943c5de4ad",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2717,7 +2754,7 @@
       }
     },
     {
-      "id": "9eba4da6-6afb-4556-98d4-65341f706572",
+      "id": "0b01d424-0045-419c-9be9-6aab4fb8602f",
       "name": "Obtener cuenta",
       "request": {
         "name": "Obtener cuenta",
@@ -2746,7 +2783,7 @@
       },
       "response": [
         {
-          "id": "56076654-08e2-4a7a-a3d8-5794d2fe716d",
+          "id": "29ea517b-9102-4022-8878-b029bf510e4c",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2800,7 +2837,7 @@
       }
     },
     {
-      "id": "274b5a0e-8c18-4845-b249-ade9803d04de",
+      "id": "e0fcc05f-1bee-45de-b469-4a44e6591337",
       "name": "Actualizar cuenta",
       "request": {
         "name": "Actualizar cuenta",
@@ -2829,7 +2866,7 @@
       },
       "response": [
         {
-          "id": "3796c34a-3e04-4263-aa09-4a80007a1749",
+          "id": "9fa26df7-4e22-4dcb-88af-f5bff30d97b3",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2883,7 +2920,7 @@
       }
     },
     {
-      "id": "c4ba8b98-dac8-4333-83db-6cf3e4657fff",
+      "id": "79c41b14-85e1-4a1e-a6b8-a1904d627738",
       "name": "Registrar slot",
       "request": {
         "name": "Registrar slot",
@@ -2914,7 +2951,7 @@
       },
       "response": [
         {
-          "id": "69a65dc7-c965-4e89-95e3-05746b8201dd",
+          "id": "6a3cedc8-a940-403e-964e-8081a3ac1b38",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -2970,7 +3007,7 @@
       }
     },
     {
-      "id": "2c3cda41-0ed3-4dd0-9bae-c668ab079ad2",
+      "id": "f7e8f455-622f-4a25-8e8c-58c09b04d2b1",
       "name": "Actualizar slot",
       "request": {
         "name": "Actualizar slot",
@@ -3001,7 +3038,7 @@
       },
       "response": [
         {
-          "id": "e6a8250d-0ec9-47aa-9984-deed5f576d42",
+          "id": "4e1eda70-bba3-4cda-8332-ded1d0ef3056",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3057,7 +3094,7 @@
       }
     },
     {
-      "id": "66faa8ea-9127-440c-89cf-2dd54b88a86e",
+      "id": "c4b7da7a-9a0b-4388-9976-dd24be2f6120",
       "name": "Listar servicios de streaming",
       "request": {
         "name": "Listar servicios de streaming",
@@ -3077,7 +3114,7 @@
       },
       "response": [
         {
-          "id": "9d1dfc71-4c25-4bd8-841a-e43f093ed5bd",
+          "id": "eb1487e0-3029-42e8-99a6-3c39e9ae4666",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3122,7 +3159,7 @@
       }
     },
     {
-      "id": "f915343b-526d-4ad0-ba24-604d75b05268",
+      "id": "d7107885-3a73-453f-9445-b0e1788a0e5f",
       "name": "Crear servicio de streaming",
       "request": {
         "name": "Crear servicio de streaming",
@@ -3142,7 +3179,7 @@
       },
       "response": [
         {
-          "id": "1e74080f-36c0-4d9b-961f-a7b39ff99fdb",
+          "id": "3aac3744-00b5-40c4-9ea8-5811f56ab19e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3187,7 +3224,7 @@
       }
     },
     {
-      "id": "cb6c48f8-3bdf-4d0c-a7d0-e7cc812c7639",
+      "id": "aa036c71-2442-4db9-854f-538d973e062a",
       "name": "Obtener servicio",
       "request": {
         "name": "Obtener servicio",
@@ -3216,7 +3253,7 @@
       },
       "response": [
         {
-          "id": "d06a7c55-033c-4952-b41b-c83c40dc0f1f",
+          "id": "487e9258-58aa-4565-bc5f-573794e15b26",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3270,7 +3307,7 @@
       }
     },
     {
-      "id": "a0abbe33-8751-4f94-800b-8f94a224b9ad",
+      "id": "97556df6-03db-48fa-a0ab-53ba721314a0",
       "name": "Actualizar servicio",
       "request": {
         "name": "Actualizar servicio",
@@ -3299,7 +3336,7 @@
       },
       "response": [
         {
-          "id": "0ee30c41-aa38-47a5-a25c-c70226582d10",
+          "id": "93e27279-c98b-411b-adfc-57f1509231a4",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3353,7 +3390,7 @@
       }
     },
     {
-      "id": "6907f61c-cd6d-42e9-a01d-4f574c873b91",
+      "id": "c05b6d97-ec97-4ca1-85d5-a51186ca5734",
       "name": "Crear price plan",
       "request": {
         "name": "Crear price plan",
@@ -3383,7 +3420,7 @@
       },
       "response": [
         {
-          "id": "cfeb0fb8-efdc-463b-a2b6-d8ed1a5fb632",
+          "id": "9dfc2695-d99d-4b8b-988d-3d5486803db8",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3438,7 +3475,7 @@
       }
     },
     {
-      "id": "a5976299-a6f3-4abc-ae42-e0f2c5e1e521",
+      "id": "dce29f6f-5af1-45be-902e-4a2cd4f26fc6",
       "name": "Actualizar price plan",
       "request": {
         "name": "Actualizar price plan",
@@ -3468,7 +3505,7 @@
       },
       "response": [
         {
-          "id": "d0d4c195-85c1-4004-b6e0-6895d544f97e",
+          "id": "bad5f839-d118-4f2b-81b0-b5b5c404b7a3",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3523,7 +3560,7 @@
       }
     },
     {
-      "id": "af4039dc-6a9d-4284-9313-d146d2fa4aec",
+      "id": "2bfe4702-16f1-45be-8339-f7618b4208e9",
       "name": "Eliminar price plan",
       "request": {
         "name": "Eliminar price plan",
@@ -3553,7 +3590,7 @@
       },
       "response": [
         {
-          "id": "77f007fc-286d-4533-8b8a-7981cf2bbfd4",
+          "id": "9cb6b4a4-afe7-45d4-b866-60c9554051b4",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3608,7 +3645,7 @@
       }
     },
     {
-      "id": "79e69c05-ae63-4136-b371-eb25cbf329c3",
+      "id": "b0d4a693-7750-4811-b148-08e8615d90c8",
       "name": "Listar suscripciones",
       "request": {
         "name": "Listar suscripciones",
@@ -3628,7 +3665,7 @@
       },
       "response": [
         {
-          "id": "0dec1b03-0232-4847-8120-a727b7a00491",
+          "id": "8badafc7-0162-4075-a105-6019a56ce38b",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3673,7 +3710,7 @@
       }
     },
     {
-      "id": "48956324-5512-4409-9ec1-af84a53414bd",
+      "id": "cc3c3efe-a5f7-4e05-ba1f-d2c508802ffc",
       "name": "Crear suscripción",
       "request": {
         "name": "Crear suscripción",
@@ -3693,7 +3730,7 @@
       },
       "response": [
         {
-          "id": "f01ffb64-509e-479d-bde1-b6de5a97add8",
+          "id": "c7eb2398-e2f6-456d-81fb-ff5754441bd7",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3738,7 +3775,7 @@
       }
     },
     {
-      "id": "d05c0e1d-038e-4442-b53b-7045834ec3f9",
+      "id": "b5b6d136-84fd-48ea-adeb-aa8b7c06cc35",
       "name": "Obtener suscripción",
       "request": {
         "name": "Obtener suscripción",
@@ -3767,7 +3804,7 @@
       },
       "response": [
         {
-          "id": "99253695-90f0-4bab-b987-58d1a706ae72",
+          "id": "ee510b60-e043-4702-b7b7-fb609c4c5632",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3821,7 +3858,7 @@
       }
     },
     {
-      "id": "6d76b20a-02ea-4b3b-bb42-70b46726ddcd",
+      "id": "c766847c-269d-4e62-8f90-c41e23b69677",
       "name": "Actualizar suscripción",
       "request": {
         "name": "Actualizar suscripción",
@@ -3850,7 +3887,7 @@
       },
       "response": [
         {
-          "id": "dd5c083a-9b84-45e2-82b9-f92eabe6eb3c",
+          "id": "9b1c1ad4-b9fc-4133-8666-c2bf9b5b662e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3904,7 +3941,7 @@
       }
     },
     {
-      "id": "7af35c19-ae2c-4dc5-a609-01be42e13d86",
+      "id": "4751d412-99cd-4954-a40f-2910012891c2",
       "name": "Suscripciones por cliente",
       "request": {
         "name": "Suscripciones por cliente",
@@ -3934,7 +3971,7 @@
       },
       "response": [
         {
-          "id": "b25b1a9b-c818-4fd0-8fc0-7b647254c2c9",
+          "id": "45e9d7e0-eb16-4bb5-bf4a-8c2842bc3a00",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -3989,7 +4026,7 @@
       }
     },
     {
-      "id": "38ee9719-00b9-4a02-af15-15dc8a554b2f",
+      "id": "c9fefc81-0706-4934-9acf-14c09cea9b08",
       "name": "Cancelar suscripción",
       "request": {
         "name": "Cancelar suscripción",
@@ -4019,7 +4056,7 @@
       },
       "response": [
         {
-          "id": "62f309c3-6adf-4f5c-9ff4-ac9e86d4a247",
+          "id": "27938431-f5bf-4f08-a833-e9912caf03b8",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4074,7 +4111,7 @@
       }
     },
     {
-      "id": "07df76db-920a-4c29-96b2-3905ffee4d83",
+      "id": "27e13163-04d9-47b8-a383-aac7c76dff71",
       "name": "Extender suscripción",
       "request": {
         "name": "Extender suscripción",
@@ -4104,7 +4141,7 @@
       },
       "response": [
         {
-          "id": "b84b7b9d-661e-4494-9e2e-d0cf3483a969",
+          "id": "8ea8942f-ee37-486f-be25-9061df617103",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4159,7 +4196,7 @@
       }
     },
     {
-      "id": "3e800ca5-8987-4fb2-bd28-87942fb1532c",
+      "id": "5ec8272e-e3cf-4bb5-b8d0-ba9b18a664e8",
       "name": "Transferir suscripción",
       "request": {
         "name": "Transferir suscripción",
@@ -4189,7 +4226,7 @@
       },
       "response": [
         {
-          "id": "45f3756e-22aa-458f-8122-7b493c3b137c",
+          "id": "122c6f7c-b745-46fd-b8ff-2855528f7a72",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4244,7 +4281,7 @@
       }
     },
     {
-      "id": "8a9d5c45-782b-48b9-897e-695211432223",
+      "id": "c97f6b7d-847d-4862-84c3-25697573369b",
       "name": "Cambiar proveedor de la suscripción",
       "request": {
         "name": "Cambiar proveedor de la suscripción",
@@ -4274,7 +4311,7 @@
       },
       "response": [
         {
-          "id": "5fce2766-dacc-4a88-a2cc-e944ac7330cf",
+          "id": "4891b769-9958-4306-9a5e-39bf37420aa4",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4329,7 +4366,7 @@
       }
     },
     {
-      "id": "bb113609-faa9-4f39-923b-ce8531f71848",
+      "id": "c5bb08ff-8b8a-42c2-b9d8-0bd546175460",
       "name": "Suscripciones de proveedor",
       "request": {
         "name": "Suscripciones de proveedor",
@@ -4349,7 +4386,7 @@
       },
       "response": [
         {
-          "id": "4251db0f-7daf-440b-bda6-664de81b68e1",
+          "id": "cb65b031-5766-4764-8779-964e54ae6503",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4394,7 +4431,7 @@
       }
     },
     {
-      "id": "8908eef8-a0e6-478d-bb4f-f92e86cc0840",
+      "id": "fdfe8c88-e40d-4b4a-b295-364fbc9b2ae0",
       "name": "Pagos a proveedores",
       "request": {
         "name": "Pagos a proveedores",
@@ -4414,7 +4451,7 @@
       },
       "response": [
         {
-          "id": "11b6150a-ea9a-421e-bcdb-49e2dee61878",
+          "id": "eb706d96-f3e0-41ac-a663-fcd80f477dce",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4459,7 +4496,7 @@
       }
     },
     {
-      "id": "37014f52-b308-4300-ae72-267c58ae5b92",
+      "id": "ba19b829-bca5-4e19-b2e1-8ab7138cf78f",
       "name": "Listar combos",
       "request": {
         "name": "Listar combos",
@@ -4479,7 +4516,7 @@
       },
       "response": [
         {
-          "id": "f24fd4b9-0b20-4641-9eb3-8bf543dbf3e7",
+          "id": "7fa26a0a-f908-47d4-9080-49374c4dbf38",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4524,7 +4561,7 @@
       }
     },
     {
-      "id": "54a44f4b-7ae9-416f-8695-3efd2aaef918",
+      "id": "0db2073e-f396-4d0c-8b3d-7cd76e2e8b9c",
       "name": "Crear combo",
       "request": {
         "name": "Crear combo",
@@ -4544,7 +4581,7 @@
       },
       "response": [
         {
-          "id": "d5a3e19e-9e41-4da5-9f62-1065ef7fe55e",
+          "id": "a3857aed-707a-4a29-a60e-c25bf8ae9f34",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4589,7 +4626,7 @@
       }
     },
     {
-      "id": "5bd07f70-1c57-4a0c-8f14-81ce4e2b8bfa",
+      "id": "5308750b-9c5d-4a08-a23b-bf4ebfa0cb96",
       "name": "Obtener combo",
       "request": {
         "name": "Obtener combo",
@@ -4618,7 +4655,7 @@
       },
       "response": [
         {
-          "id": "01b26317-4367-4572-a592-5ffa5b59f435",
+          "id": "1adabe0f-ea57-4ff2-bf63-df78ea63aa06",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4672,7 +4709,7 @@
       }
     },
     {
-      "id": "04275378-3863-448f-b11b-7009b5a5bac7",
+      "id": "fac3f39c-36c5-4914-badd-3bf079d90948",
       "name": "Actualizar combo",
       "request": {
         "name": "Actualizar combo",
@@ -4701,7 +4738,7 @@
       },
       "response": [
         {
-          "id": "b1194ae0-333d-49f5-b936-1ef877b6b6bf",
+          "id": "13a395c0-f04f-42d5-b343-a3d98e2b904b",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4755,7 +4792,7 @@
       }
     },
     {
-      "id": "109168f0-7873-4caa-903c-969f84bf432a",
+      "id": "684b5c05-93dd-4de1-ba5a-c9cf6954593c",
       "name": "Eliminar combo",
       "request": {
         "name": "Eliminar combo",
@@ -4784,7 +4821,7 @@
       },
       "response": [
         {
-          "id": "1197f2ca-b384-418b-bea8-d52b5abca3a7",
+          "id": "be7d08c4-b746-4b2f-8360-d8bb23010327",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4838,7 +4875,7 @@
       }
     },
     {
-      "id": "d4fbacdb-8230-4a49-ae62-b591545c98a3",
+      "id": "7c2f515b-84d5-420d-ad44-0ff31861f6aa",
       "name": "Listar pagos",
       "request": {
         "name": "Listar pagos",
@@ -4858,7 +4895,7 @@
       },
       "response": [
         {
-          "id": "9d1f34f8-baa5-49f0-8dcc-d9e494da02ae",
+          "id": "6a79fb90-fa7f-4330-a896-c2835b1c82a9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4903,7 +4940,7 @@
       }
     },
     {
-      "id": "78d6029f-ac9c-4fcc-8a38-940476927af7",
+      "id": "de530419-b4c4-4d86-a830-5f8c4c1ae07a",
       "name": "Registrar pago",
       "request": {
         "name": "Registrar pago",
@@ -4923,7 +4960,7 @@
       },
       "response": [
         {
-          "id": "9a065375-3696-41e7-a1b2-dd4c3638d463",
+          "id": "d65a32b4-0062-40db-870a-f72c145ec797",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -4968,7 +5005,7 @@
       }
     },
     {
-      "id": "cbe6187f-f03c-4883-a054-d75575e9a339",
+      "id": "21becb7a-edcd-4e53-b704-5a58920af8a1",
       "name": "Obtener pago",
       "request": {
         "name": "Obtener pago",
@@ -4997,7 +5034,7 @@
       },
       "response": [
         {
-          "id": "46e10890-ff5d-4b4f-8e13-30459cf6aeab",
+          "id": "526e35e1-d7b0-48e8-87ec-3e3f0715d835",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5051,7 +5088,7 @@
       }
     },
     {
-      "id": "2b797a5d-3d5e-46fa-bd09-944d44aed155",
+      "id": "b7c0fdf2-833b-4795-860e-ccb207f210f6",
       "name": "Actualizar pago",
       "request": {
         "name": "Actualizar pago",
@@ -5080,7 +5117,7 @@
       },
       "response": [
         {
-          "id": "c3faca3f-4d37-4fa9-8887-a6308296b09b",
+          "id": "cfb11da6-b326-4ca2-b86a-cbaec608b5b9",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5134,7 +5171,7 @@
       }
     },
     {
-      "id": "14c0c17d-f2e4-4f4b-99ad-8c46c0a7cfd0",
+      "id": "b19cca18-409e-4e00-b87e-461b36becb6a",
       "name": "Listar colaboradores",
       "request": {
         "name": "Listar colaboradores",
@@ -5154,7 +5191,7 @@
       },
       "response": [
         {
-          "id": "792fdbcd-9a6b-4340-bd7d-090cbdf4f6ba",
+          "id": "f77a4280-125a-4f61-a0fa-939ab3020837",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5199,7 +5236,7 @@
       }
     },
     {
-      "id": "0b50bdb5-7baf-411c-b655-8c0dd4a97650",
+      "id": "4be1b9ff-32a4-445d-856b-8dd6decadde9",
       "name": "Crear colaborador",
       "request": {
         "name": "Crear colaborador",
@@ -5219,7 +5256,7 @@
       },
       "response": [
         {
-          "id": "4feea99c-0ea7-4039-983c-37841e2ba461",
+          "id": "42691b54-7253-4f91-824c-7d470c8abbdd",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5264,7 +5301,7 @@
       }
     },
     {
-      "id": "2d9a67b0-dd95-4158-8c98-07a84f19b683",
+      "id": "8fc436e2-a41b-4a9d-af07-6b63ee110f46",
       "name": "Obtener colaborador",
       "request": {
         "name": "Obtener colaborador",
@@ -5293,7 +5330,7 @@
       },
       "response": [
         {
-          "id": "a66f8b2f-3e46-45ac-b752-621ca1de51b4",
+          "id": "2690cc2c-8729-4de4-8983-a2ef8488126c",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5347,7 +5384,7 @@
       }
     },
     {
-      "id": "2d795615-ee54-427d-a07e-4ae6a6a1cd07",
+      "id": "1b8bc8a7-7fb6-4c73-87c6-c6b9e9b0ee36",
       "name": "Actualizar colaborador",
       "request": {
         "name": "Actualizar colaborador",
@@ -5376,7 +5413,7 @@
       },
       "response": [
         {
-          "id": "4471ee69-e2e7-4300-8fdd-05efab87c550",
+          "id": "bc1365c7-1750-4ab9-9192-6f2560bcb8a8",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5430,7 +5467,7 @@
       }
     },
     {
-      "id": "39a6035c-1671-406b-a137-2c81d71fc275",
+      "id": "4dfd2517-c0dc-4c18-a94c-0a87bf8f3201",
       "name": "Listar plantillas",
       "request": {
         "name": "Listar plantillas",
@@ -5450,7 +5487,7 @@
       },
       "response": [
         {
-          "id": "3eb2efdd-31a5-4ff9-821f-4a623a9dc7c7",
+          "id": "50a4a80c-96a9-4b77-89c6-6e38e504d8ec",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5495,7 +5532,7 @@
       }
     },
     {
-      "id": "c9650e83-8e56-4a8e-a683-dc618740ae5f",
+      "id": "ddddce3c-cc4f-4584-94bc-31a50c71f461",
       "name": "Crear plantilla",
       "request": {
         "name": "Crear plantilla",
@@ -5515,7 +5552,7 @@
       },
       "response": [
         {
-          "id": "c28fed50-e43b-4465-a32c-50031125be21",
+          "id": "4ccc6cd7-f805-42b1-bdd8-6f06f215dfbd",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5560,7 +5597,7 @@
       }
     },
     {
-      "id": "2c39d677-f2af-4dfa-b821-471aeb0c3c8f",
+      "id": "041ab463-2059-4bc4-a853-c3243926b90e",
       "name": "Obtener plantilla",
       "request": {
         "name": "Obtener plantilla",
@@ -5589,7 +5626,7 @@
       },
       "response": [
         {
-          "id": "aa982eec-3885-41f5-8230-c2cea831d799",
+          "id": "7de4456b-17da-406d-a31e-cc89b8dcb5ff",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5643,7 +5680,7 @@
       }
     },
     {
-      "id": "a3392667-65c0-4881-b9cd-619af044f5c0",
+      "id": "92bcf7fc-b41a-4f78-99a8-2012f4476094",
       "name": "Actualizar plantilla",
       "request": {
         "name": "Actualizar plantilla",
@@ -5672,7 +5709,7 @@
       },
       "response": [
         {
-          "id": "0df459b5-289e-47b9-bdd2-195aacb1db6c",
+          "id": "28e46eab-ead5-4fc3-bed4-1b1ca79f569e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5726,7 +5763,7 @@
       }
     },
     {
-      "id": "f3e6fbfe-5179-483c-bf0e-0dde836a247b",
+      "id": "038c2548-26a0-479d-9761-2ae835773479",
       "name": "Eliminar plantilla",
       "request": {
         "name": "Eliminar plantilla",
@@ -5755,7 +5792,7 @@
       },
       "response": [
         {
-          "id": "429fc682-4e62-48ba-b131-fcf86071a85f",
+          "id": "5ebbed8c-ef38-4a86-b4e7-a055682a2cc2",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5809,7 +5846,7 @@
       }
     },
     {
-      "id": "34c15374-94c2-4aba-93df-cf8975640a5d",
+      "id": "5c2a443a-e686-4e9d-b19c-2d17a1412812",
       "name": "Enviar plantilla",
       "request": {
         "name": "Enviar plantilla",
@@ -5839,7 +5876,7 @@
       },
       "response": [
         {
-          "id": "a51a105e-ebe0-4bd8-a95e-ef57893f24cf",
+          "id": "bcf454b9-582c-4730-8c62-351421acde6c",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5894,7 +5931,7 @@
       }
     },
     {
-      "id": "9fce5af0-a07f-4db4-9e0d-140f57870321",
+      "id": "700dc27c-f41c-470e-9460-52f1bbb7555b",
       "name": "Logs de mensajes",
       "request": {
         "name": "Logs de mensajes",
@@ -5914,7 +5951,7 @@
       },
       "response": [
         {
-          "id": "a3470215-60a0-4fa1-bf82-0931c98c08c8",
+          "id": "77a76fa3-89a1-4cda-9281-88ef427adbee",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -5959,7 +5996,7 @@
       }
     },
     {
-      "id": "ca0a168e-c770-4b5d-a0bc-ecb8761f3b15",
+      "id": "0611852a-c22b-4bae-9339-f62e1afc0905",
       "name": "Enviar mensaje manual",
       "request": {
         "name": "Enviar mensaje manual",
@@ -5980,7 +6017,7 @@
       },
       "response": [
         {
-          "id": "67d13589-7dc0-4103-9a2a-94aebc2a7dc8",
+          "id": "2bd97a2e-0e87-4f5c-91f6-c4c8b5f35215",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6026,7 +6063,7 @@
       }
     },
     {
-      "id": "5a02f775-898c-495f-9f12-198b5cd7f4b7",
+      "id": "2cdd4b80-3b61-44c6-a2f3-ee0a049b4abf",
       "name": "Métricas del dashboard",
       "request": {
         "name": "Métricas del dashboard",
@@ -6047,7 +6084,7 @@
       },
       "response": [
         {
-          "id": "7f38f484-5686-4a1d-96f0-55bfc68523cf",
+          "id": "d55f0235-6216-42f3-934b-1df0b564dbe7",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6093,7 +6130,7 @@
       }
     },
     {
-      "id": "34899e42-fdb8-48b1-ae2f-a7adc8aad084",
+      "id": "57505e9f-68e0-4c5e-b15e-88c39a93d390",
       "name": "Ingresos",
       "request": {
         "name": "Ingresos",
@@ -6114,7 +6151,7 @@
       },
       "response": [
         {
-          "id": "9994594c-0026-4ce9-bb46-b5c8d6d9a95c",
+          "id": "b106440f-080f-44da-8ac0-64c81eb8677d",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6160,7 +6197,7 @@
       }
     },
     {
-      "id": "06cb2fc7-05b0-4876-b444-aca28a886f16",
+      "id": "6baf0758-7c24-45ef-b6dc-71a5462a42f9",
       "name": "Ingresos por servicio",
       "request": {
         "name": "Ingresos por servicio",
@@ -6181,7 +6218,7 @@
       },
       "response": [
         {
-          "id": "5d0e28b1-8430-4c64-8f8c-ab25d70eb52e",
+          "id": "7aef2971-1654-4d2d-895d-6663961d4887",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6227,7 +6264,7 @@
       }
     },
     {
-      "id": "3f961ef9-3476-41af-9557-a87692a21c67",
+      "id": "e0b557cb-e1c9-42a0-9c47-37176cae5a91",
       "name": "Crecimiento de clientes",
       "request": {
         "name": "Crecimiento de clientes",
@@ -6248,7 +6285,7 @@
       },
       "response": [
         {
-          "id": "3122c628-5875-4548-8d90-dfec625d3b61",
+          "id": "1bee725b-3311-420d-94f8-eef52b1d5a32",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6294,7 +6331,7 @@
       }
     },
     {
-      "id": "f2a70bfd-39ec-4e2c-9bfa-640fea9f3541",
+      "id": "5822b2dd-ed21-49f6-b088-4524e352a9af",
       "name": "Distribución de planes",
       "request": {
         "name": "Distribución de planes",
@@ -6315,7 +6352,7 @@
       },
       "response": [
         {
-          "id": "15e15b6a-b53d-48f0-9f4b-5881d4f3f54a",
+          "id": "33607ef9-09ad-4705-af5d-1b0a224f7637",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6361,7 +6398,7 @@
       }
     },
     {
-      "id": "fc88d317-1b59-4e3d-a0fd-e6eef1a12386",
+      "id": "d26548a8-99d7-4d57-8c6a-4796649e570c",
       "name": "Ocupación de slots",
       "request": {
         "name": "Ocupación de slots",
@@ -6382,7 +6419,7 @@
       },
       "response": [
         {
-          "id": "4949b3b6-f0d8-455d-982e-5c4ef92632d7",
+          "id": "0fd741ef-1ad4-46a8-a5ed-ca3747ac9ca6",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6428,7 +6465,7 @@
       }
     },
     {
-      "id": "31a828df-e581-44d8-9195-11834308426a",
+      "id": "62c2f413-3bc0-4e1a-9a59-24563d6b02a6",
       "name": "Estado de suscripciones",
       "request": {
         "name": "Estado de suscripciones",
@@ -6449,7 +6486,7 @@
       },
       "response": [
         {
-          "id": "9524d003-c3a1-4a50-bca2-705ad18db7a7",
+          "id": "88ce5b57-9a10-434e-937a-8ada68cdc7c2",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6495,7 +6532,7 @@
       }
     },
     {
-      "id": "8cae35dd-c13c-48c5-8bc2-d5dddf0f22aa",
+      "id": "3a4c04c3-d02b-4736-9896-c180b9e86f98",
       "name": "Todos los contactos (gateway)",
       "request": {
         "name": "Todos los contactos (gateway)",
@@ -6539,7 +6576,7 @@
       },
       "response": [
         {
-          "id": "7a4111ee-3958-4ab4-9236-a576f642bc90",
+          "id": "c0f96a27-2b1e-480c-bfb8-12d2b07a7eaf",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6590,7 +6627,7 @@
       }
     },
     {
-      "id": "dce132bc-e335-4e83-aed7-e85aefae26e3",
+      "id": "b1743ac3-c62c-4855-a80b-af4ce4b219e1",
       "name": "Foto de perfil de contacto (gateway)",
       "request": {
         "name": "Foto de perfil de contacto (gateway)",
@@ -6640,7 +6677,7 @@
       },
       "response": [
         {
-          "id": "f6b96f88-57e3-41aa-8cb7-427473fc9448",
+          "id": "a1a994b0-a4c0-4760-81e0-9a65ea07d532",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6695,7 +6732,7 @@
       }
     },
     {
-      "id": "f8469680-f49e-42d8-abe0-a55acb4185db",
+      "id": "a1be972a-c156-45dd-8857-b2c250f69d28",
       "name": "Estado de la sesión de WhatsApp",
       "request": {
         "name": "Estado de la sesión de WhatsApp",
@@ -6740,7 +6777,7 @@
       },
       "response": [
         {
-          "id": "fe8ad8ed-8c39-49b8-a808-81fe7ab82895",
+          "id": "2164e80d-6355-41fd-82fd-0430c53ae4d0",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6794,7 +6831,7 @@
       }
     },
     {
-      "id": "cce6e491-0b34-4dcd-b410-06f0d834124e",
+      "id": "2ce42463-726d-47d4-a18b-b2e814b24e08",
       "name": "Iniciar sesión de WhatsApp",
       "request": {
         "name": "Iniciar sesión de WhatsApp",
@@ -6840,7 +6877,7 @@
       },
       "response": [
         {
-          "id": "d865f882-6870-4135-85bd-e4894ed5ef9e",
+          "id": "3f912e30-07aa-4ad7-ad14-5baaff55da17",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6895,7 +6932,7 @@
       }
     },
     {
-      "id": "8cc8875b-1d61-4a88-bc23-d700dc19045b",
+      "id": "f7faf7ce-b485-4090-879c-5e07790700ca",
       "name": "Reiniciar sesión",
       "request": {
         "name": "Reiniciar sesión",
@@ -6941,7 +6978,7 @@
       },
       "response": [
         {
-          "id": "bbb5b7e7-b3c4-47d2-9ff1-b96c0716bec3",
+          "id": "2f5eb934-7749-4e38-bfa7-f6114d38859e",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -6996,7 +7033,7 @@
       }
     },
     {
-      "id": "5eb84a89-3d15-4b05-a3d7-52383e1bdb13",
+      "id": "5c9f0679-4798-4575-b565-67fdfc750dc5",
       "name": "Cerrar sesión de WhatsApp",
       "request": {
         "name": "Cerrar sesión de WhatsApp",
@@ -7042,7 +7079,7 @@
       },
       "response": [
         {
-          "id": "cad984d8-f4e5-4aa5-ac26-0856743542e3",
+          "id": "d8af8883-97e0-4abd-b48f-45189ed956bf",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7097,7 +7134,7 @@
       }
     },
     {
-      "id": "9f8a836c-e038-410a-a5da-8b77c454b67d",
+      "id": "0f943ea2-9e61-4546-96bd-a0fc4840d272",
       "name": "Código QR de vinculación",
       "request": {
         "name": "Código QR de vinculación",
@@ -7143,7 +7180,7 @@
       },
       "response": [
         {
-          "id": "85eff26a-fd48-4d0f-992d-a228e6accc6c",
+          "id": "e21b75f6-9c26-49cc-b775-fed990524e59",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7198,7 +7235,7 @@
       }
     },
     {
-      "id": "94bb12e4-81b1-465c-8595-66beabe62324",
+      "id": "2b6218e2-c8e5-4f00-9b62-51b0da9f11fb",
       "name": "Resumen de chats",
       "request": {
         "name": "Resumen de chats",
@@ -7244,7 +7281,7 @@
       },
       "response": [
         {
-          "id": "96e1c914-85eb-4200-9fd1-3994e6c1e171",
+          "id": "92ec8a99-e191-47bf-9421-1ffeb2756bfc",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7299,7 +7336,7 @@
       }
     },
     {
-      "id": "a94f098e-9024-4cbe-9f7c-a8d024df6ea6",
+      "id": "ab49f752-cca1-4125-ad2b-978ab7bf6c59",
       "name": "Mensajes del chat",
       "request": {
         "name": "Mensajes del chat",
@@ -7353,7 +7390,7 @@
       },
       "response": [
         {
-          "id": "2b02fbdd-e531-410f-a5cb-13892be56a1c",
+          "id": "76039b7c-007a-4547-b134-3694ccc66a22",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7416,7 +7453,7 @@
       }
     },
     {
-      "id": "313c80d9-fe54-464f-9f0f-d0797ee0c9ab",
+      "id": "27143efb-cd1c-4d92-9584-1e1c188b69fb",
       "name": "Un mensaje",
       "request": {
         "name": "Un mensaje",
@@ -7478,7 +7515,7 @@
       },
       "response": [
         {
-          "id": "53ce4f62-1bfb-486c-a4c3-35793737e1ec",
+          "id": "11d178e3-596a-4bdf-b5c5-9ea921a05733",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7549,7 +7586,7 @@
       }
     },
     {
-      "id": "84b7340b-f4d5-4086-839e-4b97a6198317",
+      "id": "4d581063-78c7-43fa-b49a-3b46cc6c32d0",
       "name": "Marcar mensajes como leídos",
       "request": {
         "name": "Marcar mensajes como leídos",
@@ -7604,7 +7641,7 @@
       },
       "response": [
         {
-          "id": "7cf47e3e-ab8b-4362-bd49-df793ff380c9",
+          "id": "d04ee6d7-b566-4c26-ad2b-2365c41c9372",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7668,7 +7705,7 @@
       }
     },
     {
-      "id": "72ef58d8-8ec5-4bf5-a4b7-beff48587c53",
+      "id": "f379f023-1700-4d63-b014-fa111c3bec03",
       "name": "LID por id",
       "request": {
         "name": "LID por id",
@@ -7721,7 +7758,7 @@
       },
       "response": [
         {
-          "id": "7ee1cf9b-e16d-464e-9384-01e197337fb8",
+          "id": "7002f88c-0238-4e08-9d51-559a5c158016",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7783,7 +7820,7 @@
       }
     },
     {
-      "id": "5d0f07a0-3922-4e85-9d8c-7697caf396e8",
+      "id": "0ad66f0e-f517-49a8-946e-f3c295905650",
       "name": "LID por número de teléfono",
       "request": {
         "name": "LID por número de teléfono",
@@ -7837,7 +7874,7 @@
       },
       "response": [
         {
-          "id": "f45057a6-516c-4c47-b472-5a6cdd542de9",
+          "id": "33b4028a-392b-489a-ae5f-b5cf4a9fd7b1",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -7900,7 +7937,7 @@
       }
     },
     {
-      "id": "59c88e0b-7be3-46d6-91cd-f439fd5568e3",
+      "id": "ee08be00-bcff-441a-80b4-00a1a24aa781",
       "name": "Enviar texto (gateway)",
       "request": {
         "name": "Enviar texto (gateway)",
@@ -7951,7 +7988,7 @@
       },
       "response": [
         {
-          "id": "f6768792-75fe-435e-ba59-decb0921aae3",
+          "id": "98c8a6e6-7796-4560-937b-3192f33bb9dd",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8004,7 +8041,7 @@
       }
     },
     {
-      "id": "9f1ee04b-7ac6-4482-a2d7-205d2e4272c8",
+      "id": "e75928e3-ccd0-4c1d-9c97-81bd72a1fa0f",
       "name": "Enviar imagen (gateway)",
       "request": {
         "name": "Enviar imagen (gateway)",
@@ -8040,7 +8077,7 @@
       },
       "response": [
         {
-          "id": "0f5a3028-c23a-48c6-9ee8-ee3fca2e94af",
+          "id": "095db87e-a565-412e-b77c-f98b75a22fc8",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8085,7 +8122,7 @@
       }
     },
     {
-      "id": "a65d4f33-28d4-4254-b982-e230a4ebd441",
+      "id": "8e7306ec-ff6c-4173-909c-e28c9c681499",
       "name": "Enviar video (gateway)",
       "request": {
         "name": "Enviar video (gateway)",
@@ -8121,7 +8158,7 @@
       },
       "response": [
         {
-          "id": "c6c1cd7a-517d-4d58-b168-60fdc9b718d1",
+          "id": "7bb5e7bc-0bc6-430c-a236-7eb9f4885017",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8166,7 +8203,7 @@
       }
     },
     {
-      "id": "2752487a-6f3f-482d-817b-56c56b0147f0",
+      "id": "6cf98c5f-2729-4a14-9574-1d2a8f68ccc0",
       "name": "Enviar audio (gateway)",
       "request": {
         "name": "Enviar audio (gateway)",
@@ -8202,7 +8239,7 @@
       },
       "response": [
         {
-          "id": "b285012d-4ca7-489b-976f-9f2d750935c0",
+          "id": "0774f9e3-9f5d-47d6-821c-b6d10cba03f0",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8247,7 +8284,7 @@
       }
     },
     {
-      "id": "df6afc88-1747-4d00-8e94-5b6ec35581e6",
+      "id": "d13bb630-9482-4491-bca9-6119664334bd",
       "name": "Enviar archivo (gateway)",
       "request": {
         "name": "Enviar archivo (gateway)",
@@ -8283,7 +8320,7 @@
       },
       "response": [
         {
-          "id": "aad5011e-0ea4-4ad0-9913-a13c2de5d7be",
+          "id": "785161ae-ea2f-4b5c-8d4f-b245236e6062",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8328,7 +8365,7 @@
       }
     },
     {
-      "id": "73b151b6-664e-4d1b-a3f7-15511bfa2bb8",
+      "id": "1851f27b-08cc-49ea-a56d-c32de998cf4b",
       "name": "Mostrar \"escribiendo…\" (gateway)",
       "request": {
         "name": "Mostrar \"escribiendo…\" (gateway)",
@@ -8364,7 +8401,7 @@
       },
       "response": [
         {
-          "id": "d0777dbd-ac00-471c-aef6-aae3e0610665",
+          "id": "9d21bcce-8956-4da9-9917-8a3365f1b154",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8409,7 +8446,7 @@
       }
     },
     {
-      "id": "b389a7bc-8ac1-41f4-baaf-f6784f226400",
+      "id": "f824e373-897e-4e0c-b954-fd2caf650776",
       "name": "Ocultar \"escribiendo…\" (gateway)",
       "request": {
         "name": "Ocultar \"escribiendo…\" (gateway)",
@@ -8445,7 +8482,7 @@
       },
       "response": [
         {
-          "id": "43fbf188-3804-478c-a223-0d1adfd935c4",
+          "id": "206377e9-53fd-4da6-ba78-6a3808cf535f",
           "name": "OK",
           "originalRequest": {
             "url": {
@@ -8508,7 +8545,7 @@
     ]
   },
   "info": {
-    "_postman_id": "708705f9-762f-4302-9186-f3e4bd1d1183",
+    "_postman_id": "07090ec1-9031-4e01-91ae-16186a251b3c",
     "name": "VendePlay CRM API (reverse-engineered)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": {

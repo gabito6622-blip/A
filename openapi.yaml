@@ -30,7 +30,8 @@ components:
       description: >
         `Authorization: Bearer <accessToken>`. El access token se obtiene de
         `POST /auth/login` (`data.data.accessToken`) y el front lo guarda en
-        `localStorage["auth_token"]`. Se renueva con `POST /auth/refresh`.
+        `localStorage["auth_token"]`. NO hay endpoint de refresh (`/auth/refresh`
+        responde 404 en runtime): un 401 implica volver a iniciar sesión.
     apiKeyAuth:
       type: apiKey
       in: header
@@ -43,6 +44,26 @@ components:
     Unknown:
       description: Forma no observada estáticamente.
       type: object
+      additionalProperties: true
+    ApiError:
+      description: >
+        Envelope de error estándar del backend (Express/NestJS), confirmado en runtime.
+        `message` puede ser string o array de strings.
+      type: object
+      properties:
+        code: { type: string, example: BAD_REQUEST }
+        message:
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        status: { type: integer, example: 400 }
+        meta:
+          type: object
+          properties:
+            traceId: { type: string }
+          additionalProperties: true
+        data: {}
+      required: [code, status]
       additionalProperties: true
     LoginRequest:
       type: object
@@ -82,9 +103,10 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/LoginRequest' }
-      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } } }
-  /auth/refresh:
-    post: { summary: Renovar token, responses: { '200': { description: OK } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+        '400': { description: Validación fallida, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '401': { description: Credenciales inválidas, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
   /auth/me:
     post: { summary: Usuario actual (observado como POST en el front), responses: { '200': { description: OK } } }
   /auth/logout:

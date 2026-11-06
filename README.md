@@ -86,10 +86,11 @@ python3 -c "import clients.python.vendeplay"   # (o importá el módulo directam
 - **Stack:** React + Vite, servido por Caddy (HTTP/2/3). Build parece test/staging
   (claves Stripe `pk_test`, RevenueCat `rcb_sb`); clave pública de MercadoPago
   `APP_USR-…` embebida (pública por diseño).
+- **Backend:** Express/NestJS (envelope de error `{code,message,status,meta.traceId}`; `message` puede ser array; CORS `*`).
 - **Auth principal:** `POST /auth/login` `{accountCode:"ACC-…",username,password}` → `{data:{accessToken,user}}`;
   `accessToken`→`localStorage["auth_token"]`, `user`→`localStorage["user_data"]`.
-  `logout` borra ambas; `checkAuth`→`POST /auth/me`. Sin refreshToken en el login
-  (refresh por `/auth/refresh`, probablemente cookie httpOnly).
+  `logout` borra ambas; `checkAuth`→`POST /auth/me`. **No hay endpoint de refresh**
+  (`/auth/refresh` responde 404 en runtime): un 401 limpia el token y hay que re-loguear.
 - **Gateway WhatsApp:** plugin `self.ws` con base propia + `x-api-key`.
 - **Dominio:** reventa de cuentas de streaming (clientes, proveedores, cuentas/servicios,
   suscripciones, combos), mensajería WhatsApp y métricas; pagos MercadoPago + RevenueCat.

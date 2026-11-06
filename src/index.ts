@@ -111,11 +111,6 @@ export class VendePlayClient {
     return this.http.post<T>("/auth/me");
   }
 
-  /** Fuerza la renovación del access token vía /auth/refresh. */
-  refresh(): Promise<boolean> {
-    return this.http.tryRefresh();
-  }
-
   /** POST /auth/logout y limpieza local de tokens. */
   async logout(): Promise<void> {
     try { await this.http.post("/auth/logout"); } finally { await this.http.tokens.clear(); }

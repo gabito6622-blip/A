@@ -68,8 +68,9 @@ class _Http:
             return self.transport(method, self._url(path, query), headers, payload)
 
         status, raw = do()
-        if status == 401 and auth and self._try_refresh():
-            status, raw = do()
+        if status == 401 and auth:
+            # No hay endpoint de refresh (/auth/refresh -> 404): 401 = re-login.
+            self.access_token = None
         return self._parse(status, raw)
 
     def _parse(self, status: int, raw: bytes) -> Any:
@@ -82,26 +83,6 @@ class _Http:
         if status >= 400:
             raise HttpError(status, data)
         return data
-
-    def _try_refresh(self) -> bool:
-        body = {"refreshToken": self.refresh_token} if self.refresh_token else {}
-        status, raw = self.transport(
-            "POST", self._url("/auth/refresh", None),
-            {"Content-Type": "application/json", "Accept": "application/json"},
-            json.dumps(body).encode("utf-8"),
-        )
-        if status >= 400:
-            return False
-        try:
-            j = json.loads(raw.decode("utf-8"))
-        except Exception:
-            return False
-        d = j.get("data", j) if isinstance(j, dict) else {}
-        token = d.get("accessToken") or d.get("token")
-        if token:
-            self.access_token = token
-            return True
-        return False
 
     def get(self, path, query=None, auth=True):
         return self.request("GET", path, query=query, auth=auth)
@@ -196,9 +177,6 @@ class VendePlayClient:
 
     def me(self):
         return self.http.post("/auth/me")
-
-    def refresh(self) -> bool:
-        return self.http._try_refresh()
 
     def logout(self):
         try:
