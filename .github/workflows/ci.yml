@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  node:
+    name: Build, test & validate OpenAPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run validate:openapi
+
+  python:
+    name: Python client import
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -c "import importlib.util,sys; s=importlib.util.spec_from_file_location('vendeplay','clients/python/vendeplay.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print('vendeplay import OK', bool(m.VendePlayClient))"

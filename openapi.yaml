@@ -1,0 +1,353 @@
+openapi: 3.1.0
+info:
+  title: VendePlay CRM API (reverse-engineered)
+  version: 0.1.0-re
+  description: >
+    Especificación **reconstruida por ingeniería inversa** desde el front-end público de
+    https://crm.vendeplay.com (bundle React/Vite, análisis estático con REA). Las RUTAS,
+    los MÉTODOS HTTP y el esquema de autenticación están observados en el código del cliente.
+    Los cuerpos de request/response y los parámetros NO fueron observados en ejecución y se
+    marcan como `unknown` / inferidos. No sustituye a la documentación oficial del backend.
+servers:
+  - url: https://api.vendeplay.com/streaming-head-seller/v1
+    description: >
+      API principal del CRM (baseURL del cliente axios), auth Bearer. Cubre auth,
+      accounts, clients, suppliers, streaming, subscriptions, combos, payments,
+      collaborators, templates, message-logs y metrics.
+  - url: https://gateway-del-plugin-self-ws.example
+    description: >
+      Gateway de mensajería (WhatsApp). La base URL NO es fija (este valor es un
+      placeholder): se obtiene del plugin `self.ws` de la cuenta
+      (`GET /account-plugins?name=self.ws&status=ACTIVE` → `data[0].url`). Auth por
+      header `x-api-key: data[0].token`. Cubre /sessions/*, /{referenceId}/*,
+      /contacts/* y /send*.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        `Authorization: Bearer <accessToken>`. El access token se obtiene de
+        `POST /auth/login` (`data.data.accessToken`) y el front lo guarda en
+        `localStorage["auth_token"]`. NO hay endpoint de refresh (`/auth/refresh`
+        responde 404 en runtime): un 401 implica volver a iniciar sesión.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: >
+        Auth del gateway de WhatsApp: header `x-api-key` con el `token` del plugin
+        `self.ws`. NO usa Bearer. Las operaciones del gateway pasan además
+        `session=<referenceId>` en body o query.
+  schemas:
+    Unknown:
+      description: Forma no observada estáticamente.
+      type: object
+      additionalProperties: true
+    ApiError:
+      description: >
+        Envelope de error estándar del backend (Express/NestJS), confirmado en runtime.
+        `message` puede ser string o array de strings.
+      type: object
+      properties:
+        code: { type: string, example: BAD_REQUEST }
+        message:
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        status: { type: integer, example: 400 }
+        meta:
+          type: object
+          properties:
+            traceId: { type: string }
+          additionalProperties: true
+        data: {}
+      required: [code, status]
+      additionalProperties: true
+    LoginRequest:
+      type: object
+      description: >
+        Credenciales de acceso (confirmado por DOM en vivo + bundle). `accountCode`
+        se envía con prefijo `ACC-` (el usuario tipea solo el número).
+      required: [accountCode, username, password]
+      properties:
+        accountCode: { type: string, example: "ACC-12345" }
+        username: { type: string }
+        password: { type: string }
+      additionalProperties: true
+    LoginResponse:
+      type: object
+      description: >
+        Respuesta de /auth/login (confirmado): el front lee `data.data.accessToken`
+        y `data.data.user`. No se observó refreshToken en el login (refresh probablemente por cookie).
+      properties:
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            user:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
+      additionalProperties: true
+security:
+  - bearerAuth: []
+paths:
+  # ---- Auth ----
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+        '400': { description: Validación fallida, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+        '401': { description: Credenciales inválidas, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+  /auth/me:
+    post: { summary: Usuario actual (observado como POST en el front), responses: { '200': { description: OK } } }
+  /auth/logout:
+    post: { summary: Cerrar sesión, responses: { '200': { description: OK } } }
+
+  # ---- Accounts / plan / billing ----
+  /accounts/plans: { get: { summary: Planes disponibles, responses: { '200': { description: OK } } } }
+  /accounts/subscription: { get: { summary: Suscripción de la cuenta, responses: { '200': { description: OK } } } }
+  /accounts/billing-history: { get: { summary: Historial de facturación, responses: { '200': { description: OK } } } }
+  /account-plugins: { get: { summary: Plugins de la cuenta, responses: { '200': { description: OK } } } }
+  /billing-rules:
+    get: { summary: Listar reglas de facturación, responses: { '200': { description: OK } } }
+    post: { summary: Crear regla de facturación, responses: { '200': { description: OK } } }
+  /billing-rules/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener regla, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar regla, responses: { '200': { description: OK } } }
+    delete: { summary: Eliminar regla, responses: { '200': { description: OK } } }
+  /billing-rules/{id}/toggle:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch: { summary: Activar/desactivar regla, responses: { '200': { description: OK } } }
+  /billing/mp/preference: { post: { summary: Crear preferencia MercadoPago, responses: { '200': { description: OK } } } }
+  /billing/mp/status: { get: { summary: Estado de cobro MercadoPago, responses: { '200': { description: OK } } } }
+  /billing/mp/cancel: { post: { summary: Cancelar cobro MercadoPago, responses: { '200': { description: OK } } } }
+
+  # ---- Clients ----
+  /clients:
+    get: { summary: Listar clientes, responses: { '200': { description: OK } } }
+    post: { summary: Crear cliente, responses: { '200': { description: OK } } }
+  /clients/import: { post: { summary: Importar clientes, responses: { '200': { description: OK } } } }
+  /clients/export: { get: { summary: Exportar clientes, responses: { '200': { description: OK } } } }
+  /clients/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener cliente, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar cliente, responses: { '200': { description: OK } } }
+
+  # ---- Suppliers ----
+  /suppliers:
+    get: { summary: Listar proveedores, responses: { '200': { description: OK } } }
+    post: { summary: Crear proveedor, responses: { '200': { description: OK } } }
+  /suppliers/import: { post: { summary: Importar proveedores, responses: { '200': { description: OK } } } }
+  /suppliers/export: { get: { summary: Exportar proveedores, responses: { '200': { description: OK } } } }
+  /suppliers/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener proveedor, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar proveedor, responses: { '200': { description: OK } } }
+  /suppliers/{id}/services:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Servicios del proveedor, responses: { '200': { description: OK } } }
+    post: { summary: Agregar servicio al proveedor, responses: { '200': { description: OK } } }
+  /suppliers/{id}/services/{serviceId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: serviceId, in: path, required: true, schema: { type: string } }
+    put: { summary: Actualizar servicio del proveedor, responses: { '200': { description: OK } } }
+  /suppliers/{id}/price-plans:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Price plans del proveedor, responses: { '200': { description: OK } } }
+
+  # ---- Streaming accounts / services ----
+  /streaming-accounts:
+    get: { summary: Listar cuentas de streaming, responses: { '200': { description: OK } } }
+    post: { summary: Crear cuenta de streaming, responses: { '200': { description: OK } } }
+  /streaming-accounts/import: { post: { summary: Importar cuentas, responses: { '200': { description: OK } } } }
+  /streaming-accounts/export: { get: { summary: Exportar cuentas, responses: { '200': { description: OK } } } }
+  /streaming-accounts/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener cuenta, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar cuenta, responses: { '200': { description: OK } } }
+  /streaming-accounts/{id}/slot/register:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post: { summary: Registrar slot, responses: { '200': { description: OK } } }
+  /streaming-accounts/slot/{slotId}/update:
+    parameters: [{ name: slotId, in: path, required: true, schema: { type: string } }]
+    put: { summary: Actualizar slot, responses: { '200': { description: OK } } }
+  /streaming-services:
+    get: { summary: Listar servicios de streaming, responses: { '200': { description: OK } } }
+    post: { summary: Crear servicio de streaming, responses: { '200': { description: OK } } }
+  /streaming-services/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener servicio, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar servicio, responses: { '200': { description: OK } } }
+  /streaming-services/{id}/price-plans:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post: { summary: Crear price plan, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar price plan, responses: { '200': { description: OK } } }
+    delete: { summary: Eliminar price plan, responses: { '200': { description: OK } } }
+
+  # ---- Subscriptions ----
+  /subscriptions:
+    get: { summary: Listar suscripciones, responses: { '200': { description: OK } } }
+    post: { summary: Crear suscripción, responses: { '200': { description: OK } } }
+  /subscriptions/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener suscripción, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar suscripción, responses: { '200': { description: OK } } }
+  /subscriptions/client/{clientId}:
+    parameters: [{ name: clientId, in: path, required: true, schema: { type: string } }]
+    get: { summary: Suscripciones por cliente, responses: { '200': { description: OK } } }
+  /subscriptions/{id}/cancel:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch: { summary: Cancelar suscripción, responses: { '200': { description: OK } } }
+  /subscriptions/{id}/extend:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch: { summary: Extender suscripción, responses: { '200': { description: OK } } }
+  /subscriptions/{id}/transfer:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch: { summary: Transferir suscripción, responses: { '200': { description: OK } } }
+  /subscriptions/{id}/supplier:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch: { summary: Cambiar proveedor de la suscripción, responses: { '200': { description: OK } } }
+  /supplier-subscriptions: { get: { summary: Suscripciones de proveedor, responses: { '200': { description: OK } } } }
+  /supplier-payments: { get: { summary: Pagos a proveedores, responses: { '200': { description: OK } } } }
+
+  # ---- Combos / payments / collaborators / templates ----
+  /combos:
+    get: { summary: Listar combos, responses: { '200': { description: OK } } }
+    post: { summary: Crear combo, responses: { '200': { description: OK } } }
+  /combos/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener combo, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar combo, responses: { '200': { description: OK } } }
+    delete: { summary: Eliminar combo, responses: { '200': { description: OK } } }
+  /payments:
+    get: { summary: Listar pagos, responses: { '200': { description: OK } } }
+    post: { summary: Registrar pago, responses: { '200': { description: OK } } }
+  /payments/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener pago, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar pago, responses: { '200': { description: OK } } }
+  /collaborators:
+    get: { summary: Listar colaboradores, responses: { '200': { description: OK } } }
+    post: { summary: Crear colaborador, responses: { '200': { description: OK } } }
+  /collaborators/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener colaborador, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar colaborador, responses: { '200': { description: OK } } }
+  /templates:
+    get: { summary: Listar plantillas, responses: { '200': { description: OK } } }
+    post: { summary: Crear plantilla, responses: { '200': { description: OK } } }
+  /templates/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Obtener plantilla, responses: { '200': { description: OK } } }
+    put: { summary: Actualizar plantilla, responses: { '200': { description: OK } } }
+    delete: { summary: Eliminar plantilla, responses: { '200': { description: OK } } }
+  /templates/{id}/send:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post: { summary: Enviar plantilla, responses: { '200': { description: OK } } }
+
+  # ---- Message logs (API principal, Bearer) ----
+  /message-logs: { get: { summary: Logs de mensajes, responses: { '200': { description: OK } } } }
+  /message-logs/send-manual: { post: { summary: Enviar mensaje manual, responses: { '200': { description: OK } } } }
+
+  # ---- Métricas ----
+  /metrics/dashboard: { get: { summary: Métricas del dashboard, responses: { '200': { description: OK } } } }
+  /metrics/revenue: { get: { summary: Ingresos, responses: { '200': { description: OK } } } }
+  /metrics/service-revenue: { get: { summary: Ingresos por servicio, responses: { '200': { description: OK } } } }
+  /metrics/client-growth: { get: { summary: Crecimiento de clientes, responses: { '200': { description: OK } } } }
+  /metrics/plan-distribution: { get: { summary: Distribución de planes, responses: { '200': { description: OK } } } }
+  /metrics/slot-occupancy: { get: { summary: Ocupación de slots, responses: { '200': { description: OK } } } }
+  /metrics/subscription-status: { get: { summary: Estado de suscripciones, responses: { '200': { description: OK } } } }
+
+  # ==== GATEWAY DE WHATSAPP (server {gatewayUrl}, auth x-api-key) ====
+  # Base URL dinámica (plugin self.ws). Todas estas operaciones usan apiKeyAuth y
+  # pasan session=<referenceId> en body/query. NO usan la API principal ni Bearer.
+  /contacts/all:
+    get:
+      summary: Todos los contactos (gateway)
+      security: [{ apiKeyAuth: [] }]
+      parameters: [{ name: session, in: query, required: true, schema: { type: string }, description: referenceId }]
+      responses: { '200': { description: OK } }
+  /contacts/profile-picture:
+    get:
+      summary: Foto de perfil de contacto (gateway)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - { name: session, in: query, required: true, schema: { type: string }, description: referenceId }
+        - { name: contactId, in: query, required: true, schema: { type: string } }
+      responses: { '200': { description: OK } }
+  /sessions/{referenceId}:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    get: { summary: Estado de la sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /sessions/{referenceId}/start:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    post: { summary: Iniciar sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /sessions/{referenceId}/restart:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    post: { summary: Reiniciar sesión, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /sessions/{referenceId}/logout:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    post: { summary: Cerrar sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/auth/qr:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    get: { summary: Código QR de vinculación, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/chats/overview:
+    parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
+    get: { summary: Resumen de chats, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/chats/{chatId}/messages:
+    parameters:
+      - { name: referenceId, in: path, required: true, schema: { type: string } }
+      - { name: chatId, in: path, required: true, schema: { type: string } }
+    get: { summary: Mensajes del chat, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/chats/{chatId}/messages/{messageId}:
+    parameters:
+      - { name: referenceId, in: path, required: true, schema: { type: string } }
+      - { name: chatId, in: path, required: true, schema: { type: string } }
+      - { name: messageId, in: path, required: true, schema: { type: string } }
+    get: { summary: Un mensaje, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/chats/{chatId}/messages/read:
+    parameters:
+      - { name: referenceId, in: path, required: true, schema: { type: string } }
+      - { name: chatId, in: path, required: true, schema: { type: string } }
+    post: { summary: Marcar mensajes como leídos, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/lids/{id}:
+    parameters:
+      - { name: referenceId, in: path, required: true, schema: { type: string } }
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get: { summary: LID por id, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /{referenceId}/lids/pn/{phone}:
+    parameters:
+      - { name: referenceId, in: path, required: true, schema: { type: string } }
+      - { name: phone, in: path, required: true, schema: { type: string } }
+    get: { summary: LID por número de teléfono, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /sendText:
+    post:
+      summary: Enviar texto (gateway)
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session, chatId, text]
+              properties:
+                session: { type: string, description: referenceId }
+                chatId: { type: string }
+                text: { type: string }
+      responses: { '200': { description: OK } }
+  /sendImage: { post: { summary: Enviar imagen (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendVideo: { post: { summary: Enviar video (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendVoice: { post: { summary: Enviar audio (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendFile: { post: { summary: Enviar archivo (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /startTyping: { post: { summary: Mostrar "escribiendo…" (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /stopTyping: { post: { summary: Ocultar "escribiendo…" (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
