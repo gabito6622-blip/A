@@ -1,0 +1,25 @@
+{
+  "name": "vendeplay-sdk",
+  "version": "0.1.0",
+  "description": "SDK TypeScript (reverse-engineered) para la API de VendePlay CRM. Rutas, verbos y auth derivados por análisis estático del front-end; formas de payload no verificadas.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "openapi.yaml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "example": "node --experimental-strip-types examples/demo.ts"
+  },
+  "keywords": ["vendeplay", "crm", "sdk", "reverse-engineered"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
