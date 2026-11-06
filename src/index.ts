@@ -3,16 +3,18 @@
 
 import { Http, type HttpOptions, type TokenStore } from "./http.js";
 import { crmResources } from "./resources/crm.js";
-import { whatsappResources } from "./resources/whatsapp.js";
+import { WhatsAppClient, type WhatsAppPlugin } from "./resources/whatsapp.js";
 import type { Envelope, LoginCredentials, LoginData } from "./types.js";
 
 export * from "./http.js";
 export * from "./types.js";
+export { WhatsAppClient, type WhatsAppPlugin } from "./resources/whatsapp.js";
 
 export interface VendePlayOptions extends HttpOptions {}
 
 export class VendePlayClient {
   readonly http: Http;
+  private readonly opts: VendePlayOptions;
 
   /** Recursos del CRM core (clientes, proveedores, suscripciones, métricas…). */
   readonly accounts: ReturnType<typeof crmResources>["accounts"];
@@ -27,16 +29,14 @@ export class VendePlayClient {
   readonly payments: ReturnType<typeof crmResources>["payments"];
   readonly collaborators: ReturnType<typeof crmResources>["collaborators"];
   readonly templates: ReturnType<typeof crmResources>["templates"];
-  readonly contacts: ReturnType<typeof crmResources>["contacts"];
   readonly messageLogs: ReturnType<typeof crmResources>["messageLogs"];
   readonly metrics: ReturnType<typeof crmResources>["metrics"];
   readonly supplierSubscriptions: ReturnType<typeof crmResources>["supplierSubscriptions"];
   readonly supplierPayments: ReturnType<typeof crmResources>["supplierPayments"];
 
-  /** Gateway de WhatsApp (sesiones, chats, envío de mensajes). */
-  readonly whatsapp: ReturnType<typeof whatsappResources>;
 
   constructor(opts: VendePlayOptions = {}) {
+    this.opts = opts;
     this.http = new Http(opts);
     const crm = crmResources(this.http);
     this.accounts = crm.accounts;
@@ -51,12 +51,31 @@ export class VendePlayClient {
     this.payments = crm.payments;
     this.collaborators = crm.collaborators;
     this.templates = crm.templates;
-    this.contacts = crm.contacts;
     this.messageLogs = crm.messageLogs;
     this.metrics = crm.metrics;
     this.supplierSubscriptions = crm.supplierSubscriptions;
     this.supplierPayments = crm.supplierPayments;
-    this.whatsapp = whatsappResources(this.http);
+  }
+
+  /**
+   * Resuelve el plugin `self.ws` activo de la cuenta y devuelve un cliente del
+   * gateway de WhatsApp (base URL + x-api-key propios). Observado:
+   *   getPlugins({ name: "self.ws", status: "ACTIVE" }) -> data[0] = { url, referenceId, token }
+   */
+  async connectWhatsApp(): Promise<WhatsAppClient> {
+    const res = await this.accounts.plugins<Envelope<WhatsAppPlugin[]>>({
+      name: "self.ws",
+      status: "ACTIVE",
+    });
+    const list = (res?.data ?? res) as WhatsAppPlugin[] | undefined;
+    const plugin = Array.isArray(list) ? list[0] : undefined;
+    if (!plugin?.url || !plugin?.referenceId) {
+      throw new Error("No se encontró un plugin self.ws ACTIVE para la cuenta.");
+    }
+    return new WhatsAppClient(plugin, {
+      fetchImpl: this.opts.fetchImpl,
+      onUnauthorized: this.opts.onUnauthorized,
+    });
   }
 
   get tokens(): TokenStore {

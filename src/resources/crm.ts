@@ -8,7 +8,8 @@ export function crmResources(http: Http) {
       plans: <T = unknown>() => http.get<T>("/accounts/plans"),
       subscription: <T = unknown>() => http.get<T>("/accounts/subscription"),
       billingHistory: <T = unknown>(q?: Query) => http.get<T>("/accounts/billing-history", q),
-      plugins: <T = unknown>() => http.get<T>("/account-plugins"),
+      /** GET /account-plugins?name=&status= — p. ej. { name: "self.ws", status: "ACTIVE" }. */
+      plugins: <T = unknown>(q?: Query) => http.get<T>("/account-plugins", q),
     },
 
     billingRules: {
@@ -121,10 +122,8 @@ export function crmResources(http: Http) {
       send: <T = unknown>(id: Id, b: Body) => http.post<T>(`/templates/${id}/send`, b),
     },
 
-    contacts: {
-      all: <T = unknown>(q?: Query) => http.get<T>("/contacts/all", q),
-      profilePicture: <T = unknown>(q?: Query) => http.get<T>("/contacts/profile-picture", q),
-    },
+    // NOTA: /contacts/* NO van por la API principal: viven en el gateway de
+    // WhatsApp (ver WhatsAppClient.contacts).
 
     messageLogs: {
       list: <T = unknown>(q?: Query) => http.get<T>("/message-logs", q),

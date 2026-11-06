@@ -10,7 +10,17 @@ info:
     marcan como `unknown` / inferidos. No sustituye a la documentación oficial del backend.
 servers:
   - url: https://api.vendeplay.com/streaming-head-seller/v1
-    description: API principal del CRM (baseURL del cliente axios)
+    description: >
+      API principal del CRM (baseURL del cliente axios), auth Bearer. Cubre auth,
+      accounts, clients, suppliers, streaming, subscriptions, combos, payments,
+      collaborators, templates, message-logs y metrics.
+  - url: https://gateway-del-plugin-self-ws.example
+    description: >
+      Gateway de mensajería (WhatsApp). La base URL NO es fija (este valor es un
+      placeholder): se obtiene del plugin `self.ws` de la cuenta
+      (`GET /account-plugins?name=self.ws&status=ACTIVE` → `data[0].url`). Auth por
+      header `x-api-key: data[0].token`. Cubre /sessions/*, /{referenceId}/*,
+      /contacts/* y /send*.
 components:
   securitySchemes:
     bearerAuth:
@@ -21,6 +31,14 @@ components:
         `Authorization: Bearer <accessToken>`. El access token se obtiene de
         `POST /auth/login` (`data.data.accessToken`) y el front lo guarda en
         `localStorage["auth_token"]`. Se renueva con `POST /auth/refresh`.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: >
+        Auth del gateway de WhatsApp: header `x-api-key` con el `token` del plugin
+        `self.ws`. NO usa Bearer. Las operaciones del gateway pasan además
+        `session=<referenceId>` en body o query.
   schemas:
     Unknown:
       description: Forma no observada estáticamente.
@@ -213,9 +231,7 @@ paths:
     parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
     post: { summary: Enviar plantilla, responses: { '200': { description: OK } } }
 
-  # ---- Contacts / message logs ----
-  /contacts/all: { get: { summary: Todos los contactos, responses: { '200': { description: OK } } } }
-  /contacts/profile-picture: { get: { summary: Foto de perfil de contacto, responses: { '200': { description: OK } } } }
+  # ---- Message logs (API principal, Bearer) ----
   /message-logs: { get: { summary: Logs de mensajes, responses: { '200': { description: OK } } } }
   /message-logs/send-manual: { post: { summary: Enviar mensaje manual, responses: { '200': { description: OK } } } }
 
@@ -228,55 +244,85 @@ paths:
   /metrics/slot-occupancy: { get: { summary: Ocupación de slots, responses: { '200': { description: OK } } } }
   /metrics/subscription-status: { get: { summary: Estado de suscripciones, responses: { '200': { description: OK } } } }
 
-  # ---- WhatsApp gateway (keyed by referenceId) ----
+  # ==== GATEWAY DE WHATSAPP (server {gatewayUrl}, auth x-api-key) ====
+  # Base URL dinámica (plugin self.ws). Todas estas operaciones usan apiKeyAuth y
+  # pasan session=<referenceId> en body/query. NO usan la API principal ni Bearer.
+  /contacts/all:
+    get:
+      summary: Todos los contactos (gateway)
+      security: [{ apiKeyAuth: [] }]
+      parameters: [{ name: session, in: query, required: true, schema: { type: string }, description: referenceId }]
+      responses: { '200': { description: OK } }
+  /contacts/profile-picture:
+    get:
+      summary: Foto de perfil de contacto (gateway)
+      security: [{ apiKeyAuth: [] }]
+      parameters:
+        - { name: session, in: query, required: true, schema: { type: string }, description: referenceId }
+        - { name: contactId, in: query, required: true, schema: { type: string } }
+      responses: { '200': { description: OK } }
   /sessions/{referenceId}:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    get: { summary: Estado de la sesión de WhatsApp, responses: { '200': { description: OK } } }
+    get: { summary: Estado de la sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /sessions/{referenceId}/start:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    post: { summary: Iniciar sesión de WhatsApp, responses: { '200': { description: OK } } }
+    post: { summary: Iniciar sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /sessions/{referenceId}/restart:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    post: { summary: Reiniciar sesión, responses: { '200': { description: OK } } }
+    post: { summary: Reiniciar sesión, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /sessions/{referenceId}/logout:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    post: { summary: Cerrar sesión de WhatsApp, responses: { '200': { description: OK } } }
+    post: { summary: Cerrar sesión de WhatsApp, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/auth/qr:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    get: { summary: Código QR de vinculación, responses: { '200': { description: OK } } }
+    get: { summary: Código QR de vinculación, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/chats/overview:
     parameters: [{ name: referenceId, in: path, required: true, schema: { type: string } }]
-    get: { summary: Resumen de chats, responses: { '200': { description: OK } } }
+    get: { summary: Resumen de chats, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/chats/{chatId}/messages:
     parameters:
       - { name: referenceId, in: path, required: true, schema: { type: string } }
       - { name: chatId, in: path, required: true, schema: { type: string } }
-    get: { summary: Mensajes del chat, responses: { '200': { description: OK } } }
+    get: { summary: Mensajes del chat, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/chats/{chatId}/messages/{messageId}:
     parameters:
       - { name: referenceId, in: path, required: true, schema: { type: string } }
       - { name: chatId, in: path, required: true, schema: { type: string } }
       - { name: messageId, in: path, required: true, schema: { type: string } }
-    get: { summary: Un mensaje, responses: { '200': { description: OK } } }
+    get: { summary: Un mensaje, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/chats/{chatId}/messages/read:
     parameters:
       - { name: referenceId, in: path, required: true, schema: { type: string } }
       - { name: chatId, in: path, required: true, schema: { type: string } }
-    post: { summary: Marcar mensajes como leídos, responses: { '200': { description: OK } } }
+    post: { summary: Marcar mensajes como leídos, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/lids/{id}:
     parameters:
       - { name: referenceId, in: path, required: true, schema: { type: string } }
       - { name: id, in: path, required: true, schema: { type: string } }
-    get: { summary: LID por id, responses: { '200': { description: OK } } }
+    get: { summary: LID por id, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
   /{referenceId}/lids/pn/{phone}:
     parameters:
       - { name: referenceId, in: path, required: true, schema: { type: string } }
       - { name: phone, in: path, required: true, schema: { type: string } }
-    get: { summary: LID por número de teléfono, responses: { '200': { description: OK } } }
-  /sendText: { post: { summary: Enviar texto, responses: { '200': { description: OK } } } }
-  /sendImage: { post: { summary: Enviar imagen, responses: { '200': { description: OK } } } }
-  /sendVideo: { post: { summary: Enviar video, responses: { '200': { description: OK } } } }
-  /sendVoice: { post: { summary: Enviar audio, responses: { '200': { description: OK } } } }
-  /sendFile: { post: { summary: Enviar archivo, responses: { '200': { description: OK } } } }
-  /startTyping: { post: { summary: Mostrar "escribiendo…", responses: { '200': { description: OK } } } }
-  /stopTyping: { post: { summary: Ocultar "escribiendo…", responses: { '200': { description: OK } } } }
+    get: { summary: LID por número de teléfono, security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } }
+  /sendText:
+    post:
+      summary: Enviar texto (gateway)
+      security: [{ apiKeyAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session, chatId, text]
+              properties:
+                session: { type: string, description: referenceId }
+                chatId: { type: string }
+                text: { type: string }
+      responses: { '200': { description: OK } }
+  /sendImage: { post: { summary: Enviar imagen (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendVideo: { post: { summary: Enviar video (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendVoice: { post: { summary: Enviar audio (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /sendFile: { post: { summary: Enviar archivo (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /startTyping: { post: { summary: Mostrar "escribiendo…" (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }
+  /stopTyping: { post: { summary: Ocultar "escribiendo…" (gateway), security: [{ apiKeyAuth: [] }], responses: { '200': { description: OK } } } }

@@ -26,6 +26,15 @@ async function main() {
   const clients = await client.clients.list({ page: 1, limit: 20 });
   console.log("clients:", clients);
 
+  // Gateway de WhatsApp (resuelve el plugin self.ws y usa x-api-key)
+  try {
+    const wa = await client.connectWhatsApp();
+    console.log("whatsapp session:", await wa.sessions.status());
+    // await wa.sendText("<chatId>", "Hola 👋");
+  } catch (e) {
+    console.log("whatsapp no disponible:", (e as Error).message);
+  }
+
   await client.logout();
   console.log("Listo.");
 }
