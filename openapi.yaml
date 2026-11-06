@@ -46,10 +46,13 @@ components:
       additionalProperties: true
     LoginRequest:
       type: object
-      description: Credenciales de acceso (confirmado por decompilación del front).
-      required: [email, password]
+      description: >
+        Credenciales de acceso (confirmado por DOM en vivo + bundle). `accountCode`
+        se envía con prefijo `ACC-` (el usuario tipea solo el número).
+      required: [accountCode, username, password]
       properties:
-        email: { type: string, format: email }
+        accountCode: { type: string, example: "ACC-12345" }
+        username: { type: string }
         password: { type: string }
       additionalProperties: true
     LoginResponse:

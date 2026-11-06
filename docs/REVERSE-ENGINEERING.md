@@ -3,9 +3,11 @@
 - **Objetivo:** `https://crm.vendeplay.com/login` (CRM propio/autorizado).
 - **Método:** análisis **estático** del front-end público (SPA React/Vite) con **REA**
   (`analyze_javascript_application`) + extracción de strings del bundle.
-- **No ejecutado:** no hubo captura runtime autenticada — la red del sandbox hacia
-  `api.vendeplay.com` quedó bloqueada por política del entorno. Todo lo de abajo es
-  observación estática de código (o decompilación de handlers), no ejecución.
+- **Render en vivo (no autenticado):** la página de login sí se renderizó con Chromium
+  (host `crm.vendeplay.com` permitido) → ver [`assets/login.png`](assets/login.png) y los
+  campos del formulario confirmados desde el DOM. La **API** (`api.vendeplay.com`) quedó
+  bloqueada por política de red, así que no hubo captura runtime autenticada. El resto es
+  observación estática / decompilación de handlers, no ejecución.
 
 ## Stack / build
 - SPA **React + Vite**: un único bundle `index-Dh8Ent8G.js` (~3.1 MB) + `index-DnnQ7EOv.css`.
@@ -20,9 +22,14 @@
 ### 1) API principal del CRM — auth Bearer
 - Base: `https://api.vendeplay.com/streaming-head-seller/v1` (axios `at = create({baseURL: eTe})`).
 - Auth: `Authorization: Bearer <accessToken>`.
+- **Formulario de login (DOM en vivo + bundle):** campos `accountCode`, `username`, `password`.
+  El submit envía `t = { accountCode: "ACC-"+numero, username, password }` (el `accountCode`
+  se prefija con `ACC-`; el usuario tipea solo el número, p. ej. `12345`). La respuesta
+  `data.data.user` incluye `{ accountCode, email, … }`. (Una conclusión previa de
+  `{email,password}`, derivada solo de frecuencia de strings, quedó descartada por el DOM.)
 - Contrato de login (decompilado):
   ```js
-  login(t){ const i = await at.post("/auth/login", t);           // t = { email, password }
+  login(t){ const i = await at.post("/auth/login", t);           // t = { accountCode, username, password }
             localStorage.setItem("auth_token", i.data.data.accessToken);
             if (i.data.data.user) localStorage.setItem("user_data", JSON.stringify(i.data.data.user));
             return i.data }

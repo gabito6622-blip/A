@@ -8,7 +8,7 @@ front-end público (`https://crm.vendeplay.com`, SPA React/Vite) con la herramie
 > autenticación** fueron observados en el código del cliente. Los **cuerpos de
 > request/response** NO se observaron en ejecución (la red del sandbox hacia la API
 > estaba bloqueada), salvo los confirmados por decompilación: el **login**
-> (`{email,password}` → `{data:{accessToken,user}}`) y **sendText**
+> (`{accountCode,username,password}` → `{data:{accessToken,user}}`) y **sendText**
 > (`{session,chatId,text}`). El resto es genérico (`unknown`). Material de uso
 > propio/autorizado; validá contra tu backend antes de confiar en cada endpoint.
 
@@ -39,7 +39,7 @@ El gateway se descubre con `GET /account-plugins?name=self.ws&status=ACTIVE` →
 import { VendePlayClient } from "vendeplay-sdk";
 
 const client = new VendePlayClient();
-await client.login({ email: "...", password: "..." }); // confirmado: { email, password }
+await client.login({ accountCode: "12345", username: "...", password: "..." }); // accountCode se prefija ACC-
 
 const dashboard = await client.metrics.dashboard();
 const clients = await client.clients.list({ page: 1 });
@@ -66,7 +66,7 @@ const list = await client.clients.list<{ data: Client[] }>();
 ```python
 from vendeplay import VendePlayClient
 c = VendePlayClient()
-c.login("usuario@ejemplo.com", "secreto")
+c.login("12345", "usuario", "secreto")
 print(c.metrics_dashboard())
 wa = c.connect_whatsapp()
 wa.send_text("<chatId>", "Hola")
@@ -86,7 +86,7 @@ python3 -c "import clients.python.vendeplay"   # (o importá el módulo directam
 - **Stack:** React + Vite, servido por Caddy (HTTP/2/3). Build parece test/staging
   (claves Stripe `pk_test`, RevenueCat `rcb_sb`); clave pública de MercadoPago
   `APP_USR-…` embebida (pública por diseño).
-- **Auth principal:** `POST /auth/login` `{email,password}` → `{data:{accessToken,user}}`;
+- **Auth principal:** `POST /auth/login` `{accountCode:"ACC-…",username,password}` → `{data:{accessToken,user}}`;
   `accessToken`→`localStorage["auth_token"]`, `user`→`localStorage["user_data"]`.
   `logout` borra ambas; `checkAuth`→`POST /auth/me`. Sin refreshToken en el login
   (refresh por `/auth/refresh`, probablemente cookie httpOnly).

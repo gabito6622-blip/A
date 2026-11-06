@@ -179,8 +179,14 @@ class VendePlayClient:
         self._transport = transport
 
     # ---- auth ----
-    def login(self, email: str, password: str) -> dict:
-        res = self.http.post("/auth/login", {"email": email, "password": password}, auth=False)
+    def login(self, account_code: str, username: str, password: str) -> dict:
+        # accountCode se envía con prefijo ACC- (el usuario tipea solo el número).
+        code = account_code if account_code.upper().startswith("ACC-") else f"ACC-{account_code}"
+        res = self.http.post(
+            "/auth/login",
+            {"accountCode": code, "username": username, "password": password},
+            auth=False,
+        )
         data = res.get("data", res) if isinstance(res, dict) else {}
         token = data.get("accessToken")
         if not token:

@@ -90,7 +90,14 @@ export class VendePlayClient {
    * devuelve `data` (accessToken + user) para que persistas el usuario si querés.
    */
   async login<User = unknown>(credentials: LoginCredentials): Promise<LoginData<User>> {
-    const res = await this.http.post<Envelope<LoginData<User>>>("/auth/login", credentials, { auth: false });
+    const { accountCode, username, password, ...rest } = credentials;
+    const body = {
+      accountCode: /^ACC-/i.test(accountCode) ? accountCode : `ACC-${accountCode}`,
+      username,
+      password,
+      ...rest,
+    };
+    const res = await this.http.post<Envelope<LoginData<User>>>("/auth/login", body, { auth: false });
     const data = (res?.data ?? res) as LoginData<User>;
     if (!data?.accessToken) {
       throw new Error("Respuesta de login sin accessToken (forma inesperada).");

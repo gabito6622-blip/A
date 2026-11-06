@@ -74,14 +74,17 @@ test("error no-OK lanza HttpError con status y body", async () => {
   );
 });
 
-test("login guarda accessToken y devuelve data", async () => {
+test("login manda {accountCode(ACC-),username,password}, guarda token", async () => {
   const tokens = new MemoryTokenStore();
-  const f = fakeFetch([{ body: { data: { accessToken: "AAA", user: { id: 1 } } } }]);
+  const f = fakeFetch([{ body: { data: { accessToken: "AAA", user: { accountCode: "ACC-12345" } } } }]);
   const c = new VendePlayClient({ tokens, fetchImpl: f });
-  const data = await c.login({ email: "a@b.com", password: "x" });
+  const data = await c.login({ accountCode: "12345", username: "ana", password: "x" });
   assert.equal(data.accessToken, "AAA");
   assert.equal(await tokens.getAccess(), "AAA");
   assert.equal(f.calls[0].init.headers.Authorization, undefined); // login sin Bearer
+  assert.deepEqual(JSON.parse(f.calls[0].init.body), {
+    accountCode: "ACC-12345", username: "ana", password: "x",
+  });
 });
 
 test("WhatsAppClient usa x-api-key y manda session en sendText", async () => {

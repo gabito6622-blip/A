@@ -15,9 +15,16 @@ export interface Envelope<T = unknown> {
   [k: string]: unknown;
 }
 
-/** Credenciales de login. Campos confirmados: email + password. */
+/**
+ * Credenciales de login. Confirmado por DOM en vivo + bundle: el formulario envía
+ * `{ accountCode, username, password }` a `POST /auth/login`, donde `accountCode`
+ * va prefijado con `ACC-` (el usuario tipea solo el número, p. ej. "12345" → "ACC-12345").
+ * El SDK agrega el prefijo `ACC-` automáticamente si no está presente.
+ */
 export interface LoginCredentials {
-  email: string;
+  /** Número de cuenta (con o sin prefijo `ACC-`). */
+  accountCode: string;
+  username: string;
   password: string;
   [k: string]: unknown;
 }

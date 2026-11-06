@@ -1,7 +1,9 @@
 // Ejemplo de uso del SDK. Ejecutar (Node 22+):
 //   VP_EMAIL=... VP_PASSWORD=... node --experimental-strip-types examples/demo.ts
 //
-// Campos de login confirmados por decompilación del front: { email, password }.
+// Campos de login confirmados por DOM en vivo + bundle:
+// { accountCode (se prefija ACC-), username, password }.
+//   VP_ACCOUNT=12345 VP_USER=... VP_PASSWORD=... node --experimental-strip-types examples/demo.ts
 
 import { VendePlayClient } from "../src/index.js";
 
@@ -9,7 +11,8 @@ async function main() {
   const client = new VendePlayClient();
 
   const credentials = {
-    email: process.env.VP_EMAIL ?? "",
+    accountCode: process.env.VP_ACCOUNT ?? "",
+    username: process.env.VP_USER ?? "",
     password: process.env.VP_PASSWORD ?? "",
   };
 
