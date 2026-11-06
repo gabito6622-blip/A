@@ -9,9 +9,22 @@ export type Id = string;
 export type Query = Record<string, unknown>;
 export type Body = Record<string, unknown>;
 
-/** El backend envuelve respuestas como `{ data: ... }` (observado). */
+/** El backend envuelve respuestas OK como `{ data: ... }` (observado). */
 export interface Envelope<T = unknown> {
   data?: T;
+  [k: string]: unknown;
+}
+
+/**
+ * Envelope de ERROR del API, confirmado en runtime (p. ej. 400 de /auth/login):
+ *   { code, message: string[], status, meta: { traceId }, data }
+ */
+export interface ApiErrorBody {
+  code?: string;
+  message?: string | string[];
+  status?: number;
+  meta?: { traceId?: string; [k: string]: unknown };
+  data?: unknown;
   [k: string]: unknown;
 }
 
