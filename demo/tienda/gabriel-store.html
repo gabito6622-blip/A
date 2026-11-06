@@ -1,0 +1,446 @@
+<title>Gabriel Store</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: barra superior con 3 vistas (Tienda · Mi cuenta · Panel) → contenido de una columna en celular, grilla en escritorio */
+:root{
+  --bg:#f4f2f8; --surface:#ffffff; --raised:#f9f8fc; --ink:#1b1626; --muted:#665f75; --line:#e1dcea;
+  --accent:#e0791f; --accent-ink:#ffffff; --accent-soft:#fbe8d6;
+  --ok:#17824f; --ok-soft:#dcf2e6; --warn:#a85d00; --warn-soft:#fdeccc; --bad:#c0332b; --bad-soft:#fbe0de; --wa:#1f9d55;
+  --display:"Unbounded",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#13101a; --surface:#1c1826; --raised:#241f31; --ink:#efebf6; --muted:#a59db5; --line:#332c43;
+  --accent:#f5953f; --accent-ink:#1f1206; --accent-soft:#3b2614;
+  --ok:#4fd08f; --ok-soft:#173326; --warn:#f3b552; --warn-soft:#3a2a10; --bad:#f07a72; --bad-soft:#3d1a18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13101a; --surface:#1c1826; --raised:#241f31; --ink:#efebf6; --muted:#a59db5; --line:#332c43;
+  --accent:#f5953f; --accent-ink:#1f1206; --accent-soft:#3b2614;
+  --ok:#4fd08f; --ok-soft:#173326; --warn:#f3b552; --warn-soft:#3a2a10; --bad:#f07a72; --bad-soft:#3d1a18; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1100px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+/* barra */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:10px;padding-block:10px;flex-wrap:wrap}
+.brand{font:700 17px/1 var(--display);letter-spacing:-.01em;display:flex;align-items:center;gap:8px;margin-right:auto}
+.brand i{width:26px;height:26px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 13px var(--display);font-style:normal}
+.brand small{font:500 11px var(--body);color:var(--muted);display:block;margin-top:3px;letter-spacing:0}
+nav{display:flex;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:999px;padding:3px}
+nav a{padding:6px 12px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px}
+nav a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.cartbtn{border:0;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:7px 12px;font-weight:700;font-size:14px}
+main{padding-block:20px 60px}
+.view{display:grid;gap:18px}
+.note{font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:8px;padding:6px 10px;justify-self:start}
+.head h1{font:700 clamp(22px,4vw,32px)/1.15 var(--display);margin:0 0 6px;letter-spacing:-.02em}
+.head p{margin:0;color:var(--muted);max-width:62ch}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-weight:600;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* productos */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;grid-template-rows:auto 1fr auto}
+.ptop{display:flex;gap:12px;align-items:center}
+.logo{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#fff;font:700 16px var(--display);flex:none}
+.ptop h3{margin:0;font:600 15px/1.25 var(--body)}
+.ptop small{color:var(--muted);font-size:13px}
+.specs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0}
+.specs div{background:var(--raised);border-radius:8px;padding:6px 8px}
+.specs dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.specs dd{margin:0;font-weight:600;font-size:14px}
+.buy{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.price{font:700 20px/1 var(--display);font-variant-numeric:tabular-nums}
+.price s{font:500 12px var(--body);color:var(--muted);display:block;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--raised);border-radius:9px;padding:8px 13px;font-weight:600;font-size:14px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:#fff;text-decoration:none;text-align:center}
+.btn.ghost{background:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-bad{background:var(--bad-soft);color:var(--bad)} .p-mute{background:var(--raised);color:var(--muted)}
+/* paneles */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.panel h2{margin:0;font:600 16px var(--body);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.panel h2 .pill{font-weight:600}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi b{display:block;font:700 22px/1.2 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
+.kpi.alert{border-color:var(--warn);background:var(--warn-soft)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px}
+.tabs button{border:0;background:none;padding:6px 10px;border-radius:8px;font-weight:600;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--ink)}
+.tabs .count{background:var(--bad);color:#fff;border-radius:999px;padding:0 6px;font-size:11px;margin-left:4px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.mono{font-family:var(--mono);font-size:13px}
+.bars{display:grid;gap:8px}
+.barrow{display:grid;grid-template-columns:110px 1fr 44px;gap:8px;align-items:center;font-size:13px}
+.track{height:10px;background:var(--raised);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.barrow b{text-align:right;font-variant-numeric:tabular-nums}
+.order{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:8px;background:var(--raised)}
+.order header{position:static;background:none;border:0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.order ul{margin:0;padding-left:18px;font-size:14px}
+.order .meta{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msgbox{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:0;font:13px/1.5 var(--mono);max-height:240px;overflow:auto}
+form.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted);font-weight:500}
+input,select{border:1px solid var(--line);background:var(--raised);border-radius:9px;padding:9px 10px;min-width:0;width:100%}
+.empty{color:var(--muted);font-size:14px;margin:0}
+/* cliente */
+.acc{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px;background:var(--surface)}
+.cred{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.cred div{background:var(--raised);border-radius:8px;padding:6px 9px;min-width:0}
+.cred dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cred dd{margin:0;font:500 13px var(--mono);overflow-wrap:anywhere}
+.code{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding-block:8px}
+.code:last-child{border:0}
+.code b{font:500 20px var(--mono);letter-spacing:.2em;color:var(--accent)}
+.code small{display:block;color:var(--muted)}
+/* carrito */
+.scrim{position:fixed;inset:0;background:rgba(10,6,16,.5);z-index:20}
+aside{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);z-index:21;overflow:auto;display:grid;gap:12px;align-content:start;border-left:1px solid var(--line);
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) 16px}
+aside h2{margin:0;font:700 18px var(--display);display:flex;justify-content:space-between;align-items:center}
+.x{border:0;background:none;font-size:24px;line-height:1;color:var(--muted)}
+.line{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:8px;font-size:14px}
+.qty{display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+.qty button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--raised)}
+.total{display:flex;justify-content:space-between;font:700 17px var(--display);font-variant-numeric:tabular-nums}
+.qr{display:flex;gap:12px;align-items:center;background:var(--raised);border-radius:12px;padding:10px}
+.qr canvas{width:96px;height:96px;border-radius:6px;background:#fff;flex:none}
+.qr p{margin:0;font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
+footer{color:var(--muted);font-size:12px;padding-block:0 30px}
+@media (prefers-reduced-motion:no-preference){aside{animation:in .2s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<header><div class="wrap bar">
+  <div class="brand"><i>G</i><div>Gabriel Store<small>gabostore.lat · Bolivia</small></div></div>
+  <nav aria-label="Vistas">
+    <a href="#tienda" data-v="tienda">Tienda</a>
+    <a href="#mi-cuenta" data-v="mi-cuenta">Mi cuenta</a>
+    <a href="#panel" data-v="panel">Panel</a>
+  </nav>
+  <button class="cartbtn" id="openCart" type="button">Carrito · <span id="count">0</span></button>
+</div></header>
+
+<main class="wrap">
+  <!-- TIENDA -->
+  <section class="view" id="v-tienda">
+    <span class="note">Demo: productos, precios, cuentas y clientes de ejemplo</span>
+    <div class="head">
+      <h1>Streaming en bolivianos, entregado por WhatsApp</h1>
+      <p>Elegí tu plataforma, pagá con QR y subí tu comprobante. Apenas verificamos el pago te llegan los accesos por WhatsApp.</p>
+    </div>
+    <div class="chips" id="cats"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- CLIENTE -->
+  <section class="view" id="v-mi-cuenta" hidden>
+    <div class="head">
+      <h1>Mi cuenta</h1>
+      <p>Ingresá tu número de WhatsApp para ver tus servicios, cuándo vencen y los códigos de acceso que llegaron a tu correo.</p>
+    </div>
+    <form class="grid2 panel" id="loginForm">
+      <label for="loginTel">Tu WhatsApp<input id="loginTel" inputmode="tel" value="+591 70011223"></label>
+      <button class="btn pri" type="submit">Ver mis servicios</button>
+    </form>
+    <div id="clientOut" class="view"></div>
+  </section>
+
+  <!-- PANEL -->
+  <section class="view" id="v-panel" hidden>
+    <div class="head row" style="justify-content:space-between">
+      <div><h1>Panel del vendedor</h1><p>Pedidos, inventario de perfiles y vencimientos en un solo lugar.</p></div>
+      <button class="btn ghost" id="reset" type="button">Reiniciar demo</button>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-t="pedidos" aria-selected="true">Pedidos</button>
+      <button role="tab" data-t="inventario" aria-selected="false">Inventario</button>
+      <button role="tab" data-t="vencimientos" aria-selected="false">Vencimientos</button>
+      <button role="tab" data-t="resumen" aria-selected="false">Resumen</button>
+    </div>
+    <div id="tabOut"></div>
+  </section>
+</main>
+<footer class="wrap">Demo de Gabriel Store. Los cambios se guardan solo en este navegador.</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside id="cart" hidden aria-label="Carrito">
+  <h2>Tu pedido <button class="x" id="closeCart" type="button" aria-label="Cerrar">×</button></h2>
+  <div id="lines"></div>
+  <div class="total"><span>Total</span><span id="total">Bs 0</span></div>
+  <form id="checkout" class="view" style="gap:10px">
+    <label for="cName">Nombre<input id="cName" required value="María Quispe"></label>
+    <label for="cTel">Tu WhatsApp<input id="cTel" required inputmode="tel" value="+591 70011223"></label>
+    <label for="cPay">Cómo pagás<select id="cPay"><option>QR bancario</option><option>Transferencia</option><option>Tigo Money</option></select></label>
+    <div class="qr"><canvas id="qr" width="96" height="96" aria-label="QR de ejemplo"></canvas><p>Escaneá el QR desde tu app del banco y pagá el total. <b>Es un QR de ejemplo</b>: en tu tienda va el QR real de tu cuenta.</p></div>
+    <label for="cProof">Comprobante (foto o captura)<input id="cProof" type="file" accept="image/*,application/pdf"></label>
+    <button class="btn pri" type="submit">Enviar pedido</button>
+  </form>
+  <div id="done" class="view" hidden></div>
+</aside>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+// ============ CONFIGURACIÓN DE TU TIENDA ============
+const TIENDA = { nombre:"Gabriel Store", whatsapp:"59170000000", moneda:"Bs" };
+const PRODUCTOS = [
+  {id:"nf1", plat:"Netflix",     color:"#b8141b", tipo:"Perfil",         dias:30, precio:35,  antes:40,  disp:"1 dispositivo", garantia:"30 días", cat:"Video"},
+  {id:"nf4", plat:"Netflix",     color:"#b8141b", tipo:"Cuenta completa",dias:30, precio:120, antes:null,disp:"4 dispositivos",garantia:"30 días", cat:"Video"},
+  {id:"dp1", plat:"Disney+",     color:"#173a8a", tipo:"Perfil",         dias:30, precio:25,  antes:null,disp:"1 dispositivo", garantia:"30 días", cat:"Video"},
+  {id:"mx1", plat:"Max",         color:"#4a2bd0", tipo:"Perfil",         dias:30, precio:25,  antes:null,disp:"1 dispositivo", garantia:"30 días", cat:"Video"},
+  {id:"pv1", plat:"Prime Video", color:"#0d73a8", tipo:"Perfil",         dias:30, precio:20,  antes:null,disp:"1 dispositivo", garantia:"30 días", cat:"Video"},
+  {id:"sp1", plat:"Spotify",     color:"#178a49", tipo:"Cuenta individual",dias:30,precio:25, antes:null,disp:"1 dispositivo", garantia:"30 días", cat:"Música"},
+  {id:"cb1", plat:"Combo Cine",  color:"#8a4b10", tipo:"Netflix + Disney+ + Max",dias:30,precio:75,antes:85,disp:"3 perfiles",garantia:"30 días", cat:"Combos"},
+];
+// ===================================================
+
+const KEY="gabriel-store-demo-v1";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const bs=n=>`${TIENDA.moneda} ${n.toLocaleString("es-BO")}`;
+const P=id=>PRODUCTOS.find(p=>p.id===id);
+const DAY=864e5, today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
+const fdate=t=>new Date(t).toLocaleDateString("es-BO",{day:"2-digit",month:"2-digit",year:"numeric"});
+const digits=s=>String(s).replace(/\D/g,"");
+const left=t=>Math.round((t-today())/DAY);
+
+function seed(){
+  const T=today(), inv=[]; let n=100;
+  const add=(prod,email,pass,perfiles,extra={})=>perfiles.forEach((pf,i)=>inv.push({id:++n,prod,email,pass,perfil:pf,pin:String(1000+n*7%9000),estado:"Disponible",cliente:null,tel:null,vence:null,...(extra[i]||{})}));
+  add("nf1","nf.bolivia01@gabostore.lat","Gs-Nf#2291",["Perfil 1","Perfil 2","Perfil 3","Perfil 4","Perfil 5"],
+    {0:{estado:"Asignada",cliente:"María Quispe",tel:"+591 70011223",vence:T+12*DAY},1:{estado:"Asignada",cliente:"Jorge Mamani",tel:"+591 76543210",vence:T+2*DAY}});
+  add("nf1","nf.bolivia02@gabostore.lat","Gs-Nf#7720",["Perfil 1","Perfil 2","Perfil 3","Perfil 4","Perfil 5"],
+    {0:{estado:"Asignada",cliente:"Ana Rojas",tel:"+591 71234567",vence:T-1*DAY}});
+  add("dp1","dp.bolivia01@gabostore.lat","Gs-Dp#4410",["Perfil 1","Perfil 2","Perfil 3","Perfil 4"],
+    {0:{estado:"Asignada",cliente:"María Quispe",tel:"+591 70011223",vence:T+5*DAY}});
+  add("mx1","mx.bolivia01@gabostore.lat","Gs-Mx#9031",["Perfil 1","Perfil 2"],{});
+  add("pv1","pv.bolivia01@gabostore.lat","Gs-Pv#1180",["Perfil 1","Perfil 2","Perfil 3"],{});
+  add("sp1","sp.user01@gabostore.lat","Gs-Sp#5521",["Cuenta"],{});
+  return {inv, orders:[
+    {id:1043,cliente:"Luis Choque",tel:"+591 78889900",items:[{prod:"nf1",qty:1},{prod:"dp1",qty:1}],total:60,pago:"QR bancario",comprobante:"captura_pago.jpg",estado:"En verificación",fecha:Date.now()-40*60e3},
+    {id:1042,cliente:"Carla Vargas",tel:"+591 69990011",items:[{prod:"mx1",qty:1}],total:25,pago:"Tigo Money",comprobante:"comprobante.png",estado:"En verificación",fecha:Date.now()-3*36e5},
+    {id:1041,cliente:"María Quispe",tel:"+591 70011223",items:[{prod:"nf1",qty:1}],total:35,pago:"QR bancario",comprobante:"pago_maria.jpg",estado:"Entregado",fecha:T-18*DAY},
+    {id:1040,cliente:"Jorge Mamani",tel:"+591 76543210",items:[{prod:"nf1",qty:1}],total:35,pago:"Transferencia",comprobante:"tr_0921.pdf",estado:"Entregado",fecha:T-28*DAY},
+  ], nextId:1044, codes:[
+    {email:"nf.bolivia01@gabostore.lat",asunto:"Tu código de acceso temporal",codigo:"482 913",hace:"hace 6 min"},
+    {email:"dp.bolivia01@gabostore.lat",asunto:"Código para iniciar sesión",codigo:"730 115",hace:"hace 1 h"},
+  ]};
+}
+let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.inv) S=seed();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const cart=[]; let cat="Todo", tab="pedidos", lastMsg={};
+
+function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
+const stockOf=id=>S.inv.filter(a=>a.prod===id&&a.estado==="Disponible").length;
+const waLink=(tel,txt)=>`https://wa.me/${digits(tel)}?text=${encodeURIComponent(txt)}`;
+function copyBtn(id){return `<button class="btn" type="button" data-copy="${id}">Copiar</button>`}
+
+/* ---------- TIENDA ---------- */
+function renderShop(){
+  const cats=["Todo",...new Set(PRODUCTOS.map(p=>p.cat))];
+  $("#cats").innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===cat}" data-cat="${c}">${c}</button>`).join("");
+  $("#grid").innerHTML=PRODUCTOS.filter(p=>cat==="Todo"||p.cat===cat).map(p=>{
+    const st=stockOf(p.id);
+    // combos y cuentas completas se entregan a mano en esta demo
+    const manual=!S.inv.some(a=>a.prod===p.id);
+    const pill=manual?`<span class="pill p-mute">Entrega manual</span>`:st===0?`<span class="pill p-bad">Agotado</span>`:st<=2?`<span class="pill p-warn">Quedan ${st}</span>`:`<span class="pill p-ok">${st} disponibles</span>`;
+    return `<article class="card">
+      <div class="ptop"><div class="logo" style="background:${p.color}">${esc(p.plat[0])}</div><div><h3>${esc(p.plat)}</h3><small>${esc(p.tipo)}</small></div></div>
+      <dl class="specs"><div><dt>Duración</dt><dd>${p.dias} días</dd></div><div><dt>Uso</dt><dd>${esc(p.disp)}</dd></div>
+        <div><dt>Garantía</dt><dd>${esc(p.garantia)}</dd></div><div><dt>Stock</dt><dd>${pill}</dd></div></dl>
+      <div class="buy"><div class="price">${bs(p.precio)}${p.antes?`<s>antes ${bs(p.antes)}</s>`:""}</div>
+        <button class="btn pri" type="button" data-add="${p.id}" ${!manual&&st===0?"disabled":""}>Agregar</button></div>
+    </article>`}).join("");
+}
+function renderCart(){
+  const total=cart.reduce((s,l)=>s+P(l.prod).precio*l.qty,0);
+  $("#count").textContent=cart.reduce((s,l)=>s+l.qty,0);
+  $("#total").textContent=bs(total);
+  $("#lines").innerHTML=cart.length?cart.map((l,k)=>`<div class="line"><div><b>${esc(P(l.prod).plat)}</b><br><small>${esc(P(l.prod).tipo)} · ${P(l.prod).dias} días</small></div>
+    <div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`).join("")
+    :`<p class="empty">Tu carrito está vacío. Agregá una plataforma desde la tienda.</p>`;
+  $("#checkout").hidden=!cart.length;
+}
+function openCart(v){$("#cart").hidden=!v;$("#scrim").hidden=!v;if(v){$("#done").hidden=true;renderCart()}}
+function drawQR(){ // patrón decorativo con forma de QR (no es un QR real)
+  const c=$("#qr"),x=c.getContext("2d"),n=21,s=96/n;x.fillStyle="#fff";x.fillRect(0,0,96,96);x.fillStyle="#111";
+  let r=7;const rnd=()=>(r=(r*9301+49297)%233280)/233280;
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const f=(a,b)=>i>=a&&i<a+7&&j>=b&&j<b+7;
+    const fin=f(0,0)||f(0,14)||f(14,0); if(fin){const a=i<7?0:14,b=j<7?0:14,di=i-(i<7?0:14),dj=j-(j<7?0:14);
+      if(di===0||di===6||dj===0||dj===6||(di>1&&di<5&&dj>1&&dj<5))x.fillRect(j*s,i*s,s,s)} else if(rnd()>.55)x.fillRect(j*s,i*s,s,s)}
+}
+
+/* ---------- CLIENTE ---------- */
+function renderClient(tel){
+  const mine=S.inv.filter(a=>a.tel&&digits(a.tel)===digits(tel));
+  const pend=S.orders.filter(o=>digits(o.tel)===digits(tel)&&o.estado==="En verificación");
+  if(!mine.length&&!pend.length){$("#clientOut").innerHTML=`<div class="panel"><p class="empty">No encontramos servicios para ese número. Si ya pagaste, tu pedido puede estar en verificación.</p></div>`;return}
+  const codes=S.codes.filter(c=>mine.some(a=>a.email===c.email));
+  $("#clientOut").innerHTML=`
+    ${pend.map(o=>`<div class="panel"><h2>Pedido #${o.id} <span class="pill p-warn">En verificación</span></h2><p class="empty">Estamos revisando tu comprobante. Te enviamos los accesos por WhatsApp apenas se confirme.</p></div>`).join("")}
+    <div class="panel"><h2>Mis servicios <span class="pill p-mute">${mine.length}</span></h2>
+    ${mine.map(a=>{const d=left(a.vence),p=P(a.prod);
+      const pill=d<0?`<span class="pill p-bad">Vencido hace ${-d} d</span>`:d<=3?`<span class="pill p-warn">Vence en ${d} d</span>`:`<span class="pill p-ok">Activo · ${d} días</span>`;
+      return `<div class="acc"><div class="row" style="justify-content:space-between"><div class="ptop"><div class="logo" style="background:${p.color}">${esc(p.plat[0])}</div><div><h3>${esc(p.plat)}</h3><small>${esc(a.perfil)} · vence ${fdate(a.vence)}</small></div></div>${pill}</div>
+        <dl class="cred"><div><dt>Correo</dt><dd>${esc(a.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.pass)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.perfil)}</dd></div><div><dt>PIN</dt><dd>${esc(a.pin)}</dd></div></dl>
+        <div class="row"><button class="btn pri" type="button" data-renew="${a.prod}">Renovar · ${bs(p.precio)}</button></div></div>`}).join("")}
+    </div>
+    <div class="panel"><h2>Códigos de acceso <span class="pill p-ok">Sincronizado</span></h2>
+      <p class="empty">Cuando la plataforma pide un código de verificación, aparece acá. Solo ves los de tus cuentas.</p>
+      ${codes.length?codes.map(c=>`<div class="code"><div>${esc(c.asunto)}<small>${esc(c.email)} · ${esc(c.hace)}</small></div><b>${esc(c.codigo)}</b></div>`).join(""):`<p class="empty">No hay códigos nuevos.</p>`}
+    </div>`;
+}
+
+/* ---------- PANEL ---------- */
+function renderPanel(){
+  const T=today(), pend=S.orders.filter(o=>o.estado==="En verificación");
+  const mes=S.orders.filter(o=>o.estado==="Entregado"&&o.fecha>T-30*DAY);
+  const libres=S.inv.filter(a=>a.estado==="Disponible").length;
+  const venc=S.inv.filter(a=>a.vence!=null&&left(a.vence)<=3);
+  $("#kpis").innerHTML=`
+    <div class="kpi"><span>Ingresos 30 días</span><b>${bs(mes.reduce((s,o)=>s+o.total,0))}</b></div>
+    <div class="kpi"><span>Ventas 30 días</span><b>${mes.length}</b></div>
+    <div class="kpi ${pend.length?"alert":""}"><span>Por verificar</span><b>${pend.length}</b></div>
+    <div class="kpi"><span>Perfiles libres</span><b>${libres}</b></div>
+    <div class="kpi ${venc.length?"alert":""}"><span>Vencen ≤ 3 días</span><b>${venc.length}</b></div>`;
+  document.querySelectorAll("#tabs button").forEach(b=>{b.setAttribute("aria-selected",b.dataset.t===tab);
+    const c={pedidos:pend.length,vencimientos:venc.length}[b.dataset.t];b.innerHTML=b.textContent.replace(/\d+$/,"")+(c?`<span class="count">${c}</span>`:"")});
+  $("#tabOut").innerHTML=({pedidos:tabPedidos,inventario:tabInv,vencimientos:tabVenc,resumen:tabResumen})[tab]();
+}
+function deliveryMsg(o,asig){
+  return [`✅ *¡Tu pago fue confirmado!*`,`Pedido #${o.id} · ${TIENDA.nombre}`,"",
+    ...asig.map(a=>[`📺 ${P(a.prod).plat} (${a.perfil})`,`📧 Correo: ${a.email}`,`🔐 Contraseña: ${a.pass}`,`🔢 PIN: ${a.pin}`,`📅 Válido hasta: ${fdate(a.vence)}`,""].join("\n")),
+    `Códigos de acceso: gabostore.lat → Mi cuenta`,`¡Gracias por tu compra! 🎉`].join("\n");
+}
+function tabPedidos(){
+  const list=[...S.orders].sort((a,b)=>b.fecha-a.fecha);
+  return `<div class="view">${list.map(o=>{
+    const pill={"En verificación":"p-warn","Entregado":"p-ok","Rechazado":"p-bad"}[o.estado];
+    const msg=lastMsg[o.id];
+    return `<div class="order"><header><b>#${o.id} · ${esc(o.cliente)}</b><span class="pill ${pill}">${o.estado}</span></header>
+      <ul>${o.items.map(i=>`<li>${i.qty} × ${esc(P(i.prod).plat)} · ${esc(P(i.prod).tipo)}</li>`).join("")}</ul>
+      <div class="meta">${bs(o.total)} · ${esc(o.pago)} · comprobante: ${esc(o.comprobante||"sin archivo")} · ${esc(o.tel)} · ${new Date(o.fecha).toLocaleString("es-BO",{dateStyle:"short",timeStyle:"short"})}</div>
+      ${o.estado==="En verificación"?`<div class="row"><button class="btn ok" type="button" data-approve="${o.id}">Pago verificado · entregar</button><button class="btn" type="button" data-reject="${o.id}">Rechazar</button></div>`:""}
+      ${msg?`<pre class="msgbox" id="m${o.id}">${esc(msg)}</pre><div class="row">${copyBtn("m"+o.id)}<a class="btn wa" target="_blank" rel="noopener" href="${waLink(o.tel,msg)}">Enviar por WhatsApp</a></div>`:""}
+    </div>`}).join("")}</div>`;
+}
+function tabInv(){
+  const rows=[...S.inv].sort((a,b)=>(a.estado>b.estado?1:-1)||a.id-b.id);
+  return `<div class="view">
+  <form class="panel grid2" id="addAcc"><h2 style="grid-column:1/-1">Cargar cuenta nueva</h2>
+    <label for="aProd">Producto<select id="aProd">${PRODUCTOS.map(p=>`<option value="${p.id}">${esc(p.plat)} · ${esc(p.tipo)}</option>`).join("")}</select></label>
+    <label for="aMail">Correo<input id="aMail" required value="nf.bolivia03@gabostore.lat"></label>
+    <label for="aPass">Contraseña<input id="aPass" required value="Gs-Nf#3305"></label>
+    <label for="aN">Perfiles<input id="aN" type="number" min="1" max="10" value="5"></label>
+    <button class="btn pri" type="submit">Agregar al inventario</button></form>
+  <div class="panel"><h2>Cuentas y perfiles <span class="pill p-mute">${rows.length}</span></h2><div class="scroll"><table>
+    <thead><tr><th>ID</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Contraseña</th><th>PIN</th><th>Cliente</th><th>Vence</th><th>Estado</th></tr></thead>
+    <tbody>${rows.map(a=>`<tr><td class="mono">${a.id}</td><td>${esc(P(a.prod).plat)}</td><td class="mono">${esc(a.email)}</td><td>${esc(a.perfil)}</td><td class="mono">${esc(a.pass)}</td><td class="mono">${esc(a.pin)}</td>
+      <td>${a.cliente?esc(a.cliente)+"<br><small class='mono'>"+esc(a.tel)+"</small>":"—"}</td><td>${a.vence?fdate(a.vence):"—"}</td>
+      <td><span class="pill ${a.estado==="Disponible"?"p-ok":"p-warn"}">${a.estado}</span></td></tr>`).join("")}</tbody></table></div></div></div>`;
+}
+function reminderMsg(a){const d=left(a.vence),p=P(a.prod);
+  return `Hola ${a.cliente.split(" ")[0]} 👋\nTu ${p.plat} (${a.perfil}) ${d<0?`venció el ${fdate(a.vence)}`:d===0?"vence hoy":`vence el ${fdate(a.vence)}`}.\nRenovalo por ${bs(p.precio)} para no perder el acceso: gabostore.lat → Mi cuenta → Renovar.`}
+function tabVenc(){
+  const list=S.inv.filter(a=>a.vence!=null).sort((a,b)=>a.vence-b.vence);
+  return `<div class="panel"><h2>Vencimientos</h2>${list.map(a=>{const d=left(a.vence),m=reminderMsg(a);
+    const pill=d<0?`<span class="pill p-bad">Vencido hace ${-d} d</span>`:d<=3?`<span class="pill p-warn">En ${d} d</span>`:`<span class="pill p-ok">En ${d} d</span>`;
+    return `<div class="order"><header><b>${esc(a.cliente)} · ${esc(P(a.prod).plat)} ${esc(a.perfil)}</b>${pill}</header>
+      <div class="meta">${esc(a.tel)} · vence ${fdate(a.vence)}</div>
+      ${d<=3?`<div class="row"><a class="btn wa" target="_blank" rel="noopener" href="${waLink(a.tel,m)}">Enviar recordatorio</a><button class="btn" type="button" data-free="${a.id}">Liberar perfil</button></div>`:""}</div>`}).join("")}</div>`;
+}
+function tabResumen(){
+  const plats=[...new Set(S.inv.map(a=>a.prod))];
+  const max=Math.max(...plats.map(id=>S.inv.filter(a=>a.prod===id).length));
+  const ventas={};S.orders.filter(o=>o.estado==="Entregado").forEach(o=>o.items.forEach(i=>ventas[i.prod]=(ventas[i.prod]||0)+i.qty*P(i.prod).precio));
+  return `<div class="cols">
+    <div class="panel"><h2>Perfiles libres por plataforma</h2><div class="bars">${plats.map(id=>{const tot=S.inv.filter(a=>a.prod===id).length,l=stockOf(id);
+      return `<div class="barrow"><span>${esc(P(id).plat)}</span><div class="track" title="${l} de ${tot} libres"><i style="width:${l/max*100}%"></i></div><b>${l}/${tot}</b></div>`}).join("")}</div></div>
+    <div class="panel"><h2>Ingresos entregados por producto</h2>${Object.keys(ventas).length?`<div class="bars">${Object.entries(ventas).map(([id,v])=>`<div class="barrow"><span>${esc(P(id).plat)}</span><div class="track"><i style="width:${v/Math.max(...Object.values(ventas))*100}%"></i></div><b>${v}</b></div>`).join("")}</div><p class="empty">Montos en ${TIENDA.moneda}.</p>`:`<p class="empty">Todavía no hay pedidos entregados.</p>`}</div>
+  </div>`;
+}
+
+/* ---------- ACCIONES ---------- */
+function approve(id){
+  const o=S.orders.find(x=>x.id===id), asig=[];
+  for(const it of o.items){
+    if(!S.inv.some(a=>a.prod===it.prod)) continue; // producto de entrega manual
+    for(let k=0;k<it.qty;k++){
+      const a=S.inv.find(a=>a.prod===it.prod&&a.estado==="Disponible");
+      if(!a){toast(`Sin stock de ${P(it.prod).plat}: cargá una cuenta en Inventario`);asig.forEach(x=>Object.assign(x,{estado:"Disponible",cliente:null,tel:null,vence:null}));return}
+      Object.assign(a,{estado:"Asignada",cliente:o.cliente,tel:o.tel,vence:today()+P(it.prod).dias*DAY});asig.push(a);
+    }
+  }
+  o.estado="Entregado";o.fecha=Date.now();lastMsg[id]=deliveryMsg(o,asig);save();renderPanel();renderShop();toast(`Pedido #${id} entregado: perfil asignado`);
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  if(d.cat){cat=d.cat;renderShop()}
+  else if(d.add||d.renew){const id=d.add||d.renew,l=cart.find(x=>x.prod===id);l?l.qty++:cart.push({prod:id,qty:1});renderCart();
+    if(d.renew)openCart(true);else toast(`${P(id).plat} agregado al carrito`)}
+  else if(d.inc){cart[d.inc].qty++;renderCart()}
+  else if(d.dec){if(--cart[d.dec].qty<=0)cart.splice(d.dec,1);renderCart()}
+  else if(d.approve)approve(+d.approve)
+  else if(d.reject){S.orders.find(o=>o.id===+d.reject).estado="Rechazado";save();renderPanel();toast("Pedido rechazado")}
+  else if(d.free){Object.assign(S.inv.find(a=>a.id===+d.free),{estado:"Disponible",cliente:null,tel:null,vence:null});save();renderPanel();renderShop();toast("Perfil liberado y de vuelta en stock")}
+  else if(d.t){tab=d.t;renderPanel()}
+  else if(d.copy){const t=document.getElementById(d.copy).textContent;
+    navigator.clipboard.writeText(t).then(()=>toast("Mensaje copiado"),()=>{const r=document.createRange();r.selectNodeContents(document.getElementById(d.copy));getSelection().removeAllRanges();getSelection().addRange(r);toast("Texto seleccionado: copialo con Ctrl+C")})}
+});
+$("#openCart").onclick=()=>openCart(true);
+$("#closeCart").onclick=$("#scrim").onclick=()=>openCart(false);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")openCart(false)});
+$("#checkout").addEventListener("submit",e=>{
+  e.preventDefault();
+  const o={id:S.nextId++,cliente:$("#cName").value.trim(),tel:$("#cTel").value.trim(),items:cart.map(l=>({...l})),
+    total:cart.reduce((s,l)=>s+P(l.prod).precio*l.qty,0),pago:$("#cPay").value,comprobante:$("#cProof").files[0]?.name||"",estado:"En verificación",fecha:Date.now()};
+  S.orders.push(o);save();cart.length=0;renderCart();$("#checkout").hidden=true;
+  const txt=`Hola ${TIENDA.nombre}, envié el pedido #${o.id} por ${bs(o.total)} (${o.pago}). Adjunto mi comprobante.`;
+  $("#done").hidden=false;
+  $("#done").innerHTML=`<div class="panel"><h2>Pedido #${o.id} recibido <span class="pill p-warn">En verificación</span></h2>
+    <p class="empty">Revisamos tu pago y te mandamos los accesos por WhatsApp. Podés seguirlo en <b>Mi cuenta</b>.</p>
+    <a class="btn wa" target="_blank" rel="noopener" href="${waLink(TIENDA.whatsapp,txt)}">Avisar por WhatsApp a la tienda</a>
+    <p class="empty">En la demo, andá a <b>Panel → Pedidos</b> y tocá “Pago verificado” para ver la entrega.</p></div>`;
+});
+$("#loginForm").addEventListener("submit",e=>{e.preventDefault();renderClient($("#loginTel").value)});
+document.addEventListener("submit",e=>{if(e.target.id!=="addAcc")return;e.preventDefault();
+  const n=Math.max(1,Math.min(10,+$("#aN").value||1)),prod=$("#aProd").value,email=$("#aMail").value.trim(),pass=$("#aPass").value.trim();
+  let id=Math.max(...S.inv.map(a=>a.id));
+  for(let i=1;i<=n;i++)S.inv.push({id:++id,prod,email,pass,perfil:n===1?"Cuenta":"Perfil "+i,pin:String(1000+id*7%9000),estado:"Disponible",cliente:null,tel:null,vence:null});
+  save();renderPanel();renderShop();toast(`${n} perfil(es) de ${P(prod).plat} agregados`)});
+$("#reset").onclick=()=>{S=seed();lastMsg={};save();renderAll();toast("Demo reiniciada")};
+
+/* ---------- RUTAS ---------- */
+function route(){
+  const v=["tienda","mi-cuenta","panel"].includes(location.hash.slice(1))?location.hash.slice(1):"tienda";
+  ["tienda","mi-cuenta","panel"].forEach(x=>$("#v-"+x).hidden=x!==v);
+  document.querySelectorAll("nav a").forEach(a=>a.dataset.v===v?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));
+  if(v==="panel")renderPanel();
+  if(v==="mi-cuenta")renderClient($("#loginTel").value);
+}
+function renderAll(){renderShop();renderCart();route()}
+window.addEventListener("hashchange",()=>{openCart(false);route()});
+drawQR();renderAll();
+</script>
