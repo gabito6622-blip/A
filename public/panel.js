@@ -134,7 +134,7 @@ const V = {
         ${tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña")}</section>
       <section class="card hm-week"><h2>😌 Mi semana <small>· tiempo estimado para atender vencimientos</small></h2>
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}" data-hgo="control:fecha:${w.t}">
-          <span>${w.i === 0 ? "Hoy" : w.i === 1 ? "Mañana" : DN[new Date(w.t).getDay()]}</span><small>${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
+          <span>${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small>${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
           <b>${w.lvl[2]}</b><em>${w.lvl[0]}</em><small>${w.n} vencen · ${w.mins} min</small></button>`).join("")}</div>
         <p class="muted" style="margin:0">Cálculo como en tu Excel: ${MIN_REC} min por recordatorio, +${MIN_PRONTO} min por revisión y ${MIN_VENC} min por cada vencido. Tocá un día para ver quiénes vencen.</p></section>`;
   },
