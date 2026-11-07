@@ -1,20 +1,20 @@
 // Panel del vendedor conectado al servidor.
 import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
-const P = { me: null, view: "dashboard", tab: {}, theme: "light", settings: null };
+const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
 
 const isOwner = () => P.me?.role === "owner";
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 
 const MENU = [
-  ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
+  ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -88,6 +88,57 @@ const V = {
       <p class="muted" style="margin:0">Aprobá solo después de ver el dinero en tu banco: escribí la referencia que figura en tu extracto. Una misma referencia no se puede usar dos veces.</p></section>`;
   },
 
+  async inicio() {
+    const [list, st] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/stats").catch(() => ({}))]);
+    const now = new Date();
+    const dayStart = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+    const today = dayStart(now);
+    const DAY = 86_400_000;
+    const DN = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const dl = (a) => Math.round((dayStart(a.customerExpiresAt) - today) / DAY);
+    const hoy = list.filter((a) => !a.holdOpen && dl(a) === 0);
+    const vencidos = list.filter((a) => !a.holdOpen && dl(a) < 0);
+    const espera = list.filter((a) => a.holdOpen);
+    const pronto = list.filter((a) => !a.holdOpen && dl(a) >= 1 && dl(a) <= 3);
+    const sinPago = list.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado");
+    // Mi semana: minutos estimados por día (como la hoja TIEMPO_LIBRE del Excel: 3 min por recordatorio, +1 si vence pronto, 5 por vencido).
+    const MIN_REC = 3, MIN_PRONTO = 1, MIN_VENC = 5;
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const t = today + i * DAY;
+      const n = list.filter((a) => dayStart(a.customerExpiresAt) === t).length;
+      const mins = n * (MIN_REC + MIN_PRONTO) + (i === 0 ? (vencidos.length + espera.length) * MIN_VENC : 0);
+      const lvl = mins === 0 ? ["Libre", "free", "😌"] : mins <= 15 ? ["Tranquilo", "calm", "🙂"] : mins <= 40 ? ["Movido", "busy", "😅"] : ["Cargado", "hard", "🥵"];
+      return { t, i, n, mins, lvl };
+    });
+    const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
+    const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
+    const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
+    return `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length ? ` Días libres esta semana: <b>${libres.join(", ")}</b>.` : ""}</p></div>
+      <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente, WhatsApp o correo…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
+      <section class="hm-alerts">
+        ${alert(hoy.length, "Vencen hoy", "today", "control:today")}
+        ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold" : "control:bad")}
+        ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn")}
+        ${alert(st.pendingReview ?? 0, "Pagos por revisar", "pay", "aprobacion")}
+        ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay")}</section>
+      <section class="hm-grid">
+        ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
+        ${tile("control:cobrar", "💰", "Cobrar", "Vencidos y de hoy")}
+        ${tile("clientes", "👥", "Clientes", "Revendedores y clientes")}
+        ${tile("control:dia", "📅", "Por día", "Quién vence cada día")}
+        ${tile("cuentas", "🔑", "Cuentas", "Correos, perfiles y proveedor")}
+        ${tile("whatsapp", "📝", "Mensajes", "Avisos de WhatsApp")}
+        ${tile("aprobacion", "✅", "Aprobar pagos", "Comprobantes por QR")}
+        ${tile("vender", "🛒", "Vender", "Venta rápida")}
+        ${tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña")}</section>
+      <section class="card hm-week"><h2>😌 Mi semana <small>· tiempo estimado para atender vencimientos</small></h2>
+        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}" data-hgo="control:fecha:${w.t}">
+          <span>${w.i === 0 ? "Hoy" : w.i === 1 ? "Mañana" : DN[new Date(w.t).getDay()]}</span><small>${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
+          <b>${w.lvl[2]}</b><em>${w.lvl[0]}</em><small>${w.n} vencen · ${w.mins} min</small></button>`).join("")}</div>
+        <p class="muted" style="margin:0">Cálculo como en tu Excel: ${MIN_REC} min por recordatorio, +${MIN_PRONTO} min por revisión y ${MIN_VENC} min por cada vencido. Tocá un día para ver quiénes vencen.</p></section>`;
+  },
+
   async control() {
     const list = await api("GET", "/api/admin/assignments");
     const T = P.tab;
@@ -101,7 +152,8 @@ const V = {
     });
     const products = [...new Set(rows.map((r) => r.product))];
     const q = (T.cq ?? "").toLowerCase();
-    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay)
+    const sameDay = (t, u) => new Date(t).toDateString() === new Date(u).toDateString();
+    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay)
       && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.control.note ?? ""}`.toLowerCase().includes(q)));
     P.controlView = view;
     const sum = (f) => view.reduce((t, r) => t + f(r), 0);
@@ -111,6 +163,7 @@ const V = {
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
     return `<section class="card ctl-top">
         <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Por cobrar (precio)</small><b>${bs(sum((r) => r.price))}</b></div><div><small>Costo</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="up">${bs(sum((r) => r.gain))}</b></div><div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
+        ${T.cf === "cobrar" || T.cfrom ? `<div class="pok">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `Mostrando los que vencen el ${fdate(T.cfrom)}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
         <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, WhatsApp, correo, revendedor…" value="${esc(T.cq ?? "")}" aria-label="Buscar">
           <select id="cday" aria-label="Día que vence">${opt("", "Día que vence: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `Vence ${d} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
@@ -650,7 +703,7 @@ async function render() {
   }
 }
 function go(v) {
-  P.view = TITLE[v] ? v : "dashboard";
+  P.view = TITLE[v] ? v : "inicio";
   history.replaceState(null, "", "#" + P.view);
   scrollTo(0, 0);
   render();
@@ -676,7 +729,7 @@ async function start() {
   $("#pStore").textContent = P.settings.storeName;
   if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
-  go(location.hash.slice(1) || "dashboard");
+  go(location.hash.slice(1) || "inicio");
 }
 
 /* ---------------- eventos ---------------- */
@@ -711,6 +764,17 @@ document.addEventListener("click", async (ev) => {
     }
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
+  }
+  if (d.hgo) {
+    const [v, f, x] = d.hgo.split(":");
+    if (v === "control") {
+      Object.assign(P.tab, { cf: "todos", cday: "", cpay: "", cq: "", cfrom: undefined });
+      if (["today", "bad", "warn", "hold"].includes(f)) P.tab.cf = f;
+      if (f === "cobrar") P.tab.cf = "cobrar";
+      if (f === "nopay") P.tab.cpay = "pendiente";
+      if (f === "fecha") P.tab.cfrom = Number(x);
+    }
+    return go(v);
   }
   if (d.cselall) {
     const ids = new Set((P.controlView ?? []).filter((r) => r.customerName === d.cselall).map((r) => r.id));
@@ -905,6 +969,9 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/secrets", body), "Claves guardadas");
     } else if (f.id === "waConfig") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
+    } else if (f.id === "hmSearch") {
+      Object.assign(P.tab, { cf: "todos", cday: "", cpay: "", cfrom: undefined, cq: f.q.value.trim() });
+      go("control");
     } else if (f.dataset.expiry) {
       const [y, m, d] = f.date.value.split("-").map(Number);
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.expiry}/expiry`, { expiresAt: new Date(y, m - 1, d, 23, 59).getTime() }), `Nueva fecha: ${d}/${m}/${y}`);
