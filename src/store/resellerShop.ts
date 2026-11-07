@@ -166,7 +166,15 @@ export function programInfo(e: Engine) {
   const shops = shopsOn ? Object.values(e.s.customers)
     .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked)
     .slice(0, 24)
-    .map((c) => ({ slug: c.shop!.slug, title: c.shop!.title, hasLogo: !!c.shop!.logoFileRef, accentColor: c.shop!.accentColor, accent2Color: c.shop!.accent2Color, backgroundColor: c.shop!.backgroundColor, headingFont: c.shop!.headingFont })) : [];
+    .map((c) => {
+      const sh = c.shop!;
+      const show = sh.products?.length ? new Set(sh.products) : null;
+      const cats = [...new Set(published.filter((p) => c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
+      return {
+        slug: sh.slug, title: sh.title, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
+        accentColor: sh.accentColor, accent2Color: sh.accent2Color, backgroundColor: sh.backgroundColor, headingFont: sh.headingFont,
+      };
+    }) : [];
   return {
     storeName: st.storeName, whatsapp: st.whatsapp, showPrices, shopsEnabled: shopsOn,
     stats: { products: published.length, categories: new Set(published.map((p) => p.category ?? "Otros")).size, shops: shops.length },

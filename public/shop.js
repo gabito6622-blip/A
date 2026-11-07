@@ -2,7 +2,7 @@
 import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
-const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes", "revendedores"];
+const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes", "revendedores", "tiendas"];
 
 try { S.cart = JSON.parse(localStorage.getItem("gs-cart") || "[]"); } catch { S.cart = []; }
 const saveCart = () => { try { localStorage.setItem("gs-cart", JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
@@ -114,7 +114,7 @@ export function applyLook(st) {
 }
 
 async function loadPrivate() {
-  if (S.view === "revendedores" && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
+  if ((S.view === "revendedores" || S.view === "tiendas") && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
   if (!S.me?.loggedIn) return;
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
@@ -218,6 +218,7 @@ function render() {
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
+    tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
   };
   $("#sout").innerHTML = V[S.view]();
@@ -301,60 +302,104 @@ function phoneMock(t, items) {
     <div class="ph-btn">Pedir por WhatsApp</div><em>${esc(t.name)}</em></div>`;
 }
 
+/** Ventana de navegador de mentira (para mostrar el sistema por dentro). */
+const browser = (url, inner, cls = "") => `<div class="bw ${cls}"><div class="bw-bar"><i></i><i></i><i></i><span>${esc(url)}</span></div><div class="bw-body">${inner}</div></div>`;
+const spark = (pts, color) => { const max = Math.max(...pts), w = 180, h = 46; return `<svg viewBox="0 0 ${w} ${h}" class="spark" aria-hidden="true"><polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${pts.map((v, i) => `${(i / (pts.length - 1)) * w},${h - 4 - (v / max) * (h - 10)}`).join(" ")}"/></svg>`; };
+const checks = (list) => `<ul class="pchk">${list.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+
+function directoryView(standalone) {
+  const pg = S.data.program;
+  if (!pg) return `<p class="skeleton">Cargando…</p>`;
+  const q = (S.data.dq ?? "").toLowerCase().trim();
+  const list = pg.shops.filter((x) => !q || `${x.title} ${x.tagline} ${x.tags.join(" ")}`.toLowerCase().includes(q));
+  const head = standalone
+    ? `<section class="dhero"><span class="pill"><i></i>Directorio de tiendas</span><h1>Explorá las tiendas de <span>nuestros revendedores</span></h1><p>Cada una con su marca, sus precios y atención directa por WhatsApp.</p>`
+    : `<section class="psec"><div class="peyebrow">Ya están vendiendo</div><div class="psplit"><h2>Explorá las tiendas de nuestros revendedores</h2><p>Cada revendedor arma la suya en minutos. Así se ven:</p></div>`;
+  return `${head}${pg.shops.length > 3 || standalone ? `<label class="dsearch"><input id="dq" placeholder="Buscar tienda por nombre o categoría…" value="${esc(S.data.dq ?? "")}" aria-label="Buscar tienda">${icon("arrow")}</label>` : ""}</section>
+    <section class="dlist">${list.map((x) => {
+      loadFont(x.headingFont);
+      const vars = `--pb:${esc(x.backgroundColor || "#0b0b14")};--pa:${esc(x.accentColor || "#7c5cff")};--pa2:${esc(x.accent2Color || x.accentColor || "#00d4ff")};--pf:${fontStack(x.headingFont)}`;
+      return `<a class="drow" href="/r/${esc(x.slug)}" style="${vars}">
+        <span class="dlogo">${x.hasLogo ? `<img src="/api/shops/${esc(x.slug)}/logo" alt="">` : `<i>${esc(x.title[0])}</i>`}</span>
+        <span class="dban">${x.hasBanner ? `<img src="/api/shops/${esc(x.slug)}/banner" alt="Portada de ${esc(x.title)}" loading="lazy">` : `<b>${esc(x.title)}</b>`}</span>
+        <span class="dinfo"><b>${esc(x.title)}</b>${x.tagline ? `<small>${esc(x.tagline)}</small>` : ""}<span class="dtags">${x.tags.map((t) => `<em>${esc(t)}</em>`).join("")}</span><span class="dgo">Visitar tienda →</span></span></a>`;
+    }).join("") || `<p class="empty" style="text-align:center">${pg.shops.length ? "Ninguna tienda coincide con la búsqueda." : "Pronto vas a ver acá las tiendas de nuestros revendedores."}</p>`}</section>`;
+}
+
 function programView() {
   const pg = S.data.program;
   if (!pg) return `<p class="skeleton">Cargando…</p>`;
   const wa = pg.whatsapp ? waLink(pg.whatsapp, "Hola, quiero ser revendedor de " + pg.storeName) : null;
-  const want = wa ? `<a class="sbtn pri" href="${wa}" target="_blank" rel="noopener">${icon("wa")}Quiero ser revendedor</a>` : "";
+  const want = (cls = "pcta") => (wa ? `<a class="${cls}" href="${wa}" target="_blank" rel="noopener">Quiero ser revendedor</a>` : "");
   const sample = (pg.products.length ? pg.products.map((p) => ({ name: p.name, price: Math.round(p.reseller * 1.4 / 100) * 100 })) : S.catalog).slice(0, 3);
+  const tiles = S.catalog.slice(0, 6);
   const mocks = ["neon", "rosa", "oro"].map((id) => THEMES.find((t) => t.id === id));
+  const ex = sample[0]?.name ?? "Netflix perfil";
   const feats = [
-    ["grid", "Tu página con tu marca", "Tu logo, tus colores, tus letras y tus precios en tu propia dirección. 12 estilos listos para arrancar."],
-    ["coins", "Precios de mayorista", "Comprás a precio de revendedor y ponés vos el precio de venta. El sistema te calcula la ganancia."],
-    ["cart", "Vendé al instante", "Con tu saldo, la cuenta se entrega en segundos. Sin esperar que verifiquen un pago."],
-    ["bell", "Recordatorios de vencimiento", "Ves qué clientes vencen y les avisás por WhatsApp con un toque para que renueven."],
-    ["user", "Panel para tus clientes", "Todos tus clientes, sus servicios, notas y renovaciones en un solo lugar, en PC y celular."],
-    ["renew", "Soporte y reemplazos", "Si una cuenta falla, la tienda la reemplaza y tus clientes ven los datos nuevos."],
+    ["grid", "Tu marca, tus reglas", "Logo, portada, colores, letras y precios propios. Tus clientes nunca ven nuestro nombre."],
+    ["coins", "Margen real", "Comprás a precio de mayorista y el sistema te muestra cuánto ganás en cada producto."],
+    ["cart", "Entrega en segundos", "Con saldo, la cuenta sale al instante con sus datos listos para mandar."],
+    ["bell", "Clientes que vuelven", "Ves quién vence y le recordás por WhatsApp con un toque. Más renovaciones, menos olvidos."],
+    ["robot", "Bot 24/7", "Tus clientes y vos consultan servicios, precios y vencimientos a cualquier hora."],
+    ["renew", "Respaldo de la tienda", "Si una cuenta falla, se reemplaza y tu cliente ve los datos nuevos."],
   ];
-  return `<section class="hero prog"><div style="display:grid;min-width:0">
-      <span class="chip">✦ Programa de revendedores</span>
-      <h1>Armá tu tienda de streaming<br><span>y vendé como un profesional.</span></h1>
-      <p>Te damos el stock, los precios de mayorista y la tecnología: tu página con tu marca, un panel para tus clientes y avisos de vencimiento. Vos solo vendés.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">${want}<button class="sbtn" type="button" data-login="1">Ya soy revendedor: entrar</button></div>
-      <div class="ticks"><span>Sin mensualidad: cargás saldo y vendés</span><span>Tu marca, no la nuestra</span><span>Precios en Bs</span></div></div>
-    <div class="phones" aria-hidden="true">${mocks.map((t) => phoneMock(t, sample)).join("")}</div></section>
+  return `<section class="phero">
+      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i}" style="--c:${esc(p.color)}">${esc(p.name[0])}<small>${esc(p.name.split(" ")[0])}</small></span>`).join("")}</div>
+      <span class="pill"><i></i>Programa de revendedores de ${esc(pg.storeName)}</span>
+      <h1>Vendé streaming<br><span>con tu propia marca</span></h1>
+      <p>Tu tienda online, precios de mayorista, panel de clientes y avisos de vencimiento. Nosotros ponemos el stock y la tecnología; vos ponés tu nombre.</p>
+      <div class="pbtns2">${want()}<a class="pghost" href="/tiendas" data-s="tiendas">Explorar tiendas</a></div>
+      <div class="pscroll">deslizá</div></section>
 
-    <section class="pstats">${[[pg.stats.products, "productos para vender"], [pg.stats.categories, "categorías"], [pg.stats.shops || "12", pg.stats.shops ? (pg.stats.shops === 1 ? "revendedor con página" : "revendedores con página") : "estilos para tu página"], ["24/7", "bot de WhatsApp"]]
+    <section class="psec"><div class="peyebrow">Por dentro</div><div class="psplit"><h2>Todo tu negocio<br>en una sola pantalla</h2><p>Saldo, clientes, vencimientos y ventas del día, en la compu o en el celular. Así se ve tu panel de revendedor.</p></div>
+      <div class="pshot">${browser(location.host + "/#clientes", `<div class="mk"><div class="mk-side">${["Vender", "Mis clientes", "Por vencer", "Mi página", "Mis precios", "Saldo"].map((t, i) => `<span class="${i === 1 ? "on" : ""}">${t}</span>`).join("")}</div>
+          <div class="mk-main"><b class="mk-t">Mi panel de revendedor</b><div class="mk-kpi">${[["Mi saldo", "Bs 420"], ["Clientes", "38"], ["Activos", "52"], ["Vencen en 7 días", "6"]].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join("")}</div>
+          ${[["Ana P.", ex, "Vence en 2 d", "w"], ["Luis C.", sample[1]?.name ?? "Spotify", "Vence en 5 d", "w"], ["María Q.", sample[2]?.name ?? "Disney+", "Vence en 21 d", "o"], ["Jorge R.", ex, "Vence en 28 d", "o"]].map(([n, pr, d, k]) => `<div class="mk-row"><span>${esc(n)}</span><span>${esc(pr)}</span><em class="${k}">${d}</em><i>Renovar</i></div>`).join("")}</div></div>`)}
+        <div class="fcard f1"><small>GANANCIA · ESTE MES</small><b>Bs 1.240 <em>+22%</em></b>${spark([3, 4, 3.5, 5, 4.8, 6.5, 6, 8], "var(--s-ok)")}</div>
+        <div class="fcard f2"><small>RECORDATORIOS HOY</small><b>6 clientes</b><span class="bars">${[3, 5, 4, 6, 5, 7, 9].map((h) => `<i style="height:${h * 4}px"></i>`).join("")}</span><small>4 ya renovaron</small></div>
+        <div class="fcard f3"><b>Venta lista · ${esc(ex)}</b><small>Datos copiados para tu cliente</small></div></div>
+      <p class="pnote">Imagen ilustrativa con datos de ejemplo.</p></section>
+
+    <section class="pstats">${[[pg.stats.products, "productos para vender"], [pg.stats.categories, "categorías"], [pg.stats.shops || 12, pg.stats.shops ? (pg.stats.shops === 1 ? "tienda de revendedor" : "tiendas de revendedores") : "estilos de tienda"], ["24/7", "bot de WhatsApp"]]
       .map(([n, t]) => `<div><b>${esc(String(n))}</b><span>${t}</span></div>`).join("")}</section>
 
-    <section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Todo incluido</span><h2>Lo que tenés como revendedor</h2></div></div>
-      <div class="pfeats">${feats.map(([i, t, d]) => `<div class="sbox"><span class="pfi">${icon(i)}</span><b>${t}</b><span class="empty">${d}</span></div>`).join("")}</div></section>
+    <section class="psec"><div class="peyebrow">Lo que incluye</div><div class="psplit"><h2>Tres herramientas<br>que trabajan juntas</h2><p>Tu página, tu panel y el bot comparten los mismos datos: vendés en el panel, tu cliente aparece en tus recordatorios y el bot ya sabe cuándo vence.</p></div>
+      <div class="prow"><div class="pvis">${browser(location.host + "/r/tu-tienda", `<div class="phones pmini">${mocks.map((t) => phoneMock(t, sample)).join("")}</div>`)}</div>
+        <div class="ptxt"><span class="pnum">01</span><h3>Tu tienda con tu marca</h3><p>Elegís un estilo, subís tu logo y portada, ponés tus precios y compartís tu link. Tus clientes arman el pedido y te llega a tu WhatsApp.</p>
+          ${checks(["12 estilos listos para arrancar", "Logo, portada, colores y letras", "Tus precios, no los nuestros", "Pedidos directo a tu WhatsApp", "Link propio: /r/tu-tienda", "Perfecta en el celular"])}</div></div>
+      <div class="prow rev"><div class="pvis">${browser(location.host + "/#clientes", `<div class="mkdone"><b>✅ Venta lista: mandale estos datos a Ana</b><pre>*${esc(ex)}*\nCorreo: cliente01@correo.com\nContraseña: ••••••••\nPerfil: Perfil 3\nVence: 07/12/2026</pre><div><i>Copiar datos</i><i class="g">Mandar por WhatsApp</i></div></div>`)}</div>
+        <div class="ptxt"><span class="pnum">02</span><h3>Panel de revendedor</h3><p>Vendés con tu saldo y la cuenta sale al instante. Tus clientes, sus servicios, notas y renovaciones, todo ordenado.</p>
+          ${checks(["Venta y entrega en segundos", "Copiar o mandar datos por WhatsApp", "Renovar con un toque", "Clientes por vencer en 7 días", "Notas privadas por cliente", "Lista de precios con tu ganancia"])}</div></div>
+      <div class="prow"><div class="pvis">${browser("WhatsApp", `<div class="mkchat"><span class="in">8</span><span class="out"><b>👥 Clientes por vencer (7 días)</b><br>• Ana P.: ${esc(ex)} · vence en 2 días<br>• Luis C.: ${esc(sample[1]?.name ?? "Spotify")} · vence en 5 días<br><br>Renovalos con tu saldo desde <b>Mis clientes</b> 🔗</span><span class="in">gracias!</span><span class="out">¡De nada! 🙌 Si necesitás algo más, escribí <b>menu</b>.</span></div>`)}</div>
+        <div class="ptxt"><span class="pnum">03</span><h3>Bot y avisos por WhatsApp</h3><p>El bot de la tienda responde a toda hora. A vos te dice quién vence; a tus clientes, cómo pagar y renovar.</p>
+          ${checks(["Atención 24/7", "Tus clientes por vencer (opción 8)", "Precios y stock al instante", "Pasa a una persona cuando hace falta"])}</div></div></section>
 
-    ${pg.showPrices && pg.products.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Números reales</span><h2>Tu ganancia por cada venta</h2><p>Precio de nuestra tienda al público vs. tu precio de revendedor. Vos decidís a cuánto vender.</p></div></div>
+    ${pg.showPrices && pg.products.length ? `<section class="psec"><div class="peyebrow">Números reales</div><div class="psplit"><h2>Tu ganancia<br>en cada venta</h2><p>Precio de nuestra tienda al público contra tu precio de revendedor. Vos decidís a cuánto vender.</p></div>
       <div class="sbox pprices"><div class="pp-h"><span>Producto</span><span>Precio público</span><span>Tu precio</span><span>Ganás hasta</span></div>
       ${pg.products.map((p) => `<div class="pp-r"><span class="who"><span class="mini" style="background:${esc(p.color)}">${esc(p.name[0])}</span><b>${esc(p.name)}</b></span><span data-l="Público">${bs(p.public)}</span><span data-l="Tu precio"><b>${bs(p.reseller)}</b></span><span data-l="Ganás" class="pp-g">+${bs(p.public - p.reseller)}</span></div>`).join("")}
-      <p class="empty" style="margin:0">“Ganás hasta” = vendiendo al mismo precio que la tienda. Por ${p_dur(pg.products)}.</p></div></section>` : ""}
+      <p class="empty" style="margin:0">“Ganás hasta” = vendiendo al mismo precio que la tienda, ${p_dur(pg.products)}.</p></div></section>` : ""}
 
-    <section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Tu marca</span><h2>Elegí el estilo de tu página</h2><p>12 estilos listos. Después cambiás colores, letras, fondo, logo y portada a tu gusto.</p></div></div>
+    <section class="psec"><div class="peyebrow">Ventajas</div><div class="psplit"><h2>¿Por qué revender con nosotros?</h2><p>Lo que cambia en tu negocio desde el primer día.</p></div>
+      <div class="pfeats">${feats.map(([i, t, d]) => `<div class="pfc"><span class="pfi">${icon(i)}</span><b>${t}</b><span>${d}</span></div>`).join("")}</div></section>
+
+    <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>12 estilos para tu tienda</h2><p>Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
       <div class="tgrid pthemes">${THEMES.map((t) => `<div class="tcard">${themeSwatch(t)}<span>${esc(t.name)}</span></div>`).join("")}</div></section>
 
-    ${pg.shops.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Ya están vendiendo</span><h2>Tiendas de nuestros revendedores</h2></div></div>
-      <div class="pshops">${pg.shops.map((x) => { loadFont(x.headingFont); return `<a class="pshop" href="/r/${esc(x.slug)}" style="--pb:${esc(x.backgroundColor || "#0b0b14")};--pa:${esc(x.accentColor || "#7c5cff")};--pa2:${esc(x.accent2Color || x.accentColor || "#00d4ff")};--pf:${fontStack(x.headingFont)}">
-        ${x.hasLogo ? `<img src="/api/shops/${esc(x.slug)}/logo" alt="">` : `<i>${esc(x.title[0])}</i>`}<b>${esc(x.title)}</b><small>/r/${esc(x.slug)}</small><span>Visitar →</span></a>`; }).join("")}</div></section>` : ""}
+    ${pg.shops.length ? directoryView(false) : ""}
 
-    <section class="sbox psteps"><h2>Empezá en 3 pasos</h2><div>${[["1", "Escribinos", "Te pasamos tu acceso de revendedor y la lista de precios."], ["2", "Cargá saldo", "Con QR, desde tu cuenta. Con saldo vendés y renovás al instante."], ["3", "Armá tu página y vendé", "Elegí un estilo, poné tus precios y compartí tu link."]]
-      .map(([n, t, d]) => `<div><span class="pn">${n}</span><b>${t}</b><span class="empty">${d}</span></div>`).join("")}</div></section>
+    <section class="psec"><div class="peyebrow">Cómo empezar</div><div class="psteps">${[["1", "Escribinos", "Te damos tu acceso de revendedor y la lista de precios."], ["2", "Cargá saldo", "Con QR desde tu cuenta. Con saldo vendés y renovás al instante."], ["3", "Armá tu tienda", "Elegí un estilo, poné tus precios y compartí tu link."]]
+      .map(([n, t, d]) => `<div><span class="pn">${n}</span><b>${t}</b><span>${d}</span></div>`).join("")}</div></section>
 
-    <section style="display:grid;gap:12px"><div class="sec-h"><div><span class="chip">Dudas</span><h2>Preguntas frecuentes</h2></div></div>
+    <section class="psec"><div class="peyebrow">Dudas</div><h2 class="ph2">Preguntas frecuentes</h2>
       ${[["¿Cómo le entrego la cuenta a mi cliente?", "Comprás para tu cliente con tu saldo desde “Mis clientes”. Al instante ves los datos de acceso con botones para copiarlos o mandarlos por WhatsApp."],
-        ["¿Mis clientes ven tus precios o tu nombre?", "No. Tu página muestra solo tu marca y tus precios. Tus clientes te piden a vos por WhatsApp."],
+        ["¿Mis clientes ven tus precios o tu nombre?", "No. Tu tienda muestra solo tu marca y tus precios. Tus clientes te piden a vos por WhatsApp."],
         ["¿Cómo cargo saldo?", "Desde tu cuenta → Saldo: elegís el monto, pagás con el QR y subís el comprobante. Cuando lo verificamos, el saldo aparece en tu cuenta."],
         ["¿Qué pasa si una cuenta deja de funcionar?", "Escribinos: la reemplazamos y los datos nuevos aparecen en la cuenta de tu cliente."],
         ["¿Me avisan cuando un cliente está por vencer?", "Sí: en tu panel ves quién vence en los próximos 7 días y con un toque le mandás el recordatorio por WhatsApp. El bot también te lo dice si escribís 8."],
-        ["¿Puedo usarlo desde el celular?", "Sí, todo funciona en el celular: vender, renovar, ver clientes y editar tu página."]]
-        .map(([q, a]) => `<details class="pfaq"><summary>${q}</summary><p class="empty">${a}</p></details>`).join("")}</section>
+        ["¿Puedo usarlo desde el celular?", "Sí, todo funciona en el celular: vender, renovar, ver clientes y editar tu tienda."]]
+        .map(([q, a]) => `<details class="pfaq"><summary>${q}</summary><p>${a}</p></details>`).join("")}</section>
 
-    <section class="pfinal"><h2>¿Listo para tener tu propia tienda?</h2><p>Escribinos y en minutos tenés tu acceso de revendedor.</p><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${want}<button class="sbtn" type="button" data-s="catalogo">Ver productos</button></div></section>`;
+    <section class="pfinal"><div class="peyebrow">Empezá hoy</div><h2>¿Listo para tener<br><span>tu propia tienda?</span></h2><p>Escribinos y en minutos tenés tu acceso de revendedor.</p><div class="pbtns2">${want()}<button class="pghost" type="button" data-login="1">Ya soy revendedor: entrar</button></div></section>`;
 }
 const p_dur = (list) => { const d = [...new Set(list.map((p) => p.durationDays))]; return d.length === 1 ? `cada ${d[0]} días de servicio` : "cada periodo de servicio"; };
 
@@ -708,6 +753,12 @@ document.addEventListener("input", (ev) => {
     out.innerHTML = pr === null ? "" : `<b style="color:${pr < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${pr < 0 ? "−" : "+"}${bs(Math.abs(pr))}</b>`;
     return;
   }
+  if (ev.target.id === "dq") {
+    S.data.dq = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { render(); const f = $("#dq"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }, 250);
+    return;
+  }
   if (ev.target.id === "cq") {
     S.data.cq = ev.target.value;
     clearTimeout(qTimer);
@@ -805,6 +856,7 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
     return refresh();
   }
   await useAccessLink();
-  S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : location.pathname.replace(/\/+$/, "") === "/revendedores" ? "revendedores" : "inicio";
+  const path = location.pathname.replace(/\/+$/, "");
+  S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : path === "/revendedores" ? "revendedores" : path === "/tiendas" ? "tiendas" : "inicio";
   await refresh();
 })();
