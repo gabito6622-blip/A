@@ -128,3 +128,6 @@ Guía paso a paso: [`docs/WHATSAPP_META.md`](docs/WHATSAPP_META.md). Requiere la
 - Publicar en Render, Railway, un VPS (Docker) o tu PC con Cloudflare Tunnel: [`docs/PUBLICAR.md`](docs/PUBLICAR.md).
 - Respaldo automático diario en `data/backups` (se guardan 30). Panel → Configuración → Respaldos (solo el dueño).
 - Avisos para el dueño: pago nuevo para revisar y cuentas por vencer con el proveedor (panel con sonido + WhatsApp).
+
+### Páginas propias de revendedores
+Cada revendedor arma su página en `tudominio/r/su-nombre` desde **Mis clientes → Mi página**: 12 estilos listos, colores, fondo, tarjetas, letras de títulos y texto, textos, redes, logo, portada y qué productos mostrar (con SUS precios de venta). Sus clientes le piden por WhatsApp a él. El dueño puede apagar todas o bloquear una desde **Apariencia**.

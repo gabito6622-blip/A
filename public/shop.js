@@ -1,5 +1,5 @@
 // Tienda Gabriel Store conectada al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT } from "/common.js";
+import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes"];
@@ -9,18 +9,42 @@ const saveCart = () => { try { localStorage.setItem("gs-cart", JSON.stringify(S.
 const product = (id) => S.catalog.find((p) => p.id === id);
 const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
+/** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
+const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
+if (SLUG) VIEWS.splice(2);
 
 /* ---------------- carga ---------------- */
 async function loadBase() {
+  if (SLUG) return loadResellerShop();
   [S.settings, S.me, S.catalog] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/me"), api("GET", "/api/catalog")]);
+  S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
   applyLook(S.settings);
   document.title = S.settings.storeName;
   $("#storeName").textContent = S.settings.storeName;
-  $("#footName").textContent = `© ${S.settings.storeName} · ${S.settings.footerText || "Precios en bolivianos"}`;
+  footer();
+}
+
+async function loadResellerShop() {
+  const sh = await api("GET", `/api/shops/${SLUG}`);
+  S.me = { loggedIn: false };
+  S.catalog = sh.products;
+  S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo?v=${Date.now() % 1e6}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner?v=${Date.now() % 1e6}` : null };
+  if (!sh.published) S.settings.announcement = "👀 Vista previa: tu página está apagada. Solo vos la ves. Publicala desde Mis clientes → Mi página.";
+  S.cart = S.cart.filter((l) => product(l.productId));
+  applyLook(S.settings);
+  document.title = sh.title;
+  $("#storeName").textContent = sh.title;
+  $$('.snav [data-s="cuentas"], .snav [data-s="codigos"], .snav [data-s="recargas"], #navCli, #accBtn, .bnav [data-s="cuentas"], #bnavSaldo, #bnavCli').forEach((b) => b.remove());
+  $(".bnav").style.gridTemplateColumns = "repeat(3,1fr)";
+  footer();
+}
+
+function footer() {
   const st = S.settings;
+  $("#footName").textContent = `© ${st.storeName} · ${st.footerText || "Precios en bolivianos"}`;
   const links = [
     st.whatsapp && [waLink(st.whatsapp, "Hola, tengo una consulta"), "WhatsApp"],
     st.instagram && [`https://instagram.com/${encodeURIComponent(st.instagram)}`, "Instagram"],
@@ -37,7 +61,12 @@ function mix(a, b, t) {
   return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 /** Aplica los colores, el logo, los textos y el aviso que eligió la tienda. */
-const FONTS = { inter: "Inter", poppins: "Poppins", montserrat: "Montserrat", nunito: "Nunito" };
+const FONTS = Object.fromEntries(FONT_LIST.filter(([, n]) => n).map(([id, n]) => [id, n]));
+const fontStack = (id) => (FONTS[id] ? `'${FONTS[id]}',system-ui,sans-serif` : "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif");
+function loadFont(id) {
+  if (!FONTS[id] || document.getElementById("gs-font-" + id)) return;
+  document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", id: "gs-font-" + id, href: `https://fonts.googleapis.com/css2?family=${FONTS[id].replace(/ /g, "+")}:wght@400;500;600;700;800;900&display=swap` }));
+}
 /** Luminancia relativa (0 = negro, 1 = blanco). */
 function lum(h) {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -57,7 +86,7 @@ export function applyLook(st) {
     r.setProperty("--s-ink", "#111827");
     r.setProperty("--s-muted", "#4b5567");
     r.setProperty("--s-ok", "#0b8a63"); r.setProperty("--s-warn", "#a15c00"); r.setProperty("--s-bad", "#c81e4a");
-    r.setProperty("--s-sky", mix(ac, "#000000", 0.18));
+    r.setProperty("--s-sky", /^#[0-9a-f]{6}$/i.test(st.accent2Color || "") ? st.accent2Color : mix(ac, "#000000", 0.18));
     r.setProperty("--s-chip", mix(ac, "#000000", 0.35));
   } else {
     r.setProperty("--s-card", mix(bg, "#ffffff", 0.05));
@@ -65,22 +94,20 @@ export function applyLook(st) {
     r.setProperty("--s-hover", mix(bg, "#ffffff", 0.12));
     r.setProperty("--s-line", mix(bg, "#ffffff", 0.17));
     for (const k of ["--s-ink", "--s-muted", "--s-ok", "--s-warn", "--s-bad"]) r.removeProperty(k);
-    r.setProperty("--s-sky", mix(ac, "#ffffff", 0.35));
+    r.setProperty("--s-sky", /^#[0-9a-f]{6}$/i.test(st.accent2Color || "") ? st.accent2Color : mix(ac, "#ffffff", 0.35));
     r.setProperty("--s-chip", mix(ac, "#ffffff", 0.6));
   }
   r.setProperty("--s-blue", ac);
   document.documentElement.style.colorScheme = light ? "light" : "dark";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
-  const fam = FONTS[st.fontFamily];
-  if (fam && !document.getElementById("gs-font-" + st.fontFamily)) {
-    const l = Object.assign(document.createElement("link"), { rel: "stylesheet", id: "gs-font-" + st.fontFamily, href: `https://fonts.googleapis.com/css2?family=${fam}:wght@400;500;600;700;800;900&display=swap` });
-    document.head.append(l);
-  }
-  r.setProperty("--f-shop", st.fontFamily === "system" ? "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif" : `'${fam ?? "Inter"}',system-ui,sans-serif`);
+  const body = st.fontFamily || "inter", head = st.headingFont || body;
+  loadFont(body); loadFont(head);
+  r.setProperty("--f-shop", fontStack(body));
+  r.setProperty("--f-head", fontStack(head));
   const shop = document.getElementById("shop");
-  if (shop) shop.dataset.corners = st.corners || "round";
+  if (shop) Object.assign(shop.dataset, { corners: st.corners || "round", bg: st.bgStyle || "glow", card: st.cardStyle || "solid", light: light ? "1" : "" });
   const mark = $("#logoMark");
-  mark.outerHTML = st.hasLogo ? `<img id="logoMark" src="/api/settings/logo?v=${Date.now() % 1e6}" alt="">` : `<i id="logoMark">${esc((st.storeName || "G")[0])}</i>`;
+  mark.outerHTML = st.logoUrl ? `<img id="logoMark" src="${esc(st.logoUrl)}" alt="">` : `<i id="logoMark">${esc((st.storeName || "G")[0])}</i>`;
   const ann = $("#announce");
   ann.textContent = st.announcement || "";
   ann.hidden = !st.announcement;
@@ -93,7 +120,7 @@ async function loadPrivate() {
   S.data.orders = orders;
   if (S.view === "codigos") S.data.codes = await api("GET", "/api/me/codes");
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
-  if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices")]);
+  if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
 }
 
 async function refresh() {
@@ -138,9 +165,11 @@ function qrBlock() {
 function render() {
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
-  $("#navCli").hidden = $("#bnavCli").hidden = !isReseller();
-  $("#bnavSaldo").hidden = isReseller();
-  $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
+  if (!SLUG) {
+    $("#navCli").hidden = $("#bnavCli").hidden = !isReseller();
+    $("#bnavSaldo").hidden = isReseller();
+  }
+  if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
   const pub = S.catalog;
   const services = S.data.services ?? [];
   const V = {
@@ -148,14 +177,15 @@ function render() {
         ${S.settings.heroChip ? `<span class="chip">${esc(S.settings.heroChip)}</span>` : ""}
         <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
         <p>${esc(S.settings.heroText)}</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">Explorar productos ${icon("arrow")}</button><button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">${SLUG ? "Ver precios" : "Explorar productos"} ${icon("arrow")}</button>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn" href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">${icon("wa")}Escribime por WhatsApp</a>` : "") : `<button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button>`}</div>
         <div class="ticks">${(S.settings.heroTicks || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("")}</div></div>
-      <div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)} · tu resumen</div>
-        <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div></section>
+      ${S.settings.bannerUrl ? `<img class="hbanner" src="${esc(S.settings.bannerUrl)}" alt="">` : SLUG ? `<div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)}</div><div class="mgrid">${pub.slice(0, 4).map((p) => `<div>${esc(p.name)}<b>${bs(p.price)}</b>${p.durationDays} días</div>`).join("") || "<div>Pronto<b>✦</b>nuevos productos</div>"}</div></div>` : `<div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)} · tu resumen</div>
+        <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div>`}</section>
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
       <div class="pgrid">${pub.slice(0, 4).map(card).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
       <section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
-        ${[["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]]
+        ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
+          : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]])
           .map(([k, t, d]) => `<div style="display:grid;gap:4px"><span class="chip">Paso ${k}</span><b style="font-size:18px">${t}</b><span class="empty">${d}</span></div>`).join("")}</section>`,
     catalogo: () => {
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
@@ -185,7 +215,7 @@ function render() {
       <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
-    clientes: () => !isReseller() ? needLogin("tus clientes") : resellerView(),
+    clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
   };
   $("#sout").innerHTML = V[S.view]();
 }
@@ -255,6 +285,89 @@ function resellerView() {
     <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required maxlength="80"></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`;
 }
 
+/* ---------- Editor de la página propia del revendedor ---------- */
+const LOOK_FIELDS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners",
+  "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"];
+const shopUrl = (slug) => `${location.origin}/r/${slug}`;
+
+function shopEditor() {
+  const sh = S.data.shop;
+  if (!sh) return `<p class="empty">Cargando…</p>`;
+  const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
+  const unpriced = (S.data.prices ?? []).filter((p) => p.sell === null);
+  const chosen = new Set(sh.products ?? []);
+  const radios = (name, list, cur) => `<div class="ropts">${list.map(([v, t]) => `<label><input type="radio" name="${name}" value="${v}" ${v === cur ? "checked" : ""}><span>${t}</span></label>`).join("")}</div>`;
+  const fontSel = (name, cur) => `<select name="${name}">${FONT_LIST.map(([id, n, d]) => `<option value="${id}" ${id === cur ? "selected" : ""}>${n || "Sistema"} · ${d}</option>`).join("")}</select>`;
+  const color = (name, label, cur) => `<label class="rcolor">${label}<span><input type="color" name="${name}" value="${esc(cur || "#7c5cff")}"><code>${esc(cur || "")}</code></span></label>`;
+  return `<div class="sec-h"><div><span class="chip">Tu marca</span><h2>Mi página</h2><p>Armá tu propia tienda con tu logo, tus colores y tus precios. Tus clientes te piden directo por WhatsApp.</p></div></div>
+    ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
+    <div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
+      <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
+      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
+      <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
+    ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
+
+    <div class="sbox"><h2>1 · Elegí un estilo</h2><p class="empty" style="margin:0">Tocá uno y tu página queda armada al instante. Después cambiá lo que quieras abajo.</p>
+      <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></div>
+
+    <div class="reditor">
+    <form class="sbox sform" id="shopForm">
+      <h2>2 · Tu marca</h2>
+      <div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
+        <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
+        <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
+      <h2>3 · Colores</h2>
+      <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
+      <h2>4 · Fondo y tarjetas</h2>
+      <b class="rsub">Fondo</b>${radios("bgStyle", BG_LIST, sh.bgStyle)}
+      <b class="rsub">Tarjetas</b>${radios("cardStyle", CARD_LIST, sh.cardStyle)}
+      <b class="rsub">Bordes</b>${radios("corners", [["round", "Redondeados"], ["soft", "Suaves"], ["square", "Rectos"]], sh.corners)}
+      <h2>5 · Letras</h2>
+      <div class="rgrid"><label>Letra de los títulos${fontSel("headingFont", sh.headingFont)}</label><label>Letra del texto${fontSel("fontFamily", sh.fontFamily)}</label></div>
+      <h2>6 · Textos de tu portada</h2>
+      <div class="rgrid"><label>Etiqueta de arriba<input name="heroChip" maxlength="40" value="${esc(sh.heroChip ?? "")}"></label>
+        <label>Título<input name="heroTitle" maxlength="40" value="${esc(sh.heroTitle ?? "")}"></label>
+        <label>Parte en color<input name="heroHighlight" maxlength="40" value="${esc(sh.heroHighlight ?? "")}"></label>
+        <label class="rwide">Descripción<input name="heroText" maxlength="220" value="${esc(sh.heroText ?? "")}"></label>
+        <label class="rwide">Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(sh.heroTicks ?? "")}"></label>
+        <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="Ej.: 🔥 Netflix a Bs 30 solo hoy"></label>
+        <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en bolivianos"></label></div>
+      <h2>7 · Redes</h2>
+      <div class="rgrid"><label>Instagram<input name="instagram" maxlength="80" value="${esc(sh.instagram ?? "")}" placeholder="tu.usuario"></label>
+        <label>TikTok<input name="tiktok" maxlength="80" value="${esc(sh.tiktok ?? "")}" placeholder="tu.usuario"></label>
+        <label>Facebook<input name="facebook" maxlength="80" value="${esc(sh.facebook ?? "")}" placeholder="tu.pagina"></label></div>
+      <h2>8 · Productos que mostrás</h2>
+      <p class="empty" style="margin:0">Sin marcar ninguno, se muestran todos los que tienen precio.</p>
+      <div class="ropts">${priced.map((p) => `<label><input type="checkbox" name="prod" value="${esc(p.productId)}" ${chosen.has(p.productId) ? "checked" : ""}><span>${esc(p.name)} · ${bs(p.sell)}</span></label>`).join("")}
+        ${unpriced.map((p) => `<label class="off" title="Poné tu precio en Mi lista de precios"><input type="checkbox" disabled><span>${esc(p.name)} · sin precio</span></label>`).join("")}</div>
+      <div class="rsave"><button class="sbtn pri" type="submit">Guardar mi página</button><span class="empty">La vista previa cambia mientras editás. Guardá para que la vean tus clientes.</span></div>
+    </form>
+    <div class="rpreview"><div class="sbox"><h2>Vista previa <span class="rbtns" style="margin-left:auto"><button class="sbtn sm" type="button" data-pv="pc">PC</button><button class="sbtn sm" type="button" data-pv="cel">Celular</button></span></h2>
+      <div class="pvwrap" data-mode="${S.data.pv ?? "cel"}">${sh.saved ? `<iframe id="shopPreview" src="/r/${esc(sh.slug)}" title="Vista previa de tu página"></iframe>` : `<p class="empty" style="padding:20px">Elegí un estilo arriba o guardá para ver tu página acá.</p>`}</div></div></div>
+    </div>
+
+    <div class="sbox"><h2>Logo y portada</h2>
+      <div class="rimgs"><form class="sform" id="shopLogo"><b>Logo</b>${sh.hasLogo ? `<img class="rlogo" src="/api/shops/${esc(sh.slug)}/logo?v=${Date.now() % 1e6}" alt="Tu logo">` : `<span class="empty">Sin logo: se ve la inicial de tu tienda.</span>`}
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasLogo ? "Cambiar" : "Subir"} logo</button>${sh.hasLogo ? `<button class="sbtn sm" type="button" data-rmimg="logo">Quitar</button>` : ""}</div><small class="empty">Cuadrado, 512×512 ideal. Hasta 5 MB.</small></form>
+      <form class="sform" id="shopBanner"><b>Portada</b>${sh.hasBanner ? `<img class="rbanner" src="/api/shops/${esc(sh.slug)}/banner?v=${Date.now() % 1e6}" alt="Tu portada">` : `<span class="empty">Sin portada: se ve una tarjeta con tus precios.</span>`}
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de portada"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasBanner ? "Cambiar" : "Subir"} portada</button>${sh.hasBanner ? `<button class="sbtn sm" type="button" data-rmimg="banner">Quitar</button>` : ""}</div><small class="empty">Horizontal, 1600×1000 ideal (tus flyers o un collage de plataformas).</small></form></div></div>`;
+}
+
+/** Lee el formulario del editor como objeto de estilo. */
+function shopFormLook(f) {
+  const look = { title: f.title.value };
+  for (const k of LOOK_FIELDS) {
+    const el = f.elements[k];
+    if (!el) continue;
+    look[k] = el instanceof RadioNodeList ? el.value : el.value;
+  }
+  return look;
+}
+function pushPreview(look) {
+  const fr = $("#shopPreview");
+  try { fr?.contentWindow?.postMessage({ type: "gs-look", look }, location.origin); } catch { /* aún cargando */ }
+}
+
 function updateSellSummary(f) {
   const p = product(f.product.value);
   const out = $("#sellSum");
@@ -294,7 +407,7 @@ function renderCart(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center"><span class="mini" style="background:${esc(p.color)}">${esc(p.name[0])}</span><div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `<div class="total"><span>Total</span><span>${bs(tot)}</span></div><button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`
+        + `<div class="total"><span>Total</span><span>${bs(tot)}</span></div>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\nTotal: ${bs(tot)}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
@@ -433,6 +546,19 @@ document.addEventListener("click", async (ev) => {
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
+  if (d.rtab) { S.data.rtab = d.rtab; return render(); }
+  if (d.pv) { S.data.pv = d.pv; $(".pvwrap").dataset.mode = d.pv; return; }
+  if (d.theme) {
+    const t = THEMES.find((x) => x.id === d.theme);
+    el.disabled = true;
+    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Estilo “${t.name}” aplicado`); render(); }
+    catch (e) { el.disabled = false; toast(e.message); }
+    return;
+  }
+  if (d.rmimg) {
+    try { S.data.shop = await api("POST", `/api/me/shop/${d.rmimg}`, { remove: true }); toast("Imagen quitada"); render(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.login || el.id === "accBtn") { if (S.me?.loggedIn && el.id === "accBtn") return setView("cuentas"); return openLogin(); }
   if (d.cat) { S.cat = d.cat; return render(); }
   if (d.add) {
@@ -446,7 +572,7 @@ document.addEventListener("click", async (ev) => {
   if (d.det) {
     const p = product(d.det);
     $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span><span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span></div><h2 style="font-size:24px;font-weight:900">${esc(p.name)}</h2><p class="empty">${esc(p.description)}</p>
-      <dl class="cred" style="margin:0"><div><dt>Modalidad</dt><dd>${esc(kindText(p.kind))}</dd></div><div><dt>Duración</dt><dd>${p.durationDays} días</dd></div><div><dt>Entrega</dt><dd>En Mis cuentas</dd></div><div><dt>Disponibles</dt><dd>${p.available}</dd></div></dl>
+      <dl class="cred" style="margin:0"><div><dt>Modalidad</dt><dd>${esc(kindText(p.kind))}</dd></div><div><dt>Duración</dt><dd>${p.durationDays} días</dd></div><div><dt>Entrega</dt><dd>${SLUG ? "Por WhatsApp" : "En Mis cuentas"}</dd></div><div><dt>Disponibles</dt><dd>${p.available}</dd></div></dl>
       <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div><div class="pbtns"><button class="sbtn" type="button" data-close="1">Cerrar</button><button class="sbtn pri" type="button" data-add="${esc(p.id)}" ${p.available ? "" : "disabled"}>Añadir +</button></div></div>`;
     $("#modal").hidden = false; $("#scrim").hidden = false;
     return;
@@ -484,6 +610,11 @@ document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "pm") { const qr = t.value === "qr"; $("#qrPart").hidden = !qr; }
   if (t.form?.id === "resSell") updateSellSummary(t.form);
+  if (t.form?.id === "shopForm") pushPreview(shopFormLook(t.form));
+  if (t.id === "shopOn") {
+    try { S.data.shop = await api("PUT", "/api/me/shop", { enabled: t.checked }); toast(t.checked ? "¡Tu página está publicada! Compartí el link" : "Tu página quedó apagada"); render(); }
+    catch (e) { t.checked = !t.checked; toast(e.message); }
+  }
   if (t.id === "consent") {
     try { await api("PUT", "/api/me/consent", { whatsapp: t.checked }); toast(t.checked ? "Vas a recibir avisos por WhatsApp" : "Ya no vas a recibir avisos por WhatsApp"); } catch (e) { t.checked = !t.checked; toast(e.message); }
   }
@@ -491,6 +622,12 @@ document.addEventListener("change", async (ev) => {
 
 let qTimer;
 document.addEventListener("input", (ev) => {
+  if (ev.target.form?.id === "shopForm") {
+    if (ev.target.type === "color") ev.target.nextElementSibling.textContent = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => pushPreview(shopFormLook(ev.target.form)), 150);
+    return;
+  }
   const pi = ev.target.closest?.("#myPrices input[data-cost]");
   if (pi) {
     const v = pi.value.trim() ? toCents(pi.value) : null, out = $(`[data-profit="${pi.name.slice(2)}"]`);
@@ -543,6 +680,16 @@ document.addEventListener("submit", async (ev) => {
         throw e;
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (f.id === "shopForm") {
+      const body = shopFormLook(f);
+      body.slug = f.slug.value.trim().toLowerCase();
+      body.whatsapp = f.whatsapp.value;
+      body.products = [...f.querySelectorAll('input[name="prod"]:checked')].map((x) => x.value);
+      S.data.shop = await api("PUT", "/api/me/shop", body);
+      toast(S.data.shop.enabled ? "Guardado: tus clientes ya ven los cambios" : "Guardado. Activá “Publicar” para que tus clientes la vean");
+    } else if (f.id === "shopLogo" || f.id === "shopBanner") {
+      S.data.shop = await api("POST", `/api/me/shop/${f.id === "shopLogo" ? "logo" : "banner"}`, { contentBase64: await fileToBase64(f.file.files[0]) });
+      toast(f.id === "shopLogo" ? "Logo actualizado" : "Portada actualizada");
     } else if (f.dataset.client) {
       await api("PUT", `/api/me/customers/${f.dataset.client}`, { name: f.name.value, phone: f.phone.value, note: f.note.value, whatsappConsent: f.consent.checked });
       toast("Cliente actualizado");
@@ -568,9 +715,22 @@ document.addEventListener("submit", async (ev) => {
 
 $("#scrim").onclick = closeAll;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== location.origin || ev.data?.type !== "gs-look" || !S.settings) return;
+  Object.assign(S.settings, ev.data.look);
+  applyLook(S.settings);
+  if (ev.data.look.storeName || ev.data.look.title) $("#storeName").textContent = S.settings.storeName = ev.data.look.title || ev.data.look.storeName;
+  footer();
+  render();
+});
+
 window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 (async () => {
+  if (SLUG) {
+    S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
+    return refresh();
+  }
   await useAccessLink();
   S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
   await refresh();

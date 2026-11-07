@@ -135,3 +135,48 @@ describe("avisos para el dueño por HTTP", () => {
     assert.deepEqual(got, { phone: "+59170000000", payments: true, supplierExpiry: true, supplierDaysBefore: 3 });
   });
 });
+
+describe("página del revendedor por HTTP", () => {
+  let s, owner, rev;
+  const PNG1 = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000", "hex").toString("base64");
+  before(async () => {
+    s = await start();
+    owner = await s.login("gabriel", PASS);
+    const st = s.app.store;
+    const sys = { id: "t", role: "owner" };
+    st.catalog.upsertProduct(sys, { id: "nf", name: "Netflix", kind: "profile", durationDays: 30, price: 3500, published: true });
+    st.catalog.upsertPriceGroup(sys, { id: "rev", name: "Rev", prices: { nf: 2500 } });
+    const c = st.catalog.createCustomer(sys, { name: "Rosa Rev", phone: "+59171111111", kind: "reseller", priceGroupId: "rev" });
+    const link = await (await s.call("POST", `/api/admin/customers/${c.id}/login-link`, owner, {})).json();
+    const r = await s.call("POST", "/api/auth/customer/link", "", { token: link.url.split("#acceso=")[1] });
+    assert.equal(r.status, 200);
+    rev = r.headers.get("set-cookie").split(";")[0];
+  });
+  after(() => s.stop());
+
+  test("arma, publica y se ve en /r/<slug>, con logo; sin costos", async () => {
+    assert.equal((await s.call("PUT", "/api/me/prices", rev, { prices: { nf: 4000 } })).status, 200);
+    const up = await s.call("PUT", "/api/me/shop", rev, { slug: "rosa-tv", title: "Rosa TV", bgStyle: "aurora", cardStyle: "neon", headingFont: "orbitron" });
+    assert.equal(up.status, 200);
+    assert.equal((await s.call("GET", "/api/shops/rosa-tv", "")).status, 404, "apagada no se ve");
+    assert.equal((await s.call("GET", "/api/shops/rosa-tv", rev)).status, 200, "el revendedor ve su vista previa");
+    assert.equal((await s.call("POST", "/api/me/shop/logo", rev, { contentBase64: PNG1 })).status, 200);
+    assert.equal((await s.call("PUT", "/api/me/shop", rev, { enabled: true })).status, 200);
+    const pub = await (await s.call("GET", "/api/shops/rosa-tv", "")).json();
+    assert.equal(pub.title, "Rosa TV");
+    assert.equal(pub.hasLogo, true);
+    assert.deepEqual(pub.products.map((p) => p.price), [4000]);
+    assert.ok(!JSON.stringify(pub).includes("2500"));
+    const logo = await s.call("GET", "/api/shops/rosa-tv/logo", "");
+    assert.equal(logo.headers.get("content-type"), "image/png");
+    assert.equal((await s.call("POST", "/api/me/shop/banner", rev, { contentBase64: Buffer.from("%PDF-1.4 x").toString("base64") })).status, 400, "la portada tiene que ser imagen");
+  });
+
+  test("el dueño bloquea la página", async () => {
+    const list = await (await s.call("GET", "/api/admin/shops", owner)).json();
+    assert.equal(list[0].slug, "rosa-tv");
+    assert.equal((await s.call("POST", `/api/admin/customers/${list[0].customerId}/shop-block`, owner, { blocked: true })).status, 200);
+    assert.equal((await s.call("GET", "/api/shops/rosa-tv", "")).status, 404);
+    assert.equal((await s.call("GET", "/api/shops/rosa-tv/logo", "")).status, 404);
+  });
+});

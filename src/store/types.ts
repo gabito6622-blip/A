@@ -1,6 +1,9 @@
 // Modelo de dominio de Gabriel Store.
 // Montos SIEMPRE en centavos (enteros) para evitar errores de coma flotante.
 
+import type { Look } from "./look.js";
+export type { Look } from "./look.js";
+
 export type Cents = number;
 export type Id = string;
 
@@ -30,7 +33,7 @@ export interface Product {
 }
 
 /** Configuración de la tienda que ve el cliente. */
-export interface StoreSettings {
+export interface StoreSettings extends Look {
   storeName: string;
   /** WhatsApp de ventas, solo dígitos con código de país. */
   whatsapp: string;
@@ -39,28 +42,10 @@ export interface StoreSettings {
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */
   paymentNote?: string;
-  /** Apariencia de la tienda. */
-  accentColor?: string;
-  backgroundColor?: string;
+  /** Logo de la tienda (el resto de la apariencia viene de Look). */
   logoFileRef?: string;
-  heroTitle?: string;
-  heroHighlight?: string;
-  heroText?: string;
-  /** Aviso corto arriba de todo (promos, horarios). Vacío = no se muestra. */
-  announcement?: string;
-  /** Tipo de letra de la tienda. */
-  fontFamily?: "inter" | "poppins" | "montserrat" | "nunito" | "system";
-  /** Forma de botones y tarjetas. */
-  corners?: "round" | "soft" | "square";
-  /** Etiqueta arriba del título ("✦ Tu tienda digital en Bolivia"). */
-  heroChip?: string;
-  /** Hasta 3 ventajas debajo del texto, separadas por coma. */
-  heroTicks?: string;
-  footerText?: string;
-  /** Usuarios de redes (sin @). */
-  instagram?: string;
-  tiktok?: string;
-  facebook?: string;
+  /** Si los revendedores pueden publicar su propia página. Por defecto sí. */
+  resellerShops?: boolean;
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */
@@ -210,6 +195,25 @@ export interface Customer {
   resellerNote?: string;
   /** Precios a los que el revendedor le vende a sus clientes (en centavos), para calcular su ganancia. */
   resellerPrices?: Record<Id, Cents>;
+  /** Página propia del revendedor (/r/slug). */
+  shop?: ResellerShop;
+}
+
+export interface ResellerShop extends Look {
+  /** Dirección: /r/slug. */
+  slug: string;
+  enabled: boolean;
+  /** Nombre que se ve en su página. */
+  title: string;
+  /** WhatsApp del revendedor (solo dígitos): ahí le llegan los pedidos. */
+  whatsapp: string;
+  logoFileRef?: string;
+  /** Imagen de portada. */
+  bannerFileRef?: string;
+  /** Productos que muestra (vacío = todos los que tienen precio). */
+  products?: Id[];
+  /** Bloqueada por la tienda (contenido inapropiado, deuda, etc.). */
+  blocked?: boolean;
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";

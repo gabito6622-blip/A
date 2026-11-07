@@ -7,6 +7,7 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlink
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
+import { LOOK_KEYS } from "../store/look.js";
 import { Backups } from "./backup.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
 import { botAnswer } from "./bot.js";
@@ -187,7 +188,8 @@ export function createApp(cfg: AppConfig): App {
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
-      fontFamily: st.fontFamily || "inter", corners: st.corners || "round",
+      fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter",
+      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
     };
@@ -282,6 +284,30 @@ export function createApp(cfg: AppConfig): App {
     name: c.body?.name, phone: c.body?.phone, whatsappConsent: c.body?.whatsappConsent, note: c.body?.note,
   }));
   route("GET", "/api/me/prices", "customer", (c) => store.portal.priceList(c.actor!));
+  /* ---- página propia del revendedor ---- */
+  route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
+  route("PUT", "/api/me/shop", "customer", (c) => store.shops.update(c.actor!, c.body ?? {}));
+  const shopImage = (kind: "logo" | "banner") => (c: Ctx) => {
+    if (c.body?.remove === true) {
+      const old = store.shops.setImage(c.actor!, kind, null);
+      if (old) dropUpload(old);
+      return store.shops.mine(c.actor!);
+    }
+    const file = saveUpload(c.body);
+    if (file.endsWith(".pdf")) { dropUpload(file); throw new HttpError(400, "VALIDATION", "Tiene que ser una imagen (JPG, PNG o WEBP)"); }
+    try {
+      const old = store.shops.setImage(c.actor!, kind, file);
+      if (old) dropUpload(old);
+    } catch (e) { dropUpload(file); throw e; }
+    return store.shops.mine(c.actor!);
+  };
+  route("POST", "/api/me/shop/logo", "customer", shopImage("logo"), MAX_UPLOAD_JSON);
+  route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
+  route("GET", "/api/shops/:slug", "public", (c) => store.shops.public(c.params.slug, c.actor ?? undefined));
+  route("GET", "/api/shops/:slug/logo", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "logo", c.actor ?? undefined), "Sin logo"));
+  route("GET", "/api/shops/:slug/banner", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "banner", c.actor ?? undefined), "Sin portada"));
+  route("GET", "/api/admin/shops", "staff", (c) => store.shops.list(A(c)));
+  route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
   route("PUT", "/api/me/prices", "customer", (c) => store.portal.setPrices(c.actor!, c.body?.prices ?? {}));
 
   route("POST", "/api/orders", "customer", (c) =>
@@ -408,9 +434,9 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/admin/settings", "staff", (c) => {
     const b = c.body ?? {};
-    const pick = ["storeName", "whatsapp", "paymentNote", "accentColor", "backgroundColor", "heroTitle", "heroHighlight", "heroText", "announcement",
-      "fontFamily", "corners", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]
+    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
+    if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     return store.catalog.updateSettings(A(c), pick);
   });
   const imageSetting = (key: "qrFileRef" | "logoFileRef", what: string) => (c: Ctx) => {

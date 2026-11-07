@@ -697,3 +697,72 @@ describe("12. Revendedor y apariencia", () => {
     assert.throws(() => s.catalog.updateSettings(seller, { corners: "soft" }), err("FORBIDDEN"));
   });
 });
+
+describe("13. Página propia del revendedor", () => {
+  test("arranca con valores iniciales, se personaliza y valida todo", () => {
+    const { s, carla, as } = setup();
+    const r = as(carla);
+    const d = s.shops.mine(r);
+    assert.equal(d.slug, "carla-vargas");
+    assert.equal(d.saved, false);
+    const out = s.shops.update(r, { title: "Carla Streaming", slug: "carla-tv", whatsapp: "70011223", accentColor: "#00e5ff", accent2Color: "#ff2bd6",
+      bgStyle: "aurora", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", heroTitle: "Hola", instagram: "@carla.tv", evil: "x" });
+    assert.deepEqual([out.slug, out.whatsapp, out.headingFont, out.instagram, out.saved], ["carla-tv", "59170011223", "orbitron", "carla.tv", true]);
+    assert.equal("evil" in out, false);
+    for (const bad of [{ slug: "a" }, { slug: "Con Espacio" }, { slug: "panel" }, { headingFont: "comic" }, { bgStyle: "x" }, { cardStyle: "x" },
+      { accentColor: "rojo" }, { title: "" }, { whatsapp: "12" }, { heroTitle: "x".repeat(41) }, { products: ["nada"] }]) {
+      assert.throws(() => s.shops.update(r, bad), (e) => e instanceof DomainError, JSON.stringify(bad));
+    }
+  });
+
+  test("solo revendedores; la dirección es única", () => {
+    const { s, carla, maria, as } = setup();
+    assert.throws(() => s.shops.mine(as(maria)), err("FORBIDDEN"));
+    assert.throws(() => s.shops.update(owner, { title: "x" }), err("FORBIDDEN"));
+    s.shops.update(as(carla), { slug: "mi-tienda" });
+    const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 71110000", kind: "reseller", priceGroupId: "revendedor" });
+    assert.throws(() => s.shops.update(as(otro), { slug: "mi-tienda" }), err("VALIDATION"));
+  });
+
+  test("la página pública muestra SOLO sus precios de venta, nunca su costo", () => {
+    const { s, carla, as } = setup();
+    const r = as(carla);
+    s.portal.setPrices(r, { netflix: 4000 });
+    s.shops.update(r, { slug: "carla-tv", enabled: true });
+    const pub = s.shops.public("carla-tv");
+    assert.deepEqual(pub.products.map((p) => [p.id, p.price]), [["netflix", 4000]]);
+    assert.ok(!JSON.stringify(pub).includes("2500"), "no aparece el precio de revendedor");
+    assert.equal(pub.slug, "carla-tv");
+    assert.equal("blocked" in pub, false);
+    s.portal.setPrices(r, { gemini: 3000 });
+    s.shops.update(r, { products: ["gemini"] });
+    assert.deepEqual(s.shops.public("carla-tv").products.map((p) => p.id), ["gemini"], "solo los elegidos");
+  });
+
+  test("apagada o bloqueada no se ve; el revendedor sí ve su vista previa", () => {
+    const { s, carla, maria, as } = setup();
+    const r = as(carla);
+    s.shops.update(r, { slug: "carla-tv" });
+    assert.throws(() => s.shops.public("carla-tv"), err("NOT_FOUND"));
+    assert.equal(s.shops.public("carla-tv", r).published, false, "vista previa propia");
+    assert.throws(() => s.shops.public("carla-tv", as(maria)), err("NOT_FOUND"));
+    s.shops.update(r, { enabled: true });
+    assert.equal(s.shops.public("carla-tv").title, "Carla Vargas");
+    assert.throws(() => s.shops.setBlocked(seller, carla.id, true), err("FORBIDDEN"));
+    s.shops.setBlocked(admin, carla.id, true);
+    assert.throws(() => s.shops.public("carla-tv"), err("NOT_FOUND"));
+    assert.throws(() => s.shops.public("carla-tv", r), err("NOT_FOUND"), "bloqueada ni en vista previa");
+    s.shops.setBlocked(admin, carla.id, false);
+    s.catalog.updateSettings(owner, { resellerShops: false });
+    assert.throws(() => s.shops.public("carla-tv"), err("NOT_FOUND"));
+    assert.throws(() => s.shops.update(r, { enabled: true }), err("FORBIDDEN"));
+    assert.equal(s.shops.list(admin).length, 1);
+  });
+
+  test("tu tienda también acepta los estilos nuevos", () => {
+    const { s } = setup();
+    const st = s.catalog.updateSettings(owner, { accent2Color: "#ff2bd6", bgStyle: "grid", cardStyle: "glass", headingFont: "bebas" });
+    assert.deepEqual([st.accent2Color, st.bgStyle, st.cardStyle, st.headingFont], ["#ff2bd6", "grid", "glass", "bebas"]);
+    assert.throws(() => s.catalog.updateSettings(owner, { cardStyle: "x" }), err("VALIDATION"));
+  });
+});

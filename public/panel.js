@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT } from "/common.js";
+import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "dashboard", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -272,19 +272,25 @@ const V = {
 
   async apariencia() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin cambian la apariencia.</div></section>`;
-    const s = await api("GET", "/api/settings");
+    const [s, shops] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/shops").catch(() => [])]);
     const ACCENTS = [["#3984ff", "Azul"], ["#7c5cff", "Violeta"], ["#e0368a", "Rosa"], ["#ff5a36", "Naranja"], ["#f2b705", "Dorado"], ["#16b47e", "Verde"], ["#14b8c8", "Turquesa"], ["#e53935", "Rojo"]];
     const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"],
       ["#f5f7fb", "Blanco"], ["#fff7ec", "Crema"], ["#eaf3ff", "Celeste"], ["#f3efff", "Lila"], ["#ecfbf3", "Menta"], ["#fff0f3", "Rosa claro"]];
-    const FONTS = [["inter", "Inter (moderna)"], ["poppins", "Poppins (redondeada)"], ["montserrat", "Montserrat (elegante)"], ["nunito", "Nunito (amigable)"], ["system", "La del celular"]];
+    const FONTS = FONT_LIST.map(([id, n, d]) => [id, `${n || "Sistema"} · ${d}`]);
     const CORNERS = [["round", "Redondeados"], ["soft", "Suaves"], ["square", "Rectos"]];
     const sw = (name, list, cur) => `<div class="inline">${list.map(([c, t]) => `<label title="${t}" style="display:grid;justify-items:center;gap:4px;font-size:12px;cursor:pointer;position:relative"><input type="radio" name="${name}" value="${c}" ${c.toLowerCase() === cur.toLowerCase() ? "checked" : ""} style="position:absolute;opacity:0">
       <span class="swatch" style="width:38px;height:38px;border-radius:10px;background:${c};border:3px solid ${c.toLowerCase() === cur.toLowerCase() ? "var(--ink)" : "transparent"};box-shadow:0 0 0 1px var(--line)"></span>${t}</label>`).join("")}
       <label style="display:grid;justify-items:center;gap:4px;font-size:12px">Otro<input type="color" name="${name}Custom" value="${esc(cur)}" style="width:44px;height:38px;padding:2px"></label></div>`;
-    return `<section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px">
+    return `<section class="card"><h2>Estilos listos</h2><p class="muted" style="margin:0">Tocá uno para probarlo en la vista previa de abajo. Si te gusta, tocá <b>Guardar apariencia</b>.</p>
+        <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-ptheme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
+      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
+        <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
         <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
-        <div class="form"><label>Tipo de letra<select name="fontFamily">${FONTS.map(([v, t]) => opt(v, t, v === s.fontFamily)).join("")}</select></label>
+        <div class="form"><label>Letra de los títulos<select name="headingFont">${FONTS.map(([v, t]) => opt(v, t, v === s.headingFont)).join("")}</select></label>
+          <label>Letra del texto<select name="fontFamily">${FONTS.map(([v, t]) => opt(v, t, v === s.fontFamily)).join("")}</select></label>
+          <label>Fondo<select name="bgStyle">${BG_LIST.map(([v, t]) => opt(v, t, v === s.bgStyle)).join("")}</select></label>
+          <label>Tarjetas<select name="cardStyle">${CARD_LIST.map(([v, t]) => opt(v, t, v === s.cardStyle)).join("")}</select></label>
           <label>Forma de botones y tarjetas<select name="corners">${CORNERS.map(([v, t]) => opt(v, t, v === s.corners)).join("")}</select></label></div>
         <h2 style="margin-top:6px">Textos de la página de inicio</h2>
         <div class="form"><label>Título<input name="heroTitle" maxlength="40" value="${esc(s.heroTitle)}"></label><label>Parte destacada (en color)<input name="heroHighlight" maxlength="40" value="${esc(s.heroHighlight)}"></label>
@@ -298,11 +304,17 @@ const V = {
           <label>TikTok (usuario)<input name="tiktok" maxlength="80" value="${esc(s.tiktok)}" placeholder="gabostore"></label>
           <label>Facebook (página)<input name="facebook" maxlength="80" value="${esc(s.facebook)}" placeholder="gabostore"></label></div>
         <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
+      <section class="card"><h2>Páginas de revendedores</h2>
+        <p class="muted" style="margin:0">Cada revendedor puede armar su propia página (<code>/r/su-nombre</code>) con su logo, colores, letras y precios. Sus clientes le piden por WhatsApp a él. Si alguna página tiene algo que no te gusta, bloqueala.</p>
+        <label class="chk"><input type="checkbox" id="resellerShops" ${s.resellerShops ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Permitir que los revendedores publiquen su página</label>
+        ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="/r/${esc(x.slug)}" target="_blank" rel="noopener">/r/${esc(x.slug)}</a><br><small class="muted">${esc(x.title)}</small></td>
+          <td>${x.blocked ? pill("Bloqueada", "bad") : x.enabled ? pill("Publicada", "ok") : pill("Apagada", "mute")}</td>
+          <td><button class="pbtn sm" type="button" data-shopblock="${esc(x.customerId)}" data-on="${x.blocked ? 0 : 1}">${x.blocked ? "Desbloquear" : "Bloquear"}</button></td></tr>`)) : `<div class="emptybox">Ningún revendedor armó su página todavía.</div>`}</section>
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
       <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-        <iframe id="lookPreview" src="/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
-        <iframe src="/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
+        <iframe id="lookPreview" data-look="1" src="/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
+        <iframe data-look="1" src="/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
   },
 
   async usuarios() {
@@ -595,6 +607,21 @@ document.addEventListener("click", async (ev) => {
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.qrdel) { const row = el.closest(".qr-row"); const form = row.closest("form"); row.remove(); return form.requestSubmit(); }
+  if (d.ptheme) {
+    const t = THEMES.find((x) => x.id === d.ptheme), f = $("#lookForm");
+    for (const [k, v] of Object.entries(t.look)) {
+      if (k === "accentColor" || k === "backgroundColor") { $$(`input[name="${k}"]`).forEach((r) => { r.checked = false; r.nextElementSibling.style.borderColor = "transparent"; }); f[k + "Custom"].value = v; }
+      else if (k === "accent2Color") { f.accent2Color.value = v; f.accent2Auto.checked = false; }
+      else if (f[k]) f[k].value = v;
+    }
+    previewLook();
+    return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
+  }
+  if (d.shopblock) {
+    const on = d.on === "1";
+    if (on && !confirm("¿Bloquear esta página? El revendedor no va a poder mostrarla hasta que la desbloquees.")) return;
+    return act(() => api("POST", `/api/admin/customers/${d.shopblock}/shop-block`, { blocked: on }), on ? "Página bloqueada" : "Página desbloqueada");
+  }
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
@@ -654,7 +681,21 @@ document.addEventListener("click", async (ev) => {
   }
 });
 
+/** Manda el estilo del formulario a las vistas previas (sin guardar). */
+function previewLook() {
+  const f = $("#lookForm");
+  if (!f) return;
+  const look = { accentColor: f.querySelector('input[name="accentColor"]:checked')?.value || f.accentColorCustom.value, backgroundColor: f.querySelector('input[name="backgroundColor"]:checked')?.value || f.backgroundColorCustom.value,
+    accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value };
+  for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k].value;
+  $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
+}
+let lookTimer;
+document.addEventListener("input", (ev) => { if (ev.target.form?.id === "lookForm") { clearTimeout(lookTimer); lookTimer = setTimeout(previewLook, 150); } });
+
 document.addEventListener("change", (ev) => {
+  if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
+  if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");
   if (ev.target.id === "days") { P.tab.days = +ev.target.value; render(); }
   // Marca visual del color elegido en Apariencia (se aplica al guardar).
   if (ev.target.name === "accentColor" || ev.target.name === "backgroundColor") {
@@ -808,7 +849,8 @@ document.addEventListener("submit", async (ev) => {
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
-      const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), fontFamily: f.fontFamily.value, corners: f.corners.value };
+      const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value,
+        fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value };
       for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
       await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
     } else if (f.id === "logoForm") {

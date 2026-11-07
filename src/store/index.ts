@@ -8,6 +8,7 @@ import * as inventory from "./inventory.js";
 import * as wallet from "./wallet.js";
 import * as orders from "./orders.js";
 import * as portal from "./portal.js";
+import * as rshop from "./resellerShop.js";
 import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
@@ -89,6 +90,15 @@ export function createStore(opts: EngineOptions = {}) {
       adjust: bind(e, wallet.adjust),
       history: bind(e, wallet.history),
     },
+    shops: {
+      mine: bind(e, rshop.myShop),
+      update: bind(e, rshop.updateMyShop),
+      setImage: bind(e, rshop.setMyShopImage),
+      setBlocked: bind(e, rshop.setShopBlocked),
+      list: bind(e, rshop.listShops),
+      public: (slug: string, viewer?: Actor) => rshop.publicShop(e, slug, viewer),
+      image: (slug: string, kind: "logo" | "banner", viewer?: Actor) => rshop.shopImage(e, slug, kind, viewer),
+    },
     portal: {
       services: bind(e, portal.myServices),
       orders: bind(e, portal.myOrders),
@@ -147,3 +157,4 @@ export function createStore(opts: EngineOptions = {}) {
 
 export type GabrielStore = ReturnType<typeof createStore>;
 export { localHour, reminderSettings } from "./orders.js";
+export { FONTS, BG_STYLES, CARD_STYLES } from "./look.js";
