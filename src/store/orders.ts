@@ -12,7 +12,7 @@ import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, priceFor } from "./catalog.js";
+import { canActFor, priceFor, visibleTo } from "./catalog.js";
 import { releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
@@ -53,7 +53,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const id = e.id("ord");
     const items: OrderItem[] = input.items.map((it) => {
       const p = e.get("products", it.productId);
-      if (!p.published && !isStaff(actor)) throw new DomainError("NOT_FOUND", "Producto no disponible");
+      if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
       return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) };
     });
     const reserved = items.flatMap((it) => reserveSlots(e, it.productId, it.qty, id));
@@ -243,10 +243,12 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
     else {
       requireActFor(e, actor, a.customerId);
-      if (!e.s.products[a.productId]?.published) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+      const prod = e.s.products[a.productId];
+      if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }
     const payerId = payerFor(e, actor, a.customerId);
-    const unit = priceFor(e, payerId, a.productId);
+    // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese.
+    const unit = a.control?.price ?? priceFor(e, payerId, a.productId);
     const now = e.now();
     const order: Order = {
       id: e.id("ord"), kind: "renewal", customerId: a.customerId, payerId, createdBy: actor.id,

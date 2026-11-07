@@ -188,7 +188,7 @@ export function listShops(e: Engine, actor: Actor) {
  */
 export function programInfo(e: Engine) {
   const st = e.s.settings;
-  const published = Object.values(e.s.products).filter((p) => p.published);
+  const published = Object.values(e.s.products).filter((p) => p.published && !p.resellersOnly);
   // Grupo de precios de revendedor: el que más usan los revendedores; si no, el llamado "revendedor".
   const count: Record<Id, number> = {};
   for (const c of Object.values(e.s.customers)) if (c.kind === "reseller") count[c.priceGroupId] = (count[c.priceGroupId] ?? 0) + 1;

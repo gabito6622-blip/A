@@ -311,14 +311,14 @@ const V = {
       <label>Precio revendedor (Bs, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
-      <label class="chk"><input type="checkbox" name="published" ${f.published ? "checked" : ""}> Mostrar en la tienda</label>
+      <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
       <section class="card"><h2>Productos <small>· ${products.length}</small></h2>${table(["Producto", "Tipo", "Precio", "Revendedor", "Duración", "Stock libre", "Tienda", ""], products.map((p) => `<tr>
         <td>${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px">` : `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${esc(p.color ?? "#3984ff")};margin-right:6px"></span>`}${esc(p.name)}<br><small class="muted">${esc(p.category ?? "")}</small></td>
         <td>${esc({ profile: "Perfil", full_account: "Cuenta", invite: "Invitación", combo: "Combo" }[p.kind])}</td><td>${bs(p.price)}</td><td>${rev?.prices[p.id] !== undefined ? bs(rev.prices[p.id]) : "—"}</td>
-        <td>${p.durationDays} días</td><td>${stock[p.id]?.available ?? 0}</td><td>${p.published ? pill("Publicado", "ok") : pill("Oculto", "mute")}</td>
+        <td>${p.durationDays} días</td><td>${stock[p.id]?.available ?? 0}</td><td>${!p.published ? pill("Oculto", "mute") : p.resellersOnly ? pill("Solo revendedores", "warn") : pill("Publicado", "ok")}</td>
         <td><button class="pbtn sm" type="button" data-editprod="${esc(p.id)}">${icon("edit")}Editar</button></td></tr>`), "Todavía no hay productos.")}</section>`;
   },
 
@@ -1054,7 +1054,7 @@ document.addEventListener("submit", async (ev) => {
       if (bad.length) $("#bulkOut").innerHTML = `<div class="perr">${bad.map((b) => `Línea ${b.row + 1}: ${esc(b.error)}`).join("<br>")}</div>`;
     } else if (f.id === "prodForm") {
       const id = f.dataset.id || f.name.value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-      const body = { id, name: f.name.value.trim(), category: f.category.value.trim() || undefined, description: f.description.value.trim() || undefined, kind: f.kind.value, durationDays: +f.durationDays.value, price: toCents(f.price.value), color: f.color.value, published: f.published.checked };
+      const body = { id, name: f.name.value.trim(), category: f.category.value.trim() || undefined, description: f.description.value.trim() || undefined, kind: f.kind.value, durationDays: +f.durationDays.value, price: toCents(f.price.value), color: f.color.value, published: f.audience.value !== "none", resellersOnly: f.audience.value === "resellers" };
       if (!Number.isFinite(body.price)) throw new Error("Precio inválido");
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");

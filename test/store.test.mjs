@@ -915,3 +915,29 @@ describe("20. Alquileres: solo los renueva la tienda", () => {
     assert.equal(s.portal.services(as(carla)).find((x) => x.assignmentId === pub.assignmentIds[0]).canRenew, true);
   });
 });
+
+describe("21. Productos solo para revendedores + autorenovación con saldo", () => {
+  test("el público no lo ve; el revendedor lo ve, lo renueva solo con saldo al precio acordado y se corre la fecha", () => {
+    const { s, carla, maria, as } = setup();
+    s.catalog.upsertProduct(owner, { id: "dsn", name: "Disney Premium + ESPN", kind: "full_account", durationDays: 30, price: 6900, published: true, resellersOnly: true });
+    s.catalog.upsertSupplier(owner, { id: "prov2", name: "Prov", active: true });
+    s.inventory.addAccount(admin, { productId: "dsn", supplierId: "prov2", email: "d1@x.y", password: "", passwordPending: true, supplierExpiresAt: T0 + 120 * DAY, cost: 0, profiles: [{ label: "Cuenta completa" }, { label: "Pack 2" }] });
+    assert.ok(!s.catalog.publicCatalog().some((p) => p.id === "dsn"), "la tienda pública no lo muestra");
+    assert.ok(!s.catalog.publicCatalog(maria.id).some((p) => p.id === "dsn"), "un cliente común tampoco");
+    assert.ok(s.catalog.publicCatalog(carla.id).some((p) => p.id === "dsn"), "el revendedor sí");
+    assert.throws(() => s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "dsn", qty: 1 }], paymentMethod: "qr" }), err("NOT_FOUND"));
+    // Alquiler asignado por el dueño, con precio acordado Bs 65
+    const o = s.orders.create(seller, { customerId: carla.id, items: [{ productId: "dsn", qty: 1 }], paymentMethod: "cash" });
+    const id = o.assignmentIds[0];
+    s.orders.setControl(seller, id, { price: 6500 });
+    const svc = s.portal.services(as(carla)).find((x) => x.assignmentId === id);
+    assert.deepEqual([svc.canRenew, svc.renewPrice], [true, 6500]);
+    s.wallet.adjust(owner, carla.id, 10000, "carga");
+    const before = s.snapshot().assignments[id].customerExpiresAt;
+    const r = s.orders.renew(as(carla), id, { paymentMethod: "balance" });
+    assert.equal(r.order.total, 6500, "cobra el precio acordado");
+    assert.equal(s.wallet.balance(carla.id), 10000 - 6500);
+    assert.equal(r.assignment.customerExpiresAt, before + 30 * DAY, "la fecha se corre sola");
+    assert.throws(() => s.orders.renew(as(carla), id, { paymentMethod: "balance" }), err("INSUFFICIENT_BALANCE"));
+  });
+});

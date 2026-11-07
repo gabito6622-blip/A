@@ -24,6 +24,7 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       id, name: p.name.trim(), kind: p.kind, durationDays: p.durationDays, price: p.price, published: !!p.published,
       ...(p.category !== undefined ? { category: p.category } : {}), ...(p.description !== undefined ? { description: p.description } : {}),
       ...(p.color !== undefined ? { color: p.color } : {}), ...(prev?.imageFileRef ? { imageFileRef: prev.imageFileRef } : {}),
+      ...(p.resellersOnly ? { resellersOnly: true } : {}),
     };
     if (!["profile", "full_account", "invite", "combo"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
     e.s.products[id] = prod;
@@ -215,9 +216,16 @@ export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
   return actor.role === "reseller" && !!c && c.resellerId === actor.customerId;
 }
 
+/** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
+export function visibleTo(e: Engine, p: { published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
+  if (!p.published) return false;
+  if (!p.resellersOnly) return true;
+  return !!customerId && e.s.customers[customerId]?.kind === "reseller";
+}
+
 export function publicCatalog(e: Engine, customerId?: Id) {
   return Object.values(e.s.products)
-    .filter((p) => p.published)
+    .filter((p) => visibleTo(e, p, customerId))
     .map((p) => ({
       id: p.id, name: p.name, kind: p.kind, durationDays: p.durationDays,
       category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef,

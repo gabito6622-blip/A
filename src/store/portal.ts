@@ -5,7 +5,7 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, normalizePhone, priceFor } from "./catalog.js";
+import { canActFor, normalizePhone, priceFor, visibleTo } from "./catalog.js";
 import { balance } from "./wallet.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
@@ -33,7 +33,8 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           productId: a.productId, product: e.s.products[a.productId].name, expiresAt: a.customerExpiresAt,
           daysLeft: Math.ceil((a.customerExpiresAt - e.now()) / 86_400_000),
           access: { email: acc.email, password: acc.password || "Pedila por WhatsApp", profile: slot.label, pin: slot.pin ?? null, passwordPending: !acc.password },
-          canRenew: !!e.s.products[a.productId]?.published,
+          canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
+          renewPrice: a.control?.price ?? priceFor(e, actor.customerId!, a.productId),
         };
       });
     if (out.length) e.audit(actor, "credentials.view", "assignment", out.map((o) => o.assignmentId).join(","));
@@ -118,7 +119,7 @@ export function setMyPrices(e: Engine, actor: Actor, prices: Record<Id, number |
 export function myPriceList(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
   const me = e.get("customers", actor.customerId);
-  return Object.values(e.s.products).filter((p) => p.published).map((p) => {
+  return Object.values(e.s.products).filter((p) => visibleTo(e, p, me.id)).map((p) => {
     const cost = priceFor(e, me.id, p.id);
     const sell = me.resellerPrices?.[p.id] ?? null;
     return { productId: p.id, name: p.name, durationDays: p.durationDays, cost, sell, profit: sell === null ? null : sell - cost };

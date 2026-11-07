@@ -32,6 +32,8 @@ export interface Product {
   color?: string;
   /** Logo o imagen del producto (archivo subido por el staff). */
   imageFileRef?: string;
+  /** Solo lo ven, compran y renuevan los revendedores (no sale en la tienda pública). */
+  resellersOnly?: boolean;
 }
 
 /** Configuración de la tienda que ve el cliente. */
