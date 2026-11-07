@@ -148,3 +148,31 @@ export function listShops(e: Engine, actor: Actor) {
   authorize(actor, "catalog.manage");
   return Object.values(e.s.customers).filter((c) => c.shop).map((c) => ({ customerId: c.id, name: c.name, slug: c.shop!.slug, title: c.shop!.title, enabled: c.shop!.enabled, blocked: !!c.shop!.blocked }));
 }
+
+/**
+ * Datos públicos para la página /revendedores (la que convence a nuevos revendedores).
+ * Todo sale de datos reales: catálogo, precio de revendedor (si el dueño lo permite) y páginas publicadas.
+ */
+export function programInfo(e: Engine) {
+  const st = e.s.settings;
+  const published = Object.values(e.s.products).filter((p) => p.published);
+  // Grupo de precios de revendedor: el que más usan los revendedores; si no, el llamado "revendedor".
+  const count: Record<Id, number> = {};
+  for (const c of Object.values(e.s.customers)) if (c.kind === "reseller") count[c.priceGroupId] = (count[c.priceGroupId] ?? 0) + 1;
+  const gid = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0] ?? (e.s.priceGroups.revendedor ? "revendedor" : undefined);
+  const group = gid ? e.s.priceGroups[gid] : undefined;
+  const showPrices = st.resellerProgramPrices !== false && !!group;
+  const shopsOn = st.resellerShops !== false;
+  const shops = shopsOn ? Object.values(e.s.customers)
+    .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked)
+    .slice(0, 24)
+    .map((c) => ({ slug: c.shop!.slug, title: c.shop!.title, hasLogo: !!c.shop!.logoFileRef, accentColor: c.shop!.accentColor, accent2Color: c.shop!.accent2Color, backgroundColor: c.shop!.backgroundColor, headingFont: c.shop!.headingFont })) : [];
+  return {
+    storeName: st.storeName, whatsapp: st.whatsapp, showPrices, shopsEnabled: shopsOn,
+    stats: { products: published.length, categories: new Set(published.map((p) => p.category ?? "Otros")).size, shops: shops.length },
+    products: showPrices ? published.filter((p) => group!.prices[p.id] !== undefined && group!.prices[p.id] < p.price)
+      .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", color: p.color ?? "#3984ff", durationDays: p.durationDays, public: p.price, reseller: group!.prices[p.id] }))
+      .sort((a, b) => (b.public - b.reseller) - (a.public - a.reseller)).slice(0, 12) : [],
+    shops,
+  };
+}

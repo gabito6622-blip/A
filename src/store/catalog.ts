@@ -32,7 +32,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

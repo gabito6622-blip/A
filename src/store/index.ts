@@ -96,6 +96,7 @@ export function createStore(opts: EngineOptions = {}) {
       setImage: bind(e, rshop.setMyShopImage),
       setBlocked: bind(e, rshop.setShopBlocked),
       list: bind(e, rshop.listShops),
+      program: () => rshop.programInfo(e),
       public: (slug: string, viewer?: Actor) => rshop.publicShop(e, slug, viewer),
       image: (slug: string, kind: "logo" | "banner", viewer?: Actor) => rshop.shopImage(e, slug, kind, viewer),
     },

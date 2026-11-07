@@ -766,3 +766,24 @@ describe("13. Página propia del revendedor", () => {
     assert.throws(() => s.catalog.updateSettings(owner, { cardStyle: "x" }), err("VALIDATION"));
   });
 });
+
+describe("14. Página /revendedores", () => {
+  test("datos reales: ganancia por producto, páginas publicadas y opción de ocultar precios", () => {
+    const { s, carla, as } = setup();
+    let pg = s.shops.program();
+    assert.equal(pg.showPrices, true);
+    assert.deepEqual(pg.products.map((p) => [p.id, p.public, p.reseller]), [["netflix", 3500, 2500], ["gemini", 2500, 1800]]);
+    assert.equal(pg.stats.products, 2, "solo publicados");
+    assert.equal(pg.shops.length, 0);
+    s.shops.update(as(carla), { slug: "carla-tv", enabled: true });
+    pg = s.shops.program();
+    assert.deepEqual(pg.shops.map((x) => x.slug), ["carla-tv"]);
+    assert.ok(!JSON.stringify(pg.shops).includes(carla.phone), "no expone el teléfono del revendedor");
+    s.shops.setBlocked(admin, carla.id, true);
+    assert.equal(s.shops.program().shops.length, 0, "bloqueada no aparece");
+    s.catalog.updateSettings(owner, { resellerProgramPrices: false });
+    pg = s.shops.program();
+    assert.equal(pg.showPrices, false);
+    assert.deepEqual(pg.products, []);
+  });
+});

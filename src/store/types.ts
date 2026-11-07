@@ -46,6 +46,8 @@ export interface StoreSettings extends Look {
   logoFileRef?: string;
   /** Si los revendedores pueden publicar su propia página. Por defecto sí. */
   resellerShops?: boolean;
+  /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */
+  resellerProgramPrices?: boolean;
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */

@@ -189,7 +189,7 @@ export function createApp(cfg: AppConfig): App {
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
       fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter",
-      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false,
+      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
     };
@@ -303,6 +303,7 @@ export function createApp(cfg: AppConfig): App {
   };
   route("POST", "/api/me/shop/logo", "customer", shopImage("logo"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
+  route("GET", "/api/resellers/program", "public", () => store.shops.program());
   route("GET", "/api/shops/:slug", "public", (c) => store.shops.public(c.params.slug, c.actor ?? undefined));
   route("GET", "/api/shops/:slug/logo", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "logo", c.actor ?? undefined), "Sin logo"));
   route("GET", "/api/shops/:slug/banner", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "banner", c.actor ?? undefined), "Sin portada"));
@@ -437,6 +438,7 @@ export function createApp(cfg: AppConfig): App {
     const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
+    if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
     return store.catalog.updateSettings(A(c), pick);
   });
   const imageSetting = (key: "qrFileRef" | "logoFileRef", what: string) => (c: Ctx) => {

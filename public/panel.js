@@ -304,6 +304,10 @@ const V = {
           <label>TikTok (usuario)<input name="tiktok" maxlength="80" value="${esc(s.tiktok)}" placeholder="gabostore"></label>
           <label>Facebook (página)<input name="facebook" maxlength="80" value="${esc(s.facebook)}" placeholder="gabostore"></label></div>
         <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
+      <section class="card"><h2>Página para conseguir revendedores</h2>
+        <p class="muted" style="margin:0">En <a href="/revendedores" target="_blank" rel="noopener"><b>/revendedores</b></a> hay una página que explica tu programa: beneficios, estilos, las tiendas de tus revendedores y un botón a tu WhatsApp. Compartila en tus estados y grupos.</p>
+        <label class="chk"><input type="checkbox" id="resellerProgramPrices" ${s.resellerProgramPrices ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Mostrar la tabla “Tu ganancia” (precio público vs. precio de revendedor)</label>
+        <div class="inline"><a class="pbtn" href="/revendedores" target="_blank" rel="noopener">${icon("ext")}Abrir la página</a><button class="pbtn" type="button" data-copy="${esc(location.origin + "/revendedores")}">${icon("copy")}Copiar link</button></div></section>
       <section class="card"><h2>Páginas de revendedores</h2>
         <p class="muted" style="margin:0">Cada revendedor puede armar su propia página (<code>/r/su-nombre</code>) con su logo, colores, letras y precios. Sus clientes le piden por WhatsApp a él. Si alguna página tiene algo que no te gusta, bloqueala.</p>
         <label class="chk"><input type="checkbox" id="resellerShops" ${s.resellerShops ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Permitir que los revendedores publiquen su página</label>
@@ -695,6 +699,7 @@ document.addEventListener("input", (ev) => { if (ev.target.form?.id === "lookFor
 
 document.addEventListener("change", (ev) => {
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
+  if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
   if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");
   if (ev.target.id === "days") { P.tab.days = +ev.target.value; render(); }
   // Marca visual del color elegido en Apariencia (se aplica al guardar).

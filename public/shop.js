@@ -2,7 +2,7 @@
 import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
-const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes"];
+const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes", "revendedores"];
 
 try { S.cart = JSON.parse(localStorage.getItem("gs-cart") || "[]"); } catch { S.cart = []; }
 const saveCart = () => { try { localStorage.setItem("gs-cart", JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
@@ -37,7 +37,7 @@ async function loadResellerShop() {
   applyLook(S.settings);
   document.title = sh.title;
   $("#storeName").textContent = sh.title;
-  $$('.snav [data-s="cuentas"], .snav [data-s="codigos"], .snav [data-s="recargas"], #navCli, #accBtn, .bnav [data-s="cuentas"], #bnavSaldo, #bnavCli').forEach((b) => b.remove());
+  $$('.snav [data-s="cuentas"], .snav [data-s="codigos"], .snav [data-s="recargas"], #navCli, #navRev, #accBtn, .bnav [data-s="cuentas"], #bnavSaldo, #bnavCli').forEach((b) => b.remove());
   $(".bnav").style.gridTemplateColumns = "repeat(3,1fr)";
   footer();
 }
@@ -114,6 +114,7 @@ export function applyLook(st) {
 }
 
 async function loadPrivate() {
+  if (S.view === "revendedores" && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
   if (!S.me?.loggedIn) return;
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
@@ -183,6 +184,7 @@ function render() {
         <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div>`}</section>
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
       <div class="pgrid">${pub.slice(0, 4).map(card).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="#revendedores" data-s="revendedores">Ver cómo funciona ${icon("arrow")}</a></section>` : ""}
       <section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
         ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
           : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]])
@@ -215,6 +217,7 @@ function render() {
       <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
+    revendedores: () => programView(),
     clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
   };
   $("#sout").innerHTML = V[S.view]();
@@ -284,6 +287,76 @@ function resellerView() {
 
     <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required maxlength="80"></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`;
 }
+
+/* ---------- Página para atraer revendedores (/revendedores) ---------- */
+function phoneMock(t, items) {
+  const L = t.look;
+  loadFont(L.headingFont);
+  const light = lum(L.backgroundColor) > 0.45;
+  const ink = light ? "#111827" : "#f5f7ff", muted = light ? "#4b5567" : "#a5aec8";
+  return `<div class="ph" style="--pb:${L.backgroundColor};--pa:${L.accentColor};--pa2:${L.accent2Color};--pi:${ink};--pm:${muted};--pf:${fontStack(L.headingFont)}">
+    <div class="ph-top"><i>${esc(t.name[0])}</i><b>Tu tienda</b></div>
+    <div class="ph-hero"><small>✦ Entrega inmediata</small><strong>Tus plataformas,<br><span>al mejor precio.</span></strong></div>
+    ${items.map((p) => `<div class="ph-row"><span>${esc(p.name)}</span><b>${bs(p.price)}</b></div>`).join("")}
+    <div class="ph-btn">Pedir por WhatsApp</div><em>${esc(t.name)}</em></div>`;
+}
+
+function programView() {
+  const pg = S.data.program;
+  if (!pg) return `<p class="skeleton">Cargando…</p>`;
+  const wa = pg.whatsapp ? waLink(pg.whatsapp, "Hola, quiero ser revendedor de " + pg.storeName) : null;
+  const want = wa ? `<a class="sbtn pri" href="${wa}" target="_blank" rel="noopener">${icon("wa")}Quiero ser revendedor</a>` : "";
+  const sample = (pg.products.length ? pg.products.map((p) => ({ name: p.name, price: Math.round(p.reseller * 1.4 / 100) * 100 })) : S.catalog).slice(0, 3);
+  const mocks = ["neon", "rosa", "oro"].map((id) => THEMES.find((t) => t.id === id));
+  const feats = [
+    ["grid", "Tu página con tu marca", "Tu logo, tus colores, tus letras y tus precios en tu propia dirección. 12 estilos listos para arrancar."],
+    ["coins", "Precios de mayorista", "Comprás a precio de revendedor y ponés vos el precio de venta. El sistema te calcula la ganancia."],
+    ["cart", "Vendé al instante", "Con tu saldo, la cuenta se entrega en segundos. Sin esperar que verifiquen un pago."],
+    ["bell", "Recordatorios de vencimiento", "Ves qué clientes vencen y les avisás por WhatsApp con un toque para que renueven."],
+    ["user", "Panel para tus clientes", "Todos tus clientes, sus servicios, notas y renovaciones en un solo lugar, en PC y celular."],
+    ["renew", "Soporte y reemplazos", "Si una cuenta falla, la tienda la reemplaza y tus clientes ven los datos nuevos."],
+  ];
+  return `<section class="hero prog"><div style="display:grid;min-width:0">
+      <span class="chip">✦ Programa de revendedores</span>
+      <h1>Armá tu tienda de streaming<br><span>y vendé como un profesional.</span></h1>
+      <p>Te damos el stock, los precios de mayorista y la tecnología: tu página con tu marca, un panel para tus clientes y avisos de vencimiento. Vos solo vendés.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${want}<button class="sbtn" type="button" data-login="1">Ya soy revendedor: entrar</button></div>
+      <div class="ticks"><span>Sin mensualidad: cargás saldo y vendés</span><span>Tu marca, no la nuestra</span><span>Precios en Bs</span></div></div>
+    <div class="phones" aria-hidden="true">${mocks.map((t) => phoneMock(t, sample)).join("")}</div></section>
+
+    <section class="pstats">${[[pg.stats.products, "productos para vender"], [pg.stats.categories, "categorías"], [pg.stats.shops || "12", pg.stats.shops ? (pg.stats.shops === 1 ? "revendedor con página" : "revendedores con página") : "estilos para tu página"], ["24/7", "bot de WhatsApp"]]
+      .map(([n, t]) => `<div><b>${esc(String(n))}</b><span>${t}</span></div>`).join("")}</section>
+
+    <section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Todo incluido</span><h2>Lo que tenés como revendedor</h2></div></div>
+      <div class="pfeats">${feats.map(([i, t, d]) => `<div class="sbox"><span class="pfi">${icon(i)}</span><b>${t}</b><span class="empty">${d}</span></div>`).join("")}</div></section>
+
+    ${pg.showPrices && pg.products.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Números reales</span><h2>Tu ganancia por cada venta</h2><p>Precio de nuestra tienda al público vs. tu precio de revendedor. Vos decidís a cuánto vender.</p></div></div>
+      <div class="sbox pprices"><div class="pp-h"><span>Producto</span><span>Precio público</span><span>Tu precio</span><span>Ganás hasta</span></div>
+      ${pg.products.map((p) => `<div class="pp-r"><span class="who"><span class="mini" style="background:${esc(p.color)}">${esc(p.name[0])}</span><b>${esc(p.name)}</b></span><span data-l="Público">${bs(p.public)}</span><span data-l="Tu precio"><b>${bs(p.reseller)}</b></span><span data-l="Ganás" class="pp-g">+${bs(p.public - p.reseller)}</span></div>`).join("")}
+      <p class="empty" style="margin:0">“Ganás hasta” = vendiendo al mismo precio que la tienda. Por ${p_dur(pg.products)}.</p></div></section>` : ""}
+
+    <section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Tu marca</span><h2>Elegí el estilo de tu página</h2><p>12 estilos listos. Después cambiás colores, letras, fondo, logo y portada a tu gusto.</p></div></div>
+      <div class="tgrid pthemes">${THEMES.map((t) => `<div class="tcard">${themeSwatch(t)}<span>${esc(t.name)}</span></div>`).join("")}</div></section>
+
+    ${pg.shops.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Ya están vendiendo</span><h2>Tiendas de nuestros revendedores</h2></div></div>
+      <div class="pshops">${pg.shops.map((x) => { loadFont(x.headingFont); return `<a class="pshop" href="/r/${esc(x.slug)}" style="--pb:${esc(x.backgroundColor || "#0b0b14")};--pa:${esc(x.accentColor || "#7c5cff")};--pa2:${esc(x.accent2Color || x.accentColor || "#00d4ff")};--pf:${fontStack(x.headingFont)}">
+        ${x.hasLogo ? `<img src="/api/shops/${esc(x.slug)}/logo" alt="">` : `<i>${esc(x.title[0])}</i>`}<b>${esc(x.title)}</b><small>/r/${esc(x.slug)}</small><span>Visitar →</span></a>`; }).join("")}</div></section>` : ""}
+
+    <section class="sbox psteps"><h2>Empezá en 3 pasos</h2><div>${[["1", "Escribinos", "Te pasamos tu acceso de revendedor y la lista de precios."], ["2", "Cargá saldo", "Con QR, desde tu cuenta. Con saldo vendés y renovás al instante."], ["3", "Armá tu página y vendé", "Elegí un estilo, poné tus precios y compartí tu link."]]
+      .map(([n, t, d]) => `<div><span class="pn">${n}</span><b>${t}</b><span class="empty">${d}</span></div>`).join("")}</div></section>
+
+    <section style="display:grid;gap:12px"><div class="sec-h"><div><span class="chip">Dudas</span><h2>Preguntas frecuentes</h2></div></div>
+      ${[["¿Cómo le entrego la cuenta a mi cliente?", "Comprás para tu cliente con tu saldo desde “Mis clientes”. Al instante ves los datos de acceso con botones para copiarlos o mandarlos por WhatsApp."],
+        ["¿Mis clientes ven tus precios o tu nombre?", "No. Tu página muestra solo tu marca y tus precios. Tus clientes te piden a vos por WhatsApp."],
+        ["¿Cómo cargo saldo?", "Desde tu cuenta → Saldo: elegís el monto, pagás con el QR y subís el comprobante. Cuando lo verificamos, el saldo aparece en tu cuenta."],
+        ["¿Qué pasa si una cuenta deja de funcionar?", "Escribinos: la reemplazamos y los datos nuevos aparecen en la cuenta de tu cliente."],
+        ["¿Me avisan cuando un cliente está por vencer?", "Sí: en tu panel ves quién vence en los próximos 7 días y con un toque le mandás el recordatorio por WhatsApp. El bot también te lo dice si escribís 8."],
+        ["¿Puedo usarlo desde el celular?", "Sí, todo funciona en el celular: vender, renovar, ver clientes y editar tu página."]]
+        .map(([q, a]) => `<details class="pfaq"><summary>${q}</summary><p class="empty">${a}</p></details>`).join("")}</section>
+
+    <section class="pfinal"><h2>¿Listo para tener tu propia tienda?</h2><p>Escribinos y en minutos tenés tu acceso de revendedor.</p><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${want}<button class="sbtn" type="button" data-s="catalogo">Ver productos</button></div></section>`;
+}
+const p_dur = (list) => { const d = [...new Set(list.map((p) => p.durationDays))]; return d.length === 1 ? `cada ${d[0]} días de servicio` : "cada periodo de servicio"; };
 
 /* ---------- Editor de la página propia del revendedor ---------- */
 const LOOK_FIELDS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners",
@@ -732,6 +805,6 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
     return refresh();
   }
   await useAccessLink();
-  S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
+  S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : location.pathname.replace(/\/+$/, "") === "/revendedores" ? "revendedores" : "inicio";
   await refresh();
 })();
