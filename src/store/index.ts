@@ -1,5 +1,5 @@
 // Gabriel Store: núcleo de dominio (inventario, ventas, saldo, portal, códigos, WhatsApp, estadísticas).
-// Persistencia en memoria con transacciones; ver docs/IMPLEMENTATION_PLAN.md para el adaptador PostgreSQL.
+// Estado en memoria con transacciones; `onCommit` lo guarda (el servidor usa SQLite: src/server/db.ts).
 import type { Actor, Cents, Id, State } from "./types.js";
 import { Engine, type EngineOptions } from "./engine.js";
 import { authorize } from "./auth.js";
@@ -11,6 +11,7 @@ import * as portal from "./portal.js";
 import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
+import * as admin from "./admin.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -18,7 +19,9 @@ export { can, authorize, type Permission } from "./auth.js";
 export { Engine, emptyState, systemClock, type Clock, type EngineOptions } from "./engine.js";
 export { DAY, HOUR, MINUTE } from "./time.js";
 export type { WhatsAppTransport } from "./notify.js";
+export type { PublicStaff } from "./admin.js";
 export { render as renderTemplate } from "./notify.js";
+export { normalizePhone } from "./catalog.js";
 
 type Rest<F> = F extends (e: Engine, ...args: infer A) => infer R ? (...args: A) => R : never;
 const bind = <F extends (e: Engine, ...a: never[]) => unknown>(e: Engine, f: F) => ((...a: unknown[]) => (f as unknown as (...x: unknown[]) => unknown)(e, ...a)) as Rest<F>;
@@ -37,6 +40,9 @@ export function createStore(opts: EngineOptions = {}) {
       setWhatsappConsent: bind(e, catalog.setWhatsappConsent),
       priceFor: bind(e, catalog.priceFor),
       publicCatalog: bind(e, catalog.publicCatalog),
+      findCustomerByPhone: bind(e, catalog.findCustomerByPhone),
+      selfRegister: bind(e, catalog.selfRegister),
+      canActFor: bind(e, catalog.canActFor),
     },
     inventory: {
       addAccount: bind(e, inventory.addAccount),
@@ -82,6 +88,18 @@ export function createStore(opts: EngineOptions = {}) {
         return structuredClone(e.s.outbox);
       },
       flush: bind(e, notify.flush),
+    },
+    admin: {
+      bootstrapOwner: bind(e, admin.bootstrapOwner),
+      createStaff: bind(e, admin.createStaff),
+      setStaffActive: bind(e, admin.setStaffActive),
+      setStaffPassword: bind(e, admin.setStaffPassword),
+      findStaffForLogin: bind(e, admin.findStaffForLogin),
+      listStaff: bind(e, admin.listStaff),
+      orders: bind(e, admin.listOrders),
+      customers: bind(e, admin.listCustomers),
+      assignments: bind(e, admin.listAssignments),
+      evidence: bind(e, admin.getOrderEvidence),
     },
     stats: {
       summary: bind(e, stats.summary),

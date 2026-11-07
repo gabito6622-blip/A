@@ -50,6 +50,30 @@ export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> 
   });
 }
 
+/** Teléfono normalizado: solo dígitos y un "+" inicial opcional. */
+export const normalizePhone = (p: string) => String(p ?? "").replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+
+export function findCustomerByPhone(e: Engine, phone: string) {
+  const n = normalizePhone(phone);
+  const c = Object.values(e.s.customers).find((x) => x.phone === n);
+  return c ? structuredClone(c) : undefined;
+}
+
+/** Alta desde la tienda, después de verificar el teléfono con un código. Siempre cliente final. */
+export function selfRegister(e: Engine, input: { name: string; phone: string; whatsappConsent: boolean }): Customer {
+  const system: Actor = { id: "system:registro", role: "system" };
+  const phone = normalizePhone(input.phone);
+  if (!input.name?.trim() || input.name.length > 80 || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
+  return e.tx(() => {
+    if (Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    const id = e.id("cus");
+    const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now() };
+    e.s.customers[id] = cust;
+    e.audit(system, "customer.self_register", "customer", id, { whatsappConsent: cust.whatsappConsent });
+    return structuredClone(cust);
+  });
+}
+
 export interface NewCustomer {
   name: string;
   phone: string;
@@ -64,7 +88,7 @@ export interface NewCustomer {
  * siempre con el grupo "final" y nunca otros revendedores.
  */
 export function createCustomer(e: Engine, actor: Actor, c: NewCustomer): Customer {
-  const phone = c.phone.replace(/[^\d+]/g, "");
+  const phone = normalizePhone(c.phone);
   if (!c.name?.trim() || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   let resellerId: Id | undefined;
   if (isStaff(actor)) {

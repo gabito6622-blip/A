@@ -26,7 +26,8 @@
     "test": "npm run build && node --test",
     "validate:openapi": "node -e \"import('@apidevtools/swagger-parser').then(m=>m.default.validate('openapi.yaml')).then(a=>console.log('OpenAPI VALID',a.info.version)).catch(e=>{console.error(e.message);process.exit(1)})\"",
     "gen:postman": "node scripts/gen-postman.mjs",
-    "example": "node --experimental-strip-types examples/demo.ts"
+    "example": "node --experimental-strip-types examples/demo.ts",
+    "start": "node dist/server/main.js"
   },
   "keywords": [
     "vendeplay",
@@ -37,6 +38,7 @@
   "license": "MIT",
   "devDependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
+    "@types/node": "^22.15.30",
     "js-yaml": "^4.3.2",
     "openapi-to-postmanv2": "^4.25.0",
     "typescript": "^5.6.0"

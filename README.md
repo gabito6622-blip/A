@@ -112,3 +112,10 @@ reemplazos, renovaciones (fecha del cliente separada de la del proveedor), saldo
 clientes y revendedores, códigos de verificación, bandeja de WhatsApp con consentimiento y estadísticas.
 Todo con control de acceso por rol y auditoría. Ver [`docs/REA_GABRIEL_STORE.md`](docs/REA_GABRIEL_STORE.md)
 y [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md). Pruebas: `test/store.test.mjs`.
+
+### Servidor (`src/server`)
+```bash
+npm install && npm run build
+GS_OWNER_USER=gabriel GS_OWNER_PASSWORD='una-clave-larga' npm start   # crea el dueño la primera vez
+```
+SQLite en `./data` (respaldá esa carpeta). Variables en `src/server/main.ts`. Detalle en `docs/IMPLEMENTATION_PLAN.md`.

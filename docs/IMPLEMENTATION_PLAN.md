@@ -35,11 +35,30 @@ const order = s.orders.create({ id: "u9", role: "customer", customerId: "cus_1" 
   { customerId: "cus_1", items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr", idempotencyKey: "chk-1" });
 ```
 
+## Servidor (fase 1 y 2: hecho)
+
+`src/server/` — `npm run build && npm start`.
+
+| Pieza | Qué hace |
+|---|---|
+| `db.ts` | SQLite incluido en Node 22. Cada transacción se guarda **antes** de responder (si el disco falla, se deshace). Guarda las últimas 50 versiones del estado y las sesiones. Lock exclusivo: no puede haber dos servidores sobre el mismo archivo. |
+| `security.ts` | Contraseñas con scrypt, tokens aleatorios guardados como hash, códigos de 6 dígitos (10 min, 5 intentos), límites de intentos. |
+| `app.ts` | API JSON + archivos estáticos. Cookie `HttpOnly; SameSite=Strict` (y `Secure` con HTTPS). Rechaza POST de otros orígenes, exige JSON y limita el tamaño. Comprobantes validados por contenido real (JPG/PNG/WEBP/PDF, 5 MB), guardados con nombre aleatorio y visibles solo para quien revisa pagos. |
+| `main.ts` | Arranque por variables de entorno (ver el encabezado del archivo). |
+
+**Formas de entrar:**
+- **Staff:** usuario y contraseña. El dueño crea admins y vendedores; desactivar a alguien corta su sesión al instante.
+- **Cliente:** link de un solo uso que genera el staff y se manda a mano por WhatsApp (funciona hoy). El login con código por WhatsApp queda listo, pero se activa recién cuando haya transporte autorizado (`otpSender`).
+
+**Decisión:** se usa SQLite en lugar de PostgreSQL para la primera versión, porque es un solo servidor barato, no requiere instalar nada y el respaldo es copiar un archivo. Si el volumen crece, se pasa a PostgreSQL con un esquema por tablas sin tocar el núcleo.
+
+Pruebas: `test/server.test.mjs` (17, de punta a punta por HTTP, incluido el reinicio).
+
 ## Próximas fases
 
 Cada fase se entrega con pruebas. Las marcadas con 🔐 **no se activan sin autorización explícita del dueño.**
 
-1. **Persistencia PostgreSQL.**
+1. ~~Persistencia~~ (hecho con SQLite; PostgreSQL queda para cuando haga falta escalar).
    - Se reemplaza el `Engine` en memoria por un repositorio con transacciones `SERIALIZABLE`.
    - La reserva de stock se hace con `SELECT … FOR UPDATE SKIP LOCKED`.
    - Restricción única sobre `orders.confirmed_reference` y sobre las claves de idempotencia.

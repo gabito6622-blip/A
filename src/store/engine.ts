@@ -24,6 +24,12 @@ export interface EngineOptions {
   /** Minutos que un código de verificación es visible para el cliente (por defecto 30). */
   codeVisibleMinutes?: number;
   initialState?: State;
+  /**
+   * Se llama al confirmar cada transacción externa, con el estado nuevo. Si lanza un error
+   * (p. ej. el disco falló), la transacción se deshace y el error llega a quien llamó:
+   * así nunca se responde "ok" por algo que no quedó guardado.
+   */
+  onCommit?: (state: State) => void;
 }
 
 export function emptyState(): State {
@@ -42,6 +48,7 @@ export function emptyState(): State {
     mailboxes: {},
     codes: [],
     idempotency: {},
+    staff: {},
     seq: 0,
   };
 }
@@ -52,11 +59,14 @@ const SECRET_KEYS = /pass|password|secret|pin|token/i;
 export class Engine {
   private _s: State;
   readonly clock: Clock;
-  readonly opts: Required<Omit<EngineOptions, "clock" | "initialState">>;
+  readonly opts: Required<Omit<EngineOptions, "clock" | "initialState" | "onCommit">>;
+  private readonly onCommit?: (state: State) => void;
   private depth = 0;
 
   constructor(o: EngineOptions = {}) {
-    this._s = o.initialState ? structuredClone(o.initialState) : emptyState();
+    // Estados guardados con versiones anteriores reciben las tablas nuevas vacías.
+    this._s = o.initialState ? { ...emptyState(), ...structuredClone(o.initialState) } : emptyState();
+    this.onCommit = o.onCommit;
     this.clock = o.clock ?? systemClock;
     this.opts = {
       reservationMinutes: o.reservationMinutes ?? 30,
@@ -84,7 +94,9 @@ export class Engine {
     const backup = structuredClone(this._s);
     this.depth++;
     try {
-      return fn();
+      const out = fn();
+      this.onCommit?.(this._s);
+      return out;
     } catch (e) {
       this._s = backup;
       throw e;

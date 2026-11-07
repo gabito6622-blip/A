@@ -1,0 +1,39 @@
+// Arranque del servidor de Gabriel Store.
+//
+// Variables de entorno:
+//   PORT                 puerto (por defecto 8080)
+//   GS_DATA_DIR          carpeta de datos (por defecto ./data)
+//   GS_PUBLIC_ORIGIN     p. ej. https://gabostore.lat (activa cookies Secure si empieza con https)
+//   GS_STATIC_DIR        carpeta con la tienda y el panel (por defecto ./public si existe)
+//   GS_OWNER_USER        usuario del dueño, solo para crear el primero
+//   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
+//   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
+import { existsSync } from "node:fs";
+import { createApp } from "./app.js";
+
+const env = process.env;
+const origin = env.GS_PUBLIC_ORIGIN;
+const staticDir = env.GS_STATIC_DIR ?? (existsSync("public") ? "public" : undefined);
+
+const app = createApp({
+  dataDir: env.GS_DATA_DIR ?? "data",
+  publicOrigin: origin,
+  secureCookies: !!origin?.startsWith("https://"),
+  staticDir,
+  otpSender: env.GS_DEV_OTP === "1"
+    ? (phone, code) => console.log(`[DEV] código para ${phone}: ${code}`)
+    : undefined,
+});
+
+if (env.GS_OWNER_USER && env.GS_OWNER_PASSWORD) {
+  if (app.bootstrapOwner(env.GS_OWNER_USER, "Dueño", env.GS_OWNER_PASSWORD)) console.log(`Dueño "${env.GS_OWNER_USER}" creado.`);
+} else if (!Object.keys(app.store.engine.s.staff).length) {
+  console.warn("No hay usuarios del panel. Arrancá con GS_OWNER_USER y GS_OWNER_PASSWORD para crear el dueño.");
+}
+
+const port = await app.listen(Number(env.PORT ?? 8080));
+console.log(`Gabriel Store escuchando en :${port}${staticDir ? ` (sirviendo ${staticDir})` : ""}`);
+
+const stop = () => app.close().then(() => process.exit(0));
+process.on("SIGINT", stop);
+process.on("SIGTERM", stop);

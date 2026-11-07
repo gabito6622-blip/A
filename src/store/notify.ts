@@ -55,16 +55,21 @@ export async function flush(e: Engine, actor: Actor, transport: WhatsAppTranspor
   const pending = e.s.outbox.filter((m) => m.status === "queued").map((m) => m.id);
   let sent = 0, failed = 0;
   for (const id of pending) {
-    const m = e.s.outbox.find((x) => x.id === id)!;
+    const m = e.s.outbox.find((x) => x.id === id);
+    if (!m || m.status !== "queued") continue;
+    let error: string | undefined;
     try {
       await transport.send(m.to, m.text);
-      m.status = "sent";
       sent++;
     } catch (err) {
-      m.status = "failed";
-      m.error = (err as Error).message;
+      error = (err as Error).message;
       failed++;
     }
+    // El estado se busca de nuevo: durante el `await` pudo haber otras transacciones.
+    e.tx(() => {
+      const cur = e.s.outbox.find((x) => x.id === id);
+      if (cur) Object.assign(cur, error ? { status: "failed", error } : { status: "sent" });
+    });
   }
   e.tx(() => e.audit(actor, "outbox.flush", "outbox", "*", { sent, failed }));
   return { sent, failed };

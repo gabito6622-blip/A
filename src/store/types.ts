@@ -218,6 +218,17 @@ export interface CodeMessage {
   receivedAt: number;
 }
 
+/** Usuario del panel (dueño, admin o vendedor). La contraseña se guarda como hash scrypt. */
+export interface StaffUser {
+  id: Id;
+  username: string;
+  name: string;
+  role: "owner" | "admin" | "seller";
+  passwordHash: string;
+  active: boolean;
+  createdAt: number;
+}
+
 export interface State {
   products: Record<Id, Product>;
   priceGroups: Record<Id, PriceGroup>;
@@ -233,5 +244,6 @@ export interface State {
   mailboxes: Record<Id, Mailbox>;
   codes: CodeMessage[];
   idempotency: Record<string, unknown>;
+  staff: Record<Id, StaffUser>;
   seq: number;
 }
