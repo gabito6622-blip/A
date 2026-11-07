@@ -941,3 +941,16 @@ describe("21. Productos solo para revendedores + autorenovación con saldo", () 
     assert.throws(() => s.orders.renew(as(carla), id, { paymentMethod: "balance" }), err("INSUFFICIENT_BALANCE"));
   });
 });
+
+describe("22. Lista de precios de revendedor", () => {
+  test("si no existe, se crea sola al crear o cambiar a un revendedor", () => {
+    const clock = { t: T0, now() { return this.t; } };
+    const s = createStore({ clock, initialState: { priceGroups: { final: { id: "final", name: "Cliente final", prices: {} } } } });
+    const r = s.catalog.createCustomer(owner, { name: "Rev Nuevo", phone: "+59171234567", kind: "reseller", priceGroupId: "revendedor" });
+    assert.equal(r.priceGroupId, "revendedor");
+    assert.ok(s.snapshot().priceGroups.revendedor);
+    const s2 = createStore({ clock, initialState: { priceGroups: { final: { id: "final", name: "Cliente final", prices: {} } } } });
+    const c = s2.catalog.createCustomer(owner, { name: "Cli", phone: "+59171234568" });
+    assert.equal(s2.catalog.updateCustomer(owner, c.id, { kind: "reseller", priceGroupId: "revendedor" }).priceGroupId, "revendedor");
+  });
+});

@@ -128,6 +128,11 @@ export interface NewCustomer {
  * Staff crea cualquier cliente o revendedor. Un revendedor solo crea clientes propios,
  * siempre con el grupo "final" y nunca otros revendedores.
  */
+/** La lista "revendedor" se crea sola la primera vez (sin precios propios usa el precio normal). Debe llamarse dentro de `tx`. */
+function ensureResellerGroup(e: Engine, id: Id): void {
+  if (id === "revendedor" && !e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
+}
+
 export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allowNoPhone?: boolean }): Customer {
   const phone = normalizePhone(c.phone);
   if (!c.name?.trim()) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
@@ -144,6 +149,7 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
   return e.tx(() => {
     if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
     const groupId = c.priceGroupId ?? "final";
+    ensureResellerGroup(e, groupId);
     if (!e.s.priceGroups[groupId]) throw new DomainError("NOT_FOUND", `Grupo de precios ${groupId} no existe`);
     const id = e.id("cus");
     const cust: Customer = {
@@ -191,6 +197,7 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
       c.kind = patch.kind; changed.push("kind");
     }
     if (patch.priceGroupId !== undefined && patch.priceGroupId !== c.priceGroupId) {
+      ensureResellerGroup(e, patch.priceGroupId);
       if (!e.s.priceGroups[patch.priceGroupId]) throw new DomainError("NOT_FOUND", "Grupo de precios inexistente");
       c.priceGroupId = patch.priceGroupId; changed.push("priceGroupId");
     }

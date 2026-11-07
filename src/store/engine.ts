@@ -35,7 +35,7 @@ export interface EngineOptions {
 export function emptyState(): State {
   return {
     products: {},
-    priceGroups: { final: { id: "final", name: "Cliente final", prices: {} } },
+    priceGroups: { final: { id: "final", name: "Cliente final", prices: {} }, revendedor: { id: "revendedor", name: "Revendedor", prices: {} } },
     suppliers: {},
     accounts: {},
     slots: {},
