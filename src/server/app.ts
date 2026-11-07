@@ -818,7 +818,8 @@ export function createApp(cfg: AppConfig): App {
     if (!existsSync(file)) return false;
     res.writeHead(200, {
       "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
-      "Cache-Control": extname(file) === ".html" ? "no-cache" : "public, max-age=3600",
+      // HTML, JS, CSS y manifiesto se revalidan siempre: así cada actualización se ve al instante.
+      "Cache-Control": [".html", ".js", ".css", ".webmanifest"].includes(extname(file)) ? "no-cache" : "public, max-age=3600",
     });
     if (req.method === "HEAD") res.end();
     else createReadStream(file).pipe(res);
