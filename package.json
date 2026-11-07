@@ -1,12 +1,16 @@
 {
   "name": "vendeplay-sdk",
   "version": "0.1.0",
-  "description": "SDK TypeScript (reverse-engineered) para la API de VendePlay CRM. Rutas, verbos y auth derivados por análisis estático del front-end; formas de payload no verificadas.",
+  "description": "SDK TypeScript (reverse-engineered) para la API de VendePlay CRM + núcleo de dominio de Gabriel Store (inventario, ventas, saldo, portal, códigos, WhatsApp).",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./store": {
+      "types": "./dist/store/index.d.ts",
+      "import": "./dist/store/index.js"
     }
   },
   "main": "./dist/index.js",

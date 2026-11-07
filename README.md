@@ -104,3 +104,11 @@ permitir la red hacia `api.vendeplay.com` y hacer login real → `capture_browse
 
 ## Licencia
 MIT.
+
+## Gabriel Store: núcleo de dominio (`vendeplay-sdk/store`)
+Lógica de negocio real y probada para una tienda de cuentas digitales: inventario de cuentas y perfiles
+con reservas atómicas, ventas con QR/saldo/efectivo, aprobación de comprobantes, asignaciones,
+reemplazos, renovaciones (fecha del cliente separada de la del proveedor), saldo contable, portal de
+clientes y revendedores, códigos de verificación, bandeja de WhatsApp con consentimiento y estadísticas.
+Todo con control de acceso por rol y auditoría. Ver [`docs/REA_GABRIEL_STORE.md`](docs/REA_GABRIEL_STORE.md)
+y [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md). Pruebas: `test/store.test.mjs`.
