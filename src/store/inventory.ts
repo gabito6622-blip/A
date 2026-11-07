@@ -4,6 +4,7 @@ import type { Engine } from "./engine.js";
 import { MINUTE } from "./time.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { queue } from "./notify.js";
 
 export interface NewAccount {
   productId: Id;
@@ -87,6 +88,83 @@ export function releaseSlots(e: Engine, slotIds: Id[]): void {
   }
 }
 
+export interface AccountPatch {
+  email?: string;
+  password?: string;
+  supplierId?: Id;
+  supplierExpiresAt?: number;
+  cost?: Cents;
+  notes?: string;
+}
+
+/** Clientes con servicio activo en esta cuenta (para avisarles). */
+function activeOnAccount(e: Engine, accountId: Id) {
+  return Object.values(e.s.assignments).filter((a) => a.status === "active" && e.s.slots[a.slotId]?.accountId === accountId);
+}
+
+/**
+ * Edita una cuenta. Si cambia el email o la contraseña (p. ej. el proveedor la cambió),
+ * todos sus clientes ven el dato nuevo en Mis cuentas y reciben un aviso SIN la clave.
+ */
+export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: AccountPatch): { accountId: Id; notified: number; changed: string[] } {
+  authorize(actor, "inventory.manage");
+  if (patch.email !== undefined && !/^[^@\s]+@[^@\s]+$/.test(patch.email.trim())) throw new DomainError("VALIDATION", "Email de cuenta inválido");
+  if (patch.password !== undefined && !patch.password) throw new DomainError("VALIDATION", "La contraseña no puede quedar vacía");
+  if (patch.cost !== undefined && (!Number.isInteger(patch.cost) || patch.cost < 0)) throw new DomainError("VALIDATION", "Costo inválido");
+  if (patch.supplierExpiresAt !== undefined && !(Number.isFinite(patch.supplierExpiresAt) && patch.supplierExpiresAt > 0)) throw new DomainError("VALIDATION", "Fecha de vencimiento inválida");
+  if ((patch.notes?.length ?? 0) > 500) throw new DomainError("VALIDATION", "Notas: máximo 500 letras");
+  return e.tx(() => {
+    const acc = e.get("accounts", accountId);
+    const changed: string[] = [];
+    const email = patch.email?.trim().toLowerCase();
+    const credsChanged = (email !== undefined && email !== acc.email) || (patch.password !== undefined && patch.password !== acc.password);
+    if (acc.status === "retired" && credsChanged) throw new DomainError("INVALID_STATE", "La cuenta está retirada");
+    if (email !== undefined && email !== acc.email) { acc.email = email; changed.push("email"); }
+    if (patch.password !== undefined && patch.password !== acc.password) { acc.password = patch.password; changed.push("password"); }
+    if (patch.supplierId !== undefined && patch.supplierId !== acc.supplierId) {
+      if (!e.get("suppliers", patch.supplierId).active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
+      acc.supplierId = patch.supplierId; changed.push("supplierId");
+    }
+    if (patch.supplierExpiresAt !== undefined && patch.supplierExpiresAt !== acc.supplierExpiresAt) { acc.supplierExpiresAt = patch.supplierExpiresAt; changed.push("supplierExpiresAt"); }
+    if (patch.cost !== undefined && patch.cost !== acc.cost) { acc.cost = patch.cost; changed.push("cost"); }
+    if (patch.notes !== undefined && patch.notes !== (acc.notes ?? "")) { acc.notes = patch.notes.trim(); changed.push("notes"); }
+    let notified = 0;
+    if (credsChanged) {
+      for (const a of activeOnAccount(e, acc.id)) {
+        a.history.push({ at: e.now(), by: actor.id, event: "access_updated", slotId: a.slotId, note: "datos de la cuenta actualizados" });
+        queue(e, a.customerId, "access_updated", { product: e.s.products[a.productId].name });
+        notified++;
+      }
+    }
+    e.audit(actor, "account.update", "account", acc.id, { fields: changed.join(","), notified });
+    return { accountId: acc.id, notified, changed };
+  });
+}
+
+/** Cambia la etiqueta o el PIN de un perfil. Si está vendido, el cliente recibe un aviso (sin el PIN). */
+export function updateSlot(e: Engine, actor: Actor, slotId: Id, patch: { label?: string; pin?: string }): { notified: boolean } {
+  authorize(actor, "inventory.manage");
+  if (patch.pin !== undefined && !/^\d{0,8}$/.test(patch.pin)) throw new DomainError("VALIDATION", "PIN: solo números, hasta 8");
+  if (patch.label !== undefined && (!patch.label.trim() || patch.label.length > 40)) throw new DomainError("VALIDATION", "Nombre de perfil inválido");
+  return e.tx(() => {
+    const s = e.get("slots", slotId);
+    const pinChanged = patch.pin !== undefined && patch.pin !== (s.pin ?? "");
+    if (patch.label !== undefined) s.label = patch.label.trim();
+    if (patch.pin !== undefined) s.pin = patch.pin || undefined;
+    let notified = false;
+    if ((pinChanged || patch.label !== undefined) && s.status === "assigned") {
+      const a = Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active");
+      if (a) {
+        a.history.push({ at: e.now(), by: actor.id, event: "access_updated", slotId: s.id, note: "perfil o PIN actualizado" });
+        queue(e, a.customerId, "access_updated", { product: e.s.products[a.productId].name });
+        notified = true;
+      }
+    }
+    e.audit(actor, "slot.update", "slot", s.id, { label: patch.label !== undefined, pinChanged, notified });
+    return { notified };
+  });
+}
+
 export function setSlotStatus(e: Engine, actor: Actor, slotId: Id, status: "available" | "quarantined" | "retired", note: string): void {
   authorize(actor, "inventory.manage");
   e.tx(() => {
@@ -114,6 +192,6 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
   return Object.values(e.s.accounts).map((a) => ({
     ...structuredClone(a),
     password: opts.withSecrets ? a.password : "••••••",
-    slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => ({ id: s.id, label: s.label, status: s.status })),
+    slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => ({ id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined })),
   }));
 }

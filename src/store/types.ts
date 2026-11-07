@@ -76,6 +76,8 @@ export interface Account {
   supplierExpiresAt: number;
   cost: Cents;
   status: "active" | "retired";
+  /** Notas internas del staff (nunca se muestran al cliente). */
+  notes?: string;
   createdAt: number;
 }
 
@@ -105,6 +107,8 @@ export interface Customer {
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
   createdAt: number;
+  /** Notas internas del staff (nunca se muestran al cliente). */
+  notes?: string;
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";
@@ -158,7 +162,7 @@ export type AssignmentStatus = "active" | "replaced" | "revoked";
 export interface AssignmentEvent {
   at: number;
   by: Id;
-  event: "assigned" | "renewed" | "replaced" | "revoked";
+  event: "assigned" | "renewed" | "replaced" | "revoked" | "access_updated" | "transferred";
   slotId: Id;
   note?: string;
 }
@@ -209,7 +213,9 @@ export type TemplateId =
   | "topup_approved"
   | "renewal_confirmed"
   | "expiry_reminder"
-  | "replacement_done";
+  | "replacement_done"
+  | "access_updated"
+  | "access_transferred";
 
 export interface OutboxMessage {
   id: Id;

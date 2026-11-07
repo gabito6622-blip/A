@@ -189,6 +189,34 @@ describe("servidor Gabriel Store", () => {
     assert.equal((await state.owner.post(`/api/admin/outbox/${pending.id}/sent`)).status, 409, "no se marca dos veces");
   });
 
+  test("editar cuenta y cliente, liberar perfil y transferir por la API", async () => {
+    const accs = (await state.owner.get("/api/admin/accounts")).json;
+    const acc = accs[0];
+    assert.equal((await state.maria.post(`/api/admin/accounts/${acc.id}`, { password: "x" })).status, 403);
+    const up = await state.owner.post(`/api/admin/accounts/${acc.id}`, { password: "Clave-Nueva#7", notes: "cambio del proveedor" });
+    assert.equal(up.status, 200);
+    assert.equal(up.json.notified, 1);
+    const svc = (await state.maria.get("/api/me/services")).json;
+    assert.equal(svc[0].access.password, "Clave-Nueva#7");
+    const asg = (await state.owner.get("/api/admin/assignments")).json[0];
+    const rep = await state.owner.post(`/api/admin/assignments/${asg.id}/replace`, { reason: "bloqueado" });
+    assert.equal(rep.status, 200);
+    const quarantined = (await state.owner.get("/api/admin/accounts?secrets=1")).json.flatMap((a) => a.slots).find((sl) => sl.status === "quarantined");
+    assert.ok(quarantined);
+    assert.equal((await state.owner.post(`/api/admin/slots/${quarantined.id}/status`, { status: "available", note: "revisado" })).status, 200);
+    assert.equal((await state.owner.post(`/api/admin/slots/${quarantined.id}`, { pin: "9876" })).json.notified, false);
+    const customers = (await state.owner.get("/api/admin/customers")).json;
+    const luis = customers.find((c) => c.name === "Luis Choque");
+    const ed = await state.owner.post(`/api/admin/customers/${luis.id}`, { name: "Luis Choque Mamani", notes: "cliente nuevo" });
+    assert.equal(ed.json.name, "Luis Choque Mamani");
+    const tr = await state.owner.post(`/api/admin/assignments/${asg.id}/transfer`, { toCustomerId: luis.id, reason: "lo usa Luis" });
+    assert.equal(tr.status, 200);
+    assert.equal((await state.maria.get("/api/me/services")).json.length, 0);
+    // Se lo devolvemos a María para las pruebas siguientes.
+    const back = await state.owner.post(`/api/admin/assignments/${asg.id}/transfer`, { toCustomerId: state.mariaId, reason: "volvió a María" });
+    assert.equal(back.status, 200);
+  });
+
   test("protecciones: origen ajeno, JSON obligatorio, tamaño máximo", async () => {
     assert.equal((await state.maria.post("/api/orders", { items: [], paymentMethod: "qr" }, { origin: "https://sitio-malo.com" })).status, 403);
     const r = await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" });

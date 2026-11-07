@@ -306,6 +306,27 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
   });
 }
 
+/**
+ * Transfiere un servicio activo a otro cliente (mismo perfil, misma fecha de vencimiento).
+ * Útil cuando el perfil lo usa otra persona o se cargó al cliente equivocado.
+ */
+export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, toCustomerId: Id, reason: string): Assignment {
+  authorize(actor, "assignment.replace");
+  if (!reason?.trim()) throw new DomainError("VALIDATION", "Indicá el motivo de la transferencia");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se transfieren servicios activos");
+    const to = e.get("customers", toCustomerId);
+    if (to.id === a.customerId) throw new DomainError("VALIDATION", "El servicio ya es de ese cliente");
+    const from = e.s.customers[a.customerId];
+    a.customerId = to.id;
+    a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
+    queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason });
+    return structuredClone(a);
+  });
+}
+
 /** Cuenta caída: mueve a todos sus clientes a otras cuentas y la retira si quedó vacía. */
 export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: string) {
   authorize(actor, "assignment.replace");

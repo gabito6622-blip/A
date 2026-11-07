@@ -410,3 +410,75 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.inventory.addAccount(admin, { productId: "netflix", supplierId: "andes", email: "n@x.y", password: "p", supplierExpiresAt: T0 + DAY, cost: 0, profiles: [{ label: "P" }] }), err("INVALID_STATE"));
   });
 });
+
+describe("8. Edición de cuentas, perfiles y clientes; transferencias", () => {
+  test("cambiar la contraseña de la cuenta: clientes ven la nueva y reciben aviso sin la clave", () => {
+    const { s, maria, luis, acc1, as } = setup();
+    // nf02 vence antes y se vende primero; estas dos ventas caen en nf02 y nf01.
+    s.orders.create(seller, { customerId: luis.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    assert.throws(() => s.inventory.updateAccount(seller, acc1.account.id, { password: "x" }), err("FORBIDDEN"));
+    assert.throws(() => s.inventory.updateAccount(admin, acc1.account.id, { password: "" }), err("VALIDATION"));
+    const r = s.inventory.updateAccount(admin, acc1.account.id, { password: "Nueva-Clave#9", notes: "El proveedor la cambió" });
+    assert.deepEqual(r.changed, ["password", "notes"]);
+    assert.equal(r.notified, 1, "solo María está en esa cuenta");
+    assert.equal(s.portal.services(as(maria))[0].access.password, "Nueva-Clave#9");
+    const msgs = s.notify.outbox(admin).filter((m) => m.template === "access_updated");
+    assert.equal(msgs.length, 1);
+    assert.ok(!msgs[0].text.includes("Nueva-Clave"), "el aviso no lleva la clave");
+    assert.ok(!JSON.stringify(s.stats.audit(owner)).includes("Nueva-Clave"), "la auditoría no guarda la clave");
+  });
+
+  test("extender el vencimiento del proveedor habilita renovaciones que antes se frenaban", () => {
+    const { s, maria, acc2 } = setup();
+    const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" }); // nf02, vence a +40
+    assert.throws(() => s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }), err("SUPPLIER_EXPIRY_EXCEEDED"));
+    s.inventory.updateAccount(admin, acc2.account.id, { supplierExpiresAt: T0 + 120 * DAY });
+    assert.equal(s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }).assignment.customerExpiresAt, T0 + 60 * DAY);
+  });
+
+  test("cambiar el PIN de un perfil vendido avisa a su cliente; uno en cuarentena se puede liberar", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const slotId = s.snapshot().assignments[o.assignmentIds[0]].slotId;
+    assert.throws(() => s.inventory.updateSlot(admin, slotId, { pin: "12ab" }), err("VALIDATION"));
+    assert.equal(s.inventory.updateSlot(admin, slotId, { pin: "4321" }).notified, true);
+    assert.equal(s.portal.services(as(maria))[0].access.pin, "4321");
+    const after = s.orders.replace(admin, o.assignmentIds[0], { reason: "bloqueado" });
+    assert.equal(s.snapshot().slots[slotId].status, "quarantined");
+    assert.throws(() => s.inventory.setSlotStatus(admin, after.slotId, "available", "x"), err("INVALID_STATE"), "uno vendido no se libera");
+    s.inventory.setSlotStatus(admin, slotId, "available", "revisado, clave cambiada");
+    assert.equal(s.snapshot().slots[slotId].status, "available");
+  });
+
+  test("editar cliente: datos, notas, teléfono único y permisos", () => {
+    const { s, maria, luis } = setup();
+    const c = s.catalog.updateCustomer(seller, maria.id, { name: "María Q. Rojas", phone: "+591 7001 9999", notes: "Paga siempre por QR" });
+    assert.deepEqual([c.name, c.phone, c.notes], ["María Q. Rojas", "+59170019999", "Paga siempre por QR"]);
+    assert.throws(() => s.catalog.updateCustomer(seller, maria.id, { phone: luis.phone }), err("VALIDATION"));
+    assert.throws(() => s.catalog.updateCustomer(seller, maria.id, { kind: "reseller" }), err("FORBIDDEN"));
+    assert.equal(s.catalog.updateCustomer(admin, maria.id, { kind: "reseller", priceGroupId: "revendedor" }).kind, "reseller");
+  });
+
+  test("un revendedor con clientes no puede pasar a cliente final", () => {
+    const { s, carla, as } = setup();
+    s.catalog.createCustomer(as(carla), { name: "Pedro", phone: "+591 72223344" });
+    assert.throws(() => s.catalog.updateCustomer(admin, carla.id, { kind: "customer" }), err("INVALID_STATE"));
+  });
+
+  test("transferir un perfil a otro cliente conserva perfil y fecha; el anterior deja de verlo", () => {
+    const { s, maria, luis, as } = setup();
+    const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const id = o.assignmentIds[0];
+    const before = s.snapshot().assignments[id];
+    assert.throws(() => s.orders.transfer(seller, id, luis.id, "x"), err("FORBIDDEN"));
+    assert.throws(() => s.orders.transfer(admin, id, maria.id, "x"), err("VALIDATION"));
+    const t = s.orders.transfer(admin, id, luis.id, "Se cargó al cliente equivocado");
+    assert.equal(t.slotId, before.slotId);
+    assert.equal(t.customerExpiresAt, before.customerExpiresAt);
+    assert.equal(t.history.at(-1).event, "transferred");
+    assert.equal(s.portal.services(as(maria)).length, 0);
+    assert.equal(s.portal.services(as(luis)).length, 1);
+    assert.ok(s.notify.outbox(admin).some((m) => m.template === "access_transferred" && m.customerId === luis.id));
+  });
+});

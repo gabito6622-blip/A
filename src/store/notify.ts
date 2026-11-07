@@ -15,6 +15,8 @@ const TEMPLATES: Record<TemplateId, string> = {
   renewal_confirmed: "Gabriel Store: renovamos {product}. Nuevo vencimiento: {date}.",
   expiry_reminder: "Hola {name}, tu {product} vence el {date}. Podés renovarlo desde Mis cuentas.",
   replacement_done: "Gabriel Store: cambiamos el acceso de tu {product}. Mirá los datos nuevos en Mis cuentas.",
+  access_updated: "Gabriel Store: actualizamos los datos de acceso de tu {product}. Mirá la clave nueva en Mis cuentas.",
+  access_transferred: "Gabriel Store: te asignamos {product} (vence el {date}). Tus accesos están en Mis cuentas.",
 };
 
 const FORBIDDEN_PARAM = /pass|password|pin|secret|token|code|codigo|clave/i;

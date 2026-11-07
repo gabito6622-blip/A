@@ -136,6 +136,49 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer): Custome
   });
 }
 
+export interface CustomerPatch {
+  name?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  kind?: "customer" | "reseller";
+  priceGroupId?: Id;
+}
+
+/** Editar cliente. Cambiar tipo o grupo de precios lo hacen solo admin u owner. */
+export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: CustomerPatch): Customer {
+  authorize(actor, "customer.manage");
+  if ((patch.kind !== undefined || patch.priceGroupId !== undefined) && actor.role === "seller") throw new DomainError("FORBIDDEN", "Solo admin u owner cambian el tipo o los precios de un cliente");
+  if (patch.name !== undefined && (!patch.name.trim() || patch.name.length > 80)) throw new DomainError("VALIDATION", "Nombre inválido");
+  if (patch.email !== undefined && patch.email !== "" && !/^[^@\s]+@[^@\s]+$/.test(patch.email)) throw new DomainError("VALIDATION", "Email inválido");
+  if ((patch.notes?.length ?? 0) > 500) throw new DomainError("VALIDATION", "Notas: máximo 500 letras");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    const changed: string[] = [];
+    if (patch.phone !== undefined) {
+      const phone = normalizePhone(patch.phone);
+      if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");
+      if (phone !== c.phone) {
+        if (Object.values(e.s.customers).some((x) => x.id !== c.id && x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+        c.phone = phone; changed.push("phone");
+      }
+    }
+    if (patch.name !== undefined && patch.name.trim() !== c.name) { c.name = patch.name.trim(); changed.push("name"); }
+    if (patch.email !== undefined && patch.email !== (c.email ?? "")) { c.email = patch.email || undefined; changed.push("email"); }
+    if (patch.notes !== undefined && patch.notes.trim() !== (c.notes ?? "")) { c.notes = patch.notes.trim() || undefined; changed.push("notes"); }
+    if (patch.kind !== undefined && patch.kind !== c.kind) {
+      if (patch.kind === "customer" && Object.values(e.s.customers).some((x) => x.resellerId === c.id)) throw new DomainError("INVALID_STATE", "Este revendedor tiene clientes propios; no se puede pasar a cliente final");
+      c.kind = patch.kind; changed.push("kind");
+    }
+    if (patch.priceGroupId !== undefined && patch.priceGroupId !== c.priceGroupId) {
+      if (!e.s.priceGroups[patch.priceGroupId]) throw new DomainError("NOT_FOUND", "Grupo de precios inexistente");
+      c.priceGroupId = patch.priceGroupId; changed.push("priceGroupId");
+    }
+    e.audit(actor, "customer.update", "customer", c.id, { fields: changed.join(",") });
+    return structuredClone(c);
+  });
+}
+
 export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, consent: boolean): void {
   const self = actor.customerId === customerId;
   if (!self && !can(actor, "customer.manage")) throw new DomainError("FORBIDDEN", "No podés cambiar el consentimiento de otro cliente");
