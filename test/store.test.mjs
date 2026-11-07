@@ -376,6 +376,29 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.stats.summary(seller, { from: 0, to: 1 }), err("FORBIDDEN"));
   });
 
+  test("dashboard: período, comparación, series y vencimientos", () => {
+    const { s, maria, luis, as } = setup();
+    const t = s.orders.requestTopup(as(maria), maria.id, 10000, { fileRef: "r", declaredReference: "d" });
+    s.orders.approvePayment(admin, t.id, { confirmedReference: "BNB-1" });
+    s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    s.orders.create(seller, { customerId: luis.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const d = s.stats.dashboard(admin, 30);
+    assert.equal(d.days, 30);
+    assert.equal(d.series.length, 30);
+    assert.equal(d.kpi.revenue, 7000);
+    assert.equal(d.kpi.prevRevenue, 0);
+    assert.equal(d.kpi.orders, 2);
+    assert.equal(d.kpi.topups, 10000);
+    assert.equal(d.kpi.activeServices, 2);
+    assert.equal(d.series.reduce((x, y) => x + y.sales + y.topups, 0), 17000);
+    assert.equal(d.upcoming.length, 14);
+    assert.equal(d.byProduct[0].units, 2);
+    assert.equal(d.activeByProduct[0].count, 2);
+    assert.equal(d.recent.length, 3);
+    assert.equal(s.stats.dashboard(admin, 2).days, 7, "mínimo 7 días");
+    assert.throws(() => s.stats.dashboard(seller, 30), err("FORBIDDEN"));
+  });
+
   test("reporte de proveedor: costo, ingreso atribuido, margen y cuentas por vencer", () => {
     const { s, clock, maria } = setup();
     s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });

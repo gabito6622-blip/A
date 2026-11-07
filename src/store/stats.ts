@@ -38,6 +38,72 @@ export function summary(e: Engine, actor: Actor, range: { from: number; to: numb
   };
 }
 
+/** Datos del dashboard: período elegido vs. el anterior, series por día, rankings y vencimientos. */
+export function dashboard(e: Engine, actor: Actor, days: number) {
+  authorize(actor, "stats.view");
+  const now = e.now();
+  const span = Math.min(Math.max(Math.round(days) || 30, 7), 365) * DAY;
+  const from = now - span, prevFrom = from - span;
+  const done = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.channel !== "import");
+  const sales = (a: number, b: number) => done.filter((o) => o.kind !== "topup" && o.updatedAt >= a && o.updatedAt < b);
+  const cur = sales(from, now + 1), prev = sales(prevFrom, from);
+  const sum = (l: { total: number }[]) => l.reduce((s, o) => s + o.total, 0);
+  const dayKey = (t: number) => new Date(t).toISOString().slice(0, 10);
+  const nDays = Math.round(span / DAY);
+  const series = Array.from({ length: nDays }, (_, i) => ({ day: dayKey(from + (i + 1) * DAY), sales: 0, renewals: 0, topups: 0 }));
+  const idx = new Map(series.map((d, i) => [d.day, i]));
+  for (const o of done) {
+    if (o.updatedAt < from) continue;
+    const i = idx.get(dayKey(o.updatedAt));
+    if (i === undefined) continue;
+    if (o.kind === "topup") series[i].topups += o.total; else if (o.kind === "renewal") series[i].renewals += o.total; else series[i].sales += o.total;
+  }
+  const byProduct: Record<Id, { name: string; revenue: number; units: number; color: string }> = {};
+  for (const o of cur) for (const it of o.items) {
+    const p = e.s.products[it.productId];
+    const b = (byProduct[it.productId] ??= { name: p?.name ?? it.productId, revenue: 0, units: 0, color: p?.color ?? "#3984ff" });
+    b.revenue += it.qty * it.unitPrice; b.units += it.qty;
+  }
+  const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
+  const priceOf = (a: (typeof active)[number]) => a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
+  const activeByProduct: Record<Id, { name: string; count: number; color: string }> = {};
+  for (const a of active) {
+    const p = e.s.products[a.productId];
+    (activeByProduct[a.productId] ??= { name: p?.name ?? a.productId, count: 0, color: p?.color ?? "#3984ff" }).count++;
+  }
+  const custs = Object.values(e.s.customers);
+  const resellers = custs.filter((c) => c.kind === "reseller").map((c) => {
+    const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
+    const spent = sum(cur.filter((o) => o.payerId === c.id));
+    return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), due7: mine.filter((a) => a.customerExpiresAt - now <= 7 * DAY).length };
+  }).sort((a, b) => b.monthly - a.monthly || b.services - a.services).slice(0, 8);
+  const upcoming = Array.from({ length: 14 }, (_, i) => {
+    const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+    const a = d0.getTime() + i * DAY, b = a + DAY;
+    const l = active.filter((x) => x.customerExpiresAt >= a && x.customerExpiresAt < b);
+    return { day: a, count: l.length, amount: l.reduce((s, x) => s + priceOf(x), 0) };
+  });
+  return {
+    days: nDays,
+    kpi: {
+      revenue: sum(cur), prevRevenue: sum(prev), orders: cur.length, prevOrders: prev.length,
+      renewals: cur.filter((o) => o.kind === "renewal").length, topups: sum(done.filter((o) => o.kind === "topup" && o.updatedAt >= from)),
+      newCustomers: custs.filter((c) => c.createdAt >= from).length, customers: custs.length, resellers: custs.filter((c) => c.kind === "reseller").length,
+      activeServices: active.length, monthlyRecurring: active.reduce((s, a) => s + priceOf(a), 0),
+      overdue: active.filter((a) => a.customerExpiresAt < now || a.holdOpen).length, due7: active.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length,
+      pendingReview: Object.values(e.s.orders).filter((o) => o.status === "payment_review").length,
+      balancesOwed: custs.reduce((s, c) => s + balance(e, c.id), 0),
+      unpaid: active.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado").length,
+    },
+    series, upcoming,
+    byProduct: Object.values(byProduct).sort((a, b) => b.revenue - a.revenue).slice(0, 8),
+    activeByProduct: Object.values(activeByProduct).sort((a, b) => b.count - a.count).slice(0, 8),
+    resellers,
+    recent: Object.values(e.s.orders).filter((o) => o.channel !== "import").sort((a, b) => b.createdAt - a.createdAt).slice(0, 8)
+      .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.total, at: o.createdAt, customer: e.s.customers[o.customerId]?.name ?? "", product: o.items[0] ? e.s.products[o.items[0].productId]?.name ?? "" : "Recarga" })),
+  };
+}
+
 export function supplierReport(e: Engine, actor: Actor) {
   authorize(actor, "supplier.manage");
   return Object.values(e.s.suppliers).map((sup) => {

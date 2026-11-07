@@ -36,28 +36,92 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
 /* ---------------- vistas ---------------- */
 const V = {
   async dashboard() {
-    const [st, set, products, accounts] = await Promise.all([api("GET", "/api/admin/stats"), api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
+    const dd = Number(P.tab.dd ?? 30);
+    const [d, set, products, accounts] = await Promise.all([api("GET", `/api/admin/dashboard?days=${dd}`), api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
     const todo = [
       [!set.whatsapp, "wa", "Cargá el WhatsApp de la tienda", "configuracion", "Configurar"],
       [!set.hasQr, "qr", "Subí tu QR de cobro", "configuracion", "Subir QR"],
       [!products.length, "box", "Creá tu primer producto", "productos", "Crear"],
       [!accounts.length, "user", "Cargá tus cuentas y perfiles", "carga", "Cargar"],
     ].filter((x) => x[0]);
-    const stock = Object.entries(st.stock);
-    return `<div class="big"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div>
-      <section class="card"><div class="todo"><div><span class="ic" style="background:${esc(set.accentColor)};color:#fff">${icon("sun")}</span><b>Apariencia de la tienda<br><small class="muted" style="font-weight:400">Colores, logo, textos de inicio y aviso</small></b><button class="pbtn blue" type="button" data-go="apariencia">Personalizar ${icon("arrow")}</button></div></div></section>
+    const k = d.kpi;
+    const delta = (c, p) => {
+      if (!p) return c ? `<em class="dl up">nuevo</em>` : `<em class="dl">—</em>`;
+      const v = Math.round(((c - p) / p) * 100);
+      return `<em class="dl ${v > 0 ? "up" : v < 0 ? "down" : ""}">${v > 0 ? "▲" : v < 0 ? "▼" : ""} ${Math.abs(v)}%</em>`;
+    };
+    const kpi = (label, val, sub, cls = "", go = "") => go ? `<button type="button" class="dk ${cls}" data-go="${go}"><span>${label}</span><b>${val}</b><small>${sub}</small></button>` : `<div class="dk ${cls}"><span>${label}</span><b>${val}</b><small>${sub}</small></div>`;
+    const short = (c) => { const v = c / 100; return v >= 10000 ? (v / 1000).toFixed(0) + "k" : v >= 1000 ? (v / 1000).toFixed(1).replace(".0", "") + "k" : String(Math.round(v)); };
+    // --- gráfico de ventas por día (barras apiladas) ---
+    const S = d.series, mob = innerWidth < 640, W = mob ? 380 : 720, H = mob ? 200 : 220, pl = 34, pb = 24, pt = 10;
+    const tot = S.map((x) => x.sales + x.renewals + x.topups);
+    const max = Math.max(...tot, 100);
+    const step = 10 ** Math.floor(Math.log10(max / 100 / 3 || 1)) * 100;
+    const nice = Math.ceil(max / 3 / step) * step || 100;
+    const top = nice * 3, bw = (W - pl) / S.length;
+    const y = (v) => pt + (H - pt - pb) * (1 - v / top);
+    const grid = [0, 1, 2, 3].map((i) => `<line x1="${pl}" x2="${W}" y1="${y(nice * i)}" y2="${y(nice * i)}" class="gl"/><text x="${pl - 6}" y="${y(nice * i) + 4}" class="ax" text-anchor="end">${short(nice * i)}</text>`).join("");
+    const lblEvery = Math.ceil(S.length / (mob ? 4 : 7));
+    const bars = S.map((x, i) => {
+      const x0 = pl + i * bw + bw * 0.15, w = Math.max(bw * 0.7, 1);
+      let acc = 0;
+      const seg = [["sales", "c1"], ["renewals", "c2"], ["topups", "c3"]].map(([f, c]) => {
+        if (!x[f]) return "";
+        const r = `<rect x="${x0}" y="${y(acc + x[f])}" width="${w}" height="${y(acc) - y(acc + x[f])}" class="${c}"/>`;
+        acc += x[f];
+        return r;
+      }).join("");
+      const lab = (S.length - 1 - i) % lblEvery === 0 ? `<text x="${x0 + w / 2}" y="${H - 6}" class="ax" text-anchor="middle">${x.day.slice(8)}/${x.day.slice(5, 7)}</text>` : "";
+      return `<g><title>${x.day.slice(8)}/${x.day.slice(5, 7)}: ${bs(tot[i])} (ventas ${bs(x.sales)}, renovaciones ${bs(x.renewals)}, recargas ${bs(x.topups)})</title><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${seg}</g>${lab}`;
+    }).join("");
+    const salesChart = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Ingresos por día">${grid}${bars}</svg>`;
+    // --- vencimientos próximos 14 días ---
+    const U = d.upcoming, umax = Math.max(...U.map((x) => x.count), 1);
+    const wd = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+    const upChart = `<div class="upc">${U.map((x, i) => { const dt = new Date(x.day); return `<div class="upd ${i === 0 ? "today" : ""}" title="${x.count} vencen · ${bs(x.amount)}"><i>${x.count || ""}</i><span style="height:${(x.count / umax) * 100}%" class="${i < 3 && x.count ? "hot" : ""}"></span><small>${i === 0 ? "hoy" : wd[dt.getDay()]}<br>${dt.getDate()}</small></div>`; }).join("")}</div>`;
+    const upSum = U.reduce((s, x) => s + x.amount, 0), upCnt = U.reduce((s, x) => s + x.count, 0);
+    // --- donut de servicios activos ---
+    const A = d.activeByProduct, atot = A.reduce((s, x) => s + x.count, 0) || 1;
+    const PAL = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+    let ang = 0;
+    const arcs = A.map((x, i) => {
+      const f = x.count / atot, r = 15.915;
+      const c = `<circle r="${r}" cx="21" cy="21" fill="none" stroke="${PAL[i % 8]}" stroke-width="6" stroke-dasharray="${f * 100} ${100 - f * 100}" stroke-dashoffset="${25 - ang}"><title>${esc(x.name)}: ${x.count}</title></circle>`;
+      ang += f * 100;
+      return c;
+    }).join("");
+    const donut = A.length ? `<div class="donut"><svg viewBox="0 0 42 42"><circle r="15.915" cx="21" cy="21" fill="none" class="ring" stroke-width="6"/>${arcs}<text x="21" y="21" class="dn">${k.activeServices}</text><text x="21" y="26.5" class="dt">activos</text></svg>
+      <ul>${A.map((x, i) => `<li><i style="background:${PAL[i % 8]}"></i>${esc(x.name)}<b>${x.count}</b></li>`).join("")}</ul></div>` : `<div class="emptybox">Sin servicios activos.</div>`;
+    // --- ingresos por producto ---
+    const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
+    const prodBars = B.length ? `<div class="hbars">${B.map((x, i) => `<div><span>${esc(x.name)}</span><div class="hb"><i style="width:${(x.revenue / bmax) * 100}%;background:${PAL[i % 8]}"></i></div><b>${bs(x.revenue)}</b><small>${x.units} u.</small></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
+    const tag = (kd) => `<span class="pp pp-${kd === "topup" ? "ok" : kd === "renewal" ? "warn" : "mute"}">${KIND_TEXT[kd] ?? kd}</span>`;
+    return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
+      <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div></div>
       ${todo.length ? `<section class="card"><h2>${icon("flag")}Completá tu tienda</h2><div class="todo">${todo.map(([, i, t, go, b]) => `<div><span class="ic">${icon(i)}</span><b>${t}</b><button class="pbtn blue" type="button" data-go="${go}">${b} ${icon("arrow")}</button></div>`).join("")}</div></section>` : ""}
-      <div class="kpis">
-        <div class="kpi"><span>Ventas (30 días)</span><b>${bs(st.revenue)}</b><small class="muted">${st.orders} pedidos</small></div>
-        <div class="kpi"><span>Dinero que entró</span><b>${bs(st.cashIn)}</b><small class="muted">QR, efectivo y recargas</small></div>
-        <div class="kpi"><span>Pagos por revisar</span><b class="${st.pendingReview ? "down" : ""}">${st.pendingReview}</b></div>
-        <div class="kpi"><span>Vencen en 7 días</span><b>${st.expiringIn7Days}</b></div>
-        <div class="kpi"><span>Saldo de clientes</span><b>${bs(st.balancesOwed)}</b><small class="muted">lo que les debés</small></div>
+      <div class="dkpis">
+        ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
+        ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
+        ${kpi("Ingreso mensual fijo", bs(k.monthlyRecurring), `${k.activeServices} servicios activos`)}
+        ${kpi("Recargas de saldo", bs(k.topups), `saldo a favor: ${bs(k.balancesOwed)}`)}
+        ${kpi("Vencidos / sin renovar", k.overdue, `${k.due7} vencen en 7 días`, k.overdue ? "bad" : "", "control")}
+        ${kpi("Pagos por revisar", k.pendingReview, k.unpaid ? `${k.unpaid} alquileres sin pagar` : "todo al día", k.pendingReview ? "warn" : "", "aprobacion")}
+        ${kpi("Clientes", k.customers, `${k.resellers} revendedores · +${k.newCustomers} nuevos`)}
       </div>
-      <section class="card"><h2>Stock por producto</h2>${table(["Producto", "Libres", "Reservados", "Vendidos", "Cuarentena", "No vendibles"],
-        stock.map(([id, s]) => `<tr><td>${esc(products.find((p) => p.id === id)?.name ?? id)}</td><td>${s.available ?? 0}</td><td>${s.reserved ?? 0}</td><td>${s.assigned ?? 0}</td><td>${s.quarantined ?? 0}</td><td>${s.unsellable ?? 0}</td></tr>`), "Todavía no cargaste cuentas.")}</section>`;
+      <section class="card"><h2>Ingresos por día <small>pasá el dedo o el mouse por una barra</small></h2>
+        <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
+      <div class="dgrid">
+        <section class="card"><h2>Vencen en los próximos 14 días <small>${upCnt} servicios · ${bs(upSum)} por cobrar</small></h2>${upChart}
+          <button class="pbtn sm" type="button" data-go="control">Ver en el control ${icon("arrow")}</button></section>
+        <section class="card"><h2>Servicios activos por producto</h2>${donut}</section>
+      </div>
+      <div class="dgrid">
+        <section class="card"><h2>Lo que más vendiste <small>${dd} días</small></h2>${prodBars}</section>
+        <section class="card"><h2>Últimos movimientos</h2><div class="recent">${d.recent.length ? d.recent.map((o) => `<div><div><b>${esc(o.customer || "—")}</b><small>${esc(o.product)} · ${fdt(o.at)}</small></div><div>${tag(o.kind)}<b>${bs(o.total)}</b>${o.status !== "fulfilled" ? orderPill(o.status) : ""}</div></div>`).join("") : `<div class="emptybox">Sin movimientos.</div>`}</div></section>
+      </div>
+      <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Mensual", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
+        d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>`;
   },
-
   async vender() {
     const [customers, products, stock] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock")]);
     return `<section class="card"><h2>Nueva venta <small>· se asigna un perfil libre y el aviso queda listo en WhatsApp</small></h2>

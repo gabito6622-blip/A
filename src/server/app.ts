@@ -367,6 +367,7 @@ export function createApp(cfg: AppConfig): App {
   const A = (c: Ctx) => c.actor!;
   const snap = () => store.engine.s;
 
+  route("GET", "/api/admin/dashboard", "staff", (c) => store.stats.dashboard(A(c), Number(c.query.get("days") ?? 30)));
   route("GET", "/api/admin/stats", "staff", (c) => store.stats.summary(A(c), { from: Number(c.query.get("from") ?? now() - 30 * 24 * HOUR), to: Number(c.query.get("to") ?? now() + HOUR) }));
   route("GET", "/api/admin/suppliers-report", "staff", (c) => store.stats.suppliers(A(c)));
   route("GET", "/api/admin/audit", "staff", (c) => store.stats.audit(A(c), { action: c.query.get("action") ?? undefined, limit: Number(c.query.get("limit") ?? 200) }));
