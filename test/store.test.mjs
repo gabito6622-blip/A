@@ -867,3 +867,13 @@ describe("17. Importar vencidos y clientes sin WhatsApp", () => {
     assert.equal(s.snapshot().customers[danis[0].id].phone, "+59170099911");
   });
 });
+
+describe("18. Varios clientes sin WhatsApp distintos", () => {
+  test("se pueden importar varios clientes sin número (no chocan entre sí)", () => {
+    const { s } = setup();
+    const mk = (k, name) => ({ row: k, customerName: name, phone: "", product: "netflix", email: `sin${k}@x.y`, password: "", profile: "Cuenta completa", customerExpiresAt: T0 + 9 * DAY, supplierExpiresAt: T0 + 60 * DAY });
+    const r = s.inventory.importServices(admin, [mk(1, "panama"), mk(2, "ANDROID"), mk(3, "aneliz")], { dryRun: false });
+    assert.deepEqual(r.rows.map((x) => x.status), ["ok", "ok", "ok"]);
+    assert.equal(Object.values(s.snapshot().customers).filter((c) => !c.phone).length, 3);
+  });
+});

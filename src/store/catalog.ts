@@ -140,7 +140,7 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
     resellerId = actor.customerId;
   }
   return e.tx(() => {
-    if (Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
     const groupId = c.priceGroupId ?? "final";
     if (!e.s.priceGroups[groupId]) throw new DomainError("NOT_FOUND", `Grupo de precios ${groupId} no existe`);
     const id = e.id("cus");
