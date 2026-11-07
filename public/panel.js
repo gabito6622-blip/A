@@ -272,7 +272,7 @@ const V = {
 
   async apariencia() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin cambian la apariencia.</div></section>`;
-    const [s, shops] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/shops").catch(() => [])]);
+    const [s, shops, testis] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/shops").catch(() => []), api("GET", "/api/admin/testimonials").catch(() => [])]);
     const ACCENTS = [["#3984ff", "Azul"], ["#7c5cff", "Violeta"], ["#e0368a", "Rosa"], ["#ff5a36", "Naranja"], ["#f2b705", "Dorado"], ["#16b47e", "Verde"], ["#14b8c8", "Turquesa"], ["#e53935", "Rojo"]];
     const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"],
       ["#f5f7fb", "Blanco"], ["#fff7ec", "Crema"], ["#eaf3ff", "Celeste"], ["#f3efff", "Lila"], ["#ecfbf3", "Menta"], ["#fff0f3", "Rosa claro"]];
@@ -313,7 +313,14 @@ const V = {
         <label class="chk"><input type="checkbox" id="resellerShops" ${s.resellerShops ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Permitir que los revendedores publiquen su página</label>
         ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="/r/${esc(x.slug)}" target="_blank" rel="noopener">/r/${esc(x.slug)}</a><br><small class="muted">${esc(x.title)}</small></td>
           <td>${x.blocked ? pill("Bloqueada", "bad") : x.enabled ? pill("Publicada", "ok") : pill("Apagada", "mute")}</td>
-          <td><button class="pbtn sm" type="button" data-shopblock="${esc(x.customerId)}" data-on="${x.blocked ? 0 : 1}">${x.blocked ? "Desbloquear" : "Bloquear"}</button></td></tr>`)) : `<div class="emptybox">Ningún revendedor armó su página todavía.</div>`}</section>
+          <td><div class="inline"><button class="pbtn sm" type="button" data-shopfeat="${esc(x.customerId)}" data-on="${x.featured ? 0 : 1}">${x.featured ? "★ Quitar destacada" : "☆ Destacar"}</button><button class="pbtn sm" type="button" data-shopblock="${esc(x.customerId)}" data-on="${x.blocked ? 0 : 1}">${x.blocked ? "Desbloquear" : "Bloquear"}</button></div></td></tr>`)) : `<div class="emptybox">Ningún revendedor armó su página todavía.</div>`}</section>
+      <section class="card"><h2>Opiniones de revendedores <small>· ${testis.length}/12</small></h2>
+        <p class="muted" style="margin:0">Se muestran en <b>/revendedores</b>. Cargá solo opiniones <b>reales</b> y con permiso de quien las dio: una opinión inventada hace perder la confianza (y puede traerte problemas).</p>
+        <form id="testiForm" style="display:grid;gap:12px">${[...testis, ...(testis.length < 12 ? [{ name: "", business: "", text: "", rating: "" }] : [])].map((t) => `<div class="tr-row" style="display:grid;gap:8px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 110px;border-bottom:1px solid var(--line);padding-bottom:12px">
+          <label>Nombre<input name="tn" maxlength="60" value="${esc(t.name)}" placeholder="Ej.: Rosa M."></label><label>Tienda o rubro (opcional)<input name="tb" maxlength="60" value="${esc(t.business ?? "")}" placeholder="Ej.: Rosa Streaming"></label>
+          <label>Estrellas<select name="tr">${opt("", "—", !t.rating)}${[5, 4, 3, 2, 1].map((n) => opt(n, "★".repeat(n), n === t.rating)).join("")}</select></label>
+          <label style="grid-column:1/-1">Opinión<textarea name="tt" rows="2" maxlength="400">${esc(t.text)}</textarea></label></div>`).join("")}
+          <div class="inline"><button class="pbtn dark" type="submit">Guardar opiniones</button><span class="muted">Para agregar otra, completá la fila vacía. Para quitar una, borrá su texto.</span></div></form></section>
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
       <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
@@ -621,6 +628,7 @@ document.addEventListener("click", async (ev) => {
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
   }
+  if (d.shopfeat) return act(() => api("POST", `/api/admin/customers/${d.shopfeat}/shop-feature`, { featured: d.on === "1" }), d.on === "1" ? "Tienda destacada" : "Ya no está destacada");
   if (d.shopblock) {
     const on = d.on === "1";
     if (on && !confirm("¿Bloquear esta página? El revendedor no va a poder mostrarla hasta que la desbloquees.")) return;
@@ -752,6 +760,10 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/secrets", body), "Claves guardadas");
     } else if (f.id === "waConfig") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
+    } else if (f.id === "testiForm") {
+      const items = [...f.querySelectorAll(".tr-row")].map((r) => ({ name: r.querySelector('[name="tn"]').value.trim(), business: r.querySelector('[name="tb"]').value.trim(), text: r.querySelector('[name="tt"]').value.trim(), rating: r.querySelector('[name="tr"]').value }))
+        .filter((t) => t.text);
+      await act(() => api("POST", "/api/admin/testimonials", { items }), `${items.length} opinión(es) guardadas`);
     } else if (f.id === "waHours") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { humanHours: f.on.checked ? { from: +f.from.value, to: +f.to.value } : null }), f.on.checked ? "Horario guardado" : "Sin horario: el bot no menciona horarios");
     } else if (f.id === "waQuick") {

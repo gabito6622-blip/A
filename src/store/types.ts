@@ -48,6 +48,8 @@ export interface StoreSettings extends Look {
   resellerShops?: boolean;
   /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */
   resellerProgramPrices?: boolean;
+  /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
+  testimonials?: Testimonial[];
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */
@@ -201,6 +203,15 @@ export interface Customer {
   shop?: ResellerShop;
 }
 
+export interface Testimonial {
+  name: string;
+  /** Nombre de su tienda o a qué se dedica. */
+  business?: string;
+  text: string;
+  /** 1 a 5 estrellas (opcional). */
+  rating?: number;
+}
+
 export interface ResellerShop extends Look {
   /** Dirección: /r/slug. */
   slug: string;
@@ -216,6 +227,8 @@ export interface ResellerShop extends Look {
   products?: Id[];
   /** Bloqueada por la tienda (contenido inapropiado, deuda, etc.). */
   blocked?: boolean;
+  /** Destacada por la tienda en el directorio. */
+  featured?: boolean;
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";

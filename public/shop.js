@@ -311,19 +311,26 @@ function directoryView(standalone) {
   const pg = S.data.program;
   if (!pg) return `<p class="skeleton">Cargando…</p>`;
   const q = (S.data.dq ?? "").toLowerCase().trim();
-  const list = pg.shops.filter((x) => !q || `${x.title} ${x.tagline} ${x.tags.join(" ")}`.toLowerCase().includes(q));
+  const all = pg.shops.filter((x) => !q || `${x.title} ${x.tagline} ${x.tags.join(" ")}`.toLowerCase().includes(q));
+  const list = standalone ? all : all.slice(0, 4);
+  const featured = standalone && !q ? pg.shops.filter((x) => x.featured) : [];
+  const vars = (x) => `--pb:${esc(x.backgroundColor || "#0b0b14")};--pa:${esc(x.accentColor || "#7c5cff")};--pa2:${esc(x.accent2Color || x.accentColor || "#00d4ff")};--pf:${fontStack(x.headingFont)}`;
   const head = standalone
     ? `<section class="dhero"><span class="pill"><i></i>Directorio de tiendas</span><h1>Explorá las tiendas de <span>nuestros revendedores</span></h1><p>Cada una con su marca, sus precios y atención directa por WhatsApp.</p>`
     : `<section class="psec"><div class="peyebrow">Ya están vendiendo</div><div class="psplit"><h2>Explorá las tiendas de nuestros revendedores</h2><p>Cada revendedor arma la suya en minutos. Así se ven:</p></div>`;
   return `${head}${pg.shops.length > 3 || standalone ? `<label class="dsearch"><input id="dq" placeholder="Buscar tienda por nombre o categoría…" value="${esc(S.data.dq ?? "")}" aria-label="Buscar tienda">${icon("arrow")}</label>` : ""}</section>
+    ${featured.length ? `<section class="psec"><div class="peyebrow">Selección especial</div><h2 class="ph2">Tiendas destacadas</h2>
+      <div class="dfeat">${featured.map((x) => { loadFont(x.headingFont); return `<a class="dfc" href="/r/${esc(x.slug)}" style="${vars(x)}"><span class="dban">${x.hasBanner ? `<img src="/api/shops/${esc(x.slug)}/banner" alt="Portada de ${esc(x.title)}" loading="lazy">` : `<b>${esc(x.title)}</b>`}</span>
+        <span class="dfi"><span class="dlogo">${x.hasLogo ? `<img src="/api/shops/${esc(x.slug)}/logo" alt="">` : `<i>${esc(x.title[0])}</i>`}</span><span><b>${esc(x.title)}</b>${x.tagline ? `<small>${esc(x.tagline)}</small>` : ""}</span><em>★ Destacada</em></span></a>`; }).join("")}</div></section>
+      <div class="psec"><div class="peyebrow">Directorio completo</div><h2 class="ph2">Todas las tiendas</h2></div>` : ""}
     <section class="dlist">${list.map((x) => {
       loadFont(x.headingFont);
-      const vars = `--pb:${esc(x.backgroundColor || "#0b0b14")};--pa:${esc(x.accentColor || "#7c5cff")};--pa2:${esc(x.accent2Color || x.accentColor || "#00d4ff")};--pf:${fontStack(x.headingFont)}`;
-      return `<a class="drow" href="/r/${esc(x.slug)}" style="${vars}">
+      return `<a class="drow" href="/r/${esc(x.slug)}" style="${vars(x)}">
         <span class="dlogo">${x.hasLogo ? `<img src="/api/shops/${esc(x.slug)}/logo" alt="">` : `<i>${esc(x.title[0])}</i>`}</span>
         <span class="dban">${x.hasBanner ? `<img src="/api/shops/${esc(x.slug)}/banner" alt="Portada de ${esc(x.title)}" loading="lazy">` : `<b>${esc(x.title)}</b>`}</span>
         <span class="dinfo"><b>${esc(x.title)}</b>${x.tagline ? `<small>${esc(x.tagline)}</small>` : ""}<span class="dtags">${x.tags.map((t) => `<em>${esc(t)}</em>`).join("")}</span><span class="dgo">Visitar tienda →</span></span></a>`;
-    }).join("") || `<p class="empty" style="text-align:center">${pg.shops.length ? "Ninguna tienda coincide con la búsqueda." : "Pronto vas a ver acá las tiendas de nuestros revendedores."}</p>`}</section>`;
+    }).join("") || `<p class="empty" style="text-align:center">${pg.shops.length ? "Ninguna tienda coincide con la búsqueda." : "Pronto vas a ver acá las tiendas de nuestros revendedores."}</p>`}
+    ${!standalone && all.length > list.length ? `<a class="pghost" href="/tiendas" data-s="tiendas" style="justify-self:center">Ver las ${all.length} tiendas →</a>` : ""}</section>`;
 }
 
 function programView() {
@@ -381,6 +388,13 @@ function programView() {
 
     <section class="psec"><div class="peyebrow">Ventajas</div><div class="psplit"><h2>¿Por qué revender con nosotros?</h2><p>Lo que cambia en tu negocio desde el primer día.</p></div>
       <div class="pfeats">${feats.map(([i, t, d]) => `<div class="pfc"><span class="pfi">${icon(i)}</span><b>${t}</b><span>${d}</span></div>`).join("")}</div></section>
+
+    ${pg.testimonials.length ? (() => {
+      const rated = pg.testimonials.filter((t) => t.rating);
+      const avg = rated.length ? rated.reduce((a, t) => a + t.rating, 0) / rated.length : 0;
+      return `<section class="psec"><div class="peyebrow">Opiniones</div><div class="psplit"><h2>Lo que dicen<br>nuestros revendedores</h2>${rated.length ? `<p class="prate"><b>${avg.toFixed(1).replace(".", ",")}</b><span>${"★".repeat(Math.round(avg))}${"☆".repeat(5 - Math.round(avg))}<br><small>${rated.length} ${rated.length === 1 ? "opinión" : "opiniones"}</small></span></p>` : "<p></p>"}</div>
+        <div class="ptesti">${pg.testimonials.map((t) => `<figure><blockquote>“${esc(t.text)}”</blockquote>${t.rating ? `<span class="pstars" aria-label="${t.rating} de 5 estrellas">${"★".repeat(t.rating)}${"☆".repeat(5 - t.rating)}</span>` : ""}<figcaption><i>${esc(t.name[0])}</i><span><b>${esc(t.name)}</b>${t.business ? `<small>${esc(t.business)}</small>` : ""}</span></figcaption></figure>`).join("")}</div></section>`;
+    })() : ""}
 
     <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>12 estilos para tu tienda</h2><p>Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
       <div class="tgrid pthemes">${THEMES.map((t) => `<div class="tcard">${themeSwatch(t)}<span>${esc(t.name)}</span></div>`).join("")}</div></section>

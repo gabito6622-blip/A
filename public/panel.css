@@ -164,3 +164,4 @@ details.more summary{cursor:pointer;color:var(--blue);font-weight:600}
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
 .tcard{display:grid;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
 .tcard:hover{border-color:var(--ink)}
+@media (max-width:640px){.tr-row{grid-template-columns:1fr!important}}

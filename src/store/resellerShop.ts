@@ -3,7 +3,7 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
-import type { Actor, Customer, Id, ResellerShop } from "./types.js";
+import type { Actor, Customer, Id, ResellerShop, Testimonial } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -93,6 +93,39 @@ export function setMyShopImage(e: Engine, actor: Actor, kind: "logo" | "banner",
   });
 }
 
+/** El staff destaca (o no) la página de un revendedor en el directorio. */
+export function setShopFeatured(e: Engine, actor: Actor, customerId: Id, featured: boolean) {
+  authorize(actor, "catalog.manage");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (!c.shop) throw new DomainError("NOT_FOUND", "Ese revendedor no armó su página");
+    c.shop.featured = !!featured;
+    e.audit(actor, featured ? "reseller.shop_feature" : "reseller.shop_unfeature", "customer", c.id, { slug: c.shop.slug });
+    return { slug: c.shop.slug, featured: c.shop.featured };
+  });
+}
+
+/** Opiniones de revendedores para /revendedores. Solo el dueño o un admin las cargan. */
+export function setTestimonials(e: Engine, actor: Actor, list: unknown): Testimonial[] {
+  authorize(actor, "catalog.manage");
+  if (!Array.isArray(list) || list.length > 12) throw new DomainError("VALIDATION", "Hasta 12 opiniones");
+  const clean = list.map((t, i): Testimonial => {
+    const o = (t ?? {}) as Record<string, unknown>;
+    const name = String(o.name ?? "").trim(), text = String(o.text ?? "").trim(), business = String(o.business ?? "").trim();
+    if (!name || name.length > 60) throw new DomainError("VALIDATION", `Opinión ${i + 1}: el nombre va de 1 a 60 letras`);
+    if (!text || text.length > 400) throw new DomainError("VALIDATION", `Opinión ${i + 1}: el texto va de 1 a 400 letras`);
+    if (business.length > 60) throw new DomainError("VALIDATION", `Opinión ${i + 1}: la tienda va hasta 60 letras`);
+    const rating = o.rating === undefined || o.rating === null || o.rating === "" ? undefined : Number(o.rating);
+    if (rating !== undefined && !(Number.isInteger(rating) && rating >= 1 && rating <= 5)) throw new DomainError("VALIDATION", `Opinión ${i + 1}: estrellas de 1 a 5`);
+    return { name, text, ...(business ? { business } : {}), ...(rating ? { rating } : {}) };
+  });
+  return e.tx(() => {
+    e.s.settings.testimonials = clean;
+    e.audit(actor, "testimonials.update", "settings", "testimonials", { count: clean.length });
+    return structuredClone(clean);
+  });
+}
+
 /** El staff bloquea o desbloquea la página de un revendedor. */
 export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked: boolean) {
   authorize(actor, "catalog.manage");
@@ -146,7 +179,7 @@ export function shopImage(e: Engine, slug: string, kind: "logo" | "banner", view
 /** Para el panel: todas las páginas de revendedores. */
 export function listShops(e: Engine, actor: Actor) {
   authorize(actor, "catalog.manage");
-  return Object.values(e.s.customers).filter((c) => c.shop).map((c) => ({ customerId: c.id, name: c.name, slug: c.shop!.slug, title: c.shop!.title, enabled: c.shop!.enabled, blocked: !!c.shop!.blocked }));
+  return Object.values(e.s.customers).filter((c) => c.shop).map((c) => ({ customerId: c.id, name: c.name, slug: c.shop!.slug, title: c.shop!.title, enabled: c.shop!.enabled, blocked: !!c.shop!.blocked, featured: !!c.shop!.featured }));
 }
 
 /**
@@ -165,18 +198,19 @@ export function programInfo(e: Engine) {
   const shopsOn = st.resellerShops !== false;
   const shops = shopsOn ? Object.values(e.s.customers)
     .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked)
-    .slice(0, 24)
+    .sort((a, b) => Number(!!b.shop!.featured) - Number(!!a.shop!.featured))
+    .slice(0, 60)
     .map((c) => {
       const sh = c.shop!;
       const show = sh.products?.length ? new Set(sh.products) : null;
       const cats = [...new Set(published.filter((p) => c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
       return {
-        slug: sh.slug, title: sh.title, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
+        slug: sh.slug, title: sh.title, featured: !!sh.featured, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
         accentColor: sh.accentColor, accent2Color: sh.accent2Color, backgroundColor: sh.backgroundColor, headingFont: sh.headingFont,
       };
     }) : [];
   return {
-    storeName: st.storeName, whatsapp: st.whatsapp, showPrices, shopsEnabled: shopsOn,
+    storeName: st.storeName, whatsapp: st.whatsapp, showPrices, shopsEnabled: shopsOn, testimonials: structuredClone(st.testimonials ?? []),
     stats: { products: published.length, categories: new Set(published.map((p) => p.category ?? "Otros")).size, shops: shops.length },
     products: showPrices ? published.filter((p) => group!.prices[p.id] !== undefined && group!.prices[p.id] < p.price)
       .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", color: p.color ?? "#3984ff", durationDays: p.durationDays, public: p.price, reseller: group!.prices[p.id] }))

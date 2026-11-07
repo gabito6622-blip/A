@@ -787,3 +787,29 @@ describe("14. Página /revendedores", () => {
     assert.deepEqual(pg.products, []);
   });
 });
+
+describe("15. Opiniones y tiendas destacadas", () => {
+  test("opiniones: solo dueño o admin, validadas, salen en /revendedores", () => {
+    const { s } = setup();
+    assert.deepEqual(s.shops.program().testimonials, [], "sin opiniones inventadas por defecto");
+    const out = s.shops.setTestimonials(admin, [{ name: " Rosa M. ", business: "Rosa TV", text: "Vendo el doble.", rating: "5" }, { name: "Luis", text: "Muy rápido" }]);
+    assert.deepEqual(out, [{ name: "Rosa M.", business: "Rosa TV", text: "Vendo el doble.", rating: 5 }, { name: "Luis", text: "Muy rápido" }]);
+    assert.equal(s.shops.program().testimonials.length, 2);
+    assert.throws(() => s.shops.setTestimonials(seller, []), err("FORBIDDEN"));
+    for (const bad of [[{ name: "", text: "x" }], [{ name: "a", text: "" }], [{ name: "a", text: "x", rating: 6 }], Array(13).fill({ name: "a", text: "x" }), "nada"]) {
+      assert.throws(() => s.shops.setTestimonials(owner, bad), err("VALIDATION"));
+    }
+  });
+
+  test("destacadas: van primero en el directorio", () => {
+    const { s, carla, as } = setup();
+    const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 71110000", kind: "reseller", priceGroupId: "revendedor" });
+    s.shops.update(as(carla), { slug: "carla-tv", enabled: true });
+    s.shops.update(as(otro), { slug: "otro-tv", enabled: true });
+    s.shops.setFeatured(admin, otro.id, true);
+    const shops = s.shops.program().shops;
+    assert.deepEqual(shops.map((x) => [x.slug, x.featured]), [["otro-tv", true], ["carla-tv", false]]);
+    assert.throws(() => s.shops.setFeatured(seller, otro.id, true), err("FORBIDDEN"));
+    assert.equal(s.shops.list(admin).find((x) => x.slug === "otro-tv").featured, true);
+  });
+});
