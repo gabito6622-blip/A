@@ -315,10 +315,68 @@ const V = {
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
+      ${isOwner() ? await ownerCards() : ""}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
 };
 
+
+/* ---------------- Avisos para el dueño y respaldos ---------------- */
+async function ownerCards() {
+  const [al, bk] = await Promise.all([api("GET", "/api/admin/alerts"), api("GET", "/api/admin/backups")]);
+  const perm = "Notification" in window ? Notification.permission : "unsupported";
+  const mb = (n) => (n / 1048576 < 0.1 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
+  return `<section class="card"><h2>${icon("bell")}Avisos para vos</h2>
+      <p class="muted" style="margin:0">Mientras el panel esté abierto, suena y aparece un aviso cuando llega un pago nuevo. Además, si cargás tu WhatsApp, te llega un mensaje (sale por el bot si está conectado; si no, queda en <b>WhatsApp → Avisos</b>).</p>
+      <form class="form" id="alertForm">
+        <label>Tu WhatsApp (con código de país)<input name="phone" inputmode="tel" placeholder="+591 70000000" value="${esc(al.phone)}"></label>
+        <label>Avisarme de cuentas que vencen con el proveedor<select name="supplierDaysBefore">${[0, 1, 2, 3, 5, 7].map((d) => opt(d, d ? `${d} día(s) antes` : "El mismo día", d === al.supplierDaysBefore)).join("")}</select></label>
+        <label class="chk"><input type="checkbox" name="payments" ${al.payments ? "checked" : ""}> Pago o recarga nueva para revisar</label>
+        <label class="chk"><input type="checkbox" name="supplierExpiry" ${al.supplierExpiry ? "checked" : ""}> Cuentas por vencer con el proveedor</label>
+        <button class="pbtn dark" type="submit">Guardar</button></form>
+      <div class="inline">${perm === "granted" ? pill("Notificaciones del navegador activadas", "ok") : perm === "unsupported" ? `<span class="muted">Este navegador no muestra notificaciones.</span>` : `<button class="pbtn" type="button" id="notifOn">${icon("bell")}Activar notificaciones en este navegador</button>`}</div></section>
+    <section class="card"><h2>Respaldos</h2>
+      <p class="muted" style="margin:0">Se hace uno solo <b>cada día</b> y se guardan los últimos ${bk.keep}. Descargá uno de vez en cuando y guardalo fuera del servidor (Drive, pendrive).</p>
+      <p class="perr" style="margin:0">El respaldo tiene <b>todo</b>, incluidas las contraseñas de las cuentas y las claves de Meta. No lo compartas.</p>
+      ${bk.items.length ? `<table class="tbl"><thead><tr><th>Respaldo</th><th>Fecha</th><th>Tamaño</th><th></th></tr></thead><tbody>${bk.items.slice(0, 10).map((b) => `<tr><td>${esc(b.name)}</td><td>${fdt(b.createdAt)}</td><td>${mb(b.bytes)}</td><td><a class="pbtn sm" href="/api/admin/backups/${encodeURIComponent(b.name)}" download>Descargar</a></td></tr>`).join("")}</tbody></table>` : `<div class="emptybox">Todavía no hay respaldos. El primero se hace solo en un minuto, o tocá el botón.</div>`}
+      <div class="inline"><button class="pbtn dark" type="button" id="backupNow">Hacer respaldo ahora</button></div>
+      <p class="muted" style="margin:0">Para volver a un respaldo: apagá la tienda y reemplazá <code>gabriel.db</code> y la carpeta <code>uploads</code> en la carpeta de datos (el .zip trae un LEEME con los pasos).</p></section>`;
+}
+
+/* Vigila pagos nuevos cada 30 s: sonido, contador en la pestaña y notificación del navegador. */
+const watch = { last: null };
+function beep() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.18].forEach((t) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = 880; g.gain.setValueAtTime(0.15, ac.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + t + 0.15);
+      o.connect(g).connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.16);
+    });
+  } catch { /* sin audio */ }
+}
+function showPending(n) {
+  $("#dot").hidden = !n;
+  document.title = (n ? `(${n}) ` : "") + "Panel · " + (P.settings?.storeName ?? "Gabriel Store");
+  const b = $('#menu [data-go="aprobacion"]');
+  if (b) { b.querySelector(".count")?.remove(); if (n) b.insertAdjacentHTML("beforeend", `<span class="count">${n}</span>`); }
+}
+async function watchPayments() {
+  if (!P.me) return;
+  const n = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => null);
+  if (n === null) return;
+  if (watch.last !== null && n > watch.last) {
+    beep();
+    toast(n - watch.last === 1 ? "Llegó un pago nuevo para revisar" : `Llegaron ${n - watch.last} pagos nuevos para revisar`);
+    if ("Notification" in window && Notification.permission === "granted") {
+      try { new Notification("Pago nuevo para revisar", { body: "Entrá a Aprobación de ventas", tag: "gs-pago" }); } catch { /* móvil sin soporte */ }
+    }
+    if (P.view === "aprobacion" && !document.activeElement?.closest("form")) render();
+  }
+  watch.last = n;
+  showPending(n);
+}
+setInterval(watchPayments, 30_000);
 
 /* ---------------- WhatsApp: avisos, conversaciones y bot ---------------- */
 async function waConfig() {
@@ -331,7 +389,7 @@ async function waAvisosHtml() {
 
   if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin ven los avisos.</div></section>`;
   const [out, customers] = await Promise.all([api("GET", "/api/admin/outbox"), api("GET", "/api/admin/customers")]);
-  const name = (id) => customers.find((c) => c.id === id)?.name ?? id;
+  const name = (id) => (id === "staff" ? "Para vos (dueño)" : customers.find((c) => c.id === id)?.name ?? id);
   const tab = P.tab.wa ?? "pending";
   const pending = out.filter((m) => m.status === "queued" || m.status === "failed");
   const list = tab === "pending" ? pending : tab === "noconsent" ? out.filter((m) => m.status === "skipped_no_consent") : out;
@@ -431,7 +489,8 @@ async function waBotHtml() {
 /* ---------------- render ---------------- */
 async function render() {
   const pend = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0);
-  $("#dot").hidden = !pend;
+  watch.last = pend;
+  showPending(pend);
   const inG = ["cuentas", "carga", "productos"].includes(P.view);
   $("#menu").innerHTML = MENU.filter((m) => !m[3] || m[3] === "owner" && isOwner() || Array.isArray(m[3])).map(([k, i, t, sub]) => Array.isArray(sub)
     ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
@@ -499,6 +558,8 @@ document.addEventListener("click", async (ev) => {
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
+  if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
+  if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
   if (d.chat) { P.tab.chat = d.chat; return render(); }
   if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
@@ -711,6 +772,9 @@ document.addEventListener("submit", async (ev) => {
       await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");
     } else if (f.id === "qrForm") {
       await act(async () => api("POST", "/api/admin/settings/qr", { contentBase64: await fileToBase64(f.file.files[0]) }), "QR actualizado");
+    } else if (f.id === "alertForm") {
+      await act(() => api("POST", "/api/admin/alerts", { phone: f.phone.value, payments: f.payments.checked, supplierExpiry: f.supplierExpiry.checked, supplierDaysBefore: +f.supplierDaysBefore.value }),
+        f.phone.value.trim() ? "Listo: te vamos a avisar por WhatsApp" : "Guardado (sin WhatsApp: solo avisos en el panel)");
     } else if (f.id === "pwForm") {
       await act(() => api("POST", "/api/admin/me/password", { current: f.current.value, next: f.next.value }), "Contraseña cambiada");
     }

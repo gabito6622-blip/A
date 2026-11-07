@@ -8,6 +8,7 @@
 //   GS_OWNER_USER        usuario del dueño, solo para crear el primero
 //   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
 //   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
+//   GS_TRUST_PROXY=1     detrás de Render/Railway/Cloudflare: usa la IP real del cliente para los límites
 //   GS_META_BASE_URL     SOLO pruebas: otra URL en vez de https://graph.facebook.com
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
@@ -23,6 +24,7 @@ const app = createApp({
   secureCookies: !!origin?.startsWith("https://"),
   staticDir,
   metaBaseUrl: env.GS_META_BASE_URL,
+  trustProxy: env.GS_TRUST_PROXY === "1",
   otpSender: env.GS_DEV_OTP === "1"
     ? (phone, code) => console.log(`[DEV] código para ${phone}: ${code}`)
     : undefined,

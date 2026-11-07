@@ -72,6 +72,11 @@ export class Db {
     return version;
   }
 
+  /** Copia consistente de la base completa (estado, sesiones y claves) a otro archivo. */
+  backupTo(file: string): void {
+    this.db.prepare("VACUUM INTO ?").run(file);
+  }
+
   versions(limit = 20): { version: number; savedAt: number; bytes: number }[] {
     return (this.db.prepare("SELECT version, saved_at AS savedAt, length(state) AS bytes FROM state_versions ORDER BY version DESC LIMIT ?").all(limit) as never[]);
   }

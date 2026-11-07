@@ -7,7 +7,7 @@
 //                ├─ balance ─► (débito del saldo) ─► fulfilled
 //                └─ cash (solo staff) ─────────────► fulfilled
 // Un comprobante NO es un pago: solo un revisor con `payment.review` confirma la referencia bancaria.
-import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings } from "./types.js";
+import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, StaffAlertSettings } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
@@ -15,7 +15,7 @@ import { DomainError } from "./errors.js";
 import { canActFor, priceFor } from "./catalog.js";
 import { releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
-import { queue } from "./notify.js";
+import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fdate = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -110,6 +110,11 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
   e.audit(actor, "order.fulfill", "order", order.id, { kind: order.kind, assignments: order.assignmentIds.length });
 }
 
+function alertPayment(e: Engine, o: Order): void {
+  if (!staffAlertSettings(e).payments) return;
+  queueStaff(e, "staff_payment_review", { order: o.id, name: e.s.customers[o.customerId]?.name ?? "cliente", total: fmt(o.total) });
+}
+
 export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileRef: string; declaredReference: string }): Order {
   return e.tx(() => {
     const o = e.get("orders", orderId);
@@ -117,6 +122,7 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
     if (o.paymentMethod !== "qr") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
+    if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);
     o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now() };
     o.status = "payment_review";
     o.updatedAt = e.now();
@@ -459,6 +465,55 @@ export function updateReminderSettings(e: Engine, actor: Actor, patch: Partial<R
   });
 }
 
+/**
+ * Avisa al dueño (una sola vez por vencimiento) de las cuentas que vencen con el proveedor en los
+ * próximos días configurados, todas juntas en un mensaje y dentro del horario de los recordatorios.
+ */
+export function supplierExpiryAlerts(e: Engine, actor: Actor): number {
+  if (actor.role !== "system") authorize(actor, "catalog.manage");
+  const cfg = staffAlertSettings(e);
+  if (!cfg.phone || !cfg.supplierExpiry) return 0;
+  const rs = reminderSettings(e);
+  const h = localHour(e.now(), rs.timeZone);
+  if (h < rs.fromHour || h >= rs.toHour) return 0;
+  const limit = e.now() + cfg.supplierDaysBefore * DAY;
+  const due = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= limit
+    && a.supplierExpiresAt > e.now() - DAY && a.supplierAlertSentFor !== a.supplierExpiresAt);
+  if (!due.length) return 0;
+  return e.tx(() => {
+    due.sort((a, b) => a.supplierExpiresAt - b.supplierExpiresAt);
+    const shown = due.slice(0, 15).map((a) => `${e.s.products[a.productId]?.name ?? "?"} ${a.email} (${fdate(a.supplierExpiresAt)})`);
+    queueStaff(e, "staff_supplier_expiry", { count: String(due.length), list: shown.join("; ") + (due.length > 15 ? `; y ${due.length - 15} más` : "") });
+    for (const a of due) a.supplierAlertSentFor = a.supplierExpiresAt;
+    e.audit(actor, "alerts.supplier_expiry", "account", "*", { count: due.length });
+    return due.length;
+  });
+}
+
+export function updateStaffAlerts(e: Engine, actor: Actor, patch: Partial<StaffAlertSettings>): StaffAlertSettings {
+  authorize(actor, "catalog.manage");
+  if (actor.role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño cambia sus avisos");
+  if (patch.supplierDaysBefore !== undefined && !(Number.isInteger(patch.supplierDaysBefore) && patch.supplierDaysBefore >= 0 && patch.supplierDaysBefore <= 15)) {
+    throw new DomainError("VALIDATION", "Días antes: entre 0 y 15");
+  }
+  let phone: string | undefined;
+  if (patch.phone !== undefined) {
+    phone = String(patch.phone ?? "").replace(/[^\d+]/g, "");
+    if (phone && !/^\+?\d{8,15}$/.test(phone)) throw new DomainError("VALIDATION", "WhatsApp inválido: poné el número con código de país (p. ej. +591 70000000)");
+    if (phone && !phone.startsWith("+")) phone = (phone.length === 8 ? "+591" : "+") + phone;
+  }
+  return e.tx(() => {
+    const next: StaffAlertSettings = { ...staffAlertSettings(e) };
+    if (phone !== undefined) next.phone = phone;
+    if (patch.payments !== undefined) next.payments = !!patch.payments;
+    if (patch.supplierExpiry !== undefined) next.supplierExpiry = !!patch.supplierExpiry;
+    if (patch.supplierDaysBefore !== undefined) next.supplierDaysBefore = patch.supplierDaysBefore;
+    e.s.settings.staffAlerts = next;
+    e.audit(actor, "alerts.settings", "settings", "staffAlerts", { payments: next.payments, supplierExpiry: next.supplierExpiry, days: next.supplierDaysBefore, hasPhone: !!next.phone });
+    return structuredClone(next);
+  });
+}
+
 /* ---------------- Recargas de saldo ---------------- */
 
 export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string }): Order {
@@ -474,6 +529,7 @@ export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Ce
       reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
     };
     e.s.orders[o.id] = o;
+    if (!isStaff(actor)) alertPayment(e, o);
     e.audit(actor, "topup.request", "order", o.id, { amount });
     return structuredClone(o);
   });

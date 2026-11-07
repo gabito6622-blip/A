@@ -28,7 +28,7 @@ function crc32(buf: Buffer): number {
 }
 
 /** ZIP sin compresión (método "store"): Excel lo abre sin problemas. */
-function zipStore(files: { name: string; data: Buffer }[]): Buffer {
+export function zipStore(files: { name: string; data: Buffer }[]): Buffer {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;

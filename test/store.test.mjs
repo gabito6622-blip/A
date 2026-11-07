@@ -601,3 +601,56 @@ describe("10. Recordatorios automáticos", () => {
     assert.equal(reminders(s).length, 1);
   });
 });
+
+describe("11. Avisos para el dueño", () => {
+  const staffMsgs = (s) => s.notify.outbox(owner).filter((m) => m.customerId === "staff");
+
+  test("sin WhatsApp del dueño no se encola nada; solo el dueño lo configura y se valida", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
+    s.orders.submitEvidence(as(maria), o.id, { fileRef: "up/a.jpg", declaredReference: "DEP-1" });
+    assert.equal(staffMsgs(s).length, 0);
+    assert.throws(() => s.orders.updateStaffAlerts(admin, { phone: "+591 70000000" }), err("FORBIDDEN"));
+    assert.throws(() => s.orders.updateStaffAlerts(seller, { phone: "+591 70000000" }), err("FORBIDDEN"));
+    assert.throws(() => s.orders.updateStaffAlerts(owner, { phone: "abc12" }), err("VALIDATION"));
+    assert.throws(() => s.orders.updateStaffAlerts(owner, { supplierDaysBefore: 40 }), err("VALIDATION"));
+    assert.equal(s.orders.updateStaffAlerts(owner, { phone: "70000000" }).phone, "+59170000000", "8 dígitos = Bolivia");
+  });
+
+  test("pago o recarga de un cliente avisa al dueño una vez; lo que carga el staff no", () => {
+    const { s, maria, luis, as } = setup();
+    s.orders.updateStaffAlerts(owner, { phone: "+591 70000000" });
+    const o = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
+    s.orders.submitEvidence(as(maria), o.id, { fileRef: "up/a.jpg", declaredReference: "DEP-1" });
+    s.orders.submitEvidence(as(maria), o.id, { fileRef: "up/b.jpg", declaredReference: "DEP-1b" }); // corrige el comprobante
+    let m = staffMsgs(s);
+    assert.equal(m.length, 1);
+    assert.equal(m[0].to, "+59170000000");
+    assert.equal(m[0].status, "queued");
+    assert.match(m[0].text, /nuevo pago para revisar\. Pedido #\S+ de María Quispe por Bs 35\.00/);
+    s.orders.requestTopup(as(luis), luis.id, 5000, { fileRef: "up/t.jpg", declaredReference: "DEP-2" });
+    assert.equal(staffMsgs(s).length, 2);
+    const p = s.orders.create(seller, { customerId: luis.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
+    s.orders.submitEvidence(seller, p.id, { fileRef: "up/c.jpg", declaredReference: "DEP-3" });
+    s.orders.updateStaffAlerts(owner, { payments: false });
+    s.orders.requestTopup(as(luis), luis.id, 5000, { fileRef: "up/t2.jpg", declaredReference: "DEP-4" });
+    assert.equal(staffMsgs(s).length, 2, "ni lo del vendedor ni con el aviso apagado");
+  });
+
+  test("cuentas por vencer con el proveedor: un solo mensaje, en horario, una vez por vencimiento", () => {
+    const { s, clock, acc2: { account: acc2 } } = setup();
+    s.orders.updateStaffAlerts(owner, { phone: "+591 70000000", supplierDaysBefore: 2 });
+    clock.t = acc2.supplierExpiresAt - 2 * DAY + 60_000; // faltan menos de 2 días, 08:01 en Bolivia
+    assert.equal(s.orders.supplierExpiryAlerts(system), 0, "antes de las 9 no sale");
+    clock.t += 2 * 60 * MINUTE; // 10:01
+    assert.equal(s.orders.supplierExpiryAlerts(system), 1);
+    assert.equal(s.orders.supplierExpiryAlerts(system), 0, "no se repite");
+    const [m] = staffMsgs(s);
+    assert.match(m.text, /1 cuenta\(s\) vencen con el proveedor: Netflix perfil nf02@gabostore\.lat/);
+    assert.doesNotMatch(m.text, /Otra-Clave/);
+    // El proveedor renovó: nueva fecha → vuelve a avisar cuando corresponda.
+    s.inventory.updateAccount(admin, acc2.id, { supplierExpiresAt: clock.t + DAY });
+    assert.equal(s.orders.supplierExpiryAlerts(system), 1);
+    assert.throws(() => s.orders.supplierExpiryAlerts(seller), err("FORBIDDEN"));
+  });
+});

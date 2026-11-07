@@ -7,6 +7,7 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlink
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
+import { Backups } from "./backup.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
@@ -31,6 +32,8 @@ export interface AppConfig {
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
+  /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
+  trustProxy?: boolean;
 }
 
 const HOUR = 3_600_000;
@@ -113,6 +116,7 @@ export function createApp(cfg: AppConfig): App {
   const system: Actor = { id: "system:jobs", role: "system" };
 
   const now = () => clock.now();
+  const backups = new Backups(db, uploads, cfg.dataDir, now);
   const loginLimiter = new RateLimiter(5, 15 * 60_000, now);
   const otpPhoneLimiter = new RateLimiter(3, 15 * 60_000, now);
   const otpIpLimiter = new RateLimiter(10, 15 * 60_000, now);
@@ -432,6 +436,31 @@ export function createApp(cfg: AppConfig): App {
     c.res.end(buf);
     return RAW;
   };
+  /* ---- respaldos (solo el dueño: contienen contraseñas y claves) ---- */
+  const ownerOnly = (c: Ctx) => { if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño maneja los respaldos"); };
+  route("GET", "/api/admin/backups", "staff", (c) => { ownerOnly(c); return { items: backups.list(), keep: 30 }; });
+  route("POST", "/api/admin/backups", "staff", (c) => {
+    ownerOnly(c);
+    const b = backups.create();
+    store.engine.tx(() => store.engine.audit(A(c), "backup.create", "backup", b.name, { bytes: b.bytes }));
+    return b;
+  });
+  route("GET", "/api/admin/backups/:name", "staff", (c) => {
+    ownerOnly(c);
+    let buf: Buffer;
+    try { buf = backups.read(c.params.name); } catch { throw new HttpError(404, "NOT_FOUND", "Respaldo inexistente"); }
+    store.engine.tx(() => store.engine.audit(A(c), "backup.download", "backup", c.params.name, { bytes: buf.length }));
+    c.res.writeHead(200, { "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${c.params.name}"`, "Cache-Control": "private, no-store", "Content-Length": buf.length });
+    c.res.end(buf);
+    return RAW;
+  });
+
+  /* ---- avisos para el dueño ---- */
+  route("GET", "/api/admin/alerts", "staff", (c) => { ownerOnly(c); return store.orders.staffAlerts(); });
+  route("POST", "/api/admin/alerts", "staff", (c) => store.orders.updateStaffAlerts(A(c), {
+    phone: c.body?.phone, payments: c.body?.payments, supplierExpiry: c.body?.supplierExpiry, supplierDaysBefore: c.body?.supplierDaysBefore,
+  }));
+
   route("GET", "/api/admin/export/:kind", "staff", (c) => {
     const kind = c.params.kind as ExportKind;
     if (!EXPORT_KINDS.includes(kind)) throw new HttpError(404, "NOT_FOUND", "Exportación inexistente");
@@ -739,7 +768,8 @@ export function createApp(cfg: AppConfig): App {
     // SAMEORIGIN: el panel muestra la tienda en una vista previa; ningún otro sitio puede incrustarla.
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
     const url = new URL(req.url ?? "/", "http://local");
-    const ip = req.socket.remoteAddress ?? "?";
+    const fwd = cfg.trustProxy ? String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
+    const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {
         if (!serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
@@ -770,16 +800,19 @@ export function createApp(cfg: AppConfig): App {
   function runJobs() {
     const expired = store.orders.expireReservations(system);
     const reminders = store.orders.autoReminders(system);
+    const supplierAlerts = store.orders.supplierExpiryAlerts(system);
     const closed = store.orders.closeExpired(system, 2);
     db.purgeExpiredSessions(now());
-    return { expired, reminders, closed };
+    let backup: string | undefined;
+    try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }
+    return { expired, reminders, closed, supplierAlerts, ...(backup ? { backup } : {}) };
   }
   const timers: NodeJS.Timeout[] = [];
   if (cfg.jobs !== false) {
     timers.push(setInterval(() => {
       try {
         const r = runJobs();
-        if (r.expired || r.reminders || r.closed) log(`tareas: ${JSON.stringify(r)}`);
+        if (r.expired || r.reminders || r.closed || r.supplierAlerts || r.backup) log(`tareas: ${JSON.stringify(r)}`);
       } catch (e) {
         log(`tareas fallaron: ${(e as Error).message}`);
       }

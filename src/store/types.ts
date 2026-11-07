@@ -52,6 +52,18 @@ export interface StoreSettings {
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */
   reminders?: ReminderSettings;
+  /** Avisos por WhatsApp para el dueño. */
+  staffAlerts?: StaffAlertSettings;
+}
+
+export interface StaffAlertSettings {
+  /** WhatsApp del dueño (con código de país). Vacío = sin avisos por WhatsApp. */
+  phone: string;
+  /** Avisar cuando un cliente manda un comprobante de pago o pide una recarga. */
+  payments: boolean;
+  /** Avisar cuando una cuenta está por vencer con el proveedor. */
+  supplierExpiry: boolean;
+  supplierDaysBefore: number;
 }
 
 export interface ReminderSettings {
@@ -139,6 +151,8 @@ export interface Account {
   status: "active" | "retired";
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
+  /** Vencimiento con el proveedor para el que ya se avisó al dueño. */
+  supplierAlertSentFor?: number;
   createdAt: number;
 }
 
@@ -271,6 +285,8 @@ export interface AuditEvent {
 }
 
 export type TemplateId =
+  | "staff_payment_review"
+  | "staff_supplier_expiry"
   | "order_received"
   | "order_confirmed"
   | "payment_rejected"
@@ -283,6 +299,7 @@ export type TemplateId =
 
 export interface OutboxMessage {
   id: Id;
+  /** "staff" cuando es un aviso para el dueño (no para un cliente). */
   customerId: Id;
   to: string;
   template: TemplateId;

@@ -2,12 +2,14 @@
 // - Solo plantillas fijas; ningún parámetro puede llevar contraseñas, PIN ni códigos.
 // - Sin consentimiento del cliente no se envía (queda "skipped_no_consent").
 // - El envío real lo hace un transporte autorizado (WhatsApp Cloud API u otro) en `flush`.
-import type { Actor, Id, OutboxMessage, TemplateId } from "./types.js";
+import type { Actor, Id, OutboxMessage, StaffAlertSettings, TemplateId } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 
 export const TEMPLATES: Record<TemplateId, string> = {
+  staff_payment_review: "Gabriel Store: nuevo pago para revisar. Pedido #{order} de {name} por {total}. Entrá al panel → Aprobación de ventas.",
+  staff_supplier_expiry: "Gabriel Store: {count} cuenta(s) vencen con el proveedor: {list}. Renovalas o cambiá los datos en el panel → Cuentas.",
   order_received: "Hola {name}, registramos tu pedido #{order} por {total}. Estamos verificando el pago y te avisamos al confirmarlo.",
   order_confirmed: "Gabriel Store: tu pedido #{order} fue confirmado. Tus accesos están en tu área privada → Mis cuentas.",
   payment_rejected: "Gabriel Store: no pudimos verificar el pago del pedido #{order}. Respondé este mensaje si ya pagaste.",
@@ -72,6 +74,18 @@ export function queue(e: Engine, customerId: Id, template: TemplateId, params: R
     id: e.id("msg"), customerId, to: c.phone, template, params, text,
     status: c.whatsappConsent ? "queued" : "skipped_no_consent", createdAt: e.now(),
   };
+  e.s.outbox.push(m);
+  return m;
+}
+
+export const DEFAULT_STAFF_ALERTS: StaffAlertSettings = { phone: "", payments: true, supplierExpiry: true, supplierDaysBefore: 2 };
+export const staffAlertSettings = (e: Engine): StaffAlertSettings => ({ ...DEFAULT_STAFF_ALERTS, ...(e.s.settings.staffAlerts ?? {}) });
+
+/** Encola un aviso para el dueño (si cargó su WhatsApp). Debe llamarse dentro de `tx`. */
+export function queueStaff(e: Engine, template: TemplateId, params: Record<string, string>): OutboxMessage | undefined {
+  const to = staffAlertSettings(e).phone;
+  if (!to) return undefined;
+  const m: OutboxMessage = { id: e.id("msg"), customerId: "staff", to, template, params, text: render(template, params), status: "queued", createdAt: e.now() };
   e.s.outbox.push(m);
   return m;
 }

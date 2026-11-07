@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+data-demo
+demo
+docs
+test
+clients
+examples
+.git
+*.zip
+*.log

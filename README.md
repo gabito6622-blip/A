@@ -123,3 +123,8 @@ SQLite en `./data` (respaldá esa carpeta). Variables en `src/server/main.ts`. D
 ### WhatsApp oficial (Meta)
 Bot 24/7 y avisos automáticos por la WhatsApp Cloud API: panel → WhatsApp → "Bot y conexión con Meta".
 Guía paso a paso: [`docs/WHATSAPP_META.md`](docs/WHATSAPP_META.md). Requiere la tienda publicada con HTTPS (`GS_PUBLIC_ORIGIN`).
+
+### Publicar, respaldos y avisos
+- Publicar en Render, Railway, un VPS (Docker) o tu PC con Cloudflare Tunnel: [`docs/PUBLICAR.md`](docs/PUBLICAR.md).
+- Respaldo automático diario en `data/backups` (se guardan 30). Panel → Configuración → Respaldos (solo el dueño).
+- Avisos para el dueño: pago nuevo para revisar y cuentas por vencer con el proveedor (panel con sonido + WhatsApp).

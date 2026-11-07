@@ -79,6 +79,9 @@ export function createStore(opts: EngineOptions = {}) {
       autoReminders: bind(e, orders.autoReminders),
       reminderSettings: () => orders.reminderSettings(e),
       updateReminderSettings: bind(e, orders.updateReminderSettings),
+      supplierExpiryAlerts: bind(e, orders.supplierExpiryAlerts),
+      staffAlerts: () => notify.staffAlertSettings(e),
+      updateStaffAlerts: bind(e, orders.updateStaffAlerts),
       requestTopup: bind(e, orders.requestTopup),
     },
     wallet: {
