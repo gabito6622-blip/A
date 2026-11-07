@@ -9,6 +9,8 @@
 //   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
 //   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
 //   GS_TRUST_PROXY=1     detrás de Render/Railway/Cloudflare: usa la IP real del cliente para los límites
+//   GS_DATA_KEY          clave larga y secreta para cifrar las contraseñas de las cuentas en la base.
+//                        ¡Guardala! Sin ella no se pueden leer las contraseñas ni restaurar respaldos.
 //   GS_RESET_2FA=usuario si perdiste el celular: apaga la verificación en dos pasos de ese usuario al arrancar
 //   GS_META_BASE_URL     SOLO pruebas: otra URL en vez de https://graph.facebook.com
 import { existsSync } from "node:fs";
@@ -26,6 +28,7 @@ const app = createApp({
   staticDir,
   metaBaseUrl: env.GS_META_BASE_URL,
   trustProxy: env.GS_TRUST_PROXY === "1",
+  dataKey: env.GS_DATA_KEY || undefined,
   otpSender: env.GS_DEV_OTP === "1"
     ? (phone, code) => console.log(`[DEV] código para ${phone}: ${code}`)
     : undefined,

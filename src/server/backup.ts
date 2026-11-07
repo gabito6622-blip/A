@@ -20,7 +20,8 @@ Contiene:
   gabriel.db   la base completa (clientes, ventas, cuentas con sus contraseñas, claves de Meta)
   uploads/     comprobantes de pago, QR y logo
 
-Guardalo en un lugar privado: quien tenga este archivo puede ver todas las cuentas.
+Guardalo en un lugar privado. Si la tienda usa GS_DATA_KEY, las contraseñas de las
+cuentas van cifradas: para restaurar este respaldo hace falta esa misma clave.
 
 Para restaurar:
   1. Apagá la tienda.

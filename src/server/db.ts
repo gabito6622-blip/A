@@ -7,6 +7,7 @@
 //
 // Un solo proceso puede abrir la base: un lock exclusivo evita dos servidores escribiendo a la vez.
 import { DatabaseSync } from "node:sqlite";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { State } from "../store/index.js";
@@ -20,11 +21,22 @@ export interface SessionRow {
   expiresAt: number;
 }
 
+/**
+ * Cifrado de las contraseñas de las cuentas dentro del estado guardado (AES-256-GCM).
+ * Con clave, cada `password` de una cuenta se guarda como "enc1:<base64(iv|tag|texto)>".
+ * La clave NO está en la base ni en los respaldos: viene de la variable GS_DATA_KEY.
+ */
+const ENC = "enc1:";
+const isAccount = (o: unknown): o is { email: string; supplierId: string; password: string } =>
+  !!o && typeof o === "object" && "email" in o && "supplierId" in o && "password" in o;
+
 export class Db {
   private db: DatabaseSync;
   private keep: number;
+  private key: Buffer | null;
 
-  constructor(file: string, opts: { keepVersions?: number } = {}) {
+  constructor(file: string, opts: { keepVersions?: number; dataKey?: string } = {}) {
+    this.key = opts.dataKey ? createHash("sha256").update(opts.dataKey).digest() : null;
     if (file !== ":memory:") mkdirSync(dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.keep = opts.keepVersions ?? 50;
@@ -59,14 +71,64 @@ export class Db {
     }
   }
 
+  private encrypt(plain: string): string {
+    const iv = randomBytes(12);
+    const c = createCipheriv("aes-256-gcm", this.key!, iv);
+    const ct = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+    return ENC + Buffer.concat([iv, c.getAuthTag(), ct]).toString("base64");
+  }
+
+  private decrypt(v: string): string {
+    if (!this.key) throw new Error("Las contraseñas de las cuentas están cifradas y falta la clave GS_DATA_KEY. Volvé a cargar la misma clave en las variables del servidor.");
+    const raw = Buffer.from(v.slice(ENC.length), "base64");
+    const d = createDecipheriv("aes-256-gcm", this.key, raw.subarray(0, 12));
+    d.setAuthTag(raw.subarray(12, 28));
+    try {
+      return Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString("utf8");
+    } catch {
+      throw new Error("La clave GS_DATA_KEY no es la misma con la que se cifraron las contraseñas.");
+    }
+  }
+
+  private parse(text: string): State {
+    return JSON.parse(text, (k, v) => (k === "password" && typeof v === "string" && v.startsWith(ENC) ? this.decrypt(v) : v)) as State;
+  }
+
+  private serialize(state: State): string {
+    if (!this.key) return JSON.stringify(state);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return JSON.stringify(state, function (this: unknown, k, v) {
+      return k === "password" && typeof v === "string" && v && !v.startsWith(ENC) && isAccount(this) ? (Db.prototype.encrypt as (p: string) => string).call(self, v) : v;
+    });
+  }
+
+  /** Con clave: cifra las contraseñas que hayan quedado legibles en versiones viejas. Devuelve cuántas versiones cambió. */
+  encryptExisting(): number {
+    if (!this.key) return 0;
+    const rows = this.db.prepare("SELECT version, state FROM state_versions").all() as { version: number; state: string }[];
+    let n = 0;
+    const upd = this.db.prepare("UPDATE state_versions SET state = ? WHERE version = ?");
+    for (const r of rows) {
+      if (!/"password":"(?!enc1:)[^"]+"/.test(r.state)) continue;
+      upd.run(this.serialize(this.parse(r.state)), r.version);
+      n++;
+    }
+    return n;
+  }
+
+  get encrypted(): boolean {
+    return !!this.key;
+  }
+
   loadLatest(): State | undefined {
     const row = this.db.prepare("SELECT state FROM state_versions ORDER BY version DESC LIMIT 1").get() as { state: string } | undefined;
-    return row ? (JSON.parse(row.state) as State) : undefined;
+    return row ? this.parse(row.state) : undefined;
   }
 
   /** Guarda una versión nueva del estado. Lanza si el disco falla (el núcleo deshace la transacción). */
   saveState(state: State, at: number): number {
-    const res = this.db.prepare("INSERT INTO state_versions (saved_at, state) VALUES (?, ?)").run(at, JSON.stringify(state));
+    const res = this.db.prepare("INSERT INTO state_versions (saved_at, state) VALUES (?, ?)").run(at, this.serialize(state));
     const version = Number(res.lastInsertRowid);
     if (version % 25 === 0) this.db.prepare("DELETE FROM state_versions WHERE version <= ?").run(version - this.keep);
     return version;

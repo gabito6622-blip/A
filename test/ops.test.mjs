@@ -218,3 +218,39 @@ describe("verificación en dos pasos del panel", () => {
     } finally { await s.stop(); }
   });
 });
+
+describe("contraseñas de cuentas cifradas en la base", () => {
+  test("con GS_DATA_KEY no quedan legibles; sin la clave correcta no se abren; las viejas se cifran solas", async () => {
+    const { Db } = await import("../dist/server/db.js");
+    const { DatabaseSync } = await import("node:sqlite");
+    const dir = mkdtempSync(join(tmpdir(), "gs-enc-"));
+    const file = join(dir, "g.db");
+    const state = { accounts: { a1: { id: "a1", email: "x@y.z", supplierId: "s", password: "Secreta#123" }, a2: { id: "a2", email: "p@q.r", supplierId: "s", password: "" } }, staff: { u: { password: "no-es-cuenta" } } };
+    try {
+      // 1) Sin clave (como estaba): queda legible
+      let db = new Db(file);
+      db.saveState(state, 1);
+      db.close();
+      // 2) Con clave: al arrancar cifra lo viejo y lo nuevo
+      db = new Db(file, { dataKey: "clave-larga-de-prueba" });
+      assert.equal(db.encryptExisting(), 1);
+      db.saveState(state, 2);
+      assert.equal(db.loadLatest().accounts.a1.password, "Secreta#123", "en memoria se lee normal");
+      db.close();
+      const raw = new DatabaseSync(file);
+      const rows = raw.prepare("SELECT state FROM state_versions").all().map((r) => r.state).join("\n");
+      raw.close();
+      assert.ok(!rows.includes("Secreta#123"), "ninguna versión guarda la contraseña legible");
+      assert.match(rows, /"password":"enc1:/);
+      assert.match(rows, /"password":""/, "las vacías quedan vacías");
+      assert.match(rows, /"password":"no-es-cuenta"/, "solo se cifran contraseñas de cuentas");
+      // 3) Sin clave o con otra clave: no abre
+      db = new Db(file);
+      assert.throws(() => db.loadLatest(), /falta la clave GS_DATA_KEY/);
+      db.close();
+      db = new Db(file, { dataKey: "otra-clave" });
+      assert.throws(() => db.loadLatest(), /no es la misma/);
+      db.close();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});

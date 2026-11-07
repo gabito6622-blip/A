@@ -34,6 +34,8 @@ export interface AppConfig {
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
+  /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
+  dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
   trustProxy?: boolean;
 }
@@ -115,7 +117,9 @@ export function createApp(cfg: AppConfig): App {
   const log = cfg.log ?? ((m: string) => console.log(`[gabriel-store] ${m}`));
   const uploads = join(cfg.dataDir, "uploads");
   mkdirSync(uploads, { recursive: true });
-  const db = new Db(join(cfg.dataDir, "gabriel.db"));
+  const db = new Db(join(cfg.dataDir, "gabriel.db"), { dataKey: cfg.dataKey });
+  const migrated = db.encryptExisting();
+  if (migrated) log(`contraseñas de cuentas cifradas en ${migrated} versión(es) guardada(s)`);
   const store = createStore({ clock, initialState: db.loadLatest(), onCommit: (s) => db.saveState(s, clock.now()) });
   const system: Actor = { id: "system:jobs", role: "system" };
 
