@@ -28,6 +28,7 @@ En todas:
 1. En <https://railway.com> → **New Project → Deploy from GitHub repo** → elegí el repositorio. Usa el `Dockerfile`.
    - **Rama:** en el servicio → **Settings → Source → Branch**, elegí la rama donde está la tienda (hoy `ccr-a0b95638-dpfc8j`). Cada vez que se actualiza esa rama, Railway vuelve a publicar solo.
    - Agregá la variable **`PORT=8080`** y usá ese puerto al generar el dominio.
+   - Agregá también **`RAILWAY_RUN_UID=0`**: Railway monta el volumen como root y sin esto la tienda no puede escribir en `/data`.
 2. En el servicio → **Volumes → New Volume**, ruta de montaje **`/data`**.
 3. **Variables:** `GS_PUBLIC_ORIGIN`, `GS_OWNER_USER`, `GS_OWNER_PASSWORD`.
 4. **Settings → Networking → Generate Domain** (o tu dominio). Copiá esa dirección en `GS_PUBLIC_ORIGIN` y volvé a desplegar.
