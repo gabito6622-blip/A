@@ -9,6 +9,7 @@
 //   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
 //   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
 //   GS_TRUST_PROXY=1     detrás de Render/Railway/Cloudflare: usa la IP real del cliente para los límites
+//   GS_RESET_2FA=usuario si perdiste el celular: apaga la verificación en dos pasos de ese usuario al arrancar
 //   GS_META_BASE_URL     SOLO pruebas: otra URL en vez de https://graph.facebook.com
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
@@ -30,6 +31,9 @@ const app = createApp({
     : undefined,
 });
 
+if (env.GS_RESET_2FA) {
+  console.log(app.resetTwoFactor(env.GS_RESET_2FA) ? `Verificación en dos pasos desactivada para "${env.GS_RESET_2FA}". Borrá la variable GS_RESET_2FA.` : `GS_RESET_2FA: "${env.GS_RESET_2FA}" no tenía verificación en dos pasos.`);
+}
 if (env.GS_OWNER_USER && env.GS_OWNER_PASSWORD) {
   if (app.bootstrapOwner(env.GS_OWNER_USER, "Dueño", env.GS_OWNER_PASSWORD)) console.log(`Dueño "${env.GS_OWNER_USER}" creado.`);
 } else if (!Object.keys(app.store.engine.s.staff).length) {

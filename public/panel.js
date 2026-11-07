@@ -493,10 +493,28 @@ const V = {
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
 };
 
+
+/* ---------------- Verificación en dos pasos ---------------- */
+async function twoFactorCard() {
+  const st = await api("GET", "/api/admin/me/2fa").catch(() => ({ enabled: false }));
+  const setup = P.tab.tfa;
+  return `<section class="card"><h2>🔐 Verificación en dos pasos ${st.enabled ? pill("Activada", "ok") : pill("Apagada", "mute")}</h2>
+    <p class="muted" style="margin:0">Además de tu contraseña, al entrar al panel te pide un código de 6 dígitos que cambia cada 30 segundos en tu celular. Aunque alguien sepa tu contraseña, sin tu celular no entra.</p>
+    ${st.enabled ? `<form class="inline" id="tfaOff"><input name="password" type="password" placeholder="Tu contraseña" required autocomplete="current-password"><input name="code" inputmode="numeric" maxlength="6" placeholder="Código" required><button class="pbtn" type="submit">Desactivar</button></form>`
+      : setup ? `<ol style="margin:0;padding-left:20px;display:grid;gap:6px">
+          <li>Instalá <b>Google Authenticator</b> (o Microsoft Authenticator) en tu celular.</li>
+          <li>En la app tocá <b>+</b> → <b>Ingresar clave de configuración</b>. Nombre: <b>${esc(P.settings.platformName || "GaboHub")}</b>. Clave:<br><code class="tfa-key">${esc(setup.secret.match(/.{1,4}/g).join(" "))}</code> <button class="pbtn sm" type="button" data-copy="${esc(setup.secret)}">${icon("copy")}Copiar</button>
+            <br><small class="muted">Si estás en el celular: <a href="${esc(setup.uri)}">abrir directo en la app</a>.</small></li>
+          <li>Escribí el código de 6 dígitos que te muestra la app:</li></ol>
+        <form class="inline" id="tfaOn"><input name="code" inputmode="numeric" maxlength="6" placeholder="123456" required autocomplete="one-time-code"><button class="pbtn dark" type="submit">Confirmar y activar</button></form>
+        <p class="muted" style="margin:0">Guardá la clave en un lugar seguro. Si perdés el celular, se puede desactivar poniendo la variable <code>GS_RESET_2FA=${esc(P.me.username)}</code> en Railway.</p>`
+      : `<button class="pbtn dark" type="button" data-tfa="setup" style="justify-self:start">Activar</button>`}</section>`;
+}
 
 /* ---------------- Avisos para el dueño y respaldos ---------------- */
 async function ownerCards() {
@@ -823,6 +841,10 @@ document.addEventListener("click", async (ev) => {
     const kind = d.bulkkind === "sel" ? "reseller" : "customer";
     return act(() => api("POST", "/api/admin/customers/bulk-kind", { ids, kind }), (r) => `✅ ${r.changed} cambiados${r.skipped.length ? ` · ${r.skipped.length} no: ${r.skipped[0].name} (${r.skipped[0].reason})` : ""}`);
   }
+  if (d.tfa === "setup") {
+    try { P.tab.tfa = await api("POST", "/api/admin/me/2fa/setup", {}); render(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.noprodimg) return act(() => api("POST", `/api/admin/products/${d.noprodimg}/image`, { remove: true }), "Logo quitado");
   if (d.shopfeat) return act(() => api("POST", `/api/admin/customers/${d.shopfeat}/shop-feature`, { featured: d.on === "1" }), d.on === "1" ? "Tienda destacada" : "Ya no está destacada");
   if (d.shopblock) {
@@ -953,7 +975,15 @@ document.addEventListener("submit", async (ev) => {
   if (f.id === "loginForm") {
     btn.disabled = true;
     try {
-      await api("POST", "/api/auth/staff/login", { username: f.username.value, password: f.password.value });
+      try {
+        await api("POST", "/api/auth/staff/login", { username: f.username.value, password: f.password.value, code: f.code?.value || undefined });
+      } catch (err) {
+        if (err.code === "TOTP_REQUIRED" && !f.code) {
+          f.password.closest("label").insertAdjacentHTML("afterend", `<label>Código de verificación (6 dígitos)<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label>`);
+          f.code.focus();
+        }
+        throw err;
+      }
       f.reset(); $("#loginErr").hidden = true;
       await start();
     } catch (e) { $("#loginErr").textContent = e.message; $("#loginErr").hidden = false; }
@@ -1110,6 +1140,11 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "alertForm") {
       await act(() => api("POST", "/api/admin/alerts", { phone: f.phone.value, payments: f.payments.checked, supplierExpiry: f.supplierExpiry.checked, supplierDaysBefore: +f.supplierDaysBefore.value }),
         f.phone.value.trim() ? "Listo: te vamos a avisar por WhatsApp" : "Guardado (sin WhatsApp: solo avisos en el panel)");
+    } else if (f.id === "tfaOn") {
+      await act(() => api("POST", "/api/admin/me/2fa/enable", { code: f.code.value }), "🔐 Verificación en dos pasos activada");
+      P.tab.tfa = null;
+    } else if (f.id === "tfaOff") {
+      await act(() => api("POST", "/api/admin/me/2fa/disable", { password: f.password.value, code: f.code.value }), "Verificación en dos pasos desactivada");
     } else if (f.id === "pwForm") {
       await act(() => api("POST", "/api/admin/me/password", { current: f.current.value, next: f.next.value }), "Contraseña cambiada");
     }

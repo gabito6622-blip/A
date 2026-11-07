@@ -275,3 +275,4 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
   .hm-days{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;overflow-x:auto}
   .hm-day{padding:8px 2px}.hm-day b{font-size:20px}.hm-day em{font-size:11px}.hm-day small:last-child{display:none}
 }
+.tfa-key{font-size:17px;letter-spacing:.08em;background:var(--bg,#eef1f6);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:4px}

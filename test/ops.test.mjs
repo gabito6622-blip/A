@@ -180,3 +180,41 @@ describe("página del revendedor por HTTP", () => {
     assert.equal((await s.call("GET", "/api/shops/rosa-tv/logo", "")).status, 404);
   });
 });
+
+describe("verificación en dos pasos del panel", () => {
+  test("los códigos coinciden con el estándar (RFC 6238)", async () => {
+    const { totpAt, verifyTotp, base32Encode } = await import("../dist/server/security.js");
+    const secret = base32Encode(Buffer.from("12345678901234567890"));
+    assert.equal(secret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
+    assert.equal(totpAt(secret, 1), "287082", "T=59 s");
+    assert.equal(totpAt(secret, Math.floor(1111111109 / 30)), "081804");
+    assert.equal(verifyTotp(secret, "287 082", 59_000), 1);
+    assert.equal(verifyTotp(secret, "000000", 59_000), null);
+  });
+
+  test("activar, entrar con código, no reutilizar el código, desactivar y recuperar", async () => {
+    const { totpAt } = await import("../dist/server/security.js");
+    let t = Date.UTC(2026, 10, 7, 12, 0, 0);
+    const s = await start({ clock: { now: () => t } });
+    try {
+      const owner = await s.login("gabriel", PASS);
+      assert.deepEqual(await (await s.call("GET", "/api/admin/me/2fa", owner)).json(), { enabled: false });
+      const setup = await (await s.call("POST", "/api/admin/me/2fa/setup", owner, {})).json();
+      assert.match(setup.uri, /^otpauth:\/\/totp\//);
+      const code = () => totpAt(setup.secret, Math.floor(t / 30_000));
+      assert.equal((await s.call("POST", "/api/admin/me/2fa/enable", owner, { code: "000000" })).status, 400);
+      assert.equal((await s.call("POST", "/api/admin/me/2fa/enable", owner, { code: code() })).status, 200);
+      const login = (body) => s.call("POST", "/api/auth/staff/login", "", { username: "gabriel", password: PASS, ...body });
+      let r = await login({});
+      assert.equal(r.status, 401); assert.equal((await r.json()).error, "TOTP_REQUIRED");
+      assert.equal((await login({ code: "111111" })).status, 401);
+      t += 60_000;
+      const c1 = code();
+      assert.equal((await login({ code: c1 })).status, 200, "con contraseña + código entra");
+      assert.equal((await login({ code: c1 })).status, 401, "el mismo código no sirve dos veces");
+      assert.equal((await s.call("POST", "/api/admin/me/2fa/disable", owner, { password: "mala", code: code() })).status, 401);
+      assert.equal(s.app.resetTwoFactor("gabriel"), true, "recuperación desde el servidor");
+      assert.equal((await login({})).status, 200, "sin 2FA vuelve a entrar solo con contraseña");
+    } finally { await s.stop(); }
+  });
+});

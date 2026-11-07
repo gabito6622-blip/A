@@ -9,6 +9,7 @@ import { createStore, DomainError, normalizePhone, systemClock, type Actor, type
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { Backups } from "./backup.js";
+import { newTotpSecret, verifyTotp } from "./security.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
@@ -99,6 +100,8 @@ export interface App {
   db: Db;
   listen(port: number, host?: string): Promise<number>;
   close(): Promise<void>;
+  /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
+  resetTwoFactor(username: string): boolean;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
   bootstrapOwner(username: string, name: string, password: string): boolean;
   /** Manda ahora los avisos pendientes por WhatsApp (si el bot está configurado). */
@@ -119,6 +122,8 @@ export function createApp(cfg: AppConfig): App {
   const now = () => clock.now();
   const backups = new Backups(db, uploads, cfg.dataDir, now);
   const loginLimiter = new RateLimiter(5, 15 * 60_000, now);
+  /** Último paso TOTP usado por usuario: el mismo código no sirve dos veces. */
+  const usedTotp = new Map<string, number>();
   const otpPhoneLimiter = new RateLimiter(3, 15 * 60_000, now);
   const otpIpLimiter = new RateLimiter(10, 15 * 60_000, now);
   const otp = new OtpStore(10 * 60_000, now);
@@ -210,6 +215,14 @@ export function createApp(cfg: AppConfig): App {
     if (!loginLimiter.take(`${c.ip}|${username}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     const u = store.admin.findStaffForLogin(username);
     if (!verifyPassword(String(c.body?.password ?? ""), u?.passwordHash) || !u?.active) throw new HttpError(401, "BAD_LOGIN", "Usuario o contraseña incorrectos");
+    // Verificación en dos pasos (si el usuario la activó).
+    const totp = db.getSecret(`totp:${u.id}`);
+    if (totp) {
+      if (!c.body?.code) throw new HttpError(401, "TOTP_REQUIRED", "Escribí el código de 6 dígitos de tu app de verificación");
+      const step = verifyTotp(totp, String(c.body.code), now());
+      if (step === null || usedTotp.get(u.id) === step) throw new HttpError(401, "BAD_TOTP", "Código incorrecto o vencido. Probá con el código nuevo de tu app");
+      usedTotp.set(u.id, step);
+    }
     loginLimiter.reset(`${c.ip}|${username}`);
     startSession(c.res, "staff", u.id);
     return { id: u.id, name: u.name, role: u.role };
@@ -451,6 +464,37 @@ export function createApp(cfg: AppConfig): App {
     if (!u.active) db.deleteSessionsOf(u.id);
     return u;
   });
+  /* ---- verificación en dos pasos del usuario actual ---- */
+  route("GET", "/api/admin/me/2fa", "staff", (c) => ({ enabled: !!db.getSecret(`totp:${A(c).id}`) }));
+  route("POST", "/api/admin/me/2fa/setup", "staff", (c) => {
+    const me = store.engine.s.staff[A(c).id];
+    if (db.getSecret(`totp:${me.id}`)) throw new HttpError(400, "VALIDATION", "Ya tenés la verificación en dos pasos activada");
+    const secret = newTotpSecret();
+    db.setSecret(`totp_pending:${me.id}`, secret, now());
+    const issuer = encodeURIComponent(store.engine.s.settings.platformName || "GaboHub");
+    return { secret, uri: `otpauth://totp/${issuer}:${encodeURIComponent(me.username)}?secret=${secret}&issuer=${issuer}&digits=6&period=30` };
+  });
+  route("POST", "/api/admin/me/2fa/enable", "staff", (c) => {
+    const me = store.engine.s.staff[A(c).id];
+    const pending = db.getSecret(`totp_pending:${me.id}`);
+    if (!pending) throw new HttpError(400, "VALIDATION", "Primero tocá “Activar” para generar tu clave");
+    if (verifyTotp(pending, String(c.body?.code ?? ""), now()) === null) throw new HttpError(400, "BAD_TOTP", "El código no coincide. Revisá que la hora del celular esté bien y probá con el código nuevo");
+    db.setSecret(`totp:${me.id}`, pending, now());
+    db.setSecret(`totp_pending:${me.id}`, null, now());
+    store.engine.tx(() => store.engine.audit(A(c), "staff.2fa_on", "staff", me.id));
+    return { enabled: true };
+  });
+  route("POST", "/api/admin/me/2fa/disable", "staff", (c) => {
+    const me = store.engine.s.staff[A(c).id];
+    const secret = db.getSecret(`totp:${me.id}`);
+    if (!secret) return { enabled: false };
+    if (!verifyPassword(String(c.body?.password ?? ""), me.passwordHash)) throw new HttpError(401, "BAD_LOGIN", "La contraseña no coincide");
+    if (verifyTotp(secret, String(c.body?.code ?? ""), now()) === null) throw new HttpError(401, "BAD_TOTP", "Código incorrecto");
+    db.setSecret(`totp:${me.id}`, null, now());
+    store.engine.tx(() => store.engine.audit(A(c), "staff.2fa_off", "staff", me.id));
+    return { enabled: false };
+  });
+
   route("POST", "/api/admin/me/password", "staff", (c) => {
     const me = store.engine.s.staff[A(c).id];
     if (!verifyPassword(String(c.body?.current ?? ""), me.passwordHash)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no coincide");
@@ -889,6 +933,13 @@ export function createApp(cfg: AppConfig): App {
 
   return {
     server, store, db, runJobs, flushWhatsApp,
+    resetTwoFactor(username) {
+      const u = store.admin.findStaffForLogin(String(username).toLowerCase());
+      if (!u || !db.getSecret(`totp:${u.id}`)) return false;
+      db.setSecret(`totp:${u.id}`, null, now());
+      store.engine.tx(() => store.engine.audit({ id: "system:recovery", role: "system" }, "staff.2fa_reset", "staff", u.id));
+      return true;
+    },
     bootstrapOwner(username, name, password) {
       if (Object.keys(store.engine.s.staff).length) return false;
       store.admin.bootstrapOwner({ username, name, passwordHash: hashPassword(password) });
