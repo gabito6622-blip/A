@@ -440,7 +440,7 @@ const V = {
           <label>Instagram (usuario)<input name="instagram" maxlength="80" value="${esc(s.instagram)}" placeholder="gabostore"></label>
           <label>TikTok (usuario)<input name="tiktok" maxlength="80" value="${esc(s.tiktok)}" placeholder="gabostore"></label>
           <label>Facebook (página)<input name="facebook" maxlength="80" value="${esc(s.facebook)}" placeholder="gabostore"></label></div>
-        <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
+        <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/tienda/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
       <section class="card"><h2>Página para conseguir revendedores</h2>
         <p class="muted" style="margin:0">En <a href="/revendedores" target="_blank" rel="noopener"><b>/revendedores</b></a> hay una página que explica tu programa: beneficios, estilos, las tiendas de tus revendedores y un botón a tu WhatsApp. Compartila en tus estados y grupos.</p>
         <label class="chk"><input type="checkbox" id="resellerProgramPrices" ${s.resellerProgramPrices ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Mostrar la tabla “Tu ganancia” (precio público vs. precio de revendedor)</label>
@@ -461,8 +461,8 @@ const V = {
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
       <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-        <iframe id="lookPreview" data-look="1" src="/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
-        <iframe data-look="1" src="/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
+        <iframe id="lookPreview" data-look="1" src="/tienda/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
+        <iframe data-look="1" src="/tienda/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
   },
 
   async usuarios() {
@@ -483,6 +483,7 @@ const V = {
   async configuracion() {
     const s = await api("GET", "/api/settings");
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
+      <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
@@ -1078,7 +1079,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
     } else if (f.id === "setForm") {
-      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value }), "Configuración guardada");
+      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {

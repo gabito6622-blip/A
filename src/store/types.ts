@@ -48,6 +48,8 @@ export interface StoreSettings extends Look {
   paymentNote?: string;
   /** Logo de la tienda (el resto de la apariencia viene de Look). */
   logoFileRef?: string;
+  /** Nombre de la plataforma de revendedores (la tienda es una más adentro). */
+  platformName?: string;
   /** Si los revendedores pueden publicar su propia página. Por defecto sí. */
   resellerShops?: boolean;
   /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */

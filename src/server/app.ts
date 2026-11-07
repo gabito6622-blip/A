@@ -183,7 +183,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
-      storeName: st.storeName, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef,
+      storeName: st.storeName, platformName: st.platformName || "GaboHub", whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
@@ -461,7 +461,7 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/admin/settings", "staff", (c) => {
     const b = c.body ?? {};
-    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", ...LOOK_KEYS]
+    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
@@ -560,7 +560,8 @@ export function createApp(cfg: AppConfig): App {
   function makeLoginLink(customerId: string, base: string): string {
     const token = newToken();
     db.putSession({ tokenHash: sha256(token), kind: "link", subjectId: customerId, createdAt: now(), expiresAt: now() + LINK_MS });
-    return `${base}/#acceso=${token}`;
+    const kind = store.engine.s.customers[customerId]?.kind;
+    return `${base}${kind === "reseller" ? "/" : "/tienda/"}#acceso=${token}`;
   }
 
   const waSecret = (k: "token" | "appSecret") => db.getSecret(k === "token" ? "wa_token" : "wa_app_secret");

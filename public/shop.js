@@ -1,17 +1,27 @@
-// Tienda Gabriel Store conectada al servidor.
+// Una sola página con tres modos:
+//  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
+//  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
+//  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
-const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes", "revendedores", "tiendas"];
+/** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
+const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
+const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
+const VIEWS = {
+  rshop: ["inicio", "catalogo"],
+  store: ["inicio", "catalogo", "cuentas", "codigos", "recargas"],
+  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos"],
+}[MODE];
 
-try { S.cart = JSON.parse(localStorage.getItem("gs-cart") || "[]"); } catch { S.cart = []; }
-const saveCart = () => { try { localStorage.setItem("gs-cart", JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
+const CART_KEY = `gs-cart-${MODE}${SLUG ? "-" + SLUG : ""}`;
+try { S.cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]"); } catch { S.cart = []; }
+const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
 const product = (id) => S.catalog.find((p) => p.id === id);
 const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
-/** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
-const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
-if (SLUG) VIEWS.splice(2);
+/** El panel de GaboHub es para revendedores. */
+const hubPanel = () => MODE === "hub" && isReseller();
 
 /* ---------------- carga ---------------- */
 async function loadBase() {
@@ -21,6 +31,11 @@ async function loadBase() {
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
+  if (MODE === "hub") {
+    // La plataforma tiene su propio nombre; Gabriel Store es una tienda más adentro.
+    S.storeName = S.settings.storeName;
+    Object.assign(S.settings, { storeName: S.settings.platformName || "GaboHub", logoUrl: null, announcement: "", footerText: "Plataforma de revendedores" });
+  }
   applyLook(S.settings);
   document.title = S.settings.storeName;
   $("#storeName").textContent = S.settings.storeName;
@@ -37,8 +52,6 @@ async function loadResellerShop() {
   applyLook(S.settings);
   document.title = sh.title;
   $("#storeName").textContent = sh.title;
-  $$('.snav [data-s="cuentas"], .snav [data-s="codigos"], .snav [data-s="recargas"], #navCli, #navRev, #accBtn, .bnav [data-s="cuentas"], #bnavSaldo, #bnavCli').forEach((b) => b.remove());
-  $(".bnav").style.gridTemplateColumns = "repeat(3,1fr)";
   footer();
 }
 
@@ -51,7 +64,8 @@ function footer() {
     st.tiktok && [`https://www.tiktok.com/@${encodeURIComponent(st.tiktok)}`, "TikTok"],
     st.facebook && [`https://facebook.com/${encodeURIComponent(st.facebook)}`, "Facebook"],
   ].filter(Boolean);
-  $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ");
+  $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ")
+    + (MODE === "store" ? ` · <a href="/">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "");
 }
 
 /** Mezcla dos colores #RRGGBB (t = proporción del segundo). */
@@ -114,7 +128,7 @@ export function applyLook(st) {
 }
 
 async function loadPrivate() {
-  if ((S.view === "revendedores" || S.view === "tiendas") && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
+  if ((S.view === "revendedores" || S.view === "tiendas" || (MODE === "hub" && S.view === "inicio")) && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
   if (!S.me?.loggedIn) return;
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
@@ -152,6 +166,7 @@ function card(p) {
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" })[k] ?? k;
 
+const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores</h2><p class="empty">Tus compras y cuentas están en la tienda.</p><a class="sbtn pri" href="/tienda/#cuentas" style="justify-self:start">Ir a la tienda ${icon("arrow")}</a></div>`;
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
 function pendingOrders() {
@@ -169,13 +184,32 @@ function qrBlock() {
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
 
+const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], tiendas: ["grid", "Tiendas"], precios: ["coins", "Precios"], cuentas: ["idcard", "Mis cuentas"],
+  clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
+function buildNav() {
+  const top = MODE === "rshop" ? ["inicio", "catalogo"] : MODE === "store" ? ["inicio", "catalogo", "cuentas", "codigos", "recargas"]
+    : hubPanel() ? ["cuentas", "precios", "clientes", "recargas", "codigos"] : ["inicio", "tiendas"];
+  const bottom = MODE === "rshop" ? ["inicio", "catalogo", "cart"] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
+    : hubPanel() ? ["cuentas", "precios", "cart", "clientes", "recargas"] : ["inicio", "tiendas", "login"];
+  const key = `${MODE}:${top}:${bottom}`;
+  if (buildNav.last === key) return;
+  buildNav.last = key;
+  $(".snav").innerHTML = top.map((v) => `<button type="button" data-s="${v}">${NAV[v][1]}</button>`).join("");
+  const bn = $(".bnav");
+  bn.innerHTML = bottom.map((v) => v === "cart" ? `<button type="button" data-cart="1"><svg><use href="/icons.svg#i-cart"/></svg>Carrito</button>`
+    : v === "login" ? `<button type="button" data-login="1"><svg><use href="/icons.svg#i-user"/></svg>Acceder</button>`
+    : `<button type="button" data-s="${v}"><svg><use href="/icons.svg#i-${NAV[v][0]}"/></svg>${NAV[v][1].replace("Mis c", "C")}</button>`).join("");
+  bn.style.gridTemplateColumns = `repeat(${bottom.length},1fr)`;
+  const acc = $("#accBtn");
+  if (acc) acc.hidden = MODE === "rshop";
+  const cartBtn = $(".shead [data-cart]");
+  if (cartBtn) cartBtn.hidden = MODE === "hub" && !hubPanel();
+}
+
 function render() {
+  buildNav();
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
-  if (!SLUG) {
-    $("#navCli").hidden = $("#bnavCli").hidden = !isReseller();
-    $("#bnavSaldo").hidden = isReseller();
-  }
   if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
   const pub = S.catalog;
   const services = S.data.services ?? [];
@@ -190,7 +224,7 @@ function render() {
         <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div>`}</section>
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
       <div class="pgrid">${pub.slice(0, 4).map(card).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
-      ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="#revendedores" data-s="revendedores">Ver cómo funciona ${icon("arrow")}</a></section>` : ""}
+      ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
       <section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
         ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
           : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]])
@@ -203,7 +237,7 @@ function render() {
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
     },
-    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
@@ -241,10 +275,17 @@ function render() {
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
+    precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
+      const list = pub.filter((p) => p.resellersOnly);
+      return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Precios para revendedores</h2><p>Comprá con tu saldo y la cuenta se entrega al instante. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
+        ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
+    })(),
     tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
   };
-  $("#sout").innerHTML = V[S.view]();
+  if (MODE === "hub") V.inicio = programView;
+  const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
+  $("#sout").innerHTML = resNote + V[S.view]();
 }
 
 /* ---------------- revendedor ---------------- */
@@ -375,7 +416,7 @@ function programView() {
   ];
   return `<section class="phero">
       <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i}" style="--c:${esc(p.color)}">${esc(p.name[0])}<small>${esc(p.name.split(" ")[0])}</small></span>`).join("")}</div>
-      <span class="pill"><i></i>Programa de revendedores de ${esc(pg.storeName)}</span>
+      <span class="pill"><i></i>${MODE === "hub" ? `${esc(S.settings.storeName)} · plataforma para revendedores de streaming` : `Programa de revendedores de ${esc(pg.storeName)}`}</span>
       <h1>Vendé streaming<br><span>con tu propia marca</span></h1>
       <p>Tu tienda online, precios de mayorista, panel de clientes y avisos de vencimiento. Nosotros ponemos el stock y la tecnología; vos ponés tu nombre.</p>
       <div class="pbtns2">${want()}<a class="pghost" href="/tiendas" data-s="tiendas">Explorar tiendas</a></div>
@@ -660,6 +701,7 @@ async function submitLogin(form) {
       closeAll();
       toast("¡Bienvenido!");
       await refresh();
+      if (MODE === "hub") { if (isReseller()) setView("cuentas"); else location.href = "/tienda/#cuentas"; return; }
       if (S.cart.length) { openDrawer(); S.step = 2; renderCart(); }
     }
   } catch (e) {
@@ -899,8 +941,14 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
     return refresh();
   }
+  // Links viejos de la tienda que apuntaban a la raíz: ahora la tienda está en /tienda/.
+  const h0 = location.hash.slice(1);
+  if (MODE === "hub" && h0 === "catalogo") return location.replace("/tienda/#catalogo");
   await useAccessLink();
   const path = location.pathname.replace(/\/+$/, "");
-  S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : path === "/revendedores" ? "revendedores" : path === "/tiendas" ? "tiendas" : "inicio";
+  const h = location.hash.slice(1);
+  S.view = VIEWS.includes(h) ? h : path === "/tiendas" ? "tiendas" : "inicio";
   await refresh();
+  // El revendedor que entra a la plataforma va directo a su panel.
+  if (MODE === "hub" && isReseller() && S.view === "inicio" && path !== "/revendedores") setView("cuentas");
 })();

@@ -53,7 +53,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
   const store = st.settings.storeName;
   const bot = s.chats.botSettings();
   const name = (customer?.name ?? profileName ?? "").split(" ")[0];
-  const shop = ctx.origin ? `${ctx.origin}/` : "";
+  const shop = ctx.origin ? `${ctx.origin}/tienda/` : "";
   const words = ` ${t} `;
   const isReseller = customer?.kind === "reseller";
 

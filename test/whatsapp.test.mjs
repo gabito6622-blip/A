@@ -107,7 +107,7 @@ describe("bot de WhatsApp (Meta simulado)", () => {
     assert.ok(await wait(() => texts().length >= 1));
     const t = texts()[0];
     assert.match(t, /Netflix \(Perfil 1\): vence/);
-    assert.match(t, /https:\/\/gabostore\.lat\/#acceso=/);
+    assert.match(t, /https:\/\/gabostore\.lat\/tienda\/#acceso=/, "el cliente final va a la tienda");
     assert.ok(!t.includes("Secreta#99") && !t.includes("4321"));
   });
 
