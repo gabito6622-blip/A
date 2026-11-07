@@ -217,6 +217,38 @@ describe("servidor Gabriel Store", () => {
     assert.equal(back.status, 200);
   });
 
+  test("exportar a Excel según el rol, e importar clientes con vista previa", async () => {
+    const { readSheet, writeXlsx } = await import("../dist/server/xlsx.js");
+    const getFile = async (c, path) => {
+      const r = await fetch(base + path, { headers: { cookie: c.jar.cookie } });
+      return { status: r.status, type: r.headers.get("content-type"), disp: r.headers.get("content-disposition"), buf: Buffer.from(await r.arrayBuffer()) };
+    };
+    const v = await getFile(state.owner, "/api/admin/export/ventas");
+    assert.equal(v.status, 200);
+    assert.match(v.type, /spreadsheetml/);
+    assert.match(v.disp, /attachment; filename="gabriel-store-ventas-/);
+    const rows = readSheet(v.buf);
+    assert.equal(rows[0][0], "Fecha");
+    assert.ok(rows.some((r) => r.includes("Entregado")));
+    const cu = readSheet((await getFile(state.owner, "/api/admin/export/cuentas")).buf);
+    assert.ok(!JSON.stringify(cu).includes("Clave-Nueva#7"), "sin ?secrets=1 no salen contraseñas");
+    assert.ok(JSON.stringify(readSheet((await getFile(state.owner, "/api/admin/export/cuentas?secrets=1")).buf)).includes("Clave-Nueva#7"));
+    assert.equal((await getFile(state.maria, "/api/admin/export/clientes")).status, 403, "un cliente no exporta");
+
+    const file = writeXlsx([{ name: "x", rows: [["Nombre completo", "Celular", "Correo", "Observaciones"], ["Ana Pérez", "70033344", "ana@correo.com", "paga QR"], ["María otra vez", "+591 70011223", "", ""], ["", "70000000", "", ""], ["Ana duplicada", "70033344", "", ""]] }]).toString("base64");
+    const pre = await state.owner.post("/api/admin/import/customers", { contentBase64: file, dryRun: true });
+    assert.equal(pre.status, 200, JSON.stringify(pre.json));
+    assert.deepEqual(pre.json.summary, { nuevos: 1, existentes: 2, errores: 1 });
+    assert.equal((await state.owner.get("/api/admin/customers?q=Ana Pérez")).json.length, 0, "la vista previa no guarda nada");
+    const done = await state.owner.post("/api/admin/import/customers", { contentBase64: file, dryRun: false });
+    assert.equal(done.json.created, 1);
+    const ana = (await state.owner.get("/api/admin/customers?q=Ana Pérez")).json[0];
+    assert.deepEqual([ana.phone, ana.email, ana.notes], ["+59170033344", "ana@correo.com", "paga QR"]);
+    const bad = await state.owner.post("/api/admin/import/customers", { contentBase64: Buffer.from("columna1;columna2\nx;y").toString("base64") });
+    assert.equal(bad.status, 400);
+    assert.match(bad.json.message, /Nombre/);
+  });
+
   test("protecciones: origen ajeno, JSON obligatorio, tamaño máximo", async () => {
     assert.equal((await state.maria.post("/api/orders", { items: [], paymentMethod: "qr" }, { origin: "https://sitio-malo.com" })).status, 403);
     const r = await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" });

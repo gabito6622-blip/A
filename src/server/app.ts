@@ -8,6 +8,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
+import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, type ExportKind } from "./exports.js";
 
 export interface AppConfig {
   /** Carpeta de datos: base SQLite (gabriel.db) y comprobantes (uploads/). */
@@ -413,6 +414,26 @@ export function createApp(cfg: AppConfig): App {
     return out;
   });
   route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id));
+
+  const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const sendFile = (c: Ctx, buf: Buffer, name: string) => {
+    c.res.writeHead(200, { "Content-Type": XLSX, "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "private, no-store", "Content-Length": buf.length });
+    c.res.end(buf);
+    return RAW;
+  };
+  route("GET", "/api/admin/export/:kind", "staff", (c) => {
+    const kind = c.params.kind as ExportKind;
+    if (!EXPORT_KINDS.includes(kind)) throw new HttpError(404, "NOT_FOUND", "Exportación inexistente");
+    const { file, name } = buildExport(store, A(c), kind, { withSecrets: c.query.get("secrets") === "1" });
+    return sendFile(c, file, name);
+  });
+  route("GET", "/api/admin/import/template", "staff", (c) => sendFile(c, customersTemplate(), "plantilla-clientes.xlsx"));
+  route("POST", "/api/admin/import/customers", "staff", (c) => {
+    if (typeof c.body?.contentBase64 !== "string") throw new HttpError(400, "VALIDATION", "Falta el archivo");
+    const buf = Buffer.from(c.body.contentBase64, "base64");
+    if (!buf.length || buf.length > MAX_FILE) throw new HttpError(400, "VALIDATION", "El archivo debe pesar hasta 5 MB");
+    return importCustomers(store, A(c), buf, { dryRun: c.body?.dryRun !== false });
+  }, MAX_UPLOAD_JSON);
 
   route("POST", "/api/admin/mailboxes", "staff", (c) => store.codes.configureMailbox(A(c), { address: c.body?.address, host: c.body?.host, subjectAllowlist: c.body?.subjectAllowlist ?? [] }));
 

@@ -11,10 +11,10 @@ const MENU = [
   ["vender", "cart", "Vender"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
-  ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["whatsapp", "wa", "WhatsApp"],
+  ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -212,6 +212,32 @@ const V = {
         <td><div class="acts"><button class="pbtn sm" type="button" data-link="${esc(c.id)}">${icon("link")}Link de acceso</button><button class="pbtn sm" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><button class="pbtn sm" type="button" data-editcus="${esc(c.id)}">${icon("edit")}Editar</button></div></td></tr>`), q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes.")}</section>`;
   },
 
+  async excel() {
+    const imp = P.tab.import;
+    const dl = (kind, title, desc, extra = "") => `<div class="todo"><div><span class="ic">${icon("ext")}</span><b>${title}<br><small class="muted" style="font-weight:400">${desc}</small></b>
+      <a class="pbtn dark" href="/api/admin/export/${kind}${extra}" download>Descargar Excel</a></div></div>`;
+    return `<section class="card"><h2>Exportar a Excel <small>· se descarga un archivo .xlsx que abre en Excel o Google Sheets</small></h2>
+      ${dl("todo", "Todo en un archivo", "Una hoja por tema, con todo lo que tu usuario puede ver")}
+      ${dl("clientes", "Clientes", "Nombre, WhatsApp, email, tipo, saldo, servicios activos y notas")}
+      ${dl("servicios", "Servicios activos", "Quién tiene qué, en qué cuenta y perfil, y cuándo vence")}
+      ${canReview() ? dl("ventas", "Ventas y pedidos", "Fecha, cliente, detalle, total, forma de pago, estado y referencia del banco") : ""}
+      ${canReview() ? dl("movimientos", "Movimientos de saldo", "Recargas, compras, renovaciones y ajustes de cada cliente") : ""}
+      ${canReview() ? dl("cuentas", "Cuentas y perfiles", "Inventario completo (contraseñas ocultas)") + `<p class="muted" style="margin:0">¿Necesitás las contraseñas? <a href="/api/admin/export/cuentas?secrets=1" download>Descargar con contraseñas</a>. Queda registrado en la auditoría; guardá ese archivo en un lugar seguro.</p>` : ""}
+      </section>
+      <section class="card"><h2>Importar clientes desde Excel</h2>
+        <p class="muted" style="margin:0">Subí tu Excel (.xlsx) o un .csv. La primera fila tiene que tener los títulos: <b>Nombre</b> y <b>WhatsApp</b> (o Teléfono / Celular) son obligatorios; <b>Email</b>, <b>Notas</b> y <b>Tipo</b> son opcionales. Los números sin código de país se toman como de Bolivia (+591). Los que ya son clientes no se tocan.</p>
+        <div class="inline"><a class="pbtn" href="/api/admin/import/template" download>${icon("ext")}Descargar plantilla</a></div>
+        <form class="inline" id="importForm"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de clientes"><button class="pbtn dark" type="submit">Ver vista previa</button></form>
+        ${imp ? `<div style="display:grid;gap:10px">
+          <div class="inline">${pill(`${imp.result.summary.nuevos} nuevos`, "ok")} ${pill(`${imp.result.summary.existentes} ya existen`, "mute")} ${pill(`${imp.result.summary.errores} con error`, imp.result.summary.errores ? "bad" : "mute")}
+            <span class="muted">Columnas usadas: Nombre = “${esc(imp.result.columns.nombre)}”, WhatsApp = “${esc(imp.result.columns.whatsapp)}”${imp.result.columns.email ? `, Email = “${esc(imp.result.columns.email)}”` : ""}${imp.result.columns.notas ? `, Notas = “${esc(imp.result.columns.notas)}”` : ""}</span></div>
+          ${table(["Fila", "Nombre", "WhatsApp", "Resultado"], imp.result.rows.slice(0, 300).map((r) => `<tr><td>${r.row}</td><td>${esc(r.name)}</td><td class="mono">${esc(r.phone)}</td><td>${r.status === "nuevo" ? pill(imp.result.dryRun ? "Se va a crear" : "Creado", "ok") : r.status === "existe" ? pill(r.error || "Ya existe", "mute") : pill(r.error || "Error", "bad")}</td></tr>`))}
+          ${imp.result.rows.length > 300 ? `<p class="muted" style="margin:0">Mostrando 300 de ${imp.result.rows.length} filas.</p>` : ""}
+          ${imp.result.dryRun && imp.result.summary.nuevos ? `<div class="inline"><button class="pbtn green" type="button" data-importgo="1">Importar ${imp.result.summary.nuevos} cliente(s)</button><button class="pbtn" type="button" data-importcancel="1">Cancelar</button></div>` : ""}
+          ${!imp.result.dryRun ? `<div class="pok">Listo: se crearon ${imp.result.created} cliente(s). Ya los ves en Clientes.</div>` : ""}</div>` : ""}
+      </section>`;
+  },
+
   async whatsapp() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin ven los avisos.</div></section>`;
     const [out, customers] = await Promise.all([api("GET", "/api/admin/outbox"), api("GET", "/api/admin/customers")]);
@@ -347,6 +373,16 @@ document.addEventListener("click", async (ev) => {
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
+  if (d.importcancel) { P.tab.import = null; return render(); }
+  if (d.importgo) {
+    el.disabled = true;
+    try {
+      const result = await api("POST", "/api/admin/import/customers", { contentBase64: P.tab.import.b64, dryRun: false });
+      P.tab.import = { b64: null, result };
+      toast(`${result.created} cliente(s) importados`);
+    } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.editaccopen !== undefined) { P.tab.editAcc = d.editaccopen || null; if (P.tab.editAcc && !P.tab.secrets) P.tab.secrets = true; await render(); return scrollTo(0, 0); }
   if (d.editcus !== undefined) { P.tab.editCus = d.editcus || null; await render(); return scrollTo(0, 0); }
   if (d.slotfree) return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender");
@@ -416,6 +452,11 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.replace}/replace`, { reason: f.reason.value, otherAccount: f.other.checked }), "Perfil reemplazado: el cliente conserva su fecha");
+    } else if (f.id === "importForm") {
+      const b64 = await fileToBase64(f.file.files[0]);
+      const result = await api("POST", "/api/admin/import/customers", { contentBase64: b64, dryRun: true });
+      P.tab.import = { b64, result };
+      await render();
     } else if (f.dataset.transfer) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value }), "Servicio transferido: misma fecha y mismo perfil");
     } else if (f.dataset.editacc) {
