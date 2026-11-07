@@ -306,6 +306,21 @@ export interface Assignment {
   remindersSent?: string[];
   /** Importado ya vencido: no se cierra solo hasta que el staff le ponga fecha. */
   holdOpen?: boolean;
+  /** Datos de control (como en el Excel del dueño). */
+  control?: RentalControl;
+}
+
+export interface RentalControl {
+  /** Precio que cobra por período (centavos). */
+  price?: Cents;
+  /** Lo que le cuesta (centavos). */
+  cost?: Cents;
+  payStatus?: "pagado" | "pendiente" | "no_pago";
+  /** Fecha de inicio original (si vino de un Excel). */
+  startedAt?: number;
+  /** Revendedor o proveedor anotado. */
+  seller?: string;
+  note?: string;
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment";

@@ -8,13 +8,13 @@ const isOwner = () => P.me?.role === "owner";
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 
 const MENU = [
-  ["vender", "cart", "Vender"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
+  ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -86,6 +86,57 @@ const V = {
           ${o.status === "awaiting_payment" && canReview() ? `<form class="inline" data-reject="${esc(o.id)}"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
         tab === "payment_review" ? "No hay pagos por revisar." : "No hay pedidos.")}
       <p class="muted" style="margin:0">Aprobá solo después de ver el dinero en tu banco: escribí la referencia que figura en tu extracto. Una misma referencia no se puede usar dos veces.</p></section>`;
+  },
+
+  async control() {
+    const list = await api("GET", "/api/admin/assignments");
+    const T = P.tab;
+    const DAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    const estado = (d, hold) => (hold ? ["ESPERANDO FECHA", "hold"] : d < 0 ? ["VENCIDO", "bad"] : d === 0 ? ["VENCE HOY", "today"] : d <= 3 ? ["POR VENCER", "warn"] : d <= 7 ? ["SEMANA", "week"] : ["ACTIVO", "ok"]);
+    const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
+    const rows = list.map((a, i) => {
+      const d = daysLeft(a.customerExpiresAt);
+      const price = a.control.price ?? a.productPrice, cost = a.control.cost ?? 0;
+      return { ...a, n: i + 1, d, est: estado(d, a.holdOpen), day: DAYS[new Date(a.customerExpiresAt).getDay()], price, cost, gain: price - cost, pay: a.control.payStatus ?? "pagado" };
+    });
+    const products = [...new Set(rows.map((r) => r.product))];
+    const q = (T.cq ?? "").toLowerCase();
+    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay)
+      && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.control.note ?? ""}`.toLowerCase().includes(q)));
+    P.controlView = view;
+    const sum = (f) => view.reduce((t, r) => t + f(r), 0);
+    const cnt = (k) => rows.filter((r) => r.est[1] === k).length;
+    const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
+    const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${bs(r.price)}. ¿Deseas renovar?`;
+    const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
+    return `<section class="card ctl-top">
+        <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Por cobrar (precio)</small><b>${bs(sum((r) => r.price))}</b></div><div><small>Costo</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="up">${bs(sum((r) => r.gain))}</b></div><div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
+        <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
+        <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, WhatsApp, correo, revendedor…" value="${esc(T.cq ?? "")}" aria-label="Buscar">
+          <select id="cday" aria-label="Día que vence">${opt("", "Día que vence: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `Vence ${d} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
+          <select id="cprod" aria-label="Plataforma">${opt("", "Plataforma: todas", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
+          <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
+          <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
+      <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
+        <th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
+        ${view.map((r) => `<tr class="rv-${r.est[1]}">
+          <td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
+          <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
+          <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
+          <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
+          <td><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
+          <td><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"></td>
+          <td class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>
+          <td><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
+          <td><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td class="mono"><b>${r.d}</b></td>
+          <td><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor"></td>
+          <td><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
+          <td class="ctl-act">${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener" title="Mandar recordatorio de cobro">💰 Cobrar</a>` : ""}
+            <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
+            <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" title="Renovar un período">✅ Renovada</button>
+            <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details></td></tr>`).join("")}
+        </tbody></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
+        <p class="muted" style="margin:0">Los cambios de precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. “✅ Renovada” suma un período desde el vencimiento.</p></section>`;
   },
 
   async renovar() {
@@ -631,6 +682,14 @@ document.addEventListener("click", async (ev) => {
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
   }
+  if (d.ctlcsv) {
+    const H = ["N°", "Cliente", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
+    const PAYT = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
+    const lines = [H, ...(P.controlView ?? []).map((r) => [r.n, r.customerName, r.customerPhone, r.product.replace(/ \(alquiler revendedores\)/, ""), r.email, r.profile, fdate(r.startsAt), fdate(r.customerExpiresAt), r.day, r.price / 100, r.cost / 100, r.gain / 100, PAYT[r.pay], r.est[0], r.d, r.control.seller ?? "", r.control.note ?? ""])];
+    const csv = "\ufeff" + lines.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `control-alquileres-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href); return;
+  }
   if (d.noprodimg) return act(() => api("POST", `/api/admin/products/${d.noprodimg}/image`, { remove: true }), "Logo quitado");
   if (d.shopfeat) return act(() => api("POST", `/api/admin/customers/${d.shopfeat}/shop-feature`, { featured: d.on === "1" }), d.on === "1" ? "Tienda destacada" : "Ya no está destacada");
   if (d.shopblock) {
@@ -706,10 +765,26 @@ function previewLook() {
   for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k].value;
   $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
 }
-let lookTimer;
+let lookTimer, cqTimer;
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "cq") return;
+  P.tab.cq = ev.target.value;
+  clearTimeout(cqTimer);
+  cqTimer = setTimeout(async () => { await render(); const f = $("#cq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
+});
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "lookForm") { clearTimeout(lookTimer); lookTimer = setTimeout(previewLook, 150); } });
 
-document.addEventListener("change", (ev) => {
+document.addEventListener("change", async (ev) => {
+  const t = ev.target;
+  if (t.dataset?.ctl) {
+    const f = t.dataset.f;
+    let v = t.value.trim();
+    if (f === "price" || f === "cost") { v = v === "" ? null : toCents(v); if (v !== null && Number.isNaN(v)) return toast("Solo números"); }
+    try { await api("POST", `/api/admin/assignments/${t.dataset.ctl}/control`, { [f]: v }); toast("Guardado"); if (f !== "note" && f !== "seller") render(); }
+    catch (e) { toast(e.message); }
+    return;
+  }
+  if (t.id === "cday" || t.id === "cprod" || t.id === "cpay") { P.tab[t.id] = t.value; return render(); }
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
   if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
   if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");

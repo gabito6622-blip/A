@@ -877,3 +877,26 @@ describe("18. Varios clientes sin WhatsApp distintos", () => {
     assert.equal(Object.values(s.snapshot().customers).filter((c) => !c.phone).length, 3);
   });
 });
+
+describe("19. Control de alquileres", () => {
+  test("precio, costo, pago, revendedor y nota se guardan; solo staff; validaciones", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const id = o.assignmentIds[0];
+    const c = s.orders.setControl(seller, id, { price: 6900, cost: 2000, payStatus: "pendiente", seller: " ARIT ", note: "paga viernes", startedAt: T0 - 30 * DAY });
+    assert.deepEqual(c, { price: 6900, cost: 2000, payStatus: "pendiente", seller: "ARIT", note: "paga viernes", startedAt: T0 - 30 * DAY });
+    assert.equal(s.admin.assignments(admin).find((a) => a.id === id).control.price, 6900);
+    assert.deepEqual(s.orders.setControl(seller, id, { cost: null, note: "" }), { price: 6900, payStatus: "pendiente", seller: "ARIT", startedAt: T0 - 30 * DAY });
+    assert.throws(() => s.orders.setControl(as(maria), id, { price: 1 }), err("FORBIDDEN"));
+    assert.throws(() => s.orders.setControl(seller, id, { price: -5 }), err("VALIDATION"));
+    assert.throws(() => s.orders.setControl(seller, id, { payStatus: "quizas" }), err("VALIDATION"));
+  });
+
+  test("renovar un alquiler 'esperando fecha' lo saca de esa espera", () => {
+    const { s } = setup();
+    s.inventory.importServices(admin, [{ row: 1, customerName: "Rosa", phone: "+59170012345", product: "netflix", email: "imp@x.y", password: "", profile: "P1", customerExpiresAt: T0 - 5 * DAY, supplierExpiresAt: T0 + 90 * DAY }], { dryRun: false });
+    const a = Object.values(s.snapshot().assignments).find((x) => x.holdOpen);
+    s.orders.renew(seller, a.id, { paymentMethod: "cash" });
+    assert.equal(s.snapshot().assignments[a.id].holdOpen, undefined);
+  });
+});

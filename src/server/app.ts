@@ -429,6 +429,9 @@ export function createApp(cfg: AppConfig): App {
     customerId: c.query.get("customerId") ?? undefined, productId: c.query.get("productId") ?? undefined,
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
+  route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
+    price: c.body?.price, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
+  }));
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
   route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey }));

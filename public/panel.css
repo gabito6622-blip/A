@@ -165,3 +165,32 @@ details.more summary{cursor:pointer;color:var(--blue);font-weight:600}
 .tcard{display:grid;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
 .tcard:hover{border-color:var(--ink)}
 @media (max-width:640px){.tr-row{grid-template-columns:1fr!important}}
+
+/* Control de alquileres (estilo Excel) */
+.ctl-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.ctl-kpis div{display:grid;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.ctl-kpis small{color:var(--muted);font-size:12px}.ctl-kpis b{font-size:20px}
+.ctl-chips{flex-wrap:wrap}
+.ctl-filters input#cq{flex:1 1 260px;min-width:0}
+.ctl-card{padding:0;overflow:hidden}.ctl-card>p{padding:12px 16px}
+.ctl-scroll{max-height:72vh;overflow:auto}
+table.ctl{min-width:2050px;font-size:13px;border-collapse:separate;border-spacing:0}
+table.ctl th{position:sticky;top:0;z-index:2;background:#1e3a8e;color:#fff;font-weight:700;white-space:nowrap;padding:9px 8px;text-align:left}
+table.ctl td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+table.ctl td:nth-child(2),table.ctl th:nth-child(2){position:sticky;left:0;z-index:1;background:inherit}
+table.ctl th:nth-child(2){z-index:3;background:#1e3a8e}
+table.ctl tr.rv-bad td{background:#fee2e2;color:#111}table.ctl tr.rv-today td{background:#ffedd5;color:#111}
+table.ctl tr.rv-warn td{background:#fef9c3;color:#111}table.ctl tr.rv-week td{background:#fff7d6;color:#111}
+table.ctl tr.rv-ok td{background:#ecfdf3;color:#111}table.ctl tr.rv-hold td{background:#eadcf8;color:#111}
+table.ctl tbody tr:hover td{filter:brightness(.97)}
+.ctl-in{width:70px;padding:4px 6px;border:1px solid rgba(0,0,0,.18);border-radius:6px;background:rgba(255,255,255,.75);color:#111;font:inherit}
+.ctl-in.wide{width:140px}
+select.ctl-in{width:auto}
+select.pay-pagado{background:#dcfce7}select.pay-pendiente{background:#fef3c7}select.pay-no_pago{background:#fecaca}
+.est{display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;color:#fff}
+.est-bad{background:#ef4444}.est-today{background:#f97316}.est-warn{background:#eab308;color:#111}.est-week{background:#f59e0b;color:#111}.est-ok{background:#22c55e}.est-hold{background:#8e7cc3}
+.ctl-act{display:flex;gap:6px;align-items:center}
+.ctl-act details.more{display:inline-block}
+.ctl-act form{position:absolute;background:var(--card);padding:8px;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:5}
+table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
+@media (max-width:860px){.ctl-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

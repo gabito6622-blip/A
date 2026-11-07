@@ -7,7 +7,7 @@
 //                ├─ balance ─► (débito del saldo) ─► fulfilled
 //                └─ cash (solo staff) ─────────────► fulfilled
 // Un comprobante NO es un pago: solo un revisor con `payment.review` confirma la referencia bancaria.
-import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, StaffAlertSettings } from "./types.js";
+import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, RentalControl, StaffAlertSettings } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
@@ -218,6 +218,7 @@ function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allo
     throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renová con el proveedor o reemplazá el perfil`);
   }
   a.customerExpiresAt = next; // supplierExpiresAt NO se toca
+  delete a.holdOpen;
   a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: `+${days} días` });
   queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
   return a;
@@ -371,6 +372,36 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       n++;
     }
     return n;
+  });
+}
+
+/** Datos de control de un alquiler (precio, costo, estado de pago, nota…), como en el Excel del dueño. */
+export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patch: Partial<RentalControl>) {
+  authorize(actor, "assignment.renew_any");
+  const money = (v: unknown, what: string) => {
+    if (v === undefined) return undefined;
+    if (v === null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 10_000_000) throw new DomainError("VALIDATION", `${what} inválido`);
+    return n;
+  };
+  const price = money(patch.price, "Precio"), cost = money(patch.cost, "Costo");
+  if (patch.payStatus !== undefined && !["pagado", "pendiente", "no_pago"].includes(patch.payStatus)) throw new DomainError("VALIDATION", "Estado de pago inválido");
+  if (patch.note !== undefined && String(patch.note).length > 300) throw new DomainError("VALIDATION", "Nota: máximo 300 letras");
+  if (patch.seller !== undefined && String(patch.seller).length > 60) throw new DomainError("VALIDATION", "Revendedor: máximo 60 letras");
+  if (patch.startedAt !== undefined && !(Number.isFinite(patch.startedAt) && patch.startedAt > Date.UTC(2015, 0, 1))) throw new DomainError("VALIDATION", "Fecha de inicio inválida");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    const c: RentalControl = { ...(a.control ?? {}) };
+    if (price !== undefined) { if (price === null) delete c.price; else c.price = price; }
+    if (cost !== undefined) { if (cost === null) delete c.cost; else c.cost = cost; }
+    if (patch.payStatus !== undefined) c.payStatus = patch.payStatus;
+    if (patch.note !== undefined) { const t = String(patch.note).trim(); if (t) c.note = t; else delete c.note; }
+    if (patch.seller !== undefined) { const t = String(patch.seller).trim(); if (t) c.seller = t; else delete c.seller; }
+    if (patch.startedAt !== undefined) c.startedAt = patch.startedAt;
+    a.control = c;
+    e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(",") });
+    return structuredClone(c);
   });
 }
 
