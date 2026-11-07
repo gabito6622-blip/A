@@ -104,7 +104,7 @@ export function selfRegister(e: Engine, input: { name: string; phone: string; wh
   const phone = normalizePhone(input.phone);
   if (!input.name?.trim() || input.name.length > 80 || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   return e.tx(() => {
-    if (Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
     const id = e.id("cus");
     const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now() };
     e.s.customers[id] = cust;
@@ -126,9 +126,10 @@ export interface NewCustomer {
  * Staff crea cualquier cliente o revendedor. Un revendedor solo crea clientes propios,
  * siempre con el grupo "final" y nunca otros revendedores.
  */
-export function createCustomer(e: Engine, actor: Actor, c: NewCustomer): Customer {
+export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allowNoPhone?: boolean }): Customer {
   const phone = normalizePhone(c.phone);
-  if (!c.name?.trim() || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
+  if (!c.name?.trim()) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
+  if (!(c.allowNoPhone && !phone) && phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   let resellerId: Id | undefined;
   if (isStaff(actor)) {
     authorize(actor, "customer.manage");

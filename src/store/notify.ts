@@ -72,7 +72,8 @@ export function queue(e: Engine, customerId: Id, template: TemplateId, params: R
   }
   const m: OutboxMessage = {
     id: e.id("msg"), customerId, to: c.phone, template, params, text,
-    status: c.whatsappConsent ? "queued" : "skipped_no_consent", createdAt: e.now(),
+    status: c.whatsappConsent && c.phone ? "queued" : "skipped_no_consent", createdAt: e.now(),
+    ...(c.phone ? {} : { error: "El cliente no tiene WhatsApp cargado" }),
   };
   e.s.outbox.push(m);
   return m;

@@ -79,6 +79,7 @@ export function createStore(opts: EngineOptions = {}) {
       closeExpired: bind(e, orders.closeExpired),
       queueExpiryReminders: bind(e, orders.queueExpiryReminders),
       autoReminders: bind(e, orders.autoReminders),
+      setExpiry: bind(e, orders.setCustomerExpiry),
       reminderSettings: () => orders.reminderSettings(e),
       updateReminderSettings: bind(e, orders.updateReminderSettings),
       supplierExpiryAlerts: bind(e, orders.supplierExpiryAlerts),

@@ -95,10 +95,14 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
 
   // Cliente: por teléfono; si no existe, se crea.
   const phone = normalizePhone(r.phone);
-  let customer = Object.values(e.s.customers).find((c) => c.phone === phone);
+  // Sin WhatsApp: se busca por nombre entre los clientes que tampoco tienen número.
+  let customer = phone
+    ? Object.values(e.s.customers).find((c) => c.phone === phone)
+    : Object.values(e.s.customers).find((c) => !c.phone && norm(c.name) === norm(r.customerName));
+  if (!phone) res.warnings.push("Sin WhatsApp: agregalo en Clientes");
   if (!customer) {
     if (!r.customerName.trim()) throw new DomainError("VALIDATION", "Falta el nombre del cliente");
-    customer = createCustomer(e, actor, { name: r.customerName, phone });
+    customer = createCustomer(e, actor, { name: r.customerName, phone, allowNoPhone: true });
     res.created.push("cliente");
   } else if (r.customerName && norm(customer.name) !== norm(r.customerName)) {
     res.warnings.push(`El teléfono ya es de "${customer.name}"; se le asigna a ese cliente`);
@@ -144,7 +148,7 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
   if (slot.status !== "available") throw new DomainError("INVALID_STATE", `El ${slot.label} de ${account.email} está en ${slot.status === "quarantined" ? "cuarentena" : slot.status}`);
   if (r.pin && r.pin !== (slot.pin ?? "")) slot.pin = r.pin;
 
-  if (r.customerExpiresAt < now) res.warnings.push("Ya está vencido: se cierra solo en 2 días si no se renueva");
+  if (r.customerExpiresAt < now) res.warnings.push("Ya está vencido: queda abierto hasta que le pongas fecha o lo renueves");
   if (r.customerExpiresAt > account.supplierExpiresAt) res.warnings.push("El cliente vence después que la cuenta con el proveedor");
 
   // Servicio asignado, con un pedido de registro de Bs 0 (no cuenta como venta).
@@ -157,7 +161,7 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
   slot.reservedByOrder = order.id;
   const a: Assignment = {
     id: e.id("asg"), slotId: slot.id, productId: product.id, customerId: customer.id, orderId: order.id,
-    startsAt: now, customerExpiresAt: r.customerExpiresAt, status: "active",
+    startsAt: now, customerExpiresAt: r.customerExpiresAt, status: "active", ...(r.customerExpiresAt < now ? { holdOpen: true } : {}),
     history: [{ at: now, by: actor.id, event: "assigned", slotId: slot.id, note: `importado (fila ${r.row})` }],
   };
   order.assignmentIds.push(a.id);

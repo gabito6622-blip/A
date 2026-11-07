@@ -832,3 +832,38 @@ describe("16. Logo de producto", () => {
     assert.throws(() => s.catalog.upsertProduct(admin, { name: "X", kind: "raro", durationDays: 30, price: 100, published: true }), err("VALIDATION"));
   });
 });
+
+describe("17. Importar vencidos y clientes sin WhatsApp", () => {
+  const base = (k, o = {}) => ({ row: k, customerName: "Rosa", phone: "+59170012345", product: "netflix", email: "imp@x.y", password: "", profile: `Perfil ${k}`, customerExpiresAt: T0 + 10 * DAY, supplierExpiresAt: T0 + 60 * DAY, ...o });
+
+  test("vencido importado no se cierra solo; al ponerle fecha vuelve a la normalidad", () => {
+    const { s, clock } = setup();
+    const r = s.inventory.importServices(admin, [base(1, { customerExpiresAt: T0 - 40 * DAY })], { dryRun: false });
+    assert.equal(r.rows[0].status, "ok");
+    assert.ok(r.rows[0].warnings.some((w) => /queda abierto/.test(w)));
+    const id = Object.values(s.snapshot().assignments).find((a) => a.holdOpen).id;
+    clock.t += 5 * DAY;
+    assert.equal(s.orders.closeExpired(system, 2), 0, "no lo cierra");
+    assert.throws(() => s.orders.setExpiry({ id: "c", role: "customer", customerId: "x" }, id, T0 + 30 * DAY), err("FORBIDDEN"));
+    assert.throws(() => s.orders.setExpiry(seller, id, NaN), err("VALIDATION"));
+    const a = s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR");
+    assert.equal(a.holdOpen, undefined);
+    assert.equal(a.history.at(-1).event, "date_changed");
+    clock.t += 23 * DAY;
+    assert.equal(s.orders.closeExpired(system, 2), 1, "con fecha nueva, si vence, se cierra como siempre");
+  });
+
+  test("cliente sin WhatsApp: se crea, se reutiliza por nombre y no recibe mensajes", () => {
+    const { s } = setup();
+    const r = s.inventory.importServices(admin, [base(1, { customerName: "Dani strem", phone: "" }), base(2, { customerName: "Dani strem", phone: "" })], { dryRun: false });
+    assert.deepEqual(r.rows.map((x) => x.status), ["ok", "ok"]);
+    const danis = Object.values(s.snapshot().customers).filter((c) => c.name === "Dani strem");
+    assert.equal(danis.length, 1, "un solo cliente para las dos filas");
+    assert.equal(danis[0].phone, "");
+    assert.throws(() => s.catalog.createCustomer(admin, { name: "Sin num", phone: "" }), err("VALIDATION"), "a mano el teléfono sigue siendo obligatorio");
+    s.orders.queueExpiryReminders(seller, 15);
+    assert.ok(s.notify.outbox(owner).filter((m) => m.customerId === danis[0].id).every((m) => m.status === "skipped_no_consent"));
+    s.catalog.updateCustomer(admin, danis[0].id, { phone: "+591 70099911" });
+    assert.equal(s.snapshot().customers[danis[0].id].phone, "+59170099911");
+  });
+});

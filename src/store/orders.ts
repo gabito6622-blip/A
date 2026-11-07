@@ -363,7 +363,7 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
   return e.tx(() => {
     let n = 0;
     for (const a of Object.values(e.s.assignments)) {
-      if (a.status !== "active" || a.customerExpiresAt + graceDays * DAY > e.now()) continue;
+      if (a.status !== "active" || a.holdOpen || a.customerExpiresAt + graceDays * DAY > e.now()) continue;
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: "vencido" });
       e.s.slots[a.slotId].status = "quarantined";
@@ -371,6 +371,23 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       n++;
     }
     return n;
+  });
+}
+
+/** El staff corrige la fecha de vencimiento del cliente (p. ej. al ponerse al día con un Excel). */
+export function setCustomerExpiry(e: Engine, actor: Actor, assignmentId: Id, expiresAt: number, note?: string) {
+  authorize(actor, "assignment.renew_any");
+  if (!(Number.isFinite(expiresAt) && expiresAt > Date.UTC(2020, 0, 1) && expiresAt < Date.UTC(2100, 0, 1))) throw new DomainError("VALIDATION", "Fecha inválida");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    if (a.status !== "active") throw new DomainError("INVALID_STATE", "Ese servicio ya no está activo");
+    const before = a.customerExpiresAt;
+    a.customerExpiresAt = expiresAt;
+    delete a.holdOpen;
+    a.remindersSent = [];
+    a.history.push({ at: e.now(), by: actor.id, event: "date_changed", slotId: a.slotId, note: `${fdate(before)} → ${fdate(expiresAt)}${note ? ` · ${String(note).slice(0, 120)}` : ""}` });
+    e.audit(actor, "assignment.set_expiry", "assignment", a.id, { before, after: expiresAt });
+    return structuredClone(a);
   });
 }
 

@@ -285,7 +285,7 @@ export type AssignmentStatus = "active" | "replaced" | "revoked";
 export interface AssignmentEvent {
   at: number;
   by: Id;
-  event: "assigned" | "renewed" | "replaced" | "revoked" | "access_updated" | "transferred";
+  event: "assigned" | "renewed" | "replaced" | "revoked" | "access_updated" | "transferred" | "date_changed";
   slotId: Id;
   note?: string;
 }
@@ -304,6 +304,8 @@ export interface Assignment {
   lastReminderAt?: number;
   /** Recordatorios automáticos ya enviados: "vencimiento:días" (se reinicia al renovar). */
   remindersSent?: string[];
+  /** Importado ya vencido: no se cierra solo hasta que el staff le ponga fecha. */
+  holdOpen?: boolean;
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment";

@@ -242,7 +242,7 @@ export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts
     const base = { row: k + 1, customer: cell(r, idx.name), product: cell(r, idx.product), account: cell(r, idx.email), profile: cell(r, idx.profile) || "Cuenta completa", created: [], warnings: [] };
     const fail = (error: string) => parseErrors.push({ ...base, status: "error", error });
     const rawPhone = cell(r, idx.phone);
-    if (!rawPhone) { fail("Falta el WhatsApp del cliente"); continue; }
+
     if (!base.product) { fail("Falta el producto"); continue; }
     if (!/^[^@\s]+@[^@\s]+$/.test(base.account)) { fail("Cuenta: falta el correo o es inválido"); continue; }
     const exp = parseDate(cell(r, idx.expires));
@@ -254,7 +254,7 @@ export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts
     if (pin && !/^\d{1,8}$/.test(pin)) { fail(`PIN inválido: "${pin}"`); continue; }
     const costRaw = cell(r, idx.cost).replace(",", ".");
     valid.push({
-      row: k + 1, customerName: base.customer, phone: phoneWithCountry(rawPhone), product: base.product, email: base.account,
+      row: k + 1, customerName: base.customer, phone: rawPhone ? phoneWithCountry(rawPhone) : "", product: base.product, email: base.account,
       password: cell(r, idx.password), profile: base.profile, pin: pin || undefined, customerExpiresAt: exp,
       supplierExpiresAt: supExp ?? undefined, supplier: cell(r, idx.supplier) || undefined,
       cost: costRaw && Number.isFinite(+costRaw) ? Math.round(+costRaw * 100) : undefined,
