@@ -372,6 +372,10 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey }));
   route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? "")));
   route("POST", "/api/admin/assignments/:id/replace", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? ""), oldSlot: c.body?.oldSlot, otherAccount: !!c.body?.otherAccount }));
+  route("GET", "/api/admin/reminders/settings", "staff", () => store.orders.reminderSettings());
+  route("POST", "/api/admin/reminders/settings", "staff", (c) => store.orders.updateReminderSettings(A(c), {
+    enabled: c.body?.enabled, daysBefore: c.body?.daysBefore, fromHour: c.body?.fromHour, toHour: c.body?.toHour,
+  }));
   route("POST", "/api/admin/reminders", "staff", (c) => ({ queued: store.orders.queueExpiryReminders(A(c), Number(c.body?.withinDays ?? 3)) }));
 
   route("GET", "/api/admin/staff", "staff", (c) => store.admin.listStaff(A(c)));
@@ -765,7 +769,7 @@ export function createApp(cfg: AppConfig): App {
 
   function runJobs() {
     const expired = store.orders.expireReservations(system);
-    const reminders = store.orders.queueExpiryReminders(system, 3);
+    const reminders = store.orders.autoReminders(system);
     const closed = store.orders.closeExpired(system, 2);
     db.purgeExpiredSessions(now());
     return { expired, reminders, closed };

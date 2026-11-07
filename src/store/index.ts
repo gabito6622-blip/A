@@ -76,6 +76,9 @@ export function createStore(opts: EngineOptions = {}) {
       transfer: bind(e, orders.transferAssignment),
       closeExpired: bind(e, orders.closeExpired),
       queueExpiryReminders: bind(e, orders.queueExpiryReminders),
+      autoReminders: bind(e, orders.autoReminders),
+      reminderSettings: () => orders.reminderSettings(e),
+      updateReminderSettings: bind(e, orders.updateReminderSettings),
       requestTopup: bind(e, orders.requestTopup),
     },
     wallet: {

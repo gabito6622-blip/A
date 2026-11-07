@@ -542,3 +542,62 @@ describe("9. Importar servicios existentes", () => {
     assert.throws(() => s.inventory.importServices(seller, [row(2)], { dryRun: true }), err("FORBIDDEN"));
   });
 });
+
+describe("10. Recordatorios automáticos", () => {
+  // T0 = 12:00 UTC = 08:00 en Bolivia. La venta vence a T0 + 30 días.
+  const sell = (s, customerId) => s.orders.create(seller, { customerId, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+  const reminders = (s) => s.notify.outbox(admin).filter((m) => m.template === "expiry_reminder");
+
+  test("por defecto: 2 días antes, una sola vez, en horario de Bolivia", () => {
+    const { s, clock, maria } = setup();
+    sell(s, maria.id);
+    clock.t = T0 + 27 * DAY + 4 * 3600_000; // faltan 3 días
+    assert.equal(s.orders.autoReminders(system), 0);
+    clock.t = T0 + 28 * DAY + 14 * 3600_000; // faltan 2 días, pero son las 22:00 en Bolivia
+    assert.equal(s.orders.autoReminders(system), 0, "fuera de horario no se manda");
+    clock.t = T0 + 28 * DAY + 4 * 3600_000; // faltan 2 días, 12:00 en Bolivia
+    assert.equal(s.orders.autoReminders(system), 1);
+    assert.equal(s.orders.autoReminders(system), 0, "no se repite");
+    clock.t += 3600_000;
+    assert.equal(s.orders.autoReminders(system), 0);
+    clock.t = T0 + 29 * DAY + 4 * 3600_000; // falta 1 día: no está configurado
+    assert.equal(s.orders.autoReminders(system), 0);
+    assert.equal(reminders(s).length, 1);
+    assert.match(reminders(s)[0].text, /tu Netflix perfil vence el/);
+  });
+
+  test("después de renovar vuelve a avisar en el próximo vencimiento", () => {
+    const { s, clock, maria, luis } = setup();
+    sell(s, luis.id); // usa nf02 (vence antes con el proveedor)
+    const o = sell(s, maria.id);
+    clock.t = T0 + 28 * DAY + 4 * 3600_000;
+    s.orders.autoReminders(system);
+    s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }); // ahora vence a T0 + 60 días
+    clock.t = T0 + 58 * DAY + 4 * 3600_000;
+    assert.equal(s.orders.autoReminders(system), 1);
+  });
+
+  test("se pueden elegir varios días (p. ej. 3 y 1) y el horario", () => {
+    const { s, clock, maria } = setup();
+    sell(s, maria.id);
+    assert.throws(() => s.orders.updateReminderSettings(seller, { daysBefore: [1] }), err("FORBIDDEN"));
+    assert.throws(() => s.orders.updateReminderSettings(admin, { daysBefore: [31] }), err("VALIDATION"));
+    assert.throws(() => s.orders.updateReminderSettings(admin, { fromHour: 20, toHour: 9 }), err("VALIDATION"));
+    assert.deepEqual(s.orders.updateReminderSettings(admin, { daysBefore: [1, 3, 3], fromHour: 7 }).daysBefore, [3, 1]);
+    let sent = 0;
+    for (let d = 26; d <= 30; d++) { clock.t = T0 + d * DAY + 3600_000; sent += s.orders.autoReminders(system); } // 09:00 en Bolivia
+    assert.equal(sent, 2);
+  });
+
+  test("apagados no mandan nada; uno manual reciente evita el duplicado", () => {
+    const { s, clock, maria } = setup();
+    sell(s, maria.id);
+    s.orders.updateReminderSettings(admin, { enabled: false });
+    clock.t = T0 + 28 * DAY + 4 * 3600_000;
+    assert.equal(s.orders.autoReminders(system), 0);
+    s.orders.updateReminderSettings(admin, { enabled: true });
+    s.orders.queueExpiryReminders(seller, 3); // el vendedor ya mandó uno a mano
+    assert.equal(s.orders.autoReminders(system), 0);
+    assert.equal(reminders(s).length, 1);
+  });
+});

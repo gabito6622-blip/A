@@ -104,9 +104,19 @@ const V = {
 
   async recordatorios() {
     const days = P.tab.days ?? 3;
-    const list = await api("GET", `/api/admin/assignments?days=${days}`);
-    return `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
-      <button class="pbtn dark" type="button" data-remind="${days}">${icon("bell")}Preparar recordatorios</button></div>
+    const [list, rs] = await Promise.all([api("GET", `/api/admin/assignments?days=${days}`), api("GET", "/api/admin/reminders/settings")]);
+    const OPTS = [[7, "7 días antes"], [5, "5 días antes"], [3, "3 días antes"], [2, "2 días antes"], [1, "1 día antes"], [0, "El mismo día"]];
+    const auto = `<section class="card"><h2>${icon("bell")}Recordatorios automáticos ${rs.enabled ? pill("Activados", "ok") : pill("Apagados", "mute")}</h2>
+      <p class="muted" style="margin:0">El sistema avisa solo a cada cliente antes de que venza su servicio: <b>una vez por cada día marcado</b> y solo en el horario elegido (hora de Bolivia). Si renueva, el aviso vuelve a salir en el próximo vencimiento.</p>
+      <form id="remForm" style="display:grid;gap:12px">
+        <label class="chk"><input type="checkbox" name="enabled" ${rs.enabled ? "checked" : ""} ${canReview() ? "" : "disabled"}> Mandar recordatorios automáticos</label>
+        <div class="inline">${OPTS.map(([d, t]) => `<label class="chk" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px"><input type="checkbox" name="d" value="${d}" ${rs.daysBefore.includes(d) ? "checked" : ""} ${canReview() ? "" : "disabled"}> ${t}</label>`).join("")}</div>
+        <div class="inline"><label class="inline" style="display:flex">Desde las<select name="fromHour" ${canReview() ? "" : "disabled"}>${Array.from({ length: 24 }, (_, h) => opt(h, `${h}:00`, h === rs.fromHour)).join("")}</select></label>
+        <label class="inline" style="display:flex">hasta las<select name="toHour" ${canReview() ? "" : "disabled"}>${Array.from({ length: 24 }, (_, h) => opt(h + 1, `${h + 1}:00`, h + 1 === rs.toHour)).join("")}</select></label>
+        ${canReview() ? `<button class="pbtn dark" type="submit">Guardar</button>` : ""}</div></form>
+      <p class="muted" style="margin:0">Los avisos salen por WhatsApp si el bot está conectado; si no, quedan en <b>WhatsApp → Avisos</b> para mandarlos con un toque.</p></section>`;
+    return auto + `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
+      <button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Mandar ahora a estos (manual)</button></div>
       ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
       <p class="muted" style="margin:0">“Preparar” deja un mensaje por cliente en <b>WhatsApp</b> (máximo uno por día). Desde ahí los mandás.</p></section>`;
   },
@@ -582,6 +592,10 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.replace}/replace`, { reason: f.reason.value, otherAccount: f.other.checked }), "Perfil reemplazado: el cliente conserva su fecha");
+    } else if (f.id === "remForm") {
+      const daysBefore = [...f.querySelectorAll('input[name="d"]:checked')].map((x) => +x.value);
+      await act(() => api("POST", "/api/admin/reminders/settings", { enabled: f.enabled.checked, daysBefore, fromHour: +f.fromHour.value, toHour: +f.toHour.value }),
+        daysBefore.length ? `Listo: avisos ${daysBefore.map((d) => (d ? `${d} día(s) antes` : "el mismo día")).join(" y ")}` : "Guardado (sin días marcados no sale ningún aviso)");
     } else if (f.id === "waReply") {
       await act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(f.dataset.phone)}/reply`, { text: f.text.value }), "Mensaje enviado");
     } else if (f.id === "waSecrets") {

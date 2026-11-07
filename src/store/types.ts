@@ -50,6 +50,18 @@ export interface StoreSettings {
   announcement?: string;
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
+  /** Recordatorios automáticos de vencimiento. */
+  reminders?: ReminderSettings;
+}
+
+export interface ReminderSettings {
+  enabled: boolean;
+  /** Cuántos días antes del vencimiento avisar (p. ej. [2] o [3, 1]). 0 = el mismo día. */
+  daysBefore: number[];
+  /** Solo se encolan entre estas horas (hora local de la tienda). */
+  fromHour: number;
+  toHour: number;
+  timeZone: string;
 }
 
 /** Nombre e idioma de una plantilla aprobada en Meta. */
@@ -229,6 +241,8 @@ export interface Assignment {
   status: AssignmentStatus;
   history: AssignmentEvent[];
   lastReminderAt?: number;
+  /** Recordatorios automáticos ya enviados: "vencimiento:días" (se reinicia al renovar). */
+  remindersSent?: string[];
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment";

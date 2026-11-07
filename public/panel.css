@@ -156,3 +156,5 @@
 .wa-msg{white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:10px;font-size:13.5px}
 .muted{color:var(--muted)}
 details.more summary{cursor:pointer;color:var(--blue);font-weight:600}
+.inline label.chk{white-space:nowrap}
+.inline label.chk input,.inline input[type=checkbox],.inline input[type=radio]{flex:0 0 auto;width:auto}

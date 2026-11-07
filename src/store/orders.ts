@@ -7,7 +7,7 @@
 //                ├─ balance ─► (débito del saldo) ─► fulfilled
 //                └─ cash (solo staff) ─────────────► fulfilled
 // Un comprobante NO es un pago: solo un revisor con `payment.review` confirma la referencia bancaria.
-import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod } from "./types.js";
+import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
@@ -385,6 +385,77 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
     }
     if (n) e.audit(actor, "reminders.queue", "assignment", "*", { count: n });
     return n;
+  });
+}
+
+/* ---------------- Recordatorios automáticos ---------------- */
+
+export const DEFAULT_REMINDERS: ReminderSettings = { enabled: true, daysBefore: [2], fromHour: 9, toHour: 20, timeZone: "America/La_Paz" };
+export const reminderSettings = (e: Engine): ReminderSettings => ({ ...DEFAULT_REMINDERS, ...(e.s.settings.reminders ?? {}) });
+
+function localHour(t: number, timeZone: string): number {
+  try {
+    const h = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).formatToParts(new Date(t)).find((p) => p.type === "hour")?.value;
+    return Number(h ?? new Date(t).getHours());
+  } catch {
+    return new Date(t).getHours();
+  }
+}
+
+/**
+ * Encola un recordatorio por servicio cuando le faltan exactamente los días configurados
+ * (por defecto 2), una sola vez por cada punto y solo en el horario permitido.
+ * Si el cliente renueva, la fecha cambia y vuelve a recibir el aviso en el próximo vencimiento.
+ */
+export function autoReminders(e: Engine, actor: Actor): number {
+  if (actor.role !== "system") authorize(actor, "assignment.renew_any");
+  const cfg = reminderSettings(e);
+  if (!cfg.enabled || !cfg.daysBefore.length) return 0;
+  const h = localHour(e.now(), cfg.timeZone);
+  if (h < cfg.fromHour || h >= cfg.toHour) return 0;
+  return e.tx(() => {
+    let n = 0;
+    for (const a of Object.values(e.s.assignments)) {
+      if (a.status !== "active") continue;
+      const days = Math.ceil((a.customerExpiresAt - e.now()) / DAY);
+      if (days < 0 || !cfg.daysBefore.includes(days)) continue;
+      const key = `${a.customerExpiresAt}:${days}`;
+      if (a.remindersSent?.includes(key)) continue;
+      // Si ya se mandó uno a mano en las últimas 20 h, no se repite.
+      if (a.lastReminderAt && e.now() - a.lastReminderAt < 20 * 3_600_000) {
+        (a.remindersSent ??= []).push(key);
+        continue;
+      }
+      const c = e.s.customers[a.customerId];
+      queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+      a.lastReminderAt = e.now();
+      a.remindersSent = [...(a.remindersSent ?? []).slice(-10), key];
+      n++;
+    }
+    if (n) e.audit(actor, "reminders.auto", "assignment", "*", { count: n, daysBefore: cfg.daysBefore.join(",") });
+    return n;
+  });
+}
+
+export function updateReminderSettings(e: Engine, actor: Actor, patch: Partial<ReminderSettings>): ReminderSettings {
+  authorize(actor, "catalog.manage");
+  if (patch.daysBefore !== undefined) {
+    const ok = Array.isArray(patch.daysBefore) && patch.daysBefore.length <= 5 && patch.daysBefore.every((d) => Number.isInteger(d) && d >= 0 && d <= 30);
+    if (!ok) throw new DomainError("VALIDATION", "Días antes: hasta 5 valores entre 0 y 30");
+  }
+  for (const k of ["fromHour", "toHour"] as const) {
+    if (patch[k] !== undefined && !(Number.isInteger(patch[k]) && patch[k]! >= 0 && patch[k]! <= 24)) throw new DomainError("VALIDATION", "Horario: horas entre 0 y 24");
+  }
+  if (patch.timeZone !== undefined) {
+    try { new Intl.DateTimeFormat("en-US", { timeZone: patch.timeZone }); } catch { throw new DomainError("VALIDATION", "Zona horaria inválida"); }
+  }
+  return e.tx(() => {
+    const next = { ...reminderSettings(e), ...patch };
+    if (patch.daysBefore) next.daysBefore = [...new Set(patch.daysBefore)].sort((a, b) => b - a);
+    if (next.fromHour >= next.toHour) throw new DomainError("VALIDATION", "El horario de inicio tiene que ser antes del de fin");
+    e.s.settings.reminders = next;
+    e.audit(actor, "reminders.settings", "settings", "reminders", { enabled: next.enabled, daysBefore: next.daysBefore.join(","), hours: `${next.fromHour}-${next.toHour}` });
+    return structuredClone(next);
   });
 }
 
