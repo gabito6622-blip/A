@@ -376,6 +376,24 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.stats.summary(seller, { from: 0, to: 1 }), err("FORBIDDEN"));
   });
 
+  test("Armá tu combo: descuento en la tienda por servicios distintos, no para revendedores ni staff", () => {
+    const { s, maria, carla, as } = setup();
+    s.inventory.addAccount(admin, { productId: "gemini", supplierId: "andes", email: "gm01@gabostore.lat", password: "Gm-Clave#1", supplierExpiresAt: T0 + 90 * DAY, cost: 1000, profiles: [{ label: "Invitación" }] });
+    const items = [{ productId: "netflix", qty: 1 }, { productId: "gemini", qty: 1 }];
+    const o = s.orders.create(as(maria), { customerId: maria.id, items, paymentMethod: "qr" });
+    assert.equal(o.discount, 500);
+    assert.equal(o.total, 3500 + 2500 - 500);
+    const one = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 2 }], paymentMethod: "qr" });
+    assert.equal(one.discount, undefined, "el mismo servicio repetido no cuenta como combo");
+    assert.equal(s.orders.comboDiscount(maria.id, ["netflix", "gemini"], "panel"), 0, "venta del panel sin descuento automático");
+    s.catalog.updateSettings(owner, { comboDiscounts: [0, 0, 0] });
+    assert.equal(s.orders.comboDiscount(maria.id, ["netflix", "gemini"], "store"), 0, "apagado");
+    s.catalog.updateSettings(owner, { comboDiscounts: [700, 1000, 1500] });
+    assert.equal(s.orders.comboDiscount("x", ["netflix", "gemini"], "store"), 700);
+    assert.equal(s.orders.comboDiscount(carla.id, ["netflix", "gemini"], "store"), 0, "revendedor");
+    assert.throws(() => s.catalog.updateSettings(owner, { comboDiscounts: [-1, 0, 0] }), err("VALIDATION"));
+  });
+
   test("dashboard: período, comparación, series y vencimientos", () => {
     const { s, maria, luis, as } = setup();
     const t = s.orders.requestTopup(as(maria), maria.id, 10000, { fileRef: "r", declaredReference: "d" });

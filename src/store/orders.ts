@@ -8,6 +8,7 @@
 //                └─ cash (solo staff) ─────────────► fulfilled
 // Un comprobante NO es un pago: solo un revisor con `payment.review` confirma la referencia bancaria.
 import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, RentalControl, StaffAlertSettings } from "./types.js";
+import { DEFAULT_COMBO_DISCOUNTS } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
@@ -38,6 +39,17 @@ export interface CreateOrderInput {
   idempotencyKey?: string;
 }
 
+/**
+ * Descuento "Armá tu combo": en la tienda pública, si el cliente (no revendedor) lleva 2 o más
+ * servicios sueltos distintos (no combos ya armados), se descuenta según la configuración.
+ */
+export function comboDiscount(e: Engine, payerId: Id, productIds: Id[], channel: Order["channel"]): Cents {
+  if (channel !== "store" || e.s.customers[payerId]?.kind === "reseller") return 0;
+  const n = new Set(productIds.filter((id) => { const p = e.s.products[id]; return p && p.kind !== "combo" && !p.resellersOnly; })).size;
+  const d = e.s.settings.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS;
+  return n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0;
+}
+
 export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): Order {
   if (isStaff(actor)) authorize(actor, "order.create_any");
   else authorize(actor, "order.create_self");
@@ -58,11 +70,14 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     });
     const reserved = items.flatMap((it) => reserveSlots(e, it.productId, it.qty, id));
     const now = e.now();
+    const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
+    const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+    const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
     const order: Order = {
-      id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id,
-      channel: input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store"),
-      items, total: items.reduce((s, it) => s + it.unitPrice * it.qty, 0), status: "awaiting_payment",
+      id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id, channel,
+      items, total: gross - discount, status: "awaiting_payment",
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
+      ...(discount ? { discount } : {}),
     };
     e.s.orders[id] = order;
     e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length });

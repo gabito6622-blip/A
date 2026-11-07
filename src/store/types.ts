@@ -36,8 +36,13 @@ export interface Product {
   resellersOnly?: boolean;
 }
 
+/** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */
+export const DEFAULT_COMBO_DISCOUNTS: [Cents, Cents, Cents] = [500, 1000, 1500];
+
 /** Configuración de la tienda que ve el cliente. */
 export interface StoreSettings extends Look {
+  /** Descuento de "Armá tu combo" para 2, 3 y 4+ servicios (centavos). [0,0,0] lo apaga. */
+  comboDiscounts?: [Cents, Cents, Cents];
   storeName: string;
   /** WhatsApp de ventas, solo dígitos con código de país. */
   whatsapp: string;
@@ -280,6 +285,8 @@ export interface Order {
   assignmentIds: Id[];
   renewal?: { assignmentId: Id; periods: number };
   topupAmount?: Cents;
+  /** Descuento "Armá tu combo" ya restado del total. */
+  discount?: Cents;
   createdAt: number;
   updatedAt: number;
 }

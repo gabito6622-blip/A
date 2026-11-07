@@ -10,7 +10,7 @@ const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLow
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo"],
-  store: ["inicio", "catalogo", "cuentas", "codigos", "recargas"],
+  store: ["inicio", "catalogo", "combo", "cuentas", "codigos", "recargas"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos"],
 }[MODE];
 
@@ -20,6 +20,17 @@ const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(S.c
 const product = (id) => S.catalog.find((p) => p.id === id);
 const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
+/* ---- Armá tu combo: mismo cálculo que el servidor (orders.comboDiscount) ---- */
+const comboOn = () => MODE === "store" && !isReseller() && (S.settings?.comboDiscounts ?? []).some((v) => v > 0);
+const comboable = (p) => p && p.kind !== "combo" && !p.resellersOnly;
+const discountFor = (ids) => {
+  if (!comboOn()) return 0;
+  const n = new Set(ids.filter((id) => comboable(product(id)))).size, d = S.settings.comboDiscounts;
+  return n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0;
+};
+const cartDiscount = () => Math.min(discountFor(S.cart.map((l) => l.productId)), cartTotal());
+/** Familia del servicio (Netflix, Disney+…): las variantes de una misma app son alternativas. */
+const family = (p) => p.name.toLowerCase().replace(/^(invitación|cuenta|perfil)\s+/, "").split(/\s+/)[0];
 /** El panel de GaboHub es para revendedores. */
 const hubPanel = () => MODE === "hub" && isReseller();
 
@@ -185,10 +196,10 @@ function qrBlock() {
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
 
-const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], tiendas: ["grid", "Tiendas"], precios: ["coins", "Precios"], cuentas: ["idcard", "Mis cuentas"],
+const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], tiendas: ["grid", "Tiendas"], precios: ["coins", "Precios"], cuentas: ["idcard", "Mis cuentas"],
   clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
 function buildNav() {
-  const top = MODE === "rshop" ? ["inicio", "catalogo"] : MODE === "store" ? ["inicio", "catalogo", "cuentas", "codigos", "recargas"]
+  const top = MODE === "rshop" ? ["inicio", "catalogo"] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), "cuentas", "codigos", "recargas"]
     : hubPanel() ? ["cuentas", "precios", "clientes", "recargas", "codigos"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? ["inicio", "catalogo", "cart"] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
     : hubPanel() ? ["cuentas", "precios", "cart", "clientes", "recargas"] : ["inicio", "tiendas", "login"];
@@ -225,6 +236,7 @@ function render() {
         <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div>`}</section>
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
       <div class="pgrid">${pub.slice(0, 4).map(card).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
       ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
       <section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
         ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
@@ -236,8 +248,10 @@ function render() {
       return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en bolivianos${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
+      ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
       ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
     },
+    combo: () => comboView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
@@ -598,13 +612,69 @@ function closeAll() {
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
 }
+/* ---------------- Armá tu combo ---------------- */
+function comboView() {
+  if (!comboOn()) return `<div class="sbox"><h2>Armá tu combo</h2><p class="empty">Esta opción no está disponible ahora.</p></div>`;
+  const sel = (S.data.combo ??= []).filter((id) => comboable(product(id)));
+  S.data.combo = sel;
+  const all = S.catalog.filter(comboable);
+  const cats = ["Todos", ...new Set(all.map((p) => p.category).filter(Boolean))];
+  const cc = cats.includes(S.data.ccat) ? S.data.ccat : "Todos";
+  const list = all.filter((p) => cc === "Todos" || p.category === cc);
+  const chosen = sel.map(product);
+  const gross = chosen.reduce((s, p) => s + p.price, 0), disc = Math.min(discountFor(sel), gross), D = S.settings.comboDiscounts;
+  const noStock = chosen.filter((p) => !p.available);
+  const next = sel.length < 2 ? `Elegí ${2 - sel.length === 2 ? "dos servicios" : "uno más"} para activar el descuento.` : sel.length < 4 && D[sel.length - 1] > disc ? `Sumá uno más y ahorrás ${bs(D[sel.length - 1])}.` : "¡Tenés el descuento máximo!";
+  const msg = `Hola, quiero armar este combo:\n${chosen.map((p) => `• ${p.name} (${bs(p.price)})`).join("\n")}\nDescuento combo: −${bs(disc)}\nTotal: ${bs(gross - disc)}`;
+  return `<div class="sec-h"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo</h2><p>Combiná streaming, música, IA y herramientas. Elegí 2 o más servicios y ahorrá. Los combos ya armados mantienen su precio.</p></div></div>
+    <div class="ctiers">${D.map((v, i) => `<div class="${(i === 0 && sel.length === 2) || (i === 1 && sel.length === 3) || (i === 2 && sel.length >= 4) ? "on" : ""}"><b>${["2", "3", "4+"][i]}</b><span>servicios</span><em>−${bs(v)}</em></div>`).join("")}</div>
+    <div class="cbuild">
+      <div style="display:grid;gap:14px;min-width:0">
+        <div class="cats">${cats.map((c) => `<button type="button" data-ccat="${esc(c)}" aria-pressed="${c === cc}">${esc(c)}</button>`).join("")}</div>
+        <p class="empty" style="margin:0">${list.length} opciones · ${sel.length} en tu combo</p>
+        <div class="copts">${list.map((p) => { const on = sel.includes(p.id); return `<button type="button" class="copt${on ? " on" : ""}" data-cpick="${esc(p.id)}" aria-pressed="${on}">${miniMark(p)}<span><b>${esc(p.name)}</b><small>${p.durationDays} días${p.available ? "" : " · a pedido"}</small></span><em>${bs(p.price)}</em><i>${on ? "✓" : "+"}</i></button>`; }).join("")}</div>
+        <p class="empty" style="margin:0;font-size:13px">Las variantes de una misma app (por ejemplo Disney+ con o sin ESPN) son alternativas: al elegir una se cambia la otra.</p>
+      </div>
+      <aside class="csum">
+        <span class="chip">Tu selección</span>
+        ${chosen.length ? `<div class="clist">${chosen.map((p) => `<div>${miniMark(p)}<span>${esc(p.name)}</span><b>${bs(p.price)}</b><button type="button" data-cpick="${esc(p.id)}" aria-label="Quitar ${esc(p.name)}">×</button></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no elegiste nada. Tocá los servicios de la lista.</p>`}
+        <div class="total sub"><span>Precio por separado</span><span>${bs(gross)}</span></div>
+        <div class="total disc"><span>Tu ahorro</span><span>− ${bs(disc)}</span></div>
+        <div class="total big"><span>Total del combo</span><span>${bs(gross - disc)}</span></div>
+        <p class="cnext">${next}</p>
+        ${sel.length < 2 ? `<button class="sbtn pri" type="button" disabled>Elegí al menos 2</button>`
+          : noStock.length ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, msg)}" target="_blank" rel="noopener">${icon("wa")}Pedir combo por WhatsApp</a><p class="empty" style="margin:0;font-size:13px">${esc(noStock.map((p) => p.name).join(", "))} ${noStock.length > 1 ? "están" : "está"} a pedido: te confirmamos por WhatsApp.</p>` : `<button class="sbtn pri" type="button" disabled>Sin stock por ahora</button>`)
+          : `<button class="sbtn pri" type="button" data-cadd="1">${icon("cart")}Agregar combo al carrito</button>`}
+        ${sel.length ? `<button class="sbtn" type="button" data-cclear="1">Empezar de nuevo</button>` : ""}
+      </aside>
+    </div>
+    ${sel.length ? `<button class="cbar" type="button" data-cgo="1"><span>${sel.length} en tu combo · ${bs(gross - disc)}<br><small>${disc ? `Ahorrás ${bs(disc)}` : "Elegí uno más para el descuento"}</small></span>Ver ${icon("arrow")}</button>` : ""}`;
+}
+
+function comboClick(d) {
+  if (d.ccat !== undefined) { S.data.ccat = d.ccat; render(); return true; }
+  if (d.cpick) {
+    const p = product(d.cpick), sel = (S.data.combo ??= []);
+    if (sel.includes(p.id)) S.data.combo = sel.filter((x) => x !== p.id);
+    else { S.data.combo = sel.filter((x) => family(product(x)) !== family(p)); S.data.combo.push(p.id); }
+    render(); return true;
+  }
+  if (d.cgo) { $(".csum")?.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
+  if (d.cclear) { S.data.combo = []; render(); return true; }
+  if (d.cadd) {
+    for (const id of S.data.combo ?? []) if (!S.cart.some((l) => l.productId === id)) S.cart.push({ productId: id, qty: 1 });
+    saveCart(); S.data.combo = []; S.step = 1; render(); openDrawer(); toast("Combo agregado al carrito"); return true;
+  }
+  return false;
+}
+
 function renderCart(msg = "") {
   const tot = cartTotal();
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `<div class="total"><span>Total</span><span>${bs(tot)}</span></div>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\nTotal: ${bs(tot)}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\nTotal: ${bs(tot)}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
@@ -612,9 +682,10 @@ function renderCart(msg = "") {
     $("#drawer").innerHTML = head + `<p class="empty">Para pagar, primero entrá con tu número de WhatsApp. Tu carrito queda guardado.</p><button class="sbtn pri" type="button" data-login="1">Acceder</button><button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
   }
-  const canBalance = S.me.balance >= tot;
+  const toPay = tot - cartDiscount();
+  const canBalance = S.me.balance >= toPay;
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
-    <div class="total"><span>Total</span><span>${bs(tot)}</span></div>
+    ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : "No alcanza para este pedido."}</small></span></label>
     <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label></div>
@@ -741,6 +812,7 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
+  if (comboClick(d)) return;
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
