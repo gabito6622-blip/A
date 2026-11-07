@@ -118,12 +118,14 @@ const V = {
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
       ${(() => {
-        const names = [...new Set(view.map((r) => r.customerName.toLowerCase()))];
+        // Si el texto buscado coincide con el nombre de UN solo cliente, se muestra su resumen.
+        const names = [...new Set(view.map((r) => r.customerName).filter((n) => n.toLowerCase().includes(q)))];
         if (!q || names.length !== 1) return "";
-        const r0 = view[0];
+        const mine = view.filter((r) => r.customerName === names[0]);
+        const r0 = mine[0];
         return `<section class="card ctl-client"><div><b>${esc(r0.customerName)}</b> <span class="muted">${r0.customerPhone ? esc(r0.customerPhone) : "sin WhatsApp"}</span><br>
-          <small>${view.length} alquiler(es) · ${view.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(sum((r) => r.price))}</small></div>
-          <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="1">Seleccionar todas</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
+          <small>${mine.length} alquiler(es) · ${mine.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(mine.reduce((t, r) => t + r.price, 0))}</small>${mine.length < view.length ? `<br><small class="muted">+ ${view.length - mine.length} donde figura como revendedor o en la nota</small>` : ""}</div>
+          <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
       <section class="ctl-cards">${view.map((r) => `<article class="ccard rv-${r.est[1]}">
         <header><label class="ccheck"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
@@ -710,7 +712,11 @@ document.addEventListener("click", async (ev) => {
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
   }
-  if (d.cselall) { $$(".ctl-cards .csel, table.ctl .csel").forEach((c) => (c.checked = true)); return updateCtlBar(); }
+  if (d.cselall) {
+    const ids = new Set((P.controlView ?? []).filter((r) => r.customerName === d.cselall).map((r) => r.id));
+    $$(".csel").forEach((c) => (c.checked = ids.has(c.value)));
+    return updateCtlBar();
+  }
   if (d.cbulk) {
     const ids = [...new Set($$(".csel:checked").map((x) => x.value))];
     if (d.cbulk === "clear") { $$(".csel").forEach((c) => (c.checked = false)); return updateCtlBar(); }
