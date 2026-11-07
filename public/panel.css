@@ -232,3 +232,17 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
   .ccard select.ctl-in{width:auto}
   .ctl-bar{bottom:8px;width:calc(100% - 16px)}
 }
+@media (max-width:860px){
+  .ctl-top{padding:10px 12px;gap:8px}
+  .ctl-top .ctl-chips button{font-size:13px;padding:6px 10px}
+  .ctl-filters{gap:6px}
+  .ctl-filters>input#cq{flex:1 1 100%;font-size:16px;padding:10px 12px}
+  .ctl-filters>select{flex:1 1 30%;font-size:13px;padding:7px 6px}
+  .ctl-filters>.pbtn{display:none}
+  .ctl-bar{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:6px;padding:8px;font-size:13px}
+  .ctl-bar>b{font-size:16px}
+  .ctl-bar .pbtn{padding:7px 8px;font-size:13px}
+  .ctl-bar>span.inline{grid-column:1/-1;display:flex;gap:6px;flex-wrap:nowrap}
+  .ctl-bar>span.inline input{flex:1;min-width:0}
+  .ctl-bar>.chk{grid-column:1/-1;font-size:11px}
+}

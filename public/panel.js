@@ -141,12 +141,12 @@ const V = {
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}">✅ Renovada</button>
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details></footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
-      <div class="ctl-bar" id="ctlBar" hidden><b id="ctlN">0</b> seleccionadas
+      <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
-        <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
         <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
-        <label class="chk"><input type="checkbox" id="cbBeyond"> aunque pase la fecha del proveedor</label>
-        <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button></div>
+        <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button>
+        <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
+        <label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label></div>
       <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
         <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
         ${view.map((r) => `<tr class="rv-${r.est[1]}">
