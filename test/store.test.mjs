@@ -376,6 +376,22 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.stats.summary(seller, { from: 0, to: 1 }), err("FORBIDDEN"));
   });
 
+  test("el dueño crea la página del revendedor desde el panel; el revendedor ve sus precios especiales", () => {
+    const { s, carla, maria } = setup();
+    const r = s.shops.setupFor(admin, carla.id, { slug: "carla-store", title: "Carla Store", enabled: true, accentColor: "#000000" });
+    assert.deepEqual([r.slug, r.title, r.enabled], ["carla-store", "Carla Store", true]);
+    assert.equal(s.shops.public("carla-store").title, "Carla Store");
+    assert.throws(() => s.shops.setupFor(admin, maria.id, { enabled: true }), err("VALIDATION"), "solo revendedores");
+    assert.throws(() => s.shops.setupFor(admin, carla.id, { slug: "admin" }), err("VALIDATION"));
+    const ov = s.shops.resellers(admin);
+    assert.equal(ov.length, 1);
+    assert.equal(ov[0].shop.enabled, true);
+    const cat = s.catalog.publicCatalog(carla.id);
+    const nf = cat.find((p) => p.id === "netflix");
+    assert.deepEqual([nf.price, nf.wholesale, nf.publicPrice], [2500, true, 3500]);
+    assert.equal(s.catalog.publicCatalog(maria.id).find((p) => p.id === "netflix").wholesale, undefined);
+  });
+
   test("revendedor compra a pedido (sin stock) con QR y se entrega al aprobar cuando cargo la cuenta", () => {
     const { s, carla, as } = setup();
     s.catalog.upsertProduct(owner, { id: "disalq", name: "Disney alquiler", kind: "full_account", durationDays: 30, price: 6000, published: true, resellersOnly: true });

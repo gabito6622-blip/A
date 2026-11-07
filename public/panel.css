@@ -339,3 +339,14 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .mbkinds button b{width:36px;height:36px;border-radius:8px;background:var(--soft);display:grid;place-items:center;font-size:16px;flex:none}
 .mbkinds button span{display:grid}.mbkinds button small{color:var(--muted)}
 .mbkinds button[aria-pressed="true"]{border:2px solid var(--blue);padding:13px}.mbkinds button[aria-pressed="true"] b{background:var(--blue);color:#fff}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.rcard .pp{white-space:nowrap}
+.rcard{border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;background:var(--card);min-width:0}
+.rtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.rtop>div{display:grid;flex:1;min-width:0}.rtop b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ravatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#00d4ff);color:#fff;display:grid;place-items:center;font-weight:700;flex:none;text-transform:uppercase}
+.rstats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--soft);border-radius:10px;padding:8px}
+.rstats div{display:grid;text-align:center}.rstats span{font-size:11px;color:var(--muted)}.rstats b{font-variant-numeric:tabular-nums}
+.linkbar.sm{padding:6px 8px;font-size:12.5px}.linkbar.sm a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:var(--blue)}
+.slugin{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden}
+.slugin small{padding:0 0 0 10px;color:var(--muted);white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}.slugin input{border:0!important;flex:1;min-width:0}
+.ok-card{border:2px solid var(--ok)}

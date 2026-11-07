@@ -101,6 +101,8 @@ export function createStore(opts: EngineOptions = {}) {
       setImage: bind(e, rshop.setMyShopImage),
       setBlocked: bind(e, rshop.setShopBlocked),
       list: bind(e, rshop.listShops),
+      setupFor: bind(e, rshop.setupShopFor),
+      resellers: bind(e, rshop.resellersOverview),
       program: () => rshop.programInfo(e),
       setFeatured: bind(e, rshop.setShopFeatured),
       setTestimonials: bind(e, rshop.setTestimonials),

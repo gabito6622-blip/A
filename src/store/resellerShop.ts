@@ -8,6 +8,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { cleanLook } from "./look.js";
+import { balance } from "./wallet.js";
 
 const RESERVED = new Set(["api", "panel", "admin", "r", "www", "tienda", "store", "login", "static", "assets", "gabriel", "gabrielstore", "soporte", "ayuda"]);
 
@@ -45,6 +46,37 @@ export function myShop(e: Engine, actor: Actor) {
 
 export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unknown>) {
   const c = me(e, actor);
+  applyShop(e, actor, c, patch);
+  return myShop(e, actor);
+}
+
+/** El dueño (o su equipo) arma la página de un revendedor: dirección, nombre, WhatsApp y si está publicada. */
+export function setupShopFor(e: Engine, actor: Actor, customerId: Id, patch: Record<string, unknown>) {
+  authorize(actor, "customer.manage");
+  const c = e.get("customers", customerId);
+  if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
+  const allowed = Object.fromEntries(Object.entries(patch).filter(([k]) => ["slug", "title", "whatsapp", "enabled"].includes(k)));
+  applyShop(e, actor, c, allowed);
+  const s = e.s.customers[customerId].shop!;
+  return { slug: s.slug, title: s.title, enabled: s.enabled, whatsapp: s.whatsapp };
+}
+
+/** Revendedores con su página, saldo y servicios (para el panel). */
+export function resellersOverview(e: Engine, actor: Actor) {
+  authorize(actor, "customer.manage");
+  const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
+  return Object.values(e.s.customers).filter((c) => c.kind === "reseller").map((c) => {
+    const s = c.shop ?? defaults(e, c);
+    const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
+    return {
+      id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
+      services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
+      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked },
+    };
+  }).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, unknown>) {
   const look = cleanLook(patch);
   const p: Partial<ResellerShop> = {};
   if (patch.slug !== undefined) {
@@ -75,7 +107,6 @@ export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unkn
     if (p.enabled && e.s.settings.resellerShops === false) throw new DomainError("FORBIDDEN", "La tienda no tiene habilitadas las páginas de revendedores");
     c.shop = { ...cur, ...look, ...p };
     e.audit(actor, "reseller.shop_update", "customer", c.id, { fields: [...Object.keys(look), ...Object.keys(p)].join(","), slug: c.shop.slug });
-    return myShop(e, actor);
   });
 }
 

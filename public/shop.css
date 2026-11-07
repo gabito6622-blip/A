@@ -480,3 +480,4 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .cbar{display:none}
 @media (max-width:860px){.cbar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:29;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:var(--s-blue);color:#fff;border:0;font:inherit;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.35)}
   .cbar span{flex:1;text-align:left}.cbar small{font-weight:500;opacity:.9}}
+.price small.pub{text-decoration:line-through;margin-left:6px;opacity:.8}

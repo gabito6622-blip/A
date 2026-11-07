@@ -11,10 +11,10 @@ const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
-  ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
+  ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -23,6 +23,15 @@ const table = (head, rows, empty = "No hay datos todavía.") => rows.length
   : `<div class="emptybox">${esc(empty)}</div>`;
 const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(t)}</option>`;
 const dateInput = (t) => new Date(t).toISOString().slice(0, 10);
+
+/** Link de acceso + página + mensaje de WhatsApp para un revendedor. */
+async function resellerKit(id, name, phone, slug) {
+  const { url } = await api("POST", `/api/admin/customers/${id}/login-link`, {});
+  const page = `${location.origin}/r/${slug}`;
+  const plat = P.settings?.platformName || "GaboHub";
+  const msg = `¡Hola ${name.split(" ")[0]}! 👋 Ya tenés tu cuenta de revendedor en ${plat}.\n\n🔑 Entrá acá (link personal, no lo compartas):\n${url}\n\nAhí ves tus precios, comprás con saldo o QR, ves tus cuentas y armás tu página.\n\n🛍️ Tu página para tus clientes:\n${page}\n\nDespués podés entrar siempre desde ${location.origin} con tu número de WhatsApp.`;
+  return { name, phone, url, page, msg };
+}
 
 const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, address: f.address.value.trim(), host: f.host?.value.trim(), port: f.port?.value, user: f.user?.value.trim() || undefined,
   password: f.password.value, name: f.name.value.trim() || undefined, subjects: f.subjects.value.trim() || undefined });
@@ -545,6 +554,40 @@ const V = {
         <td>${u.role !== "owner" ? `<button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`))}</section>`;
   },
 
+  async revendedores() {
+    const [list, set] = await Promise.all([api("GET", "/api/admin/resellers"), api("GET", "/api/settings")]);
+    const T = P.tab, o = location.origin;
+    const q = (T.rq ?? "").toLowerCase();
+    const shown = list.filter((r) => !q || `${r.name} ${r.phone} ${r.shop.slug}`.toLowerCase().includes(q));
+    const sent = T.rlink;
+    return `<section class="card"><h2>${icon("userplus")}Nuevo revendedor <small>queda con su panel en ${esc(set.platformName || "GaboHub")} y su página propia</small></h2>
+      <form class="form" id="resForm">
+        <label>Nombre<input name="name" required maxlength="80" placeholder="Ej.: Ari Streaming" data-slugsrc="1"></label>
+        <label>WhatsApp (con código de país)<input name="phone" required inputmode="tel" placeholder="59170000000"></label>
+        <label>Dirección de su página<span class="slugin"><small>…/r/</small><input name="slug" maxlength="30" placeholder="ari-streaming" pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]"></span></label>
+        <label>Nombre de su página<input name="title" maxlength="40" placeholder="Ari Streaming"></label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="publish" checked> Publicar su página ya (después él la personaliza con su logo y colores)</label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" checked> Acepta recibir avisos por WhatsApp</label>
+        <button class="pbtn dark" type="submit">${icon("plus")}Crear revendedor</button>
+      </form></section>
+    ${sent ? `<section class="card ok-card"><h2>✅ Listo: ${esc(sent.name)}</h2>
+      <div class="linkbar"><span class="muted">Su página</span><b>${esc(sent.page)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.page)}">${icon("copy")}Copiar</button></div>
+      <div class="linkbar"><span class="muted">Su acceso (vale 24 horas)</span><b>${esc(sent.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.url)}">${icon("copy")}Copiar</button></div>
+      <div class="inline"><a class="pbtn green" href="${waLink(sent.phone, sent.msg)}" target="_blank" rel="noopener">${icon("wa")}Mandarle todo por WhatsApp</a><button class="pbtn" type="button" data-tab="rlink:">Cerrar</button></div></section>` : ""}
+    <section class="card"><h2>Tus revendedores <small>${list.length}</small><input class="rsearch" id="rq" placeholder="Buscar" value="${esc(T.rq ?? "")}" style="margin-left:auto;max-width:220px"></h2>
+      ${shown.length ? `<div class="rgrid">${shown.map((r) => `<div class="rcard">
+        <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
+        <div class="rstats"><div><span>Saldo</span><b>${bs(r.balance)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div></div>
+        <div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>
+        <div class="inline">
+          <button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}">${icon("wa")}Mandar acceso</button>
+          <button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
+          <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
+          ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
+        </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
+      <p class="muted" style="margin:0">Ellos entran a ${esc(set.platformName || "GaboHub")} con el link de acceso (o con su número de WhatsApp) y ven: Precios para comprar con saldo o QR, Mis cuentas, Mis clientes y Mi página para ponerle logo, colores y sus precios. Los precios de revendedor los ponés en Productos → “Precio revendedor” o con “Solo revendedores”.</p></section>`;
+  },
+
   async codigos() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
     const [boxes, codes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes")]);
@@ -960,6 +1003,28 @@ document.addEventListener("click", async (ev) => {
   }
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
+  if (d.rsend) {
+    const r = (await api("GET", "/api/admin/resellers")).find((x) => x.id === d.rsend);
+    try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.shop.slug); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.rpub !== undefined && el.dataset.rpub) {
+    try { await api("POST", `/api/admin/customers/${d.rpub}/shop`, { enabled: !!d.on }); toast(d.on ? "Página publicada" : "Página apagada"); } catch (e) { toast(e.message); }
+    return render();
+  }
+  if (d.redit) {
+    const r = (await api("GET", "/api/admin/resellers")).find((x) => x.id === d.redit);
+    const slug = prompt("Dirección de su página (letras, números y guiones):", r.shop.slug);
+    if (!slug || slug === r.shop.slug) return;
+    try { await api("POST", `/api/admin/customers/${d.redit}/shop`, { slug: slug.trim().toLowerCase() }); toast("Dirección cambiada"); } catch (e) { toast(e.message); }
+    return render();
+  }
+  if (d.rtop) {
+    const v = prompt("¿Cuánto saldo le cargás? (Bs, negativo para descontar)");
+    if (!v) return;
+    try { await api("POST", `/api/admin/customers/${d.rtop}/adjust`, { amount: toCents(v), reason: "Recarga de saldo (panel)" }); toast("Saldo actualizado"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.mbtest) {
     const f = $("#mbForm");
     el.disabled = true;
@@ -1049,6 +1114,19 @@ document.addEventListener("input", (ev) => {
   P.tab.cq = ev.target.value;
   clearTimeout(cqTimer);
   cqTimer = setTimeout(async () => { await render(); const f = $("#cq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
+});
+let rqTimer;
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.id === "rq") {
+    P.tab.rq = t.value; clearTimeout(rqTimer);
+    rqTimer = setTimeout(async () => { await render(); const f = $("#rq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
+  }
+  if (t.dataset.slugsrc && t.form) {
+    const slug = t.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
+    t.form.slug.placeholder = slug || "ari-streaming";
+    t.form.title.placeholder = t.value.slice(0, 40) || "Ari Streaming";
+  }
 });
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "lookForm") { clearTimeout(lookTimer); lookTimer = setTimeout(previewLook, 150); } });
 
@@ -1246,6 +1324,15 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
+    } else if (f.id === "resForm") {
+      const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+      try {
+        const c = await api("POST", "/api/admin/customers", { name: f.name.value.trim(), phone: f.phone.value, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: f.consent.checked });
+        const shop = await api("POST", `/api/admin/customers/${c.id}/shop`, { ...(f.slug.value.trim() ? { slug: f.slug.value.trim().toLowerCase() } : {}), title: (f.title.value.trim() || f.name.value.trim()).slice(0, 40), enabled: f.publish.checked });
+        P.tab.rlink = await resellerKit(c.id, c.name, c.phone, shop.slug);
+        toast("Revendedor creado");
+        await render(); scrollTo(0, 0);
+      } catch (e) { toast(e.message); btn.disabled = false; }
     } else if (f.id === "mbForm") {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {

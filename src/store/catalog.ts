@@ -266,6 +266,8 @@ export function publicCatalog(e: Engine, customerId?: Id) {
       id: p.id, name: p.name, kind: p.kind, durationDays: p.durationDays,
       category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, resellersOnly: !!p.resellersOnly,
       price: customerId ? priceFor(e, customerId, p.id) : p.price,
+      // Tiene precio especial para este cliente (revendedor): sale en su lista de precios.
+      ...(customerId && e.s.priceGroups[e.s.customers[customerId]?.priceGroupId]?.prices[p.id] !== undefined ? { wholesale: true, publicPrice: p.price } : {}),
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));
 }

@@ -443,6 +443,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
+  route("GET", "/api/admin/resellers", "staff", (c) => store.shops.resellers(A(c)));
+  route("POST", "/api/admin/customers/:id/shop", "staff", (c) => store.shops.setupFor(A(c), c.params.id, c.body ?? {}));
   route("POST", "/api/admin/customers/:id/login-link", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];

@@ -183,7 +183,7 @@ function card(p) {
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${s ? (s <= 2 ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? "var(--s-muted)" : "var(--s-bad)"}">${s ? (s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? "Disponible a pedido" : "Agotado"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" })[k] ?? k;
@@ -301,7 +301,7 @@ function render() {
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
-      const list = pub.filter((p) => p.resellersOnly);
+      const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
       return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Precios para revendedores</h2><p>Comprá con tu saldo y la cuenta se entrega al instante. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
         ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
     })(),
