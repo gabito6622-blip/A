@@ -1,0 +1,20 @@
+GABRIEL STORE — PAQUETE REA PARA CLAUDE CODE
+
+CONTENIDO:
+1. GABRIEL_STORE_TIENDA_DEMO_NUEVA.html: prototipo ORIGINAL de tienda en un archivo HTML, CSS y JS. Funciona como demostración local, sin banco, backend o seguridad real.
+2. INFORME_REA_A_H_COMPLETO_NUEVO.md: informe de REA A-H. Diferencia verificaciones, hallazgos recuperados, propuestas y pendientes.
+3. PROMPT_LISTO_PARA_CLAUDE_NUEVO.txt: instrucciones para Claude Code.
+4. gabriel_store_vista_mobile.png: referencia visual móvil.
+5. gabriel_store_vista_desktop.png: referencia visual escritorio.
+
+EN WINDOWS:
+1. Descargá el ZIP.
+2. Abrí Explorador de archivos > Descargas.
+3. Clic derecho en ZIP > Extraer todo.
+4. Abrí la carpeta extraída; doble clic en HTML para ver la tienda demo en Chrome.
+5. Para Claude Code, ubicá estos archivos dentro de una carpeta temporal del repositorio actual (por ejemplo docs/rea_import/) SIN sobrescribir archivos actuales.
+6. Pedile a Claude que lea PROMPT_LISTO_PARA_CLAUDE_NUEVO.txt y que compare con el repo antes de programar.
+
+SI CLAUDE NO ACEPTA ZIP: extraé el ZIP primero y adjuntá los archivos por separado. Claude Code suele poder leerlos desde el workspace cuando están en el directorio del proyecto.
+
+IMPORTANTE: El material NO incluye el código original de StreamingManager ni endpoints privados; no pruebes dinero real ni publiques cambios sin aprobación.

@@ -1,0 +1,13 @@
+CLAUDE CODE — CONTINUACIÓN REA / GABRIEL STORE
+
+Adjunto el informe A-H y un HTML único, original, con prototipo visual navegable.
+
+LEÉ PRIMERO REA_StreamingManager_A-H_Gabriel_Store.md: diferencia OBSERVADO/PREVIO, PÚBLICO VERIFICADO, ANUNCIADO, PROPUESTO y PENDIENTE.
+
+Antes de escribir código, inspeccioná el repositorio existente de Gabriel Store (README, AGENTS.md, package.json, src, routes, DB, pruebas, variables de entorno). No crees un repositorio nuevo ni sobrescribas archivos sin comparar. El archivo gabriel_store_rea_demo.html es solo demo FRONTEND: no tiene pagos, auth, API ni inventario de producción. Usalo como referencia de diseño original y flujo visual.
+
+Entregá 3 documentos primero: docs/REA_STREAMINGMANAGER.md, docs/GAP_ANALYSIS.md, docs/IMPLEMENTATION_PLAN.md. Incluí hallazgos verificados y lista de pendientes, sin inventar calls API o HTML del competidor.
+
+Implementá un MVP seguro en este orden: catálogo DB -> carrito -> pedido -> reserva de stock atómica -> comprobante -> revisión manual -> asignación -> acceso privado -> renovación de fecha cliente sin alterar fecha proveedor -> auditoría. Después revendedores, WhatsApp y recargas si el negocio realmente lo necesita.
+
+No publiques el HTML demo como producto real. No proceses pagos ni envíes mensajes auténticos durante pruebas. Pedí autorización para integraciones productivas, sin detener las tareas que no la requieren. Probá endpoints, RBAC, concurrencia, móvil y E2E. Documentá cambios, tests y riesgos.
