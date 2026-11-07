@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="theme-color" content="#090e1d">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gabriel Store</title>
 <meta name="description" content="Suscripciones digitales en bolivianos: pagá con QR o saldo y recibí tus accesos en tu cuenta.">
@@ -17,7 +18,7 @@
     <a class="slogo" href="#inicio"><i id="logoMark">G</i><span id="storeName" style="color:inherit">Gabriel Store</span></a>
     <nav class="snav" aria-label="Tienda">
       <button type="button" data-s="inicio">Inicio</button><button type="button" data-s="catalogo">Catálogo</button>
-      <button type="button" data-s="cuentas">Mis cuentas</button><button type="button" data-s="codigos">Códigos</button><button type="button" data-s="recargas">Saldo</button>
+      <button type="button" data-s="cuentas">Mis cuentas</button><button type="button" data-s="codigos">Códigos</button><button type="button" data-s="recargas">Saldo</button><button type="button" data-s="clientes" id="navCli" hidden>Mis clientes</button>
     </nav>
     <button class="sbtn acc" type="button" id="accBtn"><svg class="i"><use href="/icons.svg#i-user"/></svg><span id="accName">Acceder</span></button>
     <button class="sbtn" type="button" data-cart="1" aria-label="Carrito"><svg class="i"><use href="/icons.svg#i-cart"/></svg><span class="cartn" id="cartN">0</span></button>
@@ -29,7 +30,8 @@
     <button type="button" data-s="catalogo"><svg><use href="/icons.svg#i-grid"/></svg>Catálogo</button>
     <button type="button" data-cart="1"><svg><use href="/icons.svg#i-cart"/></svg>Carrito</button>
     <button type="button" data-s="cuentas"><svg><use href="/icons.svg#i-idcard"/></svg>Mis cuentas</button>
-    <button type="button" data-s="recargas"><svg><use href="/icons.svg#i-coins"/></svg>Saldo</button>
+    <button type="button" data-s="recargas" id="bnavSaldo"><svg><use href="/icons.svg#i-coins"/></svg>Saldo</button>
+    <button type="button" data-s="clientes" id="bnavCli" hidden><svg><use href="/icons.svg#i-user"/></svg>Clientes</button>
   </nav>
 </div>
 <div class="scrim" id="scrim" hidden></div>

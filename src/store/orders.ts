@@ -399,7 +399,7 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
 export const DEFAULT_REMINDERS: ReminderSettings = { enabled: true, daysBefore: [2], fromHour: 9, toHour: 20, timeZone: "America/La_Paz" };
 export const reminderSettings = (e: Engine): ReminderSettings => ({ ...DEFAULT_REMINDERS, ...(e.s.settings.reminders ?? {}) });
 
-function localHour(t: number, timeZone: string): number {
+export function localHour(t: number, timeZone: string): number {
   try {
     const h = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).formatToParts(new Date(t)).find((p) => p.type === "hour")?.value;
     return Number(h ?? new Date(t).getHours());

@@ -654,3 +654,46 @@ describe("11. Avisos para el dueño", () => {
     assert.throws(() => s.orders.supplierExpiryAlerts(seller), err("FORBIDDEN"));
   });
 });
+
+describe("12. Revendedor y apariencia", () => {
+  test("el revendedor edita solo SUS clientes, sin tocar tipo ni precios", () => {
+    const { s, carla, maria, as } = setup();
+    const r = as(carla);
+    const pedro = s.catalog.createCustomer(r, { name: "Pedro", phone: "+591 71230000" });
+    const out = s.portal.updateClient(r, pedro.id, { name: "Pedro Mamani", phone: "+591 71239999", note: "paga los viernes", whatsappConsent: true, kind: "reseller" });
+    assert.deepEqual(out, { id: pedro.id, name: "Pedro Mamani", phone: "+59171239999", whatsappConsent: true, note: "paga los viernes" });
+    assert.equal(s.snapshot().customers[pedro.id].kind, "customer");
+    assert.equal(s.portal.customers(r)[0].note, "paga los viernes");
+    assert.throws(() => s.portal.updateClient(r, maria.id, { name: "X" }), err("FORBIDDEN"));
+    assert.throws(() => s.portal.updateClient(as(maria), pedro.id, { name: "X" }), err("FORBIDDEN"));
+    assert.throws(() => s.portal.updateClient(r, pedro.id, { phone: maria.phone }), err("VALIDATION"));
+  });
+
+  test("lista de precios del revendedor: costo, precio de venta y ganancia", () => {
+    const { s, carla, maria, as } = setup();
+    const r = as(carla);
+    s.portal.setPrices(r, { netflix: 3500, gemini: 1500 });
+    const list = s.portal.priceList(r);
+    const nf = list.find((p) => p.productId === "netflix");
+    assert.deepEqual([nf.cost, nf.sell, nf.profit], [2500, 3500, 1000]);
+    assert.equal(list.find((p) => p.productId === "gemini").profit, -300);
+    assert.ok(!list.some((p) => p.productId === "oculto"), "no muestra productos sin publicar");
+    s.portal.setPrices(r, { gemini: null });
+    assert.equal(s.portal.priceList(r).find((p) => p.productId === "gemini").sell, null);
+    assert.throws(() => s.portal.setPrices(r, { nada: 100 }), err("NOT_FOUND"));
+    assert.throws(() => s.portal.setPrices(r, { netflix: -1 }), err("VALIDATION"));
+    assert.throws(() => s.portal.setPrices(as(maria), { netflix: 100 }), err("FORBIDDEN"));
+  });
+
+  test("apariencia: letra, bordes, textos y redes se validan y normalizan", () => {
+    const { s } = setup();
+    const st = s.catalog.updateSettings(owner, { fontFamily: "poppins", corners: "square", heroChip: "Hola", heroTicks: "A, B", footerText: "Pie",
+      instagram: "@gabo.store", tiktok: "https://www.tiktok.com/@gabostore", facebook: "https://facebook.com/gabostore/", backgroundColor: "#f5f7fb" });
+    assert.deepEqual([st.fontFamily, st.corners, st.instagram, st.tiktok, st.facebook, st.backgroundColor], ["poppins", "square", "gabo.store", "gabostore", "gabostore", "#f5f7fb"]);
+    assert.throws(() => s.catalog.updateSettings(owner, { fontFamily: "comic" }), err("VALIDATION"));
+    assert.throws(() => s.catalog.updateSettings(owner, { corners: "x" }), err("VALIDATION"));
+    assert.throws(() => s.catalog.updateSettings(owner, { instagram: "mal usuario!" }), err("VALIDATION"));
+    assert.throws(() => s.catalog.updateSettings(owner, { heroTicks: "x".repeat(121) }), err("VALIDATION"));
+    assert.throws(() => s.catalog.updateSettings(seller, { corners: "soft" }), err("FORBIDDEN"));
+  });
+});

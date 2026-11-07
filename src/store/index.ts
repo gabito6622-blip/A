@@ -94,6 +94,9 @@ export function createStore(opts: EngineOptions = {}) {
       orders: bind(e, portal.myOrders),
       balance: bind(e, portal.myBalance),
       customers: bind(e, portal.myCustomers),
+      updateClient: bind(e, portal.updateMyClient),
+      setPrices: bind(e, portal.setMyPrices),
+      priceList: bind(e, portal.myPriceList),
       codes: bind(e, codes.codesFor),
     },
     codes: {
@@ -143,3 +146,4 @@ export function createStore(opts: EngineOptions = {}) {
 }
 
 export type GabrielStore = ReturnType<typeof createStore>;
+export { localHour, reminderSettings } from "./orders.js";

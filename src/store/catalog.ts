@@ -32,12 +32,21 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   for (const k of ["accentColor", "backgroundColor"] as const) {
     if (patch[k] !== undefined && patch[k] !== "" && !/^#[0-9a-fA-F]{6}$/.test(patch[k]!)) throw new DomainError("VALIDATION", "Color: formato #RRGGBB");
   }
-  const LIMITS = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140 } as const;
+  const LIMITS = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120 } as const;
+  if (patch.fontFamily !== undefined && !["inter", "poppins", "montserrat", "nunito", "system"].includes(patch.fontFamily)) throw new DomainError("VALIDATION", "Tipo de letra inválido");
+  if (patch.corners !== undefined && !["round", "soft", "square"].includes(patch.corners)) throw new DomainError("VALIDATION", "Forma de bordes inválida");
+  for (const k of ["instagram", "tiktok", "facebook"] as const) {
+    if (patch[k] !== undefined) {
+      patch = { ...patch, [k]: String(patch[k]).trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?(instagram|tiktok|facebook)\.com\/@?/i, "").replace(/\/+$/, "") };
+      if (patch[k] && !/^[A-Za-z0-9._-]{1,60}$/.test(patch[k]!)) throw new DomainError("VALIDATION", `Usuario de ${k} inválido: solo letras, números, punto o guion`);
+    }
+  }
   for (const [k, max] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][]) {
     if ((patch[k]?.length ?? 0) > max) throw new DomainError("VALIDATION", `Texto demasiado largo (máx. ${max} letras)`);
   }
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "accentColor", "backgroundColor", "logoFileRef", "heroTitle", "heroHighlight", "heroText", "announcement"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "accentColor", "backgroundColor", "logoFileRef", "heroTitle", "heroHighlight", "heroText", "announcement",
+      "fontFamily", "corners", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     e.audit(actor, "settings.update", "settings", "store", { fields: allowed.join(",") });
     return structuredClone(e.s.settings);

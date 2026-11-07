@@ -89,9 +89,20 @@ Si un aviso no tiene plantilla y el cliente no escribió en 24 horas, queda **fa
 | **4**, entrar, clave | Link personal de un solo uso (24 horas) |
 | **5**, código | Códigos de verificación de **sus** cuentas, de los últimos 30 minutos |
 | **6**, saldo | Su saldo |
+| **7**, pedidos, ya pagué | Estado de sus últimos pedidos (verificando, entregado, etc.) |
+| **8**, clientes (solo revendedores) | Sus clientes que vencen en los próximos 7 días, con link para renovar |
+| El nombre de un producto ("cuánto está netflix") | Precio, duración y si hay stock |
+| gracias, ok | "¡De nada!" (sin repetir el menú) |
+| Una palabra de tus **respuestas propias** | Tu texto (van antes que todo lo demás) |
 | renovar | Sus servicios, con el link para renovar |
 | **0**, persona, asesor | Te avisa en Conversaciones y el bot se calla en esa charla (12 horas por defecto) |
 | BAJA / ALTA | Deja de recibir o vuelve a recibir avisos automáticos |
+
+Si el bot no entiende, lo dice y muestra el menú.
+
+**Respuestas propias** (panel → WhatsApp → Bot): palabras clave separadas por coma → el texto que querés que conteste (hasta 30). Sirve para garantía, horarios, cómo ser revendedor, etc.
+
+**Horario de atención de personas:** si lo activás y un cliente pide hablar con una persona fuera de ese horario, el bot le avisa cuándo le van a responder.
 
 Si alguien escribe muchísimos mensajes seguidos, el bot deja de contestarle un rato (máximo 8 respuestas cada 5 minutos por número).
 

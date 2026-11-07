@@ -48,6 +48,19 @@ export interface StoreSettings {
   heroText?: string;
   /** Aviso corto arriba de todo (promos, horarios). Vacío = no se muestra. */
   announcement?: string;
+  /** Tipo de letra de la tienda. */
+  fontFamily?: "inter" | "poppins" | "montserrat" | "nunito" | "system";
+  /** Forma de botones y tarjetas. */
+  corners?: "round" | "soft" | "square";
+  /** Etiqueta arriba del título ("✦ Tu tienda digital en Bolivia"). */
+  heroChip?: string;
+  /** Hasta 3 ventajas debajo del texto, separadas por coma. */
+  heroTicks?: string;
+  footerText?: string;
+  /** Usuarios de redes (sin @). */
+  instagram?: string;
+  tiktok?: string;
+  facebook?: string;
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */
@@ -82,6 +95,11 @@ export interface MetaTemplateRef {
   lang: string;
 }
 
+export interface BotQuickReply {
+  keywords: string[];
+  answer: string;
+}
+
 export interface WhatsAppBotSettings {
   /** Encendido: el bot contesta y los avisos salen por la API oficial. */
   enabled: boolean;
@@ -93,6 +111,10 @@ export interface WhatsAppBotSettings {
   welcome?: string;
   /** Horas que el bot se queda callado después de pedir hablar con una persona. */
   humanPauseHours: number;
+  /** Respuestas propias: si el mensaje tiene alguna de las palabras, el bot contesta ese texto. */
+  quickReplies?: BotQuickReply[];
+  /** Horario en que atiende una persona (hora local). Fuera de ese horario el bot lo aclara. */
+  humanHours?: { from: number; to: number };
   /** Plantillas aprobadas para avisos fuera de la ventana de 24 h. */
   templates: Partial<Record<TemplateId | "login_code", MetaTemplateRef>>;
 }
@@ -184,6 +206,10 @@ export interface Customer {
   createdAt: number;
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
+  /** Nota del revendedor sobre su cliente (solo la ve ese revendedor y el staff). */
+  resellerNote?: string;
+  /** Precios a los que el revendedor le vende a sus clientes (en centavos), para calcular su ganancia. */
+  resellerPrices?: Record<Id, Cents>;
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";

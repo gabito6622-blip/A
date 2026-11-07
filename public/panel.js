@@ -274,17 +274,29 @@ const V = {
     if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin cambian la apariencia.</div></section>`;
     const s = await api("GET", "/api/settings");
     const ACCENTS = [["#3984ff", "Azul"], ["#7c5cff", "Violeta"], ["#e0368a", "Rosa"], ["#ff5a36", "Naranja"], ["#f2b705", "Dorado"], ["#16b47e", "Verde"], ["#14b8c8", "Turquesa"], ["#e53935", "Rojo"]];
-    const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"]];
+    const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"],
+      ["#f5f7fb", "Blanco"], ["#fff7ec", "Crema"], ["#eaf3ff", "Celeste"], ["#f3efff", "Lila"], ["#ecfbf3", "Menta"], ["#fff0f3", "Rosa claro"]];
+    const FONTS = [["inter", "Inter (moderna)"], ["poppins", "Poppins (redondeada)"], ["montserrat", "Montserrat (elegante)"], ["nunito", "Nunito (amigable)"], ["system", "La del celular"]];
+    const CORNERS = [["round", "Redondeados"], ["soft", "Suaves"], ["square", "Rectos"]];
     const sw = (name, list, cur) => `<div class="inline">${list.map(([c, t]) => `<label title="${t}" style="display:grid;justify-items:center;gap:4px;font-size:12px;cursor:pointer;position:relative"><input type="radio" name="${name}" value="${c}" ${c.toLowerCase() === cur.toLowerCase() ? "checked" : ""} style="position:absolute;opacity:0">
       <span class="swatch" style="width:38px;height:38px;border-radius:10px;background:${c};border:3px solid ${c.toLowerCase() === cur.toLowerCase() ? "var(--ink)" : "transparent"};box-shadow:0 0 0 1px var(--line)"></span>${t}</label>`).join("")}
-      ${name === "accentColor" ? `<label style="display:grid;justify-items:center;gap:4px;font-size:12px">Otro<input type="color" name="accentCustom" value="${esc(cur)}" style="width:44px;height:38px;padding:2px"></label>` : ""}</div>`;
+      <label style="display:grid;justify-items:center;gap:4px;font-size:12px">Otro<input type="color" name="${name}Custom" value="${esc(cur)}" style="width:44px;height:38px;padding:2px"></label></div>`;
     return `<section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
-        <div><b>Fondo</b> <span class="muted">· siempre oscuro, para que se lea bien</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
+        <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
+        <div class="form"><label>Tipo de letra<select name="fontFamily">${FONTS.map(([v, t]) => opt(v, t, v === s.fontFamily)).join("")}</select></label>
+          <label>Forma de botones y tarjetas<select name="corners">${CORNERS.map(([v, t]) => opt(v, t, v === s.corners)).join("")}</select></label></div>
         <h2 style="margin-top:6px">Textos de la página de inicio</h2>
         <div class="form"><label>Título<input name="heroTitle" maxlength="40" value="${esc(s.heroTitle)}"></label><label>Parte destacada (en color)<input name="heroHighlight" maxlength="40" value="${esc(s.heroHighlight)}"></label>
         <label style="grid-column:1/-1">Descripción<input name="heroText" maxlength="220" value="${esc(s.heroText)}"></label>
-        <label style="grid-column:1/-1">Aviso arriba de todo (opcional)<input name="announcement" maxlength="140" value="${esc(s.announcement)}" placeholder="Ej.: Netflix a Bs 30 solo este fin de semana"></label></div>
+        <label style="grid-column:1/-1">Aviso arriba de todo (opcional)<input name="announcement" maxlength="140" value="${esc(s.announcement)}" placeholder="Ej.: Netflix a Bs 30 solo este fin de semana"></label>
+        <label>Etiqueta sobre el título (vacío = sin etiqueta)<input name="heroChip" maxlength="40" value="${esc(s.heroChip)}"></label>
+        <label>Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(s.heroTicks)}"></label></div>
+        <h2 style="margin-top:6px">Pie de página y redes</h2>
+        <div class="form"><label style="grid-column:1/-1">Texto del pie<input name="footerText" maxlength="120" value="${esc(s.footerText)}" placeholder="Precios en bolivianos"></label>
+          <label>Instagram (usuario)<input name="instagram" maxlength="80" value="${esc(s.instagram)}" placeholder="gabostore"></label>
+          <label>TikTok (usuario)<input name="tiktok" maxlength="80" value="${esc(s.tiktok)}" placeholder="gabostore"></label>
+          <label>Facebook (página)<input name="facebook" maxlength="80" value="${esc(s.facebook)}" placeholder="gabostore"></label></div>
         <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
@@ -473,8 +485,32 @@ async function waBotHtml() {
         <li><b>3 / pagar</b>: cómo pagar, tus datos de pago y el QR (con la tienda publicada en https).</li>
         <li><b>4 / entrar</b>: link personal de un solo uso para entrar a la tienda.</li>
         <li><b>5 / código</b>: códigos de verificación de SUS cuentas (últimos 30 min).</li>
-        <li><b>6 / saldo</b>: su saldo. <b>BAJA / ALTA</b>: deja o vuelve a recibir avisos.</li>
-        <li><b>0 / persona</b>: te avisa en Conversaciones y el bot se calla en esa charla.</li></ul></details></section>
+        <li><b>6 / saldo</b>: su saldo. <b>7 / pedidos</b>: estado de sus últimos pedidos.</li>
+        <li><b>8 / clientes</b> (solo revendedores): sus clientes que vencen en los próximos 7 días.</li>
+        <li><b>Nombre de un producto</b> (“cuánto está netflix”): precio, duración y si hay stock.</li>
+        <li><b>hola / menú</b>: el menú. <b>gracias</b>: “¡De nada!”. <b>BAJA / ALTA</b>: deja o vuelve a recibir avisos.</li>
+        <li><b>0 / persona</b>: te avisa en Conversaciones y el bot se calla en esa charla. Fuera de tu horario de atención, se lo aclara al cliente.</li>
+        <li>Si no entiende, lo dice y muestra el menú. <b>Tus respuestas propias</b> (abajo) van primero.</li></ul></details></section>
+
+    <section class="card"><h2>Horario de atención de personas</h2>
+      <p class="muted" style="margin:0">El bot contesta siempre. Esto solo sirve para que, si un cliente pide hablar con una persona fuera de horario, el bot le diga cuándo le van a responder.</p>
+      <form class="inline" id="waHours"><label class="chk"><input type="checkbox" name="on" ${b.humanHours ? "checked" : ""} ${dis}> Avisar fuera de horario</label>
+        <label class="inline" style="display:flex">De<select name="from" ${dis}>${Array.from({ length: 24 }, (_, h) => opt(h, `${h}:00`, h === (b.humanHours?.from ?? 9))).join("")}</select></label>
+        <label class="inline" style="display:flex">a<select name="to" ${dis}>${Array.from({ length: 24 }, (_, h) => opt(h + 1, `${h + 1}:00`, h + 1 === (b.humanHours?.to ?? 21))).join("")}</select></label>
+        ${owner ? `<button class="pbtn dark" type="submit">Guardar</button>` : ""}</form></section>
+
+    <section class="card"><h2>Respuestas propias <small>· ${(b.quickReplies ?? []).length}/30</small></h2>
+      <p class="muted" style="margin:0">Si el mensaje del cliente tiene <b>alguna</b> de las palabras clave, el bot contesta tu texto. Separá las palabras con coma. En el texto podés usar <code>{name}</code> (nombre del cliente) y <code>{tienda}</code> (link de la tienda). Usá *asteriscos* para <b>negrita</b>.</p>
+      <form id="waQuick" style="display:grid;gap:12px">
+        ${[...(b.quickReplies ?? []), ...(owner ? [{ keywords: [], answer: "" }] : [])].map((q, i) => `<div class="qr-row" style="display:grid;gap:8px;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;align-items:start;border-bottom:1px solid var(--line);padding-bottom:12px">
+          <label>Palabras clave<input name="k" value="${esc(q.keywords.join(", "))}" placeholder="${i ? "" : "horario, atienden, a que hora"}" ${dis}></label>
+          <label>Respuesta<textarea name="a" rows="2" maxlength="1000" placeholder="${i ? "" : "Atendemos de 9:00 a 21:00, todos los días 🙌"}" ${dis}>${esc(q.answer)}</textarea></label>
+          ${owner && q.answer ? `<button class="pbtn sm" type="button" data-qrdel="1" style="margin-top:22px">Quitar</button>` : "<span></span>"}</div>`).join("")}
+        ${owner ? `<div class="inline"><button class="pbtn dark" type="submit">Guardar respuestas</button><span class="muted">Para agregar otra, completá la fila vacía y guardá.</span></div>` : ""}</form>
+      <details class="more"><summary>Ideas de respuestas</summary><ul style="margin:6px 0 0;padding-left:20px">
+        <li><b>garantia, se cayo, no funciona</b> → “Si tu cuenta falla, escribí *0* y te la cambiamos sin costo dentro de la garantía.”</li>
+        <li><b>revendedor, revender, mayorista</b> → “¡Sí! Tenemos precios especiales para revendedores. Escribí *0* y te pasamos la info.”</li>
+        <li><b>dispositivos, pantallas, tv</b> → “Cada perfil es para 1 dispositivo a la vez.”</li></ul></details></section>
 
     <section class="card"><h2>Plantillas de avisos <small>· necesarias para escribir a clientes que no te escribieron en las últimas 24 h</small></h2>
       <p class="muted" style="margin:0">Creá cada una en <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener">WhatsApp Manager → Plantillas</a> con el texto exacto, idioma Español y la categoría indicada. Cuando Meta la apruebe, escribí acá su nombre.</p>
@@ -558,6 +594,7 @@ document.addEventListener("click", async (ev) => {
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
+  if (d.qrdel) { const row = el.closest(".qr-row"); const form = row.closest("form"); row.remove(); return form.requestSubmit(); }
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
@@ -622,9 +659,11 @@ document.addEventListener("change", (ev) => {
   // Marca visual del color elegido en Apariencia (se aplica al guardar).
   if (ev.target.name === "accentColor" || ev.target.name === "backgroundColor") {
     $$(`input[name="${ev.target.name}"]`).forEach((r) => (r.nextElementSibling.style.borderColor = r.checked ? "var(--ink)" : "transparent"));
-    if (ev.target.name === "accentColor") $('input[name="accentCustom"]').value = ev.target.value;
+    $(`input[name="${ev.target.name}Custom"]`).value = ev.target.value;
   }
-  if (ev.target.name === "accentCustom") $$('input[name="accentColor"]').forEach((r) => { r.checked = false; r.nextElementSibling.style.borderColor = "transparent"; });
+  if (ev.target.name === "accentColorCustom" || ev.target.name === "backgroundColorCustom") {
+    $$(`input[name="${ev.target.name.replace("Custom", "")}"]`).forEach((r) => { r.checked = false; r.nextElementSibling.style.borderColor = "transparent"; });
+  }
   if (ev.target.id === "selAll") $$(".sel").forEach((c) => (c.checked = ev.target.checked));
 });
 
@@ -667,6 +706,12 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/secrets", body), "Claves guardadas");
     } else if (f.id === "waConfig") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
+    } else if (f.id === "waHours") {
+      await act(() => api("POST", "/api/admin/whatsapp/config", { humanHours: f.on.checked ? { from: +f.from.value, to: +f.to.value } : null }), f.on.checked ? "Horario guardado" : "Sin horario: el bot no menciona horarios");
+    } else if (f.id === "waQuick") {
+      const quickReplies = [...f.querySelectorAll(".qr-row")].map((r) => ({ keywords: r.querySelector('[name="k"]').value.split(",").map((x) => x.trim()).filter(Boolean), answer: r.querySelector('[name="a"]').value.trim() }))
+        .filter((q) => q.keywords.length || q.answer);
+      await act(() => api("POST", "/api/admin/whatsapp/config", { quickReplies }), `${quickReplies.length} respuesta(s) guardadas`);
     } else if (f.id === "waTemplates") {
       const templates = {};
       for (const inp of f.querySelectorAll('input[name^="name-"]')) {
@@ -762,12 +807,10 @@ document.addEventListener("submit", async (ev) => {
       P.settings = await api("GET", "/api/settings");
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {
-      const custom = f.accentCustom.value;
-      const picked = f.querySelector('input[name="accentColor"]:checked')?.value;
-      await act(() => api("POST", "/api/admin/settings", {
-        accentColor: picked || custom, backgroundColor: f.querySelector('input[name="backgroundColor"]:checked')?.value,
-        heroTitle: f.heroTitle.value, heroHighlight: f.heroHighlight.value, heroText: f.heroText.value, announcement: f.announcement.value,
-      }), "Apariencia guardada: así la ven tus clientes");
+      const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
+      const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), fontFamily: f.fontFamily.value, corners: f.corners.value };
+      for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
+      await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
     } else if (f.id === "logoForm") {
       await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");
     } else if (f.id === "qrForm") {

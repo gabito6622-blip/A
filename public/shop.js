@@ -1,5 +1,5 @@
 // Tienda Gabriel Store conectada al servidor.
-import { api, $, $$, esc, bs, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT } from "/common.js";
+import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 const VIEWS = ["inicio", "catalogo", "cuentas", "codigos", "recargas", "clientes"];
@@ -19,8 +19,15 @@ async function loadBase() {
   applyLook(S.settings);
   document.title = S.settings.storeName;
   $("#storeName").textContent = S.settings.storeName;
-  $("#footName").textContent = `© ${S.settings.storeName} · Precios en bolivianos`;
-  $("#footWa").innerHTML = S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, tengo una consulta")}" target="_blank" rel="noopener">WhatsApp de la tienda</a>` : "";
+  $("#footName").textContent = `© ${S.settings.storeName} · ${S.settings.footerText || "Precios en bolivianos"}`;
+  const st = S.settings;
+  const links = [
+    st.whatsapp && [waLink(st.whatsapp, "Hola, tengo una consulta"), "WhatsApp"],
+    st.instagram && [`https://instagram.com/${encodeURIComponent(st.instagram)}`, "Instagram"],
+    st.tiktok && [`https://www.tiktok.com/@${encodeURIComponent(st.tiktok)}`, "TikTok"],
+    st.facebook && [`https://facebook.com/${encodeURIComponent(st.facebook)}`, "Facebook"],
+  ].filter(Boolean);
+  $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ");
 }
 
 /** Mezcla dos colores #RRGGBB (t = proporción del segundo). */
@@ -30,15 +37,48 @@ function mix(a, b, t) {
   return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 /** Aplica los colores, el logo, los textos y el aviso que eligió la tienda. */
+const FONTS = { inter: "Inter", poppins: "Poppins", montserrat: "Montserrat", nunito: "Nunito" };
+/** Luminancia relativa (0 = negro, 1 = blanco). */
+function lum(h) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
 export function applyLook(st) {
   const r = document.documentElement.style;
   const bg = st.backgroundColor || "#090e1d", ac = st.accentColor || "#3984ff";
+  const light = lum(bg) > 0.45;
   r.setProperty("--s-bg", bg);
-  r.setProperty("--s-card", mix(bg, "#ffffff", 0.05));
-  r.setProperty("--s-card2", mix(bg, "#ffffff", 0.09));
-  r.setProperty("--s-line", mix(bg, "#ffffff", 0.17));
+  if (light) {
+    // Fondo claro: tarjetas blancas y textos oscuros, para que siempre se lea bien.
+    r.setProperty("--s-card", mix(bg, "#ffffff", 0.75));
+    r.setProperty("--s-card2", mix(bg, "#000000", 0.045));
+    r.setProperty("--s-hover", mix(bg, "#000000", 0.07));
+    r.setProperty("--s-line", mix(bg, "#000000", 0.13));
+    r.setProperty("--s-ink", "#111827");
+    r.setProperty("--s-muted", "#4b5567");
+    r.setProperty("--s-ok", "#0b8a63"); r.setProperty("--s-warn", "#a15c00"); r.setProperty("--s-bad", "#c81e4a");
+    r.setProperty("--s-sky", mix(ac, "#000000", 0.18));
+    r.setProperty("--s-chip", mix(ac, "#000000", 0.35));
+  } else {
+    r.setProperty("--s-card", mix(bg, "#ffffff", 0.05));
+    r.setProperty("--s-card2", mix(bg, "#ffffff", 0.09));
+    r.setProperty("--s-hover", mix(bg, "#ffffff", 0.12));
+    r.setProperty("--s-line", mix(bg, "#ffffff", 0.17));
+    for (const k of ["--s-ink", "--s-muted", "--s-ok", "--s-warn", "--s-bad"]) r.removeProperty(k);
+    r.setProperty("--s-sky", mix(ac, "#ffffff", 0.35));
+    r.setProperty("--s-chip", mix(ac, "#ffffff", 0.6));
+  }
   r.setProperty("--s-blue", ac);
-  r.setProperty("--s-sky", mix(ac, "#ffffff", 0.35));
+  document.documentElement.style.colorScheme = light ? "light" : "dark";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
+  const fam = FONTS[st.fontFamily];
+  if (fam && !document.getElementById("gs-font-" + st.fontFamily)) {
+    const l = Object.assign(document.createElement("link"), { rel: "stylesheet", id: "gs-font-" + st.fontFamily, href: `https://fonts.googleapis.com/css2?family=${fam}:wght@400;500;600;700;800;900&display=swap` });
+    document.head.append(l);
+  }
+  r.setProperty("--f-shop", st.fontFamily === "system" ? "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif" : `'${fam ?? "Inter"}',system-ui,sans-serif`);
+  const shop = document.getElementById("shop");
+  if (shop) shop.dataset.corners = st.corners || "round";
   const mark = $("#logoMark");
   mark.outerHTML = st.hasLogo ? `<img id="logoMark" src="/api/settings/logo?v=${Date.now() % 1e6}" alt="">` : `<i id="logoMark">${esc((st.storeName || "G")[0])}</i>`;
   const ann = $("#announce");
@@ -53,7 +93,7 @@ async function loadPrivate() {
   S.data.orders = orders;
   if (S.view === "codigos") S.data.codes = await api("GET", "/api/me/codes");
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
-  if (S.view === "clientes" && isReseller()) S.data.customers = await api("GET", "/api/me/customers");
+  if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices")]);
 }
 
 async function refresh() {
@@ -98,16 +138,18 @@ function qrBlock() {
 function render() {
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
+  $("#navCli").hidden = $("#bnavCli").hidden = !isReseller();
+  $("#bnavSaldo").hidden = isReseller();
   $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
   const pub = S.catalog;
   const services = S.data.services ?? [];
   const V = {
     inicio: () => `<section class="hero"><div style="display:grid;min-width:0">
-        <span class="chip">✦ Tu tienda digital en Bolivia</span>
+        ${S.settings.heroChip ? `<span class="chip">${esc(S.settings.heroChip)}</span>` : ""}
         <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
         <p>${esc(S.settings.heroText)}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">Explorar productos ${icon("arrow")}</button><button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button></div>
-        <div class="ticks"><span>Precios en bolivianos</span><span>Entrega en tu cuenta</span><span>Soporte y renovaciones</span></div></div>
+        <div class="ticks">${(S.settings.heroTicks || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("")}</div></div>
       <div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)} · tu resumen</div>
         <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div></section>
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
@@ -143,11 +185,93 @@ function render() {
       <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
-    clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Mis clientes</h2><p>Comprá para tus clientes con tu saldo, a precio de revendedor.</p></div></div>
-      <div class="sbox"><h2>Clientes <span class="spill sp-mute">${(S.data.customers ?? []).length}</span></h2>${(S.data.customers ?? []).map((c) => `<div class="line"><span>${esc(c.name)}<br><small class="empty">${esc(c.phone)}</small></span><span style="text-align:right">${c.services} servicio(s)<br><small class="empty">${c.nextExpiry ? "vence " + fdate(c.nextExpiry) : "—"}</small></span></div>`).join("") || `<p class="empty">Todavía no cargaste clientes.</p>`}</div>
-      <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`,
+    clientes: () => !isReseller() ? needLogin("tus clientes") : resellerView(),
   };
   $("#sout").innerHTML = V[S.view]();
+}
+
+/* ---------------- revendedor ---------------- */
+const accessText = (a) => `*${a.product}*\nCorreo: ${a.access.email}\nContraseña: ${a.access.password}\nPerfil: ${a.access.profile}${a.access.pin ? `\nPIN: ${a.access.pin}` : ""}\nVence: ${fdate(a.expiresAt)}`;
+const sellPrice = (productId) => (S.data.prices ?? []).find((x) => x.productId === productId)?.sell ?? null;
+const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`}</span>`;
+
+function resellerView() {
+  const clients = S.data.customers ?? [];
+  const byId = Object.fromEntries(clients.map((c) => [c.id, c]));
+  const svc = (S.data.services ?? []).filter((a) => byId[a.customerId]);
+  const soon = svc.filter((a) => a.daysLeft <= 7);
+  const prices = S.data.prices ?? [];
+  const q = (S.data.cq ?? "").toLowerCase();
+  const shown = clients.filter((c) => `${c.name} ${c.phone}`.toLowerCase().includes(q)).sort((a, b) => (a.nextExpiry ?? Infinity) - (b.nextExpiry ?? Infinity));
+  const remind = (a) => {
+    const c = byId[a.customerId];
+    const price = sellPrice(a.productId);
+    return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${bs(price)}.` : ""} ¿Lo renovamos? 🙌`);
+  };
+  const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who"><span class="mini" style="background:${esc(product(a.productId)?.color ?? "#3984ff")}">${esc(a.product[0])}</span><div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
+    <div class="rbtns"><button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>
+    <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
+    <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
+  const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
+  const listText = prices.filter((p) => p.sell !== null).map((p) => `• ${p.name}: ${bs(p.sell)} (${p.durationDays} días)`).join("\n");
+
+  return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Mi panel de revendedor</h2><p>Vendé y renová para tus clientes con tu saldo, a precio de revendedor. Todo queda a tu nombre.</p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
+    <div class="rkpis"><div><span>Mi saldo</span><b>${bs(S.me.balance)}</b></div><div><span>Clientes</span><b>${clients.length}</b></div><div><span>Servicios activos</span><b>${svc.length}</b></div><div class="${soon.length ? "warn" : ""}"><span>Vencen en 7 días</span><b>${soon.length}</b></div></div>
+
+    ${last.length ? `<div class="sbox rdone"><h2>✅ Venta lista: mandale estos datos a ${esc(byId[last[0].customerId].name)}</h2>${last.map((a) => `<pre class="rpre">${esc(accessText(a))}</pre>`).join("")}
+      <div class="rbtns"><button class="sbtn sm pri" type="button" data-copy="${esc(last.map(accessText).join("\n\n"))}">Copiar datos</button><a class="sbtn sm" href="${waLink(byId[last[0].customerId].phone, last.map(accessText).join("\n\n"))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a><button class="sbtn sm" type="button" data-rclear="1">Listo</button></div></div>` : ""}
+
+    <form class="sbox sform" id="resSell"><h2>Vender a un cliente</h2>
+      <label>Cliente<select name="client" required><option value="">Elegí un cliente…</option>${clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new">➕ Cliente nuevo</option></select></label>
+      <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" placeholder="+591 7…"></label></div>
+      <label>Producto<select name="product" required><option value="">Elegí un producto…</option>${S.catalog.map((p) => `<option value="${esc(p.id)}" ${p.available ? "" : "disabled"}>${esc(p.name)} · ${bs(p.price)}${p.available ? "" : " · agotado"}</option>`).join("")}</select></label>
+      <label>Cantidad<select name="qty">${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></label>
+      <p class="empty" id="sellSum" style="margin:0">Elegí cliente y producto.</p>
+      <button class="sbtn pri" type="submit">Comprar con mi saldo</button></form>
+
+    <div class="sbox"><h2>Por vencer <span class="spill ${soon.length ? "sp-warn" : "sp-mute"}">${soon.length}</span></h2>
+      ${soon.length ? soon.map((a) => svcRow(a, true)).join("") : `<p class="empty">Ningún cliente vence en los próximos 7 días. 👌</p>`}</div>
+
+    <div class="sbox"><h2>Mis clientes <span class="spill sp-mute">${clients.length}</span></h2>
+      ${clients.length > 4 ? `<input id="cq" class="rsearch" placeholder="Buscar por nombre o teléfono" value="${esc(S.data.cq ?? "")}" aria-label="Buscar cliente">` : ""}
+      ${shown.map((c) => {
+        const mine = svc.filter((a) => a.customerId === c.id);
+        const d = c.nextExpiry ? daysLeft(c.nextExpiry) : null;
+        return `<details class="rcli"><summary><span><b>${esc(c.name)}</b><br><small class="empty">${esc(c.phone)}${c.note ? " · " + esc(c.note) : ""}</small></span><span class="rsum">${mine.length} serv.${d !== null ? " " + dayPill(d) : ""}</span></summary>
+          ${mine.map((a) => svcRow(a, false)).join("") || `<p class="empty">Sin servicios activos.</p>`}
+          <form class="sform rform" data-client="${esc(c.id)}"><label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label>
+            <label style="grid-column:1/-1">Nota (solo la ves vos)<input name="note" maxlength="300" value="${esc(c.note)}" placeholder="Ej.: paga los viernes"></label>
+            <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos automáticos por WhatsApp</label>
+            <div class="rbtns"><button class="sbtn sm" type="submit">Guardar cambios</button><a class="sbtn sm" href="${waLink(c.phone, `Hola ${c.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a></div></form></details>`;
+      }).join("") || `<p class="empty">${clients.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
+
+    <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>
+      <div class="rtable">${prices.map((p) => `<div class="rprow"><span><b>${esc(p.name)}</b><br><small class="empty">Te cuesta ${bs(p.cost)} · ${p.durationDays} días</small></span>
+        <label class="rprice">Le cobro Bs<input name="p-${esc(p.productId)}" inputmode="decimal" value="${p.sell !== null ? (p.sell / 100).toFixed(2).replace(/\.00$/, "") : ""}" placeholder="—" data-cost="${p.cost}"></label>
+        <span class="rprofit" data-profit="${esc(p.productId)}">${p.profit !== null ? `<b style="color:${p.profit < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${p.profit < 0 ? "−" : "+"}${bs(Math.abs(p.profit))}</b>` : ""}</span></div>`).join("")}</div>
+      <div class="rbtns"><button class="sbtn pri" type="submit">Guardar precios</button>
+      ${listText ? `<button class="sbtn" type="button" data-copy="${esc(`*Lista de precios*\n${listText}`)}">Copiar lista</button><a class="sbtn" href="https://wa.me/?text=${encodeURIComponent(`*Lista de precios*\n${listText}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a>` : ""}</div></form>
+
+    <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required maxlength="80"></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`;
+}
+
+function updateSellSummary(f) {
+  const p = product(f.product.value);
+  const out = $("#sellSum");
+  if (!out) return;
+  f.querySelector(".rnew").hidden = f.client.value !== "__new";
+  if (!p) { out.textContent = "Elegí cliente y producto."; return; }
+  const qty = +f.qty.value, cost = p.price * qty, sell = sellPrice(p.id);
+  out.innerHTML = `Te cuesta <b>${bs(cost)}</b>${sell !== null ? ` · le cobrás <b>${bs(sell * qty)}</b> · ganás <b style="color:var(--s-ok)">${bs(sell * qty - cost)}</b>` : ""} · tu saldo: ${bs(S.me.balance)}${cost > S.me.balance ? ` <b style="color:var(--s-bad)">(no alcanza)</b>` : ""}`;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const t = Object.assign(document.createElement("textarea"), { value: text });
+    document.body.append(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+  toast("Copiado");
 }
 
 /* ---------------- carrito y pago ---------------- */
@@ -307,6 +431,8 @@ document.addEventListener("click", async (ev) => {
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (d.cart) return openDrawer();
+  if (d.copy) return copyText(d.copy);
+  if (d.rclear) { S.data.lastSale = []; return render(); }
   if (d.login || el.id === "accBtn") { if (S.me?.loggedIn && el.id === "accBtn") return setView("cuentas"); return openLogin(); }
   if (d.cat) { S.cat = d.cat; return render(); }
   if (d.add) {
@@ -357,6 +483,7 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "pm") { const qr = t.value === "qr"; $("#qrPart").hidden = !qr; }
+  if (t.form?.id === "resSell") updateSellSummary(t.form);
   if (t.id === "consent") {
     try { await api("PUT", "/api/me/consent", { whatsapp: t.checked }); toast(t.checked ? "Vas a recibir avisos por WhatsApp" : "Ya no vas a recibir avisos por WhatsApp"); } catch (e) { t.checked = !t.checked; toast(e.message); }
   }
@@ -364,6 +491,19 @@ document.addEventListener("change", async (ev) => {
 
 let qTimer;
 document.addEventListener("input", (ev) => {
+  const pi = ev.target.closest?.("#myPrices input[data-cost]");
+  if (pi) {
+    const v = pi.value.trim() ? toCents(pi.value) : null, out = $(`[data-profit="${pi.name.slice(2)}"]`);
+    const pr = v === null || Number.isNaN(v) ? null : v - +pi.dataset.cost;
+    out.innerHTML = pr === null ? "" : `<b style="color:${pr < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${pr < 0 ? "−" : "+"}${bs(Math.abs(pr))}</b>`;
+    return;
+  }
+  if (ev.target.id === "cq") {
+    S.data.cq = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { render(); const f = $("#cq"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }, 250);
+    return;
+  }
   if (ev.target.id !== "q") return;
   S.q = ev.target.value.toLowerCase().trim();
   clearTimeout(qTimer);
@@ -386,6 +526,35 @@ document.addEventListener("submit", async (ev) => {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
       toast("Recarga enviada: la acreditamos al verificar el pago");
+    } else if (f.id === "resSell") {
+      let customerId = f.client.value;
+      if (!customerId) throw new Error("Elegí un cliente");
+      if (customerId === "__new") {
+        if (!f.nname.value.trim() || !f.nphone.value.trim()) throw new Error("Poné el nombre y el WhatsApp del cliente nuevo");
+        customerId = (await api("POST", "/api/me/customers", { name: f.nname.value.trim(), phone: f.nphone.value.trim(), whatsappConsent: false })).id;
+      }
+      if (!f.product.value) throw new Error("Elegí un producto");
+      try {
+        const o = await api("POST", "/api/orders", { customerId, items: [{ productId: f.product.value, qty: +f.qty.value }], paymentMethod: "balance", idempotencyKey: newKey() });
+        S.data.lastSale = o.assignmentIds ?? [];
+        toast("¡Vendido! Abajo tenés los datos para mandarle");
+      } catch (e) {
+        if (e.code === "INSUFFICIENT_BALANCE") { toast("Tu saldo no alcanza: recargá primero"); await refresh(); return setView("recargas"); }
+        throw e;
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (f.dataset.client) {
+      await api("PUT", `/api/me/customers/${f.dataset.client}`, { name: f.name.value, phone: f.phone.value, note: f.note.value, whatsappConsent: f.consent.checked });
+      toast("Cliente actualizado");
+    } else if (f.id === "myPrices") {
+      const prices = {};
+      for (const i of f.querySelectorAll("input[data-cost]")) {
+        const v = i.value.trim();
+        if (v && Number.isNaN(toCents(v))) throw new Error("Revisá los precios: solo números");
+        prices[i.name.slice(2)] = v ? toCents(v) : null;
+      }
+      await api("PUT", "/api/me/prices", { prices });
+      toast("Precios guardados");
     } else if (f.id === "newCustomer") {
       await api("POST", "/api/me/customers", { name: f.name.value, phone: f.phone.value, whatsappConsent: f.consent.checked });
       toast("Cliente agregado");

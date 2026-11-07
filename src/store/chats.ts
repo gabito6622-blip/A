@@ -1,6 +1,6 @@
 // Conversaciones de WhatsApp: mensajes entrantes y salientes por número, ventana de 24 h
 // y derivación a una persona. Las usa el bot y la bandeja del panel.
-import type { Actor, ChatMessage, ChatThread, Id, WhatsAppBotSettings } from "./types.js";
+import type { Actor, ChatMessage, ChatThread, Id, WhatsAppBotSettings, BotQuickReply } from "./types.js";
 import type { Engine } from "./engine.js";
 import { HOUR } from "./time.js";
 import { authorize } from "./auth.js";
@@ -134,7 +134,24 @@ export function updateBotSettings(e: Engine, actor: Actor, patch: Partial<WhatsA
   if (patch.phoneNumberId !== undefined && patch.phoneNumberId !== "" && !/^\d{6,20}$/.test(patch.phoneNumberId)) throw new DomainError("VALIDATION", "Phone number ID: solo números (lo ves en Meta → WhatsApp → Configuración de la API)");
   if (patch.apiVersion !== undefined && !/^v\d{1,2}\.\d$/.test(patch.apiVersion)) throw new DomainError("VALIDATION", "Versión de API: formato v21.0");
   if (patch.humanPauseHours !== undefined && !(Number.isInteger(patch.humanPauseHours) && patch.humanPauseHours >= 1 && patch.humanPauseHours <= 72)) throw new DomainError("VALIDATION", "Pausa: entre 1 y 72 horas");
-  if ((patch.welcome?.length ?? 0) > 600) throw new DomainError("VALIDATION", "Saludo: máximo 600 letras");
+  if (patch.welcome !== undefined && (typeof patch.welcome !== "string" || patch.welcome.length > 600)) throw new DomainError("VALIDATION", "Saludo: máximo 600 letras");
+  let quick: BotQuickReply[] | undefined;
+  if (patch.quickReplies !== undefined) {
+    if (!Array.isArray(patch.quickReplies) || patch.quickReplies.length > 30) throw new DomainError("VALIDATION", "Respuestas propias: hasta 30");
+    quick = patch.quickReplies.map((q, i) => {
+      const keywords = (Array.isArray(q?.keywords) ? q.keywords : []).map((k) => String(k ?? "").trim().toLowerCase()).filter(Boolean);
+      const answer = String(q?.answer ?? "").trim();
+      if (!keywords.length || keywords.length > 15 || keywords.some((k) => k.length > 40)) throw new DomainError("VALIDATION", `Respuesta ${i + 1}: poné de 1 a 15 palabras clave (máx. 40 letras cada una)`);
+      if (!answer || answer.length > 1000) throw new DomainError("VALIDATION", `Respuesta ${i + 1}: el texto debe tener entre 1 y 1000 letras`);
+      if (keywords.some((k) => /^[0-9]$/.test(k))) throw new DomainError("VALIDATION", `Respuesta ${i + 1}: los números 0 a 9 ya son opciones del menú`);
+      return { keywords, answer };
+    });
+  }
+  if (patch.humanHours !== undefined && patch.humanHours !== null) {
+    const h = patch.humanHours;
+    const ok = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 24;
+    if (!ok(h.from) || !ok(h.to) || h.from >= h.to) throw new DomainError("VALIDATION", "Horario de atención: de 0 a 24 y el inicio antes del fin");
+  }
   if (patch.templates) {
     for (const [k, v] of Object.entries(patch.templates)) {
       if (v && (!/^[a-z0-9_]{1,512}$/.test(v.name) || !/^[a-z]{2}(_[A-Z]{2})?$/.test(v.lang))) throw new DomainError("VALIDATION", `Plantilla ${k}: nombre en minúsculas con guion bajo y idioma tipo es o es_AR`);
@@ -142,7 +159,13 @@ export function updateBotSettings(e: Engine, actor: Actor, patch: Partial<WhatsA
   }
   return e.tx(() => {
     const cur = botSettings(e);
-    const next: WhatsAppBotSettings = { ...cur, ...patch, templates: patch.templates ? { ...patch.templates } : cur.templates };
+    const next: WhatsAppBotSettings = { ...cur, templates: patch.templates ? { ...patch.templates } : cur.templates };
+    for (const k of ["enabled", "phoneNumberId", "apiVersion", "welcome", "humanPauseHours"] as const) {
+      if (patch[k] !== undefined) (next as unknown as Record<string, unknown>)[k] = patch[k];
+    }
+    if (quick) next.quickReplies = quick;
+    if (patch.humanHours === null) delete next.humanHours;
+    else if (patch.humanHours) next.humanHours = { from: patch.humanHours.from, to: patch.humanHours.to };
     if (next.enabled && !next.phoneNumberId) throw new DomainError("VALIDATION", "Para encender el bot falta el Phone number ID");
     e.s.settings.whatsappBot = next;
     e.audit(actor, "whatsapp.settings", "settings", "whatsapp", { enabled: next.enabled, templates: Object.keys(next.templates).length });

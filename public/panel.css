@@ -158,3 +158,5 @@
 details.more summary{cursor:pointer;color:var(--blue);font-weight:600}
 .inline label.chk{white-space:nowrap}
 .inline label.chk input,.inline input[type=checkbox],.inline input[type=radio]{flex:0 0 auto;width:auto}
+
+@media (max-width:640px){.qr-row{grid-template-columns:1fr!important}.qr-row>button,.qr-row>span{margin-top:0!important;justify-self:start}}

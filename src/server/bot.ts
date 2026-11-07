@@ -5,7 +5,8 @@
 // - Solo responde sobre el cliente cuyo número escribió (WhatsApp ya verificó ese número).
 // - "0" o "persona" pasa la charla a un humano y el bot se calla por unas horas.
 // - "BAJA" deja de mandar avisos; "ALTA" los vuelve a activar.
-import type { GabrielStore } from "../store/index.js";
+// - Las respuestas propias del dueño (palabras clave → texto) van antes que las automáticas.
+import { localHour, reminderSettings, type GabrielStore } from "../store/index.js";
 
 export interface BotContext {
   store: GabrielStore;
@@ -37,6 +38,10 @@ const MATCH: [RegExp, string][] = [
   [/^(4|entrar|link|acceso|mi cuenta|ingresar|contrasena|clave|mis claves|mis accesos)$/, "login"],
   [/^(5|codigo|codigos|codigo de acceso|codigo de verificacion)$/, "codes"],
   [/^(6|saldo|mi saldo|creditos)$/, "balance"],
+  [/^(7|pedido|pedidos|mi pedido|mis pedidos|estado|estado de mi pedido|ya pague)$/, "orders"],
+  [/^(8|clientes|mis clientes|clientes por vencer)$/, "resellerClients"],
+  [/^(hola|holi|buenas|buen dia|buenos dias|buenas tardes|buenas noches|menu|inicio|opciones|hey|ola)$/, "menu"],
+  [/^(gracias|muchas gracias|grax|ok gracias|listo gracias|genial|perfecto|ok|okey|dale|de una)$/, "thanks"],
   [/^(renovar|quiero renovar|renovacion)$/, "renew"],
 ];
 
@@ -49,13 +54,35 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
   const bot = s.chats.botSettings();
   const name = (customer?.name ?? profileName ?? "").split(" ")[0];
   const shop = ctx.origin ? `${ctx.origin}/` : "";
-  const intent = MATCH.find(([re]) => re.test(t))?.[1] ?? (/(precio|cuanto|catalogo)/.test(t) ? "prices" : /(pagar|pago|qr)/.test(t) ? "pay" : /(codigo)/.test(t) ? "codes" : /(vence|vencimiento)/.test(t) ? "services" : /(persona|humano|asesor)/.test(t) ? "human" : "menu");
+  const words = ` ${t} `;
+  const isReseller = customer?.kind === "reseller";
+
+  // 1) Comandos exactos (números y palabras del menú).
+  let intent = MATCH.find(([re]) => re.test(t))?.[1];
+  // 2) Respuestas propias del dueño.
+  if (!intent) {
+    const q = (bot.quickReplies ?? []).find((r) => r.keywords.some((k) => { const n = norm(k); return !!n && words.includes(` ${n} `); }));
+    if (q) return { replies: [q.answer.replaceAll("{name}", name).replaceAll("{store}", store).replaceAll("{tienda}", shop)] };
+  }
+  // 3) Nombre de un producto ("cuánto está netflix").
+  const catalog = s.catalog.publicCatalog(customer?.id);
+  const named = intent ? [] : catalog.filter((p) => {
+    const n = norm(p.name);
+    const key = n.split(" ").find((w) => w.length >= 4);
+    return words.includes(` ${n} `) || (!!key && words.includes(` ${key} `));
+  });
+  if (!intent && named.length) intent = "product";
+  // 4) Pistas sueltas dentro de una frase.
+  intent ??= /(precio|cuanto|catalogo|costo|comprar|tienen|venden)/.test(t) ? "prices" : /(pagar|pago|qr|deposit|transfer)/.test(t) ? "pay"
+    : /(codigo)/.test(t) ? "codes" : /(vence|vencimiento|renovar)/.test(t) ? "services" : /(persona|humano|asesor)/.test(t) ? "human"
+    : /(pedido|comprobante)/.test(t) ? "orders" : /(saldo|recarg)/.test(t) ? "balance" : /(gracias)/.test(t) ? "thanks" : "unknown";
 
   const menu = () => {
     const hello = (bot.welcome || "¡Hola{name}! 👋 Soy el asistente de *{store}*. Te ayudo a cualquier hora.")
       .replace("{name}", name ? ` ${name}` : "").replace("{store}", store);
     const opts = customer
-      ? ["1️⃣ Mis servicios y vencimientos", "2️⃣ Precios", "3️⃣ Cómo pagar", "4️⃣ Entrar a mi cuenta (ver claves)", "5️⃣ Códigos de verificación", "6️⃣ Mi saldo", "0️⃣ Hablar con una persona"]
+      ? ["1️⃣ Mis servicios y vencimientos", "2️⃣ Precios", "3️⃣ Cómo pagar", "4️⃣ Entrar a mi cuenta (ver claves)", "5️⃣ Códigos de verificación", "6️⃣ Mi saldo", "7️⃣ Mis pedidos",
+        ...(isReseller ? ["8️⃣ Mis clientes por vencer"] : []), "0️⃣ Hablar con una persona"]
       : ["2️⃣ Precios", "3️⃣ Cómo pagar", "0️⃣ Hablar con una persona"];
     return `${hello}\n\nRespondé con un número:\n${opts.join("\n")}${!customer && shop ? `\n\n🛒 Tienda: ${shop}` : ""}`;
   };
@@ -63,8 +90,47 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
   const notClient = `Todavía no tengo compras a tu número. Podés comprar en la tienda${shop ? `: ${shop}` : ""} o escribir *0* para hablar con una persona.`;
 
   switch (intent) {
-    case "human":
-      return { replies: [`Listo${name ? `, ${name}` : ""}. Le aviso a una persona del equipo y te responde por acá apenas pueda. 🙌`], human: true };
+    case "human": {
+      const hh = bot.humanHours;
+      const h = hh ? localHour(s.engine.now(), reminderSettings(s.engine).timeZone) : 0;
+      const closed = !!hh && (h < hh.from || h >= hh.to);
+      return {
+        replies: [closed
+          ? `Listo${name ? `, ${name}` : ""}. Ahora estamos fuera del horario de atención (de ${hh!.from}:00 a ${hh!.to}:00). Dejá tu consulta acá y te responde una persona apenas abramos. 🙌\n\nMientras tanto, escribí *menu* para ver lo que el bot puede resolver ya.`
+          : `Listo${name ? `, ${name}` : ""}. Le aviso a una persona del equipo y te responde por acá apenas pueda. 🙌`],
+        human: true,
+      };
+    }
+    case "thanks":
+      return { replies: [`¡De nada${name ? `, ${name}` : ""}! 🙌 Si necesitás algo más, escribí *menu*.`] };
+    case "product": {
+      const lines = named.slice(0, 8).map((p) => `• *${p.name}*: ${bs(p.price)} / ${p.durationDays} días · ${p.available > 0 ? (p.available <= 2 ? `quedan ${p.available}` : "disponible ✅") : "agotado ❌"}`);
+      return { replies: [`${lines.join("\n")}${isReseller ? "\n_(precio de revendedor)_" : ""}${shop ? `\n\n🛒 Comprá acá: ${shop}#catalogo` : ""}\n\nEscribí *3* para ver cómo pagar o *2* para ver todos los precios.`] };
+    }
+    case "orders": {
+      if (!customer) return { replies: [notClient] };
+      const STATUS: Record<string, string> = { awaiting_payment: "⏳ falta el comprobante", payment_review: "🔎 verificando el pago", fulfilled: "✅ entregado", rejected: "❌ rechazado", expired: "⌛ venció sin pago", cancelled: "cancelado" };
+      const KIND: Record<string, string> = { sale: "Compra", renewal: "Renovación", topup: "Recarga" };
+      const list = Object.values(st.orders).filter((o) => o.customerId === customer.id || o.payerId === customer.id).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+      if (!list.length) return { replies: [`Todavía no tenés pedidos.${shop ? ` Mirá los productos: ${shop}#catalogo` : ""}`] };
+      const review = list.some((o) => o.status === "payment_review");
+      return { replies: [`🧾 *Tus últimos pedidos*\n${list.map((o) => `• ${KIND[o.kind] ?? o.kind} #${o.id} · ${bs(o.total)} · ${STATUS[o.status] ?? o.status}`).join("\n")}${review ? "\n\nLos pagos se verifican en 10–30 minutos (en horario de atención). Te avisamos por acá." : ""}`] };
+    }
+    case "resellerClients": {
+      if (!isReseller) return { replies: [menu()] };
+      const mine = new Set(Object.values(st.customers).filter((c) => c.resellerId === customer!.id).map((c) => c.id));
+      const soon = Object.values(st.assignments).filter((a) => a.status === "active" && mine.has(a.customerId) && a.customerExpiresAt - s.engine.now() <= 7 * 86_400_000)
+        .sort((a, b) => a.customerExpiresAt - b.customerExpiresAt);
+      if (!soon.length) return { replies: [`Ninguno de tus ${mine.size} cliente(s) vence en los próximos 7 días. 👌`] };
+      const lines = soon.slice(0, 20).map((a) => {
+        const d = Math.ceil((a.customerExpiresAt - s.engine.now()) / 86_400_000);
+        return `• ${st.customers[a.customerId]?.name}: ${st.products[a.productId]?.name} · ${d < 0 ? "⚠️ vencido" : d === 0 ? "vence hoy" : `vence en ${d} día(s)`}`;
+      });
+      const link = ctx.loginLink(customer!.id);
+      return { replies: [`👥 *Clientes por vencer (7 días)*\n${lines.join("\n")}${soon.length > 20 ? `\n…y ${soon.length - 20} más` : ""}\n\nRenovalos con tu saldo desde *Mis clientes*${link ? `:\n${link}` : "."}`] };
+    }
+    case "unknown":
+      return { replies: [`No te entendí del todo 🤔${name ? `, ${name}` : ""}.\n\n${menu()}`] };
     case "optout":
       return { replies: ["Listo, no te vamos a mandar más avisos automáticos. Si cambiás de idea, escribí *ALTA*."], consent: false };
     case "optin":

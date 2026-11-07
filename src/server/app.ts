@@ -187,6 +187,9 @@ export function createApp(cfg: AppConfig): App {
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
+      fontFamily: st.fontFamily || "inter", corners: st.corners || "round",
+      heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
+      footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
     };
   });
   route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
@@ -275,6 +278,11 @@ export function createApp(cfg: AppConfig): App {
   route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp), { ok: true }));
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
   route("POST", "/api/me/customers", "customer", (c) => store.catalog.createCustomer(c.actor!, { name: c.body?.name, phone: c.body?.phone, email: c.body?.email, whatsappConsent: !!c.body?.whatsappConsent }));
+  route("PUT", "/api/me/customers/:id", "customer", (c) => store.portal.updateClient(c.actor!, c.params.id, {
+    name: c.body?.name, phone: c.body?.phone, whatsappConsent: c.body?.whatsappConsent, note: c.body?.note,
+  }));
+  route("GET", "/api/me/prices", "customer", (c) => store.portal.priceList(c.actor!));
+  route("PUT", "/api/me/prices", "customer", (c) => store.portal.setPrices(c.actor!, c.body?.prices ?? {}));
 
   route("POST", "/api/orders", "customer", (c) =>
     store.orders.create(c.actor!, {
@@ -400,7 +408,8 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/admin/settings", "staff", (c) => {
     const b = c.body ?? {};
-    const pick = ["storeName", "whatsapp", "paymentNote", "accentColor", "backgroundColor", "heroTitle", "heroHighlight", "heroText", "announcement"]
+    const pick = ["storeName", "whatsapp", "paymentNote", "accentColor", "backgroundColor", "heroTitle", "heroHighlight", "heroText", "announcement",
+      "fontFamily", "corners", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     return store.catalog.updateSettings(A(c), pick);
   });
