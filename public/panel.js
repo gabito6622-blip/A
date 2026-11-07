@@ -354,7 +354,11 @@ const V = {
       <section class="card"><h2>Nuevo cliente</h2><form class="form" id="cusForm"><label>Nombre<input name="name" required></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label>Email (opcional)<input name="email" type="email"></label>
         <label>Tipo<select name="kind">${opt("customer", "Cliente")}${canReview() ? opt("reseller", "Revendedor") : ""}</select></label><label class="chk"><input type="checkbox" name="consent"> Aceptó recibir avisos por WhatsApp</label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       <section class="card"><form class="filters" id="cusSearch"><input name="q" placeholder="Buscar por nombre, teléfono o email" value="${esc(q)}" style="flex:5 1 240px" aria-label="Buscar"><button class="pbtn dark" type="submit">${icon("filter")}Buscar</button></form>
-      ${table(["Nombre", "WhatsApp", "Tipo", "Servicios", "Saldo", "Avisos", "Acciones"], list.map((c) => `<tr><td>${esc(c.name)}${c.notes ? `<br><small class="muted">📝 ${esc(c.notes)}</small>` : ""}</td><td><a href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${esc(c.phone)}</a></td>
+      ${canReview() && list.length ? `<div class="inline bulkkind"><span class="muted">${list.filter((c) => c.kind === "reseller").length} revendedores · ${list.filter((c) => c.kind !== "reseller").length} clientes</span>
+        <button class="pbtn sm dark" type="button" data-bulkkind="all">👥 Pasar TODOS a revendedores</button>
+        <button class="pbtn sm" type="button" data-bulkkind="sel">Marcados → Revendedor</button>
+        <button class="pbtn sm" type="button" data-bulkkind="selc">Marcados → Cliente</button></div>` : ""}
+      ${table([canReview() ? "<input type=checkbox id=cusAll aria-label='Marcar todos'>" : "", "Nombre", "WhatsApp", "Tipo", "Servicios", "Saldo", "Avisos", "Acciones"], list.map((c) => `<tr><td>${canReview() ? `<input type="checkbox" class="cussel" value="${esc(c.id)}" aria-label="Marcar ${esc(c.name)}">` : ""}</td><td>${esc(c.name)}${c.notes ? `<br><small class="muted">📝 ${esc(c.notes)}</small>` : ""}</td><td><a href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${esc(c.phone)}</a></td>
         <td>${c.kind === "reseller" ? pill("Revendedor", "warn") : "Cliente"}</td><td>${c.activeServices}</td><td>${bs(c.balance)}</td><td>${c.whatsappConsent ? pill("Sí", "ok") : pill("No", "mute")}</td>
         <td><div class="acts"><button class="pbtn sm" type="button" data-link="${esc(c.id)}">${icon("link")}Link de acceso</button><button class="pbtn sm" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><button class="pbtn sm" type="button" data-editcus="${esc(c.id)}">${icon("edit")}Editar</button></div></td></tr>`), q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes.")}</section>`;
   },
@@ -809,6 +813,16 @@ document.addEventListener("click", async (ev) => {
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `control-alquileres-${new Date().toISOString().slice(0, 10)}.csv` });
     a.click(); URL.revokeObjectURL(a.href); return;
   }
+  if (d.bulkkind) {
+    if (d.bulkkind === "all") {
+      if (!confirm("¿Pasar a TODOS tus clientes a revendedores? (Los clientes que cargó un revendedor no se tocan.)")) return;
+      return act(() => api("POST", "/api/admin/customers/bulk-kind", { all: true, kind: "reseller" }), (r) => `✅ ${r.changed} pasaron a revendedores${r.skipped.length ? ` · ${r.skipped.length} sin cambiar` : ""}`);
+    }
+    const ids = $$(".cussel:checked").map((x) => x.value);
+    if (!ids.length) return toast("Marcá al menos uno");
+    const kind = d.bulkkind === "sel" ? "reseller" : "customer";
+    return act(() => api("POST", "/api/admin/customers/bulk-kind", { ids, kind }), (r) => `✅ ${r.changed} cambiados${r.skipped.length ? ` · ${r.skipped.length} no: ${r.skipped[0].name} (${r.skipped[0].reason})` : ""}`);
+  }
   if (d.noprodimg) return act(() => api("POST", `/api/admin/products/${d.noprodimg}/image`, { remove: true }), "Logo quitado");
   if (d.shopfeat) return act(() => api("POST", `/api/admin/customers/${d.shopfeat}/shop-feature`, { featured: d.on === "1" }), d.on === "1" ? "Tienda destacada" : "Ya no está destacada");
   if (d.shopblock) {
@@ -906,6 +920,7 @@ document.addEventListener("change", async (ev) => {
     $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
     return updateCtlBar();
   }
+  if (t.id === "cusAll") { $$(".cussel").forEach((c) => (c.checked = t.checked)); return; }
   if (t.id === "cselAllT") { $$(".csel").forEach((c) => (c.checked = t.checked)); return updateCtlBar(); }
   if (t.dataset?.ctl) {
     const f = t.dataset.f;

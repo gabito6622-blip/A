@@ -128,6 +128,30 @@ export interface NewCustomer {
  * Staff crea cualquier cliente o revendedor. Un revendedor solo crea clientes propios,
  * siempre con el grupo "final" y nunca otros revendedores.
  */
+/** Cambia el tipo de varios clientes de una vez (o de todos). Solo dueño o admin. */
+export function setCustomersKind(e: Engine, actor: Actor, ids: Id[] | "all", kind: "customer" | "reseller"): { changed: number; skipped: { id: Id; name: string; reason: string }[] } {
+  authorize(actor, "customer.manage");
+  if (actor.role === "seller") throw new DomainError("FORBIDDEN", "Solo admin u owner cambian el tipo de un cliente");
+  if (kind !== "customer" && kind !== "reseller") throw new DomainError("VALIDATION", "Tipo inválido");
+  if (ids !== "all" && (!Array.isArray(ids) || ids.length > 5000)) throw new DomainError("VALIDATION", "Lista de clientes inválida");
+  return e.tx(() => {
+    ensureResellerGroup(e, "revendedor");
+    // Los clientes que creó un revendedor son clientes de él: no se tocan con "todos".
+    const list = ids === "all" ? Object.values(e.s.customers).filter((c) => !c.resellerId) : ids.map((id) => e.get("customers", id));
+    let changed = 0;
+    const skipped: { id: Id; name: string; reason: string }[] = [];
+    for (const c of list) {
+      if (c.kind === kind) continue;
+      if (kind === "customer" && Object.values(e.s.customers).some((x) => x.resellerId === c.id)) { skipped.push({ id: c.id, name: c.name, reason: "tiene clientes propios" }); continue; }
+      c.kind = kind;
+      c.priceGroupId = kind === "reseller" ? "revendedor" : "final";
+      changed++;
+    }
+    e.audit(actor, "customer.bulk_kind", "customer", ids === "all" ? "*" : ids.join(",").slice(0, 200), { kind, changed });
+    return { changed, skipped };
+  });
+}
+
 /** La lista "revendedor" se crea sola la primera vez (sin precios propios usa el precio normal). Debe llamarse dentro de `tx`. */
 function ensureResellerGroup(e: Engine, id: Id): void {
   if (id === "revendedor" && !e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };

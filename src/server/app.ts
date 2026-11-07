@@ -410,6 +410,7 @@ export function createApp(cfg: AppConfig): App {
 
   route("GET", "/api/admin/customers", "staff", (c) => store.admin.customers(A(c), c.query.get("q") ?? ""));
   route("POST", "/api/admin/customers", "staff", (c) => store.catalog.createCustomer(A(c), c.body));
+  route("POST", "/api/admin/customers/bulk-kind", "staff", (c) => store.catalog.setCustomersKind(A(c), c.body?.all === true ? "all" : c.body?.ids ?? [], c.body?.kind));
   route("POST", "/api/admin/customers/:id", "staff", (c) => {
     const b = c.body ?? {};
     return store.catalog.updateCustomer(A(c), c.params.id, { name: b.name, phone: b.phone, email: b.email, notes: b.notes, kind: b.kind, priceGroupId: b.priceGroupId });

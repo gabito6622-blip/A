@@ -954,3 +954,18 @@ describe("22. Lista de precios de revendedor", () => {
     assert.equal(s2.catalog.updateCustomer(owner, c.id, { kind: "reseller", priceGroupId: "revendedor" }).priceGroupId, "revendedor");
   });
 });
+
+describe("23. Cambiar tipo en lote", () => {
+  test("todos a revendedores de una vez; los clientes de un revendedor no se tocan; solo admin/dueño", () => {
+    const { s, carla, maria, luis, as } = setup();
+    const pedro = s.catalog.createCustomer(as(carla), { name: "Pedro de Carla", phone: "+59171230001" });
+    assert.throws(() => s.catalog.setCustomersKind(seller, "all", "reseller"), err("FORBIDDEN"));
+    const r = s.catalog.setCustomersKind(admin, "all", "reseller");
+    assert.equal(r.changed, 2, "María y Luis");
+    const st = s.snapshot().customers;
+    assert.deepEqual([st[maria.id].kind, st[luis.id].kind, st[maria.id].priceGroupId], ["reseller", "reseller", "revendedor"]);
+    assert.equal(st[pedro.id].kind, "customer", "el cliente de Carla sigue siendo cliente");
+    const back = s.catalog.setCustomersKind(owner, [carla.id, luis.id], "customer");
+    assert.deepEqual([back.changed, back.skipped.map((x) => x.reason)], [1, ["tiene clientes propios"]]);
+  });
+});
