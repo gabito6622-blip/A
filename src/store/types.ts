@@ -396,6 +396,18 @@ export interface Mailbox {
   authorizedBy: Id;
   authorizedAt: number;
   subjectAllowlist: string[];
+  /** Conexión IMAP (la contraseña de aplicación se guarda aparte, cifrada, fuera del estado). */
+  name?: string;
+  kind?: "gmail" | "imap";
+  port?: number;
+  user?: string;
+  /** Lectura automática. */
+  uidValidity?: number;
+  lastUid?: number;
+  lastCheckAt?: number;
+  lastOkAt?: number;
+  lastError?: string;
+  codesFound?: number;
 }
 
 export interface CodeMessage {
@@ -405,6 +417,8 @@ export interface CodeMessage {
   to: string;
   subject: string;
   code: string;
+  /** Enlace de la plataforma (p. ej. Netflix "Obtener código" o actualizar hogar). */
+  link?: string;
   receivedAt: number;
 }
 

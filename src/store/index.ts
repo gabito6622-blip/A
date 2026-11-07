@@ -120,6 +120,11 @@ export function createStore(opts: EngineOptions = {}) {
     codes: {
       configureMailbox: bind(e, codes.configureMailbox),
       ingest: bind(e, codes.ingest),
+      remove: bind(e, codes.removeMailbox),
+      list: bind(e, codes.listMailboxes),
+      setStatus: bind(e, codes.setMailboxStatus),
+      recent: bind(e, codes.recentCodes),
+      accountEmails: () => codes.accountEmails(e),
     },
     notify: {
       outbox: (actor: Actor) => {

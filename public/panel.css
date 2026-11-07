@@ -334,3 +334,8 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
   .big.mini{width:100%}.big.mini button{flex:1}
 }
 .dgrid .card{align-content:start}
+.mbkinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.mbkinds button{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:14px;font:inherit;cursor:pointer}
+.mbkinds button b{width:36px;height:36px;border-radius:8px;background:var(--soft);display:grid;place-items:center;font-size:16px;flex:none}
+.mbkinds button span{display:grid}.mbkinds button small{color:var(--muted)}
+.mbkinds button[aria-pressed="true"]{border:2px solid var(--blue);padding:13px}.mbkinds button[aria-pressed="true"] b{background:var(--blue);color:#fff}

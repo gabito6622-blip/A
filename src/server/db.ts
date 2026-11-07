@@ -117,6 +117,15 @@ export class Db {
     return n;
   }
 
+  /** Cifra un secreto suelto (p. ej. contraseña de aplicación del correo) si hay clave. */
+  seal(v: string): string {
+    return this.key ? this.encrypt(v) : v;
+  }
+
+  unseal(v: string): string {
+    return v.startsWith(ENC) ? this.decrypt(v) : v;
+  }
+
   get encrypted(): boolean {
     return !!this.key;
   }

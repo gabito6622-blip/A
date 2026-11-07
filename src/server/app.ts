@@ -9,6 +9,8 @@ import { createStore, DomainError, normalizePhone, systemClock, type Actor, type
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
+import { fetchNew, testImap, type ImapConfig } from "./imap.js";
+import { emailsIn, parseMail } from "./mail.js";
 import { Backups } from "./backup.js";
 import { newTotpSecret, verifyTotp } from "./security.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
@@ -32,6 +34,8 @@ export interface AppConfig {
   /** Tareas periódicas (vencer reservas, recordatorios). Por defecto activadas. */
   jobs?: boolean;
   log?: (msg: string) => void;
+  /** Solo pruebas: conectar a un servidor IMAP local en vez del real. */
+  imapTest?: { host: string; port: number; tls: ImapConfig["tls"] };
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
@@ -103,6 +107,8 @@ export interface App {
   db: Db;
   listen(port: number, host?: string): Promise<number>;
   close(): Promise<void>;
+  /** Lee los correos nuevos ya (si no, se leen solos cada minuto). */
+  pollMail(only?: string): Promise<{ checked: number; found: number; errors: number }>;
   /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
   resetTwoFactor(username: string): boolean;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
@@ -598,7 +604,54 @@ export function createApp(cfg: AppConfig): App {
     return importCustomers(store, A(c), buf, { dryRun: c.body?.dryRun !== false });
   }, MAX_UPLOAD_JSON);
 
-  route("POST", "/api/admin/mailboxes", "staff", (c) => store.codes.configureMailbox(A(c), { address: c.body?.address, host: c.body?.host, subjectAllowlist: c.body?.subjectAllowlist ?? [] }));
+  // ---- Panel de códigos: buzones conectados por IMAP (Gmail con contraseña de aplicación u otro) ----
+  const mailInput = (b: Record<string, unknown> | undefined) => {
+    const kind = b?.kind === "imap" ? "imap" : "gmail";
+    const address = String(b?.address ?? "").trim().toLowerCase();
+    const subjects = typeof b?.subjects === "string" ? b.subjects.split(/[\n,]/).map((x) => x.trim()).filter(Boolean) : undefined;
+    return {
+      id: b?.id ? String(b.id) : undefined, kind, address, name: b?.name ? String(b.name) : undefined, subjectAllowlist: subjects,
+      host: kind === "gmail" ? "imap.gmail.com" : String(b?.host ?? "").trim(),
+      port: kind === "gmail" ? 993 : Number(b?.port || 993),
+      user: kind === "gmail" ? address : String(b?.user ?? "").trim() || address,
+      password: typeof b?.password === "string" ? (kind === "gmail" ? b.password.replace(/\s+/g, "") : b.password) : "",
+    } as const;
+  };
+  const imapOf = (box: { host: string; port?: number; user?: string; address: string }, pass: string): ImapConfig => ({ host: box.host, port: box.port ?? 993, user: box.user ?? box.address, pass, ...(cfg.imapTest ?? {}) });
+  const passOf = (id: string) => { const v = db.getSecret(`imap:${id}`); return v ? db.unseal(v) : ""; };
+  const mailOwner = (c: Ctx) => { if (A(c).role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño conecta correos"); };
+  route("GET", "/api/admin/mailboxes", "staff", (c) => store.codes.list(A(c)).map((m) => ({ ...m, hasPassword: !!db.getSecret(`imap:${m.id}`) })));
+  route("POST", "/api/admin/mailboxes/test", "staff", async (c) => {
+    mailOwner(c);
+    const m = mailInput(c.body);
+    const pass = m.password || (m.id ? passOf(m.id) : "");
+    if (!pass) throw new DomainError("VALIDATION", "Escribí la contraseña de aplicación");
+    try { return { ok: true, ...(await testImap(imapOf(m, pass))) }; } catch (e) { throw new DomainError("VALIDATION", (e as Error).message); }
+  });
+  route("POST", "/api/admin/mailboxes", "staff", async (c) => {
+    mailOwner(c);
+    const m = mailInput(c.body);
+    if (!m.id && !m.password) throw new DomainError("VALIDATION", "Escribí la contraseña de aplicación");
+    if (m.password) {
+      try { await testImap(imapOf(m, m.password)); } catch (e) { throw new DomainError("VALIDATION", `No se pudo conectar: ${(e as Error).message}`); }
+    }
+    const box = store.codes.configureMailbox(A(c), m);
+    if (m.password) db.setSecret(`imap:${box.id}`, db.seal(m.password), now());
+    pollMail(box.id).catch(() => undefined);
+    return box;
+  });
+  route("POST", "/api/admin/mailboxes/:id/check", "staff", async (c) => {
+    mailOwner(c);
+    if (!store.engine.s.mailboxes[c.params.id]) throw new DomainError("NOT_FOUND", "Correo inexistente");
+    const r = await pollMail(c.params.id);
+    return { ...r, mailbox: store.engine.s.mailboxes[c.params.id] };
+  });
+  route("POST", "/api/admin/mailboxes/:id/delete", "staff", (c) => {
+    store.codes.remove(A(c), c.params.id);
+    db.setSecret(`imap:${c.params.id}`, null, now());
+    return { ok: true };
+  });
+  route("GET", "/api/admin/codes", "staff", (c) => store.codes.recent(A(c), 60));
 
   function hashOrThrow(p: unknown): string {
     try {
@@ -914,6 +967,40 @@ export function createApp(cfg: AppConfig): App {
     }
   });
 
+  /** Lee los correos nuevos de los buzones conectados y guarda los códigos. */
+  type PollResult = { checked: number; found: number; errors: number };
+  let polling: Promise<PollResult> | null = null;
+  function pollMail(only?: string): Promise<PollResult> {
+    if (polling) return polling.then((): Promise<PollResult> | PollResult => (only ? pollMail(only) : { checked: 0, found: 0, errors: 0 }));
+    polling = (async () => {
+      let checked = 0, found = 0, errors = 0;
+      for (const box of Object.values(store.engine.s.mailboxes)) {
+        if (only && box.id !== only) continue;
+        const pass = passOf(box.id);
+        if (!pass) continue;
+        checked++;
+        try {
+          const r = await fetchNew(imapOf(box, pass), { afterUid: box.lastUid, uidValidity: box.uidValidity, since: now() - 86_400_000, max: 40 });
+          const known = store.codes.accountEmails();
+          let n = 0;
+          for (const m of r.mails) {
+            const p = parseMail(m.raw);
+            const to = p.recipients.find((x) => known.has(x)) ?? emailsIn(p.text).find((x) => known.has(x)) ?? p.recipients.find((x) => x !== box.address) ?? p.recipients[0] ?? "";
+            const saved = store.codes.ingest(system, box.id, { to, subject: p.subject, body: p.text, html: p.html, receivedAt: Math.min(p.date ?? now(), now()) });
+            if (saved) n++;
+          }
+          found += n;
+          store.codes.setStatus(system, box.id, { lastUid: r.lastUid, uidValidity: r.uidValidity, found: n });
+        } catch (e) {
+          errors++;
+          store.codes.setStatus(system, box.id, { error: (e as Error).message });
+        }
+      }
+      return { checked, found, errors };
+    })().finally(() => { polling = null; });
+    return polling;
+  }
+
   function runJobs() {
     const expired = store.orders.expireReservations(system);
     const reminders = store.orders.autoReminders(system);
@@ -934,12 +1021,13 @@ export function createApp(cfg: AppConfig): App {
         log(`tareas fallaron: ${(e as Error).message}`);
       }
       flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
+      pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp,
+    server, store, db, runJobs, flushWhatsApp, pollMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

@@ -9,12 +9,12 @@ const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
-  ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"],
+  ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -23,6 +23,9 @@ const table = (head, rows, empty = "No hay datos todavía.") => rows.length
   : `<div class="emptybox">${esc(empty)}</div>`;
 const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(t)}</option>`;
 const dateInput = (t) => new Date(t).toISOString().slice(0, 10);
+
+const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, address: f.address.value.trim(), host: f.host?.value.trim(), port: f.port?.value, user: f.user?.value.trim() || undefined,
+  password: f.password.value, name: f.name.value.trim() || undefined, subjects: f.subjects.value.trim() || undefined });
 
 /* ---------------- tema ---------------- */
 function applyTheme() {
@@ -542,6 +545,41 @@ const V = {
         <td>${u.role !== "owner" ? `<button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`))}</section>`;
   },
 
+  async codigos() {
+    if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
+    const [boxes, codes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes")]);
+    const T = P.tab;
+    const ed = T.mbEdit === "new" ? { kind: T.mbKind ?? "gmail" } : boxes.find((b) => b.id === T.mbEdit);
+    const kind = ed ? (T.mbKind ?? ed.kind ?? "gmail") : "gmail";
+    const st = (b) => !b.hasPassword ? pill("Sin contraseña", "bad") : b.lastError ? pill("Error", "bad") : b.lastOkAt ? pill("Conectado", "ok") : pill("Conectando…", "warn");
+    const ago = (t) => { if (!t) return "nunca"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "recién" : m < 60 ? `hace ${m} min` : fdt(t); };
+    const shop = location.origin + "/tienda/#codigos";
+    return `<section class="card"><h2>${icon("mailbox")}Cómo funciona</h2>
+      <p class="muted" style="margin:0">Conectás el correo donde te llegan los códigos (Disney, Netflix, Prime…). Cada minuto la plataforma lee los correos nuevos, saca el código y se lo muestra <b>solo</b> al cliente o revendedor que tiene esa cuenta, durante 30 minutos. Un correo sirve para todas las cuentas cuyos códigos llegan ahí. Si usás Hotmail, reenviá esos correos a un Gmail y conectá el Gmail.</p>
+      <div class="inline"><span class="muted">Link para tus clientes:</span><code>${esc(shop)}</code><button class="pbtn sm" type="button" data-copy="${esc(shop)}">${icon("copy")}Copiar</button></div></section>
+    ${ed ? `<section class="card"><h2>${icon("mailbox")}${T.mbEdit === "new" ? "Conectar un correo" : "Editar correo"}</h2>
+      <div class="mbkinds"><button type="button" data-tab="mbKind:gmail" aria-pressed="${kind === "gmail"}"><b>G</b><span><strong>Gmail</strong><small>Con una contraseña de aplicación</small></span></button>
+        <button type="button" data-tab="mbKind:imap" aria-pressed="${kind === "imap"}"><b>@</b><span><strong>Correo de tu dominio</strong><small>Hostinger, cPanel y similares (IMAP)</small></span></button></div>
+      <form class="form" id="mbForm" data-id="${esc(ed.id ?? "")}" data-kind="${kind}">
+        <label style="grid-column:1/-1">${kind === "gmail" ? "Correo de Gmail" : "Correo"}<input name="address" type="email" required placeholder="${kind === "gmail" ? "tutienda.codigos@gmail.com" : "codigos@tudominio.com"}" value="${esc(ed.address ?? "")}"></label>
+        ${kind === "imap" ? `<label>Servidor IMAP<input name="host" required placeholder="imap.hostinger.com" value="${esc(ed.host ?? "")}"></label><label>Puerto<input name="port" inputmode="numeric" value="${esc(ed.port ?? 993)}"></label><label style="grid-column:1/-1">Usuario (si es distinto del correo)<input name="user" value="${esc(ed.user && ed.user !== ed.address ? ed.user : "")}"></label>` : ""}
+        <label style="grid-column:1/-1">${kind === "gmail" ? "Contraseña de aplicación" : "Contraseña"}<input name="password" type="password" autocomplete="new-password" ${ed.id ? `placeholder="Dejala vacía para no cambiarla"` : "required"}><small class="muted">${kind === "gmail" ? "Son 16 letras. Los espacios no importan." : "La del correo."} Se guarda cifrada y nunca se muestra.</small></label>
+        ${kind === "gmail" ? `<details style="grid-column:1/-1"><summary><b>Cómo crear la contraseña de aplicación</b></summary><ol class="muted" style="margin:8px 0 0;padding-left:20px">
+          <li>Entrá a <b>myaccount.google.com</b> con ese Gmail.</li><li>Seguridad → activá la <b>Verificación en 2 pasos</b> (si no la tenés).</li>
+          <li>Buscá <b>“Contraseñas de aplicaciones”</b> (o entrá a myaccount.google.com/apppasswords).</li><li>Nombre: <b>GaboHub</b> → Crear. Copiá las 16 letras y pegalas acá.</li>
+          <li>En Gmail → Configuración → Reenvío y POP/IMAP: <b>IMAP activado</b>.</li></ol></details>` : ""}
+        <label style="grid-column:1/-1">Nombre (opcional)<input name="name" maxlength="60" value="${esc(ed.name ?? "")}" placeholder="Ej.: Códigos Disney"></label>
+        <details style="grid-column:1/-1"><summary><b>Asuntos que se leen</b> <small class="muted">(avanzado)</small></summary><textarea name="subjects" rows="4" style="width:100%;margin-top:8px" placeholder="Uno por línea. Vacío = los de siempre (código, acceso, verificación, hogar…)">${esc((ed.subjectAllowlist ?? []).join("\n"))}</textarea><small class="muted">Solo se guardan correos cuyo asunto contiene alguna de estas palabras. El resto ni se mira.</small></details>
+        <div class="inline" style="grid-column:1/-1;justify-content:flex-end"><button class="pbtn" type="button" data-tab="mbEdit:">Cancelar</button><button class="pbtn" type="button" data-mbtest="1">${icon("flag")}Probar conexión</button><button class="pbtn dark" type="submit">Guardar</button></div>
+      </form></section>` : ""}
+    <section class="card"><h2>Correos conectados <button class="pbtn dark sm" type="button" data-tab="mbEdit:new" style="margin-left:auto">${icon("plus")}Conectar un correo</button></h2>
+      ${boxes.length ? table(["Correo", "Tipo", "Estado", "Última lectura", "Códigos", ""], boxes.map((b) => `<tr><td><b>${esc(b.name || b.address)}</b>${b.name ? `<br><small class="muted">${esc(b.address)}</small>` : ""}${b.lastError ? `<br><small style="color:var(--bad)">${esc(b.lastError)}</small>` : ""}</td><td>${b.kind === "imap" ? esc(b.host) : "Gmail"}</td><td>${st(b)}</td><td>${ago(b.lastCheckAt)}</td><td>${b.codesFound ?? 0}</td>
+        <td><div class="inline"><button class="pbtn sm" type="button" data-mbcheck="${esc(b.id)}">${icon("renew")}Leer ahora</button><button class="pbtn sm" type="button" data-tab="mbEdit:${esc(b.id)}">${icon("edit")}</button><button class="pbtn sm" type="button" data-mbdel="${esc(b.id)}" aria-label="Quitar">${icon("trash")}</button></div></td></tr>`))
+        : `<div class="emptybox">Todavía no conectaste ningún correo.<br><br><button class="pbtn dark" type="button" data-tab="mbEdit:new">${icon("plus")}Conectar un correo</button></div>`}</section>
+    <section class="card"><h2>Últimos códigos que llegaron <small>los clientes ven solo los de sus cuentas</small></h2>
+      ${table(["Hora", "Cuenta", "Asunto", "Código"], codes.map((c) => `<tr><td>${fdt(c.receivedAt)}</td><td>${esc(c.to || "—")}<br><small class="muted">${c.matched ? esc(c.product) : "⚠ no coincide con ninguna cuenta cargada"}</small></td><td>${esc(c.subject)}</td><td><b style="font-size:16px;letter-spacing:.08em">${esc(c.code || "")}</b>${c.link ? ` <a href="${esc(c.link)}" target="_blank" rel="noopener">enlace</a>` : ""}</td></tr>`), "Todavía no llegó ningún código.")}</section>`;
+  },
+
   async auditoria() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño ve la auditoría.</div></section>`;
     const list = await api("GET", "/api/admin/audit?limit=300");
@@ -922,6 +960,23 @@ document.addEventListener("click", async (ev) => {
   }
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
+  if (d.mbtest) {
+    const f = $("#mbForm");
+    el.disabled = true;
+    try { const r = await api("POST", "/api/admin/mailboxes/test", mbBody(f)); toast(`Conexión correcta ✓ (${r.messages} correos en la bandeja)`); } catch (e) { toast(e.message); }
+    el.disabled = false;
+    return;
+  }
+  if (d.mbcheck) {
+    el.disabled = true;
+    try { const r = await api("POST", `/api/admin/mailboxes/${d.mbcheck}/check`, {}); toast(r.errors ? `Error: ${r.mailbox?.lastError ?? "no se pudo leer"}` : `Listo: ${r.found} código(s) nuevo(s)`); } catch (e) { toast(e.message); }
+    return render();
+  }
+  if (d.mbdel) {
+    if (!confirm("¿Quitar este correo? Dejan de leerse sus códigos.")) return;
+    try { await api("POST", `/api/admin/mailboxes/${d.mbdel}/delete`, {}); toast("Correo quitado"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
   if (d.chat) { P.tab.chat = d.chat; return render(); }
   if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
@@ -1191,6 +1246,8 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
+    } else if (f.id === "mbForm") {
+      await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
     } else if (f.id === "setForm") {
