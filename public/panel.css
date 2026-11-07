@@ -198,3 +198,37 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
 .ctl-filters>input#cq{flex:1 1 280px;width:auto}
 .ctl-filters>select{flex:0 1 210px;width:auto;min-width:0}
 .ctl-filters>.pbtn{flex:none}
+
+/* Control en celular: tarjetas, buscador fijo y barra de acciones */
+.ctl-cards{display:none}
+.ctl-client{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-left:4px solid #1e3a8e}
+.ctl-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:40;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;
+  max-width:calc(100% - 20px);padding:10px 12px;border-radius:14px;background:#111827;color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.ctl-bar[hidden]{display:none!important}
+.ctl-bar .pbtn{background:#fff;color:#111}.ctl-bar .pbtn.dark{background:#22c55e;color:#fff;border-color:transparent}
+.ctl-bar input[type=date]{padding:5px 6px;border-radius:8px;border:0}
+.ctl-bar .chk{font-size:12px;color:#d1d5db}
+@media (max-width:860px){
+  .ctl-card{display:none}
+  .ctl-cards{display:grid;gap:10px;padding-bottom:110px}
+  .ctl-top{position:sticky;top:0;z-index:20}
+  .ctl-top .ctl-kpis{display:none}
+  .ctl-chips{flex-wrap:nowrap;overflow-x:auto}
+  .ctl-chips button{white-space:nowrap}
+  .ctl-filters>select{flex:1 1 45%}
+  .ccard{display:grid;gap:8px;padding:12px;border-radius:14px;background:var(--card);border:1px solid var(--line);border-left:6px solid #22c55e;color:var(--ink)}
+  .ccard.rv-bad{border-left-color:#ef4444;background:#fff5f5}.ccard.rv-today{border-left-color:#f97316;background:#fff7ed}
+  .ccard.rv-warn{border-left-color:#eab308;background:#fefce8}.ccard.rv-week{border-left-color:#f59e0b;background:#fffbeb}
+  .ccard.rv-hold{border-left-color:#8e7cc3;background:#f6f0fd}.ccard.rv-ok{background:#f3fdf6}
+  .ccard:is(.rv-bad,.rv-today,.rv-warn,.rv-week,.rv-hold,.rv-ok){color:#111}
+  .ccard header{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start}
+  .ccheck input{width:24px;height:24px}
+  .ccard .crow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;font-size:14px}
+  .ccard .crow.mono{font-size:12.5px;overflow-wrap:anywhere}
+  .ccard .crow label{display:flex;gap:6px;align-items:center}
+  .ccard footer{display:flex;gap:6px;flex-wrap:wrap}
+  .ccard footer .pbtn{flex:1 1 auto}
+  .ccard .ctl-in{width:80px;padding:6px}
+  .ccard select.ctl-in{width:auto}
+  .ctl-bar{bottom:8px;width:calc(100% - 16px)}
+}

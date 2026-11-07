@@ -117,10 +117,38 @@ const V = {
           <select id="cprod" aria-label="Plataforma">${opt("", "Plataforma: todas", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
+      ${(() => {
+        const names = [...new Set(view.map((r) => r.customerName.toLowerCase()))];
+        if (!q || names.length !== 1) return "";
+        const r0 = view[0];
+        return `<section class="card ctl-client"><div><b>${esc(r0.customerName)}</b> <span class="muted">${r0.customerPhone ? esc(r0.customerPhone) : "sin WhatsApp"}</span><br>
+          <small>${view.length} alquiler(es) · ${view.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(sum((r) => r.price))}</small></div>
+          <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="1">Seleccionar todas</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
+      })()}
+      <section class="ctl-cards">${view.map((r) => `<article class="ccard rv-${r.est[1]}">
+        <header><label class="ccheck"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
+          <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small><br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
+          <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
+        <div class="crow mono">${esc(r.email)}</div>
+        <div class="crow"><span>Vence <b>${fdate(r.customerExpiresAt)}</b> (${r.day})</span><span>Inicio ${fdate(r.startsAt)}</span></div>
+        <div class="crow"><label>Precio <input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal"></label>
+          <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
+          ${r.customerPhone ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
+        ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
+        <footer>${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener">💰 Cobrar</a>` : ""}
+          <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
+          <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}">✅ Renovada</button>
+          <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details></footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
+      <div class="ctl-bar" id="ctlBar" hidden><b id="ctlN">0</b> seleccionadas
+        <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
+        <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
+        <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
+        <label class="chk"><input type="checkbox" id="cbBeyond"> aunque pase la fecha del proveedor</label>
+        <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button></div>
       <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
-        <th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
+        <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
         ${view.map((r) => `<tr class="rv-${r.est[1]}">
-          <td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
+          <td><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
           <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
           <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
           <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
@@ -682,6 +710,26 @@ document.addEventListener("click", async (ev) => {
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
   }
+  if (d.cselall) { $$(".ctl-cards .csel, table.ctl .csel").forEach((c) => (c.checked = true)); return updateCtlBar(); }
+  if (d.cbulk) {
+    const ids = [...new Set($$(".csel:checked").map((x) => x.value))];
+    if (d.cbulk === "clear") { $$(".csel").forEach((c) => (c.checked = false)); return updateCtlBar(); }
+    if (!ids.length) return toast("Marcá al menos una");
+    if (d.cbulk === "renew") {
+      return act(() => api("POST", "/api/admin/assignments/renew-many", { ids, paymentMethod: "cash", batchKey: newKey(), allowBeyondSupplier: $("#cbBeyond").checked }), (r) => {
+        const bad = r.filter((x) => !x.ok);
+        return bad.length ? `${r.length - bad.length} renovadas; ${bad.length} no: ${bad[0].error}` : `✅ ${r.length} renovadas`;
+      });
+    }
+    if (d.cbulk === "date") {
+      const v = $("#cbDate").value;
+      if (!v) return toast("Elegí la fecha");
+      const [y, m, dd] = v.split("-").map(Number);
+      const at = new Date(y, m - 1, dd, 23, 59).getTime();
+      return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: at }); }, `📅 ${ids.length} con fecha ${dd}/${m}/${y}`);
+    }
+    if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
+  }
   if (d.ctlcsv) {
     const H = ["N°", "Cliente", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
     const PAYT = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -774,8 +822,20 @@ document.addEventListener("input", (ev) => {
 });
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "lookForm") { clearTimeout(lookTimer); lookTimer = setTimeout(previewLook, 150); } });
 
+function updateCtlBar() {
+  const bar = $("#ctlBar");
+  if (!bar) return;
+  const n = new Set($$(".csel:checked").map((x) => x.value)).size;
+  $("#ctlN").textContent = n;
+  bar.hidden = !n;
+}
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
+  if (t.classList?.contains("csel")) {
+    $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
+    return updateCtlBar();
+  }
+  if (t.id === "cselAllT") { $$(".csel").forEach((c) => (c.checked = t.checked)); return updateCtlBar(); }
   if (t.dataset?.ctl) {
     const f = t.dataset.f;
     let v = t.value.trim();
