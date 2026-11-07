@@ -900,3 +900,18 @@ describe("19. Control de alquileres", () => {
     assert.equal(s.snapshot().assignments[a.id].holdOpen, undefined);
   });
 });
+
+describe("20. Alquileres: solo los renueva la tienda", () => {
+  test("producto no publicado: el cliente/revendedor no puede renovarlo; el staff sí", () => {
+    const { s, carla, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "saldo");
+    const o = s.orders.create(seller, { customerId: carla.id, items: [{ productId: "oculto", qty: 1 }], paymentMethod: "cash" });
+    const id = o.assignmentIds[0];
+    const mine = s.portal.services(as(carla)).find((x) => x.assignmentId === id);
+    assert.equal(mine.canRenew, false);
+    assert.throws(() => s.orders.renew(as(carla), id, { paymentMethod: "balance" }), err("FORBIDDEN"));
+    assert.ok(s.orders.renew(seller, id, { paymentMethod: "cash" }).assignment.customerExpiresAt > o.createdAt);
+    const pub = s.orders.create(seller, { customerId: carla.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    assert.equal(s.portal.services(as(carla)).find((x) => x.assignmentId === pub.assignmentIds[0]).canRenew, true);
+  });
+});

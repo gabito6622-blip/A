@@ -205,13 +205,30 @@ function render() {
     },
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
-      <div class="sbox"><h2>Servicios activos <span class="spill sp-mute">${services.length}</span></h2>${services.length ? services.map((a) => {
+      ${services.length ? (() => {
+        const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
+        const semana = services.filter((a) => a.daysLeft >= 1 && a.daysLeft <= 7).length;
+        const prod = Object.entries(services.reduce((m, a) => ((m[a.product] = (m[a.product] ?? 0) + 1), m), {}));
+        const f = S.data.mf ?? "all";
+        const chip = (k, t, n) => `<button type="button" data-mf="${k}" aria-pressed="${f === k}">${t} <b>${n}</b></button>`;
+        return `<div class="msum"><div class="msum-k"><div><span>Mis cuentas</span><b>${services.length}</b></div><div class="${hoy + semana ? "w" : ""}"><span>Vencen esta semana</span><b>${hoy + semana}</b></div><div class="${venc ? "b" : ""}"><span>Vencidas</span><b>${venc}</b></div></div>
+          ${prod.length > 1 ? `<small class="empty">${prod.map(([n, c]) => `${esc(n.replace(/ \(alquiler revendedores\)/, ""))}: ${c}`).join(" · ")}</small>` : ""}
+          <div class="cats">${chip("all", "Todas", services.length)}${chip("week", "Esta semana", hoy + semana)}${chip("bad", "Vencidas", venc)}${chip("ok", "Al día", services.length - venc - hoy - semana)}</div>
+          ${services.length > 5 ? `<input id="mq" class="rsearch" placeholder="Buscar por correo, perfil o cliente" value="${esc(S.data.mq ?? "")}" aria-label="Buscar en mis cuentas">` : ""}</div>`;
+      })() : ""}
+      <div class="sbox"><h2>Servicios activos <span class="spill sp-mute">${services.length}</span></h2>${services.length ? services.filter((a) => {
+        const f = S.data.mf ?? "all", q = (S.data.mq ?? "").toLowerCase();
+        const okF = f === "all" || (f === "bad" && a.daysLeft < 0) || (f === "week" && a.daysLeft >= 0 && a.daysLeft <= 7) || (f === "ok" && a.daysLeft > 7);
+        return okF && (!q || `${a.access.email} ${a.access.profile} ${a.customerName} ${a.product}`.toLowerCase().includes(q));
+      }).map((a) => {
         const d = a.daysLeft;
         return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
         <dl class="cred" style="margin:0"><div><dt>Correo</dt><dd>${esc(a.access.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}</dl>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button><button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button></div></div>`;
-      }).join("") : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${a.canRenew === false
+          ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
+          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button></div></div>`;
+      }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
@@ -249,7 +266,7 @@ function resellerView() {
     return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${bs(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
   const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
-    <div class="rbtns"><button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>
+    <div class="rbtns">${a.canRenew === false ? "" : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
   const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
@@ -684,6 +701,7 @@ document.addEventListener("click", async (ev) => {
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
+  if (d.mf) { S.data.mf = d.mf; return render(); }
   if (d.rtab) { S.data.rtab = d.rtab; return render(); }
   if (d.pv) { S.data.pv = d.pv; $(".pvwrap").dataset.mode = d.pv; return; }
   if (d.theme) {
@@ -771,6 +789,12 @@ document.addEventListener("input", (ev) => {
     const v = pi.value.trim() ? toCents(pi.value) : null, out = $(`[data-profit="${pi.name.slice(2)}"]`);
     const pr = v === null || Number.isNaN(v) ? null : v - +pi.dataset.cost;
     out.innerHTML = pr === null ? "" : `<b style="color:${pr < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${pr < 0 ? "−" : "+"}${bs(Math.abs(pr))}</b>`;
+    return;
+  }
+  if (ev.target.id === "mq") {
+    S.data.mq = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { render(); const f = $("#mq"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }, 250);
     return;
   }
   if (ev.target.id === "dq") {

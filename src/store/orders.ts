@@ -241,7 +241,10 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
   return e.tx(() => e.idempotent(key, () => {
     const a = e.get("assignments", assignmentId);
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
-    else requireActFor(e, actor, a.customerId);
+    else {
+      requireActFor(e, actor, a.customerId);
+      if (!e.s.products[a.productId]?.published) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+    }
     const payerId = payerFor(e, actor, a.customerId);
     const unit = priceFor(e, payerId, a.productId);
     const now = e.now();

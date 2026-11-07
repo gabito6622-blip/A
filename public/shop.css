@@ -444,3 +444,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mini.mimg{background:#0e1424;overflow:hidden;padding:5px}
 .mini.mimg img{width:100%;height:100%;object-fit:contain}
 .plogo.wide{width:92%;max-width:none;height:80%}
+
+/* Resumen de Mis cuentas */
+.msum{display:grid;gap:10px}
+.msum-k{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.msum-k>div{display:grid;gap:2px;padding:14px;border-radius:16px;background:var(--s-card);border:1px solid var(--s-line)}
+.msum-k span{color:var(--s-muted);font-size:13px}.msum-k b{font-size:28px;font-family:var(--f-head,var(--f-shop))}
+.msum-k .w b{color:var(--s-warn)}.msum-k .b b{color:var(--s-bad)}
+.msum .cats button b{margin-left:4px}
