@@ -39,6 +39,15 @@ export interface StoreSettings {
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */
   paymentNote?: string;
+  /** Apariencia de la tienda. */
+  accentColor?: string;
+  backgroundColor?: string;
+  logoFileRef?: string;
+  heroTitle?: string;
+  heroHighlight?: string;
+  heroText?: string;
+  /** Aviso corto arriba de todo (promos, horarios). Vacío = no se muestra. */
+  announcement?: string;
 }
 
 /** Grupo de precios: sobreescribe el precio base por producto (p. ej. revendedores). */

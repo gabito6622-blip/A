@@ -167,6 +167,20 @@ describe("servidor Gabriel Store", () => {
     assert.equal(img.headers.get("content-type"), "image/png");
   });
 
+  test("apariencia: colores, textos, aviso y logo", async () => {
+    assert.equal((await state.owner.post("/api/admin/settings", { accentColor: "rojo" })).status, 400);
+    assert.equal((await state.owner.post("/api/admin/settings", { announcement: "x".repeat(200) })).status, 400);
+    const r = await state.owner.post("/api/admin/settings", { accentColor: "#7c5cff", backgroundColor: "#140c24", heroTitle: "Tu streaming,", heroHighlight: "al toque.", announcement: "Promo de fin de semana" });
+    assert.equal(r.status, 200);
+    assert.equal((await state.owner.post("/api/admin/settings", { logoFileRef: "../../etc/passwd" })).json.logoFileRef, undefined, "el archivo del logo solo se cambia subiendo una imagen");
+    const pub = (await client(base).get("/api/settings")).json;
+    assert.deepEqual([pub.accentColor, pub.backgroundColor, pub.heroTitle, pub.announcement, pub.hasLogo], ["#7c5cff", "#140c24", "Tu streaming,", "Promo de fin de semana", false]);
+    assert.equal((await state.owner.post("/api/admin/settings/logo", { contentBase64: PNG })).status, 200);
+    assert.equal((await client(base).get("/api/settings/logo")).headers.get("content-type"), "image/png");
+    await state.owner.post("/api/admin/settings/logo/remove");
+    assert.equal((await client(base).get("/api/settings/logo")).status, 404);
+  });
+
   test("avisos de WhatsApp: el staff los marca como enviados a mano", async () => {
     const out = await state.owner.get("/api/admin/outbox");
     const pending = out.json.find((m) => m.status === "queued");

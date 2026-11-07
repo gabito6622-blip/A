@@ -29,8 +29,15 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.storeName !== undefined && (!patch.storeName.trim() || patch.storeName.length > 60)) throw new DomainError("VALIDATION", "Nombre de tienda inválido");
   if (patch.whatsapp !== undefined && !/^\d{7,15}$/.test(patch.whatsapp)) throw new DomainError("VALIDATION", "WhatsApp: solo números con código de país, p. ej. 59170000000");
   if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
+  for (const k of ["accentColor", "backgroundColor"] as const) {
+    if (patch[k] !== undefined && patch[k] !== "" && !/^#[0-9a-fA-F]{6}$/.test(patch[k]!)) throw new DomainError("VALIDATION", "Color: formato #RRGGBB");
+  }
+  const LIMITS = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140 } as const;
+  for (const [k, max] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][]) {
+    if ((patch[k]?.length ?? 0) > max) throw new DomainError("VALIDATION", `Texto demasiado largo (máx. ${max} letras)`);
+  }
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "accentColor", "backgroundColor", "logoFileRef", "heroTitle", "heroHighlight", "heroText", "announcement"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     e.audit(actor, "settings.update", "settings", "store", { fields: allowed.join(",") });
     return structuredClone(e.s.settings);

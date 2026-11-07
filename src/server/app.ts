@@ -166,16 +166,23 @@ export function createApp(cfg: AppConfig): App {
 
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
-    return { storeName: st.storeName, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef };
+    return {
+      storeName: st.storeName, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef,
+      accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
+      heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
+      heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
+      announcement: st.announcement ?? "",
+    };
   });
-  route("GET", "/api/settings/qr", "public", (c) => {
-    const ref = store.engine.s.settings.qrFileRef;
+  route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
+  route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR"));
+  function sendImage(c: Ctx, ref: string | undefined, missing: string) {
     const file = ref && join(uploads, ref);
-    if (!file || !/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref!) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", "La tienda todavía no subió su QR");
+    if (!file || !/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref!) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", missing);
     c.res.writeHead(200, { "Content-Type": sniff(readFileSync(file).subarray(0, 16))!.mime, "Cache-Control": "no-cache" });
     createReadStream(file).pipe(c.res);
     return RAW;
-  });
+  }
 
   route("POST", "/api/auth/staff/login", "public", (c) => {
     const username = String(c.body?.username ?? "").toLowerCase();
@@ -363,23 +370,36 @@ export function createApp(cfg: AppConfig): App {
     return { ok: true };
   });
 
-  route("POST", "/api/admin/settings", "staff", (c) => store.catalog.updateSettings(A(c), { storeName: c.body?.storeName, whatsapp: c.body?.whatsapp, paymentNote: c.body?.paymentNote }));
-  route("POST", "/api/admin/settings/qr", "staff", (c) => {
+  route("POST", "/api/admin/settings", "staff", (c) => {
+    const b = c.body ?? {};
+    const pick = ["storeName", "whatsapp", "paymentNote", "accentColor", "backgroundColor", "heroTitle", "heroHighlight", "heroText", "announcement"]
+      .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
+    return store.catalog.updateSettings(A(c), pick);
+  });
+  const imageSetting = (key: "qrFileRef" | "logoFileRef", what: string) => (c: Ctx) => {
     const file = saveUpload(c.body);
     if (file.endsWith(".pdf")) {
       dropUpload(file);
-      throw new HttpError(400, "VALIDATION", "El QR tiene que ser una imagen (JPG, PNG o WEBP)");
+      throw new HttpError(400, "VALIDATION", `${what} tiene que ser una imagen (JPG, PNG o WEBP)`);
     }
-    const old = store.engine.s.settings.qrFileRef;
+    const old = store.engine.s.settings[key];
     try {
-      const out = store.catalog.updateSettings(A(c), { qrFileRef: file });
+      const out = store.catalog.updateSettings(A(c), { [key]: file });
       if (old) dropUpload(old);
       return out;
     } catch (e) {
       dropUpload(file);
       throw e;
     }
-  }, MAX_UPLOAD_JSON);
+  };
+  route("POST", "/api/admin/settings/qr", "staff", imageSetting("qrFileRef", "El QR"), MAX_UPLOAD_JSON);
+  route("POST", "/api/admin/settings/logo", "staff", imageSetting("logoFileRef", "El logo"), MAX_UPLOAD_JSON);
+  route("POST", "/api/admin/settings/logo/remove", "staff", (c) => {
+    const old = store.engine.s.settings.logoFileRef;
+    const out = store.catalog.updateSettings(A(c), { logoFileRef: "" });
+    if (old) dropUpload(old);
+    return out;
+  });
   route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id));
 
   route("POST", "/api/admin/mailboxes", "staff", (c) => store.codes.configureMailbox(A(c), { address: c.body?.address, host: c.body?.host, subjectAllowlist: c.body?.subjectAllowlist ?? [] }));
@@ -452,7 +472,8 @@ export function createApp(cfg: AppConfig): App {
   const server = createServer(async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
-    res.setHeader("X-Frame-Options", "DENY");
+    // SAMEORIGIN: el panel muestra la tienda en una vista previa; ningún otro sitio puede incrustarla.
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
     const url = new URL(req.url ?? "/", "http://local");
     const ip = req.socket.remoteAddress ?? "?";
     try {

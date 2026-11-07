@@ -16,10 +16,34 @@ async function loadBase() {
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
+  applyLook(S.settings);
   document.title = S.settings.storeName;
   $("#storeName").textContent = S.settings.storeName;
   $("#footName").textContent = `© ${S.settings.storeName} · Precios en bolivianos`;
   $("#footWa").innerHTML = S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, tengo una consulta")}" target="_blank" rel="noopener">WhatsApp de la tienda</a>` : "";
+}
+
+/** Mezcla dos colores #RRGGBB (t = proporción del segundo). */
+function mix(a, b, t) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+/** Aplica los colores, el logo, los textos y el aviso que eligió la tienda. */
+export function applyLook(st) {
+  const r = document.documentElement.style;
+  const bg = st.backgroundColor || "#090e1d", ac = st.accentColor || "#3984ff";
+  r.setProperty("--s-bg", bg);
+  r.setProperty("--s-card", mix(bg, "#ffffff", 0.05));
+  r.setProperty("--s-card2", mix(bg, "#ffffff", 0.09));
+  r.setProperty("--s-line", mix(bg, "#ffffff", 0.17));
+  r.setProperty("--s-blue", ac);
+  r.setProperty("--s-sky", mix(ac, "#ffffff", 0.35));
+  const mark = $("#logoMark");
+  mark.outerHTML = st.hasLogo ? `<img id="logoMark" src="/api/settings/logo?v=${Date.now() % 1e6}" alt="">` : `<i id="logoMark">${esc((st.storeName || "G")[0])}</i>`;
+  const ann = $("#announce");
+  ann.textContent = st.announcement || "";
+  ann.hidden = !st.announcement;
 }
 
 async function loadPrivate() {
@@ -80,8 +104,8 @@ function render() {
   const V = {
     inicio: () => `<section class="hero"><div style="display:grid;min-width:0">
         <span class="chip">✦ Tu tienda digital en Bolivia</span>
-        <h1>Todo lo digital,<br><span>en un solo lugar.</span></h1>
-        <p>Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.</p>
+        <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
+        <p>${esc(S.settings.heroText)}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">Explorar productos ${icon("arrow")}</button><button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button></div>
         <div class="ticks"><span>Precios en bolivianos</span><span>Entrega en tu cuenta</span><span>Soporte y renovaciones</span></div></div>
       <div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)} · tu resumen</div>

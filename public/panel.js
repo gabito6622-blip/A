@@ -12,9 +12,9 @@ const MENU = [
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["whatsapp", "wa", "WhatsApp"],
-  ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
+  ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
@@ -45,6 +45,7 @@ const V = {
     ].filter((x) => x[0]);
     const stock = Object.entries(st.stock);
     return `<div class="big"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div>
+      <section class="card"><div class="todo"><div><span class="ic" style="background:${esc(set.accentColor)};color:#fff">${icon("sun")}</span><b>Apariencia de la tienda<br><small class="muted" style="font-weight:400">Colores, logo, textos de inicio y aviso</small></b><button class="pbtn blue" type="button" data-go="apariencia">Personalizar ${icon("arrow")}</button></div></div></section>
       ${todo.length ? `<section class="card"><h2>${icon("flag")}Completá tu tienda</h2><div class="todo">${todo.map(([, i, t, go, b]) => `<div><span class="ic">${icon(i)}</span><b>${t}</b><button class="pbtn blue" type="button" data-go="${go}">${b} ${icon("arrow")}</button></div>`).join("")}</div></section>` : ""}
       <div class="kpis">
         <div class="kpi"><span>Ventas (30 días)</span><b>${bs(st.revenue)}</b><small class="muted">${st.orders} pedidos</small></div>
@@ -207,6 +208,29 @@ const V = {
         ${m.status === "skipped_no_consent" ? `<p class="muted" style="margin:0">El cliente no aceptó avisos. Si te lo pide, activalo en su ficha o mandalo igual a mano.</p>` : ""}</div>`).join("") : `<div class="emptybox">Nada por acá.</div>`}</section>`;
   },
 
+  async apariencia() {
+    if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin cambian la apariencia.</div></section>`;
+    const s = await api("GET", "/api/settings");
+    const ACCENTS = [["#3984ff", "Azul"], ["#7c5cff", "Violeta"], ["#e0368a", "Rosa"], ["#ff5a36", "Naranja"], ["#f2b705", "Dorado"], ["#16b47e", "Verde"], ["#14b8c8", "Turquesa"], ["#e53935", "Rojo"]];
+    const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"]];
+    const sw = (name, list, cur) => `<div class="inline">${list.map(([c, t]) => `<label title="${t}" style="display:grid;justify-items:center;gap:4px;font-size:12px;cursor:pointer;position:relative"><input type="radio" name="${name}" value="${c}" ${c.toLowerCase() === cur.toLowerCase() ? "checked" : ""} style="position:absolute;opacity:0">
+      <span class="swatch" style="width:38px;height:38px;border-radius:10px;background:${c};border:3px solid ${c.toLowerCase() === cur.toLowerCase() ? "var(--ink)" : "transparent"};box-shadow:0 0 0 1px var(--line)"></span>${t}</label>`).join("")}
+      ${name === "accentColor" ? `<label style="display:grid;justify-items:center;gap:4px;font-size:12px">Otro<input type="color" name="accentCustom" value="${esc(cur)}" style="width:44px;height:38px;padding:2px"></label>` : ""}</div>`;
+    return `<section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px">
+        <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
+        <div><b>Fondo</b> <span class="muted">· siempre oscuro, para que se lea bien</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
+        <h2 style="margin-top:6px">Textos de la página de inicio</h2>
+        <div class="form"><label>Título<input name="heroTitle" maxlength="40" value="${esc(s.heroTitle)}"></label><label>Parte destacada (en color)<input name="heroHighlight" maxlength="40" value="${esc(s.heroHighlight)}"></label>
+        <label style="grid-column:1/-1">Descripción<input name="heroText" maxlength="220" value="${esc(s.heroText)}"></label>
+        <label style="grid-column:1/-1">Aviso arriba de todo (opcional)<input name="announcement" maxlength="140" value="${esc(s.announcement)}" placeholder="Ej.: Netflix a Bs 30 solo este fin de semana"></label></div>
+        <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
+      <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
+        <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
+      <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <iframe id="lookPreview" src="/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
+        <iframe src="/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
+  },
+
   async usuarios() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño administra usuarios.</div></section>`;
     const list = await api("GET", "/api/admin/staff");
@@ -276,6 +300,7 @@ async function start() {
   $("#pName").textContent = me.name;
   $("#pRole").textContent = { owner: "DUEÑO", admin: "ADMIN", seller: "VENDEDOR" }[me.role];
   $("#pStore").textContent = P.settings.storeName;
+  if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
   go(location.hash.slice(1) || "dashboard");
 }
@@ -324,6 +349,7 @@ document.addEventListener("click", async (ev) => {
     });
   }
   if (d.remind) return act(() => api("POST", "/api/admin/reminders", { withinDays: +d.remind }), (r) => r.queued ? `${r.queued} recordatorios listos en WhatsApp` : "No hay recordatorios nuevos para preparar");
+  if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
   if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
   if (d.supactive) {
@@ -334,6 +360,12 @@ document.addEventListener("click", async (ev) => {
 
 document.addEventListener("change", (ev) => {
   if (ev.target.id === "days") { P.tab.days = +ev.target.value; render(); }
+  // Marca visual del color elegido en Apariencia (se aplica al guardar).
+  if (ev.target.name === "accentColor" || ev.target.name === "backgroundColor") {
+    $$(`input[name="${ev.target.name}"]`).forEach((r) => (r.nextElementSibling.style.borderColor = r.checked ? "var(--ink)" : "transparent"));
+    if (ev.target.name === "accentColor") $('input[name="accentCustom"]').value = ev.target.value;
+  }
+  if (ev.target.name === "accentCustom") $$('input[name="accentColor"]').forEach((r) => { r.checked = false; r.nextElementSibling.style.borderColor = "transparent"; });
   if (ev.target.id === "selAll") $$(".sel").forEach((c) => (c.checked = ev.target.checked));
 });
 
@@ -412,6 +444,15 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");
       $("#pStore").textContent = P.settings.storeName;
+    } else if (f.id === "lookForm") {
+      const custom = f.accentCustom.value;
+      const picked = f.querySelector('input[name="accentColor"]:checked')?.value;
+      await act(() => api("POST", "/api/admin/settings", {
+        accentColor: picked || custom, backgroundColor: f.querySelector('input[name="backgroundColor"]:checked')?.value,
+        heroTitle: f.heroTitle.value, heroHighlight: f.heroHighlight.value, heroText: f.heroText.value, announcement: f.announcement.value,
+      }), "Apariencia guardada: así la ven tus clientes");
+    } else if (f.id === "logoForm") {
+      await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");
     } else if (f.id === "qrForm") {
       await act(async () => api("POST", "/api/admin/settings/qr", { contentBase64: await fileToBase64(f.file.files[0]) }), "QR actualizado");
     } else if (f.id === "pwForm") {
