@@ -30,6 +30,8 @@ export interface Product {
   category?: string;
   description?: string;
   color?: string;
+  /** Logo o imagen del producto (archivo subido por el staff). */
+  imageFileRef?: string;
 }
 
 /** Configuración de la tienda que ve el cliente. */

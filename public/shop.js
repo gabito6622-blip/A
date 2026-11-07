@@ -136,13 +136,19 @@ async function refresh() {
 }
 
 /* ---------------- vistas ---------------- */
+/** Logo del producto (si tiene) o su inicial. */
+const mark = (p) => (p.hasImage ? `<img class="plogo" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
+/** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
+const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
+
 function card(p) {
   const s = p.available;
-  return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span><span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span></div>
+  return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:${s ? (s <= 2 ? "var(--s-warn)" : "var(--s-ok)") : "var(--s-bad)"}">${s ? (s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : "Agotado"}</span>
+  <span class="stock" style="color:${s ? (s <= 2 ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? "var(--s-muted)" : "var(--s-bad)"}">${s ? (s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? "Disponible a pedido" : "Agotado"}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div>
-  <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button></div></div></article>`;
+  <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" })[k] ?? k;
 
@@ -201,7 +207,7 @@ function render() {
       ${pendingOrders()}
       <div class="sbox"><h2>Servicios activos <span class="spill sp-mute">${services.length}</span></h2>${services.length ? services.map((a) => {
         const d = a.daysLeft;
-        return `<div class="svc"><div class="top"><div class="who"><span class="mini" style="background:${esc(product(a.productId)?.color ?? "#3984ff")}">${esc(a.product[0])}</span><div><b>${esc(a.product)}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
+        return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
         <dl class="cred" style="margin:0"><div><dt>Correo</dt><dd>${esc(a.access.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}</dl>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button><button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button></div></div>`;
@@ -242,7 +248,7 @@ function resellerView() {
     const price = sellPrice(a.productId);
     return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${bs(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
-  const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who"><span class="mini" style="background:${esc(product(a.productId)?.color ?? "#3984ff")}">${esc(a.product[0])}</span><div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
+  const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
     <div class="rbtns"><button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
@@ -383,7 +389,7 @@ function programView() {
 
     ${pg.showPrices && pg.products.length ? `<section class="psec"><div class="peyebrow">Números reales</div><div class="psplit"><h2>Tu ganancia<br>en cada venta</h2><p>Precio de nuestra tienda al público contra tu precio de revendedor. Vos decidís a cuánto vender.</p></div>
       <div class="sbox pprices"><div class="pp-h"><span>Producto</span><span>Precio público</span><span>Tu precio</span><span>Ganás hasta</span></div>
-      ${pg.products.map((p) => `<div class="pp-r"><span class="who"><span class="mini" style="background:${esc(p.color)}">${esc(p.name[0])}</span><b>${esc(p.name)}</b></span><span data-l="Público">${bs(p.public)}</span><span data-l="Tu precio"><b>${bs(p.reseller)}</b></span><span data-l="Ganás" class="pp-g">+${bs(p.public - p.reseller)}</span></div>`).join("")}
+      ${pg.products.map((p) => `<div class="pp-r"><span class="who">${miniMark(product(p.id) ?? p)}<b>${esc(p.name)}</b></span><span data-l="Público">${bs(p.public)}</span><span data-l="Tu precio"><b>${bs(p.reseller)}</b></span><span data-l="Ganás" class="pp-g">+${bs(p.public - p.reseller)}</span></div>`).join("")}
       <p class="empty" style="margin:0">“Ganás hasta” = vendiendo al mismo precio que la tienda, ${p_dur(pg.products)}.</p></div></section>` : ""}
 
     <section class="psec"><div class="peyebrow">Ventajas</div><div class="psplit"><h2>¿Por qué revender con nosotros?</h2><p>Lo que cambia en tu negocio desde el primer día.</p></div>
@@ -538,7 +544,7 @@ function renderCart(msg = "") {
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
-      ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center"><span class="mini" style="background:${esc(p.color)}">${esc(p.name[0])}</span><div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
+      ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
         + `<div class="total"><span>Total</span><span>${bs(tot)}</span></div>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\nTotal: ${bs(tot)}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
@@ -703,9 +709,9 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.det) {
     const p = product(d.det);
-    $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span><span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span></div><h2 style="font-size:24px;font-weight:900">${esc(p.name)}</h2><p class="empty">${esc(p.description)}</p>
-      <dl class="cred" style="margin:0"><div><dt>Modalidad</dt><dd>${esc(kindText(p.kind))}</dd></div><div><dt>Duración</dt><dd>${p.durationDays} días</dd></div><div><dt>Entrega</dt><dd>${SLUG ? "Por WhatsApp" : "En Mis cuentas"}</dd></div><div><dt>Disponibles</dt><dd>${p.available}</dd></div></dl>
-      <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div><div class="pbtns"><button class="sbtn" type="button" data-close="1">Cerrar</button><button class="sbtn pri" type="button" data-add="${esc(p.id)}" ${p.available ? "" : "disabled"}>Añadir +</button></div></div>`;
+    $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div><h2 style="font-size:24px;font-weight:900">${esc(p.name)}</h2><p class="empty">${esc(p.description)}</p>
+      <dl class="cred" style="margin:0"><div><dt>Modalidad</dt><dd>${esc(kindText(p.kind))}</dd></div><div><dt>Duración</dt><dd>${p.durationDays} días</dd></div><div><dt>Entrega</dt><dd>${SLUG ? "Por WhatsApp" : "En Mis cuentas"}</dd></div><div><dt>Disponibles</dt><dd>${p.available || (askWa(p) ? "A pedido" : 0)}</dd></div></dl>
+      <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div><div class="pbtns"><button class="sbtn" type="button" data-close="1">Cerrar</button>${p.available || !askWa(p) ? `<button class="sbtn pri" type="button" data-add="${esc(p.id)}" ${p.available ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a>`}</div></div>`;
     $("#modal").hidden = false; $("#scrim").hidden = false;
     return;
   }

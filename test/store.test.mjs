@@ -813,3 +813,19 @@ describe("15. Opiniones y tiendas destacadas", () => {
     assert.equal(s.shops.list(admin).find((x) => x.slug === "otro-tv").featured, true);
   });
 });
+
+describe("16. Logo de producto", () => {
+  test("se guarda, se conserva al editar el producto y se puede quitar; solo staff con permiso", () => {
+    const { s } = setup();
+    assert.equal(s.catalog.setProductImage(admin, "netflix", "a".repeat(32) + ".png"), undefined);
+    s.catalog.upsertProduct(admin, { id: "netflix", name: "Netflix perfil", kind: "profile", durationDays: 30, price: 4000, published: true, evil: "x" });
+    const p = s.snapshot().products.netflix;
+    assert.equal(p.imageFileRef, "a".repeat(32) + ".png", "editar no borra el logo");
+    assert.equal("evil" in p, false, "no guarda campos desconocidos");
+    assert.equal(s.catalog.publicCatalog().find((x) => x.id === "netflix").hasImage, true);
+    assert.throws(() => s.catalog.setProductImage(seller, "netflix", null), err("FORBIDDEN"));
+    assert.equal(s.catalog.setProductImage(admin, "netflix", null), "a".repeat(32) + ".png");
+    assert.equal(s.catalog.publicCatalog().find((x) => x.id === "netflix").hasImage, false);
+    assert.throws(() => s.catalog.upsertProduct(admin, { name: "X", kind: "raro", durationDays: 30, price: 100, published: true }), err("VALIDATION"));
+  });
+});

@@ -194,6 +194,7 @@ export function createApp(cfg: AppConfig): App {
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
     };
   });
+  route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
   route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
   route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR"));
   function sendImage(c: Ctx, ref: string | undefined, missing: string) {
@@ -357,6 +358,20 @@ export function createApp(cfg: AppConfig): App {
 
   route("GET", "/api/admin/products", "staff", () => Object.values(snap().products));
   route("POST", "/api/admin/products", "staff", (c) => store.catalog.upsertProduct(A(c), c.body));
+  route("POST", "/api/admin/products/:id/image", "staff", (c) => {
+    if (c.body?.remove === true) {
+      const old = store.catalog.setProductImage(A(c), c.params.id, null);
+      if (old) dropUpload(old);
+      return { ok: true };
+    }
+    const file = saveUpload(c.body);
+    if (file.endsWith(".pdf")) { dropUpload(file); throw new HttpError(400, "VALIDATION", "Tiene que ser una imagen (PNG, JPG o WEBP)"); }
+    try {
+      const old = store.catalog.setProductImage(A(c), c.params.id, file);
+      if (old) dropUpload(old);
+    } catch (e) { dropUpload(file); throw e; }
+    return { ok: true };
+  }, MAX_UPLOAD_JSON);
   route("GET", "/api/admin/price-groups", "staff", () => Object.values(snap().priceGroups));
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
   route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));

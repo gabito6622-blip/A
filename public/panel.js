@@ -177,9 +177,11 @@ const V = {
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label class="chk"><input type="checkbox" name="published" ${f.published ? "checked" : ""}> Mostrar en la tienda</label>
-      <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form></section>
+      <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
+      ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
       <section class="card"><h2>Productos <small>· ${products.length}</small></h2>${table(["Producto", "Tipo", "Precio", "Revendedor", "Duración", "Stock libre", "Tienda", ""], products.map((p) => `<tr>
-        <td><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${esc(p.color ?? "#3984ff")};margin-right:6px"></span>${esc(p.name)}<br><small class="muted">${esc(p.category ?? "")}</small></td>
+        <td>${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px">` : `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${esc(p.color ?? "#3984ff")};margin-right:6px"></span>`}${esc(p.name)}<br><small class="muted">${esc(p.category ?? "")}</small></td>
         <td>${esc({ profile: "Perfil", full_account: "Cuenta", invite: "Invitación", combo: "Combo" }[p.kind])}</td><td>${bs(p.price)}</td><td>${rev?.prices[p.id] !== undefined ? bs(rev.prices[p.id]) : "—"}</td>
         <td>${p.durationDays} días</td><td>${stock[p.id]?.available ?? 0}</td><td>${p.published ? pill("Publicado", "ok") : pill("Oculto", "mute")}</td>
         <td><button class="pbtn sm" type="button" data-editprod="${esc(p.id)}">${icon("edit")}Editar</button></td></tr>`), "Todavía no hay productos.")}</section>`;
@@ -628,6 +630,7 @@ document.addEventListener("click", async (ev) => {
     previewLook();
     return toast(`Probando “${t.name}”: tocá Guardar apariencia para dejarlo`);
   }
+  if (d.noprodimg) return act(() => api("POST", `/api/admin/products/${d.noprodimg}/image`, { remove: true }), "Logo quitado");
   if (d.shopfeat) return act(() => api("POST", `/api/admin/customers/${d.shopfeat}/shop-feature`, { featured: d.on === "1" }), d.on === "1" ? "Tienda destacada" : "Ya no está destacada");
   if (d.shopblock) {
     const on = d.on === "1";
@@ -760,6 +763,8 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/secrets", body), "Claves guardadas");
     } else if (f.id === "waConfig") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
+    } else if (f.id === "prodImg") {
+      await act(async () => api("POST", `/api/admin/products/${f.dataset.id}/image`, { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");
     } else if (f.id === "testiForm") {
       const items = [...f.querySelectorAll(".tr-row")].map((r) => ({ name: r.querySelector('[name="tn"]').value.trim(), business: r.querySelector('[name="tb"]').value.trim(), text: r.querySelector('[name="tt"]').value.trim(), rating: r.querySelector('[name="tr"]').value }))
         .filter((t) => t.text);

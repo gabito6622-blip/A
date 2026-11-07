@@ -18,10 +18,30 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
   if ((p.description?.length ?? 0) > 200 || (p.category?.length ?? 0) > 40) throw new DomainError("VALIDATION", "Descripción o categoría demasiado largas");
   return e.tx(() => {
     const id = p.id ?? e.id("prd");
-    const prod: Product = { ...p, id };
+    const prev = e.s.products[id];
+    // Solo campos conocidos; la imagen se cambia aparte y se conserva al editar.
+    const prod: Product = {
+      id, name: p.name.trim(), kind: p.kind, durationDays: p.durationDays, price: p.price, published: !!p.published,
+      ...(p.category !== undefined ? { category: p.category } : {}), ...(p.description !== undefined ? { description: p.description } : {}),
+      ...(p.color !== undefined ? { color: p.color } : {}), ...(prev?.imageFileRef ? { imageFileRef: prev.imageFileRef } : {}),
+    };
+    if (!["profile", "full_account", "invite", "combo"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
     e.s.products[id] = prod;
     e.audit(actor, "product.upsert", "product", id, { price: p.price, published: p.published });
     return prod;
+  });
+}
+
+/** Cambia (o quita, con null) la imagen de un producto. Devuelve el archivo anterior para borrarlo. */
+export function setProductImage(e: Engine, actor: Actor, productId: Id, fileRef: string | null): string | undefined {
+  authorize(actor, "catalog.manage");
+  return e.tx(() => {
+    const p = e.get("products", productId);
+    const old = p.imageFileRef;
+    if (fileRef) p.imageFileRef = fileRef;
+    else delete p.imageFileRef;
+    e.audit(actor, "product.image", "product", p.id, { removed: !fileRef });
+    return old;
   });
 }
 
@@ -199,7 +219,7 @@ export function publicCatalog(e: Engine, customerId?: Id) {
     .filter((p) => p.published)
     .map((p) => ({
       id: p.id, name: p.name, kind: p.kind, durationDays: p.durationDays,
-      category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff",
+      category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef,
       price: customerId ? priceFor(e, customerId, p.id) : p.price,
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));

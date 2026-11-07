@@ -437,3 +437,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ptesti figcaption span{display:grid}.ptesti figcaption small{color:var(--s-muted)}
 @media (max-width:860px){.prate{justify-self:start}.dfeat,.ptesti{grid-template-columns:1fr}}
 .smain:has(.dhero) .dlist{margin-top:-40px}
+
+/* logos de producto */
+.plogo{width:min(62%,150px);height:64%;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(0,0,0,.45))}
+.modal .plogo{height:70%}
+.mini.mimg{background:#0e1424;overflow:hidden;padding:5px}
+.mini.mimg img{width:100%;height:100%;object-fit:contain}

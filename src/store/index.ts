@@ -48,6 +48,7 @@ export function createStore(opts: EngineOptions = {}) {
       priceFor: bind(e, catalog.priceFor),
       publicCatalog: bind(e, catalog.publicCatalog),
       updateSettings: bind(e, catalog.updateSettings),
+      setProductImage: bind(e, catalog.setProductImage),
       findCustomerByPhone: bind(e, catalog.findCustomerByPhone),
       selfRegister: bind(e, catalog.selfRegister),
       canActFor: bind(e, catalog.canActFor),
