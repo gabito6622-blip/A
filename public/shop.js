@@ -137,7 +137,7 @@ async function refresh() {
 
 /* ---------------- vistas ---------------- */
 /** Logo del producto (si tiene) o su inicial. */
-const mark = (p) => (p.hasImage ? `<img class="plogo" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+const mark = (p) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
 const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
