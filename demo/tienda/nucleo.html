@@ -1,0 +1,1289 @@
+<title>Gabriel Store Núcleo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: cabecera → tarjetas de las 7 prioridades con su prueba en vivo → estado real del sistema (stock, pedidos, saldo, WhatsApp, auditoría) → REA */
+:root{--bg:#f4f6fb;--card:#fff;--soft:#eef1f7;--line:#dde2ec;--ink:#162033;--muted:#5d6a80;--accent:#2f6bff;--ok:#0f8a52;--ok-soft:#dcf5e8;--bad:#c4302b;--bad-soft:#fde4e2;--warn:#9a5b00;--warn-soft:#fff0d4;
+  --f:"Inter",ui-sans-serif,system-ui,sans-serif;--m:"JetBrains Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1320;--card:#151d2d;--soft:#1c2638;--line:#2a3549;--ink:#e7ecf5;--muted:#9aa6bb;--accent:#6b9bff;--ok:#4cd393;--ok-soft:#14332a;--bad:#ff8a84;--bad-soft:#3a1d1d;--warn:#f2bb55;--warn-soft:#3a2c12;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1320;--card:#151d2d;--soft:#1c2638;--line:#2a3549;--ink:#e7ecf5;--muted:#9aa6bb;--accent:#6b9bff;--ok:#4cd393;--ok-soft:#14332a;--bad:#ff8a84;--bad-soft:#3a1d1d;--warn:#f2bb55;--warn-soft:#3a2c12;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f)}
+.w{max-width:1100px;margin:0 auto;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+h1{font-size:clamp(26px,4vw,36px);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font-size:19px;margin:0}
+p{margin:0}
+.muted{color:var(--muted)}
+.top{display:grid;gap:10px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font:600 14px var(--f);cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.score{font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.card header{display:flex;gap:10px;align-items:baseline}
+.card header b{font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums}
+.card header h3{font-size:16px;margin:0;flex:1}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)}.p-bad{background:var(--bad-soft);color:var(--bad)}.p-idle{background:var(--soft);color:var(--muted)}.p-warn{background:var(--warn-soft);color:var(--warn)}
+ol.log{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13.5px}
+ol.log li{display:grid;grid-template-columns:20px 1fr;gap:6px}
+ol.log li i{font-style:normal;font-weight:800}
+ol.log li.ok i{color:var(--ok)} ol.log li.bad i{color:var(--bad)}
+ol.log code{font:12px var(--m);background:var(--soft);border-radius:5px;padding:1px 5px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;color:var(--muted);font:600 14px var(--f);padding:10px 12px;border-bottom:2px solid transparent;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+th{text-align:left;font-weight:600;color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.m{font:12.5px var(--m)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.msg{white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px;font-size:13.5px}
+.ref td:first-child{font-weight:600}
+</style>
+
+<main class="w">
+  <section class="top">
+    <h1>Gabriel Store: el núcleo funcionando</h1>
+    <p class="muted">Esta página ejecuta el mismo código de <code>src/store</code> que está en el repositorio. Cada botón corre una situación real y muestra qué hizo el sistema.</p>
+    <div class="bar"><button class="btn pri" id="all" type="button">Probar las 7 prioridades</button><button class="btn" id="reset" type="button">Empezar de cero</button><span class="score" id="score"></span></div>
+  </section>
+
+  <section class="grid" id="cards"></section>
+
+  <section class="card">
+    <h2>Lo que quedó guardado en el sistema</h2>
+    <p class="muted">Se actualiza después de cada prueba. Montos en bolivianos.</p>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="view"></div>
+  </section>
+
+  <section class="card">
+    <h2>De dónde sale cada función (REA)</h2>
+    <div class="scroll"><table class="ref"><thead><tr><th>Referencia</th><th>Evidencia</th><th>Qué tomamos</th></tr></thead><tbody>
+      <tr><td>StreamingManager</td><td><span class="pill p-ok">Observado</span> en tus capturas del panel</td><td>Cuentas y perfiles, aprobación de ventas, recordatorios, panel de códigos, clientes con créditos. <b>No</b> copiamos el envío de contraseñas por WhatsApp.</td></tr>
+      <tr><td>Mercado Streaming</td><td><span class="pill p-warn">Sin evidencia pública</span> · requisito tuyo</td><td>Saldo y recargas, revendedores, reemplazos, renovaciones masivas, grupos de precios.</td></tr>
+      <tr><td>StreamGestor</td><td><span class="pill p-warn">Sin evidencia pública</span> · requisito tuyo</td><td>Catálogo móvil, checkout, comprobantes, autoservicio.</td></tr>
+    </tbody></table></div>
+  </section>
+</main>
+
+<script>"use strict";
+var GS = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // ../../../../../../workspace/A/dist/store/index.js
+  var store_exports = {};
+  __export(store_exports, {
+    DAY: () => DAY,
+    DomainError: () => DomainError,
+    Engine: () => Engine,
+    HOUR: () => HOUR,
+    MINUTE: () => MINUTE,
+    authorize: () => authorize,
+    can: () => can,
+    createStore: () => createStore,
+    emptyState: () => emptyState,
+    renderTemplate: () => render,
+    systemClock: () => systemClock
+  });
+
+  // ../../../../../../workspace/A/dist/store/errors.js
+  var DomainError = class extends Error {
+    code;
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+      this.name = "DomainError";
+    }
+  };
+
+  // ../../../../../../workspace/A/dist/store/time.js
+  var MINUTE = 6e4;
+  var HOUR = 36e5;
+  var DAY = 864e5;
+
+  // ../../../../../../workspace/A/dist/store/engine.js
+  var systemClock = { now: () => Date.now() };
+  function emptyState() {
+    return {
+      products: {},
+      priceGroups: { final: { id: "final", name: "Cliente final", prices: {} } },
+      suppliers: {},
+      accounts: {},
+      slots: {},
+      customers: {},
+      orders: {},
+      assignments: {},
+      ledger: [],
+      audit: [],
+      outbox: [],
+      mailboxes: {},
+      codes: [],
+      idempotency: {},
+      seq: 0
+    };
+  }
+  var SECRET_KEYS = /pass|password|secret|pin|token/i;
+  var Engine = class {
+    _s;
+    clock;
+    opts;
+    depth = 0;
+    constructor(o = {}) {
+      this._s = o.initialState ? structuredClone(o.initialState) : emptyState();
+      this.clock = o.clock ?? systemClock;
+      this.opts = {
+        reservationMinutes: o.reservationMinutes ?? 30,
+        reviewHoldHours: o.reviewHoldHours ?? 24,
+        codeVisibleMinutes: o.codeVisibleMinutes ?? 30
+      };
+    }
+    /** Estado actual. No guardes la referencia entre llamadas: un rollback la reemplaza. */
+    get s() {
+      return this._s;
+    }
+    now() {
+      return this.clock.now();
+    }
+    /** Copia profunda del estado, para persistir o inspeccionar. */
+    snapshot() {
+      return structuredClone(this._s);
+    }
+    tx(fn) {
+      if (this.depth > 0)
+        return fn();
+      const backup = structuredClone(this._s);
+      this.depth++;
+      try {
+        return fn();
+      } catch (e) {
+        this._s = backup;
+        throw e;
+      } finally {
+        this.depth--;
+      }
+    }
+    /** Ejecuta `fn` una sola vez por clave; repeticiones devuelven el mismo resultado. */
+    idempotent(key, fn) {
+      if (!key)
+        return fn();
+      if (key in this._s.idempotency)
+        return structuredClone(this._s.idempotency[key]);
+      const out = fn();
+      this._s.idempotency[key] = structuredClone(out);
+      return out;
+    }
+    id(prefix) {
+      this._s.seq += 1;
+      return `${prefix}_${this._s.seq.toString().padStart(5, "0")}`;
+    }
+    audit(actor, action, entity, entityId, data) {
+      const clean = data ? Object.fromEntries(Object.entries(data).filter(([k]) => !SECRET_KEYS.test(k))) : void 0;
+      const ev = { id: this.id("aud"), at: this.now(), actorId: actor.id, role: actor.role, action, entity, entityId, data: clean };
+      this._s.audit.push(ev);
+    }
+    get(table, id) {
+      const t = this._s[table];
+      const v = t[id];
+      if (!v)
+        throw new DomainError("NOT_FOUND", `${String(table)} ${id} no existe`);
+      return v;
+    }
+  };
+
+  // ../../../../../../workspace/A/dist/store/auth.js
+  var MATRIX = {
+    "catalog.manage": ["owner", "admin"],
+    "inventory.manage": ["owner", "admin"],
+    "inventory.view_secrets": ["owner", "admin"],
+    "supplier.manage": ["owner", "admin"],
+    "customer.manage": ["owner", "admin", "seller"],
+    "customer.create_own": ["reseller"],
+    "order.create_any": ["owner", "admin", "seller"],
+    "order.create_self": ["customer", "reseller"],
+    "payment.review": ["owner", "admin"],
+    "assignment.renew_any": ["owner", "admin", "seller"],
+    "assignment.renew_beyond_supplier": ["owner"],
+    "assignment.replace": ["owner", "admin"],
+    "wallet.adjust": ["owner"],
+    "stats.view": ["owner", "admin"],
+    "audit.view": ["owner"],
+    "codes.configure": ["owner"],
+    "codes.ingest": ["system", "owner"],
+    "notify.flush": ["system", "owner", "admin"]
+  };
+  function can(actor, perm) {
+    return MATRIX[perm].includes(actor.role);
+  }
+  function authorize(actor, perm) {
+    if (!can(actor, perm))
+      throw new DomainError("FORBIDDEN", `El rol ${actor.role} no puede ${perm}`);
+  }
+  var isStaff = (a) => a.role === "owner" || a.role === "admin" || a.role === "seller";
+
+  // ../../../../../../workspace/A/dist/store/catalog.js
+  var money = (n, what) => {
+    if (!Number.isInteger(n) || n < 0)
+      throw new DomainError("VALIDATION", `${what} debe ser un entero >= 0 (centavos)`);
+  };
+  function upsertProduct(e, actor, p) {
+    authorize(actor, "catalog.manage");
+    money(p.price, "price");
+    if (!p.name?.trim())
+      throw new DomainError("VALIDATION", "El producto necesita nombre");
+    if (!Number.isInteger(p.durationDays) || p.durationDays <= 0)
+      throw new DomainError("VALIDATION", "durationDays inv\xE1lido");
+    return e.tx(() => {
+      const id = p.id ?? e.id("prd");
+      const prod = { ...p, id };
+      e.s.products[id] = prod;
+      e.audit(actor, "product.upsert", "product", id, { price: p.price, published: p.published });
+      return prod;
+    });
+  }
+  function upsertPriceGroup(e, actor, g) {
+    authorize(actor, "catalog.manage");
+    Object.values(g.prices).forEach((v) => money(v, "precio del grupo"));
+    return e.tx(() => {
+      e.s.priceGroups[g.id] = structuredClone(g);
+      e.audit(actor, "price_group.upsert", "price_group", g.id, { products: Object.keys(g.prices).length });
+      return g;
+    });
+  }
+  function priceFor(e, customerId, productId) {
+    const c = e.get("customers", customerId);
+    const p = e.get("products", productId);
+    const g = e.s.priceGroups[c.priceGroupId];
+    return g?.prices[productId] ?? p.price;
+  }
+  function upsertSupplier(e, actor, s) {
+    authorize(actor, "supplier.manage");
+    return e.tx(() => {
+      const id = s.id ?? e.id("sup");
+      e.s.suppliers[id] = { ...s, id };
+      e.audit(actor, "supplier.upsert", "supplier", id, { active: s.active });
+      return e.s.suppliers[id];
+    });
+  }
+  function createCustomer(e, actor, c) {
+    const phone = c.phone.replace(/[^\d+]/g, "");
+    if (!c.name?.trim() || phone.replace(/\D/g, "").length < 7)
+      throw new DomainError("VALIDATION", "Nombre y tel\xE9fono son obligatorios");
+    let resellerId;
+    if (isStaff(actor)) {
+      authorize(actor, "customer.manage");
+      if (c.kind === "reseller" && actor.role === "seller")
+        throw new DomainError("FORBIDDEN", "Solo admin u owner crean revendedores");
+    } else {
+      authorize(actor, "customer.create_own");
+      if (c.kind === "reseller" || c.priceGroupId)
+        throw new DomainError("FORBIDDEN", "Un revendedor solo crea clientes finales");
+      resellerId = actor.customerId;
+    }
+    return e.tx(() => {
+      if (Object.values(e.s.customers).some((x) => x.phone === phone))
+        throw new DomainError("VALIDATION", "Ya existe un cliente con ese tel\xE9fono");
+      const groupId = c.priceGroupId ?? "final";
+      if (!e.s.priceGroups[groupId])
+        throw new DomainError("NOT_FOUND", `Grupo de precios ${groupId} no existe`);
+      const id = e.id("cus");
+      const cust = {
+        id,
+        name: c.name.trim(),
+        phone,
+        email: c.email,
+        kind: c.kind ?? "customer",
+        resellerId,
+        priceGroupId: groupId,
+        whatsappConsent: c.whatsappConsent ?? false,
+        createdAt: e.now()
+      };
+      e.s.customers[id] = cust;
+      e.audit(actor, "customer.create", "customer", id, { kind: cust.kind, resellerId });
+      return cust;
+    });
+  }
+  function setWhatsappConsent(e, actor, customerId, consent) {
+    const self = actor.customerId === customerId;
+    if (!self && !can(actor, "customer.manage"))
+      throw new DomainError("FORBIDDEN", "No pod\xE9s cambiar el consentimiento de otro cliente");
+    e.tx(() => {
+      e.get("customers", customerId).whatsappConsent = consent;
+      e.audit(actor, consent ? "consent.granted" : "consent.revoked", "customer", customerId);
+    });
+  }
+  function canActFor(e, actor, customerId) {
+    if (isStaff(actor))
+      return true;
+    if (!actor.customerId)
+      return false;
+    if (actor.customerId === customerId)
+      return true;
+    const c = e.s.customers[customerId];
+    return actor.role === "reseller" && !!c && c.resellerId === actor.customerId;
+  }
+  function publicCatalog(e, customerId) {
+    return Object.values(e.s.products).filter((p) => p.published).map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind,
+      durationDays: p.durationDays,
+      price: customerId ? priceFor(e, customerId, p.id) : p.price,
+      available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length
+    }));
+  }
+
+  // ../../../../../../workspace/A/dist/store/inventory.js
+  function addAccount(e, actor, a) {
+    authorize(actor, "inventory.manage");
+    if (!/^[^@\s]+@[^@\s]+$/.test(a.email))
+      throw new DomainError("VALIDATION", "Email de cuenta inv\xE1lido");
+    if (!a.password)
+      throw new DomainError("VALIDATION", "Falta la contrase\xF1a de la cuenta");
+    if (!a.profiles.length || a.profiles.length > 20)
+      throw new DomainError("VALIDATION", "Entre 1 y 20 perfiles por cuenta");
+    if (!Number.isInteger(a.cost) || a.cost < 0)
+      throw new DomainError("VALIDATION", "Costo inv\xE1lido");
+    return e.tx(() => {
+      e.get("products", a.productId);
+      const sup = e.get("suppliers", a.supplierId);
+      if (!sup.active)
+        throw new DomainError("INVALID_STATE", "El proveedor est\xE1 inactivo");
+      if (a.supplierExpiresAt <= e.now())
+        throw new DomainError("VALIDATION", "La cuenta ya venci\xF3 con el proveedor");
+      const id = e.id("acc");
+      const account = {
+        id,
+        productId: a.productId,
+        supplierId: a.supplierId,
+        email: a.email.toLowerCase(),
+        password: a.password,
+        supplierExpiresAt: a.supplierExpiresAt,
+        cost: a.cost,
+        status: "active",
+        createdAt: e.now()
+      };
+      e.s.accounts[id] = account;
+      const slots = a.profiles.map((p) => {
+        const s = { id: e.id("slt"), accountId: id, productId: a.productId, label: p.label, pin: p.pin, status: "available" };
+        e.s.slots[s.id] = s;
+        return s;
+      });
+      e.audit(actor, "account.add", "account", id, { productId: a.productId, supplierId: a.supplierId, slots: slots.length });
+      return { account: structuredClone(account), slots: structuredClone(slots) };
+    });
+  }
+  function addAccountsBulk(e, actor, rows) {
+    authorize(actor, "inventory.manage");
+    return rows.map((r, i) => {
+      try {
+        return { row: i, ok: true, accountId: addAccount(e, actor, r).account.id };
+      } catch (err) {
+        return { row: i, ok: false, error: err.message };
+      }
+    });
+  }
+  var sellable = (e, s) => {
+    const acc = e.s.accounts[s.accountId];
+    return s.status === "available" && acc?.status === "active" && acc.supplierExpiresAt > e.now();
+  };
+  function reserveSlots(e, productId, qty, orderId, exclude = []) {
+    const free = Object.values(e.s.slots).filter((s) => s.productId === productId && sellable(e, s) && !exclude.includes(s.accountId)).sort((a, b) => e.s.accounts[a.accountId].supplierExpiresAt - e.s.accounts[b.accountId].supplierExpiresAt || a.id.localeCompare(b.id));
+    if (free.length < qty)
+      throw new DomainError("OUT_OF_STOCK", `Sin stock suficiente de ${productId}: pedidos ${qty}, libres ${free.length}`);
+    const until = e.now() + e.opts.reservationMinutes * MINUTE;
+    return free.slice(0, qty).map((s) => {
+      s.status = "reserved";
+      s.reservedByOrder = orderId;
+      s.reservedUntil = until;
+      return s;
+    });
+  }
+  function releaseSlots(e, slotIds) {
+    for (const id of slotIds) {
+      const s = e.s.slots[id];
+      if (s && s.status === "reserved") {
+        s.status = "available";
+        delete s.reservedByOrder;
+        delete s.reservedUntil;
+      }
+    }
+  }
+  function setSlotStatus(e, actor, slotId, status, note) {
+    authorize(actor, "inventory.manage");
+    e.tx(() => {
+      const s = e.get("slots", slotId);
+      if (s.status === "assigned" || s.status === "reserved")
+        throw new DomainError("INVALID_STATE", "No se puede cambiar un perfil reservado o asignado; us\xE1 reemplazo");
+      s.status = status;
+      e.audit(actor, "slot.status", "slot", slotId, { status, note });
+    });
+  }
+  function stockByProduct(e) {
+    const out = {};
+    for (const s of Object.values(e.s.slots)) {
+      const k = sellable(e, s) ? "available" : s.status === "available" ? "unsellable" : s.status;
+      (out[s.productId] ??= {})[k] = (out[s.productId][k] ?? 0) + 1;
+    }
+    return out;
+  }
+  function listAccounts(e, actor, opts = {}) {
+    authorize(actor, "inventory.manage");
+    if (opts.withSecrets)
+      authorize(actor, "inventory.view_secrets");
+    if (opts.withSecrets)
+      e.tx(() => e.audit(actor, "secrets.view", "account", "*"));
+    return Object.values(e.s.accounts).map((a) => ({
+      ...structuredClone(a),
+      password: opts.withSecrets ? a.password : "\u2022\u2022\u2022\u2022\u2022\u2022",
+      slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => ({ id: s.id, label: s.label, status: s.status }))
+    }));
+  }
+
+  // ../../../../../../workspace/A/dist/store/wallet.js
+  function balance(e, customerId) {
+    return e.s.ledger.reduce((s, l) => l.customerId === customerId ? s + l.amount : s, 0);
+  }
+  function post(e, by, customerId, amount, type, ref, note) {
+    if (!Number.isInteger(amount) || amount === 0)
+      throw new DomainError("VALIDATION", "Monto inv\xE1lido");
+    e.get("customers", customerId);
+    if (balance(e, customerId) + amount < 0)
+      throw new DomainError("INSUFFICIENT_BALANCE", "Saldo insuficiente");
+    const entry = { id: e.id("led"), customerId, amount, type, ref, note, by: by.id, at: e.now() };
+    e.s.ledger.push(entry);
+    e.audit(by, `ledger.${type}`, "customer", customerId, { amount, ref });
+    return entry;
+  }
+  function adjust(e, actor, customerId, amount, reason) {
+    authorize(actor, "wallet.adjust");
+    if (!reason?.trim())
+      throw new DomainError("VALIDATION", "Un ajuste necesita motivo");
+    return e.tx(() => post(e, actor, customerId, amount, "adjustment", "manual", reason));
+  }
+  function history(e, actor, customerId) {
+    const own = actor.customerId === customerId || actor.role === "reseller" && e.s.customers[customerId]?.resellerId === actor.customerId;
+    if (!own && !isStaff(actor))
+      throw new DomainError("FORBIDDEN", "No pod\xE9s ver el saldo de otro cliente");
+    let run = 0;
+    return e.s.ledger.filter((l) => l.customerId === customerId).map((l) => ({ ...l, balanceAfter: run += l.amount }));
+  }
+
+  // ../../../../../../workspace/A/dist/store/notify.js
+  var TEMPLATES = {
+    order_received: "Hola {name}, registramos tu pedido #{order} por {total}. Estamos verificando el pago y te avisamos al confirmarlo.",
+    order_confirmed: "Gabriel Store: tu pedido #{order} fue confirmado. Tus accesos est\xE1n en tu \xE1rea privada \u2192 Mis cuentas.",
+    payment_rejected: "Gabriel Store: no pudimos verificar el pago del pedido #{order}. Respond\xE9 este mensaje si ya pagaste.",
+    topup_approved: "Gabriel Store: acreditamos {amount} a tu saldo. Saldo actual: {balance}.",
+    renewal_confirmed: "Gabriel Store: renovamos {product}. Nuevo vencimiento: {date}.",
+    expiry_reminder: "Hola {name}, tu {product} vence el {date}. Pod\xE9s renovarlo desde Mis cuentas.",
+    replacement_done: "Gabriel Store: cambiamos el acceso de tu {product}. Mir\xE1 los datos nuevos en Mis cuentas."
+  };
+  var FORBIDDEN_PARAM = /pass|password|pin|secret|token|code|codigo|clave/i;
+  function render(template, params) {
+    for (const k of Object.keys(params)) {
+      if (FORBIDDEN_PARAM.test(k))
+        throw new DomainError("SENSITIVE_DATA", `El par\xE1metro "${k}" no puede ir en un mensaje`);
+    }
+    return TEMPLATES[template].replace(/\{(\w+)\}/g, (_, k) => {
+      if (!(k in params))
+        throw new DomainError("VALIDATION", `Falta el par\xE1metro ${k} para ${template}`);
+      return params[k];
+    });
+  }
+  function queue(e, customerId, template, params) {
+    const c = e.get("customers", customerId);
+    const text = render(template, params);
+    for (const a of Object.values(e.s.accounts)) {
+      if (a.password && text.includes(a.password))
+        throw new DomainError("SENSITIVE_DATA", "El mensaje contiene una contrase\xF1a");
+    }
+    const m = {
+      id: e.id("msg"),
+      customerId,
+      to: c.phone,
+      template,
+      params,
+      text,
+      status: c.whatsappConsent ? "queued" : "skipped_no_consent",
+      createdAt: e.now()
+    };
+    e.s.outbox.push(m);
+    return m;
+  }
+  async function flush(e, actor, transport) {
+    authorize(actor, "notify.flush");
+    const pending = e.s.outbox.filter((m) => m.status === "queued").map((m) => m.id);
+    let sent = 0, failed = 0;
+    for (const id of pending) {
+      const m = e.s.outbox.find((x) => x.id === id);
+      try {
+        await transport.send(m.to, m.text);
+        m.status = "sent";
+        sent++;
+      } catch (err) {
+        m.status = "failed";
+        m.error = err.message;
+        failed++;
+      }
+    }
+    e.tx(() => e.audit(actor, "outbox.flush", "outbox", "*", { sent, failed }));
+    return { sent, failed };
+  }
+
+  // ../../../../../../workspace/A/dist/store/orders.js
+  var fmt = (c) => `Bs ${(c / 100).toFixed(2)}`;
+  var fdate = (t) => new Date(t).toISOString().slice(0, 10);
+  function requireActFor(e, actor, customerId) {
+    if (!canActFor(e, actor, customerId))
+      throw new DomainError("FORBIDDEN", "No pod\xE9s operar sobre ese cliente");
+  }
+  function payerFor(e, actor, customerId) {
+    if (actor.role === "reseller" && actor.customerId && actor.customerId !== customerId)
+      return actor.customerId;
+    return customerId;
+  }
+  function createOrder(e, actor, input) {
+    if (isStaff(actor))
+      authorize(actor, "order.create_any");
+    else
+      authorize(actor, "order.create_self");
+    requireActFor(e, actor, input.customerId);
+    if (input.paymentMethod === "cash" && !isStaff(actor))
+      throw new DomainError("FORBIDDEN", "Solo el staff registra pagos en efectivo");
+    if (!input.items.length || input.items.length > 20)
+      throw new DomainError("VALIDATION", "El pedido necesita entre 1 y 20 \xEDtems");
+    for (const it of input.items) {
+      if (!Number.isInteger(it.qty) || it.qty < 1 || it.qty > 10)
+        throw new DomainError("VALIDATION", "Cantidad inv\xE1lida (1 a 10)");
+    }
+    const key = input.idempotencyKey ? `order:${actor.id}:${input.idempotencyKey}` : void 0;
+    return e.tx(() => e.idempotent(key, () => {
+      const payerId = payerFor(e, actor, input.customerId);
+      const id = e.id("ord");
+      const items = input.items.map((it) => {
+        const p = e.get("products", it.productId);
+        if (!p.published && !isStaff(actor))
+          throw new DomainError("NOT_FOUND", "Producto no disponible");
+        return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) };
+      });
+      const reserved = items.flatMap((it) => reserveSlots(e, it.productId, it.qty, id));
+      const now = e.now();
+      const order = {
+        id,
+        kind: "sale",
+        customerId: input.customerId,
+        payerId,
+        createdBy: actor.id,
+        channel: input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store"),
+        items,
+        total: items.reduce((s, it) => s + it.unitPrice * it.qty, 0),
+        status: "awaiting_payment",
+        paymentMethod: input.paymentMethod,
+        reservedSlotIds: reserved.map((s) => s.id),
+        assignmentIds: [],
+        createdAt: now,
+        updatedAt: now
+      };
+      e.s.orders[id] = order;
+      e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length });
+      if (input.paymentMethod === "balance") {
+        post(e, actor, payerId, -order.total, "purchase", id);
+        fulfill(e, actor, order);
+      } else if (input.paymentMethod === "cash") {
+        order.approvedBy = actor.id;
+        fulfill(e, actor, order);
+      } else {
+        queue(e, order.customerId, "order_received", { name: e.s.customers[order.customerId].name, order: id, total: fmt(order.total) });
+      }
+      return structuredClone(order);
+    }));
+  }
+  function fulfill(e, actor, order) {
+    const now = e.now();
+    if (order.kind === "sale") {
+      for (const slotId of order.reservedSlotIds) {
+        const slot = e.s.slots[slotId];
+        if (slot.status !== "reserved" || slot.reservedByOrder !== order.id)
+          throw new DomainError("INVALID_STATE", `El perfil ${slotId} ya no est\xE1 reservado para este pedido`);
+        slot.status = "assigned";
+        delete slot.reservedUntil;
+        const days = e.s.products[slot.productId].durationDays;
+        const a = {
+          id: e.id("asg"),
+          slotId,
+          productId: slot.productId,
+          customerId: order.customerId,
+          orderId: order.id,
+          startsAt: now,
+          customerExpiresAt: now + days * DAY,
+          status: "active",
+          history: [{ at: now, by: actor.id, event: "assigned", slotId }]
+        };
+        e.s.assignments[a.id] = a;
+        order.assignmentIds.push(a.id);
+      }
+      queue(e, order.customerId, "order_confirmed", { order: order.id });
+    } else if (order.kind === "renewal") {
+      const r = order.renewal;
+      extend(e, actor, r.assignmentId, r.periods, false);
+    } else {
+      post(e, actor, order.customerId, order.topupAmount, "topup", order.id);
+      queue(e, order.customerId, "topup_approved", { amount: fmt(order.topupAmount), balance: fmt(balance(e, order.customerId)) });
+    }
+    order.status = "fulfilled";
+    order.updatedAt = now;
+    e.audit(actor, "order.fulfill", "order", order.id, { kind: order.kind, assignments: order.assignmentIds.length });
+  }
+  function submitEvidence(e, actor, orderId, ev) {
+    return e.tx(() => {
+      const o = e.get("orders", orderId);
+      requireActFor(e, actor, o.customerId);
+      if (o.paymentMethod !== "qr")
+        throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
+      if (o.status !== "awaiting_payment" && o.status !== "payment_review")
+        throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
+      if (!ev.fileRef?.trim() || !ev.declaredReference?.trim())
+        throw new DomainError("VALIDATION", "Falta el archivo o el n\xFAmero de operaci\xF3n");
+      o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now() };
+      o.status = "payment_review";
+      o.updatedAt = e.now();
+      const hold = e.now() + e.opts.reviewHoldHours * HOUR;
+      for (const id of o.reservedSlotIds)
+        if (e.s.slots[id].reservedByOrder === o.id)
+          e.s.slots[id].reservedUntil = hold;
+      e.audit(actor, "order.evidence", "order", o.id, { declaredReference: o.evidence.declaredReference });
+      return structuredClone(o);
+    });
+  }
+  function approvePayment(e, actor, orderId, input) {
+    authorize(actor, "payment.review");
+    const key = input.idempotencyKey ? `approve:${orderId}:${input.idempotencyKey}` : void 0;
+    return e.tx(() => e.idempotent(key, () => {
+      const o = e.get("orders", orderId);
+      if (o.status === "fulfilled")
+        throw new DomainError("ALREADY_PROCESSED", "El pedido ya fue aprobado");
+      if (o.status !== "payment_review")
+        throw new DomainError("INVALID_STATE", `Solo se aprueban pedidos en revisi\xF3n (estado: ${o.status})`);
+      if (actor.customerId && actor.customerId === o.customerId)
+        throw new DomainError("FORBIDDEN", "No pod\xE9s aprobar tu propio pedido");
+      const ref = input.confirmedReference?.trim();
+      if (!ref)
+        throw new DomainError("VALIDATION", "Indic\xE1 la referencia bancaria verificada");
+      const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
+      if (reused)
+        throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se us\xF3 en el pedido ${reused.id}`);
+      if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
+        releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
+        o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
+      }
+      o.confirmedReference = ref;
+      o.approvedBy = actor.id;
+      e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
+      fulfill(e, actor, o);
+      return structuredClone(o);
+    }));
+  }
+  function rejectPayment(e, actor, orderId, reason) {
+    authorize(actor, "payment.review");
+    if (!reason?.trim())
+      throw new DomainError("VALIDATION", "Indic\xE1 el motivo del rechazo");
+    return e.tx(() => {
+      const o = e.get("orders", orderId);
+      if (o.status !== "payment_review" && o.status !== "awaiting_payment")
+        throw new DomainError("INVALID_STATE", `No se puede rechazar en estado ${o.status}`);
+      releaseSlots(e, o.reservedSlotIds);
+      o.status = "rejected";
+      o.updatedAt = e.now();
+      queue(e, o.customerId, "payment_rejected", { order: o.id });
+      e.audit(actor, "payment.reject", "order", o.id, { reason });
+      return structuredClone(o);
+    });
+  }
+  function cancelOrder(e, actor, orderId) {
+    return e.tx(() => {
+      const o = e.get("orders", orderId);
+      requireActFor(e, actor, o.customerId);
+      if (o.status !== "awaiting_payment")
+        throw new DomainError("INVALID_STATE", "Solo se cancelan pedidos sin pago enviado");
+      releaseSlots(e, o.reservedSlotIds);
+      o.status = "cancelled";
+      o.updatedAt = e.now();
+      e.audit(actor, "order.cancel", "order", o.id);
+      return structuredClone(o);
+    });
+  }
+  function expireReservations(e, actor) {
+    if (actor.role !== "system")
+      authorize(actor, "payment.review");
+    return e.tx(() => {
+      let n = 0;
+      for (const o of Object.values(e.s.orders)) {
+        if (o.status !== "awaiting_payment")
+          continue;
+        const late = o.reservedSlotIds.some((id) => (e.s.slots[id].reservedUntil ?? Infinity) < e.now());
+        if (!late)
+          continue;
+        releaseSlots(e, o.reservedSlotIds);
+        o.status = "expired";
+        o.updatedAt = e.now();
+        e.audit(actor, "order.expire", "order", o.id);
+        n++;
+      }
+      return n;
+    });
+  }
+  function extend(e, actor, assignmentId, periods, allowBeyondSupplier) {
+    const a = e.get("assignments", assignmentId);
+    if (a.status !== "active")
+      throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
+    const days = e.s.products[a.productId].durationDays * periods;
+    const next = Math.max(a.customerExpiresAt, e.now()) + days * DAY;
+    const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
+    if (next > acc.supplierExpiresAt && !allowBeyondSupplier) {
+      throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renov\xE1 con el proveedor o reemplaz\xE1 el perfil`);
+    }
+    a.customerExpiresAt = next;
+    a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: `+${days} d\xEDas` });
+    queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
+    return a;
+  }
+  function renew(e, actor, assignmentId, input) {
+    const periods = input.periods ?? 1;
+    if (!Number.isInteger(periods) || periods < 1 || periods > 12)
+      throw new DomainError("VALIDATION", "Per\xEDodos inv\xE1lidos (1 a 12)");
+    if (input.allowBeyondSupplier)
+      authorize(actor, "assignment.renew_beyond_supplier");
+    if (input.paymentMethod === "cash" && !isStaff(actor))
+      throw new DomainError("FORBIDDEN", "Solo el staff registra pagos en efectivo");
+    const key = input.idempotencyKey ? `renew:${assignmentId}:${input.idempotencyKey}` : void 0;
+    return e.tx(() => e.idempotent(key, () => {
+      const a = e.get("assignments", assignmentId);
+      if (isStaff(actor))
+        authorize(actor, "assignment.renew_any");
+      else
+        requireActFor(e, actor, a.customerId);
+      const payerId = payerFor(e, actor, a.customerId);
+      const unit = priceFor(e, payerId, a.productId);
+      const now = e.now();
+      const order = {
+        id: e.id("ord"),
+        kind: "renewal",
+        customerId: a.customerId,
+        payerId,
+        createdBy: actor.id,
+        channel: isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store",
+        items: [{ productId: a.productId, qty: periods, unitPrice: unit }],
+        total: unit * periods,
+        status: "awaiting_payment",
+        paymentMethod: input.paymentMethod,
+        reservedSlotIds: [],
+        assignmentIds: [a.id],
+        renewal: { assignmentId: a.id, periods },
+        createdAt: now,
+        updatedAt: now
+      };
+      e.s.orders[order.id] = order;
+      e.audit(actor, "renewal.create", "order", order.id, { assignmentId: a.id, periods, method: input.paymentMethod });
+      if (input.paymentMethod === "qr") {
+        const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
+        const next = Math.max(a.customerExpiresAt, now) + e.s.products[a.productId].durationDays * periods * DAY;
+        if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier)
+          throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
+        queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmt(order.total) });
+      } else {
+        if (input.paymentMethod === "balance")
+          post(e, actor, payerId, -order.total, "renewal", order.id);
+        extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
+        order.status = "fulfilled";
+        order.approvedBy = input.paymentMethod === "cash" ? actor.id : void 0;
+      }
+      return { order: structuredClone(order), assignment: structuredClone(e.s.assignments[a.id]) };
+    }));
+  }
+  function renewMany(e, actor, assignmentIds, input) {
+    authorize(actor, "assignment.renew_any");
+    return assignmentIds.map((id) => {
+      try {
+        const r = renew(e, actor, id, { ...input, idempotencyKey: input.batchKey ? `${input.batchKey}:${id}` : void 0 });
+        return { assignmentId: id, ok: true, expiresAt: r.assignment.customerExpiresAt };
+      } catch (err) {
+        return { assignmentId: id, ok: false, code: err.code, error: err.message };
+      }
+    });
+  }
+  function replaceAssignment(e, actor, assignmentId, input) {
+    authorize(actor, "assignment.replace");
+    if (!input.reason?.trim())
+      throw new DomainError("VALIDATION", "Indic\xE1 el motivo del reemplazo");
+    return e.tx(() => {
+      const a = e.get("assignments", assignmentId);
+      if (a.status !== "active")
+        throw new DomainError("INVALID_STATE", "Solo se reemplazan servicios activos");
+      const old = e.get("slots", a.slotId);
+      const [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : []);
+      fresh.status = "assigned";
+      delete fresh.reservedUntil;
+      old.status = input.oldSlot ?? "quarantined";
+      delete old.reservedByOrder;
+      a.slotId = fresh.id;
+      a.history.push({ at: e.now(), by: actor.id, event: "replaced", slotId: fresh.id, note: `${input.reason} (antes ${old.id})` });
+      queue(e, a.customerId, "replacement_done", { product: e.s.products[a.productId].name });
+      e.audit(actor, "assignment.replace", "assignment", a.id, { from: old.id, to: fresh.id, reason: input.reason });
+      return structuredClone(a);
+    });
+  }
+  function replaceAccount(e, actor, accountId, reason) {
+    authorize(actor, "assignment.replace");
+    const acc = e.get("accounts", accountId);
+    const slotIds = new Set(Object.values(e.s.slots).filter((s) => s.accountId === acc.id).map((s) => s.id));
+    const targets = Object.values(e.s.assignments).filter((a) => a.status === "active" && slotIds.has(a.slotId)).map((a) => a.id);
+    const results = targets.map((id) => {
+      try {
+        return { assignmentId: id, ok: true, slotId: replaceAssignment(e, actor, id, { reason, oldSlot: "retired", otherAccount: true }).slotId };
+      } catch (err) {
+        return { assignmentId: id, ok: false, code: err.code, error: err.message };
+      }
+    });
+    const retired = results.every((r) => r.ok);
+    if (retired) {
+      e.tx(() => {
+        e.s.accounts[accountId].status = "retired";
+        for (const id of slotIds)
+          if (e.s.slots[id].status === "available")
+            e.s.slots[id].status = "retired";
+        e.audit(actor, "account.retire", "account", accountId, { reason, moved: results.length });
+      });
+    }
+    return { retired, results };
+  }
+  function closeExpired(e, actor, graceDays = 2) {
+    if (actor.role !== "system")
+      authorize(actor, "assignment.replace");
+    return e.tx(() => {
+      let n = 0;
+      for (const a of Object.values(e.s.assignments)) {
+        if (a.status !== "active" || a.customerExpiresAt + graceDays * DAY > e.now())
+          continue;
+        a.status = "revoked";
+        a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: "vencido" });
+        e.s.slots[a.slotId].status = "quarantined";
+        e.audit(actor, "assignment.expire", "assignment", a.id);
+        n++;
+      }
+      return n;
+    });
+  }
+  function queueExpiryReminders(e, actor, withinDays = 3) {
+    if (actor.role !== "system")
+      authorize(actor, "assignment.renew_any");
+    return e.tx(() => {
+      let n = 0;
+      for (const a of Object.values(e.s.assignments)) {
+        if (a.status !== "active")
+          continue;
+        const left = a.customerExpiresAt - e.now();
+        if (left > withinDays * DAY)
+          continue;
+        if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY)
+          continue;
+        const c = e.s.customers[a.customerId];
+        queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+        a.lastReminderAt = e.now();
+        n++;
+      }
+      if (n)
+        e.audit(actor, "reminders.queue", "assignment", "*", { count: n });
+      return n;
+    });
+  }
+  function requestTopup(e, actor, customerId, amount, ev) {
+    requireActFor(e, actor, customerId);
+    if (!Number.isInteger(amount) || amount < 1e3 || amount > 5e5)
+      throw new DomainError("VALIDATION", "La recarga debe estar entre Bs 10 y Bs 5.000");
+    if (!ev.fileRef?.trim() || !ev.declaredReference?.trim())
+      throw new DomainError("VALIDATION", "Falta el comprobante o el n\xFAmero de operaci\xF3n");
+    return e.tx(() => {
+      const now = e.now();
+      const o = {
+        id: e.id("ord"),
+        kind: "topup",
+        customerId,
+        payerId: customerId,
+        createdBy: actor.id,
+        channel: isStaff(actor) ? "panel" : "store",
+        items: [],
+        total: amount,
+        topupAmount: amount,
+        status: "payment_review",
+        paymentMethod: "qr",
+        evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now },
+        reservedSlotIds: [],
+        assignmentIds: [],
+        createdAt: now,
+        updatedAt: now
+      };
+      e.s.orders[o.id] = o;
+      e.audit(actor, "topup.request", "order", o.id, { amount });
+      return structuredClone(o);
+    });
+  }
+
+  // ../../../../../../workspace/A/dist/store/portal.js
+  function visibleCustomers(e, actor) {
+    if (!actor.customerId)
+      throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
+    const own = [actor.customerId];
+    if (actor.role === "reseller") {
+      own.push(...Object.values(e.s.customers).filter((c) => c.resellerId === actor.customerId).map((c) => c.id));
+    }
+    return own;
+  }
+  function myServices(e, actor, customerId) {
+    if (isStaff(actor))
+      throw new DomainError("FORBIDDEN", "El staff usa el panel, no el portal");
+    const ids = customerId ? [customerId] : visibleCustomers(e, actor);
+    for (const id of ids)
+      if (!canActFor(e, actor, id))
+        throw new DomainError("FORBIDDEN", "No pod\xE9s ver servicios de otro cliente");
+    return e.tx(() => {
+      const out = Object.values(e.s.assignments).filter((a) => ids.includes(a.customerId) && a.status === "active").sort((x, y) => x.customerExpiresAt - y.customerExpiresAt).map((a) => {
+        const slot = e.s.slots[a.slotId];
+        const acc = e.s.accounts[slot.accountId];
+        return {
+          assignmentId: a.id,
+          customerId: a.customerId,
+          customerName: e.s.customers[a.customerId].name,
+          product: e.s.products[a.productId].name,
+          expiresAt: a.customerExpiresAt,
+          daysLeft: Math.ceil((a.customerExpiresAt - e.now()) / 864e5),
+          access: { email: acc.email, password: acc.password, profile: slot.label, pin: slot.pin ?? null }
+        };
+      });
+      if (out.length)
+        e.audit(actor, "credentials.view", "assignment", out.map((o) => o.assignmentId).join(","));
+      return out;
+    });
+  }
+  function myOrders(e, actor) {
+    const ids = visibleCustomers(e, actor);
+    return Object.values(e.s.orders).filter((o) => ids.includes(o.customerId) || o.payerId === actor.customerId).sort((a, b) => b.createdAt - a.createdAt).map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.total, method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt }));
+  }
+  function myBalance(e, actor) {
+    if (!actor.customerId)
+      throw new DomainError("FORBIDDEN", "Solo clientes y revendedores tienen saldo");
+    return balance(e, actor.customerId);
+  }
+  function myCustomers(e, actor) {
+    if (actor.role !== "reseller" || !actor.customerId)
+      throw new DomainError("FORBIDDEN", "Solo para revendedores");
+    return Object.values(e.s.customers).filter((c) => c.resellerId === actor.customerId).map((c) => {
+      const act = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
+      return { id: c.id, name: c.name, phone: c.phone, services: act.length, nextExpiry: act.length ? Math.min(...act.map((a) => a.customerExpiresAt)) : null };
+    });
+  }
+
+  // ../../../../../../workspace/A/dist/store/codes.js
+  function configureMailbox(e, actor, m) {
+    authorize(actor, "codes.configure");
+    if (!m.subjectAllowlist.length)
+      throw new DomainError("VALIDATION", "Defin\xED al menos un asunto permitido");
+    return e.tx(() => {
+      const box = { id: e.id("mbx"), address: m.address.toLowerCase(), host: m.host, authorizedBy: actor.id, authorizedAt: e.now(), subjectAllowlist: m.subjectAllowlist };
+      e.s.mailboxes[box.id] = box;
+      e.audit(actor, "mailbox.authorize", "mailbox", box.id, { address: box.address, host: box.host });
+      return box;
+    });
+  }
+  var CODE_RE = /\b(\d{3}[ -]?\d{3}|\d{4,8})\b/;
+  function ingest(e, actor, mailboxId, msg) {
+    authorize(actor, "codes.ingest");
+    const box = e.get("mailboxes", mailboxId);
+    const allowed = box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
+    const code = msg.body.match(CODE_RE)?.[1];
+    if (!allowed || !code)
+      return null;
+    return e.tx(() => {
+      const c = { id: e.id("cod"), mailboxId, to: msg.to.toLowerCase(), subject: msg.subject, code, receivedAt: msg.receivedAt };
+      e.s.codes.push(c);
+      return c;
+    });
+  }
+  function codesFor(e, actor, customerId) {
+    if (!canActFor(e, actor, customerId))
+      throw new DomainError("FORBIDDEN", "No pod\xE9s ver c\xF3digos de otro cliente");
+    const windowMs = e.opts.codeVisibleMinutes * MINUTE;
+    const mine = Object.values(e.s.assignments).filter((a) => a.customerId === customerId && a.status === "active").map((a) => ({ email: e.s.accounts[e.s.slots[a.slotId].accountId].email, since: a.startsAt }));
+    return e.s.codes.filter((c) => e.now() - c.receivedAt <= windowMs && mine.some((m) => m.email === c.to && c.receivedAt >= m.since)).sort((a, b) => b.receivedAt - a.receivedAt).map((c) => ({ to: c.to, subject: c.subject, code: c.code, receivedAt: c.receivedAt }));
+  }
+
+  // ../../../../../../workspace/A/dist/store/stats.js
+  function summary(e, actor, range) {
+    authorize(actor, "stats.view");
+    const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.updatedAt >= range.from && o.updatedAt < range.to);
+    const sales = inRange.filter((o) => o.kind !== "topup");
+    const byProduct = {};
+    const byDay = {};
+    for (const o of sales) {
+      for (const it of o.items) {
+        const b = byProduct[it.productId] ??= { units: 0, revenue: 0 };
+        b.units += it.qty;
+        b.revenue += it.qty * it.unitPrice;
+      }
+      const d = new Date(o.updatedAt).toISOString().slice(0, 10);
+      byDay[d] = (byDay[d] ?? 0) + o.total;
+    }
+    const cashIn = inRange.filter((o) => o.paymentMethod !== "balance").reduce((s, o) => s + o.total, 0);
+    const customerIds = Object.keys(e.s.customers);
+    return {
+      revenue: sales.reduce((s, o) => s + o.total, 0),
+      cashIn,
+      orders: sales.length,
+      byProduct,
+      byDay,
+      pendingReview: Object.values(e.s.orders).filter((o) => o.status === "payment_review").length,
+      stock: stockByProduct(e),
+      expiringIn7Days: Object.values(e.s.assignments).filter((a) => a.status === "active" && a.customerExpiresAt - e.now() <= 7 * DAY).length,
+      /** Saldo que la tienda le debe a sus clientes (pasivo). */
+      balancesOwed: customerIds.reduce((s, id) => s + balance(e, id), 0)
+    };
+  }
+  function supplierReport(e, actor) {
+    authorize(actor, "supplier.manage");
+    return Object.values(e.s.suppliers).map((sup) => {
+      const accs = Object.values(e.s.accounts).filter((a) => a.supplierId === sup.id);
+      const accIds = new Set(accs.map((a) => a.id));
+      const slots = Object.values(e.s.slots).filter((s) => accIds.has(s.accountId));
+      const slotIds = new Set(slots.map((s) => s.id));
+      let revenue = 0;
+      for (const a of Object.values(e.s.assignments)) {
+        if (!a.history.some((h) => slotIds.has(h.slotId)))
+          continue;
+        const o = e.s.orders[a.orderId];
+        revenue += o?.items.find((i) => i.productId === a.productId)?.unitPrice ?? 0;
+      }
+      const cost = accs.reduce((s, a) => s + a.cost, 0);
+      return {
+        supplierId: sup.id,
+        name: sup.name,
+        active: sup.active,
+        accounts: accs.length,
+        activeAccounts: accs.filter((a) => a.status === "active").length,
+        slots: slots.length,
+        assigned: slots.filter((s) => s.status === "assigned").length,
+        quarantined: slots.filter((s) => s.status === "quarantined").length,
+        cost,
+        revenue,
+        margin: revenue - cost,
+        expiringIn7Days: accs.filter((a) => a.status === "active" && a.supplierExpiresAt - e.now() <= 7 * DAY).map((a) => ({ accountId: a.id, email: a.email, expiresAt: a.supplierExpiresAt }))
+      };
+    });
+  }
+  function auditLog(e, actor, filter = {}) {
+    authorize(actor, "audit.view");
+    return e.s.audit.filter((a) => (!filter.entityId || a.entityId === filter.entityId) && (!filter.action || a.action.startsWith(filter.action))).slice(-(filter.limit ?? 200)).reverse();
+  }
+
+  // ../../../../../../workspace/A/dist/store/index.js
+  var bind = (e, f) => (...a) => f(e, ...a);
+  function createStore(opts = {}) {
+    const e = new Engine(opts);
+    return {
+      engine: e,
+      /** Copia del estado para persistir. */
+      snapshot: () => e.snapshot(),
+      catalog: {
+        upsertProduct: bind(e, upsertProduct),
+        upsertPriceGroup: bind(e, upsertPriceGroup),
+        upsertSupplier: bind(e, upsertSupplier),
+        createCustomer: bind(e, createCustomer),
+        setWhatsappConsent: bind(e, setWhatsappConsent),
+        priceFor: bind(e, priceFor),
+        publicCatalog: bind(e, publicCatalog)
+      },
+      inventory: {
+        addAccount: bind(e, addAccount),
+        addAccountsBulk: bind(e, addAccountsBulk),
+        setSlotStatus: bind(e, setSlotStatus),
+        listAccounts: bind(e, listAccounts),
+        stock: () => stockByProduct(e)
+      },
+      orders: {
+        create: bind(e, createOrder),
+        submitEvidence: bind(e, submitEvidence),
+        approvePayment: bind(e, approvePayment),
+        rejectPayment: bind(e, rejectPayment),
+        cancel: bind(e, cancelOrder),
+        expireReservations: bind(e, expireReservations),
+        renew: bind(e, renew),
+        renewMany: bind(e, renewMany),
+        replace: bind(e, replaceAssignment),
+        replaceAccount: bind(e, replaceAccount),
+        closeExpired: bind(e, closeExpired),
+        queueExpiryReminders: bind(e, queueExpiryReminders),
+        requestTopup: bind(e, requestTopup)
+      },
+      wallet: {
+        balance: (customerId) => balance(e, customerId),
+        adjust: bind(e, adjust),
+        history: bind(e, history)
+      },
+      portal: {
+        services: bind(e, myServices),
+        orders: bind(e, myOrders),
+        balance: bind(e, myBalance),
+        customers: bind(e, myCustomers),
+        codes: bind(e, codesFor)
+      },
+      codes: {
+        configureMailbox: bind(e, configureMailbox),
+        ingest: bind(e, ingest)
+      },
+      notify: {
+        outbox: (actor) => {
+          authorize(actor, "notify.flush");
+          return structuredClone(e.s.outbox);
+        },
+        flush: bind(e, flush)
+      },
+      stats: {
+        summary: bind(e, summary),
+        suppliers: bind(e, supplierReport),
+        audit: bind(e, auditLog)
+      }
+    };
+  }
+  return __toCommonJS(store_exports);
+})();
+</script>
+<script>
+const {createStore,DomainError,DAY,MINUTE}=GS;
+const T0=Date.now();
+const owner={id:"dueño",role:"owner"},admin={id:"admin",role:"admin"},seller={id:"vendedor",role:"seller"},system={id:"sistema",role:"system"};
+let S,clock,P;
+function boot(){
+  clock={t:T0,now(){return this.t}};S=createStore({clock});
+  S.catalog.upsertProduct(owner,{id:"netflix",name:"Netflix perfil",kind:"profile",durationDays:30,price:3500,published:true});
+  S.catalog.upsertProduct(owner,{id:"gemini",name:"Gemini Pro",kind:"invite",durationDays:30,price:2500,published:true});
+  S.catalog.upsertPriceGroup(owner,{id:"revendedor",name:"Revendedor",prices:{netflix:2500,gemini:1800}});
+  S.catalog.upsertSupplier(owner,{id:"andes",name:"Proveedor Andes",active:true});
+  const a1=S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf01@gabostore.lat",password:"Sup3r-Secreta#1",supplierExpiresAt:T0+90*DAY,cost:4000,profiles:[{label:"Perfil 1",pin:"1111"},{label:"Perfil 2",pin:"2222"}]});
+  const a2=S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf02@gabostore.lat",password:"Otra-Clave#2",supplierExpiresAt:T0+40*DAY,cost:4000,profiles:[{label:"Perfil 1",pin:"3333"}]});
+  S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf03@gabostore.lat",password:"Clave-Tres#3",supplierExpiresAt:T0+90*DAY,cost:4000,profiles:[{label:"Perfil 1"},{label:"Perfil 2"}]});
+  S.inventory.addAccount(admin,{productId:"gemini",supplierId:"andes",email:"gm01@gabostore.lat",password:"Gem-Clave#4",supplierExpiresAt:T0+60*DAY,cost:1500,profiles:[1,2,3,4,5].map(n=>({label:"Invitación "+n}))});
+  const maria=S.catalog.createCustomer(seller,{name:"María Quispe",phone:"+591 70011223",whatsappConsent:true});
+  const luis=S.catalog.createCustomer(seller,{name:"Luis Choque",phone:"+591 78889900"});
+  const carla=S.catalog.createCustomer(admin,{name:"Carla Vargas",phone:"+591 69990011",kind:"reseller",priceGroupId:"revendedor",whatsappConsent:true});
+  const as=c=>({id:"web-"+c.name.split(" ")[0],role:c.kind==="reseller"?"reseller":"customer",customerId:c.id});
+  P={maria,luis,carla,as,a1,a2};
+}
+const bs=c=>"Bs "+(c/100).toFixed(2);
+const fd=t=>new Date(t).toLocaleDateString("es-BO");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* Cada paso: [texto, función]. Si la función espera un error, devuelve el código. */
+function expectErr(code,fn){try{fn()}catch(e){if(e instanceof DomainError&&e.code===code)return `bloqueado: <code>${code}</code>`;throw e}throw new Error(`debía bloquearse con ${code} y no se bloqueó`)}
+const check=(cond,msg)=>{if(!cond)throw new Error(msg);return "ok"};
+
+const SCEN=[
+ ["Inventario transaccional","Dos clientes compiten por los mismos perfiles y nunca se vende uno dos veces.",()=>{const {maria,luis,as}=P;return [
+   ["Hay 5 perfiles de Netflix libres",()=>check(S.inventory.stock().netflix.available===5,"stock inicial distinto")&&"5 libres"],
+   ["María aparta 3 perfiles (pago QR)",()=>{const o=S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"netflix",qty:3}],paymentMethod:"qr"});P.oMaria=o;return `pedido ${o.id} · ${bs(o.total)}`}],
+   ["Luis aparta 2 más",()=>{const o=S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:2}],paymentMethod:"qr"});P.oLuis=o;return `pedido ${o.id}`}],
+   ["Luis intenta uno más: no queda stock",()=>expectErr("OUT_OF_STOCK",()=>S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr"}))],
+   ["Pasan 31 minutos y nadie mandó comprobante: se liberan las reservas",()=>{clock.t+=31*MINUTE;const n=S.orders.expireReservations(system);return check(n===2&&S.inventory.stock().netflix.available===5,"no se liberó")&&`${n} pedidos vencidos · los 5 perfiles libres otra vez`}],
+ ]}],
+ ["Ventas, reemplazos y renovaciones","El comprobante no es pago; renovar no toca la fecha del proveedor.",()=>{const {maria,luis,as}=P;return [
+   ["Luis compra 1 perfil con QR",()=>{P.o2=S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr"});return P.o2.id}],
+   ["Intento aprobar sin comprobante",()=>expectErr("INVALID_STATE",()=>S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1"}))],
+   ["Luis sube el comprobante",()=>{S.orders.submitEvidence(as(luis),P.o2.id,{fileRef:"comprobante.jpg",declaredReference:"DEP-55"});return "en revisión"}],
+   ["El vendedor intenta aprobar (no tiene permiso)",()=>expectErr("FORBIDDEN",()=>S.orders.approvePayment(seller,P.o2.id,{confirmedReference:"BNB-1"}))],
+   ["Admin aprueba con la referencia del banco (doble clic)",()=>{const a=S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1",idempotencyKey:"clic"});S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1",idempotencyKey:"clic"});P.asg=a.assignmentIds[0];return `entregado · 1 solo perfil asignado`}],
+   ["Otro pedido intenta reusar la referencia BNB-1",()=>{const o=S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"gemini",qty:1}],paymentMethod:"qr"});S.orders.submitEvidence(as(maria),o.id,{fileRef:"x.jpg",declaredReference:"DEP-55"});return expectErr("ALREADY_PROCESSED",()=>S.orders.approvePayment(admin,o.id,{confirmedReference:"BNB-1"}))}],
+   ["Renovar 3 meses pasaría la fecha del proveedor",()=>expectErr("SUPPLIER_EXPIRY_EXCEEDED",()=>S.orders.renew(seller,P.asg,{paymentMethod:"cash",periods:3}))],
+   ["Renovar 1 mes: esa cuenta vence antes con el proveedor",()=>expectErr("SUPPLIER_EXPIRY_EXCEEDED",()=>S.orders.renew(seller,P.asg,{paymentMethod:"cash"}))],
+   ["Admin pasa a Luis a otra cuenta (reemplazo)",()=>{const st=S.snapshot();const before=st.assignments[P.asg];const a=S.orders.replace(admin,P.asg,{reason:"La cuenta vence pronto con el proveedor",otherAccount:true});const st2=S.snapshot();return check(a.customerExpiresAt===before.customerExpiresAt&&st2.slots[before.slotId].status==="quarantined","reemplazo mal")&&`ahora en ${esc(st2.accounts[st2.slots[a.slotId].accountId].email)} · misma fecha · perfil viejo en cuarentena`}],
+   ["Ahora sí, renovar 1 mes",()=>{const r=S.orders.renew(seller,P.asg,{paymentMethod:"cash"});return `nuevo vencimiento del cliente: ${fd(r.assignment.customerExpiresAt)} · la fecha del proveedor no cambió`}],
+ ]}],
+ ["Portal privado y revendedores","Cada uno ve solo lo suyo; el revendedor vende a su precio.",()=>{const {maria,luis,carla,as}=P;return [
+   ["El vendedor le vende a María en efectivo",()=>{S.orders.create(seller,{customerId:maria.id,items:[{productId:"gemini",qty:1}],paymentMethod:"cash"});return "entregado"}],
+   ["María ve sus accesos en el portal",()=>{const v=S.portal.services(as(maria));return check(v.length>=1,"no ve nada")&&`${v.length} servicio(s) · ${esc(v[0].product)}`}],
+   ["Luis intenta ver los de María",()=>expectErr("FORBIDDEN",()=>S.portal.services(as(luis),maria.id))],
+   ["Carla (revendedora) crea su cliente Pedro",()=>{P.pedro=S.catalog.createCustomer(as(carla),{name:"Pedro Rojas",phone:"+591 72223344"});return "cliente propio de Carla"}],
+   ["Carla vende a Pedro con su saldo",()=>{S.wallet.adjust(owner,carla.id,5000,"recarga en efectivo");const o=S.orders.create(as(carla),{customerId:P.pedro.id,items:[{productId:"gemini",qty:1}],paymentMethod:"balance"});return check(o.total===1800,"precio")&&`cobrado ${bs(o.total)} (precio revendedor) · le queda ${bs(S.wallet.balance(carla.id))}`}],
+ ]}],
+ ["Saldo, recargas e historial","El saldo es la suma de movimientos y nunca queda negativo.",()=>{const {luis,as}=P;return [
+   ["Luis pide recarga de Bs 100 con comprobante",()=>{P.top=S.orders.requestTopup(as(luis),luis.id,10000,{fileRef:"recarga.jpg",declaredReference:"DEP-9"});return check(S.wallet.balance(luis.id)===0,"acreditó antes")&&"todavía Bs 0: falta aprobar"}],
+   ["Admin aprueba la recarga",()=>{S.orders.approvePayment(admin,P.top.id,{confirmedReference:"BNB-9"});return `saldo ${bs(S.wallet.balance(luis.id))}`}],
+   ["Luis compra Gemini con saldo",()=>{S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"gemini",qty:1}],paymentMethod:"balance"});return `saldo ${bs(S.wallet.balance(luis.id))}`}],
+   ["Admin intenta un ajuste manual",()=>expectErr("FORBIDDEN",()=>S.wallet.adjust(admin,luis.id,100,"regalo"))],
+   ["El dueño intenta dejar el saldo negativo",()=>expectErr("INSUFFICIENT_BALANCE",()=>S.wallet.adjust(owner,luis.id,-999999,"error"))],
+ ]}],
+ ["Tienda y precios","El catálogo y el precio los decide el servidor.",()=>{const {maria,carla,as}=P;return [
+   ["Catálogo público",()=>S.catalog.publicCatalog().map(p=>`${esc(p.name)} ${bs(p.price)} (${p.available} libres)`).join(" · ")],
+   ["Carla ve precios de revendedora",()=>S.catalog.publicCatalog(carla.id).map(p=>`${esc(p.name)} ${bs(p.price)}`).join(" · ")],
+   ["María toca “Comprar” dos veces",()=>{const k={customerId:maria.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr",idempotencyKey:"checkout-77"};const a=S.orders.create(as(maria),k),b=S.orders.create(as(maria),k);return check(a.id===b.id,"duplicó")&&`un solo pedido: ${a.id}`}],
+   ["María intenta pagar “en efectivo” desde la tienda",()=>expectErr("FORBIDDEN",()=>S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"netflix",qty:1}],paymentMethod:"cash"}))],
+ ]}],
+ ["WhatsApp y códigos","Sin contraseñas en mensajes; códigos solo para quien tiene la cuenta.",()=>{const {maria,luis,as}=P;return [
+   ["Revisar todos los mensajes encolados",()=>{const out=S.notify.outbox(admin);return check(out.every(m=>!/Sup3r|Otra-Clave|Clave-Tres|Gem-Clave/.test(m.text)),"hay contraseñas")&&`${out.length} mensajes · ninguno con contraseñas`}],
+   ["Luis no dio permiso para WhatsApp",()=>`${S.notify.outbox(admin).filter(m=>m.status==="skipped_no_consent").length} mensajes retenidos por falta de permiso`],
+   ["El admin intenta autorizar un buzón de correo",()=>expectErr("FORBIDDEN",()=>S.codes.configureMailbox(admin,{address:"codigos@gabostore.lat",host:"imap.gabostore.lat",subjectAllowlist:["código"]}))],
+   ["El dueño autoriza el buzón",()=>{P.box=S.codes.configureMailbox(owner,{address:"codigos@gabostore.lat",host:"imap.gabostore.lat",subjectAllowlist:["código de acceso"]});return "autorizado"}],
+   ["Llegan correos: una promo y un código",()=>{const mine=S.portal.services(as(maria)).map(s=>s.access.email);const to=mine[0];P.codeTo=to;const r1=S.codes.ingest(system,P.box.id,{to,subject:"Promo de la semana",body:"123456",receivedAt:clock.t});S.codes.ingest(system,P.box.id,{to,subject:"Tu código de acceso temporal",body:"Tu código: 741 208",receivedAt:clock.t});return `promo descartada (${r1===null?"sí":"no"}) · código guardado para ${esc(to)}`}],
+   ["María ve su código",()=>S.portal.codes(as(maria),maria.id).map(c=>c.code).join(", ")||"(ninguno)"],
+   ["Luis intenta ver los códigos de María",()=>expectErr("FORBIDDEN",()=>S.portal.codes(as(luis),maria.id))],
+ ]}],
+ ["Estadísticas, auditoría y proveedores","Cuentas claras y registro de quién hizo qué.",()=>[
+   ["Resumen del día",()=>{const r=S.stats.summary(admin,{from:T0-DAY,to:clock.t+DAY});return `ventas ${bs(r.revenue)} · caja ${bs(r.cashIn)} · saldo que debés ${bs(r.balancesOwed)}`}],
+   ["Proveedor Andes",()=>{const [a]=S.stats.suppliers(admin);return `${a.accounts} cuentas · costo ${bs(a.cost)} · ingreso ${bs(a.revenue)} · por vencer: ${a.expiringIn7Days.length}`}],
+   ["El vendedor intenta ver estadísticas",()=>expectErr("FORBIDDEN",()=>S.stats.summary(seller,{from:0,to:1}))],
+   ["Auditoría sin contraseñas",()=>{const log=S.stats.audit(owner,{limit:1000});return check(!JSON.stringify(log).includes("Sup3r-Secreta"),"filtró")&&`${log.length} eventos registrados · 0 contraseñas`}],
+ ]],
+];
+
+const cardsEl=document.getElementById("cards");
+cardsEl.innerHTML=SCEN.map(([t,d],i)=>`<article class="card" id="c${i}"><header><b>${i+1}</b><h3>${t}</h3><span class="pill p-idle" id="s${i}">Sin probar</span></header><p class="muted">${d}</p><ol class="log" id="l${i}"></ol><div><button class="btn" type="button" data-run="${i}">Probar</button></div></article>`).join("");
+const done=new Set();
+function run(i){
+  const steps=SCEN[i][2]();let ok=true,html="";
+  for(const [txt,fn] of steps){try{const r=fn();html+=`<li class="ok"><i>✓</i><span>${txt}<br><span class="muted">${r}</span></span></li>`}catch(e){ok=false;html+=`<li class="bad"><i>✗</i><span>${txt}<br><span class="muted">${esc(e.message)}</span></span></li>`;break}}
+  document.getElementById("l"+i).innerHTML=html;const s=document.getElementById("s"+i);s.className="pill "+(ok?"p-ok":"p-bad");s.textContent=ok?"Funciona":"Falló";
+  if(ok)done.add(i);document.getElementById("score").textContent=`${done.size} de 7 funcionando`;render();
+}
+function runAll(){reset();SCEN.forEach((_,i)=>run(i))}
+function reset(){boot();done.clear();SCEN.forEach((_,i)=>{document.getElementById("l"+i).innerHTML="";const s=document.getElementById("s"+i);s.className="pill p-idle";s.textContent="Sin probar"});document.getElementById("score").textContent="";render()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-run]");if(b)run(+b.dataset.run)});
+document.getElementById("all").onclick=runAll;document.getElementById("reset").onclick=reset;
+
+const TABS={"Stock":()=>{const st=S.inventory.stock();return table(["Producto","Libres","Apartados","Vendidos","Cuarentena"],Object.entries(st).map(([k,v])=>[k,v.available||0,v.reserved||0,v.assigned||0,v.quarantined||0]),[1,2,3,4])},
+ "Pedidos":()=>{const o=Object.values(S.snapshot().orders).reverse();const c=S.snapshot().customers;return table(["Pedido","Cliente","Tipo","Pago","Total","Estado"],o.map(x=>[x.id,c[x.customerId].name,{sale:"Venta",renewal:"Renovación",topup:"Recarga"}[x.kind],x.paymentMethod,bs(x.total),x.status]),[4])},
+ "Saldos":()=>{const c=Object.values(S.snapshot().customers);return table(["Cliente","Tipo","Saldo"],c.map(x=>[x.name,x.kind==="reseller"?"Revendedor":"Cliente",bs(S.wallet.balance(x.id))]),[2])},
+ "WhatsApp":()=>{const o=S.notify.outbox(admin).slice(-8).reverse();return o.length?o.map(m=>`<div class="msg"><span class="pill ${m.status==="queued"?"p-ok":"p-warn"}">${m.status==="queued"?"Listo para enviar":"Sin permiso: no se envía"}</span> <span class="muted">${esc(m.to)}</span>\n${esc(m.text)}</div>`).join(""):'<p class="muted">Todavía no hay mensajes.</p>'},
+ "Auditoría":()=>{const l=S.stats.audit(owner,{limit:15});return table(["Quién","Rol","Acción","Sobre"],l.map(a=>[a.actorId,a.role,a.action,a.entityId]),[])}};
+let tab="Stock";
+function table(h,rows,num){return `<div class="scroll"><table><thead><tr>${h.map((x,i)=>`<th class="${num.includes(i)?"num":""}">${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((x,i)=>`<td class="${num.includes(i)?"num":""}">${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
+function render(){document.getElementById("tabs").innerHTML=Object.keys(TABS).map(k=>`<button role="tab" type="button" data-t="${k}" aria-selected="${k===tab}">${k}</button>`).join("");document.getElementById("view").innerHTML=`<div style="display:grid;gap:10px;margin-top:10px">${TABS[tab]()}</div>`}
+document.getElementById("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b){tab=b.dataset.t;render()}});
+runAll();
+</script>
