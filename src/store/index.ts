@@ -40,6 +40,7 @@ export function createStore(opts: EngineOptions = {}) {
       setWhatsappConsent: bind(e, catalog.setWhatsappConsent),
       priceFor: bind(e, catalog.priceFor),
       publicCatalog: bind(e, catalog.publicCatalog),
+      updateSettings: bind(e, catalog.updateSettings),
       findCustomerByPhone: bind(e, catalog.findCustomerByPhone),
       selfRegister: bind(e, catalog.selfRegister),
       canActFor: bind(e, catalog.canActFor),
@@ -88,6 +89,7 @@ export function createStore(opts: EngineOptions = {}) {
         return structuredClone(e.s.outbox);
       },
       flush: bind(e, notify.flush),
+      markSentManually: bind(e, notify.markSentManually),
     },
     admin: {
       bootstrapOwner: bind(e, admin.bootstrapOwner),

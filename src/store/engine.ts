@@ -49,6 +49,7 @@ export function emptyState(): State {
     codes: [],
     idempotency: {},
     staff: {},
+    settings: { storeName: "Gabriel Store", whatsapp: "", currency: "BOB" },
     seq: 0,
   };
 }

@@ -23,6 +23,22 @@ export interface Product {
   /** Precio base (grupo "final"). */
   price: Cents;
   published: boolean;
+  /** Para la tienda: categoría, descripción corta y color de la tarjeta. */
+  category?: string;
+  description?: string;
+  color?: string;
+}
+
+/** Configuración de la tienda que ve el cliente. */
+export interface StoreSettings {
+  storeName: string;
+  /** WhatsApp de ventas, solo dígitos con código de país. */
+  whatsapp: string;
+  currency: "BOB";
+  /** Archivo del QR de cobro (subido por el staff). */
+  qrFileRef?: string;
+  /** Texto bajo el QR: banco, titular, instrucciones. */
+  paymentNote?: string;
 }
 
 /** Grupo de precios: sobreescribe el precio base por producto (p. ej. revendedores). */
@@ -193,7 +209,7 @@ export interface OutboxMessage {
   template: TemplateId;
   params: Record<string, string>;
   text: string;
-  status: "queued" | "skipped_no_consent" | "sent" | "failed";
+  status: "queued" | "skipped_no_consent" | "sent" | "sent_manually" | "failed";
   error?: string;
   createdAt: number;
 }
@@ -245,5 +261,6 @@ export interface State {
   codes: CodeMessage[];
   idempotency: Record<string, unknown>;
   staff: Record<Id, StaffUser>;
+  settings: StoreSettings;
   seq: number;
 }

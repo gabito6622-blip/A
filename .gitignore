@@ -8,3 +8,4 @@ __pycache__/
 
 # Datos del servidor (base SQLite y comprobantes)
 data/
+data-demo/

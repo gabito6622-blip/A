@@ -45,6 +45,19 @@ export function queue(e: Engine, customerId: Id, template: TemplateId, params: R
   return m;
 }
 
+/** Mientras no haya WhatsApp automático: el staff lo manda a mano y lo marca como enviado. */
+export function markSentManually(e: Engine, actor: Actor, messageId: Id): OutboxMessage {
+  authorize(actor, "notify.flush");
+  return e.tx(() => {
+    const m = e.s.outbox.find((x) => x.id === messageId);
+    if (!m) throw new DomainError("NOT_FOUND", "Mensaje inexistente");
+    if (m.status !== "queued" && m.status !== "failed" && m.status !== "skipped_no_consent") throw new DomainError("INVALID_STATE", "El mensaje ya se envió");
+    m.status = "sent_manually";
+    e.audit(actor, "outbox.sent_manually", "outbox", m.id);
+    return structuredClone(m);
+  });
+}
+
 export interface WhatsAppTransport {
   send(to: string, text: string): Promise<void>;
 }

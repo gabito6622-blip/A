@@ -27,7 +27,8 @@
     "validate:openapi": "node -e \"import('@apidevtools/swagger-parser').then(m=>m.default.validate('openapi.yaml')).then(a=>console.log('OpenAPI VALID',a.info.version)).catch(e=>{console.error(e.message);process.exit(1)})\"",
     "gen:postman": "node scripts/gen-postman.mjs",
     "example": "node --experimental-strip-types examples/demo.ts",
-    "start": "node dist/server/main.js"
+    "start": "node dist/server/main.js",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "keywords": [
     "vendeplay",

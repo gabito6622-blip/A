@@ -164,6 +164,19 @@ export function createApp(cfg: AppConfig): App {
 
   route("GET", "/api/catalog", "public", (c) => store.catalog.publicCatalog(c.actor?.customerId));
 
+  route("GET", "/api/settings", "public", () => {
+    const st = store.engine.s.settings;
+    return { storeName: st.storeName, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef };
+  });
+  route("GET", "/api/settings/qr", "public", (c) => {
+    const ref = store.engine.s.settings.qrFileRef;
+    const file = ref && join(uploads, ref);
+    if (!file || !/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref!) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", "La tienda todavía no subió su QR");
+    c.res.writeHead(200, { "Content-Type": sniff(readFileSync(file).subarray(0, 16))!.mime, "Cache-Control": "no-cache" });
+    createReadStream(file).pipe(c.res);
+    return RAW;
+  });
+
   route("POST", "/api/auth/staff/login", "public", (c) => {
     const username = String(c.body?.username ?? "").toLowerCase();
     if (!loginLimiter.take(`${c.ip}|${username}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
@@ -350,6 +363,25 @@ export function createApp(cfg: AppConfig): App {
     return { ok: true };
   });
 
+  route("POST", "/api/admin/settings", "staff", (c) => store.catalog.updateSettings(A(c), { storeName: c.body?.storeName, whatsapp: c.body?.whatsapp, paymentNote: c.body?.paymentNote }));
+  route("POST", "/api/admin/settings/qr", "staff", (c) => {
+    const file = saveUpload(c.body);
+    if (file.endsWith(".pdf")) {
+      dropUpload(file);
+      throw new HttpError(400, "VALIDATION", "El QR tiene que ser una imagen (JPG, PNG o WEBP)");
+    }
+    const old = store.engine.s.settings.qrFileRef;
+    try {
+      const out = store.catalog.updateSettings(A(c), { qrFileRef: file });
+      if (old) dropUpload(old);
+      return out;
+    } catch (e) {
+      dropUpload(file);
+      throw e;
+    }
+  }, MAX_UPLOAD_JSON);
+  route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id));
+
   route("POST", "/api/admin/mailboxes", "staff", (c) => store.codes.configureMailbox(A(c), { address: c.body?.address, host: c.body?.host, subjectAllowlist: c.body?.subjectAllowlist ?? [] }));
 
   function hashOrThrow(p: unknown): string {
@@ -405,6 +437,7 @@ export function createApp(cfg: AppConfig): App {
     let file = normalize(join(root, decodeURIComponent(pathname)));
     if (file !== root && !file.startsWith(root + sep)) return false;
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
+    if (!existsSync(file) && existsSync(file + ".html")) file += ".html"; // /panel → panel.html
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
     res.writeHead(200, {

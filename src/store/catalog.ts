@@ -1,5 +1,5 @@
 // Catálogo, grupos de precios, proveedores y clientes.
-import type { Actor, Cents, Customer, Id, PriceGroup, Product, Supplier } from "./types.js";
+import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Supplier } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -13,12 +13,27 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
   money(p.price, "price");
   if (!p.name?.trim()) throw new DomainError("VALIDATION", "El producto necesita nombre");
   if (!Number.isInteger(p.durationDays) || p.durationDays <= 0) throw new DomainError("VALIDATION", "durationDays inválido");
+  if (p.color !== undefined && !/^#[0-9a-fA-F]{6}$/.test(p.color)) throw new DomainError("VALIDATION", "Color: formato #RRGGBB");
+  if ((p.description?.length ?? 0) > 200 || (p.category?.length ?? 0) > 40) throw new DomainError("VALIDATION", "Descripción o categoría demasiado largas");
   return e.tx(() => {
     const id = p.id ?? e.id("prd");
     const prod: Product = { ...p, id };
     e.s.products[id] = prod;
     e.audit(actor, "product.upsert", "product", id, { price: p.price, published: p.published });
     return prod;
+  });
+}
+
+export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<StoreSettings, "currency">>): StoreSettings {
+  authorize(actor, "catalog.manage");
+  if (patch.storeName !== undefined && (!patch.storeName.trim() || patch.storeName.length > 60)) throw new DomainError("VALIDATION", "Nombre de tienda inválido");
+  if (patch.whatsapp !== undefined && !/^\d{7,15}$/.test(patch.whatsapp)) throw new DomainError("VALIDATION", "WhatsApp: solo números con código de país, p. ej. 59170000000");
+  if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
+  return e.tx(() => {
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote"] as const).filter((k) => patch[k] !== undefined);
+    for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
+    e.audit(actor, "settings.update", "settings", "store", { fields: allowed.join(",") });
+    return structuredClone(e.s.settings);
   });
 }
 
@@ -137,6 +152,7 @@ export function publicCatalog(e: Engine, customerId?: Id) {
     .filter((p) => p.published)
     .map((p) => ({
       id: p.id, name: p.name, kind: p.kind, durationDays: p.durationDays,
+      category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff",
       price: customerId ? priceFor(e, customerId, p.id) : p.price,
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));

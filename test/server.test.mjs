@@ -153,6 +153,28 @@ describe("servidor Gabriel Store", () => {
     assert.equal((await l.get("/api/me/services")).json.length, 0, "Luis no ve los servicios de María");
   });
 
+  test("configuración de la tienda y QR de cobro", async () => {
+    assert.equal((await state.maria.post("/api/admin/settings", { storeName: "X" })).status, 403);
+    assert.equal((await state.owner.post("/api/admin/settings", { whatsapp: "abc" })).status, 400);
+    const s = await state.owner.post("/api/admin/settings", { storeName: "Gabriel Store", whatsapp: "59170000000", paymentNote: "Banco Demo" });
+    assert.equal(s.json.whatsapp, "59170000000");
+    assert.equal((await client(base).get("/api/settings/qr")).status, 404);
+    assert.equal((await state.owner.post("/api/admin/settings/qr", { contentBase64: Buffer.from("%PDF-1.4 x").toString("base64") })).status, 400, "el QR no puede ser PDF");
+    assert.equal((await state.owner.post("/api/admin/settings/qr", { contentBase64: PNG })).status, 200);
+    const pub = await client(base).get("/api/settings");
+    assert.deepEqual([pub.json.storeName, pub.json.hasQr, pub.json.paymentNote], ["Gabriel Store", true, "Banco Demo"]);
+    const img = await client(base).get("/api/settings/qr");
+    assert.equal(img.headers.get("content-type"), "image/png");
+  });
+
+  test("avisos de WhatsApp: el staff los marca como enviados a mano", async () => {
+    const out = await state.owner.get("/api/admin/outbox");
+    const pending = out.json.find((m) => m.status === "queued");
+    assert.ok(pending, "hay un aviso por enviar");
+    assert.equal((await state.owner.post(`/api/admin/outbox/${pending.id}/sent`)).json.status, "sent_manually");
+    assert.equal((await state.owner.post(`/api/admin/outbox/${pending.id}/sent`)).status, 409, "no se marca dos veces");
+  });
+
   test("protecciones: origen ajeno, JSON obligatorio, tamaño máximo", async () => {
     assert.equal((await state.maria.post("/api/orders", { items: [], paymentMethod: "qr" }, { origin: "https://sitio-malo.com" })).status, 403);
     const r = await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" });

@@ -71,7 +71,11 @@ export function listOrders(e: Engine, actor: Actor, f: { status?: OrderStatus; c
     .filter((o) => (!f.status || o.status === f.status) && (!f.customerId || o.customerId === f.customerId))
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, f.limit ?? 200)
-    .map((o) => ({ ...structuredClone(o), customerName: e.s.customers[o.customerId]?.name ?? "?" }));
+    .map((o) => ({
+      ...structuredClone(o),
+      customerName: e.s.customers[o.customerId]?.name ?? "?",
+      items: o.items.map((i) => ({ ...i, productName: e.s.products[i.productId]?.name ?? i.productId })),
+    }));
 }
 
 export function listCustomers(e: Engine, actor: Actor, q = "") {

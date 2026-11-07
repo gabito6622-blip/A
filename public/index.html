@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gabriel Store</title>
+<meta name="description" content="Suscripciones digitales en bolivianos: pagá con QR o saldo y recibí tus accesos en tu cuenta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/base.css">
+<link rel="stylesheet" href="/shop.css">
+</head>
+<body>
+<div class="shop" id="shop">
+  <header class="shead"><div class="sw">
+    <a class="slogo" href="#inicio"><i>G</i><span id="storeName" style="color:inherit">Gabriel Store</span></a>
+    <nav class="snav" aria-label="Tienda">
+      <button type="button" data-s="inicio">Inicio</button><button type="button" data-s="catalogo">Catálogo</button>
+      <button type="button" data-s="cuentas">Mis cuentas</button><button type="button" data-s="codigos">Códigos</button><button type="button" data-s="recargas">Saldo</button>
+    </nav>
+    <button class="sbtn acc" type="button" id="accBtn"><svg class="i"><use href="/icons.svg#i-user"/></svg><span id="accName">Acceder</span></button>
+    <button class="sbtn" type="button" data-cart="1" aria-label="Carrito"><svg class="i"><use href="/icons.svg#i-cart"/></svg><span class="cartn" id="cartN">0</span></button>
+  </div></header>
+  <main class="sw smain" id="sout"><p class="skeleton">Cargando…</p></main>
+  <footer class="sw sfoot"><span id="footName">Gabriel Store</span><span id="footWa"></span></footer>
+  <nav class="bnav" aria-label="Tienda móvil">
+    <button type="button" data-s="inicio"><svg><use href="/icons.svg#i-home"/></svg>Inicio</button>
+    <button type="button" data-s="catalogo"><svg><use href="/icons.svg#i-grid"/></svg>Catálogo</button>
+    <button type="button" data-cart="1"><svg><use href="/icons.svg#i-cart"/></svg>Carrito</button>
+    <button type="button" data-s="cuentas"><svg><use href="/icons.svg#i-idcard"/></svg>Mis cuentas</button>
+    <button type="button" data-s="recargas"><svg><use href="/icons.svg#i-coins"/></svg>Saldo</button>
+  </nav>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Carrito"></aside>
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast" hidden role="status"></div>
+<script src="/shop.js" type="module"></script>
+</body>
+</html>
