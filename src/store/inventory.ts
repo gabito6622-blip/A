@@ -165,6 +165,24 @@ export function updateSlot(e: Engine, actor: Actor, slotId: Id, patch: { label?:
   });
 }
 
+/** Agrega un perfil a una cuenta existente. */
+export function addSlot(e: Engine, actor: Actor, accountId: Id, p: { label: string; pin?: string }): Slot {
+  authorize(actor, "inventory.manage");
+  if (!p.label?.trim() || p.label.length > 40) throw new DomainError("VALIDATION", "Nombre de perfil inválido");
+  if (p.pin !== undefined && p.pin !== "" && !/^\d{1,8}$/.test(p.pin)) throw new DomainError("VALIDATION", "PIN: solo números, hasta 8");
+  return e.tx(() => {
+    const acc = e.get("accounts", accountId);
+    if (acc.status !== "active") throw new DomainError("INVALID_STATE", "La cuenta está retirada");
+    const slots = Object.values(e.s.slots).filter((s) => s.accountId === acc.id);
+    if (slots.length >= 20) throw new DomainError("VALIDATION", "Máximo 20 perfiles por cuenta");
+    if (slots.some((s) => s.label.toLowerCase() === p.label.trim().toLowerCase())) throw new DomainError("VALIDATION", `La cuenta ya tiene un perfil "${p.label}"`);
+    const s: Slot = { id: e.id("slt"), accountId: acc.id, productId: acc.productId, label: p.label.trim(), pin: p.pin || undefined, status: "available" };
+    e.s.slots[s.id] = s;
+    e.audit(actor, "slot.add", "slot", s.id, { accountId: acc.id });
+    return structuredClone(s);
+  });
+}
+
 export function setSlotStatus(e: Engine, actor: Actor, slotId: Id, status: "available" | "quarantined" | "retired", note: string): void {
   authorize(actor, "inventory.manage");
   e.tx(() => {

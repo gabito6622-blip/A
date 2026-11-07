@@ -249,6 +249,25 @@ describe("servidor Gabriel Store", () => {
     assert.match(bad.json.message, /Nombre/);
   });
 
+  test("importar servicios por la API: vista previa y carga", async () => {
+    const { writeXlsx } = await import("../dist/server/xlsx.js");
+    const file = writeXlsx([{ name: "s", rows: [["Cliente", "WhatsApp", "Producto", "Cuenta", "Contraseña", "Perfil", "PIN", "Vence", "Vence proveedor", "Proveedor"],
+      ["Rosa Flores", "71112222", "Netflix perfil", "nf77@gabostore.lat", "R#1", "Perfil 1", "1234", "15/12/2030", "31/12/2030", "Proveedor Andes"],
+      ["Sin fecha", "71113333", "Netflix perfil", "nf77@gabostore.lat", "R#1", "Perfil 2", "", "pronto", "", ""]] }]).toString("base64");
+    const pre = await state.owner.post("/api/admin/import/services", { contentBase64: file, dryRun: true });
+    assert.equal(pre.status, 200, JSON.stringify(pre.json));
+    assert.deepEqual([pre.json.summary.ok, pre.json.summary.errores], [1, 1]);
+    assert.match(pre.json.rows[1].error, /Fecha de vencimiento inválida/);
+    assert.equal((await state.owner.get("/api/admin/customers?q=Rosa")).json.length, 0);
+    assert.equal((await state.seller.post("/api/admin/import/services", { contentBase64: file })).status, 403, "un vendedor no importa servicios");
+    const done = await state.owner.post("/api/admin/import/services", { contentBase64: file, dryRun: false });
+    assert.equal(done.json.summary.ok, 1);
+    const rosa = (await state.owner.get("/api/admin/customers?q=Rosa")).json[0];
+    assert.equal(rosa.activeServices, 1);
+    const tpl = await fetch(base + "/api/admin/import/template?type=services", { headers: { cookie: state.owner.jar.cookie } });
+    assert.match(tpl.headers.get("content-disposition"), /plantilla-servicios/);
+  });
+
   test("protecciones: origen ajeno, JSON obligatorio, tamaño máximo", async () => {
     assert.equal((await state.maria.post("/api/orders", { items: [], paymentMethod: "qr" }, { origin: "https://sitio-malo.com" })).status, 403);
     const r = await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" });

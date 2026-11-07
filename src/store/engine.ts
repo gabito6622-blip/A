@@ -90,6 +90,20 @@ export class Engine {
     return structuredClone(this._s);
   }
 
+  /**
+   * Punto de restauración dentro de una transacción: si `fn` falla, se deshace SOLO lo que hizo `fn`
+   * y la transacción de afuera sigue. Sirve para procesar filas de a una (importaciones).
+   */
+  savepoint<T>(fn: () => T): T {
+    const backup = structuredClone(this._s);
+    try {
+      return fn();
+    } catch (e) {
+      this._s = backup;
+      throw e;
+    }
+  }
+
   tx<T>(fn: () => T): T {
     if (this.depth > 0) return fn(); // anidada: la externa ya protege
     const backup = structuredClone(this._s);

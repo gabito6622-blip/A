@@ -482,3 +482,63 @@ describe("8. Edición de cuentas, perfiles y clientes; transferencias", () => {
     assert.ok(s.notify.outbox(admin).some((m) => m.template === "access_transferred" && m.customerId === luis.id));
   });
 });
+
+describe("9. Importar servicios existentes", () => {
+  const row = (n, extra = {}) => ({ row: n, customerName: "Ana Pérez", phone: "+59170033344", product: "Netflix perfil", email: "nf09@gabostore.lat", password: "Imp#1", profile: "Perfil 1", pin: "1111", customerExpiresAt: T0 + 20 * DAY, supplierExpiresAt: T0 + 60 * DAY, supplier: "Proveedor Nuevo", ...extra });
+
+  test("la vista previa no guarda nada y muestra lo que se va a crear", () => {
+    const { s } = setup();
+    const before = JSON.stringify(s.snapshot());
+    const r = s.inventory.importServices(admin, [row(2), row(3, { customerName: "Beto", phone: "+59170044455", profile: "Perfil 2" })], { dryRun: true });
+    assert.deepEqual(r.summary, { ok: 2, errores: 0, clientesNuevos: 2, cuentasNuevas: 1, perfilesNuevos: 2, avisos: 0 });
+    assert.equal(JSON.stringify(s.snapshot()), before, "nada cambió");
+  });
+
+  test("importar crea cliente, proveedor, cuenta, perfiles y servicio, sin avisos ni ventas", () => {
+    const { s, as } = setup();
+    const r = s.inventory.importServices(admin, [row(2), row(3, { customerName: "Beto", phone: "+59170044455", profile: "Perfil 2", pin: "" })], { dryRun: false });
+    assert.equal(r.summary.ok, 2);
+    const st = s.snapshot();
+    const acc = Object.values(st.accounts).find((a) => a.email === "nf09@gabostore.lat");
+    assert.equal(acc.supplierExpiresAt, T0 + 60 * DAY);
+    assert.ok(Object.values(st.suppliers).some((x) => x.name === "Proveedor Nuevo"));
+    const ana = Object.values(st.customers).find((c) => c.phone === "+59170033344");
+    const svc = s.portal.services(as(ana));
+    assert.deepEqual([svc[0].product, svc[0].access.profile, svc[0].access.pin, svc[0].expiresAt], ["Netflix perfil", "Perfil 1", "1111", T0 + 20 * DAY]);
+    assert.equal(s.notify.outbox(admin).length, 0, "no se manda WhatsApp");
+    assert.equal(s.stats.summary(admin, { from: 0, to: T0 + DAY }).orders, 0, "no cuenta como venta");
+    assert.ok(s.engine.s.orders && Object.values(st.orders).every((o) => o.channel === "import" && o.total === 0));
+  });
+
+  test("errores por fila no frenan a las demás ni dejan nada a medias", () => {
+    const { s, maria } = setup();
+    const r = s.inventory.importServices(admin, [
+      row(2),
+      row(3, { customerName: "Beto", phone: "+59170044455" }), // mismo perfil 1 → ya asignado
+      row(4, { product: "Spotify" }), // producto inexistente
+      row(5, { customerName: "Otro nombre", phone: maria.phone, profile: "Perfil 3", email: "nueva@x.y", password: "" }), // cuenta nueva sin clave
+      row(6, { customerName: "Carlos", phone: "+59170055566", profile: "Perfil 4" }),
+    ], { dryRun: false });
+    assert.deepEqual(r.rows.map((x) => x.status), ["ok", "error", "error", "error", "ok"]);
+    assert.match(r.rows[1].error, /ya está asignado a Ana Pérez/);
+    assert.match(r.rows[2].error, /No existe el producto/);
+    assert.match(r.rows[3].error, /contraseña/);
+    const st = s.snapshot();
+    assert.ok(!Object.values(st.customers).some((c) => c.name === "Beto"), "Beto no quedó creado a medias");
+    assert.ok(!Object.values(st.accounts).some((a) => a.email === "nueva@x.y"));
+  });
+
+  test("avisos: vencido, cliente que vence después que el proveedor, contraseña distinta", () => {
+    const { s } = setup();
+    s.inventory.importServices(admin, [row(2)], { dryRun: false });
+    const r = s.inventory.importServices(admin, [row(3, { customerName: "Dora", phone: "+59170066677", profile: "Perfil 2", password: "OtraClave", customerExpiresAt: T0 - DAY }), row(4, { customerName: "Eli", phone: "+59170077788", profile: "Perfil 3", customerExpiresAt: T0 + 90 * DAY })], { dryRun: false });
+    assert.ok(r.rows[0].warnings.some((w) => /distinta/.test(w)));
+    assert.ok(r.rows[0].warnings.some((w) => /vencido/.test(w)));
+    assert.ok(r.rows[1].warnings.some((w) => /después que la cuenta/.test(w)));
+  });
+
+  test("solo admin u owner importan", () => {
+    const { s } = setup();
+    assert.throws(() => s.inventory.importServices(seller, [row(2)], { dryRun: true }), err("FORBIDDEN"));
+  });
+});

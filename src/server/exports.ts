@@ -1,6 +1,6 @@
 // Exportar a Excel e importar clientes desde Excel/CSV.
 // Los permisos los vuelve a validar el núcleo en cada función que se llama.
-import { authorize, DomainError, normalizePhone, type Actor, type GabrielStore } from "../store/index.js";
+import { authorize, DomainError, normalizePhone, type Actor, type GabrielStore, type ServiceResult, type ServiceRow } from "../store/index.js";
 import { normHeader, readSheet, writeXlsx, type Cell, type Sheet } from "./xlsx.js";
 
 const bsNum = (c: number) => Math.round(c) / 100;
@@ -169,6 +169,111 @@ export function importCustomers(s: GabrielStore, a: Actor, file: Buffer, opts: {
     rows: out,
   };
 }
+
+/* ---------------- importar servicios ---------------- */
+
+const SCOLS = {
+  name: ["cliente", "nombre", "nombre cliente", "nombre del cliente"],
+  phone: ["whatsapp", "telefono", "celular", "cel", "numero", "telefono whatsapp", "movil"],
+  product: ["producto", "plataforma", "servicio", "plan"],
+  email: ["cuenta", "correo cuenta", "email cuenta", "correo de la cuenta", "email", "correo", "usuario", "mail"],
+  password: ["contrasena", "clave", "password", "pass", "contrasena cuenta"],
+  profile: ["perfil", "pantalla", "nombre perfil"],
+  pin: ["pin"],
+  expires: ["vence", "vencimiento", "vence cliente", "fecha vencimiento", "fecha de vencimiento", "fin", "hasta", "vencimiento cliente"],
+  supExpires: ["vence proveedor", "vencimiento proveedor", "fecha proveedor", "vence cuenta"],
+  supplier: ["proveedor"],
+  cost: ["costo", "costo cuenta", "costo bs"],
+} as const;
+
+/**
+ * Fecha de una celda: número de serie de Excel (46012), "15/12/2026", "15-12-26" o "2026-12-15".
+ * Queda a las 23:59 de ese día (hora del servidor).
+ */
+export function parseDate(v: string): number | null {
+  const s = (v ?? "").trim();
+  if (!s) return null;
+  let y: number, m: number, d: number;
+  if (/^\d{4,5}(\.\d+)?$/.test(s)) {
+    const serial = Math.floor(Number(s));
+    if (serial < 30000 || serial > 80000) return null;
+    const dt = new Date(Date.UTC(1899, 11, 30) + serial * 86_400_000);
+    [y, m, d] = [dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()];
+  } else {
+    let mt = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (mt) [y, m, d] = [+mt[1], +mt[2], +mt[3]];
+    else if ((mt = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/))) [d, m, y] = [+mt[1], +mt[2], mt[3].length === 2 ? 2000 + +mt[3] : +mt[3]];
+    else return null;
+  }
+  const t = new Date(y, m - 1, d, 23, 59, 0, 0);
+  if (t.getFullYear() !== y || t.getMonth() !== m - 1 || t.getDate() !== d) return null;
+  return t.getTime();
+}
+
+export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts: { dryRun: boolean }) {
+  authorize(a, "inventory.manage");
+  let rows: string[][];
+  try {
+    rows = readSheet(file);
+  } catch (e) {
+    throw new DomainError("VALIDATION", (e as Error).message);
+  }
+  if (rows.length < 2) throw new DomainError("VALIDATION", "El archivo no tiene filas con datos (la primera fila tiene que ser el encabezado)");
+  const header = rows[0].map(normHeader);
+  const used = new Set<number>();
+  const find = (names: readonly string[]) => {
+    const i = header.findIndex((h, k) => !used.has(k) && names.includes(h));
+    if (i >= 0) used.add(i);
+    return i;
+  };
+  // El orden importa: "vence proveedor" se busca antes que "vence".
+  const idx = {
+    supExpires: find(SCOLS.supExpires), name: find(SCOLS.name), phone: find(SCOLS.phone), product: find(SCOLS.product),
+    password: find(SCOLS.password), profile: find(SCOLS.profile), pin: find(SCOLS.pin), expires: find(SCOLS.expires),
+    supplier: find(SCOLS.supplier), cost: find(SCOLS.cost), email: find(SCOLS.email),
+  };
+  const missing = [["Cliente", idx.name], ["WhatsApp", idx.phone], ["Producto", idx.product], ["Cuenta (correo)", idx.email], ["Vence", idx.expires]].filter(([, i]) => (i as number) < 0).map(([n]) => n);
+  if (missing.length) throw new DomainError("VALIDATION", `Faltan columnas: ${missing.join(", ")}. Encabezados leídos: ${rows[0].join(", ")}. Descargá la plantilla de servicios para ver el formato.`);
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
+  const parseErrors: ServiceResult[] = [];
+  const valid: ServiceRow[] = [];
+  for (let k = 1; k < rows.length; k++) {
+    const r = rows[k];
+    const base = { row: k + 1, customer: cell(r, idx.name), product: cell(r, idx.product), account: cell(r, idx.email), profile: cell(r, idx.profile) || "Cuenta completa", created: [], warnings: [] };
+    const fail = (error: string) => parseErrors.push({ ...base, status: "error", error });
+    const rawPhone = cell(r, idx.phone);
+    if (!rawPhone) { fail("Falta el WhatsApp del cliente"); continue; }
+    if (!base.product) { fail("Falta el producto"); continue; }
+    if (!/^[^@\s]+@[^@\s]+$/.test(base.account)) { fail("Cuenta: falta el correo o es inválido"); continue; }
+    const exp = parseDate(cell(r, idx.expires));
+    if (!exp) { fail(`Fecha de vencimiento inválida: "${cell(r, idx.expires)}" (usá 15/12/2026)`); continue; }
+    const supRaw = cell(r, idx.supExpires);
+    const supExp = supRaw ? parseDate(supRaw) : null;
+    if (supRaw && !supExp) { fail(`Fecha del proveedor inválida: "${supRaw}"`); continue; }
+    const pin = cell(r, idx.pin).replace(/\.0+$/, "");
+    if (pin && !/^\d{1,8}$/.test(pin)) { fail(`PIN inválido: "${pin}"`); continue; }
+    const costRaw = cell(r, idx.cost).replace(",", ".");
+    valid.push({
+      row: k + 1, customerName: base.customer, phone: phoneWithCountry(rawPhone), product: base.product, email: base.account,
+      password: cell(r, idx.password), profile: base.profile, pin: pin || undefined, customerExpiresAt: exp,
+      supplierExpiresAt: supExp ?? undefined, supplier: cell(r, idx.supplier) || undefined,
+      cost: costRaw && Number.isFinite(+costRaw) ? Math.round(+costRaw * 100) : undefined,
+    });
+  }
+  const res = valid.length ? s.inventory.importServices(a, valid, opts) : { dryRun: opts.dryRun, summary: { ok: 0, errores: 0, clientesNuevos: 0, cuentasNuevas: 0, perfilesNuevos: 0, avisos: 0 }, rows: [] as ServiceResult[] };
+  res.rows = [...res.rows, ...parseErrors].sort((x, y) => x.row - y.row);
+  res.summary.errores += parseErrors.length;
+  return res;
+}
+
+export const servicesTemplate = () => writeXlsx([{
+  name: "Servicios", widths: [22, 16, 16, 28, 16, 14, 8, 14, 16, 18, 10],
+  rows: [
+    ["Cliente", "WhatsApp", "Producto", "Cuenta", "Contraseña", "Perfil", "PIN", "Vence", "Vence proveedor", "Proveedor", "Costo"],
+    ["María Quispe", "70011223", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 1", "1234", "15/12/2026", "31/01/2027", "Proveedor Andes", 30],
+    ["Luis Choque", "78889900", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 2", "5678", "20/12/2026", "31/01/2027", "Proveedor Andes", ""],
+  ],
+}]);
 
 /** Plantilla vacía para que el dueño complete. */
 export const customersTemplate = () => writeXlsx([{ name: "Clientes", widths: [26, 18, 26, 34, 12], rows: [["Nombre", "WhatsApp", "Email", "Notas", "Tipo"], ["María Quispe", "70011223", "maria@correo.com", "Paga por QR", "Cliente"]] }]);

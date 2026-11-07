@@ -9,7 +9,7 @@ import { balance } from "./wallet.js";
 export function summary(e: Engine, actor: Actor, range: { from: number; to: number }) {
   authorize(actor, "stats.view");
   const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.updatedAt >= range.from && o.updatedAt < range.to);
-  const sales = inRange.filter((o) => o.kind !== "topup");
+  const sales = inRange.filter((o) => o.kind !== "topup" && o.channel !== "import");
   const byProduct: Record<Id, { units: number; revenue: number }> = {};
   const byDay: Record<string, number> = {};
   for (const o of sales) {

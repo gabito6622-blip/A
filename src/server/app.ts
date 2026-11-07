@@ -8,7 +8,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
-import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, type ExportKind } from "./exports.js";
+import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 export interface AppConfig {
   /** Carpeta de datos: base SQLite (gabriel.db) y comprobantes (uploads/). */
@@ -427,7 +427,15 @@ export function createApp(cfg: AppConfig): App {
     const { file, name } = buildExport(store, A(c), kind, { withSecrets: c.query.get("secrets") === "1" });
     return sendFile(c, file, name);
   });
-  route("GET", "/api/admin/import/template", "staff", (c) => sendFile(c, customersTemplate(), "plantilla-clientes.xlsx"));
+  route("GET", "/api/admin/import/template", "staff", (c) => c.query.get("type") === "services"
+    ? sendFile(c, servicesTemplate(), "plantilla-servicios.xlsx")
+    : sendFile(c, customersTemplate(), "plantilla-clientes.xlsx"));
+  route("POST", "/api/admin/import/services", "staff", (c) => {
+    if (typeof c.body?.contentBase64 !== "string") throw new HttpError(400, "VALIDATION", "Falta el archivo");
+    const buf = Buffer.from(c.body.contentBase64, "base64");
+    if (!buf.length || buf.length > MAX_FILE) throw new HttpError(400, "VALIDATION", "El archivo debe pesar hasta 5 MB");
+    return importServicesFile(store, A(c), buf, { dryRun: c.body?.dryRun !== false });
+  }, MAX_UPLOAD_JSON);
   route("POST", "/api/admin/import/customers", "staff", (c) => {
     if (typeof c.body?.contentBase64 !== "string") throw new HttpError(400, "VALIDATION", "Falta el archivo");
     const buf = Buffer.from(c.body.contentBase64, "base64");

@@ -235,7 +235,20 @@ const V = {
           ${imp.result.rows.length > 300 ? `<p class="muted" style="margin:0">Mostrando 300 de ${imp.result.rows.length} filas.</p>` : ""}
           ${imp.result.dryRun && imp.result.summary.nuevos ? `<div class="inline"><button class="pbtn green" type="button" data-importgo="1">Importar ${imp.result.summary.nuevos} cliente(s)</button><button class="pbtn" type="button" data-importcancel="1">Cancelar</button></div>` : ""}
           ${!imp.result.dryRun ? `<div class="pok">Listo: se crearon ${imp.result.created} cliente(s). Ya los ves en Clientes.</div>` : ""}</div>` : ""}
-      </section>`;
+      </section>
+      ${canReview() ? `<section class="card"><h2>Importar servicios actuales <small>· quién tiene qué cuenta, perfil y vencimiento</small></h2>
+        <p class="muted" style="margin:0">Una fila por servicio. Columnas obligatorias: <b>Cliente</b>, <b>WhatsApp</b>, <b>Producto</b> (como figura en Productos), <b>Cuenta</b> (correo) y <b>Vence</b> (15/12/2026). Opcionales: <b>Contraseña</b> (obligatoria si la cuenta es nueva), <b>Perfil</b>, <b>PIN</b>, <b>Vence proveedor</b>, <b>Proveedor</b>, <b>Costo</b>.
+        Se crean solos los clientes, cuentas y perfiles que falten. No se manda ningún WhatsApp y no cuenta como venta.</p>
+        <div class="inline"><a class="pbtn" href="/api/admin/import/template?type=services" download>${icon("ext")}Descargar plantilla de servicios</a></div>
+        <form class="inline" id="importSvcForm"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de servicios"><button class="pbtn dark" type="submit">Ver vista previa</button></form>
+        ${P.tab.importSvc ? (() => { const r = P.tab.importSvc.result; return `<div style="display:grid;gap:10px">
+          <div class="inline">${pill(`${r.summary.ok} servicios ${r.dryRun ? "listos" : "importados"}`, "ok")} ${pill(`${r.summary.errores} con error`, r.summary.errores ? "bad" : "mute")} ${pill(`${r.summary.clientesNuevos} clientes nuevos`, "mute")} ${pill(`${r.summary.cuentasNuevas} cuentas nuevas`, "mute")} ${pill(`${r.summary.perfilesNuevos} perfiles nuevos`, "mute")} ${r.summary.avisos ? pill(`${r.summary.avisos} avisos`, "warn") : ""}</div>
+          ${table(["Fila", "Cliente", "Producto", "Cuenta / perfil", "Vence", "Resultado"], r.rows.slice(0, 300).map((x) => `<tr><td>${x.row}</td><td>${esc(x.customer)}</td><td>${esc(x.product)}</td><td class="mono">${esc(x.account)}<br><small class="muted">${esc(x.profile)}</small></td><td>${x.expiresAt ? fdate(x.expiresAt) : ""}</td>
+            <td>${x.status === "ok" ? pill(r.dryRun ? "Se va a importar" : "Importado", "ok") : `<span class="pp pp-bad" style="white-space:normal;display:inline-block;max-width:340px">${esc(x.error || "Error")}</span>`}${x.created?.length ? `<br><small class="muted">Nuevo: ${esc([...new Set(x.created)].join(", "))}</small>` : ""}${(x.warnings ?? []).map((w) => `<br><small style="color:var(--warn)">⚠ ${esc(w)}</small>`).join("")}</td></tr>`))}
+          ${r.rows.length > 300 ? `<p class="muted" style="margin:0">Mostrando 300 de ${r.rows.length} filas.</p>` : ""}
+          ${r.dryRun && r.summary.ok ? `<div class="inline"><button class="pbtn green" type="button" data-importsvcgo="1">Importar ${r.summary.ok} servicio(s)</button><button class="pbtn" type="button" data-importsvccancel="1">Cancelar</button>${r.summary.errores ? `<span class="muted">Las filas con error se saltean; podés corregirlas y subirlas después.</span>` : ""}</div>` : ""}
+          ${!r.dryRun ? `<div class="pok">Listo: ${r.summary.ok} servicio(s) cargados. Ya aparecen en Renovar, Recordatorios y en Mis cuentas de cada cliente.</div>` : ""}</div>`; })() : ""}
+      </section>` : ""}`;
   },
 
   async whatsapp() {
@@ -373,6 +386,16 @@ document.addEventListener("click", async (ev) => {
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
+  if (d.importsvccancel) { P.tab.importSvc = null; return render(); }
+  if (d.importsvcgo) {
+    el.disabled = true;
+    try {
+      const result = await api("POST", "/api/admin/import/services", { contentBase64: P.tab.importSvc.b64, dryRun: false });
+      P.tab.importSvc = { b64: null, result };
+      toast(`${result.summary.ok} servicio(s) importados`);
+    } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.importcancel) { P.tab.import = null; return render(); }
   if (d.importgo) {
     el.disabled = true;
@@ -452,6 +475,11 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.replace}/replace`, { reason: f.reason.value, otherAccount: f.other.checked }), "Perfil reemplazado: el cliente conserva su fecha");
+    } else if (f.id === "importSvcForm") {
+      const b64 = await fileToBase64(f.file.files[0]);
+      const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });
+      P.tab.importSvc = { b64, result };
+      await render();
     } else if (f.id === "importForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/customers", { contentBase64: b64, dryRun: true });

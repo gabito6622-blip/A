@@ -40,3 +40,15 @@ test("encabezados y teléfonos se normalizan", () => {
   assert.equal(phoneWithCountry("591 70011223"), "+59170011223");
   assert.equal(phoneWithCountry("+54 9 11 5555 0101"), "+5491155550101");
 });
+
+test("fechas: serie de Excel, dd/mm/aaaa, dd-mm-aa, aaaa-mm-dd; inválidas dan null", async () => {
+  const { parseDate } = await import("../dist/server/exports.js");
+  const d = (t) => { const x = new Date(t); return [x.getFullYear(), x.getMonth() + 1, x.getDate()]; };
+  assert.deepEqual(d(parseDate("46006")), [2025, 12, 15]);
+  assert.deepEqual(d(parseDate("15/12/2026")), [2026, 12, 15]);
+  assert.deepEqual(d(parseDate("5-1-27")), [2027, 1, 5]);
+  assert.deepEqual(d(parseDate("2026-12-15")), [2026, 12, 15]);
+  assert.equal(parseDate("31/02/2026"), null);
+  assert.equal(parseDate("mañana"), null);
+  assert.equal(parseDate(""), null);
+});

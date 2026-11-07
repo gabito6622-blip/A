@@ -140,7 +140,8 @@ export interface Order {
   /** Quién paga (el revendedor cuando vende a su cliente con su saldo). */
   payerId: Id;
   createdBy: Id;
-  channel: "store" | "panel" | "reseller";
+  /** "import" = servicio que ya existía y se cargó desde Excel (no cuenta como venta). */
+  channel: "store" | "panel" | "reseller" | "import";
   items: OrderItem[];
   total: Cents;
   status: OrderStatus;

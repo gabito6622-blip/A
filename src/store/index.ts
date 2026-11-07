@@ -12,6 +12,7 @@ import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
+import * as importer from "./importer.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -20,6 +21,7 @@ export { Engine, emptyState, systemClock, type Clock, type EngineOptions } from 
 export { DAY, HOUR, MINUTE } from "./time.js";
 export type { WhatsAppTransport } from "./notify.js";
 export type { PublicStaff } from "./admin.js";
+export type { ServiceRow, ServiceResult } from "./importer.js";
 export { render as renderTemplate } from "./notify.js";
 export { normalizePhone } from "./catalog.js";
 
@@ -52,6 +54,8 @@ export function createStore(opts: EngineOptions = {}) {
       setSlotStatus: bind(e, inventory.setSlotStatus),
       updateAccount: bind(e, inventory.updateAccount),
       updateSlot: bind(e, inventory.updateSlot),
+      addSlot: bind(e, inventory.addSlot),
+      importServices: bind(e, importer.importServices),
       listAccounts: bind(e, inventory.listAccounts),
       stock: () => inventory.stockByProduct(e),
     },
