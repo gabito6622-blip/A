@@ -376,6 +376,23 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.stats.summary(seller, { from: 0, to: 1 }), err("FORBIDDEN"));
   });
 
+  test("revendedor compra a pedido (sin stock) con QR y se entrega al aprobar cuando cargo la cuenta", () => {
+    const { s, carla, as } = setup();
+    s.catalog.upsertProduct(owner, { id: "disalq", name: "Disney alquiler", kind: "full_account", durationDays: 30, price: 6000, published: true, resellersOnly: true });
+    assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "disalq", qty: 1 }], paymentMethod: "balance" }), err("OUT_OF_STOCK"), "con saldo necesita stock");
+    const o = s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "disalq", qty: 1 }], paymentMethod: "qr" });
+    assert.deepEqual(o.backorder, [{ productId: "disalq", qty: 1 }]);
+    assert.equal(o.total, 6000);
+    s.orders.submitEvidence(as(carla), o.id, { fileRef: "f", declaredReference: "BCP-77" });
+    assert.throws(() => s.orders.approvePayment(admin, o.id, { confirmedReference: "BCP-77" }), /primero cargá la cuenta/);
+    s.inventory.addAccount(admin, { productId: "disalq", supplierId: "andes", email: "dis01@x.com", password: "Dz-Clave#1", supplierExpiresAt: T0 + 60 * DAY, cost: 3000, profiles: [{ label: "Cuenta" }] });
+    const done = s.orders.approvePayment(admin, o.id, { confirmedReference: "BCP-77" });
+    assert.equal(done.status, "fulfilled");
+    assert.equal(done.assignmentIds.length, 1);
+    assert.equal(done.backorder, undefined);
+    assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "netflix", qty: 9 }], paymentMethod: "qr" }), err("OUT_OF_STOCK"), "los productos normales siguen necesitando stock");
+  });
+
   test("Armá tu combo: descuento en la tienda por servicios distintos, no para revendedores ni staff", () => {
     const { s, maria, carla, as } = setup();
     s.inventory.addAccount(admin, { productId: "gemini", supplierId: "andes", email: "gm01@gabostore.lat", password: "Gm-Clave#1", supplierExpiresAt: T0 + 90 * DAY, cost: 1000, profiles: [{ label: "Invitación" }] });

@@ -69,6 +69,11 @@ const sellable = (e: Engine, s: Slot) => {
 };
 
 /** Reserva `qty` slots del producto. Todo o nada; debe llamarse dentro de `tx`. */
+/** Perfiles libres que se pueden vender ahora mismo. */
+export function freeCount(e: Engine, productId: Id): number {
+  return Object.values(e.s.slots).filter((s) => s.productId === productId && sellable(e, s)).length;
+}
+
 export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = []): Slot[] {
   const free = Object.values(e.s.slots)
     .filter((s) => s.productId === productId && sellable(e, s) && !exclude.includes(s.accountId))

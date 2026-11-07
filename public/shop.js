@@ -168,8 +168,18 @@ const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/p
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
 
+/** Productos para revendedores: se pueden comprar sin stock pagando con QR (se entregan al aprobar). */
+const onDemand = (p) => !!p?.resellersOnly && isReseller();
+const maxQty = (p) => (onDemand(p) ? 10 : p.available);
+/** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
+const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
 function card(p) {
   const s = p.available;
+  if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div>
+  <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
+  <span class="stock" style="color:var(--s-warn)">A pedido · pagás con QR y te la entregamos al confirmar</span>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small></div>
+  <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${s ? (s <= 2 ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? "var(--s-muted)" : "var(--s-bad)"}">${s ? (s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? "Disponible a pedido" : "Agotado"}</span>
@@ -683,12 +693,13 @@ function renderCart(msg = "") {
     return;
   }
   const toPay = tot - cartDiscount();
-  const canBalance = S.me.balance >= toPay;
+  const canBalance = S.me.balance >= toPay && !cartBackorder();
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
-    <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : "No alcanza para este pedido."}</small></span></label>
+    <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
     <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label></div>
+    ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
     <div id="qrPart" style="display:grid;gap:12px" ${canBalance ? "hidden" : ""}>${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación<input name="ref" placeholder="Ej.: 123456789"></label></div>
     <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
@@ -835,7 +846,7 @@ document.addEventListener("click", async (ev) => {
   if (d.add) {
     const p = product(d.add);
     const l = S.cart.find((x) => x.productId === d.add);
-    if ((l?.qty ?? 0) >= p.available) return toast("No hay más unidades disponibles");
+    if ((l?.qty ?? 0) >= maxQty(p)) return toast("No hay más unidades disponibles");
     l ? l.qty++ : S.cart.push({ productId: d.add, qty: 1 });
     saveCart(); closeAll(); render();
     return toast(`${p.name} agregado al carrito`);
@@ -848,7 +859,7 @@ document.addEventListener("click", async (ev) => {
     $("#modal").hidden = false; $("#scrim").hidden = false;
     return;
   }
-  if (d.inc) { const l = S.cart[d.inc]; if (l.qty < product(l.productId).available) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
+  if (d.inc) { const l = S.cart[d.inc]; if (l.qty < maxQty(product(l.productId))) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
   if (d.dec) { if (--S.cart[d.dec].qty <= 0) S.cart.splice(d.dec, 1); saveCart(); renderCart(); return render(); }
   if (d.step) {
     S.step = +d.step;

@@ -285,6 +285,8 @@ export interface Order {
   assignmentIds: Id[];
   renewal?: { assignmentId: Id; periods: number };
   topupAmount?: Cents;
+  /** "A pedido": ítems sin stock al comprar (solo revendedores, pagando con QR). Se entregan al aprobar el pago. */
+  backorder?: { productId: Id; qty: number }[];
   /** Descuento "Armá tu combo" ya restado del total. */
   discount?: Cents;
   createdAt: number;

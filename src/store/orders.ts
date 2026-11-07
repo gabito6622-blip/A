@@ -14,7 +14,7 @@ import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { canActFor, priceFor, visibleTo } from "./catalog.js";
-import { releaseSlots, reserveSlots } from "./inventory.js";
+import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 
@@ -68,7 +68,12 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
       return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) };
     });
-    const reserved = items.flatMap((it) => reserveSlots(e, it.productId, it.qty, id));
+    // Productos para revendedores sin stock: se pueden pedir pagando con QR y se entregan al aprobar.
+    const back: { productId: Id; qty: number }[] = [];
+    const reserved = items.flatMap((it) => {
+      if (e.s.products[it.productId]?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
+      return reserveSlots(e, it.productId, it.qty, id);
+    });
     const now = e.now();
     const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
     const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
@@ -78,6 +83,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       items, total: gross - discount, status: "awaiting_payment",
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
+      ...(back.length ? { backorder: back } : {}),
     };
     e.s.orders[id] = order;
     e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length });
@@ -165,6 +171,16 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { co
     if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
       releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
       o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
+      delete o.backorder;
+    } else if (o.kind === "sale" && o.backorder?.length) {
+      for (const b of o.backorder) {
+        try {
+          o.reservedSlotIds.push(...reserveSlots(e, b.productId, b.qty, o.id).map((s) => s.id));
+        } catch {
+          throw new DomainError("OUT_OF_STOCK", `Es un pedido a pedido: primero cargá ${b.qty > 1 ? `${b.qty} cuentas` : "la cuenta"} de ${e.s.products[b.productId]?.name ?? b.productId} (Carga de Cuentas) y después aprobá.`);
+        }
+      }
+      delete o.backorder;
     }
     o.confirmedReference = ref;
     o.approvedBy = actor.id;
@@ -209,7 +225,8 @@ export function expireReservations(e: Engine, actor: Actor): number {
     let n = 0;
     for (const o of Object.values(e.s.orders)) {
       if (o.status !== "awaiting_payment") continue;
-      const late = o.reservedSlotIds.some((id) => (e.s.slots[id].reservedUntil ?? Infinity) < e.now());
+      const late = o.reservedSlotIds.some((id) => (e.s.slots[id].reservedUntil ?? Infinity) < e.now())
+        || (!o.reservedSlotIds.length && !!o.backorder && o.createdAt + DAY < e.now());
       if (!late) continue;
       releaseSlots(e, o.reservedSlotIds);
       o.status = "expired";
