@@ -48,6 +48,55 @@ export interface StoreSettings {
   heroText?: string;
   /** Aviso corto arriba de todo (promos, horarios). Vacío = no se muestra. */
   announcement?: string;
+  /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
+  whatsappBot?: WhatsAppBotSettings;
+}
+
+/** Nombre e idioma de una plantilla aprobada en Meta. */
+export interface MetaTemplateRef {
+  name: string;
+  lang: string;
+}
+
+export interface WhatsAppBotSettings {
+  /** Encendido: el bot contesta y los avisos salen por la API oficial. */
+  enabled: boolean;
+  /** "Phone number ID" de Meta (no es el número de teléfono). */
+  phoneNumberId: string;
+  /** Versión de la Graph API, p. ej. "v21.0". */
+  apiVersion: string;
+  /** Saludo del bot. {name} y {store} se reemplazan. */
+  welcome?: string;
+  /** Horas que el bot se queda callado después de pedir hablar con una persona. */
+  humanPauseHours: number;
+  /** Plantillas aprobadas para avisos fuera de la ventana de 24 h. */
+  templates: Partial<Record<TemplateId | "login_code", MetaTemplateRef>>;
+}
+
+export interface ChatMessage {
+  id: Id;
+  direction: "in" | "out";
+  by: "cliente" | "bot" | "staff" | "sistema";
+  text: string;
+  at: number;
+  /** Id del mensaje en WhatsApp (para estados entregado/leído). */
+  waId?: string;
+  status?: "sent" | "delivered" | "read" | "failed";
+  error?: string;
+}
+
+/** Conversación con un número de WhatsApp. */
+export interface ChatThread {
+  phone: string;
+  customerId?: Id;
+  name?: string;
+  /** Último mensaje del cliente: abre la ventana de 24 h para responder con texto libre. */
+  lastInboundAt?: number;
+  needsHuman: boolean;
+  /** Hasta cuándo el bot no contesta (porque lo atiende una persona). */
+  botPausedUntil?: number;
+  unread: number;
+  messages: ChatMessage[];
 }
 
 /** Grupo de precios: sobreescribe el precio base por producto (p. ej. revendedores). */
@@ -227,6 +276,9 @@ export interface OutboxMessage {
   text: string;
   status: "queued" | "skipped_no_consent" | "sent" | "sent_manually" | "failed";
   error?: string;
+  /** Id del mensaje en WhatsApp, cuando salió por la API oficial. */
+  waId?: string;
+  attempts?: number;
   createdAt: number;
 }
 
@@ -277,6 +329,7 @@ export interface State {
   codes: CodeMessage[];
   idempotency: Record<string, unknown>;
   staff: Record<Id, StaffUser>;
+  chats: Record<string, ChatThread>;
   settings: StoreSettings;
   seq: number;
 }

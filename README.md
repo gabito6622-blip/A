@@ -119,3 +119,7 @@ npm install && npm run build
 GS_OWNER_USER=gabriel GS_OWNER_PASSWORD='una-clave-larga' npm start   # crea el dueño la primera vez
 ```
 SQLite en `./data` (respaldá esa carpeta). Variables en `src/server/main.ts`. Detalle en `docs/IMPLEMENTATION_PLAN.md`.
+
+### WhatsApp oficial (Meta)
+Bot 24/7 y avisos automáticos por la WhatsApp Cloud API: panel → WhatsApp → "Bot y conexión con Meta".
+Guía paso a paso: [`docs/WHATSAPP_META.md`](docs/WHATSAPP_META.md). Requiere la tienda publicada con HTTPS (`GS_PUBLIC_ORIGIN`).

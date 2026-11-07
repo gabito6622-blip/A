@@ -7,7 +7,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 
-const TEMPLATES: Record<TemplateId, string> = {
+export const TEMPLATES: Record<TemplateId, string> = {
   order_received: "Hola {name}, registramos tu pedido #{order} por {total}. Estamos verificando el pago y te avisamos al confirmarlo.",
   order_confirmed: "Gabriel Store: tu pedido #{order} fue confirmado. Tus accesos están en tu área privada → Mis cuentas.",
   payment_rejected: "Gabriel Store: no pudimos verificar el pago del pedido #{order}. Respondé este mensaje si ya pagaste.",
@@ -18,6 +18,35 @@ const TEMPLATES: Record<TemplateId, string> = {
   access_updated: "Gabriel Store: actualizamos los datos de acceso de tu {product}. Mirá la clave nueva en Mis cuentas.",
   access_transferred: "Gabriel Store: te asignamos {product} (vence el {date}). Tus accesos están en Mis cuentas.",
 };
+
+/** Orden de los parámetros de una plantilla ({{1}}, {{2}}… en Meta). */
+export function templateParamOrder(t: TemplateId): string[] {
+  return [...TEMPLATES[t].matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+}
+
+/** Texto de la plantilla con {{1}}, {{2}}… para copiar y crear en Meta. */
+export function metaTemplateBody(t: TemplateId): string {
+  let i = 0;
+  return TEMPLATES[t].replace(/\{(\w+)\}/g, () => `{{${++i}}}`);
+}
+
+/** Registra el resultado de un envío automático. Tras 5 intentos fallidos queda como "failed". */
+export function markSendResult(e: Engine, actor: Actor, messageId: Id, r: { ok: true; waId?: string } | { ok: false; error: string; retry: boolean }): void {
+  authorize(actor, "notify.flush");
+  e.tx(() => {
+    const m = e.s.outbox.find((x) => x.id === messageId);
+    if (!m) return;
+    m.attempts = (m.attempts ?? 0) + 1;
+    if (r.ok) {
+      m.status = "sent";
+      m.waId = r.waId;
+      delete m.error;
+    } else {
+      m.error = r.error;
+      if (!r.retry || m.attempts >= 5) m.status = "failed";
+    }
+  });
+}
 
 const FORBIDDEN_PARAM = /pass|password|pin|secret|token|code|codigo|clave/i;
 

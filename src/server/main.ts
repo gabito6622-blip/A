@@ -8,6 +8,7 @@
 //   GS_OWNER_USER        usuario del dueño, solo para crear el primero
 //   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
 //   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
+//   GS_META_BASE_URL     SOLO pruebas: otra URL en vez de https://graph.facebook.com
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { createApp } from "./app.js";
@@ -21,6 +22,7 @@ const app = createApp({
   publicOrigin: origin,
   secureCookies: !!origin?.startsWith("https://"),
   staticDir,
+  metaBaseUrl: env.GS_META_BASE_URL,
   otpSender: env.GS_DEV_OTP === "1"
     ? (phone, code) => console.log(`[DEV] código para ${phone}: ${code}`)
     : undefined,

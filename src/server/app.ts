@@ -8,6 +8,9 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
+import { botAnswer } from "./bot.js";
+import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
+import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 export interface AppConfig {
@@ -25,6 +28,9 @@ export interface AppConfig {
   /** Tareas periódicas (vencer reservas, recordatorios). Por defecto activadas. */
   jobs?: boolean;
   log?: (msg: string) => void;
+  /** Para pruebas: reemplaza fetch y la URL de Meta. */
+  fetchImpl?: typeof fetch;
+  metaBaseUrl?: string;
 }
 
 const HOUR = 3_600_000;
@@ -57,6 +63,8 @@ interface Ctx {
   actor?: Actor;
   session?: { tokenHash: string; kind: string; subjectId: string };
   ip: string;
+  /** Cuerpo crudo (para verificar firmas de webhooks). */
+  raw?: Buffer;
 }
 interface Route {
   method: string;
@@ -89,6 +97,8 @@ export interface App {
   close(): Promise<void>;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
   bootstrapOwner(username: string, name: string, password: string): boolean;
+  /** Manda ahora los avisos pendientes por WhatsApp (si el bot está configurado). */
+  flushWhatsApp(): Promise<{ sent: number; failed: number; pending: number }>;
   /** Ejecuta las tareas periódicas una vez (para pruebas o cron externo). */
   runJobs(): { expired: number; reminders: number; closed: number };
 }
@@ -198,7 +208,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/auth/customer/request-code", "public", async (c) => {
     const phone = normalizePhone(c.body?.phone);
     if (phone.replace(/\D/g, "").length < 7) throw new HttpError(400, "VALIDATION", "Teléfono inválido");
-    if (!cfg.otpSender) throw new HttpError(503, "OTP_DISABLED", "El ingreso por código todavía no está activo. Pedile a la tienda tu link de acceso.");
+    if (!otpSender()) throw new HttpError(503, "OTP_DISABLED", "El ingreso por código todavía no está activo. Pedile a la tienda tu link de acceso.");
     if (!otpIpLimiter.take(c.ip) || !otpPhoneLimiter.take(phone)) throw new HttpError(429, "RATE_LIMIT", "Pediste muchos códigos. Probá en 15 minutos.");
     const exists = !!store.catalog.findCustomerByPhone(phone);
     if (!exists) {
@@ -206,7 +216,7 @@ export function createApp(cfg: AppConfig): App {
       if (!name) return { needsName: true };
       pendingSignup.set(phone, { name: name.slice(0, 80), whatsappConsent: !!c.body?.whatsappConsent });
     }
-    await cfg.otpSender(phone, otp.issue(phone));
+    await otpSender()!(phone, otp.issue(phone));
     return { sent: true };
   });
 
@@ -350,11 +360,8 @@ export function createApp(cfg: AppConfig): App {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
-    const token = newToken();
-    db.putSession({ tokenHash: sha256(token), kind: "link", subjectId: cust.id, createdAt: now(), expiresAt: now() + LINK_MS });
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_link", "customer", cust.id));
-    const base = cfg.publicOrigin ?? `http://${c.req.headers.host}`;
-    return { url: `${base}/#acceso=${token}`, expiresAt: now() + LINK_MS };
+    return { url: makeLoginLink(cust.id, cfg.publicOrigin ?? `http://${c.req.headers.host}`), expiresAt: now() + LINK_MS };
   });
 
   route("GET", "/api/admin/assignments", "staff", (c) => store.admin.assignments(A(c), {
@@ -453,6 +460,217 @@ export function createApp(cfg: AppConfig): App {
     }
   }
 
+  /* ---------------- WhatsApp oficial (Meta) ---------------- */
+  function makeLoginLink(customerId: string, base: string): string {
+    const token = newToken();
+    db.putSession({ tokenHash: sha256(token), kind: "link", subjectId: customerId, createdAt: now(), expiresAt: now() + LINK_MS });
+    return `${base}/#acceso=${token}`;
+  }
+
+  const waSecret = (k: "token" | "appSecret") => db.getSecret(k === "token" ? "wa_token" : "wa_app_secret");
+  function verifyToken(): string {
+    let v = db.getSecret("wa_verify_token");
+    if (!v) {
+      v = newToken().slice(0, 24);
+      db.setSecret("wa_verify_token", v, now());
+    }
+    return v;
+  }
+  /** Cliente de Meta si hay Phone number ID y token (aunque el bot esté apagado, para probar). */
+  function cloud(): WhatsAppCloud | null {
+    const b = store.chats.botSettings();
+    const token = waSecret("token");
+    if (!b.phoneNumberId || !token) return null;
+    return new WhatsAppCloud({ phoneNumberId: b.phoneNumberId, apiVersion: b.apiVersion, accessToken: token }, cfg.fetchImpl ?? fetch, cfg.metaBaseUrl);
+  }
+  const botOn = () => store.chats.botSettings().enabled && !!cloud();
+
+  /** El código de acceso del cliente sale por WhatsApp si hay plantilla "login_code" aprobada. */
+  function otpSender(): AppConfig["otpSender"] {
+    if (cfg.otpSender) return cfg.otpSender;
+    const tpl = store.chats.botSettings().templates.login_code;
+    if (!botOn() || !tpl) return undefined;
+    return async (phone, code) => {
+      await cloud()!.sendTemplate(phone, tpl.name, tpl.lang, [code], { copyCodeButton: code });
+    };
+  }
+
+  const botLimiter = new RateLimiter(8, 5 * 60_000, now);
+
+  async function sendChat(phone: string, text: string, by: "bot" | "staff"): Promise<void> {
+    const c = cloud();
+    if (!c) throw new HttpError(409, "WA_OFF", "WhatsApp no está configurado");
+    try {
+      const r = await c.sendText(phone, text);
+      store.chats.recordOutbound(phone, { text, by, waId: r.waId });
+    } catch (e) {
+      store.chats.recordOutbound(phone, { text, by, error: (e as Error).message });
+      throw e;
+    }
+  }
+
+  async function handleInbound(m: InboundMessage): Promise<void> {
+    const phone = "+" + m.from.replace(/\D/g, "");
+    const { duplicate } = store.chats.recordInbound({ phone, text: m.text, waId: m.waId, name: m.name, at: m.timestamp || undefined });
+    if (duplicate || !botOn()) return;
+    void cloud()!.markRead(m.waId);
+    if (store.chats.botPaused(phone)) return;
+    if (!botLimiter.take(phone)) return;
+    const a = botAnswer({ store, origin: cfg.publicOrigin, loginLink: (id) => (cfg.publicOrigin ? makeLoginLink(id, cfg.publicOrigin) : null) }, phone, m.text, m.name);
+    const cust = Object.values(store.engine.s.customers).find((x) => x.phone === phone);
+    if (a.consent !== undefined && cust) store.catalog.setWhatsappConsent({ id: `wa:${cust.id}`, role: "customer", customerId: cust.id }, cust.id, a.consent);
+    if (a.human) store.chats.requestHuman(phone, store.chats.botSettings().humanPauseHours);
+    for (const text of a.replies) await sendChat(phone, text, "bot");
+    if (a.sendQr && cfg.publicOrigin) {
+      try {
+        const r = await cloud()!.sendImage(phone, `${cfg.publicOrigin}/api/settings/qr`, "QR de cobro");
+        store.chats.recordOutbound(phone, { text: "[imagen: QR de cobro]", by: "bot", waId: r.waId });
+      } catch (e) {
+        log(`no se pudo mandar el QR: ${(e as Error).message}`);
+      }
+    }
+  }
+
+  let flushing = false;
+  /** Manda los avisos pendientes: texto si el cliente escribió en 24 h, si no plantilla aprobada. */
+  async function flushWhatsApp(): Promise<{ sent: number; failed: number; pending: number }> {
+    const res = { sent: 0, failed: 0, pending: 0 };
+    if (flushing || !botOn()) return res;
+    flushing = true;
+    try {
+      const b = store.chats.botSettings();
+      const queue = store.engine.s.outbox.filter((m) => m.status === "queued").slice(0, 50).map((m) => structuredClone(m));
+      for (const m of queue) {
+        const tpl = b.templates[m.template];
+        try {
+          let waId: string | undefined;
+          if (store.chats.inWindow(m.to)) waId = (await cloud()!.sendText(m.to, m.text)).waId;
+          else if (tpl) waId = (await cloud()!.sendTemplate(m.to, tpl.name, tpl.lang, templateParamOrder(m.template).map((k) => m.params[k] ?? ""))).waId;
+          else {
+            store.notify.markSendResult(system, m.id, { ok: false, retry: false, error: `Sin plantilla aprobada para «${m.template}» y el cliente no escribió en 24 h. Cargá la plantilla o mandalo a mano.` });
+            res.failed++;
+            continue;
+          }
+          store.notify.markSendResult(system, m.id, { ok: true, waId });
+          store.chats.recordOutbound(m.to, { text: m.text, by: "sistema", waId });
+          res.sent++;
+        } catch (e) {
+          const retry = e instanceof WaError ? e.retryable : true;
+          store.notify.markSendResult(system, m.id, { ok: false, retry, error: (e as Error).message });
+          if (retry) res.pending++; else res.failed++;
+        }
+      }
+    } finally {
+      flushing = false;
+    }
+    return res;
+  }
+
+  // Meta verifica la URL del webhook con un GET.
+  route("GET", "/api/whatsapp/webhook", "public", (c) => {
+    const ok = c.query.get("hub.mode") === "subscribe" && c.query.get("hub.verify_token") === verifyToken();
+    c.res.writeHead(ok ? 200 : 403, { "Content-Type": "text/plain; charset=utf-8" });
+    c.res.end(ok ? String(c.query.get("hub.challenge") ?? "") : "token de verificación incorrecto");
+    return RAW;
+  });
+  // Mensajes y estados. Se responde 200 enseguida (Meta reintenta si tardamos) y se procesa después.
+  route("POST", "/api/whatsapp/webhook", "public", (c) => {
+    const secret = waSecret("appSecret");
+    if (!secret || !c.raw || !verifySignature(c.raw, c.req.headers["x-hub-signature-256"] as string | undefined, secret)) {
+      throw new HttpError(403, "BAD_SIGNATURE", "Firma inválida");
+    }
+    const { messages, statuses } = parseWebhook(c.body);
+    send(c.res, 200, { ok: true });
+    void (async () => {
+      for (const st of statuses) store.chats.recordStatus(st.waId, st.status, st.error);
+      for (const m of messages) {
+        try {
+          await handleInbound(m);
+        } catch (e) {
+          log(`bot: ${(e as Error).message}`);
+        }
+      }
+    })();
+    return RAW;
+  }, 1024 * 1024);
+
+  const ownerOrAdmin = (c: Ctx) => {
+    if (A(c).role !== "owner" && A(c).role !== "admin") throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin");
+  };
+  const mask = (v?: string) => (v ? `••••${v.slice(-4)}` : null);
+
+  route("GET", "/api/admin/whatsapp/config", "staff", (c) => {
+    ownerOrAdmin(c);
+    const b = store.chats.botSettings();
+    const tplIds = Object.keys(TEMPLATES) as TemplateId[];
+    return {
+      settings: b,
+      secrets: { token: mask(waSecret("token")), appSecret: mask(waSecret("appSecret")) },
+      verifyToken: A(c).role === "owner" ? verifyToken() : null,
+      webhookUrl: cfg.publicOrigin ? `${cfg.publicOrigin}/api/whatsapp/webhook` : null,
+      publicOrigin: cfg.publicOrigin ?? null,
+      ready: { phoneNumberId: !!b.phoneNumberId, token: !!waSecret("token"), appSecret: !!waSecret("appSecret"), https: !!cfg.publicOrigin?.startsWith("https://"), enabled: b.enabled },
+      templates: [
+        ...tplIds.map((id) => ({ id, body: metaTemplateBody(id), params: templateParamOrder(id), configured: b.templates[id] ?? null, category: "UTILITY" })),
+        { id: "login_code", body: "{{1}} es tu código de verificación.", params: ["code"], configured: b.templates.login_code ?? null, category: "AUTHENTICATION" },
+      ],
+      pending: store.engine.s.outbox.filter((m) => m.status === "queued").length,
+    };
+  });
+  route("POST", "/api/admin/whatsapp/config", "staff", (c) => store.chats.updateBotSettings(A(c), c.body ?? {}));
+  route("POST", "/api/admin/whatsapp/secrets", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño carga las claves de Meta");
+    const b = c.body ?? {};
+    const changed: string[] = [];
+    if (typeof b.accessToken === "string") {
+      if (b.accessToken && !/^[A-Za-z0-9_\-.|]{20,1000}$/.test(b.accessToken.trim())) throw new HttpError(400, "VALIDATION", "El token no parece válido");
+      db.setSecret("wa_token", b.accessToken.trim() || null, now()); changed.push("token");
+    }
+    if (typeof b.appSecret === "string") {
+      if (b.appSecret && !/^[a-f0-9]{32}$/i.test(b.appSecret.trim())) throw new HttpError(400, "VALIDATION", "El App Secret son 32 caracteres (Meta → Configuración de la app → Básica)");
+      db.setSecret("wa_app_secret", b.appSecret.trim() || null, now()); changed.push("appSecret");
+    }
+    if (b.regenerateVerifyToken) { db.setSecret("wa_verify_token", null, now()); verifyToken(); changed.push("verifyToken"); }
+    store.engine.tx(() => store.engine.audit(A(c), "whatsapp.secrets", "settings", "whatsapp", { changed: changed.join(",") }));
+    return { ok: true, changed };
+  });
+  route("POST", "/api/admin/whatsapp/test", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const cl = cloud();
+    if (!cl) throw new HttpError(409, "WA_OFF", "Falta el Phone number ID o el token");
+    const to = String(c.body?.to ?? "").replace(/\D/g, "");
+    if (to.length < 8) throw new HttpError(400, "VALIDATION", "Número de prueba inválido (con código de país)");
+    try {
+      // "hello_world" viene aprobada en toda cuenta nueva de WhatsApp Business.
+      const r = await cl.sendTemplate(to, "hello_world", "en_US", []);
+      return { ok: true, waId: r.waId };
+    } catch (e) {
+      throw new HttpError(502, "META", (e as Error).message);
+    }
+  });
+  route("POST", "/api/admin/whatsapp/flush", "staff", async (c) => {
+    ownerOrAdmin(c);
+    if (!botOn()) throw new HttpError(409, "WA_OFF", "El bot está apagado o falta configurarlo");
+    return flushWhatsApp();
+  });
+  route("GET", "/api/admin/whatsapp/chats", "staff", (c) => store.chats.list(A(c)));
+  route("GET", "/api/admin/whatsapp/chats/:phone", "staff", (c) => store.chats.get(A(c), c.params.phone));
+  route("POST", "/api/admin/whatsapp/chats/:phone/reply", "staff", async (c) => {
+    const text = String(c.body?.text ?? "").trim();
+    if (!text || text.length > 4000) throw new HttpError(400, "VALIDATION", "Escribí un mensaje (hasta 4000 letras)");
+    store.chats.get(A(c), c.params.phone); // permiso y existencia
+    if (!store.chats.inWindow(c.params.phone)) throw new HttpError(409, "WINDOW_CLOSED", "Pasaron más de 24 h desde el último mensaje del cliente. WhatsApp solo deja escribirle con una plantilla aprobada.");
+    try {
+      await sendChat(c.params.phone, text, "staff");
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      throw new HttpError(502, "META", (e as Error).message);
+    }
+    store.chats.setHumanMode(A(c), c.params.phone, true, store.chats.botSettings().humanPauseHours);
+    return { ok: true };
+  });
+  route("POST", "/api/admin/whatsapp/chats/:phone/human", "staff", (c) => (store.chats.setHumanMode(A(c), c.params.phone, !!c.body?.on, store.chats.botSettings().humanPauseHours), { ok: true }));
+
   /* ---------------- plomería ---------------- */
   const RAW = Symbol("raw");
 
@@ -462,8 +680,8 @@ export function createApp(cfg: AppConfig): App {
     res.end(JSON.stringify(body));
   }
 
-  async function readJson(req: IncomingMessage, max: number): Promise<any> {
-    if (req.method === "GET" || req.method === "HEAD") return undefined;
+  async function readJson(req: IncomingMessage, max: number): Promise<{ body: any; raw?: Buffer }> {
+    if (req.method === "GET" || req.method === "HEAD") return { body: undefined };
     const type = String(req.headers["content-type"] ?? "");
     if (!type.startsWith("application/json")) throw new HttpError(415, "VALIDATION", "Se espera JSON");
     const declared = Number(req.headers["content-length"] ?? 0);
@@ -475,9 +693,10 @@ export function createApp(cfg: AppConfig): App {
       if (size > max) throw new HttpError(413, "TOO_LARGE", "El contenido es demasiado grande");
       chunks.push(ch as Buffer);
     }
-    if (!size) return {};
+    if (!size) return { body: {} };
+    const raw = Buffer.concat(chunks);
     try {
-      return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      return { body: JSON.parse(raw.toString("utf8")), raw };
     } catch {
       throw new HttpError(400, "VALIDATION", "JSON inválido");
     }
@@ -533,8 +752,8 @@ export function createApp(cfg: AppConfig): App {
       const { actor, session } = resolveActor(req);
       if (r.who === "staff" && !(actor && !actor.customerId)) throw new HttpError(actor ? 403 : 401, actor ? "FORBIDDEN" : "LOGIN_REQUIRED", actor ? "Solo el equipo de la tienda" : "Iniciá sesión");
       if (r.who === "customer" && !actor?.customerId) throw new HttpError(401, "LOGIN_REQUIRED", "Iniciá sesión");
-      const body = await readJson(req, r.maxBody);
-      const out = await r.handler({ req, res, params, query: url.searchParams, body, actor, session, ip });
+      const { body, raw } = await readJson(req, r.maxBody);
+      const out = await r.handler({ req, res, params, query: url.searchParams, body, raw, actor, session, ip });
       if (out !== RAW) send(res, 200, out ?? { ok: true });
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.code, message: e.message });
@@ -560,12 +779,13 @@ export function createApp(cfg: AppConfig): App {
       } catch (e) {
         log(`tareas fallaron: ${(e as Error).message}`);
       }
+      flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs,
+    server, store, db, runJobs, flushWhatsApp,
     bootstrapOwner(username, name, password) {
       if (Object.keys(store.engine.s.staff).length) return false;
       store.admin.bootstrapOwner({ username, name, passwordHash: hashPassword(password) });

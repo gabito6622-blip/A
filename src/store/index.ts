@@ -13,6 +13,7 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as importer from "./importer.js";
+import * as chats from "./chats.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -24,6 +25,8 @@ export type { PublicStaff } from "./admin.js";
 export type { ServiceRow, ServiceResult } from "./importer.js";
 export { render as renderTemplate } from "./notify.js";
 export { normalizePhone } from "./catalog.js";
+export { TEMPLATES, templateParamOrder, metaTemplateBody } from "./notify.js";
+export { WINDOW_MS } from "./chats.js";
 
 type Rest<F> = F extends (e: Engine, ...args: infer A) => infer R ? (...args: A) => R : never;
 const bind = <F extends (e: Engine, ...a: never[]) => unknown>(e: Engine, f: F) => ((...a: unknown[]) => (f as unknown as (...x: unknown[]) => unknown)(e, ...a)) as Rest<F>;
@@ -98,6 +101,20 @@ export function createStore(opts: EngineOptions = {}) {
       },
       flush: bind(e, notify.flush),
       markSentManually: bind(e, notify.markSentManually),
+      markSendResult: bind(e, notify.markSendResult),
+    },
+    chats: {
+      recordInbound: bind(e, chats.recordInbound),
+      recordOutbound: bind(e, chats.recordOutbound),
+      recordStatus: bind(e, chats.recordStatus),
+      requestHuman: bind(e, chats.requestHuman),
+      botPaused: bind(e, chats.botPaused),
+      inWindow: bind(e, chats.inWindow),
+      list: bind(e, chats.listChats),
+      get: bind(e, chats.getChat),
+      setHumanMode: bind(e, chats.setHumanMode),
+      botSettings: () => chats.botSettings(e),
+      updateBotSettings: bind(e, chats.updateBotSettings),
     },
     admin: {
       bootstrapOwner: bind(e, admin.bootstrapOwner),

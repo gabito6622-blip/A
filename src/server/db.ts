@@ -45,6 +45,11 @@ export class Db {
         expires_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS sessions_subject ON sessions(subject_id);
+      CREATE TABLE IF NOT EXISTS secrets (
+        name TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
     `);
     // Lock de escritura exclusivo mientras el proceso viva: un segundo servidor sobre el mismo
     // archivo falla al arrancar en vez de pisar datos.
@@ -98,7 +103,20 @@ export class Db {
     this.db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
   }
 
-  close(): void {
+  /**
+   * Claves de integraciones (token de Meta, etc.). Van en una tabla aparte del estado: no entran
+   * en las versiones guardadas, ni en exportaciones, ni en la auditoría. Protegé el archivo .db.
+   */
+  setSecret(name: string, value: string | null, at: number): void {
+    if (value === null || value === "") this.db.prepare("DELETE FROM secrets WHERE name = ?").run(name);
+    else this.db.prepare("INSERT INTO secrets (name, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").run(name, value, at);
+  }
+
+  getSecret(name: string): string | undefined {
+    return (this.db.prepare("SELECT value FROM secrets WHERE name = ?").get(name) as { value: string } | undefined)?.value;
+  }
+
+    close(): void {
     this.db.close();
   }
 }

@@ -252,18 +252,12 @@ const V = {
   },
 
   async whatsapp() {
-    if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin ven los avisos.</div></section>`;
-    const [out, customers] = await Promise.all([api("GET", "/api/admin/outbox"), api("GET", "/api/admin/customers")]);
-    const name = (id) => customers.find((c) => c.id === id)?.name ?? id;
-    const tab = P.tab.wa ?? "pending";
-    const pending = out.filter((m) => m.status === "queued" || m.status === "failed");
-    const list = tab === "pending" ? pending : tab === "noconsent" ? out.filter((m) => m.status === "skipped_no_consent") : out;
-    return `<div class="pok">Modo manual: tocá <b>Abrir WhatsApp</b>, mandá el mensaje desde tu teléfono y después <b>Marcar enviado</b>. Cuando tengas WhatsApp Business API, esto se hace solo.</div>
-      <section class="card"><div class="tabs" role="tablist">${[["pending", `Por enviar (${pending.length})`], ["noconsent", "Sin permiso"], ["all", "Todos"]].map(([k, t]) => `<button role="tab" type="button" data-tab="wa:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
-      ${list.length ? list.map((m) => `<div style="display:grid;gap:8px;border-bottom:1px solid var(--line);padding-block:12px"><div class="inline"><b>${esc(name(m.customerId))}</b><span class="muted">${esc(m.to)}</span>${pill({ queued: "Por enviar", failed: "Falló", sent: "Enviado", sent_manually: "Enviado a mano", skipped_no_consent: "Sin permiso del cliente" }[m.status], { queued: "warn", failed: "bad", sent: "ok", sent_manually: "ok", skipped_no_consent: "mute" }[m.status])}<span class="muted" style="margin-left:auto">${fdt(m.createdAt)}</span></div>
-        <div class="wa-msg">${esc(m.text)}</div>
-        ${m.status === "queued" || m.status === "failed" ? `<div class="inline"><a class="pbtn sm green" href="${waLink(m.to, m.text)}" target="_blank" rel="noopener">${icon("wa")}Abrir WhatsApp</a><button class="pbtn sm" type="button" data-sent="${esc(m.id)}">Marcar enviado</button></div>` : ""}
-        ${m.status === "skipped_no_consent" ? `<p class="muted" style="margin:0">El cliente no aceptó avisos. Si te lo pide, activalo en su ficha o mandalo igual a mano.</p>` : ""}</div>`).join("") : `<div class="emptybox">Nada por acá.</div>`}</section>`;
+    const sec = P.tab.waSec ?? "chats";
+    const tabs = [["chats", "Conversaciones"], ["avisos", "Avisos"], ["bot", "Bot y conexión con Meta"]];
+    const head = `<div class="tabs" role="tablist" style="background:var(--card);border-radius:10px;padding:0 8px">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="waSec:${k}" aria-selected="${k === sec}">${t}</button>`).join("")}</div>`;
+    if (sec === "bot") return head + await waBotHtml();
+    if (sec === "avisos") return head + await waAvisosHtml();
+    return head + await waChatsHtml();
   },
 
   async apariencia() {
@@ -315,6 +309,115 @@ const V = {
   },
 };
 
+
+/* ---------------- WhatsApp: avisos, conversaciones y bot ---------------- */
+async function waConfig() {
+  return canReview() ? api("GET", "/api/admin/whatsapp/config").catch(() => null) : null;
+}
+
+async function waAvisosHtml() {
+  const cfg = await waConfig();
+  const waOn = !!cfg?.ready.enabled && cfg.ready.token;
+
+  if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin ven los avisos.</div></section>`;
+  const [out, customers] = await Promise.all([api("GET", "/api/admin/outbox"), api("GET", "/api/admin/customers")]);
+  const name = (id) => customers.find((c) => c.id === id)?.name ?? id;
+  const tab = P.tab.wa ?? "pending";
+  const pending = out.filter((m) => m.status === "queued" || m.status === "failed");
+  const list = tab === "pending" ? pending : tab === "noconsent" ? out.filter((m) => m.status === "skipped_no_consent") : out;
+  return `${waOn ? `<div class="pok">El bot está conectado: los avisos salen solos cada minuto por la API oficial. Si alguno falla, abajo ves el motivo y podés mandarlo a mano.</div>` : `<div class="pok">Modo manual: tocá <b>Abrir WhatsApp</b>, mandá el mensaje desde tu teléfono y después <b>Marcar enviado</b>. Con el bot conectado (pestaña “Bot y conexión”), esto se hace solo.</div>`}
+    <section class="card"><div class="tabs" role="tablist">${[["pending", `Por enviar (${pending.length})`], ["noconsent", "Sin permiso"], ["all", "Todos"]].map(([k, t]) => `<button role="tab" type="button" data-tab="wa:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
+    ${list.length ? list.map((m) => `<div style="display:grid;gap:8px;border-bottom:1px solid var(--line);padding-block:12px"><div class="inline"><b>${esc(name(m.customerId))}</b><span class="muted">${esc(m.to)}</span>${pill({ queued: "Por enviar", failed: "Falló", sent: "Enviado", sent_manually: "Enviado a mano", skipped_no_consent: "Sin permiso del cliente" }[m.status], { queued: "warn", failed: "bad", sent: "ok", sent_manually: "ok", skipped_no_consent: "mute" }[m.status])}<span class="muted" style="margin-left:auto">${fdt(m.createdAt)}</span></div>
+      <div class="wa-msg">${esc(m.text)}</div>
+      ${m.status === "queued" || m.status === "failed" ? `<div class="inline"><a class="pbtn sm green" href="${waLink(m.to, m.text)}" target="_blank" rel="noopener">${icon("wa")}Abrir WhatsApp</a><button class="pbtn sm" type="button" data-sent="${esc(m.id)}">Marcar enviado</button></div>` : ""}
+      ${m.status === "failed" && m.error ? `<p class="perr" style="margin:0">${esc(m.error)}</p>` : ""}
+      ${m.status === "skipped_no_consent" ? `<p class="muted" style="margin:0">El cliente no aceptó avisos. Si te lo pide, activalo en su ficha o mandalo igual a mano.</p>` : ""}</div>`).join("") : `<div class="emptybox">Nada por acá.</div>`}</section>`;
+}
+
+/** Formato de WhatsApp: *negrita* y _cursiva_ (sobre texto ya escapado). */
+const waFmt = (t) => esc(t).replace(/\*([^*\n]+)\*/g, "<b>$1</b>").replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, "$1<i>$2</i>");
+
+async function waChatsHtml() {
+  const [list, cfg] = await Promise.all([api("GET", "/api/admin/whatsapp/chats"), waConfig()]);
+  const sel = P.tab.chat && list.find((c) => c.phone === P.tab.chat) ? P.tab.chat : list[0]?.phone;
+  const t = sel ? await api("GET", `/api/admin/whatsapp/chats/${encodeURIComponent(sel)}`) : null;
+  const meta = list.find((c) => c.phone === sel);
+  const off = cfg && !cfg.ready.enabled ? `<div class="pok">El bot está apagado: los mensajes se guardan acá pero nadie contesta solo. Encendelo en “Bot y conexión con Meta”.</div>` : "";
+  if (!list.length) return `${off}<section class="card"><div class="emptybox">${icon("wa")}<span>Todavía no hay conversaciones. Cuando un cliente le escriba al número del bot, aparece acá.</span></div></section>`;
+  const BY = { cliente: "", bot: "🤖 Bot", staff: "👤 Equipo", sistema: "⚙ Aviso" };
+  return `${off}<section class="card"><div class="chats">
+    <div class="clist">${list.map((c) => `<button type="button" data-chat="${esc(c.phone)}" aria-current="${c.phone === sel}"><span class="av">${icon("user")}</span><b>${esc(c.customerName ?? c.name ?? c.phone)}</b>
+      <small>${c.needsHuman ? pill("Pide persona", "bad") : c.botPaused ? pill("Atiende persona", "warn") : ""}${c.unread ? ` ${pill(c.unread, "ok")}` : ""}</small><small class="last">${esc(c.lastText.replace(/[*_]/g, ""))}</small></button>`).join("")}</div>
+    <div style="display:grid;grid-template-rows:auto 1fr auto;min-width:0">
+      <div class="inline" style="padding:12px;border-bottom:1px solid var(--line)"><b>${esc(meta.customerName ?? meta.name ?? meta.phone)}</b><small class="muted">${esc(meta.phone)}</small>
+        ${meta.inWindow ? pill(`Podés escribirle hasta el ${fdt(meta.windowEndsAt)}`, "ok") : pill("Ventana de 24 h cerrada", "mute")}
+        <span style="margin-left:auto" class="inline">${meta.botPaused || meta.needsHuman ? `<button class="pbtn sm" type="button" data-human="${esc(sel)}" data-on="0">🤖 Devolver al bot</button>` : `<button class="pbtn sm" type="button" data-human="${esc(sel)}" data-on="1">👤 Atender yo</button>`}</span></div>
+      <div class="msgs" style="max-height:460px">${t.messages.map((m) => `<div class="bub" style="${m.direction === "in" ? "justify-self:start;background:var(--card);border-radius:12px 12px 12px 2px" : ""}">${m.direction === "out" ? `<span class="auto">${BY[m.by]}</span>` : ""}${waFmt(m.text)}<time>${fdt(m.at)}${m.direction === "out" ? ` · ${{ sent: "enviado", delivered: "entregado", read: "leído ✓✓", failed: "falló" }[m.status] ?? ""}` : ""}</time>${m.error ? `<small class="down">${esc(m.error)}</small>` : ""}</div>`).join("")}</div>
+      ${meta.inWindow ? `<form class="inline" id="waReply" data-phone="${esc(sel)}" style="padding:10px;border-top:1px solid var(--line)"><input name="text" placeholder="Escribí tu respuesta…" required maxlength="4000" style="flex:5 1 200px"><button class="pbtn green" type="submit">Enviar</button></form>
+        <small class="muted" style="padding:0 10px 10px">Al responder, el bot se pausa en esta charla para no interrumpirte.</small>`
+      : `<p class="muted" style="padding:10px;margin:0;border-top:1px solid var(--line)">Pasaron más de 24 h desde su último mensaje: WhatsApp solo permite escribirle con una plantilla aprobada (avisos). Si te vuelve a escribir, podés responder acá.</p>`}
+    </div></div></section>`;
+}
+
+async function waBotHtml() {
+  const cfg = await waConfig();
+  if (!cfg) return `<section class="card"><div class="emptybox">Solo el dueño o un admin ven la configuración del bot.</div></section>`;
+  const b = cfg.settings, r = cfg.ready, owner = isOwner();
+  const check = (ok, label, hint) => `<div><span class="ic" style="color:${ok ? "var(--ok)" : "var(--bad)"}">${ok ? "✓" : "✗"}</span><b>${label}${hint && !ok ? `<br><small class="muted" style="font-weight:400">${hint}</small>` : ""}</b></div>`;
+  const dis = owner ? "" : "disabled";
+  return `<section class="card"><h2>${icon("wa")}Estado del bot ${r.enabled && r.token ? pill("Encendido", "ok") : pill("Apagado", "mute")}</h2><div class="todo">
+      ${check(r.https, "Tienda publicada con HTTPS", "Meta solo manda mensajes a una dirección pública https://. Hace falta publicar la tienda (Railway, Render o túnel) y arrancar con GS_PUBLIC_ORIGIN.")}
+      ${check(r.phoneNumberId, "Phone number ID cargado", "Meta → WhatsApp → Configuración de la API.")}
+      ${check(r.token, "Token de acceso permanente cargado", "Meta Business → Usuarios del sistema → Generar token.")}
+      ${check(r.appSecret, "App Secret cargado (firma del webhook)", "Meta → Configuración de la app → Básica.")}
+      ${check(r.enabled, "Bot encendido", "Encendelo abajo cuando todo lo demás esté en verde.")}</div>
+      ${cfg.pending ? `<div class="inline"><span class="muted">${cfg.pending} aviso(s) esperando.</span>${r.enabled && r.token ? `<button class="pbtn sm" type="button" data-waflush="1">Enviar ahora</button>` : ""}</div>` : ""}</section>
+
+    <section class="card"><h2>Conectar con Meta (una sola vez)</h2>
+      <ol style="margin:0;padding-left:20px;display:grid;gap:6px">
+        <li>Creá (o usá) tu cuenta en <a href="https://business.facebook.com" target="_blank" rel="noopener">business.facebook.com</a> y verificá tu negocio si Meta lo pide.</li>
+        <li>En <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a> creá una app de tipo <b>Empresa</b> y agregale el producto <b>WhatsApp</b>.</li>
+        <li>Agregá tu número (uno <b>exclusivo para el bot</b>) y copiá el <b>Phone number ID</b> abajo.</li>
+        <li>En Meta Business → <b>Usuarios del sistema</b>, creá uno con rol admin, asignale la app y generá un <b>token permanente</b> con los permisos <code>whatsapp_business_messaging</code> y <code>whatsapp_business_management</code>. Pegalo abajo.</li>
+        <li>En la app → Configuración → Básica, copiá el <b>App Secret</b> y pegalo abajo.</li>
+        <li>En WhatsApp → Configuración → <b>Webhook</b>: URL ${cfg.webhookUrl ? `<code>${esc(cfg.webhookUrl)}</code> <button class="pbtn sm" type="button" data-copy="${esc(cfg.webhookUrl)}">Copiar</button>` : `<b class="down">(primero publicá la tienda con HTTPS)</b>`} y token de verificación ${cfg.verifyToken ? `<code>${esc(cfg.verifyToken)}</code> <button class="pbtn sm" type="button" data-copy="${esc(cfg.verifyToken)}">Copiar</button>` : "(lo ve el dueño)"}. Suscribí el campo <b>messages</b>.</li>
+        <li>Creá las <b>plantillas</b> de la tabla de abajo en WhatsApp Manager y, cuando Meta las apruebe, cargá su nombre.</li>
+        <li>Probá con <b>Enviar prueba</b> y encendé el bot.</li>
+      </ol>
+      <p class="muted" style="margin:0">Guía completa en el repositorio: <code>docs/WHATSAPP_META.md</code>.</p></section>
+
+    <section class="card"><h2>Claves de Meta ${owner ? "" : "<small>· solo el dueño las cambia</small>"}</h2>
+      <form class="form" id="waSecrets"><label>Token de acceso permanente ${cfg.secrets.token ? pill(`cargado ${cfg.secrets.token}`, "ok") : pill("falta", "bad")}<input name="accessToken" type="password" autocomplete="off" placeholder="EAAG…" ${dis}></label>
+      <label>App Secret ${cfg.secrets.appSecret ? pill(`cargado ${cfg.secrets.appSecret}`, "ok") : pill("falta", "bad")}<input name="appSecret" type="password" autocomplete="off" placeholder="32 caracteres" ${dis}></label>
+      ${owner ? `<button class="pbtn dark" type="submit">Guardar claves</button>` : ""}</form>
+      <p class="muted" style="margin:0">Se guardan aparte de tus datos: no salen en exportaciones, ni en la auditoría, ni se vuelven a mostrar completas.</p></section>
+
+    <section class="card"><h2>Bot</h2><form class="form" id="waConfig">
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${b.enabled ? "checked" : ""} ${dis}> <b>Bot encendido</b>: contesta solo las 24 horas y manda los avisos por la API oficial</label>
+      <label>Phone number ID<input name="phoneNumberId" inputmode="numeric" value="${esc(b.phoneNumberId)}" ${dis}></label>
+      <label>Versión de la API<input name="apiVersion" value="${esc(b.apiVersion)}" ${dis}></label>
+      <label>Horas de pausa al pasar a una persona<input name="humanPauseHours" type="number" min="1" max="72" value="${b.humanPauseHours}" ${dis}></label>
+      <label style="grid-column:1/-1">Saludo (opcional; {name} = nombre del cliente, {store} = tu tienda)<input name="welcome" maxlength="600" value="${esc(b.welcome ?? "")}" placeholder="¡Hola{name}! 👋 Soy el asistente de *{store}*. Te ayudo a cualquier hora." ${dis}></label>
+      ${owner ? `<button class="pbtn dark" type="submit">Guardar</button>` : ""}</form>
+      <details class="more"><summary>¿Qué contesta el bot?</summary><ul style="margin:6px 0 0;padding-left:20px">
+        <li><b>1 / servicios</b>: sus servicios y vencimientos + link a Mis cuentas (nunca manda claves ni PIN).</li>
+        <li><b>2 / precios</b>: productos disponibles con su precio (o el de revendedor).</li>
+        <li><b>3 / pagar</b>: cómo pagar, tus datos de pago y el QR (con la tienda publicada en https).</li>
+        <li><b>4 / entrar</b>: link personal de un solo uso para entrar a la tienda.</li>
+        <li><b>5 / código</b>: códigos de verificación de SUS cuentas (últimos 30 min).</li>
+        <li><b>6 / saldo</b>: su saldo. <b>BAJA / ALTA</b>: deja o vuelve a recibir avisos.</li>
+        <li><b>0 / persona</b>: te avisa en Conversaciones y el bot se calla en esa charla.</li></ul></details></section>
+
+    <section class="card"><h2>Plantillas de avisos <small>· necesarias para escribir a clientes que no te escribieron en las últimas 24 h</small></h2>
+      <p class="muted" style="margin:0">Creá cada una en <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener">WhatsApp Manager → Plantillas</a> con el texto exacto, idioma Español y la categoría indicada. Cuando Meta la apruebe, escribí acá su nombre.</p>
+      <form id="waTemplates" style="display:grid;gap:10px">${table(["Aviso", "Texto para Meta", "Categoría", "Nombre aprobado", "Idioma"], cfg.templates.map((t) => `<tr><td><b>${esc(t.id)}</b></td><td><span class="wa-msg" style="display:block">${esc(t.body)}</span><button class="pbtn sm" type="button" data-copy="${esc(t.body)}">Copiar</button></td><td>${t.category === "AUTHENTICATION" ? "Autenticación" : "Utilidad"}</td>
+        <td><input name="name-${esc(t.id)}" value="${esc(t.configured?.name ?? "")}" placeholder="${esc(t.id)}" ${dis}></td><td><input name="lang-${esc(t.id)}" value="${esc(t.configured?.lang ?? "es")}" style="width:80px" ${dis}></td></tr>`))}
+      ${owner ? `<button class="pbtn dark" type="submit" style="justify-self:start">Guardar plantillas</button>` : ""}</form></section>
+
+    ${owner ? `<section class="card"><h2>Enviar prueba</h2><p class="muted" style="margin:0">Manda la plantilla <code>hello_world</code> (Meta la aprueba sola en cuentas nuevas) para comprobar el número y el token.</p>
+      <form class="inline" id="waTest"><input name="to" placeholder="59170000000" inputmode="tel" required><button class="pbtn dark" type="submit">Enviar prueba</button></form></section>` : ""}`;
+}
+
 /* ---------------- render ---------------- */
 async function render() {
   const pend = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0);
@@ -328,6 +431,7 @@ async function render() {
   $("#app").classList.remove("open");
   try {
     $("#pout").innerHTML = await V[P.view]();
+    $$(".msgs").forEach((m) => (m.scrollTop = m.scrollHeight));
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -386,6 +490,9 @@ document.addEventListener("click", async (ev) => {
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
+  if (d.chat) { P.tab.chat = d.chat; return render(); }
+  if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
+  if (d.waflush) return act(() => api("POST", "/api/admin/whatsapp/flush", {}), (r) => `Enviados ${r.sent}, fallidos ${r.failed}, reintentando ${r.pending}`);
   if (d.importsvccancel) { P.tab.importSvc = null; return render(); }
   if (d.importsvcgo) {
     el.disabled = true;
@@ -475,6 +582,25 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.replace}/replace`, { reason: f.reason.value, otherAccount: f.other.checked }), "Perfil reemplazado: el cliente conserva su fecha");
+    } else if (f.id === "waReply") {
+      await act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(f.dataset.phone)}/reply`, { text: f.text.value }), "Mensaje enviado");
+    } else if (f.id === "waSecrets") {
+      const body = {};
+      if (f.accessToken.value) body.accessToken = f.accessToken.value;
+      if (f.appSecret.value) body.appSecret = f.appSecret.value;
+      if (!Object.keys(body).length) throw new Error("Pegá el token o el App Secret");
+      await act(() => api("POST", "/api/admin/whatsapp/secrets", body), "Claves guardadas");
+    } else if (f.id === "waConfig") {
+      await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
+    } else if (f.id === "waTemplates") {
+      const templates = {};
+      for (const inp of f.querySelectorAll('input[name^="name-"]')) {
+        const id = inp.name.slice(5), name = inp.value.trim();
+        if (name) templates[id] = { name, lang: f[`lang-${id}`].value.trim() || "es" };
+      }
+      await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
+    } else if (f.id === "waTest") {
+      await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });
