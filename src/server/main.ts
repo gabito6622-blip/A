@@ -9,6 +9,7 @@
 //   GS_OWNER_PASSWORD    contraseña del dueño (mín. 10 caracteres), solo la primera vez
 //   GS_DEV_OTP=1         SOLO desarrollo: muestra en la consola los códigos de acceso de clientes
 import { existsSync } from "node:fs";
+import { networkInterfaces } from "node:os";
 import { createApp } from "./app.js";
 
 const env = process.env;
@@ -33,6 +34,15 @@ if (env.GS_OWNER_USER && env.GS_OWNER_PASSWORD) {
 
 const port = await app.listen(Number(env.PORT ?? 8080));
 console.log(`Gabriel Store escuchando en :${port}${staticDir ? ` (sirviendo ${staticDir})` : ""}`);
+
+// Direcciones para abrirla desde esta PC y desde el celular (misma red WiFi).
+const lan = Object.values(networkInterfaces()).flat()
+  .filter((n) => n && n.family === "IPv4" && !n.internal && !/^169\.254\./.test(n.address))
+  .map((n) => n!.address);
+console.log("\n  En esta PC:      http://localhost:" + port + "/panel   (tienda: http://localhost:" + port + "/)");
+for (const ip of lan) console.log(`  En el celular:   http://${ip}:${port}/panel   (tienda: http://${ip}:${port}/)`);
+if (lan.length) console.log("  El celular tiene que estar conectado al mismo WiFi que esta PC.");
+console.log("  Para apagarla: cerrá esta ventana o apretá Ctrl+C.\n");
 
 const stop = () => app.close().then(() => process.exit(0));
 process.on("SIGINT", stop);
