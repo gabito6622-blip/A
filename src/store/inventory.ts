@@ -15,23 +15,30 @@ export interface NewAccount {
   cost: Cents;
   /** Etiquetas de perfiles. Una sola entrada = cuenta completa. */
   profiles: { label: string; pin?: string }[];
+  /** Solo para importar cuentas que ya existen: la clave se completa después. */
+  passwordPending?: boolean;
+  /** Solo para importar: acepta cuentas ya vencidas con el proveedor (para supervisarlas y renovarlas). */
+  allowPastSupplierExpiry?: boolean;
+  notes?: string;
 }
 
 export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: Account; slots: Slot[] } {
   authorize(actor, "inventory.manage");
   if (!/^[^@\s]+@[^@\s]+$/.test(a.email)) throw new DomainError("VALIDATION", "Email de cuenta inválido");
-  if (!a.password) throw new DomainError("VALIDATION", "Falta la contraseña de la cuenta");
+  if (!a.password && !a.passwordPending) throw new DomainError("VALIDATION", "Falta la contraseña de la cuenta");
   if (!a.profiles.length || a.profiles.length > 20) throw new DomainError("VALIDATION", "Entre 1 y 20 perfiles por cuenta");
   if (!Number.isInteger(a.cost) || a.cost < 0) throw new DomainError("VALIDATION", "Costo inválido");
   return e.tx(() => {
     e.get("products", a.productId);
     const sup = e.get("suppliers", a.supplierId);
     if (!sup.active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
-    if (a.supplierExpiresAt <= e.now()) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
+    if (!(Number.isFinite(a.supplierExpiresAt) && a.supplierExpiresAt > 0)) throw new DomainError("VALIDATION", "Fecha del proveedor inválida");
+    if (a.supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
     const id = e.id("acc");
     const account: Account = {
-      id, productId: a.productId, supplierId: a.supplierId, email: a.email.toLowerCase(), password: a.password,
+      id, productId: a.productId, supplierId: a.supplierId, email: a.email.toLowerCase(), password: a.password ?? "",
       supplierExpiresAt: a.supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
+      ...(a.notes?.trim() ? { notes: a.notes.trim().slice(0, 500) } : {}),
     };
     e.s.accounts[id] = account;
     const slots = a.profiles.map((p) => {
@@ -209,7 +216,7 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
   if (opts.withSecrets) e.tx(() => e.audit(actor, "secrets.view", "account", "*"));
   return Object.values(e.s.accounts).map((a) => ({
     ...structuredClone(a),
-    password: opts.withSecrets ? a.password : "••••••",
+    password: !a.password ? "(pendiente)" : opts.withSecrets ? a.password : "••••••",
     slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => ({ id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined })),
   }));
 }

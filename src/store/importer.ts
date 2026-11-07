@@ -109,7 +109,7 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
   const email = r.email.trim().toLowerCase();
   let account = Object.values(e.s.accounts).find((a) => a.email === email && a.productId === product.id && a.status === "active");
   if (!account) {
-    if (!r.password) throw new DomainError("VALIDATION", "Falta la contraseña de la cuenta (es nueva en el sistema)");
+
     const supplierName = r.supplier?.trim() || "Sin proveedor";
     let supplier = Object.values(e.s.suppliers).find((s) => norm(s.name) === norm(supplierName));
     if (!supplier) {
@@ -119,7 +119,12 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
     if (!supplier.active) throw new DomainError("INVALID_STATE", `El proveedor "${supplier.name}" está inactivo`);
     const supplierExpiresAt = r.supplierExpiresAt ?? Math.max(r.customerExpiresAt, now + DAY);
     if (!r.supplierExpiresAt) res.warnings.push("Sin fecha del proveedor: se usó la del cliente; revisala en Cuentas");
-    const created = addAccount(e, actor, { productId: product.id, supplierId: supplier.id, email, password: r.password, supplierExpiresAt, cost: r.cost ?? 0, profiles: [{ label: r.profile, pin: r.pin || undefined }] });
+    if (supplierExpiresAt <= now) res.warnings.push("La cuenta ya venció con el proveedor: renovala");
+    if (!r.password) res.warnings.push("Sin contraseña: completala en Cuentas (el cliente ve “pedí tu clave por WhatsApp”)");
+    const created = addAccount(e, actor, {
+      productId: product.id, supplierId: supplier.id, email, password: r.password, supplierExpiresAt, cost: r.cost ?? 0,
+      profiles: [{ label: r.profile, pin: r.pin || undefined }], passwordPending: !r.password, allowPastSupplierExpiry: true,
+    });
     account = e.s.accounts[created.account.id];
     res.created.push("cuenta", "perfil");
   } else if (r.password && r.password !== account.password) {

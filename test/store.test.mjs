@@ -516,16 +516,19 @@ describe("9. Importar servicios existentes", () => {
       row(2),
       row(3, { customerName: "Beto", phone: "+59170044455" }), // mismo perfil 1 → ya asignado
       row(4, { product: "Spotify" }), // producto inexistente
-      row(5, { customerName: "Otro nombre", phone: maria.phone, profile: "Perfil 3", email: "nueva@x.y", password: "" }), // cuenta nueva sin clave
+      row(5, { customerName: "Otro nombre", phone: maria.phone, profile: "Perfil 3", email: "nueva@x.y", password: "" }), // cuenta nueva sin clave: se carga con aviso
       row(6, { customerName: "Carlos", phone: "+59170055566", profile: "Perfil 4" }),
     ], { dryRun: false });
-    assert.deepEqual(r.rows.map((x) => x.status), ["ok", "error", "error", "error", "ok"]);
+    assert.deepEqual(r.rows.map((x) => x.status), ["ok", "error", "error", "ok", "ok"]);
     assert.match(r.rows[1].error, /ya está asignado a Ana Pérez/);
     assert.match(r.rows[2].error, /No existe el producto/);
-    assert.match(r.rows[3].error, /contraseña/);
+    assert.ok(r.rows[3].warnings.some((w) => /Sin contraseña/.test(w)));
     const st = s.snapshot();
     assert.ok(!Object.values(st.customers).some((c) => c.name === "Beto"), "Beto no quedó creado a medias");
-    assert.ok(!Object.values(st.accounts).some((a) => a.email === "nueva@x.y"));
+    const nueva = Object.values(st.accounts).find((a) => a.email === "nueva@x.y");
+    assert.equal(nueva.password, "", "queda pendiente, sin inventar clave");
+    assert.equal(s.inventory.listAccounts(admin).find((a) => a.email === "nueva@x.y").password, "(pendiente)");
+    assert.throws(() => s.inventory.addAccount(admin, { productId: "netflix", supplierId: "andes", email: "z@z.z", password: "", supplierExpiresAt: T0 + DAY, cost: 0, profiles: [{ label: "P" }] }), err("VALIDATION"), "a mano sigue siendo obligatoria");
   });
 
   test("avisos: vencido, cliente que vence después que el proveedor, contraseña distinta", () => {
