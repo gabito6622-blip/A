@@ -1,4 +1,5 @@
 <title>Gabriel Store</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap">
@@ -146,7 +147,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .bnav button[aria-current="page"]{color:var(--s-sky)}
 }
 @media (max-width:520px){
-  .pimg{height:104px} .lt{width:52px;height:52px;font-size:22px;border-radius:15px}
+  .pimg{height:120px;padding-top:30px} .pimg .tag{top:8px;left:8px;font-size:10px;padding:2px 6px;max-width:calc(100% - 16px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis} .lt{width:52px;height:52px;font-size:22px;border-radius:15px}
   .pbody{padding:11px;gap:6px} .pbody .d{display:none} .pbody h3{font-size:15px} .price{font-size:20px}
   .pbtns{grid-template-columns:1fr} .pbtns .det{display:none}
 }
@@ -285,6 +286,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .app.open .sscrim{display:block}
   .burger{display:grid}
   .ptop .date{display:none}
+  .ptop{flex-wrap:nowrap;gap:2px;min-width:0}
+  .ptop h1{flex:1 1 auto}
+  .ptop h1{font-size:19px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
+  .ptop h1 svg{margin-right:6px}
+  .ibtn{width:34px;height:34px;flex:none}
   .pmain{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .big{grid-template-columns:1fr}
   .chats{grid-template-columns:minmax(0,1fr)}
@@ -776,7 +782,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",applyTheme)
 new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 const tick=()=>{$("#clock").textContent=new Date().toLocaleString("es-BO",{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})};tick();setInterval(tick,1000);
 $("#supNum").textContent=TIENDA.soporte;
-function route(){const panel=location.hash==="#panel";$("#app").hidden=!panel;$("#shop").hidden=panel;closeAll();closeHelp();
+function route(){$("#toast").hidden=true;const panel=location.hash==="#panel";$("#app").hidden=!panel;$("#shop").hidden=panel;closeAll();closeHelp();
   if(panel){applyTheme();renderPanel()}else{document.body.style.background="var(--s-bg)";renderShop()}scrollTo(0,0)}
 window.addEventListener("hashchange",route);
 route();
