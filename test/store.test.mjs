@@ -621,6 +621,20 @@ describe("8. Edición de cuentas, perfiles y clientes; transferencias", () => {
     assert.equal(s.portal.services(as(luis)).length, 1);
     assert.ok(s.notify.outbox(admin).some((m) => m.template === "access_transferred" && m.customerId === luis.id));
   });
+
+  test("al pasar un alquiler a otra persona, los códigos dejan de ir al anterior y pasan al nuevo", () => {
+    const { s, maria, luis, as, clock } = setup();
+    const box = s.codes.configureMailbox(owner, { address: "codigos@gabostore.lat", host: "imap.gmail.com", subjectAllowlist: ["código"] });
+    const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const id = o.assignmentIds[0];
+    const email = s.admin.assignments(admin, {}).find((a) => a.id === id).email;
+    s.codes.ingest(system, box.id, { to: email, subject: "Tu código", body: "Tu código: 111 222", receivedAt: clock.t });
+    assert.equal(s.codes.of(maria.id).length, 1, "al principio lo ve María");
+    assert.equal(s.codes.of(luis.id).length, 0);
+    s.orders.transfer(admin, id, luis.id, "María no renovó");
+    assert.equal(s.codes.of(maria.id).length, 0, "ya no le llega a María");
+    assert.equal(s.codes.of(luis.id).length, 1, "ahora le llega a Luis");
+  });
 });
 
 describe("9. Importar servicios existentes", () => {

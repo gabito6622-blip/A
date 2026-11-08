@@ -106,7 +106,7 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         product: e.s.products[a.productId]?.name, email: acc.email, profile: slot.label,
         customerExpiresAt: a.customerExpiresAt, supplierExpiresAt: acc.supplierExpiresAt, lastReminderAt: a.lastReminderAt ?? null, holdOpen: !!a.holdOpen,
         passwordPending: !acc.password, customerPhone: e.s.customers[a.customerId]?.phone ?? "",
-        startsAt: a.control?.startedAt ?? a.startsAt, control: a.control ?? {}, productPrice: e.s.products[a.productId]?.price ?? 0,
+        startsAt: a.control?.startedAt ?? a.startsAt, control: a.control ?? {}, productPrice: e.s.products[a.productId]?.price ?? 0, durationDays: e.s.products[a.productId]?.durationDays ?? 30,
         accountCost: acc.cost, accountNotes: acc.notes ?? "", customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
       };
     });

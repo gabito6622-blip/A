@@ -224,7 +224,7 @@ const V = {
   },
 
   async control() {
-    const list = await api("GET", "/api/admin/assignments");
+    const [list, customers] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => [])]);
     const T = P.tab;
     const DAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
     const estado = (d, hold) => (hold ? ["ESPERANDO FECHA", "hold"] : d < 0 ? ["VENCIDO", "bad"] : d === 0 ? ["VENCE HOY", "today"] : d <= 3 ? ["POR VENCER", "warn"] : d <= 7 ? ["SEMANA", "week"] : ["ACTIVO", "ok"]);
@@ -245,6 +245,9 @@ const V = {
     const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
     const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${bs(r.price)}. ¿Deseas renovar?`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
+    const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
+    const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
+    const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
     return `<section class="card ctl-top">
         <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Por cobrar (precio)</small><b>${bs(sum((r) => r.price))}</b></div><div><small>Costo</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="up">${bs(sum((r) => r.gain))}</b></div><div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `Mostrando los que vencen el ${fdate(T.cfrom)}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
@@ -276,8 +279,9 @@ const V = {
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
         <footer>${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener">💰 Cobrar</a>` : ""}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
-          <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}">✅ Renovada</button>
-          <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details></footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
+          <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
+          <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details>
+          ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
         <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
@@ -300,8 +304,9 @@ const V = {
           <td><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
           <td class="ctl-act">${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener" title="Mandar recordatorio de cobro">💰 Cobrar</a>` : ""}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
-            <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" title="Renovar un período">✅ Renovada</button>
-            <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details></td></tr>`).join("")}
+            <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
+            <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details>
+            ${canReview() ? transferForm(r) : ""}</td></tr>`).join("")}
         </tbody></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
         <p class="muted" style="margin:0">Los cambios de precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. “✅ Renovada” suma un período desde el vencimiento.</p></section>`;
   },
@@ -1176,7 +1181,10 @@ document.addEventListener("click", async (ev) => {
     }
     return;
   }
-  if (d.renew) return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
+  if (d.renew) {
+    if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `✅ Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
+  }
   if (d.renewsel) {
     const ids = $$(".sel:checked").map((x) => x.value);
     if (!ids.length) return toast("Marcá al menos un servicio");
