@@ -603,7 +603,13 @@ const V = {
         <label>Gratis si ese mes te compran (Bs, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, su página sigue publicada los días de gracia y después se apaga sola. Apenas recarga, se cobra y se prende sola.</p>
-        <button class="pbtn dark" type="submit">Guardar ajustes</button></form></section>` : ""}`;
+        <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
+      <form class="form" id="bulkRes" style="border-top:1px solid var(--line);padding-top:14px">
+        <h3 style="grid-column:1/-1;margin:0;font-size:15px">⚡ Precio revendedor para todos los productos de una vez</h3>
+        <label>Descuento sobre tu precio público (%)<input name="pct" inputmode="numeric" value="20"></label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="overwrite"> Cambiar también los que ya tienen precio de revendedor</label>
+        <p class="muted" style="grid-column:1/-1;margin:0">Ejemplo con 20%: un producto de Bs 35 queda en Bs 28 para tus revendedores (redondeado a Bs enteros). Después podés ajustar uno por uno en Productos.</p>
+        <button class="pbtn dark" type="submit">Aplicar a todos</button></form></section>` : ""}`;
   },
 
   async codigos() {
@@ -1398,6 +1404,20 @@ document.addEventListener("submit", async (ev) => {
         toast("Revendedor creado");
         await render(); scrollTo(0, 0);
       } catch (e) { toast(e.message); btn.disabled = false; }
+    } else if (f.id === "bulkRes") {
+      const pct = Number(f.pct.value);
+      if (!(pct >= 0 && pct < 100)) { toast("Descuento entre 0 y 99 %"); return; }
+      const [products, groups] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/price-groups")]);
+      const rev = groups.find((g) => g.id === "revendedor") ?? { id: "revendedor", name: "Revendedor", prices: {} };
+      let n = 0;
+      for (const p of products) {
+        if (p.resellersOnly || (!f.overwrite.checked && rev.prices[p.id] !== undefined)) continue;
+        rev.prices[p.id] = Math.max(100, Math.round((p.price * (100 - pct)) / 100 / 100) * 100);
+        n++;
+      }
+      if (!n) { toast("No había productos para cambiar"); return; }
+      if (!confirm(`¿Poner precio de revendedor a ${n} producto(s) con ${pct}% de descuento?`)) return;
+      await act(() => api("POST", "/api/admin/price-groups", rev), `Listo: ${n} producto(s) con precio de revendedor`);
     } else if (f.id === "resCfg") {
       await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {
