@@ -416,6 +416,26 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
 }
 
 /** Datos de control de un alquiler (precio, costo, estado de pago, nota…), como en el Excel del dueño. */
+/** Libera un perfil: si está vendido, revoca su asignación; queda disponible para vender de nuevo. */
+export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string): { ok: true } {
+  authorize(actor, "assignment.replace");
+  return e.tx(() => {
+    const slot = e.get("slots", slotId);
+    if (slot.status === "assigned") {
+      const a = Object.values(e.s.assignments).find((x) => x.slotId === slotId && x.status === "active");
+      if (a) {
+        a.status = "revoked";
+        a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId, note: reason?.trim() || "liberado a mano" });
+        e.audit(actor, "assignment.release", "assignment", a.id, { reason });
+      }
+    }
+    delete slot.reservedByOrder; delete slot.reservedUntil;
+    slot.status = "available";
+    e.audit(actor, "slot.freed", "slot", slotId, { reason });
+    return { ok: true } as const;
+  });
+}
+
 export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patch: Partial<RentalControl>) {
   authorize(actor, "assignment.renew_any");
   const money = (v: unknown, what: string) => {

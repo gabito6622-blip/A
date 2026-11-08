@@ -227,6 +227,11 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
   return Object.values(e.s.accounts).map((a) => ({
     ...structuredClone(a),
     password: !a.password ? "(pendiente)" : opts.withSecrets ? a.password : "••••••",
-    slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => ({ id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined })),
+    slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => {
+      const asg = s.status === "assigned" ? Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active") : undefined;
+      const cust = asg ? e.s.customers[asg.customerId] : undefined;
+      return { id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined,
+        ...(asg ? { assignmentId: asg.id, customerId: asg.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "", expiresAt: asg.customerExpiresAt } : {}) };
+    }),
   }));
 }

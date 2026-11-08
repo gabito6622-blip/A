@@ -475,6 +475,22 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "netflix", qty: 9 }], paymentMethod: "qr" }), err("OUT_OF_STOCK"), "los productos normales siguen necesitando stock");
   });
 
+  test("liberar un perfil vendido: revoca la asignación y queda libre para vender", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const asg = s.snapshot().assignments[o.assignmentIds[0]];
+    const slotId = asg.slotId;
+    assert.equal(s.snapshot().slots[slotId].status, "assigned");
+    assert.equal(s.portal.services(as(maria)).length, 1);
+    s.orders.releaseSlot(admin, slotId, "no renovó");
+    assert.equal(s.snapshot().slots[slotId].status, "available", "queda libre");
+    assert.equal(s.snapshot().assignments[asg.id].status, "revoked");
+    assert.equal(s.portal.services(as(maria)).length, 0, "el cliente ya no lo ve");
+    // se puede vender de nuevo ese mismo perfil
+    const o2 = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash", preferredSlotIds: [slotId] });
+    assert.equal(s.snapshot().assignments[o2.assignmentIds[0]].slotId, slotId);
+  });
+
   test("vender eligiendo un perfil concreto asigna ESE perfil (no el automático)", () => {
     const { s, maria } = setup();
     // acc1 vence antes (90d) → el automático tomaría ese. Elegimos un perfil de acc2 (40d).

@@ -367,8 +367,32 @@ const V = {
 
   async cuentas() {
     const show = P.tab.secrets && canReview();
-    const [accs, products, suppliers] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
+    const [accs, products, suppliers, customers] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), api("GET", "/api/admin/customers").catch(() => [])]);
     const pname = (id) => products.find((p) => p.id === id)?.name ?? id;
+    // Panel para asignar/liberar un perfil tocado.
+    let slotCard = "";
+    if (P.tab.slotAct && canReview()) {
+      let acc, sl;
+      for (const x of accs) { const f = x.slots.find((y) => y.id === P.tab.slotAct); if (f) { acc = x; sl = f; break; } }
+      if (acc && sl) {
+        const head = `Perfil <b>${esc(sl.label)}</b> · ${esc(pname(acc.productId))} · <span class="mono">${esc(acc.email)}</span>`;
+        if (sl.status === "assigned") {
+          slotCard = `<section class="card ok-card"><h2>${head}</h2>
+            <p class="muted" style="margin:0">Ocupado por <b>${esc(sl.customerName || "—")}</b>${sl.customerPhone ? ` · ${esc(sl.customerPhone)}` : ""}${sl.expiresAt ? ` · vence ${fdate(sl.expiresAt)}` : ""}.</p>
+            <div class="inline"><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar para vender</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
+            <p class="muted" style="margin:0;font-size:12.5px">Al liberar, deja de contar para ese cliente (y sus códigos) y queda libre para vender a otro.</p></section>`;
+        } else if (sl.status === "available") {
+          slotCard = `<section class="card ok-card"><h2>Asignar ${head}</h2>
+            <form class="form" id="slotAssign" data-slot="${esc(sl.id)}" data-prod="${esc(acc.productId)}">
+              <label>Cliente<select name="customerId"><option value="">— Elegí un cliente —</option><option value="__new">➕ Cliente nuevo</option>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
+              <div class="newcli" hidden><label>Nombre<input name="newName" placeholder="Ej.: Armin"></label><label>WhatsApp<input name="newPhone" inputmode="tel" placeholder="+591 70000000"></label></div>
+              <label>Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
+              <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">✅ Asignar este perfil</button><button class="pbtn" type="button" data-tab="slotAct:">Cancelar</button></div></form></section>`;
+        } else {
+          slotCard = `<section class="card ok-card"><h2>${head}</h2><p class="muted" style="margin:0">Estado: ${esc(sl.status)}.</p><div class="inline"><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Poner libre</button><button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div></section>`;
+        }
+      }
+    }
     const a = accs.find((x) => x.id === P.tab.editAcc);
     const editCard = a && canReview() ? `<section class="card"><h2>Editar cuenta ${esc(a.email)} <small>· ${esc(pname(a.productId))}</small></h2><form class="form" data-editacc="${esc(a.id)}">
             <label>Email<input name="email" type="email" value="${esc(a.email)}"></label>
@@ -392,16 +416,16 @@ const V = {
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
-        <div class="achips">${vivos.map((s) => `<span class="achip ac-${estadoK[s.status] ?? "mute"}">${esc(s.label)} · ${estadoTxt[s.status] ?? s.status}${s.status === "quarantined" && canReview() && a.status === "active" ? ` <button class="pbtn sm" type="button" data-slotfree="${esc(s.id)}">Liberar</button>` : ""}</span>`).join("")}</div>
+        <div class="achips">${vivos.map((s) => `<button type="button" class="achip ac-${estadoK[s.status] ?? "mute"}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"}>${esc(s.label)} · ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}` : ""}</button>`).join("")}</div>
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     }).join("");
-    return `${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
+    return `${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
       <div class="acc-cards">${accs.length ? cards : `<div class="emptybox">Todavía no cargaste cuentas.</div>`}</div>
       <div class="acc-table">${table(["Producto", "Email", "Contraseña", "Perfiles", "Proveedor", "Vence proveedor", "Estado", ""], accs.map((a) => {
         const d = daysLeft(a.supplierExpiresAt);
         return `<tr><td>${esc(pname(a.productId))}</td><td class="mono">${esc(a.email)}${a.notes ? `<br><small class="muted" style="font-family:inherit">📝 ${esc(a.notes)}</small>` : ""}</td><td class="mono">${esc(a.password)}</td>
-          <td><div style="display:flex;flex-wrap:wrap;gap:4px">${a.slots.map((s) => `<span style="display:inline-flex;gap:3px;align-items:center">${pill(`${s.label}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}`, { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status])}${s.status === "quarantined" && canReview() && a.status === "active" ? `<button class="pbtn sm" type="button" data-slotfree="${esc(s.id)}" title="Ya está revisado: volver a vender">Liberar</button>` : ""}</span>`).join("")}</div></td>
+          <td><div style="display:flex;flex-wrap:wrap;gap:4px">${a.slots.map((s) => canReview() ? `<button type="button" class="pp pp-${{ available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status]} clk" data-slotact="${esc(s.id)}" style="border:0;cursor:pointer;font:inherit">${esc(s.label)}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}` : ""}</button>` : pill(`${s.label}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}`, { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status])).join("")}</div></td>
           <td>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</td><td>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</td>
           <td>${a.status === "active" ? pill("Activa", "ok") : pill("Retirada", "mute")}</td>
           <td>${canReview() ? `<button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>` : ""}
@@ -1191,6 +1215,12 @@ document.addEventListener("click", async (ev) => {
   if (d.editaccopen !== undefined) { P.tab.editAcc = d.editaccopen || null; if (P.tab.editAcc && !P.tab.secrets) P.tab.secrets = true; await render(); return scrollTo(0, 0); }
   if (d.editcus !== undefined) { P.tab.editCus = d.editcus || null; await render(); return scrollTo(0, 0); }
   if (d.slotfree) return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender");
+  if (d.slotact !== undefined) { P.tab.slotAct = d.slotact || null; await render(); return scrollTo(0, 0); }
+  if (d.slotrelease) {
+    if (!confirm("¿Liberar este perfil? Deja de contar para ese cliente y queda libre para vender.")) return;
+    try { await api("POST", `/api/admin/slots/${d.slotrelease}/free`, { reason: "liberado desde Cuentas" }); P.tab.slotAct = null; toast("Perfil liberado ✓"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.ledger !== undefined) { P.tab.ledger = d.ledger || null; await render(); return scrollTo(0, 0); }
   if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Copiado"); } catch { toast("Copialo a mano"); } return; }
   if (d.link) {
@@ -1291,6 +1321,7 @@ function updateCtlBar() {
 }
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
+  if (t.name === "customerId" && t.form?.id === "slotAssign") { const nc = t.form.querySelector(".newcli"); if (nc) nc.hidden = t.value !== "__new"; return; }
   if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
   if (t.classList?.contains("csel")) {
     $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
@@ -1347,6 +1378,19 @@ document.addEventListener("submit", async (ev) => {
   if (btn) btn.disabled = true;
   const done = () => { if (btn) btn.disabled = false; };
   try {
+    if (f.id === "slotAssign") {
+      let customerId = f.customerId.value;
+      if (!customerId) { toast("Elegí un cliente o creá uno nuevo"); return; }
+      if (customerId === "__new") {
+        const name = f.newName.value.trim(), phone = f.newPhone.value.trim();
+        if (!name) { toast("Escribí el nombre del cliente"); return; }
+        const c = await api("POST", "/api/admin/customers", { name, phone: phone || undefined, allowNoPhone: !phone });
+        customerId = c.id;
+      }
+      await act(() => api("POST", "/api/admin/orders", { customerId, items: [{ productId: f.dataset.prod, qty: 1 }], paymentMethod: f.paymentMethod.value, idempotencyKey: newKey(), preferredSlotIds: [f.dataset.slot] }), "✅ Perfil asignado");
+      P.tab.slotAct = null;
+      return;
+    }
     if (f.id === "sellForm") {
       if (!f.productId.value) { toast("Elegí un producto"); return; }
       const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
