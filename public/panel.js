@@ -386,6 +386,8 @@ const V = {
             <form class="form" id="slotAssign" data-slot="${esc(sl.id)}" data-prod="${esc(acc.productId)}">
               <label>Cliente<select name="customerId"><option value="">— Elegí un cliente —</option><option value="__new">➕ Cliente nuevo</option>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
               <div class="newcli" hidden><label>Nombre<input name="newName" placeholder="Ej.: Armin"></label><label>WhatsApp<input name="newPhone" inputmode="tel" placeholder="+591 70000000"></label></div>
+              <label>📅 Desde<input type="date" name="startDate" value="${dateInput(Date.now())}"></label>
+              <label>📅 Vence<input type="date" name="endDate" value="${dateInput(Date.now() + 30 * 86400000)}"></label>
               <label>Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
               <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">✅ Asignar este perfil</button><button class="pbtn" type="button" data-tab="slotAct:">Cancelar</button></div></form></section>`;
         } else {
@@ -1387,7 +1389,14 @@ document.addEventListener("submit", async (ev) => {
         const c = await api("POST", "/api/admin/customers", { name, phone: phone || undefined, allowNoPhone: !phone });
         customerId = c.id;
       }
-      await act(() => api("POST", "/api/admin/orders", { customerId, items: [{ productId: f.dataset.prod, qty: 1 }], paymentMethod: f.paymentMethod.value, idempotencyKey: newKey(), preferredSlotIds: [f.dataset.slot] }), "✅ Perfil asignado");
+      await act(async () => {
+        const o = await api("POST", "/api/admin/orders", { customerId, items: [{ productId: f.dataset.prod, qty: 1 }], paymentMethod: f.paymentMethod.value, idempotencyKey: newKey(), preferredSlotIds: [f.dataset.slot] });
+        const aid = o.assignmentIds?.[0];
+        if (aid) {
+          if (f.endDate.value) { const [y, m, d] = f.endDate.value.split("-").map(Number); await api("POST", `/api/admin/assignments/${aid}/expiry`, { expiresAt: new Date(y, m - 1, d, 23, 59).getTime() }); }
+          if (f.startDate.value) { const [y, m, d] = f.startDate.value.split("-").map(Number); await api("POST", `/api/admin/assignments/${aid}/control`, { startedAt: new Date(y, m - 1, d, 0, 0).getTime() }); }
+        }
+      }, "✅ Perfil asignado con sus fechas");
       P.tab.slotAct = null;
       return;
     }
