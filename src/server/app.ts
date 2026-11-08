@@ -611,8 +611,9 @@ export function createApp(cfg: AppConfig): App {
     const kind = b?.kind === "imap" ? "imap" : "gmail";
     const address = String(b?.address ?? "").trim().toLowerCase();
     const subjects = typeof b?.subjects === "string" ? b.subjects.split(/[\n,]/).map((x) => x.trim()).filter(Boolean) : undefined;
+    const senders = typeof b?.senders === "string" ? b.senders.split(/[\n,]/).map((x) => x.trim()).filter(Boolean) : undefined;
     return {
-      id: b?.id ? String(b.id) : undefined, kind, address, name: b?.name ? String(b.name) : undefined, subjectAllowlist: subjects,
+      id: b?.id ? String(b.id) : undefined, kind, address, name: b?.name ? String(b.name) : undefined, subjectAllowlist: subjects, senderAllowlist: senders,
       host: kind === "gmail" ? "imap.gmail.com" : String(b?.host ?? "").trim(),
       port: kind === "gmail" ? 993 : Number(b?.port || 993),
       user: kind === "gmail" ? address : String(b?.user ?? "").trim() || address,
@@ -654,6 +655,50 @@ export function createApp(cfg: AppConfig): App {
     return { ok: true };
   });
   route("GET", "/api/admin/codes", "staff", (c) => store.codes.recent(A(c), 60));
+
+  // ---- Link de códigos con PIN (para revendedores y sus clientes): /codigos/<token> ----
+  const codeLinkUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/codigos/${token}`;
+  // El PIN se guarda con scrypt (como las contraseñas), junto con el id para que no sea reutilizable entre clientes.
+  const pinKey = (customerId: string, pin: string) => `codepin|${customerId}|${pin}`;
+  const makeCodeLink = (customerId: string, pin: unknown, actor: Actor, c: Ctx, keepToken = false) => {
+    const p = String(pin ?? "").trim();
+    if (!/^\d{4}$/.test(p)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
+    const cur = store.engine.s.customers[customerId]?.codeLink;
+    const token = keepToken && cur ? cur.token : newToken().slice(0, 24);
+    store.codes.setLink(actor, customerId, token);
+    db.setSecret(`codepin:${customerId}`, hashPassword(pinKey(customerId, p)), now());
+    return { url: codeLinkUrl(token, c), pin: p };
+  };
+  route("POST", "/api/admin/customers/:id/code-link", "staff", (c) => {
+    if (c.body?.off) { store.codes.setLink(A(c), c.params.id, null); db.setSecret(`codepin:${c.params.id}`, null, now()); return { ok: true }; }
+    return makeCodeLink(c.params.id, c.body?.pin, A(c), c, !!c.body?.keepLink);
+  });
+  route("GET", "/api/me/code-link", "customer", (c) => {
+    const cl = store.engine.s.customers[c.actor!.customerId!]?.codeLink;
+    return cl ? { url: codeLinkUrl(cl.token, c) } : { url: null };
+  });
+  route("POST", "/api/me/code-link", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    return makeCodeLink(c.actor!.customerId!, c.body?.pin, c.actor!, c, !!c.body?.keepLink);
+  });
+  const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
+  const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
+  route("GET", "/api/code-link/:token", "public", (c) => {
+    const o = store.codes.linkOwner(c.params.token);
+    if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
+    return { name: o.name };
+  });
+  route("POST", "/api/code-link/:token", "public", (c) => {
+    const o = store.codes.linkOwner(c.params.token);
+    if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
+    const k = `${c.params.token}|${c.ip}`;
+    if (pinLimiter.blocked(k) || pinTokenLimiter.blocked(c.params.token)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
+    if (!verifyPassword(pinKey(o.customerId, String(c.body?.pin ?? "")), db.getSecret(`codepin:${o.customerId}`))) {
+      pinLimiter.take(k); pinTokenLimiter.take(c.params.token);
+      throw new HttpError(401, "BAD_PIN", "PIN incorrecto");
+    }
+    return { name: o.name, codes: store.codes.of(o.customerId), minutes: store.engine.opts.codeVisibleMinutes };
+  });
 
   // ---- Copia del respaldo fuera del servidor: se guarda como correo en una carpeta de tu Gmail ----
   route("GET", "/api/admin/offsite", "staff", (c) => {
@@ -955,6 +1000,7 @@ export function createApp(cfg: AppConfig): App {
     if (file !== root && !file.startsWith(root + sep)) return false;
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file) && existsSync(file + ".html")) file += ".html"; // /panel → panel.html
+    if (/^\/codigos\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "codigos.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
     res.writeHead(200, {
@@ -1059,7 +1105,7 @@ export function createApp(cfg: AppConfig): App {
           for (const m of r.mails) {
             const p = parseMail(m.raw);
             const to = p.recipients.find((x) => known.has(x)) ?? emailsIn(p.text).find((x) => known.has(x)) ?? p.recipients.find((x) => x !== box.address) ?? p.recipients[0] ?? "";
-            const saved = store.codes.ingest(system, box.id, { to, subject: p.subject, body: p.text, html: p.html, receivedAt: Math.min(p.date ?? now(), now()) });
+            const saved = store.codes.ingest(system, box.id, { to, from: p.fromRaw, subject: p.subject, body: p.text, html: p.html, receivedAt: Math.min(p.date ?? now(), now()) });
             if (saved) n++;
           }
           found += n;

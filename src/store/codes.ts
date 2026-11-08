@@ -20,6 +20,7 @@ export interface MailboxInput {
   address: string;
   host: string;
   subjectAllowlist?: string[];
+  senderAllowlist?: string[];
   name?: string;
   kind?: "gmail" | "imap";
   port?: number;
@@ -37,6 +38,7 @@ export function configureMailbox(e: Engine, actor: Actor, m: MailboxInput): Mail
   const subjects = (m.subjectAllowlist ?? DEFAULT_SUBJECTS).map((x) => String(x).trim().toLowerCase()).filter(Boolean).slice(0, 60);
   if (!subjects.length) throw new DomainError("VALIDATION", "Definí al menos un asunto permitido");
   const name = m.name === undefined ? undefined : String(m.name).trim().slice(0, 60);
+  const senders = m.senderAllowlist === undefined ? undefined : m.senderAllowlist.map((x) => String(x).trim().toLowerCase()).filter(Boolean).slice(0, 30);
   return e.tx(() => {
     const prev = m.id ? e.get("mailboxes", m.id) : undefined;
     const box: Mailbox = {
@@ -45,6 +47,7 @@ export function configureMailbox(e: Engine, actor: Actor, m: MailboxInput): Mail
       authorizedBy: actor.id, authorizedAt: e.now(),
       ...(name ? { name } : {}), ...(m.kind ? { kind: m.kind } : {}), ...(port ? { port } : {}), ...(m.user ? { user: String(m.user).trim() } : {}),
     };
+    if (senders !== undefined) { if (senders.length) box.senderAllowlist = senders; else delete box.senderAllowlist; }
     // Si cambió la cuenta de correo, empezar a leer de nuevo.
     if (prev && (prev.address !== box.address || prev.host !== box.host)) { delete box.lastUid; delete box.uidValidity; }
     e.s.mailboxes[box.id] = box;
@@ -96,9 +99,10 @@ export function extractCode(text: string, html = ""): { code: string; link?: str
 }
 
 /** Guarda un mensaje solo si el asunto está permitido y trae un código o enlace. Devuelve null si se descarta. */
-export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string; subject: string; body: string; html?: string; receivedAt: number }): CodeMessage | null {
+export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string; subject: string; body: string; html?: string; receivedAt: number; from?: string }): CodeMessage | null {
   authorize(actor, "codes.ingest");
   const box = e.get("mailboxes", mailboxId);
+  if (box.senderAllowlist?.length && !box.senderAllowlist.some((s) => (msg.from ?? "").toLowerCase().includes(s))) return null;
   const allowed = box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
   const { code, link } = extractCode(msg.body, msg.html);
   if (!allowed || (!code && !link)) return null;
@@ -128,6 +132,31 @@ export function accountEmails(e: Engine): Set<string> {
 
 export function codesFor(e: Engine, actor: Actor, customerId: Id) {
   if (!canActFor(e, actor, customerId)) throw new DomainError("FORBIDDEN", "No podés ver códigos de otro cliente");
+  return codesOf(e, customerId);
+}
+
+/** Crea, cambia o borra el link de códigos de un cliente/revendedor (el token lo genera el servidor). */
+export function setCodeLink(e: Engine, actor: Actor, customerId: Id, token: string | null) {
+  // El revendedor puede manejar su propio link; el equipo de la tienda, el de cualquiera.
+  if (!(actor.role === "reseller" && actor.customerId === customerId)) authorize(actor, "customer.manage");
+  if (token !== null && !/^[A-Za-z0-9_-]{16,64}$/.test(token)) throw new DomainError("VALIDATION", "Token inválido");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (token) c.codeLink = { token, createdAt: e.now() }; else delete c.codeLink;
+    e.audit(actor, token ? "customer.code_link" : "customer.code_link_off", "customer", c.id);
+    return c.codeLink ? { ...c.codeLink } : null;
+  });
+}
+
+/** Para la página pública /codigos/<token>: de quién es el link (el PIN lo verifica el servidor). */
+export function codeLinkOwner(e: Engine, token: string): { customerId: Id; name: string } | null {
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
+  const c = Object.values(e.s.customers).find((x) => x.codeLink?.token === token);
+  return c ? { customerId: c.id, name: c.shop?.title || c.name } : null;
+}
+
+/** Códigos de las cuentas activas del cliente (y de los clientes del revendedor). Uso interno, sin permisos. */
+export function codesOf(e: Engine, customerId: Id) {
   const windowMs = e.opts.codeVisibleMinutes * MINUTE;
   const mine = Object.values(e.s.assignments)
     .filter((a) => (a.customerId === customerId || e.s.customers[a.customerId]?.resellerId === customerId) && a.status === "active")
@@ -135,5 +164,8 @@ export function codesFor(e: Engine, actor: Actor, customerId: Id) {
   return e.s.codes
     .filter((c) => e.now() - c.receivedAt <= windowMs && mine.some((m) => m.email === c.to && c.receivedAt >= m.since))
     .sort((a, b) => b.receivedAt - a.receivedAt)
-    .map((c) => ({ to: c.to, subject: c.subject, code: c.code, link: c.link, receivedAt: c.receivedAt }));
+    .map((c) => {
+      const acc = Object.values(e.s.accounts).find((a) => a.email.toLowerCase() === c.to);
+      return { to: c.to, subject: c.subject, code: c.code, link: c.link, receivedAt: c.receivedAt, product: acc ? e.s.products[acc.productId]?.name ?? "" : "" };
+    });
 }

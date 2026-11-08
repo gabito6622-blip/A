@@ -145,7 +145,10 @@ async function loadPrivate() {
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
   S.data.orders = orders;
-  if (S.view === "codigos") S.data.codes = await api("GET", "/api/me/codes");
+  if (S.view === "codigos") {
+    S.data.codes = await api("GET", "/api/me/codes");
+    if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
+  }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
 }
@@ -292,6 +295,9 @@ function render() {
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
     codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
+      ${isReseller() ? `<div class="sbox"><h2>🔐 Tu link de códigos</h2><p class="empty" style="margin:0">Un link con PIN para ver los códigos de Disney+ de tus cuentas sin entrar acá. Podés pasárselo a tus clientes.</p>
+        ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>` : ""}
+        <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end"><label>${S.data.codeLink?.url ? "Cambiar PIN" : "Elegí un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn pri" type="submit">${S.data.codeLink?.url ? "Cambiar" : "Crear link"}</button></form></div>` : ""}
       <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0">${esc(c.subject)}<small style="overflow-wrap:anywhere">${esc(c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small></div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, tocá Actualizar en unos segundos.</p>`}</div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
@@ -953,6 +959,12 @@ document.addEventListener("submit", async (ev) => {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", `/api/orders/${f.dataset.evidence}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
       toast("Comprobante enviado: lo revisamos en 10–30 minutos");
+    } else if (f.id === "codePin") {
+      const k = await api("POST", "/api/me/code-link", { pin: f.pin.value.trim(), keepLink: true });
+      S.data.codeLink = { url: k.url };
+      try { await navigator.clipboard.writeText(`${k.url}\nPIN: ${k.pin}`); } catch { /* sin portapapeles */ }
+      toast("Listo: link y PIN copiados");
+      render();
     } else if (f.id === "topup") {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });

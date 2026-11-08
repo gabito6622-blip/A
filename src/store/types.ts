@@ -200,6 +200,8 @@ export interface Customer {
   kind: "customer" | "reseller";
   /** Revendedor dueño de este cliente (si lo creó un revendedor). */
   resellerId?: Id;
+  /** Link de códigos para compartir (/codigos/<token>), protegido con un PIN que guarda el servidor. */
+  codeLink?: { token: string; createdAt: number };
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
@@ -398,6 +400,8 @@ export interface Mailbox {
   authorizedBy: Id;
   authorizedAt: number;
   subjectAllowlist: string[];
+  /** Si tiene algo, solo se leen correos cuyo remitente (nombre o dirección) contiene alguna de estas palabras. */
+  senderAllowlist?: string[];
   /** Conexión IMAP (la contraseña de aplicación se guarda aparte, cifrada, fuera del estado). */
   name?: string;
   kind?: "gmail" | "imap";

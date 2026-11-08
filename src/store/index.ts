@@ -127,6 +127,9 @@ export function createStore(opts: EngineOptions = {}) {
       setStatus: bind(e, codes.setMailboxStatus),
       recent: bind(e, codes.recentCodes),
       accountEmails: () => codes.accountEmails(e),
+      setLink: bind(e, codes.setCodeLink),
+      linkOwner: (token: string) => codes.codeLinkOwner(e, token),
+      of: (customerId: string) => codes.codesOf(e, customerId),
     },
     notify: {
       outbox: (actor: Actor) => {

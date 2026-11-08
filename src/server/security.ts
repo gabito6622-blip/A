@@ -40,6 +40,11 @@ export class RateLimiter {
     this.hits.set(key, list);
     return true;
   }
+  /** true si ya se pasó del límite (sin registrar un intento nuevo). */
+  blocked(key: string): boolean {
+    const t = this.now();
+    return (this.hits.get(key) ?? []).filter((x) => t - x < this.windowMs).length >= this.max;
+  }
   reset(key: string) {
     this.hits.delete(key);
   }

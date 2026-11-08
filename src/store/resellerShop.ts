@@ -70,7 +70,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
-      services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
+      codeLink: !!c.codeLink, services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked },
     };
   }).sort((a, b) => b.createdAt - a.createdAt);

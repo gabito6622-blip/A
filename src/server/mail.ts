@@ -6,6 +6,8 @@ export interface ParsedMail {
   /** Direcciones del encabezado (To, Delivered-To, X-Original-To, X-Forwarded-To, Cc), en minúsculas. */
   recipients: string[];
   from: string;
+  /** Encabezado From completo (nombre + dirección), en minúsculas. */
+  fromRaw: string;
   date?: number;
   text: string;
   html: string;
@@ -95,6 +97,7 @@ export function parseMail(rawBuf: Buffer): ParsedMail {
   return {
     subject: decodeWords(h("subject")[0] ?? ""),
     from: (h("from")[0] ?? "").match(EMAIL_RE)?.[0]?.toLowerCase() ?? "",
+    fromRaw: decodeWords(h("from")[0] ?? "").toLowerCase(),
     recipients,
     date: Number.isFinite(date) ? date : undefined,
     html,

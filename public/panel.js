@@ -34,7 +34,7 @@ async function resellerKit(id, name, phone, slug) {
 }
 
 const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, address: f.address.value.trim(), host: f.host?.value.trim(), port: f.port?.value, user: f.user?.value.trim() || undefined,
-  password: f.password.value, name: f.name.value.trim() || undefined, subjects: f.subjects.value.trim() || undefined });
+  password: f.password.value, name: f.name.value.trim() || undefined, subjects: f.subjects.value.trim() || undefined, senders: f.senders.value.trim() });
 
 /* ---------------- tema ---------------- */
 function applyTheme() {
@@ -571,8 +571,8 @@ const V = {
         <button class="pbtn dark" type="submit">${icon("plus")}Crear revendedor</button>
       </form></section>
     ${sent ? `<section class="card ok-card"><h2>✅ Listo: ${esc(sent.name)}</h2>
-      <div class="linkbar"><span class="muted">Su página</span><b>${esc(sent.page)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.page)}">${icon("copy")}Copiar</button></div>
-      <div class="linkbar"><span class="muted">Su acceso (vale 24 horas)</span><b>${esc(sent.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.url)}">${icon("copy")}Copiar</button></div>
+      <div class="linkbar"><span class="muted">${sent.code ? "PIN" : "Su página"}</span><b>${esc(sent.code ? sent.page.replace("PIN: ", "") : sent.page)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.page)}">${icon("copy")}Copiar</button></div>
+      <div class="linkbar"><span class="muted">${sent.code ? "Link de códigos" : "Su acceso (vale 24 horas)"}</span><b>${esc(sent.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.url)}">${icon("copy")}Copiar</button></div>
       <div class="inline"><a class="pbtn green" href="${waLink(sent.phone, sent.msg)}" target="_blank" rel="noopener">${icon("wa")}Mandarle todo por WhatsApp</a><button class="pbtn" type="button" data-tab="rlink:">Cerrar</button></div></section>` : ""}
     <section class="card"><h2>Tus revendedores <small>${list.length}</small><input class="rsearch" id="rq" placeholder="Buscar" value="${esc(T.rq ?? "")}" style="margin-left:auto;max-width:220px"></h2>
       ${shown.length ? `<div class="rgrid">${shown.map((r) => `<div class="rcard">
@@ -582,6 +582,7 @@ const V = {
         <div class="inline">
           <button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}">${icon("wa")}Mandar acceso</button>
           <button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
+          <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔐 Link de códigos${r.codeLink ? " ✓" : ""}</button>
           <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
           ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
         </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
@@ -612,6 +613,9 @@ const V = {
           <li>Buscá <b>“Contraseñas de aplicaciones”</b> (o entrá a myaccount.google.com/apppasswords).</li><li>Nombre: <b>GaboHub</b> → Crear. Copiá las 16 letras y pegalas acá.</li>
           <li>En Gmail → Configuración → Reenvío y POP/IMAP: <b>IMAP activado</b>.</li></ol></details>` : ""}
         <label style="grid-column:1/-1">Nombre (opcional)<input name="name" maxlength="60" value="${esc(ed.name ?? "")}" placeholder="Ej.: Códigos Disney"></label>
+        <label style="grid-column:1/-1">Leer solo correos de <small class="muted">(vacío = de cualquier plataforma)</small>
+          <span class="inline" style="flex-wrap:nowrap"><input name="senders" placeholder="Ej.: disney" value="${esc((ed.senderAllowlist ?? []).join(", "))}" style="flex:1"><button class="pbtn sm" type="button" data-sendpreset="disney">Solo Disney / MyDisney</button></span>
+          <small class="muted">Se compara con el remitente (nombre o correo). “disney” toma Disney+ y MyDisney, en español o inglés. Separá varias con coma.</small></label>
         <details style="grid-column:1/-1"><summary><b>Asuntos que se leen</b> <small class="muted">(avanzado)</small></summary><textarea name="subjects" rows="4" style="width:100%;margin-top:8px" placeholder="Uno por línea. Vacío = los de siempre (código, acceso, verificación, hogar…)">${esc((ed.subjectAllowlist ?? []).join("\n"))}</textarea><small class="muted">Solo se guardan correos cuyo asunto contiene alguna de estas palabras. El resto ni se mira.</small></details>
         <div class="inline" style="grid-column:1/-1;justify-content:flex-end"><button class="pbtn" type="button" data-tab="mbEdit:">Cancelar</button><button class="pbtn" type="button" data-mbtest="1">${icon("flag")}Probar conexión</button><button class="pbtn dark" type="submit">Guardar</button></div>
       </form></section>` : ""}
@@ -1015,6 +1019,19 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (d.sendpreset) { const f = $("#mbForm"); if (f) f.senders.value = d.sendpreset; return; }
+  if (d.rcode) {
+    const r = (await api("GET", "/api/admin/resellers")).find((x) => x.id === d.rcode);
+    const pin = prompt(`PIN de 4 números para el link de códigos de ${r.name}${r.codeLink ? "\n(Si ya tenía link, sigue siendo el mismo; solo cambia el PIN)" : ""}:`, String(Math.floor(1000 + Math.random() * 9000)));
+    if (!pin) return;
+    try {
+      const k = await api("POST", `/api/admin/customers/${r.id}/code-link`, { pin: pin.trim(), keepLink: true });
+      const msg = `🔐 ${r.name.split(" ")[0]}, este es tu link para ver los códigos de Disney+ de tus cuentas:\n${k.url}\n\nPIN: ${k.pin}\n\nCuando Disney pida un código, abrí el link y aparece solo en segundos. Podés pasárselo a tus clientes con el PIN.`;
+      P.tab.rlink = { name: r.name, phone: r.phone, url: k.url, page: `PIN: ${k.pin}`, msg, code: true };
+      await render(); scrollTo(0, 0);
+    } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.rsend) {
     const r = (await api("GET", "/api/admin/resellers")).find((x) => x.id === d.rsend);
     try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.shop.slug); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }

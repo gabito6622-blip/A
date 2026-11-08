@@ -114,7 +114,7 @@ describe("Panel de códigos", () => {
   test("conectar Gmail, leer solo lo nuevo y mostrar el código solo al dueño de la cuenta", async () => {
     const imap = fakeImap("gabito.codigos@gmail.com", "abcdabcdabcdabcd");
     const port = await imap.listen();
-    const app = createApp({ dataDir: mkdtempSync(join(tmpdir(), "gs-codes-")), jobs: false, log: () => {}, otpSender: () => {},
+    const app = createApp({ dataDir: mkdtempSync(join(tmpdir(), "gs-codes-")), jobs: false, log: () => {}, otpSender: () => {}, staticDir: new URL("../public", import.meta.url).pathname,
       imapTest: { host: "localhost", port, tls: { ca: cert } } });
     app.bootstrapOwner("gabriel", "Gabriel", "clave-del-dueño-123");
     const base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
@@ -162,6 +162,32 @@ describe("Panel de códigos", () => {
       const betoCodes = s.portal.codes({ id: "u_" + beto.id, role: "customer", customerId: beto.id }, beto.id);
       assert.equal(betoCodes.length, 1);
       assert.match(betoCodes[0].link, /netflix\.com\/account\/travel/);
+
+      // Solo Disney: un correo de Netflix ya no se guarda; uno de MyDisney en inglés sí.
+      const ed = await call("/api/admin/mailboxes", { id: box.body.id, kind: "gmail", address: "gabito.codigos@gmail.com", senders: "disney" });
+      assert.deepEqual(ed.body.senderAllowlist, ["disney"]);
+      imap.mails.push(netflixForwarded("nf01@gabo.lat"));
+      imap.mails.push(["From: MyDisney <memberservices@disneyaccount.com>", "To: disney01@hotmail.com", "Subject: Your one-time passcode for MyDisney", `Date: ${new Date(Date.now() + 5000).toUTCString()}`, "Content-Type: text/plain; charset=UTF-8", "", "Your one-time passcode is:", "", "735 190", "", "© 2026 Disney"].join("\r\n"));
+      await call(`/api/admin/mailboxes/${box.body.id}/check`, {});
+      const after = (await call("/api/admin/codes")).body;
+      assert.equal(after.length, 3, "solo se sumó el de MyDisney");
+      assert.equal(after[0].code, "735 190");
+
+      // Link de códigos con PIN para Ana (como si fuera revendedora).
+      const lk = await call(`/api/admin/customers/${ana.id}/code-link`, { pin: "4821" });
+      assert.equal(lk.status, 200, JSON.stringify(lk.body));
+      const token = lk.body.url.split("/codigos/")[1];
+      const pub = (pinv) => fetch(`${base}/api/code-link/${token}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pinv }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
+      assert.equal((await fetch(`${base}/api/code-link/${token}`).then((r) => r.json())).name, "Ana");
+      assert.equal((await pub("0000")).status, 401);
+      const okPin = await pub("4821");
+      assert.equal(okPin.status, 200);
+      assert.deepEqual(okPin.body.codes.map((x) => x.code).sort(), ["111222", "735 190"].sort(), "solo los códigos de las cuentas de Ana");
+      for (let i = 0; i < 5; i++) await pub("1111");
+      assert.equal((await pub("4821")).status, 429, "se bloquea tras muchos intentos");
+      const page = await fetch(`${base}/codigos/${token}`);
+      assert.equal(page.status, 200);
+      assert.match(await page.text(), /PIN de 4 números/, "sirve la página del link");
 
       // Copia del respaldo en el Gmail (carpeta "Respaldos GaboHub").
       const cfgOff = await call("/api/admin/offsite", { enabled: true, mailboxId: box.body.id });
