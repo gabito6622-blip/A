@@ -439,7 +439,23 @@ const V = {
     const [products, suppliers] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
     if (!products.length || !suppliers.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas necesitás al menos un producto y un proveedor.<div class="inline">${!products.length ? `<button class="pbtn dark" type="button" data-go="productos">Crear producto</button>` : ""}${!suppliers.length ? `<button class="pbtn dark" type="button" data-go="proveedores">Crear proveedor</button>` : ""}</div></div></section>`;
     const sel = (name) => `<select name="${name}">${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
-    return `<section class="card"><h2>Cargar una cuenta <small>· se crean los perfiles automáticamente</small></h2><form class="form" id="accForm">
+    const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
+    const guessN = (id) => { const p = products.find((x) => x.id === id); const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
+    const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
+    return `<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+      <form class="form" id="quickForm">
+        <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
+        <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
+        <label style="grid-column:1/-1">Correo de la cuenta<input name="email" type="email" required placeholder="correo@gmail.com" autocomplete="off"></label>
+        <label style="grid-column:1/-1">Contraseña<input name="password" required placeholder="clave de la cuenta" autocomplete="off"></label>
+        <details style="grid-column:1/-1"><summary>Proveedor, vencimiento y costo</summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <label>Proveedor<select name="supplierId">${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
+            <label>Vence con proveedor<input type="date" name="exp" required value="${last.exp || dateInput(Date.now() + 30 * 864e5)}"></label>
+            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
+        <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
+      <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
+      <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
@@ -1324,6 +1340,8 @@ function updateCtlBar() {
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "customerId" && t.form?.id === "slotAssign") { const nc = t.form.querySelector(".newcli"); if (nc) nc.hidden = t.value !== "__new"; return; }
+  if (t.name === "productId" && t.form?.id === "quickForm") { const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${n} perfiles libres)`; return; }
+  if (t.name === "n" && t.form?.id === "quickForm") { const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${Math.max(1, +t.value || 1)} perfiles libres)`; return; }
   if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
   if (t.classList?.contains("csel")) {
     $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
@@ -1488,6 +1506,14 @@ document.addEventListener("submit", async (ev) => {
       await render();
     } else if (f.dataset.down) {
       await act(() => api("POST", `/api/admin/accounts/${f.dataset.down}/replace`, { reason: f.reason.value }), (r) => r.retired ? `Cuenta retirada. ${r.results.length} cliente(s) movidos` : `No se pudo mover a todos: ${r.results.find((x) => !x.ok)?.error}`);
+    } else if (f.id === "quickForm") {
+      const n = Math.max(1, Math.min(20, +f.n.value || 1));
+      try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, exp: f.exp.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
+      await act(() => api("POST", "/api/admin/accounts", {
+        productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
+        profiles: Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}` })),
+      }), `✅ Cuenta agregada con ${n} perfiles libres`);
     } else if (f.id === "accForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
       const pin = f.pin.value.trim() || undefined;
