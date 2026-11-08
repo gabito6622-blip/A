@@ -144,13 +144,29 @@ const V = {
   },
   async vender() {
     const [customers, products, stock] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock")]);
-    return `<section class="card"><h2>Nueva venta <small>se asigna un perfil libre y el aviso queda listo en WhatsApp</small></h2>
+    const tile = (p) => {
+      const n = stock[p.id]?.available ?? 0;
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
+        ${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`}
+        <b>${esc(p.name)}</b><span class="selprice">${bs(p.price)}</span>
+        <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
+    };
+    const pub = products.filter((p) => p.published !== false);
+    const apps = pub.filter((p) => p.kind !== "combo");
+    const combos = pub.filter((p) => p.kind === "combo");
+    return `<section class="card"><h2>${icon("cart")}Nueva venta <small>tocá el producto y listo</small></h2>
       ${customers.length ? `<form class="form" id="sellForm" data-key="${newKey()}">
-        <label>Cliente<select name="customerId" required>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
-        <label>Producto<select name="productId">${products.map((p) => opt(p.id, `${p.name} · ${bs(p.price)} · ${stock[p.id]?.available ?? 0} libres`)).join("")}</select></label>
-        <label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
-        <label>Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
-        <button class="pbtn dark" type="submit">${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
+        <label>👤 Cliente<select name="customerId" required>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
+        <input type="hidden" name="productId" value="">
+        <div class="sellpick">
+          <div class="selsec">📺 Apps y servicios</div>
+          <div class="selgrid">${apps.map(tile).join("") || `<span class="muted">No hay productos.</span>`}</div>
+          ${combos.length ? `<div class="selsec">🎁 Combos</div><div class="selgrid">${combos.map(tile).join("")}</div>` : ""}
+        </div>
+        <div id="sellNote" class="sellnote">👆 Elegí un producto de arriba.</div>
+        <div class="selrow"><label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
+          <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label></div>
+        <button class="pbtn dark" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
       <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
   },
 
@@ -1181,6 +1197,17 @@ document.addEventListener("click", async (ev) => {
     }
     return;
   }
+  if (d.pick) {
+    const f = $("#sellForm");
+    if (!f) return;
+    f.productId.value = d.pick;
+    $$(".selp").forEach((x) => x.setAttribute("aria-pressed", x.dataset.pick === d.pick ? "true" : "false"));
+    const n = +el.dataset.stock;
+    $("#sellNote").innerHTML = `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`;
+    $("#sellNote").classList.add("on");
+    $("#sellBtn").disabled = false;
+    return;
+  }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `✅ Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
@@ -1300,7 +1327,9 @@ document.addEventListener("submit", async (ev) => {
   const done = () => { if (btn) btn.disabled = false; };
   try {
     if (f.id === "sellForm") {
-      await act(() => api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key }), "Venta registrada: el aviso quedó en WhatsApp");
+      if (!f.productId.value) { toast("Elegí un producto"); return; }
+      const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
+      await act(() => api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key }), `✅ Venta registrada: ${pname}. Se asignó un perfil y el aviso quedó en WhatsApp.`);
     } else if (f.dataset.approve) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey() }), "Pago aprobado y servicio entregado");
     } else if (f.dataset.reject) {
