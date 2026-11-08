@@ -667,7 +667,8 @@ async function twoFactorCard() {
 
 /* ---------------- Avisos para el dueño y respaldos ---------------- */
 async function ownerCards() {
-  const [al, bk] = await Promise.all([api("GET", "/api/admin/alerts"), api("GET", "/api/admin/backups")]);
+  const [al, bk, off] = await Promise.all([api("GET", "/api/admin/alerts"), api("GET", "/api/admin/backups"), api("GET", "/api/admin/offsite")]);
+  const offOwn = P.tab.offOwn ?? (!off.mailboxId && (!!off.address || !off.mailboxes.length));
   const perm = "Notification" in window ? Notification.permission : "unsupported";
   const mb = (n) => (n / 1048576 < 0.1 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
   return `<section class="card"><h2>${icon("bell")}Avisos para vos</h2>
@@ -684,6 +685,16 @@ async function ownerCards() {
       <p class="perr" style="margin:0">El respaldo tiene <b>todo</b>, incluidas las contraseñas de las cuentas y las claves de Meta. No lo compartas.</p>
       ${bk.items.length ? `<table class="tbl"><thead><tr><th>Respaldo</th><th>Fecha</th><th>Tamaño</th><th></th></tr></thead><tbody>${bk.items.slice(0, 10).map((b) => `<tr><td>${esc(b.name)}</td><td>${fdt(b.createdAt)}</td><td>${mb(b.bytes)}</td><td><a class="pbtn sm" href="/api/admin/backups/${encodeURIComponent(b.name)}" download>Descargar</a></td></tr>`).join("")}</tbody></table>` : `<div class="emptybox">Todavía no hay respaldos. El primero se hace solo en un minuto, o tocá el botón.</div>`}
       <div class="inline"><button class="pbtn dark" type="button" id="backupNow">Hacer respaldo ahora</button></div>
+      <div class="offsite"><h3>☁️ Copia automática en tu Gmail ${off.enabled ? (off.lastError ? pill("Error", "bad") : off.lastAt ? pill("Activa", "ok") : pill("Activa · primera copia en camino", "warn")) : pill("Apagada", "mute")}</h3>
+        <p class="muted" style="margin:0">Cada día se guarda una copia comprimida como correo en la carpeta <b>“${esc(off.folder)}”</b> de tu Gmail. Así, aunque pase algo con Railway, tus datos quedan en Google.</p>
+        ${off.lastAt ? `<p class="muted" style="margin:0">Última copia: <b>${fdt(off.lastAt)}</b>${off.lastBytes ? ` · ${mb(off.lastBytes)}` : ""}${off.lastError ? ` · <span style="color:var(--bad)">${esc(off.lastError)}</span>` : off.withUploads === false ? " · solo la base (los comprobantes pesan mucho)" : ""}</p>` : ""}
+        <form class="form" id="offForm">
+          ${off.mailboxes.length ? `<label style="grid-column:1/-1">¿En qué Gmail se guarda?<select name="mode">${off.mailboxes.map((m) => opt(m.id, `${m.address} (el del Panel de códigos)`, !offOwn && off.mailboxId === m.id)).join("")}${opt("own", "Otro Gmail…", offOwn)}</select></label>` : `<input type="hidden" name="mode" value="own">`}
+          ${offOwn ? `<label>Gmail<input name="address" type="email" placeholder="tu.respaldo@gmail.com" value="${esc(off.address ?? "")}"></label><label>Contraseña de aplicación<input name="password" type="password" autocomplete="new-password" placeholder="${off.hasPassword && off.address ? "Guardada · dejala vacía" : "16 letras"}"></label>
+          <p class="muted" style="grid-column:1/-1;margin:0">Es la misma clase de contraseña que el Panel de códigos: myaccount.google.com/apppasswords (con verificación en 2 pasos activada).</p>` : ""}
+          <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${off.enabled ? "checked" : ""}> Guardar una copia cada día en ese Gmail</label>
+          <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button>${off.enabled ? `<button class="pbtn" type="button" id="offNow">Guardar una copia ahora</button>` : ""}</div>
+        </form></div>
       <p class="muted" style="margin:0">Para volver a un respaldo: apagá la tienda y reemplazá <code>gabriel.db</code> y la carpeta <code>uploads</code> en la carpeta de datos (el .zip trae un LEEME con los pasos).</p></section>`;
 }
 
@@ -1003,6 +1014,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
+  if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
   if (d.rsend) {
     const r = (await api("GET", "/api/admin/resellers")).find((x) => x.id === d.rsend);
     try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.shop.slug); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
@@ -1139,6 +1151,7 @@ function updateCtlBar() {
 }
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
+  if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
   if (t.classList?.contains("csel")) {
     $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
     return updateCtlBar();
@@ -1324,6 +1337,9 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
+    } else if (f.id === "offForm") {
+      const own = f.mode.value === "own";
+      await act(() => api("POST", "/api/admin/offsite", { enabled: f.enabled.checked, ...(own ? { address: f.address?.value.trim(), password: f.password?.value || undefined } : { mailboxId: f.mode.value }) }), "Copia en Gmail guardada");
     } else if (f.id === "resForm") {
       const btn = f.querySelector("[type=submit]"); btn.disabled = true;
       try {

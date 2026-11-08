@@ -4,7 +4,7 @@
 //   valor que empieza con "=" se ve como texto y NUNCA se ejecuta como fórmula.
 // - readSheet: lee la primera hoja de un .xlsx, o un .csv separado por ";" o ",".
 //   Tiene límites de tamaño para que un archivo armado a propósito no llene la memoria.
-import { inflateRawSync } from "node:zlib";
+import { inflateRawSync, deflateRawSync } from "node:zlib";
 
 export type Cell = string | number | null | undefined;
 export interface Sheet {
@@ -27,25 +27,32 @@ function crc32(buf: Buffer): number {
   return (c ^ -1) >>> 0;
 }
 
+/** ZIP comprimido (deflate): para mandar respaldos que pesen poco. */
+export function zipDeflate(files: { name: string; data: Buffer }[]): Buffer {
+  return zipStore(files, true);
+}
+
 /** ZIP sin compresión (método "store"): Excel lo abre sin problemas. */
-export function zipStore(files: { name: string; data: Buffer }[]): Buffer {
+export function zipStore(files: { name: string; data: Buffer }[], deflate = false): Buffer {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
   for (const f of files) {
     const name = Buffer.from(f.name, "utf8");
     const crc = crc32(f.data);
+    const body = deflate ? deflateRawSync(f.data, { level: 9 }) : f.data;
+    const method = deflate ? 8 : 0;
     const lh = Buffer.alloc(30);
-    lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0x0800, 6); lh.writeUInt16LE(0, 8);
-    lh.writeUInt32LE(0, 10); lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(f.data.length, 18); lh.writeUInt32LE(f.data.length, 22);
+    lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0x0800, 6); lh.writeUInt16LE(method, 8);
+    lh.writeUInt32LE(0, 10); lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(body.length, 18); lh.writeUInt32LE(f.data.length, 22);
     lh.writeUInt16LE(name.length, 26); lh.writeUInt16LE(0, 28);
-    locals.push(lh, name, f.data);
+    locals.push(lh, name, body);
     const ch = Buffer.alloc(46);
-    ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(0x0800, 8); ch.writeUInt16LE(0, 10);
-    ch.writeUInt32LE(0, 12); ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(f.data.length, 20); ch.writeUInt32LE(f.data.length, 24);
+    ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(0x0800, 8); ch.writeUInt16LE(method, 10);
+    ch.writeUInt32LE(0, 12); ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(body.length, 20); ch.writeUInt32LE(f.data.length, 24);
     ch.writeUInt16LE(name.length, 28); ch.writeUInt32LE(offset, 42);
     centrals.push(ch, name);
-    offset += 30 + name.length + f.data.length;
+    offset += 30 + name.length + body.length;
   }
   const cd = Buffer.concat(centrals);
   const end = Buffer.alloc(22);

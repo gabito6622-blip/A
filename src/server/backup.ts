@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync, renameSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import type { Db } from "./db.js";
-import { zipStore } from "./xlsx.js";
+import { zipDeflate, zipStore } from "./xlsx.js";
 
 const NAME = /^respaldo-\d{4}-\d{2}-\d{2}-\d{4}(?:-\d+)?\.zip$/;
 const DAY = 24 * 3_600_000;
@@ -77,6 +77,26 @@ export class Backups {
     }
     this.prune();
     return this.list().find((b) => b.name === name)!;
+  }
+
+  /**
+   * Respaldo comprimido para guardar fuera del servidor (Gmail). Lleva la base y, si entra
+   * en `maxBytes`, también los archivos subidos (comprobantes, logos).
+   */
+  compact(maxBytes = 17 * 1024 * 1024): { data: Buffer; withUploads: boolean } {
+    const tmpDb = join(this.dir, `.tmp-${process.pid}-${Date.now()}-c.db`);
+    try {
+      this.db.backupTo(tmpDb);
+      const base = [{ name: "LEEME.txt", data: Buffer.from(README, "utf8") }, { name: "gabriel.db", data: readFileSync(tmpDb) }];
+      const ups = (existsSync(this.uploadsDir) ? readdirSync(this.uploadsDir) : [])
+        .filter((f) => statSync(join(this.uploadsDir, f)).isFile())
+        .map((f) => ({ name: `uploads/${f}`, data: readFileSync(join(this.uploadsDir, f)) }));
+      const full = zipDeflate([...base, ...ups]);
+      if (full.length <= maxBytes) return { data: full, withUploads: true };
+      return { data: zipDeflate(base), withUploads: false };
+    } finally {
+      try { unlinkSync(tmpDb); } catch { /* no se llegó a crear */ }
+    }
   }
 
   /** Arma el respaldo del día si el último tiene más de 24 h (o no hay ninguno). */

@@ -9,8 +9,8 @@ import { createStore, DomainError, normalizePhone, systemClock, type Actor, type
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
-import { fetchNew, testImap, type ImapConfig } from "./imap.js";
-import { emailsIn, parseMail } from "./mail.js";
+import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
+import { buildMail, emailsIn, parseMail } from "./mail.js";
 import { Backups } from "./backup.js";
 import { newTotpSecret, verifyTotp } from "./security.js";
 import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
@@ -655,6 +655,39 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/codes", "staff", (c) => store.codes.recent(A(c), 60));
 
+  // ---- Copia del respaldo fuera del servidor: se guarda como correo en una carpeta de tu Gmail ----
+  route("GET", "/api/admin/offsite", "staff", (c) => {
+    mailOwner(c);
+    const o = offsiteCfg();
+    return { ...o, hasPassword: !!db.getSecret("offsite:pass"), folder: OFFSITE_FOLDER, mailboxes: Object.values(store.engine.s.mailboxes).filter((m) => db.getSecret(`imap:${m.id}`)).map((m) => ({ id: m.id, address: m.address })) };
+  });
+  route("POST", "/api/admin/offsite", "staff", async (c) => {
+    mailOwner(c);
+    const b = c.body ?? {};
+    const cur = offsiteCfg();
+    const next: OffsiteCfg = { ...cur, enabled: !!b.enabled };
+    if (b.mailboxId) { if (!store.engine.s.mailboxes[String(b.mailboxId)]) throw new DomainError("NOT_FOUND", "Ese correo ya no está conectado"); next.mailboxId = String(b.mailboxId); delete next.address; }
+    else if (b.address) {
+      const address = String(b.address).trim().toLowerCase();
+      if (!/^[^\s@]+@gmail\.com$/.test(address)) throw new DomainError("VALIDATION", "Usá un Gmail (…@gmail.com)");
+      const pass = typeof b.password === "string" ? b.password.replace(/\s+/g, "") : "";
+      if (pass) {
+        try { await testImap({ host: "imap.gmail.com", port: 993, user: address, pass, ...(cfg.imapTest ?? {}) }); } catch (e) { throw new DomainError("VALIDATION", `No se pudo conectar: ${(e as Error).message}`); }
+        db.setSecret("offsite:pass", db.seal(pass), now());
+      } else if (!db.getSecret("offsite:pass") || cur.address !== address) throw new DomainError("VALIDATION", "Escribí la contraseña de aplicación de ese Gmail");
+      next.address = address; delete next.mailboxId;
+    }
+    if (next.enabled && !offsiteTarget(next)) throw new DomainError("VALIDATION", "Elegí el Gmail donde se guardan los respaldos");
+    db.setSecret("offsite:cfg", JSON.stringify(next), now());
+    store.engine.tx(() => store.engine.audit(A(c), "backup.offsite_config", "settings", "offsite", { enabled: next.enabled }));
+    return next;
+  });
+  route("POST", "/api/admin/offsite/send", "staff", async (c) => {
+    mailOwner(c);
+    await sendOffsite();
+    return offsiteCfg();
+  });
+
   function hashOrThrow(p: unknown): string {
     try {
       return hashPassword(String(p ?? ""));
@@ -969,6 +1002,44 @@ export function createApp(cfg: AppConfig): App {
     }
   });
 
+  /** Configuración de la copia fuera del servidor (no es secreta, pero vive junto a los secretos del servidor). */
+  type OffsiteCfg = { enabled: boolean; mailboxId?: string; address?: string; lastAt?: number; lastError?: string; lastBytes?: number; withUploads?: boolean };
+  const OFFSITE_FOLDER = "Respaldos GaboHub";
+  const offsiteCfg = (): OffsiteCfg => { try { return JSON.parse(db.getSecret("offsite:cfg") ?? "") as OffsiteCfg; } catch { return { enabled: false }; } };
+  function offsiteTarget(o: OffsiteCfg): ImapConfig | null {
+    if (o.mailboxId) {
+      const box = store.engine.s.mailboxes[o.mailboxId];
+      const pass = box ? passOf(box.id) : "";
+      return box && pass ? imapOf(box, pass) : null;
+    }
+    const v = db.getSecret("offsite:pass");
+    return o.address && v ? { host: "imap.gmail.com", port: 993, user: o.address, pass: db.unseal(v), ...(cfg.imapTest ?? {}) } : null;
+  }
+  async function sendOffsite(): Promise<void> {
+    const o = offsiteCfg();
+    const target = offsiteTarget(o);
+    const save = (patch: Partial<OffsiteCfg>) => db.setSecret("offsite:cfg", JSON.stringify({ ...offsiteCfg(), ...patch }), now());
+    if (!target) { save({ lastAt: now(), lastError: "No hay un Gmail conectado para guardar los respaldos" }); throw new DomainError("VALIDATION", "Elegí el Gmail donde se guardan los respaldos"); }
+    try {
+      const { data, withUploads } = backups.compact();
+      const d = new Date(now());
+      const p = (n: number) => String(n).padStart(2, "0");
+      const name = `respaldo-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.zip`;
+      const st = store.engine.s;
+      const text = `Respaldo automático de ${st.settings.platformName || "GaboHub"} / ${st.settings.storeName}.\n\n`
+        + `Clientes: ${Object.keys(st.customers).length} · Cuentas: ${Object.keys(st.accounts).length} · Pedidos: ${Object.keys(st.orders).length}\n`
+        + `${withUploads ? "Incluye la base y los archivos subidos." : "Incluye la base (los comprobantes pesan mucho: descargalos desde el panel)."}\n\n`
+        + "Las contraseñas de las cuentas van cifradas: para restaurar hace falta la clave GS_DATA_KEY de Railway. Guardala aparte.";
+      const msg = buildMail({ from: target.user, to: target.user, subject: `Respaldo GaboHub ${name.slice(9, 19)}`, text, attachment: { name, data, type: "application/zip" }, date: now() });
+      await appendToFolder(target, OFFSITE_FOLDER, msg);
+      save({ lastAt: now(), lastError: undefined, lastBytes: data.length, withUploads });
+      log(`respaldo guardado en el Gmail (${Math.round(data.length / 1024)} KB)`);
+    } catch (e) {
+      save({ lastAt: now(), lastError: (e as Error).message.slice(0, 200) });
+      throw e;
+    }
+  }
+
   /** Lee los correos nuevos de los buzones conectados y guarda los códigos. */
   type PollResult = { checked: number; found: number; errors: number };
   let polling: Promise<PollResult> | null = null;
@@ -1011,6 +1082,9 @@ export function createApp(cfg: AppConfig): App {
     db.purgeExpiredSessions(now());
     let backup: string | undefined;
     try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }
+    // Una vez por día, la copia también va al Gmail (si está activada).
+    const off = offsiteCfg();
+    if (off.enabled && (!off.lastAt || now() - off.lastAt > 23 * 3_600_000)) sendOffsite().catch((e) => log(`copia al Gmail falló: ${(e as Error).message}`));
     return { expired, reminders, closed, supplierAlerts, ...(backup ? { backup } : {}) };
   }
   const timers: NodeJS.Timeout[] = [];

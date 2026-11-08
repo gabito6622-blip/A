@@ -50,15 +50,27 @@ const promo = ["From: tienda@x.com", "To: disney01@hotmail.com", "Subject: Ofert
 
 /** Servidor IMAP mínimo para pruebas (solo lo que usa el lector). */
 function fakeImap(user, pass) {
-  const mails = [];
+  const mails = [], appended = [];
   const srv = createServer({ key, cert }, (sock) => {
     let buf = "";
     sock.write("* OK Fake IMAP listo\r\n");
+    let pending = null; // APPEND esperando el literal
     sock.on("data", (d) => {
       buf += d.toString("latin1");
       let i;
-      while ((i = buf.indexOf("\r\n")) >= 0) {
+      for (;;) {
+        if (pending) {
+          if (buf.length < pending.n + 2) break;
+          appended.push({ folder: pending.folder, raw: Buffer.from(buf.slice(0, pending.n), "latin1") });
+          buf = buf.slice(pending.n + 2);
+          sock.write(`${pending.tag} OK APPEND listo\r\n`);
+          pending = null;
+          continue;
+        }
+        if ((i = buf.indexOf("\r\n")) < 0) break;
         const line = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ap = /^(\S+) APPEND "([^"]+)" \(\\Seen\) \{(\d+)\}$/.exec(line);
+        if (ap) { pending = { tag: ap[1], folder: ap[2], n: Number(ap[3]) }; sock.write("+ dale\r\n"); continue; }
         const [tag, cmd, ...rest] = line.split(" ");
         const C = cmd.toUpperCase();
         if (C === "LOGIN") {
@@ -75,6 +87,8 @@ function fakeImap(user, pass) {
           const uid = Number(rest[1]);
           const raw = Buffer.from(mails[uid - 1], "utf8");
           sock.write(Buffer.concat([Buffer.from(`* ${uid} FETCH (UID ${uid} BODY[] {${raw.length}}\r\n`), raw, Buffer.from(`)\r\n${tag} OK listo\r\n`)]));
+        } else if (C === "CREATE") {
+          sock.write(`${tag} OK creada\r\n`);
         } else if (C === "LOGOUT") {
           sock.end(`* BYE chau\r\n${tag} OK listo\r\n`);
         } else sock.write(`${tag} BAD no entiendo\r\n`);
@@ -82,7 +96,7 @@ function fakeImap(user, pass) {
     });
     sock.on("error", () => {});
   });
-  return { srv, mails, listen: () => new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv.address().port))) };
+  return { srv, mails, appended, listen: () => new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv.address().port))) };
 }
 
 describe("Panel de códigos", () => {
@@ -148,6 +162,21 @@ describe("Panel de códigos", () => {
       const betoCodes = s.portal.codes({ id: "u_" + beto.id, role: "customer", customerId: beto.id }, beto.id);
       assert.equal(betoCodes.length, 1);
       assert.match(betoCodes[0].link, /netflix\.com\/account\/travel/);
+
+      // Copia del respaldo en el Gmail (carpeta "Respaldos GaboHub").
+      const cfgOff = await call("/api/admin/offsite", { enabled: true, mailboxId: box.body.id });
+      assert.equal(cfgOff.status, 200);
+      const sent = await call("/api/admin/offsite/send", {});
+      assert.equal(sent.status, 200);
+      assert.equal(sent.body.lastError, undefined);
+      assert.equal(imap.appended.length, 1);
+      assert.equal(imap.appended[0].folder, "Respaldos GaboHub");
+      const bk = parseMail(imap.appended[0].raw);
+      assert.match(bk.subject, /^Respaldo GaboHub \d{4}-\d{2}-\d{2}$/);
+      const zipB64 = imap.appended[0].raw.toString("latin1").split("filename=")[1].split("\r\n\r\n")[1].split("\r\n--")[0];
+      const zip = Buffer.from(zipB64.replace(/\s+/g, ""), "base64");
+      assert.equal(zip.readUInt32LE(0), 0x04034b50, "adjunto es un zip");
+      assert.ok(zip.includes(Buffer.from("gabriel.db")));
 
       const del = await call(`/api/admin/mailboxes/${box.body.id}/delete`, {});
       assert.equal(del.status, 200);

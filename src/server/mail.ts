@@ -104,3 +104,18 @@ export function parseMail(rawBuf: Buffer): ParsedMail {
 
 /** Todas las direcciones de correo que aparecen en un texto (para correos reenviados a mano). */
 export const emailsIn = (s: string) => [...new Set((s.match(EMAIL_RE) ?? []).map((x) => x.toLowerCase()))];
+
+/** Arma un correo con un adjunto (para guardar respaldos en el buzón). */
+export function buildMail(m: { from: string; to: string; subject: string; text: string; attachment: { name: string; data: Buffer; type: string }; date: number }): Buffer {
+  const b = `gh-${m.date.toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const enc = (s: string) => `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=`;
+  const b64 = m.attachment.data.toString("base64").replace(/.{76}/g, "$&\r\n");
+  return Buffer.from([
+    `From: ${m.from}`, `To: ${m.to}`, `Subject: ${enc(m.subject)}`, `Date: ${new Date(m.date).toUTCString()}`,
+    `Message-ID: <${b}@gabohub>`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${b}"`, "",
+    `--${b}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "",
+    Buffer.from(m.text, "utf8").toString("base64").replace(/.{76}/g, "$&\r\n"),
+    `--${b}`, `Content-Type: ${m.attachment.type}; name="${m.attachment.name}"`, "Content-Transfer-Encoding: base64",
+    `Content-Disposition: attachment; filename="${m.attachment.name}"`, "", b64, `--${b}--`, "",
+  ].join("\r\n"), "utf8");
+}

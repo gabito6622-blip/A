@@ -350,3 +350,4 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .slugin{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden}
 .slugin small{padding:0 0 0 10px;color:var(--muted);white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}.slugin input{border:0!important;flex:1;min-width:0}
 .ok-card{border:2px solid var(--ok)}
+.offsite{border-top:1px solid var(--line);padding-top:14px;display:grid;gap:10px}.offsite h3{margin:0;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}

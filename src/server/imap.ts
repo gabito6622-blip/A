@@ -54,6 +54,28 @@ class ImapConn {
     });
   }
 
+  /** APPEND con literal: espera el "+" del servidor antes de mandar el mensaje. */
+  async append(folder: string, msg: Buffer): Promise<{ ok: boolean; status: string }> {
+    const tag = `G${++this.n}`;
+    this.sock.write(`${tag} APPEND ${quote(folder)} (\\Seen) {${msg.length}}\r\n`);
+    const go = await this.waitFor(() => {
+      for (;;) {
+        const i = this.buf.indexOf("\r\n");
+        if (i < 0) return undefined;
+        const line = this.buf.subarray(0, i).toString("latin1");
+        this.buf = this.buf.subarray(i + 2);
+        if (line.startsWith("+")) return "go";
+        if (line.startsWith(tag + " ")) return line;
+      }
+    });
+    if (go !== "go") return { ok: false, status: go.slice(tag.length + 1) };
+    this.sock.write(Buffer.concat([msg, Buffer.from("\r\n")]));
+    const end = await this.waitFor(() => tagEnd(this.buf, tag));
+    const status = this.buf.subarray(end.lineStart + tag.length + 1, end.end - 2).toString("utf8");
+    this.buf = this.buf.subarray(end.end);
+    return { ok: /^OK\b/i.test(status), status };
+  }
+
   /** Manda un comando y devuelve todo lo recibido hasta la respuesta con su etiqueta. */
   async cmd(command: string): Promise<{ ok: boolean; status: string; data: Buffer }> {
     const tag = `G${++this.n}`;
@@ -143,6 +165,18 @@ export async function fetchNew(cfg: ImapConfig, opts: { afterUid?: number; uidVa
     const uidNext = Number(/UIDNEXT (\d+)/i.exec(sel.data.toString("latin1"))?.[1] ?? 0);
     const lastUid = Math.max(fresh ? 0 : opts.afterUid!, ...uids, uidNext - 1, 0);
     return { mails, uidValidity, lastUid };
+  } finally {
+    close(c);
+  }
+}
+
+/** Guarda un correo (por ejemplo un respaldo) en una carpeta/etiqueta del buzón. La crea si no existe. */
+export async function appendToFolder(cfg: ImapConfig, folder: string, message: Buffer): Promise<void> {
+  const c = await open({ ...cfg, timeoutMs: cfg.timeoutMs ?? 120_000 });
+  try {
+    await c.cmd(`CREATE ${quote(folder)}`); // si ya existe responde NO: no importa
+    const r = await c.append(folder, message);
+    if (!r.ok) throw new Error(`El correo no aceptó el respaldo (${r.status.slice(0, 120)})`);
   } finally {
     close(c);
   }
