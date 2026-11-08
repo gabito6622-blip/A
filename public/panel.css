@@ -264,8 +264,12 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
 .hm-tile:active{transform:scale(.97)}
 .hm-ic{font-size:32px;line-height:1}.hm-tile b{font-size:16px}.hm-tile small{color:var(--muted);font-size:12px}
 .hm-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
-.hm-day{display:grid;gap:2px;justify-items:center;padding:10px 4px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font:inherit}
-.hm-day b{font-size:26px}.hm-day em{font-style:normal;font-weight:700;font-size:13px}.hm-day small{font-size:11px;color:var(--muted);text-align:center}
+.hm-day{display:grid;gap:3px;justify-items:center;padding:12px 4px 10px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font:inherit;transition:transform .12s}
+.hm-day:active{transform:scale(.96)}
+.hm-day .hd-dow{font-weight:700;font-size:14px}.hm-day .hd-date{font-size:11px;color:var(--muted)}
+.hm-day .hd-emoji{font-size:26px;line-height:1}
+.hm-day .hd-count{font-size:11.5px;color:var(--muted);text-align:center}.hm-day .hd-count b{color:var(--ink)}
+.hm-day.hm-ishoy{outline:2px solid var(--blue);outline-offset:-2px}
 .hm-free{background:#ecfdf3}.hm-calm{background:#eff6ff}.hm-busy{background:#fef9c3}.hm-hard{background:#fee2e2}
 .hm-free,.hm-calm,.hm-busy,.hm-hard{color:#111}
 @media (max-width:860px){
@@ -273,8 +277,8 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
   .hm-alerts .hm-alert:first-child{grid-column:1/-1}
   .hm-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .hm-tile{padding:14px 6px}.hm-ic{font-size:28px}.hm-tile b{font-size:14px}.hm-tile small{display:none}
-  .hm-days{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;overflow-x:auto}
-  .hm-day{padding:8px 2px}.hm-day b{font-size:20px}.hm-day em{font-size:11px}.hm-day small:last-child{display:none}
+  .hm-days{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+  .hm-day{padding:9px 2px}.hm-day .hd-emoji{font-size:22px}.hm-day .hd-dow{font-size:13px}.hm-day .hd-date{display:none}.hm-day .hd-count{font-size:10.5px}
 }
 .tfa-key{font-size:17px;letter-spacing:.08em;background:var(--bg,#eef1f6);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:4px}
 

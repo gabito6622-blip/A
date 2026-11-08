@@ -178,13 +178,13 @@ const V = {
     const pronto = list.filter((a) => !a.holdOpen && dl(a) >= 1 && dl(a) <= 3);
     const sinPago = list.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado");
     // Mi semana: minutos estimados por día (como la hoja TIEMPO_LIBRE del Excel: 3 min por recordatorio, +1 si vence pronto, 5 por vencido).
-    const MIN_REC = 3, MIN_PRONTO = 1, MIN_VENC = 5;
+    // "Mi semana": cuántas cuentas vencen cada día. El ánimo del día sale de esa cantidad.
     const week = Array.from({ length: 7 }, (_, i) => {
       const t = today + i * DAY;
       const n = list.filter((a) => dayStart(a.customerExpiresAt) === t).length;
-      const mins = n * (MIN_REC + MIN_PRONTO) + (i === 0 ? (vencidos.length + espera.length) * MIN_VENC : 0);
-      const lvl = mins === 0 ? ["Libre", "free", "😌"] : mins <= 15 ? ["Tranquilo", "calm", "🙂"] : mins <= 40 ? ["Movido", "busy", "😅"] : ["Cargado", "hard", "🥵"];
-      return { t, i, n, mins, lvl };
+      const load = n + (i === 0 ? vencidos.length + espera.length : 0);
+      const lvl = load === 0 ? ["Libre", "free", "😌"] : load <= 2 ? ["Tranquilo", "calm", "🙂"] : load <= 5 ? ["Movido", "busy", "😅"] : ["Cargado", "hard", "🥵"];
+      return { t, i, n, lvl };
     });
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
@@ -208,11 +208,11 @@ const V = {
         ${tile("aprobacion", "✅", "Aprobar pagos", "Comprobantes por QR")}
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
         ${tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña")}</section>
-      <section class="card hm-week"><h2>😌 Mi semana <small>· tiempo estimado para atender vencimientos</small></h2>
-        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}" data-hgo="control:fecha:${w.t}">
-          <span>${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small>${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
-          <b>${w.lvl[2]}</b><em>${w.lvl[0]}</em><small>${w.n} vencen · ${w.mins} min</small></button>`).join("")}</div>
-        <p class="muted" style="margin:0">Cálculo como en tu Excel: ${MIN_REC} min por recordatorio, +${MIN_PRONTO} min por revisión y ${MIN_VENC} min por cada vencido. Tocá un día para ver quiénes vencen.</p></section>`;
+      <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
+        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
+          <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
+          <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b> vence${w.n > 1 ? "n" : ""}` : "Libre"}</span></button>`).join("")}</div>
+        <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s).</p></section>`;
   },
 
   async control() {
