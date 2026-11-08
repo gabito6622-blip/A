@@ -136,7 +136,7 @@ const V = {
   },
   async vender() {
     const [customers, products, stock] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock")]);
-    return `<section class="card"><h2>Nueva venta <small>· se asigna un perfil libre y el aviso queda listo en WhatsApp</small></h2>
+    return `<section class="card"><h2>Nueva venta <small>se asigna un perfil libre y el aviso queda listo en WhatsApp</small></h2>
       ${customers.length ? `<form class="form" id="sellForm" data-key="${newKey()}">
         <label>Cliente<select name="customerId" required>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, `${p.name} · ${bs(p.price)} · ${stock[p.id]?.available ?? 0} libres`)).join("")}</select></label>
@@ -190,8 +190,8 @@ const V = {
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
     return `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
-        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length ? ` Días libres esta semana: <b>${libres.join(", ")}</b>.` : ""}</p></div>
-      <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente, WhatsApp o correo…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
+        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
+      <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
         ${alert(hoy.length, "Vencen hoy", "today", "control:today")}
         ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold" : "control:bad")}

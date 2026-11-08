@@ -134,7 +134,8 @@
   .ptop .date{display:none}
   .ptop{flex-wrap:nowrap;gap:2px;min-width:0}
   .ptop h1{flex:1 1 auto}
-  .ptop h1{font-size:19px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
+  .ptop h1{font-size:18px;min-width:0;overflow:hidden}
+  .ptop h1 span,.ptop h1 b{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .ptop h1 svg{margin-right:6px}
   .ibtn{width:34px;height:34px;flex:none}
   .pmain{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -351,3 +352,15 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .slugin small{padding:0 0 0 10px;color:var(--muted);white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}.slugin input{border:0!important;flex:1;min-width:0}
 .ok-card{border:2px solid var(--ok)}
 .offsite{border-top:1px solid var(--line);padding-top:14px;display:grid;gap:10px}.offsite h3{margin:0;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ---- móvil cómodo (panel) ---- */
+@media (max-width:640px){
+  .hm-hero{padding:16px;gap:12px;border-radius:16px}
+  .hm-hero h2{font-size:21px}.hm-hero p{font-size:14px}.hm-hero small{font-size:12px}
+  .hm-search input{font-size:16px;padding:12px}
+  .hm-alerts{gap:8px}
+  .hm-alert{padding:11px 12px}.hm-alert b{font-size:22px}.hm-alert span{font-size:12px}
+  .hm-grid{gap:8px}
+  .hm-tile{padding:14px 6px;border-radius:14px}.hm-tile small{display:block;font-size:11px}.hm-ic{font-size:26px}
+  .hm-week h2{font-size:14px}.hm-week h2 small{display:none}
+}
