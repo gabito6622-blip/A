@@ -102,6 +102,8 @@ export function createStore(opts: EngineOptions = {}) {
       update: bind(e, rshop.updateMyShop),
       setImage: bind(e, rshop.setMyShopImage),
       setBlocked: bind(e, rshop.setShopBlocked),
+      setPage: bind(e, rshop.setResellerPage),
+      pageAllowedFor: (customerId: string) => rshop.pageAllowed(e, e.s.customers[customerId]),
       list: bind(e, rshop.listShops),
       setupFor: bind(e, rshop.setupShopFor),
       chargeRents: bind(e, rshop.chargeShopRents),

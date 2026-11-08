@@ -432,7 +432,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -478,6 +478,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
   route("POST", "/api/admin/testimonials", "staff", (c) => store.shops.setTestimonials(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
+  route("POST", "/api/admin/customers/:id/reseller-page", "staff", (c) => store.shops.setPage(A(c), c.params.id, !!c.body?.allowed));
   route("PUT", "/api/me/prices", "customer", (c) => store.portal.setPrices(c.actor!, c.body?.prices ?? {}));
 
   route("POST", "/api/orders", "customer", (c) =>
@@ -591,10 +592,10 @@ export function createApp(cfg: AppConfig): App {
   });
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
     const r = store.shops.approve(A(c), c.params.id);
-    const shop = store.shops.setupFor(A(c), r.customerId, { enabled: true });
+    // Por defecto entra con plan "solo panel"; si pedís la página, se la habilitás después.
     const pin = randomPin();
     setLoginPin(r.customerId, pin);
-    return { ...r, slug: shop.slug, pin };
+    return { ...r, pin };
   });
   route("POST", "/api/admin/reseller-apps/:id/reject", "staff", (c) => (store.shops.reject(A(c), c.params.id), { ok: true }));
   const applyLimiter = new RateLimiter(3, 60 * 60_000, now);

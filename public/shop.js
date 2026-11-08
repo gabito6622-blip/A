@@ -317,8 +317,10 @@ function render() {
     })(),
     tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : (() => {
-      const tab = S.data.rtab ?? "ventas";
-      const tabs = [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"]];
+      const canPage = !!S.me?.pageAllowed;
+      let tab = S.data.rtab ?? "ventas";
+      if (!canPage && tab !== "ventas") tab = "ventas";
+      const tabs = canPage ? [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"]] : [["ventas", "Clientes y ventas"]];
       return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : resellerView()}`;
     })(),
   };
@@ -443,11 +445,12 @@ function resellerHome() {
   const venc = sv.filter((a) => a.daysLeft < 0).length, week = sv.filter((a) => a.daysLeft >= 0 && a.daysLeft <= 7).length;
   const pend = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review").length;
   const rent = sh?.rent;
+  const canPage = !!me.pageAllowed;
   const tiles = [
     ["precios", "🛒", "Comprar", "Cuentas al instante"],
     ["cuentas", "📺", "Mis cuentas", sv.length ? `${sv.length} activas` : "Tus accesos"],
     ["codigos", "🔑", "Códigos", "Disney y más"],
-    ["pagina", "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"],
+    ...(canPage ? [["pagina", "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"]] : []),
     ["recargas", "💰", "Recargar saldo", bs(me.balance)],
     ["clientes", "👥", "Mis clientes", "Ventas y vencimientos"],
   ];
@@ -461,7 +464,7 @@ function resellerHome() {
   }
   return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></section>
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
-    ${sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
+    ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás siempre con tu número y tu PIN de 4 números.</p>

@@ -160,6 +160,24 @@ function me(e: Engine, actor: Actor): Customer {
   return c;
 }
 
+/** ¿Este revendedor puede tener su página propia (plan premium)? Los que ya tenían página siguen habilitados. */
+export function pageAllowed(e: Engine, c: Customer): boolean {
+  return c.pageAllowed ?? !!c.shop;
+}
+
+/** El dueño prende o apaga el plan "página propia" de un revendedor. Al apagarlo, su página deja de verse. */
+export function setResellerPage(e: Engine, actor: Actor, customerId: Id, allowed: boolean) {
+  authorize(actor, "customer.manage");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
+    c.pageAllowed = !!allowed;
+    if (!allowed && c.shop) c.shop.enabled = false;
+    e.audit(actor, allowed ? "reseller.page_enable" : "reseller.page_disable", "customer", c.id, {});
+    return { pageAllowed: !!allowed };
+  });
+}
+
 function defaults(e: Engine, c: Customer): ResellerShop {
   let base = slugify(c.name) || "tienda";
   if (base.length < 3 || RESERVED.has(base)) base = `tienda-${base}`.slice(0, 30);
@@ -178,11 +196,13 @@ function defaults(e: Engine, c: Customer): ResellerShop {
 export function myShop(e: Engine, actor: Actor) {
   const c = me(e, actor);
   const s = c.shop ?? defaults(e, c);
-  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, allowed: e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30 };
+  const canPage = pageAllowed(e, c);
+  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, pageAllowed: canPage, allowed: canPage && e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30 };
 }
 
 export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unknown>) {
   const c = me(e, actor);
+  if (!pageAllowed(e, c)) throw new DomainError("FORBIDDEN", "Tu plan es solo panel: la tienda todavía no te habilitó tu página propia.");
   applyShop(e, actor, c, patch);
   return myShop(e, actor);
 }
@@ -192,6 +212,7 @@ export function setupShopFor(e: Engine, actor: Actor, customerId: Id, patch: Rec
   authorize(actor, "customer.manage");
   const c = e.get("customers", customerId);
   if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
+  if (c.pageAllowed !== true) c.pageAllowed = true; // el dueño le está armando/habilitando la página
   const allowed = Object.fromEntries(Object.entries(patch).filter(([k]) => ["slug", "title", "whatsapp", "enabled"].includes(k)));
   applyShop(e, actor, c, allowed);
   const s = e.s.customers[customerId].shop!;
@@ -208,6 +229,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
       codeLink: !!c.codeLink, services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
+      pageAllowed: pageAllowed(e, c),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
@@ -329,7 +351,7 @@ export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked:
 
 function findBySlug(e: Engine, slug: string): Customer | undefined {
   const c = Object.values(e.s.customers).find((x) => x.shop?.slug === String(slug).toLowerCase());
-  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || e.s.settings.resellerShops === false) return undefined;
+  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || !pageAllowed(e, c) || e.s.settings.resellerShops === false) return undefined;
   return c;
 }
 
@@ -338,7 +360,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   let c = findBySlug(e, slug);
   if (!c && viewer?.role === "reseller") {
     const own = viewer.customerId ? e.s.customers[viewer.customerId] : undefined;
-    if (own?.shop?.slug === String(slug).toLowerCase() && !own.shop.blocked) c = own;
+    if (own?.shop?.slug === String(slug).toLowerCase() && !own.shop.blocked && pageAllowed(e, own)) c = own;
   }
   if (!c) throw new DomainError("NOT_FOUND", "Esta página no existe o no está publicada");
   const s = c.shop!;

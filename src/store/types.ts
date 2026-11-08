@@ -215,6 +215,8 @@ export interface Customer {
   resellerNote?: string;
   /** Precios a los que el revendedor le vende a sus clientes (en centavos), para calcular su ganancia. */
   resellerPrices?: Record<Id, Cents>;
+  /** Plan del revendedor: si `true`, puede tener su página propia (premium). Sin definir = según si ya tiene página. */
+  pageAllowed?: boolean;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
 }

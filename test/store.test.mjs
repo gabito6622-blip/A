@@ -36,6 +36,7 @@ function setup(opts = {}) {
   const maria = s.catalog.createCustomer(seller, { name: "María Quispe", phone: "+591 70011223", whatsappConsent: true });
   const luis = s.catalog.createCustomer(seller, { name: "Luis Choque", phone: "+591 78889900" });
   const carla = s.catalog.createCustomer(admin, { name: "Carla Vargas", phone: "+591 69990011", kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true });
+  s.shops.setPage(owner, carla.id, true); // Carla tiene el plan "página" (premium) habilitado.
   const as = (c) => ({ id: "u_" + c.id, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id });
   return { s, clock, acc1, acc2, maria, luis, carla, as };
 }
@@ -887,6 +888,25 @@ describe("12. Revendedor y apariencia", () => {
 });
 
 describe("13. Página propia del revendedor", () => {
+  test("plan: sin página habilitada es solo panel; el dueño la habilita y la quita", () => {
+    const { s } = setup();
+    const nuevo = s.catalog.createCustomer(admin, { name: "Nuevo Rev", phone: "+591 71234567", kind: "reseller", priceGroupId: "revendedor" });
+    const r = as => ({ id: "u_" + nuevo.id, role: "reseller", customerId: nuevo.id });
+    // Por defecto: no puede armar su página (plan solo panel).
+    assert.equal(s.shops.mine(r()).pageAllowed, false);
+    assert.throws(() => s.shops.update(r(), { slug: "nuevo-tv" }), err("FORBIDDEN"));
+    assert.throws(() => s.shops.setPage(r(), nuevo.id, true), err("FORBIDDEN"), "el revendedor no se habilita solo");
+    // El dueño le habilita la página (premium).
+    assert.deepEqual(s.shops.setPage(owner, nuevo.id, true), { pageAllowed: true });
+    assert.equal(s.shops.mine(r()).pageAllowed, true);
+    s.shops.update(r(), { slug: "nuevo-tv", enabled: true });
+    assert.equal(s.shops.public("nuevo-tv").slug, "nuevo-tv");
+    // El dueño le quita la página: deja de verse (vuelve a solo panel), el panel sigue.
+    s.shops.setPage(owner, nuevo.id, false);
+    assert.throws(() => s.shops.public("nuevo-tv"), err("NOT_FOUND"));
+    assert.throws(() => s.shops.update(r(), { title: "x" }), err("FORBIDDEN"));
+  });
+
   test("arranca con valores iniciales, se personaliza y valida todo", () => {
     const { s, carla, as } = setup();
     const r = as(carla);
@@ -909,6 +929,7 @@ describe("13. Página propia del revendedor", () => {
     assert.throws(() => s.shops.update(owner, { title: "x" }), err("FORBIDDEN"));
     s.shops.update(as(carla), { slug: "mi-tienda" });
     const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 71110000", kind: "reseller", priceGroupId: "revendedor" });
+    s.shops.setPage(owner, otro.id, true);
     assert.throws(() => s.shops.update(as(otro), { slug: "mi-tienda" }), err("VALIDATION"));
   });
 
@@ -992,6 +1013,7 @@ describe("15. Opiniones y tiendas destacadas", () => {
   test("destacadas: van primero en el directorio", () => {
     const { s, carla, as } = setup();
     const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 71110000", kind: "reseller", priceGroupId: "revendedor" });
+    s.shops.setPage(owner, otro.id, true);
     s.shops.update(as(carla), { slug: "carla-tv", enabled: true });
     s.shops.update(as(otro), { slug: "otro-tv", enabled: true });
     s.shops.setFeatured(admin, otro.id, true);

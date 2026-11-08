@@ -36,10 +36,13 @@ const dateInput = (t) => new Date(t).toISOString().slice(0, 10);
 /** Link de acceso + página + mensaje de WhatsApp para un revendedor. */
 async function resellerKit(id, name, phone, slug, pinIn) {
   const pin = pinIn ?? (await api("POST", `/api/admin/customers/${id}/login-pin`, {})).pin;
-  const page = `${location.origin}/r/${slug}`;
   const plat = P.settings?.platformName || "GaboHub";
-  const msg = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, ves tus cuentas y códigos, y armás tu página en 3 pasos.\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
-  return { name, phone, url: `${location.origin}/`, page, msg, pin };
+  const page = slug ? `${location.origin}/r/${slug}` : "";
+  const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
+  const msg = page
+    ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
+    : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
+  return { name, phone, url: `${location.origin}/`, page: page || "Solo panel (sin página)", msg, pin };
 }
 
 const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, address: f.address.value.trim(), host: f.host?.value.trim(), port: f.port?.value, user: f.user?.value.trim() || undefined,
@@ -660,13 +663,16 @@ const V = {
       <div class="rgrid">${pending.map((a) => `<div class="rcard"><div class="rtop"><span class="ravatar">${esc(a.name[0] ?? "?")}</span><div><b>${esc(a.name)}</b><small class="muted">${esc(a.phone)} · ${fdt(a.createdAt)}</small></div></div>
         ${a.note ? `<p class="muted" style="margin:0">“${esc(a.note)}”</p>` : ""}${a.existingCustomer ? `<small class="muted">Ya es tu cliente: se pasa a revendedor.</small>` : ""}
         <div class="inline"><button class="pbtn sm green" type="button" data-appok="${esc(a.id)}">✅ Aprobar y mandar acceso</button><a class="pbtn sm" href="${waLink(a.phone, `Hola ${a.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a><button class="pbtn sm" type="button" data-appno="${esc(a.id)}">Rechazar</button></div></div>`).join("")}</div></section>` : ""}
-    <section class="card"><h2>${icon("userplus")}Nuevo revendedor <small>queda con su panel en ${esc(set.platformName || "GaboHub")} y su página propia</small></h2>
+    <section class="card"><h2>${icon("userplus")}Nuevo revendedor <small>entra a su panel en ${esc(set.platformName || "GaboHub")}; la página se la activás cuando quieras</small></h2>
       <form class="form" id="resForm">
         <label>Nombre<input name="name" required maxlength="80" placeholder="Ej.: Ari Streaming" data-slugsrc="1"></label>
         <label>WhatsApp (con código de país)<input name="phone" required inputmode="tel" placeholder="59170000000"></label>
-        <label>Dirección de su página<span class="slugin"><small>…/r/</small><input name="slug" maxlength="30" placeholder="ari-streaming" pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]"></span></label>
-        <label>Nombre de su página<input name="title" maxlength="40" placeholder="Ari Streaming"></label>
-        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="publish" checked> Publicar su página ya (después él la personaliza con su logo y colores)</label>
+        <label style="grid-column:1/-1">Plan<select name="plan" id="resPlan">${opt("panel", "Solo panel (comprar, cuentas, códigos, clientes, saldo)", true)}${opt("page", "Con página propia (premium): panel + su tienda /r/…", false)}</select></label>
+        <div id="resPageFields" hidden style="display:contents">
+          <label>Dirección de su página<span class="slugin"><small>…/r/</small><input name="slug" maxlength="30" placeholder="ari-streaming" pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]"></span></label>
+          <label>Nombre de su página<input name="title" maxlength="40" placeholder="Ari Streaming"></label>
+          <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="publish" checked> Publicar su página ya (después él la personaliza con su logo y colores)</label>
+        </div>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" checked> Acepta recibir avisos por WhatsApp</label>
         <button class="pbtn dark" type="submit">${icon("plus")}Crear revendedor</button>
       </form></section>
@@ -677,15 +683,18 @@ const V = {
       <div class="inline"><a class="pbtn green" href="${waLink(sent.phone, sent.msg)}" target="_blank" rel="noopener">${icon("wa")}Mandarle todo por WhatsApp</a><button class="pbtn" type="button" data-tab="rlink:">Cerrar</button></div></section>` : ""}
     <section class="card"><h2>Tus revendedores <small>${list.length}</small><input class="rsearch" id="rq" placeholder="Buscar" value="${esc(T.rq ?? "")}" style="margin-left:auto;max-width:220px"></h2>
       ${shown.length ? `<div class="rgrid">${shown.map((r) => `<div class="rcard">
-        <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
-        ${rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
+        <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
+        ${r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
         <div class="rstats"><div><span>Saldo</span><b>${bs(r.balance)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div></div>
-        <div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>
+        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           <button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}">${icon("wa")}Nuevo PIN y acceso</button>
-          <button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
-          <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔐 Link de códigos${r.codeLink ? " ✓" : ""}</button>
-          <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
+          ${r.pageAllowed
+            ? `<button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
+               <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
+               <button class="pbtn sm" type="button" data-rpage="${esc(r.id)}" data-on="">Quitar página</button>`
+            : `<button class="pbtn sm green" type="button" data-rpage="${esc(r.id)}" data-on="1">✦ Habilitar página</button>`}
+          <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔗 Link de códigos${r.codeLink ? " ✓" : ""}</button>
           ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
         </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
       <p class="muted" style="margin:0">Ellos entran a ${esc(set.platformName || "GaboHub")} con su <b>número y PIN</b> y ven: Precios para comprar con saldo o QR, Mis cuentas, Mis clientes y Mi página para ponerle logo, colores y sus precios. Los precios de revendedor los ponés en Productos → “Precio revendedor” o con “Solo revendedores”.</p></section>
@@ -1204,8 +1213,14 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.rsend) {
     const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rsend);
-    try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.shop.slug); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
+    try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
     return;
+  }
+  if (d.rpage !== undefined && el.dataset.rpage) {
+    const on = !!d.on;
+    if (!on && !confirm("¿Quitar la página de este revendedor? Deja de verse su tienda pública; su panel sigue igual. Podés volver a habilitarla cuando quiera.")) return;
+    try { await api("POST", `/api/admin/customers/${d.rpage}/reseller-page`, { allowed: on }); toast(on ? "✦ Página habilitada (premium)" : "Página quitada: queda en plan panel"); } catch (e) { toast(e.message); }
+    return render();
   }
   if (d.rpub !== undefined && el.dataset.rpub) {
     try { await api("POST", `/api/admin/customers/${d.rpub}/shop`, { enabled: !!d.on }); toast(d.on ? "Página publicada" : "Página apagada"); } catch (e) { toast(e.message); }
@@ -1379,6 +1394,7 @@ document.addEventListener("change", async (ev) => {
   if (t.name === "productId" && t.form?.id === "quickForm") { const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${n} perfiles libres)`; return; }
   if (t.name === "n" && t.form?.id === "quickForm") { const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${Math.max(1, +t.value || 1)} perfiles libres)`; return; }
   if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
+  if (t.id === "resPlan") { const box = document.getElementById("resPageFields"); if (box) box.hidden = t.value !== "page"; return; }
   if (t.classList?.contains("csel")) {
     $$(`.csel[value="${t.value}"]`).forEach((c) => (c.checked = t.checked));
     return updateCtlBar();
@@ -1622,9 +1638,13 @@ document.addEventListener("submit", async (ev) => {
       const btn = f.querySelector("[type=submit]"); btn.disabled = true;
       try {
         const c = await api("POST", "/api/admin/customers", { name: f.name.value.trim(), phone: f.phone.value, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: f.consent.checked });
-        const shop = await api("POST", `/api/admin/customers/${c.id}/shop`, { ...(f.slug.value.trim() ? { slug: f.slug.value.trim().toLowerCase() } : {}), title: (f.title.value.trim() || f.name.value.trim()).slice(0, 40), enabled: f.publish.checked });
-        P.tab.rlink = await resellerKit(c.id, c.name, c.phone, shop.slug);
-        toast("Revendedor creado");
+        let slug;
+        if (f.plan.value === "page") {
+          const shop = await api("POST", `/api/admin/customers/${c.id}/shop`, { ...(f.slug.value.trim() ? { slug: f.slug.value.trim().toLowerCase() } : {}), title: (f.title.value.trim() || f.name.value.trim()).slice(0, 40), enabled: f.publish.checked });
+          slug = shop.slug;
+        }
+        P.tab.rlink = await resellerKit(c.id, c.name, c.phone, slug);
+        toast(f.plan.value === "page" ? "Revendedor creado con su página" : "Revendedor creado (solo panel)");
         await render(); scrollTo(0, 0);
       } catch (e) { toast(e.message); btn.disabled = false; }
     } else if (f.id === "bulkRes") {

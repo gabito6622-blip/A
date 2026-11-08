@@ -147,6 +147,7 @@ describe("página del revendedor por HTTP", () => {
     st.catalog.upsertProduct(sys, { id: "nf", name: "Netflix", kind: "profile", durationDays: 30, price: 3500, published: true });
     st.catalog.upsertPriceGroup(sys, { id: "rev", name: "Rev", prices: { nf: 2500 } });
     const c = st.catalog.createCustomer(sys, { name: "Rosa Rev", phone: "+59171111111", kind: "reseller", priceGroupId: "rev" });
+    st.shops.setPage(sys, c.id, true); // plan con página habilitado
     const link = await (await s.call("POST", `/api/admin/customers/${c.id}/login-link`, owner, {})).json();
     const r = await s.call("POST", "/api/auth/customer/link", "", { token: link.url.split("#acceso=")[1] });
     assert.equal(r.status, 200);
