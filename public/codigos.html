@@ -46,13 +46,31 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const KLABEL = { login: "🔓 Código de inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Código de acceso temporal", verificacion: "🛡️ Código de verificación", otro: "✉️ Código" };
 const token = location.pathname.split("/").filter(Boolean)[1];
 const KEY = "gh-pin-" + token;
-let pin = null, name = "", timer = null, q = "", last = [], minutes = 30;
+const EKEY = "gh-mail-" + token;
+let pin = null, email = null, mode = "pin", name = "", timer = null, q = "", last = [], minutes = 30;
 
 async function call(method, body) {
   const r = await fetch(`/api/code-link/${encodeURIComponent(token)}`, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(j.message || "Error"), { status: r.status });
   return j;
+}
+
+function askEmail(msg = "") {
+  clearInterval(timer);
+  $("#app").innerHTML = `<div><h1>📺 ${esc(name)}</h1><p class="muted">Escribí el correo de tu cuenta y mirá tu código al toque.</p></div>
+    <form class="card" id="fe"><label style="display:grid;gap:8px;color:var(--muted);font-weight:600;font-size:14px">Correo de tu cuenta
+      <input class="search" id="em" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="tucuenta@correo.com" value="${esc(email || "")}" required></label>
+    <p class="err" id="e">${esc(msg)}</p><button type="submit">Ver mi código</button></form>
+    <p class="muted" style="text-align:center">El código sirve solo con tu contraseña. Si no aparece, pedilo en la app y esperá unos segundos.</p>`;
+  $("#em").focus();
+  $("#fe").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const v = $("#em").value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return ($("#e").textContent = "Escribí un correo válido");
+    try { await loadEmail(v); email = v; try { sessionStorage.setItem(EKEY, v); } catch { /* */ } }
+    catch (e) { $("#e").textContent = e.message; }
+  });
 }
 
 function askPin(msg = "") {
@@ -107,17 +125,47 @@ async function load(p) {
   }, 10_000);
 }
 
+function showEmail(data) {
+  last = data.codes; minutes = data.minutes ?? minutes;
+  $("#app").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(data.name)}</h1><span class="live"><i></i>Se actualiza solo</span></div>
+    <p class="muted">Código de <b>${esc(data.email || email)}</b>. Cada uno dura ${data.minutes} minutos.</p>
+    <div class="card">${last.length ? last.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>
+      ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
+      <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
+      : `<div class="empty">📭 Todavía no hay código nuevo para ese correo.<br>Pedí el código en la app (Netflix/Disney+) y esperá unos segundos: aparece solo acá.</div>`}</div>
+    <button class="ghost" type="button" id="chg">Usar otro correo</button>`;
+}
+
+async function loadEmail(v) {
+  const data = await call("POST", { email: v });
+  email = v; showEmail(data);
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    if (document.hidden) return;
+    try { showEmail(await call("POST", { email })); } catch { /* reintenta luego */ }
+  }, 20_000);
+}
+
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("button");
   if (!b) return;
   if (b.dataset.copy) { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "¡Copiado! ✓"; } catch { b.textContent = b.dataset.copy; } setTimeout(() => (b.textContent = "Copiar código"), 1500); }
   if (b.id === "out") { try { sessionStorage.removeItem(KEY); } catch { /* */ } pin = null; askPin(); }
+  if (b.id === "chg") { try { sessionStorage.removeItem(EKEY); } catch { /* */ } email = null; clearInterval(timer); askEmail(); }
 });
 document.addEventListener("input", (ev) => { if (ev.target.id === "q") { q = ev.target.value.trim(); show({ name, codes: last, minutes }); } });
 
 (async () => {
-  try { name = (await call("GET")).name; } catch (e) { $("#app").innerHTML = `<div class="card"><h1>Link no válido</h1><p class="muted">${esc(e.message)}. Pedile el link nuevo a tu proveedor.</p></div>`; return; }
+  let info;
+  try { info = await call("GET"); name = info.name; mode = info.mode || "pin"; } catch (e) { $("#app").innerHTML = `<div class="card"><h1>Link no válido</h1><p class="muted">${esc(e.message)}. Pedile el link nuevo a tu proveedor.</p></div>`; return; }
   document.title = `Códigos · ${name}`;
+  if (mode === "email") {
+    let saved = null;
+    try { saved = sessionStorage.getItem(EKEY); } catch { /* */ }
+    if (saved) { try { await loadEmail(saved); return; } catch { /* pedir de nuevo */ } }
+    askEmail();
+    return;
+  }
   let saved = null;
   try { saved = sessionStorage.getItem(KEY); } catch { /* */ }
   if (saved) { try { await load(saved); pin = saved; return; } catch { /* pedir de nuevo */ } }

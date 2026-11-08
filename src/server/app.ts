@@ -822,44 +822,74 @@ export function createApp(cfg: AppConfig): App {
   const codeLinkUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/codigos/${token}`;
   // El PIN se guarda con scrypt (como las contraseñas), junto con el id para que no sea reutilizable entre clientes.
   const pinKey = (customerId: string, pin: string) => `codepin|${customerId}|${pin}`;
+  const linkTokenFor = (customerId: string, keepToken: boolean) => {
+    const cur = store.engine.s.customers[customerId]?.codeLink;
+    return keepToken && cur ? cur.token : newToken().slice(0, 24);
+  };
+  // Link con PIN (privado): cada cliente pone un PIN de 4 números.
   const makeCodeLink = (customerId: string, pin: unknown, actor: Actor, c: Ctx, keepToken = false) => {
     const p = String(pin ?? "").trim();
     if (!/^\d{4}$/.test(p)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
-    const cur = store.engine.s.customers[customerId]?.codeLink;
-    const token = keepToken && cur ? cur.token : newToken().slice(0, 24);
+    const token = linkTokenFor(customerId, keepToken);
     store.codes.setLink(actor, customerId, token);
     db.setSecret(`codepin:${customerId}`, hashPassword(pinKey(customerId, p)), now());
-    return { url: codeLinkUrl(token, c), pin: p };
+    return { url: codeLinkUrl(token, c), pin: p, mode: "pin" };
   };
+  // Link "escribí tu correo" (sin PIN): un solo link para todos los clientes del revendedor.
+  const makeEmailLink = (customerId: string, actor: Actor, c: Ctx, keepToken = false) => {
+    const token = linkTokenFor(customerId, keepToken);
+    store.codes.setLink(actor, customerId, token);
+    db.setSecret(`codepin:${customerId}`, null, now());
+    return { url: codeLinkUrl(token, c), mode: "email" };
+  };
+  // Con PIN si lo mandan; si no, modo correo (lo más simple).
+  const makeAnyLink = (customerId: string, actor: Actor, c: Ctx) =>
+    c.body?.pin ? makeCodeLink(customerId, c.body.pin, actor, c, !!c.body?.keepLink) : makeEmailLink(customerId, actor, c, !!c.body?.keepLink);
   route("POST", "/api/admin/customers/:id/code-link", "staff", (c) => {
     if (c.body?.off) { store.codes.setLink(A(c), c.params.id, null); db.setSecret(`codepin:${c.params.id}`, null, now()); return { ok: true }; }
-    return makeCodeLink(c.params.id, c.body?.pin, A(c), c, !!c.body?.keepLink);
+    return makeAnyLink(c.params.id, A(c), c);
   });
   route("GET", "/api/me/code-link", "customer", (c) => {
     const cl = store.engine.s.customers[c.actor!.customerId!]?.codeLink;
-    return cl ? { url: codeLinkUrl(cl.token, c) } : { url: null };
+    return cl ? { url: codeLinkUrl(cl.token, c), mode: linkMode(c.actor!.customerId!) } : { url: null };
   });
   route("POST", "/api/me/code-link", "customer", (c) => {
     if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
-    return makeCodeLink(c.actor!.customerId!, c.body?.pin, c.actor!, c, !!c.body?.keepLink);
+    if (c.body?.off) { store.codes.setLink(c.actor!, c.actor!.customerId!, null); db.setSecret(`codepin:${c.actor!.customerId!}`, null, now()); return { ok: true }; }
+    return makeAnyLink(c.actor!.customerId!, c.actor!, c);
   });
   const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
   const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
+  // Modo "escribí tu correo" (sin PIN): se limita por si prueban muchos correos distintos.
+  const emailLookupLimiter = new RateLimiter(60, 15 * 60_000, now);
+  const linkMode = (customerId: string) => (db.getSecret(`codepin:${customerId}`) ? "pin" : "email");
   route("GET", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
-    return { name: o.name };
+    return { name: o.name, mode: linkMode(o.customerId) };
   });
   route("POST", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
+    const minutes = store.engine.opts.codeVisibleMinutes;
+    // Modo correo: el cliente escribe el correo de su cuenta y ve solo ese código (sin PIN).
+    if (linkMode(o.customerId) === "email") {
+      const email = String(c.body?.email ?? "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "BAD_EMAIL", "Escribí un correo válido");
+      const kl = `${c.params.token}|${c.ip}`;
+      if (emailLookupLimiter.blocked(kl)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
+      emailLookupLimiter.take(kl);
+      const codes = store.codes.of(o.customerId).filter((x) => x.to === email);
+      return { name: o.name, email, codes, minutes };
+    }
+    // Modo PIN (links viejos o privados): verifica el PIN y muestra todos los códigos.
     const k = `${c.params.token}|${c.ip}`;
     if (pinLimiter.blocked(k) || pinTokenLimiter.blocked(c.params.token)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     if (!verifyPassword(pinKey(o.customerId, String(c.body?.pin ?? "")), db.getSecret(`codepin:${o.customerId}`))) {
       pinLimiter.take(k); pinTokenLimiter.take(c.params.token);
       throw new HttpError(401, "BAD_PIN", "PIN incorrecto");
     }
-    return { name: o.name, codes: store.codes.of(o.customerId), minutes: store.engine.opts.codeVisibleMinutes };
+    return { name: o.name, codes: store.codes.of(o.customerId), minutes };
   });
 
   // ---- Copia del respaldo fuera del servidor: se guarda como correo en una carpeta de tu Gmail ----

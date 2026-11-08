@@ -298,9 +298,10 @@ function render() {
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
     codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
-      ${isReseller() ? `<div class="sbox"><h2>🔐 Tu link de códigos</h2><p class="empty" style="margin:0">Un link con PIN para ver los códigos de Disney+ de tus cuentas sin entrar acá. Podés pasárselo a tus clientes.</p>
-        ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>` : ""}
-        <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end"><label>${S.data.codeLink?.url ? "Cambiar PIN" : "Elegí un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn pri" type="submit">${S.data.codeLink?.url ? "Cambiar" : "Crear link"}</button></form></div>` : ""}
+      ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos</h2><p class="empty" style="margin:0">Un solo link para todos tus clientes: cada uno escribe el correo de su cuenta y ve su código al toque. Sin PIN, nada que recordar.</p>
+        ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
+          <div class="rbtns"><a class="sbtn sm pri" href="${waLink("", `Mirá tu código acá 👇 Escribí el correo de tu cuenta y listo:\n${S.data.codeLink.url}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a><button class="sbtn sm" type="button" data-makecodelink="1">Cambiar link</button></div>`
+          : `<button class="sbtn pri" type="button" data-makecodelink="1" style="justify-self:start">Crear mi link de códigos</button>`}</div>` : ""}
       <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small></div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, tocá Actualizar en unos segundos.</p>`}</div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
@@ -979,6 +980,12 @@ document.addEventListener("click", async (ev) => {
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.apply) return openApply();
+  if (d.makecodelink) {
+    el.disabled = true;
+    try { const k = await api("POST", "/api/me/code-link", { keepLink: true }); S.data.codeLink = { url: k.url }; toast("Tu link quedó listo"); render(); }
+    catch (e) { el.disabled = false; toast(e.message); }
+    return;
+  }
   if (d.pwd) {
     const h = await api("GET", "/api/me/has-password").catch(() => ({ hasPassword: false }));
     $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${h.hasPassword ? "Cambiar mi contraseña" : "Crear mi contraseña"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
@@ -1150,12 +1157,6 @@ document.addEventListener("submit", async (ev) => {
       S.data.wiz.step = 3;
       render(); scrollTo(0, 0);
       return;
-    } else if (f.id === "codePin") {
-      const k = await api("POST", "/api/me/code-link", { pin: f.pin.value.trim(), keepLink: true });
-      S.data.codeLink = { url: k.url };
-      try { await navigator.clipboard.writeText(`${k.url}\nPIN: ${k.pin}`); } catch { /* sin portapapeles */ }
-      toast("Listo: link y PIN copiados");
-      render();
     } else if (f.id === "topup") {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });

@@ -1194,12 +1194,10 @@ document.addEventListener("click", async (ev) => {
   if (d.sendpreset) { const f = $("#mbForm"); if (f) f.senders.value = d.sendpreset; return; }
   if (d.rcode) {
     const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rcode);
-    const pin = prompt(`PIN de 4 números para el link de códigos de ${r.name}${r.codeLink ? "\n(Si ya tenía link, sigue siendo el mismo; solo cambia el PIN)" : ""}:`, String(Math.floor(1000 + Math.random() * 9000)));
-    if (!pin) return;
     try {
-      const k = await api("POST", `/api/admin/customers/${r.id}/code-link`, { pin: pin.trim(), keepLink: true });
-      const msg = `🔐 ${r.name.split(" ")[0]}, este es tu link para ver los códigos de Disney+ de tus cuentas:\n${k.url}\n\nPIN: ${k.pin}\n\nCuando Disney pida un código, abrí el link y aparece solo en segundos. Podés pasárselo a tus clientes con el PIN.`;
-      P.tab.rlink = { name: r.name, phone: r.phone, url: k.url, page: `PIN: ${k.pin}`, msg, code: true };
+      const k = await api("POST", `/api/admin/customers/${r.id}/code-link`, { keepLink: true });
+      const msg = `🔗 ${r.name.split(" ")[0]}, este es tu link para ver los códigos de tus cuentas:\n${k.url}\n\nTus clientes solo escriben el correo de su cuenta y ven su código al toque (sin PIN). Pasáselo a cada cliente.`;
+      P.tab.rlink = { name: r.name, phone: r.phone, url: k.url, page: "Sin PIN: cada cliente escribe su correo", msg, code: true };
       await render(); scrollTo(0, 0);
     } catch (e) { toast(e.message); }
     return;

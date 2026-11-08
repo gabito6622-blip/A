@@ -194,6 +194,20 @@ describe("Panel de códigos", () => {
       assert.equal(page.status, 200);
       assert.match(await page.text(), /PIN de 4 números/, "sirve la página del link");
 
+      // Link "escribí tu correo" (sin PIN) para Beto: el cliente pone su correo y ve solo ese código.
+      const elk = await call(`/api/admin/customers/${beto.id}/code-link`, {});
+      assert.equal(elk.status, 200, JSON.stringify(elk.body));
+      assert.equal(elk.body.mode, "email", "sin PIN => modo correo");
+      const etoken = elk.body.url.split("/codigos/")[1];
+      assert.equal((await fetch(`${base}/api/code-link/${etoken}`).then((r) => r.json())).mode, "email");
+      const byEmail = (em) => fetch(`${base}/api/code-link/${etoken}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
+      const mine = await byEmail("nf01@gabo.lat");
+      assert.equal(mine.status, 200);
+      assert.ok(mine.body.codes.length >= 1 && mine.body.codes.every((c) => c.to === "nf01@gabo.lat"), "solo el código de ese correo");
+      const foreign = await byEmail("disney01@hotmail.com");
+      assert.equal(foreign.body.codes.length, 0, "no muestra cuentas que no son de este revendedor/cliente");
+      assert.equal((await byEmail("no-es-correo")).status, 400, "pide un correo válido");
+
       // Copia del respaldo en el Gmail (carpeta "Respaldos GaboHub").
       const cfgOff = await call("/api/admin/offsite", { enabled: true, mailboxId: box.body.id });
       assert.equal(cfgOff.status, 200);
