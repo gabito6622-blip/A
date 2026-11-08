@@ -876,12 +876,15 @@ async function afterLogin() {
 async function useAccessLink() {
   const m = location.hash.match(/^#acceso=([\w-]+)$/);
   if (!m) return;
-  history.replaceState(null, "", location.pathname + "#cuentas");
+  history.replaceState(null, "", location.pathname + (MODE === "hub" ? "#inicio" : "#cuentas"));
   try {
     const r = await api("POST", "/api/auth/customer/link", { token: m[1] });
     toast(`¡Hola, ${r.name.split(" ")[0]}! Ya entraste.`);
-  } catch (e) {
-    toast(e.message);
+  } catch {
+    // Links viejos (vencidos o ya usados): si ya tiene sesión no pasa nada; si no, que entre con número + PIN.
+    const me = await api("GET", "/api/me").catch(() => null);
+    if (me?.loggedIn) return;
+    S.linkExpired = true;
   }
 }
 
@@ -1134,7 +1137,7 @@ window.addEventListener("message", (ev) => {
   render();
 });
 
-window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
+window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 (async () => {
   if (SLUG) {
@@ -1149,8 +1152,10 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
   const h = location.hash.slice(1);
   S.view = VIEWS.includes(h) ? h : path === "/tiendas" ? "tiendas" : "inicio";
   await refresh();
-  // El revendedor que entra a la plataforma va directo a su panel.
-  if (MODE === "hub" && isReseller() && S.view === "inicio" && path !== "/revendedores") setView("cuentas");
+  if (S.linkExpired) {
+    S.linkExpired = false;
+    openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a la tienda.</div>`);
+  }
 })();
 
 document.addEventListener("change", (ev) => {

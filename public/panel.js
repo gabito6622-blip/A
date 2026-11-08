@@ -417,9 +417,11 @@ const V = {
     const ledger = P.tab.ledger ? await api("GET", `/api/admin/customers/${P.tab.ledger}/ledger`) : null;
     const lc = list.find((c) => c.id === P.tab.ledger);
     const ec = list.find((c) => c.id === P.tab.editCus) ?? (P.tab.editCus ? (await api("GET", "/api/admin/customers")).find((c) => c.id === P.tab.editCus) : null);
-    return `${link ? `<section class="card"><h2>Link de acceso para ${esc(link.name)}</h2><div class="linkbar"><b>${esc(link.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(link.url)}">${icon("copy")}Copiar</button>
-        <a class="pbtn sm green" href="${waLink(link.phone, `Hola ${link.name.split(" ")[0]}, este es tu link para entrar a ${P.settings.storeName} y ver tus servicios: ${link.url}\n(Es personal y sirve una sola vez, por 24 horas.)`)}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a></div>
-        <p class="muted" style="margin:0">Sirve una sola vez y vence en 24 horas. No lo compartas con otra persona.</p></section>` : ""}
+    return `${link ? `<section class="card ok-card"><h2>🔑 Acceso para ${esc(link.name)}</h2>
+        <div class="linkbar"><span class="muted">Entra en</span><b>${esc(link.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(link.url)}">${icon("copy")}Copiar</button></div>
+        <div class="linkbar"><span class="muted">Con su número y PIN</span><b>${esc(link.phone)} · PIN ${esc(link.pin)}</b><button class="pbtn sm" type="button" data-copy="${esc(link.pin)}">${icon("copy")}Copiar PIN</button></div>
+        <div class="inline"><a class="pbtn green" href="${waLink(link.phone, `Hola ${link.name.split(" ")[0]} 👋 para entrar a ${P.settings.storeName} y ver tus servicios:\n👉 ${link.url}\n📱 Tu número: ${link.phone}\n🔑 Tu PIN: ${link.pin}\n(Guardalo; lo podés cambiar adentro.)`)}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a><button class="pbtn" type="button" data-tab="link:">Cerrar</button></div>
+        <p class="muted" style="margin:0">El PIN no vence. Si lo pierde, tocá de nuevo el botón y se genera uno nuevo (el anterior deja de servir).</p></section>` : ""}
       ${ledger ? `<section class="card"><h2>Saldo de ${esc(lc?.name)} · ${bs(lc?.balance ?? 0)} <button class="pbtn sm" type="button" data-ledger="">Cerrar</button></h2>${table(["Fecha", "Tipo", "Referencia", "Monto", "Saldo"], ledger.slice().reverse().map((m) => `<tr><td>${fdt(m.at)}</td><td>${esc(m.type)}</td><td>${esc(m.ref)}${m.note ? `<br><small class="muted">${esc(m.note)}</small>` : ""}</td><td class="${m.amount < 0 ? "down" : "up"}">${bs(m.amount)}</td><td>${bs(m.balanceAfter)}</td></tr>`), "Sin movimientos.")}
         ${isOwner() ? `<form class="inline" id="adjForm" data-id="${esc(P.tab.ledger)}"><input name="amount" inputmode="decimal" placeholder="Monto Bs (negativo para descontar)" required><input name="reason" placeholder="Motivo" required><button class="pbtn dark sm" type="submit">Ajustar saldo</button></form>` : ""}</section>` : ""}
       ${ec ? `<section class="card"><h2>Editar ${esc(ec.name)} <button class="pbtn sm" type="button" data-editcus="">Cerrar</button></h2><form class="form" id="editCusForm" data-id="${esc(ec.id)}">
@@ -436,7 +438,7 @@ const V = {
         <button class="pbtn sm" type="button" data-bulkkind="selc">Marcados → Cliente</button></div>` : ""}
       ${table([canReview() ? "<input type=checkbox id=cusAll aria-label='Marcar todos'>" : "", "Nombre", "WhatsApp", "Tipo", "Servicios", "Saldo", "Avisos", "Acciones"], list.map((c) => `<tr><td>${canReview() ? `<input type="checkbox" class="cussel" value="${esc(c.id)}" aria-label="Marcar ${esc(c.name)}">` : ""}</td><td>${esc(c.name)}${c.notes ? `<br><small class="muted">📝 ${esc(c.notes)}</small>` : ""}</td><td><a href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${esc(c.phone)}</a></td>
         <td>${c.kind === "reseller" ? pill("Revendedor", "warn") : "Cliente"}</td><td>${c.activeServices}</td><td>${bs(c.balance)}</td><td>${c.whatsappConsent ? pill("Sí", "ok") : pill("No", "mute")}</td>
-        <td><div class="acts"><button class="pbtn sm" type="button" data-link="${esc(c.id)}">${icon("link")}Link de acceso</button><button class="pbtn sm" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><button class="pbtn sm" type="button" data-editcus="${esc(c.id)}">${icon("edit")}Editar</button></div></td></tr>`), q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes.")}</section>`;
+        <td><div class="acts"><button class="pbtn sm" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn sm" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><button class="pbtn sm" type="button" data-editcus="${esc(c.id)}">${icon("edit")}Editar</button></div></td></tr>`), q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes.")}</section>`;
   },
 
   async excel() {
@@ -1139,10 +1141,10 @@ document.addEventListener("click", async (ev) => {
   if (d.ledger !== undefined) { P.tab.ledger = d.ledger || null; await render(); return scrollTo(0, 0); }
   if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Copiado"); } catch { toast("Copialo a mano"); } return; }
   if (d.link) {
-    const r = await act(() => api("POST", `/api/admin/customers/${d.link}/login-link`, {}));
+    const r = await act(() => api("POST", `/api/admin/customers/${d.link}/login-pin`, {}));
     if (r) {
       const c = (await api("GET", "/api/admin/customers")).find((x) => x.id === d.link);
-      P.tab.link = { url: r.url, name: c.name, phone: c.phone };
+      P.tab.link = { url: `${location.origin}${c.kind === "reseller" ? "/" : "/tienda/"}`, name: c.name, phone: c.phone, pin: r.pin };
       await render(); scrollTo(0, 0);
     }
     return;
