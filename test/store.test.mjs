@@ -376,6 +376,49 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.stats.summary(seller, { from: 0, to: 1 }), err("FORBIDDEN"));
   });
 
+  test("alquiler mensual de la página: cobra del saldo, gratis por compras, se apaga sin pago y se prende al pagar", () => {
+    const { s, clock, carla, as } = setup();
+    s.shops.setupFor(admin, carla.id, { slug: "carla", enabled: true });
+    assert.equal(s.shops.chargeRents(system).started, 0, "apagado: no cobra");
+    s.catalog.updateSettings(owner, { shopRent: { enabled: true, price: 3000, freeIfSpent: 0, graceDays: 2 } });
+    assert.equal(s.shops.chargeRents(system).started, 1, "arranca con días de gracia");
+    clock.t += 3 * DAY;
+    assert.equal(s.shops.chargeRents(system).suspended, 1, "sin saldo y pasó la gracia: se apaga");
+    assert.throws(() => s.shops.public("carla"), err("NOT_FOUND"));
+    assert.throws(() => s.shops.payRent(as(carla)), err("INSUFFICIENT_BALANCE"));
+    s.wallet.adjust(owner, carla.id, 5000, "recarga");
+    const info = s.shops.payRent(as(carla));
+    assert.equal(info.suspended, false);
+    assert.equal(s.wallet.balance(carla.id), 2000);
+    assert.equal(s.shops.public("carla").slug, "carla", "se prende al pagar");
+    clock.t += 31 * DAY;
+    assert.equal(s.shops.chargeRents(system).charged, 0, "sin saldo suficiente no cobra");
+    s.catalog.updateSettings(owner, { shopRent: { enabled: true, price: 3000, freeIfSpent: 1000, graceDays: 2 } });
+    s.inventory.addAccount(admin, { productId: "gemini", supplierId: "andes", email: "gm9@x.com", password: "Gm-Clave#9", supplierExpiresAt: clock.t + 90 * DAY, cost: 1000, profiles: [{ label: "Inv" }] });
+    s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "gemini", qty: 1 }], paymentMethod: "balance" });
+    assert.equal(s.shops.chargeRents(system).free, 1, "compró lo suficiente: mes gratis");
+  });
+
+  test("solicitudes para ser revendedor: se anotan solos y se aprueban con un toque", () => {
+    const { s, maria } = setup();
+    assert.deepEqual(s.shops.apply({ name: "Pepe", phone: "+591 71112222", note: "vendo hace 1 año" }), { ok: true });
+    assert.equal(s.shops.apply({ name: "Pepe", phone: "+59171112222" }).already, "pending");
+    assert.throws(() => s.shops.apply({ name: "", phone: "1" }), err("VALIDATION"));
+    s.shops.apply({ name: "María", phone: maria.phone });
+    const apps = s.shops.apps(admin);
+    assert.equal(apps.length, 2);
+    const pepe = apps.find((a) => a.name === "Pepe");
+    const r = s.shops.approve(admin, pepe.id);
+    assert.equal(s.catalog.findCustomerByPhone("71112222").kind, "reseller", "acepta el número sin código de país");
+    assert.throws(() => s.shops.approve(admin, pepe.id), err("INVALID_STATE"));
+    const mApp = s.shops.apps(admin).find((a) => a.name === "María");
+    assert.equal(mApp.existingCustomer, true);
+    s.shops.approve(admin, mApp.id);
+    assert.equal(s.catalog.findCustomerByPhone(maria.phone).kind, "reseller", "el cliente existente pasa a revendedor");
+    assert.equal(s.shops.apply({ name: "Pepe", phone: "+59171112222" }).already, "reseller");
+    assert.ok(r.customerId);
+  });
+
   test("el dueño crea la página del revendedor desde el panel; el revendedor ve sus precios especiales", () => {
     const { s, carla, maria } = setup();
     const r = s.shops.setupFor(admin, carla.id, { slug: "carla-store", title: "Carla Store", enabled: true, accentColor: "#000000" });

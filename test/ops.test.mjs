@@ -254,3 +254,27 @@ describe("contraseñas de cuentas cifradas en la base", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe("entrar con número y PIN (sin bot de WhatsApp)", () => {
+  test("el dueño da un PIN, el revendedor entra con su número (con o sin +591), lo cambia, y se bloquea si prueban de más", async () => {
+    const s = await start();
+    try {
+      const own = await s.login("gabriel", PASS);
+      const c = await (await s.call("POST", "/api/admin/customers", own, { name: "Ari", phone: "+591 70001234", kind: "reseller", priceGroupId: "revendedor" })).json();
+      const { pin } = await (await s.call("POST", `/api/admin/customers/${c.id}/login-pin`, own, {})).json();
+      assert.match(pin, /^\d{4}$/);
+      const bad = await s.call("POST", "/api/auth/customer/pin", "", { phone: "70001234", pin: pin === "0000" ? "1111" : "0000" });
+      assert.equal(bad.status, 401);
+      const ok = await s.call("POST", "/api/auth/customer/pin", "", { phone: "70001234", pin });
+      assert.equal(ok.status, 200);
+      const ck = ok.headers.get("set-cookie").split(";")[0];
+      const me = await (await s.call("GET", "/api/me", ck)).json();
+      assert.equal(me.name, "Ari");
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "9999", pin: "4321" })).status, 401, "pide el PIN actual");
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: pin, pin: "4321" })).status, 200);
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 200);
+      for (let i = 0; i < 5; i++) await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "0001" });
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 429);
+    } finally { await s.stop(); }
+  });
+});

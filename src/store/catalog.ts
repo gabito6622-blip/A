@@ -52,13 +52,21 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.whatsapp !== undefined && !/^\d{7,15}$/.test(patch.whatsapp)) throw new DomainError("VALIDATION", "WhatsApp: solo números con código de país, p. ej. 59170000000");
   if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
   if (patch.platformName !== undefined && (!String(patch.platformName).trim() || String(patch.platformName).length > 40)) throw new DomainError("VALIDATION", "Nombre de la plataforma: de 1 a 40 letras");
+  if (patch.shopRent !== undefined) {
+    const r = patch.shopRent as unknown as Record<string, unknown>;
+    const ok = r && typeof r === "object" && Number.isInteger(r.price) && (r.price as number) >= 0 && (r.price as number) <= 1_000_000
+      && Number.isInteger(r.freeIfSpent) && (r.freeIfSpent as number) >= 0 && Number.isInteger(r.graceDays) && (r.graceDays as number) >= 0 && (r.graceDays as number) <= 30;
+    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras y días de gracia)");
+    patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number };
+  }
+  if (patch.resellerMarginPct !== undefined && !(Number.isInteger(patch.resellerMarginPct) && patch.resellerMarginPct >= 0 && patch.resellerMarginPct <= 300)) throw new DomainError("VALIDATION", "Ganancia sugerida: de 0 a 300 %");
   if (patch.comboDiscounts !== undefined) {
     const d = patch.comboDiscounts;
     if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 100000)) throw new DomainError("VALIDATION", "Descuentos del combo inválidos (de Bs 0 a Bs 1000)");
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));
@@ -100,7 +108,14 @@ export const normalizePhone = (p: string) => String(p ?? "").replace(/[^\d+]/g, 
 
 export function findCustomerByPhone(e: Engine, phone: string) {
   const n = normalizePhone(phone);
-  const c = Object.values(e.s.customers).find((x) => x.phone === n);
+  let c = Object.values(e.s.customers).find((x) => x.phone === n);
+  if (!c) {
+    // Tolerante: "70012345", "59170012345" y "+591 70012345" son el mismo número (si no hay dudas).
+    const d = n.replace(/\D/g, "");
+    const tail = d.slice(-8);
+    const m = d.length >= 8 ? Object.values(e.s.customers).filter((x) => x.phone && x.phone.replace(/\D/g, "").slice(-8) === tail) : [];
+    if (m.length === 1) c = m[0];
+  }
   return c ? structuredClone(c) : undefined;
 }
 

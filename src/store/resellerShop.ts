@@ -3,12 +3,149 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
-import type { Actor, Customer, Id, ResellerShop, Testimonial } from "./types.js";
+import type { Actor, Customer, Id, ResellerApp, ResellerShop, ShopRent, Testimonial } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { cleanLook } from "./look.js";
-import { balance } from "./wallet.js";
+import { balance, post } from "./wallet.js";
+import { DAY } from "./time.js";
+import { normalizePhone } from "./catalog.js";
+
+export const DEFAULT_RENT: ShopRent = { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 };
+const rentCfg = (e: Engine): ShopRent => e.s.settings.shopRent ?? DEFAULT_RENT;
+/** Lo que compró el revendedor (pagado por él) en los últimos 30 días. */
+const spent30 = (e: Engine, id: Id) => Object.values(e.s.orders)
+  .filter((o) => o.payerId === id && o.status === "fulfilled" && o.kind !== "topup" && o.channel !== "import" && e.now() - o.updatedAt <= 30 * DAY)
+  .reduce((t, o) => t + o.total, 0);
+
+/** Estado del alquiler de la página para mostrarle al revendedor. */
+export function rentInfo(e: Engine, c: Customer) {
+  const r = rentCfg(e);
+  if (!r.enabled) return { enabled: false as const };
+  return { enabled: true as const, price: r.price, freeIfSpent: r.freeIfSpent, graceDays: r.graceDays, paidUntil: c.shop?.paidUntil, suspended: !!c.shop?.suspended, spent30: spent30(e, c.id) };
+}
+
+/** Cobra un mes de alquiler (o lo da gratis por compras). Debe correr dentro de tx. */
+function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "no_balance" {
+  const r = rentCfg(e), s = c.shop!;
+  const from = Math.max(s.paidUntil ?? e.now(), e.now() - 30 * DAY);
+  if (r.freeIfSpent > 0 && spent30(e, c.id) >= r.freeIfSpent) {
+    s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
+    delete s.suspended;
+    e.audit(actor, "reseller.shop_rent_free", "customer", c.id, { until: s.paidUntil });
+    return "free";
+  }
+  if (r.price === 0 || balance(e, c.id) >= r.price) {
+    if (r.price > 0) post(e, actor, c.id, -r.price, "shop_rent", s.slug, "Alquiler de tu página (30 días)");
+    s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
+    delete s.suspended;
+    return "charged";
+  }
+  return "no_balance";
+}
+
+/**
+ * Tarea diaria: cobra el alquiler de las páginas vencidas. Si no hay saldo, la página sigue
+ * publicada los días de gracia y después se apaga sola; se prende sola apenas recarga y paga.
+ */
+export function chargeShopRents(e: Engine, actor: Actor) {
+  const r = rentCfg(e);
+  const now = e.now();
+  const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked);
+  const due = r.enabled ? shops.filter((c) => (c.shop!.paidUntil ?? 0) <= now) : shops.filter((c) => c.shop!.suspended);
+  const out = { charged: 0, free: 0, suspended: 0, started: 0 };
+  if (!due.length) return out;
+  e.tx(() => {
+    for (const c of due) {
+      const s = c.shop!;
+      if (!r.enabled) { delete s.suspended; continue; }
+      if (s.paidUntil === undefined) {
+        // Primera vez: se cobra ya si puede; si no, vence hoy y corren los días de gracia.
+        out.started++;
+        const first = renewRent(e, actor, c);
+        if (first === "no_balance") s.paidUntil = now;
+        continue;
+      }
+      const res = renewRent(e, actor, c);
+      if (res === "charged") out.charged++;
+      else if (res === "free") out.free++;
+      else if (!s.suspended && now > s.paidUntil + r.graceDays * DAY) {
+        s.suspended = true;
+        e.audit(actor, "reseller.shop_suspend", "customer", c.id, { reason: "rent" });
+        out.suspended++;
+      }
+    }
+  });
+  return out;
+}
+
+/** El revendedor paga el mes ahora (desde su panel). */
+export function payMyShopRent(e: Engine, actor: Actor) {
+  const c = me(e, actor);
+  if (!rentCfg(e).enabled) throw new DomainError("VALIDATION", "Tu página no tiene alquiler");
+  if (!c.shop) throw new DomainError("VALIDATION", "Primero armá tu página");
+  return e.tx(() => {
+    const res = renewRent(e, actor, c);
+    if (res === "no_balance") throw new DomainError("INSUFFICIENT_BALANCE", `Te falta saldo: el mes cuesta ${(rentCfg(e).price / 100).toFixed(0)} Bs`);
+    return rentInfo(e, c);
+  });
+}
+
+/* ---------------- Solicitudes para ser revendedor ---------------- */
+
+export function applyReseller(e: Engine, input: { name: unknown; phone: unknown; note?: unknown }): { ok: true; already?: "reseller" | "pending" } {
+  const name = String(input.name ?? "").trim().slice(0, 80);
+  const phone = normalizePhone(String(input.phone ?? ""));
+  if (!name || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Escribí tu nombre y tu WhatsApp con código de país");
+  const note = String(input.note ?? "").trim().slice(0, 300);
+  const existing = Object.values(e.s.customers).find((c) => c.phone === phone);
+  if (existing?.kind === "reseller") return { ok: true, already: "reseller" };
+  const apps = (e.s.resellerApps ??= {});
+  if (Object.values(apps).some((a) => a.phone === phone && a.status === "pending")) return { ok: true, already: "pending" };
+  if (Object.values(apps).filter((a) => a.status === "pending").length >= 300) throw new DomainError("VALIDATION", "Hay muchas solicitudes pendientes. Escribinos por WhatsApp.");
+  const sys: Actor = { id: "system:solicitud", role: "system" };
+  e.tx(() => {
+    const a: ResellerApp = { id: e.id("app"), name, phone, ...(note ? { note } : {}), createdAt: e.now(), status: "pending" };
+    e.s.resellerApps[a.id] = a;
+    e.audit(sys, "reseller.apply", "reseller_app", a.id, {});
+  });
+  return { ok: true };
+}
+
+export function listApps(e: Engine, actor: Actor) {
+  authorize(actor, "customer.manage");
+  return Object.values(e.s.resellerApps ?? {}).sort((a, b) => b.createdAt - a.createdAt).slice(0, 100).map((a) => ({ ...a, existingCustomer: !!Object.values(e.s.customers).find((c) => c.phone === a.phone) }));
+}
+
+/** Aprueba: crea el revendedor (o pasa a revendedor al cliente que ya existía) y devuelve su id. */
+export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; name: string; phone: string } {
+  authorize(actor, "customer.manage");
+  return e.tx(() => {
+    const a = e.get("resellerApps", id);
+    if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
+    let c = Object.values(e.s.customers).find((x) => x.phone === a.phone);
+    if (c) { c.kind = "reseller"; c.priceGroupId = "revendedor"; }
+    else {
+      c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true, createdAt: e.now() } as Customer;
+      e.s.customers[c.id] = c;
+    }
+    if (!e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
+    a.status = "approved"; a.customerId = c.id; a.decidedBy = actor.id; a.decidedAt = e.now();
+    e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id });
+    return { customerId: c.id, name: c.name, phone: c.phone };
+  });
+}
+
+export function rejectApp(e: Engine, actor: Actor, id: Id) {
+  authorize(actor, "customer.manage");
+  e.tx(() => {
+    const a = e.get("resellerApps", id);
+    if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
+    a.status = "rejected"; a.decidedBy = actor.id; a.decidedAt = e.now();
+    e.audit(actor, "reseller.reject", "reseller_app", a.id, {});
+  });
+}
 
 const RESERVED = new Set(["api", "panel", "admin", "r", "www", "tienda", "store", "login", "static", "assets", "gabriel", "gabrielstore", "soporte", "ayuda"]);
 
@@ -41,7 +178,7 @@ function defaults(e: Engine, c: Customer): ResellerShop {
 export function myShop(e: Engine, actor: Actor) {
   const c = me(e, actor);
   const s = c.shop ?? defaults(e, c);
-  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, allowed: e.s.settings.resellerShops !== false };
+  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, allowed: e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30 };
 }
 
 export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unknown>) {
@@ -71,7 +208,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
       codeLink: !!c.codeLink, services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
-      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked },
+      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -171,7 +308,7 @@ export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked:
 
 function findBySlug(e: Engine, slug: string): Customer | undefined {
   const c = Object.values(e.s.customers).find((x) => x.shop?.slug === String(slug).toLowerCase());
-  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || e.s.settings.resellerShops === false) return undefined;
+  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || e.s.settings.resellerShops === false) return undefined;
   return c;
 }
 

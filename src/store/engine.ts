@@ -46,6 +46,7 @@ export function emptyState(): State {
     audit: [],
     outbox: [],
     mailboxes: {},
+    resellerApps: {},
     codes: [],
     idempotency: {},
     staff: {},

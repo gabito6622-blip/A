@@ -140,7 +140,7 @@ export function applyLook(st) {
 }
 
 async function loadPrivate() {
-  if ((S.view === "revendedores" || S.view === "tiendas" || (MODE === "hub" && S.view === "inicio")) && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
+  if ((S.view === "revendedores" || S.view === "tiendas" || (MODE === "hub" && S.view === "inicio" && !isReseller())) && !SLUG) S.data.program = await api("GET", "/api/resellers/program");
   if (!S.me?.loggedIn) return;
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
@@ -150,6 +150,7 @@ async function loadPrivate() {
     if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
+  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices")]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
 }
 
@@ -209,13 +210,13 @@ function qrBlock() {
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
 
-const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], tiendas: ["grid", "Tiendas"], precios: ["coins", "Precios"], cuentas: ["idcard", "Mis cuentas"],
+const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
   clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
 function buildNav() {
   const top = MODE === "rshop" ? ["inicio", "catalogo"] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), "cuentas", "codigos", "recargas"]
-    : hubPanel() ? ["cuentas", "precios", "clientes", "recargas", "codigos"] : ["inicio", "tiendas"];
+    : hubPanel() ? ["inicio", "precios", "cuentas", "codigos", "clientes", "recargas"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? ["inicio", "catalogo", "cart"] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
-    : hubPanel() ? ["cuentas", "precios", "cart", "clientes", "recargas"] : ["inicio", "tiendas", "login"];
+    : hubPanel() ? ["inicio", "precios", "cart", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
   const key = `${MODE}:${top}:${bottom}`;
   if (buildNav.last === key) return;
   buildNav.last = key;
@@ -304,7 +305,7 @@ function render() {
       ${pendingOrders()}
       <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
-      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
+      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página" }[m.type])} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
@@ -314,7 +315,7 @@ function render() {
     tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
   };
-  if (MODE === "hub") V.inicio = programView;
+  if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
 }
@@ -428,11 +429,71 @@ function directoryView(standalone) {
     ${!standalone && all.length > list.length ? `<a class="pghost" href="/tiendas" data-s="tiendas" style="justify-self:center">Ver las ${all.length} tiendas →</a>` : ""}</section>`;
 }
 
+/* ---------------- Inicio del revendedor (botones grandes) ---------------- */
+function resellerHome() {
+  if (S.data.wiz) return wizardView();
+  const sh = S.data.shop, sv = S.data.services ?? [], me = S.me;
+  const venc = sv.filter((a) => a.daysLeft < 0).length, week = sv.filter((a) => a.daysLeft >= 0 && a.daysLeft <= 7).length;
+  const pend = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review").length;
+  const rent = sh?.rent;
+  const tiles = [
+    ["precios", "🛒", "Comprar", "Cuentas al instante"],
+    ["cuentas", "📺", "Mis cuentas", sv.length ? `${sv.length} activas` : "Tus accesos"],
+    ["codigos", "🔑", "Códigos", "Disney y más"],
+    ["pagina", "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"],
+    ["recargas", "💰", "Recargar saldo", bs(me.balance)],
+    ["clientes", "👥", "Mis clientes", "Ventas y vencimientos"],
+  ];
+  let rentBox = "";
+  if (rent?.enabled && sh?.saved) {
+    const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
+    const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
+    if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu página está apagada por falta de pago</b><span>El alquiler es ${bs(rent.price)} por mes. Recargá saldo y tocá Pagar: se prende al instante.</span><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(rent.price)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`;
+    else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu página vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se apague." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
+    else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu página está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
+  }
+  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></section>
+    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
+    ${sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
+    ${rentBox}
+    <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás siempre con tu número y tu PIN de 4 números.</p>
+      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form></div>`;
+}
+
+/* ---------------- Asistente: tu página en 3 pasos ---------------- */
+const roundBs = (c) => Math.max(100, Math.round(c / 100) * 100);
+function wizardView() {
+  const w = S.data.wiz, sh = S.data.shop, m = sh?.marginPct ?? 30;
+  const steps = `<div class="wsteps">${["Tu tienda", "Qué vendés", "¡Listo!"].map((t, i) => `<span class="${w.step > i ? "on" : ""}">${i + 1} · ${t}</span>`).join("")}</div>`;
+  if (w.step === 1) return `${steps}<form class="sbox sform wiz" id="wiz1"><h2>¿Cómo se llama tu tienda?</h2>
+      <label>Nombre de tu tienda<input name="title" required maxlength="40" value="${esc(w.title ?? sh.title)}" placeholder="Ej.: Ari Streaming"></label>
+      <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" required inputmode="tel" value="${esc(w.whatsapp ?? sh.whatsapp)}"></label>
+      <label>Tu logo (opcional)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>
+      <div class="hrow"><button class="sbtn" type="button" data-wizexit="1">Ahora no</button><button class="sbtn pri" type="submit">Siguiente ${icon("arrow")}</button></div></form>`;
+  if (w.step === 2) {
+    const list = (S.data.prices ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    w.picks ??= Object.fromEntries(list.map((p) => [p.productId, { on: p.sell !== null || list.length <= 12, sell: p.sell ?? roundBs(p.cost * (1 + m / 100)) }]));
+    const on = Object.values(w.picks).filter((x) => x.on).length;
+    return `${steps}<form class="sbox sform wiz" id="wiz2"><h2>¿Qué vas a vender?</h2>
+      <p class="empty" style="margin:0">Marcá lo que querés mostrar. Ya te pusimos un precio de venta sugerido (tu costo + ${m}%): cambialo si querés.</p>
+      <div class="hrow"><button class="sbtn sm" type="button" data-wizall="1">Marcar todo</button><button class="sbtn sm" type="button" data-wizall="0">Desmarcar todo</button><span class="empty" style="font-size:13px">${on} elegido(s)</span></div>
+      <div class="wlist">${list.map((p) => { const k = w.picks[p.productId]; return `<label class="witem ${k.on ? "on" : ""}"><input type="checkbox" data-wpick="${esc(p.productId)}" ${k.on ? "checked" : ""}><span><b>${esc(p.name)}</b><small>Te cuesta ${bs(p.cost)} · ganás ${bs(Math.max(0, k.sell - p.cost))}</small></span><span class="wprice">Bs <input inputmode="decimal" data-wsell="${esc(p.productId)}" value="${k.sell / 100}"></span></label>`; }).join("")}</div>
+      <div class="hrow"><button class="sbtn" type="button" data-wizback="1">Atrás</button><button class="sbtn pri" type="submit" ${on ? "" : "disabled"}>Publicar mi página ${icon("arrow")}</button></div></form>`;
+  }
+  const url = shopUrl(sh.slug), txt = `¡Mirá mi tienda! 🛍️ ${url}`;
+  return `${steps}<div class="sbox wiz done"><div class="wbig">🎉</div><h2>¡Tu página está lista!</h2><p class="empty" style="margin:0">Compartila con tus clientes: te piden directo a tu WhatsApp.</p>
+    <div class="linkrow"><code>${esc(url)}</code><button class="sbtn sm" type="button" data-copy="${esc(url)}">Copiar</button></div>
+    <div class="hrow"><a class="sbtn pri" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a><a class="sbtn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a><a class="sbtn" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">Ver mi página</a></div>
+    <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> → Avanzado.</p>
+    <button class="sbtn" type="button" data-wizexit="1">Volver al inicio</button></div>`;
+}
+
 function programView() {
   const pg = S.data.program;
   if (!pg) return `<p class="skeleton">Cargando…</p>`;
   const wa = pg.whatsapp ? waLink(pg.whatsapp, "Hola, quiero ser revendedor de " + pg.storeName) : null;
-  const want = (cls = "pcta") => (wa ? `<a class="${cls}" href="${wa}" target="_blank" rel="noopener">Quiero ser revendedor</a>` : "");
+  const want = (cls = "pcta") => `<button class="${cls}" type="button" data-apply="1">Quiero ser revendedor</button>`;
   const sample = (pg.products.length ? pg.products.map((p) => ({ name: p.name, price: Math.round(p.reseller * 1.4 / 100) * 100 })) : S.catalog).slice(0, 3);
   const tiles = S.catalog.slice(0, 6);
   const mocks = ["neon", "rosa", "oro"].map((id) => THEMES.find((t) => t.id === id));
@@ -759,14 +820,18 @@ async function submitCheckout(form) {
 }
 
 /* ---------------- acceso ---------------- */
-function openLogin(step = "phone", phone = "", msg = "") {
+function openLogin(step = "pin", phone = "", msg = "") {
   $("#drawer").hidden = true;
   const st = S.settings;
   const body = {
+    pin: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
+      <label>Tu PIN (4 números)<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" class="pinbox" placeholder="••••"></label>
+      <button class="sbtn pri" type="submit">Entrar</button>
+      <button class="sbtn" type="button" data-loginstep="phone">No tengo PIN / soy nuevo</button>`,
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Por ahora el ingreso es con un link personal que te manda la tienda.</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi link de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">Pedir mi link por WhatsApp</a>` : `<p class="empty">Escribile a la tienda para pedirlo.</p>`}`,
+    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da la tienda por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a la tienda para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
   }[step];
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
   $("#modal").hidden = false;
@@ -780,6 +845,10 @@ async function submitLogin(form) {
   const btn = form.querySelector('[type="submit"]');
   if (btn) btn.disabled = true;
   try {
+    if (step === "pin") {
+      await api("POST", "/api/auth/customer/pin", { phone, pin: form.pin.value.trim() });
+      return afterLogin();
+    }
     if (step === "phone" || step === "name") {
       const r = await api("POST", "/api/auth/customer/request-code", step === "name" ? { phone, name: form.name.value, whatsappConsent: form.consent.checked } : { phone });
       if (r.needsName) return openLogin("name", phone);
@@ -787,16 +856,20 @@ async function submitLogin(form) {
     }
     if (step === "code") {
       await api("POST", "/api/auth/customer/verify", { phone, code: form.code.value });
-      closeAll();
-      toast("¡Bienvenido!");
-      await refresh();
-      if (MODE === "hub") { if (isReseller()) setView("cuentas"); else location.href = "/tienda/#cuentas"; return; }
-      if (S.cart.length) { openDrawer(); S.step = 2; renderCart(); }
+      return afterLogin();
     }
   } catch (e) {
     if (e.code === "OTP_DISABLED") return openLogin("link", phone);
     openLogin(step === "code" ? "code" : step, phone, `<div class="err">${esc(e.message)}</div>`);
   }
+}
+
+async function afterLogin() {
+  closeAll();
+  toast("¡Bienvenido!");
+  await refresh();
+  if (MODE === "hub") { if (isReseller()) setView("inicio"); else location.href = "/tienda/#cuentas"; return; }
+  if (S.cart.length) { openDrawer(); S.step = 2; renderCart(); }
 }
 
 /** Link de acceso: /#acceso=TOKEN */
@@ -830,6 +903,14 @@ document.addEventListener("click", async (ev) => {
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
+  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "");
+  if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
+  if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }
+  if (d.wizback) { S.data.wiz.step = 1; return render(); }
+  if (d.wizall !== undefined) { Object.values(S.data.wiz.picks ?? {}).forEach((x) => (x.on = d.wizall === "1")); return render(); }
+  if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
+  if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
+  if (d.apply) return openApply();
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
@@ -959,6 +1040,29 @@ document.addEventListener("submit", async (ev) => {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", `/api/orders/${f.dataset.evidence}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
       toast("Comprobante enviado: lo revisamos en 10–30 minutos");
+    } else if (f.id === "applyForm") {
+      const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value });
+      $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
+      return;
+    } else if (f.id === "myPin") {
+      await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
+      f.reset();
+      toast("PIN cambiado ✓");
+    } else if (f.id === "wiz1") {
+      S.data.wiz.title = f.title.value.trim(); S.data.wiz.whatsapp = f.whatsapp.value;
+      S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value });
+      if (f.logo.files[0]) S.data.shop = await api("POST", "/api/me/shop/logo", { contentBase64: await fileToBase64(f.logo.files[0]) });
+      S.data.wiz.step = 2;
+      render(); scrollTo(0, 0);
+      return;
+    } else if (f.id === "wiz2") {
+      const picks = S.data.wiz.picks;
+      const prices = Object.fromEntries(Object.entries(picks).map(([id, x]) => [id, x.on ? x.sell : null]));
+      await api("PUT", "/api/me/prices", { prices });
+      S.data.shop = await api("PUT", "/api/me/shop", { products: Object.keys(picks).filter((id) => picks[id].on), enabled: true });
+      S.data.wiz.step = 3;
+      render(); scrollTo(0, 0);
+      return;
     } else if (f.id === "codePin") {
       const k = await api("POST", "/api/me/code-link", { pin: f.pin.value.trim(), keepLink: true });
       S.data.codeLink = { url: k.url };
@@ -1048,3 +1152,22 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
   // El revendedor que entra a la plataforma va directo a su panel.
   if (MODE === "hub" && isReseller() && S.view === "inicio" && path !== "/revendedores") setView("cuentas");
 })();
+
+document.addEventListener("change", (ev) => {
+  const t = ev.target, w = S.data.wiz;
+  if (!w?.picks) return;
+  if (t.dataset.wpick) { w.picks[t.dataset.wpick].on = t.checked; render(); }
+  if (t.dataset.wsell) { const v = toCents(t.value || "0"); if (v > 0) w.picks[t.dataset.wsell].sell = v; render(); }
+});
+
+function openApply(msg = "") {
+  $("#drawer").hidden = true;
+  $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Quiero ser revendedor<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}
+    <form class="sform" id="applyForm"><label>Tu nombre<input name="name" required maxlength="80" autocomplete="name"></label>
+    <label>Tu WhatsApp<input name="phone" required inputmode="tel" value="+591 " autocomplete="tel"></label>
+    <label>¿Ya vendés? Contanos algo (opcional)<input name="note" maxlength="300" placeholder="Ej.: vendo Netflix hace 1 año"></label>
+    <button class="sbtn pri" type="submit">Enviar solicitud</button><p class="empty" style="margin:0;font-size:13px">Te escribimos por WhatsApp con tu acceso.</p></form></div>`;
+  $("#modal").hidden = false;
+  $("#scrim").hidden = false;
+  $("#modal input")?.focus();
+}

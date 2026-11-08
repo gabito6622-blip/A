@@ -41,6 +41,9 @@ export const DEFAULT_COMBO_DISCOUNTS: [Cents, Cents, Cents] = [500, 1000, 1500];
 
 /** Configuración de la tienda que ve el cliente. */
 export interface StoreSettings extends Look {
+  shopRent?: ShopRent;
+  /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
+  resellerMarginPct?: number;
   /** Descuento de "Armá tu combo" para 2, 3 y 4+ servicios (centavos). [0,0,0] lo apaga. */
   comboDiscounts?: [Cents, Cents, Cents];
   storeName: string;
@@ -242,6 +245,10 @@ export interface ResellerShop extends Look {
   blocked?: boolean;
   /** Destacada por la tienda en el directorio. */
   featured?: boolean;
+  /** Alquiler: pagado hasta (ms). */
+  paidUntil?: number;
+  /** Apagada por falta de pago del alquiler (se prende sola al pagar). */
+  suspended?: boolean;
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";
@@ -338,7 +345,31 @@ export interface RentalControl {
   note?: string;
 }
 
-export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment";
+export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent";
+
+/** Alquiler mensual de la página del revendedor (se cobra solo del saldo). */
+export interface ShopRent {
+  enabled: boolean;
+  /** Precio por 30 días. */
+  price: Cents;
+  /** Gratis si en los últimos 30 días compró al menos esto (0 = nunca gratis). */
+  freeIfSpent: Cents;
+  /** Días que la página sigue publicada después de vencer sin saldo. */
+  graceDays: number;
+}
+
+/** Pedido de alta de alguien que quiere ser revendedor (formulario público). */
+export interface ResellerApp {
+  id: Id;
+  name: string;
+  phone: string;
+  note?: string;
+  createdAt: number;
+  status: "pending" | "approved" | "rejected";
+  customerId?: Id;
+  decidedBy?: Id;
+  decidedAt?: number;
+}
 
 /** Libro contable de saldo: el saldo es SIEMPRE la suma de los movimientos. */
 export interface LedgerEntry {
@@ -452,6 +483,7 @@ export interface State {
   audit: AuditEvent[];
   outbox: OutboxMessage[];
   mailboxes: Record<Id, Mailbox>;
+  resellerApps: Record<Id, ResellerApp>;
   codes: CodeMessage[];
   idempotency: Record<string, unknown>;
   staff: Record<Id, StaffUser>;

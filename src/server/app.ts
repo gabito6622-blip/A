@@ -268,6 +268,48 @@ export function createApp(cfg: AppConfig): App {
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
+  // ---- Ingreso con número + PIN de 4 números (no depende del bot de WhatsApp ni de links que vencen) ----
+  const loginPinKey = (customerId: string, pin: string) => `loginpin|${customerId}|${pin}`;
+  const pinLoginLimiter = new RateLimiter(5, 15 * 60_000, now);
+  const pinPhoneLimiter = new RateLimiter(10, 15 * 60_000, now);
+  const setLoginPin = (customerId: string, pin: string) => {
+    if (!/^\d{4}$/.test(pin)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
+    db.setSecret(`loginpin:${customerId}`, hashPassword(loginPinKey(customerId, pin)), now());
+  };
+  const randomPin = () => String(1000 + (randomBytes(2).readUInt16BE(0) % 9000));
+  route("POST", "/api/auth/customer/pin", "public", (c) => {
+    const phone = normalizePhone(c.body?.phone);
+    const k = `${phone}|${c.ip}`;
+    if (pinLoginLimiter.blocked(k) || pinPhoneLimiter.blocked(phone)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos o pedile un PIN nuevo a la tienda.");
+    const cust = phone.replace(/\D/g, "").length >= 7 ? store.catalog.findCustomerByPhone(phone) : undefined;
+    const stored = cust ? db.getSecret(`loginpin:${cust.id}`) : undefined;
+    if (!cust || !verifyPassword(loginPinKey(cust.id, String(c.body?.pin ?? "")), stored)) {
+      pinLoginLimiter.take(k); pinPhoneLimiter.take(phone);
+      throw new HttpError(401, "BAD_PIN", cust && !stored ? "Todavía no tenés PIN. Pedíselo a la tienda por WhatsApp." : "Número o PIN incorrecto");
+    }
+    pinLoginLimiter.reset(k);
+    startSession(c.res, "customer", cust.id);
+    return { id: cust.id, name: cust.name, kind: cust.kind };
+  });
+  route("POST", "/api/admin/customers/:id/login-pin", "staff", (c) => {
+    if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
+    const cust = store.engine.s.customers[c.params.id];
+    if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
+    setLoginPin(cust.id, pin);
+    store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id));
+    return { pin, phone: cust.phone, loginUrl: `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/` };
+  });
+  route("POST", "/api/me/login-pin", "customer", (c) => {
+    const id = c.actor!.customerId!;
+    const stored = db.getSecret(`loginpin:${id}`);
+    if (stored && !verifyPassword(loginPinKey(id, String(c.body?.current ?? "")), stored)) throw new HttpError(401, "BAD_PIN", "El PIN actual no es correcto");
+    setLoginPin(id, String(c.body?.pin ?? "").trim());
+    store.engine.tx(() => store.engine.audit(c.actor!, "customer.login_pin_self", "customer", id));
+    return { ok: true };
+  });
+  route("GET", "/api/me/login-pin", "customer", (c) => ({ hasPin: !!db.getSecret(`loginpin:${c.actor!.customerId!}`) }));
+
   /** Link de un solo uso generado por el staff (para mandar a mano por WhatsApp). */
   route("POST", "/api/auth/customer/link", "public", (c) => {
     const token = String(c.body?.token ?? "");
@@ -443,7 +485,24 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
-  route("GET", "/api/admin/resellers", "staff", (c) => store.shops.resellers(A(c)));
+  route("GET", "/api/admin/resellers", "staff", (c) => {
+    const st = store.engine.s.settings;
+    return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30 };
+  });
+  route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
+    const r = store.shops.approve(A(c), c.params.id);
+    const shop = store.shops.setupFor(A(c), r.customerId, { enabled: true });
+    const pin = randomPin();
+    setLoginPin(r.customerId, pin);
+    return { ...r, slug: shop.slug, pin };
+  });
+  route("POST", "/api/admin/reseller-apps/:id/reject", "staff", (c) => (store.shops.reject(A(c), c.params.id), { ok: true }));
+  const applyLimiter = new RateLimiter(3, 60 * 60_000, now);
+  route("POST", "/api/resellers/apply", "public", (c) => {
+    if (!applyLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Ya mandaste solicitudes. Probá en una hora o escribinos por WhatsApp.");
+    return store.shops.apply({ name: c.body?.name, phone: c.body?.phone, note: c.body?.note });
+  });
+  route("POST", "/api/me/shop/pay", "customer", (c) => store.shops.payRent(c.actor!));
   route("POST", "/api/admin/customers/:id/shop", "staff", (c) => store.shops.setupFor(A(c), c.params.id, c.body ?? {}));
   route("POST", "/api/admin/customers/:id/login-link", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
@@ -523,6 +582,8 @@ export function createApp(cfg: AppConfig): App {
     const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
+    if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
+    if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
     return store.catalog.updateSettings(A(c), pick);
@@ -1120,6 +1181,7 @@ export function createApp(cfg: AppConfig): App {
     return polling;
   }
 
+  let lastRentRun = 0;
   function runJobs() {
     const expired = store.orders.expireReservations(system);
     const reminders = store.orders.autoReminders(system);
@@ -1128,6 +1190,10 @@ export function createApp(cfg: AppConfig): App {
     db.purgeExpiredSessions(now());
     let backup: string | undefined;
     try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }
+    // Alquiler de páginas de revendedores: se revisa una vez por hora.
+    let rents: ReturnType<typeof store.shops.chargeRents> | undefined;
+    if (now() - lastRentRun > 3_600_000) { lastRentRun = now(); try { rents = store.shops.chargeRents(system); } catch (e) { log(`alquileres fallaron: ${(e as Error).message}`); } }
+    if (rents && (rents.charged || rents.suspended || rents.free)) log(`alquileres: ${JSON.stringify(rents)}`);
     // Una vez por día, la copia también va al Gmail (si está activada).
     const off = offsiteCfg();
     if (off.enabled && (!off.lastAt || now() - off.lastAt > 23 * 3_600_000)) sendOffsite().catch((e) => log(`copia al Gmail falló: ${(e as Error).message}`));
