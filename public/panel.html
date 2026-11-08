@@ -53,6 +53,13 @@
     </div>
     <div id="pout" style="display:grid;gap:22px;min-width:0"></div>
   </main>
+  <nav class="pbnav" id="pbnav" aria-label="Accesos rápidos">
+    <button type="button" data-go="inicio"><svg class="i"><use href="/icons.svg#i-home"/></svg><span>Inicio</span></button>
+    <button type="button" data-go="control"><svg class="i"><use href="/icons.svg#i-grid"/></svg><span>Control</span></button>
+    <button type="button" data-go="vender" class="pbnav-mid"><svg class="i"><use href="/icons.svg#i-cart"/></svg><span>Vender</span></button>
+    <button type="button" data-go="cuentas"><svg class="i"><use href="/icons.svg#i-idcard"/></svg><span>Cuentas</span></button>
+    <button type="button" data-go="clientes"><svg class="i"><use href="/icons.svg#i-users"/></svg><span>Clientes</span></button>
+  </nav>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
 <script src="/panel.js" type="module"></script>

@@ -347,8 +347,25 @@ const V = {
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
             <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>` : "";
+    const estadoTxt = { available: "Libre", reserved: "Reservado", assigned: "Vendido", quarantined: "Cuarentena", retired: "Retirado" };
+    const estadoK = { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" };
+    const cards = accs.map((a) => {
+      const d = daysLeft(a.supplierExpiresAt);
+      const libres = a.slots.filter((s) => s.status === "available").length;
+      const vivos = a.slots.filter((s) => s.status !== "retired");
+      return `<article class="acard">
+        <header><div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
+        ${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
+        <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
+        <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
+        <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
+        <div class="achips">${vivos.map((s) => `<span class="achip ac-${estadoK[s.status] ?? "mute"}">${esc(s.label)} · ${estadoTxt[s.status] ?? s.status}${s.status === "quarantined" && canReview() && a.status === "active" ? ` <button class="pbtn sm" type="button" data-slotfree="${esc(s.id)}">Liberar</button>` : ""}</span>`).join("")}</div>
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
+      </article>`;
+    }).join("");
     return `${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
-      ${table(["Producto", "Email", "Contraseña", "Perfiles", "Proveedor", "Vence proveedor", "Estado", ""], accs.map((a) => {
+      <div class="acc-cards">${accs.length ? cards : `<div class="emptybox">Todavía no cargaste cuentas.</div>`}</div>
+      <div class="acc-table">${table(["Producto", "Email", "Contraseña", "Perfiles", "Proveedor", "Vence proveedor", "Estado", ""], accs.map((a) => {
         const d = daysLeft(a.supplierExpiresAt);
         return `<tr><td>${esc(pname(a.productId))}</td><td class="mono">${esc(a.email)}${a.notes ? `<br><small class="muted" style="font-family:inherit">📝 ${esc(a.notes)}</small>` : ""}</td><td class="mono">${esc(a.password)}</td>
           <td><div style="display:flex;flex-wrap:wrap;gap:4px">${a.slots.map((s) => `<span style="display:inline-flex;gap:3px;align-items:center">${pill(`${s.label}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}`, { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status])}${s.status === "quarantined" && canReview() && a.status === "active" ? `<button class="pbtn sm" type="button" data-slotfree="${esc(s.id)}" title="Ya está revisado: volver a vender">Liberar</button>` : ""}</span>`).join("")}</div></td>
@@ -356,7 +373,7 @@ const V = {
           <td>${a.status === "active" ? pill("Activa", "ok") : pill("Retirada", "mute")}</td>
           <td>${canReview() ? `<button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>` : ""}
           ${a.status === "active" && canReview() ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</td></tr>`;
-      }), "Todavía no cargaste cuentas.")}</section>`;
+      }), "Todavía no cargaste cuentas.")}</div></section>`;
   },
 
   async carga() {
@@ -905,6 +922,8 @@ async function render() {
     : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(i)}${t}${k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : ""}</button>`).join("");
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
+  const bnavFor = ["cuentas", "carga", "productos"].includes(P.view) ? "cuentas" : P.view;
+  $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", b.dataset.go === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {
     $("#pout").innerHTML = await V[P.view]();
