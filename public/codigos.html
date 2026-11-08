@@ -22,6 +22,11 @@ button,.btn{border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weig
 .err{color:var(--bad);font-weight:600;text-align:center;margin:0;min-height:1.5em}
 .code{display:grid;gap:8px;border:1px solid var(--line);border-radius:14px;padding:14px}
 .code .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.ktag{font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc)}
+.ktag.k-hogar{background:color-mix(in srgb,#8b5cf6 20%,transparent);color:#a78bfa}
+.ktag.k-temporal{background:color-mix(in srgb,#f59e0b 20%,transparent);color:#fbbf24}
+.ktag.k-verificacion{background:color-mix(in srgb,#10b981 20%,transparent);color:#34d399}
+.ksub{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
 .code small{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
 .code b.v{font-size:30px;letter-spacing:.14em;font-variant-numeric:tabular-nums}
 .row{display:flex;gap:8px;flex-wrap:wrap}
@@ -38,6 +43,7 @@ button,.btn{border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weig
 <script type="module">
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const KLABEL = { login: "🔓 Código de inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Código de acceso temporal", verificacion: "🛡️ Código de verificación", otro: "✉️ Código" };
 const token = location.pathname.split("/").filter(Boolean)[1];
 const KEY = "gh-pin-" + token;
 let pin = null, name = "", timer = null, q = "", last = [], minutes = 30;
@@ -82,8 +88,9 @@ function show(data) {
   $("#app").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(data.name)}</h1><span class="live"><i></i>Se actualiza solo</span></div>
     <p class="muted">Acá aparecen los códigos de Disney+ / MyDisney de tus cuentas. Cada uno dura ${data.minutes} minutos.</p>
     ${last.length > 3 ? `<input class="search" id="q" placeholder="Buscar por correo de la cuenta" value="${esc(q)}" inputmode="email">` : ""}
-    <div class="card">${list.length ? list.map((c) => `<div class="code"><div class="top"><small>${esc(c.to)}${c.product ? ` · ${esc(c.product)}` : ""}</small><small>${ago(c.receivedAt)}</small></div>
-      ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small>${esc(c.subject)}</small>
+    <div class="card">${list.length ? list.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>
+      <div class="top"><small>${esc(c.product || c.to)}</small></div>
+      ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
       <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
       : `<div class="empty">📭 No hay códigos nuevos.<br>Pedí el código en Disney+ y esperá unos segundos: aparece solo acá.</div>`}</div>
     <button class="ghost" type="button" id="out">Salir</button>`;

@@ -89,6 +89,16 @@ const CODE_RE = /\b(\d{3}[ -]?\d{3}|\d{4,8})\b/;
 const LINK_RE = /https:\/\/(?:www\.)?netflix\.com\/(?:account\/(?:travel|update-primary-location|set-primary-location)|ilum|verify)[^\s"'<>)]*/i;
 
 /** Saca el código (y si hay, el enlace de la plataforma) del texto del correo. */
+/** Clasifica el tipo de código de Netflix/Disney por el asunto y el texto (español e inglés). */
+export function classifyCode(subject: string, text: string): string {
+  const s = `${subject} ${text}`.toLowerCase();
+  if (/hogar|household/.test(s)) return "hogar";
+  if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta/.test(s)) return "login";
+  if (/acceso temporal|temporary access|c[oó]digo temporal|temporary code/.test(s)) return "temporal";
+  if (/verificaci[oó]n|verify|verification|one.?time|[uú]nico|passcode/.test(s)) return "verificacion";
+  return "otro";
+}
+
 export function extractCode(text: string, html = ""): { code: string; link?: string } {
   const t = text.replace(/ /g, " ");
   const near = /(?:c[oó]digo|code|pin|passcode|clave temporal)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
@@ -107,7 +117,7 @@ export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string
   const { code, link } = extractCode(msg.body, msg.html);
   if (!allowed || (!code && !link)) return null;
   return e.tx(() => {
-    const c: CodeMessage = { id: e.id("cod"), mailboxId, to: msg.to.toLowerCase(), subject: msg.subject.slice(0, 200), code, ...(link ? { link } : {}), receivedAt: msg.receivedAt };
+    const c: CodeMessage = { id: e.id("cod"), mailboxId, to: msg.to.toLowerCase(), subject: msg.subject.slice(0, 200), code, ...(link ? { link } : {}), kind: classifyCode(msg.subject, msg.body), receivedAt: msg.receivedAt };
     // Se guardan solo los de la última semana.
     e.s.codes = e.s.codes.filter((x) => e.now() - x.receivedAt < 7 * DAY);
     e.s.codes.push(c);
@@ -121,7 +131,7 @@ export function recentCodes(e: Engine, actor: Actor, limit = 50) {
   const byEmail = new Map(Object.values(e.s.accounts).map((a) => [a.email.toLowerCase(), a]));
   return e.s.codes.slice().sort((a, b) => b.receivedAt - a.receivedAt).slice(0, limit).map((c) => {
     const acc = byEmail.get(c.to);
-    return { to: c.to, subject: c.subject, code: c.code, link: c.link, receivedAt: c.receivedAt, mailbox: e.s.mailboxes[c.mailboxId]?.address ?? "", product: acc ? e.s.products[acc.productId]?.name ?? "" : "", matched: !!acc };
+    return { to: c.to, subject: c.subject, code: c.code, link: c.link, kind: c.kind ?? classifyCode(c.subject, ""), receivedAt: c.receivedAt, mailbox: e.s.mailboxes[c.mailboxId]?.address ?? "", product: acc ? e.s.products[acc.productId]?.name ?? "" : "", matched: !!acc };
   });
 }
 
@@ -166,6 +176,6 @@ export function codesOf(e: Engine, customerId: Id) {
     .sort((a, b) => b.receivedAt - a.receivedAt)
     .map((c) => {
       const acc = Object.values(e.s.accounts).find((a) => a.email.toLowerCase() === c.to);
-      return { to: c.to, subject: c.subject, code: c.code, link: c.link, receivedAt: c.receivedAt, product: acc ? e.s.products[acc.productId]?.name ?? "" : "" };
+      return { to: c.to, subject: c.subject, code: c.code, link: c.link, kind: c.kind ?? classifyCode(c.subject, ""), receivedAt: c.receivedAt, product: acc ? e.s.products[acc.productId]?.name ?? "" : "" };
     });
 }

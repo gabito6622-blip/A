@@ -471,6 +471,8 @@ export interface CodeMessage {
   code: string;
   /** Enlace de la plataforma (p. ej. Netflix "Obtener código" o actualizar hogar). */
   link?: string;
+  /** Tipo de código: "login" (inicio de sesión), "hogar" (actualizar hogar), "temporal" (acceso temporal), "verificacion", "otro". */
+  kind?: string;
   receivedAt: number;
 }
 

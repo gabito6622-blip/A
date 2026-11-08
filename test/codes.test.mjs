@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { createServer } from "node:tls";
 import { createApp } from "../dist/server/app.js";
 import { parseMail } from "../dist/server/mail.js";
-import { extractCode } from "../dist/store/codes.js";
+import { extractCode, classifyCode } from "../dist/store/codes.js";
 
 const FIX = new URL("./fixtures/", import.meta.url);
 const cert = readFileSync(new URL("imap-test-cert.pem", FIX));
@@ -108,6 +108,11 @@ describe("Panel de códigos", () => {
     const n = parseMail(Buffer.from(netflixForwarded("nf01@gabo.lat")));
     assert.match(n.text, /Obtener código/);
     const x = extractCode(n.text, n.html);
+    assert.equal(classifyCode("Tu código de inicio de sesión de Netflix", ""), "login");
+    assert.equal(classifyCode("Actualizar tu Hogar con Netflix", ""), "hogar");
+    assert.equal(classifyCode("Your one-time passcode for MyDisney", ""), "verificacion");
+    assert.equal(classifyCode("Tu código de acceso único para Disney+", ""), "verificacion");
+    assert.equal(classifyCode("Tu código de acceso temporal", ""), "temporal");
     assert.equal(x.link, "https://www.netflix.com/account/travel/verify?nftoken=ABC123&g=9");
   });
 
