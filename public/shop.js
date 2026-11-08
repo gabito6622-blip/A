@@ -9,7 +9,7 @@ const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat
 const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
 const VIEWS = {
-  rshop: ["inicio", "catalogo"],
+  rshop: ["inicio", "catalogo", "combo"],
   store: ["inicio", "catalogo", "combo", "cuentas", "codigos", "recargas"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos"],
 }[MODE];
@@ -21,7 +21,7 @@ const product = (id) => S.catalog.find((p) => p.id === id);
 const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
 /* ---- Armá tu combo: mismo cálculo que el servidor (orders.comboDiscount) ---- */
-const comboOn = () => MODE === "store" && !isReseller() && (S.settings?.comboDiscounts ?? []).some((v) => v > 0);
+const comboOn = () => (MODE === "store" ? !isReseller() : MODE === "rshop") && (S.settings?.comboDiscounts ?? []).some((v) => v > 0);
 const comboable = (p) => p && p.kind !== "combo" && !p.resellersOnly;
 const discountFor = (ids) => {
   if (!comboOn()) return 0;
@@ -213,9 +213,9 @@ function qrBlock() {
 const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
   clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
 function buildNav() {
-  const top = MODE === "rshop" ? ["inicio", "catalogo"] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), "cuentas", "codigos", "recargas"]
+  const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), "cuentas", "codigos", "recargas"]
     : hubPanel() ? ["inicio", "precios", "cuentas", "codigos", "clientes", "recargas"] : ["inicio", "tiendas"];
-  const bottom = MODE === "rshop" ? ["inicio", "catalogo", "cart"] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
+  const bottom = MODE === "rshop" ? [...(comboOn() ? ["inicio", "catalogo", "combo", "cart"] : ["inicio", "catalogo", "cart"])] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
     : hubPanel() ? ["inicio", "precios", "cart", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
   const key = `${MODE}:${top}:${bottom}`;
   if (buildNav.last === key) return;
@@ -313,7 +313,11 @@ function render() {
         ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
     })(),
     tiendas: () => directoryView(true),
-    clientes: () => !isReseller() ? needLogin("tus clientes") : `<div class="rtabs" role="tablist">${[["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"]].map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${(S.data.rtab ?? "ventas") === k}">${t}</button>`).join("")}</div>${(S.data.rtab ?? "ventas") === "pagina" ? shopEditor() : resellerView()}`,
+    clientes: () => !isReseller() ? needLogin("tus clientes") : (() => {
+      const tab = S.data.rtab ?? "ventas";
+      const tabs = [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"]];
+      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : resellerView()}`;
+    })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
@@ -642,6 +646,36 @@ function shopEditor() {
 }
 
 /** Lee el formulario del editor como objeto de estilo. */
+function combosEditor() {
+  const sh = S.data.shop;
+  if (!sh) return `<p class="empty">Cargando…</p>`;
+  const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
+  const combos = sh.combos ?? [];
+  const D = sh.comboDiscounts ?? [0, 0, 0];
+  const nameOf = (id) => (priced.find((p) => p.productId === id)?.name ?? id);
+  const draft = S.data.cdraft ?? { picks: [], price: "", name: "" };
+  const sum = draft.picks.reduce((t, id) => t + (priced.find((p) => p.productId === id)?.sell ?? 0), 0);
+  return `<div class="sec-h"><div><span class="chip">Tus reglas</span><h2>Mis combos y descuentos</h2><p>Vos armás tus propios combos con tu precio, y ponés tus descuentos. Son independientes de los míos.</p></div></div>
+    ${priced.length < 2 ? `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>` : ""}
+
+    <form class="sbox sform" id="discForm"><h2>✦ Armá tu combo (descuento por cantidad)</h2>
+      <p class="empty" style="margin:0">Tus clientes eligen 2, 3 o 4 apps sueltas y vos les hacés este descuento. Poné 0 en los tres para apagarlo.</p>
+      <div class="rgrid">${["2 apps", "3 apps", "4 o más"].map((t, i) => `<label>Descuento ${t} (Bs)<input name="d${i}" inputmode="decimal" value="${D[i] ? D[i] / 100 : ""}" placeholder="0"></label>`).join("")}</div>
+      <button class="sbtn pri" type="submit">Guardar descuentos</button></form>
+
+    <div class="sbox"><h2>🎁 Mis combos</h2>
+      ${combos.length ? `<div class="rcombos">${combos.map((cb) => `<div class="rcombo"><div><b>${esc(cb.name)}</b><small class="empty">${esc(cb.productIds.map(nameOf).join(" + "))}</small></div><span class="rcprice">${bs(cb.price)}</span><button class="sbtn sm" type="button" data-delcombo="${esc(cb.id)}" aria-label="Borrar">${icon("trash") || "🗑"}</button></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no armaste combos. Creá el primero abajo.</p>`}
+    </div>
+
+    ${priced.length >= 2 ? `<form class="sbox sform" id="comboForm"><h2>➕ Nuevo combo</h2>
+      <label>Nombre del combo<input name="name" maxlength="40" required placeholder="Ej.: Combo Full (4 apps)" value="${esc(draft.name)}"></label>
+      <b class="rsub">Elegí las apps (2 o más)</b>
+      <div class="ropts">${priced.map((p) => `<label><input type="checkbox" data-cpk="${esc(p.productId)}" ${draft.picks.includes(p.productId) ? "checked" : ""}><span>${esc(p.name)} · ${bs(p.sell)}</span></label>`).join("")}</div>
+      ${draft.picks.length ? `<p class="empty" style="margin:0">Si lo vendieras suelto saldría ${bs(sum)}. Poné tu precio de combo (más barato para que convenga):</p>` : ""}
+      <label>Precio del combo (Bs)<input name="price" inputmode="decimal" required value="${esc(draft.price)}" placeholder="Ej.: ${sum ? Math.round(sum * 0.85 / 100) : 60}"></label>
+      <button class="sbtn pri" type="submit" ${draft.picks.length >= 2 ? "" : "disabled"}>Guardar combo</button></form>` : ""}`;
+}
+
 function shopFormLook(f) {
   const look = { title: f.title.value };
   for (const k of LOOK_FIELDS) {
@@ -918,7 +952,12 @@ document.addEventListener("click", async (ev) => {
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
   if (d.mf) { S.data.mf = d.mf; return render(); }
-  if (d.rtab) { S.data.rtab = d.rtab; return render(); }
+  if (d.rtab) { S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null; return render(); }
+  if (d.delcombo) {
+    const combos = (S.data.shop.combos ?? []).filter((c) => c.id !== d.delcombo);
+    try { S.data.shop = await api("PUT", "/api/me/shop", { combos: combos.map((c) => ({ id: c.id, name: c.name, productIds: c.productIds, price: c.price })) }); toast("Combo borrado"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.pv) { S.data.pv = d.pv; $(".pvwrap").dataset.mode = d.pv; return; }
   if (d.theme) {
     const t = THEMES.find((x) => x.id === d.theme);
@@ -1093,6 +1132,20 @@ document.addEventListener("submit", async (ev) => {
         throw e;
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (f.id === "discForm") {
+      const d = [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0"));
+      if (d.some((v) => Number.isNaN(v) || v < 0)) throw new Error("Revisá los descuentos: solo números");
+      S.data.shop = await api("PUT", "/api/me/shop", { comboDiscounts: d });
+      toast("Descuentos guardados");
+    } else if (f.id === "comboForm") {
+      const d = S.data.cdraft ?? { picks: [] };
+      if (d.picks.length < 2) throw new Error("Elegí 2 o más apps para el combo");
+      const price = toCents(f.price.value || "0");
+      if (!(price > 0)) throw new Error("Poné el precio del combo");
+      const combos = [...(S.data.shop.combos ?? []).map((c) => ({ id: c.id, name: c.name, productIds: c.productIds, price: c.price })), { name: f.name.value.trim(), productIds: d.picks, price }];
+      S.data.shop = await api("PUT", "/api/me/shop", { combos });
+      S.data.cdraft = null;
+      toast("¡Combo creado! Ya aparece en tu página");
     } else if (f.id === "shopForm") {
       const body = shopFormLook(f);
       body.slug = f.slug.value.trim().toLowerCase();
@@ -1159,7 +1212,15 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
 })();
 
 document.addEventListener("change", (ev) => {
-  const t = ev.target, w = S.data.wiz;
+  const t = ev.target;
+  if (t.dataset.cpk) {
+    const d = (S.data.cdraft ??= { picks: [], price: "", name: "" });
+    const nm = document.querySelector('#comboForm [name=name]'); if (nm) d.name = nm.value;
+    const pr = document.querySelector('#comboForm [name=price]'); if (pr) d.price = pr.value;
+    d.picks = t.checked ? [...d.picks, t.dataset.cpk] : d.picks.filter((x) => x !== t.dataset.cpk);
+    return render();
+  }
+  const w = S.data.wiz;
   if (!w?.picks) return;
   if (t.dataset.wpick) { w.picks[t.dataset.wpick].on = t.checked; render(); }
   if (t.dataset.wsell) { const v = toCents(t.value || "0"); if (v > 0) w.picks[t.dataset.wsell].sell = v; render(); }

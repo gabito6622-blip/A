@@ -228,6 +228,17 @@ export interface Testimonial {
   rating?: number;
 }
 
+/** Combo propio del revendedor: junta apps y les pone un precio fijo que él elige. */
+export interface ResellerCombo {
+  id: Id;
+  name: string;
+  /** Productos (del catálogo, que el revendedor tiene con precio) que incluye. */
+  productIds: Id[];
+  /** Precio del combo en centavos (lo decide el revendedor). */
+  price: Cents;
+  note?: string;
+}
+
 export interface ResellerShop extends Look {
   /** Dirección: /r/slug. */
   slug: string;
@@ -249,6 +260,10 @@ export interface ResellerShop extends Look {
   paidUntil?: number;
   /** Apagada por falta de pago del alquiler (se prende sola al pagar). */
   suspended?: boolean;
+  /** Combos propios del revendedor (con su precio). */
+  combos?: ResellerCombo[];
+  /** "Armá tu combo" en SU página: descuento para 2, 3 y 4+ apps sueltas (centavos). El revendedor elige los montos. */
+  comboDiscounts?: [Cents, Cents, Cents];
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";

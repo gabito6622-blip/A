@@ -399,6 +399,29 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.equal(s.shops.chargeRents(system).free, 1, "compró lo suficiente: mes gratis");
   });
 
+  test("el revendedor arma sus propios combos y pone sus descuentos (independientes del dueño)", () => {
+    const { s, carla, as } = setup();
+    s.shops.setupFor(admin, carla.id, { slug: "carla", enabled: true });
+    s.portal.setPrices(as(carla), { netflix: 4000, gemini: 3000 });
+    // sus descuentos de "armá tu combo"
+    s.shops.update(as(carla), { comboDiscounts: [500, 1000, 1500] });
+    // un combo propio con su precio
+    s.shops.update(as(carla), { combos: [{ name: "Full Combo", productIds: ["netflix", "gemini"], price: 6000 }] });
+    const pub = s.shops.public("carla");
+    assert.deepEqual(pub.comboDiscounts, [500, 1000, 1500]);
+    const combo = pub.products.find((p) => p.kind === "combo");
+    assert.equal(combo.name, "Full Combo");
+    assert.equal(combo.price, 6000);
+    assert.deepEqual(combo.items, ["Netflix perfil", "Gemini Pro"]);
+    // no deja un combo con una app sin precio
+    assert.throws(() => s.shops.update(as(carla), { combos: [{ name: "X", productIds: ["netflix", "oculto"], price: 5000 }] }), err("VALIDATION"));
+    // ni con una sola app ni sin precio
+    assert.throws(() => s.shops.update(as(carla), { combos: [{ name: "Y", productIds: ["netflix"], price: 100 }] }), err("VALIDATION"));
+    assert.throws(() => s.shops.update(as(carla), { combos: [{ name: "Z", productIds: ["netflix", "gemini"], price: 0 }] }), err("VALIDATION"));
+    // sus descuentos no tocan los de la tienda
+    assert.equal(s.engine.s.settings.comboDiscounts, undefined);
+  });
+
   test("solicitudes para ser revendedor: se anotan solos y se aprueban con un toque", () => {
     const { s, maria } = setup();
     assert.deepEqual(s.shops.apply({ name: "Pepe", phone: "+591 71112222", note: "vendo hace 1 año" }), { ok: true });

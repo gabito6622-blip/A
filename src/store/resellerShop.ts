@@ -3,7 +3,7 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
-import type { Actor, Customer, Id, ResellerApp, ResellerShop, ShopRent, Testimonial } from "./types.js";
+import type { Actor, Cents, Customer, Id, ResellerApp, ResellerCombo, ResellerShop, ShopRent, Testimonial } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -239,6 +239,27 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
     for (const id of patch.products) if (typeof id !== "string" || !e.s.products[id]) throw new DomainError("NOT_FOUND", `Producto inexistente: ${String(id)}`);
     p.products = [...new Set(patch.products as string[])];
   }
+  if (patch.comboDiscounts !== undefined) {
+    const d = patch.comboDiscounts;
+    if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 1_000_000)) throw new DomainError("VALIDATION", "Descuentos de combo inválidos");
+    p.comboDiscounts = d.map((v) => v as Cents) as [Cents, Cents, Cents];
+  }
+  if (patch.combos !== undefined) {
+    if (!Array.isArray(patch.combos) || patch.combos.length > 40) throw new DomainError("VALIDATION", "Lista de combos inválida (máximo 40)");
+    const priced = c.resellerPrices ?? {};
+    p.combos = (patch.combos as Record<string, unknown>[]).map((raw) => {
+      const name = String(raw.name ?? "").trim().slice(0, 40);
+      if (!name) throw new DomainError("VALIDATION", "Cada combo necesita un nombre");
+      const ids = Array.isArray(raw.productIds) ? [...new Set(raw.productIds.map(String))] : [];
+      if (ids.length < 2 || ids.length > 12) throw new DomainError("VALIDATION", `El combo "${name}" tiene que juntar de 2 a 12 apps`);
+      for (const id of ids) if (priced[id] === undefined) throw new DomainError("VALIDATION", `El combo "${name}" incluye una app sin precio`);
+      const price = Number(raw.price);
+      if (!Number.isInteger(price) || price <= 0 || price > 10_000_000) throw new DomainError("VALIDATION", `Poné un precio válido para el combo "${name}"`);
+      const note = raw.note ? String(raw.note).trim().slice(0, 120) : undefined;
+      const id = typeof raw.id === "string" && /^[a-z0-9]{3,24}$/.test(raw.id) ? raw.id : e.id("rcm").replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 24);
+      return { id, name, productIds: ids, price, ...(note ? { note } : {}) } as ResellerCombo;
+    });
+  }
   return e.tx(() => {
     const cur = c.shop ?? defaults(e, c);
     if (p.enabled && e.s.settings.resellerShops === false) throw new DomainError("FORBIDDEN", "La tienda no tiene habilitadas las páginas de revendedores");
@@ -328,10 +349,17 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     .filter((p) => p.published && c!.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id)))
     .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: c!.resellerPrices![p.id], available: Math.min(stock[p.id] ?? 0, 20) }));
   const look: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "products", "whatsapp", "title"].includes(k)) look[k] = v;
+  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "products", "whatsapp", "title", "combos", "comboDiscounts"].includes(k)) look[k] = v;
+  // Los combos propios del revendedor se muestran como tarjetas de catálogo.
+  const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
+  const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined)).map((cb) => ({
+    id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
+    hasImage: false, kind: "combo" as const, durationDays: 30, price: cb.price, available: 99, items: cb.productIds.map(nameOf),
+  }));
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
-    ...look, products,
+    comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => v > 0) ? s.comboDiscounts : null,
+    ...look, products: [...comboCards, ...products],
   };
 }
 
