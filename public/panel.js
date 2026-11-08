@@ -18,8 +18,16 @@ const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquil
 
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
+/** En el celular cada fila se vuelve una tarjeta: a cada celda le pone el nombre de su columna. */
+const labelRow = (row, head) => {
+  let i = 0;
+  return row.replace(/<td(\s|>)/g, (m, after) => {
+    const label = head[i++] ?? "";
+    return label ? `<td data-label="${esc(label)}"${after === ">" ? ">" : " "}` : m;
+  });
+};
 const table = (head, rows, empty = "No hay datos todavía.") => rows.length
-  ? `<div class="scroll"><table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+  ? `<div class="scroll rtbl"><table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => labelRow(r, head)).join("")}</tbody></table></div>`
   : `<div class="emptybox">${esc(empty)}</div>`;
 const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(t)}</option>`;
 const dateInput = (t) => new Date(t).toISOString().slice(0, 10);

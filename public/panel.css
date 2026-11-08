@@ -396,3 +396,19 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
   .ac-bad{background:var(--bad-soft);color:var(--bad)}.ac-mute{background:var(--soft);color:var(--muted)}
   .acard footer{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding-top:8px}
 }
+
+/* ---- tablas que se vuelven tarjetas en el celular ---- */
+@media (max-width:900px){
+  .rtbl{overflow:visible}
+  .rtbl table,.rtbl tbody,.rtbl tr,.rtbl td{display:block;width:auto}
+  .rtbl thead{display:none}
+  .rtbl tr{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .rtbl td{border:0!important;padding:7px 0;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:14px}
+  .rtbl td+td{border-top:1px solid var(--line)!important}
+  .rtbl td::before{content:attr(data-label);color:var(--muted);font-weight:600;font-size:12.5px;flex:none}
+  .rtbl td:empty{display:none!important}
+  .rtbl td[data-label=""]::before,.rtbl td:not([data-label])::before{display:none}
+  .rtbl td>form.inline{width:100%}
+  .rtbl td .pbtn,.rtbl td form{flex:1 1 auto}
+  .rtbl td>div[style*="flex"]{justify-content:flex-end}
+}
