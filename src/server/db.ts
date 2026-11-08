@@ -49,6 +49,11 @@ export class Db {
         saved_at INTEGER NOT NULL,
         state TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS platform (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY,
         kind TEXT NOT NULL,
@@ -63,6 +68,12 @@ export class Db {
         updated_at INTEGER NOT NULL
       );
     `);
+    // Multiempresa: cada empresa (tenant) guarda su propio estado. Las filas viejas quedan como "main".
+    const cols = (this.db.prepare("PRAGMA table_info(state_versions)").all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("tenant")) {
+      this.db.exec("ALTER TABLE state_versions ADD COLUMN tenant TEXT NOT NULL DEFAULT 'main'");
+      this.db.exec("CREATE INDEX IF NOT EXISTS state_versions_tenant ON state_versions(tenant, version)");
+    }
     // Lock de escritura exclusivo mientras el proceso viva: un segundo servidor sobre el mismo
     // archivo falla al arrancar en vez de pisar datos.
     if (file !== ":memory:") {
@@ -130,16 +141,35 @@ export class Db {
     return !!this.key;
   }
 
-  loadLatest(): State | undefined {
-    const row = this.db.prepare("SELECT state FROM state_versions ORDER BY version DESC LIMIT 1").get() as { state: string } | undefined;
+  loadLatest(tenant = "main"): State | undefined {
+    const row = this.db.prepare("SELECT state FROM state_versions WHERE tenant = ? ORDER BY version DESC LIMIT 1").get(tenant) as { state: string } | undefined;
     return row ? this.parse(row.state) : undefined;
   }
 
+  /** Empresas (tenants) que tienen datos guardados. */
+  tenants(): string[] {
+    return (this.db.prepare("SELECT DISTINCT tenant FROM state_versions ORDER BY tenant").all() as { tenant: string }[]).map((r) => r.tenant);
+  }
+
+  /** Registro central del SaaS (lista de empresas, planes, suscripciones): un solo documento JSON. */
+  loadPlatform<T>(): T | undefined {
+    const row = this.db.prepare("SELECT value FROM platform WHERE key = 'registry'").get() as { value: string } | undefined;
+    return row ? (JSON.parse(row.value) as T) : undefined;
+  }
+
+  savePlatform(data: unknown, at: number): void {
+    this.db.prepare("INSERT INTO platform (key, value, updated_at) VALUES ('registry', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").run(JSON.stringify(data), at);
+  }
+
   /** Guarda una versión nueva del estado. Lanza si el disco falla (el núcleo deshace la transacción). */
-  saveState(state: State, at: number): number {
-    const res = this.db.prepare("INSERT INTO state_versions (saved_at, state) VALUES (?, ?)").run(at, this.serialize(state));
+  saveState(state: State, at: number, tenant = "main"): number {
+    const res = this.db.prepare("INSERT INTO state_versions (saved_at, state, tenant) VALUES (?, ?, ?)").run(at, this.serialize(state), tenant);
     const version = Number(res.lastInsertRowid);
-    if (version % 25 === 0) this.db.prepare("DELETE FROM state_versions WHERE version <= ?").run(version - this.keep);
+    // Poda por empresa: deja las últimas `keep` versiones de ESA empresa.
+    if (version % 25 === 0) {
+      const old = this.db.prepare("SELECT version FROM state_versions WHERE tenant = ? ORDER BY version DESC LIMIT 1 OFFSET ?").get(tenant, this.keep) as { version: number } | undefined;
+      if (old) this.db.prepare("DELETE FROM state_versions WHERE tenant = ? AND version <= ?").run(tenant, old.version);
+    }
     return version;
   }
 
