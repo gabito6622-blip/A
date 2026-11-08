@@ -99,14 +99,16 @@
 .emptybox{display:grid;justify-items:center;gap:10px;padding:30px 10px;color:var(--muted);text-align:center}
 .emptybox svg{width:34px;height:34px}
 .chats{display:grid;grid-template-columns:280px minmax(0,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:380px}
+.chats>div:last-child{grid-template-columns:minmax(0,1fr)}
 .clist{border-right:1px solid var(--line);display:grid;align-content:start}
 .clist button{display:grid;grid-template-columns:auto 1fr auto;gap:0 10px;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:12px;color:var(--ink);align-items:center}
 .clist button[aria-current="true"]{background:var(--soft)}
 .clist .av{width:40px;height:40px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;grid-row:span 2}
 .clist small{color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .clist small.last{grid-column:2/4}
-.msgs{padding:16px;display:grid;gap:12px;align-content:start;background:var(--soft);overflow:auto}
-.bub{justify-self:end;max-width:min(430px,100%);background:var(--ok-soft);color:var(--ink);border-radius:12px 12px 2px 12px;padding:10px 12px;white-space:pre-wrap;font-size:13.5px}
+.msgs{padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-content:start;background:var(--soft);overflow:auto}
+.wa-back{display:none}
+.bub{justify-self:end;max-width:min(430px,100%);background:var(--ok-soft);color:var(--ink);border-radius:12px 12px 2px 12px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font-size:13.5px}
 .bub .auto{display:block;font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px}
 .bub time{display:block;text-align:right;font-size:11px;color:var(--muted)}
 .pscrim{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:60}
@@ -142,6 +144,16 @@
   .big{grid-template-columns:1fr}
   .chats{grid-template-columns:minmax(0,1fr)}
   .clist{border-right:0;border-bottom:1px solid var(--line)}
+  /* En el celular se ve UNA cosa: la lista o el chat abierto. */
+  .chats.show-list>div:last-child{display:none!important}
+  .chats.show-chat .clist{display:none}
+  .wa-back{display:inline-grid!important;place-items:center;margin-right:4px}
+  .chats .inline{flex-wrap:wrap}
+  .msgs{max-height:none!important}
+  #waReply{flex-wrap:nowrap}
+  #waReply input{flex:1;min-width:0}
+  .bub{max-width:85%}
+  .msgs{overflow-x:hidden}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* --- agregados para el panel conectado --- */

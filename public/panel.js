@@ -843,11 +843,11 @@ async function waChatsHtml() {
   const off = cfg && !cfg.ready.enabled ? `<div class="pok">El bot está apagado: los mensajes se guardan acá pero nadie contesta solo. Encendelo en “Bot y conexión con Meta”.</div>` : "";
   if (!list.length) return `${off}<section class="card"><div class="emptybox">${icon("wa")}<span>Todavía no hay conversaciones. Cuando un cliente le escriba al número del bot, aparece acá.</span></div></section>`;
   const BY = { cliente: "", bot: "🤖 Bot", staff: "👤 Equipo", sistema: "⚙ Aviso" };
-  return `${off}<section class="card"><div class="chats">
+  return `${off}<section class="card"><div class="chats ${P.tab.waOpen ? "show-chat" : "show-list"}">
     <div class="clist">${list.map((c) => `<button type="button" data-chat="${esc(c.phone)}" aria-current="${c.phone === sel}"><span class="av">${icon("user")}</span><b>${esc(c.customerName ?? c.name ?? c.phone)}</b>
       <small>${c.needsHuman ? pill("Pide persona", "bad") : c.botPaused ? pill("Atiende persona", "warn") : ""}${c.unread ? ` ${pill(c.unread, "ok")}` : ""}</small><small class="last">${esc(c.lastText.replace(/[*_]/g, ""))}</small></button>`).join("")}</div>
     <div style="display:grid;grid-template-rows:auto 1fr auto;min-width:0">
-      <div class="inline" style="padding:12px;border-bottom:1px solid var(--line)"><b>${esc(meta.customerName ?? meta.name ?? meta.phone)}</b><small class="muted">${esc(meta.phone)}</small>
+      <div class="inline" style="padding:12px;border-bottom:1px solid var(--line)"><button class="pbtn sm wa-back" type="button" data-waback="1">←</button><b>${esc(meta.customerName ?? meta.name ?? meta.phone)}</b><small class="muted">${esc(meta.phone)}</small>
         ${meta.inWindow ? pill(`Podés escribirle hasta el ${fdt(meta.windowEndsAt)}`, "ok") : pill("Ventana de 24 h cerrada", "mute")}
         <span style="margin-left:auto" class="inline">${meta.botPaused || meta.needsHuman ? `<button class="pbtn sm" type="button" data-human="${esc(sel)}" data-on="0">🤖 Devolver al bot</button>` : `<button class="pbtn sm" type="button" data-human="${esc(sel)}" data-on="1">👤 Atender yo</button>`}</span></div>
       <div class="msgs" style="max-height:460px">${t.messages.map((m) => `<div class="bub" style="${m.direction === "in" ? "justify-self:start;background:var(--card);border-radius:12px 12px 12px 2px" : ""}">${m.direction === "out" ? `<span class="auto">${BY[m.by]}</span>` : ""}${waFmt(m.text)}<time>${fdt(m.at)}${m.direction === "out" ? ` · ${{ sent: "enviado", delivered: "entregado", read: "leído ✓✓", failed: "falló" }[m.status] ?? ""}` : ""}</time>${m.error ? `<small class="down">${esc(m.error)}</small>` : ""}</div>`).join("")}</div>
@@ -1160,7 +1160,8 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.editprod !== undefined) { P.tab.editProduct = d.editprod || null; await render(); return scrollTo(0, 0); }
-  if (d.chat) { P.tab.chat = d.chat; return render(); }
+  if (d.chat) { P.tab.chat = d.chat; P.tab.waOpen = true; return render(); }
+  if (d.waback) { P.tab.waOpen = false; return render(); }
   if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
   if (d.waflush) return act(() => api("POST", "/api/admin/whatsapp/flush", {}), (r) => `Enviados ${r.sent}, fallidos ${r.failed}, reintentando ${r.pending}`);
   if (d.importsvccancel) { P.tab.importSvc = null; return render(); }
