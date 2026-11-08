@@ -475,6 +475,21 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "netflix", qty: 9 }], paymentMethod: "qr" }), err("OUT_OF_STOCK"), "los productos normales siguen necesitando stock");
   });
 
+  test("vender eligiendo un perfil concreto asigna ESE perfil (no el automático)", () => {
+    const { s, maria } = setup();
+    // acc1 vence antes (90d) → el automático tomaría ese. Elegimos un perfil de acc2 (40d).
+    const accounts = s.inventory.listAccounts(owner, {});
+    const acc2 = accounts.find((a) => a.email === "nf02@gabostore.lat");
+    const slot = acc2.slots.find((x) => x.status === "available");
+    const o = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash", preferredSlotIds: [slot.id] });
+    const asg = s.snapshot().assignments[o.assignmentIds[0]];
+    assert.equal(asg.slotId, slot.id, "asignó el perfil elegido");
+    // sin elegir, toma el que vence antes (acc1)
+    const o2 = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const asg2 = s.snapshot().assignments[o2.assignmentIds[0]];
+    assert.equal(s.snapshot().slots[asg2.slotId].accountId, accounts.find((a) => a.email === "nf01@gabostore.lat").id, "automático = vence antes");
+  });
+
   test("Armá tu combo: descuento en la tienda por servicios distintos, no para revendedores ni staff", () => {
     const { s, maria, carla, as } = setup();
     s.inventory.addAccount(admin, { productId: "gemini", supplierId: "andes", email: "gm01@gabostore.lat", password: "Gm-Clave#1", supplierExpiresAt: T0 + 90 * DAY, cost: 1000, profiles: [{ label: "Invitación" }] });

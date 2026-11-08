@@ -74,11 +74,16 @@ export function freeCount(e: Engine, productId: Id): number {
   return Object.values(e.s.slots).filter((s) => s.productId === productId && sellable(e, s)).length;
 }
 
-export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = []): Slot[] {
+export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = [], prefer: Id[] = []): Slot[] {
+  const pref = new Map(prefer.map((id, i) => [id, i]));
   const free = Object.values(e.s.slots)
     .filter((s) => s.productId === productId && sellable(e, s) && !exclude.includes(s.accountId))
-    // Primero las cuentas que vencen antes con el proveedor, para rotar el inventario.
-    .sort((a, b) => e.s.accounts[a.accountId].supplierExpiresAt - e.s.accounts[b.accountId].supplierExpiresAt || a.id.localeCompare(b.id));
+    // Si el staff eligió perfiles, esos van primero (en su orden); si no, los que vencen antes con el proveedor.
+    .sort((a, b) => {
+      const pa = pref.has(a.id) ? pref.get(a.id)! : Infinity, pb = pref.has(b.id) ? pref.get(b.id)! : Infinity;
+      if (pa !== pb) return pa - pb;
+      return e.s.accounts[a.accountId].supplierExpiresAt - e.s.accounts[b.accountId].supplierExpiresAt || a.id.localeCompare(b.id);
+    });
   if (free.length < qty) throw new DomainError("OUT_OF_STOCK", `Sin stock suficiente de ${productId}: pedidos ${qty}, libres ${free.length}`);
   const until = e.now() + e.opts.reservationMinutes * MINUTE;
   return free.slice(0, qty).map((s) => {

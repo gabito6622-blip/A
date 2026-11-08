@@ -144,7 +144,8 @@ const V = {
         d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>`;
   },
   async vender() {
-    const [customers, products, stock] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock")]);
+    const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
+    P.tab.sellAccts = accounts;
     const tile = (p) => {
       const n = stock[p.id]?.available ?? 0;
       return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
@@ -165,6 +166,8 @@ const V = {
           ${combos.length ? `<div class="selsec">🎁 Combos</div><div class="selgrid">${combos.map(tile).join("")}</div>` : ""}
         </div>
         <div id="sellNote" class="sellnote">👆 Elegí un producto de arriba.</div>
+        <input type="hidden" name="slotId" value="">
+        <div id="profPick" class="profpick" hidden></div>
         <div class="selrow"><label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
           <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label></div>
         <button class="pbtn dark" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
@@ -1203,11 +1206,27 @@ document.addEventListener("click", async (ev) => {
     const f = $("#sellForm");
     if (!f) return;
     f.productId.value = d.pick;
+    f.slotId.value = "";
     $$(".selp").forEach((x) => x.setAttribute("aria-pressed", x.dataset.pick === d.pick ? "true" : "false"));
     const n = +el.dataset.stock;
     $("#sellNote").innerHTML = `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`;
     $("#sellNote").classList.add("on");
     $("#sellBtn").disabled = false;
+    // Perfiles libres de ese producto para elegir a mano (opcional).
+    const estadoK = { available: "Libre" };
+    const accs = (P.tab.sellAccts ?? []).filter((a) => a.productId === d.pick && a.status === "active" && a.slots.some((s) => s.status === "available"));
+    const pp = $("#profPick");
+    if (!accs.length) { pp.hidden = true; pp.innerHTML = ""; return; }
+    pp.hidden = false;
+    pp.innerHTML = `<div class="ppsec">🎯 ¿De qué cuenta/perfil? <small class="muted">opcional</small></div>
+      <div class="ppchips"><button type="button" class="ppchip on" data-slot="">⚡ Automático <small>(el que vence antes)</small></button>
+      ${accs.map((a) => a.slots.filter((s) => s.status === "available").map((s) => `<button type="button" class="ppchip" data-slot="${esc(s.id)}"><b>${esc(s.label)}</b><small>${esc(a.email)}</small></button>`).join("")).join("")}</div>`;
+    return;
+  }
+  if (d.slot !== undefined && el.classList.contains("ppchip")) {
+    const f = $("#sellForm");
+    if (f) f.slotId.value = d.slot;
+    $$("#profPick .ppchip").forEach((x) => x.classList.toggle("on", x.dataset.slot === d.slot));
     return;
   }
   if (d.renew) {
@@ -1331,7 +1350,7 @@ document.addEventListener("submit", async (ev) => {
     if (f.id === "sellForm") {
       if (!f.productId.value) { toast("Elegí un producto"); return; }
       const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
-      await act(() => api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key }), `✅ Venta registrada: ${pname}. Se asignó un perfil y el aviso quedó en WhatsApp.`);
+      await act(() => api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) }), `✅ Venta registrada: ${pname}. Se asignó un perfil y el aviso quedó en WhatsApp.`);
     } else if (f.dataset.approve) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey() }), "Pago aprobado y servicio entregado");
     } else if (f.dataset.reject) {

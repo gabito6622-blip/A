@@ -443,3 +443,11 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .sellnote.on{background:color-mix(in srgb,var(--blue) 10%,var(--soft));color:var(--ink)}
 .selrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:640px){.selgrid{grid-template-columns:repeat(2,1fr)}}
+
+/* Vender: elegir perfil concreto */
+.profpick{display:grid;gap:8px}
+.ppsec{font-weight:700;font-size:14px}
+.ppchips{display:flex;flex-wrap:wrap;gap:8px}
+.ppchip{display:grid;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px 12px;font:inherit;cursor:pointer;line-height:1.2}
+.ppchip b{font-size:13.5px}.ppchip small{color:var(--muted);font-size:11.5px;overflow-wrap:anywhere}
+.ppchip.on{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset;background:color-mix(in srgb,var(--blue) 8%,var(--card))}

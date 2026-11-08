@@ -37,6 +37,8 @@ export interface CreateOrderInput {
   paymentMethod: PaymentMethod;
   channel?: Order["channel"];
   idempotencyKey?: string;
+  /** Solo staff: perfiles concretos a asignar (si no, el sistema elige el que vence antes). */
+  preferredSlotIds?: Id[];
 }
 
 /**
@@ -72,7 +74,8 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const back: { productId: Id; qty: number }[] = [];
     const reserved = items.flatMap((it) => {
       if (e.s.products[it.productId]?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
-      return reserveSlots(e, it.productId, it.qty, id);
+      const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];
+      return reserveSlots(e, it.productId, it.qty, id, [], prefer);
     });
     const now = e.now();
     const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
