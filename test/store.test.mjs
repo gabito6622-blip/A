@@ -1154,3 +1154,24 @@ describe("23. Cambiar tipo en lote", () => {
     assert.deepEqual([back.changed, back.skipped.map((x) => x.reason)], [1, ["tiene clientes propios"]]);
   });
 });
+
+describe("Atajo de venta: entregar accesos al cliente", () => {
+  test("delivery arma correo, contraseña, perfil, PIN y un mensaje listo; solo staff", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(owner, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const aid = o.assignmentIds[0];
+    assert.ok(aid, "la venta en efectivo asigna un perfil al toque");
+    const d = s.admin.delivery(owner, aid);
+    assert.match(d.email, /nf0[12]@gabostore\.lat/);
+    assert.ok(d.password.length > 0 && !d.passwordPending);
+    assert.ok(d.profile.length > 0);
+    assert.equal(d.customerName, "María Quispe");
+    assert.match(d.customerPhone.replace(/\s/g, ""), /\+?59170011223/);
+    assert.ok(d.message.includes(d.email) && d.message.includes(d.password) && d.message.includes(d.profile), "el mensaje trae los datos");
+    assert.match(d.message, /Vence:/);
+    if (d.pin) assert.ok(d.message.includes(d.pin), "incluye el PIN del perfil si lo tiene");
+    // Un cliente no puede pedir los accesos de nadie; un alquiler inexistente da NOT_FOUND.
+    assert.throws(() => s.admin.delivery(as(maria), aid), err("FORBIDDEN"));
+    assert.throws(() => s.admin.delivery(owner, "asg_nope"), err("NOT_FOUND"));
+  });
+});

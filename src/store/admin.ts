@@ -112,6 +112,42 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
     });
 }
 
+/**
+ * Datos completos para ENTREGAR un alquiler al cliente (correo, contraseña, perfil, PIN) y un
+ * mensaje de WhatsApp listo para mandar. Solo staff; cada vez que se revela queda en la auditoría.
+ */
+export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
+  if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
+  const a = e.s.assignments[assignmentId];
+  if (!a || a.status !== "active") throw new DomainError("NOT_FOUND", "No se encontró ese alquiler activo");
+  const slot = e.s.slots[a.slotId];
+  const acc = e.s.accounts[slot.accountId];
+  const cust = e.s.customers[a.customerId];
+  const prod = e.s.products[a.productId];
+  const d = new Date(a.customerExpiresAt);
+  const expiresText = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const storeName = e.s.settings.storeName || "la tienda";
+  const first = (cust?.name ?? "").split(" ")[0] || "";
+  const pin = slot.pin ?? "";
+  const message = [
+    `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
+    ``,
+    `📧 Correo: ${acc.email}`,
+    `🔑 Contraseña: ${acc.password || "(te la paso aparte)"}`,
+    `👤 Perfil: ${slot.label}`,
+    ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
+    `📅 Vence: ${expiresText}`,
+    ``,
+    `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+  ].join("\n");
+  e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId });
+  return {
+    assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerFirst: first,
+    customerPhone: cust?.phone ?? "", product: prod?.name ?? "", email: acc.email, password: acc.password || "",
+    profile: slot.label, pin, expiresAt: a.customerExpiresAt, expiresText, storeName, message, passwordPending: !acc.password,
+  };
+}
+
 export function getOrderEvidence(e: Engine, actor: Actor, orderId: Id) {
   authorize(actor, "payment.review");
   const o = e.get("orders", orderId);

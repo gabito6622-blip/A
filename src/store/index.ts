@@ -171,6 +171,7 @@ export function createStore(opts: EngineOptions = {}) {
       orders: bind(e, admin.listOrders),
       customers: bind(e, admin.listCustomers),
       assignments: bind(e, admin.listAssignments),
+      delivery: bind(e, admin.deliveryInfo),
       evidence: bind(e, admin.getOrderEvidence),
     },
     stats: {

@@ -455,3 +455,16 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 /* Cuentas: perfiles tocables */
 .achip.clk,.pp.clk{cursor:pointer}
 .achip.clk:active{transform:scale(.96)}
+
+/* --- Tarjeta "listo para enviar" (atajo de venta: accesos + botón de WhatsApp) --- */
+.dlv-scrim{position:fixed;inset:0;background:rgba(6,10,18,.55);display:grid;place-items:center;padding:16px;z-index:60;overflow:auto}
+.dlv-card{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:18px;width:100%;max-width:440px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.dlv-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dlv-top h3{margin:0;font-size:19px}
+.dlv-creds{display:grid;gap:8px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px}
+.dlv-creds div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px;align-items:baseline}
+.dlv-creds span{color:var(--muted);font-size:13px}
+.dlv-creds b{font-size:15px;overflow-wrap:anywhere}
+.dlv-creds b.sel{user-select:all;font-family:ui-monospace,Menlo,Consolas,monospace}
+.pbtn.big{justify-content:center;padding:13px 16px;font-size:15.5px;border-radius:12px}
+@media (max-width:520px){ .dlv-creds div{grid-template-columns:104px minmax(0,1fr)} }

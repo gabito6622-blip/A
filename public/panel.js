@@ -379,7 +379,7 @@ const V = {
         if (sl.status === "assigned") {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>
             <p class="muted" style="margin:0">Ocupado por <b>${esc(sl.customerName || "—")}</b>${sl.customerPhone ? ` · ${esc(sl.customerPhone)}` : ""}${sl.expiresAt ? ` · vence ${fdate(sl.expiresAt)}` : ""}.</p>
-            <div class="inline"><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar para vender</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
+            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar para vender</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
             <p class="muted" style="margin:0;font-size:12.5px">Al liberar, deja de contar para ese cliente (y sus códigos) y queda libre para vender a otro.</p></section>`;
         } else if (sl.status === "available") {
           slotCard = `<section class="card ok-card"><h2>Asignar ${head}</h2>
@@ -1039,6 +1039,41 @@ async function start() {
 }
 
 /* ---------------- eventos ---------------- */
+/** Arma un mensaje de WhatsApp con los accesos (uno o varios, mismo cliente). */
+function deliveryMessage(list) {
+  if (list.length === 1) return list[0].message;
+  const first = list[0].customerFirst || "";
+  const blocks = list.map((x) => [`📺 ${x.product}`, `📧 Correo: ${x.email}`, `🔑 Contraseña: ${x.password || "(te la paso aparte)"}`, `👤 Perfil: ${x.profile}`, ...(x.pin ? [`🔢 PIN: ${x.pin}`] : []), `📅 Vence: ${x.expiresText}`].join("\n")).join("\n\n");
+  return `¡Hola ${first}! 👋 Acá tenés tus accesos:\n\n${blocks}\n\nCualquier cosa me escribís. ¡Gracias! 🙌`;
+}
+
+/** Tarjeta "listo para enviar": muestra los accesos y un botón grande para mandarlos por WhatsApp. */
+function showDeliveries(list) {
+  list = (list || []).filter(Boolean);
+  if (!list.length) return;
+  const phone = list[0].customerPhone;
+  const msg = deliveryMessage(list);
+  const cred = (x) => `<div class="dlv-creds">
+      <div><span>📺 Producto</span><b>${esc(x.product)}</b></div>
+      <div><span>📧 Correo</span><b class="sel">${esc(x.email)}</b></div>
+      <div><span>🔑 Contraseña</span><b class="sel">${esc(x.password || "(pendiente)")}</b></div>
+      <div><span>👤 Perfil</span><b class="sel">${esc(x.profile)}</b></div>
+      ${x.pin ? `<div><span>🔢 PIN</span><b class="sel">${esc(x.pin)}</b></div>` : ""}
+      <div><span>📅 Vence</span><b>${esc(x.expiresText)}</b></div></div>`;
+  document.getElementById("dlvScrim")?.remove();
+  const el = document.createElement("div");
+  el.id = "dlvScrim"; el.className = "dlv-scrim"; el.dataset.msg = msg;
+  el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Enviar accesos">
+      <div class="dlv-top"><h3>✅ Listo para enviar</h3><button class="pbtn sm" type="button" data-dlvclose aria-label="Cerrar">✕</button></div>
+      <p class="muted" style="margin:0">Para <b>${esc(list[0].customerName || "el cliente")}</b>${phone ? ` · ${esc(phone)}` : ""}</p>
+      ${list.map(cred).join("")}
+      ${list.some((x) => x.passwordPending) ? `<p class="muted" style="margin:0">⚠️ Falta la contraseña de una cuenta: cargala en “Carga de Cuentas” y volvé a enviar.</p>` : ""}
+      ${phone ? `<a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>` : `<p class="muted" style="margin:0">Este cliente no tiene WhatsApp cargado. Copiá los datos y mandáselos por donde puedas.</p>`}
+      <button class="pbtn big" type="button" data-dlvcopy>📋 Copiar todo</button></div>`;
+  el.addEventListener("click", (ev) => { if (ev.target === el) el.remove(); });
+  document.body.appendChild(el);
+}
+
 async function act(fn, okMsg) {
   try {
     const r = await fn();
@@ -1058,6 +1093,9 @@ document.addEventListener("click", async (ev) => {
   if (d.go) return go(d.go);
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
+  if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
+  if (d.dlvcopy) { const s = document.getElementById("dlvScrim"); if (s) { try { await navigator.clipboard.writeText(s.dataset.msg); toast("Datos copiados ✓"); } catch { toast("No se pudo copiar"); } } return; }
+  if (d.deliver) { try { const info = await api("GET", `/api/admin/assignments/${d.deliver}/delivery`); showDeliveries([info]); } catch (e) { toast(e.message); } return; }
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.qrdel) { const row = el.closest(".qr-row"); const form = row.closest("form"); row.remove(); return form.requestSubmit(); }
@@ -1407,21 +1445,42 @@ document.addEventListener("submit", async (ev) => {
         const c = await api("POST", "/api/admin/customers", { name, phone: phone || undefined, allowNoPhone: !phone });
         customerId = c.id;
       }
-      await act(async () => {
+      try {
         const o = await api("POST", "/api/admin/orders", { customerId, items: [{ productId: f.dataset.prod, qty: 1 }], paymentMethod: f.paymentMethod.value, idempotencyKey: newKey(), preferredSlotIds: [f.dataset.slot] });
         const aid = o.assignmentIds?.[0];
         if (aid) {
           if (f.endDate.value) { const [y, m, d] = f.endDate.value.split("-").map(Number); await api("POST", `/api/admin/assignments/${aid}/expiry`, { expiresAt: new Date(y, m - 1, d, 23, 59).getTime() }); }
           if (f.startDate.value) { const [y, m, d] = f.startDate.value.split("-").map(Number); await api("POST", `/api/admin/assignments/${aid}/control`, { startedAt: new Date(y, m - 1, d, 0, 0).getTime() }); }
         }
-      }, "✅ Perfil asignado con sus fechas");
-      P.tab.slotAct = null;
+        const info = aid ? await api("GET", `/api/admin/assignments/${aid}/delivery`).catch(() => null) : null;
+        toast("✅ Perfil asignado con sus fechas");
+        P.tab.slotAct = null;
+        await render();
+        if (info) showDeliveries([info]);
+      } catch (e) {
+        if (e.status === 401) return showLogin("Tu sesión venció. Entrá de nuevo.");
+        toast(e.message); if (btn) btn.disabled = false;
+      }
       return;
     }
     if (f.id === "sellForm") {
       if (!f.productId.value) { toast("Elegí un producto"); return; }
       const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
-      await act(() => api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) }), `✅ Venta registrada: ${pname}. Se asignó un perfil y el aviso quedó en WhatsApp.`);
+      if (btn) btn.disabled = true;
+      try {
+        const o = await api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) });
+        const deliveries = [];
+        for (const id of (o.assignmentIds ?? [])) { const info = await api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null); if (info) deliveries.push(info); }
+        toast(`✅ Venta registrada: ${pname}`);
+        await render();
+        if (deliveries.length) showDeliveries(deliveries);
+        else toast("Venta sin perfil asignado (quedó a pedido). Revisá Aprobación.");
+      } catch (e) {
+        if (e.status === 401) return showLogin("Tu sesión venció. Entrá de nuevo.");
+        toast(e.message);
+        if (btn) btn.disabled = false;
+      }
+      return;
     } else if (f.dataset.approve) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey() }), "Pago aprobado y servicio entregado");
     } else if (f.dataset.reject) {

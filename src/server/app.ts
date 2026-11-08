@@ -616,6 +616,7 @@ export function createApp(cfg: AppConfig): App {
     customerId: c.query.get("customerId") ?? undefined, productId: c.query.get("productId") ?? undefined,
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
+  route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
     price: c.body?.price, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
