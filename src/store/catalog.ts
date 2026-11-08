@@ -120,6 +120,22 @@ export function findCustomerByPhone(e: Engine, phone: string) {
 }
 
 /** Alta desde la tienda, después de verificar el teléfono con un código. Siempre cliente final. */
+/** Alta publica con correo (sin telefono). La contrasena se guarda aparte, cifrada, en el servidor. */
+export function registerWithEmail(e: Engine, input: { name: string; email: string }): Customer {
+  const system: Actor = { id: "system:registro", role: "system" };
+  const email = String(input.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
+  if (!input.name?.trim() || input.name.length > 80) throw new DomainError("VALIDATION", "Escribi tu nombre");
+  return e.tx(() => {
+    if (Object.values(e.s.customers).some((c) => (c.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ya existe una cuenta con ese correo. Inicia sesion o recupera tu contrasena.");
+    const id = e.id("cus");
+    const cust: Customer = { id, name: input.name.trim(), phone: "", email, kind: "customer", priceGroupId: "final", whatsappConsent: false, createdAt: e.now() };
+    e.s.customers[id] = cust;
+    e.audit(system, "customer.register_email", "customer", id, {});
+    return structuredClone(cust);
+  });
+}
+
 export function selfRegister(e: Engine, input: { name: string; phone: string; whatsappConsent: boolean }): Customer {
   const system: Actor = { id: "system:registro", role: "system" };
   const phone = normalizePhone(input.phone);

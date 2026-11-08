@@ -125,6 +125,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 /* --- agregados para la tienda conectada --- */
 .err{background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.4);color:var(--s-bad);border-radius:12px;padding:10px 12px;font-size:14px}
+.ok-msg{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:var(--s-ok,#34d399);border-radius:12px;padding:10px 12px;font-size:14px}
+.loginalt{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.loginalt .sbtn.sm{flex:1;min-width:0;justify-content:center}
 .okmsg{background:rgba(40,214,162,.12);border:1px solid rgba(40,214,162,.4);color:var(--s-ok);border-radius:12px;padding:10px 12px;font-size:14px}
 .qr img{width:120px;height:120px;object-fit:contain;background:#fff;border-radius:8px;flex:none}
 .skeleton{color:var(--s-muted);padding:30px 0;text-align:center}

@@ -13,7 +13,8 @@ import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
 import { buildMail, emailsIn, parseMail } from "./mail.js";
 import { Backups } from "./backup.js";
 import { newTotpSecret, verifyTotp } from "./security.js";
-import { hashPassword, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
+import { hashPassword, hashSecret, newToken, OtpStore, RateLimiter, sha256, verifyPassword } from "./security.js";
+import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
@@ -36,6 +37,8 @@ export interface AppConfig {
   log?: (msg: string) => void;
   /** Solo pruebas: conectar a un servidor IMAP local en vez del real. */
   imapTest?: { host: string; port: number; tls: ImapConfig["tls"] };
+  /** Solo pruebas: servidor SMTP local para los correos. */
+  smtpTest?: { host: string; port: number; tls: ImapConfig["tls"] };
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
@@ -309,6 +312,102 @@ export function createApp(cfg: AppConfig): App {
     return { ok: true };
   });
   route("GET", "/api/me/login-pin", "customer", (c) => ({ hasPin: !!db.getSecret(`loginpin:${c.actor!.customerId!}`) }));
+
+  // ---- Cuentas de clientes con correo + contrasena (registro, login, recuperar) ----
+  const EMAILRE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const custByEmail = (email: unknown) => Object.values(store.engine.s.customers).find((c) => (c.email ?? "").toLowerCase() === String(email ?? "").trim().toLowerCase());
+  /** Envia un correo con el primer Gmail conectado (Panel de codigos). */
+  function emailSender() {
+    const box = Object.values(store.engine.s.mailboxes).find((m) => (m.kind === "gmail" || m.host === "imap.gmail.com") && db.getSecret(`imap:${m.id}`));
+    if (!box) return null;
+    return { host: "smtp.gmail.com", port: 465, user: box.user || box.address, pass: db.unseal(db.getSecret(`imap:${box.id}`)!), ...(cfg.smtpTest ?? {}) };
+  }
+  async function sendStoreEmail(to: string, subject: string, html: string): Promise<void> {
+    const snd = emailSender();
+    if (!snd) throw new DomainError("VALIDATION", "La tienda todavia no conecto un Gmail para enviar correos (Panel de codigos).");
+    await sendMail(snd, { to, subject, html, fromName: store.engine.s.settings.storeName });
+  }
+  const escH = (x: unknown) => String(x ?? "").replace(/[&<>"\x27]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\x27": "&#39;" }[ch]!));
+  const emailWrap = (title: string, body: string) => `<div style="font-family:Inter,Arial,sans-serif;max-width:460px;margin:0 auto;padding:24px;background:#0b1020;color:#eef5ff;border-radius:16px"><h2 style="margin:0 0 8px">${escH(store.engine.s.settings.storeName)}</h2><p style="color:#9fb0d0;margin:0 0 16px">${escH(title)}</p>${body}<p style="color:#6b7a99;font-size:12px;margin-top:20px">Si no fuiste vos, ignora este correo.</p></div>`;
+
+  const regLimiter = new RateLimiter(10, 60 * 60_000, now);
+  route("POST", "/api/auth/customer/register", "public", async (c) => {
+    if (!regLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en un rato.");
+    const email = String(c.body?.email ?? "").trim().toLowerCase();
+    const password = String(c.body?.password ?? "");
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
+    if (password.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    const existing = custByEmail(email);
+    if (existing && db.getSecret(`custpw:${existing.id}`)) throw new DomainError("VALIDATION", "Ya tenes una cuenta con ese correo. Inicia sesion.");
+    const cust = existing ?? store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
+    db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
+    startSession(c.res, "customer", cust.id);
+    sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
+    return { id: cust.id, name: cust.name, kind: cust.kind };
+  });
+
+  route("POST", "/api/auth/customer/login-email", "public", (c) => {
+    const email = String(c.body?.email ?? "").trim().toLowerCase();
+    const k = `loginem|${c.ip}|${email}`;
+    if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en 15 minutos.");
+    const cust = custByEmail(email);
+    const stored = cust ? db.getSecret(`custpw:${cust.id}`) : undefined;
+    if (!cust || !verifyPassword(String(c.body?.password ?? ""), stored)) { loginLimiter.take(k); throw new HttpError(401, "BAD_LOGIN", "Correo o contrasena incorrectos"); }
+    loginLimiter.reset(k);
+    startSession(c.res, "customer", cust.id);
+    return { id: cust.id, name: cust.name, kind: cust.kind };
+  });
+
+  route("POST", "/api/me/password", "customer", (c) => {
+    const id = c.actor!.customerId!;
+    const stored = db.getSecret(`custpw:${id}`);
+    const next = String(c.body?.password ?? "");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena nueva necesita al menos 8 caracteres");
+    if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contrasena actual no es correcta");
+    db.setSecret(`custpw:${id}`, hashSecret(next), now());
+    db.deleteSessionsOf?.(id);
+    startSession(c.res, "customer", id);
+    return { ok: true };
+  });
+  route("GET", "/api/me/has-password", "customer", (c) => ({ hasPassword: !!db.getSecret(`custpw:${c.actor!.customerId!}`) }));
+
+  const forgotLimiter = new RateLimiter(5, 60 * 60_000, now);
+  route("POST", "/api/auth/customer/forgot", "public", async (c) => {
+    const email = String(c.body?.email ?? "").trim().toLowerCase();
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
+    if (!forgotLimiter.take(`${c.ip}|${email}`)) throw new HttpError(429, "RATE_LIMIT", "Ya pediste varios. Proba en un rato.");
+    const cust = custByEmail(email);
+    if (cust) {
+      const token = newToken().slice(0, 32);
+      db.setSecret(`pwreset:${token}`, JSON.stringify({ id: cust.id, exp: now() + 60 * 60_000 }), now());
+      const url = `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/recuperar?t=${token}`;
+      try {
+        await sendStoreEmail(email, "Recupera tu contrasena", emailWrap("Tocaste 'olvide mi contrasena'.", `<p>Para poner una nueva, entra a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contrasena</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
+      } catch (e) {
+        throw new DomainError("VALIDATION", (e as Error).message);
+      }
+    }
+    return { ok: true };
+  });
+
+  route("GET", "/api/auth/customer/reset/:token", "public", (c) => {
+    const raw = db.getSecret(`pwreset:${c.params.token}`);
+    const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    return { email: store.engine.s.customers[data.id].email ?? "", name: store.engine.s.customers[data.id].name };
+  });
+  route("POST", "/api/auth/customer/reset", "public", (c) => {
+    const raw = db.getSecret(`pwreset:${String(c.body?.token ?? "")}`);
+    const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    const next = String(c.body?.password ?? "");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
+    db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
+    db.deleteSessionsOf?.(data.id);
+    startSession(c.res, "customer", data.id);
+    return { ok: true };
+  });
 
   /** Link de un solo uso generado por el staff (para mandar a mano por WhatsApp). */
   route("POST", "/api/auth/customer/link", "public", (c) => {
@@ -1063,6 +1162,7 @@ export function createApp(cfg: AppConfig): App {
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file) && existsSync(file + ".html")) file += ".html"; // /panel → panel.html
     if (/^\/codigos\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "codigos.html");
+    if (/^\/recuperar\/?$/.test(pathname)) file = join(root, "recuperar.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
     res.writeHead(200, {

@@ -295,6 +295,7 @@ function render() {
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
+      ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
     codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
       ${isReseller() ? `<div class="sbox"><h2>🔐 Tu link de códigos</h2><p class="empty" style="margin:0">Un link con PIN para ver los códigos de Disney+ de tus cuentas sin entrar acá. Podés pasárselo a tus clientes.</p>
@@ -855,14 +856,30 @@ async function submitCheckout(form) {
 }
 
 /* ---------------- acceso ---------------- */
-function openLogin(step = "pin", phone = "", msg = "") {
+function openLogin(step, phone = "", msg = "", email = "") {
+  if (!step) step = MODE === "store" ? "email" : "pin";
   $("#drawer").hidden = true;
   const st = S.settings;
   const body = {
+    email: `<label>Tu correo<input name="email" type="email" required value="${esc(email)}" autocomplete="email" placeholder="vos@correo.com"></label>
+      <label>Tu contraseña<input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="••••••••"></label>
+      <button class="sbtn pri" type="submit">Entrar</button>
+      <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="register">Crear cuenta</button><button class="sbtn sm" type="button" data-loginstep="forgot">Olvidé mi contraseña</button></div>
+      <button class="sbtn" type="button" data-loginstep="pin">Entrar con número y PIN</button>`,
+    register: `<p class="empty">Creá tu cuenta con tu correo y una contraseña. Después entrás cuando quieras.</p>
+      <label>Tu nombre<input name="name" required autocomplete="name" maxlength="80"></label>
+      <label>Tu correo<input name="email" type="email" required value="${esc(email)}" autocomplete="email" placeholder="vos@correo.com"></label>
+      <label>Contraseña (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
+      <button class="sbtn pri" type="submit">Crear mi cuenta</button>
+      <button class="sbtn" type="button" data-loginstep="email">Ya tengo cuenta</button>`,
+    forgot: `<p class="empty">Ponemos un enlace en tu correo para que elijas una contraseña nueva (vale 1 hora).</p>
+      <label>Tu correo<input name="email" type="email" required value="${esc(email)}" autocomplete="email" placeholder="vos@correo.com"></label>
+      <button class="sbtn pri" type="submit">Enviarme el enlace</button>
+      <button class="sbtn" type="button" data-loginstep="email">Volver</button>`,
     pin: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
       <label>Tu PIN (4 números)<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" class="pinbox" placeholder="••••"></label>
       <button class="sbtn pri" type="submit">Entrar</button>
-      <button class="sbtn" type="button" data-loginstep="phone">No tengo PIN / soy nuevo</button>`,
+      <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="email">Entrar con correo</button><button class="sbtn sm" type="button" data-loginstep="phone">No tengo PIN / soy nuevo</button></div>`,
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
@@ -880,6 +897,19 @@ async function submitLogin(form) {
   const btn = form.querySelector('[type="submit"]');
   if (btn) btn.disabled = true;
   try {
+    if (step === "email") {
+      await api("POST", "/api/auth/customer/login-email", { email: form.email.value.trim(), password: form.password.value });
+      return afterLogin();
+    }
+    if (step === "register") {
+      await api("POST", "/api/auth/customer/register", { name: form.name.value.trim(), email: form.email.value.trim(), password: form.password.value });
+      toast("¡Cuenta creada! 🎉");
+      return afterLogin();
+    }
+    if (step === "forgot") {
+      await api("POST", "/api/auth/customer/forgot", { email: form.email.value.trim() });
+      return openLogin("email", "", `<div class="ok-msg">✅ Si ese correo tiene una cuenta, te mandamos el enlace. Revisá tu bandeja (y la carpeta de spam).</div>`, form.email.value.trim());
+    }
     if (step === "pin") {
       await api("POST", "/api/auth/customer/pin", { phone, pin: form.pin.value.trim() });
       return afterLogin();
@@ -895,7 +925,7 @@ async function submitLogin(form) {
     }
   } catch (e) {
     if (e.code === "OTP_DISABLED") return openLogin("link", phone);
-    openLogin(step === "code" ? "code" : step, phone, `<div class="err">${esc(e.message)}</div>`);
+    openLogin(step === "code" ? "code" : step, phone, `<div class="err">${esc(e.message)}</div>`, form.email?.value?.trim() ?? "");
   }
 }
 
@@ -941,7 +971,7 @@ document.addEventListener("click", async (ev) => {
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
-  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "");
+  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
   if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
   if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }
   if (d.wizback) { S.data.wiz.step = 1; return render(); }
@@ -949,6 +979,16 @@ document.addEventListener("click", async (ev) => {
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.apply) return openApply();
+  if (d.pwd) {
+    const h = await api("GET", "/api/me/has-password").catch(() => ({ hasPassword: false }));
+    $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${h.hasPassword ? "Cambiar mi contraseña" : "Crear mi contraseña"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
+      <form class="sform" id="pwdform">${h.hasPassword ? `<label>Contraseña actual<input name="current" type="password" required autocomplete="current-password" placeholder="••••••••"></label>` : `<p class="empty">Elegí una contraseña para entrar con tu correo la próxima vez.</p>`}
+      <label>Contraseña nueva (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
+      <button class="sbtn pri" type="submit">Guardar</button></form></div>`;
+    $("#modal").hidden = false; $("#scrim").hidden = false;
+    $("#modal input")?.focus();
+    return;
+  }
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
@@ -1087,6 +1127,10 @@ document.addEventListener("submit", async (ev) => {
       const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value });
       $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
       return;
+    } else if (f.id === "pwdform") {
+      await api("POST", "/api/me/password", { current: f.current?.value ?? "", password: f.password.value });
+      closeAll();
+      toast("Contraseña guardada ✓");
     } else if (f.id === "myPin") {
       await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
       f.reset();

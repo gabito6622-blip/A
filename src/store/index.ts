@@ -52,6 +52,7 @@ export function createStore(opts: EngineOptions = {}) {
       setCustomersKind: bind(e, catalog.setCustomersKind),
       findCustomerByPhone: bind(e, catalog.findCustomerByPhone),
       selfRegister: bind(e, catalog.selfRegister),
+      registerWithEmail: bind(e, catalog.registerWithEmail),
       canActFor: bind(e, catalog.canActFor),
     },
     inventory: {
