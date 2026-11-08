@@ -608,7 +608,7 @@ function shopEditor() {
       <div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
         <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
         <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
-      <h2>3 · Colores</h2>
+      <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
       <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
       <h2>4 · Fondo y tarjetas</h2>
       <b class="rsub">Fondo</b>${radios("bgStyle", BG_LIST, sh.bgStyle)}
@@ -634,7 +634,7 @@ function shopEditor() {
         ${unpriced.map((p) => `<label class="off" title="Poné tu precio en Mi lista de precios"><input type="checkbox" disabled><span>${esc(p.name)} · sin precio</span></label>`).join("")}</div>
       <div class="rsave"><button class="sbtn pri" type="submit">Guardar mi página</button><span class="empty">La vista previa cambia mientras editás. Guardá para que la vean tus clientes.</span></div>
     </form>
-    <div class="rpreview"><div class="sbox"><h2>Vista previa <span class="rbtns" style="margin-left:auto"><button class="sbtn sm" type="button" data-pv="pc">PC</button><button class="sbtn sm" type="button" data-pv="cel">Celular</button></span></h2>
+    <div class="rpreview"><div class="sbox"><h2>👀 Vista previa <small style="font-weight:400;color:var(--s-muted)">· cambia en vivo</small> <span class="rbtns" style="margin-left:auto"><button class="sbtn sm" type="button" data-pv="pc">PC</button><button class="sbtn sm" type="button" data-pv="cel">Celular</button></span></h2>
       <div class="pvwrap" data-mode="${S.data.pv ?? "cel"}">${sh.saved ? `<iframe id="shopPreview" src="/r/${esc(sh.slug)}" title="Vista previa de tu página"></iframe>` : `<p class="empty" style="padding:20px">Elegí un estilo arriba o guardá para ver tu página acá.</p>`}</div></div></div>
     </div>
 
