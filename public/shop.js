@@ -383,7 +383,12 @@ function resellerView() {
           <form class="sform rform" data-client="${esc(c.id)}"><label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label>
             <label style="grid-column:1/-1">Nota (solo la ves vos)<input name="note" maxlength="300" value="${esc(c.note)}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos automáticos por WhatsApp</label>
-            <div class="rbtns"><button class="sbtn sm" type="submit">Guardar cambios</button><a class="sbtn sm" href="${waLink(c.phone, `Hola ${c.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a></div></form></details>`;
+            <div class="rbtns"><button class="sbtn sm" type="submit">Guardar cambios</button><a class="sbtn sm" href="${waLink(c.phone, `Hola ${c.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a></div></form>
+          <div class="sbox" style="margin-top:8px;padding:12px;gap:8px">
+            <b style="font-size:13px">🔑 Link de códigos de ${esc(c.name.split(" ")[0])} <small class="empty">(con su propio PIN)</small></b>
+            ${S.data.clientLinks?.[c.id] ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.clientLinks[c.id].url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.clientLinks[c.id].url)}">Copiar</button></div>
+              <a class="sbtn sm pri" href="${waLink(c.phone, `Mirá tus códigos acá 👇 Tu PIN es ${S.data.clientLinks[c.id].pin}\n${S.data.clientLinks[c.id].url}`)}" target="_blank" rel="noopener" style="justify-self:start">${icon("wa")}Enviar link + PIN</a>` : ""}
+            <form class="sform" data-clientcode="${esc(c.id)}" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end"><label>PIN de 4 números<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn sm pri" type="submit">${S.data.clientLinks?.[c.id] ? "Cambiar PIN" : "Crear link con PIN"}</button></form></div></details>`;
       }).join("") || `<p class="empty">${clients.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
 
     <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>
@@ -1219,6 +1224,12 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.dataset.client) {
       await api("PUT", `/api/me/customers/${f.dataset.client}`, { name: f.name.value, phone: f.phone.value, note: f.note.value, whatsappConsent: f.consent.checked });
       toast("Cliente actualizado");
+    } else if (f.dataset.clientcode) {
+      const k = await api("POST", `/api/me/clients/${f.dataset.clientcode}/code-link`, { pin: f.pin.value.trim(), keepLink: true });
+      (S.data.clientLinks ??= {})[f.dataset.clientcode] = { url: k.url, pin: k.pin };
+      toast("Link del cliente listo (con su PIN)");
+      render();
+      return;
     } else if (f.id === "myPrices") {
       const prices = {};
       for (const i of f.querySelectorAll("input[data-cost]")) {

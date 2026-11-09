@@ -862,6 +862,19 @@ export function createApp(cfg: AppConfig): App {
     if (c.body?.off) { store.codes.setLink(c.actor!, c.actor!.customerId!, null); db.setSecret(`codepin:${c.actor!.customerId!}`, null, now()); return { ok: true }; }
     return makeAnyLink(c.actor!.customerId!, c.actor!, c);
   });
+  // Un revendedor arma un link de códigos propio para CADA cliente suyo (con PIN).
+  const ownClient = (c: Ctx) => { const cl = store.engine.s.customers[c.params.id]; if (!cl || cl.resellerId !== c.actor!.customerId) throw new HttpError(404, "NOT_FOUND", "Ese cliente no es tuyo"); return cl; };
+  route("GET", "/api/me/clients/:id/code-link", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    const cl = ownClient(c);
+    return cl.codeLink ? { url: codeLinkUrl(cl.codeLink.token, c), mode: linkMode(cl.id) } : { url: null };
+  });
+  route("POST", "/api/me/clients/:id/code-link", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    const cl = ownClient(c);
+    if (c.body?.off) { store.codes.setLink(c.actor!, cl.id, null); db.setSecret(`codepin:${cl.id}`, null, now()); return { ok: true }; }
+    return makeAnyLink(cl.id, c.actor!, c);
+  });
   const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
   const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
   // Modo "escribí tu correo" (sin PIN): se limita por si prueban muchos correos distintos.

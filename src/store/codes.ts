@@ -147,8 +147,9 @@ export function codesFor(e: Engine, actor: Actor, customerId: Id) {
 
 /** Crea, cambia o borra el link de códigos de un cliente/revendedor (el token lo genera el servidor). */
 export function setCodeLink(e: Engine, actor: Actor, customerId: Id, token: string | null) {
-  // El revendedor puede manejar su propio link; el equipo de la tienda, el de cualquiera.
-  if (!(actor.role === "reseller" && actor.customerId === customerId)) authorize(actor, "customer.manage");
+  // El revendedor maneja su propio link y el de SUS clientes; el equipo de la tienda, el de cualquiera.
+  const ownClient = actor.role === "reseller" && (actor.customerId === customerId || e.s.customers[customerId]?.resellerId === actor.customerId);
+  if (!ownClient) authorize(actor, "customer.manage");
   if (token !== null && !/^[A-Za-z0-9_-]{16,64}$/.test(token)) throw new DomainError("VALIDATION", "Token inválido");
   return e.tx(() => {
     const c = e.get("customers", customerId);
