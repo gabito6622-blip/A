@@ -172,6 +172,8 @@ const V = {
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
     P.tab.sellAccts = accounts;
+    P.tab.custMap = Object.fromEntries(customers.map((c) => [`${c.name} · ${c.phone}`, c.id]));
+    P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
     const tile = (p) => {
       const n = stock[p.id]?.available ?? 0;
       return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
@@ -186,7 +188,8 @@ const V = {
     const shownProds = sk === "combos" ? combos : apps;
     return `<section class="card"><h2>${icon("cart")}Nueva venta <small>tocá el producto y listo</small></h2>
       ${customers.length ? `<form class="form" id="sellForm" data-key="${newKey()}">
-        <label>👤 Cliente<select name="customerId" required>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
+        <label>👤 Cliente<input name="customerName" list="custlist" autocomplete="off" placeholder="Escribí el nombre del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist></label>
+        <input type="hidden" name="customerId" value="">
         <input type="hidden" name="productId" value="">
         <div class="sellpick">
           ${combos.length ? `<div class="seg sellseg"><button type="button" data-tab="sellKind:apps" aria-pressed="${sk === "apps"}">📺 Cuentas individuales</button><button type="button" data-tab="sellKind:combos" aria-pressed="${sk === "combos"}">🎁 Combos <span class="segn">${combos.length}</span></button></div>` : ""}
@@ -197,6 +200,11 @@ const V = {
         <div id="profPick" class="profpick" hidden></div>
         <div class="selrow"><label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
           <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label></div>
+        <div class="sellopts">
+          <div><span class="selbl">⏳ Período</span><div class="seg periodseg">${[[1, "1 mes"], [3, "3 meses"], [6, "6 meses"], [12, "1 año"]].map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${v === 1}">${t}</button>`).join("")}</div></div>
+          <div><span class="selbl">💳 Estado de pago</span><div class="seg payseg"><button type="button" data-pay="pagado" aria-pressed="true">✅ Pagado</button><button type="button" data-pay="pendiente" aria-pressed="false">⏳ Pendiente</button></div></div>
+        </div>
+        <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
         <button class="pbtn dark" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
       <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
   },
@@ -1351,6 +1359,18 @@ document.addEventListener("click", async (ev) => {
     const f = $("#sellForm");
     if (f) f.slotId.value = d.slot;
     $$("#profPick .ppchip").forEach((x) => x.classList.toggle("on", x.dataset.slot === d.slot));
+    const em = el.querySelector("small")?.textContent, lb = el.querySelector("b")?.textContent;
+    if (f && em && lb) { $("#sellNote").innerHTML = `Vas a entregar <b>${esc(lb)}</b> de <b>${esc(em)}</b>.`; $("#sellNote").classList.add("on"); }
+    return;
+  }
+  if (d.period !== undefined && el.dataset.period) {
+    const f = $("#sellForm"); if (f) f.periodMonths.value = d.period;
+    $$(".periodseg button").forEach((x) => x.setAttribute("aria-pressed", String(x === el)));
+    return;
+  }
+  if (d.pay) {
+    const f = $("#sellForm"); if (f) f.payStatus.value = d.pay;
+    $$(".payseg button").forEach((x) => x.setAttribute("aria-pressed", String(x === el)));
     return;
   }
   if (d.renew) {
@@ -1504,10 +1524,18 @@ document.addEventListener("submit", async (ev) => {
     }
     if (f.id === "sellForm") {
       if (!f.productId.value) { toast("Elegí un producto"); return; }
+      const cid = P.tab.custMap?.[f.customerName.value.trim()] || "";
+      if (!cid) { toast("Escribí y elegí un cliente de la lista"); return; }
       const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
+      const months = Math.max(1, +f.periodMonths.value || 1), payStatus = f.payStatus.value || "pagado";
+      const dur = P.tab.sellDur?.[f.productId.value] || 30;
       if (btn) btn.disabled = true;
       try {
-        const o = await api("POST", "/api/admin/orders", { customerId: f.customerId.value, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) });
+        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) });
+        for (const id of (o.assignmentIds ?? [])) {
+          if (months > 1) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: Date.now() + months * dur * 86400000 }).catch(() => {});
+          if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
+        }
         const deliveries = [];
         for (const id of (o.assignmentIds ?? [])) { const info = await api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null); if (info) deliveries.push(info); }
         toast(`✅ Venta registrada: ${pname}`);

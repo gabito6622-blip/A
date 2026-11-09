@@ -502,3 +502,10 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .sellseg button{border:0;background:transparent;color:var(--muted);font-weight:700;padding:10px 12px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px}
 .sellseg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .sellseg .segn{background:var(--blue);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-weight:800}
+
+/* --- Vender: período y estado de pago --- */
+.sellopts{display:flex;flex-wrap:wrap;gap:16px;margin:4px 0 2px}
+.sellopts>div{display:grid;gap:6px}
+.selbl{font-size:12px;font-weight:700;color:var(--muted)}
+.sellopts .seg{flex-wrap:wrap}
+@media (max-width:560px){ .sellopts{gap:12px} .sellopts>div{flex:1;min-width:140px} .sellopts .seg{width:100%;justify-content:space-between} }
