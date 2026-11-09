@@ -182,14 +182,15 @@ const V = {
     const pub = products.filter((p) => p.published !== false);
     const apps = pub.filter((p) => p.kind !== "combo");
     const combos = pub.filter((p) => p.kind === "combo");
+    const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
+    const shownProds = sk === "combos" ? combos : apps;
     return `<section class="card"><h2>${icon("cart")}Nueva venta <small>tocá el producto y listo</small></h2>
       ${customers.length ? `<form class="form" id="sellForm" data-key="${newKey()}">
         <label>👤 Cliente<select name="customerId" required>${customers.map((c) => opt(c.id, `${c.name} · ${c.phone}`)).join("")}</select></label>
         <input type="hidden" name="productId" value="">
         <div class="sellpick">
-          <div class="selsec">📺 Apps y servicios</div>
-          <div class="selgrid">${apps.map(tile).join("") || `<span class="muted">No hay productos.</span>`}</div>
-          ${combos.length ? `<div class="selsec">🎁 Combos</div><div class="selgrid">${combos.map(tile).join("")}</div>` : ""}
+          ${combos.length ? `<div class="seg sellseg"><button type="button" data-tab="sellKind:apps" aria-pressed="${sk === "apps"}">📺 Cuentas individuales</button><button type="button" data-tab="sellKind:combos" aria-pressed="${sk === "combos"}">🎁 Combos <span class="segn">${combos.length}</span></button></div>` : ""}
+          <div class="selgrid">${shownProds.map(tile).join("") || `<span class="muted">${sk === "combos" ? "Todavía no armaste combos." : "No hay productos."}</span>`}</div>
         </div>
         <div id="sellNote" class="sellnote">👆 Elegí un producto de arriba.</div>
         <input type="hidden" name="slotId" value="">

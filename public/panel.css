@@ -496,3 +496,9 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .svcbar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden}
 .svcbar i{display:block;height:100%;border-radius:999px}
 @media (max-width:640px){ .dalerts{grid-template-columns:1fr} .svcrow{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ic info" "bar bar"} .svcbar{grid-area:bar} }
+
+/* --- Vender: separador Cuentas / Combos --- */
+.sellseg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:5px}
+.sellseg button{border:0;background:transparent;color:var(--muted);font-weight:700;padding:10px 12px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px}
+.sellseg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.sellseg .segn{background:var(--blue);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-weight:800}
