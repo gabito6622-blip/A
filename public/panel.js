@@ -120,8 +120,15 @@ const V = {
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
     // --- Resumen por servicio (ganancia por app) ---
     const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="background:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
-    // --- Atajos de alerta (vencidos / por vencer / sin cobrar) ---
+    // --- Nivel de estrés (vencidos, por vencer, por cobrar, por revisar) ---
     const al = d.alerts;
+    const sPts = al.overdue.count * 3 + al.due3.count * 2 + k.pendingReview * 2 + al.unpaid.count;
+    const stress = Math.min(100, sPts * 4);
+    const sl = stress < 20 ? ["Tranqui", "😌", "#10b981"] : stress < 45 ? ["Movido", "🙂", "#3b82f6"] : stress < 75 ? ["Cargado", "😅", "#f59e0b"] : ["Al límite", "🥵", "#ef4444"];
+    const stressCard = `<section class="card stresscard"><div class="stresshead"><div><span class="stresscap">NIVEL DE ESTRÉS</span><h2 style="margin:2px 0 0">${sl[1]} ${sl[0]}</h2></div><b class="stresspct" style="color:${sl[2]}">${stress}%</b></div>
+      <div class="stressbar"><i style="width:${Math.max(4, stress)}%;background:${sl[2]}"></i></div>
+      <div class="stresswhy">${al.overdue.count ? `<button type="button" data-go="control"><b>${al.overdue.count}</b> vencidos</button>` : ""}${al.due3.count ? `<button type="button" data-go="control"><b>${al.due3.count}</b> por vencer</button>` : ""}${k.pendingReview ? `<button type="button" data-go="aprobacion"><b>${k.pendingReview}</b> por revisar</button>` : ""}${al.unpaid.count ? `<button type="button" data-go="aprobacion"><b>${al.unpaid.count}</b> por cobrar</button>` : ""}${sPts === 0 ? `<span class="muted">Todo al día ✨ Relajá.</span>` : ""}</div></section>`;
+    // --- Atajos de alerta (vencidos / por vencer / sin cobrar) ---
     const alertCards = `<div class="dalerts">
       <button type="button" class="dalert bad" data-go="control"><span class="aic">📅</span><div class="atx"><b>${al.overdue.count} perfil(es) ya vencieron</b><small>${bs(al.overdue.amount)} por renovar · Ver</small></div><span class="ar">${icon("arrow")}</span></button>
       <button type="button" class="dalert warn" data-go="control"><span class="aic">⏰</span><div class="atx"><b>${al.due3.count} vencen en los próximos 3 días</b><small>${bs(al.due3.amount)} por renovar · Ver</small></div><span class="ar">${icon("arrow")}</span></button>
@@ -143,6 +150,7 @@ const V = {
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div></div>
       ${todo.length ? `<section class="card"><h2>${icon("flag")}Completá tu tienda</h2><div class="todo">${todo.map(([, i, t, go, b]) => `<div><span class="ic">${icon(i)}</span><b>${t}</b><button class="pbtn blue" type="button" data-go="${go}">${b} ${icon("arrow")}</button></div>`).join("")}</div></section>` : ""}
+      ${stressCard}
       <div class="dkpis">
         ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
         ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
@@ -443,7 +451,17 @@ const V = {
             <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>` : "";
     const estadoTxt = { available: "Libre", reserved: "Reservado", assigned: "Vendido", quarantined: "Cuarentena", retired: "Retirado" };
     const estadoK = { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" };
-    const cards = accs.map((a) => {
+    // Mapa de perfiles en colores + filtros (estilo Netxly).
+    const now = Date.now();
+    const slotDL = (s) => (s.expiresAt ? Math.ceil((s.expiresAt - now) / 86400000) : null);
+    const slotState = (s) => { if (s.status === "available") return "free"; if (s.status === "assigned") { const dl = slotDL(s); return dl !== null && dl < 0 ? "exp" : dl !== null && dl <= 3 ? "soon" : "busy"; } if (s.status === "reserved") return "res"; return "mute"; };
+    const vivosOf = (a) => a.slots.filter((s) => s.status !== "retired");
+    const af = P.tab.accf ?? "todas";
+    const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter(fn).length, 0);
+    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Por vencer", cnt((s) => slotState(s) === "soon")], ["vencidas", "Vencidas", cnt((s) => slotState(s) === "exp")]];
+    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")); };
+    const shownAccs = accs.filter(matchF);
+    const cards = shownAccs.map((a) => {
       const d = daysLeft(a.supplierExpiresAt);
       const libres = a.slots.filter((s) => s.status === "available").length;
       const vivos = a.slots.filter((s) => s.status !== "retired");
@@ -453,13 +471,15 @@ const V = {
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
-        <div class="achips">${vivos.map((s) => `<button type="button" class="achip ac-${estadoK[s.status] ?? "mute"}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"}>${esc(s.label)} · ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}` : ""}</button>`).join("")}</div>
+        <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     }).join("");
     return `${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
-      <div class="acc-cards">${accs.length ? cards : `<div class="emptybox">Todavía no cargaste cuentas.</div>`}</div>
-      <div class="acc-table">${table(["Producto", "Email", "Contraseña", "Perfiles", "Proveedor", "Vence proveedor", "Estado", ""], accs.map((a) => {
+      <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
+      <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
+      <div class="acc-cards">${accs.length ? (shownAccs.length ? cards : `<div class="emptybox">Ninguna cuenta con ese filtro.</div>`) : `<div class="emptybox">Todavía no cargaste cuentas.</div>`}</div>
+      <div class="acc-table">${table(["Producto", "Email", "Contraseña", "Perfiles", "Proveedor", "Vence proveedor", "Estado", ""], shownAccs.map((a) => {
         const d = daysLeft(a.supplierExpiresAt);
         return `<tr><td>${esc(pname(a.productId))}</td><td class="mono">${esc(a.email)}${a.notes ? `<br><small class="muted" style="font-family:inherit">📝 ${esc(a.notes)}</small>` : ""}</td><td class="mono">${esc(a.password)}</td>
           <td><div style="display:flex;flex-wrap:wrap;gap:4px">${a.slots.map((s) => canReview() ? `<button type="button" class="pp pp-${{ available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status]} clk" data-slotact="${esc(s.id)}" style="border:0;cursor:pointer;font:inherit">${esc(s.label)}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}` : ""}</button>` : pill(`${s.label}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}`, { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status])).join("")}</div></td>

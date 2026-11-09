@@ -509,3 +509,31 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .selbl{font-size:12px;font-weight:700;color:var(--muted)}
 .sellopts .seg{flex-wrap:wrap}
 @media (max-width:560px){ .sellopts{gap:12px} .sellopts>div{flex:1;min-width:140px} .sellopts .seg{width:100%;justify-content:space-between} }
+
+/* --- Dashboard: medidor de nivel de estrés --- */
+.stresscard{display:grid;gap:10px}
+.stresshead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.stresscap{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.stresspct{font-size:26px;font-variant-numeric:tabular-nums}
+.stressbar{height:12px;border-radius:999px;background:var(--soft);border:1px solid var(--line);overflow:hidden}
+.stressbar i{display:block;height:100%;border-radius:999px;transition:width .4s ease}
+.stresswhy{display:flex;flex-wrap:wrap;gap:8px}
+.stresswhy button{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:13px}
+.stresswhy button b{color:var(--bad)}
+
+/* --- Cuentas: mapa de perfiles en colores + filtros --- */
+.pmap{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.pdot{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;border:1.5px dashed transparent;background:var(--soft);color:#fff;padding:0}
+.pdot svg{width:17px;height:17px}
+.pdot.clk{cursor:pointer}
+.pdot.p-free{background:color-mix(in srgb,#10b981 22%,transparent);border-color:#10b981;color:#10b981}
+.pdot.p-busy{background:color-mix(in srgb,#ef4444 22%,transparent);border-color:#ef4444;color:#ef4444}
+.pdot.p-soon{background:color-mix(in srgb,#f59e0b 24%,transparent);border-color:#f59e0b;color:#f59e0b}
+.pdot.p-exp{background:color-mix(in srgb,#b91c1c 30%,transparent);border-color:#b91c1c;color:#fecaca}
+.pdot.p-res,.pdot.p-mute{background:var(--soft);border-color:var(--line);color:var(--muted)}
+.pleg{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 2px;font-size:12px;color:var(--muted)}
+.pleg span{display:inline-flex;align-items:center;gap:6px}
+.pleg i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.pleg i.p-free{background:#10b981}.pleg i.p-busy{background:#ef4444}.pleg i.p-soon{background:#f59e0b}.pleg i.p-exp{background:#b91c1c}
+.accf-chips{margin:10px 0 2px}
+.accf-chips .chipn{background:var(--soft);border-radius:999px;padding:0 7px;font-size:11px;margin-left:4px}
