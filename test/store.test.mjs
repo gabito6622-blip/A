@@ -1197,3 +1197,14 @@ describe("Atajo de venta: entregar accesos al cliente", () => {
     assert.throws(() => s.admin.delivery(owner, "asg_nope"), err("NOT_FOUND"));
   });
 });
+
+describe("Revendedor entra con correo y contraseña", () => {
+  test("setOwnEmail: el revendedor fija su correo; único; el correo no se repite", () => {
+    const { s, carla, maria, as } = setup();
+    const out = s.catalog.setOwnEmail(as(carla), "Carla@Correo.com");
+    assert.equal(out.email, "carla@correo.com");
+    assert.throws(() => s.catalog.setOwnEmail(as(carla), "no-es-correo"), err("VALIDATION"));
+    s.catalog.setOwnEmail(as(maria), "maria@correo.com");
+    assert.throws(() => s.catalog.setOwnEmail(as(maria), "carla@correo.com"), err("VALIDATION"), "no puede usar un correo de otra cuenta");
+  });
+});

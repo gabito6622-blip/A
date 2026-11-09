@@ -274,6 +274,20 @@ export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, cons
   });
 }
 
+/** El propio cliente (o revendedor) fija o cambia su correo para entrar con contraseña. */
+export function setOwnEmail(e: Engine, actor: Actor, email: string): Customer {
+  if (!actor.customerId) throw new DomainError("FORBIDDEN", "Solo para clientes");
+  const next = String(email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) throw new DomainError("VALIDATION", "Correo inválido");
+  return e.tx(() => {
+    if (Object.values(e.s.customers).some((c) => c.id !== actor.customerId && (c.email ?? "").toLowerCase() === next)) throw new DomainError("VALIDATION", "Ese correo ya lo usa otra cuenta");
+    const c = e.get("customers", actor.customerId!);
+    c.email = next;
+    e.audit(actor, "customer.set_email", "customer", c.id, {});
+    return structuredClone(c);
+  });
+}
+
 /** ¿Puede `actor` operar sobre el cliente `customerId`? (él mismo, su revendedor o staff). */
 export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
   if (isStaff(actor)) return true;
