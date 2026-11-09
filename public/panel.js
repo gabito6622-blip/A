@@ -184,7 +184,7 @@ const V = {
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
     const tile = (p) => {
       const n = stock[p.id]?.available ?? 0;
-      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
         ${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`}
         <b>${esc(p.name)}</b><span class="selprice">${bs(p.price)}</span>
         <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
@@ -498,7 +498,8 @@ const V = {
     const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
     const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
     P.tab.prodDefaults = Object.fromEntries(products.map((p) => [p.id, p.profileDefaults ?? []]));
-    const guessN = (id) => { const defs = products.find((x) => x.id === id)?.profileDefaults; if (defs?.length) return defs.length; const p = products.find((x) => x.id === id); const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
+    P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
+    const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
     return `<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
@@ -1367,7 +1368,10 @@ document.addEventListener("click", async (ev) => {
     f.slotId.value = "";
     $$(".selp").forEach((x) => x.setAttribute("aria-pressed", x.dataset.pick === d.pick ? "true" : "false"));
     const n = +el.dataset.stock;
-    $("#sellNote").innerHTML = `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`;
+    const full = el.dataset.kind === "full_account";
+    $("#sellNote").innerHTML = full
+      ? `Vendés <b>${esc(el.dataset.name)}</b> — se entrega la <b>cuenta completa</b>${n ? ` (${n} disponible${n > 1 ? "s" : ""})` : ""}.`
+      : `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`;
     $("#sellNote").classList.add("on");
     $("#sellBtn").disabled = false;
     // Perfiles libres de ese producto para elegir a mano (opcional).
@@ -1376,7 +1380,7 @@ document.addEventListener("click", async (ev) => {
     const pp = $("#profPick");
     if (!accs.length) { pp.hidden = true; pp.innerHTML = ""; return; }
     pp.hidden = false;
-    pp.innerHTML = `<div class="ppsec">🎯 ¿De qué cuenta/perfil? <small class="muted">opcional</small></div>
+    pp.innerHTML = `<div class="ppsec">🎯 ${full ? "¿Qué cuenta?" : "¿De qué cuenta/perfil?"} <small class="muted">opcional</small></div>
       <div class="ppchips"><button type="button" class="ppchip on" data-slot="">⚡ Automático <small>(el que vence antes)</small></button>
       ${accs.map((a) => a.slots.filter((s) => s.status === "available").map((s) => `<button type="button" class="ppchip" data-slot="${esc(s.id)}"><b>${esc(s.label)}</b><small>${esc(a.email)}</small></button>`).join("")).join("")}</div>`;
     return;
@@ -1462,7 +1466,7 @@ function updateCtlBar() {
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "customerId" && t.form?.id === "slotAssign") { const nc = t.form.querySelector(".newcli"); if (nc) nc.hidden = t.value !== "__new"; return; }
-  if (t.name === "productId" && t.form?.id === "quickForm") { const defs = P.tab.prodDefaults?.[t.value]; const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = defs?.length ? defs.length : /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${n} perfiles libres)`; return; }
+  if (t.name === "productId" && t.form?.id === "quickForm") { const defs = P.tab.prodDefaults?.[t.value]; const full = P.tab.prodKind?.[t.value] === "full_account"; const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = defs?.length ? defs.length : full ? 1 : /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = full ? `＋ Agregar cuenta completa` : `＋ Agregar cuenta (${n} perfiles libres)`; return; }
   if (t.name === "n" && t.form?.id === "quickForm") { const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${Math.max(1, +t.value || 1)} perfiles libres)`; return; }
   if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
   if (t.id === "resPlan") { const box = document.getElementById("resPageFields"); if (box) box.hidden = t.value !== "page"; return; }
