@@ -364,6 +364,9 @@ export function createApp(cfg: AppConfig): App {
     const next = String(c.body?.password ?? "");
     if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena nueva necesita al menos 8 caracteres");
     if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contrasena actual no es correcta");
+    // Para revendedores (y clientes sin correo): pueden fijar su correo de acceso acá.
+    if (c.body?.email !== undefined && String(c.body.email).trim()) store.catalog.setOwnEmail(c.actor!, String(c.body.email));
+    if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
     db.setSecret(`custpw:${id}`, hashSecret(next), now());
     db.deleteSessionsOf?.(id);
     startSession(c.res, "customer", id);
@@ -432,7 +435,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };

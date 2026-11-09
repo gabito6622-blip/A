@@ -45,6 +45,7 @@ export function createStore(opts: EngineOptions = {}) {
       createCustomer: bind(e, catalog.createCustomer),
       updateCustomer: bind(e, catalog.updateCustomer),
       setWhatsappConsent: bind(e, catalog.setWhatsappConsent),
+      setOwnEmail: bind(e, catalog.setOwnEmail),
       priceFor: bind(e, catalog.priceFor),
       publicCatalog: bind(e, catalog.publicCatalog),
       updateSettings: bind(e, catalog.updateSettings),

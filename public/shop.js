@@ -467,8 +467,9 @@ function resellerHome() {
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
-    <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás siempre con tu número y tu PIN de 4 números.</p>
-      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form></div>`;
+    <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ""}.</p>
+      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
+      <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.email ? "Cambiar mi correo o contraseña" : "Entrar con correo y contraseña"}</button></div>`;
 }
 
 /* ---------------- Asistente: tu página en 3 pasos ---------------- */
@@ -992,7 +993,8 @@ document.addEventListener("click", async (ev) => {
   if (d.pwd) {
     const h = await api("GET", "/api/me/has-password").catch(() => ({ hasPassword: false }));
     $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${h.hasPassword ? "Cambiar mi contraseña" : "Crear mi contraseña"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
-      <form class="sform" id="pwdform">${h.hasPassword ? `<label>Contraseña actual<input name="current" type="password" required autocomplete="current-password" placeholder="••••••••"></label>` : `<p class="empty">Elegí una contraseña para entrar con tu correo la próxima vez.</p>`}
+      <form class="sform" id="pwdform">${h.hasPassword ? `<label>Contraseña actual<input name="current" type="password" required autocomplete="current-password" placeholder="••••••••"></label>` : `<p class="empty">Poné tu correo y una contraseña para entrar con ellos la próxima vez.</p>`}
+      <label>Tu correo<input name="email" type="email" required value="${esc(S.me?.email ?? "")}" autocomplete="email" placeholder="vos@correo.com"></label>
       <label>Contraseña nueva (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
       <button class="sbtn pri" type="submit">Guardar</button></form></div>`;
     $("#modal").hidden = false; $("#scrim").hidden = false;
@@ -1138,9 +1140,10 @@ document.addEventListener("submit", async (ev) => {
       $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
       return;
     } else if (f.id === "pwdform") {
-      await api("POST", "/api/me/password", { current: f.current?.value ?? "", password: f.password.value });
+      await api("POST", "/api/me/password", { current: f.current?.value ?? "", password: f.password.value, email: f.email.value.trim() });
       closeAll();
-      toast("Contraseña guardada ✓");
+      toast("Listo: ya podés entrar con tu correo y contraseña ✓");
+      await refresh();
     } else if (f.id === "myPin") {
       await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
       f.reset();

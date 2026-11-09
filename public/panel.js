@@ -667,6 +667,7 @@ const V = {
       <form class="form" id="resForm">
         <label>Nombre<input name="name" required maxlength="80" placeholder="Ej.: Ari Streaming" data-slugsrc="1"></label>
         <label>WhatsApp (con código de país)<input name="phone" required inputmode="tel" placeholder="59170000000"></label>
+        <label>Correo (opcional)<input name="email" type="email" placeholder="revendedor@correo.com"><small class="muted">Si lo ponés, podrá entrar con correo y contraseña (pone su contraseña desde su panel).</small></label>
         <label style="grid-column:1/-1">Plan<select name="plan" id="resPlan">${opt("panel", "Solo panel (comprar, cuentas, códigos, clientes, saldo)", true)}${opt("page", "Con página propia (premium): panel + su tienda /r/…", false)}</select></label>
         <div id="resPageFields" hidden style="display:contents">
           <label>Dirección de su página<span class="slugin"><small>…/r/</small><input name="slug" maxlength="30" placeholder="ari-streaming" pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]"></span></label>
@@ -1637,7 +1638,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "resForm") {
       const btn = f.querySelector("[type=submit]"); btn.disabled = true;
       try {
-        const c = await api("POST", "/api/admin/customers", { name: f.name.value.trim(), phone: f.phone.value, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: f.consent.checked });
+        const c = await api("POST", "/api/admin/customers", { name: f.name.value.trim(), phone: f.phone.value, email: f.email.value.trim() || undefined, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: f.consent.checked });
         let slug;
         if (f.plan.value === "page") {
           const shop = await api("POST", `/api/admin/customers/${c.id}/shop`, { ...(f.slug.value.trim() ? { slug: f.slug.value.trim().toLowerCase() } : {}), title: (f.title.value.trim() || f.name.value.trim()).slice(0, 40), enabled: f.publish.checked });
