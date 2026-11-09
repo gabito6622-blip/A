@@ -104,3 +104,30 @@ permitir la red hacia `api.vendeplay.com` y hacer login real → `capture_browse
 
 ## Licencia
 MIT.
+
+## Gabriel Store: núcleo de dominio (`vendeplay-sdk/store`)
+Lógica de negocio real y probada para una tienda de cuentas digitales: inventario de cuentas y perfiles
+con reservas atómicas, ventas con QR/saldo/efectivo, aprobación de comprobantes, asignaciones,
+reemplazos, renovaciones (fecha del cliente separada de la del proveedor), saldo contable, portal de
+clientes y revendedores, códigos de verificación, bandeja de WhatsApp con consentimiento y estadísticas.
+Todo con control de acceso por rol y auditoría. Ver [`docs/REA_GABRIEL_STORE.md`](docs/REA_GABRIEL_STORE.md)
+y [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md). Pruebas: `test/store.test.mjs`.
+
+### Servidor (`src/server`)
+```bash
+npm install && npm run build
+GS_OWNER_USER=gabriel GS_OWNER_PASSWORD='una-clave-larga' npm start   # crea el dueño la primera vez
+```
+SQLite en `./data` (respaldá esa carpeta). Variables en `src/server/main.ts`. Detalle en `docs/IMPLEMENTATION_PLAN.md`.
+
+### WhatsApp oficial (Meta)
+Bot 24/7 y avisos automáticos por la WhatsApp Cloud API: panel → WhatsApp → "Bot y conexión con Meta".
+Guía paso a paso: [`docs/WHATSAPP_META.md`](docs/WHATSAPP_META.md). Requiere la tienda publicada con HTTPS (`GS_PUBLIC_ORIGIN`).
+
+### Publicar, respaldos y avisos
+- Publicar en Render, Railway, un VPS (Docker) o tu PC con Cloudflare Tunnel: [`docs/PUBLICAR.md`](docs/PUBLICAR.md).
+- Respaldo automático diario en `data/backups` (se guardan 30). Panel → Configuración → Respaldos (solo el dueño).
+- Avisos para el dueño: pago nuevo para revisar y cuentas por vencer con el proveedor (panel con sonido + WhatsApp).
+
+### Páginas propias de revendedores
+La página **`/revendedores`** (y el directorio **`/tiendas`**) explica tu programa (beneficios, ganancia por producto, estilos, directorio de páginas publicadas, FAQ y botón a tu WhatsApp). Cada revendedor arma su página en `tudominio/r/su-nombre` desde **Mis clientes → Mi página**: 12 estilos listos, colores, fondo, tarjetas, letras de títulos y texto, textos, redes, logo, portada y qué productos mostrar (con SUS precios de venta). Sus clientes le piden por WhatsApp a él. El dueño puede apagar todas o bloquear una desde **Apariencia**.

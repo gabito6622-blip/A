@@ -1,0 +1,19 @@
+# Render: New → Blueprint → elegí este repositorio.
+# Necesita un plan con disco (los datos viven en /data). Completá las variables marcadas "sync: false".
+services:
+  - type: web
+    name: gabriel-store
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: datos
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: GS_PUBLIC_ORIGIN
+        sync: false
+      - key: GS_OWNER_USER
+        sync: false
+      - key: GS_OWNER_PASSWORD
+        sync: false

@@ -5,3 +5,10 @@ dist/
 
 __pycache__/
 *.pyc
+
+# Datos del servidor (base SQLite y comprobantes)
+data/
+data-demo/
+
+# Paquetes de entrega generados (no van al repo)
+*-para-chatgpt.zip

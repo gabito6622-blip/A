@@ -1,0 +1,185 @@
+<title>Gabriel Store Núcleo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: cabecera → tarjetas de las 7 prioridades con su prueba en vivo → estado real del sistema (stock, pedidos, saldo, WhatsApp, auditoría) → REA */
+:root{--bg:#f4f6fb;--card:#fff;--soft:#eef1f7;--line:#dde2ec;--ink:#162033;--muted:#5d6a80;--accent:#2f6bff;--ok:#0f8a52;--ok-soft:#dcf5e8;--bad:#c4302b;--bad-soft:#fde4e2;--warn:#9a5b00;--warn-soft:#fff0d4;
+  --f:"Inter",ui-sans-serif,system-ui,sans-serif;--m:"JetBrains Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1320;--card:#151d2d;--soft:#1c2638;--line:#2a3549;--ink:#e7ecf5;--muted:#9aa6bb;--accent:#6b9bff;--ok:#4cd393;--ok-soft:#14332a;--bad:#ff8a84;--bad-soft:#3a1d1d;--warn:#f2bb55;--warn-soft:#3a2c12;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1320;--card:#151d2d;--soft:#1c2638;--line:#2a3549;--ink:#e7ecf5;--muted:#9aa6bb;--accent:#6b9bff;--ok:#4cd393;--ok-soft:#14332a;--bad:#ff8a84;--bad-soft:#3a1d1d;--warn:#f2bb55;--warn-soft:#3a2c12;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f)}
+.w{max-width:1100px;margin:0 auto;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+h1{font-size:clamp(26px,4vw,36px);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font-size:19px;margin:0}
+p{margin:0}
+.muted{color:var(--muted)}
+.top{display:grid;gap:10px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font:600 14px var(--f);cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.score{font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.card header{display:flex;gap:10px;align-items:baseline}
+.card header b{font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums}
+.card header h3{font-size:16px;margin:0;flex:1}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)}.p-bad{background:var(--bad-soft);color:var(--bad)}.p-idle{background:var(--soft);color:var(--muted)}.p-warn{background:var(--warn-soft);color:var(--warn)}
+ol.log{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13.5px}
+ol.log li{display:grid;grid-template-columns:20px 1fr;gap:6px}
+ol.log li i{font-style:normal;font-weight:800}
+ol.log li.ok i{color:var(--ok)} ol.log li.bad i{color:var(--bad)}
+ol.log code{font:12px var(--m);background:var(--soft);border-radius:5px;padding:1px 5px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;color:var(--muted);font:600 14px var(--f);padding:10px 12px;border-bottom:2px solid transparent;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+th{text-align:left;font-weight:600;color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.m{font:12.5px var(--m)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.msg{white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px;font-size:13.5px}
+.ref td:first-child{font-weight:600}
+</style>
+
+<main class="w">
+  <section class="top">
+    <h1>Gabriel Store: el núcleo funcionando</h1>
+    <p class="muted">Esta página ejecuta el mismo código de <code>src/store</code> que está en el repositorio. Cada botón corre una situación real y muestra qué hizo el sistema.</p>
+    <div class="bar"><button class="btn pri" id="all" type="button">Probar las 7 prioridades</button><button class="btn" id="reset" type="button">Empezar de cero</button><span class="score" id="score"></span></div>
+  </section>
+
+  <section class="grid" id="cards"></section>
+
+  <section class="card">
+    <h2>Lo que quedó guardado en el sistema</h2>
+    <p class="muted">Se actualiza después de cada prueba. Montos en bolivianos.</p>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="view"></div>
+  </section>
+
+  <section class="card">
+    <h2>De dónde sale cada función (REA)</h2>
+    <div class="scroll"><table class="ref"><thead><tr><th>Referencia</th><th>Evidencia</th><th>Qué tomamos</th></tr></thead><tbody>
+      <tr><td>StreamingManager</td><td><span class="pill p-ok">Observado</span> en tus capturas del panel</td><td>Cuentas y perfiles, aprobación de ventas, recordatorios, panel de códigos, clientes con créditos. <b>No</b> copiamos el envío de contraseñas por WhatsApp.</td></tr>
+      <tr><td>Mercado Streaming</td><td><span class="pill p-warn">Sin evidencia pública</span> · requisito tuyo</td><td>Saldo y recargas, revendedores, reemplazos, renovaciones masivas, grupos de precios.</td></tr>
+      <tr><td>StreamGestor</td><td><span class="pill p-warn">Sin evidencia pública</span> · requisito tuyo</td><td>Catálogo móvil, checkout, comprobantes, autoservicio.</td></tr>
+    </tbody></table></div>
+  </section>
+</main>
+
+<script>/*GS_BUNDLE*/</script>
+<script>
+const {createStore,DomainError,DAY,MINUTE}=GS;
+const T0=Date.now();
+const owner={id:"dueño",role:"owner"},admin={id:"admin",role:"admin"},seller={id:"vendedor",role:"seller"},system={id:"sistema",role:"system"};
+let S,clock,P;
+function boot(){
+  clock={t:T0,now(){return this.t}};S=createStore({clock});
+  S.catalog.upsertProduct(owner,{id:"netflix",name:"Netflix perfil",kind:"profile",durationDays:30,price:3500,published:true});
+  S.catalog.upsertProduct(owner,{id:"gemini",name:"Gemini Pro",kind:"invite",durationDays:30,price:2500,published:true});
+  S.catalog.upsertPriceGroup(owner,{id:"revendedor",name:"Revendedor",prices:{netflix:2500,gemini:1800}});
+  S.catalog.upsertSupplier(owner,{id:"andes",name:"Proveedor Andes",active:true});
+  const a1=S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf01@gabostore.lat",password:"Sup3r-Secreta#1",supplierExpiresAt:T0+90*DAY,cost:4000,profiles:[{label:"Perfil 1",pin:"1111"},{label:"Perfil 2",pin:"2222"}]});
+  const a2=S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf02@gabostore.lat",password:"Otra-Clave#2",supplierExpiresAt:T0+40*DAY,cost:4000,profiles:[{label:"Perfil 1",pin:"3333"}]});
+  S.inventory.addAccount(admin,{productId:"netflix",supplierId:"andes",email:"nf03@gabostore.lat",password:"Clave-Tres#3",supplierExpiresAt:T0+90*DAY,cost:4000,profiles:[{label:"Perfil 1"},{label:"Perfil 2"}]});
+  S.inventory.addAccount(admin,{productId:"gemini",supplierId:"andes",email:"gm01@gabostore.lat",password:"Gem-Clave#4",supplierExpiresAt:T0+60*DAY,cost:1500,profiles:[1,2,3,4,5].map(n=>({label:"Invitación "+n}))});
+  const maria=S.catalog.createCustomer(seller,{name:"María Quispe",phone:"+591 70011223",whatsappConsent:true});
+  const luis=S.catalog.createCustomer(seller,{name:"Luis Choque",phone:"+591 78889900"});
+  const carla=S.catalog.createCustomer(admin,{name:"Carla Vargas",phone:"+591 69990011",kind:"reseller",priceGroupId:"revendedor",whatsappConsent:true});
+  const as=c=>({id:"web-"+c.name.split(" ")[0],role:c.kind==="reseller"?"reseller":"customer",customerId:c.id});
+  P={maria,luis,carla,as,a1,a2};
+}
+const bs=c=>"Bs "+(c/100).toFixed(2);
+const fd=t=>new Date(t).toLocaleDateString("es-BO");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* Cada paso: [texto, función]. Si la función espera un error, devuelve el código. */
+function expectErr(code,fn){try{fn()}catch(e){if(e instanceof DomainError&&e.code===code)return `bloqueado: <code>${code}</code>`;throw e}throw new Error(`debía bloquearse con ${code} y no se bloqueó`)}
+const check=(cond,msg)=>{if(!cond)throw new Error(msg);return "ok"};
+
+const SCEN=[
+ ["Inventario transaccional","Dos clientes compiten por los mismos perfiles y nunca se vende uno dos veces.",()=>{const {maria,luis,as}=P;return [
+   ["Hay 5 perfiles de Netflix libres",()=>check(S.inventory.stock().netflix.available===5,"stock inicial distinto")&&"5 libres"],
+   ["María aparta 3 perfiles (pago QR)",()=>{const o=S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"netflix",qty:3}],paymentMethod:"qr"});P.oMaria=o;return `pedido ${o.id} · ${bs(o.total)}`}],
+   ["Luis aparta 2 más",()=>{const o=S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:2}],paymentMethod:"qr"});P.oLuis=o;return `pedido ${o.id}`}],
+   ["Luis intenta uno más: no queda stock",()=>expectErr("OUT_OF_STOCK",()=>S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr"}))],
+   ["Pasan 31 minutos y nadie mandó comprobante: se liberan las reservas",()=>{clock.t+=31*MINUTE;const n=S.orders.expireReservations(system);return check(n===2&&S.inventory.stock().netflix.available===5,"no se liberó")&&`${n} pedidos vencidos · los 5 perfiles libres otra vez`}],
+ ]}],
+ ["Ventas, reemplazos y renovaciones","El comprobante no es pago; renovar no toca la fecha del proveedor.",()=>{const {maria,luis,as}=P;return [
+   ["Luis compra 1 perfil con QR",()=>{P.o2=S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr"});return P.o2.id}],
+   ["Intento aprobar sin comprobante",()=>expectErr("INVALID_STATE",()=>S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1"}))],
+   ["Luis sube el comprobante",()=>{S.orders.submitEvidence(as(luis),P.o2.id,{fileRef:"comprobante.jpg",declaredReference:"DEP-55"});return "en revisión"}],
+   ["El vendedor intenta aprobar (no tiene permiso)",()=>expectErr("FORBIDDEN",()=>S.orders.approvePayment(seller,P.o2.id,{confirmedReference:"BNB-1"}))],
+   ["Admin aprueba con la referencia del banco (doble clic)",()=>{const a=S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1",idempotencyKey:"clic"});S.orders.approvePayment(admin,P.o2.id,{confirmedReference:"BNB-1",idempotencyKey:"clic"});P.asg=a.assignmentIds[0];return `entregado · 1 solo perfil asignado`}],
+   ["Otro pedido intenta reusar la referencia BNB-1",()=>{const o=S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"gemini",qty:1}],paymentMethod:"qr"});S.orders.submitEvidence(as(maria),o.id,{fileRef:"x.jpg",declaredReference:"DEP-55"});return expectErr("ALREADY_PROCESSED",()=>S.orders.approvePayment(admin,o.id,{confirmedReference:"BNB-1"}))}],
+   ["Renovar 3 meses pasaría la fecha del proveedor",()=>expectErr("SUPPLIER_EXPIRY_EXCEEDED",()=>S.orders.renew(seller,P.asg,{paymentMethod:"cash",periods:3}))],
+   ["Renovar 1 mes: esa cuenta vence antes con el proveedor",()=>expectErr("SUPPLIER_EXPIRY_EXCEEDED",()=>S.orders.renew(seller,P.asg,{paymentMethod:"cash"}))],
+   ["Admin pasa a Luis a otra cuenta (reemplazo)",()=>{const st=S.snapshot();const before=st.assignments[P.asg];const a=S.orders.replace(admin,P.asg,{reason:"La cuenta vence pronto con el proveedor",otherAccount:true});const st2=S.snapshot();return check(a.customerExpiresAt===before.customerExpiresAt&&st2.slots[before.slotId].status==="quarantined","reemplazo mal")&&`ahora en ${esc(st2.accounts[st2.slots[a.slotId].accountId].email)} · misma fecha · perfil viejo en cuarentena`}],
+   ["Ahora sí, renovar 1 mes",()=>{const r=S.orders.renew(seller,P.asg,{paymentMethod:"cash"});return `nuevo vencimiento del cliente: ${fd(r.assignment.customerExpiresAt)} · la fecha del proveedor no cambió`}],
+ ]}],
+ ["Portal privado y revendedores","Cada uno ve solo lo suyo; el revendedor vende a su precio.",()=>{const {maria,luis,carla,as}=P;return [
+   ["El vendedor le vende a María en efectivo",()=>{S.orders.create(seller,{customerId:maria.id,items:[{productId:"gemini",qty:1}],paymentMethod:"cash"});return "entregado"}],
+   ["María ve sus accesos en el portal",()=>{const v=S.portal.services(as(maria));return check(v.length>=1,"no ve nada")&&`${v.length} servicio(s) · ${esc(v[0].product)}`}],
+   ["Luis intenta ver los de María",()=>expectErr("FORBIDDEN",()=>S.portal.services(as(luis),maria.id))],
+   ["Carla (revendedora) crea su cliente Pedro",()=>{P.pedro=S.catalog.createCustomer(as(carla),{name:"Pedro Rojas",phone:"+591 72223344"});return "cliente propio de Carla"}],
+   ["Carla vende a Pedro con su saldo",()=>{S.wallet.adjust(owner,carla.id,5000,"recarga en efectivo");const o=S.orders.create(as(carla),{customerId:P.pedro.id,items:[{productId:"gemini",qty:1}],paymentMethod:"balance"});return check(o.total===1800,"precio")&&`cobrado ${bs(o.total)} (precio revendedor) · le queda ${bs(S.wallet.balance(carla.id))}`}],
+ ]}],
+ ["Saldo, recargas e historial","El saldo es la suma de movimientos y nunca queda negativo.",()=>{const {luis,as}=P;return [
+   ["Luis pide recarga de Bs 100 con comprobante",()=>{P.top=S.orders.requestTopup(as(luis),luis.id,10000,{fileRef:"recarga.jpg",declaredReference:"DEP-9"});return check(S.wallet.balance(luis.id)===0,"acreditó antes")&&"todavía Bs 0: falta aprobar"}],
+   ["Admin aprueba la recarga",()=>{S.orders.approvePayment(admin,P.top.id,{confirmedReference:"BNB-9"});return `saldo ${bs(S.wallet.balance(luis.id))}`}],
+   ["Luis compra Gemini con saldo",()=>{S.orders.create(as(luis),{customerId:luis.id,items:[{productId:"gemini",qty:1}],paymentMethod:"balance"});return `saldo ${bs(S.wallet.balance(luis.id))}`}],
+   ["Admin intenta un ajuste manual",()=>expectErr("FORBIDDEN",()=>S.wallet.adjust(admin,luis.id,100,"regalo"))],
+   ["El dueño intenta dejar el saldo negativo",()=>expectErr("INSUFFICIENT_BALANCE",()=>S.wallet.adjust(owner,luis.id,-999999,"error"))],
+ ]}],
+ ["Tienda y precios","El catálogo y el precio los decide el servidor.",()=>{const {maria,carla,as}=P;return [
+   ["Catálogo público",()=>S.catalog.publicCatalog().map(p=>`${esc(p.name)} ${bs(p.price)} (${p.available} libres)`).join(" · ")],
+   ["Carla ve precios de revendedora",()=>S.catalog.publicCatalog(carla.id).map(p=>`${esc(p.name)} ${bs(p.price)}`).join(" · ")],
+   ["María toca “Comprar” dos veces",()=>{const k={customerId:maria.id,items:[{productId:"netflix",qty:1}],paymentMethod:"qr",idempotencyKey:"checkout-77"};const a=S.orders.create(as(maria),k),b=S.orders.create(as(maria),k);return check(a.id===b.id,"duplicó")&&`un solo pedido: ${a.id}`}],
+   ["María intenta pagar “en efectivo” desde la tienda",()=>expectErr("FORBIDDEN",()=>S.orders.create(as(maria),{customerId:maria.id,items:[{productId:"netflix",qty:1}],paymentMethod:"cash"}))],
+ ]}],
+ ["WhatsApp y códigos","Sin contraseñas en mensajes; códigos solo para quien tiene la cuenta.",()=>{const {maria,luis,as}=P;return [
+   ["Revisar todos los mensajes encolados",()=>{const out=S.notify.outbox(admin);return check(out.every(m=>!/Sup3r|Otra-Clave|Clave-Tres|Gem-Clave/.test(m.text)),"hay contraseñas")&&`${out.length} mensajes · ninguno con contraseñas`}],
+   ["Luis no dio permiso para WhatsApp",()=>`${S.notify.outbox(admin).filter(m=>m.status==="skipped_no_consent").length} mensajes retenidos por falta de permiso`],
+   ["El admin intenta autorizar un buzón de correo",()=>expectErr("FORBIDDEN",()=>S.codes.configureMailbox(admin,{address:"codigos@gabostore.lat",host:"imap.gabostore.lat",subjectAllowlist:["código"]}))],
+   ["El dueño autoriza el buzón",()=>{P.box=S.codes.configureMailbox(owner,{address:"codigos@gabostore.lat",host:"imap.gabostore.lat",subjectAllowlist:["código de acceso"]});return "autorizado"}],
+   ["Llegan correos: una promo y un código",()=>{const mine=S.portal.services(as(maria)).map(s=>s.access.email);const to=mine[0];P.codeTo=to;const r1=S.codes.ingest(system,P.box.id,{to,subject:"Promo de la semana",body:"123456",receivedAt:clock.t});S.codes.ingest(system,P.box.id,{to,subject:"Tu código de acceso temporal",body:"Tu código: 741 208",receivedAt:clock.t});return `promo descartada (${r1===null?"sí":"no"}) · código guardado para ${esc(to)}`}],
+   ["María ve su código",()=>S.portal.codes(as(maria),maria.id).map(c=>c.code).join(", ")||"(ninguno)"],
+   ["Luis intenta ver los códigos de María",()=>expectErr("FORBIDDEN",()=>S.portal.codes(as(luis),maria.id))],
+ ]}],
+ ["Estadísticas, auditoría y proveedores","Cuentas claras y registro de quién hizo qué.",()=>[
+   ["Resumen del día",()=>{const r=S.stats.summary(admin,{from:T0-DAY,to:clock.t+DAY});return `ventas ${bs(r.revenue)} · caja ${bs(r.cashIn)} · saldo que debés ${bs(r.balancesOwed)}`}],
+   ["Proveedor Andes",()=>{const [a]=S.stats.suppliers(admin);return `${a.accounts} cuentas · costo ${bs(a.cost)} · ingreso ${bs(a.revenue)} · por vencer: ${a.expiringIn7Days.length}`}],
+   ["El vendedor intenta ver estadísticas",()=>expectErr("FORBIDDEN",()=>S.stats.summary(seller,{from:0,to:1}))],
+   ["Auditoría sin contraseñas",()=>{const log=S.stats.audit(owner,{limit:1000});return check(!JSON.stringify(log).includes("Sup3r-Secreta"),"filtró")&&`${log.length} eventos registrados · 0 contraseñas`}],
+ ]],
+];
+
+const cardsEl=document.getElementById("cards");
+cardsEl.innerHTML=SCEN.map(([t,d],i)=>`<article class="card" id="c${i}"><header><b>${i+1}</b><h3>${t}</h3><span class="pill p-idle" id="s${i}">Sin probar</span></header><p class="muted">${d}</p><ol class="log" id="l${i}"></ol><div><button class="btn" type="button" data-run="${i}">Probar</button></div></article>`).join("");
+const done=new Set();
+function run(i){
+  const steps=SCEN[i][2]();let ok=true,html="";
+  for(const [txt,fn] of steps){try{const r=fn();html+=`<li class="ok"><i>✓</i><span>${txt}<br><span class="muted">${r}</span></span></li>`}catch(e){ok=false;html+=`<li class="bad"><i>✗</i><span>${txt}<br><span class="muted">${esc(e.message)}</span></span></li>`;break}}
+  document.getElementById("l"+i).innerHTML=html;const s=document.getElementById("s"+i);s.className="pill "+(ok?"p-ok":"p-bad");s.textContent=ok?"Funciona":"Falló";
+  if(ok)done.add(i);document.getElementById("score").textContent=`${done.size} de 7 funcionando`;render();
+}
+function runAll(){reset();SCEN.forEach((_,i)=>run(i))}
+function reset(){boot();done.clear();SCEN.forEach((_,i)=>{document.getElementById("l"+i).innerHTML="";const s=document.getElementById("s"+i);s.className="pill p-idle";s.textContent="Sin probar"});document.getElementById("score").textContent="";render()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-run]");if(b)run(+b.dataset.run)});
+document.getElementById("all").onclick=runAll;document.getElementById("reset").onclick=reset;
+
+const TABS={"Stock":()=>{const st=S.inventory.stock();return table(["Producto","Libres","Apartados","Vendidos","Cuarentena"],Object.entries(st).map(([k,v])=>[k,v.available||0,v.reserved||0,v.assigned||0,v.quarantined||0]),[1,2,3,4])},
+ "Pedidos":()=>{const o=Object.values(S.snapshot().orders).reverse();const c=S.snapshot().customers;return table(["Pedido","Cliente","Tipo","Pago","Total","Estado"],o.map(x=>[x.id,c[x.customerId].name,{sale:"Venta",renewal:"Renovación",topup:"Recarga"}[x.kind],x.paymentMethod,bs(x.total),x.status]),[4])},
+ "Saldos":()=>{const c=Object.values(S.snapshot().customers);return table(["Cliente","Tipo","Saldo"],c.map(x=>[x.name,x.kind==="reseller"?"Revendedor":"Cliente",bs(S.wallet.balance(x.id))]),[2])},
+ "WhatsApp":()=>{const o=S.notify.outbox(admin).slice(-8).reverse();return o.length?o.map(m=>`<div class="msg"><span class="pill ${m.status==="queued"?"p-ok":"p-warn"}">${m.status==="queued"?"Listo para enviar":"Sin permiso: no se envía"}</span> <span class="muted">${esc(m.to)}</span>\n${esc(m.text)}</div>`).join(""):'<p class="muted">Todavía no hay mensajes.</p>'},
+ "Auditoría":()=>{const l=S.stats.audit(owner,{limit:15});return table(["Quién","Rol","Acción","Sobre"],l.map(a=>[a.actorId,a.role,a.action,a.entityId]),[])}};
+let tab="Stock";
+function table(h,rows,num){return `<div class="scroll"><table><thead><tr>${h.map((x,i)=>`<th class="${num.includes(i)?"num":""}">${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((x,i)=>`<td class="${num.includes(i)?"num":""}">${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
+function render(){document.getElementById("tabs").innerHTML=Object.keys(TABS).map(k=>`<button role="tab" type="button" data-t="${k}" aria-selected="${k===tab}">${k}</button>`).join("");document.getElementById("view").innerHTML=`<div style="display:grid;gap:10px;margin-top:10px">${TABS[tab]()}</div>`}
+document.getElementById("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b){tab=b.dataset.t;render()}});
+runAll();
+</script>
