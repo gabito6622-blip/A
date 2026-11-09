@@ -461,12 +461,14 @@ const V = {
     const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Por vencer", cnt((s) => slotState(s) === "soon")], ["vencidas", "Vencidas", cnt((s) => slotState(s) === "exp")]];
     const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")); };
     const shownAccs = accs.filter(matchF);
+    const prodOf = (id) => products.find((x) => x.id === id);
+    const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<span class="svbadge" style="background:${esc(p?.color ?? "#3984ff")}">${esc((pname(a.productId)[0] || "?").toUpperCase())}</span>`; };
     const cards = shownAccs.map((a) => {
       const d = daysLeft(a.supplierExpiresAt);
       const libres = a.slots.filter((s) => s.status === "available").length;
       const vivos = a.slots.filter((s) => s.status !== "retired");
       return `<article class="acard">
-        <header><div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
+        <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
         ${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>

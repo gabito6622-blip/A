@@ -542,3 +542,8 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .pdefs{display:grid;gap:7px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px}
 .pdrow{display:grid;grid-template-columns:28px minmax(0,2fr) minmax(0,1fr);gap:8px;align-items:center}
 .pdn{width:28px;height:28px;border-radius:8px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;color:var(--muted);font-size:13px}
+
+/* --- Cuentas: logo del servicio en la tarjeta --- */
+.ahead{display:flex;align-items:center;gap:10px;min-width:0}
+.svbadge{width:38px;height:38px;border-radius:11px;flex:none;object-fit:contain;background:#0e1424;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px}
+img.svbadge{padding:5px;background:#0e1424}
