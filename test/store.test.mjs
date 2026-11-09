@@ -1224,3 +1224,13 @@ describe("Nombre y PIN por defecto del servicio", () => {
     assert.deepEqual(y2.profileDefaults, [{ label: "P1", pin: "11" }], "se conservan al editar sin mandarlos");
   });
 });
+
+describe("Cuentas sin proveedor (opcional)", () => {
+  test("addAccount sin proveedor usa 'Propias' y no exige fecha", () => {
+    const { s } = setup();
+    const r = s.inventory.addAccount(admin, { productId: "netflix", email: "propia1@correo.com", password: "Clave#9", cost: 0, profiles: [{ label: "Cuenta" }] });
+    assert.equal(r.account.supplierId, "propias");
+    assert.ok(r.account.supplierExpiresAt > Date.now() + 365 * DAY, "vence muy a futuro");
+    assert.equal(s.inventory.stock().netflix.available >= 1, true);
+  });
+});

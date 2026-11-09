@@ -53,6 +53,24 @@ export function fileToBase64(file) {
 
 export const waLink = (phoneDigits, text) => `https://wa.me/${String(phoneDigits).replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 
+// "Logo" por servicio: monograma con el color de la marca (no es el logo oficial).
+const BRANDS = [
+  [/netflix/, "#E50914", "N"], [/disney/, "#0C3FC4", "D+"], [/spotify/, "#1DB954", "♫"],
+  [/\bmax\b|hbo/, "#7B2FF7", "M"], [/prime|amazon/, "#00A8E1", "P"], [/paramount/, "#0064FF", "P+"],
+  [/crunchy/, "#F47521", "C"], [/youtube|yt\b/, "#FF0000", "▶"], [/star/, "#C9A227", "★"],
+  [/vix/, "#F80032", "V"], [/deezer/, "#A238FF", "♫"], [/plex/, "#E5A00D", "P"],
+  [/canva/, "#00C4CC", "C"], [/chatgpt|openai|gpt/, "#10A37F", "AI"], [/apple/, "#1d1d1f", ""],
+];
+export function brand(name) {
+  const n = String(name ?? "").toLowerCase();
+  for (const [re, color, mark] of BRANDS) if (re.test(n)) return { color, mark: mark || (String(name ?? "?")[0] || "?").toUpperCase() };
+  return null;
+}
+export const brandBadge = (name, color, cls = "svbadge") => {
+  const b = brand(name), c = b?.color ?? color ?? "#3984ff", m = b?.mark ?? (String(name ?? "?")[0] || "?").toUpperCase();
+  return `<span class="${cls}" style="background:${c}">${esc(m)}</span>`;
+};
+
 export const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
 export const STATUS_TEXT = {

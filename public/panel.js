@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -462,7 +462,7 @@ const V = {
     const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")); };
     const shownAccs = accs.filter(matchF);
     const prodOf = (id) => products.find((x) => x.id === id);
-    const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<span class="svbadge" style="background:${esc(p?.color ?? "#3984ff")}">${esc((pname(a.productId)[0] || "?").toUpperCase())}</span>`; };
+    const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(pname(a.productId), p?.color); };
     const cards = shownAccs.map((a) => {
       const d = daysLeft(a.supplierExpiresAt);
       const libres = a.slots.filter((s) => s.status === "available").length;
@@ -494,8 +494,8 @@ const V = {
 
   async carga() {
     const [products, suppliers] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
-    if (!products.length || !suppliers.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas necesitás al menos un producto y un proveedor.<div class="inline">${!products.length ? `<button class="pbtn dark" type="button" data-go="productos">Crear producto</button>` : ""}${!suppliers.length ? `<button class="pbtn dark" type="button" data-go="proveedores">Crear proveedor</button>` : ""}</div></div></section>`;
-    const sel = (name) => `<select name="${name}">${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
+    if (!products.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas creá al menos un producto.<div class="inline"><button class="pbtn dark" type="button" data-go="productos">Crear producto</button></div></div></section>`;
+    const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
     const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
     P.tab.prodDefaults = Object.fromEntries(products.map((p) => [p.id, p.profileDefaults ?? []]));
     const guessN = (id) => { const defs = products.find((x) => x.id === id)?.profileDefaults; if (defs?.length) return defs.length; const p = products.find((x) => x.id === id); const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
@@ -506,10 +506,10 @@ const V = {
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
         <label style="grid-column:1/-1">Correo de la cuenta<input name="email" type="email" required placeholder="correo@gmail.com" autocomplete="off"></label>
         <label style="grid-column:1/-1">Contraseña<input name="password" required placeholder="clave de la cuenta" autocomplete="off"></label>
-        <details style="grid-column:1/-1"><summary>Proveedor, vencimiento y costo</summary>
+        <details style="grid-column:1/-1"><summary>Proveedor y costo <small class="muted">(opcional)</small></summary>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-            <label>Proveedor<select name="supplierId">${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
-            <label>Vence con proveedor<input type="date" name="exp" required value="${last.exp || dateInput(Date.now() + 30 * 864e5)}"></label>
+            <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
+            <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
             <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
@@ -517,7 +517,7 @@ const V = {
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor<input name="exp" type="date" required value="${dateInput(Date.now() + 30 * 864e5)}"></label><label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (Bs)<input name="cost" inputmode="decimal" value="0"></label>

@@ -8,10 +8,10 @@ import { queue } from "./notify.js";
 
 export interface NewAccount {
   productId: Id;
-  supplierId: Id;
+  supplierId?: Id;
   email: string;
   password: string;
-  supplierExpiresAt: number;
+  supplierExpiresAt?: number;
   cost: Cents;
   /** Etiquetas de perfiles. Una sola entrada = cuenta completa. */
   profiles: { label: string; pin?: string }[];
@@ -30,14 +30,18 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
   if (!Number.isInteger(a.cost) || a.cost < 0) throw new DomainError("VALIDATION", "Costo inválido");
   return e.tx(() => {
     e.get("products", a.productId);
-    const sup = e.get("suppliers", a.supplierId);
+    // Proveedor opcional: si no se indica, se usa "Propias" (tus cuentas, sin proveedor).
+    let supplierId = a.supplierId;
+    if (!supplierId) { supplierId = "propias"; if (!e.s.suppliers.propias) e.s.suppliers.propias = { id: "propias", name: "Propias", active: true }; }
+    const sup = e.get("suppliers", supplierId);
     if (!sup.active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
-    if (!(Number.isFinite(a.supplierExpiresAt) && a.supplierExpiresAt > 0)) throw new DomainError("VALIDATION", "Fecha del proveedor inválida");
-    if (a.supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
+    // Vencimiento con el proveedor opcional: sin fecha => muy a futuro (no molesta).
+    const supplierExpiresAt = Number.isFinite(a.supplierExpiresAt) && (a.supplierExpiresAt ?? 0) > 0 ? a.supplierExpiresAt! : e.now() + 36500 * 864e5;
+    if (supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
     const id = e.id("acc");
     const account: Account = {
-      id, productId: a.productId, supplierId: a.supplierId, email: a.email.toLowerCase(), password: a.password ?? "",
-      supplierExpiresAt: a.supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
+      id, productId: a.productId, supplierId, email: a.email.toLowerCase(), password: a.password ?? "",
+      supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
       ...(a.notes?.trim() ? { notes: a.notes.trim().slice(0, 500) } : {}),
     };
     e.s.accounts[id] = account;
@@ -46,7 +50,7 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
       e.s.slots[s.id] = s;
       return s;
     });
-    e.audit(actor, "account.add", "account", id, { productId: a.productId, supplierId: a.supplierId, slots: slots.length });
+    e.audit(actor, "account.add", "account", id, { productId: a.productId, supplierId, slots: slots.length });
     return { account: structuredClone(account), slots: structuredClone(slots) };
   });
 }
