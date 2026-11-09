@@ -1208,3 +1208,19 @@ describe("Revendedor entra con correo y contraseña", () => {
     assert.throws(() => s.catalog.setOwnEmail(as(maria), "carla@correo.com"), err("VALIDATION"), "no puede usar un correo de otra cuenta");
   });
 });
+
+describe("Nombre y PIN por defecto del servicio", () => {
+  test("upsertProduct guarda y valida los perfiles por defecto", () => {
+    const { s } = setup();
+    const p = s.catalog.upsertProduct(owner, { id: "hbo", name: "HBO Max", kind: "profile", durationDays: 30, price: 3000, published: true,
+      profileDefaults: [{ label: "Perfil 1", pin: "1010" }, { label: " Perfil 2 ", pin: "20a20" }, { label: "Sin PIN" }] });
+    assert.deepEqual(p.profileDefaults, [{ label: "Perfil 1", pin: "1010" }, { label: "Perfil 2", pin: "2020" }, { label: "Sin PIN" }], "recorta nombre, limpia PIN no numérico, deja perfiles sin PIN");
+  });
+  test("un perfil por defecto sin nombre falla; se conservan si no se mandan", () => {
+    const { s } = setup();
+    assert.throws(() => s.catalog.upsertProduct(owner, { id: "x", name: "X", kind: "profile", durationDays: 30, price: 1000, published: true, profileDefaults: [{ label: "", pin: "9" }] }), err("VALIDATION"));
+    s.catalog.upsertProduct(owner, { id: "y", name: "Y", kind: "profile", durationDays: 30, price: 1000, published: true, profileDefaults: [{ label: "P1", pin: "11" }] });
+    const y2 = s.catalog.upsertProduct(owner, { id: "y", name: "Y2", kind: "profile", durationDays: 30, price: 1000, published: true });
+    assert.deepEqual(y2.profileDefaults, [{ label: "P1", pin: "11" }], "se conservan al editar sin mandarlos");
+  });
+});

@@ -537,3 +537,8 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .pleg i.p-free{background:#10b981}.pleg i.p-busy{background:#ef4444}.pleg i.p-soon{background:#f59e0b}.pleg i.p-exp{background:#b91c1c}
 .accf-chips{margin:10px 0 2px}
 .accf-chips .chipn{background:var(--soft);border-radius:999px;padding:0 7px;font-size:11px;margin-left:4px}
+
+/* --- Productos: nombre y PIN por defecto de cada perfil --- */
+.pdefs{display:grid;gap:7px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px}
+.pdrow{display:grid;grid-template-columns:28px minmax(0,2fr) minmax(0,1fr);gap:8px;align-items:center}
+.pdn{width:28px;height:28px;border-radius:8px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;color:var(--muted);font-size:13px}

@@ -26,6 +26,16 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       ...(p.color !== undefined ? { color: p.color } : {}), ...(prev?.imageFileRef ? { imageFileRef: prev.imageFileRef } : {}),
       ...(p.resellersOnly ? { resellersOnly: true } : {}),
     };
+    if (p.profileDefaults !== undefined) {
+      if (!Array.isArray(p.profileDefaults) || p.profileDefaults.length > 20) throw new DomainError("VALIDATION", "Hasta 20 perfiles por defecto");
+      const defs = p.profileDefaults.map((d) => {
+        const label = String(d?.label ?? "").trim().slice(0, 40);
+        if (!label) throw new DomainError("VALIDATION", "Cada perfil por defecto necesita un nombre");
+        const pin = String(d?.pin ?? "").replace(/\D/g, "").slice(0, 8);
+        return pin ? { label, pin } : { label };
+      });
+      if (defs.length) prod.profileDefaults = defs;
+    } else if (prev?.profileDefaults) prod.profileDefaults = prev.profileDefaults;
     if (!["profile", "full_account", "invite", "combo"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
     e.s.products[id] = prod;
     e.audit(actor, "product.upsert", "product", id, { price: p.price, published: p.published });

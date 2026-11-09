@@ -495,7 +495,8 @@ const V = {
     if (!products.length || !suppliers.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas necesitás al menos un producto y un proveedor.<div class="inline">${!products.length ? `<button class="pbtn dark" type="button" data-go="productos">Crear producto</button>` : ""}${!suppliers.length ? `<button class="pbtn dark" type="button" data-go="proveedores">Crear proveedor</button>` : ""}</div></div></section>`;
     const sel = (name) => `<select name="${name}">${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
     const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
-    const guessN = (id) => { const p = products.find((x) => x.id === id); const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
+    P.tab.prodDefaults = Object.fromEntries(products.map((p) => [p.id, p.profileDefaults ?? []]));
+    const guessN = (id) => { const defs = products.find((x) => x.id === id)?.profileDefaults; if (defs?.length) return defs.length; const p = products.find((x) => x.id === id); const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
     return `<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
@@ -535,6 +536,9 @@ const V = {
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
+      ${f.kind !== "combo" ? `<div style="grid-column:1/-1" class="pdefs"><div class="selbl">👤 Nombre y PIN por defecto de cada perfil <small class="muted">opcional · se precargan al cargar una cuenta</small></div>
+        ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
+      </div>` : ""}
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
@@ -1456,7 +1460,7 @@ function updateCtlBar() {
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "customerId" && t.form?.id === "slotAssign") { const nc = t.form.querySelector(".newcli"); if (nc) nc.hidden = t.value !== "__new"; return; }
-  if (t.name === "productId" && t.form?.id === "quickForm") { const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${n} perfiles libres)`; return; }
+  if (t.name === "productId" && t.form?.id === "quickForm") { const defs = P.tab.prodDefaults?.[t.value]; const s = `${t.value} ${t.selectedOptions[0]?.textContent ?? ""}`.toLowerCase(); const n = defs?.length ? defs.length : /disney/.test(s) ? 7 : /prime|amazon/.test(s) ? 6 : 5; t.form.n.value = n; const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${n} perfiles libres)`; return; }
   if (t.name === "n" && t.form?.id === "quickForm") { const btn = t.form.querySelector('[type="submit"]'); if (btn) btn.textContent = `＋ Agregar cuenta (${Math.max(1, +t.value || 1)} perfiles libres)`; return; }
   if (t.name === "mode" && t.form?.id === "offForm") { P.tab.offOwn = t.value === "own"; return render(); }
   if (t.id === "resPlan") { const box = document.getElementById("resPageFields"); if (box) box.hidden = t.value !== "page"; return; }
@@ -1658,7 +1662,7 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
         supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
-        profiles: Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}` })),
+        profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
     } else if (f.id === "accForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
@@ -1683,6 +1687,9 @@ document.addEventListener("submit", async (ev) => {
       const id = f.dataset.id || f.name.value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
       const body = { id, name: f.name.value.trim(), category: f.category.value.trim() || undefined, description: f.description.value.trim() || undefined, kind: f.kind.value, durationDays: +f.durationDays.value, price: toCents(f.price.value), color: f.color.value, published: f.audience.value !== "none", resellersOnly: f.audience.value === "resellers" };
       if (!Number.isFinite(body.price)) throw new Error("Precio inválido");
+      const pdefs = [];
+      for (let i = 0; i < 10; i++) { const lab = f[`pd-label-${i}`]?.value?.trim(); if (lab) pdefs.push({ label: lab, pin: (f[`pd-pin-${i}`]?.value || "").replace(/\D/g, "") || undefined }); }
+      body.profileDefaults = pdefs;
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");
       const rev = groups.find((g) => g.id === "revendedor") ?? { id: "revendedor", name: "Revendedor", prices: {} };

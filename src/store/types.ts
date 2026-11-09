@@ -34,6 +34,8 @@ export interface Product {
   imageFileRef?: string;
   /** Solo lo ven, compran y renuevan los revendedores (no sale en la tienda pública). */
   resellersOnly?: boolean;
+  /** Nombre y PIN por defecto de cada perfil; se precargan al cargar una cuenta de este servicio. */
+  profileDefaults?: { label: string; pin?: string }[];
 }
 
 /** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */
