@@ -118,7 +118,27 @@ const V = {
       <ul>${A.map((x, i) => `<li><i style="background:${PAL[i % 8]}"></i>${esc(x.name)}<b>${x.count}</b></li>`).join("")}</ul></div>` : `<div class="emptybox">Sin servicios activos.</div>`;
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
-    const prodBars = B.length ? `<div class="hbars">${B.map((x, i) => `<div><span>${esc(x.name)}</span><div class="hb"><i style="width:${(x.revenue / bmax) * 100}%;background:${PAL[i % 8]}"></i></div><b>${bs(x.revenue)}</b><small>${x.units} u.</small></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
+    // --- Resumen por servicio (ganancia por app) ---
+    const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="background:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
+    // --- Atajos de alerta (vencidos / por vencer / sin cobrar) ---
+    const al = d.alerts;
+    const alertCards = `<div class="dalerts">
+      <button type="button" class="dalert bad" data-go="control"><span class="aic">📅</span><div class="atx"><b>${al.overdue.count} perfil(es) ya vencieron</b><small>${bs(al.overdue.amount)} por renovar · Ver</small></div><span class="ar">${icon("arrow")}</span></button>
+      <button type="button" class="dalert warn" data-go="control"><span class="aic">⏰</span><div class="atx"><b>${al.due3.count} vencen en los próximos 3 días</b><small>${bs(al.due3.amount)} por renovar · Ver</small></div><span class="ar">${icon("arrow")}</span></button>
+      <button type="button" class="dalert blue" data-go="aprobacion"><span class="aic">💳</span><div class="atx"><b>${al.unpaid.count} con pago pendiente</b><small>${bs(al.unpaid.amount)} por cobrar · Ver</small></div><span class="ar">${icon("arrow")}</span></button></div>`;
+    // --- Ingresos por mes (12 meses), curva suave estilo Netxly ---
+    const M = d.months, mtot = M.reduce((s, x) => s + x.revenue, 0), mmax = Math.max(...M.map((x) => x.revenue), 1);
+    const best = M.reduce((a, b) => (b.revenue > a.revenue ? b : a), M[0]), worst = M.reduce((a, b) => (b.revenue < a.revenue ? b : a), M[0]);
+    const MW = mob ? 360 : 680, MH = mob ? 180 : 210, mpl = 6, mpb = 22, mpt = 12;
+    const mX = (i) => mpl + (MW - mpl * 2) * (i / (M.length - 1)), mY = (v) => mpt + (MH - mpt - mpb) * (1 - v / mmax);
+    const mpts = M.map((x, i) => [mX(i), mY(x.revenue)]);
+    let mline = `M ${mpts[0][0].toFixed(1)} ${mpts[0][1].toFixed(1)}`;
+    for (let i = 1; i < mpts.length; i++) { const [x0, y0] = mpts[i - 1], [x1, y1] = mpts[i], cx = (x0 + x1) / 2; mline += ` C ${cx.toFixed(1)} ${y0.toFixed(1)} ${cx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`; }
+    const mfill = `${mline} L ${mX(M.length - 1).toFixed(1)} ${mY(0)} L ${mX(0).toFixed(1)} ${mY(0)} Z`;
+    const monthChart = `<svg viewBox="0 0 ${MW} ${MH}" class="mchart" role="img" aria-label="Ingresos por mes">
+      <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.35"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs>
+      <path d="${mfill}" fill="url(#mg)"/><path d="${mline}" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${mpts.map((p, i) => `<g><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="#0b1220" stroke="#22d3ee" stroke-width="2"><title>${esc(M[i].label)}: ${bs(M[i].revenue)}</title></circle><text x="${p[0].toFixed(1)}" y="${MH - 6}" class="ax" text-anchor="middle">${esc(M[i].label)}</text></g>`).join("")}</svg>`;
     const tag = (kd) => `<span class="pp pp-${kd === "topup" ? "ok" : kd === "renewal" ? "warn" : "mute"}">${KIND_TEXT[kd] ?? kd}</span>`;
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div></div>
@@ -132,6 +152,9 @@ const V = {
         ${kpi("Pagos por revisar", k.pendingReview, k.unpaid ? `${k.unpaid} alquileres sin pagar` : "todo al día", k.pendingReview ? "warn" : "", "aprobacion")}
         ${kpi("Clientes", k.customers, `${k.resellers} revendedores · +${k.newCustomers} nuevos`)}
       </div>
+      ${alertCards}
+      <section class="card"><div class="mctop"><div><h2 style="margin:0">Ingresos por mes <small>12 meses</small></h2><p class="muted" style="margin:2px 0 0">Total del rango: <b>${bs(mtot)}</b></p></div>
+        <div class="mcstats"><div class="up"><small>▲ MEJOR MES</small><b>${esc(best.label)} · ${bs(best.revenue)}</b></div><div class="down"><small>▼ MENOR MES</small><b>${esc(worst.label)} · ${bs(worst.revenue)}</b></div></div></div>${monthChart}</section>
       <section class="card"><h2>Ingresos por día <small>pasá el dedo o el mouse por una barra</small></h2>
         <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
       <div class="dgrid">
@@ -140,7 +163,7 @@ const V = {
         <section class="card"><h2>Servicios activos por producto</h2>${donut}</section>
       </div>
       <div class="dgrid">
-        <section class="card"><h2>Lo que más vendiste <small>${dd} días</small></h2>${prodBars}</section>
+        <section class="card"><h2>Resumen por servicio <small>ganancia por app · ${dd} días</small></h2>${svcList}</section>
         <section class="card"><h2>Últimos movimientos</h2><div class="recent">${d.recent.length ? d.recent.map((o) => `<div><div><b>${esc(o.customer || "—")}</b><small>${esc(o.product)} · ${fdt(o.at)}</small></div><div>${tag(o.kind)}<b>${bs(o.total)}</b>${o.status !== "fulfilled" ? orderPill(o.status) : ""}</div></div>`).join("") : `<div class="emptybox">Sin movimientos.</div>`}</div></section>
       </div>
       <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Mensual", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],

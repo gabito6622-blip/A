@@ -83,8 +83,29 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
     const l = active.filter((x) => x.customerExpiresAt >= a && x.customerExpiresAt < b);
     return { day: a, count: l.length, amount: l.reduce((s, x) => s + priceOf(x), 0) };
   });
+  // Montos de los atajos del dashboard (vencidos, por vencer, sin pagar).
+  const overdueList = active.filter((a) => a.customerExpiresAt < now || a.holdOpen);
+  const due3List = active.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 3 * DAY);
+  const unpaidList = active.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado");
+  const amt = (l: typeof active) => l.reduce((s, a) => s + priceOf(a), 0);
+  // Ingresos por mes (últimos 12 meses): ventas + renovaciones (sin recargas).
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const base = new Date(now); base.setDate(1); base.setHours(0, 0, 0, 0);
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(base.getFullYear(), base.getMonth() - (11 - i), 1);
+    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: MES[d.getMonth()], revenue: 0 };
+  });
+  const mIdx = new Map(months.map((m, i) => [m.key, i]));
+  for (const o of done) {
+    if (o.kind === "topup") continue;
+    const d = new Date(o.updatedAt);
+    const i = mIdx.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (i !== undefined) months[i].revenue += o.total;
+  }
   return {
     days: nDays,
+    alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: amt(unpaidList) } },
+    months,
     kpi: {
       revenue: sum(cur), prevRevenue: sum(prev), orders: cur.length, prevOrders: prev.length,
       renewals: cur.filter((o) => o.kind === "renewal").length, topups: sum(done.filter((o) => o.kind === "topup" && o.updatedAt >= from)),

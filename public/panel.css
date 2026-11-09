@@ -468,3 +468,31 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .dlv-creds b.sel{user-select:all;font-family:ui-monospace,Menlo,Consolas,monospace}
 .pbtn.big{justify-content:center;padding:13px 16px;font-size:15.5px;border-radius:12px}
 @media (max-width:520px){ .dlv-creds div{grid-template-columns:104px minmax(0,1fr)} }
+
+/* --- Dashboard estilo Netxly: atajos de alerta, ingresos por mes, resumen por servicio --- */
+.dalerts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:4px 0}
+.dalert{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);color:var(--ink);cursor:pointer}
+.dalert .aic{font-size:20px;line-height:1}
+.dalert .atx{flex:1;min-width:0}
+.dalert .atx b{display:block;font-size:14px}
+.dalert .atx small{color:var(--muted)}
+.dalert .ar{color:var(--muted);display:flex}
+.dalert.bad{border-color:color-mix(in srgb,var(--bad) 55%,transparent);background:color-mix(in srgb,var(--bad) 12%,var(--card))}
+.dalert.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 12%,var(--card))}
+.dalert.blue{border-color:color-mix(in srgb,var(--blue) 55%,transparent);background:color-mix(in srgb,var(--blue) 12%,var(--card))}
+.mctop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.mcstats{display:flex;gap:16px}
+.mcstats small{display:block;font-size:11px;letter-spacing:.04em}
+.mcstats b{font-size:13px}
+.mcstats .up small{color:var(--ok)} .mcstats .down small{color:var(--bad)}
+.mchart{width:100%;height:auto}
+.mchart .ax{fill:var(--muted);font-size:10px}
+.svclist{display:grid;gap:10px}
+.svcrow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(70px,120px);gap:10px;align-items:center}
+.svcic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+.svcinfo{min-width:0}
+.svcinfo b{display:block;font-size:14px}
+.svcinfo small{color:var(--muted);font-size:12.5px}
+.svcbar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden}
+.svcbar i{display:block;height:100%;border-radius:999px}
+@media (max-width:640px){ .dalerts{grid-template-columns:1fr} .svcrow{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ic info" "bar bar"} .svcbar{grid-area:bar} }
