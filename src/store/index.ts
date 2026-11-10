@@ -110,6 +110,11 @@ export function createStore(opts: EngineOptions = {}) {
     shops: {
       mine: bind(e, rshop.myShop),
       update: bind(e, rshop.updateMyShop),
+      myCoupons: bind(e, rshop.myCoupons),
+      saveCoupon: bind(e, rshop.saveMyCoupon),
+      deleteCoupon: bind(e, rshop.deleteMyCoupon),
+      quoteCoupon: (slug: string, code: unknown, items: unknown) => rshop.quoteShopCoupon(e, slug, code, items),
+      setCouponsAllowed: bind(e, rshop.setResellerCoupons),
       setImage: bind(e, rshop.setMyShopImage),
       setBlocked: bind(e, rshop.setShopBlocked),
       setPage: bind(e, rshop.setResellerPage),

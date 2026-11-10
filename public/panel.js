@@ -379,6 +379,7 @@ const V = {
     try { list = await api("GET", "/api/admin/coupons"); }
     catch (e) { if (e.status === 403) return `<section class="card"><div class="emptybox">Solo el dueño o un admin manejan los cupones.</div></section>`; throw e; }
     const products = (await api("GET", "/api/admin/products")).filter((p) => p.kind !== "combo");
+    const rc = await api("GET", "/api/admin/reseller-coupons").catch(() => ({ allowed: false }));
     const ed = list.find((c) => c.id === P.tab.couponEdit) ?? null;
     const ST = { active: ["✅ Activo", "on"], paused: ["⏸️ Pausado", "off"], expired: ["📅 Vencido", "bad"], used_up: ["🔚 Sin usos", "bad"] };
     const val = (c) => c.type === "percent" ? `${c.value}%` : bs(c.value);
@@ -408,7 +409,10 @@ const V = {
         <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("plus")}${ed ? "Guardar cambios" : "Crear cupón"}</button>${ed ? `<button class="pbtn" type="button" data-cupedit="">Cancelar</button>` : ""}</div>
       </form>
       <p class="muted" style="margin:10px 0 0">El descuento se suma al de “Armá tu combo” y siempre queda algo a pagar. Si un pedido vence o se cancela, el uso vuelve al cupón.</p></section>
-      <section class="card"><h2>${icon("tag")}Tus cupones <small>${list.length}</small></h2>${table(["Código", "Descuento", "Reglas", "Estado", ""], rows, "Todavía no creaste cupones.")}</section>`;
+      <section class="card"><h2>${icon("tag")}Tus cupones <small>${list.length}</small></h2>${table(["Código", "Descuento", "Reglas", "Estado", ""], rows, "Todavía no creaste cupones.")}</section>
+      <section class="card"><h2>${icon("userplus")}Cupones de tus revendedores ${rc.allowed ? pill("Permitido", "ok") : pill("No permitido", "mute")}</h2>
+        <p class="muted" style="margin:0">Si lo permitís, cada revendedor puede crear cupones para <b>su propia página</b> (/r/…), con descuento sobre <b>sus</b> precios. No tocan tus precios ni tu tienda, y no sirven en la página de otro revendedor. Los pedidos de esas páginas se cierran por WhatsApp con el revendedor.</p>
+        <label class="chk"><input type="checkbox" id="rcAllowed" ${rc.allowed ? "checked" : ""}> Dejar que los revendedores creen cupones para su página</label></section>`;
   },
 
   async aprobacion() {
@@ -1155,7 +1159,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -2635,4 +2639,11 @@ document.addEventListener("change", async (ev) => {
   if (!inp?.dataset?.pmqr || !inp.files?.[0]) return;
   const b64 = await fileToBase64(inp.files[0]);
   await act(() => api("POST", `/api/admin/paymethods/${inp.dataset.pmqr}/qr`, { contentBase64: b64 }), "QR guardado");
+});
+
+// Permiso para que los revendedores creen cupones en su página.
+document.addEventListener("change", (ev) => {
+  const el = ev.target;
+  if (el?.id !== "rcAllowed") return;
+  act(() => api("POST", "/api/admin/reseller-coupons", { allowed: el.checked }), el.checked ? "Los revendedores ya pueden crear cupones" : "Cupones de revendedores apagados");
 });

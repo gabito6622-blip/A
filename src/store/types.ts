@@ -100,6 +100,8 @@ export interface StoreSettings extends Look {
   platformName?: string;
   /** Si los revendedores pueden publicar su propia página. Por defecto sí. */
   resellerShops?: boolean;
+  /** El dueño deja que los revendedores creen cupones para su propia página. */
+  resellerCoupons?: boolean;
   /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */
   resellerProgramPrices?: boolean;
   /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
@@ -316,6 +318,8 @@ export interface ResellerShop extends Look {
   suspended?: boolean;
   /** Combos propios del revendedor (con su precio). */
   combos?: ResellerCombo[];
+  /** Cupones propios para su página (solo si el dueño lo permite). */
+  coupons?: ResellerCoupon[];
   /** "Armá tu combo" en SU página: descuento para 2, 3 y 4+ apps sueltas (centavos). El revendedor elige los montos. */
   comboDiscounts?: [Cents, Cents, Cents];
 }
@@ -642,4 +646,17 @@ export interface LocalPayMethod {
   replacesQr: boolean;
   enabled: boolean;
   qrFileRef?: string;
+}
+
+/** Cupón que crea un revendedor para su página /r/<slug>. El pedido se cierra por WhatsApp, así que no lleva conteo de usos. */
+export interface ResellerCoupon {
+  id: Id;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  expiresAt?: number;
+  minTotal?: Cents;
+  productIds?: Id[];
+  active: boolean;
+  createdAt: number;
 }

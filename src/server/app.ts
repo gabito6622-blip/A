@@ -308,6 +308,8 @@ export function createApp(cfg: AppConfig): App {
   // ---- Ingreso con número + PIN de 4 números (no depende del bot de WhatsApp ni de links que vencen) ----
   const loginPinKey = (customerId: string, pin: string) => `loginpin|${customerId}|${pin}`;
   const pinLoginLimiter = new RateLimiter(5, 15 * 60_000, now);
+  // Probar códigos de cupón en páginas públicas: límite por IP para que no se adivinen a fuerza bruta.
+  const couponLimiter = new RateLimiter(30, 10 * 60_000, now);
   const pinPhoneLimiter = new RateLimiter(10, 15 * 60_000, now);
   const setLoginPin = (customerId: string, pin: string) => {
     if (!/^\d{4}$/.test(pin)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
@@ -491,6 +493,16 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
   route("GET", "/api/me/referrals", "customer", (c) => store.shops.referrals(c.actor!));
   route("PUT", "/api/me/shop", "customer", (c) => store.shops.update(c.actor!, c.body ?? {}));
+  // Cupones propios del revendedor (si el dueño lo permite) y presupuesto público en su página.
+  route("GET", "/api/me/shop/coupons", "customer", (c) => store.shops.myCoupons(c.actor!));
+  route("POST", "/api/me/shop/coupons", "customer", (c) => store.shops.saveCoupon(c.actor!, c.body ?? {}));
+  route("POST", "/api/me/shop/coupons/:id/delete", "customer", (c) => store.shops.deleteCoupon(c.actor!, c.params.id));
+  route("POST", "/api/shops/:slug/coupon", "public", (c) => {
+    if (!couponLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en unos minutos.");
+    return store.shops.quoteCoupon(c.params.slug, c.body?.code, c.body?.items);
+  });
+  route("GET", "/api/admin/reseller-coupons", "staff", () => ({ allowed: !!store.engine.s.settings.resellerCoupons }));
+  route("POST", "/api/admin/reseller-coupons", "staff", (c) => store.shops.setCouponsAllowed(A(c), !!c.body?.allowed));
   const shopImage = (kind: "logo" | "banner") => (c: Ctx) => {
     if (c.body?.remove === true) {
       const old = store.shops.setImage(c.actor!, kind, null);

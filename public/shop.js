@@ -504,8 +504,9 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       let tab = S.data.rtab ?? "ventas";
       if (!canPage && tab !== "ventas") tab = "ventas";
-      const tabs = canPage ? [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"]] : [["ventas", "Clientes y ventas"]];
-      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : resellerView()}`;
+      const tabs = canPage ? [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"]];
+      if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
+      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -997,6 +998,38 @@ function combosEditor() {
       <button class="sbtn pri" type="submit" ${draft.picks.length >= 2 ? "" : "disabled"}>Guardar combo</button></form>` : ""}`;
 }
 
+/* Cupones propios del revendedor (pestaña "Mis cupones"). */
+function rcouponsEditor() {
+  const list = S.data.rcoupons ?? [];
+  const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
+  const ed = list.find((c) => c.id === S.data.rcedit) ?? null;
+  const f = ed ?? { type: "percent" };
+  const dIn = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const rules = (c) => [c.type === "percent" ? `${c.value}%` : bs(c.value), c.expiresAt ? `vence ${fdate(c.expiresAt)}` : "", c.minTotal ? `desde ${bs(c.minTotal)}` : "",
+    c.productIds?.length ? `solo ${c.productIds.map((id) => priced.find((p) => p.productId === id)?.name ?? id).join(", ")}` : "", c.active ? "" : "pausado"].filter(Boolean).join(" · ");
+  return `<div class="sec-h"><div><span class="chip">Tu página</span><h2>Mis cupones</h2><p>Códigos de descuento para tus clientes. Los escriben en el carrito de tu página y el descuento sale en el pedido que te llega por WhatsApp.</p></div></div>
+    ${list.length ? `<div class="sbox" style="gap:8px">${list.map((c) => `<div class="line"><span><b>${esc(c.code)}</b><br><small class="empty">${esc(rules(c))}</small></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="sbtn sm" type="button" data-rcedit="${esc(c.id)}">Editar</button><button class="sbtn sm" type="button" data-rcdel="${esc(c.id)}" data-name="${esc(c.code)}" aria-label="Borrar el cupón ${esc(c.code)}">Borrar</button></span></div>`).join("")}</div>` : ""}
+    <form class="sbox sform" id="rcForm" ${ed ? `data-id="${esc(ed.id)}"` : ""}>
+      <h2>${ed ? `Editar ${esc(ed.code)}` : "Nuevo cupón"}</h2>
+      <label>Código<input name="code" required maxlength="20" autocapitalize="characters" value="${esc(f.code ?? "")}" placeholder="Ej.: AMIGOS10"></label>
+      <label>Tipo de descuento<select name="type"><option value="percent" ${f.type === "percent" ? "selected" : ""}>Porcentaje (%)</option><option value="fixed" ${f.type === "fixed" ? "selected" : ""}>Monto fijo</option></select></label>
+      <label>Descuento<input name="value" required inputmode="decimal" value="${f.value ? (f.type === "percent" ? f.value : f.value / 100) : ""}" placeholder="Ej.: 10"></label>
+      <label>Vence el (opcional)<input name="expiresAt" type="date" value="${f.expiresAt ? dIn(f.expiresAt) : ""}"></label>
+      <label>Compra mínima (opcional)<input name="minTotal" inputmode="decimal" value="${f.minTotal ? f.minTotal / 100 : ""}"></label>
+      ${priced.length ? `<b class="rsub">¿Para qué productos? (ninguno = todos)</b><div class="ropts">${priced.map((p) => `<label><input type="checkbox" name="rcprod" value="${esc(p.productId)}" ${f.productIds?.includes(p.productId) ? "checked" : ""}><span>${esc(p.name)}</span></label>`).join("")}</div>` : ""}
+      <label class="chk"><input type="checkbox" name="active" ${f.active === false ? "" : "checked"}> Activo</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri" type="submit">${ed ? "Guardar cambios" : "Crear cupón"}</button>${ed ? `<button class="sbtn" type="button" data-rcedit="">Cancelar</button>` : ""}</div>
+    </form>`;
+}
+
+/* Cupón en el carrito de la página de un revendedor: lo calcula el servidor con sus precios. */
+async function applyShopCoupon(code) {
+  code = String(code || "").trim().toUpperCase();
+  if (!code) { S.rcoupon = null; return; }
+  try { const q = await api("POST", `/api/shops/${SLUG}/coupon`, { code, items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })) }); S.rcoupon = { key: cartKey(), ...q }; }
+  catch (e) { S.rcoupon = { key: cartKey(), code, amount: 0, error: e.message }; }
+}
+
 function shopFormLook(f) {
   const look = { title: f.title.value };
   for (const k of LOOK_FIELDS) {
@@ -1119,6 +1152,21 @@ async function applyCoupon(code) {
   } catch (e) { S.coupon = { key: cartKey(), code, amount: 0, error: e.message }; }
 }
 
+/* Página de revendedor: cupón válido mientras el carrito no cambie. */
+const rcNow = () => (S.rcoupon && S.rcoupon.key === cartKey() && S.rcoupon.amount ? S.rcoupon : null);
+const rshopTotal = () => (rcNow() ? rcNow().total : cartTotal() - cartDiscount());
+function rshopCouponBox() {
+  if (!S.settings.hasCoupons) return "";
+  const c = rcNow(), err = S.rcoupon && S.rcoupon.key === cartKey() && S.rcoupon.error ? S.rcoupon : null;
+  return c ? `<div class="total disc"><span>Cupón ${esc(c.code)} <button class="cupx" type="button" data-rcoupon="off" aria-label="Quitar el cupón ${esc(c.code)}">Quitar</button></span><span>− ${bs(c.amount)}</span></div>`
+    : `<div class="cupbox"><label for="rcIn">¿Tenés un cupón de descuento?</label><div class="cuprow"><input id="rcIn" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: AMIGOS10" value="${esc(err?.code ?? "")}"><button class="sbtn sm" type="button" data-rcoupon="apply">Aplicar</button></div>${err ? `<div class="err" role="alert">${esc(err.error)}</div>` : ""}</div>`;
+}
+function rshopWaMsg() {
+  const c = rcNow();
+  return `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n`
+    + (cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : "") + (c ? `Cupón ${c.code}: − ${bs(c.amount)}\n` : "") + `Total: ${bs(rshopTotal())}`;
+}
+
 function renderCart(msg = "") {
   renderCartInner(msg);
   enhanceFiles($("#drawer"));
@@ -1129,7 +1177,7 @@ function renderCartInner(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\nTotal: ${bs(tot)}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a><p class="empty" style="margin:0">Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos.</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
@@ -1405,7 +1453,24 @@ document.addEventListener("click", async (ev) => {
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
   if (d.mf) { S.data.mf = d.mf; return render(); }
-  if (d.rtab) { S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null; return render(); }
+  if (d.rtab) {
+    S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null;
+    if (d.rtab === "cupones") S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
+    return render();
+  }
+  if (d.rcedit !== undefined) { S.data.rcedit = d.rcedit || null; return render(); }
+  if (d.rcdel) {
+    if (!confirm(`¿Borrar el cupón ${el.dataset.name}?`)) return;
+    try { await api("POST", `/api/me/shop/coupons/${d.rcdel}/delete`, {}); S.data.rcoupons = (await api("GET", "/api/me/shop/coupons")).coupons; toast("Cupón borrado"); } catch (e) { toast(e.message); }
+    return render();
+  }
+  if (d.rcoupon) {
+    if (d.rcoupon === "off") S.rcoupon = null;
+    else { el.disabled = true; await applyShopCoupon($("#rcIn")?.value); }
+    renderCart();
+    (S.rcoupon?.amount ? $('#drawer .sbtn.pri') : $("#rcIn"))?.focus();
+    return;
+  }
   if (d.delcombo) {
     const combos = (S.data.shop.combos ?? []).filter((c) => c.id !== d.delcombo);
     try { S.data.shop = await api("PUT", "/api/me/shop", { combos: combos.map((c) => ({ id: c.id, name: c.name, productIds: c.productIds, price: c.price })) }); toast("Combo borrado"); } catch (e) { toast(e.message); }
@@ -1632,6 +1697,18 @@ document.addEventListener("submit", async (ev) => {
       S.data.shop = await api("PUT", "/api/me/shop", { combos });
       S.data.cdraft = null;
       toast("¡Combo creado! Ya aparece en tu página");
+    } else if (f.id === "rcForm") {
+      const type = f.type.value, raw = String(f.value.value).replace(",", ".");
+      const value = type === "percent" ? Math.round(Number(raw)) : toCents(raw);
+      if (!value || value <= 0) { toast("Poné cuánto descuenta"); return; }
+      const ymd = f.expiresAt.value;
+      try {
+        await api("POST", "/api/me/shop/coupons", { id: f.dataset.id || undefined, code: f.code.value, type, value, expiresAt: ymd ? new Date(`${ymd}T23:59:59`).getTime() : null,
+          minTotal: f.minTotal.value ? toCents(f.minTotal.value) : null, productIds: [...f.querySelectorAll('[name="rcprod"]:checked')].map((x) => x.value), active: f.active.checked });
+        S.data.rcoupons = (await api("GET", "/api/me/shop/coupons")).coupons; S.data.rcedit = null;
+        toast("🏷️ Cupón guardado"); render();
+      } catch (e) { toast(e.message); }
+      return;
     } else if (f.id === "shopForm") {
       const body = shopFormLook(f);
       body.slug = f.slug.value.trim().toLowerCase();
@@ -1733,4 +1810,5 @@ function openApply(msg = "") {
 // Enter en el campo del cupón aplica el cupón (no manda el pedido).
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.id === "cupIn") { ev.preventDefault(); document.querySelector('[data-coupon="apply"]')?.click(); }
+  if (ev.key === "Enter" && ev.target.id === "rcIn") { ev.preventDefault(); document.querySelector('[data-rcoupon="apply"]')?.click(); }
 });
