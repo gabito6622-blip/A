@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, setCurrency, currencySym, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -898,7 +898,7 @@ const V = {
         <div class="laygrid">${LAYOUT_LIST.map(([v, t, d]) => `<button type="button" class="laycard${(s.layout || "clasico") === v ? " on" : ""}" data-layout="${v}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join("")}</div></section>
       <section class="card"><h2>Estilos listos <small>· colores</small></h2><p class="muted" style="margin:0">Tocá uno para probarlo en la vista previa de abajo. Si te gusta, tocá <b>Guardar apariencia</b>.</p>
         <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-ptheme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
-      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
+      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><div id="lookWarn" class="lookwarn" role="status" aria-live="polite"></div><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
         <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
         <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
@@ -1495,6 +1495,7 @@ async function render() {
     enhanceFiles($("#pout"));
     fitChartText($("#pout"));
     if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
+    if (P.view === "apariencia") previewLook();
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -2007,6 +2008,8 @@ function previewLook() {
     accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value };
   for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "layout", "storeHours", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k]?.value;
   $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
+  const w = $("#lookWarn");
+  if (w) { const n = contrastNote(look); w.className = "lookwarn " + n.cls; w.textContent = n.text; }
 }
 let lookTimer, cqTimer;
 document.addEventListener("input", (ev) => {

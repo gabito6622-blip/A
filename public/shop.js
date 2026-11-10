@@ -2,7 +2,7 @@
 //  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
-import { api, $, $$, esc, bs, setCurrency, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -146,8 +146,14 @@ export function applyLook(st) {
     r.setProperty("--s-chip", mix(ac, "#ffffff", 0.6));
   }
   r.setProperty("--s-blue", ac);
-  // Color del texto SOBRE el color principal (botones): oscuro si el principal es claro (ej.: dorado), blanco si es oscuro.
-  r.setProperty("--s-on-blue", lum(ac) > 0.6 ? "#111827" : "#ffffff");
+  // Contraste garantizado (WCAG 4,5:1) para cualquier color que elijan:
+  // texto del botón (blanco o casi negro según se lea mejor sobre las dos puntas del degradado),
+  // degradado del botón ajustado si hiciera falta, y el color principal usado como texto (precios, links).
+  const lc = lookColors({ accentColor: ac, accent2Color: st.accent2Color, backgroundColor: bg });
+  r.setProperty("--s-on-blue", lc.on);
+  r.setProperty("--s-btn-a", lc.btnA);
+  r.setProperty("--s-btn-b", lc.btnB);
+  r.setProperty("--s-blue-text", lc.text);
   document.documentElement.style.colorScheme = light ? "light" : "dark";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
   const body = st.fontFamily || "inter", head = st.headingFont || body;
@@ -902,6 +908,7 @@ function shopEditor() {
         <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
         <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
       <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
+      <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>
       <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
       <h2>🏪 Tipo de tienda</h2>
       <p class="empty" style="margin:0;font-size:13px">El diseño de tu página. Cambia la vista previa de arriba al instante.</p>
@@ -985,6 +992,9 @@ function shopFormLook(f) {
 function pushPreview(look) {
   const fr = $("#shopPreview");
   try { fr?.contentWindow?.postMessage({ type: "gs-look", look }, location.origin); } catch { /* aún cargando */ }
+  // Aviso si el color elegido se lee poco sobre el fondo.
+  const w = $("#shopWarn");
+  if (w && look.accentColor) { const n = contrastNote(look); w.className = "lookwarn " + n.cls; w.textContent = n.text; }
 }
 
 function updateSellSummary(f) {

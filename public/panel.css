@@ -884,3 +884,9 @@ code,.mono{overflow-wrap:anywhere}
 
 /* Vender: los pasos van uno debajo del otro (antes, a 768 px, la grilla genérica los ponía en 3 columnas de 217 px) */
 .sellform{grid-template-columns:minmax(0,1fr)}
+
+/* Aviso de contraste al elegir colores */
+.lookwarn{border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.4}
+.lookwarn:empty{display:none}
+.lookwarn.ok{background:color-mix(in srgb,var(--ok) 12%,var(--card));color:var(--ink)}
+.lookwarn.warn{background:color-mix(in srgb,#f59f00 18%,var(--card));color:var(--ink);border:1px solid color-mix(in srgb,#f59f00 50%,transparent)}
