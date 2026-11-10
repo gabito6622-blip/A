@@ -88,7 +88,7 @@ export const FONT_LIST = [
   ["fredoka", "Fredoka", "Divertida"], ["lobster", "Lobster", "Cursiva"], ["russo", "Russo One", "Deportiva"], ["system", "", "La del celular"],
 ];
 export const BG_LIST = [["solid", "Liso"], ["glow", "Brillo arriba"], ["gradient", "Degradado"], ["aurora", "Aurora"], ["live", "Animado ✨"], ["dots", "Puntitos"], ["grid", "Cuadrícula"]];
-export const CARD_LIST = [["solid", "Sólidas"], ["glass", "Vidrio"], ["outline", "Solo borde"], ["neon", "Neón"], ["ticket", "Boleto de cine 🎟️"]];
+export const CARD_LIST = [["solid", "Sólidas"], ["glass", "Vidrio"], ["outline", "Solo borde"], ["neon", "Neón"], ["ticket", "Boleto de cine 🎟️"], ["lista", "Lista (horizontal) ▭"], ["poster", "Póster (imagen grande) 🖼️"]];
 export const LAYOUT_LIST = [
   ["clasico", "🖥️ Clásico", "Portada con texto y una tarjeta al lado, después los productos."],
   ["vitrina", "✨ Vitrina", "Portada grande y centrada, bien llamativa, con productos destacados abajo."],

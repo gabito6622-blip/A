@@ -679,3 +679,20 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .shop[data-card="ticket"] .pc:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(0,0,0,.3)}
 /* en tarjetas sin logo (combos del asesor) la muesca se adapta al alto real */
 .shop[data-card="ticket"] .acombo{overflow:visible;border-style:dashed}
+
+/* ===================== Tarjeta "Lista" (horizontal/rectangular) ▭ ===================== */
+.shop[data-card="lista"] .pgrid{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.shop[data-card="lista"] .pc{grid-template-columns:116px 1fr;grid-template-rows:1fr;align-items:stretch}
+.shop[data-card="lista"] .pimg{height:100%;min-height:128px}
+.shop[data-card="lista"] .lt{width:56px;height:56px;font-size:22px;border-radius:14px}
+.shop[data-card="lista"] .pbody{padding:12px 14px;grid-template-rows:auto auto auto auto;align-content:center;gap:5px}
+.shop[data-card="lista"] .pbody .d{display:none}
+.shop[data-card="lista"] .price{font-size:22px}
+@media (max-width:700px){.shop[data-card="lista"] .pgrid{grid-template-columns:1fr}}
+
+/* ===================== Tarjeta "Póster" (imagen grande) 🖼️ ===================== */
+.shop[data-card="poster"] .pgrid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.shop[data-card="poster"] .pimg{height:210px}
+.shop[data-card="poster"] .lt{width:96px;height:96px;font-size:40px;border-radius:24px}
+.shop[data-card="poster"] .pc{box-shadow:0 14px 34px rgba(0,0,0,.3)}
+.shop[data-card="poster"] .pc:hover{transform:translateY(-4px) scale(1.01)}
