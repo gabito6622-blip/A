@@ -22,6 +22,7 @@ import { RecallsPage } from "./pages/Recalls";
 import { Loading } from "./components/ui";
 import { PublicBudgetPage } from "./pages/PublicBudget";
 import { MessagesPage } from "./pages/Messages";
+import { InventoryPage } from "./pages/Inventory";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -59,6 +60,7 @@ export function App() {
         <Route path="/configuracion" element={<SettingsPage />} />
         <Route path="/asistente" element={<AssistantPage />} />
         <Route path="/mensajes" element={<MessagesPage />} />
+        <Route path="/inventario" element={<InventoryPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -11,6 +11,7 @@ import { audit } from "../lib/audit.js";
 import type { Client } from "../lib/db.js";
 import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { performSession, recalcBudget, zGlobalDiscount } from "./budgets-v2-core.js";
+import { consumeForTreatment } from "./inventory/index.js";
 
 export const LINK_DAYS = 30;
 export const MAX_ATTEMPTS = 5;
@@ -150,6 +151,7 @@ export function budgetV2Routes(route: Route, cfg: Config) {
         if (!m) throw badRequest("El profesional indicado no atiende en esta clínica");
       }
       const r = await performSession(c, auth, params.id, { dentistId, appointmentId: body.appointmentId ?? null, note: body.note });
+      await consumeForTreatment(c, auth, { budgetItemId: r.itemId, appointmentId: body.appointmentId ?? null, when: r.itemDone }); // inventario al completar la línea
       await audit(c, auth, "treatment.session_performed", "budget_item", r.itemId, { sessionId: params.id, chargeId: r.chargeId, amountCents: r.amountCents, dentistId, itemDone: r.itemDone }, r.branchId);
       return { ok: true, chargeId: r.chargeId, itemDone: r.itemDone };
     },

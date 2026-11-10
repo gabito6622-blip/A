@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare } from "lucide-react";
+import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { PhoneCall } from "lucide-react";
 
@@ -24,11 +24,12 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
         { to: "/reportes", label: "Reportes", icon: BarChart3, show: can("reports.financial") || can("reports.operational") },
         { to: "/bioseguridad", label: "Bioseguridad", icon: ShieldPlus, show: can("biosafety.read") },
         { to: "/asistente", label: "Asistente", icon: Sparkles, show: can("assistant.use") },
+        { to: "/inventario", label: "Inventario", icon: Package, show: can("inventory.read") },
         { to: "/mensajes", label: "Mensajes", icon: MessagesSquare, show: can("clinic.manage") },
         { to: "/configuracion", label: "Configuración", icon: Settings, show: can("clinic.manage") || can("staff.manage") || can("audit.read") },
         { to: "/plataforma", label: "Plataforma SaaS", icon: Building2, show: !!me?.user.isPlatformAdmin },
       ].filter((i) => i.show);
-  const preferred = ["/", "/agenda", "/pacientes", "/caja", "/asistente"];
+  const preferred = ["/", "/agenda", "/pacientes", "/caja", "/asistente", "/inventario"];
   const mobile = (items.filter((i) => preferred.includes(i.to)).length >= 3 ? items.filter((i) => preferred.includes(i.to)) : items).slice(0, 5);
   return (
     <div className="app">
