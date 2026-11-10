@@ -2,6 +2,7 @@ import { loadConfig } from "./config.js";
 import { createDb } from "./lib/db.js";
 import { migrate } from "./lib/migrate.js";
 import { buildApp } from "./app.js";
+import { startMessagingScheduler } from "./modules/messaging/index.js";
 
 const cfg = loadConfig();
 const db = createDb(cfg.databaseUrl);
@@ -11,6 +12,7 @@ if (process.env.MIGRATE_ON_START !== "0") {
 }
 const app = await buildApp(cfg, db, { logger: true });
 await app.listen({ port: cfg.port, host: cfg.host });
+if (process.env.MESSAGING_SCHEDULER === "1") startMessagingScheduler(db, cfg);
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {

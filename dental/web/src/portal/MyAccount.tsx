@@ -53,6 +53,7 @@ function Portal({ slug, clinic, session, paymentNote, onLogout }: { slug: string
       {tab === "citas" && <Appointments slug={slug} who={null} onExpired={onLogout} />}
       {tab === "pagos" && <Payments slug={slug} patientId={who} note={paymentNote} />}
       {tab === "presupuestos" && <Budgets slug={slug} patientId={who} />}
+      {tab === "citas" && <MessagesOptOut slug={slug} session={session} />}
       <Sticky label="Reservar otra cita" onClick={() => { window.location.href = `/reservar/${slug}`; }} />
     </Shell>
   );
@@ -72,7 +73,11 @@ function useLoad<T>(slug: string, path: string | null, onExpired?: () => void) {
 
 function Appointments({ slug, who, onExpired }: { slug: string; who: string | null; onExpired: () => void }) {
   const { data, err, reload } = useLoad<any>(slug, "/me/appointments", onExpired);
-  const [acting, setActing] = useState<{ id: string; kind: "cancel" | "move" } | null>(null);
+  // ?reprogramar=<cita> (botón «Necesito reprogramar» del enlace de confirmación): abre el cambio de horario.
+  const [acting, setActing] = useState<{ id: string; kind: "cancel" | "move" } | null>(() => {
+    const id = new URLSearchParams(window.location.search).get("reprogramar");
+    return id ? { id, kind: "move" } : null;
+  });
   const [msg, setMsg] = useState<string | null>(null);
   if (err) return <ErrorBox text={err} />;
   if (!data) return <div className="skeleton" style={{ height: 120 }} />;
@@ -104,7 +109,7 @@ function Appointments({ slug, who, onExpired }: { slug: string; who: string | nu
           </div>
           {!a.canChange && ["scheduled", "confirmed"].includes(a.status) && <p className="small muted">Para cambiar esta cita escribe a la sucursal por WhatsApp (ya pasó el plazo para hacerlo en línea).</p>}
           {acting?.id === a.id && acting?.kind === "cancel" && <CancelBox slug={slug} id={a.id} onCancel={() => setActing(null)} onDone={() => done("Cancelamos tu cita. Si quieres, reserva otra cuando te convenga.")} />}
-          {acting?.id === a.id && acting?.kind === "move" && <MoveBox slug={slug} appt={a} onCancel={() => setActing(null)} onDone={(t) => done(`Listo, tu cita quedó para el ${t}.`)} />}
+          {a.canChange && acting?.id === a.id && acting?.kind === "move" && <MoveBox slug={slug} appt={a} onCancel={() => setActing(null)} onDone={(t) => done(`Listo, tu cita quedó para el ${t}.`)} />}
         </div>
       ))}
       {!!req.length && <h2>Solicitudes web</h2>}
@@ -128,6 +133,30 @@ function Appointments({ slug, who, onExpired }: { slug: string; who: string | nu
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** «Dejar de recibir mensajes»: un clic revoca recordatorios y promociones (queda registrado como revocación). */
+function MessagesOptOut({ slug, session }: { slug: string; session: Session }) {
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  const receiving = session.family.some((p) => p.consentReminders || p.consentMarketing);
+  const go = async () => {
+    setState("busy"); setErr(null);
+    try { await papi(slug).post("/me/messages/opt-out"); setState("done"); }
+    catch (e) { setErr((e as Error).message); setState("idle"); }
+  };
+  return (
+    <div className="pt-card" role="region" aria-label="Mensajes de la clínica">
+      <h2>Mensajes de la clínica</h2>
+      {state === "done" ? <p className="alert ok" role="status">Listo: ya no te enviaremos recordatorios ni promociones. Si cambias de opinión, avísanos en la clínica.</p>
+        : !receiving ? <p className="muted">No recibes recordatorios ni promociones automáticas.</p>
+        : <>
+          <p className="small muted">Recibes recordatorios de tus citas{session.family.some((p) => p.consentMarketing) ? " y promociones" : ""} por WhatsApp. Puedes dejar de recibirlos cuando quieras.</p>
+          <ErrorBox text={err} />
+          <button type="button" className="btn" disabled={state === "busy"} onClick={go}>{state === "busy" ? "Un momento…" : "Dejar de recibir mensajes"}</button>
+        </>}
     </div>
   );
 }

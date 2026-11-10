@@ -41,7 +41,9 @@ function Funnel({ slug, info, onSession }: { slug: string; info: Info; onSession
   const [step, setStepRaw] = useState(initialBranch ? 1 : 0);
   const [furthest, setFurthest] = useState(step);
   const [branchId, setBranchId] = useState<string | null>(initialBranch);
-  const [serviceId, setServiceId] = useState<string | null>(null);
+  // ?servicio=<id> (enlace del aviso de control): la prestación llega elegida.
+  const preService = new URLSearchParams(window.location.search).get("servicio");
+  const [serviceId, setServiceId] = useState<string | null>(info.services.find((s) => s.id === preService)?.id ?? null);
   const [dentist, setDentist] = useState<string>("any");
   const [dentists, setDentists] = useState<{ id: string; name: string }[] | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);

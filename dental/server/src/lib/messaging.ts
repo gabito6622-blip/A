@@ -8,13 +8,17 @@
 //  * Los mensajes sensibles (códigos de un solo uso) se guardan enmascarados en producción:
 //    ni el personal de la clínica puede leer un código ajeno.
 //  * Integración real (WhatsApp Cloud API u otro): implementar MessageProvider y pasarlo a
-//    createMessenger. No hay ninguna integración real en esta versión.
+//    createMessenger. El adaptador de WhatsApp Cloud API está en modules/messaging/whatsapp.ts y
+//    solo se activa en producción con WHATSAPP_TOKEN y WHATSAPP_PHONE_ID.
 import type { Config } from "../config.js";
 import type { Client } from "./db.js";
 
 export type Channel = "whatsapp" | "sms" | "email";
 export type Purpose = "transactional" | "otp" | "reminders" | "marketing";
-export type MessageStatus = "queued" | "simulated" | "sent" | "failed";
+export type MessageStatus = "queued" | "simulated" | "sent" | "delivered" | "read" | "failed";
+
+/** Plantilla aprobada por el proveedor (p. ej. Meta) y sus parámetros en orden. */
+export interface ProviderTemplate { name: string; language: string; params: string[] }
 
 export interface OutboundMessage {
   clinicId: string;
@@ -30,12 +34,18 @@ export interface OutboundMessage {
   sensitive?: boolean;
   relatedEntity?: string | null;
   relatedId?: string | null;
+  /** Clave única por clínica: un segundo intento con la misma clave es rechazado por la base (sin duplicados). */
+  dedupeKey?: string | null;
+  /** Reintento de un mensaje fallido (el original no se modifica). */
+  retryOf?: string | null;
+  /** Plantilla aprobada del proveedor (mensajes automáticos por WhatsApp Cloud API). */
+  providerTemplate?: ProviderTemplate | null;
 }
 
-/** Adaptador para un proveedor real (por ejemplo, WhatsApp Cloud API). Ninguno está implementado aún. */
+/** Adaptador para un proveedor real (por ejemplo, WhatsApp Cloud API: modules/messaging/whatsapp.ts). */
 export interface MessageProvider {
   readonly name: string;
-  send(m: { channel: Channel; recipient: string; template: string; body: string }): Promise<{ providerMessageId: string }>;
+  send(m: { channel: Channel; recipient: string; template: string; body: string; providerTemplate?: ProviderTemplate | null }): Promise<{ providerMessageId: string }>;
 }
 
 export interface Messenger {
@@ -60,10 +70,10 @@ export function createMessenger(
   async function insert(c: Client, m: OutboundMessage, status: MessageStatus) {
     const stored = m.sensitive && cfg.isProduction ? redactSecrets(m.body) : m.body;
     const r = await c.query<{ id: string }>(
-      `INSERT INTO outbound_messages (clinic_id, branch_id, patient_id, channel, recipient, template, purpose, body, status, provider, related_entity, related_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      `INSERT INTO outbound_messages (clinic_id, branch_id, patient_id, channel, recipient, template, purpose, body, status, provider, related_entity, related_id, dedupe_key, retry_of)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
       [m.clinicId, m.branchId ?? null, m.patientId ?? null, m.channel, m.recipient, m.template, m.purpose, stored, status,
-        provider?.name ?? null, m.relatedEntity ?? null, m.relatedId ?? null],
+        provider?.name ?? null, m.relatedEntity ?? null, m.relatedId ?? null, m.dedupeKey ?? null, m.retryOf ?? null],
     );
     return r.rows[0]!.id;
   }
@@ -82,7 +92,7 @@ export function createMessenger(
       }
       const id = await insert(c, m, "queued");
       try {
-        const res = await provider!.send({ channel: m.channel, recipient: m.recipient, template: m.template, body: m.body });
+        const res = await provider!.send({ channel: m.channel, recipient: m.recipient, template: m.template, body: m.body, providerTemplate: m.providerTemplate ?? null });
         await c.query("UPDATE outbound_messages SET status = 'sent', provider_message_id = $2, sent_at = now() WHERE id = $1", [id, res.providerMessageId]);
         return { id, status: "sent" };
       } catch (e) {
@@ -94,5 +104,5 @@ export function createMessenger(
 }
 
 export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
-  queued: "En cola (sin enviar)", simulated: "Simulado (no enviado)", sent: "Enviado", failed: "Falló",
+  queued: "En cola (sin enviar)", simulated: "Simulado (no enviado)", sent: "Enviado", delivered: "Entregado", read: "Leído", failed: "Falló",
 };

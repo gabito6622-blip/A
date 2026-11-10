@@ -124,6 +124,57 @@ export async function recordConsentFlag(c: Client, auth: AuthCtx, patient: { id:
   );
 }
 
+/**
+ * Consentimiento vigente para mensajes (recordatorios y marketing): la marca de la ficha y,
+ * además, que el último documento de ese tipo no sea una revocación o un rechazo.
+ */
+export async function messagingConsent(c: Client, patientId: string): Promise<{ reminders: boolean; marketing: boolean }> {
+  const p = (await c.query<{ consent_reminders: boolean; consent_marketing: boolean }>(
+    "SELECT consent_reminders, consent_marketing FROM patients WHERE id = $1", [patientId])).rows[0];
+  if (!p) return { reminders: false, marketing: false };
+  const last = (await c.query<{ kind: string; decision: string }>(
+    "SELECT DISTINCT ON (kind) kind, decision FROM signed_documents WHERE patient_id = $1 AND kind IN ('reminders','marketing') ORDER BY kind, signed_at DESC",
+    [patientId])).rows;
+  const ok = (k: "reminders" | "marketing", flag: boolean) => flag && !["revoked", "refused"].includes(last.find((x) => x.kind === k)?.decision ?? "");
+  return { reminders: ok("reminders", p.consent_reminders), marketing: ok("marketing", p.consent_marketing) };
+}
+
+/**
+ * Revocación hecha por el propio paciente (portal "Dejar de recibir mensajes" o respuesta «BAJA»):
+ * documento inmutable con método 'online_checkbox' (sin personal que la registre) y marca de la ficha en falso.
+ */
+export async function recordPatientRevocation(
+  c: Client, actor: Pick<AuthCtx, "userId" | "clinicId" | "ip">,
+  p: { patientId: string; branchId: string; kind: "reminders" | "marketing"; notes: string },
+): Promise<boolean> {
+  const pat = (await c.query<{ name: string; birth_date: string | null; guardian_name: string | null; consent_reminders: boolean; consent_marketing: boolean }>(
+    "SELECT first_name || ' ' || last_name AS name, birth_date, guardian_name, consent_reminders, consent_marketing FROM patients WHERE id = $1", [p.patientId])).rows[0];
+  if (!pat) throw notFound("Paciente");
+  const current = p.kind === "reminders" ? pat.consent_reminders : pat.consent_marketing;
+  const lastDecision = (await c.query<{ decision: string }>(
+    "SELECT decision FROM signed_documents WHERE patient_id = $1 AND kind = $2 ORDER BY signed_at DESC LIMIT 1", [p.patientId, p.kind])).rows[0]?.decision;
+  if (!current && lastDecision !== "granted") return false; // ya no recibía: nada que revocar
+  const minor = pat.birth_date ? new Date(pat.birth_date).getTime() > Date.now() - 18 * 365.25 * 86_400_000 : false;
+  const signerName = minor ? pat.guardian_name ?? `Responsable de ${pat.name}` : pat.name;
+  const relationship = minor ? "guardian" : "self";
+  const t = (await c.query<{ id: string; title: string; body: string; version: number }>(
+    "SELECT id, title, body, version FROM consent_templates WHERE kind = $1 AND active ORDER BY version DESC LIMIT 1", [p.kind])).rows[0];
+  const clinic = (await c.query<{ name: string }>("SELECT name FROM clinics WHERE id = $1", [actor.clinicId])).rows[0]?.name ?? "";
+  const title = t?.title ?? KIND_LABELS[p.kind];
+  const signedAt = new Date().toISOString();
+  const body = render(t?.body ?? KIND_LABELS[p.kind], { paciente: pat.name, clinica: clinic, fecha: signedAt.slice(0, 10), procedimiento: "—" });
+  const hash = contentHash({ kind: p.kind, title, body, decision: "revoked", signerName, signerDocument: null, signerRelationship: relationship, signedAt, signaturePng: null });
+  await c.query(
+    `INSERT INTO signed_documents (clinic_id, patient_id, branch_id, template_id, kind, title, body, template_version, decision, method, signer_name,
+        signer_relationship, content_hash, recorded_by, signed_at, notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'revoked','online_checkbox',$9,$10,$11,NULL,$12,$13)`,
+    [actor.clinicId, p.patientId, p.branchId, t?.id ?? null, p.kind, title, body, t?.version ?? null, signerName, relationship, hash, signedAt, p.notes]);
+  const col = p.kind === "reminders" ? "consent_reminders" : "consent_marketing";
+  await c.query(`UPDATE patients SET ${col} = false, consent_updated_at = now(), updated_at = now() WHERE id = $1`, [p.patientId]);
+  await audit(c, actor, "consent.revoked_by_patient", "patient", p.patientId, { kind: p.kind, method: "online_checkbox", notes: p.notes }, p.branchId);
+  return true;
+}
+
 export function consentRoutes(route: Route) {
   // ---------------- Plantillas ----------------
   route({
