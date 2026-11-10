@@ -12,3 +12,6 @@ data-demo/
 
 # Paquetes de entrega generados (no van al repo)
 *-para-chatgpt.zip
+
+# Respuestas reales del estudio de mercado (datos personales: no van al repo)
+encuesta-mercado/datos/
