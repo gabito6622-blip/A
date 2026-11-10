@@ -337,6 +337,24 @@ export function setTestimonials(e: Engine, actor: Actor, list: unknown): Testimo
   });
 }
 
+/** Preguntas frecuentes editables de la tienda. */
+export function setFaq(e: Engine, actor: Actor, list: unknown): { q: string; a: string }[] {
+  authorize(actor, "catalog.manage");
+  if (!Array.isArray(list) || list.length > 12) throw new DomainError("VALIDATION", "Hasta 12 preguntas");
+  const clean = list.map((t, i): { q: string; a: string } => {
+    const o = (t ?? {}) as Record<string, unknown>;
+    const q = String(o.q ?? "").trim(), a = String(o.a ?? "").trim();
+    if (!q || q.length > 140) throw new DomainError("VALIDATION", `Pregunta ${i + 1}: va de 1 a 140 letras`);
+    if (!a || a.length > 500) throw new DomainError("VALIDATION", `Respuesta ${i + 1}: va de 1 a 500 letras`);
+    return { q, a };
+  });
+  return e.tx(() => {
+    e.s.settings.faq = clean;
+    e.audit(actor, "faq.update", "settings", "faq", { count: clean.length });
+    return structuredClone(clean);
+  });
+}
+
 /** El staff bloquea o desbloquea la página de un revendedor. */
 export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked: boolean) {
   authorize(actor, "catalog.manage");

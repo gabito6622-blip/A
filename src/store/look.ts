@@ -30,6 +30,8 @@ export interface Look {
   corners?: (typeof CORNERS)[number];
   /** Tipo de tienda: estructura de la portada. */
   layout?: (typeof LAYOUTS)[number];
+  /** Horario de atención (texto libre), para la franja de arriba. */
+  storeHours?: string;
   heroTitle?: string;
   heroHighlight?: string;
   heroText?: string;
@@ -42,10 +44,10 @@ export interface Look {
   facebook?: string;
 }
 
-export const LOOK_KEYS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout",
+export const LOOK_KEYS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout", "storeHours",
   "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"] as const;
 
-const TEXT_LIMITS: Partial<Record<keyof Look, number>> = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120 };
+const TEXT_LIMITS: Partial<Record<keyof Look, number>> = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120, storeHours: 60 };
 
 /** Valida y limpia los campos de estilo que vengan en `patch` (ignora los demás). */
 export function cleanLook(patch: Record<string, unknown>): Partial<Look> {

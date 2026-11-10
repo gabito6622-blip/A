@@ -676,7 +676,7 @@ const V = {
 
   async apariencia() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Solo el dueño o un admin cambian la apariencia.</div></section>`;
-    const [s, shops, testis] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/shops").catch(() => []), api("GET", "/api/admin/testimonials").catch(() => [])]);
+    const [s, shops, testis, faqs] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/shops").catch(() => []), api("GET", "/api/admin/testimonials").catch(() => []), api("GET", "/api/admin/faq").catch(() => [])]);
     const ACCENTS = [["#3984ff", "Azul"], ["#7c5cff", "Violeta"], ["#e0368a", "Rosa"], ["#ff5a36", "Naranja"], ["#f2b705", "Dorado"], ["#16b47e", "Verde"], ["#14b8c8", "Turquesa"], ["#e53935", "Rojo"]];
     const BGS = [["#090e1d", "Azul noche"], ["#0b0b0f", "Negro"], ["#140c24", "Violeta oscuro"], ["#07140f", "Verde oscuro"], ["#1a0a10", "Bordó"], ["#111418", "Grafito"],
       ["#f5f7fb", "Blanco"], ["#fff7ec", "Crema"], ["#eaf3ff", "Celeste"], ["#f3efff", "Lila"], ["#ecfbf3", "Menta"], ["#fff0f3", "Rosa claro"]];
@@ -702,6 +702,7 @@ const V = {
         <div class="form"><label>Título<input name="heroTitle" maxlength="40" value="${esc(s.heroTitle)}"></label><label>Parte destacada (en color)<input name="heroHighlight" maxlength="40" value="${esc(s.heroHighlight)}"></label>
         <label style="grid-column:1/-1">Descripción<input name="heroText" maxlength="220" value="${esc(s.heroText)}"></label>
         <label style="grid-column:1/-1">Aviso arriba de todo (opcional)<input name="announcement" maxlength="140" value="${esc(s.announcement)}" placeholder="Ej.: Netflix a Bs 30 solo este fin de semana"></label>
+        <label style="grid-column:1/-1">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(s.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00 (hora de Bolivia)"></label>
         <label>Etiqueta sobre el título (vacío = sin etiqueta)<input name="heroChip" maxlength="40" value="${esc(s.heroChip)}"></label>
         <label>Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(s.heroTicks)}"></label></div>
         <h2 style="margin-top:6px">Pie de página y redes</h2>
@@ -727,6 +728,12 @@ const V = {
           <label>Estrellas<select name="tr">${opt("", "—", !t.rating)}${[5, 4, 3, 2, 1].map((n) => opt(n, "★".repeat(n), n === t.rating)).join("")}</select></label>
           <label style="grid-column:1/-1">Opinión<textarea name="tt" rows="2" maxlength="400">${esc(t.text)}</textarea></label></div>`).join("")}
           <div class="inline"><button class="pbtn dark" type="submit">Guardar opiniones</button><span class="muted">Para agregar otra, completá la fila vacía. Para quitar una, borrá su texto.</span></div></form></section>
+      <section class="card"><h2>Preguntas frecuentes de tu tienda <small>· ${faqs.length}/12</small></h2>
+        <p class="muted" style="margin:0">Se muestran en tu tienda. Si no cargás ninguna, salen unas por defecto. Para quitar una, borrá su pregunta.</p>
+        <form id="faqForm" style="display:grid;gap:12px">${[...faqs, ...(faqs.length < 12 ? [{ q: "", a: "" }] : [])].map((f) => `<div class="fq-row" style="display:grid;gap:8px;border-bottom:1px solid var(--line);padding-bottom:12px">
+          <label>Pregunta<input name="fq" maxlength="140" value="${esc(f.q ?? "")}" placeholder="Ej.: ¿Cuánto dura mi compra?"></label>
+          <label>Respuesta<textarea name="fa" rows="2" maxlength="500">${esc(f.a ?? "")}</textarea></label></div>`).join("")}
+          <div class="inline"><button class="pbtn dark" type="submit">Guardar preguntas</button><span class="muted">Completá la fila vacía para agregar otra.</span></div></form></section>
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
       <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
@@ -1479,7 +1486,7 @@ function previewLook() {
   if (!f) return;
   const look = { accentColor: f.querySelector('input[name="accentColor"]:checked')?.value || f.accentColorCustom.value, backgroundColor: f.querySelector('input[name="backgroundColor"]:checked')?.value || f.backgroundColorCustom.value,
     accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value };
-  for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "layout", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k]?.value;
+  for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "layout", "storeHours", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k]?.value;
   $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
 }
 let lookTimer, cqTimer;
@@ -1670,6 +1677,9 @@ document.addEventListener("submit", async (ev) => {
       const items = [...f.querySelectorAll(".tr-row")].map((r) => ({ name: r.querySelector('[name="tn"]').value.trim(), business: r.querySelector('[name="tb"]').value.trim(), text: r.querySelector('[name="tt"]').value.trim(), rating: r.querySelector('[name="tr"]').value }))
         .filter((t) => t.text);
       await act(() => api("POST", "/api/admin/testimonials", { items }), `${items.length} opinión(es) guardadas`);
+    } else if (f.id === "faqForm") {
+      const items = [...f.querySelectorAll(".fq-row")].map((r) => ({ q: r.querySelector('[name="fq"]').value.trim(), a: r.querySelector('[name="fa"]').value.trim() })).filter((x) => x.q && x.a);
+      await act(() => api("POST", "/api/admin/faq", { items }), `${items.length} pregunta(s) guardadas`);
     } else if (f.id === "waHours") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { humanHours: f.on.checked ? { from: +f.from.value, to: +f.to.value } : null }), f.on.checked ? "Horario guardado" : "Sin horario: el bot no menciona horarios");
     } else if (f.id === "waQuick") {
@@ -1823,7 +1833,7 @@ document.addEventListener("submit", async (ev) => {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
       const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value,
         fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value, layout: f.layout.value };
-      for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
+      for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "storeHours", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
       await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
     } else if (f.id === "logoForm") {
       await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");

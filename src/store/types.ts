@@ -68,6 +68,8 @@ export interface StoreSettings extends Look {
   resellerProgramPrices?: boolean;
   /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
   testimonials?: Testimonial[];
+  /** Preguntas frecuentes de la tienda (editables). Vacío = se usan las de por defecto. */
+  faq?: { q: string; a: string }[];
   /** Bot de WhatsApp (API oficial de Meta). Los secretos NO van acá: están en otra tabla. */
   whatsappBot?: WhatsAppBotSettings;
   /** Recordatorios automáticos de vencimiento. */

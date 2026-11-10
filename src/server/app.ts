@@ -207,11 +207,12 @@ export function createApp(cfg: AppConfig): App {
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
-      fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico",
+      fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico", storeHours: st.storeHours ?? "",
       accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
+      faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
     };
   });
   route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
@@ -481,6 +482,8 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/customers/:id/shop-feature", "staff", (c) => store.shops.setFeatured(A(c), c.params.id, !!c.body?.featured));
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
   route("POST", "/api/admin/testimonials", "staff", (c) => store.shops.setTestimonials(A(c), c.body?.items));
+  route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
+  route("POST", "/api/admin/faq", "staff", (c) => store.shops.setFaq(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
   route("POST", "/api/admin/customers/:id/reseller-page", "staff", (c) => store.shops.setPage(A(c), c.params.id, !!c.body?.allowed));
   route("PUT", "/api/me/prices", "customer", (c) => store.portal.setPrices(c.actor!, c.body?.prices ?? {}));

@@ -226,12 +226,12 @@ function trustBand() {
 const hasCombos = () => (S.catalog ?? []).some((p) => p.kind === "combo" && p.comboParts?.length);
 /* Franja de atención: horario + WhatsApp, para que se vea que hay alguien real. */
 function availBar() {
-  const wa = S.settings.whatsapp;
-  if (!wa) return "";
-  return `<div class="availbar"><span>🟢 Atención todos los días · respondemos por WhatsApp</span><a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a></div>`;
+  const wa = S.settings.whatsapp, hours = (S.settings.storeHours ?? "").trim();
+  if (!wa && !hours) return "";
+  return `<div class="availbar"><span>🟢 ${hours ? esc(hours) : "Atención todos los días"} · respondemos por WhatsApp</span>${wa ? `<a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a>` : ""}</div>`;
 }
 /* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
-const FAQ = [
+const FAQ_DEFAULT = [
   ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Escribinos por WhatsApp y te pasamos una nueva al toque."],
   ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
   ["¿Cómo pago?", "Con QR y comprobante, o coordinando por WhatsApp. Te activamos y te avisamos cuando esté listo."],
@@ -239,8 +239,10 @@ const FAQ = [
   ["¿En cuántos dispositivos puedo usarlo?", "Depende del servicio. Consultanos por WhatsApp y te decimos el detalle de cada plataforma."],
 ];
 function faqSection() {
+  const custom = (S.settings.faq ?? []).filter((f) => f && f.q && f.a);
+  const list = custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
   return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
-    <div class="faqlist">${FAQ.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
+    <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
     ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
 }
 /* Asesor: encontrá tu combo ideal por presupuesto y cantidad de plataformas. */
@@ -839,6 +841,7 @@ function shopEditor() {
         <label class="rwide">Descripción<input name="heroText" maxlength="220" value="${esc(sh.heroText ?? "")}"></label>
         <label class="rwide">Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(sh.heroTicks ?? "")}"></label>
         <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="Ej.: 🔥 Netflix a Bs 30 solo hoy"></label>
+        <label class="rwide">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(sh.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00"></label>
         <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en bolivianos"></label></div>
       <h2>7 · Redes</h2>
       <div class="rgrid"><label>Instagram<input name="instagram" maxlength="80" value="${esc(sh.instagram ?? "")}" placeholder="tu.usuario"></label>

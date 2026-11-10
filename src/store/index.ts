@@ -117,6 +117,7 @@ export function createStore(opts: EngineOptions = {}) {
       program: () => rshop.programInfo(e),
       setFeatured: bind(e, rshop.setShopFeatured),
       setTestimonials: bind(e, rshop.setTestimonials),
+      setFaq: bind(e, rshop.setFaq),
       public: (slug: string, viewer?: Actor) => rshop.publicShop(e, slug, viewer),
       image: (slug: string, kind: "logo" | "banner", viewer?: Actor) => rshop.shopImage(e, slug, kind, viewer),
     },
