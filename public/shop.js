@@ -891,7 +891,12 @@ function programView() {
   const wa = pg.whatsapp ? waLink(pg.whatsapp, "Hola, quiero ser revendedor de " + pg.storeName) : null;
   const want = (cls = "pcta") => `<button class="${cls}" type="button" data-apply="1">Quiero ser revendedor</button>`;
   const sample = (pg.products.length ? pg.products.map((p) => ({ name: p.name, price: Math.round(p.reseller * 1.4 / 100) * 100 })) : S.catalog).slice(0, 3);
-  const tiles = S.catalog.slice(0, 6);
+  // Una por marca (Netflix, Disney+, Prime…) y con su logo real; sin combos ni productos internos.
+  const brandKey = (p) => p.name.toLowerCase().replace(/^amazon\s+/, "").replace(/^invitaci[oó]n\s+/, "").split(/\s+/)[0].replace(/\+$/, "");
+  const brands = [];
+  for (const p of S.catalog) if (p.kind !== "combo" && !p.resellersOnly && p.hasImage && !brands.some((b) => brandKey(b) === brandKey(p))) brands.push(p);
+  const tiles = brands.slice(0, 6);
+  const brandName = (p) => p.name.replace(/\s*·.*$/, "").replace(/^Amazon\s+/i, "").replace(/^Invitaci[oó]n\s+/i, "").replace(/\s+(Premium|Pro|Music)\b.*$/i, "").replace(/\s+(con|sin)\s+ESPN$/i, "").trim();
   const mocks = ["neon", "rosa", "oro"].map((id) => THEMES.find((t) => t.id === id));
   const ex = sample[0]?.name ?? "Netflix perfil";
   const feats = [
@@ -903,11 +908,12 @@ function programView() {
     ["renew", "Respaldo de la tienda", "Si una cuenta falla, se reemplaza y tu cliente ve los datos nuevos."],
   ];
   return `<section class="phero">
-      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i}" style="--c:${esc(p.color)}">${esc(p.name[0])}<small>${esc(p.name.split(" ")[0])}</small></span>`).join("")}</div>
+      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i} ptimg" style="--c:${esc(p.color)}"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>`).join("")}</div>
       <span class="pill"><i></i>${MODE === "hub" ? `${esc(S.settings.storeName)} · plataforma para revendedores de streaming` : `Programa de revendedores de ${esc(pg.storeName)}`}</span>
       <h1>Vendé streaming<br><span>con tu propia marca</span></h1>
       <p>Tu tienda online, precios de mayorista, panel de clientes y avisos de vencimiento. Nosotros ponemos el stock y la tecnología; vos ponés tu nombre.</p>
       <div class="pbtns2">${want()}<a class="pghost" href="/tiendas" data-s="tiendas">Explorar tiendas</a></div>
+      ${brands.length >= 4 ? `<div class="plogos"><small>Vendé lo que todos buscan</small><div class="plogos-track" aria-label="Plataformas que podés vender">${[...brands, ...brands].map((p, i) => `<span ${i >= brands.length ? 'aria-hidden="true"' : ""}><img src="/api/products/${encodeURIComponent(p.id)}/image" alt="" loading="lazy"><b>${esc(brandName(p))}</b></span>`).join("")}</div></div>` : ""}
       <div class="pscroll">deslizá</div></section>
 
     <section class="psec"><div class="peyebrow">Por dentro</div><div class="psplit"><h2>Todo tu negocio<br>en una sola pantalla</h2><p>Saldo, clientes, vencimientos y ventas del día, en la compu o en el celular. Así se ve tu panel de revendedor.</p></div>
@@ -949,7 +955,9 @@ function programView() {
     })() : ""}
 
     <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>${THEMES.length} estilos para tu tienda</h2><p><b>Tocá uno y mirá cómo cambia toda la página.</b> Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
-      <div class="tgrid pthemes">${THEMES.map((t) => `<button type="button" class="tcard" data-pvtheme="${esc(t.id)}" aria-pressed="${S.pvTheme === t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
+      <div class="tgrid pthemes">${(S.allThemes ? THEMES : THEMES.slice(0, 6)).map((t) => `<button type="button" class="tcard" data-pvtheme="${esc(t.id)}" aria-pressed="${S.pvTheme === t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div>
+      ${S.allThemes ? "" : `<button type="button" class="pghost pmore" data-allthemes="1">Ver los ${THEMES.length} estilos</button>`}
+      <p class="empty" style="margin:0">Y además: <b>páginas listas</b> en un toque y cientos de combinaciones de forma, colores y textos.</p></section>
 
     ${pg.shops.length ? directoryView(false) : ""}
 
@@ -1521,6 +1529,7 @@ document.addEventListener("click", async (ev) => {
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
+  if (d.allthemes) { S.allThemes = true; return render(); }
   if (d.apply) return openApply();
   if (d.sugerir) {
     const f = $("#myPrices"); if (!f) return;

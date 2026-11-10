@@ -887,3 +887,17 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .mixtexts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .mixtxt{display:grid;gap:4px;padding:10px 12px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);font:inherit;text-align:left;cursor:pointer}
 .mixtxt b{font-size:14px}.mixtxt b span{color:var(--s-blue-text)}.mixtxt small{color:var(--s-muted);font-size:12.5px;line-height:1.35}
+
+/* Portada GaboHub: logos reales flotando y franja de plataformas */
+.pt.ptimg{padding:0;overflow:hidden;background:#000}
+.pt.ptimg img{width:100%;height:100%;object-fit:cover;display:block}
+.plogos{display:grid;gap:10px;justify-items:center;width:100%;max-width:720px;margin-top:22px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.plogos>small{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--s-muted)}
+.plogos-track{display:flex;gap:12px;width:max-content;animation:plogos 38s linear infinite}
+.plogos-track span{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;background:color-mix(in srgb,var(--s-ink) 7%,transparent);border:1px solid var(--s-line);white-space:nowrap}
+.plogos-track img{width:30px;height:30px;border-radius:8px;object-fit:cover}
+.plogos-track b{font-size:14px}
+@keyframes plogos{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.plogos-track{animation:none;flex-wrap:wrap;justify-content:center;width:auto}.plogos-track span[aria-hidden]{display:none}}
+.pmore{justify-self:center}
