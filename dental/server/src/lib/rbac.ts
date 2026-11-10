@@ -1,7 +1,7 @@
 // Roles y permisos. Se validan SIEMPRE en el servidor (el frontend solo oculta botones).
 import { forbidden } from "./errors.js";
 
-export const ROLES = ["owner", "admin", "receptionist", "dentist", "assistant", "accountant"] as const;
+export const ROLES = ["owner", "admin", "receptionist", "dentist", "assistant", "accountant", "support"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -11,6 +11,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   dentist: "Odontólogo",
   assistant: "Asistente",
   accountant: "Contabilidad",
+  support: "Limpieza y apoyo",
 };
 
 export type Permission =
@@ -21,18 +22,19 @@ export type Permission =
   | "budgets.read" | "budgets.write" | "treatments.perform"
   | "payments.read" | "payments.create" | "payments.verify" | "payments.void"
   | "reports.financial" | "reports.operational"
-  | "assistant.use";
+  | "assistant.use"
+  | "biosafety.read" | "biosafety.write";
 
 const BASE: Record<Role, Permission[]> = {
   owner: [
     "clinic.manage", "staff.manage", "audit.read", "patients.read", "patients.write", "patients.import", "patients.export",
     "agenda.read", "agenda.write", "budgets.read", "budgets.write", "payments.read", "payments.create", "payments.verify",
-    "payments.void", "reports.financial", "reports.operational", "assistant.use",
+    "payments.void", "reports.financial", "reports.operational", "assistant.use", "biosafety.read",
   ],
   admin: [
     "clinic.manage", "staff.manage", "audit.read", "patients.read", "patients.write", "patients.import", "patients.export",
     "agenda.read", "agenda.write", "budgets.read", "budgets.write", "payments.read", "payments.create", "payments.verify",
-    "payments.void", "reports.financial", "reports.operational", "assistant.use",
+    "payments.void", "reports.financial", "reports.operational", "assistant.use", "biosafety.read", "biosafety.write",
   ],
   receptionist: [
     "patients.read", "patients.write", "agenda.read", "agenda.write", "budgets.read", "budgets.write",
@@ -40,10 +42,12 @@ const BASE: Record<Role, Permission[]> = {
   ],
   dentist: [
     "patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "clinical.write",
-    "budgets.read", "budgets.write", "treatments.perform", "assistant.use",
+    "budgets.read", "budgets.write", "treatments.perform", "assistant.use", "biosafety.read", "biosafety.write",
   ],
-  assistant: ["patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "assistant.use"],
+  assistant: ["patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "assistant.use", "biosafety.read", "biosafety.write"],
   accountant: ["patients.read", "budgets.read", "payments.read", "payments.verify", "reports.financial", "assistant.use"],
+  // Limpieza y apoyo: solo bioseguridad (mínimo privilegio; sin datos de pacientes).
+  support: ["biosafety.read", "biosafety.write"],
 };
 
 // Propietarios/administradores que además atienden (is_professional) acceden a lo clínico.

@@ -28,7 +28,7 @@ const pick = <T>(a: T[]): T => a[Math.floor(rnd() * a.length)]!;
 try {
   await migrate(db.adminPool);
   if (process.argv.includes("--reset")) {
-    await q(`TRUNCATE signed_documents, consent_templates, password_resets, mfa_recovery_codes, audit_log, payments, charges, budget_items, budgets, clinical_notes, odontogram_entries, waitlist_entries, appointments,
+    await q(`TRUNCATE sterilization_bio_results, sterilization_cycles, sterilizers, cleaning_logs, signed_documents, consent_templates, password_resets, mfa_recovery_codes, audit_log, payments, charges, budget_items, budgets, clinical_notes, odontogram_entries, waitlist_entries, appointments,
       procedures, medical_histories, patients, counters, schedule_blocks, dentist_schedules, chairs, branches, memberships, sessions, users, clinics, plans CASCADE`);
     console.log("Datos borrados.");
   }
@@ -104,6 +104,17 @@ try {
     await q("INSERT INTO dentist_schedules (clinic_id, dentist_id, branch_id, weekday, start_time, end_time) VALUES ($1,$2,$3,6,'08:00','12:00')", [clinicId, id, B[d.br[0]!]!.id]);
   }
   await user("asistente@demo.local", "Asistente Dental LPZ", "assistant", { branches: [B.LPZ!.id] });
+  // Bioseguridad: personal de limpieza, un autoclave por sucursal y ciclos de ejemplo
+  const supportId = await user("limpieza.lpz@demo.local", "Rosa Mamani (limpieza LPZ)", "support", { branches: [B.LPZ!.id] });
+  for (const b of branches) {
+    const st = (await q("INSERT INTO sterilizers (clinic_id, branch_id, name) VALUES ($1,$2,'Autoclave 1') RETURNING id", [clinicId, b.id])).rows[0].id;
+    for (let k = 1; k <= 6; k++) {
+      const at = DateTime.now().setZone(ZONE).minus({ days: 7 - k }).set({ hour: 8, minute: 30 });
+      const cy = (await q(`INSERT INTO sterilization_cycles (clinic_id, branch_id, sterilizer_id, cycle_number, program, temperature_c, duration_min, load_description, packages, chemical_indicator, operator_id, run_at, expires_on)
+        VALUES ($1,$2,$3,$4,'134C',134,18,'Kits de examen y fórceps',8,'pass',$5,$6,$7) RETURNING id`, [clinicId, b.id, st, k, supportId, at.toJSDate(), at.plus({ days: 30 }).toISODate()])).rows[0].id;
+      if (k <= 4) await q("INSERT INTO sterilization_bio_results (clinic_id, cycle_id, result, recorded_by, recorded_at) VALUES ($1,$2,'pass',$3,$4)", [clinicId, cy, supportId, at.plus({ days: 1 }).toJSDate()]);
+    }
+  }
 
   // Pacientes ficticios
   const names = ["Ana", "Luis", "María", "Carlos", "Rosa", "Juan", "Lucía", "Pedro", "Carmen", "Diego", "Valeria", "Miguel", "Gabriela", "Fernando", "Daniela", "Javier", "Paola", "Ricardo", "Natalia", "Sergio", "Andrea", "Óscar", "Mónica", "Hugo", "Silvia"];
@@ -195,7 +206,7 @@ try {
   }
   await q("INSERT INTO counters (clinic_id, name, value) VALUES ($1,'budget',$2), ($1,'receipt',$3)", [clinicId, budgetNo, receipt]);
   console.log(`Clínica demo creada: 5 sucursales, ${dentists.length} odontólogos, 90 pacientes ficticios, ${created} citas, ${budgetNo} presupuestos.`);
-  console.log(`Usuarios (contraseña "${PASSWORD}"): propietaria@demo.local, gerente@demo.local, contabilidad@demo.local, recepcion.lpz@demo.local, dr.mendoza@demo.local, superadmin@demo.local`);
+  console.log(`Usuarios (contraseña "${PASSWORD}"): propietaria@demo.local, gerente@demo.local, contabilidad@demo.local, recepcion.lpz@demo.local, dr.mendoza@demo.local, limpieza.lpz@demo.local, superadmin@demo.local`);
 } finally {
   await db.close();
 }

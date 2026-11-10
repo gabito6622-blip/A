@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { addDays, bs, fmtTime, localDate } from "../lib/format";
@@ -26,6 +26,8 @@ export function DashboardPage() {
   const today = localDate();
   const appts = useApi(can("agenda.read") ? `/api/appointments${qs({ from: `${today}T00:00:00-04:00`, to: `${addDays(today, 1)}T00:00:00-04:00`, branchId })}` : null);
   const d = dash.data;
+  // Personal de limpieza y apoyo: su inicio es Bioseguridad.
+  if (!can("agenda.read") && !can("reports.operational") && !can("reports.financial") && can("biosafety.read")) return <Navigate to="/bioseguridad" replace />;
   const maxCollected = d ? Math.max(1, ...d.branches.map((b: any) => b.collectedCents ?? 0)) : 1;
   const maxProd = d ? Math.max(1, ...d.branches.map((b: any) => b.productionCents ?? 0)) : 1;
   return (

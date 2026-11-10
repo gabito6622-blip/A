@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { LoginPage, ClinicSelectPage, MfaVerifyPage, ResetPasswordPage } from "./pages/Login";
 import { AccountPage, SecurityGatePage } from "./pages/Account";
 import { WaitingRoomPage } from "./pages/WaitingRoom";
+import { BiosafetyPage } from "./pages/Biosafety";
 import { DashboardPage } from "./pages/Dashboard";
 import { AgendaPage } from "./pages/Agenda";
 import { PatientsPage } from "./pages/Patients";
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/sala-espera" element={<WaitingRoomPage />} />
         <Route path="/cuenta" element={<AccountPage />} />
+        <Route path="/bioseguridad" element={<BiosafetyPage />} />
         <Route path="/pacientes" element={<PatientsPage />} />
         <Route path="/pacientes/:id" element={<PatientDetailPage />} />
         <Route path="/presupuestos" element={<BudgetsPage />} />

@@ -15,6 +15,7 @@ export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "dentist", label: "Odontólogo" },
   { id: "assistant", label: "Asistente" },
   { id: "accountant", label: "Contabilidad" },
+  { id: "support", label: "Limpieza y apoyo" },
 ];
 
 const WEEKDAYS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
