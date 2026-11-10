@@ -127,6 +127,8 @@ export function applyLook(st) {
     r.setProperty("--s-chip", mix(ac, "#ffffff", 0.6));
   }
   r.setProperty("--s-blue", ac);
+  // Color del texto SOBRE el color principal (botones): oscuro si el principal es claro (ej.: dorado), blanco si es oscuro.
+  r.setProperty("--s-on-blue", lum(ac) > 0.6 ? "#111827" : "#ffffff");
   document.documentElement.style.colorScheme = light ? "light" : "dark";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
   const body = st.fontFamily || "inter", head = st.headingFont || body;

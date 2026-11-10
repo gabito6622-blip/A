@@ -112,6 +112,7 @@ export const THEMES = [
   { id: "neon-vivo", name: "Neón Vivo ✨", look: { backgroundColor: "#06040f", accentColor: "#ff2bd6", accent2Color: "#00e5ff", bgStyle: "live", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },
   { id: "fuego", name: "Fuego ✨", look: { backgroundColor: "#120604", accentColor: "#ff6a00", accent2Color: "#ffd000", bgStyle: "live", cardStyle: "neon", headingFont: "bebas", fontFamily: "outfit", corners: "soft" } },
   { id: "esmeralda", name: "Esmeralda ✨", look: { backgroundColor: "#03140f", accentColor: "#10e0a0", accent2Color: "#38bdf8", bgStyle: "live", cardStyle: "glass", headingFont: "poppins", fontFamily: "poppins", corners: "round" } },
+  { id: "oro-azul", name: "Oro y Azul ⭐", look: { backgroundColor: "#0d1d33", accentColor: "#f5c518", accent2Color: "#ffd84d", bgStyle: "glow", cardStyle: "solid", headingFont: "poppins", fontFamily: "inter", corners: "soft", layout: "catalogo" } },
 ];
 /** Muestra en miniatura de un estilo (para elegir con un toque). */
 export const themeSwatch = (t) => {

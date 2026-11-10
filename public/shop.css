@@ -613,3 +613,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .shop[data-layout="vitrina"] .pgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .shop[data-layout="catalogo"] .pgrid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 }
+
+/* ===================== Look de diseñador (precio en color, botón con contraste) ===================== */
+.sbtn.pri{color:var(--s-on-blue,#fff)}
+.sbtn.pri svg{fill:currentColor}
+.price{color:var(--s-blue);font-size:26px}
+.price small{color:var(--s-muted)}
+/* tarjeta más premium */
+.pc{box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.pc:hover{box-shadow:0 14px 34px rgba(0,0,0,.28)}
+.pbody h3{font-size:18px;letter-spacing:-.01em}
+.pbody .pbtns .pri{font-weight:800}
+.lt{border-radius:16px}
