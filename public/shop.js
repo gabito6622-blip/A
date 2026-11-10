@@ -873,8 +873,8 @@ function programView() {
         <div class="ptesti">${pg.testimonials.map((t) => `<figure><blockquote>“${esc(t.text)}”</blockquote>${t.rating ? `<span class="pstars" aria-label="${t.rating} de 5 estrellas">${"★".repeat(t.rating)}${"☆".repeat(5 - t.rating)}</span>` : ""}<figcaption><i>${esc(t.name[0])}</i><span><b>${esc(t.name)}</b>${t.business ? `<small>${esc(t.business)}</small>` : ""}</span></figcaption></figure>`).join("")}</div></section>`;
     })() : ""}
 
-    <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>${THEMES.length} estilos para tu tienda</h2><p>Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
-      <div class="tgrid pthemes">${THEMES.map((t) => `<div class="tcard">${themeSwatch(t)}<span>${esc(t.name)}</span></div>`).join("")}</div></section>
+    <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>${THEMES.length} estilos para tu tienda</h2><p><b>Tocá uno y mirá cómo cambia toda la página.</b> Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
+      <div class="tgrid pthemes">${THEMES.map((t) => `<button type="button" class="tcard" data-pvtheme="${esc(t.id)}" aria-pressed="${S.pvTheme === t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
 
     ${pg.shops.length ? directoryView(false) : ""}
 
@@ -1392,8 +1392,24 @@ async function useAccessLink() {
 }
 
 /* ---------------- eventos ---------------- */
+/** Portada: probar un estilo en toda la página (solo en este navegador; no cambia nada guardado). */
+function previewTheme(id) {
+  const t = THEMES.find((x) => x.id === id);
+  if (!S.baseLook) S.baseLook = { ...S.settings };
+  S.pvTheme = t ? t.id : null;
+  applyLook(t ? { ...S.baseLook, ...t.look } : S.baseLook);
+  if (!t) S.baseLook = null;
+  $$(".pthemes [data-pvtheme]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.pvtheme === S.pvTheme)));
+  let bar = $("#pvbar");
+  if (!t) { if (bar) bar.hidden = true; return; }
+  if (!bar) { bar = Object.assign(document.createElement("div"), { id: "pvbar" }); bar.setAttribute("role", "status"); document.body.append(bar); }
+  bar.hidden = false;
+  bar.innerHTML = `<span>Estás probando <b>${esc(t.name)}</b></span><button type="button" data-pvtheme="">Volver al original</button><button type="button" class="pvgo" data-apply="1">Quiero mi tienda así</button>`;
+}
+
 function setView(v) {
   if (!VIEWS.includes(v)) v = "inicio";
+  if (S.pvTheme && v !== "inicio") previewTheme(null);
   if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   S.view = v;
   closeAll();
@@ -1417,6 +1433,7 @@ document.addEventListener("click", async (ev) => {
   if (d.wizall !== undefined) { Object.values(S.data.wiz.picks ?? {}).forEach((x) => (x.on = d.wizall === "1")); return render(); }
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
+  if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
   if (d.apply) return openApply();
   if (d.sugerir) {
     const f = $("#myPrices"); if (!f) return;
