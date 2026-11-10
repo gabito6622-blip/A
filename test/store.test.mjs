@@ -683,6 +683,10 @@ describe("8. Edición de cuentas, perfiles y clientes; transferencias", () => {
     assert.throws(() => s.catalog.updateCustomer(seller, maria.id, { phone: luis.phone }), err("VALIDATION"));
     assert.throws(() => s.catalog.updateCustomer(seller, maria.id, { kind: "reseller" }), err("FORBIDDEN"));
     assert.equal(s.catalog.updateCustomer(admin, maria.id, { kind: "reseller", priceGroupId: "revendedor" }).kind, "reseller");
+    // Etiquetas: se guarda una válida, se rechaza una inválida y "" la borra.
+    assert.equal(s.catalog.updateCustomer(admin, luis.id, { tag: "vip" }).tag, "vip");
+    assert.throws(() => s.catalog.updateCustomer(admin, luis.id, { tag: "inventada" }), err("VALIDATION"));
+    assert.equal(s.catalog.updateCustomer(admin, luis.id, { tag: "" }).tag, undefined);
   });
 
   test("un revendedor con clientes no puede pasar a cliente final", () => {

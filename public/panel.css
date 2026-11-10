@@ -699,3 +699,11 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .proyban{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:11px 14px;border-radius:12px;background:color-mix(in srgb,#12b76a 12%,var(--card));border:1px solid color-mix(in srgb,#12b76a 35%,var(--line));font-size:14.5px}
 .proyban b{font-variant-numeric:tabular-nums}
 .proyban small{white-space:nowrap}
+
+/* Etiquetas de cliente (VIP, Moroso, Nuevo…) */
+.tagp{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.tagp-vip{background:color-mix(in srgb,#f59e0b 20%,var(--card));color:#b45309;border-color:color-mix(in srgb,#f59e0b 45%,var(--line))}
+.tagp-moroso{background:color-mix(in srgb,#ef4444 18%,var(--card));color:#b91c1c;border-color:color-mix(in srgb,#ef4444 45%,var(--line))}
+.tagp-nuevo{background:color-mix(in srgb,#12b76a 18%,var(--card));color:#047857;border-color:color-mix(in srgb,#12b76a 45%,var(--line))}
+.tagp-may{background:color-mix(in srgb,#3b82f6 18%,var(--card));color:#1d4ed8;border-color:color-mix(in srgb,#3b82f6 45%,var(--line))}
+.tagp-reg{background:color-mix(in srgb,#a855f7 18%,var(--card));color:#7c3aed;border-color:color-mix(in srgb,#a855f7 45%,var(--line))}

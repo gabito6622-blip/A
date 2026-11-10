@@ -223,6 +223,8 @@ export interface Customer {
   createdAt: number;
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
+  /** Etiqueta del cliente (vip, moroso, nuevo…), solo la ve el staff. */
+  tag?: string;
   /** Nota del revendedor sobre su cliente (solo la ve ese revendedor y el staff). */
   resellerNote?: string;
   /** Precios a los que el revendedor le vende a sus clientes (en centavos), para calcular su ganancia. */

@@ -593,7 +593,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/customers/bulk-kind", "staff", (c) => store.catalog.setCustomersKind(A(c), c.body?.all === true ? "all" : c.body?.ids ?? [], c.body?.kind));
   route("POST", "/api/admin/customers/:id", "staff", (c) => {
     const b = c.body ?? {};
-    return store.catalog.updateCustomer(A(c), c.params.id, { name: b.name, phone: b.phone, email: b.email, notes: b.notes, kind: b.kind, priceGroupId: b.priceGroupId });
+    return store.catalog.updateCustomer(A(c), c.params.id, { name: b.name, phone: b.phone, email: b.email, notes: b.notes, kind: b.kind, priceGroupId: b.priceGroupId, tag: b.tag });
   });
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));

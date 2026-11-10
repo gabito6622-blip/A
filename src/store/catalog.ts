@@ -257,7 +257,11 @@ export interface CustomerPatch {
   notes?: string;
   kind?: "customer" | "reseller";
   priceGroupId?: Id;
+  tag?: string;
 }
+
+/** Etiquetas de cliente que se pueden marcar (color para verlas de un vistazo). */
+export const CUSTOMER_TAGS = ["vip", "moroso", "nuevo", "mayorista", "regalo"] as const;
 
 /** Editar cliente. Cambiar tipo o grupo de precios lo hacen solo admin u owner. */
 export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: CustomerPatch): Customer {
@@ -280,6 +284,11 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
     if (patch.name !== undefined && patch.name.trim() !== c.name) { c.name = patch.name.trim(); changed.push("name"); }
     if (patch.email !== undefined && patch.email !== (c.email ?? "")) { c.email = patch.email || undefined; changed.push("email"); }
     if (patch.notes !== undefined && patch.notes.trim() !== (c.notes ?? "")) { c.notes = patch.notes.trim() || undefined; changed.push("notes"); }
+    if (patch.tag !== undefined) {
+      const t = String(patch.tag).trim().toLowerCase();
+      if (t && !(CUSTOMER_TAGS as readonly string[]).includes(t)) throw new DomainError("VALIDATION", "Etiqueta inválida");
+      if (t !== (c.tag ?? "")) { c.tag = t || undefined; changed.push("tag"); }
+    }
     if (patch.kind !== undefined && patch.kind !== c.kind) {
       if (patch.kind === "customer" && Object.values(e.s.customers).some((x) => x.resellerId === c.id)) throw new DomainError("INVALID_STATE", "Este revendedor tiene clientes propios; no se puede pasar a cliente final");
       c.kind = patch.kind; changed.push("kind");
