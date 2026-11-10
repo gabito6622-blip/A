@@ -722,7 +722,10 @@ const V = {
     const q = (T.rq ?? "").toLowerCase();
     const shown = list.filter((r) => !q || `${r.name} ${r.phone} ${r.shop.slug}`.toLowerCase().includes(q));
     const sent = T.rlink;
-    return `${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
+    return `<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+      <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
+      ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}</section>
+      ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
       <div class="rgrid">${pending.map((a) => `<div class="rcard"><div class="rtop"><span class="ravatar">${esc(a.name[0] ?? "?")}</span><div><b>${esc(a.name)}</b><small class="muted">${esc(a.phone)} · ${fdt(a.createdAt)}</small></div></div>
         ${a.note ? `<p class="muted" style="margin:0">“${esc(a.note)}”</p>` : ""}${a.existingCustomer ? `<small class="muted">Ya es tu cliente: se pasa a revendedor.</small>` : ""}
         <div class="inline"><button class="pbtn sm green" type="button" data-appok="${esc(a.id)}">✅ Aprobar y mandar acceso</button><a class="pbtn sm" href="${waLink(a.phone, `Hola ${a.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a><button class="pbtn sm" type="button" data-appno="${esc(a.id)}">Rechazar</button></div></div>`).join("")}</div></section>` : ""}
@@ -1279,6 +1282,11 @@ document.addEventListener("click", async (ev) => {
     const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rsend);
     try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
     return;
+  }
+  if (d.togshops !== undefined && el.dataset.togshops) {
+    const on = d.togshops === "1";
+    try { await api("POST", "/api/admin/settings", { resellerShops: on }); toast(on ? "✅ Páginas de revendedores activadas" : "Páginas de revendedores apagadas"); } catch (e) { toast(e.message); }
+    return render();
   }
   if (d.rpage !== undefined && el.dataset.rpage) {
     const on = !!d.on;
