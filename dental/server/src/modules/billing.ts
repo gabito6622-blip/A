@@ -12,6 +12,7 @@ import { dayBounds } from "../lib/slots.js";
 import { assertCashSessionForPayment } from "./cashSessions.js";
 import { consumeForTreatment } from "./inventory/index.js";
 import { budgetExtras, budgetMoney, lineDiscount, onChargeVoided, patientMoney, performPendingSessions, recalcBudget, supersededError, zGlobalDiscount, zPercent } from "./budgets-v2-core.js";
+import { AGREEMENT_INSERT_COLS, agreementBudgetExtras, agreementLineFields, budgetAgreementContext, budgetCompanyShareCents } from "./agreements/core.js";
 
 const BUDGET_TRANSITIONS: Record<string, string[]> = {
   draft: ["presented", "cancelled"],
@@ -38,6 +39,7 @@ const itemBody = z.object({
   unitPriceCents: zMoney.optional(),
   discountCents: zMoney.default(0),
   discountPercent: zPercent.nullish(),
+  applyAgreement: z.boolean().default(true), // convenio del paciente (precio y parte de la empresa copiados en la línea)
 });
 
 async function loadBudget(c: Client, id: string) {
@@ -73,25 +75,27 @@ async function loadBudget(c: Client, id: string) {
   const plan = Array.from({ length: n }, (_, k) => (k === n - 1 ? totalCents - base * (n - 1) : base));
   return {
     ...b, statusLabel: BUDGET_LABELS[b.status], items, totalCents, doneCents,
-    paidCents: pay.confirmed, pendingVerificationCents: pay.pending, remainingCents: totalCents - pay.confirmed,
+    paidCents: pay.confirmed, pendingVerificationCents: pay.pending, // remainingCents: saldo a cargo del paciente (agreementBudgetExtras)
     installmentPlan: plan, allowedTransitions: BUDGET_TRANSITIONS[b.status],
     ...(await budgetExtras(c, { id, items })),
+    ...(await agreementBudgetExtras(c, id, items, { totalCents, paidCents: pay.confirmed })), // saldo a cargo del paciente
   };
 }
 
 async function insertItems(c: Client, clinicId: string, budgetId: string, items: z.infer<typeof itemBody>[]) {
   let pos = 0;
+  const ag = await budgetAgreementContext(c, budgetId);
   for (const it of items) {
-    const pr = (await c.query<{ name: string; price_cents: number; scope: string }>("SELECT name, price_cents, scope FROM procedures WHERE id = $1 AND active", [it.procedureId])).rows[0];
+    const pr = (await c.query<{ id: string; name: string; price_cents: number; scope: string; category: string }>("SELECT id, name, price_cents, scope, category FROM procedures WHERE id = $1 AND active", [it.procedureId])).rows[0];
     if (!pr) throw badRequest("Prestación inexistente o inactiva");
     if ((pr.scope === "tooth" || pr.scope === "surface") && !it.tooth) throw badRequest(`"${pr.name}" requiere indicar la pieza dental`);
     if (pr.scope === "surface" && !it.surfaces.length) throw badRequest(`"${pr.name}" requiere indicar superficies`);
-    const unit = it.unitPriceCents ?? pr.price_cents;
+    const { unit, cols } = agreementLineFields(ag, it.applyAgreement, pr, it.unitPriceCents);
     const disc = lineDiscount(unit * it.quantity, it);
     await c.query(
-      `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [clinicId, budgetId, it.procedureId, it.tooth, it.surfaces, it.description ?? pr.name, it.quantity, unit, disc.discountCents, disc.discountPercent, pos++],
+      `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position, ${AGREEMENT_INSERT_COLS})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [clinicId, budgetId, it.procedureId, it.tooth, it.surfaces, it.description ?? pr.name, it.quantity, unit, disc.discountCents, disc.discountPercent, pos++, ...cols],
     );
   }
 }
@@ -305,9 +309,9 @@ export function billingRoutes(route: Route) {
     handler: async ({ c, params }) => {
       const charges = (await c.query(
         `SELECT ch.id, ch.description, ch.amount_cents AS "amountCents", ch.created_at AS "createdAt", ch.voids_charge_id AS "voidsChargeId",
-                b.name AS "branchName", u.full_name AS "dentistName",
+                b.name AS "branchName", u.full_name AS "dentistName", ch.third_party_cents AS "thirdPartyCents", ag.name AS "payerName",
                 EXISTS (SELECT 1 FROM charges v WHERE v.voids_charge_id = ch.id) AS voided
-           FROM charges ch JOIN branches b ON b.id = ch.branch_id LEFT JOIN users u ON u.id = ch.dentist_id
+           FROM charges ch JOIN branches b ON b.id = ch.branch_id LEFT JOIN users u ON u.id = ch.dentist_id LEFT JOIN agreements ag ON ag.id = ch.payer_agreement_id
           WHERE ch.patient_id = $1 ORDER BY ch.created_at`, [params.id])).rows;
       const payments = (await c.query(
         `SELECT p.id, p.receipt_number AS "receiptNumber", p.amount_cents AS "amountCents", p.method, p.status, p.bank_reference AS "bankReference",
@@ -354,8 +358,9 @@ export function billingRoutes(route: Route) {
           `SELECT COALESCE((SELECT sum(net_cents) FROM budget_items WHERE budget_id = $1 AND status <> 'cancelled'),0) AS total,
                   COALESCE((SELECT sum(amount_cents) FROM payments WHERE budget_id = $1 AND status IN ('confirmed','pending_verification')),0) AS paid`,
           [body.budgetId])).rows[0]!;
-        if (t.paid + body.amountCents > t.total) {
-          throw new AppError(409, "overpayment", `El pago supera el saldo del presupuesto (saldo: ${(t.total - t.paid) / 100} Bs)`, { remainingCents: t.total - t.paid });
+        const patientShare = t.total - (await budgetCompanyShareCents(c, body.budgetId)); // la parte del convenio la paga la empresa
+        if (t.paid + body.amountCents > patientShare) {
+          throw new AppError(409, "overpayment", `El pago supera el saldo del presupuesto (saldo: ${(patientShare - t.paid) / 100} Bs)`, { remainingCents: patientShare - t.paid });
         }
       }
       const status = body.method === "cash" ? "confirmed" : "pending_verification";

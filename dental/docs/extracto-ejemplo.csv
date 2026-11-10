@@ -1,0 +1,7 @@
+Banco Ficticio S.A. - Extracto de cuenta corriente N° 1-000000-0 (DATOS INVENTADOS PARA LA DEMO)
+Fecha;Descripción;Nro. operación;Débito;Abono
+09/11/2026;Pago QR - cobro paciente;QR-DEMO-0001;;180,50
+09/11/2026;Pago QR - cobro paciente;QR-DEMO-0002;;90,00
+08/11/2026;Transferencia Cooperativa Minera Illimani;EMP-DEMO-0001;;216,00
+08/11/2026;Depósito en ventanilla sin identificar;DEP-55821;;350,00
+07/11/2026;Comisión por mantenimiento de cuenta;;15,00;

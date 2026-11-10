@@ -12,6 +12,7 @@ import type { Client } from "../lib/db.js";
 import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { performSession, recalcBudget, zGlobalDiscount } from "./budgets-v2-core.js";
 import { consumeForTreatment } from "./inventory/index.js";
+import { AGREEMENT_INSERT_COLS } from "./agreements/core.js";
 
 export const LINK_DAYS = 30;
 export const MAX_ATTEMPTS = 5;
@@ -181,8 +182,8 @@ export function budgetV2Routes(route: Route, cfg: Config) {
       const items = (await c.query<{ id: string }>("SELECT id FROM budget_items WHERE budget_id = $1 AND status <> 'cancelled' ORDER BY position, id", [params.id])).rows;
       for (const it of items) {
         const ni = (await c.query<{ id: string }>(
-          `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position)
-           SELECT clinic_id, $2, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position
+          `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position, ${AGREEMENT_INSERT_COLS})
+           SELECT clinic_id, $2, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position, ${AGREEMENT_INSERT_COLS}
              FROM budget_items WHERE id = $1 RETURNING id`, [it.id, nb.id])).rows[0]!.id;
         await c.query(
           `INSERT INTO budget_item_sessions (clinic_id, budget_item_id, position, name, weight_cents, amount_cents)

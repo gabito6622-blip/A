@@ -10,6 +10,7 @@ import { BudgetFunnel, DecisionDialog, SessionList, SharePanel, VersionPanel, pa
 import { PatientPicker } from "./Agenda";
 import { PaymentDialog } from "./Cash";
 import { PdfButton } from "../components/ClinicalDocuments";
+import { AgreementBanner, AgreementLineNote, BudgetCompanyShare, BudgetInvoiceRequests, InvoiceRequestDialog, useAgreementPrices } from "../components/agreements/AgreementWidgets";
 
 const STATUSES = [["", "Todos"], ["draft", "Borrador"], ["presented", "Presentados"], ["accepted", "Aceptados"], ["completed", "Completados"], ["rejected", "Rechazados"], ["cancelled", "Anulados"], ["superseded", "Reemplazados"]] as const;
 
@@ -75,6 +76,7 @@ export function BudgetEditor({ patientId, budgetId, onClose, onSaved }: { patien
   const [gd, setGd] = useState<{ kind: "none" | "percent" | "amount"; value: string }>({ kind: "none", value: "" });
   const [err, setErr] = useState<string | null>(null);
   const [lineErr, setLineErr] = useState<Record<number, string>>({});
+  const agp = useAgreementPrices(patient?.id && patient.id !== "" ? patient.id : null); // convenio vigente: precio del convenio al agregar
   useEffect(() => {
     const b = existing.data;
     if (!b) return;
@@ -89,7 +91,7 @@ export function BudgetEditor({ patientId, budgetId, onClose, onSaved }: { patien
   const proc = (id: string) => procs.data?.find((p) => p.id === id);
   const add = (id: string) => {
     const p = proc(id);
-    if (p) setItems([...items, { procedureId: id, tooth: "", surfaces: [], quantity: 1, price: toBsInput(p.priceCents), discount: "0", discountKind: "amount" }]);
+    if (p) setItems([...items, { procedureId: id, tooth: "", surfaces: [], quantity: 1, price: toBsInput(agp.price(id)?.unitPriceCents ?? p.priceCents), discount: "0", discountKind: "amount" }]);
   };
   const calcs = items.map(lineCalc);
   const sumNet = calcs.reduce((s, c) => s + Math.max(0, c.net), 0);
@@ -138,6 +140,7 @@ export function BudgetEditor({ patientId, budgetId, onClose, onSaved }: { patien
     <Dialog wide title={budgetId ? `Editar borrador N° ${existing.data.number}${existing.data.version > 1 ? ` (v${existing.data.version})` : ""}` : "Nuevo presupuesto"} onClose={onClose} footer={<><span className="muted" style={{ marginRight: "auto" }}>Total: <b style={{ color: "var(--ink)", fontSize: 17 }}>{bs(total)}</b>{head.installments > 1 && ` · ${head.installments} cuotas de ~${bs(Math.floor(total / head.installments))}`}</span><button className="btn" onClick={onClose}>Cancelar</button><button className="btn btn-primary" disabled={!items.length} onClick={save}>Guardar borrador</button></>}>
       <div className="stack">
         {err && <div className="alert danger" role="alert">{err}</div>}
+        <AgreementBanner agreement={agp.agreement} />
         <div className="form-grid">
           {!patientId && !budgetId && <Field label="Paciente" span2 group><PatientPicker value={patient} onChange={setPatient} /></Field>}
           {budgetId && <div className="span-2"><b>{patient?.name}</b></div>}
@@ -160,7 +163,7 @@ export function BudgetEditor({ patientId, budgetId, onClose, onSaved }: { patien
               const upd = (patch: Partial<Item>) => setItems(items.map((x, j) => (j === k ? { ...x, ...patch } : x)));
               return (
                 <tr key={k}>
-                  <td>{p?.name}</td>
+                  <td>{p?.name}{agp.price(i.procedureId) && <div className="small muted">{agp.price(i.procedureId)!.note}{agp.price(i.procedureId)!.listPriceCents !== agp.price(i.procedureId)!.unitPriceCents ? ` · lista ${bs(agp.price(i.procedureId)!.listPriceCents)}` : ""}</div>}</td>
                   <td><input className="input" style={{ width: 64 }} inputMode="numeric" value={i.tooth} onChange={(e) => upd({ tooth: e.target.value.replace(/\D/g, "").slice(0, 2) })} disabled={p?.scope === "mouth" || p?.scope === "quadrant"} placeholder={p?.scope === "tooth" || p?.scope === "surface" ? "Req." : "—"} /></td>
                   <td>{p?.scope === "surface" ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>{["M", "D", "O", "V", "L"].map((s) => <button key={s} type="button" className={`btn btn-sm ${i.surfaces.includes(s) ? "btn-primary" : ""}`} style={{ padding: "0 7px" }} onClick={() => upd({ surfaces: i.surfaces.includes(s) ? i.surfaces.filter((x) => x !== s) : [...i.surfaces, s] })}>{s}</button>)}</div> : "—"}</td>
                   <td><input className="input" style={{ width: 60 }} type="number" min={1} value={i.quantity} onChange={(e) => upd({ quantity: Math.max(1, Number(e.target.value)) })} /></td>
@@ -209,6 +212,8 @@ export function BudgetDetailDialog({ id, onClose, onChanged, onOpen }: { id: str
   const [paying, setPaying] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [invoicing, setInvoicing] = useState(false);
+  const [invKey, setInvKey] = useState(0);
   const open = (x: string) => { setCurrent(x); onOpen?.(x); onChanged(); };
   const setStatus = async (status: string, note: string | null) => {
     await api.post(`/api/budgets/${current}/status`, { status, note }); toast("Presupuesto actualizado"); setDeciding(null); b.reload(); onChanged();
@@ -245,7 +250,7 @@ export function BudgetDetailDialog({ id, onClose, onChanged, onOpen }: { id: str
             <thead><tr><th>Prestación</th><th>Pieza</th><th className="num">Cant.</th><th className="num">Precio</th><th className="num">Desc.</th><th className="num">Neto</th><th>Estado</th><th /></tr></thead>
             <tbody>{d.items.filter((i: any) => i.status !== "cancelled" || d.status !== "draft").map((i: any) => (
               <tr key={i.id} style={i.status === "cancelled" ? { textDecoration: "line-through", color: "var(--muted)" } : undefined}>
-                <td>{i.description}<div className="muted small">{i.procedureCode}</div><SessionList item={i} budgetStatus={d.status} onChanged={reload} /></td><td>{i.tooth ?? "—"}{i.surfaces.length ? ` (${i.surfaces.join("")})` : ""}</td>
+                <td>{i.description}<div className="muted small">{i.procedureCode}</div><AgreementLineNote item={i} /><SessionList item={i} budgetStatus={d.status} onChanged={reload} /></td><td>{i.tooth ?? "—"}{i.surfaces.length ? ` (${i.surfaces.join("")})` : ""}</td>
                 <td className="num">{i.quantity}</td>
                 <td className="num">{i.totalCents !== i.grossCents ? <><s className="muted">{bs(i.grossCents)}</s></> : bs(i.unitPriceCents * i.quantity)}</td>
                 <td className="num">{i.discountCents ? <div>{i.discountPercent != null ? `${i.discountPercent} %` : bs(i.discountCents)}</div> : null}{i.globalDiscountCents ? <div className="muted small">{bs(i.globalDiscountCents)} global</div> : null}{!i.discountCents && !i.globalDiscountCents && "—"}</td>
@@ -269,6 +274,8 @@ export function BudgetDetailDialog({ id, onClose, onChanged, onOpen }: { id: str
             <div className="card kpi"><div className="label">Pagado</div><div className="value">{bs(d.paidCents)}</div>{d.pendingVerificationCents > 0 && <div className="foot" style={{ color: "var(--warn)" }}>{bs(d.pendingVerificationCents)} por verificar</div>}</div>
             <div className="card kpi"><div className="label">Saldo del presupuesto</div><div className="value">{bs(d.remainingCents)}</div></div>
           </div>
+          <BudgetCompanyShare budget={d} onInvoice={can("payments.create") && ["accepted", "completed"].includes(d.status) ? () => setInvoicing(true) : undefined} />
+          {can("payments.read") && <BudgetInvoiceRequests budgetId={current} refreshKey={invKey} />}
           {d.installments > 1 && (
             <div className="card card-pad"><b>Plan de pagos ({d.installments} cuotas)</b><div className="row" style={{ marginTop: 8 }}>{d.installmentPlan.map((c: number, k: number) => <span key={k} className="badge">Cuota {k + 1}: {bs(c)}</span>)}</div></div>
           )}
@@ -283,6 +290,7 @@ export function BudgetDetailDialog({ id, onClose, onChanged, onOpen }: { id: str
       )}
       {editing && d && <BudgetEditor budgetId={d.id} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); }} />}
       {deciding && <DecisionDialog title={ACTION_LABEL[deciding]!} danger={deciding !== "accepted"} onClose={() => setDeciding(null)} onConfirm={(note) => setStatus(deciding, note)} />}
+      {invoicing && d && <InvoiceRequestDialog budgetId={d.id} onClose={() => setInvoicing(false)} onSaved={() => { setInvoicing(false); setInvKey((k) => k + 1); }} />}
       {paying && d && <PaymentDialog patientId={d.patientId} budgetId={d.id} maxCents={d.remainingCents - d.pendingVerificationCents} onClose={() => setPaying(false)} onSaved={() => { setPaying(false); b.reload(); onChanged(); }} />}
     </Dialog>
   );

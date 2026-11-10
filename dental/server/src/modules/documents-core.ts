@@ -13,10 +13,10 @@ import { contentHash as consentHash, KIND_LABELS, type Kind as ConsentKind } fro
 import { METHOD_LABELS } from "./billing.js";
 import { DOC_TITLES, renderSnapshot, type AnySnapshot, type BudgetSnapshot, type ConsentSnapshot, type ReceiptSnapshot, type SnapBranch, type SnapClinic, type SnapPatient } from "./documents-pdf.js";
 
-export type PdfKind = "prescription" | "certificate" | "referral" | "budget" | "consent" | "receipt";
+export type PdfKind = "prescription" | "certificate" | "referral" | "budget" | "consent" | "receipt" | "payer_statement";
 export const KIND_LABEL: Record<PdfKind, string> = {
   prescription: "Receta", certificate: "Certificado", referral: "Derivación a especialista", budget: "Presupuesto aceptado",
-  consent: "Consentimiento firmado", receipt: "Recibo de pago",
+  consent: "Consentimiento firmado", receipt: "Recibo de pago", payer_statement: "Estado de cuenta de convenio",
 };
 
 export interface PdfRow {
@@ -80,7 +80,7 @@ export async function storePdf(c: Client, o: {
 }
 
 const KIND_SHORT: Record<PdfKind, string> = {
-  prescription: "Receta", certificate: "Certificado", referral: "Derivación", budget: "Presupuesto", consent: "Documento", receipt: "Recibo",
+  prescription: "Receta", certificate: "Certificado", referral: "Derivación", budget: "Presupuesto", consent: "Documento", receipt: "Recibo", payer_statement: "Estado de cuenta",
 };
 
 export function sendPdf(reply: any, row: PdfRow) {

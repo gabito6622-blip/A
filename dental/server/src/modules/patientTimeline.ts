@@ -101,7 +101,7 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
      WHERE bu.patient_id = $1 AND e.kind NOT IN ('accepted','rejected')`,
   payments: () => `
     SELECT ch.created_at, 'ch:' || ch.id, CASE WHEN ch.voids_charge_id IS NULL THEN 'charge' ELSE 'charge.void' END, 'payments',
-           jsonb_build_object('description', ch.description, 'dentist', du.full_name),
+           jsonb_build_object('description', ch.description, 'dentist', du.full_name, 'thirdParty', ch.third_party_cents),
            u.full_name, b.name, NULL::timestamptz, ch.amount_cents
       FROM charges ch JOIN users u ON u.id = ch.created_by JOIN branches b ON b.id = ch.branch_id LEFT JOIN users du ON du.id = ch.dentist_id
      WHERE ch.patient_id = $1
@@ -123,7 +123,19 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            jsonb_build_object('method', p.method, 'receipt', p.receipt_number, 'reason', l.data->>'reason'),
            u.full_name, b.name, NULL::timestamptz, p.amount_cents
       FROM audit_log l JOIN payments p ON p.id::text = l.entity_id JOIN branches b ON b.id = p.branch_id LEFT JOIN users u ON u.id = l.user_id
-     WHERE l.entity = 'payment' AND l.action = 'payment.voided' AND p.patient_id = $1`,
+     WHERE l.entity = 'payment' AND l.action = 'payment.voided' AND p.patient_id = $1
+    UNION ALL
+    SELECT pa.created_at, 'pg:' || pa.id, 'agreement.enrolled', 'payments',
+           jsonb_build_object('agreement', ag.name, 'memberNumber', pa.member_number, 'validFrom', pa.valid_from, 'validTo', pa.valid_to, 'endReason', pa.end_reason),
+           u.full_name, NULL::text, NULL::timestamptz, NULL::bigint
+      FROM patient_agreements pa JOIN agreements ag ON ag.id = pa.agreement_id LEFT JOIN users u ON u.id = pa.created_by
+     WHERE pa.patient_id = $1
+    UNION ALL
+    SELECT ir.created_at, 'ir:' || ir.id, 'invoice.requested', 'payments',
+           jsonb_build_object('number', ir.number, 'billTo', ir.bill_to, 'buyer', ir.buyer_name, 'status', ir.status),
+           u.full_name, b.name, NULL::timestamptz, ir.total_cents
+      FROM invoice_requests ir JOIN users u ON u.id = ir.created_by JOIN branches b ON b.id = ir.branch_id
+     WHERE ir.patient_id = $1`,
   documents: ({ informed }) => `
     SELECT d.signed_at, 'sd:' || d.id, 'document', 'documents',
            jsonb_build_object('documentId', d.id, 'docKind', d.kind, 'title', d.title, 'decision', d.decision, 'method', d.method, 'signer', d.signer_name),
@@ -214,7 +226,7 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
     case "budget.event":
       return { title: `${BUDGET_EVENT_LABELS[x.event] ?? x.event} · N° ${x.number}`, detail: [x.channel ? CHANNEL_LABELS[x.channel] ?? x.channel : null, x.reason].filter(Boolean).join(" · ") || null };
     case "charge":
-      return { title: `Cargo: ${x.description}`, detail: x.dentist ? `Profesional: ${x.dentist}` : null };
+      return { title: `Cargo: ${x.description}`, detail: [x.dentist ? `Profesional: ${x.dentist}` : null, Number(x.thirdParty) > 0 ? `paga el convenio ${(Number(x.thirdParty) / 100).toFixed(2).replace(".", ",")} Bs` : null].filter(Boolean).join(" · ") || null };
     case "charge.void":
       return { title: `Anulación de cargo: ${x.description}`, detail: null };
     case "payment.received":
@@ -223,6 +235,13 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
       return { title: x.decision === "rejected" ? "Pago rechazado tras verificar en el banco" : "Pago confirmado en el banco", detail: [`Recibo N° ${x.receipt}`, x.reason].filter(Boolean).join(" · ") };
     case "payment.voided":
       return { title: "Pago anulado", detail: [`Recibo N° ${x.receipt}`, x.reason].filter(Boolean).join(" · ") };
+    case "agreement.enrolled":
+      return {
+        title: `Afiliado al convenio ${x.agreement}`,
+        detail: [`N° de afiliado ${x.memberNumber}`, `desde ${String(x.validFrom).split("-").reverse().join("/")}`, x.validTo ? `hasta ${String(x.validTo).split("-").reverse().join("/")}` : null, x.endReason ? `baja: ${x.endReason}` : null].filter(Boolean).join(" · "),
+      };
+    case "invoice.requested":
+      return { title: `Marcado como pendiente de facturar (N° ${x.number})`, detail: `A nombre de ${x.buyer}${x.status === "cancelled" ? " · anulado" : ""} · aún no es una factura fiscal` };
     case "document":
       return { title: `${DECISION_LABELS[x.decision] ?? x.decision}: ${x.title}`, detail: x.signer ? `Firmante: ${x.signer}` : null };
     case "recall.created":
