@@ -418,6 +418,7 @@ const V = {
 
   async aprobacion() {
     const tab = P.tab.aprob ?? "payment_review";
+    if (canReview() && !P.ai) P.ai = await api("GET", "/api/admin/ai").then((a) => ({ receipts: a.hasKey && a.enabled.receipts })).catch(() => ({}));
     const orders = await api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`));
     const tabs = [["payment_review", "Por revisar"], ["awaiting_payment", "Esperando pago"], ["all", "Todos"]];
     return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}
@@ -427,6 +428,7 @@ const V = {
         <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
+          ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
           ${o.status === "awaiting_payment" && canReview() ? `<form class="inline" data-reject="${esc(o.id)}"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
@@ -462,7 +464,9 @@ const V = {
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
-    return `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    const daily = isOwner() ? await api("GET", "/api/admin/ai").then((a) => a.daily).catch(() => null) : null;
+    const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
+    return dailyCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
@@ -1143,6 +1147,7 @@ const V = {
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${isOwner() ? await aiCard() : ""}
       ${await pushCard()}
       ${isOwner() ? await telegramCard() : ""}
       ${isOwner() ? await binanceCard() : ""}
@@ -1166,7 +1171,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1399,6 +1404,41 @@ async function binanceCard() {
 }
 
 /* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+/* ---------------- Oficina virtual: agentes con Claude ---------------- */
+function aiCheckBox(c) {
+  const V = { parece_ok: ["✅ Parece correcto", "ok"], revisar: ["👀 Revisalo bien", "warn"], no_coincide: ["⛔ No coincide", "bad"] };
+  const yn = (v) => (v === true ? "✅" : v === false ? "❌" : "—");
+  return `<div class="aibox aibox-${V[c.verdict][1]}"><b>🤖 ${V[c.verdict][0]}</b>
+    <small>Monto: ${c.amount ?? "?"} ${esc(c.currency ?? "")} ${yn(c.amountMatches)} · Operación: ${esc(c.reference ?? "?")} ${yn(c.referenceMatches)}${c.looksEdited ? " · ⚠️ podría estar editado" : ""}</small>
+    ${c.notes ? `<small class="muted">${esc(c.notes)}</small>` : ""}<small class="muted">Sugerencia: igual mirá tu banco antes de aprobar.</small></div>`;
+}
+const AI_AGENTS = [
+  ["receipts", "🧾 Revisor de comprobantes", "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos."],
+  ["whatsapp", "💬 Atención por WhatsApp", "Responde lo que el bot de palabras clave no entiende, con tus precios y formas de pago. Si no sabe o el cliente reclama, te lo pasa a vos. Necesita el bot de WhatsApp prendido."],
+  ["daily", "📋 Reporte del día", "Cada mañana (8 h) te resume pagos pendientes, stock, cuentas por vencer y ganancia, con qué hacer hoy. Llega por Telegram y queda en Inicio."],
+];
+async function aiCard() {
+  const a = await api("GET", "/api/admin/ai").catch(() => null);
+  if (!a) return "";
+  const est = (m) => { const x = a.models.find((y) => y.id === m); return x ? `US$ ${x.input} / ${x.output} por millón de tokens` : ""; };
+  const anyOn = AI_AGENTS.some(([k]) => a.enabled[k]);
+  return `<section class="card"><h2>🤖 Oficina virtual <small>agentes con Claude</small> ${!a.hasKey ? pill("Falta la clave", "mute") : anyOn ? pill("Trabajando", "ok") : pill("Apagados", "warn")}</h2>
+    <p class="muted" style="margin:0">Cada agente hace una sola tarea. Ninguno aprueba pagos, entrega cuentas ni toca plata: eso lo hacés vos.</p>
+    ${!a.hasKey ? `<details class="tg-help" open><summary>¿Cómo se prende? (una sola vez)</summary><ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+      <li>Entrá a <b>console.anthropic.com</b>, creá una cuenta y cargá crédito (se paga aparte de tu suscripción de Claude).</li>
+      <li>En <b>API Keys</b> creá una clave. Es secreta: no la mandes por chat.</li>
+      <li>En Railway, en las variables de tu tienda, agregá <code>ANTHROPIC_API_KEY</code> con esa clave y reiniciá.</li>
+      <li>Volvé acá y prendé los agentes que quieras.</li></ol></details>` : ""}
+    <form class="form" id="aiForm">
+      ${AI_AGENTS.map(([k, t, d]) => `<label class="chk aiag" style="grid-column:1/-1"><input type="checkbox" name="ag_${k}" ${a.enabled[k] ? "checked" : ""} ${a.hasKey ? "" : "disabled"}><span><b>${t}</b><br><small class="muted">${d}</small></span></label>`).join("")}
+      <label>Modelo<select name="model" ${a.hasKey ? "" : "disabled"}>${a.models.map((m) => opt(m.id, m.label, m.id === a.model)).join("")}</select><small class="muted" id="aiPrice">${esc(est(a.model))}</small></label>
+      <label>Tope de gasto por mes (US$)<input name="limit" type="number" min="0" max="1000" step="1" inputmode="numeric" value="${a.monthlyLimitUsd}" ${a.hasKey ? "" : "disabled"}><small class="muted">Al llegar, los agentes se pausan hasta el mes que viene.</small></label>
+      <p class="muted" style="grid-column:1/-1;margin:0">Este mes: <b>US$ ${(a.spentUsd ?? 0).toFixed(2)}</b> en ${a.calls ?? 0} consulta(s)${a.lastError ? ` · <span class="perr">último error: ${esc(a.lastError)}</span>` : ""}.
+        Para empezar barato elegí <b>Haiku 5.5</b>: con ~500 mensajes por día suele quedar en pocos dólares por mes. Opus es el más capaz y el más caro.</p>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit" ${a.hasKey ? "" : "disabled"}>Guardar</button>${a.hasKey && a.enabled.daily ? `<button class="pbtn" type="button" id="aiDailyNow">📋 Armar el reporte ahora</button>` : ""}</div>
+    </form></section>`;
+}
+
 /* ---------------- Ganancia por producto ---------------- */
 function marginsCard(mg) {
   const ST = { ok: ["✅", "pp-ok"], low: ["⚠️ poco", "pp-warn"], loss: ["🔴 perdés", "pp-bad"] };
@@ -1961,6 +2001,8 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (d.aicheck) { el.disabled = true; el.textContent = "🤖 Revisando…"; return act(() => api("POST", `/api/admin/orders/${d.aicheck}/ai-check`, {}), "Revisión lista"); }
+  if (el.id === "aiDailyNow") { el.disabled = true; el.textContent = "Armando…"; return act(() => api("POST", "/api/admin/ai/daily", {}), "📋 Reporte listo: está en Inicio"); }
   if (el.id === "pushOn") { el.disabled = true; try { await pushEnable(); toast("🔔 Avisos activados en este celular"); } catch (e) { toast(e.message || "No se pudo activar"); } return render(); }
   if (el.id === "pushOff") { el.disabled = true; await pushDisable(); toast("Avisos apagados en este celular"); return render(); }
   if (el.id === "pushTest") return act(() => api("POST", "/api/admin/push/test", {}), (r) => r.sent ? "Aviso de prueba enviado ✓" : "No se pudo enviar: activá de nuevo los avisos");
@@ -2437,6 +2479,10 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "aiForm") {
+      const enabled = Object.fromEntries(AI_AGENTS.map(([k]) => [k, !!f[`ag_${k}`]?.checked]));
+      P.ai = null;
+      await act(() => api("POST", "/api/admin/ai", { enabled, model: f.model.value, monthlyLimitUsd: Math.max(0, +f.limit.value || 0) }), "🤖 Agentes guardados");
     } else if (f.id === "pushForm") {
       const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
       await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
@@ -2674,4 +2720,12 @@ document.addEventListener("change", (ev) => {
   const el = ev.target;
   if (el?.id !== "rcAllowed") return;
   act(() => api("POST", "/api/admin/reseller-coupons", { allowed: el.checked }), el.checked ? "Los revendedores ya pueden crear cupones" : "Cupones de revendedores apagados");
+});
+
+// Oficina virtual: al cambiar el modelo, mostrar su precio.
+document.addEventListener("change", async (ev) => {
+  if (ev.target?.name !== "model" || ev.target.form?.id !== "aiForm") return;
+  const a = await api("GET", "/api/admin/ai").catch(() => null);
+  const m = a?.models.find((x) => x.id === ev.target.value);
+  const out = $("#aiPrice"); if (out && m) out.textContent = `US$ ${m.input} / ${m.output} por millón de tokens`;
 });

@@ -917,3 +917,10 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
 .filebtn:focus-within{outline:2px solid var(--blue);outline-offset:2px}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .filebtn{position:relative}
+
+/* Oficina virtual */
+.aibox{display:grid;gap:2px;margin-top:6px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft);max-width:340px}
+.aibox-ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.aibox-warn{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}.aibox-bad{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
+.aibox small{font-size:12px;overflow-wrap:anywhere}
+.aiag{align-items:flex-start !important}.aiag input{margin-top:4px}
+.dailyai .dailytext{line-height:1.55;overflow-wrap:anywhere}

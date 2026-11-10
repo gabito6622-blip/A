@@ -14,7 +14,9 @@ ENV NODE_ENV=production \
     GS_STATIC_DIR=/app/public \
     GS_TRUST_PROXY=1
 WORKDIR /app
-COPY package.json ./
+# Dependencias de producción (hoy solo el SDK oficial de Claude, para los agentes).
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY public ./public
 RUN mkdir -p /data && chown node:node /data
