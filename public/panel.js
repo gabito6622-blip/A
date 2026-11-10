@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -682,9 +682,11 @@ const V = {
     const sw = (name, list, cur) => `<div class="inline">${list.map(([c, t]) => `<label title="${t}" style="display:grid;justify-items:center;gap:4px;font-size:12px;cursor:pointer;position:relative"><input type="radio" name="${name}" value="${c}" ${c.toLowerCase() === cur.toLowerCase() ? "checked" : ""} style="position:absolute;opacity:0">
       <span class="swatch" style="width:38px;height:38px;border-radius:10px;background:${c};border:3px solid ${c.toLowerCase() === cur.toLowerCase() ? "var(--ink)" : "transparent"};box-shadow:0 0 0 1px var(--line)"></span>${t}</label>`).join("")}
       <label style="display:grid;justify-items:center;gap:4px;font-size:12px">Otro<input type="color" name="${name}Custom" value="${esc(cur)}" style="width:44px;height:38px;padding:2px"></label></div>`;
-    return `<section class="card"><h2>Estilos listos</h2><p class="muted" style="margin:0">Tocá uno para probarlo en la vista previa de abajo. Si te gusta, tocá <b>Guardar apariencia</b>.</p>
+    return `<section class="card"><h2>🏪 Tipo de tienda</h2><p class="muted" style="margin:0">El <b>diseño</b> de tu tienda. Elegí uno, tocá <b>Guardar apariencia</b> y abrí tu tienda para verlo.</p>
+        <div class="laygrid">${LAYOUT_LIST.map(([v, t, d]) => `<button type="button" class="laycard${(s.layout || "clasico") === v ? " on" : ""}" data-layout="${v}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join("")}</div></section>
+      <section class="card"><h2>Estilos listos <small>· colores</small></h2><p class="muted" style="margin:0">Tocá uno para probarlo en la vista previa de abajo. Si te gusta, tocá <b>Guardar apariencia</b>.</p>
         <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-ptheme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
-      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px">
+      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
         <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
         <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
@@ -1200,6 +1202,11 @@ document.addEventListener("click", async (ev) => {
   if (d.tab) { const [k, v] = d.tab.split(":"); P.tab[k] = v; return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
   if (d.qrdel) { const row = el.closest(".qr-row"); const form = row.closest("form"); row.remove(); return form.requestSubmit(); }
+  if (d.layout) {
+    const f = $("#lookForm");
+    if (f) { f.layout.value = d.layout; $$(".laycard").forEach((b) => b.classList.toggle("on", b.dataset.layout === d.layout)); previewLook(); toast("Probando este tipo de tienda: tocá Guardar apariencia para dejarlo"); }
+    return;
+  }
   if (d.ptheme) {
     const t = THEMES.find((x) => x.id === d.ptheme), f = $("#lookForm");
     for (const [k, v] of Object.entries(t.look)) {
@@ -1469,7 +1476,7 @@ function previewLook() {
   if (!f) return;
   const look = { accentColor: f.querySelector('input[name="accentColor"]:checked')?.value || f.accentColorCustom.value, backgroundColor: f.querySelector('input[name="backgroundColor"]:checked')?.value || f.backgroundColorCustom.value,
     accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value };
-  for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k].value;
+  for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "layout", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k]?.value;
   $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
 }
 let lookTimer, cqTimer;
@@ -1809,7 +1816,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "lookForm") {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
       const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value,
-        fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value };
+        fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value, layout: f.layout.value };
       for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
       await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
     } else if (f.id === "logoForm") {

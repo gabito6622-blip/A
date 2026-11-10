@@ -88,6 +88,12 @@ export const FONT_LIST = [
 ];
 export const BG_LIST = [["solid", "Liso"], ["glow", "Brillo arriba"], ["gradient", "Degradado"], ["aurora", "Aurora"], ["live", "Animado ✨"], ["dots", "Puntitos"], ["grid", "Cuadrícula"]];
 export const CARD_LIST = [["solid", "Sólidas"], ["glass", "Vidrio"], ["outline", "Solo borde"], ["neon", "Neón"]];
+export const LAYOUT_LIST = [
+  ["clasico", "🖥️ Clásico", "Portada con texto y una tarjeta al lado, después los productos."],
+  ["vitrina", "✨ Vitrina", "Portada grande y centrada, bien llamativa, con productos destacados abajo."],
+  ["catalogo", "🛒 Catálogo", "Va directo a los productos, para que compren rápido."],
+  ["minimal", "⬜ Minimal", "Limpio y sobrio, sin tanto adorno."],
+];
 /** Estilos listos: un toque y la página queda armada; después se puede cambiar todo. */
 export const THEMES = [
   { id: "neon", name: "Neón Cyber", look: { backgroundColor: "#07070d", accentColor: "#00e5ff", accent2Color: "#ff2bd6", bgStyle: "aurora", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },

@@ -12,6 +12,8 @@ export const FONTS: Record<string, string> = {
 export const BG_STYLES = ["solid", "glow", "gradient", "aurora", "live", "dots", "grid"] as const;
 export const CARD_STYLES = ["solid", "glass", "outline", "neon"] as const;
 export const CORNERS = ["round", "soft", "square"] as const;
+/** Tipo de tienda (estructura/diseño de la portada). */
+export const LAYOUTS = ["clasico", "vitrina", "catalogo", "minimal"] as const;
 
 export interface Look {
   accentColor?: string;
@@ -25,6 +27,8 @@ export interface Look {
   /** Letra de los títulos. */
   headingFont?: string;
   corners?: (typeof CORNERS)[number];
+  /** Tipo de tienda: estructura de la portada. */
+  layout?: (typeof LAYOUTS)[number];
   heroTitle?: string;
   heroHighlight?: string;
   heroText?: string;
@@ -37,7 +41,7 @@ export interface Look {
   facebook?: string;
 }
 
-export const LOOK_KEYS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners",
+export const LOOK_KEYS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout",
   "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"] as const;
 
 const TEXT_LIMITS: Partial<Record<keyof Look, number>> = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120 };
@@ -60,6 +64,8 @@ export function cleanLook(patch: Record<string, unknown>): Partial<Look> {
       if (!(CARD_STYLES as readonly string[]).includes(t)) throw new DomainError("VALIDATION", "Estilo de tarjetas inválido");
     } else if (k === "corners") {
       if (!(CORNERS as readonly string[]).includes(t)) throw new DomainError("VALIDATION", "Forma de bordes inválida");
+    } else if (k === "layout") {
+      if (!(LAYOUTS as readonly string[]).includes(t)) throw new DomainError("VALIDATION", "Tipo de tienda inválido");
     } else if (k === "instagram" || k === "tiktok" || k === "facebook") {
       const u = t.replace(/^@/, "").replace(/^https?:\/\/(www\.)?(instagram|tiktok|facebook)\.com\/@?/i, "").replace(/\/+$/, "");
       if (u && !/^[A-Za-z0-9._-]{1,60}$/.test(u)) throw new DomainError("VALIDATION", `Usuario de ${k} inválido: solo letras, números, punto o guion`);

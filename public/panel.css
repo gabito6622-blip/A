@@ -566,3 +566,11 @@ img.svbadge{padding:5px;background:#0e1424}
 
 /* --- Mi semana: monto por día --- */
 .hd-amt{font-size:11px;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);border-radius:999px;padding:1px 7px;margin-top:2px}
+
+/* Selector de tipo de tienda */
+.laygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.laycard{display:grid;gap:4px;text-align:left;padding:14px;border:1.5px solid var(--line);border-radius:14px;background:var(--card);color:inherit;font:inherit;cursor:pointer;transition:border-color .15s,transform .15s}
+.laycard:hover{transform:translateY(-2px);border-color:var(--accent,#3984ff)}
+.laycard.on{border-color:var(--accent,#3984ff);box-shadow:0 0 0 1px var(--accent,#3984ff) inset}
+.laycard b{font-size:15px}
+.laycard small{color:var(--muted);font-size:12px;line-height:1.35}
