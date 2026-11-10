@@ -582,7 +582,16 @@ function resellerHome() {
     else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu página vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se apague." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
     else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu página está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
   }
+  const rpasos = canPage && sh ? [
+    ["Poné tus precios", (S.data.prices ?? []).some((p) => p.sell !== null), "clientes", "Poner precios"],
+    ["Publicá tu página", !!sh.enabled, sh.saved ? "gopage" : "wiz", sh.saved ? "Publicar" : "Armala"],
+  ] : [];
+  const rhechos = rpasos.filter((p) => p[1]).length;
+  const setupR = rpasos.length && rhechos < rpasos.length ? `<section class="sbox setupr"><b>🚀 Primeros pasos · ${rhechos} de ${rpasos.length}</b>
+    <div class="pgbar"><i style="width:${Math.round(rhechos / rpasos.length * 100)}%"></i></div>
+    <div class="pasos">${rpasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="sbtn sm pri" type="button" ${go === "gopage" ? `data-gopage="1"` : go === "wiz" ? `data-wiz="1"` : `data-s="${go}"`}>${esc(b)}</button>`}</div>`).join("")}</div></section>` : "";
   return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+    ${setupR}
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}

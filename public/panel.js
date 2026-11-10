@@ -86,12 +86,15 @@ const V = {
   async dashboard() {
     const dd = Number(P.tab.dd ?? 30);
     const [d, set, products, accounts] = await Promise.all([api("GET", `/api/admin/dashboard?days=${dd}`), api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
-    const todo = [
-      [!set.whatsapp, "wa", "Cargá el WhatsApp de la tienda", "configuracion", "Configurar"],
-      [!set.hasQr, "qr", "Subí tu QR de cobro", "configuracion", "Subir QR"],
-      [!products.length, "box", "Creá tu primer producto", "productos", "Crear"],
-      [!accounts.length, "user", "Cargá tus cuentas y perfiles", "carga", "Cargar"],
-    ].filter((x) => x[0]);
+    // Primeros pasos (jueguito): cada uno se marca solo en verde cuando está hecho.
+    const pasos = [
+      ["Creá tus productos", products.length > 0, "productos", "Crear producto"],
+      ["Cargá tus cuentas (tu stock)", accounts.length > 0, "carga", "Cargar cuenta"],
+      ["Subí tu QR de cobro", !!set.hasQr, "configuracion", "Subir QR"],
+      ["Cargá el WhatsApp de la tienda", !!set.whatsapp, "configuracion", "Configurar"],
+      ["Ponele nombre y logo a tu tienda", !!set.hasLogo, "apariencia", "Personalizar"],
+    ];
+    const hechos = pasos.filter((p) => p[1]).length;
     const k = d.kpi;
     const delta = (c, p) => {
       if (!p) return c ? `<em class="dl up">nuevo</em>` : `<em class="dl">—</em>`;
@@ -173,7 +176,11 @@ const V = {
     const tag = (kd) => `<span class="pp pp-${kd === "topup" ? "ok" : kd === "renewal" ? "warn" : "mute"}">${KIND_TEXT[kd] ?? kd}</span>`;
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div></div>
-      ${todo.length ? `<section class="card"><h2>${icon("flag")}Completá tu tienda</h2><div class="todo">${todo.map(([, i, t, go, b]) => `<div><span class="ic">${icon(i)}</span><b>${t}</b><button class="pbtn blue" type="button" data-go="${go}">${b} ${icon("arrow")}</button></div>`).join("")}</div></section>` : ""}
+      ${hechos < pasos.length ? `<section class="card setupcard"><h2>🚀 Primeros pasos <small>${hechos} de ${pasos.length} listos</small></h2>
+        <p class="muted" style="margin:0">Completá estos pasos y ya estás vendiendo. Cada uno se marca solo cuando lo hacés.</p>
+        <div class="pgbar"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div>
+        <div class="pasos">${pasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="pbtn blue sm" type="button" data-go="${go}">${esc(b)} ${icon("arrow")}</button>`}</div>`).join("")}</div></section>`
+        : (P.tab.hideSetup ? "" : `<section class="card ok-card setupcard"><div class="inline" style="justify-content:space-between"><h2 style="margin:0">🎉 ¡Tu tienda está lista para vender!</h2><button class="pbtn sm" type="button" data-hidesetup="1">Ocultar</button></div><p class="muted" style="margin:0">Completaste todo. Cuando quieras, seguí personalizando desde Apariencia.</p></section>`)}
       ${stressCard}
       <div class="dkpis">
         ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
@@ -1325,6 +1332,7 @@ document.addEventListener("click", async (ev) => {
     try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
     return;
   }
+  if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
   if (d.togshops !== undefined && el.dataset.togshops) {
     const on = d.togshops === "1";
     try { await api("POST", "/api/admin/settings", { resellerShops: on }); toast(on ? "✅ Páginas de revendedores activadas" : "Páginas de revendedores apagadas"); } catch (e) { toast(e.message); }

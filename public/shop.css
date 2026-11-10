@@ -696,3 +696,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .shop[data-card="poster"] .lt{width:96px;height:96px;font-size:40px;border-radius:24px}
 .shop[data-card="poster"] .pc{box-shadow:0 14px 34px rgba(0,0,0,.3)}
 .shop[data-card="poster"] .pc:hover{transform:translateY(-4px) scale(1.01)}
+
+/* Primeros pasos del revendedor (jueguito) */
+.setupr{gap:12px}
+.setupr .pgbar{height:10px;border-radius:999px;background:var(--s-line);overflow:hidden}
+.setupr .pgbar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--s-blue),#16b47e);transition:width .5s ease}
+.setupr .pasos{display:grid;gap:8px}
+.setupr .paso{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-card2)}
+.setupr .paso.done{background:color-mix(in srgb,#16b47e 12%,var(--s-card));border-color:color-mix(in srgb,#16b47e 35%,var(--s-line))}
+.setupr .paso b{flex:1;min-width:0}
+.setupr .paso .pnum{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--s-line);color:var(--s-muted)}
+.setupr .paso.done .pnum{background:#16b47e;color:#fff}
+.setupr .paso .pdone{color:#16b47e;font-weight:700;font-size:13px;white-space:nowrap}

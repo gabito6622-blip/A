@@ -578,3 +578,15 @@ img.svbadge{padding:5px;background:#0e1424}
 /* Apps que incluye un combo */
 .combopick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px}
 .combopick .chk{font-size:14px}
+
+/* Primeros pasos (jueguito de onboarding) */
+.setupcard{gap:14px}
+.pgbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.pgbar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent,#3984ff),#16b47e);transition:width .5s ease}
+.pasos{display:grid;gap:8px}
+.paso{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.paso.done{background:color-mix(in srgb,#16b47e 10%,var(--card));border-color:color-mix(in srgb,#16b47e 35%,var(--line))}
+.paso b{flex:1;min-width:0}
+.paso .pnum{width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--line);color:var(--muted)}
+.paso.done .pnum{background:#16b47e;color:#fff}
+.paso .pdone{color:#16b47e;font-weight:700;font-size:13px;white-space:nowrap}
