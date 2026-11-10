@@ -1037,6 +1037,7 @@ const V = {
       ${isOwner() ? await ownerCards() : ""}
       ${isOwner() ? await telegramCard() : ""}
       ${isOwner() ? await binanceCard() : ""}
+      ${canReview() ? await usdtCard() : ""}
       ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
@@ -1148,6 +1149,25 @@ async function binanceCard() {
       <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${b.enabled ? "checked" : ""}> Aceptar pagos con Binance en la tienda</label>
       ${b.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento con Binance falló: ${esc(b.lastError)}</p>` : ""}
       <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="binTest">Probar conexión</button></div>
+    </form></section>`;
+}
+
+/* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+async function usdtCard() {
+  const u = await api("GET", "/api/admin/usdt").catch(() => null);
+  if (!u) return "";
+  const on = u.enabled && (u.address || u.payId) && u.rate > 0;
+  return `<section class="card"><h2>${icon("coins")}Cobrar en USDT a mano ${on ? pill("Activo", "ok") : (u.address || u.payId) ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">La forma simple, sin cuenta de empresa: el cliente ve tu <b>dirección USDT</b> (o tu Binance Pay ID) y el monto, te manda el pago y sube el comprobante. Vos lo aprobás como un pago por QR. Ideal mientras Binance Pay automático no esté habilitado.</p>
+    <form class="form" id="usdtForm">
+      <label>Red<input name="network" placeholder="Ej.: TRC20" value="${esc(u.network || "")}" list="usdtNets"><datalist id="usdtNets"><option>TRC20</option><option>BEP20</option><option>ERC20</option><option>Polygon</option></datalist></label>
+      <label>Tasa: ¿cuántos Bs vale 1 USDT?<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${u.rate || ""}"></label>
+      <label style="grid-column:1/-1">Dirección de tu billetera USDT<input name="address" autocomplete="off" placeholder="Ej.: T... (la dirección de esa red)" value="${esc(u.address || "")}"></label>
+      <label style="grid-column:1/-1">Binance Pay ID <small class="muted">(opcional, pago Binance-a-Binance)</small><input name="payId" inputmode="numeric" placeholder="Ej.: 123456789" value="${esc(u.payId || "")}"></label>
+      <label style="grid-column:1/-1">Nota para el cliente <small class="muted">(opcional)</small><input name="note" maxlength="300" placeholder="Ej.: Mandá solo por TRC20. Avisame por WhatsApp con el hash." value="${esc(u.note || "")}"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${u.enabled ? "checked" : ""}> Aceptar pagos en USDT a mano en la tienda</label>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button></div>
+      <p class="muted" style="grid-column:1/-1;margin:0">⚠️ Revisá el pago en tu billetera antes de aprobar: en cripto, una transferencia no se puede revertir.</p>
     </form></section>`;
 }
 
@@ -1982,6 +2002,9 @@ document.addEventListener("submit", async (ev) => {
       if (f.apiKey.value.trim()) body.apiKey = f.apiKey.value.trim();
       if (f.apiSecret.value.trim()) body.apiSecret = f.apiSecret.value.trim();
       await act(() => api("POST", "/api/admin/binance", body), "Binance Pay guardado");
+    } else if (f.id === "usdtForm") {
+      const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim(), note: f.note.value.trim() };
+      await act(() => api("POST", "/api/admin/settings", { usdt }), "Cobro en USDT guardado");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });

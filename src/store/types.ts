@@ -62,6 +62,20 @@ export interface StoreSettings extends Look {
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */
   paymentNote?: string;
+  /** Pago en USDT manual (plan B sin API): el cliente manda a esta dirección/Pay ID y sube el comprobante. */
+  usdt?: {
+    enabled: boolean;
+    /** Dirección de la billetera (p. ej. empieza con T en TRC20) o vacío si solo usa Pay ID. */
+    address?: string;
+    /** Red de la dirección (TRC20, BEP20, …). */
+    network?: string;
+    /** Binance Pay ID (pago interno Binance-a-Binance). */
+    payId?: string;
+    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). */
+    rate?: number;
+    /** Nota/instrucciones extra para el cliente. */
+    note?: string;
+  };
   /** Logo de la tienda (el resto de la apariencia viene de Look). */
   logoFileRef?: string;
   /** Nombre de la plataforma de revendedores (la tienda es una más adentro). */
@@ -290,7 +304,7 @@ export type OrderStatus =
   | "rejected"
   | "expired"
   | "cancelled";
-export type PaymentMethod = "qr" | "balance" | "cash" | "binance";
+export type PaymentMethod = "qr" | "balance" | "cash" | "binance" | "usdt";
 
 /** Datos de un pago por Binance Pay (USDT). El monto en USDT se calcula con la tasa que pone el dueño. */
 export interface BinancePay {

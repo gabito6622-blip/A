@@ -79,6 +79,23 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.storeName !== undefined && (!patch.storeName.trim() || patch.storeName.length > 60)) throw new DomainError("VALIDATION", "Nombre de tienda inválido");
   if (patch.whatsapp !== undefined && !/^\d{7,15}$/.test(patch.whatsapp)) throw new DomainError("VALIDATION", "WhatsApp: solo números con código de país, p. ej. 59170000000");
   if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
+  if (patch.usdt !== undefined) {
+    const u = patch.usdt as Record<string, unknown>;
+    if (!u || typeof u !== "object") throw new DomainError("VALIDATION", "Configuración de USDT inválida");
+    const address = u.address != null ? String(u.address).trim() : "";
+    const payId = u.payId != null ? String(u.payId).trim() : "";
+    const network = u.network != null ? String(u.network).trim() : "";
+    const note = u.note != null ? String(u.note).trim() : "";
+    const rate = u.rate != null && u.rate !== "" ? Number(u.rate) : 0;
+    const enabled = !!u.enabled;
+    if (address && address.length > 120) throw new DomainError("VALIDATION", "La dirección de USDT es muy larga");
+    if (payId && !/^[A-Za-z0-9@._-]{3,64}$/.test(payId)) throw new DomainError("VALIDATION", "El Pay ID no parece válido");
+    if (network.length > 20 || note.length > 300) throw new DomainError("VALIDATION", "Red o nota de USDT muy larga");
+    if (rate !== 0 && !(rate > 0 && rate <= 1000)) throw new DomainError("VALIDATION", "Poné cuántos Bs vale 1 USDT (ej. 13)");
+    if (enabled && !address && !payId) throw new DomainError("VALIDATION", "Para aceptar USDT cargá una dirección o un Pay ID");
+    if (enabled && !(rate > 0)) throw new DomainError("VALIDATION", "Para aceptar USDT poné la tasa Bs→USDT");
+    patch.usdt = { enabled, address: address || undefined, network: network || undefined, payId: payId || undefined, rate: Math.round(rate * 100) / 100, note: note || undefined };
+  }
   if (patch.platformName !== undefined && (!String(patch.platformName).trim() || String(patch.platformName).length > 40)) throw new DomainError("VALIDATION", "Nombre de la plataforma: de 1 a 40 letras");
   if (patch.shopRent !== undefined) {
     const r = patch.shopRent as unknown as Record<string, unknown>;
@@ -95,7 +112,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

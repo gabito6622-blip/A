@@ -78,7 +78,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       // precio del combo, pero el cliente recibe un acceso por cada servicio del combo.
       const parts = prod?.kind === "combo" ? (prod.comboProductIds ?? []) : null;
       if (parts && parts.length) return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
-      if (prod?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
+      if (prod?.resellersOnly && (input.paymentMethod === "qr" || input.paymentMethod === "usdt") && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
       const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];
       return reserveSlots(e, it.productId, it.qty, id, [], prefer);
     });
@@ -148,7 +148,7 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
   return e.tx(() => {
     const o = e.get("orders", orderId);
     requireActFor(e, actor, o.customerId);
-    if (o.paymentMethod !== "qr") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
+    if (o.paymentMethod !== "qr" && o.paymentMethod !== "usdt") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
     if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);
