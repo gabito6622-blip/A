@@ -380,6 +380,36 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
 }
 
 /** Cuenta caída: mueve a todos sus clientes a otras cuentas y la retira si quedó vacía. */
+/**
+ * Cola de "Reubicar": clientes activos cuyo perfil está en una cuenta caída
+ * (en cuarentena, retirada o vencida con el proveedor). Para cada uno sugiere una
+ * cuenta sana del mismo producto con cupo libre. Mover usa replaceAssignment.
+ */
+export function relocationQueue(e: Engine, actor: Actor) {
+  authorize(actor, "assignment.replace");
+  const now = e.now();
+  const freeOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId && s.status === "available").length;
+  const healthy = Object.values(e.s.accounts).filter((t) => t.status === "active" && t.supplierExpiresAt > now && freeOf(t.id) > 0);
+  const rows: unknown[] = [];
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.status !== "active") continue;
+    const slot = e.s.slots[a.slotId]; if (!slot) continue;
+    const acc = e.s.accounts[slot.accountId];
+    const down = slot.status === "quarantined" ? "cuarentena" : acc?.status !== "active" ? "cuenta retirada" : acc.supplierExpiresAt <= now ? "venció con el proveedor" : null;
+    if (!down) continue;
+    const cust = e.s.customers[a.customerId];
+    const target = healthy.find((t) => t.id !== acc?.id && t.productId === a.productId);
+    rows.push({
+      assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "",
+      productId: a.productId, product: e.s.products[a.productId]?.name ?? a.productId, profile: slot.label,
+      currentEmail: acc?.email ?? "", reason: down, expiresAt: a.customerExpiresAt,
+      daysLeft: Math.ceil((a.customerExpiresAt - now) / DAY),
+      suggest: target ? { email: target.email, free: freeOf(target.id) } : null,
+    });
+  }
+  return rows;
+}
+
 export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: string) {
   authorize(actor, "assignment.replace");
   const acc = e.get("accounts", accountId);

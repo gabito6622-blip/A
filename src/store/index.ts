@@ -80,6 +80,7 @@ export function createStore(opts: EngineOptions = {}) {
       renewMany: bind(e, orders.renewMany),
       replace: bind(e, orders.replaceAssignment),
       replaceAccount: bind(e, orders.replaceAccount),
+      relocationQueue: bind(e, orders.relocationQueue),
       transfer: bind(e, orders.transferAssignment),
       releaseSlot: bind(e, orders.releaseSlot),
       refundAssignment: bind(e, orders.refundAssignment),

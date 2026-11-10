@@ -716,3 +716,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .occlist{display:grid;gap:5px;margin-top:7px}
 .occrow{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;padding:5px 9px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
 .occrow b{font-variant-numeric:tabular-nums}
+
+/* Reubicar: clientes en cuentas caídas → cuenta sana sugerida */
+.reloc{display:grid;gap:10px}
+.relrow{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.relrow .relc,.relrow .relfrom,.relrow .relto{display:grid;gap:3px;min-width:0}
+.relrow .relc b{font-size:14.5px}
+.relrow small{font-size:12px}
+.relrow .mono{overflow-wrap:anywhere}
+.relrow .relact{justify-self:end}
+@media (max-width:720px){.relrow{grid-template-columns:1fr 1fr;row-gap:10px}.relrow .relact{grid-column:1/-1;justify-self:stretch}.relrow .relact .pbtn{width:100%;justify-content:center}}

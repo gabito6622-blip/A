@@ -13,12 +13,13 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["finanzas", "coins", "Finanzas", "owner"],
+  ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -289,6 +290,18 @@ const V = {
         ${table(["Gasto", "Monto", "Cuándo", ""], rows, "Todavía no cargaste gastos este mes.")}
       </section>
     </div>`;
+  },
+  async reubicar() {
+    const list = await api("GET", "/api/admin/relocations");
+    const reasonTxt = { cuarentena: "⚠️ En cuarentena", "cuenta retirada": "🚫 Cuenta retirada", "venció con el proveedor": "📅 Venció con el proveedor" };
+    return `<section class="card"><h2>${icon("renew")}Reubicar perfiles <small>pasá tus clientes de cuentas caídas a cuentas sanas</small></h2>
+      <p class="muted" style="margin:0 0 12px">Acá aparecen los clientes que están en una cuenta caída (en cuarentena, retirada o vencida con el proveedor). Reubicalos a una cuenta sana: conservan su fecha y el perfil viejo queda retirado.</p>
+      ${list.length ? `<div class="reloc">${list.map((r) => `<div class="relrow">
+        <div class="relc"><b>${esc(r.customerName || "—")}</b><small class="muted">${esc(r.product)} · ${esc(r.profile)}${r.customerPhone ? ` · ${esc(r.customerPhone)}` : ""} · vence ${fdate(r.expiresAt)}</small></div>
+        <div class="relfrom"><span class="pp pp-bad">${reasonTxt[r.reason] ?? esc(r.reason)}</span><small class="muted mono">${esc(r.currentEmail)}</small></div>
+        <div class="relto">${r.suggest ? `<small class="muted">Mover a</small><b class="mono">${esc(r.suggest.email)}</b><small class="muted">${r.suggest.free} cupo${r.suggest.free === 1 ? "" : "s"} libre${r.suggest.free === 1 ? "" : "s"}</small>` : `<span class="pp pp-warn">No hay cuenta sana con cupo</span>`}</div>
+        <div class="relact">${r.suggest ? `<button class="pbtn dark sm" type="button" data-relocate="${esc(r.assignmentId)}" data-name="${esc(r.customerName || "")}">${icon("renew")}Mover</button>` : `<button class="pbtn sm" type="button" data-go="carga">Cargar cuenta</button>`}</div>
+      </div>`).join("")}</div>` : `<div class="emptybox">🎉 Ninguna cuenta caída con clientes. Todo está en cuentas sanas.</div>`}</section>`;
   },
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
@@ -1632,6 +1645,10 @@ document.addEventListener("click", async (ev) => {
   if (d.rmexp) {
     if (!confirm("¿Quitar este gasto?")) return;
     return act(() => api("POST", `/api/admin/expenses/${d.rmexp}/remove`, {}), "Gasto quitado");
+  }
+  if (d.relocate) {
+    if (!confirm(`¿Mover a ${el.dataset.name || "este cliente"} a una cuenta sana?\n\nConserva su fecha de vencimiento y el perfil viejo queda retirado.`)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.relocate}/relocate`, { reason: "Reubicación: cuenta caída" }), "✅ Cliente reubicado a una cuenta sana");
   }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
