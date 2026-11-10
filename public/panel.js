@@ -723,17 +723,34 @@ const V = {
         ${isOwner() ? `<form class="inline" id="adjForm" data-id="${esc(P.tab.ledger)}"><input name="amount" inputmode="decimal" placeholder="Monto Bs (negativo para descontar)" required><input name="reason" placeholder="Motivo" required><button class="pbtn dark sm" type="submit">Ajustar saldo</button></form>` : ""}</section>` : ""}
       <section class="card"><h2>Nuevo cliente</h2><form class="form" id="cusForm"><label>Nombre<input name="name" required></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label>Email (opcional)<input name="email" type="email"></label>
         <label>Tipo<select name="kind">${opt("customer", "Cliente")}${canReview() ? opt("reseller", "Revendedor") : ""}</select></label><label class="chk"><input type="checkbox" name="consent"> Aceptó recibir avisos por WhatsApp</label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
+      ${(() => {
+        const deben = list.filter((c) => (c.owed ?? 0) > 0);
+        const totalDeben = deben.reduce((s, c) => s + (c.owed ?? 0), 0);
+        if (!list.length) return "";
+        return `<section class="card cliskpis"><div class="dk"><span>Clientes</span><b>${list.filter((c) => c.kind !== "reseller").length}</b><small>${list.filter((c) => c.kind === "reseller").length} revendedores</small></div>
+          <div class="dk ${totalDeben ? "bad" : ""}"><span>💰 Te deben</span><b>${bs(totalDeben)}</b><small>${deben.length} cliente(s)</small></div>
+          <div class="dk"><span>Con servicio activo</span><b>${list.filter((c) => c.activeServices > 0).length}</b><small>de ${list.length}</small></div></section>`;
+      })()}
       <section class="card"><form class="filters" id="cusSearch"><input name="q" placeholder="🔍 Buscar por nombre, teléfono o email" value="${esc(q)}" style="flex:5 1 240px" aria-label="Buscar"><button class="pbtn dark" type="submit">${icon("filter")}Buscar</button></form>
-      ${canReview() && list.length ? `<div class="inline bulkkind"><span class="muted">${list.filter((c) => c.kind === "reseller").length} revendedores · ${list.filter((c) => c.kind !== "reseller").length} clientes</span><button class="pbtn sm dark" type="button" data-bulkkind="all">👥 Pasar TODOS a revendedores</button></div>` : ""}
-      <p class="muted" style="margin:0;font-size:12.5px">👆 Tocá un cliente para editarlo ahí mismo (nombre, WhatsApp, notas, tipo) y cobrarle o darle su PIN.</p>
-      ${list.length ? list.map((c) => `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${c.activeServices} serv. · ${bs(c.balance)}</span></summary>
-        <form class="form" data-editcusform data-id="${esc(c.id)}">
-          <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
-          ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
-          <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
-          <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
-          <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
-        </form></details>`).join("") : `<p class="muted">${q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes."}</p>`}</section>`;
+      ${list.length ? `<div class="tabs cfil" role="tablist">${[["todos", `Todos (${list.length})`], ["deben", `💰 Me deben (${list.filter((c) => (c.owed ?? 0) > 0).length})`], ["vencer", `⏰ Vencen 7 d (${list.filter((c) => c.nextExpiry && daysLeft(c.nextExpiry) >= 0 && daysLeft(c.nextExpiry) <= 7).length})`]].map(([k, t]) => `<button type="button" role="tab" data-tab="cfilter:${k}" aria-selected="${(P.tab.cfilter ?? "todos") === k}">${t}</button>`).join("")}</div>` : ""}
+      ${canReview() && list.length ? `<div class="inline bulkkind"><button class="pbtn sm dark" type="button" data-bulkkind="all">👥 Pasar TODOS a revendedores</button></div>` : ""}
+      <p class="muted" style="margin:0;font-size:12.5px">👆 Tocá un cliente para ver su ficha, editarlo, cobrarle o darle su PIN.</p>
+      ${(() => {
+        const cf = P.tab.cfilter ?? "todos";
+        const shown = cf === "deben" ? list.filter((c) => (c.owed ?? 0) > 0) : cf === "vencer" ? list.filter((c) => c.nextExpiry && daysLeft(c.nextExpiry) >= 0 && daysLeft(c.nextExpiry) <= 7) : list;
+        if (!list.length) return `<p class="muted">${q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes."}</p>`;
+        if (!shown.length) return `<p class="muted">Ningún cliente en este filtro. 👌</p>`;
+        return shown.map((c) => { const dl = c.nextExpiry ? daysLeft(c.nextExpiry) : null; const since = Math.max(0, Math.round((Date.now() - c.createdAt) / 86400000));
+          return `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${(c.owed ?? 0) > 0 ? `<span class="pp pp-bad">debe ${bs(c.owed)}</span> ` : ""}${c.activeServices} serv.${dl !== null ? ` · ${dl < 0 ? `<span class="pp pp-bad">venció</span>` : dl <= 7 ? `<span class="pp pp-warn">${dl}d</span>` : `vence ${dl}d`}` : ""}</span></summary>
+          <div class="clistats">${[["Servicios", c.activeServices], ["Gastó", bs(c.spent ?? 0)], ["Te debe", (c.owed ?? 0) > 0 ? `<b style="color:var(--bad)">${bs(c.owed)}</b>` : bs(0)], ["Saldo a favor", bs(c.balance)], ["Renovó", `${c.renewals ?? 0}×`], ["Próximo vence", c.nextExpiry ? fdate(c.nextExpiry) : "—"], ["Cliente desde", `${since} d`]].map(([t, v]) => `<div><small>${t}</small><b>${v}</b></div>`).join("")}</div>
+          <form class="form" data-editcusform data-id="${esc(c.id)}">
+            <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
+            ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
+            <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
+            <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
+            <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
+          </form></details>`; }).join("");
+      })()}</section>`;
   },
 
   async excel() {

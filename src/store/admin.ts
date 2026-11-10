@@ -83,11 +83,19 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
   const needle = q.trim().toLowerCase();
   return Object.values(e.s.customers)
     .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle))
-    .map((c) => ({
-      ...structuredClone(c),
-      balance: e.s.ledger.reduce((s, l) => (l.customerId === c.id ? s + l.amount : s), 0),
-      activeServices: Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active").length,
-    }));
+    .map((c) => {
+      const mine = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
+      const priceOf = (a: typeof mine[number]) => a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
+      const owed = mine.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado").reduce((s, a) => s + priceOf(a), 0);
+      const renewals = Object.values(e.s.assignments).filter((a) => a.customerId === c.id).reduce((n, a) => n + (a.history?.filter((h) => h.event === "renewed").length ?? 0), 0);
+      const spent = Object.values(e.s.orders).filter((o) => o.customerId === c.id && o.status === "fulfilled" && o.kind !== "topup").reduce((s, o) => s + o.total, 0);
+      const nextExpiry = mine.length ? Math.min(...mine.map((a) => a.customerExpiresAt)) : null;
+      return {
+        ...structuredClone(c),
+        balance: e.s.ledger.reduce((s, l) => (l.customerId === c.id ? s + l.amount : s), 0),
+        activeServices: mine.length, owed, spent, renewals, nextExpiry,
+      };
+    });
 }
 
 /** Servicios asignados (sin contraseñas) para Renovar, Recordatorios y Cuentas. */
