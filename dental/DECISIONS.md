@@ -105,3 +105,18 @@ Todo mensaje (códigos, recordatorios) pasa por `outbound_messages`. Fuera de pr
 
 ### D-22 · Rol "Limpieza y apoyo" con mínimo privilegio
 El personal de limpieza registra limpieza y esterilización sin ver pacientes, agenda ni dinero: los permisos `biosafety.*` son su único acceso. Así su trabajo queda documentado (útil ante inspecciones) sin exponer datos de salud.
+
+### D-23 · Inventario: la base de datos garantiza que lotes = stock
+Los saldos de lotes y de stock no se escriben desde la aplicación: solo cambian cuando se inserta un movimiento (de solo inserción), mediante un trigger `SECURITY DEFINER`. Un `CHECK >= 0` impide los negativos. Así la invariante no depende de que cada pantalla haga bien la cuenta; está probada con 220 movimientos al azar.
+
+### D-24 · El consumo de materiales nunca bloquea la atención
+Si al realizar un tratamiento falta stock, el tratamiento se registra igual y queda un «consumo pendiente» para que la sucursal lo regularice. Bloquear la atención por un error de inventario sería peor para el paciente.
+
+### D-25 · PDF congelados al emitir
+Se guarda el primer PDF generado y se sirve siempre ese mismo archivo. Así se entrega exactamente lo que recibió el paciente o la farmacia, aunque luego cambie la plantilla, la biblioteca o los datos. Se eligió `pdfkit` porque incrusta fuentes sin otra dependencia. ⚠ Las plantillas de recetas y certificados requieren revisión legal y clínica.
+
+### D-26 · Mensajes automáticos: idempotencia por clave y simulador obligatorio
+Cada aviso tiene una `dedupe_key` única (regla + cita + momento), así el programador puede correr cuantas veces sea sin duplicar. Una reprogramación anula los avisos pendientes y crea los nuevos. Las plantillas rechazan variables clínicas en la base de datos. Fuera de producción todo queda `simulated` (D-21). ⚠ El envío real por WhatsApp requiere la cuenta verificada de la clínica y plantillas aprobadas por Meta.
+
+### D-27 · Citas recurrentes: revisión antes de guardar
+La serie se calcula y se revisa completa (conflictos y hueco libre sugerido por cada cita) antes de guardar, y se guarda en una sola transacción. Máximo 52 citas para evitar series sin fin. «Solo esta / esta y las siguientes» siguen el modelo conocido de los calendarios.

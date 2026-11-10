@@ -2,6 +2,51 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.4.0] — 2026-11-10
+
+Cinco equipos más en paralelo (ramas aisladas, migraciones 0010–0014), integrados uno por uno con todas las pruebas en verde después de cada fusión.
+
+### Agregado
+- **Inventario por sucursal y compras (B-062, B-047, B-024):**
+  - catálogo con SKU único por clínica y conversión de la unidad de compra a la unidad de uso;
+  - lotes con vencimiento y una invariante probada: el stock de la sucursal es la suma de sus lotes y de sus movimientos, y nunca queda negativo. La garantiza la base de datos: los saldos solo cambian al insertar movimientos de solo inserción;
+  - consumo FEFO o con lote elegido, ajustes con motivo, transferencias en dos pasos con diferencias registradas y conteo físico con aprobación;
+  - consumo estándar por prestación al realizarla: nunca bloquea la atención, y si falta stock queda un consumo pendiente;
+  - órdenes de compra con recepción parcial por lote y rechazo con motivo; proveedores con % a tiempo y % rechazado; sugerencia de reposición según el consumo de 60 días;
+  - valorización por lote, costo de materiales por tratamiento y alertas por sucursal (bajo mínimo, vence en 30/60/90 días, vencido, consumo pendiente);
+  - permisos nuevos `inventory.read`, `inventory.write` e `inventory.manage`.
+- **Laboratorio protésico (B-063, R2-34):**
+  - órdenes por paciente, profesional y sucursal, vinculables a un tratamiento del presupuesto, con piezas FDI, color Vita, tipo de impresión, instrucciones, fechas y costo;
+  - estados borrador → enviado → en proceso → recibido → (ajuste con motivo) → entregado/cancelado, con historial inmutable; el costo queda fijo al recibir;
+  - alertas de órdenes atrasadas y de trabajos recibidos sin cita de colocación; tarjeta en la ficha; aviso al agendar («Trabajo de laboratorio listo: corona 11»); orden imprimible con iniciales y N° de ficha;
+  - «Por pagar al laboratorio» con pagos de solo inserción, estado de cuenta por período y Excel;
+  - en honorarios, la opción «usar costo real de laboratorio» descuenta el costo de las órdenes vinculadas.
+- **Documentos PDF con huella, recetas y certificados (B-064, R2-40):**
+  - PDF generados en el servidor con el membrete de la sucursal; el pie lleva número, fecha, emisor con matrícula, huella SHA-256, código de verificación y QR;
+  - recetas con catálogo de medicamentos por clínica y aviso de alergias (no bloquea, pero exige marcar «Revisé la alergia»); certificados de atención y reposo, constancias de tratamiento y derivaciones;
+  - al emitir, el documento se congela con su PDF; para corregirlo se anula con motivo y se reemite;
+  - PDF del presupuesto aceptado, del consentimiento firmado y del recibo de pago («no es una factura fiscal»); cada descarga queda auditada;
+  - página pública `/verificar/:código` que confirma si el documento existe, está íntegro y vigente, sin mostrar datos del paciente.
+- **Mensajes automáticos (B-048, B-060):**
+  - reglas por clínica y sucursal (al agendar, antes de la cita, después de la visita, control pendiente, presupuesto sin respuesta) con plantillas versionadas. Las variables se validan al guardar y nunca llevan datos clínicos;
+  - programador idempotente: no duplica; una reprogramación anula y recrea los avisos; una cancelación los anula;
+  - horario de silencio (20:00–08:00), tope diario por paciente y envío solo con el consentimiento de esa finalidad; la baja se hace con un clic en el portal o respondiendo «BAJA»;
+  - enlace de un solo uso `/c/:token` para confirmar la cita o pedir reprogramar;
+  - adaptador de WhatsApp Cloud API (solo en producción y con credenciales) y webhook firmado; panel de entregas con filtros y reintento. Fuera de producción todo queda simulado.
+- **Agenda y paciente (B-049, B-015, R2-18, R2-19, R2-30):**
+  - tipos de cita por clínica (color, duración, prestación sugerida) que precargan la cita;
+  - vista semanal por sucursal con filtros, mini calendario con ocupación y color por tipo, profesional o consultorio;
+  - arrastrar y soltar en día y semana (también con pulsación larga en pantallas táctiles), con reversión ante conflicto y «Deshacer» por 8 s;
+  - citas recurrentes cada N semanas o meses (máx. 52) con revisión previa de conflictos, hueco libre sugerido, guardado en una transacción y acciones «solo esta / esta y las siguientes»;
+  - historial del paciente (línea de tiempo) con citas, notas, odontograma, presupuestos, cobros, documentos, controles y mensajes, filtrado según el rol.
+- **Asistente:** herramientas nuevas para controles, sala de espera, estado de cajas y alertas de bioseguridad. El servidor rechaza proponer citas en el pasado o en horarios que la agenda no acepta (B-050).
+
+### Corregido
+- Dos pruebas e2e dependían de la fecha del día (la semilla demo ocupaba el horario que usaban). La semilla deja libre 12:00–14:30 y la prueba de arrastre busca un día con huecos.
+
+### Dependencias
+- `pdfkit` 0.17 (generación de PDF con fuentes incrustadas). Fuente Inter en subconjunto latino, licencia OFL incluida en `server/assets/fonts/`.
+
 ## [0.3.0] — 2026-11-10
 
 Etapa construida por cinco equipos en paralelo (ramas aisladas integradas con todas las pruebas en verde) más el integrador. Se basa en la segunda ronda de investigación (`INVESTIGACION_COMPETIDORES.md` §9).

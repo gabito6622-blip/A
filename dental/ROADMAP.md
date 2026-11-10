@@ -11,6 +11,8 @@ Prioridades: **P0** bloquea el piloto · **P1** el piloto lo necesita en el prim
 
 ## Etapa 1 — Piloto controlado en la clínica (objetivo: 4–6 semanas)
 
+> **Avance v0.4 (10-nov-2026):** ✅ todos los P1 de esta etapa salvo los archivos clínicos (B-012) y el envío real por WhatsApp (adaptador listo; falta la cuenta de Meta de la clínica): periodontograma, inventario, honorarios, sala de espera, vista semanal, recetas y PDF. Además: laboratorio, mensajes automáticos simulados, citas recurrentes e historial del paciente. Lo que sigue dependiendo de la clínica: revisión humana, staging (requiere autorización), plantilla de importación, precios reales y capacitación.
+>
 > **Avance v0.2 (10-nov-2026):** ✅ verificación en dos pasos, ✅ recuperación de contraseña, ✅ consentimientos versionados y firmados, ✅ sala de espera, ✅ idempotencia uniforme. Pendiente de la clínica: revisión humana, staging (requiere autorización), plantilla de importación y capacitación.
 
 **P0**

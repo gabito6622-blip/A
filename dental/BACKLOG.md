@@ -30,22 +30,33 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-044 | ✅ v0.3 (costos de laboratorio: monto fijo por regla hasta que exista el módulo de laboratorio) | **Liquidación de honorarios** con reglas por profesional y categoría, base producción o cobro, descuento de laboratorio y materiales, períodos cerrados (FI-03, reemplaza a B-014) | Cierre inmutable; los ajustes van al período siguiente; Excel y PDF |
 | B-045 | ✅ v0.3 (pendiente: actualizar el odontograma planificado al versionar; aprobación de descuentos por rol) | **Presupuesto v2:** descuento global prorrateado y versiones que reemplazan a la anterior; enlace público verificado con registro de "visto"; embudo con días en cada estado (R2-12 a R2-16) | Caso 60 + (60 − 10 %) cuadra al centavo; la v1 no se puede aceptar si existe una v2 |
 | B-046 | ✅ v0.3 (pendiente: pago con QR real y proveedor de WhatsApp real) | **Portal del paciente y reserva online** (R1 a R11 y R17 a R21 del anexo G) | Embudo en el celular con el motor de la agenda; código de un solo uso; confirmación con .ics, mapa, reprogramar y cancelar; QR pendiente hasta verificarse |
-| B-047 | P1 | **Inventario con la invariante lotes = stock**, transferencia en dos pasos, conteo físico y consumo por prestación (IN-01 a IN-06, amplía B-013) | Prueba de la invariante; SKU único; errores junto al campo |
-| B-048 | P1 | **WhatsApp con modo de pruebas obligatorio** y reglas sin duplicados al reprogramar (WA-01 a WA-06, amplía B-010) | Fuera de producción no sale ningún mensaje real; una reprogramación anula los avisos pendientes |
-| B-049 | P1 | **Tipos de cita** con color y duración, y **línea de tiempo del paciente** (R2-18, R2-19) | Todas las operaciones aparecen en la línea de tiempo con la hora local |
-| B-050 | P1 | **Guardas del asistente** (R2-20) | El servidor rechaza propuestas con IDs inexistentes; prueba |
+| B-047 | ✅ v0.4 | **Inventario con la invariante lotes = stock**, transferencia en dos pasos, conteo físico y consumo por prestación (IN-01 a IN-06, amplía B-013) | Prueba de la invariante; SKU único; errores junto al campo |
+| B-048 | ✅ v0.4 (pendiente: cuenta real de WhatsApp) | **WhatsApp con modo de pruebas obligatorio** y reglas sin duplicados al reprogramar (WA-01 a WA-06, amplía B-010) | Fuera de producción no sale ningún mensaje real; una reprogramación anula los avisos pendientes |
+| B-049 | ✅ v0.4 | **Tipos de cita** con color y duración, y **línea de tiempo del paciente** (R2-18, R2-19) | Todas las operaciones aparecen en la línea de tiempo con la hora local |
+| B-050 | ✅ v0.4 | **Guardas del asistente** (R2-20) | El servidor rechaza propuestas con IDs inexistentes; prueba |
 | B-051 | P2 | Citas recurrentes, check-in con QR, laboratorio, tareas internas, segmentos, relaciones familiares, recetas que se congelan al emitir, exportar todos los informes (R2-30 a R2-44) | Según cada requisito del anexo H |
 
 ## Nuevos pendientes detectados en v0.3
 | ID | Prioridad | Ítem |
 |---|---|---|
-| B-060 | P1 | Proveedor real de WhatsApp Business (Cloud API) sobre la bandeja de mensajes: plantillas aprobadas, botones Confirmar/Reprogramar, entregas y baja (B-048) |
+| B-060 | P1 (adaptador y webhook listos en v0.4; falta la cuenta de Meta verificada de la clínica) | Proveedor real de WhatsApp Business (Cloud API) sobre la bandeja de mensajes: plantillas aprobadas, botones Confirmar/Reprogramar, entregas y baja (B-048) |
 | B-061 | P1 | Pago con QR real: proveedor o banco con QR Simple, referencia única y conciliación (R17 y R18 del anexo G) |
-| B-062 | P1 | Inventario por sucursal con la invariante lotes = stock (B-047) |
-| B-063 | P2 | Laboratorio protésico; costos reales en la liquidación de honorarios |
-| B-064 | P2 | PDF generados en el servidor con hash (presupuesto aceptado, consentimientos, recetas) |
+| B-062 | ✅ v0.4 | Inventario por sucursal con la invariante lotes = stock (B-047) |
+| B-063 | ✅ v0.4 | Laboratorio protésico; costos reales en la liquidación de honorarios |
+| B-064 | ✅ v0.4 | PDF generados en el servidor con hash (presupuesto aceptado, consentimientos, recetas) |
 | B-065 | P2 | "Citas pasadas sin cerrar" también en el Inicio; exportar los controles a Excel; indicador "no contactar" |
 | B-066 | P2 | Orden de sondaje del periodontograma configurable por clínica (hoy se guarda en el navegador) |
+
+## Nuevos pendientes detectados en v0.4
+| ID | Prioridad | Ítem |
+|---|---|---|
+| B-070 | P1 | Mensajes: enviar al proveedor desde una cola fuera de la transacción de la clínica; bandeja de respuestas (no «BAJA») para recepción |
+| B-071 | P1 | Revisión legal y clínica de las plantillas de recetas y certificados y de las posologías sugeridas |
+| B-072 | P2 | Inventario: informe de consumo real frente al estándar, exportar a Excel, anular una transferencia en tránsito, reponer materiales al anular un cargo |
+| B-073 | P2 | Laboratorio: anular un pago, costo de un reenvío, adjuntos reales, costo de laboratorio en la rentabilidad por sucursal |
+| B-074 | P2 | Agenda: cambiar la duración arrastrando el borde; prueba automática del arrastre táctil; «Deshacer» sin sumar una reprogramación |
+| B-075 | P2 | Recetas: aviso de interacciones con la medicación actual; plantillas de certificados editables por clínica |
+| B-076 | P3 | Laboratorio e inventario en el celular: tablas como tarjetas en lugar de desplazamiento horizontal dentro de la tarjeta |
 
 ## P1
 

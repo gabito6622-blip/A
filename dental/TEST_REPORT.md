@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.3
+# Informe de pruebas — v0.4
 
 - **Fecha:** 10-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,9 +8,9 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **256/256**, 22 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **20/20** |
-| Recorrido automático de diseño (5 roles × escritorio 1440 px y celular 390 px, todas las pantallas del menú y las pestañas de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **368/368**, 27 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **28/28** (más 1 omitida a propósito en el proyecto de escritorio) |
+| Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
 | Revisión visual | Playwright, 22 capturas (escritorio 1440 px y celular 390 px), 8 pantallas por rol | ✅ sin errores de consola, salvo el 401 esperado al cargar sin sesión |
@@ -113,6 +113,17 @@ Las pruebas de integración usan la API real (`fastify.inject`) contra una base 
 
 Todas incluyen pruebas de **aislamiento entre clínicas** para sus tablas nuevas.
 
+### Módulos de v0.4 (escritos por cada equipo y re-ejecutados juntos tras cada fusión)
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `inventory.test.ts` | 25 | Invariante lotes = stock = movimientos como propiedad (220 movimientos al azar más conteos), FEFO, nunca negativos, transferencia en tránsito, aprobación del conteo, compra con recepción parcial y rechazo, consumo automático con falta de stock, permisos y aislamiento en las 16 tablas |
+| `lab.test.ts` | 19 | Transiciones de estado válidas e inválidas, costo fijo al recibir, pagos sin exceder el costo ni pagar órdenes no recibidas, honorarios con costo real al centavo, aislamiento por API, SQL y RLS |
+| `documents.test.ts` | 16 | Texto real del PDF (lector propio), huella y verificación pública sin datos personales, inmutabilidad, anulación y reemisión, aviso de alergia, descargas auditadas, permisos y aislamiento |
+| `messaging.test.ts` | 25 | Variables clínicas rechazadas, idempotencia del programador, reprogramar anula y recrea, horario de silencio, tope diario, consentimiento por finalidad, baja por «BAJA» y por el portal, token de un solo uso, firma del webhook, aislamiento |
+| `agenda-plus.test.ts` | 25 | Recurrencia como función pura, conflictos de serie con hueco sugerido, límite de 52, «solo esta / esta y las siguientes», tipos de cita, historial sin datos clínicos para recepción, cursor y hora local, aislamiento |
+
+End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.spec.ts`, `documentos.spec.ts`, `mensajes-automaticos.spec.ts` (aviso simulado → `/c/:token` → cita confirmada) y `agenda-semana.spec.ts` (3: serie con conflicto, arrastre con conflicto y Deshacer, historial con filtros).
+
 ### Seguridad y consentimientos (v0.2, `tests/security.test.ts` con 15 pruebas, más 4 end-to-end)
 - **TOTP:** cumple los vectores oficiales del RFC 6238 (T=59 s → 287082; T=1111111109 → 081804) y tolera ±30 s. Se rechazan los códigos viejos.
 - **Cifrado AES-256-GCM:** con otra clave o con datos alterados, falla.
@@ -160,13 +171,17 @@ Todas incluyen pruebas de **aislamiento entre clínicas** para sus tablas nuevas
 | (v0.2) El texto de ayuda de un campo formaba parte de su nombre accesible ("Nueva contraseña Mínimo 10…") | La ayuda queda fuera de la etiqueta |
 | (v0.2) La plantilla de recordatorios no nombraba al paciente | Las plantillas comienzan con "Yo, {paciente}" |
 | (v0.2, CI) El `pg_dump` del servidor de CI era más nuevo que PostgreSQL 16 y la restauración fallaba | CI con PostgreSQL 17 y requisito de versión documentado |
+| (v0.4) Dos pruebas e2e fallaban según el día: la semilla demo ocupaba el horario que usaban | La semilla deja libre 12:00–14:30 y la prueba de arrastre busca un día con huecos libres |
+| (v0.4) Equipo D detectó que «60.00» se interpretaba como 6000 Bs | Corregido el analizador de montos, con prueba |
 | El pool del superadmin forzaba el rol de la app y no veía datos | El rol se fija solo en el pool de la app, como parámetro de conexión |
 
 ## Lo que NO está probado todavía (riesgo conocido)
 
 - **Carga y rendimiento.** Probado solo con la demo (90 pacientes, ~1100 citas). Pendiente una prueba con 100 000 pacientes y 5 años de citas.
 - **Correo real.** El envío por SMTP no se probó contra un servidor; las pruebas usan un buzón en memoria.
-- **Impresión de documentos.** La ventana de impresión no tiene una prueba automatizada.
+- **Impresión de documentos.** Los PDF del servidor sí están probados (se lee su texto), pero la ventana de impresión del navegador no.
+- **WhatsApp real.** El adaptador de Cloud API y el webhook están probados con firmas y respuestas simuladas; no se envió ningún mensaje real (no hay cuenta de la clínica).
+- **Arrastre táctil** en la agenda: implementado, sin prueba automática.
 - **Asistente con IA real.** No hay clave en este entorno, así que el flujo del chat con el modelo no se ejecutó. Sí están probadas las herramientas, los permisos y la degradación sin clave.
 - **Pantallas de Configuración, Reportes, Asistente y Plataforma.** Están compiladas y revisadas visualmente, pero sin e2e propios. Su API sí está probada.
 - **Navegadores** distintos de Chromium (Safari iOS, Firefox).

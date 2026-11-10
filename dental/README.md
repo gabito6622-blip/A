@@ -17,6 +17,11 @@ Software de gestión para clínicas odontológicas, pensado para una red de 5 su
 - Presupuestos v2 con enlace para el paciente.
 - Reserva online y portal del paciente.
 - Bioseguridad (limpieza y esterilización).
+- Inventario por sucursal con lotes, vencimientos, transferencias, conteos y compras.
+- Laboratorio protésico con costos que se descuentan en los honorarios.
+- Recetas, certificados y documentos PDF con huella y verificación pública.
+- Mensajes automáticos (simulados fuera de producción) con confirmación por enlace.
+- Vista semanal, tipos de cita, citas recurrentes e historial del paciente.
 - Asistente con herramientas.
 - Superadministrador SaaS.
 
