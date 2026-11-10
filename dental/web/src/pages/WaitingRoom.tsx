@@ -6,6 +6,9 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { addDays, fmtDateLong, fmtTime, laPazISO, localDate } from "../lib/format";
 import { Empty, Loading, StatusBadge, useToast } from "../components/ui";
+import { NextControlDialog } from "../components/Recalls";
+import { UnclosedAppointments } from "../components/VisitQuality";
+import { AppointmentDrawer } from "./Agenda";
 
 interface Appt {
   id: string; status: string; statusLabel: string; startsAt: string; endsAt: string; patientId: string; patientName: string;
@@ -38,6 +41,9 @@ export function WaitingRoomPage() {
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState<string | null>(null);
   const [showOthers, setShowOthers] = useState(false);
+  const [nextControl, setNextControl] = useState<string | null>(null);
+  const [drawerId, setDrawerId] = useState<string | null>(null);
+  const [unclosedKey, setUnclosedKey] = useState(0);
   const { reload } = appts;
 
   useEffect(() => {
@@ -56,6 +62,7 @@ export function WaitingRoomPage() {
       await api.post(`/api/appointments/${a.id}/status`, { status: to, reason });
       toast(`${a.patientName}: ${to === "arrived" ? "en sala de espera" : to === "in_progress" ? "en atención" : to === "completed" ? "atendido" : to === "no_show" ? "no asistió" : to === "cancelled" ? "cita cancelada" : "confirmada"}`);
       await reload();
+      if (to === "completed") setNextControl(a.id);
     } catch (e: any) {
       toast(e.message, true);
     } finally { setBusy(null); }
@@ -74,8 +81,10 @@ export function WaitingRoomPage() {
           <h1>Sala de espera</h1>
           <p className="sub">{branchName} · {fmtDateLong(laPazISO(today, "12:00"))}</p>
         </div>
-        <button className="btn" onClick={() => { reload(); setNow(Date.now()); }}><RefreshCw size={16} />Actualizar</button>
+        <button className="btn" onClick={() => { reload(); setNow(Date.now()); setUnclosedKey((k) => k + 1); }}><RefreshCw size={16} />Actualizar</button>
       </div>
+
+      <UnclosedAppointments key={`${branchId}-${unclosedKey}`} branchId={branchId} onCompleted={setNextControl} onReschedule={setDrawerId} onResolved={reload} />
 
       {appts.loading && !appts.data ? <div className="card"><Loading rows={6} /></div> : (
         <div className="waiting-board" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", alignItems: "start" }}>
@@ -91,7 +100,8 @@ export function WaitingRoomPage() {
                   {items.length === 0 && <p className="muted small" style={{ padding: "8px 4px" }}>Sin pacientes.</p>}
                   {items.map((a) => {
                     const lateMin = Math.floor((now - Date.parse(a.startsAt)) / 60_000);
-                    const isLate = col.id === "pending" && lateMin > 0;
+                    const isLate = col.id === "pending" && lateMin > 0 && lateMin <= 60;
+                    const pastHour = col.id === "pending" && lateMin > 60;
                     const waitMin = a.arrivedAt ? Math.floor((now - Date.parse(a.arrivedAt)) / 60_000) : null;
                     return (
                       <article key={a.id} className="card" style={{ padding: 12, borderLeft: `4px solid ${a.dentistColor ?? "var(--accent)"}` }}>
@@ -99,6 +109,7 @@ export function WaitingRoomPage() {
                           <b style={{ fontSize: 15 }}>{fmtTime(a.startsAt)}</b>
                           <div className="row" style={{ gap: 6 }}>
                             {isLate && <span className="badge warn">Retrasado {lateMin} min</span>}
+                            {pastHour && <span className="badge">Hora pasada</span>}
                             {col.id === "waiting" && waitMin !== null && waitMin >= 0 && <span className={`badge ${waitMin >= 20 ? "warn" : ""}`}>Espera {waitMin} min</span>}
                             {col.id === "pending" && <StatusBadge status={a.status} label={a.statusLabel} />}
                           </div>
@@ -150,6 +161,9 @@ export function WaitingRoomPage() {
         </div>
       )}
       <p className="muted small">Se actualiza automáticamente cada 30 segundos.</p>
+      {nextControl && <NextControlDialog appointmentId={nextControl} onClose={() => setNextControl(null)} />}
+      {drawerId && <AppointmentDrawer id={drawerId} onClose={() => { setDrawerId(null); setUnclosedKey((k) => k + 1); }} onChanged={reload}
+        onCompleted={(id) => { setDrawerId(null); setNextControl(id); }} />}
     </div>
   );
 }

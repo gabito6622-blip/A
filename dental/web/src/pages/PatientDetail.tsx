@@ -11,6 +11,7 @@ import { PatientFormDialog } from "./Patients";
 import { BudgetEditor, BudgetDetailDialog } from "./Budgets";
 import { PaymentDialog } from "./Cash";
 import { ConsentsPanel } from "../components/Consents";
+import { PatientRecallsCard } from "../components/Recalls";
 
 type Tab = "resumen" | "odontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
 
@@ -87,6 +88,7 @@ export function PatientDetailPage() {
             <Row k="Notas" v={pt.notes} />
             <Row k="Consentimiento actualizado" v={pt.consentUpdatedAt ? fmtDateTime(pt.consentUpdatedAt) : null} />
           </div>
+          {can("agenda.read") && <PatientRecallsCard patientId={id!} />}
         </div>
       )}
       {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} />}

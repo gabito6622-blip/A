@@ -524,7 +524,7 @@ function ProceduresTab() {
         {!p.data ? <Loading /> : rows.length === 0 ? <Empty>Sin prestaciones.</Empty> : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Código</th><th>Prestación</th><th className="hide-mobile">Categoría</th><th className="num">Precio</th><th className="hide-mobile num">Duración</th><th className="hide-mobile">Alcance</th><th>Estado</th><th /></tr></thead>
+              <thead><tr><th>Código</th><th>Prestación</th><th className="hide-mobile">Categoría</th><th className="num">Precio</th><th className="hide-mobile num">Duración</th><th className="hide-mobile num">Control</th><th className="hide-mobile">Alcance</th><th>Estado</th><th /></tr></thead>
               <tbody>
                 {rows.map((x) => (
                   <tr key={x.id}>
@@ -533,6 +533,7 @@ function ProceduresTab() {
                     <td className="hide-mobile">{x.category}</td>
                     <td className="num">{bs(x.priceCents)}</td>
                     <td className="hide-mobile num">{x.durationMin} min</td>
+                    <td className="hide-mobile num">{x.recallMonths ? `${x.recallMonths} ${x.recallMonths === 1 ? "mes" : "meses"}` : "—"}</td>
                     <td className="hide-mobile">{SCOPES.find((s) => s.id === x.scope)?.label ?? x.scope}</td>
                     <td>{x.active ? <span className="badge ok">Activa</span> : <span className="badge">Inactiva</span>}</td>
                     <td className="num"><button className="btn btn-sm" onClick={() => setEdit(x)}><Pencil size={14} />Editar</button></td>
@@ -555,16 +556,20 @@ function ProcedureDialog({ proc, onClose, onSaved }: { proc: any; onClose: () =>
     code: proc.code ?? "", name: proc.name ?? "", category: proc.category ?? "General",
     price: proc.priceCents != null ? toBsInput(proc.priceCents) : "", durationMin: proc.durationMin ?? 30,
     scope: proc.scope ?? "tooth", odontogramCondition: proc.odontogramCondition ?? "", active: proc.active ?? true,
+    recallMonths: proc.recallMonths != null ? String(proc.recallMonths) : "",
   });
+  const recallInvalid = f.recallMonths !== "" && !(/^\d+$/.test(f.recallMonths) && Number(f.recallMonths) >= 1 && Number(f.recallMonths) <= 60);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
     const priceCents = parseBs(String(f.price));
     if (!Number.isFinite(priceCents) || priceCents < 0) { setErr("Precio inválido"); return; }
+    if (recallInvalid) return;
     setBusy(true); setErr(null);
     const body = {
       code: f.code, name: f.name, category: f.category, priceCents, durationMin: Number(f.durationMin), scope: f.scope,
       odontogramCondition: f.odontogramCondition || null, active: f.active,
+      recallMonths: f.recallMonths === "" ? null : Number(f.recallMonths),
     };
     try {
       if (isNew) await api.post("/api/procedures", body); else await api.put(`/api/procedures/${proc.id}`, body);
@@ -594,6 +599,11 @@ function ProcedureDialog({ proc, onClose, onSaved }: { proc: any; onClose: () =>
               {CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </Field>
+          <Field label="Próximo control (meses)" hint="Al marcar la cita como atendida se propone el control a estos meses. Vacío = no se propone un intervalo propio (se sugieren 6).">
+            <input className="input" type="number" min={1} max={60} inputMode="numeric" value={f.recallMonths} aria-invalid={recallInvalid}
+              onChange={(e) => setF({ ...f, recallMonths: e.target.value })} placeholder="Sin control" />
+          </Field>
+          {recallInvalid && <div className="alert danger small span-2" role="alert">El intervalo del control debe ser un número entero entre 1 y 60 meses.</div>}
           <label className="check span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />Activa (disponible para presupuestos y citas)</label>
         </div>
       </div>

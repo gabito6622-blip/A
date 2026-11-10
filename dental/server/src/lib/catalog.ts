@@ -22,6 +22,11 @@ export const DEFAULT_PROCEDURES: [code: string, name: string, category: string, 
   ["EST-01", "Blanqueamiento en consultorio", "Estética", 1200, 60, "mouth", null],
 ];
 
+/** Meses sugeridos hasta el próximo control, por código de prestación (cada clínica los ajusta). */
+export const DEFAULT_RECALL_MONTHS: Record<string, number> = {
+  "PRE-01": 6, "PRE-02": 6, "PER-01": 3, "END-01": 12, "END-02": 12, "IMP-01": 6, "ORT-01": 1, "PRO-01": 12, "PRO-02": 12,
+};
+
 export async function seedCatalog(c: Client, clinicId: string) {
   for (const [code, name, category, price, minutes, scope, cond] of DEFAULT_PROCEDURES) {
     await c.query(
@@ -29,5 +34,8 @@ export async function seedCatalog(c: Client, clinicId: string) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (clinic_id, code) DO NOTHING`,
       [clinicId, code, name, category, price * 100, minutes, scope, cond],
     );
+  }
+  for (const [code, months] of Object.entries(DEFAULT_RECALL_MONTHS)) {
+    await c.query("UPDATE procedures SET recall_months = $3 WHERE clinic_id = $1 AND code = $2 AND recall_months IS NULL", [clinicId, code, months]);
   }
 }
