@@ -38,8 +38,10 @@ const url = "file://" + path.join(__dirname, "promo.html");
     for (;;) {
       const f = next++;
       if (f >= total) break;
+      const file = path.join(out, `f${String(f).padStart(5, "0")}.png`);
+      if (fs.existsSync(file) && fs.statSync(file).size > 0) { done++; continue; }   // retoma un render cortado
       await page.evaluate((t) => window.seek(t), f / FPS);
-      await page.screenshot({ path: path.join(out, `f${String(f).padStart(5, "0")}.png`) });
+      await page.screenshot({ path: file });
       if (++done % 100 === 0) console.log(`${done}/${total} · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     }
   }));
