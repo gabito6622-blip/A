@@ -104,6 +104,43 @@ test('instalar(): prueba aislada pasa, se borra, y el formulario definitivo qued
   assert.equal(g.archivos.size, antes);
 });
 
+test('carpeta nueva "Encuesta Gabriel Store" y archivos existentes intactos', () => {
+  const g = crearGoogleFalso();
+  // Lo que el usuario ya tenía antes: una carpeta con el mismo nombre, un formulario y una hoja.
+  const suCarpeta = g.globales.DriveApp.createFolder('Encuesta Gabriel Store');
+  const suForm = g.globales.FormApp.create('Mi formulario de siempre');
+  suForm.addTextItem().setTitle('Pregunta mía');
+  const suHoja = g.globales.SpreadsheetApp.create('Mis ventas');
+  suHoja.getSheets()[0].getRange(1, 1, 1, 2).setValues([['Cliente', 'Monto']]);
+  const antes = JSON.stringify([...g.archivos.entries()].map(([id, a]) => [id, a.nombre, a.papelera, a.padres]));
+  const datosAntes = JSON.stringify([suForm._items.map((i) => i._titulo), suHoja.getSheets()[0]._datos]);
+
+  const gs = cargarScript(g.globales);
+  gs.instalar();
+  gs.crearReporteParaCompartir();
+  gs.exportarCsvAnonimo();
+
+  // Se creó una carpeta NUEVA (distinta de la del usuario) y se avisó.
+  const carpetaId = g.propiedades.get('FOLDER_ID');
+  assert.notEqual(carpetaId, suCarpeta.getId());
+  assert.equal(g.carpetas.get(carpetaId).nombre, 'Encuesta Gabriel Store');
+  assert.ok(g.registro.some((l) => l.startsWith('Aviso: ya existe otra carpeta')));
+  assert.ok(g.registro.some((l) => l.startsWith('CARPETA DE DRIVE:')));
+
+  // Todo lo que creó el script quedó dentro de la carpeta nueva (también la copia de prueba).
+  const idsUsuario = new Set(JSON.parse(antes).map((x) => x[0]));
+  const creados = [...g.archivos.entries()].filter(([id]) => !idsUsuario.has(id));
+  assert.equal(creados.length, 6); // prueba (form + hoja), definitivo (form + hoja), reporte y CSV
+  for (const [, a] of creados) assert.deepEqual(a.padres, [carpetaId], a.nombre);
+
+  // Los archivos del usuario no cambiaron en nada.
+  const despues = JSON.stringify([...g.archivos.entries()].filter(([id]) => idsUsuario.has(id))
+    .map(([id, a]) => [id, a.nombre, a.papelera, a.padres]));
+  assert.equal(despues, antes);
+  assert.equal(JSON.stringify([suForm._items.map((i) => i._titulo), suHoja.getSheets()[0]._datos]), datosAntes);
+  assert.equal(g.carpetas.get(suCarpeta.getId()).descripcion, '');
+});
+
 test('análisis con respuestas ficticias: conteos, intención, privacidad y pilotos', () => {
   const { g, gs, form, ss } = instalarConFalso();
   responder(gs, form, {

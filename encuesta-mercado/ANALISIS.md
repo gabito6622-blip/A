@@ -22,7 +22,7 @@ Además:
 1. En Apps Script ejecutá `actualizarAnalisis`.
 2. Revisá la pestaña **Pilotos (privado)** y marcá **Demo realizada / Prueba iniciada / Pagó o dejó anticipo** solo con hechos reales.
 3. Leé la pestaña **Informe**: ya tiene las 7 respuestas calculadas automáticamente.
-4. Para un análisis completo con Claude, ejecutá `exportarCsvAnonimo`. Crea en tu Drive un archivo `gabriel-store-encuesta-anonima-AAAA-MM-DD.csv` **sin nombres, teléfonos ni ciudad** (cada persona es R001, R002...). Descargalo.
+4. Para un análisis completo con Claude, ejecutá `exportarCsvAnonimo`. Crea en la carpeta **Encuesta Gabriel Store** un archivo `gabriel-store-encuesta-anonima-AAAA-MM-DD.csv` **sin nombres, teléfonos ni ciudad** (cada persona es R001, R002...). Descargalo.
 
 ## 2. Pedir el análisis a Claude
 

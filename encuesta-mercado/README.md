@@ -2,10 +2,13 @@
 
 Un Google Apps Script que crea **en tu cuenta de Google**:
 
+- una **carpeta nueva** en tu Google Drive llamada **Encuesta Gabriel Store**, donde queda todo lo demás;
 - el **Google Forms** "Estudio de mercado para revendedores de streaming" (5 secciones, validaciones, barra de progreso y pensado para celular);
 - el **Google Sheets** de respuestas, vinculado al formulario;
 - las pestañas **Inicio** (enlaces y mensaje para WhatsApp), **Análisis** (panel con tablas y gráficos), **Informe** (las 7 respuestas para Gabriel Store) y **Pilotos (privado)**;
 - disparadores que **actualizan el análisis solos** con cada respuesta y una vez por día.
+
+El script **solo crea archivos nuevos** y solo modifica los que creó él (guarda sus IDs). No abre, cambia ni borra tus formularios, hojas, carpetas ni proyectos existentes. Si ya tenés una carpeta llamada "Encuesta Gabriel Store", no la toca: crea otra aparte y lo avisa en el registro.
 
 Antes de crear el formulario definitivo, el script arma una **copia de prueba**, le envía una respuesta, comprueba que llegue a la hoja y que el análisis la procese, y manda esa copia a la papelera. El formulario definitivo arranca con **0 respuestas**.
 
@@ -23,26 +26,46 @@ Antes de crear el formulario definitivo, el script arma una **copia de prueba**,
 
 El editor de Apps Script no funciona bien en el celular. Usá una computadora con la cuenta de Google donde querés el formulario.
 
-1. Entrá a <https://script.google.com> y tocá **Nuevo proyecto**.
-2. Cambiá el nombre del proyecto (arriba a la izquierda) a `Gabriel Store - Estudio de mercado`.
-3. Borrá todo el contenido de `Código.gs` y pegá **todo** el archivo [`encuesta-gabriel-store.gs`](encuesta-gabriel-store.gs) (en GitHub: botón **Raw** o el ícono **Copy raw file**).
-4. Guardá (ícono del disquete o `Ctrl + S`).
-5. En la barra de arriba elegí la función **`instalar`** y tocá **Ejecutar**.
-6. Google te va a pedir autorización. Como el script es tuyo y no está publicado, aparece "Google no verificó esta app":
-   **Revisar permisos → tu cuenta → Configuración avanzada → Ir a Gabriel Store - Estudio de mercado (no seguro) → Permitir**.
-   Permisos que pide y por qué:
-   - Formularios: crear el formulario.
-   - Hojas de cálculo: crear la hoja y el panel.
-   - Drive: mandar a la papelera la copia de prueba y crear el CSV anónimo.
-   - Ejecutarse cuando no estás presente: actualizar el análisis cuando llega una respuesta.
-7. Esperá a que termine (1 a 2 minutos). En el **Registro de ejecución** tenés que ver, en este orden:
-   - `Estructura OK: 22 preguntas en 5 secciones.`
-   - `PRUEBA AISLADA: OK. ...`
-   - `Listo. Formulario definitivo con 0 respuestas.`
-   - `ENLACE PARA RESPONDER`, `ENLACE CORTO`, `ENLACE PARA EDITAR`, `GOOGLE SHEETS`, `COMPARTIR POR WHATSAPP`.
+**Paso A — Crear un proyecto nuevo (no uses uno que ya tengas)**
 
-   Si aparece `PRUEBA FALLIDA` o `ESTRUCTURA INCORRECTA`, **no se creó el formulario definitivo**. Copiá el mensaje completo y pasámelo.
-8. Si volvés a ejecutar `instalar`, no crea nada nuevo: solo vuelve a mostrar los enlaces. Para verlos en cualquier momento ejecutá `mostrarEnlaces`. También están en la pestaña **Inicio** de la hoja.
+1. Entrá a <https://script.google.com> con la cuenta de Google donde querés la encuesta.
+2. Tocá **+ Nuevo proyecto**. Se abre un proyecto vacío llamado "Proyecto sin título". **No abras ni edites tus proyectos existentes**: este script va en un proyecto aparte.
+3. Tocá "Proyecto sin título" (arriba a la izquierda) y renombralo `Encuesta Gabriel Store`.
+
+**Paso B — Pegar el código**
+
+4. Abrí [`encuesta-gabriel-store.gs`](encuesta-gabriel-store.gs) en GitHub y copiá **todo** el contenido (botón **Copy raw file**).
+5. En el proyecto nuevo, en el archivo `Código.gs`, borrá las 3 líneas de ejemplo (`function myFunction() {}`) y pegá el código.
+6. Guardá con el ícono del disquete o `Ctrl + S`.
+
+**Paso C — Ejecutar y autorizar**
+
+7. En la barra de arriba, en el selector de funciones, elegí **`instalar`** y tocá **▷ Ejecutar**.
+8. Aparece "Se requiere autorización" → **Revisar permisos** → elegí tu cuenta.
+9. Como el script es tuyo y no está publicado, Google muestra "**Google no verificó esta app**". Tocá **Configuración avanzada** → **Ir a Encuesta Gabriel Store (no seguro)**. Es seguro porque el código es el que acabás de pegar y corre solo en tu cuenta.
+10. Revisá la lista de permisos y tocá **Permitir**:
+
+    | Permiso que muestra Google | Para qué lo usa |
+    |---|---|
+    | Ver, editar, crear y borrar tus formularios | Crear **este** formulario. |
+    | Ver, editar, crear y borrar tus hojas de cálculo | Crear **esta** hoja y el panel. |
+    | Ver, editar, crear y borrar tus archivos de Drive | Crear la carpeta, mover ahí los archivos nuevos, mandar a la papelera la copia de prueba y crear el CSV anónimo. |
+    | Ejecutarse cuando no estás presente | Actualizar el análisis cuando llega una respuesta. |
+
+    Google describe los permisos de forma amplia ("todos tus archivos"), pero el código solo usa los archivos que crea. Podés quitarle el acceso cuando quieras en <https://myaccount.google.com/permissions>.
+
+**Paso D — Comprobar el resultado**
+
+11. Esperá 1 a 2 minutos. En el **Registro de ejecución** tenés que ver, en este orden:
+    - `0/4 Carpeta de Drive: Encuesta Gabriel Store → ...`
+    - `Estructura OK: 22 preguntas en 5 secciones.` (aparece dos veces: en la prueba y en el definitivo)
+    - `PRUEBA AISLADA: OK. ...`
+    - `Listo. Formulario definitivo con 0 respuestas, guardado junto a la hoja en la carpeta "Encuesta Gabriel Store".`
+    - `ENLACE PARA RESPONDER`, `ENLACE CORTO`, `ENLACE PARA EDITAR`, `GOOGLE SHEETS`, `CARPETA DE DRIVE`, `COMPARTIR POR WHATSAPP`.
+
+    Si aparece `PRUEBA FALLIDA` o `ESTRUCTURA INCORRECTA`, **no se creó el formulario definitivo**. Copiá el mensaje completo y pasámelo.
+12. En Google Drive vas a ver la carpeta **Encuesta Gabriel Store** con el formulario y la hoja de respuestas. La copia de prueba queda en la papelera (se borra sola a los 30 días).
+13. Si volvés a ejecutar `instalar`, no crea nada nuevo: solo vuelve a mostrar los enlaces. Para verlos en cualquier momento ejecutá `mostrarEnlaces`. También están en la pestaña **Inicio** de la hoja.
 
 > ¿Querés la versión corta? Antes del paso 5, cambiá `VERSION_CORTA: false` por `VERSION_CORTA: true` (cerca del inicio del archivo). Ver la sección 3.
 
@@ -130,8 +153,8 @@ Recomendaciones:
 | `mostrarEnlaces` | Muestra los enlaces reales en el registro. |
 | `probarEnEntornoAislado` | Repite la prueba en una copia que va a la papelera. |
 | `actualizarAnalisis` | Recalcula Análisis, Informe y Pilotos. |
-| `crearReporteParaCompartir` | Hoja nueva sin datos personales. |
-| `exportarCsvAnonimo` | CSV en tu Drive sin nombre, teléfono ni ciudad (para el análisis de la fase 3). |
+| `crearReporteParaCompartir` | Hoja nueva sin datos personales, dentro de la carpeta. |
+| `exportarCsvAnonimo` | CSV sin nombre, teléfono ni ciudad, dentro de la carpeta (para el análisis de la fase 3). |
 
 ## 9. Problemas comunes
 
@@ -148,6 +171,6 @@ Recomendaciones:
 Verificado en este repositorio:
 
 - Todas las llamadas a Google (FormApp, SpreadsheetApp, DriveApp, ScriptApp, Charts...) se comprobaron contra las definiciones oficiales `@types/google-apps-script`.
-- `instalar()` se ejecutó de punta a punta en una **simulación en memoria** de Forms/Sheets/Drive (`pruebas/google-falso.mjs`): la prueba aislada pasa y va a la papelera, el formulario definitivo queda con 0 respuestas, el análisis cuenta bien (incluidas opciones con comas), excluye `[PRUEBA]`, no muestra teléfonos, conserva las marcas manuales de Pilotos, el reporte compartible y el CSV anónimo no tienen datos personales, y un texto como `=IMPORTXML(...)` escrito por un encuestado se guarda como texto y no como fórmula.
+- `instalar()` se ejecutó de punta a punta en una **simulación en memoria** de Forms/Sheets/Drive (`pruebas/google-falso.mjs`): crea la carpeta nueva y guarda ahí todo lo que genera; un formulario, una hoja y una carpeta "Encuesta Gabriel Store" que ya existían quedan exactamente igual; la prueba aislada pasa y va a la papelera, el formulario definitivo queda con 0 respuestas, el análisis cuenta bien (incluidas opciones con comas), excluye `[PRUEBA]`, no muestra teléfonos, conserva las marcas manuales de Pilotos, el reporte compartible y el CSV anónimo no tienen datos personales, y un texto como `=IMPORTXML(...)` escrito por un encuestado se guarda como texto y no como fórmula.
 
 **No verificado aquí**: la ejecución real en Google. Esa la hace `probarEnEntornoAislado()` dentro de tu cuenta durante `instalar()`, y el diseño visual del tema se aplica a mano (sección 2).

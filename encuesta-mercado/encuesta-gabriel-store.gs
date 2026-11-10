@@ -4,7 +4,12 @@
  *  Google Apps Script (motor V8). Un solo archivo: pegalo completo en un
  *  proyecto nuevo de https://script.google.com y ejecutá la función instalar().
  *
+ *  Seguridad: el script solo crea archivos nuevos y solo modifica los que creó
+ *  él (guarda sus IDs en las propiedades del proyecto). No abre, cambia ni
+ *  borra tus formularios, hojas, carpetas o proyectos existentes.
+ *
  *  Qué hace instalar():
+ *    0. Crea en tu Google Drive la carpeta nueva "Encuesta Gabriel Store".
  *    1. Construye una COPIA DE PRUEBA del formulario y de la hoja, envía una
  *       respuesta de prueba, comprueba que llegue a la hoja y que el análisis
  *       la cuente, y después ENVÍA A LA PAPELERA esa copia. El formulario
@@ -36,6 +41,8 @@
 
 var CONFIG = {
   TITULO: 'Estudio de mercado para revendedores de streaming',
+  // Carpeta NUEVA de Google Drive donde se guarda todo lo que crea este script.
+  CARPETA: 'Encuesta Gabriel Store',
   DESCRIPCION:
     'Queremos conocer qué herramientas utilizás para administrar tu negocio, qué dificultades ' +
     'enfrentás y qué soluciones podrían ayudarte. Duración aproximada: 5 a 7 minutos. ' +
@@ -990,6 +997,8 @@ function instalar() {
     mostrarEnlaces();
     return;
   }
+  var carpeta = carpeta_();
+  Logger.log('0/4 Carpeta de Drive: ' + carpeta.getName() + ' → ' + carpeta.getUrl());
   Logger.log('1/4 Prueba aislada (no toca el formulario definitivo)...');
   probarEnEntornoAislado();
 
@@ -1007,7 +1016,10 @@ function instalar() {
   var hoja = buscarHojaRespuestas_(SpreadsheetApp.openById(creado.ss.getId()));
   if (!hoja) throw new Error('El formulario no quedó vinculado a la hoja de respuestas.');
   if (hoja.getLastRow() > 1) throw new Error('La hoja definitiva tiene respuestas inesperadas.');
-  Logger.log('Listo. Formulario definitivo con 0 respuestas.');
+  [creado.form.getId(), creado.ss.getId()].forEach(function (id) {
+    if (!estaEnCarpeta_(id, carpeta.getId())) throw new Error('Un archivo no quedó dentro de la carpeta ' + CONFIG.CARPETA + '.');
+  });
+  Logger.log('Listo. Formulario definitivo con 0 respuestas, guardado junto a la hoja en la carpeta "' + CONFIG.CARPETA + '".');
   mostrarEnlaces();
 }
 
@@ -1018,6 +1030,7 @@ function mostrarEnlaces() {
   Logger.log('ENLACE CORTO:          ' + e.corto);
   Logger.log('ENLACE PARA EDITAR:    ' + e.editar);
   Logger.log('GOOGLE SHEETS:         ' + e.hoja);
+  Logger.log('CARPETA DE DRIVE:      ' + e.carpeta);
   Logger.log('COMPARTIR POR WHATSAPP: ' + e.whatsapp);
   return e;
 }
@@ -1034,6 +1047,7 @@ function enlaces_() {
     corto: corto,
     editar: form.getEditUrl(),
     hoja: ss.getUrl(),
+    carpeta: carpeta_().getUrl(),
     whatsapp: 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp_(corto))
   };
 }
@@ -1105,6 +1119,39 @@ function probarEnEntornoAislado() {
   return true;
 }
 
+/**
+ * Devuelve la carpeta del estudio. La primera vez crea una carpeta NUEVA y guarda su ID.
+ * Si ya tenías otra carpeta con el mismo nombre, no se usa ni se modifica.
+ */
+function carpeta_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('FOLDER_ID');
+  if (id) {
+    try {
+      var existente = DriveApp.getFolderById(id);
+      if (!existente.isTrashed()) return existente;
+    } catch (e) { /* se crea una nueva */ }
+  }
+  if (DriveApp.getFoldersByName(CONFIG.CARPETA).hasNext()) {
+    Logger.log('Aviso: ya existe otra carpeta llamada "' + CONFIG.CARPETA + '". No se toca; se crea una nueva aparte.');
+  }
+  var nueva = DriveApp.createFolder(CONFIG.CARPETA);
+  nueva.setDescription('Creada por el script del estudio de mercado de Gabriel Store.');
+  props.setProperty('FOLDER_ID', nueva.getId());
+  return nueva;
+}
+
+/** Mueve a la carpeta del estudio un archivo que este script acaba de crear. */
+function guardarEnCarpeta_(id) {
+  DriveApp.getFileById(id).moveTo(carpeta_());
+}
+
+function estaEnCarpeta_(idArchivo, idCarpeta) {
+  var padres = DriveApp.getFileById(idArchivo).getParents();
+  while (padres.hasNext()) if (padres.next().getId() === idCarpeta) return true;
+  return false;
+}
+
 function archivoExiste_(id) {
   try { return !DriveApp.getFileById(id).isTrashed(); } catch (e) { return false; }
 }
@@ -1127,6 +1174,8 @@ function crearFormularioYHoja_(titulo, esPrueba) {
   publicar_(form);
 
   var ss = SpreadsheetApp.create((esPrueba ? CONFIG.MARCA_PRUEBA + ' ' : '') + 'Gabriel Store — Respuestas del estudio de mercado');
+  guardarEnCarpeta_(form.getId());
+  guardarEnCarpeta_(ss.getId());
   ss.setSpreadsheetTimeZone(CONFIG.ZONA_HORARIA);
   form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
   // Renombrar la pestaña vinculada y borrar la hoja vacía inicial.
@@ -1687,6 +1736,7 @@ function escribirInicio_(ss) {
     ['Enlace para responder (largo)', e.responder],
     ['Enlace para editar (solo vos)', e.editar],
     ['Esta hoja', e.hoja],
+    ['Carpeta de Drive', e.carpeta],
     ['Compartir por WhatsApp', e.whatsapp],
     ['Mensaje sugerido', mensajeWhatsapp_(e.corto)],
     ['', ''],
@@ -1722,6 +1772,7 @@ function crearReporteParaCompartir() {
   destino.getSheets().forEach(function (s) {
     if (s.getName() !== CONFIG.HOJA_ANALISIS && s.getName() !== CONFIG.HOJA_INFORME) destino.deleteSheet(s);
   });
+  guardarEnCarpeta_(destino.getId());
   Logger.log('Reporte para compartir (sin teléfonos ni nombres): ' + destino.getUrl());
   return destino.getUrl();
 }
@@ -1759,7 +1810,7 @@ function exportarCsvAnonimo() {
   var csv = [cab].concat(filas).map(function (f) {
     return f.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
   }).join('\n');
-  var archivo = DriveApp.createFile('gabriel-store-encuesta-anonima-' +
+  var archivo = carpeta_().createFile('gabriel-store-encuesta-anonima-' +
     Utilities.formatDate(new Date(), CONFIG.ZONA_HORARIA, 'yyyy-MM-dd') + '.csv', csv, MimeType.CSV);
   Logger.log('CSV anónimo creado (' + filas.length + ' respuestas): ' + archivo.getUrl());
   return archivo.getUrl();

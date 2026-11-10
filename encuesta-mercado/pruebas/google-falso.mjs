@@ -20,7 +20,8 @@ function crearEncadenable(base) {
 }
 
 export function crearGoogleFalso() {
-  const archivos = new Map(); // id → { tipo, nombre, papelera, objeto }
+  const archivos = new Map(); // id → { tipo, nombre, papelera, padres, objeto }
+  const carpetas = new Map(); // id → { nombre, papelera, objeto }
   const registro = [];
   const disparadores = [];
   const propiedades = new Map();
@@ -132,7 +133,7 @@ export function crearGoogleFalso() {
     };
     const p = crearEncadenable(ss);
     p.insertSheet('Hoja 1');
-    archivos.set(id, { tipo: 'hoja', nombre, papelera: false, objeto: p });
+    archivos.set(id, { tipo: 'hoja', nombre, papelera: false, padres: ['raiz'], objeto: p });
     return p;
   }
 
@@ -232,7 +233,7 @@ export function crearGoogleFalso() {
     };
     function agregar(tipo) { const it = crearItem(tipo); f._items.push(it); return it; }
     const p = crearEncadenable(f);
-    archivos.set(id, { tipo: 'form', nombre: titulo, papelera: false, objeto: p });
+    archivos.set(id, { tipo: 'form', nombre: titulo, papelera: false, padres: ['raiz'], objeto: p });
     return p;
   }
 
@@ -252,6 +253,29 @@ export function crearGoogleFalso() {
   };
 
   // ------------------------------------------------------------ Otros servicios
+  const iterador = (lista) => {
+    let i = 0;
+    return { hasNext: () => i < lista.length, next: () => lista[i++] };
+  };
+  const crearArchivoSuelto = (nombre, contenido, padre) => {
+    const id = nuevoId('archivo');
+    archivos.set(id, { tipo: 'archivo', nombre, papelera: false, padres: [padre], contenido });
+    return { getUrl: () => `https://drive.google.com/file/d/${id}`, getId: () => id };
+  };
+  const crearCarpeta = (nombre) => {
+    const id = nuevoId('carpeta');
+    const c = { nombre, papelera: false, descripcion: '' };
+    c.objeto = {
+      getId: () => id,
+      getName: () => nombre,
+      getUrl: () => `https://drive.google.com/drive/folders/${id}`,
+      isTrashed: () => c.papelera,
+      setDescription: (d) => { c.descripcion = d; return c.objeto; },
+      createFile: (n, contenido) => crearArchivoSuelto(n, contenido, id)
+    };
+    carpetas.set(id, c);
+    return c.objeto;
+  };
   const DriveApp = {
     getFileById: (id) => {
       const a = archivos.get(id);
@@ -259,14 +283,19 @@ export function crearGoogleFalso() {
       return {
         setTrashed: (b) => { a.papelera = b; },
         isTrashed: () => a.papelera,
-        getUrl: () => `https://drive.google.com/file/d/${id}`
+        getUrl: () => `https://drive.google.com/file/d/${id}`,
+        moveTo: (carpeta) => { a.padres = [carpeta.getId()]; },
+        getParents: () => iterador(a.padres.map((pid) => ({ getId: () => pid })))
       };
     },
-    createFile: (nombre, contenido) => {
-      const id = nuevoId('archivo');
-      archivos.set(id, { tipo: 'archivo', nombre, papelera: false, contenido });
-      return { getUrl: () => `https://drive.google.com/file/d/${id}`, getId: () => id };
-    }
+    createFile: (nombre, contenido) => crearArchivoSuelto(nombre, contenido, 'raiz'),
+    createFolder: (nombre) => crearCarpeta(nombre),
+    getFolderById: (id) => {
+      const c = carpetas.get(id);
+      if (!c) throw new Error('No existe la carpeta ' + id);
+      return c.objeto;
+    },
+    getFoldersByName: (nombre) => iterador([...carpetas.values()].filter((c) => c.nombre === nombre).map((c) => c.objeto))
   };
 
   const ScriptApp = {
@@ -300,6 +329,6 @@ export function crearGoogleFalso() {
     MimeType: { CSV: 'text/csv' }
   };
 
-  return { globales, archivos, registro, disparadores, propiedades };
+  return { globales, archivos, carpetas, registro, disparadores, propiedades };
 }
 
