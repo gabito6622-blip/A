@@ -36,6 +36,8 @@ export interface Product {
   resellersOnly?: boolean;
   /** Nombre y PIN por defecto de cada perfil; se precargan al cargar una cuenta de este servicio. */
   profileDefaults?: { label: string; pin?: string }[];
+  /** Solo para kind "combo": las apps (ids de productos) que incluye. Sirve para detectar cuando el cliente arma el mismo combo. */
+  comboProductIds?: Id[];
 }
 
 /** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */

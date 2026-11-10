@@ -26,12 +26,23 @@ const isReseller = () => S.me?.role === "reseller";
 /* ---- Armá tu combo: mismo cálculo que el servidor (orders.comboDiscount) ---- */
 const comboOn = () => (MODE === "store" ? !isReseller() : MODE === "rshop") && (S.settings?.comboDiscounts ?? []).some((v) => v > 0);
 const comboable = (p) => p && p.kind !== "combo" && !p.resellersOnly;
+const comboKey = (ids) => [...new Set(ids)].sort().join("|");
+/** Si las apps elegidas son EXACTAMENTE las de un combo ya armado, devuelve ese combo (para cobrar su precio). */
+const comboMatch = (ids) => {
+  const key = comboKey(ids.filter((id) => comboable(product(id))));
+  if (!key) return null;
+  return (S.catalog ?? []).find((p) => p.kind === "combo" && p.comboParts?.length && comboKey(p.comboParts) === key) || null;
+};
 const discountFor = (ids) => {
+  const comp = ids.filter((id) => comboable(product(id)));
+  const match = comboMatch(ids);
+  if (match) return Math.max(0, comp.reduce((s, id) => s + (product(id)?.price || 0), 0) - match.price);
   if (!comboOn()) return 0;
-  const n = new Set(ids.filter((id) => comboable(product(id)))).size, d = S.settings.comboDiscounts;
+  const n = new Set(comp).size, d = S.settings.comboDiscounts;
   return n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0;
 };
 const cartDiscount = () => Math.min(discountFor(S.cart.map((l) => l.productId)), cartTotal());
+const cartComboMatch = () => comboMatch(S.cart.map((l) => l.productId));
 /** Familia del servicio (Netflix, Disney+…): las variantes de una misma app son alternativas. */
 const family = (p) => p.name.toLowerCase().replace(/^(invitación|cuenta|perfil)\s+/, "").split(/\s+/)[0];
 /** El panel de GaboHub es para revendedores. */
@@ -893,6 +904,7 @@ function comboView() {
   const list = all.filter((p) => cc === "Todos" || p.category === cc);
   const chosen = sel.map(product);
   const gross = chosen.reduce((s, p) => s + p.price, 0), disc = Math.min(discountFor(sel), gross), D = S.settings.comboDiscounts;
+  const match = comboMatch(sel);
   const noStock = chosen.filter((p) => !p.available);
   const next = sel.length < 2 ? `Elegí ${2 - sel.length === 2 ? "dos servicios" : "uno más"} para activar el descuento.` : sel.length < 4 && D[sel.length - 1] > disc ? `Sumá uno más y ahorrás ${bs(D[sel.length - 1])}.` : "¡Tenés el descuento máximo!";
   const msg = `Hola, quiero armar este combo:\n${chosen.map((p) => `• ${p.name} (${bs(p.price)})`).join("\n")}\nDescuento combo: −${bs(disc)}\nTotal: ${bs(gross - disc)}`;
@@ -908,6 +920,7 @@ function comboView() {
       <aside class="csum">
         <span class="chip">Tu selección</span>
         ${chosen.length ? `<div class="clist">${chosen.map((p) => `<div>${miniMark(p)}<span>${esc(p.name)}</span><b>${bs(p.price)}</b><button type="button" data-cpick="${esc(p.id)}" aria-label="Quitar ${esc(p.name)}">×</button></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no elegiste nada. Tocá los servicios de la lista.</p>`}
+        ${match ? `<div class="combomatch">🎁 ¡Es tu <b>${esc(match.name)}</b>! Te queda al precio del combo ya armado.</div>` : ""}
         <div class="total sub"><span>Precio por separado</span><span>${bs(gross)}</span></div>
         <div class="total disc"><span>Tu ahorro</span><span>− ${bs(disc)}</span></div>
         <div class="total big"><span>Total del combo</span><span>${bs(gross - disc)}</span></div>

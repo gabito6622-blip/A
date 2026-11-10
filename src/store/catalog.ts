@@ -37,6 +37,19 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       if (defs.length) prod.profileDefaults = defs;
     } else if (prev?.profileDefaults) prod.profileDefaults = prev.profileDefaults;
     if (!["profile", "full_account", "invite", "combo"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
+    // Componentes del combo: apps que incluye (para detectar "armá tu combo" igual a uno existente).
+    if (prod.kind === "combo") {
+      const src = p.comboProductIds !== undefined ? p.comboProductIds : prev?.comboProductIds;
+      if (Array.isArray(src) && src.length) {
+        const ids = [...new Set(src.map(String))];
+        if (ids.length > 8) throw new DomainError("VALIDATION", "Un combo incluye hasta 8 apps");
+        for (const cid of ids) {
+          const cp = e.s.products[cid];
+          if (!cp || cp.kind === "combo") throw new DomainError("VALIDATION", "Cada app del combo debe ser un producto que no sea combo");
+        }
+        prod.comboProductIds = ids;
+      }
+    }
     e.s.products[id] = prod;
     e.audit(actor, "product.upsert", "product", id, { price: p.price, published: p.published });
     return prod;
@@ -323,6 +336,7 @@ export function publicCatalog(e: Engine, customerId?: Id) {
       price: customerId ? priceFor(e, customerId, p.id) : p.price,
       // Tiene precio especial para este cliente (revendedor): sale en su lista de precios.
       ...(customerId && e.s.priceGroups[e.s.customers[customerId]?.priceGroupId]?.prices[p.id] !== undefined ? { wholesale: true, publicPrice: p.price } : {}),
+      ...(p.kind === "combo" && p.comboProductIds?.length ? { comboParts: p.comboProductIds } : {}),
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));
 }

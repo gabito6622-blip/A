@@ -569,9 +569,12 @@ const V = {
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
-      ${f.kind !== "combo" ? `<div style="grid-column:1/-1" class="pdefs"><div class="selbl">👤 Nombre y PIN por defecto de cada perfil <small class="muted">opcional · se precargan al cargar una cuenta</small></div>
+      <div style="grid-column:1/-1" class="pdefs combo-only" ${f.kind === "combo" ? "" : "hidden"}><div class="selbl">🎁 Apps que incluye este combo <small class="muted">cuando el cliente arma el mismo combo en la tienda, le cobramos este precio</small></div>
+        <div class="combopick">${products.filter((x) => x.kind !== "combo").map((x) => `<label class="chk"><input type="checkbox" name="combopart" value="${esc(x.id)}" ${f.comboProductIds?.includes(x.id) ? "checked" : ""}> ${esc(x.name)}</label>`).join("") || `<span class="muted">Primero creá productos sueltos (no combo) para elegirlos acá.</span>`}</div>
+      </div>
+      <div style="grid-column:1/-1" class="pdefs noncombo-only" ${f.kind !== "combo" ? "" : "hidden"}><div class="selbl">👤 Nombre y PIN por defecto de cada perfil <small class="muted">opcional · se precargan al cargar una cuenta</small></div>
         ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
-      </div>` : ""}
+      </div>
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
@@ -1491,6 +1494,8 @@ document.addEventListener("dragover", (ev) => { const dz = ev.target.closest?.("
 document.addEventListener("dragleave", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (dz) dz.classList.remove("over"); });
 document.addEventListener("drop", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (!dz) return; ev.preventDefault(); dz.classList.remove("over"); const inp = dz.querySelector('input[type="file"]'); if (inp && ev.dataTransfer?.files?.length) { inp.files = ev.dataTransfer.files; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
 document.addEventListener("change", (ev) => { const inp = ev.target; if (inp?.type === "file") { const dz = inp.closest?.(".dropzone"); if (dz) { const n = dz.querySelector(".dzname"); if (n) n.textContent = inp.files[0] ? "✅ " + inp.files[0].name : ""; } } });
+// Al cambiar el tipo de producto, mostrar las apps del combo o los perfiles por defecto.
+document.addEventListener("change", (ev) => { if (ev.target?.name === "kind" && ev.target.form?.id === "prodForm") { const combo = ev.target.value === "combo"; ev.target.form.querySelector(".combo-only")?.toggleAttribute("hidden", !combo); ev.target.form.querySelector(".noncombo-only")?.toggleAttribute("hidden", combo); } });
 
 let rqTimer, accqTimer;
 document.addEventListener("input", (ev) => {
@@ -1752,6 +1757,7 @@ document.addEventListener("submit", async (ev) => {
       const pdefs = [];
       for (let i = 0; i < 10; i++) { const lab = f[`pd-label-${i}`]?.value?.trim(); if (lab) pdefs.push({ label: lab, pin: (f[`pd-pin-${i}`]?.value || "").replace(/\D/g, "") || undefined }); }
       body.profileDefaults = pdefs;
+      if (body.kind === "combo") body.comboProductIds = [...f.querySelectorAll('input[name="combopart"]:checked')].map((x) => x.value);
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");
       const rev = groups.find((g) => g.id === "revendedor") ?? { id: "revendedor", name: "Revendedor", prices: {} };

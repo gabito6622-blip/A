@@ -574,3 +574,7 @@ img.svbadge{padding:5px;background:#0e1424}
 .laycard.on{border-color:var(--accent,#3984ff);box-shadow:0 0 0 1px var(--accent,#3984ff) inset}
 .laycard b{font-size:15px}
 .laycard small{color:var(--muted);font-size:12px;line-height:1.35}
+
+/* Apps que incluye un combo */
+.combopick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px}
+.combopick .chk{font-size:14px}

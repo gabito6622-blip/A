@@ -625,3 +625,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .pbody h3{font-size:18px;letter-spacing:-.01em}
 .pbody .pbtns .pri{font-weight:800}
 .lt{border-radius:16px}
+
+/* ¡Es tu combo! */
+.combomatch{background:color-mix(in srgb,var(--s-blue) 16%,var(--s-card));border:1px solid color-mix(in srgb,var(--s-blue) 45%,var(--s-line));border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4}
