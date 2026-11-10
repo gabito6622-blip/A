@@ -1435,6 +1435,8 @@ async function aiCard() {
   const anyOn = AI_AGENTS.some(([k]) => a.enabled[k]);
   return `<section class="card"><h2>🤖 Oficina virtual <small>agentes con Claude</small> ${!a.hasKey ? pill("Falta la clave", "mute") : anyOn ? pill("Trabajando", "ok") : pill("Apagados", "warn")}</h2>
     <p class="muted" style="margin:0">Cada agente hace una sola tarea. Ninguno aprueba pagos, entrega cuentas ni toca plata: eso lo hacés vos.</p>
+    ${a.hasKey && a.keyShape === "not_api_key" ? `<p class="perr" style="margin:0">⚠️ La clave cargada en Railway no tiene la forma de una clave de API (tiene que empezar con <code>sk-ant-api</code>). Creá una en console.anthropic.com → API Keys y pegala de nuevo.</p>` : ""}
+    ${a.hasKey && a.lastError ? `<p class="perr" style="margin:0">Último error: ${esc(a.lastError)}</p>` : ""}
     ${!a.hasKey ? `<details class="tg-help" open><summary>¿Cómo se prende? (una sola vez)</summary><ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
       <li>Entrá a <b>console.anthropic.com</b>, creá una cuenta y cargá crédito (se paga aparte de tu suscripción de Claude).</li>
       <li>En <b>API Keys</b> creá una clave. Es secreta: no la mandes por chat.</li>
@@ -1444,7 +1446,7 @@ async function aiCard() {
       ${AI_AGENTS.map(([k, t, d]) => `<label class="chk aiag" style="grid-column:1/-1"><input type="checkbox" name="ag_${k}" ${a.enabled[k] ? "checked" : ""} ${a.hasKey ? "" : "disabled"}><span><b>${t}</b><br><small class="muted">${d}</small></span></label>`).join("")}
       <label>Modelo<select name="model" ${a.hasKey ? "" : "disabled"}>${a.models.map((m) => opt(m.id, m.label, m.id === a.model)).join("")}</select><small class="muted" id="aiPrice">${esc(est(a.model))}</small></label>
       <label>Tope de gasto por mes (US$)<input name="limit" type="number" min="0" max="1000" step="1" inputmode="numeric" value="${a.monthlyLimitUsd}" ${a.hasKey ? "" : "disabled"}><small class="muted">Al llegar, los agentes se pausan hasta el mes que viene.</small></label>
-      <p class="muted" style="grid-column:1/-1;margin:0">Este mes: <b>US$ ${(a.spentUsd ?? 0).toFixed(2)}</b> en ${a.calls ?? 0} consulta(s)${a.lastError ? ` · <span class="perr">último error: ${esc(a.lastError)}</span>` : ""}.
+      <p class="muted" style="grid-column:1/-1;margin:0">Este mes: <b>US$ ${(a.spentUsd ?? 0).toFixed(2)}</b> en ${a.calls ?? 0} consulta(s).
         Para empezar barato elegí <b>Haiku 5.5</b>: con ~500 mensajes por día suele quedar en pocos dólares por mes. Opus es el más capaz y el más caro.</p>
       <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit" ${a.hasKey ? "" : "disabled"}>Guardar</button>${a.hasKey && a.enabled.daily ? `<button class="pbtn" type="button" id="aiDailyNow">📋 Armar el reporte ahora</button>` : ""}</div>
     </form>
@@ -1461,6 +1463,14 @@ async function selfTestBox(a) {
   else if (st?.status === "done" && st.result) {
     const r = st.result, row = (k, t) => `<div class="stk"><b>${r.resumen[k].pasan}/${r.resumen[k].total}</b><small>${t}</small></div>`;
     const bad = [...r.whatsapp, ...r.correos].filter((x) => x.fallas.length);
+    // Si todo falló por el mismo error (clave mala, sin saldo…), se muestra una sola vez y claro.
+    const errs = [...new Set(bad.flatMap((x) => x.fallas).filter((f) => /^error/.test(f)).map((f) => f.replace(/^error( IA)?: /, "")))];
+    if (errs.length === 1 && bad.every((x) => x.fallas.some((f) => /^error/.test(f)))) {
+      return `<div class="selftest"><h3 style="margin:14px 0 4px;font-size:15px">🧪 Probar la oficina</h3>
+        <p class="perr" style="margin:0">La prueba no pudo hablar con Claude: ${esc(errs[0])}</p>
+        <form class="inline" id="selfTestForm" style="flex-wrap:wrap"><label>Modelo<select name="model">${a.models.map((m) => opt(m.id, m.label, m.id === st.model)).join("")}</select></label>
+        <button class="pbtn dark" type="submit">🧪 Correr la prueba de nuevo</button></form></div>`;
+    }
     res = `<p style="margin:0">Última prueba: <b>${esc(mname(st.model))}</b> · ${fdt(st.endedAt)} · costó ~US$ ${(r.gastoUsd ?? 0).toFixed(3)}</p>
       <div class="stkpis">${row("whatsapp", "mensajes de WhatsApp bien")}${row("correos", "correos bien")}</div>
       ${bad.length ? `<details class="tg-help"><summary>Ver los ${bad.length} caso(s) con fallas</summary><div class="stlist">${bad.map((x) => `<div class="strow"><b>${esc(x.texto)}</b><small class="perr">${esc(x.fallas.join(" · "))}</small>${x.resultado ? `<small class="muted">Respondió: ${esc(x.resultado)}</small>` : ""}</div>`).join("")}</div></details>` : `<p class="pok" style="margin:0">✅ Pasó todo.</p>`}`;

@@ -53,6 +53,17 @@ export interface ReceiptCheck {
   at: number;
 }
 
+/** Limpia la clave como suele quedar al pegarla: espacios, saltos de línea y comillas alrededor. */
+export function cleanApiKey(raw: string | undefined): string | undefined {
+  const k = (raw ?? "").trim().replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, "");
+  return k || undefined;
+}
+/** Qué forma tiene la clave (sin mostrarla nunca): una de API empieza con sk-ant-api. */
+export function keyShape(k: string | undefined): "ok" | "missing" | "not_api_key" {
+  if (!k) return "missing";
+  return /^sk-ant-api\d*-/.test(k) ? "ok" : "not_api_key";
+}
+
 export class AiError extends Error {
   constructor(public readonly code: "AI_OFF" | "AI_LIMIT" | "AI_REFUSED" | "AI_FAILED", message: string) { super(message); }
 }
@@ -116,9 +127,13 @@ const normRef = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").replace
 export class Agents {
   private client: Anthropic | null;
   constructor(private o: { apiKey?: string; fetchImpl?: typeof fetch; now: () => number; getCfg: () => AiCfg; saveCfg: (c: AiCfg) => void }) {
+    o.apiKey = cleanApiKey(o.apiKey);
+    this.keyShape = keyShape(o.apiKey);
     this.client = o.apiKey ? new Anthropic({ apiKey: o.apiKey, maxRetries: 2, timeout: 60_000, ...(o.fetchImpl ? { fetch: o.fetchImpl } : {}) }) : null;
   }
 
+  /** Forma de la clave cargada (para avisar en el panel si no es una clave de API). */
+  readonly keyShape: "ok" | "missing" | "not_api_key";
   get hasKey() { return !!this.client; }
   monthKey() { const d = new Date(this.o.now()); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; }
   /** Configuración del mes en curso (reinicia lo gastado al cambiar de mes). */
@@ -149,7 +164,13 @@ export class Agents {
     try {
       msg = await call();
     } catch (e) {
-      const m = e instanceof Anthropic.APIError ? `Claude respondió ${e.status ?? "error"}: ${e.message}` : (e as Error).message;
+      // Mensajes claros para el dueño en los casos comunes; el resto, con el detalle técnico.
+      const m = e instanceof Anthropic.AuthenticationError ? "La clave de Claude no es válida (Anthropic no la reconoce). Creá una nueva en console.anthropic.com y pegala de nuevo en Railway como ANTHROPIC_API_KEY."
+        : e instanceof Anthropic.PermissionDeniedError ? "La clave no tiene permiso para usar este modelo. Revisá la organización y el workspace de la clave en console.anthropic.com."
+        : e instanceof Anthropic.NotFoundError ? "Ese modelo no está disponible para tu cuenta. Probá con otro modelo."
+        : e instanceof Anthropic.RateLimitError ? "Claude está recibiendo demasiadas consultas de tu cuenta; probá en unos minutos."
+        : e instanceof Anthropic.APIError && /credit balance/i.test(e.message) ? "Tu organización de Claude no tiene saldo: vinculá los créditos del plan Max (claude.ai → Settings → Billing → API credits) o cargá saldo."
+        : e instanceof Anthropic.APIError ? `Claude respondió ${e.status ?? "error"}: ${e.message}` : (e as Error).message;
       this.o.saveCfg({ ...this.cfg(), lastError: m.slice(0, 200) });
       throw new AiError("AI_FAILED", m);
     }
