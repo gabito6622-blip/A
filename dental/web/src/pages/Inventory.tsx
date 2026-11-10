@@ -12,6 +12,7 @@ import { AdjustDialog, ConsumeDialog, ItemDialog, ReceiptDialog, ReceiveTransfer
 import { PurchasingTab, SuppliersTab } from "../components/inventory/Purchasing";
 import { CountsTab } from "../components/inventory/Counts";
 import { AlertBadges, ExpiryBadge, KIND_LABELS, qty, useInvBranch } from "../components/inventory/shared";
+import { ExportLink } from "../components/management/shared";
 
 type Tab = "stock" | "alerts" | "lots" | "movements" | "transfers" | "count" | "purchases" | "suppliers";
 type DialogState =
@@ -53,6 +54,7 @@ export function InventoryPage() {
           {canWrite && <button className="btn" onClick={() => setDlg({ kind: "adjust" })}><SlidersHorizontal size={16} />Ajustar</button>}
           {canWrite && <button className="btn" onClick={() => setDlg({ kind: "receipt" })}><PackagePlus size={16} />Ingresar compra</button>}
           {can("inventory.manage") && <button className="btn" onClick={() => setDlg({ kind: "item", item: {} })}><Plus size={16} />Nuevo insumo</button>}
+          <ExportLink href={`/api/inventory/stock.xlsx${scope}`} label="Stock (Excel)" />
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import { api, qs } from "../lib/api";
 import { bs, fmtDate, fmtDateTime, localDate, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
 import "./cash-fees.css";
+import { ExportLink } from "../components/management/shared";
 
 const d = (iso: string) => fmtDate(iso + "T12:00:00Z");
 const period = (s: { periodStart: string; periodEnd: string }) => `${d(s.periodStart)} – ${d(s.periodEnd)}`;
@@ -243,6 +244,7 @@ function BranchResultsTab() {
       <div className="card card-pad row" style={{ alignItems: "flex-end" }}>
         <Field label="Desde"><input className="input" type="date" value={range.from} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} /></Field>
         <Field label="Hasta"><input className="input" type="date" value={range.to} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} /></Field>
+        <ExportLink href={`/api/fees/branch-results.xlsx${qs(range)}`} />
       </div>
       {!r.data ? <Loading /> : (
         <>
@@ -263,7 +265,7 @@ function BranchResultsTab() {
             <div className="card kpi"><div className="label">Producción vs. período anterior</div><div className="value">{v(r.data.variationPct.production)}</div><div className="foot">Antes: {bs(r.data.previousTotal.productionCents)}</div></div>
             <div className="card kpi"><div className="label">Resultado vs. período anterior</div><div className="value">{v(r.data.variationPct.result)}</div><div className="foot">Antes: {bs(r.data.previousTotal.resultCents)}</div></div>
           </div>
-          <p className="muted small">Honorarios: solo de liquidaciones <b>cerradas</b> cuyo período cae dentro de las fechas ({r.data.closedSettlements} en este rango). Gastos: por ahora solo los gastos menores registrados en caja; los demás gastos de la clínica todavía no se registran en el sistema.</p>
+          <p className="muted small">Honorarios: solo de liquidaciones <b>cerradas</b> cuyo período cae dentro de las fechas ({r.data.closedSettlements} en este rango). Gastos: aquí solo los gastos menores registrados en caja. Los gastos de la sucursal (alquiler, sueldos, servicios), el laboratorio y los materiales están en <Link to="/gestion">Gestión → Rentabilidad</Link>.</p>
         </>
       )}
     </div>

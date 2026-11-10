@@ -6,6 +6,7 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDate, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, useToast } from "./ui";
+import { ExportLink } from "./management/shared";
 
 // ---------------------------------------------------------------------------
 // Cálculo en el navegador (vista previa): mismo reparto que el servidor
@@ -325,6 +326,7 @@ export function BudgetFunnel({ branchId, onOpen }: { branchId: string | null; on
   };
   return (
     <div className="stack">
+      <div className="row" style={{ justifyContent: "flex-end" }}><ExportLink small href={`/api/budget-funnel.xlsx${qs({ branchId })}`} /></div>
       <div className="grid grid-4">
         <div className="card kpi"><div className="label">Conversión ({d.periodDays} días)</div><div className="value">{d.conversion.conversionPct == null ? "—" : `${d.conversion.conversionPct} %`}</div><div className="foot">{d.conversion.accepted} de {d.conversion.presented} presentados</div></div>
         <div className="card kpi"><div className="label">Aceptado</div><div className="value">{bs(d.conversion.acceptedCents)}</div><div className="foot">de {bs(d.conversion.presentedCents)} presentados</div></div>

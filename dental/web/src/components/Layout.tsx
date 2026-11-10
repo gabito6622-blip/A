@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { FlaskConical, PhoneCall } from "lucide-react";
+import { FlaskConical, PhoneCall, Scale } from "lucide-react";
 
 export const Logo = () => (
   <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M20 14c-6 0-10 5-10 12 0 9 5 14 7 23 1 5 3 8 6 8 4 0 4-5 5-10 1-4 2-6 4-6s3 2 4 6c1 5 1 10 5 10 3 0 5-3 6-8 2-9 7-14 7-23 0-7-4-12-10-12-5 0-7 2-12 2s-7-2-12-2z" fill="#5eead4" /></svg>
@@ -22,6 +22,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
         { to: "/caja", label: "Caja", icon: Wallet, show: can("payments.read") },
         { to: "/honorarios", label: "Honorarios", icon: HandCoins, show: can("reports.financial") || can("treatments.perform") },
         { to: "/reportes", label: "Reportes", icon: BarChart3, show: can("reports.financial") || can("reports.operational") },
+        { to: "/gestion", label: "Gestión", icon: Scale, show: can("reports.financial") },
         { to: "/laboratorio", label: "Laboratorio", icon: FlaskConical, show: can("clinical.read") || can("budgets.read") || ((can("payments.verify") || can("clinic.manage")) && !!me?.membership?.allBranches) },
         { to: "/bioseguridad", label: "Bioseguridad", icon: ShieldPlus, show: can("biosafety.read") },
         { to: "/asistente", label: "Asistente", icon: Sparkles, show: can("assistant.use") },

@@ -24,7 +24,8 @@ export type Permission =
   | "reports.financial" | "reports.operational"
   | "assistant.use"
   | "biosafety.read" | "biosafety.write"
-  | "inventory.read" | "inventory.write" | "inventory.manage";
+  | "inventory.read" | "inventory.write" | "inventory.manage"
+  | "timeclock.punch";
 
 const BASE: Record<Role, Permission[]> = {
   owner: [
@@ -59,6 +60,7 @@ const PROFESSIONAL_EXTRA: Permission[] = ["clinical.read", "clinical.write", "tr
 
 export function permissionsFor(role: Role, isProfessional: boolean): Set<Permission> {
   const set = new Set<Permission>(BASE[role]);
+  set.add("timeclock.punch"); // fichar la propia entrada/salida: todos los roles; además se exige tenerlo activado (timeclock_staff)
   if (isProfessional && (role === "owner" || role === "admin")) PROFESSIONAL_EXTRA.forEach((p) => set.add(p));
   return set;
 }

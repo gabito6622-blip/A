@@ -5,6 +5,7 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { fmtDateTime, fmtTime, localDate } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
+import { TimeClockCard } from "../components/management/TimeClock";
 
 const TASKS: { id: string; label: string; short: string }[] = [
   { id: "between_patients", label: "Limpieza entre pacientes", short: "Entre pacientes" },
@@ -42,6 +43,8 @@ export function BiosafetyPage() {
           </div>
         </div>
       </div>
+      {/* Para el personal de apoyo esta es su página de Inicio: aquí ficha su entrada y salida */}
+      {!can("agenda.read") && !can("reports.operational") && !can("reports.financial") && <TimeClockCard />}
 
       {d?.sterilization.failed.length > 0 && (
         <div className="alert danger stack-sm" role="alert">

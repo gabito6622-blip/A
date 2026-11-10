@@ -4,7 +4,9 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { addDays, bs, fmtTime, localDate } from "../lib/format";
 import { qs } from "../lib/api";
-import { Empty, Loading, StatusBadge } from "../components/ui";
+import { Empty, Field, Loading, StatusBadge } from "../components/ui";
+import { TimeClockCard } from "../components/management/TimeClock";
+import { PeriodCompare } from "../components/management/PeriodCompare";
 
 function monthRange(offset: number) {
   const today = localDate();
@@ -20,7 +22,9 @@ function monthRange(offset: number) {
 export function DashboardPage() {
   const { me, can, branchId } = useAuth();
   const [offset, setOffset] = useState(0);
-  const range = monthRange(offset);
+  // Rango libre (B-017): si está activo reemplaza al mes; la comparación usa el período anterior de igual tamaño.
+  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
+  const range = custom ? { ...custom, label: "" } : monthRange(offset);
   const url = can("reports.operational") ? `/api/reports/dashboard${qs({ from: range.from, to: range.to })}` : can("reports.financial") ? `/api/reports/finance-dashboard${qs({ from: range.from, to: range.to })}` : null;
   const dash = useApi(url);
   const today = localDate();
@@ -39,13 +43,26 @@ export function DashboardPage() {
           <p className="sub">{me?.clinic?.name} · {me?.membership?.roleLabel}</p>
         </div>
         {url && (
-          <div className="row">
-            <button className="btn btn-sm" onClick={() => setOffset(offset - 1)} aria-label="Mes anterior">‹</button>
-            <span style={{ fontWeight: 620, minWidth: 130, textAlign: "center" }}>{range.label}</span>
-            <button className="btn btn-sm" onClick={() => setOffset(offset + 1)} disabled={offset >= 0} aria-label="Mes siguiente">›</button>
+          <div className="row" style={{ alignItems: "flex-end" }}>
+            {custom ? (
+              <>
+                <Field label="Desde"><input className="input" type="date" value={custom.from} max={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} /></Field>
+                <Field label="Hasta"><input className="input" type="date" value={custom.to} min={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} /></Field>
+                <button className="btn" style={{ minHeight: 40 }} onClick={() => setCustom(null)}>Ver por mes</button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-sm" onClick={() => setOffset(offset - 1)} aria-label="Mes anterior">‹</button>
+                <span style={{ fontWeight: 620, minWidth: 130, textAlign: "center" }}>{range.label}</span>
+                <button className="btn btn-sm" onClick={() => setOffset(offset + 1)} disabled={offset >= 0} aria-label="Mes siguiente">›</button>
+                <button className="btn btn-sm" onClick={() => setCustom({ from: range.from, to: range.to })}>Rango libre</button>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      <TimeClockCard />
 
       {myDay.data?.professional && (
         <div className="card">
@@ -82,6 +99,8 @@ export function DashboardPage() {
             <div className="card kpi"><div className="label">Citas del período</div><div className="value">{d.totals.appointments}</div><div className="foot">{d.totals.completed} atendidas · {d.totals.noShow} no asistieron</div></div>
             <div className="card kpi"><div className="label">Pacientes nuevos</div><div className="value">{d.totals.newPatients}</div><div className="foot">Registrados en el período</div></div>
           </div>
+
+          <PeriodCompare from={range.from} to={range.to} />
 
           <div className="card">
             <div className="card-head"><h2>Comparativo por sucursal</h2><span className="muted small">{d.range.from} a {d.range.to}</span></div>
