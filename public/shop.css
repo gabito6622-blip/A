@@ -664,3 +664,18 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .aprice small{font-size:12px;color:var(--s-muted);font-weight:500;margin-left:3px}
 .alogos{display:flex;gap:6px;flex-wrap:wrap}
 @media (max-width:760px){.asesor{grid-template-columns:1fr}.actrl{position:static}}
+
+/* ===================== Tarjeta "Boleto de cine" 🎟️ ===================== */
+.shop[data-card="ticket"] .pc{overflow:visible;border:1.5px solid color-mix(in srgb,var(--s-blue) 38%,var(--s-line));background:var(--s-card);box-shadow:0 10px 26px rgba(0,0,0,.22)}
+.shop[data-card="ticket"] .pimg{border-top-left-radius:inherit;border-top-right-radius:inherit}
+/* línea perforada (como el corte del boleto) justo bajo el logo */
+.shop[data-card="ticket"] .pbody{position:relative;border-top:2px dashed color-mix(in srgb,var(--s-blue) 55%,var(--s-line));margin-top:0}
+/* dos muescas redondas a los costados, sobre la línea de corte */
+.shop[data-card="ticket"] .pc::before,.shop[data-card="ticket"] .pc::after{content:"";position:absolute;top:140px;width:16px;height:16px;border-radius:50%;background:var(--s-bg);border:1.5px solid color-mix(in srgb,var(--s-blue) 38%,var(--s-line));transform:translateY(-50%);z-index:3}
+.shop[data-card="ticket"] .pc::before{left:-9px}
+.shop[data-card="ticket"] .pc::after{right:-9px}
+/* el precio como el monto del boleto */
+.shop[data-card="ticket"] .price{font-variant-numeric:tabular-nums}
+.shop[data-card="ticket"] .pc:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(0,0,0,.3)}
+/* en tarjetas sin logo (combos del asesor) la muesca se adapta al alto real */
+.shop[data-card="ticket"] .acombo{overflow:visible;border-style:dashed}
