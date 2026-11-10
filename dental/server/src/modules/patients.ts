@@ -8,6 +8,7 @@ import { nextCounter, type Client } from "../lib/db.js";
 import { normalize, normalizePhone } from "../lib/text.js";
 import type { AuthCtx } from "../lib/rbac.js";
 import { recordConsentFlag } from "./consents.js";
+import { patientMoney } from "./budgets-v2-core.js";
 
 export const PATIENT_COLUMNS = `p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
   p.document_type AS "documentType", p.document_number AS "documentNumber", p.document_issued AS "documentIssued",
@@ -179,13 +180,9 @@ export function patientRoutes(route: Route) {
     handler: async ({ c, auth, params }) => {
       const p = (await c.query(`SELECT ${PATIENT_COLUMNS} FROM patients p WHERE p.id = $1`, [params.id])).rows[0];
       if (!p) throw notFound("Paciente");
+      // R2-11: mismo cálculo que la cuenta del paciente y las cuentas por cobrar.
       const balance = auth.permissions.has("payments.read") || auth.permissions.has("budgets.read")
-        ? (await c.query(
-            `SELECT COALESCE((SELECT sum(amount_cents) FROM charges WHERE patient_id = $1),0)
-                  - COALESCE((SELECT sum(amount_cents) FROM payments WHERE patient_id = $1 AND status = 'confirmed'),0) AS balance,
-                    COALESCE((SELECT sum(amount_cents) FROM payments WHERE patient_id = $1 AND status = 'pending_verification'),0) AS pending`,
-            [params.id],
-          )).rows[0]
+        ? await patientMoney(c, params.id).then((m) => ({ ...m, balance: m.balanceCents, pending: m.pendingVerificationCents }))
         : null;
       const appts = (
         await c.query(

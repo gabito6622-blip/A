@@ -10,6 +10,7 @@ import { CONDITIONS } from "./clinical.js";
 import { clinicZone } from "./agenda.js";
 import { dayBounds } from "../lib/slots.js";
 import { assertCashSessionForPayment } from "./cashSessions.js";
+import { budgetExtras, budgetMoney, lineDiscount, onChargeVoided, patientMoney, performPendingSessions, recalcBudget, supersededError, zGlobalDiscount, zPercent } from "./budgets-v2-core.js";
 
 const BUDGET_TRANSITIONS: Record<string, string[]> = {
   draft: ["presented", "cancelled"],
@@ -18,10 +19,11 @@ const BUDGET_TRANSITIONS: Record<string, string[]> = {
   rejected: ["draft"],
   cancelled: [],
   completed: [],
+  superseded: [],
 };
 
 export const BUDGET_LABELS: Record<string, string> = {
-  draft: "Borrador", presented: "Presentado", accepted: "Aceptado", rejected: "Rechazado", cancelled: "Anulado", completed: "Completado",
+  draft: "Borrador", presented: "Presentado", accepted: "Aceptado", rejected: "Rechazado", cancelled: "Anulado", completed: "Completado", superseded: "Reemplazado",
 };
 
 export const METHOD_LABELS: Record<string, string> = { cash: "Efectivo", transfer: "Transferencia", qr: "QR", card: "Tarjeta" };
@@ -34,12 +36,13 @@ const itemBody = z.object({
   quantity: z.number().int().min(1).max(100).default(1),
   unitPriceCents: zMoney.optional(),
   discountCents: zMoney.default(0),
+  discountPercent: zPercent.nullish(),
 });
 
 async function loadBudget(c: Client, id: string) {
   const b = (
     await c.query(
-      `SELECT b.id, b.number, b.branch_id AS "branchId", b.patient_id AS "patientId", b.dentist_id AS "dentistId", b.status,
+      `SELECT b.id, b.number, b.version, b.branch_id AS "branchId", b.patient_id AS "patientId", b.dentist_id AS "dentistId", b.status,
               b.installments, b.notes, b.valid_until AS "validUntil", b.created_at AS "createdAt", b.presented_at AS "presentedAt",
               b.decided_at AS "decidedAt", b.decided_note AS "decidedNote",
               p.first_name || ' ' || p.last_name AS "patientName", u.full_name AS "dentistName", br.name AS "branchName"
@@ -52,24 +55,18 @@ async function loadBudget(c: Client, id: string) {
   const items = (
     await c.query(
       `SELECT i.id, i.procedure_id AS "procedureId", pr.code AS "procedureCode", i.tooth, i.surfaces, i.description, i.quantity,
-              i.unit_price_cents AS "unitPriceCents", i.discount_cents AS "discountCents",
-              (i.unit_price_cents * i.quantity - i.discount_cents) AS "totalCents", i.status, i.performed_at AS "performedAt",
+              i.unit_price_cents AS "unitPriceCents", i.discount_cents AS "discountCents", i.discount_percent AS "discountPercent",
+              i.unit_price_cents * i.quantity AS "grossCents", i.global_discount_cents AS "globalDiscountCents", i.net_cents AS "totalCents", i.status, i.performed_at AS "performedAt",
               u.full_name AS "performedByName"
          FROM budget_items i JOIN procedures pr ON pr.id = i.procedure_id LEFT JOIN users u ON u.id = i.performed_by
         WHERE i.budget_id = $1 ORDER BY i.position, i.id`,
       [id],
     )
   ).rows;
-  const pay = (
-    await c.query<{ confirmed: number; pending: number }>(
-      `SELECT COALESCE(sum(amount_cents) FILTER (WHERE status = 'confirmed'),0) AS confirmed,
-              COALESCE(sum(amount_cents) FILTER (WHERE status = 'pending_verification'),0) AS pending
-         FROM payments WHERE budget_id = $1`,
-      [id],
-    )
-  ).rows[0]!;
-  const totalCents = items.filter((i) => i.status !== "cancelled").reduce((s, i) => s + Number(i.totalCents), 0);
-  const doneCents = items.filter((i) => i.status === "done").reduce((s, i) => s + Number(i.totalCents), 0);
+  const money = await budgetMoney(c, id);
+  const pay = { confirmed: Number(money.paidCents), pending: Number(money.pendingCents) };
+  const totalCents = Number(money.totalCents);
+  const doneCents = Number(money.performedCents);
   const n = b.installments as number;
   const base = Math.floor(totalCents / n);
   const plan = Array.from({ length: n }, (_, k) => (k === n - 1 ? totalCents - base * (n - 1) : base));
@@ -77,6 +74,7 @@ async function loadBudget(c: Client, id: string) {
     ...b, statusLabel: BUDGET_LABELS[b.status], items, totalCents, doneCents,
     paidCents: pay.confirmed, pendingVerificationCents: pay.pending, remainingCents: totalCents - pay.confirmed,
     installmentPlan: plan, allowedTransitions: BUDGET_TRANSITIONS[b.status],
+    ...(await budgetExtras(c, { id, items })),
   };
 }
 
@@ -88,11 +86,11 @@ async function insertItems(c: Client, clinicId: string, budgetId: string, items:
     if ((pr.scope === "tooth" || pr.scope === "surface") && !it.tooth) throw badRequest(`"${pr.name}" requiere indicar la pieza dental`);
     if (pr.scope === "surface" && !it.surfaces.length) throw badRequest(`"${pr.name}" requiere indicar superficies`);
     const unit = it.unitPriceCents ?? pr.price_cents;
-    if (it.discountCents > unit * it.quantity) throw badRequest("El descuento no puede superar el importe");
+    const disc = lineDiscount(unit * it.quantity, it);
     await c.query(
-      `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, position)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [clinicId, budgetId, it.procedureId, it.tooth, it.surfaces, it.description ?? pr.name, it.quantity, unit, it.discountCents, pos++],
+      `INSERT INTO budget_items (clinic_id, budget_id, procedure_id, tooth, surfaces, description, quantity, unit_price_cents, discount_cents, discount_percent, position)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [clinicId, budgetId, it.procedureId, it.tooth, it.surfaces, it.description ?? pr.name, it.quantity, unit, disc.discountCents, disc.discountPercent, pos++],
     );
   }
 }
@@ -101,13 +99,13 @@ export function billingRoutes(route: Route) {
   // ---------------- Presupuestos ----------------
   route({
     method: "GET", url: "/api/budgets", summary: "Presupuestos (filtros: estado, paciente, sucursal)", tags: ["presupuestos"], perm: "budgets.read",
-    query: z.object({ status: z.enum(["draft", "presented", "accepted", "rejected", "cancelled", "completed"]).optional(), patientId: zId.optional(), branchId: zId.optional() }),
+    query: z.object({ status: z.enum(["draft", "presented", "accepted", "rejected", "cancelled", "completed", "superseded"]).optional(), patientId: zId.optional(), branchId: zId.optional() }),
     handler: async ({ c, auth, query }) => {
       const r = await c.query(
-        `SELECT b.id, b.number, b.status, b.branch_id AS "branchId", br.name AS "branchName", b.patient_id AS "patientId",
+        `SELECT b.id, b.number, b.version, b.status, b.branch_id AS "branchId", br.name AS "branchName", b.patient_id AS "patientId",
                 p.first_name || ' ' || p.last_name AS "patientName", u.full_name AS "dentistName", b.created_at AS "createdAt",
                 b.presented_at AS "presentedAt", b.valid_until AS "validUntil",
-                COALESCE((SELECT sum(i.unit_price_cents * i.quantity - i.discount_cents) FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled'),0) AS "totalCents",
+                COALESCE((SELECT sum(i.net_cents) FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled'),0) AS "totalCents",
                 COALESCE((SELECT sum(amount_cents) FROM payments x WHERE x.budget_id = b.id AND x.status = 'confirmed'),0) AS "paidCents"
            FROM budgets b JOIN patients p ON p.id = b.patient_id JOIN users u ON u.id = b.dentist_id JOIN branches br ON br.id = b.branch_id
           WHERE ($1::text IS NULL OR b.status = $1) AND ($2::uuid IS NULL OR b.patient_id = $2) AND ($3::uuid IS NULL OR b.branch_id = $3)
@@ -131,6 +129,7 @@ export function billingRoutes(route: Route) {
     notes: zOptText(2000),
     items: z.array(itemBody).min(1, "Agrega al menos una prestación").max(100),
     markPlannedInOdontogram: z.boolean().default(true),
+    globalDiscount: zGlobalDiscount.nullish(),
   });
 
   route({
@@ -144,6 +143,7 @@ export function billingRoutes(route: Route) {
         [auth.clinicId, number, body.branchId, body.patientId, body.dentistId, body.installments, body.validUntil, body.notes, auth.userId],
       )).rows[0]!.id;
       await insertItems(c, auth.clinicId!, id, body.items);
+      await recalcBudget(c, id, body.globalDiscount);
       if (body.markPlannedInOdontogram && auth.permissions.has("clinical.write")) {
         const items = (await c.query<{ id: string; tooth: number | null; surfaces: string[]; cond: string | null }>(
           `SELECT i.id, i.tooth, i.surfaces, pr.odontogram_condition AS cond FROM budget_items i JOIN procedures pr ON pr.id = i.procedure_id WHERE i.budget_id = $1`, [id])).rows;
@@ -164,7 +164,7 @@ export function billingRoutes(route: Route) {
 
   route({
     method: "PUT", url: "/api/budgets/:id/items", summary: "Reemplazar ítems (solo en borrador)", tags: ["presupuestos"], perm: "budgets.write", params: zIdParams,
-    body: z.object({ items: z.array(itemBody).min(1).max(100), installments: z.number().int().min(1).max(60).optional(), notes: zOptText(2000).optional() }),
+    body: z.object({ items: z.array(itemBody).min(1).max(100), installments: z.number().int().min(1).max(60).optional(), notes: zOptText(2000).optional(), globalDiscount: zGlobalDiscount.nullish() }),
     handler: async ({ c, auth, params, body }) => {
       const b = (await c.query<{ status: string; branch_id: string }>("SELECT status, branch_id FROM budgets WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
       if (!b) throw notFound("Presupuesto");
@@ -173,6 +173,7 @@ export function billingRoutes(route: Route) {
       // Los ítems de un borrador nunca tienen cargos; se reemplazan como "cancelled" para no perder trazabilidad.
       await c.query("UPDATE budget_items SET status = 'cancelled' WHERE budget_id = $1 AND status = 'pending'", [params.id]);
       await insertItems(c, auth.clinicId!, params.id, body.items);
+      await recalcBudget(c, params.id, body.globalDiscount);
       await c.query("UPDATE budgets SET installments = COALESCE($2, installments), notes = CASE WHEN $3::boolean THEN $4 ELSE notes END WHERE id = $1",
         [params.id, body.installments ?? null, body.notes !== undefined, body.notes ?? null]);
       await audit(c, auth, "budget.items_replaced", "budget", params.id, { items: body.items.length }, b.branch_id);
@@ -187,6 +188,7 @@ export function billingRoutes(route: Route) {
       const b = (await c.query<{ status: string; branch_id: string }>("SELECT status, branch_id FROM budgets WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
       if (!b) throw notFound("Presupuesto");
       requireBranch(auth, b.branch_id);
+      if (b.status === "superseded") throw await supersededError(c, params.id);
       if (!BUDGET_TRANSITIONS[b.status]!.includes(body.status)) {
         throw new AppError(409, "invalid_transition", `No se puede pasar de "${BUDGET_LABELS[b.status]}" a "${BUDGET_LABELS[body.status]}"`);
       }
@@ -214,7 +216,7 @@ export function billingRoutes(route: Route) {
     body: z.object({ appointmentId: zId.nullish(), note: zOptText(500) }),
     handler: async ({ c, auth, params, body }) => {
       const it = (await c.query<{ budget_id: string; status: string; tooth: number | null; surfaces: string[]; description: string; total: number; cond: string | null; b_status: string; branch_id: string; patient_id: string }>(
-        `SELECT i.budget_id, i.status, i.tooth, i.surfaces, i.description, (i.unit_price_cents * i.quantity - i.discount_cents) AS total,
+        `SELECT i.budget_id, i.status, i.tooth, i.surfaces, i.description, i.net_cents AS total,
                 pr.odontogram_condition AS cond, b.status AS b_status, b.branch_id, b.patient_id
            FROM budget_items i JOIN budgets b ON b.id = i.budget_id JOIN procedures pr ON pr.id = i.procedure_id
           WHERE i.id = $1 FOR UPDATE OF i`, [params.id])).rows[0];
@@ -224,7 +226,9 @@ export function billingRoutes(route: Route) {
       if (it.status !== "pending") throw conflict("Ese tratamiento ya fue realizado o anulado", "invalid_status");
       await c.query("UPDATE budget_items SET status = 'done', performed_by = $2, performed_at = now() WHERE id = $1", [params.id, auth.userId]);
       let chargeId: string | null = null;
-      if (it.total > 0) {
+      const sessions = await performPendingSessions(c, auth, params.id); // por sesiones: solo las pendientes (sin doble cobro)
+      if (sessions) chargeId = sessions.chargeIds[0] ?? null;
+      else if (it.total > 0) {
         chargeId = (await c.query<{ id: string }>(
           `INSERT INTO charges (clinic_id, branch_id, patient_id, budget_item_id, dentist_id, description, amount_cents, created_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$5) RETURNING id`,
@@ -286,6 +290,7 @@ export function billingRoutes(route: Route) {
       if (ch.budget_item_id) {
         const bi = (await c.query<{ budget_id: string }>("UPDATE budget_items SET status = 'pending', performed_by = NULL, performed_at = NULL WHERE id = $1 RETURNING budget_id", [ch.budget_item_id])).rows[0];
         if (bi) await c.query("UPDATE budgets SET status = 'accepted' WHERE id = $1 AND status = 'completed'", [bi.budget_id]);
+        await onChargeVoided(c, params.id);
       }
       await audit(c, auth, "charge.voided", "charge", params.id, { reason: body.reason, amountCents: ch.amount_cents }, ch.branch_id);
       return { id: r.rows[0]!.id };
@@ -308,12 +313,9 @@ export function billingRoutes(route: Route) {
                 b.name AS "branchName", u.full_name AS "receivedByName"
            FROM payments p JOIN branches b ON b.id = p.branch_id JOIN users u ON u.id = p.received_by
           WHERE p.patient_id = $1 ORDER BY p.received_at`, [params.id])).rows;
-      const chargedCents = charges.reduce((s, x) => s + Number(x.amountCents), 0);
-      const paidCents = payments.filter((p) => p.status === "confirmed").reduce((s, x) => s + Number(x.amountCents), 0);
-      const pendingCents = payments.filter((p) => p.status === "pending_verification").reduce((s, x) => s + Number(x.amountCents), 0);
       return {
         charges, payments: payments.map((p) => ({ ...p, methodLabel: METHOD_LABELS[p.method] })),
-        chargedCents, paidCents, pendingVerificationCents: pendingCents, balanceCents: chargedCents - paidCents,
+        ...(await patientMoney(c, params.id)), // R2-11: el mismo cálculo que la ficha y las cuentas por cobrar
       };
     },
   });
@@ -344,9 +346,10 @@ export function billingRoutes(route: Route) {
       if (body.budgetId) {
         const b = (await c.query<{ patient_id: string; status: string }>("SELECT patient_id, status FROM budgets WHERE id = $1 FOR UPDATE", [body.budgetId])).rows[0];
         if (!b || b.patient_id !== body.patientId) throw badRequest("El presupuesto no corresponde al paciente");
+        if (b.status === "superseded") throw await supersededError(c, body.budgetId);
         if (!["accepted", "completed", "presented"].includes(b.status)) throw conflict("Solo se reciben pagos de presupuestos presentados o aceptados", "invalid_status");
         const t = (await c.query<{ total: number; paid: number }>(
-          `SELECT COALESCE((SELECT sum(unit_price_cents * quantity - discount_cents) FROM budget_items WHERE budget_id = $1 AND status <> 'cancelled'),0) AS total,
+          `SELECT COALESCE((SELECT sum(net_cents) FROM budget_items WHERE budget_id = $1 AND status <> 'cancelled'),0) AS total,
                   COALESCE((SELECT sum(amount_cents) FROM payments WHERE budget_id = $1 AND status IN ('confirmed','pending_verification')),0) AS paid`,
           [body.budgetId])).rows[0]!;
         if (t.paid + body.amountCents > t.total) {

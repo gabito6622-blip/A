@@ -5,6 +5,7 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
+import { SessionTemplateEditor } from "../components/BudgetV2";
 
 type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "consents" | "security" | "audit";
 
@@ -607,6 +608,7 @@ function ProcedureDialog({ proc, onClose, onSaved }: { proc: any; onClose: () =>
           {recallInvalid && <div className="alert danger small span-2" role="alert">El intervalo del control debe ser un número entero entre 1 y 60 meses.</div>}
           <label className="check span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />Activa (disponible para presupuestos y citas)</label>
         </div>
+        {!isNew && <SessionTemplateEditor procedure={proc} />}
       </div>
     </Dialog>
   );
