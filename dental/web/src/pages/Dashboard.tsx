@@ -25,6 +25,7 @@ export function DashboardPage() {
   const dash = useApi(url);
   const today = localDate();
   const appts = useApi(can("agenda.read") ? `/api/appointments${qs({ from: `${today}T00:00:00-04:00`, to: `${addDays(today, 1)}T00:00:00-04:00`, branchId })}` : null);
+  const myDay = useApi<any>(me?.membership?.isProfessional && can("agenda.read") ? "/api/my-day" : null);
   const d = dash.data;
   // Personal de limpieza y apoyo: su inicio es Bioseguridad.
   if (!can("agenda.read") && !can("reports.operational") && !can("reports.financial") && can("biosafety.read")) return <Navigate to="/bioseguridad" replace />;
@@ -45,6 +46,30 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      {myDay.data?.professional && (
+        <div className="card">
+          <div className="card-head"><h2>Mis pacientes de hoy</h2><span className="badge brand">{myDay.data.appointments.length}</span></div>
+          {myDay.data.appointments.length ? (
+            <div className="stack" style={{ padding: 12, gap: 10 }}>
+              {myDay.data.appointments.map((a: any) => (
+                <article key={a.id} className="row-between" style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", alignItems: "flex-start", gap: 12 }}>
+                  <div className="stack-sm" style={{ gap: 3, minWidth: 0 }}>
+                    <div className="row" style={{ gap: 8 }}>
+                      <b className="nowrap">{fmtTime(a.startsAt)}</b>
+                      <Link to={`/pacientes/${a.patientId}`} style={{ fontWeight: 650 }}>{a.patientName}</Link>
+                      {a.firstVisit && <span className="badge info">Primera visita</span>}
+                    </div>
+                    <span className="muted small">{a.procedureName ?? a.reason ?? "Consulta"} · {a.branchName}{a.chairName ? ` · ${a.chairName}` : ""}{a.pendingTreatments ? ` · ${a.pendingTreatments} tratamiento(s) pendiente(s)` : ""}</span>
+                    {a.alerts.length > 0 && <span className="badge danger" style={{ whiteSpace: "normal", height: "auto", padding: "3px 9px" }}>⚠ {a.alerts.join(" · ")}</span>}
+                  </div>
+                  <StatusBadge status={a.status} label={a.statusLabel} />
+                </article>
+              ))}
+            </div>
+          ) : <Empty>No tienes pacientes agendados hoy.</Empty>}
+        </div>
+      )}
 
       {dash.loading && !d && <div className="card"><Loading /></div>}
       {d && (
