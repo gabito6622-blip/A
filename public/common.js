@@ -26,12 +26,20 @@ export const setCurrency = (sym) => { const s = String(sym ?? "").trim(); if (s)
 export const currencySym = () => CUR_SYM;
 /** Centavos → "Bs 25" / "US$ 25,50" según el símbolo configurado. */
 export const bs = (cents) => `${CUR_SYM} ` + (cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
-/** "25" o "25,50" → centavos. */
-export const toCents = (v) => Math.round(parseFloat(String(v).replace(",", ".")) * 100);
+/** "25", "25,50", "1.000" o "1.000,50" → centavos (el punto de los miles no cuenta). */
+export const toCents = (v) => {
+  let s = String(v ?? "").trim().replace(/^bs\.?\s*/i, "").replace(/\s/g, "");
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, "");
+  return Math.round(parseFloat(s.replace(",", ".")) * 100);
+};
 
 export const fdate = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" });
 export const fdt = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-export const daysLeft = (t) => Math.ceil((t - Date.now()) / 86_400_000);
+/** Días de calendario que faltan (0 = vence hoy, -1 = venció ayer), con la fecha del celular. */
+export const daysLeft = (t) => {
+  const a = new Date(t), b = new Date();
+  return Math.round((Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) - Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) / 86_400_000);
+};
 
 export const icon = (name, cls = "i") => `<svg class="${cls}"><use href="/icons.svg#i-${name}"/></svg>`;
 

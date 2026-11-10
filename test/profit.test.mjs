@@ -97,3 +97,18 @@ describe("proveedores: cuando el proveedor sos vos", () => {
     assert.equal(s.engine.s.suppliers.propias.name, "Propias");
   });
 });
+
+describe("venta de varios meses de una vez", () => {
+  test("3 meses: cobra 3 veces el precio y el perfil dura 90 días; un cliente no puede pedir meses", () => {
+    const { s } = setup();
+    const c = s.catalog.createCustomer(owner, { name: "Carla", phone: "+59171112222" });
+    const o = s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], paymentMethod: "cash", periods: 3 });
+    assert.equal(o.total, 7500);
+    const a = s.engine.s.assignments[o.assignmentIds[0]];
+    assert.equal(Math.round((a.customerExpiresAt - a.startsAt) / DAY), 90);
+    assert.equal(s.orders.quote(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], periods: 3 }).total, 7500);
+    assert.throws(() => s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], paymentMethod: "cash", periods: 13 }), err("VALIDATION"));
+    const me = { id: `web:${c.id}`, role: "customer", customerId: c.id };
+    assert.equal(s.orders.quote(me, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], periods: 3 }).total, 2500, "los clientes siempre compran 1 período");
+  });
+});

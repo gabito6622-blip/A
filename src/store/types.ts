@@ -371,6 +371,8 @@ export interface PaymentEvidence {
 
 export interface Order {
   id: Id;
+  /** Venta de varios meses de una vez (solo staff): cada perfil dura períodos × duración. */
+  periods?: number;
   kind: OrderKind;
   customerId: Id;
   /** Quién paga (el revendedor cuando vende a su cliente con su saldo). */

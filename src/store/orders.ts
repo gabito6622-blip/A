@@ -21,7 +21,8 @@ import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
-const fdate = (t: number) => new Date(t).toISOString().slice(0, 10);
+/** Fecha de Bolivia dd/mm/aaaa para los mensajes (con toISOString salía el día siguiente). */
+const fdate = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t));
 
 function requireActFor(e: Engine, actor: Actor, customerId: Id) {
   if (!canActFor(e, actor, customerId)) throw new DomainError("FORBIDDEN", "No podés operar sobre ese cliente");
@@ -45,6 +46,16 @@ export interface CreateOrderInput {
   couponCode?: string;
   /** Con paymentMethod "local": cuál método de cobro del país usa. */
   localMethodId?: Id;
+  /** Solo staff: cuántos períodos (meses) se venden de una vez, 1 a 12. Cobra precio × períodos. */
+  periods?: number;
+}
+
+/** Períodos de una venta: el staff puede vender de 1 a 12 juntos; los clientes, siempre 1. */
+function periodsOf(actor: Actor, v: unknown): number {
+  if (v === undefined || v === null || v === "" || !isStaff(actor)) return 1;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > 12) throw new DomainError("VALIDATION", "Meses: de 1 a 12");
+  return n;
 }
 
 /**
@@ -68,6 +79,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     if (!Number.isInteger(it.qty) || it.qty < 1 || it.qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
   }
   const key = input.idempotencyKey ? `order:${actor.id}:${input.idempotencyKey}` : undefined;
+  const periods = periodsOf(actor, input.periods);
   return e.tx(() => e.idempotent(key, () => {
     const payerId = payerFor(e, actor, input.customerId);
     // Cobro por país: el método tiene que ser uno de los que ve quien paga.
@@ -83,7 +95,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const items: OrderItem[] = input.items.map((it) => {
       const p = e.get("products", it.productId);
       if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
-      return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) };
+      return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) * periods };
     });
     // Productos para revendedores sin stock: se pueden pedir pagando con QR y se entregan al aprobar.
     const back: { productId: Id; qty: number }[] = [];
@@ -104,7 +116,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const cup = input.couponCode ? couponFor(e, input.couponCode, payerId, items, gross - discount) : null;
     const order: Order = {
       id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id, channel,
-      items, total: gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
+      ...(periods > 1 ? { periods } : {}), items, total: gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
       ...(cup ? { coupon: { id: cup.coupon.id, code: cup.coupon.code, amount: cup.amount } } : {}),
@@ -130,18 +142,19 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
  * Lo que costaría un pedido, sin crearlo: sirve para mostrar el descuento del cupón en el carrito
  * antes de pagar. Si el cupón no aplica, devuelve el motivo en `couponError`.
  */
-export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; items: { productId: Id; qty: number }[]; couponCode?: string; channel?: Order["channel"] }) {
+export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; items: { productId: Id; qty: number }[]; couponCode?: string; channel?: Order["channel"]; periods?: number }) {
   if (isStaff(actor)) authorize(actor, "order.create_any");
   else authorize(actor, "order.create_self");
   requireActFor(e, actor, input.customerId);
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 20) throw new DomainError("VALIDATION", "El pedido necesita entre 1 y 20 ítems");
   const payerId = payerFor(e, actor, input.customerId);
+  const periods = periodsOf(actor, input.periods);
   const items = input.items.map((it) => {
     const qty = Number(it.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
     const p = e.get("products", it.productId);
     if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
-    return { productId: it.productId, qty, unitPrice: priceFor(e, payerId, it.productId) };
+    return { productId: it.productId, qty, unitPrice: priceFor(e, payerId, it.productId) * periods };
   });
   const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
   const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
@@ -195,7 +208,7 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
       if (slot.status !== "reserved" || slot.reservedByOrder !== order.id) throw new DomainError("INVALID_STATE", `El perfil ${slotId} ya no está reservado para este pedido`);
       slot.status = "assigned";
       delete slot.reservedUntil;
-      const days = e.s.products[slot.productId].durationDays;
+      const days = e.s.products[slot.productId].durationDays * (order.periods ?? 1);
       const a: Assignment = {
         id: e.id("asg"), slotId, productId: slot.productId, customerId: order.customerId, orderId: order.id,
         startsAt: now, customerExpiresAt: now + days * DAY, status: "active",

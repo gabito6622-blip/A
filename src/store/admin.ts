@@ -159,8 +159,7 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const acc = e.s.accounts[slot.accountId];
   const cust = e.s.customers[a.customerId];
   const prod = e.s.products[a.productId];
-  const d = new Date(a.customerExpiresAt);
-  const expiresText = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const expiresText = new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(a.customerExpiresAt));
   const storeName = e.s.settings.storeName || "la tienda";
   const first = (cust?.name ?? "").split(" ")[0] || "";
   const pin = slot.pin ?? "";
