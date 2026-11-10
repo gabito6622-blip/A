@@ -2,7 +2,7 @@
 //  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
-import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -99,7 +99,9 @@ function footer() {
   ].filter(Boolean);
   $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ")
     + (MODE === "store" ? ` · <a href="/">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "")
-    + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`);
+    + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`)
+    + ` · <a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`;
+  softwareNotice();
 }
 
 /** Mezcla dos colores #RRGGBB (t = proporción del segundo). */

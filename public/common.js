@@ -197,3 +197,17 @@ export const themeSwatch = (t) => {
   const L = t.look;
   return `<span class="tsw" style="background:${L.backgroundColor}"><i style="background:linear-gradient(135deg,${L.accentColor},${L.accent2Color})"></i><b style="color:${L.accentColor}">Aa</b></span>`;
 };
+
+/* ---------------- Aviso de software protegido ----------------
+   Lo ve quien abre las herramientas de desarrollador del navegador. También advierte del
+   "pegá esto en la consola", una estafa común para robar cuentas. */
+let noticeShown = false;
+export function softwareNotice() {
+  if (noticeShown) return;
+  noticeShown = true;
+  try {
+    console.log("%cGaboHub · software protegido", "font:800 20px system-ui,sans-serif;color:#3984ff");
+    console.log("%cEste software es una obra protegida por la Ley 1322 de Derecho de Autor de Bolivia, el DS 24582 y la Decisión 351 de la CAN. Copiarlo, descompilarlo o reutilizar su código sin autorización escrita está prohibido. Más info: /terminos#software", "font:14px system-ui,sans-serif");
+    console.log("%c⚠️ Si alguien te pidió pegar algo acá, no lo hagas: puede darle acceso a tu cuenta.", "font:700 14px system-ui,sans-serif;color:#c92a2a");
+  } catch { /* consola no disponible */ }
+}

@@ -890,3 +890,7 @@ code,.mono{overflow-wrap:anywhere}
 .lookwarn:empty{display:none}
 .lookwarn.ok{background:color-mix(in srgb,var(--ok) 12%,var(--card));color:var(--ink)}
 .lookwarn.warn{background:color-mix(in srgb,#f59f00 18%,var(--card));color:var(--ink);border:1px solid color-mix(in srgb,#f59f00 50%,transparent)}
+
+/* Pie del menú: aviso de software protegido */
+.swnote{display:flex;align-items:center;min-height:44px;font-size:12px;color:var(--muted);text-decoration:none;padding:0 8px;line-height:1.3}
+.swnote:hover{text-decoration:underline}
