@@ -1,3 +1,12 @@
+// ============================================================================
+//  ▶ PARA INSTALAR: guardá (Ctrl + S), dejá elegida la función "instalar" en la
+//    barra de arriba y tocá "Ejecutar". Es la primera función del archivo, así
+//    que aparece elegida sola.
+// ============================================================================
+function instalar() {
+  instalarTodo_();
+}
+
 /**
  * ============================================================================
  *  GABRIEL STORE — Estudio de mercado para revendedores de streaming
@@ -988,8 +997,8 @@ function informeMarkdown(res, opts) {
 // 3. GOOGLE: FORMULARIO, HOJA, PRUEBA AISLADA, ANÁLISIS Y DISPARADORES
 // ============================================================================
 
-/** Paso único: prueba aislada + creación del formulario y la hoja definitivos. */
-function instalar() {
+/** Prueba aislada + creación del formulario y la hoja definitivos (lo llama instalar). */
+function instalarTodo_() {
   var props = PropertiesService.getScriptProperties();
   var formId = props.getProperty('FORM_ID');
   if (formId && archivoExiste_(formId)) {

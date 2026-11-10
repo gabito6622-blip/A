@@ -40,7 +40,7 @@ El editor de Apps Script no funciona bien en el celular. Usá una computadora co
 
 **Paso C — Ejecutar y autorizar**
 
-7. En la barra de arriba, en el selector de funciones, elegí **`instalar`** y tocá **▷ Ejecutar**.
+7. En la barra de arriba, el selector de funciones ya muestra **`instalar`** (es la primera función del archivo). Tocá **▷ Ejecutar**.
 8. Aparece "Se requiere autorización" → **Revisar permisos** → elegí tu cuenta.
 9. Como el script es tuyo y no está publicado, Google muestra "**Google no verificó esta app**". Tocá **Configuración avanzada** → **Ir a Encuesta Gabriel Store (no seguro)**. Es seguro porque el código es el que acabás de pegar y corre solo en tu cuenta.
 10. Revisá la lista de permisos y tocá **Permitir**:
