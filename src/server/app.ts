@@ -645,6 +645,8 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
   route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
+  // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
+  route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {

@@ -13,7 +13,7 @@ import { DAY } from "./time.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { createCustomer, normalizePhone, upsertSupplier } from "./catalog.js";
-import { addAccount, addSlot } from "./inventory.js";
+import { addAccount, addSlot, ensurePropias } from "./inventory.js";
 
 export interface ServiceRow {
   row: number;
@@ -114,8 +114,9 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
   let account = Object.values(e.s.accounts).find((a) => a.email === email && a.productId === product.id && a.status === "active");
   if (!account) {
 
-    const supplierName = r.supplier?.trim() || "Sin proveedor";
-    let supplier = Object.values(e.s.suppliers).find((s) => norm(s.name) === norm(supplierName));
+    // Sin columna de proveedor: la cuenta es tuya ("Propias").
+    const supplierName = r.supplier?.trim() || "";
+    let supplier = supplierName ? Object.values(e.s.suppliers).find((s) => norm(s.name) === norm(supplierName)) : e.s.suppliers[ensurePropias(e)];
     if (!supplier) {
       supplier = upsertSupplier(e, actor, { name: supplierName, active: true });
       res.created.push("proveedor");

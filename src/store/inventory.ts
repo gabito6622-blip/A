@@ -51,8 +51,7 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
   return e.tx(() => {
     e.get("products", a.productId);
     // Proveedor opcional: si no se indica, se usa "Propias" (tus cuentas, sin proveedor).
-    let supplierId = a.supplierId;
-    if (!supplierId) { supplierId = "propias"; if (!e.s.suppliers.propias) e.s.suppliers.propias = { id: "propias", name: "Propias", active: true }; }
+    const supplierId = a.supplierId || ensurePropias(e);
     const sup = e.get("suppliers", supplierId);
     if (!sup.active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
     // Vencimiento con el proveedor opcional: sin fecha => muy a futuro (no molesta).
@@ -163,6 +162,7 @@ export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: Acc
     if (acc.status === "retired" && credsChanged) throw new DomainError("INVALID_STATE", "La cuenta está retirada");
     if (email !== undefined && email !== acc.email) { acc.email = email; changed.push("email"); }
     if (patch.password !== undefined && patch.password !== acc.password) { acc.password = patch.password; changed.push("password"); }
+    if (patch.supplierId === "" || patch.supplierId === "propias") patch = { ...patch, supplierId: ensurePropias(e) };
     if (patch.supplierId !== undefined && patch.supplierId !== acc.supplierId) {
       if (!e.get("suppliers", patch.supplierId).active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
       acc.supplierId = patch.supplierId; changed.push("supplierId");
@@ -265,4 +265,26 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
         ...(asg ? { assignmentId: asg.id, customerId: asg.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "", expiresAt: asg.customerExpiresAt } : {}) };
     }),
   }));
+}
+
+/** "Propias": las cuentas que son tuyas (vos sos el proveedor). Se crea sola la primera vez. */
+export function ensurePropias(e: Engine): Id {
+  if (!e.s.suppliers.propias) e.s.suppliers.propias = { id: "propias", name: "Propias", active: true };
+  else if (!e.s.suppliers.propias.active) e.s.suppliers.propias.active = true;
+  return "propias";
+}
+
+/** Borra un proveedor: sus cuentas pasan a "Propias" (no se pierde ninguna cuenta ni cliente). */
+export function deleteSupplier(e: Engine, actor: Actor, supplierId: Id): { moved: number } {
+  authorize(actor, "supplier.manage");
+  if (supplierId === "propias") throw new DomainError("VALIDATION", "\"Propias\" son tus cuentas: no se borra");
+  return e.tx(() => {
+    e.get("suppliers", supplierId);
+    const to = ensurePropias(e);
+    let moved = 0;
+    for (const acc of Object.values(e.s.accounts)) if (acc.supplierId === supplierId) { acc.supplierId = to; moved++; }
+    delete e.s.suppliers[supplierId];
+    e.audit(actor, "supplier.delete", "supplier", supplierId, { moved });
+    return { moved };
+  });
 }
