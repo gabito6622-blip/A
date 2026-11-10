@@ -17,6 +17,7 @@ import { hashPassword, hashSecret, newToken, OtpStore, RateLimiter, sha256, veri
 import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
+import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
@@ -1363,6 +1364,73 @@ export function createApp(cfg: AppConfig): App {
     if (origin !== allowed && origin !== `https://${req.headers.host}`) throw new HttpError(403, "BAD_ORIGIN", "Origen no permitido");
   }
 
+  /* ---------- Vista previa al compartir (WhatsApp, Facebook, Telegram) ----------
+     Las páginas públicas llevan título, descripción e imagen propios en el <head>, y la imagen
+     se dibuja en el servidor con el nombre y los colores de cada tienda. */
+  type OgInfo = { title: string; description: string; siteName: string; img: string; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
+  const oneLine = (s: unknown, max = 200) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  function ogInfo(pathname: string): OgInfo | null {
+    const st = store.engine.s.settings;
+    const platform = st.platformName || "GaboHub";
+    const slug = pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase();
+    if (slug) {
+      try {
+        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string };
+        const title = oneLine(sh.title || slug, 60);
+        const description = oneLine(sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${title}.`);
+        return { title, description, siteName: title, img: `/og/r/${slug}.png`, card: { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor } };
+      } catch { return null; }
+    }
+    if (/^\/tienda(\/|$)/.test(pathname)) {
+      const title = oneLine(st.storeName || "Tienda", 60);
+      const description = oneLine(st.heroText || "Suscripciones digitales: pagá con QR o saldo y recibí tus accesos en tu cuenta.");
+      return { title, description, siteName: title, img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
+    }
+    if (pathname === "/" || /^\/(revendedores|tiendas)\/?$/.test(pathname)) {
+      const title = oneLine(platform, 60);
+      return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
+        img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
+    }
+    return null;
+  }
+  /** Origen absoluto para las etiquetas (WhatsApp exige URLs completas). */
+  function originOf(req: IncomingMessage) {
+    if (cfg.publicOrigin) return cfg.publicOrigin.replace(/\/$/, "");
+    const host = String(req.headers.host ?? "");
+    return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${cfg.secureCookies ? "https" : "http"}://${host}` : "";
+  }
+  const ogCache = new Map<string, Buffer>();
+  function serveOgImage(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+    const m = pathname.match(/^\/og\/(tienda|hub|r\/([a-z0-9-]{3,30}))\.png$/i);
+    if (!m || (req.method !== "GET" && req.method !== "HEAD")) return false;
+    const info = ogInfo(m[2] ? `/r/${m[2].toLowerCase()}` : m[1] === "tienda" ? "/tienda/" : "/");
+    if (!info) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
+    const key = JSON.stringify(info.card);
+    let img = ogCache.get(key);
+    if (!img) {
+      img = ogCard(info.card);
+      if (ogCache.size >= 64) ogCache.delete(ogCache.keys().next().value!);
+      ogCache.set(key, img);
+    }
+    res.writeHead(200, { "Content-Type": "image/png", "Content-Length": img.length, "Cache-Control": "public, max-age=3600" });
+    res.end(req.method === "HEAD" ? undefined : img);
+    return true;
+  }
+  let shellHtml: { file: string; mtime: number; html: string } | null = null;
+  function shellWithOg(req: IncomingMessage, file: string, pathname: string): string | null {
+    const info = ogInfo(pathname);
+    if (!info) return null;
+    const mtime = statSync(file).mtimeMs;
+    if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
+    const origin = originOf(req);
+    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, imageW: OG_W, imageH: OG_H });
+    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return shellHtml.html
+      .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
+      .replace(/<meta name="description"[^>]*>\n?/, "")
+      .replace("</head>", `${tags}\n</head>`);
+  }
+
   function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
@@ -1374,6 +1442,14 @@ export function createApp(cfg: AppConfig): App {
     if (/^\/recuperar\/?$/.test(pathname)) file = join(root, "recuperar.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
+    if (file === join(root, "index.html")) {
+      const html = shellWithOg(req, file, pathname);
+      if (html !== null) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(req.method === "HEAD" ? undefined : html);
+        return true;
+      }
+    }
     res.writeHead(200, {
       "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
       // HTML, JS, CSS y manifiesto se revalidan siempre: así cada actualización se ve al instante.
@@ -1401,7 +1477,7 @@ export function createApp(cfg: AppConfig): App {
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {
-        if (!serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
+        if (!serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
       const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
