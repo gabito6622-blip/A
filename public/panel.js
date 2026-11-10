@@ -584,21 +584,19 @@ const V = {
         <p class="muted" style="margin:0">El PIN no vence. Si lo pierde, tocá de nuevo el botón y se genera uno nuevo (el anterior deja de servir).</p></section>` : ""}
       ${ledger ? `<section class="card"><h2>Saldo de ${esc(lc?.name)} · ${bs(lc?.balance ?? 0)} <button class="pbtn sm" type="button" data-ledger="">Cerrar</button></h2>${table(["Fecha", "Tipo", "Referencia", "Monto", "Saldo"], ledger.slice().reverse().map((m) => `<tr><td>${fdt(m.at)}</td><td>${esc(m.type)}</td><td>${esc(m.ref)}${m.note ? `<br><small class="muted">${esc(m.note)}</small>` : ""}</td><td class="${m.amount < 0 ? "down" : "up"}">${bs(m.amount)}</td><td>${bs(m.balanceAfter)}</td></tr>`), "Sin movimientos.")}
         ${isOwner() ? `<form class="inline" id="adjForm" data-id="${esc(P.tab.ledger)}"><input name="amount" inputmode="decimal" placeholder="Monto Bs (negativo para descontar)" required><input name="reason" placeholder="Motivo" required><button class="pbtn dark sm" type="submit">Ajustar saldo</button></form>` : ""}</section>` : ""}
-      ${ec ? `<section class="card"><h2>Editar ${esc(ec.name)} <button class="pbtn sm" type="button" data-editcus="">Cerrar</button></h2><form class="form" id="editCusForm" data-id="${esc(ec.id)}">
-        <label>Nombre<input name="name" required maxlength="80" value="${esc(ec.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(ec.phone)}"></label><label>Email<input name="email" type="email" value="${esc(ec.email ?? "")}"></label>
-        ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", ec.kind === "customer")}${opt("reseller", "Revendedor", ec.kind === "reseller")}</select></label>` : ""}
-        <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(ec.notes ?? "")}" placeholder="Ej.: paga los viernes, prefiere perfil 1"></label>
-        <label class="chk"><input type="checkbox" name="consent" ${ec.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label><button class="pbtn dark" type="submit">Guardar cambios</button></form></section>` : ""}
       <section class="card"><h2>Nuevo cliente</h2><form class="form" id="cusForm"><label>Nombre<input name="name" required></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label>Email (opcional)<input name="email" type="email"></label>
         <label>Tipo<select name="kind">${opt("customer", "Cliente")}${canReview() ? opt("reseller", "Revendedor") : ""}</select></label><label class="chk"><input type="checkbox" name="consent"> Aceptó recibir avisos por WhatsApp</label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
-      <section class="card"><form class="filters" id="cusSearch"><input name="q" placeholder="Buscar por nombre, teléfono o email" value="${esc(q)}" style="flex:5 1 240px" aria-label="Buscar"><button class="pbtn dark" type="submit">${icon("filter")}Buscar</button></form>
-      ${canReview() && list.length ? `<div class="inline bulkkind"><span class="muted">${list.filter((c) => c.kind === "reseller").length} revendedores · ${list.filter((c) => c.kind !== "reseller").length} clientes</span>
-        <button class="pbtn sm dark" type="button" data-bulkkind="all">👥 Pasar TODOS a revendedores</button>
-        <button class="pbtn sm" type="button" data-bulkkind="sel">Marcados → Revendedor</button>
-        <button class="pbtn sm" type="button" data-bulkkind="selc">Marcados → Cliente</button></div>` : ""}
-      ${table([canReview() ? "<input type=checkbox id=cusAll aria-label='Marcar todos'>" : "", "Nombre", "WhatsApp", "Tipo", "Servicios", "Saldo", "Avisos", "Acciones"], list.map((c) => `<tr><td>${canReview() ? `<input type="checkbox" class="cussel" value="${esc(c.id)}" aria-label="Marcar ${esc(c.name)}">` : ""}</td><td>${esc(c.name)}${c.notes ? `<br><small class="muted">📝 ${esc(c.notes)}</small>` : ""}</td><td><a href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${esc(c.phone)}</a></td>
-        <td>${c.kind === "reseller" ? pill("Revendedor", "warn") : "Cliente"}</td><td>${c.activeServices}</td><td>${bs(c.balance)}</td><td>${c.whatsappConsent ? pill("Sí", "ok") : pill("No", "mute")}</td>
-        <td><div class="acts"><button class="pbtn sm" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn sm" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><button class="pbtn sm" type="button" data-editcus="${esc(c.id)}">${icon("edit")}Editar</button></div></td></tr>`), q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes.")}</section>`;
+      <section class="card"><form class="filters" id="cusSearch"><input name="q" placeholder="🔍 Buscar por nombre, teléfono o email" value="${esc(q)}" style="flex:5 1 240px" aria-label="Buscar"><button class="pbtn dark" type="submit">${icon("filter")}Buscar</button></form>
+      ${canReview() && list.length ? `<div class="inline bulkkind"><span class="muted">${list.filter((c) => c.kind === "reseller").length} revendedores · ${list.filter((c) => c.kind !== "reseller").length} clientes</span><button class="pbtn sm dark" type="button" data-bulkkind="all">👥 Pasar TODOS a revendedores</button></div>` : ""}
+      <p class="muted" style="margin:0;font-size:12.5px">👆 Tocá un cliente para editarlo ahí mismo (nombre, WhatsApp, notas, tipo) y cobrarle o darle su PIN.</p>
+      ${list.length ? list.map((c) => `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${c.activeServices} serv. · ${bs(c.balance)}</span></summary>
+        <form class="form" data-editcusform data-id="${esc(c.id)}">
+          <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
+          ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
+          <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
+          <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
+          <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
+        </form></details>`).join("") : `<p class="muted">${q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes."}</p>`}</section>`;
   },
 
   async excel() {
@@ -1669,7 +1667,7 @@ document.addEventListener("submit", async (ev) => {
       P.tab.editAcc = null;
       toast(r.notified ? `Cuenta actualizada: ${r.notified} cliente(s) ven el dato nuevo y tienen el aviso en WhatsApp` : `Cuenta actualizada${pins ? ` (${pins} perfil/es)` : ""}`);
       await render();
-    } else if (f.id === "editCusForm") {
+    } else if (f.id === "editCusForm" || f.dataset.editcusform !== undefined) {
       const body = { name: f.name.value, phone: f.phone.value, email: f.email.value, notes: f.notes.value };
       if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : "final"; }
       await api("POST", `/api/admin/customers/${f.dataset.id}`, body);
