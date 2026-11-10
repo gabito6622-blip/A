@@ -17,6 +17,7 @@ import { UndoToast, type UndoAction } from "../components/agenda/UndoToast";
 import { COLOR_MODE_LABELS, colorFor, legendFor, tint, useColorMode, type ColorMode } from "../components/agenda/colors";
 import { StatusIcon } from "../components/agenda/StatusIcon";
 import { SeriesActions } from "../components/agenda/SeriesActions";
+import { PatientContactActions } from "../components/coordination/Calls";
 import { RepeatFields, SeriesReview, defaultRule, initialChoices, previewSeries, ruleErrors, saveSeries, type Choice, type RepeatRule, type SeriesPreview } from "../components/agenda/Recurrence";
 
 const START = 7 * 60, END = 21 * 60, STEP = 15, PX = 18;
@@ -529,6 +530,7 @@ export function AppointmentDrawer({ id, onClose, onChanged, onCompleted }: { id:
           <div className="stack-sm">
             <Link to={`/pacientes/${d.patientId}`} style={{ fontSize: 18, fontWeight: 650 }}>{d.patientName}</Link>
             <span className="muted">Ficha {d.recordNumber}{d.patientPhone ? ` · ${d.patientPhone}` : ""}</span>
+            <PatientContactActions who={{ patientId: d.patientId, patientName: d.patientName, phone: d.patientPhone, branchId: d.branchId, appointmentId: d.id, appointmentLabel: `del ${localDate(new Date(d.startsAt)).split("-").reverse().join("/")} ${fmtTime(d.startsAt)}` }} />
           </div>
           <div className="card card-pad stack-sm">
             <div className="row-between"><span className="muted">Horario</span><b>{fmtTime(d.startsAt)} – {fmtTime(d.endsAt)}</b></div>

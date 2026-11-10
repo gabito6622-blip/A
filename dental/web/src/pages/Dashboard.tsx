@@ -5,6 +5,7 @@ import { useApi } from "../lib/hooks";
 import { addDays, bs, fmtTime, localDate } from "../lib/format";
 import { qs } from "../lib/api";
 import { Empty, Loading, StatusBadge } from "../components/ui";
+import { HomeCards } from "../components/coordination/HomeCards";
 
 function monthRange(offset: number) {
   const today = localDate();
@@ -46,6 +47,8 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      <HomeCards />
 
       {myDay.data?.professional && (
         <div className="card">

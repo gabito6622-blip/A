@@ -24,7 +24,8 @@ export type Permission =
   | "reports.financial" | "reports.operational"
   | "assistant.use"
   | "biosafety.read" | "biosafety.write"
-  | "inventory.read" | "inventory.write" | "inventory.manage";
+  | "inventory.read" | "inventory.write" | "inventory.manage"
+  | "tasks.use";
 
 const BASE: Record<Role, Permission[]> = {
   owner: [
@@ -53,6 +54,9 @@ const BASE: Record<Role, Permission[]> = {
   // Limpieza y apoyo: solo bioseguridad (mínimo privilegio; sin datos de pacientes).
   support: ["biosafety.read", "biosafety.write"],
 };
+
+// Tareas internas del equipo: todos los roles (también limpieza, sin ver pacientes).
+for (const r of ROLES) BASE[r].push("tasks.use");
 
 // Propietarios/administradores que además atienden (is_professional) acceden a lo clínico.
 const PROFESSIONAL_EXTRA: Permission[] = ["clinical.read", "clinical.write", "treatments.perform"];
