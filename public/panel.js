@@ -822,7 +822,7 @@ const V = {
 
   async revendedores() {
     const [data, set] = await Promise.all([api("GET", "/api/admin/resellers"), api("GET", "/api/settings")]);
-    const { list, apps, rent, marginPct } = data;
+    const { list, apps, rent, marginPct, referralBonus = 0 } = data;
     const pending = apps.filter((a) => a.status === "pending");
     const T = P.tab, o = location.origin;
     const q = (T.rq ?? "").toLowerCase();
@@ -875,6 +875,7 @@ const V = {
     ${isOwner() ? `<section class="card"><h2>${icon("gear")}Ajustes de revendedores</h2>
       <form class="form" id="resCfg">
         <label>Ganancia sugerida para sus precios (%)<input name="margin" inputmode="numeric" value="${esc(marginPct)}"><small class="muted">El asistente les propone tu precio + este %. Ellos lo pueden cambiar.</small></label>
+        <label>🎁 Premio por traer un revendedor (Bs, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rentOn" ${rent.enabled ? "checked" : ""}> Cobrar alquiler mensual por la página (se descuenta solo de su saldo)</label>
         <label>Precio por mes (Bs)<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
         <label>Gratis si ese mes te compran (Bs, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
@@ -1905,7 +1906,7 @@ document.addEventListener("submit", async (ev) => {
       if (!confirm(`¿Poner precio de revendedor a ${n} producto(s) con ${pct}% de descuento?`)) return;
       await act(() => api("POST", "/api/admin/price-groups", rev), `Listo: ${n} producto(s) con precio de revendedor`);
     } else if (f.id === "resCfg") {
-      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
+      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {

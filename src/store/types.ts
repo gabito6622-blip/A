@@ -50,6 +50,8 @@ export interface StoreSettings extends Look {
   shopRent?: ShopRent;
   /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
   resellerMarginPct?: number;
+  /** Premio (centavos) que gana un revendedor cuando traés a otro revendedor y el dueño lo aprueba. 0 lo apaga. */
+  referralBonus?: Cents;
   /** Descuento de "Armá tu combo" para 2, 3 y 4+ servicios (centavos). [0,0,0] lo apaga. */
   comboDiscounts?: [Cents, Cents, Cents];
   storeName: string;
@@ -211,6 +213,8 @@ export interface Customer {
   kind: "customer" | "reseller";
   /** Revendedor dueño de este cliente (si lo creó un revendedor). */
   resellerId?: Id;
+  /** Revendedor que lo trajo al programa (referido). Se registra al aprobar su solicitud. */
+  referredBy?: Id;
   /** Link de códigos para compartir (/codigos/<token>), protegido con un PIN que guarda el servidor. */
   codeLink?: { token: string; createdAt: number };
   priceGroupId: Id;
@@ -370,7 +374,7 @@ export interface RentalControl {
   note?: string;
 }
 
-export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent";
+export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent" | "referral";
 
 /** Alquiler mensual de la página del revendedor (se cobra solo del saldo). */
 export interface ShopRent {
@@ -394,6 +398,8 @@ export interface ResellerApp {
   customerId?: Id;
   decidedBy?: Id;
   decidedAt?: number;
+  /** Revendedor que la refirió (si llegó por un link de referido). */
+  ref?: Id;
 }
 
 /** Libro contable de saldo: el saldo es SIEMPRE la suma de los movimientos. */

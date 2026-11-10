@@ -456,6 +456,28 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.ok(r.customerId);
   });
 
+  test("referidos: un revendedor trae a otro y gana el premio una sola vez", () => {
+    const { s, carla, as } = setup();
+    s.catalog.updateSettings(owner, { referralBonus: 1500 });
+    // Carla comparte su link con ref=carla.id; un desconocido se anota con ese ref.
+    s.shops.apply({ name: "Nuevo Reve", phone: "+591 76660011", ref: carla.id });
+    const bal0 = s.wallet.balance(carla.id);
+    const app = s.shops.apps(admin).find((a) => a.name === "Nuevo Reve");
+    const r = s.shops.approve(admin, app.id);
+    assert.equal(s.wallet.balance(carla.id), bal0 + 1500, "a Carla le llega el premio al aprobar");
+    assert.equal(s.engine.s.customers[r.customerId].referredBy, carla.id);
+    const mine = s.shops.referrals(as(carla));
+    assert.equal(mine.count, 1);
+    assert.equal(mine.earned, 1500);
+    assert.equal(mine.people[0].name, "Nuevo Reve");
+    // Un ref inválido (no es revendedor) o uno mismo no paga nada.
+    s.shops.apply({ name: "Otro", phone: "+591 76660022", ref: "cus_99999" });
+    const app2 = s.shops.apps(admin).find((a) => a.name === "Otro");
+    const bal1 = s.wallet.balance(carla.id);
+    s.shops.approve(admin, app2.id);
+    assert.equal(s.wallet.balance(carla.id), bal1, "ref inexistente no genera premio");
+  });
+
   test("el dueño crea la página del revendedor desde el panel; el revendedor ve sus precios especiales", () => {
     const { s, carla, maria } = setup();
     const r = s.shops.setupFor(admin, carla.id, { slug: "carla-store", title: "Carla Store", enabled: true, accentColor: "#000000" });

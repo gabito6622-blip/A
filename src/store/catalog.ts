@@ -88,13 +88,14 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number };
   }
   if (patch.resellerMarginPct !== undefined && !(Number.isInteger(patch.resellerMarginPct) && patch.resellerMarginPct >= 0 && patch.resellerMarginPct <= 300)) throw new DomainError("VALIDATION", "Ganancia sugerida: de 0 a 300 %");
+  if (patch.referralBonus !== undefined && !(Number.isInteger(patch.referralBonus) && patch.referralBonus >= 0 && patch.referralBonus <= 1_000_000)) throw new DomainError("VALIDATION", "Premio por referido: de Bs 0 a Bs 10.000");
   if (patch.comboDiscounts !== undefined) {
     const d = patch.comboDiscounts;
     if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 100000)) throw new DomainError("VALIDATION", "Descuentos del combo inválidos (de Bs 0 a Bs 1000)");
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

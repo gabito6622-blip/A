@@ -708,3 +708,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .setupr .paso .pnum{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--s-line);color:var(--s-muted)}
 .setupr .paso.done .pnum{background:#16b47e;color:#fff}
 .setupr .paso .pdone{color:#16b47e;font-weight:700;font-size:13px;white-space:nowrap}
+
+/* Referí y ganá (panel del revendedor) */
+.refbox{gap:12px}
+.refbox .reflink{display:flex;gap:8px;flex-wrap:wrap}
+.refbox .reflink input{flex:1 1 180px;min-width:0;padding:10px 12px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-card2);color:var(--s-ink);font-size:13px}
+.refbox .refstat{display:flex;gap:10px}
+.refbox .refstat>div{flex:1;text-align:center;padding:10px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-card2)}
+.refbox .refstat b{display:block;font-size:20px;font-weight:800}
+.refbox .refstat small{color:var(--s-muted);font-size:12px}
+.refbox .reflist{display:grid;gap:6px}
+.refbox .refrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--s-line);border-radius:10px;background:var(--s-card2)}
+.refbox .refrow small{color:var(--s-muted);font-size:12px;white-space:nowrap}

@@ -15,6 +15,11 @@ const VIEWS = {
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos"],
 }[MODE];
 
+// Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
+const REF = (() => {
+  const q = new URLSearchParams(location.search).get("ref");
+  try { if (q) sessionStorage.setItem("gs-ref", q); return (q || sessionStorage.getItem("gs-ref") || "").trim(); } catch { return (q || "").trim(); }
+})();
 const CART_KEY = `gs-cart-${MODE}${SLUG ? "-" + SLUG : ""}`;
 try { S.cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]"); } catch { S.cart = []; }
 const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
@@ -165,7 +170,7 @@ async function loadPrivate() {
     if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
-  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices")]);
+  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
 }
 
@@ -558,6 +563,21 @@ function directoryView(standalone) {
     ${!standalone && all.length > list.length ? `<a class="pghost" href="/tiendas" data-s="tiendas" style="justify-self:center">Ver las ${all.length} tiendas →</a>` : ""}</section>`;
 }
 
+/* ---------------- Referí y ganá: trae otros revendedores y ganá saldo ---------------- */
+function referralCard(r) {
+  if (!r) return "";
+  const link = `${location.origin}/?ref=${encodeURIComponent(r.code)}`;
+  const premio = r.enabled ? `Ganás <b>${bs(r.bonus)}</b> de saldo por cada revendedor que traigas y la tienda apruebe.` : "Compartí tu link: cuando la tienda active el premio, ganás saldo por cada revendedor que traigas.";
+  const list = r.people?.length ? `<div class="reflist">${r.people.slice(0, 8).map((p) => `<div class="refrow"><b>${esc(p.name)}</b><small>${fdate(p.at)}</small></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no trajiste a nadie. Mandá tu link por WhatsApp a quien quiera revender. 😉</p>`;
+  const waMsg = encodeURIComponent(`¡Volvete revendedor conmigo! Registrate acá y empezá a vender: ${link}`);
+  return `<section class="sbox refbox"><h2>🎁 Referí y ganá</h2>
+    <p class="empty" style="margin:0">${premio}</p>
+    <div class="reflink"><input id="refLink" value="${esc(link)}" readonly onclick="this.select()"><button class="sbtn pri" type="button" data-copy="${esc(link)}">Copiar link</button></div>
+    <div class="hrow"><a class="sbtn" href="https://wa.me/?text=${waMsg}" target="_blank" rel="noopener noreferrer">Compartir por WhatsApp</a></div>
+    <div class="refstat"><div><b>${r.count}</b><small>referidos</small></div><div><b>${bs(r.earned)}</b><small>ganado</small></div></div>
+    ${list}</section>`;
+}
+
 /* ---------------- Inicio del revendedor (botones grandes) ---------------- */
 function resellerHome() {
   if (S.data.wiz) return wizardView();
@@ -596,6 +616,7 @@ function resellerHome() {
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${referralCard(S.data.referrals)}
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ""}.</p>
       <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
       <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.email ? "Cambiar mi correo o contraseña" : "Entrar con correo y contraseña"}</button></div>`;
@@ -1395,7 +1416,7 @@ document.addEventListener("submit", async (ev) => {
       await api("POST", `/api/orders/${f.dataset.evidence}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
       toast("Comprobante enviado: lo revisamos en 10–30 minutos");
     } else if (f.id === "applyForm") {
-      const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value });
+      const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value, ...(REF ? { ref: REF } : {}) });
       $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
       return;
     } else if (f.id === "pwdform") {

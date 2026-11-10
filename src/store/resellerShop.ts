@@ -94,11 +94,14 @@ export function payMyShopRent(e: Engine, actor: Actor) {
 
 /* ---------------- Solicitudes para ser revendedor ---------------- */
 
-export function applyReseller(e: Engine, input: { name: unknown; phone: unknown; note?: unknown }): { ok: true; already?: "reseller" | "pending" } {
+export function applyReseller(e: Engine, input: { name: unknown; phone: unknown; note?: unknown; ref?: unknown }): { ok: true; already?: "reseller" | "pending" } {
   const name = String(input.name ?? "").trim().slice(0, 80);
   const phone = normalizePhone(String(input.phone ?? ""));
   if (!name || phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Escribí tu nombre y tu WhatsApp con código de país");
   const note = String(input.note ?? "").trim().slice(0, 300);
+  // Referido: solo vale si apunta a un revendedor existente y no es uno mismo.
+  const refId = String(input.ref ?? "").trim();
+  const ref = refId && e.s.customers[refId]?.kind === "reseller" && e.s.customers[refId]?.phone !== phone ? refId : undefined;
   const existing = Object.values(e.s.customers).find((c) => c.phone === phone);
   if (existing?.kind === "reseller") return { ok: true, already: "reseller" };
   const apps = (e.s.resellerApps ??= {});
@@ -106,9 +109,9 @@ export function applyReseller(e: Engine, input: { name: unknown; phone: unknown;
   if (Object.values(apps).filter((a) => a.status === "pending").length >= 300) throw new DomainError("VALIDATION", "Hay muchas solicitudes pendientes. Escribinos por WhatsApp.");
   const sys: Actor = { id: "system:solicitud", role: "system" };
   e.tx(() => {
-    const a: ResellerApp = { id: e.id("app"), name, phone, ...(note ? { note } : {}), createdAt: e.now(), status: "pending" };
+    const a: ResellerApp = { id: e.id("app"), name, phone, ...(note ? { note } : {}), ...(ref ? { ref } : {}), createdAt: e.now(), status: "pending" };
     e.s.resellerApps[a.id] = a;
-    e.audit(sys, "reseller.apply", "reseller_app", a.id, {});
+    e.audit(sys, "reseller.apply", "reseller_app", a.id, ref ? { ref } : {});
   });
   return { ok: true };
 }
@@ -125,6 +128,7 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
     let c = Object.values(e.s.customers).find((x) => x.phone === a.phone);
+    const wasReseller = c?.kind === "reseller";
     if (c) { c.kind = "reseller"; c.priceGroupId = "revendedor"; }
     else {
       c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true, createdAt: e.now() } as Customer;
@@ -133,6 +137,17 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
     if (!e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
     a.status = "approved"; a.customerId = c.id; a.decidedBy = actor.id; a.decidedAt = e.now();
     e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id });
+    // Premio por referido: se paga una sola vez, al convertir en revendedor a alguien que no lo era,
+    // si la solicitud trae un referidor válido (y no es él mismo) y el dueño configuró un premio > 0.
+    const bonus = e.s.settings.referralBonus ?? 0;
+    const ref = a.ref && e.s.customers[a.ref]?.kind === "reseller" && a.ref !== c.id ? a.ref : undefined;
+    if (!wasReseller && ref && !c.referredBy) {
+      c.referredBy = ref;
+      if (bonus > 0) {
+        post(e, actor, ref, bonus, "referral", c.id, `Premio por traer a ${c.name}`);
+        e.audit(actor, "reseller.referral_paid", "customer", ref, { referred: c.id, amount: bonus });
+      }
+    }
     return { customerId: c.id, name: c.name, phone: c.phone };
   });
 }
@@ -453,4 +468,18 @@ export function programInfo(e: Engine) {
       .sort((a, b) => (b.public - b.reseller) - (a.public - a.reseller)).slice(0, 12) : [],
     shops,
   };
+}
+
+/** Lo que ve un revendedor en "Referí y ganá": su código, cuánto paga el premio y a quién trajo. */
+export function myReferrals(e: Engine, actor: Actor) {
+  const c = me(e, actor);
+  const bonus = e.s.settings.referralBonus ?? 0;
+  const people = Object.values(e.s.customers)
+    .filter((x) => x.referredBy === c.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((x) => ({ name: x.name, at: x.createdAt }));
+  const earned = e.s.ledger
+    .filter((l) => l.customerId === c.id && l.type === "referral")
+    .reduce((t, l) => t + l.amount, 0);
+  return { code: c.id, bonus, enabled: bonus > 0, count: people.length, earned, people };
 }

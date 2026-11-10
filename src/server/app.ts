@@ -457,6 +457,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/prices", "customer", (c) => store.portal.priceList(c.actor!));
   /* ---- página propia del revendedor ---- */
   route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
+  route("GET", "/api/me/referrals", "customer", (c) => store.shops.referrals(c.actor!));
   route("PUT", "/api/me/shop", "customer", (c) => store.shops.update(c.actor!, c.body ?? {}));
   const shopImage = (kind: "logo" | "banner") => (c: Ctx) => {
     if (c.body?.remove === true) {
@@ -599,7 +600,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;
-    return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30 };
+    return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
   });
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
     const r = store.shops.approve(A(c), c.params.id);
@@ -612,7 +613,7 @@ export function createApp(cfg: AppConfig): App {
   const applyLimiter = new RateLimiter(3, 60 * 60_000, now);
   route("POST", "/api/resellers/apply", "public", (c) => {
     if (!applyLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Ya mandaste solicitudes. Probá en una hora o escribinos por WhatsApp.");
-    return store.shops.apply({ name: c.body?.name, phone: c.body?.phone, note: c.body?.note });
+    return store.shops.apply({ name: c.body?.name, phone: c.body?.phone, note: c.body?.note, ref: c.body?.ref });
   });
   route("POST", "/api/me/shop/pay", "customer", (c) => store.shops.payRent(c.actor!));
   route("POST", "/api/admin/customers/:id/shop", "staff", (c) => store.shops.setupFor(A(c), c.params.id, c.body ?? {}));
@@ -697,6 +698,7 @@ export function createApp(cfg: AppConfig): App {
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
     if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;
+    if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
     return store.catalog.updateSettings(A(c), pick);
