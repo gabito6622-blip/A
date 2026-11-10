@@ -13,9 +13,9 @@ const MENU = [
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
-  ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
+  ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -208,27 +208,33 @@ const V = {
       </div>
       <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Mensual", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
         d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>
-      ${(() => {
-        const G = [
-          ["Vender", "Registrás una venta: elegís cliente y producto, y el sistema arma el mensaje para WhatsApp.", "vender"],
-          ["Control", "Lo que vence con tus clientes y proveedores; desde acá avisás y renovás.", "control"],
-          ["Cuentas", "Las cuentas que compraste al mayorista, con sus perfiles o cupos.", "cuentas"],
-          ["Carga de cuentas", "Cargás una cuenta nueva: correo, clave, costo y cuándo vence.", "carga"],
-          ["Productos", "Qué servicios vendés y a qué precio (incluido el precio de revendedor).", "productos"],
-          ["Clientes", "La agenda de tus clientes y revendedores: WhatsApp, notas y qué compraron.", "clientes"],
-          ["Revendedores", "Tus revendedores: su página, su saldo y las solicitudes nuevas.", "revendedores"],
-          ["Aprobación de ventas", "Los pagos por QR que esperan tu visto bueno antes de entregar.", "aprobacion"],
-          ["Panel de códigos", "Conectás un correo y los códigos (Disney, etc.) se leen solos para tus clientes.", "codigos"],
-          ["WhatsApp", "El bot que atiende solo y los avisos automáticos a tus clientes.", "whatsapp"],
-          ["Apariencia", "El diseño de tu tienda: estilo, colores, fuentes, horario y preguntas frecuentes.", "apariencia"],
-          ["Recordatorios", "Avisos automáticos de vencimiento para que no se te escape ninguno.", "recordatorios"],
-          ["Excel", "Exportás e importás tus clientes y servicios con una planilla.", "excel"],
-          ["Configuración", "Nombre, WhatsApp, QR de cobro, verificación en dos pasos y respaldo.", "configuracion"],
-        ];
-        return `<section class="card"><details class="glos"><summary><b>📖 ¿Para qué sirve cada pantalla?</b><span class="muted">tocá para abrir</span></summary>
-          <p class="muted" style="margin:10px 0 0">Una explicación corta de cada parte del sistema. Tocá “Ir” para abrirla.</p>
-          <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></details></section>`;
-      })()}`;
+      <section class="card helpcard"><div class="inline" style="justify-content:space-between"><div><b>📖 ¿Dudas con alguna pantalla?</b><br><small class="muted">La guía de qué sirve cada parte está en su propio lugar.</small></div><button class="pbtn sm" type="button" data-go="ayuda">Abrir la Guía ${icon("arrow")}</button></div></section>`;
+  },
+  async ayuda() {
+    const G = [
+      ["Inicio / Dashboard", "Tu resumen del día: ingresos, pedidos, lo que vence y tus mejores revendedores.", "dashboard"],
+      ["Vender", "Registrás una venta: elegís cliente y producto, y el sistema arma el mensaje para WhatsApp.", "vender"],
+      ["Control", "Lo que vence con tus clientes y proveedores; desde acá avisás, renovás y reubicás perfiles.", "control"],
+      ["Finanzas", "Lo que entró, lo que salió y lo que te quedó cada mes, con tus gastos.", "finanzas"],
+      ["Cuentas", "Las cuentas que compraste al mayorista, con sus perfiles o cupos en colores.", "cuentas"],
+      ["Carga de cuentas", "Cargás una cuenta nueva: correo, clave, costo y cuándo vence.", "carga"],
+      ["Productos", "Qué servicios vendés y a qué precio (incluido el precio de revendedor).", "productos"],
+      ["Clientes", "La agenda de tus clientes y revendedores: WhatsApp, notas y qué compraron.", "clientes"],
+      ["Revendedores", "Tus revendedores: su página, su saldo, el premio por referidos y las solicitudes nuevas.", "revendedores"],
+      ["Aprobación de ventas", "Los pagos por QR que esperan tu visto bueno antes de entregar.", "aprobacion"],
+      ["Panel de códigos", "Conectás un correo y los códigos (Disney, etc.) se leen solos para tus clientes.", "codigos"],
+      ["WhatsApp", "El bot que atiende solo y los avisos automáticos a tus clientes.", "whatsapp"],
+      ["Apariencia", "El diseño de tu tienda: estilo, colores, fuentes, horario y preguntas frecuentes.", "apariencia"],
+      ["Recordatorios", "Avisos automáticos de vencimiento para que no se te escape ninguno.", "recordatorios"],
+      ["Excel", "Exportás e importás tus clientes y servicios con una planilla.", "excel"],
+      ["Configuración", "Nombre, WhatsApp, QR de cobro, verificación en dos pasos y respaldo.", "configuracion"],
+    ];
+    return `<section class="card"><h2>${icon("help")}¿Para qué sirve cada pantalla?</h2>
+      <p class="muted" style="margin:0 0 12px">Una explicación corta de cada parte del sistema. Tocá “Ir” para abrirla.</p>
+      <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></section>
+      <section class="card"><h2>👁️ Ver tu tienda como la ve el cliente</h2>
+      <p class="muted" style="margin:0 0 10px">Abrí tu tienda en otra pestaña y mirala igual que un cliente, sin tocar nada.</p>
+      <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
     const d = await api("GET", "/api/admin/finance?months=6");
