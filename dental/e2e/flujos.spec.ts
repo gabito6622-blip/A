@@ -71,7 +71,7 @@ test("odontólogo registra una caries en el odontograma y una evolución clínic
   await page.click('a:has-text("Pacientes")');
   await page.getByLabel("Buscar pacientes").fill("Prueba E2E");
   await page.locator("tbody tr", { hasText: "Prueba E2E" }).click();
-  await page.getByRole("tab", { name: "Odontograma" }).click();
+  await page.getByRole("tab", { name: "Odontograma", exact: true }).click();
   await page.getByRole("button", { name: "Pieza 36" }).click();
   await page.getByLabel("Condición / tratamiento").selectOption("caries");
   await page.getByLabel("Oclusal/incisal").check();
@@ -89,7 +89,7 @@ test("recepción no ve el registro clínico; registra un pago QR que queda por v
   await page.click('a:has-text("Pacientes")');
   await page.getByLabel("Buscar pacientes").fill("Prueba E2E");
   await page.locator("tbody tr", { hasText: "Prueba E2E" }).click();
-  await expect(page.getByRole("tab", { name: "Odontograma" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Odontograma", exact: true })).toHaveCount(0);
   await page.getByRole("tab", { name: "Cuenta y pagos" }).click();
   await page.getByRole("button", { name: "Registrar pago" }).click();
   const dlg = page.getByRole("dialog", { name: "Registrar pago" });

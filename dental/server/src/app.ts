@@ -27,6 +27,7 @@ import { biosafetyRoutes } from "./modules/biosafety.js";
 import { myDayRoutes } from "./modules/myday.js";
 import { recallRoutes } from "./modules/recalls.js";
 import { visitQualityRoutes } from "./modules/visitQuality.js";
+import { perioRoutes } from "./modules/perio.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
@@ -122,6 +123,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   myDayRoutes(route);
   recallRoutes(route);
   visitQualityRoutes(route);
+  perioRoutes(route);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

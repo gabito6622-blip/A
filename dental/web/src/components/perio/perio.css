@@ -1,0 +1,81 @@
+/* Periodontograma: grilla para teclado y tableta (celdas de 34 px). */
+.perio-scroll { overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
+.perio-grid {
+  display: grid;
+  grid-template-columns: 104px repeat(48, 34px);
+  width: max-content;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.perio-grid:focus-visible { box-shadow: inset 0 0 0 3px rgba(37, 99, 235, 0.35); }
+.perio-label {
+  position: sticky; left: 0; z-index: 2; background: var(--surface);
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 8px; border-right: 1px solid var(--line);
+  line-height: 1.15;
+}
+.perio-label small { display: block; font-weight: 500; color: var(--muted); font-size: 10.5px; }
+.perio-cell {
+  min-height: 36px; min-width: 34px; display: flex; align-items: center; justify-content: center; position: relative;
+  border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; cursor: pointer; user-select: none;
+  background: var(--surface);
+}
+.perio-cell.t0 { border-left: 1px solid var(--line-2); }
+.perio-cell.mid { border-left: 2px solid var(--ink-2); }
+.perio-cell.span3 { grid-column: span 3; }
+.perio-cell.pd4 { background: var(--warn-soft); }
+.perio-cell.pd6 { background: #fbd5c5; color: #7c2d12; }
+.perio-cell.missing { background: repeating-linear-gradient(135deg, #f3f6f8, #f3f6f8 5px, #e7ecf0 5px, #e7ecf0 6px); color: var(--muted); cursor: default; }
+.perio-cell.active { box-shadow: inset 0 0 0 3px var(--accent); background: #e8f0fe; z-index: 1; }
+.perio-cell.marktarget::after { content: ""; position: absolute; inset: 2px; border: 2px dashed #7c3aed; border-radius: 4px; pointer-events: none; }
+.perio-cell.flash { box-shadow: inset 0 0 0 3px var(--danger); background: var(--danger-soft); }
+.perio-cell .flags { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; }
+.perio-cell .flags i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+.flag-bop { background: #dc2626; }
+.flag-sup { background: #ca8a04; }
+.flag-pl { background: #2563eb; }
+.perio-head { font-size: 12px; font-weight: 700; color: var(--ink); background: var(--surface-2); flex-direction: column; gap: 0; min-height: 40px; cursor: default; }
+.perio-head .tag { font-size: 10px; font-weight: 700; padding: 0 4px; border-radius: 4px; }
+.perio-head .tag.miss { background: #e2e8ee; color: var(--muted); }
+.perio-head .tag.imp { background: #ede9fe; color: #6d28d9; }
+.perio-head .tag.prim { background: #dcfce7; color: #166534; }
+.perio-chart { grid-column: 2 / span 48; border-bottom: 1px solid var(--line); background: #fcfdfe; }
+.perio-chart-label { border-bottom: 1px solid var(--line); }
+.perio-sep { grid-column: 1 / span 49; height: 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+
+.perio-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 13px; }
+.perio-bar b { font-weight: 650; }
+.perio-msg { min-height: 22px; padding: 6px 14px; font-size: 13.5px; font-weight: 600; }
+.perio-msg.error { color: #9a3412; background: var(--danger-soft); }
+.perio-msg.info { color: var(--ink-2); }
+.perio-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--ink-2); }
+.perio-keys kbd { font: inherit; font-weight: 700; background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
+.perio-pad { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.perio-pad .btn { min-height: 44px; padding: 0 6px; font-size: 15px; }
+.save-ind { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.save-ind.saved { color: var(--ok); }
+.save-ind.saving, .save-ind.dirty { color: var(--warn); }
+.save-ind.error, .save-ind.conflict { color: var(--danger); }
+.perio-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.perio-kpis .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); }
+.perio-kpis .kpi .value { font-size: 21px; }
+.perio-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); align-items: center; }
+.perio-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.perio-legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.cmp-improved { background: #dcfce7 !important; color: #166534; }
+.cmp-worse { background: #fee2e2 !important; color: #991b1b; }
+.cmp-unchanged { background: #f1f5f9 !important; color: var(--ink-2); }
+.cmp-na { color: #b6c2cc; }
+.delta-good { color: var(--ok); font-weight: 650; }
+.delta-bad { color: var(--danger); font-weight: 650; }
+.perio-bottom { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.perio-tooth-panel .form-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.perio-summary { max-width: 720px; margin: 0 auto; line-height: 1.55; }
+.perio-summary h1 { font-size: 22px; }
+.perio-summary .box { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+.perio-summary .big { font-size: 26px; font-weight: 700; }
+@media (max-width: 860px) {
+  .perio-bottom { grid-template-columns: 1fr; }
+  .perio-grid { grid-template-columns: 76px repeat(48, 34px); }
+  .perio-label { font-size: 10.5px; padding: 0 5px; }
+}

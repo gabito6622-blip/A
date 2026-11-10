@@ -10,6 +10,7 @@ import { seedCatalog } from "../lib/catalog.js";
 import { normalize } from "../lib/text.js";
 import { seedConsentTemplates } from "../modules/consents.js";
 import { seedRecallsDemo } from "../modules/recallsDemo.js";
+import { seedPerioDemo } from "../modules/perio.js";
 
 const cfg = loadConfig();
 if (cfg.isProduction && process.env.SEED_ALLOW !== "1") {
@@ -208,6 +209,7 @@ try {
   await q("INSERT INTO counters (clinic_id, name, value) VALUES ($1,'budget',$2), ($1,'receipt',$3)", [clinicId, budgetNo, receipt]);
   const rd = await seedRecallsDemo(db.adminPool, clinicId);
   console.log(`Tiempos de cita: ${rd.events} eventos · ${rd.recalls} controles · ${rd.unclosed} citas pasadas sin cerrar.`);
+  await seedPerioDemo(q, clinicId, B.LPZ!.id, dentistIds[1]!.id);
   console.log(`Clínica demo creada: 5 sucursales, ${dentists.length} odontólogos, 90 pacientes ficticios, ${created} citas, ${budgetNo} presupuestos.`);
   console.log(`Usuarios (contraseña "${PASSWORD}"): propietaria@demo.local, gerente@demo.local, contabilidad@demo.local, recepcion.lpz@demo.local, dr.mendoza@demo.local, limpieza.lpz@demo.local, superadmin@demo.local`);
 } finally {
