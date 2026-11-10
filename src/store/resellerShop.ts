@@ -238,12 +238,14 @@ export function setupShopFor(e: Engine, actor: Actor, customerId: Id, patch: Rec
 export function resellersOverview(e: Engine, actor: Actor) {
   authorize(actor, "customer.manage");
   const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
+  const refCount: Record<Id, number> = {};
+  for (const x of Object.values(e.s.customers)) if (x.referredBy) refCount[x.referredBy] = (refCount[x.referredBy] ?? 0) + 1;
   return Object.values(e.s.customers).filter((c) => c.kind === "reseller").map((c) => {
     const s = c.shop ?? defaults(e, c);
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
-      codeLink: !!c.codeLink, services: mine.length, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
+      codeLink: !!c.codeLink, services: mine.length, referrals: refCount[c.id] ?? 0, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
       pageAllowed: pageAllowed(e, c),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },
     };
