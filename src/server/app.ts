@@ -267,7 +267,7 @@ export function createApp(cfg: AppConfig): App {
     return {
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, note: st.usdt.note ?? "" } : null,
-      accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
+      accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
@@ -281,6 +281,7 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
   route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
+  route("GET", "/api/settings/banner", "public", (c) => sendImage(c, store.engine.s.settings.bannerFileRef, "La tienda no tiene portada"));
   route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR"));
   function sendImage(c: Ctx, ref: string | undefined, missing: string) {
     const file = ref && join(uploads, ref);
@@ -891,7 +892,7 @@ export function createApp(cfg: AppConfig): App {
     if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
     return store.catalog.updateSettings(A(c), pick);
   });
-  const imageSetting = (key: "qrFileRef" | "logoFileRef", what: string) => (c: Ctx) => {
+  const imageSetting = (key: "qrFileRef" | "logoFileRef" | "bannerFileRef", what: string) => (c: Ctx) => {
     const file = saveUpload(c.body);
     if (file.endsWith(".pdf")) {
       dropUpload(file);
@@ -909,6 +910,13 @@ export function createApp(cfg: AppConfig): App {
   };
   route("POST", "/api/admin/settings/qr", "staff", imageSetting("qrFileRef", "El QR"), MAX_UPLOAD_JSON);
   route("POST", "/api/admin/settings/logo", "staff", imageSetting("logoFileRef", "El logo"), MAX_UPLOAD_JSON);
+  route("POST", "/api/admin/settings/banner", "staff", imageSetting("bannerFileRef", "La portada"), MAX_UPLOAD_JSON);
+  route("POST", "/api/admin/settings/banner/remove", "staff", (c) => {
+    const old = store.engine.s.settings.bannerFileRef;
+    const out = store.catalog.updateSettings(A(c), { bannerFileRef: "" });
+    if (old) dropUpload(old);
+    return out;
+  });
   route("POST", "/api/admin/settings/logo/remove", "staff", (c) => {
     const old = store.engine.s.settings.logoFileRef;
     const out = store.catalog.updateSettings(A(c), { logoFileRef: "" });
@@ -1651,7 +1659,7 @@ export function createApp(cfg: AppConfig): App {
   /* ---------- Vista previa al compartir (WhatsApp, Facebook, Telegram) ----------
      Las páginas públicas llevan título, descripción e imagen propios en el <head>, y la imagen
      se dibuja en el servidor con el nombre y los colores de cada tienda. */
-  type OgInfo = { title: string; description: string; siteName: string; img: string; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
+  type OgInfo = { title: string; description: string; siteName: string; img: string; noSize?: boolean; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
   const oneLine = (s: unknown, max = 200) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   function ogInfo(pathname: string): OgInfo | null {
     const st = store.engine.s.settings;
@@ -1668,6 +1676,7 @@ export function createApp(cfg: AppConfig): App {
     if (/^\/tienda(\/|$)/.test(pathname)) {
       const title = oneLine(st.seoTitle || st.storeName || "Tienda", 70);
       const description = oneLine(st.seoDescription || st.heroText || "Suscripciones digitales: pagá con QR o saldo y recibí tus accesos en tu cuenta.");
+      if (st.bannerFileRef) return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/api/settings/banner", noSize: true, card: { title, subtitle: "", accent: st.accentColor, background: st.backgroundColor } };
       return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
     }
     if (pathname === "/" || /^\/(revendedores|tiendas)\/?$/.test(pathname)) {
@@ -1726,7 +1735,7 @@ export function createApp(cfg: AppConfig): App {
     const mtime = statSync(file).mtimeMs;
     if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
     const origin = originOf(req);
-    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, imageW: OG_W, imageH: OG_H });
+    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
     const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return shellHtml.html
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)

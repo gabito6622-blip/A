@@ -1096,6 +1096,8 @@ const V = {
           <div class="inline"><button class="pbtn dark" type="submit">Guardar preguntas</button><span class="muted">Completá la fila vacía para agregar otra.</span></div></form></section>
       <section class="card"><h2>Logo</h2><div class="inline">${s.hasLogo ? `<img src="/api/settings/logo?v=${Date.now()}" alt="Logo actual" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nologo="1">Quitar logo</button>` : `<span class="muted">Sin logo: se muestra la inicial de la tienda.</span>`}</div>
         <form class="inline" id="logoForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><button class="pbtn dark" type="submit">${s.hasLogo ? "Cambiar logo" : "Subir logo"}</button></form><p class="muted" style="margin:0">Imagen cuadrada, idealmente de 256×256 o más.</p></section>
+      <section class="card"><h2>Portada</h2><div class="inline">${s.hasBanner ? `<img src="/api/settings/banner?v=${Date.now()}" alt="Portada actual" style="width:96px;height:96px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"><button class="pbtn sm" type="button" data-nobanner="1">Quitar portada</button>` : `<span class="muted">Sin portada.</span>`}</div>
+        <form class="inline" id="bannerForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de portada"><button class="pbtn dark" type="submit">${s.hasBanner ? "Cambiar portada" : "Subir portada"}</button></form><p class="muted" style="margin:0">Se muestra grande al lado del título de tu tienda y es la imagen que sale <b>al compartir tu link</b> por WhatsApp o TikTok. Ideal tu logo completo o un afiche.</p></section>
       <section class="card"><h2>Así se ve tu tienda</h2><div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <iframe id="lookPreview" data-look="1" src="/tienda/#inicio" title="Vista previa de la tienda en computadora" style="flex:1 1 520px;min-width:0;height:560px;border:1px solid var(--line);border-radius:12px;background:#000"></iframe>
         <iframe data-look="1" src="/tienda/#catalogo" title="Vista previa de la tienda en celular" style="width:300px;max-width:100%;height:560px;border:1px solid var(--line);border-radius:22px;background:#000"></iframe></div></section>`;
@@ -2409,6 +2411,7 @@ document.addEventListener("click", async (ev) => {
     });
   }
   if (d.remind) return act(() => api("POST", "/api/admin/reminders", { withinDays: +d.remind }), (r) => r.queued ? `${r.queued} recordatorios listos en WhatsApp` : "No hay recordatorios nuevos para preparar");
+  if (d.nobanner) return act(() => api("POST", "/api/admin/settings/banner/remove", {}), "Portada quitada");
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
   if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
@@ -2938,6 +2941,8 @@ document.addEventListener("submit", async (ev) => {
         fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value, layout: f.layout.value };
       for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "storeHours", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook", "seoTitle", "seoDescription"]) body[k] = f[k].value;
       await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
+    } else if (f.id === "bannerForm") {
+      await act(async () => api("POST", "/api/admin/settings/banner", { contentBase64: await fileToBase64(f.file.files[0]) }), "Portada actualizada");
     } else if (f.id === "logoForm") {
       await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");
     } else if (f.id === "qrForm") {
