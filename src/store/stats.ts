@@ -23,6 +23,9 @@ export function notificationItems(e: Engine) {
   const out: { kind: string; icon: string; text: string; count: number; go: string; sev: "bad" | "warn" | "info" }[] = [];
   const add = (kind: string, icon: string, text: string, count: number, go: string, sev: "bad" | "warn" | "info") => { if (count > 0) out.push({ kind, icon, text, count, go, sev }); };
 
+  const fallas = Object.values(e.s.tickets ?? {}).filter((t) => t.status === "recibido").length;
+  add("falla", "🛠️", fallas === 1 ? "1 falla reportada por revisar" : `${fallas} fallas reportadas por revisar`, fallas, "fallas", "bad");
+
   const pay = Object.values(e.s.orders).filter((o) => o.status === "payment_review").length;
   add("payment", "💳", pay === 1 ? "1 pago por revisar" : `${pay} pagos por revisar`, pay, "aprobacion", "warn");
 

@@ -1000,3 +1000,6 @@ table.ctl tfoot td.ccli{z-index:3}
 .racc-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:10px 12px;background:color-mix(in srgb,#7c3aed 10%,var(--card));overflow-wrap:anywhere}
 .racc-r{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) auto;gap:8px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:14px}
 @media (max-width:600px){.racc-r{grid-template-columns:minmax(0,1fr) auto}.racc-r>span:nth-child(2){grid-column:1/-1;order:3}}
+
+/* Fallas reportadas */
+.tkt{border-left:4px solid var(--bad)} .tkt-revisando{border-left-color:var(--warn)} .tkt-solucionado{border-left-color:var(--ok);opacity:.85}

@@ -123,3 +123,40 @@ describe("Web Push: con claves", () => {
     s.setStatus(201);
   });
 });
+
+describe("Web Push: revendedores y claves automáticas", () => {
+  test("en la tienda publicada (https) se generan las claves solas y quedan guardadas", async () => {
+    const s = await boot({ publicOrigin: "https://tienda.ejemplo.com" });
+    try {
+      const g = await s.call("GET", "/api/admin/push");
+      assert.equal(g.json.configured, true);
+      assert.ok(g.json.publicKey.length > 60);
+    } finally { await s.stop(); }
+  });
+
+  test("el revendedor activa sus avisos: le llega lo suyo y nunca los avisos del panel", async () => {
+    const vapid = { ...generateVapidKeys(), subject: "mailto:prueba@ejemplo.com" };
+    const s = await boot({ vapid });
+    try {
+      const c = (await s.call("POST", "/api/admin/customers", { name: "Rev Uno", phone: "+59177700011", kind: "reseller" })).json;
+      assert.equal((await s.call("POST", `/api/admin/customers/${c.id}/login-pin`, { pin: "4321" })).status, 200);
+      const base = `http://127.0.0.1:${s.app.server.address().port}`;
+      const lr = await fetch(base + "/api/auth/customer/pin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: "77700011", pin: "4321" }) });
+      assert.equal(lr.status, 200);
+      const ck = lr.headers.get("set-cookie").split(";")[0];
+      const me = async (method, path, body) => { const r = await fetch(base + path, { method, headers: { ...(body ? { "content-type": "application/json" } : {}), cookie: ck }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, json: await r.json() }; };
+      assert.equal((await me("GET", "/api/me/push")).json.configured, true);
+      assert.equal((await me("POST", "/api/me/push/test", {})).status, 409, "sin suscribirse no hay a quién avisar");
+      assert.equal((await me("POST", "/api/me/push/subscribe", { subscription: { endpoint: FCM + "rev", keys: { p256dh: "a", auth: "b" } } })).status, 200);
+      const n = s.sent.length;
+      assert.deepEqual((await me("POST", "/api/me/push/test", {})).json, { sent: 1, failed: 0 });
+      assert.equal(s.sent.at(-1).url, FCM + "rev");
+      assert.match((await me("GET", "/api/me/push/latest")).json.title, /Avisos activados/);
+      assert.equal((await me("GET", "/api/admin/push/latest")).status, 403, "un revendedor no lee los avisos del panel");
+      // Los avisos del panel van solo a los celulares del equipo
+      assert.equal((await s.call("GET", "/api/admin/push")).json.total, 0);
+      await s.app.checkPushAlerts(); await s.app.checkPushAlerts();
+      assert.equal(s.sent.length, n + 1);
+    } finally { await s.stop(); }
+  });
+});

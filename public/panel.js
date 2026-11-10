@@ -15,13 +15,14 @@ const MENU = [
   ["finanzas", "coins", "Finanzas", "owner"],
   ["fiado", "coins", "Fiado (lo que te deben)"],
   ["notificaciones", "bell", "Notificaciones"],
+  ["fallas", "help", "Fallas reportadas"],
   ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["coins", "Fiado"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["coins", "Fiado"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -633,6 +634,21 @@ const V = {
   },
 
   /* Fiado: lo que te deben, por persona, con pagos parciales y fecha de cobro. */
+  async fallas() {
+    const list = await api("GET", "/api/admin/tickets");
+    const ST = { recibido: ["📥 Recibido", "bad"], revisando: ["🔧 Revisando", "warn"], solucionado: ["✅ Solucionado", "ok"] };
+    const open = list.filter((t) => t.status !== "solucionado").length;
+    const msg = (t) => `Hola ${t.reporter.split(" ")[0]} 👋 sobre tu reporte de ${t.product} (${t.client}): `;
+    return `<section class="card"><h2>🛠️ Fallas reportadas ${open ? pill(`${open} abierta(s)`, "bad") : pill("Todo al día", "ok")}</h2>
+      <p class="muted" style="margin:0">Lo que te reportan tus clientes y revendedores desde su panel ("no me deja entrar", "me pide código"…). Cambiá el estado y, si querés, dejá una respuesta: lo ven en su panel y, si activaron los avisos, les llega al celular.</p></section>
+      ${list.map((t) => `<section class="card tkt tkt-${t.status}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap"><b>${esc(t.product)} · ${esc(t.profile)}</b>${pill(ST[t.status][0], ST[t.status][1])}</div>
+        <p class="muted" style="margin:0">Cliente: <b>${esc(t.client)}</b>${t.reporter !== t.client ? ` · reportó ${esc(t.reporter)} (${t.reporterKind === "reseller" ? "🏪 revendedor" : "👤 cliente"})` : ""} · ${fdate(t.createdAt)}</p>
+        <p style="margin:0"><b>${esc(t.kindText)}</b>${t.note ? ` — “${esc(t.note)}”` : ""}</p>
+        ${t.email ? `<p class="muted" style="margin:0">Cuenta: <code>${esc(t.email)}</code></p>` : ""}
+        <form class="form" data-tkt="${esc(t.id)}"><label style="grid-column:1/-1">Respuesta para quien reportó (opcional)<input name="reply" maxlength="300" value="${esc(t.reply)}" placeholder="Ej.: te pasamos a otra cuenta, revisá tus datos en Mis cuentas"></label>
+          <div class="inline" style="grid-column:1/-1;flex-wrap:wrap">${Object.keys(ST).map((s) => `<button class="pbtn ${t.status === s ? "dark" : ""}" type="submit" name="st" value="${s}">${ST[s][0]}</button>`).join("")}
+          ${t.reporterPhone ? `<a class="pbtn" href="${waLink(t.reporterPhone, msg(t))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-go="reubicar">🔀 Reubicar</button></div></form></section>`).join("") || `<section class="card"><p class="muted" style="margin:0">No hay fallas reportadas 🎉</p></section>`}`;
+  },
   async fiado() {
     const T = P.tab;
     const [ov, customers] = await Promise.all([api("GET", "/api/admin/fiado"), canReview() ? api("GET", "/api/admin/customers").catch(() => []) : []]);
@@ -1452,7 +1468,7 @@ async function telegramCard() {
 }
 
 /* ---------------- Avisos al celular (Web Push) ---------------- */
-const PUSH_LABELS = { payment: "💳 Pagos por revisar", lowstock: "📦 Stock bajo", supplier1d: "⚠️ Cuentas que vencen mañana con el proveedor", reseller: "👤 Solicitudes de revendedor", reloc: "🔀 Clientes en cuentas caídas" };
+const PUSH_LABELS = { payment: "💳 Pagos por revisar", lowstock: "📦 Stock bajo", supplier1d: "⚠️ Cuentas que vencen mañana con el proveedor", reseller: "👤 Solicitudes de revendedor", reloc: "🔀 Clientes en cuentas caídas", falla: "🛠️ Fallas reportadas (siempre)" };
 const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 async function pushCard() {
@@ -2594,6 +2610,11 @@ document.addEventListener("submit", async (ev) => {
   if (btn) btn.disabled = true;
   const done = () => { if (btn) btn.disabled = false; };
   try {
+    if (f.dataset.tkt) {
+      const status = ev.submitter?.value || "revisando";
+      await act(() => api("POST", `/api/admin/tickets/${f.dataset.tkt}`, { status, reply: f.reply.value }), { recibido: "Marcada como recibida", revisando: "🔧 En revisión: ya le avisamos", solucionado: "✅ Solucionada: ya le avisamos" }[status]);
+      return done();
+    }
     if (f.id === "slotAssign") {
       let customerId = f.customerId.value;
       if (!customerId) { toast("Elegí un cliente o creá uno nuevo"); return; }

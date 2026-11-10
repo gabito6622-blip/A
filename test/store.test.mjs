@@ -1373,3 +1373,41 @@ describe("Herramientas del revendedor: su control, su fiado y sus ganancias", ()
     assert.equal(g.byApp[0].name, "Netflix perfil");
   });
 });
+
+describe("Fallas y renovar varios: revendedor y dueño", () => {
+  test("el revendedor reporta una falla de su cliente, ve el estado y el dueño la soluciona", () => {
+    const { s, carla, maria, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Cliente de Carla", phone: "+591 71234567" });
+    s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    const row = s.rtools.control(as(carla))[0];
+    assert.equal(row.cost, 2500, "lo que le cuesta renovar");
+    assert.equal(row.canRenew, true);
+    assert.throws(() => s.tickets.report(as(maria), { assignmentId: row.id, kind: "no_entra" }), err("FORBIDDEN"), "nadie reporta servicios ajenos");
+    assert.throws(() => s.tickets.report(as(carla), { assignmentId: row.id, kind: "rarito" }), err("VALIDATION"));
+    const t = s.tickets.report(as(carla), { assignmentId: row.id, kind: "no_entra", note: "dice clave incorrecta" });
+    assert.equal(t.status, "recibido");
+    assert.throws(() => s.tickets.report(as(carla), { assignmentId: row.id, kind: "codigo" }), err("VALIDATION"), "no se duplica mientras está abierta");
+    assert.equal(s.stats.feed().items.find((x) => x.kind === "falla")?.count, 1, "al dueño le aparece en avisos");
+    assert.equal(s.tickets.mine(as(maria)).length, 0, "otro cliente no la ve");
+    assert.throws(() => s.tickets.setStatus(as(carla), t.id, { status: "solucionado" }), err("FORBIDDEN"));
+    const r = s.tickets.setStatus(owner, t.id, { status: "solucionado", reply: "Te cambiamos de cuenta" });
+    assert.equal(r.notify, carla.id, "avisa a quien reportó");
+    const mine = s.tickets.mine(as(carla));
+    assert.deepEqual([mine[0].status, mine[0].reply, mine[0].client], ["solucionado", "Te cambiamos de cuenta", "Cliente de Carla"]);
+    assert.equal(mine[0].email, s.tickets.list(owner)[0].email);
+    assert.equal(mine[0].reporter, undefined, "al revendedor no le mostramos datos internos");
+        assert.equal(row.cost, s.catalog.priceFor(carla.id, "netflix"), "el costo que muestra Mi control es el que cobra la renovación");
+  });
+  test("QR y datos de pago del revendedor salen en su página pública", () => {
+    const { s, carla, as } = setup();
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    s.shops.update(as(carla), { slug: "carla-tv", title: "Carla TV", whatsapp: "70000001", enabled: true, payNote: "Banco Unión · Carla" });
+    s.shops.setImage(as(carla), "qr", "qr-carla.png");
+    const pub = s.shops.public("carla-tv");
+    assert.deepEqual([pub.hasQr, pub.payNote, pub.qrFileRef], [true, "Banco Unión · Carla", undefined]);
+    assert.equal(s.shops.image("carla-tv", "qr"), "qr-carla.png");
+    assert.throws(() => s.shops.update(as(carla), { payNote: "x".repeat(161) }), err("VALIDATION"));
+  });
+});

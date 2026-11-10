@@ -950,3 +950,24 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .hqrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .hqrow .sbtn{flex-direction:column;gap:4px;white-space:normal;text-align:center;padding:12px 6px;font-size:13px}
 .hqrow .sbtn span{font-size:22px}
+
+/* Renovar varios, fallas, app y afiches */
+.rcrenew{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rcsel{width:24px;height:24px;flex:none;margin:2px 0 0;accent-color:var(--s-btn-a,var(--s-blue))}
+.rcard header{justify-content:flex-start}
+.rcard header>div{flex:1}
+.rcard.picked{box-shadow:0 0 0 2px var(--s-btn-a,var(--s-blue))}
+.tsteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.tsteps span{font-size:12px;font-weight:700;text-align:center;padding:6px 4px;border-radius:10px;background:var(--s-card2);color:var(--s-muted)}
+.tsteps span.on{background:color-mix(in srgb,var(--s-ok) 18%,transparent);color:var(--s-ok)}
+.treply{background:var(--s-card2);border-radius:12px;padding:8px 10px;font-size:14px}
+.rcard.tkr-recibido{border-left-color:var(--s-bad)} .rcard.tkr-revisando{border-left-color:var(--s-warn)}
+.rcest.tks-recibido{background:rgba(251,113,133,.14);color:var(--s-bad)} .rcest.tks-revisando{background:rgba(255,191,105,.16);color:var(--s-warn)}
+.hqrow.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hqrow .sbtn small{font-weight:600;color:var(--s-muted);font-size:11px}
+.pchips{display:grid;gap:6px;padding-top:8px}
+.pcanvas{width:min(100%,360px);height:auto;aspect-ratio:9/16;border-radius:18px;justify-self:center;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.rqrimg{width:150px;height:150px;object-fit:contain;background:#fff;border-radius:12px;padding:6px}
+.rqrpay{display:grid;gap:8px;justify-items:center;text-align:center;border:1px solid var(--s-line);border-radius:16px;padding:12px;background:var(--s-card2)}
+.rqrpay img{width:min(100%,240px);aspect-ratio:1;object-fit:contain;background:#fff;border-radius:12px;padding:8px}
+.rqrpay .sbtn{width:100%}

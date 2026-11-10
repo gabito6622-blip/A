@@ -219,7 +219,7 @@ export function myShop(e: Engine, actor: Actor) {
   const c = me(e, actor);
   const s = c.shop ?? defaults(e, c);
   const canPage = pageAllowed(e, c);
-  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, pageAllowed: canPage, allowed: canPage && e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30, couponsAllowed: !!e.s.settings.resellerCoupons };
+  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, hasQr: !!s.qrFileRef, pageAllowed: canPage, allowed: canPage && e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30, couponsAllowed: !!e.s.settings.resellerCoupons };
 }
 
 export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unknown>) {
@@ -280,6 +280,11 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
     p.whatsapp = w.length === 8 ? "591" + w : w;
   }
   if (patch.enabled !== undefined) p.enabled = !!patch.enabled;
+  if (patch.payNote !== undefined) {
+    const t = String(patch.payNote ?? "").trim();
+    if (t.length > 160) throw new DomainError("VALIDATION", "Los datos de pago van hasta 160 letras");
+    p.payNote = t;
+  }
   if (patch.products !== undefined) {
     if (!Array.isArray(patch.products) || patch.products.length > 200) throw new DomainError("VALIDATION", "Lista de productos inválida");
     for (const id of patch.products) if (typeof id !== "string" || !e.s.products[id]) throw new DomainError("NOT_FOUND", `Producto inexistente: ${String(id)}`);
@@ -315,11 +320,11 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
 }
 
 /** Cambia el logo o la portada. Devuelve el archivo anterior para borrarlo. */
-export function setMyShopImage(e: Engine, actor: Actor, kind: "logo" | "banner", fileRef: string | null): string | undefined {
+export function setMyShopImage(e: Engine, actor: Actor, kind: "logo" | "banner" | "qr", fileRef: string | null): string | undefined {
   const c = me(e, actor);
   return e.tx(() => {
     const cur = c.shop ?? defaults(e, c);
-    const key = kind === "logo" ? "logoFileRef" : "bannerFileRef";
+    const key = kind === "logo" ? "logoFileRef" : kind === "qr" ? "qrFileRef" : "bannerFileRef";
     const old = cur[key];
     c.shop = { ...cur, [key]: fileRef ?? undefined };
     if (!fileRef) delete c.shop[key];
@@ -413,7 +418,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     .filter((p) => p.published && c!.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id)))
     .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: c!.resellerPrices![p.id], available: Math.min(stock[p.id] ?? 0, 20) }));
   const look: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
+  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
   const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined)).map((cb) => ({
@@ -422,6 +427,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   }));
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
+    hasQr: !!s.qrFileRef, payNote: s.payNote ?? "",
     hasCoupons: !!e.s.settings.resellerCoupons && (s.coupons ?? []).some((x) => x.active && (!x.expiresAt || x.expiresAt > e.now())),
     currencySymbol: e.s.settings.currencySymbol || "Bs",
     // Si la tienda marcó "todo Disponible", la página del revendedor también deja agregar al carrito.
@@ -431,13 +437,13 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   };
 }
 
-export function shopImage(e: Engine, slug: string, kind: "logo" | "banner", viewer?: Actor): string | undefined {
+export function shopImage(e: Engine, slug: string, kind: "logo" | "banner" | "qr", viewer?: Actor): string | undefined {
   let c = findBySlug(e, slug);
   if (!c && viewer?.customerId) {
     const own = e.s.customers[viewer.customerId];
     if (own?.shop?.slug === slug) c = own;
   }
-  return kind === "logo" ? c?.shop?.logoFileRef : c?.shop?.bannerFileRef;
+  return kind === "logo" ? c?.shop?.logoFileRef : kind === "qr" ? c?.shop?.qrFileRef : c?.shop?.bannerFileRef;
 }
 
 /** Para el panel: todas las páginas de revendedores. */
