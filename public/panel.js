@@ -45,6 +45,30 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   return { name, phone, url: `${location.origin}/`, page: page || "Solo panel (sin página)", msg, pin };
 }
 
+/** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
+function guideMsg(name, plat, origin, slug, pageAllowed) {
+  const n = (name || "").split(" ")[0] || "";
+  const page = pageAllowed && slug ? `${origin}/r/${slug}` : "";
+  return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
+    + `*1) Cómo entrar*\n`
+    + `• Entrá a: ${origin}/\n`
+    + `• Poné tu *número* y tu *PIN* (o tu correo y contraseña si te la diste).\n\n`
+    + `*2) Qué vas a ver*\n`
+    + `• 💲 *Precios*: comprás cuentas con tu saldo o por QR. Apenas pagás, te llega la cuenta.\n`
+    + `• 📦 *Mis cuentas*: todo lo que compraste, con sus vencimientos.\n`
+    + `• 👥 *Mis clientes*: cargás a quién le revendés y le mandás el aviso por WhatsApp con un toque.\n`
+    + (page
+        ? `• 🛍️ *Mi página*: tu tienda propia para tus clientes.\n\n`
+          + `*3) Armá tu página*\n`
+          + `• Tu link es: ${page}\n`
+          + `• En *Mi página* le ponés tu *logo*, tus *colores* y tus *precios* (te sugiere un precio con tu ganancia; lo cambiás como quieras).\n`
+          + `• Cuando esté lista, tocás *Publicar* y ya la podés compartir.\n\n`
+        : `\n`)
+    + `*4) Saldo*\n`
+    + `• Para comprar necesitás saldo. Me pedís una recarga y te la cargo; también podés pagar por QR en el momento.\n\n`
+    + `Cualquier cosa me escribís por acá. 🚀`;
+}
+
 const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, address: f.address.value.trim(), host: f.host?.value.trim(), port: f.port?.value, user: f.user?.value.trim() || undefined,
   password: f.password.value, name: f.name.value.trim() || undefined, subjects: f.subjects.value.trim() || undefined, senders: f.senders.value.trim() });
 
@@ -756,6 +780,7 @@ const V = {
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           <button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}">${icon("wa")}Nuevo PIN y acceso</button>
+          <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
           ${r.pageAllowed
             ? `<button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
                <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
