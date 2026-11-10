@@ -161,7 +161,7 @@ Principios aplicados en `server/src/modules/assistant.ts`:
 | Tema | Implementación |
 |---|---|
 | Migraciones | SQL versionado (`server/migrations/NNNN_*.sql`) con checksum y bloqueo consultivo. Se aplican al arrancar (`MIGRATE_ON_START`, activo por defecto) o con `npm run migrate` |
-| Copias de seguridad | `scripts/backup.sh`: `pg_dump` en formato custom, cifrado AES-256 opcional (`BACKUP_PASSPHRASE`) y SHA-256. `scripts/restore.sh` restaura **en una base vacía**. La prueba `tests/backup.test.ts` comprueba que la restauración conserva los datos y que RLS sigue activo |
+| Copias de seguridad | `scripts/backup.sh`: `pg_dump` en formato custom, cifrado AES-256 opcional (`BACKUP_PASSPHRASE`) y SHA-256. `scripts/restore.sh` restaura **en una base vacía**. Las herramientas `pg_dump`/`pg_restore` deben ser de la misma versión mayor que el servidor de destino o más nuevas, y conviene restaurar en la misma versión mayor de PostgreSQL. La prueba `tests/backup.test.ts` comprueba que la restauración conserva los datos y que RLS sigue activo |
 | Secretos | Solo variables de entorno (`.env.example`). Nada en el código ni en el repositorio |
 | Seguridad HTTP | Helmet + CSP estricta (`script-src 'self'`, `frame-ancestors 'none'`), `Cache-Control: no-store` en la API y límite global de solicitudes |
 | Salud | `GET /api/health` (comprueba la base de datos). El Dockerfile y Railway lo usan como *healthcheck* |
