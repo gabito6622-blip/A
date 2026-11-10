@@ -8,6 +8,7 @@ import type { Client } from "../lib/db.js";
 import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { dayBounds, isoWeekday, slotStarts, subtract, workIntervalsForDay, type Interval } from "../lib/slots.js";
 import { afterAppointmentStatusChange, linkRecallOnBooking, recordAppointmentEvent } from "./appointmentEvents.js";
+import { appointmentTypeDefaults } from "./appointmentTypes.js";
 
 export async function clinicZone(c: Client, clinicId: string): Promise<string> {
   return (await c.query<{ timezone: string }>("SELECT timezone FROM clinics WHERE id = $1", [clinicId])).rows[0]?.timezone ?? "America/La_Paz";
@@ -17,10 +18,12 @@ const APPT_COLUMNS = `a.id, a.branch_id AS "branchId", a.chair_id AS "chairId", 
   a.procedure_id AS "procedureId", a.starts_at AS "startsAt", a.ends_at AS "endsAt", a.status, a.reason, a.notes, a.source,
   a.cancel_reason AS "cancelReason", a.reschedule_count AS "rescheduleCount", a.confirmed_at AS "confirmedAt", a.arrived_at AS "arrivedAt",
   p.first_name || ' ' || p.last_name AS "patientName", p.phone AS "patientPhone", p.record_number AS "recordNumber",
-  u.full_name AS "dentistName", m.color AS "dentistColor", ch.name AS "chairName", pr.name AS "procedureName"`;
+  u.full_name AS "dentistName", m.color AS "dentistColor", ch.name AS "chairName", pr.name AS "procedureName",
+  a.appointment_type_id AS "appointmentTypeId", aty.name AS "typeName", aty.color AS "typeColor", a.series_id AS "seriesId", a.series_index AS "seriesIndex"`;
 const APPT_FROM = `FROM appointments a JOIN patients p ON p.id = a.patient_id JOIN users u ON u.id = a.dentist_id
   JOIN memberships m ON m.clinic_id = a.clinic_id AND m.user_id = a.dentist_id
-  LEFT JOIN chairs ch ON ch.id = a.chair_id LEFT JOIN procedures pr ON pr.id = a.procedure_id`;
+  LEFT JOIN chairs ch ON ch.id = a.chair_id LEFT JOIN procedures pr ON pr.id = a.procedure_id
+  LEFT JOIN appointment_types aty ON aty.id = a.appointment_type_id`;
 
 /** Transiciones de estado permitidas. */
 export const TRANSITIONS: Record<string, string[]> = {
@@ -211,6 +214,7 @@ export function agendaRoutes(route: Route) {
     dentistId: zId,
     patientId: zId,
     procedureId: zId.nullish().transform((v) => v ?? null),
+    appointmentTypeId: zId.nullish(),
     startsAt: zDateTime,
     durationMin: z.number().int().min(5).max(480).optional(),
     endsAt: zDateTime.optional(),
@@ -244,6 +248,7 @@ export function agendaRoutes(route: Route) {
         if (ex) return { id: ex.id, duplicate: true };
       }
       const zone = await clinicZone(c, auth.clinicId!);
+      Object.assign(body, await appointmentTypeDefaults(c, body));
       const { startsAt, endsAt } = await resolveTimes(c, body);
       if (body.allowOutsideSchedule && !auth.permissions.has("clinic.manage") && auth.membership!.role !== "dentist") {
         throw forbidden("Solo administración o el propio profesional pueden agendar fuera de horario");
@@ -251,9 +256,9 @@ export function agendaRoutes(route: Route) {
       if (startsAt.getTime() < Date.now() - 15 * 60_000 && body.source !== "walk_in") throw badRequest("No se puede agendar en el pasado");
       await assertBookable(c, auth, zone, { ...body, startsAt, endsAt });
       const r = await c.query<{ id: string }>(
-        `INSERT INTO appointments (clinic_id, branch_id, chair_id, dentist_id, patient_id, procedure_id, starts_at, ends_at, reason, notes, source, idempotency_key, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
-        [auth.clinicId, body.branchId, body.chairId, body.dentistId, body.patientId, body.procedureId, startsAt, endsAt, body.reason, body.notes, body.source, body.idempotencyKey ?? null, auth.userId],
+        `INSERT INTO appointments (clinic_id, branch_id, chair_id, dentist_id, patient_id, procedure_id, starts_at, ends_at, reason, notes, source, idempotency_key, created_by, appointment_type_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+        [auth.clinicId, body.branchId, body.chairId, body.dentistId, body.patientId, body.procedureId, startsAt, endsAt, body.reason, body.notes, body.source, body.idempotencyKey ?? null, auth.userId, body.appointmentTypeId ?? null],
       );
       const id = r.rows[0]!.id;
       await audit(c, auth, "appointment.created", "appointment", id, { startsAt, endsAt, dentistId: body.dentistId, patientId: body.patientId }, body.branchId);
@@ -305,11 +310,12 @@ export function agendaRoutes(route: Route) {
       await c.query(
         `UPDATE appointments SET branch_id=$2, chair_id=$3, dentist_id=$4, procedure_id=$5, starts_at=$6, ends_at=$7,
             reason = CASE WHEN $8::boolean THEN $9 ELSE reason END, notes = CASE WHEN $10::boolean THEN $11 ELSE notes END,
+            appointment_type_id = CASE WHEN $13::boolean THEN $14::uuid ELSE appointment_type_id END,
             reschedule_count = reschedule_count + CASE WHEN $12 THEN 1 ELSE 0 END,
             status = CASE WHEN $12 THEN 'scheduled' ELSE status END, confirmed_at = CASE WHEN $12 THEN NULL ELSE confirmed_at END,
             updated_at = now()
           WHERE id = $1`,
-        [params.id, next.branchId, next.chairId, next.dentistId, next.procedureId, startsAt, endsAt, body.reason !== undefined, body.reason ?? null, body.notes !== undefined, body.notes ?? null, timeChanged],
+        [params.id, next.branchId, next.chairId, next.dentistId, next.procedureId, startsAt, endsAt, body.reason !== undefined, body.reason ?? null, body.notes !== undefined, body.notes ?? null, timeChanged, body.appointmentTypeId !== undefined, body.appointmentTypeId ?? null],
       );
       if (timeChanged && cur.status !== "scheduled") await recordAppointmentEvent(c, auth, { appointmentId: params.id, branchId: next.branchId, from: cur.status, to: "scheduled", reason: "Reprogramada" });
       await audit(c, auth, timeChanged ? "appointment.rescheduled" : "appointment.updated", "appointment", params.id,

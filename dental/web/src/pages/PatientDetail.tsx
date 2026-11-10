@@ -13,6 +13,7 @@ import { PaymentDialog } from "./Cash";
 import { ConsentsPanel } from "../components/Consents";
 import { PatientRecallsCard } from "../components/Recalls";
 import { Periodontogram } from "../components/perio/Periodontogram";
+import { PatientTimeline } from "../components/PatientTimeline";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
 
@@ -91,6 +92,7 @@ export function PatientDetailPage() {
             <Row k="Consentimiento actualizado" v={pt.consentUpdatedAt ? fmtDateTime(pt.consentUpdatedAt) : null} />
           </div>
           {can("agenda.read") && <PatientRecallsCard patientId={id!} />}
+          <PatientTimeline patientId={id!} />
         </div>
       )}
       {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} />}
