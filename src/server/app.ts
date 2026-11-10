@@ -719,6 +719,18 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
+  // Ficha del revendedor: todos sus perfiles (los suyos y los de sus clientes) por cuenta, lo que debe y su link de códigos.
+  route("GET", "/api/admin/resellers/:id/sheet", "staff", (c) => {
+    const st = store.engine.s, r = st.customers[c.params.id];
+    if (!r || r.kind !== "reseller") throw new HttpError(404, "NOT_FOUND", "No es un revendedor");
+    const grp = st.priceGroups[r.priceGroupId ?? "revendedor"]?.prices ?? {};
+    const rows = store.admin.assignments(A(c)).filter((a) => a.customerId === r.id || st.customers[a.customerId]?.resellerId === r.id).map((a) => ({
+      id: a.id, client: a.customerId === r.id ? "" : a.customerName ?? "", clientPhone: a.customerId === r.id ? "" : a.customerPhone, product: a.product ?? "", email: a.email, profile: a.profile,
+      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.control?.price ?? grp[a.productId] ?? a.productPrice, pay: a.control?.payStatus ?? "pagado",
+    }));
+    const cl = r.codeLink;
+    return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
+  });
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;
     return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };

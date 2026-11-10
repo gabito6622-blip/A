@@ -1117,7 +1117,33 @@ const V = {
     const q = (T.rq ?? "").toLowerCase();
     const shown = list.filter((r) => !q || `${r.name} ${r.phone} ${r.shop.slug}`.toLowerCase().includes(q));
     const sent = T.rlink;
-    return `<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    // Ficha del revendedor: sus perfiles por cuenta, lo que debe y su lista lista para mandarle.
+    const fs = T.rficha ? await api("GET", `/api/admin/resellers/${T.rficha}/sheet`).catch((e) => { toast(e.message); T.rficha = ""; return null; }) : null;
+    const ficha = (() => {
+      if (!fs) return "";
+      const pn = (x) => x.replace(/ \(alquiler revendedores\)/, "");
+      const apps = [...new Set(fs.rows.map((x) => pn(x.product)))];
+      const app = apps.includes(T.rfp) ? T.rfp : "";
+      const rows = fs.rows.filter((x) => !app || pn(x.product) === app).sort((a, b) => a.email.localeCompare(b.email) || a.expiresAt - b.expiresAt);
+      const byAcc = Object.entries(rows.reduce((m, x) => ((m[`${pn(x.product)}|${x.email}`] ??= []).push(x), m), {}));
+      const dl = (x) => daysLeft(x.expiresAt);
+      const venc = rows.filter((x) => dl(x) < 0 || x.holdOpen).length, semana = rows.filter((x) => dl(x) >= 0 && dl(x) <= 7).length;
+      const total = rows.reduce((t, x) => t + (x.price || 0), 0), debe = rows.filter((x) => x.pay !== "pagado");
+      const st = (x) => (x.holdOpen ? pill("Esperando fecha", "mute") : dl(x) < 0 ? pill(`Venció hace ${-dl(x)} d`, "bad") : dl(x) === 0 ? pill("Vence hoy", "warn") : dl(x) <= 7 ? pill(`${dl(x)} d`, "warn") : pill(`${dl(x)} d`, "ok"));
+      const PAYT = { pagado: "", pendiente: " · ⏳ pendiente", no_pago: " · ❌ no pagó" };
+      const msg = `Hola ${fs.name.split(" ")[0]} 👋 tu resumen${app ? ` de *${app}*` : ""}:\n\n` + byAcc.map(([k, l]) => `*${k.split("|")[0]}* · ${k.split("|")[1]}\n` + l.map((x) => `• ${x.profile}${x.client ? ` – ${x.client}` : ""} – ${x.holdOpen ? "esperando fecha" : `vence ${fdate(x.expiresAt)}`} – ${bs(x.price || 0)}${PAYT[x.pay] ?? ""}`).join("\n")).join("\n\n")
+        + `\n\nTotal: ${rows.length} perfil(es) · ${bs(total)}${semana ? `\nVencen esta semana: ${semana}` : ""}${venc ? `\nYa vencidos: ${venc}` : ""}${fs.owed ? `\n💸 Me debés: ${bs(fs.owed)}` : ""}${fs.codeLink ? `\n\n🔗 Códigos de tus cuentas: ${fs.codeLink}` : ""}`;
+      return `<section class="card rficha"><h2>📋 Ficha de ${esc(fs.name)} <button class="pbtn sm" type="button" data-rficha="">Cerrar</button></h2>
+        <div class="ctl-kpis"><div><small>Perfiles</small><b>${rows.length}</b></div><div><small>Vencen en 7 días</small><b>${semana}</b></div><div><small>Vencidos</small><b class="${venc ? "down" : ""}">${venc}</b></div><div><small>Te debe (fiado)</small><b class="${fs.owed ? "down" : ""}">${bs(fs.owed)}</b></div><div><small>Su saldo</small><b>${bs(fs.balance)}</b></div></div>
+        ${apps.length > 1 ? `<div class="tabs ctl-chips" role="tablist">${["", ...apps].map((a) => `<button type="button" role="tab" data-tab="rfp:${esc(a)}" aria-selected="${app === a}">${a ? esc(a) : `Todas (${fs.rows.length})`}</button>`).join("")}</div>` : ""}
+        <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
+          <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
+          ${debe.length || fs.owed ? `<button class="pbtn" type="button" data-fgo="${esc(fs.name)}">💸 Ver su fiado</button>` : ""}
+          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>
+        ${byAcc.length ? byAcc.map(([k, l]) => `<div class="racc"><div class="racc-h"><b>${esc(k.split("|")[0])}</b> <span class="mono">${esc(k.split("|")[1])}</span> <small class="muted">${l.length} perfil(es)</small></div>
+          ${l.map((x) => `<div class="racc-r"><span><b>${esc(x.profile)}</b>${x.client ? ` · ${esc(x.client)}` : ` · <small class="muted">para él</small>`}</span><span>${x.holdOpen ? "" : fdate(x.expiresAt)} ${st(x)}</span><span>${bs(x.price || 0)}${x.pay !== "pagado" ? ` ${pill(x.pay === "no_pago" ? "No pagó" : "Pendiente", "bad")}` : ""}</span></div>`).join("")}</div>`).join("") : `<div class="emptybox">Todavía no tiene perfiles${app ? ` de ${esc(app)}` : ""}.</div>`}</section>`;
+    })();
+    return `${ficha}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}</section>
       ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
@@ -1157,6 +1183,7 @@ const V = {
                <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
                <button class="pbtn sm" type="button" data-rpage="${esc(r.id)}" data-on="">Quitar página</button>`
             : `<button class="pbtn sm green" type="button" data-rpage="${esc(r.id)}" data-on="1">✦ Habilitar página</button>`}
+          <button class="pbtn sm dark" type="button" data-rficha="${esc(r.id)}">📋 Ficha</button>
           <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔗 Link de códigos${r.codeLink ? " ✓" : ""}</button>
           ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
         </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
@@ -2098,6 +2125,8 @@ document.addEventListener("click", async (ev) => {
     }
     if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
   }
+  if (d.rficha !== undefined) { P.tab.rficha = d.rficha; P.tab.rfp = ""; await render(); scrollTo(0, 0); return; }
+  if (d.fgo) { P.tab.fq = d.fgo; return go("fiado"); }
   if (d.ffrom) return act(() => api("POST", `/api/admin/fiado/${d.ffrom}/from-control`, {}), (r) => `➕ ${r.added} alquiler(es) al fiado · ${bs(r.amount)}`);
   if (d.ffromall) {
     const ov = await api("GET", "/api/admin/fiado");
