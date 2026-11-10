@@ -707,3 +707,12 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .tagp-nuevo{background:color-mix(in srgb,#12b76a 18%,var(--card));color:#047857;border-color:color-mix(in srgb,#12b76a 45%,var(--line))}
 .tagp-may{background:color-mix(in srgb,#3b82f6 18%,var(--card));color:#1d4ed8;border-color:color-mix(in srgb,#3b82f6 45%,var(--line))}
 .tagp-reg{background:color-mix(in srgb,#a855f7 18%,var(--card));color:#7c3aed;border-color:color-mix(in srgb,#a855f7 45%,var(--line))}
+
+/* Agrupar por cuenta: quién está en cada perfil */
+.occ{border-top:1px solid var(--line);padding-top:6px}
+.occ>summary{cursor:pointer;list-style:none;font-size:13px;font-weight:700;display:flex;gap:6px;align-items:center}
+.occ>summary::-webkit-details-marker{display:none}
+.occ>summary small{font-weight:500}
+.occlist{display:grid;gap:5px;margin-top:7px}
+.occrow{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;padding:5px 9px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
+.occrow b{font-variant-numeric:tabular-nums}
