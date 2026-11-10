@@ -112,7 +112,7 @@ function StockTab({ data, consolidated, canWrite, canManage, catalog, onConsume,
         <label className="check"><input type="checkbox" checked={onlyAlerts} onChange={(e) => setOnlyAlerts(e.target.checked)} />Solo con alertas</label>
       </div>
       {!rows.length ? <Empty>{data.items.length ? "Ningún insumo coincide con la búsqueda." : "Aún no hay insumos en el catálogo."}</Empty> : (
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Insumo</th><th className="num">Stock</th><th className="hide-mobile">Próx. vencimiento</th><th className="num hide-mobile">Valor</th><th className="hide-mobile">Alertas</th><th><span className="sr-only">Acciones</span></th></tr></thead>
           <tbody>{rows.map((x: any) => (
             <tr key={x.id}>
@@ -198,7 +198,7 @@ function LotsTab({ branchId, rev }: { branchId: string | null; rev: number }) {
     <section className="card">
       <div className="card-head row-between"><h2>Lotes</h2><label className="check"><input type="checkbox" checked={withEmpty} onChange={(e) => setWithEmpty(e.target.checked)} />Mostrar lotes agotados</label></div>
       {!lots.data ? <Loading /> : !lots.data.length ? <Empty>No hay lotes con saldo.</Empty> : (
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Insumo</th><th>Lote</th>{!branchId && <th className="hide-mobile">Sucursal</th>}<th className="num">Saldo</th><th>Vence</th><th className="num hide-mobile">Costo unit.</th><th className="num hide-mobile">Valor</th><th className="hide-mobile">Proveedor</th></tr></thead>
           <tbody>{lots.data.map((l) => (
             <tr key={l.id}>
@@ -232,7 +232,7 @@ function MovementsTab({ branchId, items, rev }: { branchId: string | null; items
         <div className="field"><label style={{ display: "contents" }}><span className="label">Hasta</span><input className="input" type="date" value={f.to} onChange={set("to")} /></label></div>
       </div>
       {!mv.data ? <Loading /> : !mv.data.length ? <Empty>No hay movimientos con esos filtros.</Empty> : (
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Fecha</th><th>Movimiento</th><th className="num">Cantidad</th><th className="hide-mobile">Lote</th>{!branchId && <th className="hide-mobile">Sucursal</th>}<th className="hide-mobile">Quién</th><th className="hide-mobile">Detalle</th></tr></thead>
           <tbody>{mv.data.map((m) => (
             <tr key={m.id}>

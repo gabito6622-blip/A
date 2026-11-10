@@ -97,7 +97,7 @@ function OrdersTab() {
       </div>
       <div className="card">
         {!list.data ? <Loading /> : list.data.length ? (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>N°</th><th>Paciente</th><th>Trabajo</th><th className="hide-mobile">Laboratorio</th><th>Fechas</th><th>Estado</th><th className="num hide-mobile">Costo</th></tr></thead>
             <tbody>{list.data.map((o) => (
               <tr key={o.id} className="clickable" tabIndex={0} onClick={() => setOpen(o.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(o.id)}>
@@ -168,7 +168,7 @@ function PayablesTab() {
               </div>
             </div>
             {p.data.orders.length ? (
-              <div className="table-wrap"><table className="table">
+              <div className="table-wrap"><table className="table cards-sm">
                 <thead><tr><th><span className="sr-only">Seleccionar</span></th><th>Laboratorio</th><th>Trabajo</th><th className="hide-mobile">Paciente</th><th className="hide-mobile">Llegó</th><th className="num hide-mobile">Costo</th><th className="num">Pendiente</th></tr></thead>
                 <tbody>{p.data.orders.map((o: any) => (
                   <tr key={o.id} className="lab-pay-row">
@@ -203,7 +203,7 @@ function PayablesTab() {
         </form>
         {statement.error && <div className="alert danger">{statement.error}</div>}
         {statement.data && (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>Fecha</th><th>Detalle</th><th className="num">Trabajos</th><th className="num">Pagos</th><th className="num">Saldo</th></tr></thead>
             <tbody>
               <tr><td className="nowrap">{fmtDay(statement.data.from)}</td><td>Saldo inicial</td><td /><td /><td className="num">{bs(statement.data.openingCents)}</td></tr>
@@ -298,7 +298,7 @@ function LabPaymentDialog({ labs, init, onClose, onSaved }: { labs: any[]; init:
           <Field label="Nota (opcional)"><input className="input" value={f.note} maxLength={500} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
         {allocs.length > 0 && (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>Orden</th><th className="num">Pendiente</th><th className="num">A pagar (Bs)</th></tr></thead>
             <tbody>{allocs.map((a, i) => (
               <tr key={a.id} className="lab-pay-row">
@@ -325,7 +325,7 @@ function LabsTab() {
     <section className="card" aria-label="Laboratorios">
       <div className="card-head"><h2>Laboratorios</h2>{manage && <button className="btn btn-primary btn-sm" style={TAP} onClick={() => setEdit({})}><Plus size={15} />Nuevo laboratorio</button>}</div>
       {!labs.data ? <Loading /> : labs.data.length ? (
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Laboratorio</th><th className="hide-mobile">Contacto</th><th>Teléfono / WhatsApp</th><th className="num hide-mobile">En curso</th><th>Estado</th>{manage && <th><span className="sr-only">Acciones</span></th>}</tr></thead>
           <tbody>{labs.data.map((l) => (
             <tr key={l.id}>

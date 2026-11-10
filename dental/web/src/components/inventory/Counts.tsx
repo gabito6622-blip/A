@@ -34,7 +34,7 @@ export function CountsTab({ branchId, onStockChanged }: { branchId: string | nul
       <section className="card">
         <div className="card-head"><h2>Historial de conteos</h2></div>
         {!list.data ? <Loading /> : !list.data.length ? <Empty>Aún no hay conteos.</Empty> : (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>N°</th><th className="hide-mobile">Sucursal</th><th>Fecha</th><th className="num">Contadas</th><th>Estado</th></tr></thead>
             <tbody>{list.data.map((k) => (
               <tr key={k.id} className="clickable" tabIndex={0} onClick={() => setOpen(k.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(k.id)}>
@@ -101,7 +101,7 @@ function CountSheet({ id, onChanged, onClosed }: { id: string; onChanged: () => 
           <input className="input" style={{ maxWidth: 280 }} placeholder="Buscar insumo o lote" aria-label="Buscar en la hoja" value={filter} onChange={(e) => setFilter(e.target.value)} />
           <span className="muted small">Contadas {d.summary.counted} de {d.summary.lines} · {d.summary.adjustments} ajuste(s) propuesto(s) · {bs(d.summary.differenceCents)}</span>
         </div>
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Insumo</th><th className="hide-mobile">Lote</th><th className="num">Sistema</th><th className="num">Contado</th><th className="num">Diferencia</th></tr></thead>
           <tbody>{rows.map((l: any) => (
             <tr key={l.id}>

@@ -34,7 +34,7 @@ export function PurchasingTab({ items, onStockChanged }: { items: InvItem[]; onS
           </div>
         </div>
         {!list.data ? <Loading /> : !list.data.length ? <Empty>No hay órdenes de compra.</Empty> : (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>N°</th><th>Proveedor</th><th className="hide-mobile">Llega a</th><th className="hide-mobile">Entrega prevista</th><th className="num">Total</th><th>Estado</th></tr></thead>
             <tbody>{list.data.map((p) => (
               <tr key={p.id} className="clickable" onClick={() => setOpen(p.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(p.id)}>
@@ -72,7 +72,7 @@ function Reorder({ branchId, onCreated, canWrite }: { branchId: string; onCreate
       {!rows.length ? <Empty>Ningún insumo está por debajo del mínimo en esta sucursal.</Empty> : (
         <div className="card-pad stack">
           <p className="muted small">Sugerido = mínimo + consumo promedio de un mes (según los últimos 60 días) − stock actual − lo ya pedido. Se redondea a unidades de compra.</p>
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>Insumo</th><th className="num">Stock / mín.</th><th className="num hide-mobile">Consumo al mes</th><th className="num hide-mobile">Ya pedido</th><th className="num">Sugerido</th><th className="hide-mobile">Proveedor</th></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.itemId}>
@@ -311,7 +311,7 @@ export function SuppliersTab() {
         {can("inventory.manage") && <button className="btn btn-primary" onClick={() => setEdit({})}><Plus size={16} />Nuevo proveedor</button>}
       </div>
       {!list.data ? <Loading /> : !list.data.length ? <Empty>Aún no hay proveedores.</Empty> : (
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table cards-sm">
           <thead><tr><th>Proveedor</th><th className="hide-mobile">Contacto</th><th className="num hide-mobile">Órdenes</th><th className="num">A tiempo</th><th className="num">Rechazado</th><th /></tr></thead>
           <tbody>{list.data.map((s) => (
             <tr key={s.id}>

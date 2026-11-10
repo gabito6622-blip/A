@@ -294,6 +294,28 @@ table.table { width: 100%; border-collapse: collapse; }
   .kpi .value { font-size: 20px; }
   h1 { font-size: 19px; }
 }
+.offline-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px calc(8px) ; padding-top: max(8px, env(safe-area-inset-top)); background: #7c2d12; color: #fff; font-size: 13.5px; font-weight: 600; text-align: center; }
+
+/* Tablas como tarjetas apiladas en el celular (clase opt-in `cards-sm`; etiquetas puestas por lib/tableCards.ts) */
+@media (max-width: 640px) {
+  .table-wrap:has(> table.cards-sm) { overflow-x: visible; }
+  table.cards-sm, table.cards-sm tbody, table.cards-sm tr, table.cards-sm td { display: block; width: 100%; }
+  table.cards-sm thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table.cards-sm tbody tr { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  table.cards-sm tbody tr:last-child { border-bottom: none; }
+  table.cards-sm td { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 5px 0; border: none; text-align: right; }
+  table.cards-sm td > * { min-width: 0; max-width: 100%; }
+  table.cards-sm td[data-label]:not([data-label=""]) > * { max-width: 62%; }
+  table.cards-sm td > span, table.cards-sm td > div { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  table.cards-sm .badge { white-space: normal; text-align: left; }
+  table.cards-sm td:first-child { display: block; text-align: left; padding-bottom: 6px; }
+  table.cards-sm td:first-child::before { content: none; }
+  table.cards-sm td:first-child > * { max-width: none; }
+  table.cards-sm td[data-label]::before { content: attr(data-label); flex: 0 0 38%; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
+  table.cards-sm td[data-label=""]::before { content: none; }
+  table.cards-sm td[data-label=""] { justify-content: flex-end; }
+}
+
 @media print {
   .sidebar, .topbar, .bottom-nav, .no-print { display: none !important; }
   .app { display: block; }

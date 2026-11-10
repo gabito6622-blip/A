@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { Download, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Field, useAsk, useToast } from "../components/ui";
+import { isIos, useInstall } from "../lib/pwa";
 
 export function ChangePasswordCard({ forced, onDone }: { forced?: boolean; onDone?: () => void }) {
   const toast = useToast();
@@ -135,7 +136,34 @@ export function AccountPage() {
       <div className="grid grid-2" style={{ alignItems: "start" }}>
         <MfaCard />
         <ChangePasswordCard />
+        <InstallCard />
       </div>
+    </div>
+  );
+}
+
+/** Instalar Dentalia como aplicación en el celular, la tableta o la computadora. */
+function InstallCard() {
+  const { canPrompt, installed, install } = useInstall();
+  const toast = useToast();
+  return (
+    <div className="card card-pad stack">
+      <h2 className="row"><Smartphone size={18} />Aplicación en este dispositivo</h2>
+      {installed ? (
+        <p>Ya estás usando Dentalia como aplicación instalada.</p>
+      ) : canPrompt ? (
+        <>
+          <p>Instálala para abrirla desde la pantalla de inicio, a pantalla completa, como cualquier otra aplicación.</p>
+          <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={async () => { if (await install()) toast("Dentalia quedó instalada"); }}>
+            <Download size={16} />Instalar Dentalia
+          </button>
+        </>
+      ) : isIos() ? (
+        <p>En el iPhone o iPad: toca <strong>Compartir</strong> en Safari y luego <strong>Agregar a inicio</strong>.</p>
+      ) : (
+        <p>Desde el menú del navegador elige <strong>Instalar aplicación</strong> o <strong>Agregar a la pantalla de inicio</strong>.</p>
+      )}
+      <p className="muted small">Por privacidad, la aplicación no guarda datos de pacientes en el dispositivo: todo se consulta en línea.</p>
     </div>
   );
 }
