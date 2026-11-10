@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, setCurrency, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, currencySym, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -20,7 +20,7 @@ const MENU = [
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -147,7 +147,7 @@ const V = {
       ang += f * 100;
       return c;
     }).join("");
-    const donut = A.length ? `<div class="donut"><svg viewBox="0 0 42 42"><circle r="15.915" cx="21" cy="21" fill="none" class="ring" stroke-width="6"/>${arcs}<text x="21" y="21" class="dn">${k.activeServices}</text><text x="21" y="26.5" class="dt">activos</text></svg>
+    const donut = A.length ? `<div class="donut"><svg viewBox="0 0 42 42"><circle r="15.915" cx="21" cy="21" fill="none" class="ring" stroke-width="6"/>${arcs}<text x="21" y="21" class="dn">${k.activeServices}</text><text x="21" y="27.5" class="dt">activos</text></svg>
       <ul>${A.map((x, i) => `<li><i style="background:${PAL[i % 8]}"></i>${esc(x.name)}<b>${x.count}</b></li>`).join("")}</ul></div>` : `<div class="emptybox">Sin servicios activos.</div>`;
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
@@ -284,7 +284,7 @@ const V = {
         <h2>Gastos de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
         <form id="expenseForm" class="finform" autocomplete="off">
-          <label>Monto (Bs)<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
+          <label>Monto (${currencySym()})<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
           <label class="grow">¿En qué? <input name="note" maxlength="120" placeholder="Ej: publicidad en Facebook" required></label>
           <button class="pbtn blue" type="submit">Agregar gasto</button>
         </form>
@@ -475,9 +475,9 @@ const V = {
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
-        <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, WhatsApp, correo, revendedor…" value="${esc(T.cq ?? "")}" aria-label="Buscar">
-          <select id="cday" aria-label="Día que vence">${opt("", "Día que vence: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `Vence ${d} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
-          <select id="cprod" aria-label="Plataforma">${opt("", "Plataforma: todas", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
+        <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, correo o WhatsApp" value="${esc(T.cq ?? "")}" aria-label="Buscar">
+          <select id="cday" aria-label="Día que vence">${opt("", "Día: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `${d[0].toUpperCase() + d.slice(1)} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
+          <select id="cprod" aria-label="Plataforma">${opt("", "Todas las apps", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
           <label class="cdatelbl">📅 Cobros del día<input type="date" id="cfromDate" value="${T.cfrom ? `${new Date(T.cfrom).getFullYear()}-${String(new Date(T.cfrom).getMonth() + 1).padStart(2, "0")}-${String(new Date(T.cfrom).getDate()).padStart(2, "0")}` : ""}" aria-label="Elegí la fecha para ver cuánto cobrás ese día"></label>
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
@@ -492,7 +492,7 @@ const V = {
           <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
       <section class="ctl-cards">${view.map((r) => `<article class="ccard rv-${r.est[1]}">
-        <header><label class="ccheck"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
+        <header><label class="ccheck selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
           <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small><br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
         <div class="crow mono">${esc(r.email)}</div>
@@ -516,7 +516,7 @@ const V = {
       <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
         <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
         ${view.map((r) => `<tr class="rv-${r.est[1]}">
-          <td><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
+          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
           <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
           <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
           <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
@@ -541,7 +541,7 @@ const V = {
     return `<section class="card"><div class="inline"><button class="pbtn dark sm" type="button" data-renewsel="1">${icon("renew")}Renovar seleccionados (+1 período, efectivo)</button><span class="muted">${list.length} servicios activos</span></div>
       ${table(["<input type=checkbox id=selAll aria-label='Seleccionar todo'>", "Cliente", "Producto", "Cuenta / perfil", "Vence cliente", "Vence proveedor", "Acciones"], list.map((a) => {
         const d = daysLeft(a.customerExpiresAt);
-        return `<tr><td><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
+        return `<tr><td><label class="selbox"><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></label></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
           <td>${fdate(a.customerExpiresAt)} ${d <= 3 ? pill(d < 0 ? "Vencido" : `${d} d`, d < 0 ? "bad" : "warn") : ""}${a.holdOpen ? `<br>${pill("Esperando fecha", "mute")}` : ""}</td><td>${fdate(a.supplierExpiresAt)}</td>
           <td><button class="pbtn sm dark" type="button" data-renew="${esc(a.id)}">+1 período</button>
           <details class="more" ${a.holdOpen ? "open" : ""}><summary>Cambiar fecha</summary><form class="inline" data-expiry="${esc(a.id)}" style="margin-top:6px"><input type="date" name="date" required value="${new Date(Math.max(a.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha de vencimiento"><button class="pbtn sm" type="submit">Guardar</button></form></details>
@@ -606,7 +606,7 @@ const V = {
             <label>Contraseña nueva<input name="password" placeholder="Vacío = no cambia" autocomplete="off"></label>
             <label>Proveedor<select name="supplierId">${suppliers.map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
             <label>Vence con el proveedor<input name="exp" type="date" value="${dateInput(a.supplierExpiresAt)}"></label>
-            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
@@ -677,7 +677,7 @@ const V = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
             <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name)).join("")}</select></label>
             <label>Vence con el proveedor<input type="date" name="exp"></label>
-            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label></div></details>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Guardar línea IPTV</button>
       </form>
       <p class="muted" style="margin:0">La línea queda <b>libre</b>, lista para vender o asignar en Vender/Cuentas. Al venderla, el cliente recibe sus datos y cómo verla.</p></section>`;
@@ -696,17 +696,17 @@ const V = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
             <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
             <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
-            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (Bs)<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
       <textarea name="rows" rows="5" style="grid-column:1/-1" placeholder="cuenta1@correo.com, Clave#1, 5, 2026-12-31&#10;cuenta2@correo.com, Clave#2, 5, 2026-12-31" aria-label="Lista de cuentas"></textarea>
       <button class="pbtn dark" type="submit" style="justify-self:start">Cargar lista</button></form><div id="bulkOut"></div></section>`;
   },
@@ -719,9 +719,9 @@ const V = {
     return `<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
       <label>Nombre<input name="name" required maxlength="60" value="${esc(f.name)}"></label><label>Categoría<input name="category" maxlength="40" value="${esc(f.category ?? "")}" placeholder="Streaming, IA, Educación…"></label>
       <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"], ["iptv", "IPTV (TV en vivo)"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
-      <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (Bs)<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
-      <label>Precio revendedor (Bs, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
-      <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
+      <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (${currencySym()})<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
+      <label>Precio revendedor (${currencySym()}, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
+      <label>Color de la tarjeta<span class="colorrow"><input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"><output class="hex">${esc(f.color ?? "#3984ff")}</output></span></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label style="grid-column:1/-1">📌 Regla al vender <small class="muted">(opcional · aparece cuando vas a vender este servicio)</small><input name="saleNote" maxlength="200" value="${esc(f.saleNote ?? "")}" placeholder="Ej.: Disney pide PIN al entrar · este panel tarda 10 min"></label>
       <div style="grid-column:1/-1" class="pdefs"><div class="selbl">📲 Cómo verlo <small class="muted">opcional · el cliente recibe esto al comprar (ideal para IPTV)</small></div>
@@ -736,7 +736,7 @@ const V = {
         <div class="combopick">${products.filter((x) => x.kind !== "combo").map((x) => `<label class="chk"><input type="checkbox" name="combopart" value="${esc(x.id)}" ${f.comboProductIds?.includes(x.id) ? "checked" : ""}> ${esc(x.name)}</label>`).join("") || `<span class="muted">Primero creá productos sueltos (no combo) para elegirlos acá.</span>`}</div>
       </div>
       <div style="grid-column:1/-1" class="pdefs noncombo-only" ${f.kind !== "combo" ? "" : "hidden"}><div class="selbl">👤 Nombre y PIN por defecto de cada perfil <small class="muted">opcional · se precargan al cargar una cuenta</small></div>
-        ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
+        ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN" aria-label="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
       </div>
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
@@ -1014,10 +1014,10 @@ const V = {
     ${isOwner() ? `<section class="card"><h2>${icon("gear")}Ajustes de revendedores</h2>
       <form class="form" id="resCfg">
         <label>Ganancia sugerida para sus precios (%)<input name="margin" inputmode="numeric" value="${esc(marginPct)}"><small class="muted">El asistente les propone tu precio + este %. Ellos lo pueden cambiar.</small></label>
-        <label>🎁 Premio por traer un revendedor (Bs, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
+        <label>🎁 Premio por traer un revendedor (${currencySym()}, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rentOn" ${rent.enabled ? "checked" : ""}> Cobrar alquiler mensual por la página (se descuenta solo de su saldo)</label>
-        <label>Precio por mes (Bs)<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
-        <label>Gratis si ese mes te compran (Bs, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
+        <label>Precio por mes (${currencySym()})<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
+        <label>Gratis si ese mes te compran (${currencySym()}, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, su página sigue publicada los días de gracia y después se apaga sola. Apenas recarga, se cobra y se prende sola.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
@@ -1069,8 +1069,15 @@ const V = {
 
   async auditoria() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño ve la auditoría.</div></section>`;
-    const list = await api("GET", "/api/admin/audit?limit=300");
-    return `<section class="card">${table(["Fecha", "Quién", "Rol", "Acción", "Sobre", "Detalle"], list.map((a) => `<tr><td>${fdt(a.at)}</td><td>${esc(a.actorId)}</td><td>${esc(a.role)}</td><td>${esc(a.action)}</td><td class="mono">${esc(a.entityId)}</td><td><small class="muted">${esc(a.data ? JSON.stringify(a.data) : "")}</small></td></tr>`))}</section>`;
+    const [list, staff, customers, products] = await Promise.all([
+      api("GET", "/api/admin/audit?limit=300"), api("GET", "/api/admin/staff").catch(() => []),
+      api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => []),
+    ]);
+    const maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
+    const rows = list.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
+      <div class="audtxt"><b>${esc(t.who)}</b>${t.role ? ` <span class="muted">(${esc(t.role)})</span>` : ""} ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div>
+      <div class="audmeta"><small class="muted">${fdt(a.at)}</small><details class="audtech"><summary>Ver detalle técnico</summary><code>${esc(a.action)} · ${esc(a.entityId)}${a.data && Object.keys(a.data).length ? " · " + esc(JSON.stringify(a.data)) : ""}</code></details></div></div>`; }).join("");
+    return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>${rows || `<div class="emptybox">Todavía no hay movimientos.</div>`}</section>`;
   },
 
   async configuracion() {
@@ -1081,7 +1088,7 @@ const V = {
       <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
-        <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (Bs)<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
+        <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (${currencySym()})<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
         <p class="muted" style="grid-column:1/-1;margin:0">Los combos ya armados mantienen su precio. Los revendedores no reciben este descuento. Poné 0 en los tres para apagar “Armá tu combo”.</p>
         <button class="pbtn dark" type="submit">Guardar descuentos</button></form></section>
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
@@ -1095,6 +1102,75 @@ const V = {
   },
 };
 
+
+/* ---------------- Auditoría en frases que se entienden ---------------- */
+const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "vendedor", customer: "cliente", reseller: "revendedor", system: "automático" };
+const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT" };
+const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
+// {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
+const AUD_VERB = {
+  "account.add": "cargó {x}", "account.retire": "retiró {x}", "account.update": "editó {x}",
+  "alerts.settings": "cambió los avisos para el dueño", "alerts.supplier_expiry": "recibió el aviso de vencimiento con el proveedor de {x}",
+  "assignment.control": "actualizó el control de {x}", "assignment.deliver": "abrió los datos de entrega de {x}", "assignment.expire": "cerró por vencido {x}",
+  "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
+  "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
+  "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
+  "binance.config": "configuró Binance Pay", "credentials.view": "vio sus datos de acceso",
+  "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
+  "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
+  "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
+  "expense.add": "anotó un gasto", "expense.remove": "borró un gasto", "export": "exportó un Excel", "faq.update": "editó las preguntas frecuentes",
+  "import.customers": "importó clientes desde Excel", "mailbox.remove": "desconectó un correo",
+  "order.binance": "abrió el pago con Binance de {x}", "order.cancel": "canceló {x}", "order.create": "creó {x}", "order.evidence": "subió el comprobante de {x}",
+  "order.expire": "dejó vencer la reserva de {x}", "order.fulfill": "entregó {x}",
+  "outbox.flush": "mandó los avisos de WhatsApp pendientes", "outbox.sent_manually": "marcó un aviso como enviado a mano",
+  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "price_group.upsert": "guardó la lista de precios {x}",
+  "product.image": "cambió el logo de {x}", "product.upsert": "guardó el producto {x}",
+  "reminders.auto": "programó recordatorios automáticos", "reminders.queue": "puso en cola recordatorios de vencimiento", "reminders.settings": "cambió los recordatorios",
+  "renewal.create": "pidió una renovación ({x})", "reseller.apply": "mandó una solicitud para ser revendedor", "reseller.approve": "aprobó la solicitud de revendedor {x}",
+  "reseller.client_update": "editó a su cliente {x}", "reseller.prices": "cambió sus precios", "reseller.referral_paid": "cobró el premio por referido",
+  "reseller.reject": "rechazó la solicitud de revendedor {x}", "reseller.shop_rent_free": "quedó sin alquiler de página", "reseller.shop_suspend": "pausó la página de {x}",
+  "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
+  "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
+  "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
+  "staff.password": "cambió la contraseña de {x}", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
+  "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
+};
+const audNum = (id) => { const m = String(id ?? "").match(/(\d+)$/); return m ? "#" + Number(m[1]) : ""; };
+function auditText(a, maps) {
+  // Quién
+  let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
+  const aid = String(a.actorId ?? "");
+  if (aid.startsWith("system")) { who = "El sistema"; role = "automático"; }
+  else if (maps.staff[aid]) who = maps.staff[aid].name;
+  else { const cid = aid.split(":")[1]; const c = cid && maps.cust[cid]; if (c) { who = c.name; if (aid.startsWith("wa:")) role = (role ? role + ", " : "") + "por WhatsApp"; } else if (aid) who = role ? role[0].toUpperCase() + role.slice(1) : aid; }
+  if (who.toLowerCase() === role) role = "";
+  // Sobre qué
+  const id = a.entityId;
+  const many = id === "*" || String(id).includes(",");
+  const obj = many ? "varios" : ({
+    order: () => `el pedido ${audNum(id)}`, assignment: () => `el alquiler ${audNum(id)}`, account: () => `la cuenta ${audNum(id)}`, slot: () => `el perfil ${audNum(id)}`,
+    customer: () => maps.cust[id] ? `al cliente ${maps.cust[id].name}` : `al cliente ${audNum(id)}`, product: () => maps.prod[id] ? `"${maps.prod[id].name}"` : `"${id}"`,
+    staff: () => maps.staff[id]?.name ?? `un usuario`, supplier: () => `"${id}"`, price_group: () => `"${id}"`, reseller_app: () => `${audNum(id)}`,
+  }[a.entity] ?? (() => ""))();
+  const verb = AUD_VERB[a.action] ?? a.action.replace(/[._]/g, " ");
+  const what = verb.includes("{x}") ? verb.replace("{x}", obj).replace(/\s+\)/, ")").replace(/\(\)/, "").trim() : verb;
+  // Detalle útil (lo técnico queda plegado)
+  const d = a.data ?? {}, parts = [];
+  if (d.kind && AUD_KIND[d.kind]) parts.push(AUD_KIND[d.kind]);
+  if (Number.isFinite(d.total)) parts.push(bs(d.total) + (AUD_METHOD[d.method] ? " " + AUD_METHOD[d.method] : ""));
+  else if (AUD_METHOD[d.method]) parts.push(AUD_METHOD[d.method]);
+  if (Number.isFinite(d.amount)) parts.push(bs(d.amount));
+  if (Number.isFinite(d.price)) parts.push(bs(d.price));
+  if (d.confirmedReference) parts.push(`ref. ${d.confirmedReference}`);
+  if (d.reason) parts.push(`motivo: "${d.reason}"`);
+  if (Number.isFinite(d.hours)) parts.push(`${d.hours} h`);
+  if (Number.isFinite(d.usdt)) parts.push(`${d.usdt} USDT`);
+  if (Number.isFinite(d.count)) parts.push(`${d.count}`);
+  if (Number.isFinite(d.slots) && d.slots) parts.push(`${d.slots} perfil(es)`);
+  return { who, role, what, detail: parts.join(" · ") };
+}
 
 /* ---------------- Verificación en dos pasos ---------------- */
 async function twoFactorCard() {
@@ -1415,6 +1491,10 @@ async function render() {
   try {
     $("#pout").innerHTML = await V[P.view]();
     $$(".msgs").forEach((m) => (m.scrollTop = m.scrollHeight));
+    enhanceDates($("#pout"));
+    enhanceFiles($("#pout"));
+    fitChartText($("#pout"));
+    if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -1425,6 +1505,100 @@ function go(v) {
   history.replaceState(null, "", "#" + P.view);
   scrollTo(0, 0);
   render();
+}
+
+/* ---------------- Letras de los gráficos legibles en cualquier ancho ----------------
+   Los gráficos son SVG y se achican con la pantalla: calculamos el tamaño para que en pantalla
+   se vean siempre a ~12,5 px (antes los ejes quedaban en 10–11 px en el celular). */
+function fitChartText(root = document) {
+  for (const svg of root.querySelectorAll("svg")) {
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    const labels = svg.querySelectorAll("text.ax");
+    if (!vb || !vb.width || !labels.length) continue;
+    const scale = svg.getBoundingClientRect().width / vb.width;
+    if (!scale) continue;
+    const units = 12.5 / scale;
+    for (const tx of labels) tx.style.fontSize = Math.max(units, 8) + "px";
+  }
+}
+let fitTimer;
+addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fitChartText($("#pout") || document), 150); });
+
+/* ---------------- Selector de archivo en español ----------------
+   El nativo dice "Choose File / No file chosen" (idioma del navegador) y se salía de la tarjeta. */
+function enhanceFiles(root = document) {
+  for (const inp of root.querySelectorAll('input[type="file"]:not([data-fp])')) {
+    if (inp.closest(".dropzone")) continue;
+    inp.dataset.fp = "1";
+    const isImg = /image/.test(inp.accept || "");
+    // Si ya está dentro de una etiqueta, no anidamos otra (sería HTML inválido): esa etiqueta ya abre el selector.
+    const wrap = document.createElement(inp.closest("label") ? "span" : "label");
+    wrap.className = "filepick";
+    const btn = document.createElement("span");
+    btn.className = "fp-btn";
+    btn.textContent = isImg ? "📷 Elegir imagen" : "📎 Elegir archivo";
+    const name = document.createElement("span");
+    name.className = "fp-name";
+    name.textContent = "Ningún archivo elegido";
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.append(btn, name, inp);
+    inp.addEventListener("change", () => {
+      const f = inp.files && inp.files[0];
+      name.textContent = f ? f.name : "Ningún archivo elegido";
+      wrap.classList.toggle("has", !!f);
+    });
+  }
+}
+
+/* ---------------- Secciones plegables en el celular ----------------
+   Apariencia y Configuración medían 6.000–7.000 px de alto. En el celular cada tarjeta se pliega;
+   la primera queda abierta y se recuerda cuál dejaste abierta aunque guardes. */
+P.fold = P.fold || {};
+function foldCards(root) {
+  if (!matchMedia("(max-width:900px)").matches) return;
+  const cards = [...root.querySelectorAll(":scope > section.card")];
+  cards.forEach((card, i) => {
+    const h = card.querySelector(":scope > h2");
+    if (!h || card.dataset.folded) return;
+    card.dataset.folded = "1";
+    const key = `${P.view}:${i}`;
+    const det = document.createElement("details");
+    det.className = "cardfold";
+    det.open = key in P.fold ? P.fold[key] : i === 0;
+    const sum = document.createElement("summary");
+    sum.innerHTML = h.innerHTML;
+    const body = document.createElement("div");
+    body.className = "cf-body";
+    h.remove();
+    body.append(...[...card.childNodes]);
+    det.append(sum, body);
+    card.append(det);
+    card.classList.add("folded");
+    det.addEventListener("toggle", () => { P.fold[key] = det.open; });
+  });
+}
+
+/* ---------------- Fechas siempre en dd/mm/aaaa ----------------
+   El selector nativo muestra la fecha con el idioma del aparato (en uno en inglés sale mm/dd/yyyy).
+   Mostramos nosotros la fecha en dd/mm/aaaa encima, y el selector nativo sigue abriendo el calendario. */
+const dmy = (v) => { if (!v) return ""; const [y, m, d] = v.split("-"); return `${d}/${m}/${y}`; };
+function enhanceDates(root = document) {
+  for (const inp of root.querySelectorAll('input[type="date"]:not([data-dmy])')) {
+    inp.dataset.dmy = "1";
+    const wrap = document.createElement("span");
+    wrap.className = "dmy";
+    const shown = document.createElement("span");
+    shown.className = "dmy-v";
+    shown.setAttribute("aria-hidden", "true");
+    const sync = () => { shown.textContent = dmy(inp.value) || "dd/mm/aaaa"; wrap.classList.toggle("empty", !inp.value); };
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.append(shown, inp);
+    inp.addEventListener("input", sync);
+    inp.addEventListener("change", sync);
+    // En la compu, tocar el campo abre el calendario (en el celular ya lo abre solo).
+    inp.addEventListener("click", () => { try { inp.showPicker?.(); } catch { /* algunos navegadores no lo permiten */ } });
+    sync();
+  }
 }
 
 /* ---------------- sesión ---------------- */
@@ -1677,7 +1851,7 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.rtop) {
-    const v = prompt("¿Cuánto saldo le cargás? (Bs, negativo para descontar)");
+    const v = prompt(`¿Cuánto saldo le cargás? (${currencySym()}, negativo para descontar)`);
     if (!v) return;
     try { await api("POST", `/api/admin/customers/${d.rtop}/adjust`, { amount: toCents(v), reason: "Recarga de saldo (panel)" }); toast("Saldo actualizado"); } catch (e) { toast(e.message); }
     return render();
@@ -1847,6 +2021,7 @@ document.addEventListener("dragleave", (ev) => { const dz = ev.target.closest?.(
 document.addEventListener("drop", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (!dz) return; ev.preventDefault(); dz.classList.remove("over"); const inp = dz.querySelector('input[type="file"]'); if (inp && ev.dataTransfer?.files?.length) { inp.files = ev.dataTransfer.files; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
 document.addEventListener("change", (ev) => { const inp = ev.target; if (inp?.type === "file") { const dz = inp.closest?.(".dropzone"); if (dz) { const n = dz.querySelector(".dzname"); if (n) n.textContent = inp.files[0] ? "✅ " + inp.files[0].name : ""; } } });
 // Al cambiar el tipo de producto, mostrar las apps del combo o los perfiles por defecto.
+document.addEventListener("input", (ev) => { const t = ev.target; if (t?.type === "color") { const o = t.parentElement?.querySelector(".hex"); if (o) o.textContent = t.value; } });
 document.addEventListener("change", (ev) => { if (ev.target?.name === "kind" && ev.target.form?.id === "prodForm") { const combo = ev.target.value === "combo"; ev.target.form.querySelector(".combo-only")?.toggleAttribute("hidden", !combo); ev.target.form.querySelector(".noncombo-only")?.toggleAttribute("hidden", combo); } });
 document.addEventListener("change", (ev) => {
   const t = ev.target;

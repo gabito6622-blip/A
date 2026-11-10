@@ -44,7 +44,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .pc:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--s-blue) 55%,var(--s-line))}
 .pimg{height:140px;position:relative;display:grid;place-items:center;background:radial-gradient(120% 120% at 50% 0,color-mix(in srgb,var(--c) 55%,#1b2b48),#0e172b 75%)}
 .lt{width:70px;height:70px;border-radius:20px;display:grid;place-items:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.pimg .tag{position:absolute;top:12px;left:12px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,.25);background:rgba(9,14,29,.55);color:#fff;border-radius:8px;padding:3px 8px}
+.pimg .tag{position:absolute;top:12px;left:12px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,.25);background:rgba(9,14,29,.55);color:#fff;border-radius:8px;padding:3px 8px}
 .pbody{padding:14px;display:grid;gap:8px;grid-template-rows:auto auto 1fr auto auto auto}
 .pbody .k{font-size:12px;color:var(--s-muted)}
 .pbody h3{font-size:17px;font-weight:800;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
@@ -64,7 +64,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mini.xs{width:28px;height:28px;border-radius:7px;font-size:12px}
 .cred{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .cred div{background:var(--s-bg);border:1px solid var(--s-line);border-radius:10px;padding:8px 10px;min-width:0}
-.cred dt{font-size:11px;color:var(--s-muted);text-transform:uppercase;letter-spacing:.06em}
+.cred dt{font-size:12px;color:var(--s-muted);text-transform:uppercase;letter-spacing:.06em}
 .cred dd{margin:0;font:600 14px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .code{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--s-line);padding-block:12px}
 .code:last-child{border-bottom:0}
@@ -113,12 +113,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .snav,.shead .acc{display:none}
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--s-card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--s-line);
     padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
-  .bnav button{border:0;background:none;color:var(--s-muted);display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;padding:6px 0}
+  .bnav button{border:0;background:none;color:var(--s-muted);display:grid;justify-items:center;gap:2px;font-size:12px;font-weight:600;padding:6px 0}
   .bnav button svg{width:20px;height:20px}
   .bnav button[aria-current="page"]{color:var(--s-blue)}
 }
 @media (max-width:520px){
-  .pimg{height:120px;padding-top:30px} .pimg .tag{top:8px;left:8px;font-size:10px;padding:2px 6px;max-width:calc(100% - 16px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis} .lt{width:52px;height:52px;font-size:22px;border-radius:15px}
+  .pimg{height:120px;padding-top:30px} .pimg .tag{top:8px;left:8px;font-size:12px;padding:2px 6px;max-width:calc(100% - 16px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis} .lt{width:52px;height:52px;font-size:22px;border-radius:15px}
   .pbody{padding:11px;gap:6px} .pbody .d{display:none} .pbody h3{font-size:15px} .price{font-size:20px}
   .pbtns{grid-template-columns:1fr} .pbtns .det{display:none}
 }
@@ -422,7 +422,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .mk-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}
   .mk-row{grid-template-columns:1fr auto}.mk-row span:nth-child(2),.mk-row i{display:none}
   .pp-h{display:none}.pp-r{grid-template-columns:1fr 1fr 1fr}.pp-r .who{grid-column:1/-1}
-  .pp-r>span:not(.who){text-align:left;display:grid;font-size:14px}.pp-r>span:not(.who)::before{content:attr(data-l);color:var(--s-muted);font-size:11px}
+  .pp-r>span:not(.who){text-align:left;display:grid;font-size:14px}.pp-r>span:not(.who)::before{content:attr(data-l);color:var(--s-muted);font-size:12px}
   .drow{grid-template-columns:56px 1fr;gap:12px 14px}.dlogo{width:56px;height:56px}.dban{grid-column:1/-1;order:3;aspect-ratio:3/1}.dinfo>b{font-size:20px}
   .f3{display:none}.pshot{padding:10px 0 20px}
 }
@@ -587,7 +587,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .trustband .te{font-size:26px;line-height:1}
 .trustband b{font-size:19px;font-weight:900;letter-spacing:-.01em}
 .trustband small{color:var(--s-muted);font-size:12px}
-.prib{position:absolute;top:12px;right:12px;z-index:2;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--s-blue),var(--s-sky));border-radius:999px;padding:4px 10px;box-shadow:0 6px 16px color-mix(in srgb,var(--s-blue) 40%,transparent)}
+.prib{position:absolute;top:12px;right:12px;z-index:2;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--s-blue),var(--s-sky));border-radius:999px;padding:4px 10px;box-shadow:0 6px 16px color-mix(in srgb,var(--s-blue) 40%,transparent)}
 .prib.hot{background:linear-gradient(135deg,#ff6a00,#ff2e63)}
 @media (max-width:620px){.trustband{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){.btrack{animation:none}}
@@ -736,3 +736,22 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
    sin perder el tono ni tocar los temas oscuros. */
 .shop[data-light="1"] .price{color:color-mix(in srgb,var(--s-blue) 58%,#0d0d16)}
 .shop[data-light="1"] :is(.sbtn.pri,.prib,.ph-btn){text-shadow:0 1px 2px rgba(0,0,0,.4)}
+
+/* ===== Celular: áreas táctiles de 44 px ===== */
+@media (max-width:860px){
+  .sbtn,.sbtn.sm{min-height:44px}
+  .sfoot a,.availbar a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+}
+
+/* Tarjeta de producto: categoría e insignia en una misma fila que baja de línea si no entra
+   (antes eran dos etiquetas flotando que se tapaban, y la categoría se cortaba: "Inteligencia a…") */
+.pbadges{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;z-index:2;pointer-events:none}
+.pimg .pbadges .tag,.pimg .pbadges .prib{position:static;max-width:100%;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2}
+
+/* Portada en el celular: los logos flotantes tienen su propia franja arriba y ya no pisan la etiqueta
+   "GaboHub · plataforma para revendedores" */
+@media (max-width:860px){
+  .phero{padding-top:108px}
+  .pt0{top:18px;left:6%}
+  .pt1{top:10px;right:6%}
+}
