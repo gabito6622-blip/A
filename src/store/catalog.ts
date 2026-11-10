@@ -36,7 +36,7 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       });
       if (defs.length) prod.profileDefaults = defs;
     } else if (prev?.profileDefaults) prod.profileDefaults = prev.profileDefaults;
-    if (!["profile", "full_account", "invite", "combo"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
+    if (!["profile", "full_account", "invite", "combo", "iptv"].includes(prod.kind)) throw new DomainError("VALIDATION", "Tipo de producto inválido");
     const sn = p.saleNote !== undefined ? p.saleNote : prev?.saleNote;
     if (typeof sn === "string" && sn.trim()) {
       if (sn.length > 200) throw new DomainError("VALIDATION", "La regla al vender es demasiado larga (máx. 200)");

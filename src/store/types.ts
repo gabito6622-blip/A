@@ -16,7 +16,21 @@ export interface Actor {
   customerId?: Id;
 }
 
-export type ProductKind = "profile" | "full_account" | "invite" | "combo";
+export type ProductKind = "profile" | "full_account" | "invite" | "combo" | "iptv";
+
+/** Datos de una línea IPTV (Flujo TV, Más TV, etc.). El secreto va en Account.password (cifrado). */
+export interface IptvLine {
+  /** Cómo se entrega: Xtream (usuario/clave/servidor), lista M3U, por MAC o código de activación. */
+  mode: "xtream" | "m3u" | "mac" | "code";
+  /** Servidor / URL del portal (Xtream) o dominio del panel. No es secreto. */
+  server?: string;
+  /** MAC del aparato del cliente (MAG/StbEmu), si se activa por MAC. */
+  mac?: string;
+  /** App recomendada para ver (IBO Player, IPTV Smarters, etc.). */
+  app?: string;
+  /** Cuántos dispositivos a la vez permite la línea. */
+  connections?: number;
+}
 
 export interface Product {
   id: Id;
@@ -200,6 +214,8 @@ export interface Account {
   status: "active" | "retired";
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
+  /** Datos de la línea IPTV (cuando el producto es de tipo "iptv"). El secreto va en `password`. */
+  iptv?: IptvLine;
   /** Vencimiento con el proveedor para el que ya se avisó al dueño. */
   supplierAlertSentFor?: number;
   createdAt: number;

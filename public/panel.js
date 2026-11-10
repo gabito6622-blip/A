@@ -652,13 +652,32 @@ const V = {
   async carga() {
     const [products, suppliers] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
     if (!products.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas creá al menos un producto.<div class="inline"><button class="pbtn dark" type="button" data-go="productos">Crear producto</button></div></div></section>`;
-    const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
+    const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products.filter((x) => x.kind !== "iptv") : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
+    const iptvProds = products.filter((p) => p.kind === "iptv");
+    const iptvCard = !iptvProds.length ? "" : `<section class="card ok-card"><h2>📺 Registrar línea IPTV <small>· Flujo TV, Más TV, etc.</small></h2>
+      <form class="form" id="iptvForm">
+        <label>Producto IPTV<select name="productId">${iptvProds.map((p) => opt(p.id, p.name)).join("")}</select></label>
+        <label>Cómo se entrega<select name="mode">${[["xtream", "Usuario + clave + servidor (Xtream)"], ["m3u", "Enlace M3U / lista"], ["mac", "Por MAC"], ["code", "Código de activación"]].map(([v, t]) => opt(v, t)).join("")}</select></label>
+        <label style="grid-column:1/-1">Usuario o nombre de la línea<input name="email" required placeholder="usuario123 o 'Juan - Flujo TV'" autocomplete="off"></label>
+        <label style="grid-column:1/-1" class="iptv-secret">Clave / enlace M3U / código<input name="password" required placeholder="la clave, el enlace M3U completo o el código" autocomplete="off"></label>
+        <label class="iptv-xtream">Servidor / URL<input name="server" placeholder="http://servidor.com:8080"></label>
+        <label class="iptv-mac" hidden>MAC del aparato<input name="mac" placeholder="00:1A:79:XX:XX:XX"></label>
+        <label>App para ver <small class="muted">(opcional)</small><input name="app" placeholder="IBO Player, IPTV Smarters…"></label>
+        <label>Dispositivos a la vez<input name="connections" type="number" min="1" max="20" placeholder="1"></label>
+        <details style="grid-column:1/-1"><summary>Proveedor, vencimiento y costo <small class="muted">(opcional)</small></summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name)).join("")}</select></label>
+            <label>Vence con el proveedor<input type="date" name="exp"></label>
+            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label></div></details>
+        <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Guardar línea IPTV</button>
+      </form>
+      <p class="muted" style="margin:0">La línea queda <b>libre</b>, lista para vender o asignar en Vender/Cuentas. Al venderla, el cliente recibe sus datos y cómo verla.</p></section>`;
     const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
     P.tab.prodDefaults = Object.fromEntries(products.map((p) => [p.id, p.profileDefaults ?? []]));
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
@@ -690,7 +709,7 @@ const V = {
     const f = edit ?? { name: "", category: "", description: "", kind: "profile", durationDays: 30, price: 0, color: "#3984ff", published: true };
     return `<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
       <label>Nombre<input name="name" required maxlength="60" value="${esc(f.name)}"></label><label>Categoría<input name="category" maxlength="40" value="${esc(f.category ?? "")}" placeholder="Streaming, IA, Educación…"></label>
-      <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
+      <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"], ["iptv", "IPTV (TV en vivo)"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
       <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (Bs)<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
       <label>Precio revendedor (Bs, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
@@ -709,7 +728,7 @@ const V = {
       <section class="card"><h2>Productos <small>· ${products.length} · tocá una tarjeta para editar</small></h2>
       ${products.length ? `<div class="prodgrid">${products.map((p) => {
         const st = stock[p.id]?.available ?? 0;
-        const kindTxt = { profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" }[p.kind];
+        const kindTxt = { profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" }[p.kind];
         const estado = !p.published ? ["Oculto", "mute"] : p.resellersOnly ? ["Solo revendedores", "warn"] : ["Publicado", "ok"];
         const face = p.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(p.name, p.color);
         return `<article class="prodcard" tabindex="0" role="button" data-editprod="${esc(p.id)}">
@@ -1795,6 +1814,18 @@ document.addEventListener("drop", (ev) => { const dz = ev.target.closest?.(".dro
 document.addEventListener("change", (ev) => { const inp = ev.target; if (inp?.type === "file") { const dz = inp.closest?.(".dropzone"); if (dz) { const n = dz.querySelector(".dzname"); if (n) n.textContent = inp.files[0] ? "✅ " + inp.files[0].name : ""; } } });
 // Al cambiar el tipo de producto, mostrar las apps del combo o los perfiles por defecto.
 document.addEventListener("change", (ev) => { if (ev.target?.name === "kind" && ev.target.form?.id === "prodForm") { const combo = ev.target.value === "combo"; ev.target.form.querySelector(".combo-only")?.toggleAttribute("hidden", !combo); ev.target.form.querySelector(".noncombo-only")?.toggleAttribute("hidden", combo); } });
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t?.name === "mode" && t.form?.id === "iptvForm") {
+    const m = t.value, f = t.form;
+    f.querySelector(".iptv-xtream")?.toggleAttribute("hidden", m !== "xtream");
+    f.querySelector(".iptv-mac")?.toggleAttribute("hidden", m !== "mac");
+    const secret = f.querySelector(".iptv-secret input");
+    if (secret) secret.placeholder = m === "m3u" ? "pegá el enlace M3U completo" : m === "code" ? "el código de activación" : m === "mac" ? "clave del portal (si tiene)" : "la clave de la línea";
+    const sl = f.querySelector(".iptv-secret"); if (sl) { const lbl = sl.childNodes[0]; if (lbl) lbl.textContent = m === "m3u" ? "Enlace M3U" : m === "code" ? "Código de activación" : "Clave de la línea"; }
+    if (m === "mac" || m === "code") secret.required = false; else secret.required = true;
+  }
+});
 
 let rqTimer, accqTimer;
 document.addEventListener("input", (ev) => {
@@ -2052,6 +2083,14 @@ document.addEventListener("submit", async (ev) => {
         supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
+    } else if (f.id === "iptvForm") {
+      const mode = f.mode.value;
+      const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
+      await act(() => api("POST", "/api/admin/accounts", {
+        productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
+        supplierExpiresAt: f.exp.value ? new Date(f.exp.value + "T23:59:00").getTime() : 0, cost: toCents(f.cost.value || 0),
+        profiles: [{ label: "Línea IPTV" }], iptv,
+      }), "📺 Línea IPTV registrada, lista para vender");
     } else if (f.id === "accForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
       const pin = f.pin.value.trim() || undefined;
