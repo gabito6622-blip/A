@@ -6,6 +6,7 @@ import { useAuth } from "../lib/auth";
 import { fmtDateTime } from "../lib/format";
 import { Dialog, Empty, Field, Loading, useToast } from "./ui";
 import { SignaturePad } from "./SignaturePad";
+import { PdfButton } from "./ClinicalDocuments";
 
 const DECISION: Record<string, { label: string; tone: string }> = {
   granted: { label: "Acepta", tone: "ok" }, refused: { label: "No acepta", tone: "danger" }, revoked: { label: "Revocado", tone: "warn" },
@@ -153,7 +154,7 @@ export function DocumentDialog({ id, onClose }: { id: string; onClose: () => voi
   };
   const x = d.data;
   return (
-    <Dialog wide title={x ? x.title : "Documento"} onClose={onClose} footer={<><button className="btn" onClick={print} disabled={!x}><Printer size={15} />Imprimir</button><button className="btn btn-primary" onClick={onClose}>Cerrar</button></>}>
+    <Dialog wide title={x ? x.title : "Documento"} onClose={onClose} footer={<>{x && <PdfButton url={`/api/consent-documents/${id}/pdf`} label="Descargar PDF" />}<button className="btn" onClick={print} disabled={!x}><Printer size={15} />Imprimir</button><button className="btn btn-primary" onClick={onClose}>Cerrar</button></>}>
       {!x ? <Loading /> : (
         <div className="stack">
           <div className="row">

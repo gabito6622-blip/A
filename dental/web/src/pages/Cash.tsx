@@ -7,6 +7,7 @@ import { api, newKey, qs } from "../lib/api";
 import { bs, fmtDateTime, localDate, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, useAsk, useToast } from "../components/ui";
 import { CashSessionsHistory, MyCashPanel } from "./CashSessions";
+import { PdfButton } from "../components/ClinicalDocuments";
 
 const PAY_STATUS: Record<string, string> = { confirmed: "Confirmado", pending_verification: "Por verificar", rejected: "Rechazado", voided: "Anulado" };
 
@@ -78,7 +79,8 @@ export function CashPage() {
               <tr key={p.id}>
                 <td>{p.receiptNumber}</td><td>{fmtDateTime(p.receivedAt).slice(11)}</td><td><Link to={`/pacientes/${p.patientId}`}>{p.patientName}</Link></td><td>{p.methodLabel}{p.bankReference && <div className="muted small">Ref. {p.bankReference}</div>}</td>
                 <td className="num">{bs(p.amountCents)}</td><td><StatusBadge status={p.status} label={PAY_STATUS[p.status]} /></td><td className="hide-mobile">{p.receivedByName}</td>
-                <td>{can("payments.void") && p.status === "confirmed" && <button className="btn btn-ghost btn-sm" onClick={() => voidPay(p.id)}>Anular</button>}</td>
+                <td className="nowrap">{["confirmed", "voided"].includes(p.status) && <PdfButton url={`/api/payments/${p.id}/receipt.pdf`} label="Recibo" title={`Descargar recibo ${p.receiptNumber} en PDF`} />}{" "}
+                  {can("payments.void") && p.status === "confirmed" && <button className="btn btn-ghost btn-sm" onClick={() => voidPay(p.id)}>Anular</button>}</td>
               </tr>))}
             </tbody></table></div>
         ) : <Empty>Sin movimientos en esta fecha.</Empty>}

@@ -22,6 +22,7 @@ import { RecallsPage } from "./pages/Recalls";
 import { Loading } from "./components/ui";
 import { PublicBudgetPage } from "./pages/PublicBudget";
 import { MessagesPage } from "./pages/Messages";
+import { VerifyPage } from "./pages/Verify";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -30,6 +31,7 @@ export function App() {
   const { pathname } = useLocation();
   if (window.location.pathname === "/restablecer") return <ResetPasswordPage />;
   if (window.location.pathname.startsWith("/p/presupuesto/")) return <PublicBudgetPage />;
+  if (/^\/verificar(\/|$)/.test(window.location.pathname)) return <VerifyPage />;
   if (/^\/(reservar|mi-cuenta)\//.test(pathname)) return <Suspense fallback={<Loading rows={4} />}><PortalApp /></Suspense>;
   if (loading) return <Loading rows={6} />;
   if (!me) return <LoginPage />;

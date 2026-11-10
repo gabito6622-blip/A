@@ -32,6 +32,7 @@ import { cashSessionRoutes } from "./modules/cashSessions.js";
 import { feeRoutes } from "./modules/fees.js";
 import { budgetV2Routes } from "./modules/budgets-v2.js";
 import { portalRoutes } from "./modules/portal/index.js";
+import { documentRoutes } from "./modules/documents.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
@@ -132,6 +133,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   feeRoutes(route);
   budgetV2Routes(route, cfg);
   portalRoutes(route, cfg);
+  documentRoutes(route, cfg);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });
