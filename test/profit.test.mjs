@@ -140,3 +140,24 @@ describe("fiado: lo que te deben", () => {
     assert.throws(() => s.fiado.pay(owner, { customerId: c.id, amount: 0 }), err("VALIDATION"));
   });
 });
+
+describe("todo Disponible: combos que se pagan por QR y se entregan al aprobar", () => {
+  test("el combo reserva lo que hay; la app sin cuenta queda a pedido y se entrega al cargarla y aprobar", () => {
+    const { s } = setup();
+    s.catalog.upsertProduct(owner, { id: "hb", name: "HBO", kind: "profile", durationDays: 30, price: 1500, published: true });
+    s.catalog.upsertProduct(owner, { id: "cmb", name: "Dúo", kind: "combo", durationDays: 30, price: 3500, published: true, comboProductIds: ["nfp", "hb"] });
+    const c = s.catalog.createCustomer(owner, { name: "Ana", phone: "+59171113333" });
+    const me = { id: `web:${c.id}`, role: "customer", customerId: c.id };
+    assert.throws(() => s.orders.create(me, { customerId: c.id, items: [{ productId: "cmb", qty: 1 }], paymentMethod: "qr" }), err("OUT_OF_STOCK"), "sin 'todo Disponible' no se puede");
+    s.catalog.updateSettings(owner, { alwaysAvailable: true });
+    const o = s.orders.create(me, { customerId: c.id, items: [{ productId: "cmb", qty: 1 }], paymentMethod: "qr" });
+    assert.equal(o.total, 3500);
+    assert.deepEqual(o.backorder, [{ productId: "hb", qty: 1 }]);
+    assert.equal(o.reservedSlotIds.length, 1, "el perfil de Netflix ya quedó reservado");
+    assert.throws(() => s.orders.approvePayment(owner, o.id, { confirmedReference: "QR-1" }), err("OUT_OF_STOCK"));
+    s.inventory.addAccount(owner, { productId: "hb", supplierId: "tarjeta", email: "hb@x.lat", password: "Clave-Larga#3", supplierExpiresAt: Date.UTC(2027, 0, 1), cost: 1000, profiles: [{ label: "P1" }] });
+    const done = s.orders.approvePayment(owner, o.id, { confirmedReference: "QR-1" });
+    assert.equal(done.status, "fulfilled");
+    assert.equal(done.assignmentIds.length, 2, "recibe un perfil de cada app");
+  });
+});
