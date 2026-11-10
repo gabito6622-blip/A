@@ -54,3 +54,27 @@ describe("asistente administrativo", () => {
     expect(r.rows[0].n).toBeGreaterThan(0);
   });
 });
+
+describe("asistente: herramientas de v0.3 y guardas", () => {
+  it("proponer_cita rechaza horarios pasados o no libres (nunca propone algo imposible)", async () => {
+    const slots = (await rec.post("/api/assistant/tools/buscar_horarios_libres", { prestacion: "limpieza" })).body.ui.slots;
+    const s0 = slots[0];
+    const past = await rec.post("/api/assistant/tools/proponer_cita", { fichaPaciente: 1, inicio: "2020-01-01T10:00:00-04:00", profesional: s0.profesional, sucursal: s0.sucursal });
+    expect(past.body.proposal).toBeNull();
+    // ocupar el horario y volver a proponerlo
+    const prop = await rec.post("/api/assistant/tools/proponer_cita", { fichaPaciente: 1, inicio: s0.inicio, profesional: s0.profesional, sucursal: s0.sucursal, prestacion: "limpieza" });
+    expect(prop.body.proposal).not.toBeNull();
+    await rec.post("/api/appointments", prop.body.proposal.payload);
+    const again = await rec.post("/api/assistant/tools/proponer_cita", { fichaPaciente: 1, inicio: s0.inicio, profesional: s0.profesional, sucursal: s0.sucursal, prestacion: "limpieza" });
+    expect(again.body.proposal).toBeNull();
+  });
+
+  it("controles, sala de espera, cajas y bioseguridad responden según el rol", async () => {
+    expect((await rec.post("/api/assistant/tools/controles_pendientes", {})).status).toBe(200);
+    expect((await rec.post("/api/assistant/tools/sala_de_espera", {})).status).toBe(200);
+    expect((await rec.post("/api/assistant/tools/estado_cajas", {})).status).toBe(403);
+    expect((await owner.post("/api/assistant/tools/estado_cajas", {})).status).toBe(200);
+    expect((await owner.post("/api/assistant/tools/alertas_bioseguridad", {})).status).toBe(200);
+    expect((await rec.post("/api/assistant/tools/alertas_bioseguridad", {})).status).toBe(403);
+  });
+});

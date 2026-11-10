@@ -175,6 +175,87 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "controles_pendientes",
+    description: "Controles de pacientes ('volver a citar'): cuántos vencen esta semana, cuántos están atrasados y cuáles requieren revisión, por sucursal.",
+    perm: "agenda.read",
+    input: z.object({ sucursal: z.string().max(60).nullish() }),
+    run: async (c, auth, i) => {
+      const branch = await findBranch(c, auth, i.sucursal as string);
+      if (i.sucursal && !branch) return { forModel: { error: `No encontré la sucursal "${i.sucursal}" entre las que puedes ver` }, forUi: null };
+      const today = await todayISO(c, auth);
+      const r = (await c.query(
+        `SELECT r.id, r.reason, r.due_date, r.status, p.first_name, p.record_number, b.name AS branch
+           FROM recalls r JOIN patients p ON p.id = r.patient_id JOIN branches b ON b.id = r.branch_id
+          WHERE r.status IN ('pending','review') AND ($1::uuid IS NULL OR r.branch_id = $1) AND ($2::uuid[] IS NULL OR r.branch_id = ANY($2))
+          ORDER BY r.due_date LIMIT 500`, [branch?.id ?? null, allowedBranches(auth)])).rows;
+      const weekEnd = DateTime.fromISO(today).plus({ days: 7 }).toISODate()!;
+      const overdue = r.filter((x) => x.due_date < today);
+      const week = r.filter((x) => x.due_date >= today && x.due_date <= weekEnd);
+      const review = r.filter((x) => x.status === "review");
+      const rows = [...overdue, ...week].slice(0, 15).map((x) => ({ paciente: `${x.first_name} (ficha ${x.record_number})`, motivo: x.reason, vence: x.due_date, sucursal: x.branch, estado: x.status === "review" ? "Revisar" : "Pendiente" }));
+      return { forModel: { atrasados: overdue.length, vencenEstaSemana: week.length, paraRevisar: review.length, primeros: rows }, forUi: { type: "table", title: "Controles por llamar", rows } };
+    },
+  },
+  {
+    name: "sala_de_espera",
+    description: "Situación ahora mismo: pacientes en sala de espera (y cuántos minutos llevan), en atención y citas retrasadas sin llegada.",
+    perm: "agenda.read",
+    input: z.object({ sucursal: z.string().max(60).nullish() }),
+    run: async (c, auth, i) => {
+      const branch = await findBranch(c, auth, i.sucursal as string);
+      if (i.sucursal && !branch) return { forModel: { error: `No encontré la sucursal "${i.sucursal}"` }, forUi: null };
+      const zone = await clinicZone(c, auth.clinicId!);
+      const [s, e] = dayBounds(await todayISO(c, auth), zone);
+      const r = (await c.query(
+        `SELECT a.status, a.starts_at, a.arrived_at, p.first_name, b.name AS branch, u.full_name AS dentist
+           FROM appointments a JOIN patients p ON p.id = a.patient_id JOIN branches b ON b.id = a.branch_id JOIN users u ON u.id = a.dentist_id
+          WHERE a.starts_at >= $1 AND a.starts_at < $2 AND a.status IN ('scheduled','confirmed','arrived','in_progress')
+            AND ($3::uuid IS NULL OR a.branch_id = $3) AND ($4::uuid[] IS NULL OR a.branch_id = ANY($4))`, [s, e, branch?.id ?? null, allowedBranches(auth)])).rows;
+      const now = Date.now();
+      const waiting = r.filter((x) => x.status === "arrived").map((x) => ({ paciente: x.first_name, sucursal: x.branch, profesional: x.dentist, esperandoMin: x.arrived_at ? Math.round((now - +new Date(x.arrived_at)) / 60000) : null }));
+      const late = r.filter((x) => ["scheduled", "confirmed"].includes(x.status) && now - +new Date(x.starts_at) > 15 * 60000)
+        .map((x) => ({ paciente: x.first_name, sucursal: x.branch, retrasoMin: Math.round((now - +new Date(x.starts_at)) / 60000) }));
+      return {
+        forModel: { enSala: waiting, enAtencion: r.filter((x) => x.status === "in_progress").length, retrasados: late },
+        forUi: { type: "table", title: "Sala de espera ahora", rows: waiting.map((w) => ({ paciente: w.paciente, sucursal: w.sucursal, profesional: w.profesional, "espera (min)": w.esperandoMin })) },
+      };
+    },
+  },
+  {
+    name: "estado_cajas",
+    description: "Cajas abiertas ahora (por cajero y sucursal) y cierres con diferencia en los últimos 7 días.",
+    perm: "payments.verify",
+    input: z.object({}),
+    run: async (c, auth) => {
+      const open = (await c.query(
+        `SELECT cs.number, b.name AS branch, u.full_name AS cashier, cs.opened_at FROM cash_sessions cs JOIN branches b ON b.id = cs.branch_id JOIN users u ON u.id = cs.cashier_id
+          WHERE cs.status = 'open' AND ($1::uuid[] IS NULL OR cs.branch_id = ANY($1)) ORDER BY cs.opened_at`, [allowedBranches(auth)])).rows;
+      const diffs = (await c.query(
+        `SELECT cs.number, b.name AS branch, u.full_name AS cashier, cs.closed_at, cs.difference_cents FROM cash_sessions cs JOIN branches b ON b.id = cs.branch_id JOIN users u ON u.id = cs.cashier_id
+          WHERE cs.status = 'closed' AND cs.difference_cents <> 0 AND cs.closed_at > now() - interval '7 days' AND ($1::uuid[] IS NULL OR cs.branch_id = ANY($1))
+          ORDER BY cs.closed_at DESC`, [allowedBranches(auth)])).rows;
+      return {
+        forModel: { abiertas: open.map((o) => ({ caja: o.number, sucursal: o.branch, cajero: o.cashier })), cierresConDiferencia: diffs.map((d) => ({ caja: d.number, sucursal: d.branch, cajero: d.cashier, diferencia: bs(Number(d.difference_cents)) })) },
+        forUi: { type: "table", title: "Cierres de caja con diferencia (7 días)", rows: diffs.map((d) => ({ caja: d.number, sucursal: d.branch, cajero: d.cashier, diferencia: bs(Number(d.difference_cents)) })) },
+      };
+    },
+  },
+  {
+    name: "alertas_bioseguridad",
+    description: "Ciclos de esterilización con indicador fallido (30 días) e indicadores biológicos pendientes de lectura, por sucursal.",
+    perm: "biosafety.read",
+    input: z.object({}),
+    run: async (c, auth) => {
+      const r = (await c.query(
+        `SELECT b.name AS branch, count(*) FILTER (WHERE cy.chemical_indicator = 'fail' OR br.result = 'fail')::int AS failed,
+                count(*) FILTER (WHERE br.id IS NULL)::int AS pending_bio
+           FROM sterilization_cycles cy JOIN branches b ON b.id = cy.branch_id LEFT JOIN sterilization_bio_results br ON br.cycle_id = cy.id
+          WHERE cy.run_at > now() - interval '30 days' AND ($1::uuid[] IS NULL OR cy.branch_id = ANY($1)) GROUP BY b.name ORDER BY b.name`, [allowedBranches(auth)])).rows;
+      const rows = r.map((x) => ({ sucursal: x.branch, "ciclos fallidos": x.failed, "biológicos por leer": x.pending_bio }));
+      return { forModel: { porSucursal: rows }, forUi: { type: "table", title: "Bioseguridad (30 días)", rows } };
+    },
+  },
+  {
     name: "proponer_cita",
     description: "Prepara una PROPUESTA de cita para que la persona la confirme en pantalla. No agenda nada por sí misma. Requiere el N° de ficha del paciente y un horario libre obtenido con buscar_horarios_libres.",
     perm: "agenda.write",
@@ -195,6 +276,13 @@ export const TOOLS: ToolDef[] = [
         const pr = (await c.query<{ id: string; name: string; duration_min: number }>("SELECT id, name, duration_min FROM procedures WHERE active")).rows.find((x) => normalize(x.name).includes(normalize(i.prestacion as string)));
         if (pr) { procedureId = pr.id; duration = (i.duracionMin as number) ?? pr.duration_min; }
       }
+      // Guardas (R2-20): nunca proponer algo que la agenda rechazaría.
+      if (start.toMillis() <= Date.now()) return { forModel: { error: "Ese horario ya pasó. Busca un horario libre futuro con buscar_horarios_libres." }, forUi: null };
+      const zoneP = await clinicZone(c, auth.clinicId!);
+      const dayP = start.setZone(zoneP).toISODate()!;
+      const avail = await dayAvailability(c, zoneP, dayP, branch.id, { dentistId: dentist.user_id, durationMin: duration, stepMin: 5 });
+      const free = avail.some((d) => d.slots.some((s) => Date.parse(s) === start.toMillis()));
+      if (!free) return { forModel: { error: "Ese horario no está libre para ese profesional en esa sucursal. Usa buscar_horarios_libres y elige uno de la lista." }, forUi: null };
       const proposal = {
         action: "create_appointment",
         payload: { branchId: branch.id, dentistId: dentist.user_id, patientId: p.id, procedureId, startsAt: start.toISO(), durationMin: duration, source: "assistant" },
