@@ -482,6 +482,9 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/customers/:id/shop-feature", "staff", (c) => store.shops.setFeatured(A(c), c.params.id, !!c.body?.featured));
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
   route("POST", "/api/admin/testimonials", "staff", (c) => store.shops.setTestimonials(A(c), c.body?.items));
+  route("GET", "/api/admin/finance", "staff", (c) => store.finance.report(A(c), Number(c.query.get("months")) || 6));
+  route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
+  route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
   route("POST", "/api/admin/faq", "staff", (c) => store.shops.setFaq(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));

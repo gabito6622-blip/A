@@ -9,12 +9,13 @@ const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
+  ["finanzas", "coins", "Finanzas", "owner"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -228,6 +229,45 @@ const V = {
           <p class="muted" style="margin:10px 0 0">Una explicación corta de cada parte del sistema. Tocá “Ir” para abrirla.</p>
           <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></details></section>`;
       })()}`;
+  },
+  async finanzas() {
+    const d = await api("GET", "/api/admin/finance?months=6");
+    const c = d.current;
+    const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos)));
+    const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
+    const bars = d.months.map((m, i) => {
+      const last = i === d.months.length - 1;
+      return `<div class="finbar ${last ? "cur" : ""}" title="${esc(m.label)} · entró ${bs(m.ingresos)} · salió ${bs(m.gastos)} · quedó ${bs(m.ganancia)}">
+        <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, (m.gastos / max) * 100)}%"></i></div>
+        <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
+    }).join("");
+    const rows = d.expenses.map((x) => `<tr><td><b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
+    return `<div class="fin">
+      <section class="card finhero">
+        <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
+        <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, y lo que te quedó limpio este mes.</p>
+        <div class="finkpis">
+          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
+          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>gastos que cargaste</small></div>
+          <div class="finkpi net ${gcls(c.ganancia)}"><span>✅ Te quedó</span><b>${bs(c.ganancia)}</b><small>${c.ganancia >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Últimos 6 meses <small>entró vs. salió, y lo que quedó</small></h2>
+        <div class="finlegend"><span><i class="inb"></i>Entró</span><span><i class="exb"></i>Salió</span></div>
+        <div class="finchart">${bars}</div>
+      </section>
+      <section class="card">
+        <h2>Gastos de ${esc(c.label)}</h2>
+        <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
+        <form id="expenseForm" class="finform" autocomplete="off">
+          <label>Monto (Bs)<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
+          <label class="grow">¿En qué? <input name="note" maxlength="120" placeholder="Ej: publicidad en Facebook" required></label>
+          <button class="pbtn blue" type="submit">Agregar gasto</button>
+        </form>
+        ${table(["Gasto", "Monto", "Cuándo", ""], rows, "Todavía no cargaste gastos este mes.")}
+      </section>
+    </div>`;
   },
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
@@ -1494,6 +1534,10 @@ document.addEventListener("click", async (ev) => {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
   }
+  if (d.rmexp) {
+    if (!confirm("¿Quitar este gasto?")) return;
+    return act(() => api("POST", `/api/admin/expenses/${d.rmexp}/remove`, {}), "Gasto quitado");
+  }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `✅ Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
@@ -1716,6 +1760,10 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "faqForm") {
       const items = [...f.querySelectorAll(".fq-row")].map((r) => ({ q: r.querySelector('[name="fq"]').value.trim(), a: r.querySelector('[name="fa"]').value.trim() })).filter((x) => x.q && x.a);
       await act(() => api("POST", "/api/admin/faq", { items }), `${items.length} pregunta(s) guardadas`);
+    } else if (f.id === "expenseForm") {
+      const amount = toCents(f.amount.value);
+      if (!amount || Number.isNaN(amount) || amount <= 0) return toast("Poné un monto mayor a 0");
+      await act(() => api("POST", "/api/admin/expenses", { amount, note: f.note.value.trim() }), (x) => `Gasto de ${bs(x.amount)} agregado`);
     } else if (f.id === "waHours") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { humanHours: f.on.checked ? { from: +f.from.value, to: +f.to.value } : null }), f.on.checked ? "Horario guardado" : "Sin horario: el bot no menciona horarios");
     } else if (f.id === "waQuick") {

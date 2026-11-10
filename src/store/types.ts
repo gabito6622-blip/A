@@ -516,5 +516,15 @@ export interface State {
   staff: Record<Id, StaffUser>;
   chats: Record<string, ChatThread>;
   settings: StoreSettings;
+  /** Gastos manuales del dueño (para Finanzas: lo que salió). */
+  expenses: Expense[];
   seq: number;
+}
+
+/** Gasto manual que carga el dueño (proveedor, internet, etc.). */
+export interface Expense {
+  id: Id;
+  amount: Cents;
+  note: string;
+  at: number;
 }

@@ -13,6 +13,7 @@ import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
+import * as finance from "./finance.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 
@@ -184,6 +185,11 @@ export function createStore(opts: EngineOptions = {}) {
       dashboard: bind(e, stats.dashboard),
       suppliers: bind(e, stats.supplierReport),
       audit: bind(e, stats.auditLog),
+    },
+    finance: {
+      report: bind(e, finance.report),
+      addExpense: bind(e, finance.addExpense),
+      removeExpense: bind(e, finance.removeExpense),
     },
   };
 }

@@ -609,3 +609,36 @@ img.svbadge{padding:5px;background:#0e1424}
 .big.mini>button,.big.mini>a{flex:1 1 150px}
 .big a{border:0;border-radius:10px;color:#fff;display:flex;align-items:center;gap:16px;padding:10px 16px;font-size:14px;font-weight:600;text-align:left;text-decoration:none}
 .big a span{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:22px;flex:none}
+
+/* Finanzas del mes */
+.fin{display:grid;gap:16px}
+.finhero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#3b5bdb) 10%,var(--card)),var(--card))}
+.finkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.finkpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:3px;border-left:4px solid var(--line)}
+.finkpi span{font-size:13px;font-weight:600;color:var(--muted)}
+.finkpi b{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.finkpi small{font-size:12px;color:var(--muted)}
+.finkpi.in{border-left-color:#12b76a}
+.finkpi.out{border-left-color:#f59e0b}
+.finkpi.net{border-left-color:var(--accent,#3b5bdb)}
+.finkpi.net.up b{color:#12b76a}
+.finkpi.net.down b{color:#e5484d}
+.finlegend{display:flex;gap:16px;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.finlegend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.finlegend i.inb,.finbcol .inb{background:#12b76a}
+.finlegend i.exb,.finbcol .exb{background:#f59e0b}
+.finchart{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;align-items:end;min-height:150px}
+.finbar{display:grid;gap:6px;justify-items:center;align-content:end;text-align:center}
+.finbcol{display:flex;align-items:end;gap:3px;height:110px}
+.finbcol i{width:14px;border-radius:4px 4px 0 0;min-height:2px}
+.finbar b{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.finbar b.up{color:#12b76a}.finbar b.down{color:#e5484d}
+.finbar small{font-size:11px;color:var(--muted)}
+.finbar.cur{background:color-mix(in srgb,var(--accent,#3b5bdb) 9%,transparent);border-radius:10px;padding:4px 2px}
+.finform{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px}
+.finform label{display:grid;gap:4px;font-size:13px;font-weight:600}
+.finform label.grow{flex:1 1 220px}
+.finform input{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit;font:inherit}
+.finform input[name=amount]{width:130px}
+.pbtn.danger{color:#e5484d;border-color:color-mix(in srgb,#e5484d 40%,var(--line))}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}

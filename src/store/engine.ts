@@ -52,6 +52,7 @@ export function emptyState(): State {
     staff: {},
     chats: {},
     settings: { storeName: "Gabriel Store", whatsapp: "", currency: "BOB" },
+    expenses: [],
     seq: 0,
   };
 }
