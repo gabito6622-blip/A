@@ -130,11 +130,11 @@ describe("agentes (servidor)", () => {
   test("arranca apagado aunque haya clave; solo el dueño lo configura", async () => {
     const g = await call("GET", "/api/admin/ai");
     assert.equal(g.json.hasKey, true);
-    assert.deepEqual(g.json.enabled, { receipts: false, whatsapp: false, daily: false });
+    assert.deepEqual(g.json.enabled, { receipts: false, whatsapp: false, daily: false, watch: false });
     assert.equal(g.json.model, "claude-opus-5-5");
     assert.equal((await call("POST", "/api/admin/ai", { model: "gpt-9" })).status, 400);
     const ok = await call("POST", "/api/admin/ai", { enabled: { receipts: true, daily: true }, monthlyLimitUsd: 10 });
-    assert.deepEqual(ok.json.enabled, { receipts: true, whatsapp: false, daily: true });
+    assert.deepEqual(ok.json.enabled, { receipts: true, whatsapp: false, daily: true, watch: false });
     assert.ok([401, 403].includes((await call("GET", "/api/admin/ai", undefined, custCk)).status), "un cliente no lo ve");
   });
 
@@ -156,6 +156,23 @@ describe("agentes (servidor)", () => {
     assert.equal(r.status, 200);
     assert.match(r.json.text, /hay pendientes/);
     assert.equal((await call("GET", "/api/admin/ai")).json.daily.text, r.json.text);
+  });
+
+  test("probar la oficina: corre el banco en segundo plano, no toca clientes y suma lo gastado", async () => {
+    fake.set((body) => Object.keys(body.output_config.format.schema.properties).includes("risk") ? { risk: "none" } : { reply: "Hola, te ayudo. Escribí *menu*.", handoff: false, action: "none" });
+    const before = (await call("GET", "/api/admin/ai")).json.calls;
+    const st = await call("POST", "/api/admin/ai/selftest", { model: "claude-haiku-5-5" });
+    assert.equal(st.status, 200);
+    assert.equal(st.json.status, "running");
+    let r;
+    for (let i = 0; i < 100; i++) { r = (await call("GET", "/api/admin/ai/selftest")).json; if (r.status !== "running") break; await new Promise((x) => setTimeout(x, 50)); }
+    assert.equal(r.status, "done");
+    assert.equal(r.model, "claude-haiku-5-5");
+    assert.equal(r.result.resumen.whatsapp.total, 40);
+    assert.equal(r.result.resumen.correos.total, 12);
+    assert.equal(r.result.resumen.comprobantes.total, 0, "en el servidor no se dibujan comprobantes");
+    assert.ok((await call("GET", "/api/admin/ai")).json.calls >= before + 44, "lo gastado se suma al mes (40 mensajes + 4 correos que las reglas no reconocen)");
+    assert.ok([401, 403].includes((await call("POST", "/api/admin/ai/selftest", {}, custCk)).status));
   });
 
   test("sin clave: todo apagado y el panel lo dice", async () => {

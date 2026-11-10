@@ -363,6 +363,10 @@ export interface PaymentEvidence {
   fileRef: string;
   declaredReference: string;
   submittedAt: number;
+  /** Huella (sha256) del archivo, para detectar el mismo comprobante en otro pedido. */
+  hash?: string;
+  /** Si el mismo archivo ya se usó en otro pedido: cuál. */
+  duplicateOf?: Id;
 }
 
 export interface Order {
@@ -599,6 +603,8 @@ export interface State {
   expenses: Expense[];
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
+  /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */
+  accountAlerts: AccountAlert[];
   seq: number;
 }
 
@@ -663,4 +669,17 @@ export interface ResellerCoupon {
   productIds?: Id[];
   active: boolean;
   createdAt: number;
+}
+
+export type AccountAlertKind = "password_changed" | "email_changed" | "payment_failed" | "cancelled" | "new_device" | "other";
+/** Aviso del vigilante de cuentas: un correo de la plataforma que indica riesgo para la cuenta. */
+export interface AccountAlert {
+  id: Id;
+  accountId: Id;
+  kind: AccountAlertKind;
+  subject: string;
+  from: string;
+  at: number;
+  seen: boolean;
+  source: "rules" | "ai";
 }

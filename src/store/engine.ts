@@ -54,6 +54,7 @@ export function emptyState(): State {
     settings: { storeName: "Gabriel Store", whatsapp: "", currency: "BOB" },
     expenses: [],
     coupons: {},
+    accountAlerts: [],
     seq: 0,
   };
 }
