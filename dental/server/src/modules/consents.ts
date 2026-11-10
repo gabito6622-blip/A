@@ -79,7 +79,7 @@ export async function seedConsentTemplates(c: Client, clinicId: string, userId: 
   }
 }
 
-function render(body: string, vars: Record<string, string>) {
+export function render(body: string, vars: Record<string, string>) {
   return body.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
 }
 
@@ -168,8 +168,8 @@ export function consentRoutes(route: Route) {
       const rows = (await c.query(
         `SELECT d.id, d.kind, d.title, d.template_version AS "templateVersion", d.decision, d.method, d.signer_name AS "signerName",
                 d.signer_relationship AS "signerRelationship", d.signed_at AS "signedAt", d.content_hash AS "contentHash", d.budget_id AS "budgetId",
-                u.full_name AS "recordedBy", b.name AS "branchName"
-           FROM signed_documents d JOIN users u ON u.id = d.recorded_by JOIN branches b ON b.id = d.branch_id
+                COALESCE(u.full_name, 'El paciente (reserva web)') AS "recordedBy", b.name AS "branchName"
+           FROM signed_documents d LEFT JOIN users u ON u.id = d.recorded_by JOIN branches b ON b.id = d.branch_id
           WHERE d.patient_id = $1 ORDER BY d.signed_at DESC`, [params.id])).rows;
       const visible = rows.filter((r) => canView(auth, r.kind));
       // Estado vigente por tipo (último registro)
@@ -183,9 +183,9 @@ export function consentRoutes(route: Route) {
     method: "GET", url: "/api/documents/:id", summary: "Documento firmado completo (texto, firmante y firma) con verificación de integridad", tags: ["consentimientos"], perm: "patients.read", params: zIdParams,
     handler: async ({ c, auth, params }) => {
       const d = (await c.query(
-        `SELECT d.*, u.full_name AS recorded_by_name, b.name AS branch_name, b.address AS branch_address, cl.name AS clinic_name,
+        `SELECT d.*, COALESCE(u.full_name, 'El paciente (reserva web)') AS recorded_by_name, b.name AS branch_name, b.address AS branch_address, cl.name AS clinic_name,
                 p.first_name || ' ' || p.last_name AS patient_name, p.record_number
-           FROM signed_documents d JOIN users u ON u.id = d.recorded_by JOIN branches b ON b.id = d.branch_id
+           FROM signed_documents d LEFT JOIN users u ON u.id = d.recorded_by JOIN branches b ON b.id = d.branch_id
            JOIN clinics cl ON cl.id = d.clinic_id JOIN patients p ON p.id = d.patient_id WHERE d.id = $1`, [params.id])).rows[0];
       if (!d || !canView(auth, d.kind)) throw notFound("Documento");
       const expected = contentHash({

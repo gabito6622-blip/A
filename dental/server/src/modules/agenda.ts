@@ -88,7 +88,7 @@ export async function dayAvailability(
   });
 }
 
-async function assertBookable(
+export async function assertBookable(
   c: Client,
   auth: AuthCtx,
   zone: string,
