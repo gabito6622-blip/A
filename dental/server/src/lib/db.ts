@@ -30,11 +30,9 @@ export interface Db {
 const APP_POOLS = new WeakSet<pg.Pool>();
 
 export function createDb(databaseUrl: string): Db {
-  const appPool = new pg.Pool({ connectionString: databaseUrl, max: 15 });
+  // El rol se fija como parámetro de arranque de cada conexión (equivale a SET ROLE).
+  const appPool = new pg.Pool({ connectionString: databaseUrl, max: 15, options: "-c role=dental_app" });
   APP_POOLS.add(appPool);
-  appPool.on("connect", (client) => {
-    client.query("SET ROLE dental_app").catch(() => {});
-  });
   const adminPool = new pg.Pool({ connectionString: databaseUrl, max: 3 });
   return {
     appPool,

@@ -1,0 +1,75 @@
+# Registro de decisiones (ADR resumidos)
+
+Formato: contexto → decisión → consecuencias. Las decisiones con ⚠ requieren revisión humana o legal.
+
+### D-01 · Carpeta `dental/` dentro del repositorio existente
+- **Contexto:** el repositorio `A` contiene Gabriel Store, otro producto con su propio despliegue.
+- **Decisión:** la plataforma odontológica vive en `dental/`, con su propio `package.json`, Dockerfile, CI y documentación. No se toca el código de Gabriel Store.
+- **Consecuencia:** se despliega como un servicio separado en Railway (directorio raíz `dental`). Si crece, se puede mover a su propio repositorio sin cambios.
+
+### D-02 · Node 22 + TypeScript + Fastify + zod
+- **Por qué:** es el mismo lenguaje en el frontend y el backend, lo que da un solo equipo y tipos compartidos. Fastify es rápido y maduro. zod valida los datos y además genera el OpenAPI. El repositorio ya usaba Node 22.
+- **Alternativa descartada:** FastAPI (Python). Es igual de válida, pero sumaba un segundo lenguaje sin beneficio claro para este equipo.
+
+### D-03 · PostgreSQL con esquema compartido + Row Level Security + FK compuestas
+- **Alternativas consideradas:**
+  - una base por clínica: aislamiento fuerte, pero operación costosa con decenas de clínicas;
+  - un esquema por clínica: las migraciones se multiplican.
+- **Decisión:** esquema compartido con `clinic_id` en cada fila, RLS obligatorio con un rol sin BYPASSRLS y FK compuestas `(id, clinic_id)`.
+- **Consecuencia:** un error de código no expone datos de otra clínica (está probado). Se puede migrar una clínica grande a su propia base en el futuro sin cambiar el modelo.
+
+### D-04 · Sesiones opacas en cookie HttpOnly + token CSRF (no JWT en localStorage)
+- **Por qué:** se pueden revocar al instante (al desactivar a alguien, cambiar la contraseña o cerrar sesión) y JavaScript no puede robarlas (XSS).
+- **Costo:** una consulta a la base por petición. Es aceptable y se puede cachear más adelante.
+
+### D-05 · scrypt de `node:crypto` para contraseñas
+- **Por qué:** no requiere dependencias nativas y es resistente a GPU.
+- **Parámetros:** N=32768. Las pruebas usan N=1024 por velocidad, configurable con `DENTAL_SCRYPT_N`.
+
+### D-06 · Registros clínicos, cargos y auditoría de solo inserción
+- **Contexto:** el reglamento del SEDES La Paz (anexo E) exige que el software no permita modificar registros guardados. La trazabilidad clínica y financiera es un requisito del cliente.
+- **Decisión:**
+  - las correcciones se registran como enmiendas o anulaciones que referencian el original;
+  - se aplica con GRANT y triggers.
+- **Consecuencia:** el historial completo siempre se reconstruye. "Borrar" un paciente significa archivarlo.
+
+### D-07 · Pagos en dos estados (registrado → verificado) con control dual
+- **Contexto:** en Bolivia la captura de un QR o un comprobante no prueba el ingreso del dinero (BCB RD 079/2022: el pago es final cuando se acredita).
+- **Decisión:**
+  - el efectivo queda confirmado al recibirlo;
+  - transferencia, QR o tarjeta quedan `pending_verification` hasta que **otra persona** con permiso `payments.verify` lo confirme (el propietario está exceptuado);
+  - la referencia bancaria es única.
+- **Futuro:** conciliación automática con una fuente bancaria autorizada (backlog).
+
+### D-08 · Agenda: exclusiones en PostgreSQL además de validaciones en la app
+- **Por qué:** las validaciones de la aplicación tienen condiciones de carrera con varias recepciones a la vez. La restricción `EXCLUDE` es atómica.
+- **Probado:** 4 reservas simultáneas → exactamente 1 éxito.
+
+### D-09 · React + Vite con sistema de diseño propio
+- **Por qué:** control total del estilo "clínico premium", sin la dependencia de una librería de UI pesada. Se compila a archivos estáticos que sirve el mismo servidor.
+
+### D-10 · No reutilizar código de DentalPin ni de otros competidores ⚠
+- **Contexto:** DentalPin usa BSL 1.1, que prohíbe ofrecer con él un SaaS comercial de gestión dental.
+- **Decisión:**
+  - solo inspiración funcional y principios generales (por ejemplo, la confirmación antes de escribir en el copiloto);
+  - todo el código, la interfaz y los textos son originales;
+  - las capturas de las demos son evidencia interna y no se distribuyen.
+
+### D-11 · Asistente: herramientas + propuestas, sin escritura autónoma
+Ver `ARCHITECTURE.md` §7. El modelo por defecto se configura con `ASSISTANT_MODEL`. Sin clave, el asistente se degrada a acciones rápidas en lugar de inventar respuestas.
+
+### D-12 · WhatsApp en dos fases ⚠
+- **Fase 1 (implementada):** enlaces `wa.me` que se envían manualmente, solo a pacientes con consentimiento, y mensajes sin datos clínicos.
+- **Fase 2 (backlog):** WhatsApp Business Cloud API oficial, con plantillas aprobadas por Meta, opción de baja y registro de entregas. Requiere una cuenta de Meta verificada de la clínica y tiene costo por conversación, así que la decide el cliente.
+
+### D-13 · Facturación SIAT a través de un proveedor autorizado ⚠
+- **Contexto:** RND 102100000011. Ser "Proveedor" exige autorización del SIN, renovación cada 3 años y homologación de cada versión. Hay plazos de 2026: anexo técnico de la Ley 1733 y homologación del catálogo antes del 31-dic-2026.
+- **Recomendación:** integrar primero un proveedor autorizado vía API. La decisión final es legal y comercial y queda pendiente de la clínica.
+
+### D-14 · Migraciones SQL propias con checksum
+- **Por qué:** SQL explícito y auditable (RLS, triggers, GRANT). Un ejecutor de 50 líneas evita un ORM o un framework de migraciones.
+- **Regla:** una migración aplicada **no se modifica**; se crea una nueva. El ejecutor lo detecta y está probado.
+
+### D-15 · Respaldos con privilegios incluidos
+- **Decisión:** `pg_dump --no-owner` conserva los GRANT al rol `dental_app`. El script de restauración crea el rol si no existe.
+- **Probado:** tras restaurar, RLS sigue aislando.

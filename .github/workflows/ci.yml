@@ -29,3 +29,34 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -c "import importlib.util,sys; s=importlib.util.spec_from_file_location('vendeplay','clients/python/vendeplay.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print('vendeplay import OK', bool(m.VendePlayClient))"
+
+  dental:
+    name: Plataforma odontológica (tipos, pruebas, e2e)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dental
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/dental_test
+      E2E_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/dental_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dental/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client-16 || sudo apt-get install -y postgresql-client
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

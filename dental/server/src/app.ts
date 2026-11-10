@@ -38,8 +38,8 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } =
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'"],
         frameAncestors: ["'none'"],

@@ -1,0 +1,176 @@
+# Arquitectura — Plataforma odontológica (Dentalia)
+
+> Estado: v0.1 (primera entrega). Este documento describe **lo implementado**. Lo planificado se marca como tal.
+
+## 1. Vista general
+
+```mermaid
+flowchart LR
+  subgraph Navegador["Navegador (PC, tablet, celular)"]
+    SPA["SPA React + Vite<br/>(web/)"]
+  end
+  subgraph Servidor["Servidor Node 22 (server/)"]
+    API["Fastify<br/>rutas /api/*"]
+    AUTH["Sesión HttpOnly + CSRF<br/>roles y sucursales"]
+    MOD["Módulos: clínica, pacientes, agenda,<br/>clínico, cobros, reportes, plataforma, asistente"]
+  end
+  subgraph PG["PostgreSQL 16"]
+    RLS["Row Level Security por clinic_id"]
+    EXC["Restricciones EXCLUDE (agenda)"]
+    IMM["Triggers de solo inserción<br/>(clínico, cargos, auditoría)"]
+  end
+  LLM["API de Claude (opcional)"]
+  SPA -- "fetch, cookie + X-CSRF-Token" --> API
+  API --> AUTH --> MOD
+  MOD -- "SET ROLE dental_app<br/>set_config(app.clinic_id)" --> PG
+  MOD -. "solo datos minimizados" .-> LLM
+```
+
+- **Un solo servicio** sirve la API y el frontend compilado: un dominio, sin CORS. Se despliega con el `Dockerfile` en Railway o en cualquier host con Docker.
+- **Documentación de la API:** OpenAPI 3.1 generada desde los esquemas de validación, en `/api/docs`.
+
+## 2. Multiempresa y aislamiento (defensa en profundidad)
+
+Cada clínica es una empresa independiente dentro del mismo esquema. El aislamiento tiene **cuatro capas**:
+
+| Capa | Mecanismo | Qué evita |
+|---|---|---|
+| 1. Contexto de sesión | La clínica activa sale de la sesión del servidor, nunca de un parámetro del cliente | Que un usuario "elija" otra clínica |
+| 2. Row Level Security | Todas las tablas operativas tienen la política `clinic_id = app_clinic_id()`. La app se conecta con el rol `dental_app` (sin BYPASSRLS y sin ser dueño), fijado como parámetro de arranque de cada conexión | Que un error de programación (una consulta sin `WHERE clinic_id`) filtre datos |
+| 3. Claves foráneas compuestas | `(patient_id, clinic_id) → patients(id, clinic_id)` y equivalentes | Que una fila de la clínica A apunte a una fila de la clínica B. Los chequeos de FK ignoran RLS, por eso esta capa es necesaria |
+| 4. Contexto transaccional | `withTenant()` abre una transacción y fija `app.clinic_id` y `app.user_id` con `set_config(..., true)` | Que una conexión reutilizada arrastre el contexto de otra petición |
+
+- **Superadministrador SaaS:**
+  - usa un pool aparte (rol dueño), solo en `/api/platform/*`;
+  - devuelve **agregados** (conteos y actividad), nunca datos de pacientes;
+  - no tiene clínica activa, así que la API clínica le responde "selecciona clínica".
+- **Pruebas que lo verifican:** `tests/isolation.test.ts`, entre otras:
+  - API cruzada → 404;
+  - SQL directo con contexto de otra clínica → 0 filas;
+  - INSERT con un `clinic_id` ajeno → rechazado por RLS.
+
+## 3. Autenticación, roles y permisos
+
+- **Contraseñas:**
+  - scrypt (N=32768, r=8, p=1) con sal aleatoria;
+  - política de 10 caracteres o más, combinando letras y números.
+- **Sesiones:**
+  - un token aleatorio de 256 bits viaja en una cookie `HttpOnly; SameSite=Lax` (y `Secure` en producción);
+  - en la base solo se guarda su SHA-256;
+  - duran 12 h por defecto;
+  - se revocan al cerrar sesión, al cambiar la contraseña (cierra las demás) o al desactivar a la persona.
+- **CSRF:** toda operación que modifica datos exige la cabecera `X-CSRF-Token`, que coincide con un token propio de la sesión.
+- **Fuerza bruta:**
+  - 5 intentos fallidos bloquean la cuenta 15 minutos;
+  - límite de 10 intentos por minuto por IP en el login;
+  - mensaje genérico, sin revelar si el correo existe;
+  - tiempos igualados.
+- **Roles** (`server/src/lib/rbac.ts`): propietario, administrador, recepción, odontólogo, asistente y contabilidad. Los permisos son explícitos, por ejemplo `clinical.read` o `payments.verify`. Algunas reglas:
+  - el propietario y el administrador **solo acceden a lo clínico si además son profesionales** (minimización);
+  - recepción no ve historia clínica ni alertas médicas;
+  - contabilidad no modifica pacientes.
+- **Alcance por sucursal:** la membresía tiene `all_branches` o una lista `branch_ids`. Toda escritura con sucursal llama a `requireBranch()`, y los listados se filtran por las sucursales permitidas.
+- **Reglas finas:**
+  - un odontólogo solo agenda en su propia agenda;
+  - solo administración agenda fuera de horario;
+  - solo el propietario asigna administradores y propietarios.
+- **Planificado:** MFA TOTP para propietario y administración (backlog P1).
+
+## 4. Modelo de datos (resumen)
+
+```mermaid
+erDiagram
+  CLINICS ||--o{ BRANCHES : tiene
+  CLINICS ||--o{ MEMBERSHIPS : emplea
+  USERS ||--o{ MEMBERSHIPS : pertenece
+  BRANCHES ||--o{ CHAIRS : tiene
+  MEMBERSHIPS ||--o{ DENTIST_SCHEDULES : horario
+  CLINICS ||--o{ PATIENTS : atiende
+  PATIENTS ||--o{ APPOINTMENTS : agenda
+  PATIENTS ||--o{ ODONTOGRAM_ENTRIES : "historial (solo inserción)"
+  PATIENTS ||--o{ CLINICAL_NOTES : "evoluciones (solo inserción)"
+  PATIENTS ||--o{ MEDICAL_HISTORIES : "versiones"
+  PATIENTS ||--o{ BUDGETS : presupuestos
+  BUDGETS ||--o{ BUDGET_ITEMS : items
+  BUDGET_ITEMS ||--o{ CHARGES : "cargo al realizar"
+  PATIENTS ||--o{ PAYMENTS : pagos
+  CLINICS ||--o{ AUDIT_LOG : "auditoría (solo inserción)"
+```
+
+- **Dinero:** centavos en `bigint`. La moneda va por clínica (BOB por defecto) y las cuotas se reparten sin perder centavos.
+- **Tiempo:** `timestamptz` en UTC. Cada clínica tiene su zona horaria (`America/La_Paz`), que se usa para horarios, disponibilidad y reportes diarios.
+- **Correlativos por clínica** (N° de ficha, presupuesto y recibo): tabla `counters` con `UPDATE … RETURNING` dentro de la transacción.
+- **Saldo del paciente** = Σ cargos (los positivos de tratamientos realizados y los negativos de anulaciones) − Σ pagos **confirmados**. Los pagos pendientes de verificación se muestran aparte.
+
+## 5. Integridad garantizada por la base de datos
+
+| Riesgo | Garantía | Dónde |
+|---|---|---|
+| Doble reserva (dos recepciones a la vez) | `EXCLUDE USING gist` por profesional, por consultorio y por paciente sobre `tstzrange(starts_at, ends_at)`; las citas canceladas o inasistidas liberan el horario | `appointments` |
+| Doble clic al agendar o cobrar | `idempotency_key` única por clínica; el cliente genera una clave por diálogo | `appointments`, `payments` |
+| La misma transferencia registrada dos veces | Índice único `(clinic, method, bank_reference)` para pagos pendientes o confirmados | `payments` |
+| Alterar un monto ya cobrado | GRANT solo sobre las columnas de estado + trigger que bloquea cambios de monto, paciente o fecha, y transiciones inválidas, **incluso para el dueño de la base** | `payments_guard` |
+| Borrar historia clínica o auditoría | Sin privilegio DELETE/UPDATE + trigger `forbid_mutation` | `clinical_notes`, `odontogram_entries`, `medical_histories`, `charges`, `audit_log` |
+| Cobrar dos veces un tratamiento | Bloqueo `FOR UPDATE` del ítem + transición `pending → done`; las anulaciones son asientos negativos | `budget_items`, `charges` |
+| Pagar más que el presupuesto | Validación transaccional con bloqueo del presupuesto | `POST /api/payments` |
+
+## 6. Módulos del servidor (`server/src/modules`)
+
+| Módulo | Responsabilidad principal |
+|---|---|
+| `auth` | Login, logout, `/me`, cambio de clínica y de contraseña |
+| `clinic` | Datos de la clínica, sucursales, consultorios, personal, horarios, bloqueos, catálogo de prestaciones, auditoría |
+| `patients` | Búsqueda sin tildes, duplicados, ficha, antecedentes versionados, importación y exportación Excel (protegida contra inyección de fórmulas) |
+| `agenda` | Citas, disponibilidad, búsqueda de huecos en varios días, estados, reprogramación, lista de espera, "recuperar huecos" y recordatorios con consentimiento |
+| `clinical` | Odontograma FDI (permanente y temporal, 5 superficies, estados existente/planificado/realizado), anulaciones con historial y evoluciones con enmiendas |
+| `billing` | Presupuestos con cuotas, tratamientos realizados (cargo + odontograma), pagos, verificación dual, anulaciones y caja diaria |
+| `reports` | Panel por sucursal (cobrado, producción, ocupación, inasistencia, conversión), producción y comisión por profesional, cuentas por cobrar, exportaciones |
+| `platform` | Superadministrador: planes, clínicas, estados y métricas agregadas |
+| `assistant` | Herramientas con permisos, acciones rápidas y chat opcional con Claude |
+
+**Patrón de ruta** (`lib/http.ts`): cada endpoint declara acceso, permiso y esquemas zod (para validar y para OpenAPI). El helper aplica autenticación, CSRF y permisos y abre la transacción con contexto. Así ningún endpoint puede "olvidar" el aislamiento.
+
+## 7. Asistente de IA
+
+Principios aplicados en `server/src/modules/assistant.ts`:
+
+1. **Solo datos reales.** El modelo no tiene acceso a la base: invoca herramientas del servidor (`ventas_por_sucursal`, `buscar_horarios_libres`, `presupuestos_pendientes`, `preparar_recordatorios`, `pacientes_sin_proxima_cita`, `resumen_agenda`, `proponer_cita`). Cada una verifica **el permiso del usuario** y corre en una transacción corta con RLS.
+2. **Minimización.**
+   - Al modelo le llegan agregados, nombres de pila o N° de ficha.
+   - Los teléfonos, enlaces y listas completas van **directo a la interfaz**, nunca al proveedor de IA.
+   - Ninguna herramienta lee notas clínicas.
+3. **Sin acciones autónomas.** `proponer_cita` devuelve una **propuesta**. La persona la confirma en pantalla, y la interfaz llama al endpoint normal con todas sus validaciones (solapes, horario, permisos).
+4. **Sin diagnóstico.** Lo prohíbe el *system prompt*. Las decisiones clínicas son del profesional.
+5. **Funciona sin IA.** Sin `ANTHROPIC_API_KEY`, el chat responde 503 y las mismas herramientas operan como "acciones rápidas".
+6. **Modelo:** `claude-opus-5-5` por defecto (configurable con `ASSISTANT_MODEL`), esfuerzo `low` y *fallback* del lado del servidor ante rechazos. Cada uso de herramienta queda en la auditoría.
+
+## 8. Frontend (`web/`)
+
+- React 19 + React Router y CSS propio con un sistema de diseño (`styles.css`): tokens, tablas, KPI, diálogos y agenda. No usa librería de componentes, para mantener el control visual y el peso bajo (~120 kB gzip).
+- Fuente Inter servida localmente (sin llamadas a Google desde los consultorios). Íconos de `lucide-react`.
+- **Responsive:**
+  - barra lateral en escritorio y barra inferior en el celular;
+  - la agenda pasa a vista de lista;
+  - columnas secundarias ocultas.
+
+  Una prueba e2e verifica que no haya desborde horizontal.
+- **Accesibilidad:** etiquetas asociadas a los controles, roles ARIA en diálogos y pestañas, foco visible y navegación por teclado en la agenda y el odontograma.
+
+## 9. Operación
+
+| Tema | Implementación |
+|---|---|
+| Migraciones | SQL versionado (`server/migrations/NNNN_*.sql`) con checksum y bloqueo consultivo. Se aplican al arrancar (`MIGRATE_ON_START`, activo por defecto) o con `npm run migrate` |
+| Copias de seguridad | `scripts/backup.sh`: `pg_dump` en formato custom, cifrado AES-256 opcional (`BACKUP_PASSPHRASE`) y SHA-256. `scripts/restore.sh` restaura **en una base vacía**. La prueba `tests/backup.test.ts` comprueba que la restauración conserva los datos y que RLS sigue activo |
+| Secretos | Solo variables de entorno (`.env.example`). Nada en el código ni en el repositorio |
+| Seguridad HTTP | Helmet + CSP estricta (`script-src 'self'`, `frame-ancestors 'none'`), `Cache-Control: no-store` en la API y límite global de solicitudes |
+| Salud | `GET /api/health` (comprueba la base de datos). El Dockerfile y Railway lo usan como *healthcheck* |
+| Escalabilidad | Servidor sin estado (las sesiones viven en PostgreSQL), así que escala horizontalmente. Índices por `(clinic_id, …)` en todas las consultas calientes. Más adelante: réplicas de lectura para reportes y particionado de `audit_log` por fecha |
+
+## 10. Archivos clínicos (planificado)
+
+Radiografías, fotografías y consentimientos firmados irán en almacenamiento de objetos privado (S3 compatible), con:
+- clave por clínica;
+- URL firmadas de corta duración, emitidas **solo** tras validar el permiso;
+- registro de cada descarga en la auditoría;
+- cifrado en reposo del proveedor y hash SHA-256 por archivo.

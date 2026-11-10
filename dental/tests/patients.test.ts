@@ -73,10 +73,13 @@ describe("pacientes", () => {
 
   it("exporta a Excel con protección contra fórmulas y solo con permiso", async () => {
     await owner.post("/api/patients", { firstName: "=HYPERLINK(\"x\")", lastName: "Inyección", documentType: "SIN" });
-    const r = await owner.get("/api/patients/export.xlsx");
-    expect(r.status).toBe(200);
+    const r = await env.app.inject({ method: "GET", url: "/api/patients/export.xlsx", headers: { cookie: owner.cookie } });
+    expect(r.statusCode).toBe(200);
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(Buffer.from(r.body as string, "binary") as unknown as ArrayBuffer).catch(() => null);
+    await wb.xlsx.load(r.rawPayload as unknown as ArrayBuffer);
+    const names = wb.worksheets[0]!.getColumn(2).values.map(String);
+    expect(names).toContain(`'=HYPERLINK("x")`);
+    expect(names.some((v) => v.startsWith("="))).toBe(false);
     const rec = await login(env.app, (await addUser(env.db, K.clinicId, "receptionist", { branchIds: [K.branches[0]!] })).email);
     expect((await rec.get("/api/patients/export.xlsx")).status).toBe(403);
   });

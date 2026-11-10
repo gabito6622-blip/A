@@ -12,3 +12,9 @@ data-demo/
 
 # Paquetes de entrega generados (no van al repo)
 *-para-chatgpt.zip
+
+# Plataforma odontológica
+dental/test-results/
+dental/playwright-report/
+dental/backups/
+dental/.env

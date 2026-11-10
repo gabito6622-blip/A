@@ -33,7 +33,7 @@ export function platformRoutes(route: Route) {
     handler: async ({ c }) =>
       (
         await c.query(
-          `SELECT cl.id, cl.slug, cl.name, cl.status, cl.created_at AS "createdAt", cl.trial_ends_at AS "trialEndsAt", p.name AS "planName",
+          `SELECT cl.id, cl.slug, cl.name, cl.status, cl.created_at AS "createdAt", cl.trial_ends_at AS "trialEndsAt", p.name AS "planName", p.code AS "planCode",
                   p.max_branches AS "maxBranches", p.max_users AS "maxUsers",
                   (SELECT count(*) FROM branches b WHERE b.clinic_id = cl.id AND b.active)::int AS branches,
                   (SELECT count(*) FROM memberships m WHERE m.clinic_id = cl.id AND m.active)::int AS users,
