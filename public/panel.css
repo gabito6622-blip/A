@@ -964,3 +964,18 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
   .ctl-top .tabs.ctl-chips button{flex:none}
   .ctl-kindrow{gap:6px}
 }
+
+/* Control tipo Excel: ordenar tocando el título, filtro por columna, grupos y fila de totales */
+table.ctl th .thsort{all:unset;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:space-between;width:100%;font-weight:700;color:#fff}
+table.ctl th .thsort span{opacity:.75;font-size:11px}
+table.ctl th .thsort:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
+table.ctl th .cfin{display:block;width:100%;min-width:64px;box-sizing:border-box;margin-top:5px;padding:4px 6px;border-radius:6px;border:0;font:inherit;font-size:12px;font-weight:500;color:#111;background:rgba(255,255,255,.92)}
+table.ctl th{vertical-align:top}
+table.ctl tr.ctl-grp td{background:#dbe5ff;color:#13286b;border-top:2px solid #1e3a8e;padding:8px 10px;white-space:normal}
+table.ctl tfoot td{position:sticky;bottom:0;z-index:2;background:#1e3a8e;color:#fff;padding:9px 8px;white-space:nowrap}
+table.ctl tfoot td.ccli{z-index:3}
+.ctl-in.mid{width:110px}.ctl-in.date{width:136px}
+.ctl-cols{position:relative}
+.ctl-cols>summary{list-style:none;cursor:pointer}.ctl-cols>summary::-webkit-details-marker{display:none}
+.ctl-colsbox{position:absolute;z-index:30;top:calc(100% + 6px);left:0;display:grid;grid-template-columns:repeat(2,minmax(130px,1fr));gap:4px 12px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--line);box-shadow:0 14px 40px rgba(0,0,0,.25);width:max-content;max-width:min(360px,calc(100vw - 40px))}
+@media (max-width:860px){.ctl-colsbox{position:static;width:auto;max-width:none;margin-top:6px}}

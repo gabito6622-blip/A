@@ -511,8 +511,33 @@ const V = {
     const products = [...new Set(rows.map((r) => r.product))];
     const q = (T.cq ?? "").toLowerCase();
     const sameDay = (t, u) => new Date(t).toDateString() === new Date(u).toDateString();
-    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay) && (!T.ck || T.ck === "todos" || r.kind === T.ck)
+    const view0 = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay) && (!T.ck || T.ck === "todos" || r.kind === T.ck)
       && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.control.note ?? ""}`.toLowerCase().includes(q)));
+    // Como en Excel: filtro por columna, rango de fechas, ordenar tocando el título y agrupar con subtotal.
+    const COLS = [["n", "N°"], ["customerName", "Cliente"], ["kind", "Tipo"], ["customerPhone", "WhatsApp"], ["product", "Plataforma"], ["email", "Correo"], ["profile", "Perfil"], ["startsAt", "Inicio"], ["customerExpiresAt", "Vencimiento"], ["day", "Día vence"], ["price", "Precio Bs"], ["cost", "Costo Bs"], ["gain", "Ganancia Bs"], ["pay", "Estado pago"], ["est", "Estado"], ["d", "Días"], ["seller", "Revendedor"], ["note", "Nota"]];
+    const pname = (r) => r.product.replace(/ \(alquiler revendedores\)/, "");
+    const colText = (r, k) => String({ kind: r.kind === "rev" ? "Revendedor" : "Cliente final", product: pname(r), startsAt: fdate(r.startsAt), customerExpiresAt: fdate(r.customerExpiresAt), price: r.price / 100, cost: r.cost / 100, gain: r.gain / 100, pay: PAY[r.pay], est: r.est[0], seller: r.control.seller ?? "", note: r.control.note ?? "", customerPhone: (r.customerPhone || "").replace(/^\+591/, "") }[k] ?? r[k] ?? "");
+    const cfc = T.cfc ?? (T.cfc = {});
+    const view = view0.filter((r) => (!T.cr1 || r.customerExpiresAt >= T.cr1) && (!T.cr2 || r.customerExpiresAt < T.cr2 + 86400000)
+      && Object.entries(cfc).every(([k, v]) => !v || colText(r, k).toLowerCase().includes(v.toLowerCase())));
+    const WD = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+    const NUM = ["n", "startsAt", "customerExpiresAt", "price", "cost", "gain", "d"];
+    const [sk, sd] = (T.csort ?? "").split(":");
+    const sval = (r, k) => (NUM.includes(k) ? r[k] : k === "day" ? WD.indexOf(r.day) : colText(r, k).toLowerCase());
+    const GROUPS = { cliente: ["Cliente", (r) => r.customerName || "(sin nombre)"], revendedor: ["Revendedor", (r) => r.control.seller || "(sin revendedor)"], app: ["Plataforma", pname], tipo: ["Tipo", (r) => (r.kind === "rev" ? "🏪 Revendedores" : "👤 Clientes finales")], dia: ["Día que vence", (r) => r.day] };
+    const grp = GROUPS[T.cgroup]?.[1];
+    view.sort((a, b) => {
+      const g = grp ? grp(a).localeCompare(grp(b), "es") : 0;
+      if (g || !sk) return g;
+      const x = sval(a, sk), y = sval(b, sk);
+      const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y), "es", { numeric: true });
+      return sd === "desc" ? -c : c;
+    });
+    let hid = [];
+    try { hid = JSON.parse(localStorage.getItem("gs-ctl-hide") || "[]"); } catch { /* sin almacenamiento */ }
+    const colsOpen = T.colsOpen; T.colsOpen = false;
+    const anyFilter = (T.cf && T.cf !== "todos") || T.cq || T.cday || T.cprod || T.cpay || (T.ck && T.ck !== "todos") || T.cfrom || T.cr1 || T.cr2 || Object.values(cfc).some(Boolean);
+    const dIn = (t) => (t ? `${new Date(t).getFullYear()}-${String(new Date(t).getMonth() + 1).padStart(2, "0")}-${String(new Date(t).getDate()).padStart(2, "0")}` : "");
     P.controlView = view;
     const xl = (T.cv ?? "excel") === "excel";
     const kb = (r) => r.kind === "rev" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`;
@@ -536,6 +561,13 @@ const V = {
           <select id="cprod" aria-label="Plataforma">${opt("", "Todas las apps", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
           <label class="cdatelbl">📅 Cobros del día<input type="date" id="cfromDate" value="${T.cfrom ? `${new Date(T.cfrom).getFullYear()}-${String(new Date(T.cfrom).getMonth() + 1).padStart(2, "0")}-${String(new Date(T.cfrom).getDate()).padStart(2, "0")}` : ""}" aria-label="Elegí la fecha para ver cuánto cobrás ese día"></label>
+          <label class="cdatelbl">📆 Vencen desde<input type="date" id="cr1" value="${dIn(T.cr1)}" aria-label="Vencen desde"></label>
+          <label class="cdatelbl">hasta<input type="date" id="cr2" value="${dIn(T.cr2)}" aria-label="Vencen hasta"></label>
+          <select id="csortSel" aria-label="Ordenar por">${opt("", "↕️ Ordenar: por vencimiento", !T.csort)}${COLS.filter(([k]) => k !== "n").flatMap(([k, l]) => [opt(`${k}:asc`, `Ordenar: ${l} ↑`, T.csort === `${k}:asc`), opt(`${k}:desc`, `Ordenar: ${l} ↓`, T.csort === `${k}:desc`)]).join("")}</select>
+          <select id="cgroup" aria-label="Agrupar">${opt("", "🗂️ Sin agrupar", !T.cgroup)}${Object.entries(GROUPS).map(([k, [l]]) => opt(k, `Agrupar por ${l.toLowerCase()}`, T.cgroup === k)).join("")}</select>
+          <details class="ctl-cols" ${colsOpen ? "open" : ""}><summary class="pbtn">🧱 Columnas${hid.length ? ` (${hid.length} ocultas)` : ""}</summary><div class="ctl-colsbox">${COLS.map(([k, l]) => `<label class="chk"><input type="checkbox" data-ccol="${k}" ${hid.includes(k) ? "" : "checked"}> ${l}</label>`).join("")}</div></details>
+          <button class="pbtn" type="button" data-go="vender">➕ Agregar</button>
+          ${anyFilter ? `<button class="pbtn" type="button" data-cclear="1">✕ Limpiar filtros</button>` : ""}
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
       ${(() => {
         // Si el texto buscado coincide con el nombre de UN solo cliente, se muestra su resumen.
@@ -569,27 +601,31 @@ const V = {
         <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button>
         <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
         <label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label></div>
-      <section class="card ctl-card${xl ? " xl" : ""}">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
-        <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th class="ccli">Cliente</th><th>Tipo</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
-        ${view.map((r) => `<tr class="rv-${r.est[1]} k-${r.kind}">
-          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td class="mono">${r.n}</td><td class="ccli"><b>${esc(r.customerName)}</b></td><td>${kb(r)}</td>
-          <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
-          <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
-          <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
-          <td><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
-          <td><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"></td>
-          <td class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>
-          <td><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
-          <td><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td class="mono"><b>${r.d}</b></td>
-          <td><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor"></td>
-          <td><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
+      <section class="card ctl-card${xl ? " xl" : ""}">${hid.length ? `<style>${hid.map((k) => `table.ctl [data-col="${k}"]{display:none}`).join("")}</style>` : ""}${view.length || anyFilter ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
+        <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th>${COLS.map(([k, l]) => `<th data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}><button type="button" class="thsort" data-csort="${k}" title="Ordenar por ${l}">${l}<span>${sk === k ? (sd === "desc" ? "▼" : "▲") : "↕"}</span></button><input class="cfin" data-cfcol="${k}" value="${esc(cfc[k] ?? "")}" placeholder="🔍 filtrar" aria-label="Filtrar ${l}"></th>`).join("")}<th>Acciones</th></tr></thead><tbody>
+        ${view.map((r, i) => {
+          const g = grp?.(r), gHead = grp && (i === 0 || grp(view[i - 1]) !== g) ? (() => { const gs = view.filter((x) => grp(x) === g); return `<tr class="ctl-grp"><td colspan="40"><b>${esc(g)}</b> · ${gs.length} fila(s) · cobrás <b>${bs(gs.reduce((t, x) => t + x.price, 0))}</b> · ganancia <b>${bs(gs.reduce((t, x) => t + x.gain, 0))}</b>${gs.some((x) => x.d < 0) ? ` · <span class="down">${gs.filter((x) => x.d < 0).length} vencido(s)</span>` : ""}</td></tr>`; })() : "";
+          return `${gHead}<tr class="rv-${r.est[1]} k-${r.kind}">
+          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td data-col="n" class="mono">${r.n}</td><td data-col="customerName" class="ccli"><b>${esc(r.customerName)}</b></td><td data-col="kind">${kb(r)}</td>
+          <td data-col="customerPhone"><input class="ctl-in mid mono" data-cphone="${esc(r.customerId)}" value="${esc((r.customerPhone || "").replace(/^\+591/, ""))}" placeholder="Sin WhatsApp" inputmode="tel" aria-label="WhatsApp de ${esc(r.customerName)}"></td>
+          <td data-col="product">${esc(pname(r))}</td><td data-col="email" class="mono">${esc(r.email)}</td>
+          <td data-col="profile">${canReview() && r.slotId ? `<input class="ctl-in mid" data-cslot="${esc(r.slotId)}" value="${esc(r.profile)}" aria-label="Perfil">` : esc(r.profile)}</td>
+          <td data-col="startsAt">${fdate(r.startsAt)}</td>
+          <td data-col="customerExpiresAt"><input type="date" class="ctl-in date" data-cexp="${esc(r.id)}" value="${dIn(r.customerExpiresAt)}" aria-label="Vencimiento"></td><td data-col="day">${r.day}</td>
+          <td data-col="price"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
+          <td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"></td>
+          <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>
+          <td data-col="pay"><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
+          <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td data-col="d" class="mono"><b>${r.d}</b></td>
+          <td data-col="seller"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor"></td>
+          <td data-col="note"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
           <td class="ctl-act">${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener" title="Mandar recordatorio de cobro">💰 Cobrar</a>` : ""}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
             <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
-            <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${new Date(Math.max(r.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details>
-            ${canReview() ? transferForm(r) : ""}</td></tr>`).join("")}
-        </tbody></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
-        <p class="muted" style="margin:0">Los cambios de precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. “✅ Renovada” suma un período desde el vencimiento.</p></section>`;
+            ${canReview() ? transferForm(r) : ""}</td></tr>`;
+        }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
+        </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
+        <p class="muted" style="margin:0">Como en Excel: tocá un <b>título</b> para ordenar (otra vez, al revés), escribí en <b>🔍 filtrar</b> debajo de cada título, y con <b>🧱 Columnas</b> escondés las que no usás. WhatsApp, perfil, vencimiento, precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. La fila azul de abajo suma lo que estás viendo.</p></section>`;
   },
 
   async renovar() {
@@ -2018,6 +2054,16 @@ document.addEventListener("click", async (ev) => {
     }
     if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
   }
+  if (d.csort) {
+    const [k, dir] = (P.tab.csort ?? "").split(":");
+    P.tab.csort = k !== d.csort ? `${d.csort}:asc` : dir === "asc" ? `${d.csort}:desc` : undefined;
+    return render();
+  }
+  if (d.cclear) {
+    for (const k of ["cf", "cq", "cday", "cprod", "cpay", "ck", "cfrom", "cr1", "cr2"]) P.tab[k] = undefined;
+    P.tab.cfc = {};
+    return render();
+  }
   if (d.ctlcsv) {
     const H = ["N°", "Cliente", "Tipo", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
     const PAYT = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -2296,6 +2342,14 @@ function previewLook() {
   if (w) { const n = contrastNote(look); w.className = "lookwarn " + n.cls; w.textContent = n.text; }
 }
 let lookTimer, cqTimer;
+let cfTimer;
+document.addEventListener("input", (ev) => {
+  const k = ev.target.dataset?.cfcol;
+  if (!k) return;
+  (P.tab.cfc ??= {})[k] = ev.target.value;
+  clearTimeout(cfTimer);
+  cfTimer = setTimeout(async () => { await render(); const f = document.querySelector(`[data-cfcol="${k}"]`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 400);
+});
 document.addEventListener("input", (ev) => {
   if (ev.target.id !== "cq") return;
   P.tab.cq = ev.target.value;
@@ -2371,6 +2425,31 @@ document.addEventListener("change", async (ev) => {
     return;
   }
   if (t.id === "cday" || t.id === "cprod" || t.id === "cpay") { P.tab[t.id] = t.value; return render(); }
+  if (t.id === "csortSel" || t.id === "cgroup") { P.tab[t.id === "csortSel" ? "csort" : "cgroup"] = t.value || undefined; return render(); }
+  if (t.id === "cr1" || t.id === "cr2") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab[t.id] = new Date(y, mo - 1, da).getTime(); } else P.tab[t.id] = undefined; return render(); }
+  if (t.dataset?.ccol) {
+    let hid = [];
+    try { hid = JSON.parse(localStorage.getItem("gs-ctl-hide") || "[]"); } catch { /* sin almacenamiento */ }
+    hid = t.checked ? hid.filter((x) => x !== t.dataset.ccol) : [...new Set([...hid, t.dataset.ccol])];
+    try { localStorage.setItem("gs-ctl-hide", JSON.stringify(hid)); } catch { /* sin almacenamiento */ }
+    P.tab.colsOpen = true;
+    return render();
+  }
+  if (t.dataset?.cexp) {
+    if (!t.value) return;
+    const [y, m, d] = t.value.split("-").map(Number);
+    return act(() => api("POST", `/api/admin/assignments/${t.dataset.cexp}/expiry`, { expiresAt: new Date(y, m - 1, d, 23, 59).getTime() }), `Nueva fecha: ${d}/${m}/${y}`);
+  }
+  if (t.dataset?.cphone) {
+    const raw = t.value.trim();
+    if (!raw) return toast("El WhatsApp no puede quedar vacío");
+    const phone = /^\d{8}$/.test(raw.replace(/\s/g, "")) ? `+591${raw.replace(/\s/g, "")}` : raw;
+    return act(() => api("POST", `/api/admin/customers/${t.dataset.cphone}`, { phone }), "WhatsApp guardado");
+  }
+  if (t.dataset?.cslot) {
+    if (!t.value.trim()) return toast("El perfil necesita un nombre");
+    return act(() => api("POST", `/api/admin/slots/${t.dataset.cslot}`, { label: t.value.trim() }), "Perfil guardado");
+  }
   if (t.id === "cfromDate") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab.cfrom = new Date(y, mo - 1, da).getTime(); } else P.tab.cfrom = undefined; return render(); }
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
   if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
