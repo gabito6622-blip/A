@@ -328,11 +328,15 @@ function ticketRow({ k, g }) {
     ? `<div class="tkapps">${apps.map((x) => `<span class="tkapp">${miniMark(x)}${esc(appShort(x))}</span>`).join("")}</div><div class="tkmeta">${comboSave(p) ? `<span class="tksave">Ahorrás Bs ${esc(comboSave(p))}</span>` : ""}<small class="tkdur">${tkDur(p)}</small></div>`
     : g.length > 1
     ? `<select class="tksel" data-tkv="${esc(k)}" aria-label="Duración de ${esc(tkBase(p))}">${g.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${tkDur(x)} · ${bs(x.price)}</option>`).join("")}</select>`
-    : `<small class="tkdur">${p.kind === "combo" && p.description ? `${esc(p.description)}<br>` : ""}${tkDur(p)}</small>`;
+    : `<small class="tkdur">${p.kind === "combo" && p.description ? `${esc(p.description)}<br>` : `${esc(kindText(p.kind))} · `}${tkDur(p)}</small>`;
+  // Ahorro real del plan largo frente a pagar mes a mes (solo si de verdad ahorra).
+  const base1 = g[0], months = Math.round(p.durationDays / Math.max(1, base1.durationDays));
+  const saves = g.length > 1 && p !== base1 && months > 1 ? base1.price * months - p.price : 0;
+  const sub = !apps.length && g.length > 1 ? `<small class="tkdur">${esc(kindText(p.kind))}${saves > 0 ? ` · <span class="tksave sm">Ahorrás ${bs(saves)}</span>` : ""}</small>` : "";
   const btn = s || od ? `<button class="tkbtn" type="button" data-add="${esc(p.id)}">Agregar</button>`
     : askWa(p) ? `<a class="tkbtn" href="${askWa(p)}" target="_blank" rel="noopener">Pedir</a>` : `<button class="tkbtn" type="button" disabled>Agotado</button>`;
-  return `<article class="tk${apps.length ? " tkcombo" : ""}"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${apps.length ? comboIcon(apps) : mark(p)}</button>
-    <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
+  return `<article class="tk${apps.length ? " tkcombo" : ""}" style="--c:${esc(p.color || "#888888")}"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${apps.length ? comboIcon(apps) : mark(p)}</button>
+    <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}${sub}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
 }
 /** Comparador de combos: el cliente elige dos y los ve lado a lado (qué incluye, precio, ahorro). */
 function comboCompare(pub) {

@@ -109,7 +109,7 @@ export const LAYOUT_LIST = [
   ["vitrina", "✨ Vitrina", "Portada grande y centrada, bien llamativa, con productos destacados abajo."],
   ["catalogo", "🛒 Catálogo", "Va directo a los productos, para que compren rápido."],
   ["minimal", "⬜ Minimal", "Limpio y sobrio, sin tanto adorno."],
-  ["ticket", "🎟️ Lista tipo ticket", "Catálogo directo en filas compactas, con buscador, categorías y selector de 1 o 3 meses."],
+  ["ticket", "📋 Lista compacta", "Catálogo directo en filas limpias, con buscador, categorías y selector de 1 o 3 meses."],
 ];
 /* ---------------- Contraste de colores (WCAG) ----------------
    El dueño y los revendedores eligen cualquier color. Estas funciones garantizan que el texto
@@ -210,7 +210,7 @@ export const THEMES = [
  */
 const tlook = (id) => THEMES.find((t) => t.id === id)?.look ?? {};
 export const PAGE_TEMPLATES = [
-  { id: "ticket", name: "🎟️ Ticket Pro", desc: "Como la tienda principal: catálogo directo, filas compactas y selector de 1 o 3 meses.",
+  { id: "ticket", name: "📋 Lista Pro", desc: "Como la tienda principal: catálogo directo, filas limpias y selector de 1 o 3 meses.",
     look: { backgroundColor: "#172038", accentColor: "#fcc42d", accent2Color: "#ffd95a", fontFamily: "outfit", headingFont: "outfit", bgStyle: "solid", cardStyle: "solid", corners: "round", layout: "ticket",
       heroTitle: "Todo tu entretenimiento,", heroHighlight: "en un solo lugar.", heroText: "Netflix, Disney+, Prime Video, HBO Max, Spotify y más. Pedí por WhatsApp y te lo activamos al toque.", heroChip: "Streaming · Bolivia" } },
   { id: "cine", name: "🎬 Cine Rojo", desc: "Portada grande tipo cine, con los productos destacados abajo.",
