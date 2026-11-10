@@ -424,6 +424,8 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
     hasCoupons: !!e.s.settings.resellerCoupons && (s.coupons ?? []).some((x) => x.active && (!x.expiresAt || x.expiresAt > e.now())),
     currencySymbol: e.s.settings.currencySymbol || "Bs",
+    // Si la tienda marcó "todo Disponible", la página del revendedor también deja agregar al carrito.
+    alwaysAvailable: !!e.s.settings.alwaysAvailable,
     comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => v > 0) ? s.comboDiscounts : null,
     ...look, products: [...comboCards, ...products],
   };

@@ -204,6 +204,32 @@ export const THEMES = [
   { id: "oro-azul", name: "Oro y Azul ⭐", look: { backgroundColor: "#14213d", accentColor: "#ffc93c", accent2Color: "#ffd96b", bgStyle: "glow", cardStyle: "solid", headingFont: "bricolage", fontFamily: "figtree", corners: "soft", layout: "catalogo" } },
 ];
 /** Muestra en miniatura de un estilo (para elegir con un toque). */
+/**
+ * Páginas listas para revendedores: estilo + forma de mostrar + textos de portada, en un toque.
+ * No tocan el nombre, el logo, el WhatsApp ni los precios del revendedor.
+ */
+const tlook = (id) => THEMES.find((t) => t.id === id)?.look ?? {};
+export const PAGE_TEMPLATES = [
+  { id: "ticket", name: "🎟️ Ticket Pro", desc: "Como la tienda principal: catálogo directo, filas compactas y selector de 1 o 3 meses.",
+    look: { backgroundColor: "#172038", accentColor: "#fcc42d", accent2Color: "#ffd95a", fontFamily: "outfit", headingFont: "outfit", bgStyle: "solid", cardStyle: "solid", corners: "round", layout: "ticket",
+      heroTitle: "Todo tu entretenimiento,", heroHighlight: "en un solo lugar.", heroText: "Netflix, Disney+, Prime Video, HBO Max, Spotify y más. Pedí por WhatsApp y te lo activamos al toque.", heroChip: "Streaming · Bolivia" } },
+  { id: "cine", name: "🎬 Cine Rojo", desc: "Portada grande tipo cine, con los productos destacados abajo.",
+    look: { ...tlook("rojo"), layout: "vitrina", heroTitle: "Tus series favoritas,", heroHighlight: "a un mensaje.", heroText: "Elegí tu plataforma y pedila por WhatsApp. Activación rápida y soporte todo el mes.", heroChip: "Entrega rápida" } },
+  { id: "glam", name: "🌸 Rosa Glam", desc: "Suave y moderna, va directo a los productos. Ideal para vender por TikTok e Instagram.",
+    look: { ...tlook("rosa"), layout: "catalogo", heroTitle: "Streaming con estilo,", heroHighlight: "a tu medida.", heroText: "Netflix, Disney+, Spotify y más. Elegí, pedí por WhatsApp y disfrutá hoy mismo.", heroChip: "Tu tienda favorita" } },
+  { id: "gamer", name: "🎮 Neón Gamer", desc: "Oscura con brillos neón, para un público joven.",
+    look: { ...tlook("neon"), layout: "clasico", heroTitle: "Más pantallas,", heroHighlight: "menos excusas.", heroText: "Tus plataformas favoritas al mejor precio. Pedí por WhatsApp y te lo activamos al toque.", heroChip: "Modo maratón" } },
+  { id: "oro", name: "✨ Oro Premium", desc: "Negro y dorado, elegante. Transmite calidad y confianza.",
+    look: { ...tlook("oro"), layout: "vitrina", heroTitle: "Entretenimiento premium,", heroHighlight: "sin pagar de más.", heroText: "Perfiles y combos con soporte todo el mes. Pedí por WhatsApp y te atendemos personalmente.", heroChip: "Calidad garantizada" } },
+  { id: "minimal", name: "⬜ Minimal Blanco", desc: "Clara, limpia y sobria. Se lee perfecto en cualquier celular.",
+    look: { ...tlook("minimal"), layout: "minimal", heroTitle: "Streaming simple,", heroHighlight: "sin complicaciones.", heroText: "Elegí tu plan, pedí por WhatsApp y listo. Precios claros y atención de verdad.", heroChip: "Fácil y rápido" } },
+];
+/** Miniatura de una página lista: colores, letra y forma de mostrar. */
+export const templateSwatch = (t) => {
+  const L = t.look;
+  const rows = L.layout === "ticket" ? `<i class="tp-row"></i><i class="tp-row"></i><i class="tp-row"></i>` : L.layout === "vitrina" ? `<i class="tp-hero"></i><i class="tp-grid"></i>` : L.layout === "minimal" ? `<i class="tp-line"></i><i class="tp-line"></i>` : `<i class="tp-grid"></i><i class="tp-grid"></i>`;
+  return `<span class="tpsw" style="background:${L.backgroundColor};--a:${L.accentColor};--b:${L.accent2Color};color:${ensureContrast(L.accentColor, [L.backgroundColor], 3)}"><b>Aa</b>${rows}</span>`;
+};
 export const themeSwatch = (t) => {
   const L = t.look;
   return `<span class="tsw" style="background:${L.backgroundColor}"><i style="background:linear-gradient(135deg,${L.accentColor},${L.accent2Color})"></i><b style="color:${ensureContrast(L.accentColor, [L.backgroundColor], 3)}">Aa</b></span>`;

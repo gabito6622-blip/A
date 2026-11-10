@@ -2,7 +2,7 @@
 //  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
-import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -206,7 +206,7 @@ const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, 
 
 /** Productos para revendedores: se pueden comprar sin stock pagando con QR (se entregan al aprobar). */
 /** Se puede pedir aunque no haya cuentas cargadas (se paga con QR y se entrega al aprobar). */
-const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && (p.kind !== "combo" || !!p.comboParts?.length));
+const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && (!!SLUG || p.kind !== "combo" || !!p.comboParts?.length));
 const maxQty = (p) => (onDemand(p) ? 10 : p.available);
 /** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
 const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
@@ -478,7 +478,7 @@ function renderInner() {
   const V = {
     inicio: () => {
       const L = S.settings.layout || "clasico";
-      if (L === "ticket") return `${pub.length ? ticketCatalog(pub, true) : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      if (L === "ticket") return `${pub.length ? ticketCatalog(pub, true) : `<section class="tkhero"><h1>${esc(S.settings.heroTitle || S.settings.storeName || "")} <span>${esc(S.settings.heroHighlight || "")}</span></h1><p>${esc(S.settings.heroText || "")}</p></section><div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
       ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : ""}
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
       ${comboCompare(pub)}
@@ -982,6 +982,7 @@ function shopEditor() {
   const chosen = new Set(sh.products ?? []);
   const radios = (name, list, cur) => `<div class="ropts">${list.map(([v, t]) => `<label><input type="radio" name="${name}" value="${v}" ${v === cur ? "checked" : ""}><span>${t}</span></label>`).join("")}</div>`;
   const fontSel = (name, cur) => `<select name="${name}">${FONT_LIST.map(([id, n, d]) => `<option value="${id}" ${id === cur ? "selected" : ""}>${n || "Sistema"} · ${d}</option>`).join("")}</select>`;
+  const tplOn = (sh, t) => sh.layout === t.look.layout && (sh.backgroundColor || "").toLowerCase() === t.look.backgroundColor.toLowerCase() && sh.heroTitle === t.look.heroTitle;
   const color = (name, label, cur) => `<label class="rcolor">${label}<span><input type="color" name="${name}" value="${esc(cur || "#7c5cff")}"><code>${esc(cur || "")}</code></span></label>`;
   return `<div class="sec-h"><div><span class="chip">Tu marca</span><h2>Mi página</h2><p>Armá tu propia tienda con tu logo, tus colores y tus precios. Tus clientes te piden directo por WhatsApp.</p></div></div>
     ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
@@ -991,8 +992,11 @@ function shopEditor() {
       <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
     ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
 
-    <div class="sbox"><h2>1 · Elegí un estilo</h2><p class="empty" style="margin:0">Tocá uno y tu página queda armada al instante. Después cambiá lo que quieras abajo.</p>
-      <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></div>
+    <div class="sbox"><h2>1 · Elegí una página lista</h2><p class="empty" style="margin:0">Con un toque tu página queda armada: colores, letras, forma de mostrar los productos y los textos de la portada. Tu nombre, tu logo, tu WhatsApp y tus precios no cambian.</p>
+      <div class="tpgrid">${PAGE_TEMPLATES.map((t) => `<article class="tpcard${tplOn(sh, t) ? " on" : ""}">${templateSwatch(t)}<div><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div><button type="button" class="sbtn sm ${tplOn(sh, t) ? "" : "pri"}" data-tpl="${t.id}">${tplOn(sh, t) ? "✓ La estás usando" : "Usar esta"}</button></article>`).join("")}</div>
+      <details class="tponly"><summary>🎨 O cambiá solo los colores (sin tocar tus textos)</summary>
+        <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></details>
+      <p class="empty" style="margin:0">👇 <b>O armá la tuya a tu gusto</b> con todo lo de abajo: logo, portada, colores, letras y textos.</p></div>
 
     <div class="reditor">
     <form class="sbox sform" id="shopForm">
@@ -1569,6 +1573,14 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.pv) { S.data.pv = d.pv; $(".pvwrap").dataset.mode = d.pv; return; }
+  if (d.tpl) {
+    const t = PAGE_TEMPLATES.find((x) => x.id === d.tpl);
+    if (!t || !confirm(`¿Usar la página "${t.name}"? Se cambian los colores, las letras, la forma de mostrar y los textos de la portada. Tu nombre, logo, WhatsApp y precios quedan igual.`)) return;
+    el.disabled = true;
+    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Página “${t.name}” aplicada: miralá con “Abrir”`); render(); }
+    catch (e) { el.disabled = false; toast(e.message); }
+    return;
+  }
   if (d.theme) {
     const t = THEMES.find((x) => x.id === d.theme);
     el.disabled = true;
