@@ -770,15 +770,15 @@ export async function runBank(agents: Agents, getCfg: () => AiCfg, opts: { image
       return { id: c.id, texto: `${c.banco ?? "imagen"} ${c.monto ?? ""}`.trim(), resultado: `${r.verdict} (leyó ${r.amount ?? "?"} · ${r.reference ?? "?"})`, fallas: c.espera.includes(r.verdict) ? [] : [`veredicto ${r.verdict} (esperaba ${c.espera.join(" o ")})`] };
     } catch (e) { return { id: c.id, texto: c.id, resultado: "", fallas: [`error: ${(e as Error).message}`] }; }
   }) : [];
+  // Igual que en la tienda: primero las reglas; la IA solo mira los correos que las reglas no reconocen.
   const correos = await pool(MAIL_BANK.casos, async (c): Promise<BankRow> => {
     const rule = classifyRisk(c.subject, c.body);
-    const fallas = rule === c.espera ? [] : [`reglas: ${rule} (esperaba ${c.espera})`];
-    let resultado = `reglas: ${rule ?? "nada"}`;
-    if (opts.useAiForMail) {
-      try { const ai = await agents.classifyMail({ from: c.from, subject: c.subject, body: c.body }); resultado += ` · IA: ${ai}`; if ((ai === "none" ? null : ai) !== c.espera) fallas.push(`IA: ${ai} (esperaba ${c.espera ?? "none"})`); }
-      catch (e) { fallas.push(`error IA: ${(e as Error).message}`); }
+    let final: string | null = rule, resultado = rule ? `reglas: ${rule}` : "reglas: nada";
+    if (!rule && opts.useAiForMail) {
+      try { const ai = await agents.classifyMail({ from: c.from, subject: c.subject, body: c.body }); final = ai === "none" ? null : ai; resultado += ` · IA: ${ai}`; }
+      catch (e) { return { id: c.id, texto: c.subject, resultado, fallas: [`error IA: ${(e as Error).message}`] }; }
     }
-    return { id: c.id, texto: c.subject, resultado, fallas };
+    return { id: c.id, texto: c.subject, resultado, fallas: final === c.espera ? [] : [`detectó ${final ?? "nada"} (esperaba ${c.espera ?? "nada"})`] };
   });
   const sum = (l: BankRow[]) => ({ total: l.length, pasan: l.filter((x) => !x.fallas.length).length });
   return { whatsapp, comprobantes, correos, resumen: { whatsapp: sum(whatsapp), comprobantes: sum(comprobantes), correos: sum(correos) }, gastoUsd: getCfg().spentUsd };

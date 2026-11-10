@@ -21,7 +21,11 @@ Ninguno aprueba pagos, entrega cuentas, hace devoluciones ni mueve plata.
 
 ## Banco de pruebas
 
-En `test/fixtures/agentes/` hay 40 mensajes de WhatsApp (con errores de tipeo, enojos, intentos de engañar al bot), 12 comprobantes (bien, con otro monto, otro número, editados, borrosos, USDT, Yappy) y 12 correos de plataformas, cada uno con lo que tiene que pasar.
+Los casos están en `src/server/agent-bank.ts`: 40 mensajes de WhatsApp (con errores de tipeo, enojos, intentos de engañar al bot), 12 correos de plataformas y 12 comprobantes (bien, con otro monto, otro número, editados, borrosos, USDT, Yappy), cada uno con lo que tiene que pasar.
+
+**Desde el panel (recomendado):** Configuración → Oficina virtual → *🧪 Probar la oficina*. Con la clave cargada en el servidor, corre los 40 mensajes y los 12 correos contra Claude real (tope 2 dólares; con los créditos de API incluidos en el plan Max no se paga aparte), en segundo plano, y muestra qué contestó en cada caso y qué falló. No le escribe a ningún cliente. Se puede repetir con otro modelo para comparar.
+
+**Desde la terminal:**
 
 ```bash
 npm run build
@@ -29,4 +33,6 @@ node scripts/evaluar-agentes.mjs                     # simulado: gratis, prueba 
 ANTHROPIC_API_KEY=... node scripts/evaluar-agentes.mjs --real --modelo=claude-haiku-5-5 --tope=2
 ```
 
-El modo **simulado** confirma que todo está conectado y que las comparaciones del sistema (monto, número de operación, reglas de correos) son correctas; **no mide la calidad de Claude**. El modo **real** usa Claude de verdad (cuesta centavos; `--tope` corta en ese gasto) y deja `informe.md` con cada caso que falló y qué respondió. Hay que correr el modo real antes de prender los agentes para clientes, y otra vez si se cambia de modelo o de instrucciones.
+El modo simulado confirma que todo está conectado y que las comparaciones del sistema son correctas; **no mide la calidad de Claude**. El modo real también prueba los 12 comprobantes (los dibuja con Playwright, que en el servidor no está). Hay que correr la prueba real antes de prender los agentes para clientes y cada vez que se cambie de modelo o de instrucciones.
+
+**Créditos:** los planes Max, Ultra y Team de Claude traen créditos mensuales de API (Max: 100 dólares por mes) que se reclaman en claude.ai → Settings → Billing → API credits → Link organization. Esos créditos sirven para la clave de API que usa la tienda. No cubren el uso interactivo de Claude Code ni el uso extra de la app.

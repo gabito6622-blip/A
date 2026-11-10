@@ -1181,7 +1181,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "ai.selftest": "corrió la prueba de la oficina virtual", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1447,7 +1447,29 @@ async function aiCard() {
       <p class="muted" style="grid-column:1/-1;margin:0">Este mes: <b>US$ ${(a.spentUsd ?? 0).toFixed(2)}</b> en ${a.calls ?? 0} consulta(s)${a.lastError ? ` · <span class="perr">último error: ${esc(a.lastError)}</span>` : ""}.
         Para empezar barato elegí <b>Haiku 5.5</b>: con ~500 mensajes por día suele quedar en pocos dólares por mes. Opus es el más capaz y el más caro.</p>
       <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit" ${a.hasKey ? "" : "disabled"}>Guardar</button>${a.hasKey && a.enabled.daily ? `<button class="pbtn" type="button" id="aiDailyNow">📋 Armar el reporte ahora</button>` : ""}</div>
-    </form></section>`;
+    </form>
+    ${a.hasKey ? await selfTestBox(a) : ""}</section>`;
+}
+
+/* Probar la oficina: banco de pruebas con Claude real, antes de prender los agentes. */
+async function selfTestBox(a) {
+  const st = await api("GET", "/api/admin/ai/selftest").catch(() => null);
+  const mname = (id) => a.models.find((m) => m.id === id)?.label ?? id;
+  let res = "";
+  if (st?.status === "running") res = `<p class="pok" style="margin:0">⏳ Probando con ${esc(mname(st.model))}… tarda 1 o 2 minutos. <button class="pbtn sm" type="button" data-go="configuracion">Actualizar</button></p>`;
+  else if (st?.status === "error") res = `<p class="perr" style="margin:0">La prueba falló: ${esc(st.error ?? "")}</p>`;
+  else if (st?.status === "done" && st.result) {
+    const r = st.result, row = (k, t) => `<div class="stk"><b>${r.resumen[k].pasan}/${r.resumen[k].total}</b><small>${t}</small></div>`;
+    const bad = [...r.whatsapp, ...r.correos].filter((x) => x.fallas.length);
+    res = `<p style="margin:0">Última prueba: <b>${esc(mname(st.model))}</b> · ${fdt(st.endedAt)} · costó ~US$ ${(r.gastoUsd ?? 0).toFixed(3)}</p>
+      <div class="stkpis">${row("whatsapp", "mensajes de WhatsApp bien")}${row("correos", "correos bien")}</div>
+      ${bad.length ? `<details class="tg-help"><summary>Ver los ${bad.length} caso(s) con fallas</summary><div class="stlist">${bad.map((x) => `<div class="strow"><b>${esc(x.texto)}</b><small class="perr">${esc(x.fallas.join(" · "))}</small>${x.resultado ? `<small class="muted">Respondió: ${esc(x.resultado)}</small>` : ""}</div>`).join("")}</div></details>` : `<p class="pok" style="margin:0">✅ Pasó todo.</p>`}`;
+  }
+  return `<div class="selftest"><h3 style="margin:14px 0 4px;font-size:15px">🧪 Probar la oficina</h3>
+    <p class="muted" style="margin:0 0 8px">Antes de prenderlos para tus clientes: le manda a Claude 40 mensajes de WhatsApp de prueba (precios, accesos, clientes enojados, intentos de engaño) y 12 correos de plataformas, y te muestra qué contestó y qué falló. Gasta centavos de tus créditos (tope 2 dólares). No le escribe a ningún cliente.</p>
+    <form class="inline" id="selfTestForm" style="flex-wrap:wrap"><label>Modelo<select name="model">${a.models.map((m) => opt(m.id, m.label, m.id === "claude-haiku-5-5")).join("")}</select></label>
+      <button class="pbtn dark" type="submit" ${st?.status === "running" ? "disabled" : ""}>🧪 Correr la prueba</button></form>
+    ${res}</div>`;
 }
 
 /* ---------------- Ganancia por producto ---------------- */
@@ -2491,6 +2513,8 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "selfTestForm") {
+      await act(() => api("POST", "/api/admin/ai/selftest", { model: f.model.value }), "🧪 Prueba en marcha: tarda 1 o 2 minutos. Tocá Actualizar.");
     } else if (f.id === "askForm") {
       const out = $("#askOut"), q = f.q.value.trim(); if (!q) return;
       const b = f.querySelector("button"); b.disabled = true; out.textContent = "Pensando…";

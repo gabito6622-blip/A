@@ -20,6 +20,7 @@ import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMess
 import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
 import { sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
 import { AGENT_KINDS, AI_MODELS, Agents, AiError, defaultAiCfg, type AgentKind, type AiCfg, type ReceiptCheck } from "./agents.js";
+import { runBank, type BankResult } from "./agent-bank.js";
 import { localHour } from "../store/orders.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
@@ -1332,6 +1333,36 @@ export function createApp(cfg: AppConfig): App {
     if (!askLimiter.take(A(c).id)) throw new HttpError(429, "RATE_LIMIT", "Muchas preguntas seguidas: probá en un rato");
     try { return { answer: await agents.ownerAnswer(ownerSnapshot(), q) }; }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
+  });
+  // Probar la oficina: corre el banco de pruebas con Claude real (con la clave del servidor), en segundo plano.
+  type SelfTest = { status: "running" | "done" | "error"; model: string; startedAt: number; endedAt?: number; result?: BankResult; error?: string };
+  const selfTestGet = (): SelfTest | null => { try { return JSON.parse(db.getSecret("ai_selftest") ?? "null"); } catch { return null; } };
+  let selfTestRunning = false;
+  route("GET", "/api/admin/ai/selftest", "staff", () => selfTestGet());
+  route("POST", "/api/admin/ai/selftest", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño corre la prueba");
+    if (!agents.hasKey) throw new HttpError(409, "AI_OFF", "Falta la clave de Claude en el servidor (ANTHROPIC_API_KEY)");
+    if (selfTestRunning) throw new HttpError(409, "BUSY", "Ya hay una prueba corriendo");
+    const model = String(c.body?.model ?? agents.cfg().model);
+    if (!AI_MODELS[model]) throw new HttpError(400, "VALIDATION", "Modelo desconocido");
+    const real = agents.cfg();
+    if (real.spentUsd >= real.monthlyLimitUsd) throw new HttpError(409, "AI_LIMIT", "Ya se llegó al tope de gasto de este mes");
+    // Agentes de prueba: todos prendidos, tope propio de 2 dólares; lo gastado se suma al mes real.
+    let tcfg: AiCfg = { ...defaultAiCfg(agents.monthKey()), enabled: { receipts: true, whatsapp: true, daily: true, watch: true }, model, monthlyLimitUsd: Math.min(2, real.monthlyLimitUsd - real.spentUsd) };
+    const tester = new Agents({ apiKey: cfg.anthropicApiKey, fetchImpl: cfg.anthropicFetch, now, getCfg: () => tcfg, saveCfg: (x) => { tcfg = x; } });
+    const st: SelfTest = { status: "running", model, startedAt: now() };
+    db.setSecret("ai_selftest", JSON.stringify(st), now());
+    selfTestRunning = true;
+    store.engine.tx(() => store.engine.audit(A(c), "ai.selftest", "settings", "ai", { model }));
+    runBank(tester, () => tcfg, { concurrency: 4, useAiForMail: true })
+      .then((result) => db.setSecret("ai_selftest", JSON.stringify({ ...st, status: "done", endedAt: now(), result }), now()))
+      .catch((e) => db.setSecret("ai_selftest", JSON.stringify({ ...st, status: "error", endedAt: now(), error: (e as Error).message.slice(0, 300) }), now()))
+      .finally(() => {
+        selfTestRunning = false;
+        const cur = agents.cfg();
+        aiSave({ ...cur, spentUsd: Math.round((cur.spentUsd + tcfg.spentUsd) * 10_000) / 10_000, calls: cur.calls + tcfg.calls });
+      });
+    return st;
   });
   route("POST", "/api/admin/ai/daily", "staff", async (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño pide el reporte");

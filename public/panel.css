@@ -932,3 +932,11 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
 .alertrow.sev{border-left:5px solid var(--bad)}
 .askcard #askOut{margin:10px 0 4px}
 .askcard #askOut:empty{display:none}
+
+/* Probar la oficina */
+.selftest{display:grid;gap:8px;border-top:1px solid var(--line);margin-top:6px;padding-top:4px}
+.stkpis{display:flex;flex-wrap:wrap;gap:10px}
+.stk{display:grid;padding:10px 14px;border-radius:12px;background:var(--soft);border:1px solid var(--line);min-width:140px}
+.stk b{font-size:20px}
+.stlist{display:grid;gap:8px;margin-top:8px}
+.strow{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--soft);overflow-wrap:anywhere}

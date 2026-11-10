@@ -1,44 +1,31 @@
-// Banco de pruebas de la oficina virtual: corre los casos de test/fixtures/agentes/ y dice cuáles pasan.
+// Banco de pruebas de la oficina virtual (los casos están en src/server/agent-bank.ts; el panel tiene el
+// mismo banco en el botón "Probar la oficina").
 //
-// Modo simulado (por defecto, gratis): una "API de Claude" falsa responde lo esperado. Sirve para probar
-// que todo está bien conectado y que las comparaciones del sistema (monto, número de operación, reglas
-// de correos) funcionan. NO mide qué tan bien responde Claude.
+// Modo simulado (por defecto, gratis): una "API de Claude" falsa responde lo esperado. Prueba que todo está
+// bien conectado y que las comparaciones del sistema (monto, número de operación, reglas de correos) andan.
+// NO mide qué tan bien responde Claude.
 //
-// Modo real (cuesta centavos): usa Claude de verdad con tu clave.
+// Modo real (cuesta centavos): usa Claude de verdad con tu clave, y también prueba los 12 comprobantes
+// (los dibuja como imagen con Playwright).
 //   ANTHROPIC_API_KEY=... node scripts/evaluar-agentes.mjs --real --modelo=claude-haiku-5-5 --tope=2
-// Opciones: --solo=whatsapp|comprobantes|correos  --salida=carpeta  --modelo=<id>  --tope=<US$ máximo>
-// Deja informe.md e informe.json en la carpeta de salida (por defecto ./evaluacion-agentes).
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+// Opciones: --salida=carpeta  --modelo=<id>  --tope=<US$ máximo>
+import { writeFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FIX = join(HERE, "..", "test", "fixtures", "agentes");
-const load = (f) => JSON.parse(readFileSync(join(FIX, f), "utf8"));
+const dist = (p) => import(pathToFileURL(join(HERE, "..", "dist", "server", p)).href);
 
-/** Lo que el comprobante "dice" (para la API simulada y para dibujarlo). */
-export function receiptFacts(c) {
-  const m = /([\d.,]+)/.exec(c.monto ?? "");
-  const amount = c.borroso || !m ? null : Number(m[1].replace(/\.(?=\d{3}\b)/g, "").replace(",", "."));
-  return {
-    is_payment_proof: !c.noComprobante, amount: c.noComprobante ? null : amount,
-    currency: c.noComprobante ? null : c.usdt ? "USDT" : /\$/.test(c.monto ?? "") ? "US$" : "Bs",
-    reference: c.noComprobante ? null : c.ref, date: c.fecha ?? null, recipient: c.destino ?? null,
-    looks_edited: !!c.editado, notes: "",
-  };
-}
-
-/** Dibuja un comprobante de prueba como imagen PNG (con Playwright, que viene en el entorno). */
+/** Dibuja los comprobantes de prueba como PNG (Playwright viene en el entorno). */
 async function renderReceipts(casos) {
-  const require = createRequire(import.meta.url);
-  const { chromium } = require("playwright");
+  const { chromium } = createRequire(import.meta.url)("playwright");
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 420, height: 620 } });
   const out = {};
   for (const c of casos) {
     const html = c.noComprobante
-      ? `<div style="font:20px sans-serif;padding:40px;background:#fde;height:540px"><h1>¡Promo Netflix!</h1><p>Captura de una publicación de Facebook con un meme de una película.</p></div>`
+      ? `<div style="font:20px sans-serif;padding:40px;background:#fde;height:540px"><h1>¡Promo Netflix!</h1><p>Captura de una publicación con un meme de una película.</p></div>`
       : `<div style="font:16px Arial;padding:28px;background:#fff;color:#123;height:560px;${c.borroso ? "filter:blur(3px)" : ""}">
           <div style="background:#0a5;color:#fff;padding:14px;border-radius:10px;font-weight:700">${c.banco} · Transferencia exitosa</div>
           <p style="margin-top:24px;color:#555">Monto</p><p style="font-size:34px;font-weight:800;margin:0;${c.editado ? "font-family:'Times New Roman';color:#333;transform:translateY(5px) rotate(-1.5deg);letter-spacing:3px" : ""}">${c.monto}</p>
@@ -52,80 +39,43 @@ async function renderReceipts(casos) {
   return out;
 }
 
-const norm = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-/** Corrige un caso de WhatsApp contra lo esperado. Devuelve la lista de fallas (vacía = pasó). */
-export function gradeWhatsapp(espera, r) {
-  const fails = [];
-  if (espera.handoff !== undefined && r.handoff !== espera.handoff) fails.push(`pase a persona: ${r.handoff} (esperaba ${espera.handoff})`);
-  if (espera.accion && !espera.accion.includes(r.action)) fails.push(`acción: ${r.action} (esperaba ${espera.accion.join(" o ")})`);
-  for (const m of espera.mencionar ?? []) if (!norm(r.reply).includes(norm(m))) fails.push(`no menciona "${m}"`);
-  for (const re of espera.no ?? []) if (new RegExp(re, "i").test(r.reply)) fails.push(`dice algo prohibido (/${re}/)`);
-  return fails;
-}
-
-/** Corre el banco. `real` usa Claude de verdad (necesita apiKey). */
-export async function run({ real = false, apiKey, model = "claude-haiku-5-5", limitUsd = 2, only, render = true } = {}) {
-  const { Agents, defaultAiCfg } = await import(pathToFileURL(join(HERE, "..", "dist", "server", "agents.js")).href);
-  const { classifyRisk } = await import(pathToFileURL(join(HERE, "..", "dist", "store", "watch.js")).href);
-  const wa = load("whatsapp.json"), mails = load("correos.json"), rec = load("comprobantes.json");
-  // API simulada: responde lo esperado para cada caso (así se prueba la conexión y las comparaciones).
-  let oracle = () => ({});
+/** Corre el banco. `real` usa Claude de verdad (necesita apiKey). `render` dibuja los comprobantes. */
+export async function run({ real = false, apiKey, model = "claude-haiku-5-5", limitUsd = 2, render = true } = {}) {
+  const { Agents, defaultAiCfg } = await dist("agents.js");
+  const { runBank, receiptFacts, WA_BANK, RECEIPT_BANK } = await dist("agent-bank.js");
+  // API simulada: responde lo esperado de cada caso (prueba conexiones y comparaciones, no la calidad).
   const fakeFetch = async (_url, init) => {
     const body = JSON.parse(init.body);
-    return new Response(JSON.stringify({ id: "msg_sim", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(oracle(body)) }],
+    const props = Object.keys(body.output_config?.format?.schema?.properties ?? {});
+    const content = body.messages[0].content;
+    const user = typeof content === "string" ? content : content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+    let out = {};
+    if (props.includes("is_payment_proof")) { const c = RECEIPT_BANK.casos.find((x) => user.includes(`"${x.pedido.ref}"`) && user.includes(x.banco ?? "QR")); out = c ? receiptFacts(c) : {}; }
+    else if (props.includes("risk")) out = { risk: "none" };
+    else {
+      const c = [...WA_BANK.casos].sort((a, b) => b.mensaje.length - a.mensaje.length).find((x) => user.endsWith(x.mensaje));
+      out = { reply: `${(c?.espera.mencionar ?? []).join(" ")} Escribí *menu* para ver opciones.`, handoff: c?.espera.handoff ?? false, action: c?.espera.accion?.[0] ?? "none" };
+    }
+    return new Response(JSON.stringify({ id: "msg_sim", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(out) }],
       stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { status: 200, headers: { "content-type": "application/json" } });
   };
-  let cfg = { ...defaultAiCfg("x"), month: "x", model, monthlyLimitUsd: limitUsd, enabled: { receipts: true, whatsapp: true, daily: true, watch: true } };
-  const agents = new Agents({ apiKey: real ? apiKey : "sk-ant-simulada", fetchImpl: real ? undefined : fakeFetch, now: () => Date.now(),
-    getCfg: () => cfg, saveCfg: (c) => { cfg = c; } });
+  let cfg = { ...defaultAiCfg("x"), model, monthlyLimitUsd: limitUsd, enabled: { receipts: true, whatsapp: true, daily: true, watch: true } };
+  const agents = new Agents({ apiKey: real ? apiKey : "sk-ant-simulada", fetchImpl: real ? undefined : fakeFetch, now: () => Date.now(), getCfg: () => cfg, saveCfg: (c) => { cfg = c; } });
   cfg.month = agents.monthKey();
-  const results = { modo: real ? "real" : "simulado", modelo: model, whatsapp: [], comprobantes: [], correos: [] };
-
-  if (!only || only === "whatsapp") {
-    for (const c of wa.casos) {
-      oracle = () => ({ reply: `${(c.espera.mencionar ?? []).join(" ")} Escribí *menu* para ver opciones.`, handoff: c.espera.handoff ?? false, action: c.espera.accion?.[0] ?? "none" });
-      try {
-        const r = await agents.whatsappReply({ storeContext: wa.tienda, customerContext: wa.clientes[c.cliente] ?? undefined, history: [], message: c.mensaje });
-        results.whatsapp.push({ id: c.id, mensaje: c.mensaje, respuesta: r.reply, handoff: r.handoff, accion: r.action, fallas: gradeWhatsapp(c.espera, r) });
-      } catch (e) { results.whatsapp.push({ id: c.id, mensaje: c.mensaje, fallas: [`error: ${e.message}`] }); }
-    }
-  }
-  if (!only || only === "comprobantes") {
-    const imgs = render ? await renderReceipts(rec.casos) : {};
-    for (const c of rec.casos) {
-      oracle = () => receiptFacts(c);
-      try {
-        const r = await agents.reviewReceipt({ file: imgs[c.id] ?? Buffer.from("x"), mime: "image/png", expectedTotal: c.usdt ? null : c.pedido.total,
-          currencySymbol: "Bs", declaredReference: c.pedido.ref, methodName: c.banco ?? "QR" });
-        results.comprobantes.push({ id: c.id, veredicto: r.verdict, leido: { monto: r.amount, ref: r.reference }, fallas: c.espera.includes(r.verdict) ? [] : [`veredicto ${r.verdict} (esperaba ${c.espera.join(" o ")})`] });
-      } catch (e) { results.comprobantes.push({ id: c.id, fallas: [`error: ${e.message}`] }); }
-    }
-  }
-  if (!only || only === "correos") {
-    for (const c of mails.casos) {
-      const rule = classifyRisk(c.subject, c.body);
-      const row = { id: c.id, asunto: c.subject, reglas: rule, fallas: rule === c.espera ? [] : [`reglas: ${rule} (esperaba ${c.espera})`] };
-      if (real) { // en modo real también se mide la IA como respaldo de las reglas
-        try { const ai = await agents.classifyMail({ from: c.from, subject: c.subject, body: c.body }); row.ia = ai; if ((ai === "none" ? null : ai) !== c.espera) row.fallasIA = [`IA: ${ai} (esperaba ${c.espera ?? "none"})`]; }
-        catch (e) { row.fallasIA = [`error IA: ${e.message}`]; }
-      }
-      results.correos.push(row);
-    }
-  }
-  const sum = (l) => ({ total: l.length, pasan: l.filter((x) => !x.fallas.length).length });
-  results.resumen = { whatsapp: sum(results.whatsapp), comprobantes: sum(results.comprobantes), correos: sum(results.correos), gastoUsd: cfg.spentUsd };
-  return results;
+  const images = real && render ? await renderReceipts(RECEIPT_BANK.casos) : Object.fromEntries(RECEIPT_BANK.casos.map((c) => [c.id, Buffer.from("x")]));
+  const r = await runBank(agents, () => cfg, { images, concurrency: real ? 4 : 1, useAiForMail: real });
+  return { modo: real ? "real" : "simulado", modelo: model, ...r };
 }
 
 function informe(r) {
   const t = (s) => `${s.pasan}/${s.total}`;
-  const lines = [`# Banco de pruebas de la oficina virtual`, ``, `Modo: **${r.modo}**${r.modo === "real" ? ` · modelo ${r.modelo} · gasto aprox. US$ ${r.resumen.gastoUsd.toFixed(4)}` : " (no mide la calidad de Claude: prueba conexiones y comparaciones)"}`, ``,
-    `| Banco | Pasan |`, `|---|---|`, `| WhatsApp | ${t(r.resumen.whatsapp)} |`, `| Comprobantes | ${t(r.resumen.comprobantes)} |`, `| Correos (reglas) | ${t(r.resumen.correos)} |`, ``];
+  const lines = [`# Banco de pruebas de la oficina virtual`, ``, `Modo: **${r.modo}**${r.modo === "real" ? ` · modelo ${r.modelo} · gasto aprox. US$ ${r.gastoUsd.toFixed(4)}` : " (no mide la calidad de Claude: prueba conexiones y comparaciones)"}`, ``,
+    `| Banco | Pasan |`, `|---|---|`, `| WhatsApp | ${t(r.resumen.whatsapp)} |`, `| Comprobantes | ${t(r.resumen.comprobantes)} |`, `| Correos | ${t(r.resumen.correos)} |`, ``];
   for (const [k, l] of [["WhatsApp", r.whatsapp], ["Comprobantes", r.comprobantes], ["Correos", r.correos]]) {
-    const bad = l.filter((x) => x.fallas.length || x.fallasIA?.length);
+    const bad = l.filter((x) => x.fallas.length);
     if (!bad.length) continue;
     lines.push(`## ${k}: casos con fallas`, "");
-    for (const x of bad) lines.push(`- **${x.id}**${x.mensaje ? ` — "${x.mensaje}"` : ""}: ${[...x.fallas, ...(x.fallasIA ?? [])].join("; ")}${x.respuesta ? `\n  - Respondió: ${x.respuesta.replace(/\n/g, " ")}` : ""}`);
+    for (const x of bad) lines.push(`- **${x.id}** — "${x.texto}": ${x.fallas.join("; ")}${x.resultado ? `\n  - Resultado: ${x.resultado.replace(/\n/g, " ")}` : ""}`);
     lines.push("");
   }
   return lines.join("\n");
@@ -135,7 +85,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1] ?? d);
   const real = process.argv.includes("--real");
   if (real && !process.env.ANTHROPIC_API_KEY) { console.error("Para el modo real hace falta ANTHROPIC_API_KEY."); process.exit(2); }
-  const r = await run({ real, apiKey: process.env.ANTHROPIC_API_KEY, model: arg("modelo", "claude-haiku-5-5"), limitUsd: Number(arg("tope", "2")), only: arg("solo", undefined) });
+  const r = await run({ real, apiKey: process.env.ANTHROPIC_API_KEY, model: arg("modelo", "claude-haiku-5-5"), limitUsd: Number(arg("tope", "2")) });
   const dir = arg("salida", "evaluacion-agentes");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "informe.json"), JSON.stringify(r, null, 1));
