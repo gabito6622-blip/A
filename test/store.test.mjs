@@ -413,6 +413,28 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.equal(s.shops.chargeRents(system).free, 1, "compró lo suficiente: mes gratis");
   });
 
+  test("alquiler: no se cobra con las páginas apagadas, no se juntan meses y el directorio no lista páginas apagadas", () => {
+    const { s, clock, carla, as } = setup();
+    s.shops.setupFor(admin, carla.id, { slug: "carla", enabled: true });
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.catalog.updateSettings(owner, { shopRent: { enabled: true, price: 3000, freeIfSpent: 0, graceDays: 2 }, resellerShops: false });
+    assert.equal(s.shops.chargeRents(system).started, 0, "páginas apagadas para todos: no cobra");
+    assert.equal(s.wallet.balance(carla.id), 10000);
+    s.catalog.updateSettings(owner, { resellerShops: true });
+    assert.equal(s.shops.chargeRents(system).started, 1);
+    assert.equal(s.wallet.balance(carla.id), 7000, "cobra un mes");
+    assert.throws(() => s.shops.payRent(as(carla)), err("VALIDATION", /ya está pagada/), "no se paga (ni se junta gratis) un mes que no toca");
+    clock.t += 26 * DAY;
+    s.shops.payRent(as(carla));
+    assert.equal(s.wallet.balance(carla.id), 4000, "faltando 5 días o menos, sí se paga por adelantado");
+    clock.t += 70 * DAY;
+    s.wallet.adjust(owner, carla.id, -4000, "vaciar");
+    s.shops.chargeRents(system);
+    clock.t += 3 * DAY;
+    s.shops.chargeRents(system);
+    assert.equal(s.shops.program().shops.length, 0, "apagada por falta de pago: no aparece en el directorio");
+  });
+
   test("el revendedor arma sus propios combos y pone sus descuentos (independientes del dueño)", () => {
     const { s, carla, as } = setup();
     s.shops.setupFor(admin, carla.id, { slug: "carla", enabled: true });
@@ -755,7 +777,7 @@ describe("9. Importar servicios existentes", () => {
     const { s } = setup();
     const before = JSON.stringify(s.snapshot());
     const r = s.inventory.importServices(admin, [row(2), row(3, { customerName: "Beto", phone: "+59170044455", profile: "Perfil 2" })], { dryRun: true });
-    assert.deepEqual(r.summary, { ok: 2, errores: 0, clientesNuevos: 2, cuentasNuevas: 1, perfilesNuevos: 2, avisos: 0 });
+    assert.deepEqual(r.summary, { ok: 2, errores: 0, clientesNuevos: 2, cuentasNuevas: 1, perfilesNuevos: 2, revendedores: 0, avisos: 0 });
     assert.equal(JSON.stringify(s.snapshot()), before, "nada cambió");
   });
 

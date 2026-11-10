@@ -12,7 +12,7 @@ import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { createCustomer, normalizePhone, upsertSupplier } from "./catalog.js";
+import { createCustomer, ensureResellerGroup, normalizePhone, upsertSupplier } from "./catalog.js";
 import { addAccount, addSlot, ensurePropias } from "./inventory.js";
 
 export interface ServiceRow {
@@ -28,6 +28,13 @@ export interface ServiceRow {
   supplierExpiresAt?: number;
   supplier?: string;
   cost?: Cents;
+  /** "reseller" = el cliente es revendedor (columna Tipo). */
+  kind?: "reseller" | "customer";
+  /** Lo que le cobrás por período (columna Precio), para el Control de alquileres. */
+  price?: Cents;
+  /** Columnas Revendedor y Nota del Control. */
+  seller?: string;
+  note?: string;
 }
 
 export interface ServiceResult {
@@ -79,7 +86,7 @@ export function importServices(e: Engine, actor: Actor, rows: ServiceRow[], opts
     summary: {
       ok: results.filter((x) => x.status === "ok").length,
       errores: results.filter((x) => x.status === "error").length,
-      clientesNuevos: count("cliente"), cuentasNuevas: count("cuenta"), perfilesNuevos: count("perfil"),
+      clientesNuevos: count("cliente"), cuentasNuevas: count("cuenta"), perfilesNuevos: count("perfil"), revendedores: count("revendedor"),
       avisos: results.reduce((s, x) => s + x.warnings.length, 0),
     },
     rows: results,
@@ -108,6 +115,18 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
     res.warnings.push(`El teléfono ya es de "${customer.name}"; se le asigna a ese cliente`);
   }
   res.customer = customer.name;
+  // Tipo: "revendedor" lo pasa a revendedor (con su lista de precios). Nunca baja a un revendedor a cliente.
+  if (r.kind === "reseller" && customer.kind !== "reseller") {
+    if (customer.resellerId) res.warnings.push("Es cliente de un revendedor: no se puede pasar a revendedor");
+    else {
+      customer.kind = "reseller";
+      customer.priceGroupId = "revendedor";
+      ensureResellerGroup(e, "revendedor");
+      res.created.push("revendedor");
+    }
+  } else if (r.kind === "customer" && customer.kind === "reseller") {
+    res.warnings.push(`"${customer.name}" ya es revendedor: se deja como revendedor`);
+  }
 
   // Cuenta: por email y producto; si no existe, se crea con este perfil.
   const email = r.email.trim().toLowerCase();
@@ -165,6 +184,8 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
     startsAt: now, customerExpiresAt: r.customerExpiresAt, status: "active", ...(r.customerExpiresAt < now ? { holdOpen: true } : {}),
     history: [{ at: now, by: actor.id, event: "assigned", slotId: slot.id, note: `importado (fila ${r.row})` }],
   };
+  const control = { ...(r.price !== undefined ? { price: r.price } : {}), ...(r.seller ? { seller: r.seller.slice(0, 60) } : {}), ...(r.note ? { note: r.note.slice(0, 200) } : {}) };
+  if (Object.keys(control).length) a.control = control;
   order.assignmentIds.push(a.id);
   e.s.orders[order.id] = order;
   e.s.assignments[a.id] = a;

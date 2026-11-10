@@ -53,8 +53,10 @@ function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "
 export function chargeShopRents(e: Engine, actor: Actor) {
   const r = rentCfg(e);
   const now = e.now();
-  const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked);
-  const due = r.enabled ? shops.filter((c) => (c.shop!.paidUntil ?? 0) <= now) : shops.filter((c) => c.shop!.suspended);
+  const shopsOn = e.s.settings.resellerShops !== false;
+  const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked && pageAllowed(e, c));
+  // Con las páginas apagadas para todos no se cobra a nadie (no tendría sentido: nadie ve su página).
+  const due = r.enabled && shopsOn ? shops.filter((c) => (c.shop!.paidUntil ?? 0) <= now) : r.enabled ? [] : shops.filter((c) => c.shop!.suspended);
   const out = { charged: 0, free: 0, suspended: 0, started: 0 };
   if (!due.length) return out;
   e.tx(() => {
@@ -86,6 +88,10 @@ export function payMyShopRent(e: Engine, actor: Actor) {
   const c = me(e, actor);
   if (!rentCfg(e).enabled) throw new DomainError("VALIDATION", "Tu página no tiene alquiler");
   if (!c.shop) throw new DomainError("VALIDATION", "Primero armá tu página");
+  const until = c.shop.paidUntil;
+  if (until !== undefined && !c.shop.suspended && until - e.now() > 5 * DAY) {
+    throw new DomainError("VALIDATION", `Tu página ya está pagada hasta el ${new Date(until).toLocaleDateString("es-BO", { timeZone: "America/La_Paz" })}`);
+  }
   return e.tx(() => {
     const res = renewRent(e, actor, c);
     if (res === "no_balance") throw new DomainError("INSUFFICIENT_BALANCE", `Te falta saldo: el mes cuesta ${(rentCfg(e).price / 100).toFixed(0)} Bs`);
@@ -453,7 +459,7 @@ export function programInfo(e: Engine) {
   const showPrices = st.resellerProgramPrices !== false && !!group;
   const shopsOn = st.resellerShops !== false;
   const shops = shopsOn ? Object.values(e.s.customers)
-    .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked)
+    .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked && !c.shop.suspended && pageAllowed(e, c))
     .sort((a, b) => Number(!!b.shop!.featured) - Number(!!a.shop!.featured))
     .slice(0, 60)
     .map((c) => {
