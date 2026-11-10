@@ -116,7 +116,7 @@ export const TOOLS: ToolDef[] = [
     run: async (c, auth) => {
       const r = (await c.query(
         `SELECT b.id, b.number, p.first_name AS first, p.record_number AS ficha, br.name AS branch, b.presented_at,
-                COALESCE((SELECT sum(unit_price_cents*quantity-discount_cents) FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled'),0) AS total
+                COALESCE((SELECT sum(net_cents) FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled'),0) AS total
            FROM budgets b JOIN patients p ON p.id = b.patient_id JOIN branches br ON br.id = b.branch_id
           WHERE b.status = 'presented' AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1)) ORDER BY b.presented_at`, [allowedBranches(auth)])).rows;
       const rows = r.map((x) => ({ numero: x.number, paciente: `${x.first} (ficha ${x.ficha})`, sucursal: x.branch, monto: bs(Number(x.total)), diasEsperando: Math.floor((Date.now() - +new Date(x.presented_at)) / 86_400_000), budgetId: x.id }));

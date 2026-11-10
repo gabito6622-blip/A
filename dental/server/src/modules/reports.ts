@@ -78,15 +78,14 @@ export async function dashboardData(c: Client, auth: AuthCtx, fromISO?: string, 
   if (financial) {
     const rec = (await c.query<{ receivable: number; patients: number }>(
       `SELECT COALESCE(sum(bal),0) AS receivable, count(*)::int AS patients FROM (
-         SELECT p.id, COALESCE((SELECT sum(amount_cents) FROM charges WHERE patient_id = p.id),0)
-                    - COALESCE((SELECT sum(amount_cents) FROM payments WHERE patient_id = p.id AND status = 'confirmed'),0) AS bal
+         SELECT p.id, (SELECT balance_cents FROM patient_money(p.id)) AS bal
            FROM patients p) t WHERE bal > 0`)).rows[0]!;
     const bud = (await c.query(
       `SELECT count(*) FILTER (WHERE status = 'presented')::int AS presented_open,
               COALESCE(sum(t.total) FILTER (WHERE status = 'presented'),0) AS presented_open_cents,
               count(*) FILTER (WHERE status IN ('accepted','completed') AND decided_at >= $1 AND decided_at < $2)::int AS accepted,
               count(*) FILTER (WHERE status = 'rejected' AND decided_at >= $1 AND decided_at < $2)::int AS rejected
-         FROM budgets b CROSS JOIN LATERAL (SELECT COALESCE(sum(unit_price_cents*quantity-discount_cents),0) AS total FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled') t
+         FROM budgets b CROSS JOIN LATERAL (SELECT COALESCE(sum(net_cents),0) AS total FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled') t
         WHERE ($3::uuid[] IS NULL OR b.branch_id = ANY($3))`, params)).rows[0];
     const decided = bud.accepted + bud.rejected;
     finance = {
@@ -163,10 +162,8 @@ export function reportRoutes(route: Route) {
         await c.query(
           `SELECT * FROM (
              SELECT p.id AS "patientId", p.first_name || ' ' || p.last_name AS name, p.phone,
-                    COALESCE((SELECT sum(amount_cents) FROM charges WHERE patient_id = p.id),0)
-                  - COALESCE((SELECT sum(amount_cents) FROM payments WHERE patient_id = p.id AND status = 'confirmed'),0) AS "balanceCents",
-                    (SELECT max(received_at) FROM payments WHERE patient_id = p.id AND status = 'confirmed') AS "lastPaymentAt"
-               FROM patients p) t WHERE "balanceCents" > 0 ORDER BY "balanceCents" DESC LIMIT 500`,
+                    m.balance_cents AS "balanceCents", m.last_payment_at AS "lastPaymentAt"
+               FROM patients p CROSS JOIN LATERAL patient_money(p.id) m) t WHERE "balanceCents" > 0 ORDER BY "balanceCents" DESC LIMIT 500`,
         )
       ).rows,
   });

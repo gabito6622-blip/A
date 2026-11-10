@@ -15,10 +15,12 @@ import { SettingsPage } from "./pages/Settings";
 import { AssistantPage } from "./pages/Assistant";
 import { PlatformPage } from "./pages/Platform";
 import { Loading } from "./components/ui";
+import { PublicBudgetPage } from "./pages/PublicBudget";
 
 export function App() {
   const { me, loading } = useAuth();
   if (window.location.pathname === "/restablecer") return <ResetPasswordPage />;
+  if (window.location.pathname.startsWith("/p/presupuesto/")) return <PublicBudgetPage />;
   if (loading) return <Loading rows={6} />;
   if (!me) return <LoginPage />;
   if (me.mfaPending) return <MfaVerifyPage />;

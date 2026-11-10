@@ -42,5 +42,11 @@ export const age = (birth: string | null) => {
   return a;
 };
 
-export const parseBs = (s: string) => Math.round(parseFloat(s.replace(/\./g, "").replace(",", ".")) * 100);
-export const toBsInput = (cents: number) => (cents / 100).toFixed(2);
+/** "1.250,50" → 125050; también acepta "60.5" o "60.50" (punto decimal con 1-2 decimales). */
+export const parseBs = (s: string) => {
+  const t = String(s).trim();
+  const norm = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : /^\d+\.\d{1,2}$/.test(t) ? t : t.replace(/\./g, "");
+  return Math.round(parseFloat(norm) * 100);
+};
+/** Centavos → texto para un campo editable ("60,00"), que parseBs vuelve a leer igual. */
+export const toBsInput = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");

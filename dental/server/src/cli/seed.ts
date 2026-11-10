@@ -9,6 +9,7 @@ import { hashPassword } from "../lib/password.js";
 import { seedCatalog } from "../lib/catalog.js";
 import { normalize } from "../lib/text.js";
 import { seedConsentTemplates } from "../modules/consents.js";
+import { seedBudgetsV2 } from "../modules/budgets-v2-seed.js";
 
 const cfg = loadConfig();
 if (cfg.isProduction && process.env.SEED_ALLOW !== "1") {
@@ -194,6 +195,7 @@ try {
     }
   }
   await q("INSERT INTO counters (clinic_id, name, value) VALUES ($1,'budget',$2), ($1,'receipt',$3)", [clinicId, budgetNo, receipt]);
+  await seedBudgetsV2(db.adminPool, clinicId);
   console.log(`Clínica demo creada: 5 sucursales, ${dentists.length} odontólogos, 90 pacientes ficticios, ${created} citas, ${budgetNo} presupuestos.`);
   console.log(`Usuarios (contraseña "${PASSWORD}"): propietaria@demo.local, gerente@demo.local, contabilidad@demo.local, recepcion.lpz@demo.local, dr.mendoza@demo.local, superadmin@demo.local`);
 } finally {
