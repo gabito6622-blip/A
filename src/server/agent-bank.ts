@@ -363,7 +363,6 @@ export const WA_BANK: { tienda: string; clientes: Record<string, string | null>;
    "cliente": "revendedor",
    "mensaje": "se me acabo el saldo como recargo",
    "espera": {
-    "handoff": false,
     "mencionar": [
      "recarg"
     ]
