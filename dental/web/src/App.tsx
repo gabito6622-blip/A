@@ -10,6 +10,8 @@ import { PatientsPage } from "./pages/Patients";
 import { PatientDetailPage } from "./pages/PatientDetail";
 import { BudgetsPage } from "./pages/Budgets";
 import { CashPage } from "./pages/Cash";
+import { CashSessionReportPage } from "./pages/CashSessions";
+import { FeesPage, FeeSettlementPage } from "./pages/Fees";
 import { ReportsPage } from "./pages/Reports";
 import { SettingsPage } from "./pages/Settings";
 import { AssistantPage } from "./pages/Assistant";
@@ -38,6 +40,9 @@ export function App() {
         <Route path="/pacientes/:id" element={<PatientDetailPage />} />
         <Route path="/presupuestos" element={<BudgetsPage />} />
         <Route path="/caja" element={<CashPage />} />
+        <Route path="/caja/sesiones/:id" element={<CashSessionReportPage />} />
+        <Route path="/honorarios" element={<FeesPage />} />
+        <Route path="/honorarios/:id" element={<FeeSettlementPage />} />
         <Route path="/reportes" element={<ReportsPage />} />
         <Route path="/configuracion" element={<SettingsPage />} />
         <Route path="/asistente" element={<AssistantPage />} />

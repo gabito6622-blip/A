@@ -9,6 +9,7 @@ import { allowedBranches, requireBranch } from "../lib/rbac.js";
 import { CONDITIONS } from "./clinical.js";
 import { clinicZone } from "./agenda.js";
 import { dayBounds } from "../lib/slots.js";
+import { assertCashSessionForPayment } from "./cashSessions.js";
 
 const BUDGET_TRANSITIONS: Record<string, string[]> = {
   draft: ["presented", "cancelled"],
@@ -339,6 +340,7 @@ export function billingRoutes(route: Route) {
         return { id: ex.id, receiptNumber: ex.receipt_number, status: ex.status, duplicate: true };
       }
       if (body.method !== "cash" && !body.bankReference) throw badRequest("Indica el número de operación o referencia bancaria");
+      await assertCashSessionForPayment(c, auth, body.branchId, body.method);
       if (body.budgetId) {
         const b = (await c.query<{ patient_id: string; status: string }>("SELECT patient_id, status FROM budgets WHERE id = $1 FOR UPDATE", [body.budgetId])).rows[0];
         if (!b || b.patient_id !== body.patientId) throw badRequest("El presupuesto no corresponde al paciente");
