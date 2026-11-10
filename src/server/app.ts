@@ -645,6 +645,13 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
   route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
+  // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
+  route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
+  route("GET", "/api/admin/fiado/:id", "staff", (c) => store.fiado.history(A(c), c.params.id));
+  route("POST", "/api/admin/fiado/charge", "staff", (c) => store.fiado.charge(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
+  route("POST", "/api/admin/fiado/payment", "staff", (c) => store.fiado.pay(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
+  route("POST", "/api/admin/fiado/:id/from-control", "staff", (c) => store.fiado.fromControl(A(c), c.params.id));
+  route("POST", "/api/admin/fiado/entry/:id/delete", "staff", (c) => store.fiado.remove(A(c), c.params.id));
   // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 

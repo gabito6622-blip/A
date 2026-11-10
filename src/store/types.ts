@@ -440,6 +440,21 @@ export interface Assignment {
   trial?: boolean;
 }
 
+/** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */
+export interface FiadoEntry {
+  id: Id;
+  customerId: Id;
+  kind: "cargo" | "pago";
+  amount: Cents;
+  note: string;
+  at: number;
+  by: Id;
+  /** Cuándo se le cobra (solo cargos). */
+  dueAt?: number;
+  /** Si el cargo vino de un alquiler del Control. */
+  assignmentId?: Id;
+}
+
 export interface RentalControl {
   /** Precio que cobra por período (centavos). */
   price?: Cents;
@@ -603,6 +618,8 @@ export interface State {
   settings: StoreSettings;
   /** Gastos manuales del dueño (para Finanzas: lo que salió). */
   expenses: Expense[];
+  /** Fiado: lo que te deben (cargos y pagos por cliente). */
+  fiado?: FiadoEntry[];
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */

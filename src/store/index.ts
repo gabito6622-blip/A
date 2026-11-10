@@ -14,6 +14,7 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
+import * as fiado from "./fiado.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
@@ -230,6 +231,15 @@ export function createStore(opts: EngineOptions = {}) {
       recordAccountCost: bind(e, finance.recordAccountCost),
       margins: bind(e, finance.productMargins),
       setMinMargin: bind(e, finance.setMinMargin),
+    },
+    fiado: {
+      overview: bind(e, fiado.overview),
+      history: bind(e, fiado.history),
+      charge: bind(e, fiado.addCharge),
+      pay: bind(e, fiado.addPayment),
+      remove: bind(e, fiado.removeEntry),
+      fromControl: bind(e, fiado.chargeUnpaidRentals),
+      owedBy: (customerId: string) => fiado.owedBy(e, customerId),
     },
   };
 }

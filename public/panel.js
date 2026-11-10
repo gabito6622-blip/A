@@ -13,6 +13,7 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["finanzas", "coins", "Finanzas", "owner"],
+  ["fiado", "coins", "Fiado (lo que te deben)"],
   ["notificaciones", "bell", "Notificaciones"],
   ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
@@ -20,7 +21,7 @@ const MENU = [
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["coins", "Fiado"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -629,6 +630,45 @@ const V = {
         }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
         </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
         <p class="muted" style="margin:0">Como en Excel: tocá un <b>título</b> para ordenar (otra vez, al revés), escribí en <b>🔍 filtrar</b> debajo de cada título, y con <b>🧱 Columnas</b> escondés las que no usás. WhatsApp, perfil, vencimiento, precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. La fila azul de abajo suma lo que estás viendo.</p></section>`;
+  },
+
+  /* Fiado: lo que te deben, por persona, con pagos parciales y fecha de cobro. */
+  async fiado() {
+    const T = P.tab;
+    const [ov, customers] = await Promise.all([api("GET", "/api/admin/fiado"), canReview() ? api("GET", "/api/admin/customers").catch(() => []) : []]);
+    const k = T.fk ?? "todos", q = (T.fq ?? "").toLowerCase();
+    const rows = ov.rows.filter((r) => (k === "todos" || (k === "rev") === (r.kind === "reseller")) && (!q || `${r.name} ${r.phone}`.toLowerCase().includes(q)));
+    const det = T.fdet ? await api("GET", `/api/admin/fiado/${T.fdet}`).catch(() => null) : null;
+    const detName = ov.rows.find((r) => r.customerId === T.fdet)?.name ?? customers.find((c) => c.id === T.fdet)?.name ?? "";
+    const kb = (r) => (r.kind === "reseller" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`);
+    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
+    const pend = ov.rows.filter((r) => r.unlinked.count);
+    const card = (r) => `<article class="fcardx${r.overdue ? " late" : ""}">
+        <header><div><b>${esc(r.name)}</b> ${kb(r)}<br><small class="muted">${esc(r.phone ? r.phone.replace(/^\+591/, "") : "Sin WhatsApp")}</small></div>
+          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
+        ${r.nextDue || r.oldestAt ? `<div class="frow">${r.nextDue ? `<span>${r.overdue ? "⏰ <b>Ya tenía que pagar</b>" : "📅 Cobrar"} el <b>${fdate(r.nextDue)}</b></span>` : ""}${r.oldestAt ? `<span class="muted">Debe desde ${fdate(r.oldestAt)}</span>` : ""}</div>` : ""}
+        ${r.unlinked.count && canReview() ? `<div class="fpend"><span>📋 ${r.unlinked.count} alquiler(es) marcado(s) sin pagar en el Control · ${bs(r.unlinked.amount)}</span><button class="pbtn sm" type="button" data-ffrom="${esc(r.customerId)}">➕ Pasarlos al fiado</button></div>` : ""}
+        <footer>${r.phone && r.owed ? `<a class="pbtn sm green" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
+          ${canReview() ? `<details class="more"><summary>💵 Me pagó</summary><form class="fform" data-fpay="${esc(r.customerId)}"><label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" placeholder="QR, efectivo, una parte…" maxlength="120"></label><button class="pbtn sm green" type="submit">Guardar pago</button></form></details>
+          <details class="more"><summary>➕ Fiar más</summary><form class="fform" data-fcharge="${esc(r.customerId)}"><label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120" placeholder="Disney perfil 3, préstamo…"></label><label>Cobrar el<input type="date" name="due"></label><button class="pbtn sm dark" type="submit">Guardar</button></form></details>` : ""}
+          <button class="pbtn sm" type="button" data-fdet="${esc(r.customerId)}" aria-pressed="${T.fdet === r.customerId}">📜 Movimientos</button></footer></article>`;
+    return `<section class="card"><h2>💸 Fiado <small>· lo que te deben</small></h2>
+        <div class="ctl-kpis"><div><small>Te deben</small><b class="down">${bs(ov.totals.owed)}</b></div><div><small>Personas que deben</small><b>${ov.totals.people}</b></div><div><small>Cobros vencidos</small><b class="${ov.totals.overdue ? "down" : ""}">${ov.totals.overdue}</b></div><div><small>A cobrar esta semana</small><b>${ov.totals.dueWeek}</b></div><div><small>Sin pasar del Control</small><b>${bs(ov.totals.unlinked)}</b></div></div>
+        <p class="muted" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Los pagos cubren primero lo más viejo; cuando un alquiler del Control queda cubierto, pasa solo a <b>Pagado</b>.</p>
+        ${pend.length && canReview() ? `<div class="fpend"><span>📋 En el Control hay <b>${pend.reduce((t, r) => t + r.unlinked.count, 0)}</b> alquiler(es) "Pendiente" o "No pagó" de ${pend.length} persona(s) (${bs(ov.totals.unlinked)}).</span><button class="pbtn sm dark" type="button" data-ffromall="1">➕ Pasar todos al fiado</button></div>` : ""}
+        <div class="tabs ctl-chips" role="tablist">${[["todos", `Todos (${ov.rows.length})`], ["fin", `👤 Clientes finales (${ov.rows.filter((r) => r.kind !== "reseller").length})`], ["rev", `🏪 Revendedores (${ov.rows.filter((r) => r.kind === "reseller").length})`]].map(([x, t]) => `<button type="button" role="tab" data-tab="fk:${x}" aria-selected="${k === x}">${t}</button>`).join("")}</div>
+        <input id="fq" placeholder="🔍 Buscar por nombre o WhatsApp" value="${esc(T.fq ?? "")}" aria-label="Buscar en el fiado"></section>
+      ${canReview() ? `<section class="card"><details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado nuevo</b></summary>
+        <form class="fform" id="fNewForm" style="margin-top:10px"><label>Cliente o revendedor<input name="who" list="fWho" required placeholder="Escribí el nombre" autocomplete="off"></label>
+          <datalist id="fWho">${customers.map((c) => `<option value="${esc(`${c.name} · ${c.phone || "sin WhatsApp"}`)}"></option>`).join("")}</datalist>
+          <label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120" placeholder="Disney perfil 3, préstamo…"></label>
+          <label>Cobrar el<input type="date" name="due"></label><button class="pbtn dark" type="submit">Guardar</button></form></details></section>` : ""}
+      ${det ? `<section class="card"><h2>📜 Movimientos de ${esc(detName)} · debe ${bs(det.owed)} <button class="pbtn sm" type="button" data-fdet="">Cerrar</button></h2>
+        ${table(["Fecha", "Qué", "Monto", "Nota", "Estado", ""], det.entries.map((x) => `<tr><td>${fdt(x.at)}</td><td>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"}</td>
+          <td class="${x.kind === "cargo" ? "down" : "up"}"><b>${bs(x.amount)}</b></td><td>${esc(x.note || "")}${x.dueAt ? `<br><small class="muted">cobrar el ${fdate(x.dueAt)}</small>` : ""}</td>
+          <td>${x.kind === "cargo" ? (x.covered >= x.amount ? pill("Pagado", "ok") : x.covered ? pill(`Pagó ${bs(x.covered)}`, "warn") : pill("Debe", "bad")) : ""}</td>
+          <td>${canReview() ? `<button class="pbtn sm danger" type="button" data-fdel="${esc(x.id)}" title="Borrar este movimiento">🗑️</button>` : ""}</td></tr>`), "Sin movimientos.")}</section>` : ""}
+      <section class="fgrid">${rows.map(card).join("") || `<div class="emptybox">${ov.rows.length ? "Nadie con ese filtro." : "Nadie te debe nada 🎉"}</div>`}</section>`;
   },
 
   async renovar() {
@@ -2058,6 +2098,13 @@ document.addEventListener("click", async (ev) => {
     }
     if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
   }
+  if (d.ffrom) return act(() => api("POST", `/api/admin/fiado/${d.ffrom}/from-control`, {}), (r) => `➕ ${r.added} alquiler(es) al fiado · ${bs(r.amount)}`);
+  if (d.ffromall) {
+    const ov = await api("GET", "/api/admin/fiado");
+    return act(async () => { let n = 0, amt = 0; for (const r of ov.rows.filter((x) => x.unlinked.count)) { const x = await api("POST", `/api/admin/fiado/${r.customerId}/from-control`, {}); n += x.added; amt += x.amount; } return { n, amt }; }, (r) => `➕ ${r.n} alquiler(es) pasados al fiado · ${bs(r.amt)}`);
+  }
+  if (d.fdet !== undefined) { P.tab.fdet = P.tab.fdet === d.fdet ? "" : d.fdet; await render(); if (P.tab.fdet) scrollTo(0, 0); return; }
+  if (d.fdel) { if (!confirm("¿Borrar este movimiento? Usalo solo si lo anotaste por error.")) return; return act(() => api("POST", `/api/admin/fiado/entry/${d.fdel}/delete`, {}), "Movimiento borrado"); }
   if (d.csort) {
     const [k, dir] = (P.tab.csort ?? "").split(":");
     P.tab.csort = k !== d.csort ? `${d.csort}:asc` : dir === "asc" ? `${d.csort}:desc` : undefined;
@@ -2429,6 +2476,7 @@ document.addEventListener("change", async (ev) => {
     return;
   }
   if (t.id === "cday" || t.id === "cprod" || t.id === "cpay") { P.tab[t.id] = t.value; return render(); }
+  if (t.id === "fq") { P.tab.fq = t.value; return render(); }
   if (t.id === "csortSel" || t.id === "cgroup") { P.tab[t.id === "csortSel" ? "csort" : "cgroup"] = t.value || undefined; return render(); }
   if (t.id === "cr1" || t.id === "cr2") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab[t.id] = new Date(y, mo - 1, da).getTime(); } else P.tab[t.id] = undefined; return render(); }
   if (t.dataset?.ccol) {
@@ -2773,6 +2821,22 @@ document.addEventListener("submit", async (ev) => {
       P.tab.q = f.q.value; await render();
     } else if (f.id === "adjForm") {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
+    } else if (f.dataset.fpay) {
+      const amount = toCents(f.amount.value);
+      if (!(amount > 0)) return toast("Escribí el monto que te pagó");
+      await act(() => api("POST", "/api/admin/fiado/payment", { customerId: f.dataset.fpay, amount, note: f.note.value }), (r) => r.owed ? `💵 Pago guardado · todavía debe ${bs(r.owed)}` : "💵 Pago guardado · ¡ya no debe nada! 🎉");
+    } else if (f.dataset.fcharge || f.id === "fNewForm") {
+      const amount = toCents(f.amount.value);
+      if (!(amount > 0)) return toast("Escribí el monto");
+      let customerId = f.dataset.fcharge;
+      if (!customerId) {
+        const cs = await api("GET", "/api/admin/customers");
+        const v = f.who.value.trim();
+        customerId = cs.find((c) => `${c.name} · ${c.phone || "sin WhatsApp"}` === v)?.id ?? cs.find((c) => c.name.toLowerCase() === v.toLowerCase())?.id;
+        if (!customerId) return toast("Elegí a la persona de la lista (o creala primero en Clientes)");
+      }
+      const due = f.due.value ? (() => { const [y, m, d] = f.due.value.split("-").map(Number); return new Date(y, m - 1, d, 23, 59).getTime(); })() : undefined;
+      await act(() => api("POST", "/api/admin/fiado/charge", { customerId, amount, note: f.note.value, ...(due ? { dueAt: due } : {}) }), "➕ Fiado anotado");
     } else if (f.dataset.staffpw) {
       await act(() => api("POST", `/api/admin/staff/${f.dataset.staffpw}/password`, { password: f.password.value }), "Contraseña cambiada: ya puede entrar con la nueva");
     } else if (f.id === "staffForm") {

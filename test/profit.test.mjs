@@ -112,3 +112,31 @@ describe("venta de varios meses de una vez", () => {
     assert.equal(s.orders.quote(me, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], periods: 3 }).total, 2500, "los clientes siempre compran 1 período");
   });
 });
+
+describe("fiado: lo que te deben", () => {
+  test("cargos, pagos parciales en orden y el alquiler pasa a Pagado cuando se cubre", () => {
+    const { s } = setup();
+    const c = s.catalog.createCustomer(owner, { name: "Rev Disney", phone: "+59171119999" });
+    const o = s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 2 }], paymentMethod: "cash" });
+    const [a1, a2] = o.assignmentIds;
+    s.orders.setControl(owner, a1, { payStatus: "pendiente", price: 3000 });
+    s.orders.setControl(owner, a2, { payStatus: "no_pago", price: 2000 });
+    assert.throws(() => s.fiado.fromControl(seller, c.id), err("FORBIDDEN"));
+    assert.deepEqual(s.fiado.fromControl(owner, c.id), { added: 2, amount: 5000 });
+    assert.deepEqual(s.fiado.fromControl(owner, c.id), { added: 0, amount: 0 }, "no se duplica");
+    s.fiado.charge(owner, { customerId: c.id, amount: 1000, note: "le presté" });
+    let ov = s.fiado.overview(owner).rows.find((r) => r.customerId === c.id);
+    assert.equal(ov.owed, 6000);
+    s.fiado.pay(owner, { customerId: c.id, amount: 3500, note: "QR" });
+    assert.equal(s.engine.s.assignments[a1].control.payStatus, "pagado", "el más viejo se cubre primero");
+    assert.equal(s.engine.s.assignments[a2].control.payStatus, "no_pago", "parcial: sigue sin pagar");
+    const r = s.fiado.pay(owner, { customerId: c.id, amount: 2500 });
+    assert.equal(r.owed, 0);
+    assert.equal(s.engine.s.assignments[a2].control.payStatus, "pagado");
+    const h = s.fiado.history(owner, c.id);
+    assert.equal(h.entries.length, 5);
+    s.fiado.remove(owner, h.entries.find((x) => x.kind === "pago" && x.amount === 2500).id);
+    assert.equal(s.fiado.history(owner, c.id).owed, 2500, "borrar un pago lo vuelve a deber");
+    assert.throws(() => s.fiado.pay(owner, { customerId: c.id, amount: 0 }), err("VALIDATION"));
+  });
+});
