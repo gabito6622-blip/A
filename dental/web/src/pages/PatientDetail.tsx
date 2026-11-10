@@ -15,8 +15,9 @@ import { PatientRecallsCard } from "../components/Recalls";
 import { Periodontogram } from "../components/perio/Periodontogram";
 import { PatientLabCard } from "../components/lab/LabShared";
 import { PatientTimeline } from "../components/PatientTimeline";
+import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocuments";
 
-type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
+type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos";
 
 export function PatientDetailPage() {
   const { id } = useParams();
@@ -67,6 +68,7 @@ export function PatientDetailPage() {
         { id: "odontograma", label: "Odontograma", hidden: !can("clinical.read") },
         { id: "periodontograma", label: "Periodontograma", hidden: !can("clinical.read") },
         { id: "historia", label: "Historia clínica", hidden: !can("clinical.read") },
+        { id: "documentos", label: "Documentos", hidden: !can("clinical.read") },
         { id: "presupuestos", label: "Presupuestos", hidden: !can("budgets.read") },
         { id: "cuenta", label: "Cuenta y pagos", hidden: !can("payments.read") },
         { id: "consentimientos", label: "Consentimientos" },
@@ -103,6 +105,7 @@ export function PatientDetailPage() {
       {tab === "presupuestos" && <PatientBudgets patientId={id!} onChanged={p.reload} />}
       {tab === "cuenta" && <PatientAccount patientId={id!} onChanged={p.reload} />}
       {tab === "consentimientos" && <ConsentsPanel patient={pt} />}
+      {tab === "documentos" && <ClinicalDocumentsPanel patient={pt} />}
       {editing && <PatientFormDialog patient={pt} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); p.reload(); }} />}
     </div>
   );
@@ -246,7 +249,8 @@ function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged
           {a.payments.length ? <div className="table-wrap"><table className="table"><tbody>
             {a.payments.map((p: any) => (
               <tr key={p.id}><td className="nowrap">{fmtDate(p.receivedAt)}<div className="muted small">Recibo {p.receiptNumber}</div></td><td>{p.methodLabel}{p.bankReference && <div className="muted small">Ref. {p.bankReference}</div>}</td><td className="num">{bs(p.amountCents)}</td>
-                <td><StatusBadge status={p.status} label={{ confirmed: "Confirmado", pending_verification: "Por verificar", rejected: "Rechazado", voided: "Anulado" }[p.status as string]} /></td></tr>
+                <td><StatusBadge status={p.status} label={{ confirmed: "Confirmado", pending_verification: "Por verificar", rejected: "Rechazado", voided: "Anulado" }[p.status as string]} /></td>
+                <td>{["confirmed", "voided"].includes(p.status) && <PdfButton url={`/api/payments/${p.id}/receipt.pdf`} label="Recibo" title={`Descargar recibo ${p.receiptNumber} en PDF`} />}</td></tr>
             ))}</tbody></table></div> : <Empty>Sin pagos.</Empty>}
         </div>
         <div className="card">

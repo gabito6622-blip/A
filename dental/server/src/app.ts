@@ -34,6 +34,7 @@ import { budgetV2Routes } from "./modules/budgets-v2.js";
 import { portalRoutes } from "./modules/portal/index.js";
 import { labRoutes } from "./modules/lab.js";
 import { agendaPlusRoutes } from "./modules/agendaPlus.js";
+import { documentRoutes } from "./modules/documents.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 import { messagingRoutes } from "./modules/messaging/index.js";
 
@@ -138,6 +139,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   labRoutes(route);
   agendaPlusRoutes(route);
   messagingRoutes(route, cfg, app);
+  documentRoutes(route, cfg);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

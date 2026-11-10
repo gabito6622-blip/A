@@ -9,6 +9,7 @@ import { Dialog, Empty, Field, Loading, StatusBadge, Tabs, useToast } from "../c
 import { BudgetFunnel, DecisionDialog, SessionList, SharePanel, VersionPanel, parsePct, pctOf, prorate, ymd } from "../components/BudgetV2";
 import { PatientPicker } from "./Agenda";
 import { PaymentDialog } from "./Cash";
+import { PdfButton } from "../components/ClinicalDocuments";
 
 const STATUSES = [["", "Todos"], ["draft", "Borrador"], ["presented", "Presentados"], ["accepted", "Aceptados"], ["completed", "Completados"], ["rejected", "Rechazados"], ["cancelled", "Anulados"], ["superseded", "Reemplazados"]] as const;
 
@@ -224,6 +225,7 @@ export function BudgetDetailDialog({ id, onClose, onChanged, onOpen }: { id: str
   return (
     <Dialog wide title={d ? `Presupuesto N° ${d.number}${d.versionsCount > 1 ? ` · v${d.version}` : ""}` : "Presupuesto"} onClose={onClose} footer={d && <>
       <button className="btn" onClick={() => window.print()}><Printer size={15} />Imprimir</button>
+      {["accepted", "completed"].includes(d.status) && <PdfButton url={`/api/budgets/${current}/pdf`} label="Descargar PDF" title="Descargar el presupuesto aceptado en PDF (con huella y código de verificación)" />}
       {can("budgets.write") && d.status === "draft" && <button className="btn" onClick={() => setEditing(true)}><Pencil size={15} />Editar</button>}
       {can("budgets.write") && d.allowedTransitions.map((s: string) => <button key={s} className={`btn ${s === "accepted" || s === "presented" ? "btn-primary" : s === "cancelled" || s === "rejected" ? "btn-danger" : ""}`} onClick={() => act(s)}>{ACTION_LABEL[s]}</button>)}
       {can("payments.create") && ["presented", "accepted", "completed"].includes(d.status) && d.remainingCents > 0 && <button className="btn btn-primary" onClick={() => setPaying(true)}>Registrar pago</button>}

@@ -9,8 +9,9 @@ import { SessionTemplateEditor } from "../components/BudgetV2";
 import { PortalSettingsTab } from "./PortalSettings";
 import { AppointmentTypesSettings } from "../components/agenda/AppointmentTypesSettings";
 import { MessagingSettingsTab } from "./MessagingSettings";
+import { MedicationsTab } from "../components/Medications";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "consents" | "portal" | "messaging" | "security" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "medications" | "consents" | "portal" | "messaging" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -56,6 +57,7 @@ export function SettingsPage() {
     { id: "schedules", label: "Horarios", hidden: !can("clinic.manage") },
     { id: "procedures", label: "Prestaciones", hidden: !can("clinic.manage") },
     { id: "appointmentTypes", label: "Tipos de cita", hidden: !can("clinic.manage") },
+    { id: "medications", label: "Medicamentos", hidden: !can("clinic.manage") },
     { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
     { id: "portal", label: "Reserva online", hidden: !can("clinic.manage") },
     { id: "messaging", label: "Mensajes automáticos", hidden: !can("clinic.manage") },
@@ -80,6 +82,7 @@ export function SettingsPage() {
       {tab === "schedules" && <SchedulesTab />}
       {tab === "procedures" && <ProceduresTab />}
       {tab === "appointmentTypes" && <AppointmentTypesSettings />}
+      {tab === "medications" && <MedicationsTab />}
       {tab === "consents" && <ConsentsTab />}
       {tab === "portal" && <PortalSettingsTab />}
       {tab === "messaging" && <MessagingSettingsTab />}

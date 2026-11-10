@@ -1,0 +1,29 @@
+/* Recetas, certificados y descargas de PDF. */
+.doc-btn { min-height: 40px; }
+.rx-line { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 10px; }
+.rx-line.has-warning { border-color: #f5c8b5; background: #fffaf7; }
+.rx-line-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rx-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rx-allergy { display: flex; gap: 8px; align-items: flex-start; }
+.rx-ack { border: 1.5px solid #f5c8b5; background: var(--danger-soft); border-radius: 10px; padding: 10px 12px; }
+.rx-ack .check { align-items: flex-start; font-weight: 600; color: #9a3412; }
+.field-error { color: var(--danger); font-size: 12.5px; font-weight: 560; }
+.doc-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+textarea.doc-body-preview { min-height: 180px; font-size: 14px; line-height: 1.5; }
+@media (max-width: 860px) {
+  .rx-grid { grid-template-columns: 1fr; }
+  .doc-actions { justify-content: flex-start; }
+  /* En el celular cada documento es una tarjeta: datos, estado y acciones uno debajo del otro. */
+  .doc-table thead { display: none; }
+  .doc-table tr { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .doc-table td { display: block; padding: 0 !important; border: 0 !important; }
+}
+/* Página pública de verificación */
+.vf-status { display: flex; gap: 12px; align-items: flex-start; }
+.vf-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.vf-icon.ok { background: var(--ok-soft); color: var(--ok); }
+.vf-icon.danger { background: var(--danger-soft); color: var(--danger); }
+.vf-icon.warn { background: var(--warn-soft); color: var(--warn); }
+.vf-dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; }
+.vf-dl dt { color: var(--muted); }
+.vf-dl dd { margin: 0; font-weight: 560; overflow-wrap: anywhere; }
