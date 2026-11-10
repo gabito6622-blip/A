@@ -1,0 +1,206 @@
+{
+ "id": "06",
+ "title": "La caja: cobrar y cerrar",
+ "number": 6,
+ "learn": [
+  "Abrir y cerrar la caja",
+  "Cobrar un turno",
+  "Vender productos y bebidas",
+  "Anular una venta",
+  "Controlar el stock"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "La caja",
+   "text": "Hola, ¿qué tal? Hoy vemos la caja: cómo cobrar, vender y cerrar el día. Cada mañana abrís la caja contando el efectivo de cambio que dejás. Acá ya está abierta. Arriba ves lo que entró hoy, el efectivo que tendría que haber y lo cobrado por QR, tarjeta y transferencia.",
+   "hl": {
+    "x": 16,
+    "y": 243.4375,
+    "w": 358,
+    "h": 316
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Ventas de la caja",
+   "text": "Más abajo está la lista de ventas de esta caja, con el número, la hora, el medio de pago y el cliente. Tocás cualquiera y ves el detalle.",
+   "hl": {
+    "x": 37,
+    "y": 600.4375,
+    "w": 167.625,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "¿Vendo gaseosas?",
+   "text": "¿Puedo vender gaseosas o ceras? Sí. Primero las cargás en «Más», «Productos e inventario». Tocás «Nuevo producto».",
+   "hl": {
+    "x": 16,
+    "y": 219.3125,
+    "w": 358,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Nuevo producto",
+   "text": "Ponés el nombre, el precio de venta, el costo si querés, el stock que tenés hoy y el stock mínimo: cuando llegue a ese número, el sistema te avisa que te estás quedando sin.",
+   "hl": {
+    "x": 37,
+    "y": 694.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Te pide el PIN",
+   "text": "Para guardar te pide el PIN de gerencia, una clave de cuatro números que protege lo delicado. Si todavía no lo tenés, tocás «Crear PIN». Lo explicamos bien en el próximo tutorial.",
+   "hl": {
+    "x": 37,
+    "y": 601.375,
+    "w": 316,
+    "h": 110
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Desbloquear",
+   "text": "Escribís tu PIN y tocás «Desbloquear y continuar». Queda abierto diez minutos, así no te lo pide a cada rato.",
+   "hl": {
+    "x": 50,
+    "y": 614.375,
+    "w": 184.703125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Cobrar un turno",
+   "text": "Ahora, a cobrar. Cuando el cliente termina, abrís su turno en la agenda y tocás «Cobrar». Este cliente, Marcelo, reservó por tu página y ya pagó el anticipo.",
+   "hl": {
+    "x": 232.234375,
+    "y": 265.4375,
+    "w": 141.765625,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "Turno y anticipo",
+   "text": "Ya viene cargado el servicio, el cliente y el barbero, y el anticipo que pagó aparece como «ya cobrado»: se descuenta solo del total. Y si se lleva una gaseosa, la sumás con el más.",
+   "hl": {
+    "x": 37,
+    "y": 346.5,
+    "w": 316,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Medio y propina",
+   "text": "Abajo elegís cómo paga: efectivo, QR, tarjeta o transferencia. Si paga una parte de cada forma, tocás «Otro medio». La propina va entera para el barbero. Tocás «Registrar venta» y listo.",
+   "hl": {
+    "x": 37,
+    "y": 400.5,
+    "w": 196,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Nueva venta",
+   "text": "¿Alguien entra solo a comprar, o le hacés algo sin turno? Tocás «Nueva venta». Sumás productos, servicios, o las dos cosas, y elegís el barbero que atendió para que le cuente en sus ganancias.",
+   "hl": {
+    "x": 37,
+    "y": 626.5,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Cupón y vuelto",
+   "text": "Si el cliente trae un cupón de descuento, escribís el código y tocás «Aplicar». Si paga en efectivo, ponés con cuánto te pagó y te calcula el vuelto.",
+   "hl": {
+    "x": 37,
+    "y": 512.5,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "¿Me equivoqué?",
+   "text": "¿Y si me equivoqué en una venta? Abrís la venta, escribís el motivo y tocás «Anular venta». Te pide el PIN de gerencia: así un empleado no puede borrar ventas. La venta no desaparece, queda tachada, y el producto vuelve al stock.",
+   "hl": {
+    "x": 50,
+    "y": 614.4375,
+    "w": 184.703125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "Inventario",
+   "text": "En «Productos e inventario» ves el stock de cada cosa: se descuenta solo con cada venta. La Coca-Cola ya está en stock bajo, y te avisa también en el Inicio. Las compras, mermas y conteos se cargan en cada producto, con PIN.",
+   "hl": {
+    "x": 108.734375,
+    "y": 354.3125,
+    "w": 106.34375,
+    "h": 32
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Cerrar la caja",
+   "text": "Al final del día, en «Cerrar caja», contás los billetes y ponés cuánto efectivo hay. El sistema te muestra cuánto tendría que haber y si cuadra, si sobra o si falta.",
+   "hl": {
+    "x": 37,
+    "y": 707.4375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "¿Falta plata?",
+   "text": "¿Y si falta plata? Lo ves al toque: acá faltan diez bolivianos. Anotás una nota y cerrás igual. La diferencia queda guardada con quién cerró, para revisarla después. Una caja cerrada ya no se puede reabrir.",
+   "hl": {
+    "x": 37,
+    "y": 631.4375,
+    "w": 316,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "Abrir la caja",
+   "text": "Al otro día, la caja aparece cerrada. Ponés el efectivo inicial, por ejemplo doscientos bolivianos de cambio, y tocás «Abrir caja». Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": {
+    "x": 37,
+    "y": 480.4375,
+    "w": 119,
+    "h": 44
+   },
+   "long": null
+  }
+ ]
+}

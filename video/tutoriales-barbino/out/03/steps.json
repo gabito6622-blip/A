@@ -1,0 +1,191 @@
+{
+ "id": "03",
+ "title": "Cómo reservan tus clientes",
+ "number": 3,
+ "learn": [
+  "Tu página de reservas",
+  "Reservar paso a paso",
+  "Lista de espera",
+  "Cancelar y volver a reservar",
+  "El cartel con QR"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Tu página",
+   "text": "Hola, ¿qué tal? Hoy vemos cómo reservan tus clientes. Esto es lo que ve el cliente cuando abre tu enlace o escanea tu QR: tu nombre, si estás abierto ahora y los próximos horarios libres.",
+   "hl": {
+    "x": 16,
+    "y": 468.1875,
+    "w": 190.15625,
+    "h": 48
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "¿Tiene que bajar algo?",
+   "text": "¿El cliente necesita bajar alguna aplicación? No. Abre tu página en el celular y listo. Ahí ve tus servicios con precio, tu equipo, las reseñas, el horario y cómo llegar.",
+   "hl": null,
+   "long": 2600
+  },
+  {
+   "img": "step03.png",
+   "title": "1. El servicio",
+   "text": "Al tocar «Reservar turno», va paso a paso. Primero elige el servicio: ve el precio, cuánto dura y la foto si la cargaste.",
+   "hl": {
+    "x": 16,
+    "y": 335,
+    "w": 358,
+    "h": 106
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Sumar otro servicio",
+   "text": "Si quiere algo más en el mismo turno, por ejemplo un diseño, lo suma con un toque. El sistema junta los tiempos y busca un horario donde entre todo.",
+   "hl": {
+    "x": 33,
+    "y": 284,
+    "w": 324,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "2. El barbero",
+   "text": "Después elige con quién: su barbero de siempre, por ejemplo Mateo, o «El primero libre», que le muestra más horarios porque busca entre todo el equipo.",
+   "hl": {
+    "x": 16,
+    "y": 563,
+    "w": 358,
+    "h": 90
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "3. Día y hora",
+   "text": "Arriba elige el día, y abajo ve solo los horarios que de verdad están libres, según tus horarios, los descansos y los turnos que ya tenés.",
+   "hl": {
+    "x": 138,
+    "y": 778.5,
+    "w": 114,
+    "h": 46
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "4. Sus datos",
+   "text": "Por último pone su nombre y su WhatsApp. No crea ninguna cuenta ni contraseña. Si tu barbería pide anticipo, le avisa cuánto es; eso lo vemos en el próximo tutorial. Toca «Confirmar reserva».",
+   "hl": {
+    "x": 37,
+    "y": 588,
+    "w": 173.5625,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "¿Y si piden lo mismo?",
+   "text": "¿Y si dos personas quieren el mismo horario? No se pisan nunca. El primero que confirma se lo queda, y al otro el sistema le avisa que ese horario se ocupó, para que elija otro.",
+   "hl": {
+    "x": 37,
+    "y": 508,
+    "w": 316,
+    "h": 60
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Su reserva",
+   "text": "Elige otro horario, confirma, y queda en la página de su reserva, con el servicio, el día, la hora y el barbero. Es su enlace privado: si lo guarda, vuelve cuando quiera.",
+   "hl": {
+    "x": 16,
+    "y": 209,
+    "w": 358,
+    "h": 278
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "¿Puede cancelar solo?",
+   "text": "¿Puede cancelar solo? Sí, desde acá, hasta cuatro horas antes, o lo que vos pongas en Ajustes. Después de eso, o para cambiar el horario, te escribe por WhatsApp. Y con «Reservar lo mismo otra vez» repite su corte en segundos.",
+   "hl": {
+    "x": 16,
+    "y": 557,
+    "w": 237.53125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Lista de espera",
+   "text": "¿Y si no hay horario que le sirva? Se anota en la lista de espera con su nombre, su WhatsApp y la hora que prefiere. Así no se va a otra barbería.",
+   "hl": {
+    "x": 89,
+    "y": 555.5,
+    "w": 264,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Página de cada barbero",
+   "text": "Cada barbero tiene su propia página, con su foto, su especialidad, sus trabajos y lo que opinan de él. Él la puede compartir en su Instagram y le reservan directo.",
+   "hl": null,
+   "long": 1700
+  },
+  {
+   "img": "step13.png",
+   "title": "Te llega solo",
+   "text": "¿Y vos cómo te enterás? Cada reserva entra sola a tu agenda, al barbero que eligió. Con la campanita de arriba ves las novedades: reservas nuevas, quién se anotó en la lista de espera y más.",
+   "hl": {
+    "x": 17,
+    "y": 398.4375,
+    "w": 356,
+    "h": 69
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Quién está esperando",
+   "text": "En tu panel, en «Huecos libres», ves quién se anotó en la lista de espera. Cuando se libera un lugar, le avisás por WhatsApp con un toque.",
+   "hl": {
+    "x": 17,
+    "y": 551.875,
+    "w": 356,
+    "h": 224
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Cartel con QR",
+   "text": "Y para que te reserven desde el local: en Ajustes, «Carteles con QR», tenés un cartel listo con tu logo. Tocás «Imprimir cartel» y lo ponés en el mostrador o en el espejo. El cliente escanea con la cámara y reserva.",
+   "hl": {
+    "x": 16,
+    "y": 259.375,
+    "w": 153.28125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "¡A reservar!",
+   "text": "Así de fácil reservan tus clientes, de día o de noche, sin llamarte ni escribirte. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": null,
+   "long": null
+  }
+ ]
+}

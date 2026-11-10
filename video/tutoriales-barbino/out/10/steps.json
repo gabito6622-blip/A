@@ -1,0 +1,174 @@
+{
+ "id": "10",
+ "title": "Números y vender más",
+ "number": 10,
+ "learn": [
+  "Tu ganancia real del mes",
+  "Reportes y Excel",
+  "Paquetes, membresías y regalos",
+  "Cupones y precios por horario",
+  "Fila de espera con la TV"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Finanzas",
+   "text": "Hola, ¿qué tal? Hoy vemos los números y cómo vender más. ¿Cuánto me queda de verdad a fin de mes? Eso te dice «Finanzas»: lo que entró, menos lo del equipo, los productos y los gastos del local. Esa es tu ganancia real.",
+   "hl": {
+    "x": 40,
+    "y": 293.375,
+    "w": 310,
+    "h": 16
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Cargar un gasto",
+   "text": "Para que sea real, cargás los gastos a medida que salen: elegís en qué se gastó, alquiler, luz, insumos, ponés el detalle, el monto y cómo lo pagaste. Si sale del efectivo de la caja, se descuenta solo al cerrarla.",
+   "hl": {
+    "x": 37,
+    "y": 431.875,
+    "w": 119.390625,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Inversiones aparte",
+   "text": "¿Y si compro una máquina o un aire acondicionado? Va en «Equipos e inversiones», que se muestra aparte: no te hunde la ganancia del mes, porque te dura años.",
+   "hl": {
+    "x": 37,
+    "y": 335.625,
+    "w": 316,
+    "h": 64
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Tus categorías",
+   "text": "Y si te falta una categoría, la creás: por ejemplo «Gas» o «Limpieza». Abajo ves en qué se te va la plata, de mayor a menor.",
+   "hl": {
+    "x": 37,
+    "y": 549.625,
+    "w": 213.703125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Reportes",
+   "text": "En «Reportes» ves cómo te fue en el mes: cuánto vendiste, el ticket promedio, cuántos clientes atendiste y cuántos faltaron sin avisar. Después, las ventas de cada día, cuánto vendió cada barbero y los servicios que más salen.",
+   "hl": null,
+   "long": 1700
+  },
+  {
+   "img": "step06.png",
+   "title": "Mejores días",
+   "text": "Acá ves qué días y a qué horas tenés más movimiento, para saber cuándo poner más barberos. Y arriba, con «Descargar Excel», te llevás todas las ventas del mes.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Paquetes",
+   "text": "Ahora, vender más. En «Paquetes y regalos» creás un paquete, por ejemplo cinco cortes por Bs 180 que vencen en noventa días. O una membresía: tantos cortes por mes, que se renueva.",
+   "hl": {
+    "x": 37,
+    "y": 602.3125,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "¿Regalar un corte?",
+   "text": "¿Puedo regalar un corte? Sí: vendés una tarjeta de regalo. Ponés el monto, para quién es, y cómo te pagaron. La plata entra hoy a la caja.",
+   "hl": {
+    "x": 37,
+    "y": 417.3125,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "El código",
+   "text": "Te queda la tarjeta con su código, lista para mandarla por WhatsApp. Cuando la persona viene, en la caja escribís el código y se descuenta solo. Lo mismo con los paquetes: cada uso se resta.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Cupones",
+   "text": "Los cupones son para tus promos. Le ponés un código, por ejemplo «AMIGO20», el descuento en porcentaje o en plata, y si querés, fechas y un máximo de usos.",
+   "hl": {
+    "x": 37,
+    "y": 331.3125,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Aplicar en la caja",
+   "text": "El cliente te dice el código al pagar. En «Nueva venta» lo escribís en «Cupón», tocás «Aplicar» y el descuento se hace solo.",
+   "hl": {
+    "x": 47,
+    "y": 188.5,
+    "w": 131.96875,
+    "h": 22
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Precios por horario",
+   "text": "¿Cómo lleno las mañanas vacías? Con «Precios por horario», en «Ajustes». Elegís los días, el horario y el descuento: por ejemplo, de lunes a miércoles, de nueve a doce, veinte por ciento menos.",
+   "hl": {
+    "x": 255.65625,
+    "y": 544.3125,
+    "w": 97.34375,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "El cliente lo ve",
+   "text": "Y tu cliente, al reservar, ve esos horarios marcados con el descuento. Se aplica solo, sin que tengas que hacer nada.",
+   "hl": {
+    "x": 16,
+    "y": 758.5,
+    "w": 114,
+    "h": 46
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Fila de espera",
+   "text": "Por último, la fila de espera, para los que llegan sin reserva. Anotás el nombre, el servicio y si prefiere a algún barbero. También se pueden anotar solos con el QR «Ya llegué» pegado en la puerta.",
+   "hl": {
+    "x": 37,
+    "y": 602.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Pantalla para la TV",
+   "text": "Con «Pantalla para la TV» abrís esto en el televisor del local: cada uno ve su número y cuánto le falta. Ojo: Finanzas viene en los planes Pro y Business, y la fila, la fidelidad y los reportes desde el plan Team. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": null,
+   "long": null
+  }
+ ]
+}

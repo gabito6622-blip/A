@@ -1,0 +1,225 @@
+{
+ "id": "04",
+ "title": "Anticipo por QR",
+ "number": 4,
+ "learn": [
+  "Activar el anticipo",
+  "Tu QR del banco",
+  "Revisar y aprobar comprobantes",
+  "Comprobantes repetidos o falsos",
+  "Clientes sin anticipo"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Anticipo por QR",
+   "text": "Hola, ¿qué tal? Hoy vemos el anticipo: que el cliente pague una parte por QR al reservar, así no te deja la silla vacía. Se configura en Ajustes, «Reservas y anticipo». Primero activás «Pedir anticipo».",
+   "hl": {
+    "x": 89,
+    "y": 352.375,
+    "w": 264,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Cuánto y hasta cuándo",
+   "text": "Ponés el porcentaje, por ejemplo veinticinco por ciento: en un corte de Bs 80 son Bs 20. Y el plazo para pagar, por ejemplo sesenta minutos. Mientras tanto, el horario queda apartado para ese cliente.",
+   "hl": {
+    "x": 37,
+    "y": 370.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Titular e instrucciones",
+   "text": "Abajo ponés el titular de la cuenta, tal como figura en el banco, y unas instrucciones cortas para el cliente. Tocás «Guardar reglas».",
+   "hl": {
+    "x": 37,
+    "y": 215.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "La foto de tu QR",
+   "text": "Y al final subís la foto del QR que te da tu banco o billetera, bien derecha. Fijate que sea de tu cuenta, porque ahí te van a pagar. Tocás «Guardar QR».",
+   "hl": {
+    "x": 37,
+    "y": 667.375,
+    "w": 132.28125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Lo que ve el cliente",
+   "text": "Ahora, del lado del cliente. Cuando reserva, antes de confirmar ve cuánto es el anticipo, que el turno queda apartado por sesenta minutos, y cuánto le queda por pagar en el local.",
+   "hl": {
+    "x": 37,
+    "y": 200,
+    "w": 316,
+    "h": 124
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Paga con tu QR",
+   "text": "Al confirmar, en la página de su reserva le aparece tu QR con el monto exacto y a nombre de quién. Lo escanea desde la app de su banco y paga.",
+   "hl": {
+    "x": 67,
+    "y": 234,
+    "w": 256,
+    "h": 256
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Sube el comprobante",
+   "text": "Después sube la foto o captura del comprobante, y si quiere pone el banco, el monto y el número de operación. Toca «Enviar comprobante», siempre antes de que venza el plazo.",
+   "hl": {
+    "x": 54,
+    "y": 300,
+    "w": 187.390625,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "En revisión",
+   "text": "Listo: su reserva queda «en revisión». Si mandó el comprobante a tiempo, el horario ya no vence: queda guardado para él mientras vos lo revisás.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Te avisa el panel",
+   "text": "En tu panel, la campanita te avisa: «Comprobante de Carla para revisar». Y en el inicio, «Anticipos por verificar» te cuenta cuántos tenés pendientes. Lo tocás y vas directo a la reserva.",
+   "hl": {
+    "x": 17,
+    "y": 329.4375,
+    "w": 356,
+    "h": 92
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Revisás el comprobante",
+   "text": "Ves la imagen del comprobante, lo que puso el cliente, y una comparación con lo que esperabas: el monto, la fecha y si ese número de operación ya se usó. Pero ojo: nada de esto confirma el pago.",
+   "hl": {
+    "x": 38,
+    "y": 464.4375,
+    "w": 314,
+    "h": 320
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Aprobás vos",
+   "text": "Nada se aprueba solo. Abrís la app de tu banco, buscás el ingreso, y escribís acá el número de operación que ves en tu cuenta. Marcás que lo viste y tocás «Verifiqué el pago: aprobar».",
+   "hl": {
+    "x": 37,
+    "y": 393.4375,
+    "w": 224.921875,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Reserva confirmada",
+   "text": "La reserva queda confirmada, con el anticipo verificado, quién lo aprobó y la referencia del banco. Al cliente le aparece «¡Reserva confirmada!» en su página.",
+   "hl": {
+    "x": 37,
+    "y": 610.4375,
+    "w": 316,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "En la caja, se descuenta",
+   "text": "Y cuando el cliente viene y le cobrás en la caja, el anticipo ya está descontado solo. Le cobrás nada más el resto, sin hacer cuentas.",
+   "hl": {
+    "x": 37,
+    "y": 346.5,
+    "w": 316,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "¿Comprobante repetido?",
+   "text": "¿Y si te mandan un comprobante repetido? El mismo archivo no se puede usar dos veces: el sistema se lo rechaza al cliente. Y un número de operación ya aprobado tampoco sirve para otra reserva.",
+   "hl": {
+    "x": 54,
+    "y": 764,
+    "w": 282,
+    "h": 80
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "¿Y si es falso?",
+   "text": "¿Y si parece falso, o el pago no aparece en tu cuenta? Lo rechazás escribiendo el motivo. El sistema también te marca en amarillo lo que no cuadra, como una imagen casi igual a otra ya enviada.",
+   "hl": {
+    "x": 37,
+    "y": 280.4375,
+    "w": 210.3125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "¿Y si no paga?",
+   "text": "¿Y si no paga? Al rechazar, el cliente tiene un plazo nuevo para pagar bien. Y si no manda el comprobante a tiempo, la reserva vence sola y el horario se libera para otro. Si te paga por otro lado, lo registrás vos con «Recibí el anticipo».",
+   "hl": {
+    "x": 54.59375,
+    "y": 116.4375,
+    "w": 298.40625,
+    "h": 80
+   },
+   "long": null
+  },
+  {
+   "img": "step17.png",
+   "title": "Clientes de confianza",
+   "text": "¿A un cliente de confianza le podés sacar el anticipo? Sí. En su ficha, en «Anticipo», ponés el motivo y tocás «Eximir del anticipo». Pide tu PIN y queda registrado.",
+   "hl": {
+    "x": 37,
+    "y": 361.84375,
+    "w": 176.796875,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step18.png",
+   "title": "Servicios sin anticipo",
+   "text": "Y si un servicio no querés que pida anticipo, en ese servicio ponés cero por ciento. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": {
+    "x": 37,
+    "y": 686.4375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  }
+ ]
+}
