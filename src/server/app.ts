@@ -19,6 +19,8 @@ import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
 import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
 import { sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
+import { AGENT_KINDS, AI_MODELS, Agents, AiError, defaultAiCfg, type AgentKind, type AiCfg, type ReceiptCheck } from "./agents.js";
+import { localHour } from "../store/orders.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
@@ -67,6 +69,10 @@ export interface AppConfig {
   metaBaseUrl?: string;
   /** Para pruebas: URL base de la API de Telegram (por defecto https://api.telegram.org). */
   telegramBaseUrl?: string;
+  /** Clave de la API de Claude para los agentes (ANTHROPIC_API_KEY). Sin ella, los agentes quedan apagados. */
+  anthropicApiKey?: string;
+  /** Para pruebas: fetch falso para la API de Claude (no se llama a nada real). */
+  anthropicFetch?: typeof fetch;
   /** Claves VAPID para avisos al celular (Web Push). Sin ellas, los avisos al celular quedan apagados. */
   vapid?: VapidKeys | null;
   /** Para pruebas: URL base de Binance Pay (por defecto https://bpay.binanceapi.com). */
@@ -143,6 +149,10 @@ export interface App {
   pollMail(only?: string): Promise<{ checked: number; found: number; errors: number }>;
   /** Revisa si hay avisos nuevos y los manda al celular (lo corre el reloj cada minuto). */
   checkPushAlerts(): Promise<void>;
+  /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
+  checkDailyReport(): Promise<void>;
+  /** Procesa un mensaje de WhatsApp entrante (lo usa el webhook; expuesto para pruebas). */
+  handleInbound(m: InboundMessage): Promise<void>;
   /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
   resetTwoFactor(username: string): boolean;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
@@ -530,6 +540,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/finance", "staff", (c) => store.finance.report(A(c), Number(c.query.get("months")) || 6));
   route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
+  route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));
+  route("POST", "/api/admin/finance/min-margin", "staff", (c) => store.finance.setMinMargin(A(c), c.body?.pct));
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
   route("POST", "/api/admin/faq", "staff", (c) => store.shops.setFaq(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
@@ -550,7 +562,9 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/orders/:id/evidence", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      return store.orders.submitEvidence(c.actor!, c.params.id, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      const o = store.orders.submitEvidence(c.actor!, c.params.id, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      autoReview(o.id);
+      return o;
     } catch (e) {
       dropUpload(file);
       throw e;
@@ -586,7 +600,9 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      return store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      autoReview(o.id);
+      return o;
     } catch (e) {
       dropUpload(file);
       throw e;
@@ -628,9 +644,13 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
-    return store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
+    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
+    // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
+    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
+    return r;
   });
+  route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/accounts/:id", "staff", (c) => {
@@ -647,7 +667,13 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
   route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
 
-  route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined }));
+  route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined })
+    .map((o) => { const ai = o.evidence ? aiCheckOf(o.id) : null; return ai ? { ...o, aiCheck: ai } : o; }));
+  route("POST", "/api/admin/orders/:id/ai-check", "staff", async (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin revisan pagos");
+    try { return await reviewOrder(c.params.id); }
+    catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
+  });
   route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
   route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
@@ -1101,6 +1127,15 @@ export function createApp(cfg: AppConfig): App {
     if (!botLimiter.take(phone)) return;
     const a = botAnswer({ store, origin: cfg.publicOrigin, loginLink: (id) => (cfg.publicOrigin ? makeLoginLink(id, cfg.publicOrigin) : null) }, phone, m.text, m.name);
     const cust = Object.values(store.engine.s.customers).find((x) => x.phone === phone);
+    // Lo que el bot no entendió lo responde Claude (si el agente está prendido); si falla, queda la respuesta del bot.
+    if (a.unknown && agents.isOn("whatsapp")) {
+      try {
+        const history = (store.engine.s.chats[phone]?.messages ?? []).slice(-11, -1).map((x) => ({ from: x.direction === "in" ? "cliente" as const : "tienda" as const, text: x.text }));
+        const r = await agents.whatsappReply({ storeContext: storeContext(cust?.id), history, message: m.text, customerName: cust?.name ?? m.name });
+        a.replies = [r.reply];
+        if (r.handoff) a.human = true;
+      } catch (e) { log(`agente de WhatsApp: ${(e as Error).message}`); }
+    }
     if (a.consent !== undefined && cust) store.catalog.setWhatsappConsent({ id: `wa:${cust.id}`, role: "customer", customerId: cust.id }, cust.id, a.consent);
     if (a.human) store.chats.requestHuman(phone, store.chats.botSettings().humanPauseHours);
     for (const text of a.replies) await sendChat(phone, text, "bot");
@@ -1255,6 +1290,30 @@ export function createApp(cfg: AppConfig): App {
       throw new HttpError(502, "META", (e as Error).message);
     }
   });
+  // ── Agentes con Claude ──
+  route("GET", "/api/admin/ai", "staff", () => {
+    const c = agents.cfg();
+    return { hasKey: agents.hasKey, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: aiDaily() };
+  });
+  route("POST", "/api/admin/ai", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");
+    const b = c.body ?? {}, cur = agents.cfg();
+    const enabled = { ...cur.enabled };
+    for (const k of AGENT_KINDS) if (typeof b.enabled?.[k] === "boolean") enabled[k] = b.enabled[k];
+    const model = b.model === undefined ? cur.model : String(b.model);
+    if (!AI_MODELS[model]) throw new HttpError(400, "VALIDATION", "Modelo desconocido");
+    const limit = b.monthlyLimitUsd === undefined ? cur.monthlyLimitUsd : Number(b.monthlyLimitUsd);
+    if (!Number.isFinite(limit) || limit < 0 || limit > 1000) throw new HttpError(400, "VALIDATION", "El tope mensual va de 0 a 1000 dólares");
+    aiSave({ ...cur, enabled, model, monthlyLimitUsd: Math.round(limit * 100) / 100 });
+    store.engine.tx(() => store.engine.audit(A(c), "ai.config", "settings", "ai", { model, limit, on: AGENT_KINDS.filter((k) => enabled[k]).join(",") }));
+    return { ok: true, ...agents.cfg() };
+  });
+  route("POST", "/api/admin/ai/daily", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño pide el reporte");
+    try { return await runDailyReport(true); }
+    catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
+  });
+
   // ── Avisos al celular (Web Push) ──
   route("GET", "/api/admin/push", "staff", (c) => {
     const me = A(c).id, subs = pushSubs(), pc = pushCfg();
@@ -1758,6 +1817,85 @@ export function createApp(cfg: AppConfig): App {
       body: news.length === 1 ? "Tocá para abrir el panel." : news.map((it) => `${it.icon} ${it.text}`).join("\n"), go: news[0].go });
   }
 
+  // ── Agentes con Claude (oficina virtual) ─────────────────────────────────
+  const aiCfgRaw = (): AiCfg => {
+    const base = defaultAiCfg("");
+    try { const c = JSON.parse(db.getSecret("ai_cfg") ?? ""); return { ...base, ...c, enabled: { ...base.enabled, ...(c.enabled ?? {}) } }; } catch { return base; }
+  };
+  const aiSave = (c: AiCfg) => db.setSecret("ai_cfg", JSON.stringify(c), now());
+  const agents = new Agents({ apiKey: cfg.anthropicApiKey, fetchImpl: cfg.anthropicFetch, now, getCfg: aiCfgRaw, saveCfg: aiSave });
+  const aiCheckOf = (orderId: string): ReceiptCheck | null => { try { return JSON.parse(db.getSecret(`ai_receipt:${orderId}`) ?? "null"); } catch { return null; } };
+  /** Revisa el comprobante de un pedido con Claude y guarda la sugerencia (no aprueba nada). */
+  async function reviewOrder(orderId: string): Promise<ReceiptCheck> {
+    const o = store.engine.s.orders[orderId];
+    if (!o?.evidence) throw new HttpError(404, "NOT_FOUND", "Ese pedido no tiene comprobante");
+    const file = join(uploads, o.evidence.fileRef);
+    if (!/^[a-f0-9]{32}\.(png|jpg|webp|pdf)$/.test(o.evidence.fileRef) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", "No encuentro el archivo del comprobante");
+    const buf = readFileSync(file);
+    const methodName = o.localPay?.name ?? ({ qr: "QR / transferencia bancaria", usdt: "USDT" } as Record<string, string>)[o.paymentMethod] ?? o.paymentMethod;
+    const check = await agents.reviewReceipt({
+      file: buf, mime: sniff(buf.subarray(0, 16))!.mime, methodName, declaredReference: o.evidence.declaredReference,
+      // En USDT el comprobante viene en otra moneda: no se compara el monto.
+      expectedTotal: o.paymentMethod === "usdt" ? null : o.total, currencySymbol: store.engine.s.settings.currencySymbol || "Bs",
+    });
+    db.setSecret(`ai_receipt:${orderId}`, JSON.stringify(check), now());
+    return check;
+  }
+  /** Al subir un comprobante, si el agente está prendido, lo revisa en segundo plano. */
+  const autoReview = (orderId: string) => {
+    if (!agents.isOn("receipts")) return;
+    reviewOrder(orderId).catch((e) => log(`agente de comprobantes: ${(e as Error).message}`));
+  };
+  /** Lo que el agente de WhatsApp sabe de la tienda: precios para ese cliente, formas de pago, horario, preguntas frecuentes. */
+  function storeContext(customerId?: string): string {
+    const st = store.engine.s.settings, sym = st.currencySymbol || "Bs";
+    const money = (c: number) => `${sym} ${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
+    const cat = store.catalog.publicCatalog(customerId).slice(0, 40).map((p) => `- ${p.name}: ${money(p.price)} por ${p.durationDays} días${p.available === 0 ? " (sin stock ahora)" : ""}`);
+    const pm = store.payMethods.mine({ id: "bot", role: "customer", customerId });
+    const pays = [pm.qr && st.qrFileRef ? "QR de banco (Bolivia)" : "", ...pm.methods.map((m) => `${m.name}${m.country ? ` (${m.country})` : ""}`), st.usdt?.enabled ? "USDT" : "", "saldo de la cuenta"].filter(Boolean);
+    const bot = store.chats.botSettings();
+    const faq = (st.faq ?? []).slice(0, 10).map((f) => `- ${f.q}: ${f.a}`);
+    return [`Tienda: ${st.storeName}`, cfg.publicOrigin ? `Tienda online: ${cfg.publicOrigin}/tienda/` : "",
+      bot.humanHours ? `Atención de personas: de ${bot.humanHours.from} a ${bot.humanHours.to} h (hora de Bolivia)` : "",
+      `Productos y precios para este cliente:\n${cat.join("\n") || "- (sin productos publicados)"}`,
+      `Formas de pago: ${pays.join(", ")}. Después de pagar, el cliente sube el comprobante en la tienda y una persona lo revisa en 10-30 minutos.`,
+      faq.length ? `Preguntas frecuentes:\n${faq.join("\n")}` : ""].filter(Boolean).join("\n\n");
+  }
+  const aiDaily = (): { text: string; at: number; day: string } | null => { try { return JSON.parse(db.getSecret("ai_daily") ?? "null"); } catch { return null; } };
+  const laDay = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(t));
+  /** Datos del día (los calcula el sistema; la IA solo los redacta). */
+  function dailyFacts(): string {
+    const st = store.engine.s, sym = st.settings.currencySymbol || "Bs";
+    const money = (c: number) => `${sym} ${(c / 100).toFixed(2)}`;
+    const yday = laDay(now() - 86_400_000);
+    const sold = Object.values(st.orders).filter((o) => o.status === "fulfilled" && o.kind !== "topup" && !o.trial && laDay(o.updatedAt) === yday);
+    const feed = store.stats.feed();
+    const sys = { id: "system:ai", role: "owner" } as const;
+    const fin = store.finance.report(sys, 1).current;
+    const mg = store.finance.margins(sys).products.filter((p) => p.public && p.public.state !== "ok").slice(0, 5);
+    return [`Ventas de ayer (${yday}): ${sold.length}, por ${money(sold.reduce((s, o) => s + o.total, 0))}.`,
+      `Este mes: entró ${money(fin.ingresos)}, salió ${money(fin.gastos)} (${money(fin.cuentas)} en cuentas), quedó ${money(fin.ganancia)}.`,
+      feed.items.length ? `Pendientes ahora:\n${feed.items.map((i) => `- ${i.text}`).join("\n")}` : "Pendientes ahora: nada urgente.",
+      mg.length ? `Productos que dejan poca ganancia:\n${mg.map((p) => `- ${p.name}: ganás ${money(p.public!.gain)} por venta (${p.public!.pct}%)`).join("\n")}` : ""].filter(Boolean).join("\n");
+  }
+  /** Arma el reporte del día y lo manda por Telegram / aviso al celular si están prendidos. */
+  async function runDailyReport(manual = false): Promise<{ text: string; at: number; day: string }> {
+    const text = await agents.dailyReport(dailyFacts());
+    const rep = { text, at: now(), day: laDay(now()) };
+    db.setSecret("ai_daily", JSON.stringify(rep), now());
+    if (tgOn()) await sendTelegram(`<b>📋 Tu reporte del día</b>\n${escTg(text)}`).catch((e) => log(`reporte por Telegram: ${(e as Error).message}`));
+    const subs = pushSubs();
+    if (!manual && pushOn() && subs.length) await pushSend(subs, { title: "📋 Tu reporte del día", body: text.split("\n")[0].slice(0, 120), go: "inicio" }).catch(() => {});
+    return rep;
+  }
+  /** Una vez por día, desde las 8 de la mañana (hora de Bolivia). */
+  async function checkDailyReport(): Promise<void> {
+    if (!agents.isOn("daily")) return;
+    const last = aiDaily();
+    if (last?.day === laDay(now()) || localHour(now(), "America/La_Paz") < 8) return;
+    await runDailyReport();
+  }
+
   // ── Pagos con Binance Pay (USDT) ──────────────────────────────────────────
   // Las llaves (API Key / Secret) son secretas. La config (tasa Bs→USDT, Pay ID) vive junto a los secretos.
   type BinanceCfg = { enabled: boolean; rate: number; payId?: string; lastError?: string };
@@ -1809,12 +1947,13 @@ export function createApp(cfg: AppConfig): App {
       pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
       checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
+      checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts, checkDailyReport, handleInbound,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

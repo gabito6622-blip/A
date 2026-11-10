@@ -13,6 +13,8 @@
 //                        ¡Guardala! Sin ella no se pueden leer las contraseñas ni restaurar respaldos.
 //   GS_RESET_2FA=usuario si perdiste el celular: apaga la verificación en dos pasos de ese usuario al arrancar
 //   GS_META_BASE_URL     SOLO pruebas: otra URL en vez de https://graph.facebook.com
+//   ANTHROPIC_API_KEY    agentes con Claude (revisor de comprobantes, WhatsApp con IA, reporte del día).
+//                        Se saca en console.anthropic.com. Sin ella, los agentes quedan apagados.
 //   VAPID_PUBLIC_KEY     avisos al celular (Web Push): clave pública. Generalas con `npm run vapid`.
 //   VAPID_PRIVATE_KEY    avisos al celular: clave privada (secreta).
 //   VAPID_SUBJECT        contacto para los servicios de push: mailto:tu@correo o https://tu-dominio
@@ -39,6 +41,7 @@ const app = createApp({
   trustProxy: env.GS_TRUST_PROXY === "1",
   dataKey: env.GS_DATA_KEY || undefined,
   vapid,
+  anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
   otpSender: env.GS_DEV_OTP === "1"
     ? (phone, code) => console.log(`[DEV] código para ${phone}: ${code}`)
     : undefined,

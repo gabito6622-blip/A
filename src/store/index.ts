@@ -218,6 +218,10 @@ export function createStore(opts: EngineOptions = {}) {
       report: bind(e, finance.report),
       addExpense: bind(e, finance.addExpense),
       removeExpense: bind(e, finance.removeExpense),
+      payRenewal: bind(e, finance.payAccountRenewal),
+      recordAccountCost: bind(e, finance.recordAccountCost),
+      margins: bind(e, finance.productMargins),
+      setMinMargin: bind(e, finance.setMinMargin),
     },
   };
 }

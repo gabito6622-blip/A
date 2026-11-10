@@ -22,6 +22,8 @@ export interface BotAnswer {
   sendQr?: boolean;
   human?: boolean;
   consent?: boolean;
+  /** El bot de palabras clave no entendió el mensaje (ahí puede responder la IA). */
+  unknown?: boolean;
 }
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
@@ -130,7 +132,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
       return { replies: [`👥 *Clientes por vencer (7 días)*\n${lines.join("\n")}${soon.length > 20 ? `\n…y ${soon.length - 20} más` : ""}\n\nRenovalos con tu saldo desde *Mis clientes*${link ? `:\n${link}` : "."}`] };
     }
     case "unknown":
-      return { replies: [`No te entendí del todo 🤔${name ? `, ${name}` : ""}.\n\n${menu()}`] };
+      return { replies: [`No te entendí del todo 🤔${name ? `, ${name}` : ""}.\n\n${menu()}`], unknown: true };
     case "optout":
       return { replies: ["Listo, no te vamos a mandar más avisos automáticos. Si cambiás de idea, escribí *ALTA*."], consent: false };
     case "optin":

@@ -254,7 +254,7 @@ const V = {
       <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
-    const d = await api("GET", "/api/admin/finance?months=6");
+    const [d, mg] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null)]);
     const c = d.current;
     const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos)));
     const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
@@ -264,17 +264,18 @@ const V = {
         <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, (m.gastos / max) * 100)}%"></i></div>
         <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
-    const rows = d.expenses.map((x) => `<tr><td><b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
+    const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, y lo que te quedó limpio este mes.</p>
         <div class="finkpis">
           <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
-          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>gastos que cargaste</small></div>
+          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que cargaste"}</small></div>
           <div class="finkpi net ${gcls(c.ganancia)}"><span>✅ Te quedó</span><b>${bs(c.ganancia)}</b><small>${c.ganancia >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
         </div>
       </section>
+      ${mg ? marginsCard(mg) : ""}
       <section class="card">
         <h2>Últimos 6 meses <small>entró vs. salió, y lo que quedó</small></h2>
         <div class="finlegend"><span><i class="inb"></i>Entró</span><span><i class="exb"></i>Salió</span></div>
@@ -417,6 +418,7 @@ const V = {
 
   async aprobacion() {
     const tab = P.tab.aprob ?? "payment_review";
+    if (canReview() && !P.ai) P.ai = await api("GET", "/api/admin/ai").then((a) => ({ receipts: a.hasKey && a.enabled.receipts })).catch(() => ({}));
     const orders = await api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`));
     const tabs = [["payment_review", "Por revisar"], ["awaiting_payment", "Esperando pago"], ["all", "Todos"]];
     return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}
@@ -426,6 +428,7 @@ const V = {
         <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
+          ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
           ${o.status === "awaiting_payment" && canReview() ? `<form class="inline" data-reject="${esc(o.id)}"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
@@ -461,7 +464,9 @@ const V = {
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
-    return `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    const daily = isOwner() ? await api("GET", "/api/admin/ai").then((a) => a.daily).catch(() => null) : null;
+    const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
+    return dailyCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
@@ -652,7 +657,13 @@ const V = {
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
-            <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>` : "";
+            <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>
+      <section class="card ok-card"><h2>💳 Pagué la renovación <small>· ${esc(a.email)}</small></h2>
+        <p class="muted" style="margin:0">Anota el pago como gasto (para tu ganancia real) y corre el vencimiento con el proveedor, manteniendo el día de cobro. Hoy vence el <b>${fdate(a.supplierExpiresAt)}</b>.</p>
+        <form class="form" data-renewpaid="${esc(a.id)}">
+          <label>¿Cuánto pagaste? (${currencySym()})<input name="amount" inputmode="decimal" required value="${a.cost ? a.cost / 100 : ""}" placeholder="Ej.: 66"></label>
+          <label>¿Cuántos meses?<select name="months">${[1, 2, 3, 6, 12].map((m) => opt(m, m === 1 ? "1 mes" : `${m} meses`, m === 1)).join("")}</select></label>
+          <button class="pbtn dark" type="submit" style="grid-column:1/-1">💳 Registrar pago y renovar</button></form></section>` : "";
     const estadoTxt = { available: "Libre", reserved: "Reservado", assigned: "Vendido", quarantined: "Cuarentena", retired: "Retirado" };
     const estadoK = { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" };
     // Mapa de perfiles en colores + filtros (estilo Netxly).
@@ -738,14 +749,14 @@ const V = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
             <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
             <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
-            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
@@ -1136,6 +1147,7 @@ const V = {
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${isOwner() ? await aiCard() : ""}
       ${await pushCard()}
       ${isOwner() ? await telegramCard() : ""}
       ${isOwner() ? await binanceCard() : ""}
@@ -1159,7 +1171,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1392,6 +1404,55 @@ async function binanceCard() {
 }
 
 /* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+/* ---------------- Oficina virtual: agentes con Claude ---------------- */
+function aiCheckBox(c) {
+  const V = { parece_ok: ["✅ Parece correcto", "ok"], revisar: ["👀 Revisalo bien", "warn"], no_coincide: ["⛔ No coincide", "bad"] };
+  const yn = (v) => (v === true ? "✅" : v === false ? "❌" : "—");
+  return `<div class="aibox aibox-${V[c.verdict][1]}"><b>🤖 ${V[c.verdict][0]}</b>
+    <small>Monto: ${c.amount ?? "?"} ${esc(c.currency ?? "")} ${yn(c.amountMatches)} · Operación: ${esc(c.reference ?? "?")} ${yn(c.referenceMatches)}${c.looksEdited ? " · ⚠️ podría estar editado" : ""}</small>
+    ${c.notes ? `<small class="muted">${esc(c.notes)}</small>` : ""}<small class="muted">Sugerencia: igual mirá tu banco antes de aprobar.</small></div>`;
+}
+const AI_AGENTS = [
+  ["receipts", "🧾 Revisor de comprobantes", "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos."],
+  ["whatsapp", "💬 Atención por WhatsApp", "Responde lo que el bot de palabras clave no entiende, con tus precios y formas de pago. Si no sabe o el cliente reclama, te lo pasa a vos. Necesita el bot de WhatsApp prendido."],
+  ["daily", "📋 Reporte del día", "Cada mañana (8 h) te resume pagos pendientes, stock, cuentas por vencer y ganancia, con qué hacer hoy. Llega por Telegram y queda en Inicio."],
+];
+async function aiCard() {
+  const a = await api("GET", "/api/admin/ai").catch(() => null);
+  if (!a) return "";
+  const est = (m) => { const x = a.models.find((y) => y.id === m); return x ? `US$ ${x.input} / ${x.output} por millón de tokens` : ""; };
+  const anyOn = AI_AGENTS.some(([k]) => a.enabled[k]);
+  return `<section class="card"><h2>🤖 Oficina virtual <small>agentes con Claude</small> ${!a.hasKey ? pill("Falta la clave", "mute") : anyOn ? pill("Trabajando", "ok") : pill("Apagados", "warn")}</h2>
+    <p class="muted" style="margin:0">Cada agente hace una sola tarea. Ninguno aprueba pagos, entrega cuentas ni toca plata: eso lo hacés vos.</p>
+    ${!a.hasKey ? `<details class="tg-help" open><summary>¿Cómo se prende? (una sola vez)</summary><ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+      <li>Entrá a <b>console.anthropic.com</b>, creá una cuenta y cargá crédito (se paga aparte de tu suscripción de Claude).</li>
+      <li>En <b>API Keys</b> creá una clave. Es secreta: no la mandes por chat.</li>
+      <li>En Railway, en las variables de tu tienda, agregá <code>ANTHROPIC_API_KEY</code> con esa clave y reiniciá.</li>
+      <li>Volvé acá y prendé los agentes que quieras.</li></ol></details>` : ""}
+    <form class="form" id="aiForm">
+      ${AI_AGENTS.map(([k, t, d]) => `<label class="chk aiag" style="grid-column:1/-1"><input type="checkbox" name="ag_${k}" ${a.enabled[k] ? "checked" : ""} ${a.hasKey ? "" : "disabled"}><span><b>${t}</b><br><small class="muted">${d}</small></span></label>`).join("")}
+      <label>Modelo<select name="model" ${a.hasKey ? "" : "disabled"}>${a.models.map((m) => opt(m.id, m.label, m.id === a.model)).join("")}</select><small class="muted" id="aiPrice">${esc(est(a.model))}</small></label>
+      <label>Tope de gasto por mes (US$)<input name="limit" type="number" min="0" max="1000" step="1" inputmode="numeric" value="${a.monthlyLimitUsd}" ${a.hasKey ? "" : "disabled"}><small class="muted">Al llegar, los agentes se pausan hasta el mes que viene.</small></label>
+      <p class="muted" style="grid-column:1/-1;margin:0">Este mes: <b>US$ ${(a.spentUsd ?? 0).toFixed(2)}</b> en ${a.calls ?? 0} consulta(s)${a.lastError ? ` · <span class="perr">último error: ${esc(a.lastError)}</span>` : ""}.
+        Para empezar barato elegí <b>Haiku 5.5</b>: con ~500 mensajes por día suele quedar en pocos dólares por mes. Opus es el más capaz y el más caro.</p>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit" ${a.hasKey ? "" : "disabled"}>Guardar</button>${a.hasKey && a.enabled.daily ? `<button class="pbtn" type="button" id="aiDailyNow">📋 Armar el reporte ahora</button>` : ""}</div>
+    </form></section>`;
+}
+
+/* ---------------- Ganancia por producto ---------------- */
+function marginsCard(mg) {
+  const ST = { ok: ["✅", "pp-ok"], low: ["⚠️ poco", "pp-warn"], loss: ["🔴 perdés", "pp-bad"] };
+  const cell = (r) => !r ? `<span class="muted">—</span>` : `<b>${bs(r.gain)}</b> <small class="muted">(${r.pct}%)</small> <span class="pp ${ST[r.state][1]}">${ST[r.state][0]}</span>`;
+  const rows = mg.products.filter((p) => p.public || p.reseller).map((p) => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc({ full_account: "Cuenta completa", profile: "Perfil", invite: "Invitación", iptv: "IPTV" }[p.kind] ?? p.kind)}</small></td>
+    <td class="num">${p.unitCost === null ? "—" : bs(p.unitCost)}</td><td class="num">${p.public ? bs(p.public.price) : "—"}</td><td>${cell(p.public)}</td><td>${cell(p.reseller)}</td></tr>`);
+  const sinCosto = mg.products.filter((p) => p.unitCost === null && p.accounts > 0).length;
+  return `<section class="card"><h2>${icon("coins")}¿Cuánto ganás por venta? <small>precio menos lo que te cuesta</small></h2>
+    <p class="muted" style="margin:0 0 10px">El costo sale de lo que pagás por cada cuenta (dividido entre sus perfiles), por mes. Lo que menos te deja aparece primero.</p>
+    ${table(["Producto", "Te cuesta", "Precio", "Ganás (cliente final)", "Ganás (revendedor)"], rows, "Cargá el costo de tus cuentas para ver tu ganancia.")}
+    ${sinCosto ? `<p class="muted" style="margin:8px 0 0">${sinCosto} producto(s) tienen cuentas sin costo cargado: editá la cuenta y poné cuánto pagás.</p>` : ""}
+    <form class="inline" id="minMarginForm" style="margin-top:10px;flex-wrap:wrap"><label>Avisarme si gano menos del (%)<input name="pct" type="number" min="0" max="90" step="1" inputmode="numeric" value="${mg.minMarginPct}" style="width:90px"></label><button class="pbtn sm" type="submit">Guardar</button></form></section>`;
+}
+
 /* ---------------- Cobro por país (Yappy, Tigo Money…) ---------------- */
 async function payMethodsCard() {
   const [list, groups] = await Promise.all([api("GET", "/api/admin/paymethods").catch(() => null), api("GET", "/api/admin/price-groups").catch(() => [])]);
@@ -1940,6 +2001,8 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (d.aicheck) { el.disabled = true; el.textContent = "🤖 Revisando…"; return act(() => api("POST", `/api/admin/orders/${d.aicheck}/ai-check`, {}), "Revisión lista"); }
+  if (el.id === "aiDailyNow") { el.disabled = true; el.textContent = "Armando…"; return act(() => api("POST", "/api/admin/ai/daily", {}), "📋 Reporte listo: está en Inicio"); }
   if (el.id === "pushOn") { el.disabled = true; try { await pushEnable(); toast("🔔 Avisos activados en este celular"); } catch (e) { toast(e.message || "No se pudo activar"); } return render(); }
   if (el.id === "pushOff") { el.disabled = true; await pushDisable(); toast("Avisos apagados en este celular"); return render(); }
   if (el.id === "pushTest") return act(() => api("POST", "/api/admin/push/test", {}), (r) => r.sent ? "Aviso de prueba enviado ✓" : "No se pudo enviar: activá de nuevo los avisos");
@@ -2416,6 +2479,10 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "aiForm") {
+      const enabled = Object.fromEntries(AI_AGENTS.map(([k]) => [k, !!f[`ag_${k}`]?.checked]));
+      P.ai = null;
+      await act(() => api("POST", "/api/admin/ai", { enabled, model: f.model.value, monthlyLimitUsd: Math.max(0, +f.limit.value || 0) }), "🤖 Agentes guardados");
     } else if (f.id === "pushForm") {
       const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
       await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
@@ -2449,6 +2516,13 @@ document.addEventListener("submit", async (ev) => {
       await render();
     } else if (f.dataset.transfer) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value }), "Servicio transferido: misma fecha y mismo perfil");
+    } else if (f.dataset.renewpaid) {
+      const amount = toCents(f.amount.value);
+      if (!amount || amount <= 0) return toast("Poné cuánto pagaste");
+      await act(() => api("POST", `/api/admin/accounts/${f.dataset.renewpaid}/renew-paid`, { amount, months: +f.months.value }),
+        (r) => `✅ Pago anotado (${bs(r.expense.amount)}). Ahora vence el ${fdate(r.supplierExpiresAt)}`);
+    } else if (f.id === "minMarginForm") {
+      await act(() => api("POST", "/api/admin/finance/min-margin", { pct: Math.round(+f.pct.value || 0) }), "Margen mínimo guardado");
     } else if (f.dataset.editacc) {
       const body = { email: f.email.value.trim(), supplierId: f.supplierId.value, supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), notes: f.notes.value };
       if (f.password.value) body.password = f.password.value;
@@ -2481,7 +2555,7 @@ document.addEventListener("submit", async (ev) => {
       try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, exp: f.exp.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
     } else if (f.id === "trialForm") {
@@ -2514,7 +2588,7 @@ document.addEventListener("submit", async (ev) => {
       const pin = f.pin.value.trim() || undefined;
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
         profiles: n === 1 ? [{ label: "Cuenta completa", pin }] : Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}`, pin })),
       }), `Cuenta cargada con ${n} perfil(es)`);
     } else if (f.id === "bulkForm") {
@@ -2646,4 +2720,12 @@ document.addEventListener("change", (ev) => {
   const el = ev.target;
   if (el?.id !== "rcAllowed") return;
   act(() => api("POST", "/api/admin/reseller-coupons", { allowed: el.checked }), el.checked ? "Los revendedores ya pueden crear cupones" : "Cupones de revendedores apagados");
+});
+
+// Oficina virtual: al cambiar el modelo, mostrar su precio.
+document.addEventListener("change", async (ev) => {
+  if (ev.target?.name !== "model" || ev.target.form?.id !== "aiForm") return;
+  const a = await api("GET", "/api/admin/ai").catch(() => null);
+  const m = a?.models.find((x) => x.id === ev.target.value);
+  const out = $("#aiPrice"); if (out && m) out.textContent = `US$ ${m.input} / ${m.output} por millón de tokens`;
 });
