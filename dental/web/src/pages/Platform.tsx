@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyRound, Plus } from "lucide-react";
+import { KeyRound, Plus, ShieldOff } from "lucide-react";
 import { useApi } from "../lib/hooks";
 import { api } from "../lib/api";
 import { bs, fmtDate, fmtDateTime, parseBs } from "../lib/format";
@@ -98,6 +98,8 @@ export function PlatformPage() {
         )}
       </div>
 
+      <ResetMfaTool />
+
       {creating && (
         <CreateClinicDialog plans={plans.data ?? []} onClose={() => setCreating(false)}
           onCreated={(r) => { setCreating(false); clinics.reload(); if (r) setCreated(r); }} />
@@ -173,5 +175,53 @@ function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
       </div>
     </Dialog>
+  );
+}
+
+function ResetMfaTool() {
+  const toast = useToast();
+  const [userId, setUserId] = useState("");
+  const [email, setEmail] = useState("");
+  const [found, setFound] = useState<any | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId.trim());
+  const lookup = async () => {
+    setErr(null); setFound(null); setUserId("");
+    try {
+      const r = await api.get<any[]>(`/api/platform/users?email=${encodeURIComponent(email.trim())}`);
+      if (!r.length) return setErr("No hay un usuario con ese correo");
+      setFound(r[0]); setUserId(r[0].id);
+    } catch (e: any) { setErr(e.message); }
+  };
+  const run = async () => {
+    setErr(null);
+    if (!valid) return setErr("Ingresa un identificador de usuario válido (UUID)");
+    if (reason.trim().length < 5) return setErr("Describe el motivo y cómo verificaste la identidad");
+    if (!window.confirm("¿Quitar la verificación en dos pasos de este usuario? Se cerrarán todas sus sesiones.")) return;
+    setBusy(true);
+    try {
+      await api.post(`/api/platform/users/${userId.trim()}/reset-mfa`, { reason: reason.trim() });
+      toast("Verificación en dos pasos restablecida");
+      setUserId(""); setReason("");
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card">
+      <div className="card-head"><h2>Restablecer verificación en dos pasos</h2></div>
+      <div className="card-pad stack">
+        <div className="alert warn small">Úsalo solo si la persona perdió su celular y sus códigos de recuperación. <b>Verifica su identidad antes</b> (por ejemplo, confirmación del propietario de la clínica por un canal conocido). La acción queda registrada en la auditoría con el motivo.</div>
+        {err && <div className="alert danger" role="alert">{err}</div>}
+        <div className="form-grid">
+          <Field label="Correo del usuario" group>
+            <div className="row" style={{ flexWrap: "nowrap" }}><input className="input" aria-label="Correo del usuario" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /><button type="button" className="btn" onClick={lookup} disabled={email.trim().length < 3}>Buscar</button></div>
+          </Field>
+          <Field label="Motivo y verificación realizada"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+        </div>
+        {found && <div className="alert info small"><b>{found.fullName}</b> · {found.email} · 2 pasos: {found.mfaEnabled ? "activa" : "inactiva"} · Clínicas: {found.clinics.map((c: any) => `${c.clinic} (${c.role})`).join(", ") || "ninguna"}</div>}
+        <button className="btn btn-danger" style={{ alignSelf: "flex-start" }} disabled={busy || !valid || !found?.mfaEnabled} onClick={run}><ShieldOff size={15} />{busy ? "Procesando…" : "Restablecer"}</button>
+      </div>
+    </div>
   );
 }

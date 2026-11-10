@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "consents" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -43,13 +43,15 @@ const SCOPES: { id: string; label: string }[] = [
 ];
 
 export function SettingsPage() {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const items: { id: Tab; label: string; hidden?: boolean }[] = [
     { id: "clinic", label: "Clínica", hidden: !can("clinic.manage") },
     { id: "branches", label: "Sucursales", hidden: !can("clinic.manage") },
     { id: "staff", label: "Personal", hidden: !can("staff.manage") },
     { id: "schedules", label: "Horarios", hidden: !can("clinic.manage") },
     { id: "procedures", label: "Prestaciones", hidden: !can("clinic.manage") },
+    { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
+    { id: "security", label: "Seguridad", hidden: me?.membership?.role !== "owner" },
     { id: "audit", label: "Auditoría", hidden: !can("audit.read") },
   ];
   const visible = items.filter((i) => !i.hidden);
@@ -60,7 +62,7 @@ export function SettingsPage() {
       <div className="page-head">
         <div>
           <h1>Configuración</h1>
-          <p className="sub">Clínica, sucursales, personal, horarios, prestaciones y auditoría</p>
+          <p className="sub">Clínica, sucursales, personal, horarios, prestaciones, consentimientos, seguridad y auditoría</p>
         </div>
       </div>
       <Tabs value={tab} onChange={setTab} items={items} />
@@ -69,6 +71,8 @@ export function SettingsPage() {
       {tab === "staff" && <StaffTab />}
       {tab === "schedules" && <SchedulesTab />}
       {tab === "procedures" && <ProceduresTab />}
+      {tab === "consents" && <ConsentsTab />}
+      {tab === "security" && <SecurityTab />}
       {tab === "audit" && <AuditTab />}
     </div>
   );
@@ -295,7 +299,20 @@ function BranchDialog({ branch, onClose, onSaved }: { branch: any; onClose: () =
 // ---------------- Personal ----------------
 function StaffTab() {
   const { me } = useAuth();
+  const toast = useToast();
   const s = useApi<any[]>("/api/staff");
+  const [resetting, setResetting] = useState<string | null>(null);
+  const resetPassword = async (p: any) => {
+    if (!window.confirm(`¿Generar una contraseña temporal para ${p.fullName}? Su contraseña actual dejará de funcionar y se cerrarán sus sesiones abiertas.`)) return;
+    setResetting(p.userId);
+    try {
+      const r = await api.post<{ temporaryPassword: string }>(`/api/staff/${p.userId}/reset-password`);
+      setTempPw({ email: p.email ?? p.fullName, password: r.temporaryPassword });
+      toast("Contraseña temporal generada");
+    } catch (e: any) {
+      toast(e.message, true);
+    } finally { setResetting(null); }
+  };
   const branches = useApi<any[]>("/api/branches");
   const [edit, setEdit] = useState<any | null>(null);
   const [tempPw, setTempPw] = useState<{ email: string; password: string } | null>(null);
@@ -306,7 +323,7 @@ function StaffTab() {
         <div className="alert warn stack-sm" role="alert">
           <div className="row"><KeyRound size={18} /><b>Contraseña temporal de {tempPw.email}</b></div>
           <code style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.04em", userSelect: "all" }}>{tempPw.password}</code>
-          <span className="small">Se muestra una sola vez. Entrégala en persona o por un canal seguro (nunca por un grupo de WhatsApp) y pide que la cambie al ingresar.</span>
+          <span className="small">Se muestra una sola vez. Entrégala en persona o por un canal seguro (nunca por un grupo de WhatsApp). El sistema le pedirá cambiarla al ingresar.</span>
           <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setTempPw(null)}>Ya la entregué</button>
         </div>
       )}
@@ -318,7 +335,7 @@ function StaffTab() {
         {!s.data ? <Loading /> : s.data.length === 0 ? <Empty>Sin personal registrado.</Empty> : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Nombre</th><th className="hide-mobile">Correo</th><th>Rol</th><th className="hide-mobile">Sucursales</th><th className="hide-mobile num">Comisión</th><th>Estado</th><th /></tr></thead>
+              <thead><tr><th>Nombre</th><th className="hide-mobile">Correo</th><th>Rol</th><th className="hide-mobile">Sucursales</th><th className="hide-mobile num">Comisión</th><th className="hide-mobile">2 pasos</th><th>Estado</th><th /></tr></thead>
               <tbody>
                 {s.data.map((p) => (
                   <tr key={p.userId}>
@@ -332,8 +349,14 @@ function StaffTab() {
                     <td>{p.roleLabel}</td>
                     <td className="hide-mobile small">{p.allBranches || p.role === "owner" ? "Todas" : p.branchIds.map(branchName).join(", ") || "—"}</td>
                     <td className="hide-mobile num">{p.commissionPct != null ? `${p.commissionPct}%` : "—"}</td>
+                    <td className="hide-mobile">{p.mfaEnabled ? <span className="badge ok"><ShieldCheck size={13} />Activa</span> : <span className="muted">—</span>}</td>
                     <td>{p.active ? <span className="badge ok">Activo</span> : <span className="badge danger">Inactivo</span>}</td>
-                    <td className="num">{p.userId !== me?.user.id && <button className="btn btn-sm" onClick={() => setEdit(p)}><Pencil size={14} />Editar</button>}</td>
+                    <td className="num nowrap">{p.userId !== me?.user.id && (
+                      <>
+                        <button className="btn btn-sm" onClick={() => setEdit(p)}><Pencil size={14} />Editar</button>{" "}
+                        <button className="btn btn-sm" disabled={resetting === p.userId} onClick={() => resetPassword(p)} title="Genera una contraseña temporal que deberá cambiar al ingresar"><RotateCcw size={14} />Restablecer contraseña</button>
+                      </>
+                    )}</td>
                   </tr>
                 ))}
               </tbody>
@@ -628,5 +651,155 @@ function AuditTab() {
         <div className="card-pad"><button className="btn" disabled={busy} onClick={() => load(rows[rows.length - 1]?.id)}>{busy ? "Cargando…" : "Cargar más"}</button></div>
       )}
     </div>
+  );
+}
+
+// ---------------- Seguridad (solo propietario) ----------------
+function SecurityTab() {
+  const toast = useToast();
+  const c = useApi<any>("/api/clinic");
+  const [roles, setRoles] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (c.data && roles === null) setRoles(c.data.mfaRequiredRoles ?? []); }, [c.data, roles]);
+  if (!c.data || roles === null) return <div className="card"><Loading /></div>;
+  const toggle = (id: string) => setRoles(roles.includes(id) ? roles.filter((r) => r !== id) : [...roles, id]);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.patch("/api/clinic", { mfaRequiredRoles: roles });
+      toast("Política de verificación en dos pasos guardada");
+      c.reload();
+    } catch (e: any) { toast(e.message, true); } finally { setBusy(false); }
+  };
+  const recommended = ["owner", "admin", "accountant"];
+  return (
+    <div className="grid grid-2">
+      <div className="card">
+        <div className="card-head"><h2>Verificación en dos pasos obligatoria</h2></div>
+        <div className="card-pad stack">
+          <Field label="Roles que deben usar verificación en dos pasos" group>
+            <div className="stack-sm">
+              {ROLE_OPTIONS.map((r) => (
+                <label key={r.id} className="check">
+                  <input type="checkbox" checked={roles.includes(r.id)} onChange={() => toggle(r.id)} />
+                  {r.label}{recommended.includes(r.id) && <span className="badge brand" style={{ marginLeft: 6 }}>Recomendado</span>}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <div className="row">
+            <button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Guardando…" : "Guardar política"}</button>
+            <button className="btn btn-ghost" onClick={() => setRoles([...new Set([...roles, ...recommended])])}>Marcar recomendados</button>
+          </div>
+        </div>
+      </div>
+      <div className="card card-pad stack-sm">
+        <h2>¿Qué pasa al activarla?</h2>
+        <p>Las personas con los roles marcados que todavía no tengan la verificación en dos pasos activa verán, en su <b>próxima acción</b>, una pantalla que les pide activarla con una app autenticadora (Google Authenticator, Microsoft Authenticator u otra). Hasta hacerlo no podrán usar el sistema.</p>
+        <p>Después, cada ingreso pedirá la contraseña y un código de 6 dígitos del celular. Al activarla reciben 10 códigos de recuperación de un solo uso para cuando no tengan el celular.</p>
+        <p className="muted small">Recomendamos exigirla al menos a propietario, administración y contabilidad, porque acceden a datos financieros y a la gestión del personal. Si alguien pierde su celular y sus códigos, el soporte de la plataforma puede restablecerla tras verificar su identidad.</p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Consentimientos ----------------
+const CONSENT_KINDS: { id: string; label: string }[] = [
+  { id: "data_processing", label: "Tratamiento de datos personales y de salud" },
+  { id: "reminders", label: "Recordatorios por WhatsApp/SMS" },
+  { id: "marketing", label: "Promociones y novedades" },
+  { id: "informed_consent", label: "Consentimiento informado" },
+];
+
+function ConsentsTab() {
+  const toast = useToast();
+  const t = useApi<any[]>("/api/consent-templates?all=1");
+  const [edit, setEdit] = useState<{ mode: "new" | "version"; tpl?: any } | null>(null);
+  const setActive = async (tpl: any, active: boolean) => {
+    try { await api.post(`/api/consent-templates/${tpl.id}/active`, { active }); toast(active ? "Plantilla activada" : "Plantilla desactivada"); t.reload(); }
+    catch (e: any) { toast(e.message, true); }
+  };
+  return (
+    <div className="stack">
+      <div className="alert warn small stack-sm">
+        <b>Textos modelo: deben ser revisados por la asesoría legal de la clínica antes de usarse con pacientes.</b>
+        <span>Puedes usar los marcadores <code>{"{paciente}"}</code>, <code>{"{clinica}"}</code>, <code>{"{procedimiento}"}</code> y <code>{"{fecha}"}</code>; se reemplazan al firmar. Modificar un texto crea una <b>versión nueva</b>: la anterior se conserva intacta porque los documentos ya firmados guardan una copia exacta del texto que se aceptó.</span>
+      </div>
+      <div className="row-between">
+        <p className="muted">{t.data?.filter((x) => x.active).length ?? 0} plantillas vigentes</p>
+        <button className="btn btn-primary" onClick={() => setEdit({ mode: "new" })}><Plus size={16} />Nueva plantilla</button>
+      </div>
+      {!t.data ? <div className="card"><Loading /></div> : t.data.length === 0 ? <div className="card"><Empty>Sin plantillas.</Empty></div> : (
+        CONSENT_KINDS.filter((k) => t.data!.some((x) => x.kind === k.id)).map((k) => (
+          <div key={k.id} className="card">
+            <div className="card-head"><h2>{k.label}</h2></div>
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Título</th><th className="hide-mobile">Categoría</th><th className="num">Versión</th><th className="hide-mobile">Creada</th><th>Estado</th><th /></tr></thead>
+                <tbody>
+                  {t.data!.filter((x) => x.kind === k.id).map((x) => (
+                    <tr key={x.id}>
+                      <td><b>{x.title}</b></td>
+                      <td className="hide-mobile">{x.category ?? "—"}</td>
+                      <td className="num">v{x.version}</td>
+                      <td className="hide-mobile small">{fmtDateTime(x.createdAt)}</td>
+                      <td>{x.active ? <span className="badge ok">Vigente</span> : <span className="badge">Inactiva</span>}</td>
+                      <td className="num nowrap">
+                        {x.active && <button className="btn btn-sm" onClick={() => setEdit({ mode: "version", tpl: x })}><Pencil size={14} />Nueva versión</button>}{" "}
+                        <button className="btn btn-sm btn-ghost" onClick={() => setActive(x, !x.active)}>{x.active ? "Desactivar" : "Activar"}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+      {edit && <ConsentTemplateDialog mode={edit.mode} tpl={edit.tpl} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); t.reload(); }} />}
+    </div>
+  );
+}
+
+function ConsentTemplateDialog({ mode, tpl, onClose, onSaved }: { mode: "new" | "version"; tpl?: any; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ kind: tpl?.kind ?? "informed_consent", title: tpl?.title ?? "", body: tpl?.body ?? "", category: tpl?.category ?? "" });
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setErr(null);
+    if (f.title.trim().length < 3) return setErr("El título debe tener al menos 3 caracteres");
+    if (f.body.trim().length < 20) return setErr("El texto debe tener al menos 20 caracteres");
+    setBusy(true);
+    try {
+      const r = await api.post<{ id: string; version: number }>("/api/consent-templates", { kind: f.kind, title: f.title.trim(), body: f.body, category: f.category || null });
+      toast(`Plantilla guardada (versión ${r.version})`);
+      onSaved();
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog wide title={mode === "version" ? `Nueva versión: ${tpl?.title}` : "Nueva plantilla de consentimiento"} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Guardando…" : mode === "version" ? `Guardar como v${(tpl?.version ?? 0) + 1}` : "Crear plantilla"}</button></>}>
+      <div className="stack">
+        {err && <div className="alert danger" role="alert">{err}</div>}
+        {mode === "version" && <div className="alert info small">La versión v{tpl?.version} dejará de estar vigente para nuevas firmas, pero se conserva para los documentos ya firmados.</div>}
+        <div className="form-grid">
+          <Field label="Tipo">
+            <select className="input" value={f.kind} disabled={mode === "version"} onChange={(e) => setF({ ...f, kind: e.target.value })}>
+              {CONSENT_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Categoría (opcional)" hint="Ej.: Cirugía, Endodoncia, Ortodoncia">
+            <input className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} />
+          </Field>
+          <Field label="Título" span2 hint={mode === "version" ? "El título identifica la plantilla: no cambia entre versiones." : undefined}>
+            <input className="input" value={f.title} readOnly={mode === "version"} onChange={(e) => setF({ ...f, title: e.target.value })} />
+          </Field>
+          <Field label="Texto" span2 hint="Marcadores disponibles: {paciente}, {clinica}, {procedimiento}, {fecha}">
+            <textarea className="input" style={{ minHeight: 320, fontFamily: "inherit" }} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
+          </Field>
+        </div>
+      </div>
+    </Dialog>
   );
 }

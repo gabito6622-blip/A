@@ -74,7 +74,21 @@ Cada clínica es una empresa independiente dentro del mismo esquema. El aislamie
   - un odontólogo solo agenda en su propia agenda;
   - solo administración agenda fuera de horario;
   - solo el propietario asigna administradores y propietarios.
-- **Planificado:** MFA TOTP para propietario y administración (backlog P1).
+- **Verificación en dos pasos (v0.2):**
+  - TOTP (RFC 6238) compatible con cualquier app autenticadora;
+  - el secreto se cifra con AES-256-GCM y una clave de entorno (`DENTAL_SECRET_KEY`), así que un respaldo de la base por sí solo no permite generar códigos;
+  - tras la contraseña, la sesión queda en `mfa_pending` (1 h, sin acceso a datos) hasta ingresar el código; 5 errores anulan la sesión;
+  - 10 códigos de recuperación hasheados, de un solo uso;
+  - la política por rol se guarda en `clinics.settings.mfaRequiredRoles`: el servidor bloquea toda la API, salvo la activación, hasta que la persona active los 2 pasos.
+- **Sesiones restringidas:** el helper de rutas rechaza cualquier endpoint que no declare `restricted` mientras la sesión esté pendiente del segundo paso, con contraseña temporal o con activación obligatoria.
+- **Recuperación de contraseña:**
+  - token aleatorio de 256 bits (se guarda su SHA-256), 30 minutos y un solo uso;
+  - respuesta idéntica exista o no el correo;
+  - cierra todas las sesiones.
+  - **Restablecimiento por administración:** solo si la persona pertenece a **una** clínica, verificado con la función `user_clinic_count`. Así una clínica no puede tomar la cuenta de alguien que también trabaja en otra.
+- **Consentimientos:**
+  - `consent_templates` versionadas (editar = nueva versión);
+  - `signed_documents` de solo inserción con copia del texto, firmante, decisión, firma PNG y hash SHA-256 del conjunto, verificado al abrir el documento.
 
 ## 4. Modelo de datos (resumen)
 
@@ -127,6 +141,7 @@ erDiagram
 | `reports` | Panel por sucursal (cobrado, producción, ocupación, inasistencia, conversión), producción y comisión por profesional, cuentas por cobrar, exportaciones |
 | `platform` | Superadministrador: planes, clínicas, estados y métricas agregadas |
 | `assistant` | Herramientas con permisos, acciones rápidas y chat opcional con Claude |
+| `consents` | Plantillas versionadas, documentos firmados con hash, consentimientos de recordatorios y marketing |
 
 **Patrón de ruta** (`lib/http.ts`): cada endpoint declara acceso, permiso y esquemas zod (para validar y para OpenAPI). El helper aplica autenticación, CSRF y permisos y abre la transacción con contexto. Así ningún endpoint puede "olvidar" el aislamiento.
 

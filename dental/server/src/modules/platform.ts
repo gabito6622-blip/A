@@ -106,4 +106,15 @@ export function platformRoutes(route: Route, _cfg: Config) {
       return { ok: true };
     },
   });
+
+  route({
+    method: "GET", url: "/api/platform/users", summary: "Buscar un usuario por correo (soporte: sin datos de pacientes)", tags: ["plataforma"], access: "platform",
+    query: z.object({ email: z.string().trim().toLowerCase().min(3).max(200) }),
+    handler: async ({ c, query }) =>
+      (await c.query(
+        `SELECT u.id, u.email, u.full_name AS "fullName", (u.mfa_enabled_at IS NOT NULL) AS "mfaEnabled", u.disabled_at AS "disabledAt",
+                COALESCE(json_agg(json_build_object('clinic', cl.name, 'role', m.role)) FILTER (WHERE m.id IS NOT NULL), '[]') AS clinics
+           FROM users u LEFT JOIN memberships m ON m.user_id = u.id LEFT JOIN clinics cl ON cl.id = m.clinic_id
+          WHERE u.email = $1 GROUP BY u.id`, [query.email])).rows,
+  });
 }

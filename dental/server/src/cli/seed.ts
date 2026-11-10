@@ -139,7 +139,11 @@ try {
         const start = DateTime.fromISO(`${day.toISODate()}T${s}`, { zone: ZONE });
         const branchCode = dent.br.length === 2 && start.hour >= 14 ? dent.br[1]! : dent.br[0]!;
         const pr = pick(procs.filter((p) => p.duration_min <= 60));
-        const status = d < 0 ? (rnd() < 0.82 ? "completed" : rnd() < 0.5 ? "no_show" : "cancelled") : d === 0 ? pick(["confirmed", "scheduled", "arrived"]) : rnd() < 0.4 ? "confirmed" : "scheduled";
+        const past = start.toMillis() < Date.now();
+        const status = d < 0 || (d === 0 && past && start.toMillis() < Date.now() - 2 * 3_600_000)
+          ? (rnd() < 0.82 ? "completed" : rnd() < 0.5 ? "no_show" : "cancelled")
+          : d === 0 && past ? pick(["arrived", "in_progress", "completed"])
+          : rnd() < 0.4 ? "confirmed" : "scheduled";
         try {
           await q(`INSERT INTO appointments (clinic_id, branch_id, chair_id, dentist_id, patient_id, procedure_id, starts_at, ends_at, status, reason, cancel_reason)
                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,

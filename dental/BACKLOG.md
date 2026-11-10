@@ -6,14 +6,17 @@ Estados: `pendiente` · `en curso` · `hecho (v0.1)`. Cada ítem tiene un criter
 
 | ID | Ítem | Criterio de aceptación |
 |---|---|---|
-| B-001 | MFA TOTP para owner, admin y accountant | Login en 2 pasos; códigos de recuperación de un solo uso; prueba de integración |
-| B-002 | Recuperar contraseña por correo | Enlace de un solo uso que caduca a los 30 min; no revela si el correo existe; prueba |
-| B-003 | Tabla `consents` versionada | Texto, versión, finalidad, fecha, quién registró y evidencia; la ficha muestra la vigente; revocar no borra el historial |
-| B-004 | Consentimiento informado por procedimiento (PDF y firma) | El presupuesto aceptado genera un documento firmado; queda inmutable y descargable con auditoría |
+| B-001 | ✅ (v0.2) MFA TOTP con política por rol (recomendado: owner, admin, accountant) | Login en 2 pasos; códigos de recuperación de un solo uso; prueba de integración |
+| B-002 | ✅ (v0.2) Recuperar contraseña por correo | Enlace de un solo uso que caduca a los 30 min; no revela si el correo existe; prueba |
+| B-003 | ✅ (v0.2) Tabla `consents` versionada | Texto, versión, finalidad, fecha, quién registró y evidencia; la ficha muestra la vigente; revocar no borra el historial |
+| B-004 | ✅ (v0.2) Consentimiento informado por procedimiento con firma; impresión desde el navegador. Pendiente: vínculo automático al aceptar un presupuesto | El presupuesto aceptado genera un documento firmado; queda inmutable y descargable con auditoría |
 | B-005 | Despliegue de staging en Railway | **Requiere autorización.** HTTPS, `NODE_ENV=production`, copias diarias fuera del proveedor, restauración probada |
 | B-006 | Plantilla de importación acordada con la clínica | `dryRun` sin errores sobre los datos reales anonimizados de muestra |
-| B-007 | Idempotencia concurrente de pagos | Dos envíos simultáneos con la misma clave → ambos responden con el mismo pago (hoy uno recibe 409; no hay doble cobro, pero la respuesta no es uniforme) |
+| B-007 | ✅ (v0.2) Idempotencia concurrente de pagos | Dos envíos simultáneos con la misma clave → ambos responden con el mismo pago (verificado en v0.2) |
 | B-008 | Revisión de textos y catálogo con la clínica | Precios reales, nombres de prestaciones y horarios cargados |
+
+## P0 restantes
+B-005 (staging en Railway, requiere autorización), B-006 (plantilla de importación con la clínica) y B-008 (revisión de textos y catálogo con la clínica). Las tres dependen de decisiones o datos de la clínica.
 
 ## P1
 
@@ -24,7 +27,7 @@ Estados: `pendiente` · `en curso` · `hecho (v0.1)`. Cada ítem tiene un criter
 | B-012 | Archivos clínicos privados | URL firmadas de 5 min; la descarga queda auditada; límite de tamaño y tipo |
 | B-013 | Inventario por sucursal | Stock por lote y vencimiento; consumo al realizar un tratamiento; alertas; transferencias con doble registro |
 | B-014 | Liquidación de honorarios por período | Cierre inmutable; base producción o cobro; exportación Excel |
-| B-015 | Kanban de sala de espera y vista semanal | Cambios de estado con arrastre y teclado; prueba e2e |
+| B-015 | Sala de espera (✅ v0.2) y vista semanal de la agenda (pendiente) | Cambios de estado con arrastre y teclado; prueba e2e |
 | B-016 | Recetas e informes PDF | Plantilla con matrícula; registrado como nota clínica |
 | B-017 | Panel: rango libre de fechas y comparación con el período anterior | Variación en % por sucursal |
 | B-018 | Correos transaccionales (citas, recuperación) | Proveedor configurable; sin datos clínicos |

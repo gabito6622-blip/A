@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
-import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2 } from "lucide-react";
+import { Link, NavLink } from "react-router-dom";
+import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 export const Logo = () => (
@@ -14,6 +14,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
     : [
         { to: "/", label: "Inicio", icon: LayoutDashboard, show: true },
         { to: "/agenda", label: "Agenda", icon: CalendarDays, show: can("agenda.read") },
+        { to: "/sala-espera", label: "Sala de espera", icon: Armchair, show: can("agenda.read") },
         { to: "/pacientes", label: "Pacientes", icon: Users, show: can("patients.read") },
         { to: "/presupuestos", label: "Presupuestos", icon: FileText, show: can("budgets.read") },
         { to: "/caja", label: "Caja", icon: Wallet, show: can("payments.read") },
@@ -50,7 +51,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
           )}
           {!platformOnly && me && me.branches.length === 1 && <span className="badge brand">{me.branches[0]!.name}</span>}
           <div className="grow" />
-          <span className="muted small hide-mobile">{me?.user.email}</span>
+          {!platformOnly && <Link to="/cuenta" className="btn btn-ghost btn-sm" title="Mi cuenta: contraseña y verificación en dos pasos"><UserCog size={16} /><span className="hide-mobile">{me?.user.email}</span></Link>}
           <button className="btn btn-ghost btn-sm" onClick={logout} title="Cerrar sesión"><LogOut size={16} /><span className="hide-mobile">Salir</span></button>
         </header>
         <main className="content">{children}</main>

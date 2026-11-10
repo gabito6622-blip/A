@@ -73,3 +73,23 @@ Ver `ARCHITECTURE.md` §7. El modelo por defecto se configura con `ASSISTANT_MOD
 ### D-15 · Respaldos con privilegios incluidos
 - **Decisión:** `pg_dump --no-owner` conserva los GRANT al rol `dental_app`. El script de restauración crea el rol si no existe.
 - **Probado:** tras restaurar, RLS sigue aislando.
+
+### D-16 · Verificación en dos pasos con TOTP propio y secreto cifrado fuera de la base
+- **Por qué TOTP y no SMS:** no depende de operadores ni tiene costo por mensaje, funciona sin señal y no es vulnerable a la clonación de SIM.
+- **Implementación:** ~60 líneas con `node:crypto`, verificada con los vectores del RFC 6238.
+- **Clave en el entorno:** el secreto se cifra con `DENTAL_SECRET_KEY`. Un respaldo filtrado no permite generar códigos.
+- ⚠ Si se pierde la clave, todos deben reactivar los 2 pasos. Guárdala en el gestor de secretos del proveedor y en un lugar seguro aparte.
+
+### D-17 · Usuarios globales, credenciales protegidas entre clínicas
+- **Contexto:** una persona (por ejemplo, un odontólogo) puede trabajar en varias clínicas con la misma cuenta.
+- **Decisión:**
+  - una clínica solo puede emitir una contraseña temporal a quien pertenece **únicamente** a ella;
+  - quien está en varias usa "Olvidé mi contraseña";
+  - quitar los 2 pasos lo hace solo el soporte de plataforma, con motivo auditado.
+
+### D-18 · Consentimientos como documentos inmutables con copia del texto
+- **Decisión:**
+  - se guarda el texto exacto mostrado, no solo un identificador de plantilla, para probar qué se aceptó aunque la plantilla cambie;
+  - el hash SHA-256 cubre texto, firmante, decisión, fecha y firma;
+  - la firma en pantalla es una **firma electrónica simple**.
+- ⚠ Según el anexo E (Ley 164, art. 78), solo la **firma digital** certificada tiene plena validez; la firma electrónica simple vale como indicio. Para documentos donde se requiera firma digital, evaluar la integración con la entidad certificadora (AGETIC). Pendiente de validación legal.

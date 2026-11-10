@@ -17,7 +17,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error ?? {};
-    if (res.status === 401 && !url.endsWith("/login")) window.dispatchEvent(new Event("session-expired"));
+    if (res.status === 401 && e.code === "unauthenticated") window.dispatchEvent(new Event("session-expired"));
     throw new ApiError(res.status, e.code ?? "error", e.message ?? "Error de conexión", e.details);
   }
   return data as T;

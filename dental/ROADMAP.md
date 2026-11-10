@@ -11,6 +11,8 @@ Prioridades: **P0** bloquea el piloto · **P1** el piloto lo necesita en el prim
 
 ## Etapa 1 — Piloto controlado en la clínica (objetivo: 4–6 semanas)
 
+> **Avance v0.2 (10-nov-2026):** ✅ verificación en dos pasos, ✅ recuperación de contraseña, ✅ consentimientos versionados y firmados, ✅ sala de espera, ✅ idempotencia uniforme. Pendiente de la clínica: revisión humana, staging (requiere autorización), plantilla de importación y capacitación.
+
 **P0**
 1. **Revisión humana** de esta entrega: flujos, textos, permisos por rol y catálogo de prestaciones con precios reales.
 2. **Despliegue de staging en Railway** (requiere autorización): base PostgreSQL gestionada, dominio con HTTPS, variables de entorno y copias diarias cifradas fuera de Railway.

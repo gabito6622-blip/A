@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.1
+# Informe de pruebas — v0.2
 
 - **Fecha:** 10-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,8 +8,8 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **90/90**, 11 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **7/7** |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **105/105**, 12 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **11/11** |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
 | Revisión visual | Playwright, 22 capturas (escritorio 1440 px y celular 390 px), 8 pantallas por rol | ✅ sin errores de consola, salvo el 401 esperado al cargar sin sesión |
@@ -100,6 +100,40 @@ Las pruebas de integración usan la API real (`fastify.inject`) contra una base 
 6. El asistente informa que la IA no está configurada y ofrece acciones rápidas.
 7. **Celular (Pixel 7):** barra inferior, sin desborde horizontal en Inicio, Agenda, Pacientes y Caja.
 
+### Seguridad y consentimientos (v0.2, `tests/security.test.ts` con 15 pruebas, más 4 end-to-end)
+- **TOTP:** cumple los vectores oficiales del RFC 6238 (T=59 s → 287082; T=1111111109 → 081804) y tolera ±30 s. Se rechazan los códigos viejos.
+- **Cifrado AES-256-GCM:** con otra clave o con datos alterados, falla.
+- **Activación de 2 pasos:**
+  - pide la contraseña;
+  - el secreto queda cifrado en la base;
+  - un código incorrecto se rechaza;
+  - entrega 10 códigos de recuperación.
+- **Ingreso posterior:** sin el código, la API responde `mfa_required`. Un código de recuperación funciona **una sola vez**. 5 códigos incorrectos anulan la sesión y se audita `auth.mfa_locked`.
+- **Política por rol:** solo el propietario la cambia (el administrador recibe 403). Una recepcionista queda bloqueada (`mfa_enrollment_required`) hasta activar los 2 pasos.
+- **"Olvidé mi contraseña":**
+  - misma respuesta para un correo existente o inexistente, y solo se envía correo al existente;
+  - el enlace es de un solo uso y vence a los 30 minutos;
+  - rechaza contraseñas débiles;
+  - cierra las sesiones anteriores.
+- **Contraseña temporal emitida por administración:**
+  - obliga a cambiarla (`password_change_required`) antes de usar el sistema;
+  - **se rechaza** si la persona pertenece a otra clínica (`multi_clinic_user`).
+- **Consentimientos:**
+  - la firma en pantalla es obligatoria si se elige ese método;
+  - el texto se copia con los datos ya completados y el hash se verifica (`integrityOk`);
+  - el consentimiento de recordatorios actualiza la ficha y la revocación también;
+  - el documento es **inmutable** a nivel de base;
+  - un menor no firma por sí mismo;
+  - una versión vieja de la plantilla se rechaza;
+  - un asistente no puede firmar consentimientos informados;
+  - los cambios hechos desde la ficha quedan registrados como "registrado por el personal".
+- **Idempotencia concurrente (B-007 resuelto):** dos pagos simultáneos con la misma clave responden **ambos 200 con el mismo pago**.
+- **End-to-end:**
+  - la gerente activa los 2 pasos con el QR e ingresa con el código de la app (un código incorrecto muestra el error);
+  - una recepcionista con contraseña temporal es obligada a cambiarla;
+  - firma con el mouse en el lienzo → "Integridad verificada";
+  - en la sala de espera, "Llegó" mueve la tarjeta a la columna de espera.
+
 ## Hallazgos durante las pruebas (y correcciones)
 
 | Hallazgo | Corrección |
@@ -109,12 +143,17 @@ Las pruebas de integración usan la API real (`fastify.inject`) contra una base 
 | Las etiquetas de formulario no estaban asociadas a los campos (accesibilidad, detectado por e2e) | El componente `Field` envuelve el control; los grupos llevan `role=group` |
 | Anular un cargo y volver a realizar el tratamiento violaba un índice único | Se reemplazó por un bloqueo de fila y una transición de estado; está probado |
 | La caja del día no mostraba la referencia bancaria | Agregada |
+| (v0.2) Un código TOTP incorrecto cerraba la pantalla de verificación (cualquier 401 se trataba como sesión vencida) | Solo el código `unauthenticated` cierra la sesión en la interfaz |
+| (v0.2) El texto de ayuda de un campo formaba parte de su nombre accesible ("Nueva contraseña Mínimo 10…") | La ayuda queda fuera de la etiqueta |
+| (v0.2) La plantilla de recordatorios no nombraba al paciente | Las plantillas comienzan con "Yo, {paciente}" |
+| (v0.2, CI) El `pg_dump` del servidor de CI era más nuevo que PostgreSQL 16 y la restauración fallaba | CI con PostgreSQL 17 y requisito de versión documentado |
 | El pool del superadmin forzaba el rol de la app y no veía datos | El rol se fija solo en el pool de la app, como parámetro de conexión |
 
 ## Lo que NO está probado todavía (riesgo conocido)
 
 - **Carga y rendimiento.** Probado solo con la demo (90 pacientes, ~1100 citas). Pendiente una prueba con 100 000 pacientes y 5 años de citas.
-- **Idempotencia concurrente exacta** (B-007). Con dos envíos simultáneos con la misma clave, uno puede recibir 409 en lugar del pago existente. **No hay doble cobro**, pero la respuesta no es uniforme.
+- **Correo real.** El envío por SMTP no se probó contra un servidor; las pruebas usan un buzón en memoria.
+- **Impresión de documentos.** La ventana de impresión no tiene una prueba automatizada.
 - **Asistente con IA real.** No hay clave en este entorno, así que el flujo del chat con el modelo no se ejecutó. Sí están probadas las herramientas, los permisos y la degradación sin clave.
 - **Pantallas de Configuración, Reportes, Asistente y Plataforma.** Están compiladas y revisadas visualmente, pero sin e2e propios. Su API sí está probada.
 - **Navegadores** distintos de Chromium (Safari iOS, Firefox).

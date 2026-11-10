@@ -68,12 +68,16 @@ export function Field({ label, children, hint, span2, group }: { label: string; 
       {hint && <span className="hint">{hint}</span>}
     </div>
   );
+  // La etiqueta envuelve solo el texto y el control (display: contents conserva el diseño);
+  // la ayuda queda fuera para que no forme parte del nombre accesible del campo.
   return (
-    <label className={`field ${span2 ? "span-2" : ""}`}>
-      <span className="label">{label}</span>
-      {children}
+    <div className={`field ${span2 ? "span-2" : ""}`}>
+      <label style={{ display: "contents" }}>
+        <span className="label">{label}</span>
+        {children}
+      </label>
       {hint && <span className="hint">{hint}</span>}
-    </label>
+    </div>
   );
 }
 

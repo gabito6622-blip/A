@@ -2,6 +2,43 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.2.0] — 2026-11-10
+
+### Agregado
+- **Verificación en dos pasos (TOTP, RFC 6238):**
+  - funciona con cualquier app autenticadora;
+  - el secreto se cifra con AES-256-GCM usando una clave fuera de la base (`DENTAL_SECRET_KEY`);
+  - 10 códigos de recuperación de un solo uso;
+  - 5 códigos incorrectos anulan la sesión;
+  - la clínica decide qué roles deben usarla (Configuración → Seguridad), y solo el propietario cambia esa política;
+  - el soporte de plataforma puede quitarla, con motivo auditado.
+- **Recuperación de contraseña por correo:**
+  - enlace de un solo uso válido 30 min;
+  - la respuesta es idéntica exista o no el correo;
+  - máximo 3 solicitudes por hora;
+  - cierra todas las sesiones.
+- **Contraseña temporal emitida por administración**, que obliga a cambiarla al ingresar. Está bloqueada para personas que trabajan en más de una clínica. Las cuentas nuevas también deben cambiar la contraseña temporal.
+- **Consentimientos versionados y documentos firmados:**
+  - plantillas por tipo (datos, recordatorios, promociones, consentimiento informado) con versiones;
+  - firma en pantalla (dedo, lápiz o mouse) o en papel;
+  - copia del texto exacto y hash SHA-256 con verificación de integridad;
+  - registros de solo inserción;
+  - los menores firman por su representante;
+  - impresión del documento.
+  - Los cambios de consentimiento hechos desde la ficha también quedan registrados.
+- **Sala de espera por sucursal:** tablero Por llegar → En sala → En atención → Atendidos, con retraso y tiempo de espera.
+- **Página "Mi cuenta":** cambio de contraseña y verificación en dos pasos.
+- **Superadministrador:** búsqueda de usuario por correo para soporte.
+
+### Cambiado
+- La idempotencia de pagos y citas es uniforme con envíos simultáneos: todos reciben la misma respuesta (B-007).
+- Las ayudas de los formularios ya no forman parte del nombre accesible del campo.
+- Los datos demo reflejan estados realistas para el día actual.
+
+### Pruebas
+- 105 de integración y unitarias (15 nuevas: vectores del RFC 6238, cifrado, flujos de 2 pasos, recuperación, consentimientos).
+- 11 end-to-end (4 nuevas: activar 2 pasos e ingresar con código, contraseña temporal obligatoria, firma de consentimiento, sala de espera).
+
 ## [0.1.0] — 2026-11-10
 
 ### Agregado

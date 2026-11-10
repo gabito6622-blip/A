@@ -2,7 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { api, setCsrf } from "./api";
 
 export interface Me {
-  user: { id: string; email: string; fullName: string; isPlatformAdmin: boolean };
+  mfaPending?: boolean;
+  mustChangePassword?: boolean;
+  mfaEnrollmentRequired?: boolean;
+  user: { id: string; email: string; fullName: string; isPlatformAdmin: boolean; mfaEnabled?: boolean };
   csrfToken: string;
   clinic: { id: string; name: string; timezone: string; currency: string } | null;
   branches: { id: string; code: string; name: string; city: string | null }[];
@@ -34,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const m = await api.get<Me>("/api/auth/me");
       setCsrf(m.csrfToken);
       setMe(m);
-      setBranchIdState((cur) => (cur && m.branches.some((b) => b.id === cur) ? cur : m.branches.length === 1 ? m.branches[0]!.id : null));
+      setBranchIdState((cur) => (cur && m.branches?.some((b) => b.id === cur) ? cur : m.branches?.length === 1 ? m.branches[0]!.id : null));
     } catch {
       setMe(null);
     } finally {

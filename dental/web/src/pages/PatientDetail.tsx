@@ -10,8 +10,9 @@ import { Odontogram } from "../components/Odontogram";
 import { PatientFormDialog } from "./Patients";
 import { BudgetEditor, BudgetDetailDialog } from "./Budgets";
 import { PaymentDialog } from "./Cash";
+import { ConsentsPanel } from "../components/Consents";
 
-type Tab = "resumen" | "odontograma" | "historia" | "presupuestos" | "cuenta";
+type Tab = "resumen" | "odontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
 
 export function PatientDetailPage() {
   const { id } = useParams();
@@ -63,6 +64,7 @@ export function PatientDetailPage() {
         { id: "historia", label: "Historia clínica", hidden: !can("clinical.read") },
         { id: "presupuestos", label: "Presupuestos", hidden: !can("budgets.read") },
         { id: "cuenta", label: "Cuenta y pagos", hidden: !can("payments.read") },
+        { id: "consentimientos", label: "Consentimientos" },
       ]} />
 
       {tab === "resumen" && (
@@ -91,6 +93,7 @@ export function PatientDetailPage() {
       {tab === "historia" && <ClinicalHistory patientId={id!} />}
       {tab === "presupuestos" && <PatientBudgets patientId={id!} onChanged={p.reload} />}
       {tab === "cuenta" && <PatientAccount patientId={id!} onChanged={p.reload} />}
+      {tab === "consentimientos" && <ConsentsPanel patient={pt} />}
       {editing && <PatientFormDialog patient={pt} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); p.reload(); }} />}
     </div>
   );
