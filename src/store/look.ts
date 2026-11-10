@@ -5,6 +5,7 @@ import { DomainError } from "./errors.js";
 
 /** Letras disponibles (id → nombre en Google Fonts; "system" = la del dispositivo). */
 export const FONTS: Record<string, string> = {
+  figtree: "Figtree", bricolage: "Bricolage Grotesque",
   inter: "Inter", poppins: "Poppins", montserrat: "Montserrat", nunito: "Nunito", dmsans: "DM Sans", outfit: "Outfit",
   bebas: "Bebas Neue", orbitron: "Orbitron", righteous: "Righteous", pacifico: "Pacifico", playfair: "Playfair Display",
   bungee: "Bungee", fredoka: "Fredoka", lobster: "Lobster", russo: "Russo One", system: "",

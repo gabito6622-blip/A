@@ -81,6 +81,7 @@ export const KIND_TEXT = { sale: "Compra", renewal: "Renovación", topup: "Recar
 
 /* ---------------- Estilos de tienda (compartido: tienda, panel y páginas de revendedores) ---------------- */
 export const FONT_LIST = [
+  ["figtree", "Figtree", "Pro / limpia"], ["bricolage", "Bricolage Grotesque", "Pro / títulos"],
   ["inter", "Inter", "Moderna"], ["poppins", "Poppins", "Redondeada"], ["montserrat", "Montserrat", "Elegante"], ["nunito", "Nunito", "Amigable"],
   ["dmsans", "DM Sans", "Limpia"], ["outfit", "Outfit", "Actual"], ["bebas", "Bebas Neue", "Títulos altos"], ["orbitron", "Orbitron", "Futurista"],
   ["righteous", "Righteous", "Retro"], ["pacifico", "Pacifico", "Manuscrita"], ["playfair", "Playfair Display", "Lujo"], ["bungee", "Bungee", "Gamer"],
@@ -112,7 +113,7 @@ export const THEMES = [
   { id: "neon-vivo", name: "Neón Vivo ✨", look: { backgroundColor: "#06040f", accentColor: "#ff2bd6", accent2Color: "#00e5ff", bgStyle: "live", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },
   { id: "fuego", name: "Fuego ✨", look: { backgroundColor: "#120604", accentColor: "#ff6a00", accent2Color: "#ffd000", bgStyle: "live", cardStyle: "neon", headingFont: "bebas", fontFamily: "outfit", corners: "soft" } },
   { id: "esmeralda", name: "Esmeralda ✨", look: { backgroundColor: "#03140f", accentColor: "#10e0a0", accent2Color: "#38bdf8", bgStyle: "live", cardStyle: "glass", headingFont: "poppins", fontFamily: "poppins", corners: "round" } },
-  { id: "oro-azul", name: "Oro y Azul ⭐", look: { backgroundColor: "#0d1d33", accentColor: "#f5c518", accent2Color: "#ffd84d", bgStyle: "glow", cardStyle: "solid", headingFont: "poppins", fontFamily: "inter", corners: "soft", layout: "catalogo" } },
+  { id: "oro-azul", name: "Oro y Azul ⭐", look: { backgroundColor: "#14213d", accentColor: "#ffc93c", accent2Color: "#ffd96b", bgStyle: "glow", cardStyle: "solid", headingFont: "bricolage", fontFamily: "figtree", corners: "soft", layout: "catalogo" } },
 ];
 /** Muestra en miniatura de un estilo (para elegir con un toque). */
 export const themeSwatch = (t) => {
