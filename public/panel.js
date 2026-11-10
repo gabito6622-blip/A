@@ -1058,6 +1058,8 @@ const V = {
         <h2 style="margin-top:6px">Textos de la página de inicio</h2>
         <div class="form"><label>Título<input name="heroTitle" maxlength="40" value="${esc(s.heroTitle)}"></label><label>Parte destacada (en color)<input name="heroHighlight" maxlength="40" value="${esc(s.heroHighlight)}"></label>
         <label style="grid-column:1/-1">Descripción<input name="heroText" maxlength="220" value="${esc(s.heroText)}"></label>
+        <label style="grid-column:1/-1">🔎 Título para Google y al compartir el link <small class="muted">(SEO, hasta 70 letras; vacío = el nombre de la tienda)</small><input name="seoTitle" maxlength="70" value="${esc(s.seoTitle ?? "")}" placeholder="Gabriel Store | Netflix, Disney+, Spotify y más en Bolivia"></label>
+        <label style="grid-column:1/-1">🔎 Descripción para Google <small class="muted">(hasta 160 letras: qué vendés, dónde y cómo se paga)</small><input name="seoDescription" maxlength="160" value="${esc(s.seoDescription ?? "")}"></label>
         <label style="grid-column:1/-1">Aviso arriba de todo (opcional)<input name="announcement" maxlength="140" value="${esc(s.announcement)}" placeholder="Ej.: Netflix a Bs 30 solo este fin de semana"></label>
         <label style="grid-column:1/-1">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(s.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00 (hora de Bolivia)"></label>
         <label>Etiqueta sobre el título (vacío = sin etiqueta)<input name="heroChip" maxlength="40" value="${esc(s.heroChip)}"></label>
@@ -2934,7 +2936,7 @@ document.addEventListener("submit", async (ev) => {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
       const body = { accentColor: color("accentColor"), backgroundColor: color("backgroundColor"), accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value,
         fontFamily: f.fontFamily.value, headingFont: f.headingFont.value, bgStyle: f.bgStyle.value, cardStyle: f.cardStyle.value, corners: f.corners.value, layout: f.layout.value };
-      for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "storeHours", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) body[k] = f[k].value;
+      for (const k of ["heroTitle", "heroHighlight", "heroText", "announcement", "storeHours", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook", "seoTitle", "seoDescription"]) body[k] = f[k].value;
       await act(() => api("POST", "/api/admin/settings", body), "Apariencia guardada: así la ven tus clientes");
     } else if (f.id === "logoForm") {
       await act(async () => api("POST", "/api/admin/settings/logo", { contentBase64: await fileToBase64(f.file.files[0]) }), "Logo actualizado");

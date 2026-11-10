@@ -14,7 +14,7 @@ export const BG_STYLES = ["solid", "glow", "gradient", "aurora", "live", "dots",
 export const CARD_STYLES = ["solid", "glass", "outline", "neon", "ticket", "lista", "poster"] as const;
 export const CORNERS = ["round", "soft", "square"] as const;
 /** Tipo de tienda (estructura/diseño de la portada). */
-export const LAYOUTS = ["clasico", "vitrina", "catalogo", "minimal"] as const;
+export const LAYOUTS = ["clasico", "vitrina", "catalogo", "minimal", "ticket"] as const;
 
 export interface Look {
   accentColor?: string;
@@ -42,12 +42,15 @@ export interface Look {
   instagram?: string;
   tiktok?: string;
   facebook?: string;
+  /** Para Google y al compartir el link: título (≤70) y descripción (≤160). Vacío = se arma solo. */
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export const LOOK_KEYS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout", "storeHours",
-  "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"] as const;
+  "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook", "seoTitle", "seoDescription"] as const;
 
-const TEXT_LIMITS: Partial<Record<keyof Look, number>> = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120, storeHours: 60 };
+const TEXT_LIMITS: Partial<Record<keyof Look, number>> = { heroTitle: 40, heroHighlight: 40, heroText: 220, announcement: 140, heroChip: 40, heroTicks: 120, footerText: 120, storeHours: 60, seoTitle: 70, seoDescription: 160 };
 
 /** Valida y limpia los campos de estilo que vengan en `patch` (ignora los demás). */
 export function cleanLook(patch: Record<string, unknown>): Partial<Look> {

@@ -66,6 +66,18 @@ describe("vista previa al compartir (Open Graph)", () => {
     assert.equal(meta(await r.text(), "og:image"), undefined, "sin etiquetas de una tienda que no existe");
   });
 
+  test("SEO: título y descripción para Google, robots.txt y sitemap.xml", async () => {
+    app.store.catalog.updateSettings({ id: "t", role: "owner" }, { seoTitle: "Gabriel Store | Netflix y más en Bolivia", seoDescription: "Streaming en Bolivia con QR." });
+    const html = await (await fetch(base + "/tienda/")).text();
+    assert.match(html, /<title>Gabriel Store \| Netflix y más en Bolivia<\/title>/);
+    assert.equal(meta(html, "description"), "Streaming en Bolivia con QR.");
+    const robots = await (await fetch(base + "/robots.txt")).text();
+    assert.match(robots, /Disallow: \/panel/);
+    assert.match(robots, /Sitemap: https:\/\/ejemplo\.test\/sitemap\.xml/);
+    const sm = await (await fetch(base + "/sitemap.xml")).text();
+    assert.match(sm, /<loc>https:\/\/ejemplo\.test\/tienda\/<\/loc>/);
+  });
+
   test("el panel y los términos no cambian", async () => {
     const panel = await (await fetch(base + "/panel.html")).text();
     assert.equal(meta(panel, "og:image"), undefined);

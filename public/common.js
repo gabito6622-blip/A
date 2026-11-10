@@ -109,6 +109,7 @@ export const LAYOUT_LIST = [
   ["vitrina", "✨ Vitrina", "Portada grande y centrada, bien llamativa, con productos destacados abajo."],
   ["catalogo", "🛒 Catálogo", "Va directo a los productos, para que compren rápido."],
   ["minimal", "⬜ Minimal", "Limpio y sobrio, sin tanto adorno."],
+  ["ticket", "🎟️ Lista tipo ticket", "Catálogo directo en filas compactas, con buscador, categorías y selector de 1 o 3 meses."],
 ];
 /* ---------------- Contraste de colores (WCAG) ----------------
    El dueño y los revendedores eligen cualquier color. Estas funciones garantizan que el texto

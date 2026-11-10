@@ -794,3 +794,34 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 /* Pestañas del revendedor: en el celular bajan de renglón (nada queda escondido fuera de la pantalla). */
 @media (max-width:700px){.rtabs{flex-wrap:wrap;overflow:visible}.rtabs button{flex:1 1 auto;min-height:44px}}
+
+/* ---------------- Diseño "Lista tipo ticket" ---------------- */
+.tkhero{display:grid;gap:6px;padding-top:6px}
+.tkhero h1{margin:0;font-family:var(--f-head);font-size:clamp(28px,5.4vw,52px);line-height:1.08;letter-spacing:-.02em}
+.tkhero h1 span{color:var(--s-blue-text)}
+.tkhero p{margin:0;color:var(--s-muted);font-size:clamp(15px,2.2vw,18px)}
+.tktools{display:grid;gap:12px}
+.tktools #q{width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--s-line);background:var(--s-card);color:var(--s-ink);font:inherit;font-size:16px}
+.tkcats{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.tkcats::-webkit-scrollbar{display:none}
+.tkcats button{flex:none;padding:10px 16px;border-radius:999px;border:1px solid var(--s-line);background:transparent;color:var(--s-ink);font:inherit;font-weight:600;cursor:pointer}
+.tkcats button[aria-pressed=true]{background:var(--s-ink);color:var(--s-bg);border-color:var(--s-ink)}
+.tkbar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--s-muted);font-size:14px}
+.tkbar label{display:flex;align-items:center;gap:8px}
+.tkbar select,.tksel{padding:9px 12px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-bg);color:var(--s-ink);font:inherit;font-size:14px;max-width:100%}
+.tklist{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.tk{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 0 14px 14px;border-radius:16px;background:var(--s-card);border:1px solid var(--s-line)}
+.tk::before,.tk::after{content:"";position:absolute;right:104px;width:16px;height:16px;border-radius:50%;background:var(--s-bg);transform:translateX(50%)}
+.tk::before{top:-9px}.tk::after{bottom:-9px}
+.tklogo{display:grid;place-items:center;width:52px;height:52px;padding:0;border:0;border-radius:12px;background:color-mix(in srgb,var(--s-ink) 6%,transparent);cursor:pointer;overflow:hidden}
+.tklogo .plogo{width:52px;height:52px;object-fit:cover;border-radius:12px}.tklogo .lt{width:52px;height:52px;display:grid;place-items:center;border-radius:12px;color:#fff;font-weight:800;font-size:22px}
+.tkmid{display:grid;gap:8px;min-width:0}
+.tkmid h3{margin:0;font-size:16px;line-height:1.25;overflow-wrap:anywhere}
+.tkdur{color:var(--s-muted);font-size:13px;line-height:1.35}
+.tkend{display:grid;justify-items:center;gap:8px;width:104px;padding:0 10px;border-left:2px dashed var(--s-line);box-sizing:border-box}
+.tkend b{font-size:20px;color:var(--s-blue-text);white-space:nowrap}
+.tkbtn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;width:100%;padding:0 10px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--s-btn-a),var(--s-btn-b));color:var(--s-on-blue);font:inherit;font-weight:800;font-size:14px;text-decoration:none;cursor:pointer}
+.tkbtn[disabled]{opacity:.5;cursor:not-allowed}
+@media (max-width:420px){.tklist{grid-template-columns:minmax(0,1fr)}.tk{gap:10px;padding-left:10px}.tkend{width:96px;padding:0 8px}.tk::before,.tk::after{right:96px}.tklogo,.tklogo .plogo,.tklogo .lt{width:46px;height:46px}}
+.shop[data-layout="ticket"] ~ .banner,.shop[data-layout="ticket"] .banner{background:color-mix(in srgb,var(--s-bg) 72%,#000);color:var(--s-ink)}
+body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var(--s-bg) 72%,#000);color:var(--s-ink);border-bottom:1px solid var(--s-line)}
