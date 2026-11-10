@@ -1309,7 +1309,7 @@ export function createApp(cfg: AppConfig): App {
   // ── Agentes con Claude ──
   route("GET", "/api/admin/ai", "staff", () => {
     const c = agents.cfg();
-    return { hasKey: agents.hasKey, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: aiDaily() };
+    return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: aiDaily() };
   });
   route("POST", "/api/admin/ai", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");
@@ -1360,7 +1360,7 @@ export function createApp(cfg: AppConfig): App {
       .finally(() => {
         selfTestRunning = false;
         const cur = agents.cfg();
-        aiSave({ ...cur, spentUsd: Math.round((cur.spentUsd + tcfg.spentUsd) * 10_000) / 10_000, calls: cur.calls + tcfg.calls });
+        aiSave({ ...cur, spentUsd: Math.round((cur.spentUsd + tcfg.spentUsd) * 10_000) / 10_000, calls: cur.calls + tcfg.calls, lastError: tcfg.lastError ?? (tcfg.calls ? undefined : cur.lastError) });
       });
     return st;
   });

@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../dist/server/app.js";
-import { Agents, defaultAiCfg } from "../dist/server/agents.js";
+import { Agents, defaultAiCfg, cleanApiKey, keyShape } from "../dist/server/agents.js";
 import { botAnswer } from "../dist/server/bot.js";
 import { createStore } from "../dist/store/index.js";
 
@@ -92,6 +92,22 @@ describe("agentes (unidad)", () => {
     assert.equal(r.handoff, false);
     assert.match(fake.calls[0].body.system, /no lo hagas/);
     assert.match(fake.calls[0].body.messages[0].content, /cuánto sale netflix/);
+  });
+
+  test("la clave se limpia al leerla y se avisa si no es de API (sin mostrarla)", async () => {
+    assert.equal(cleanApiKey('  "sk-ant-api03-abc\n" '), "sk-ant-api03-abc");
+    assert.equal(cleanApiKey("sk-ant-api03-a b\tc"), "sk-ant-api03-abc");
+    assert.equal(cleanApiKey("   "), undefined);
+    assert.equal(keyShape("sk-ant-api03-abc"), "ok");
+    assert.equal(keyShape("sk-ant-oat01-abc"), "not_api_key");
+    assert.equal(keyShape(undefined), "missing");
+    // Clave rechazada por Anthropic: mensaje claro para el dueño.
+    const f401 = async () => new Response(JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }), { status: 401, headers: { "content-type": "application/json" } });
+    let c = { ...defaultAiCfg("2026-11"), enabled: { receipts: true, whatsapp: true, daily: true, watch: true } };
+    const a = new Agents({ apiKey: "sk-ant-api03-mala", fetchImpl: f401, now: () => Date.UTC(2026, 10, 10), getCfg: () => c, saveCfg: (x) => { c = x; } });
+    await assert.rejects(a.dailyReport("x"), (e) => /no es válida/.test(e.message) && /Railway/.test(e.message));
+    assert.match(c.lastError, /no es válida/);
+    assert.ok(!c.lastError.includes("sk-ant-api03-mala"), "el error nunca muestra la clave");
   });
 
   test("el bot marca lo que no entendió (ahí entra la IA)", () => {
