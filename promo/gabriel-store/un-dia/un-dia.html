@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Un día con Gabriel Store</title>
+<!--
+  «Un día con Gabriel Store»: video vertical 1080x1920 para estados de WhatsApp (44 s, voz Marco).
+  Animación determinista: window.seek(t). ?cover = portada · &play = verla en vivo.
+  Precios verificados en la tienda publicada el 10/11/2026 (Netflix desde Bs 40, Spotify Premium Bs 33, Canva EduPro Bs 5).
+  Plataformas con su nombre y color, sin logotipos de terceros.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #080b19; }
+  body { font-family: "Inter Display", "Inter", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  :root { --bg: #080b19; --blue: #1565ff; --violet: #8b3dff; --magenta: #ff3ea5; --soft: rgba(255,255,255,.75); }
+  .abs { position: absolute; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .center { left: 0; right: 0; text-align: center; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; font-weight: 400; }
+  .sky { position: absolute; inset: 0; }
+  #skyDawn { background: linear-gradient(180deg, #0b1236 0%, #2a1a63 40%, #8a2b8f 68%, #ff3ea5 86%, #ff8fb8 100%); }
+  #skyDay { background: linear-gradient(180deg, #0a2c8f 0%, #1565ff 55%, #5aa0ff 85%, #a9cbff 100%); }
+  #skyNight { background: linear-gradient(180deg, #03040d 0%, #0a0c24 45%, #22114f 80%, #3b1680 100%); }
+  #skyBrand { background: radial-gradient(900px 700px at 20% 15%, rgba(21,101,255,.45), transparent 70%), radial-gradient(900px 800px at 90% 70%, rgba(139,61,255,.4), transparent 70%), radial-gradient(700px 600px at 30% 100%, rgba(255,62,165,.3), transparent 70%), #080b19; }
+  #sun { position: absolute; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, #fff6e8 0%, #ffd2e6 35%, rgba(255,62,165,.55) 60%, rgba(255,62,165,0) 72%); }
+  #moon { position: absolute; width: 170px; height: 170px; border-radius: 50%; background: radial-gradient(circle at 38% 38%, #ffffff, #d9dcff 55%, #9aa0e8 100%); box-shadow: 0 0 80px rgba(180,170,255,.6); }
+  #moon::after { content: ""; position: absolute; left: 46px; top: -18px; width: 170px; height: 170px; border-radius: 50%; background: #0a0c24; opacity: .0; }
+  #stars, #city { position: absolute; inset: 0; }
+  #shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,11,25,.55) 0%, rgba(8,11,25,.05) 30%, rgba(8,11,25,.15) 70%, rgba(8,11,25,.6) 100%); }
+  #grain { position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay; }
+
+  /* reloj */
+  #clock { position: absolute; left: 0; right: 0; top: 150px; text-align: center; }
+  #clock .time { font-size: 150px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; height: 150px; overflow: hidden; position: relative; }
+  #clock .time span { position: absolute; left: 0; right: 0; }
+  #clock .part { margin-top: 18px; font-size: 32px; font-weight: 700; letter-spacing: .34em; color: var(--soft); }
+
+  .h-l { font-size: 96px; font-weight: 900; letter-spacing: -.035em; line-height: .98; }
+  .h-m { font-size: 64px; font-weight: 800; letter-spacing: -.02em; line-height: 1.08; }
+  .label { font-size: 32px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: var(--soft); }
+  .grad { background: linear-gradient(90deg, #8ab6ff, #c4a3ff 50%, #ff8fcc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+  .w > span { display: inline-block; }
+  .grad .w > span { background: linear-gradient(90deg, #8ab6ff, #c4a3ff 50%, #ff8fcc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .glass { background: rgba(10,14,36,.55); border: 2px solid rgba(255,255,255,.14); box-shadow: 0 40px 90px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .card { position: absolute; border-radius: 38px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.12); }
+  .card .gloss { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(255,255,255,.22), rgba(255,255,255,0) 38%); }
+  .pill { display: inline-flex; align-items: center; gap: 16px; padding: 24px 40px; border-radius: 999px; font-size: 42px; font-weight: 800; }
+
+  .mono { position: absolute; border-radius: 30%; background: conic-gradient(from 210deg, #1565ff, #8b3dff, #ff3ea5, #1565ff); padding: 7px; box-shadow: 0 0 80px rgba(21,101,255,.55), 0 0 160px rgba(139,61,255,.35); }
+  .mono i { display: flex; width: 100%; height: 100%; border-radius: 27%; background: radial-gradient(circle at 30% 25%, #1b2450, #0a0e22 70%); align-items: center; justify-content: center; font-style: normal; font-weight: 900; color: #fff; }
+  .word { font-weight: 900; letter-spacing: .14em; white-space: nowrap; }
+
+  /* subtítulos */
+  #cap { position: absolute; left: 60px; right: 60px; top: 1585px; text-align: center; }
+  #cap .box { display: inline-block; padding: 18px 30px; border-radius: 22px; background: rgba(5,7,20,.62); font-size: 46px; font-weight: 800; line-height: 1.2; letter-spacing: -.01em; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  #cap .box span { transition: none; }
+</style>
+</head>
+<body>
+<div id="stage" class="abs" style="inset:0;overflow:hidden">
+  <div id="skyBrand" class="sky"></div>
+  <div id="skyNight" class="sky"></div>
+  <div id="skyDay" class="sky"></div>
+  <div id="skyDawn" class="sky"></div>
+  <canvas id="stars" width="1080" height="1920"></canvas>
+  <div id="sun"></div>
+  <div id="moon"></div>
+  <canvas id="city" width="1080" height="1920"></canvas>
+  <div id="shade"></div>
+  <div id="cam" class="abs" style="inset:0">
+    <div id="clock"><div class="time"><span id="tA"></span><span id="tB"></span></div><div class="part" id="part"></div></div>
+    <div id="scenes"></div>
+  </div>
+  <div id="cap"><span class="box" id="capBox"></span></div>
+  <canvas id="grain" width="540" height="960" style="width:1080px;height:1920px"></canvas>
+  <div id="flash" class="abs" style="inset:0;background:#fff;opacity:0;mix-blend-mode:screen"></div>
+</div>
+<script src="captions.js"></script>
+<script>
+const COVER = location.search.includes("cover");
+const VO = 1.5, END = 44;
+const w = (x) => x + VO;   // tiempo de una palabra de la narración en el video
+// escenas (s del video) — cortes alineados con la voz y con la música
+const S = { morning: [0, 8.25], midday: [8.25, 16.7], night: [16.7, 22.8], allday: [22.8, 25.2], prices: [25.2, 31.4], qr: [31.4, 33.6], status: [33.6, 36.4], close: [36.4, END] };
+window.DURATION = COVER ? 0.04 : END;
+
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const oCubic = (p) => 1 - Math.pow(1 - p, 3), iCubic = (p) => p * p * p;
+const ioCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const oExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const oBack = (p, s = 1.6) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+const spring = (p) => (p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(10 * p));
+const el = (h) => { const d = document.createElement("div"); d.innerHTML = h.trim(); return d.firstElementChild; };
+const set = (e, css) => Object.assign(e.style, css);
+const words = (text) => text.split(" ").map((x) => `<span class="w"><span>${x}</span></span>`).join(" ");
+const reveal = (nodes, t, t0, step = .06, dur = .45) => nodes.forEach((n, i) => { const p = oExpo(P(t, t0 + i * step, dur)); set(n.firstChild, { transform: `translateY(${(1 - p) * 115}%)` }); });
+const monoHTML = (size) => `<div class="mono" style="width:${size}px;height:${size}px"><i style="font-size:${size * .56}px">G</i></div>`;
+const scenes = $("#scenes"), registry = [];
+function scene(r, node, update) { scenes.appendChild(node); registry.push({ a: r[0], b: r[1], el: node, update }); }
+const fadeIO = (s, t, r, fin = .35, fout = .3) => { const i = oCubic(P(t, r[0], fin)), o = iCubic(P(t, r[1] - fout, fout)); set(s, { opacity: i * (1 - o) }); return { i, o }; };
+
+// ------------------------------------------------------------------ MAÑANA: la playlist
+{
+  const s = el(`<section class="scene">
+    <div class="abs glass" id="mPlayer" style="left:190px;top:520px;width:700px;height:820px;border-radius:56px;padding:44px">
+      <div id="mArt" style="width:612px;height:440px;border-radius:34px;background:linear-gradient(135deg,#ff3ea5,#8b3dff 55%,#1565ff);position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.45),transparent 55%)"></div>
+        <div id="mEq" style="position:absolute;left:40px;right:40px;bottom:36px;height:160px;display:flex;align-items:flex-end;gap:10px"></div>
+      </div>
+      <div style="margin-top:34px;font-size:50px;font-weight:800;letter-spacing:-.02em">Buenos días, Santa Cruz</div>
+      <div style="margin-top:6px;font-size:34px;color:var(--soft);font-weight:600">Tu playlist</div>
+      <div style="margin-top:30px;height:10px;border-radius:5px;background:rgba(255,255,255,.18);overflow:hidden"><i id="mBar" style="display:block;height:100%;width:0;background:#fff;border-radius:5px"></i></div>
+    </div>
+    <div class="card" id="mSpot" style="left:120px;top:1250px;width:840px;height:200px;background:linear-gradient(135deg,#1db954,#0f6e33)">
+      <div style="position:absolute;left:46px;top:40px;font-size:72px;font-weight:900;letter-spacing:-.03em">Spotify Premium</div>
+      <div style="position:absolute;left:48px;top:128px;font-size:34px;font-weight:700;color:rgba(255,255,255,.9)">sin anuncios</div>
+      <i class="gloss"></i>
+    </div>
+  </section>`);
+  const eq = $("#mEq", s);
+  for (let i = 0; i < 18; i++) eq.appendChild(el(`<i style="flex:1;border-radius:6px;background:rgba(255,255,255,.85)"></i>`));
+  const bars = [...eq.children];
+  scene(S.morning, s, (t) => {
+    fadeIO(s, t, S.morning, .01, .3);
+    const pp = oExpo(P(t, .6, 1.0));
+    set($("#mPlayer", s), { opacity: pp, transform: `perspective(1400px) translateY(${(1 - pp) * 140}px) rotateX(${(1 - pp) * 20}deg) rotateY(${Math.sin(t * .6) * 4}deg)` });
+    const play = P(t, w(2.08), .3);
+    bars.forEach((b, i) => set(b, { height: `${(14 + play * (40 + 60 * Math.abs(Math.sin(t * (3 + i % 5) + i * 1.3)))) }%` }));
+    set($("#mBar", s), { width: `${play * (8 + (t - w(2.08)) * 6)}%` });
+    const ps = oBack(P(t, w(4.40) - .1, .5), 1.5);
+    set($("#mSpot", s), { opacity: clamp(ps * 2), transform: `translateY(${(1 - ps) * 60}px) rotate(${-2 * ps}deg) scale(${.8 + .2 * ps})` });
+  });
+}
+
+// ------------------------------------------------------------------ MEDIODÍA: el trabajo
+{
+  const tools = [["ChatGPT", "Pensá", "linear-gradient(135deg,#10a37f,#07513f)", 9.60], ["Canva", "Diseñá", "linear-gradient(135deg,#7d2ae8,#1aa3c6)", 11.72], ["CapCut", "Editá", "linear-gradient(135deg,#1d1f26,#000)", 13.44]];
+  const s = el(`<section class="scene">
+    <div class="abs center" id="dTask" style="top:470px"><span class="pill glass" style="font-size:40px"><span class="emoji">📄</span> Trabajo · entrega hoy</span></div>
+    <i class="abs" id="dLine" style="left:236px;top:690px;width:6px;height:0;border-radius:3px;background:linear-gradient(#fff,rgba(255,255,255,.2))"></i>
+  </section>`);
+  const cards = tools.map(([name, verb, bg, wt], i) => {
+    const c = el(`<div class="card" style="left:150px;top:${640 + i * 250}px;width:780px;height:200px;background:${bg};${name === "CapCut" ? "box-shadow:0 40px 90px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.35)" : ""}">
+      <div style="position:absolute;left:150px;top:44px;font-size:70px;font-weight:900;letter-spacing:-.03em">${name}</div>
+      <div style="position:absolute;left:152px;top:128px;font-size:34px;font-weight:700;color:rgba(255,255,255,.85)">${verb}</div>
+      <div style="position:absolute;left:44px;top:56px;width:84px;height:84px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:44px;font-weight:900">${i + 1}</div>
+      <i class="gloss"></i></div>`);
+    s.appendChild(c); return { c, wt, i };
+  });
+  scene(S.midday, s, (t) => {
+    fadeIO(s, t, S.midday);
+    const pt = oBack(P(t, w(8.04), .5), 1.5);
+    set($("#dTask", s), { opacity: clamp(pt * 2), transform: `scale(${.7 + .3 * pt}) rotate(${Math.sin(t * 2) * 1.2}deg)` });
+    cards.forEach(({ c, wt, i }) => {
+      const p = oExpo(P(t, w(wt) - .12, .55));
+      set(c, { opacity: p, transform: `perspective(1400px) translateX(${(1 - p) * (i % 2 ? 300 : -300)}px) rotateY(${(1 - p) * (i % 2 ? -35 : 35) + Math.sin(t + i) * 3}deg)` });
+    });
+    const pl = P(t, w(9.6), w(13.44) - w(9.6) + .5);
+    set($("#dLine", s), { height: `${pl * 500}px` });
+  });
+}
+
+// ------------------------------------------------------------------ NOCHE: elegís vos
+{
+  const st = [["Netflix", "linear-gradient(160deg,#2a0306,#0b0102 60%)", "#e50914", 17.08], ["Disney+", "linear-gradient(150deg,#0d2a8a,#06123d)", "#fff", 17.68], ["Max", "linear-gradient(150deg,#3b1bd1,#120a45)", "#fff", 18.56], ["Prime Video", "linear-gradient(150deg,#0b6fa8,#062a45)", "#fff", 19.12]];
+  const s = el(`<section class="scene">
+    <div class="abs" id="nRing" style="left:540px;top:900px;width:0;height:0;transform-style:preserve-3d"></div>
+    <div class="abs center h-l" id="nChoose" style="top:1260px">${words("Elegís vos.")}</div>
+  </section>`);
+  const ring = $("#nRing", s);
+  const cards = st.map(([name, bg, col, wt], i) => {
+    const c = el(`<div class="card" style="left:-250px;top:-150px;width:500px;height:300px;background:${bg};backface-visibility:hidden">
+      <div style="position:absolute;left:0;right:0;top:${name.length > 8 ? 108 : 96}px;text-align:center;font-size:${name.length > 8 ? 76 : 96}px;font-weight:900;letter-spacing:-.03em;color:${col}">${name}</div><i class="gloss"></i></div>`);
+    ring.appendChild(c); return { c, wt, i };
+  });
+  const cw = [...s.querySelectorAll("#nChoose .w")];
+  scene(S.night, s, (t) => {
+    fadeIO(s, t, S.night);
+    const settle = ioCubic(P(t, 20.6, .9));           // termina de girar justo antes de «Elegís vos»
+    const spin = lerp((t - S.night[0]) * 40, 360, settle);
+    set(ring, { transform: `perspective(1600px) rotateX(-8deg) rotateY(${-spin}deg)` });
+    cards.forEach(({ c, wt, i }) => {
+      const p = oExpo(P(t, w(wt) - .1, .5));
+      const ang = i * 90;
+      const fr = settle * (i === 0 ? 1 : 0);
+      set(c, { opacity: p * (1 - settle * (i === 0 ? 0 : .35)), transform: `rotateY(${ang}deg) translateZ(${380 + (1 - p) * 300 + fr * 60}px) scale(${.8 + .2 * p + fr * .12})` });
+    });
+    reveal(cw, t, w(20.08) - .1, .1);
+  });
+}
+
+// ------------------------------------------------------------------ TODO TU DÍA: el reloj de 24 h
+{
+  const R = 330, C = 2 * Math.PI * R;
+  const s = el(`<section class="scene">
+    <svg class="abs" style="left:190px;top:520px" width="700" height="700" viewBox="0 0 700 700">
+      <defs><linearGradient id="arc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff3ea5"/><stop offset=".5" stop-color="#1565ff"/><stop offset="1" stop-color="#8b3dff"/></linearGradient></defs>
+      <circle cx="350" cy="350" r="${R}" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="16"/>
+      <circle id="aArc" cx="350" cy="350" r="${R}" fill="none" stroke="url(#arc)" stroke-width="16" stroke-linecap="round" stroke-dasharray="0 ${C}" transform="rotate(-90 350 350)"/>
+    </svg>
+    <div class="abs center h-l" id="aT1" style="top:760px">${words("Todo tu día,")}</div>
+    <div class="abs center h-m grad" id="aT2" style="top:880px">${words("en un solo lugar")}</div>
+  </section>`);
+  const marks = [[7, "🌅"], [12.5, "☀️"], [21, "🌙"]].map(([h, e]) => {
+    const a = (h / 24) * 2 * Math.PI - Math.PI / 2;
+    const m = el(`<div class="abs emoji" style="left:${540 + Math.cos(a) * R - 45}px;top:${870 + Math.sin(a) * R - 45}px;width:90px;height:90px;font-size:70px;text-align:center;line-height:90px">${e}</div>`);
+    s.appendChild(m); return { m, h };
+  });
+  const t1 = [...s.querySelectorAll("#aT1 .w")], t2 = [...s.querySelectorAll("#aT2 .w")];
+  scene(S.allday, s, (t) => {
+    fadeIO(s, t, S.allday, .3, .25);
+    const p = ioCubic(P(t, S.allday[0], 1.6));
+    $("#aArc", s).setAttribute("stroke-dasharray", `${p * C * .92} ${C}`);
+    marks.forEach(({ m, h }) => { const q = oBack(P(p, h / 24 - .02, .08), 2); set(m, { opacity: clamp(q * 2), transform: `scale(${q})` }); });
+    reveal(t1, t, w(21.39) - .1, .08); reveal(t2, t, w(22.24) - .1, .07);
+  });
+}
+
+// ------------------------------------------------------------------ PRECIOS
+{
+  const rows = [["Netflix", "desde", 40, "#e50914", "linear-gradient(160deg,#2a0306,#0b0102 70%)", 23.76, 24.64], ["Spotify", "", 33, "#1db954", "linear-gradient(135deg,#0f3d22,#06140b)", 26.08, 26.88], ["Canva", "desde", 5, "#9b6bff", "linear-gradient(135deg,#3a1572,#0c2a3a)", 27.92, 28.88]];
+  const s = el(`<section class="scene">
+    <div class="abs center label" id="pL" style="top:470px">PRECIOS POR 30 DÍAS</div>
+  </section>`);
+  const R = rows.map(([name, pre, val, col, bg, wt, wp], i) => {
+    const c = el(`<div class="card" style="left:90px;top:${570 + i * 300}px;width:900px;height:250px;background:${bg}">
+      <div style="position:absolute;left:54px;top:78px;font-size:84px;font-weight:900;letter-spacing:-.03em;color:${name === "Netflix" ? "#e50914" : "#fff"}">${name}</div>
+      <div style="position:absolute;right:54px;top:52px;text-align:right;font-variant-numeric:tabular-nums">
+        <div style="font-size:30px;font-weight:700;color:rgba(255,255,255,.7);height:34px">${pre}</div>
+        <div style="font-size:120px;font-weight:900;letter-spacing:-.04em;line-height:1"><span style="font-size:56px;margin-right:12px;vertical-align:.5em">Bs</span><span class="v">0</span></div>
+      </div>
+      <i style="position:absolute;left:0;top:0;bottom:0;width:12px;background:${col};box-shadow:0 0 30px ${col}"></i>
+      <i class="gloss"></i></div>`);
+    s.appendChild(c); return { c, v: $(".v", c), val, wt, wp, i };
+  });
+  scene(S.prices, s, (t) => {
+    fadeIO(s, t, S.prices, .25, .25);
+    set($("#pL", s), { opacity: oCubic(P(t, S.prices[0], .5)) });
+    R.forEach(({ c, v, val, wt, wp, i }) => {
+      const p = oExpo(P(t, w(wt) - .15, .55));
+      set(c, { opacity: p, transform: `perspective(1400px) translateX(${(1 - p) * 500}px) rotateY(${(1 - p) * -30}deg)` });
+      const k = oCubic(P(t, w(wp) - .1, .55));
+      v.textContent = Math.round(val * k);
+      v.parentElement.style.textShadow = k >= 1 ? `0 0 ${30 + 20 * Math.sin(t * 4)}px rgba(255,255,255,.35)` : "none";
+    });
+  });
+}
+
+// ------------------------------------------------------------------ QR
+{
+  let qr = ""; let sd = 99; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let y = 0; y < 25; y++) for (let x = 0; x < 25; x++) {
+    const finder = (x < 7 && y < 7) || (x > 17 && y < 7) || (x < 7 && y > 17);
+    if (finder) { const fx = x > 17 ? x - 18 : x, fy = y > 17 ? y - 18 : y; const on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx > 1 && fx < 5 && fy > 1 && fy < 5); if (on) qr += `<rect x="${x}" y="${y}" width="1" height="1"/>`; }
+    else if (r() > .52) qr += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  const s = el(`<section class="scene">
+    <div class="abs" id="qBox" style="left:290px;top:520px;width:500px;height:500px;border-radius:44px;background:#fff;padding:40px;box-shadow:0 40px 100px rgba(0,0,0,.5),0 0 120px rgba(21,101,255,.45)">
+      <svg viewBox="0 0 25 25" width="420" height="420" shape-rendering="crispEdges" fill="#0b1030">${qr}</svg>
+      <i id="qScan" style="position:absolute;left:30px;right:30px;height:8px;border-radius:4px;background:linear-gradient(90deg,transparent,#1565ff,transparent);box-shadow:0 0 30px #1565ff"></i>
+    </div>
+    <div class="abs center h-l" id="qT" style="top:1110px">${words("Pagás con QR…")}</div>
+    <div class="abs center" id="qOk" style="top:1250px"><span class="pill" style="background:#fff;color:#0b1030">✓ y listo</span></div>
+  </section>`);
+  const qw = [...s.querySelectorAll("#qT .w")];
+  scene(S.qr, s, (t) => {
+    fadeIO(s, t, S.qr, .25, .25);
+    const pb = spring(P(t, S.qr[0], .8));
+    set($("#qBox", s), { transform: `perspective(1200px) rotateY(${(1 - pb) * 60}deg) scale(${.6 + .4 * pb})`, opacity: clamp(pb * 2) });
+    set($("#qScan", s), { top: `${40 + (Math.sin((t - S.qr[0]) * 3.2 - Math.PI / 2) * .5 + .5) * 412}px` });
+    reveal(qw, t, w(30.0) - .1, .08);
+    const po = oBack(P(t, w(31.24) - .1, .45), 2);
+    set($("#qOk", s), { opacity: clamp(po * 2), transform: `scale(${.5 + .5 * po})` });
+  });
+}
+
+// ------------------------------------------------------------------ RESPONDÉ ESTE ESTADO
+{
+  const s = el(`<section class="scene">
+    <div class="abs" style="left:70px;right:70px;top:440px;display:flex;gap:10px" id="sSeg">${"<i></i>".repeat(5)}</div>
+    <div class="abs center h-l" id="sQ" style="top:620px">${words("¿Querés el tuyo?")}</div>
+    <div class="abs center" id="sArrow" style="top:860px;font-size:120px;font-weight:900">↑</div>
+    <div class="abs glass" id="sReply" style="left:110px;right:110px;top:1060px;height:150px;border-radius:75px;display:flex;align-items:center;gap:26px;padding:0 50px">
+      <div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#1565ff,#8b3dff);display:grid;place-items:center;font-size:44px;font-weight:900">↩</div>
+      <div style="font-size:52px;font-weight:800">Respondé este estado</div>
+    </div>
+  </section>`);
+  const segs = [...$("#sSeg", s).children];
+  segs.forEach((g, i) => set(g, { flex: 1, height: "8px", borderRadius: "4px", background: i < 4 ? "#fff" : "rgba(255,255,255,.3)", display: "block" }));
+  const qw = [...s.querySelectorAll("#sQ .w")];
+  scene(S.status, s, (t) => {
+    fadeIO(s, t, S.status, .25, .25);
+    reveal(qw, t, w(32.17) - .1, .08);
+    const pr = oBack(P(t, w(33.2) - .1, .5), 1.6);
+    set($("#sReply", s), { opacity: clamp(pr * 2), transform: `translateY(${(1 - pr) * 120}px) scale(${.85 + .15 * pr})` });
+    const pa = P(t, w(33.2), .3);
+    set($("#sArrow", s), { opacity: pa, transform: `translateY(${Math.sin(t * 7) * 18}px)` });
+  });
+}
+
+// ------------------------------------------------------------------ CIERRE
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="zMono" style="left:405px;top:470px">${monoHTML(270)}</div>
+    <div class="abs center" id="zWord" style="top:830px"><div class="word" style="font-size:104px">GABRIEL <span class="grad">STORE</span></div></div>
+    <div class="abs center h-m grad" id="zTag" style="top:990px;font-size:74px;font-weight:900">${words("TU MUNDO DIGITAL")}</div>
+    <div class="abs center h-m" id="zNear" style="top:1100px;font-weight:700;color:var(--soft)">${words("más cerca de vos")}</div>
+    <div class="abs" id="zSweep" style="left:-400px;top:420px;width:300px;height:1000px;background:linear-gradient(90deg,transparent,rgba(190,215,255,.5),transparent);transform:skewX(-20deg);mix-blend-mode:screen"></div>
+  </section>`);
+  const tg = [...s.querySelectorAll("#zTag .w")], nr = [...s.querySelectorAll("#zNear .w")];
+  scene(S.close, s, (t) => {
+    fadeIO(s, t, S.close, .3, .01);
+    const lt = t - S.close[0], pm = spring(P(lt, 0, 1.0));
+    set($("#zMono", s), { opacity: clamp(pm * 2), transform: `perspective(900px) rotateY(${(1 - pm) * -90 + Math.sin(t * .7) * 6}deg) scale(${.5 + .5 * pm})` });
+    const pw = oExpo(P(lt, .15, .8));
+    set($("#zWord", s), { opacity: pw, transform: `translateY(${(1 - pw) * 40}px)` });
+    $("#zWord .word", s).style.letterSpacing = `${.14 + (1 - pw) * .4}em`;
+    reveal(tg, t, w(36.12) - .1, .08); reveal(nr, t, w(37.32) - .1, .08);
+    set($("#zSweep", s), { transform: `translateX(${lerp(0, 1900, ioCubic(P(lt, .3, 1.2)))}px) skewX(-20deg)` });
+  });
+}
+
+// ------------------------------------------------------------------ portada
+if (COVER) {
+  scenes.appendChild(el(`<section class="scene" style="display:block">
+    <div class="abs center label" style="top:300px;color:#fff">UN DÍA CON</div>
+    <div class="abs" style="left:415px;top:380px">${monoHTML(250)}</div>
+    <div class="abs center" style="top:690px"><div class="word" style="font-size:100px">GABRIEL <span class="grad">STORE</span></div></div>
+    <div class="abs center" style="top:860px;display:flex;justify-content:center;gap:24px;font-size:96px" class="emoji"><span class="emoji">🌅</span><span class="emoji">☀️</span><span class="emoji">🌙</span></div>
+    <div class="abs center h-m" style="top:1030px">Netflix desde <b>Bs 40</b><br>Spotify <b>Bs 33</b> · Canva <b>Bs 5</b></div>
+  </section>`));
+}
+
+// ------------------------------------------------------------------ cielo, ciudad, reloj, subtítulos
+let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const stars = Array.from({ length: 160 }, () => ({ x: rnd() * 1080, y: rnd() * 1250, s: .6 + rnd() * 2.2, p: rnd() * 6 }));
+const sc = $("#stars").getContext("2d");
+// silueta de ciudad (genérica) con ventanas que se encienden de noche
+const bld = []; { let x = -20; while (x < 1100) { const wdt = 70 + rnd() * 120, h = 140 + rnd() * 330; bld.push({ x, wdt, h, wins: Array.from({ length: Math.floor(wdt / 26) * Math.floor(h / 40) }, () => rnd()) }); x += wdt + 6; } }
+const cc = $("#city").getContext("2d");
+function drawCity(dark, lights) {
+  cc.clearRect(0, 0, 1080, 1920);
+  for (const b of bld) {
+    const top = 1920 - b.h - 120;
+    cc.fillStyle = `rgba(${lerp(30, 6, dark) | 0},${lerp(40, 8, dark) | 0},${lerp(90, 26, dark) | 0},1)`;
+    cc.fillRect(b.x, top, b.wdt, b.h + 140);
+    const cols = Math.floor(b.wdt / 26), rows = Math.floor(b.h / 40);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const v = b.wins[r * cols + c];
+      if (v < .45) continue;
+      cc.fillStyle = v > .8 ? `rgba(255,214,150,${lights * .9})` : `rgba(140,170,255,${lights * .55})`;
+      cc.fillRect(b.x + 10 + c * 26, top + 16 + r * 40, 12, 18);
+    }
+  }
+}
+const gc = $("#grain").getContext("2d"); const tiles = [];
+for (let k = 0; k < 5; k++) { const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d"), d = x.createImageData(128, 128); let q = 77 + k * 31; for (let i = 0; i < d.data.length; i += 4) { q = (q * 16807) % 2147483647; const v = q % 256; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } x.putImageData(d, 0, 0); tiles.push(c); }
+let lastTime = null;
+function clockText(t) { if (t < 1.0) return ["06:59", "MAÑANA"]; if (t < S.midday[0]) return ["07:00", "MAÑANA"]; if (t < S.night[0]) return ["12:30", "MEDIODÍA"]; if (t < S.allday[0]) return ["21:00", "NOCHE"]; return [null, null]; }
+function seek(t) {
+  for (const r of registry) {
+    if (COVER) { r.el.style.display = "none"; continue; }
+    const on = t >= r.a && t < r.b + (r.b >= END ? 1 : 0);
+    r.el.style.display = on ? "block" : "none";
+    if (on) r.update(t);
+  }
+  // cielo: amanecer -> mediodía -> noche -> marca
+  const kDay = COVER ? 0 : ioCubic(P(t, S.midday[0] - .6, 1.2)), kNight = COVER ? 0 : ioCubic(P(t, S.night[0] - .6, 1.2)), kBrand = COVER ? 1 : ioCubic(P(t, S.allday[0] - .3, 1.0));
+  $("#skyDawn").style.opacity = 1 - kDay;
+  $("#skyDay").style.opacity = 1 - kNight;
+  $("#skyNight").style.opacity = 1 - kBrand;
+  const dawnRise = oCubic(P(t, 0, 7));
+  const sunY = COVER ? 2200 : t < S.midday[0] ? lerp(1500, 1050, dawnRise) : lerp(1050, 470, ioCubic(P(t, S.midday[0] - .6, 1.4)));
+  const sunX = t < S.midday[0] ? 360 : lerp(360, 960, ioCubic(P(t, S.midday[0] - .6, 1.4)));
+  set($("#sun"), { left: `${sunX - 180}px`, top: `${sunY - 180 + kNight * 1400}px`, opacity: 1 - kNight });
+  set($("#moon"), { left: "800px", top: `${lerp(700, 300, oCubic(P(t, S.night[0] - .3, 1.6)))}px`, opacity: kNight * (1 - kBrand) });
+  sc.clearRect(0, 0, 1080, 1920);
+  const sa = kNight * (1 - kBrand * .5) + (COVER ? .6 : 0);
+  if (sa > 0) for (const s of stars) { sc.fillStyle = `rgba(255,255,255,${sa * (.4 + .6 * (.5 + .5 * Math.sin(t * 2 + s.p)))})`; sc.beginPath(); sc.arc(s.x, s.y, s.s, 0, 7); sc.fill(); }
+  drawCity(clamp(kNight + kBrand * .4 + (1 - kDay) * .5), clamp(kNight * 1.2) * (1 - kBrand * .6) + (1 - kDay) * .25 + (COVER ? .6 : 0));
+  $("#city").style.opacity = COVER ? .9 : 1 - kBrand * .65;
+  // reloj
+  const [txt, part] = COVER ? [null, null] : clockText(t);
+  const ck = $("#clock");
+  if (txt) {
+    if ($("#tA").textContent !== txt) { $("#tB").textContent = $("#tA").textContent; $("#tA").textContent = txt; lastTime = { t, from: $("#tB").textContent }; }
+    $("#part").textContent = part;
+    const changeAt = txt === "07:00" ? 1.0 : txt === "12:30" ? S.midday[0] : txt === "21:00" ? S.night[0] : -9;
+    const k = oExpo(P(t, changeAt, .5));
+    set($("#tA"), { transform: `translateY(${(1 - k) * 100}%)`, opacity: k });
+    set($("#tB"), { transform: `translateY(${-k * 100}%)`, opacity: 1 - k });
+    set(ck, { opacity: oCubic(P(t, 0, .5)) * (1 - iCubic(P(t, S.allday[0] - .35, .35))), display: "block" });
+  } else ck.style.display = "none";
+  // subtítulos con la palabra activa resaltada
+  const cap = (window.CAPS || []).find((c) => t >= c.a && t < c.b);
+  const box = $("#capBox");
+  if (cap && !COVER) {
+    box.style.display = "inline-block";
+    box.innerHTML = cap.words.map(([x, wt]) => `<span style="color:${t >= wt ? "#fff" : "rgba(255,255,255,.45)"}">${x}</span>`).join(" ");
+    const pin = oExpo(P(t, cap.a, .2));
+    set(box, { opacity: pin, transform: `translateY(${(1 - pin) * 16}px)` });
+  } else box.style.display = "none";
+  // destellos en cada corte de escena y grano
+  let fl = 0; for (const c of [S.midday[0], S.night[0], S.allday[0], S.prices[0], S.close[0]]) { const d = t - c; if (d >= 0 && d < .4) fl = Math.max(fl, .28 * (1 - d / .4)); }
+  $("#flash").style.opacity = COVER ? 0 : fl;
+  set($("#cam"), { transform: `translateY(${Math.sin(t * .5) * 5}px)` });
+  gc.fillStyle = gc.createPattern(tiles[Math.round(t * 30) % tiles.length], "repeat"); gc.fillRect(0, 0, 540, 960);
+}
+window.seek = seek;
+window.READY = (async () => {
+  for (const wgt of [900, 800, 700, 600]) await document.fonts.load(`${wgt} 100px "Inter Display"`);
+  await document.fonts.load('60px "Noto Color Emoji"'); await document.fonts.ready;
+  seek(COVER ? 0 : 0); return true;
+})();
+if (location.search.includes("play")) window.READY.then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % END); requestAnimationFrame(loop); }; loop(); });
+</script>
+</body>
+</html>
