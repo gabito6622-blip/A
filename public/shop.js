@@ -994,8 +994,16 @@ function shopEditor() {
 
     <div class="sbox"><h2>1 · Elegí una página lista</h2><p class="empty" style="margin:0">Con un toque tu página queda armada: colores, letras, forma de mostrar los productos y los textos de la portada. Tu nombre, tu logo, tu WhatsApp y tus precios no cambian.</p>
       <div class="tpgrid">${PAGE_TEMPLATES.map((t) => `<article class="tpcard${tplOn(sh, t) ? " on" : ""}">${templateSwatch(t)}<div><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div><button type="button" class="sbtn sm ${tplOn(sh, t) ? "" : "pri"}" data-tpl="${t.id}">${tplOn(sh, t) ? "✓ La estás usando" : "Usar esta"}</button></article>`).join("")}</div>
-      <details class="tponly"><summary>🎨 O cambiá solo los colores (sin tocar tus textos)</summary>
-        <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></details>
+      <details class="tponly" ${S.data.mixOpen ? "open" : ""}><summary>🧩 O combiná vos: forma + colores + textos <small class="empty">(${LAYOUT_LIST.length * THEMES.length * (PAGE_TEMPLATES.length + 1)} combinaciones)</small></summary>
+        <p class="empty" style="margin:6px 0 0">Cada toque se aplica al instante; miralo con “Abrir”. Podés mezclar, por ejemplo, la forma <b>Ticket</b> con los colores <b>Rosa Pastel</b> y los textos de <b>Oro Premium</b>.</p>
+        <button type="button" class="sbtn sm pri" data-mixrand="1" style="justify-self:start;margin-top:8px">🎲 Sorprendeme con una combinación</button>
+        <h3 class="mixh">a · Forma de mostrar</h3>
+        <div class="mixrow">${LAYOUT_LIST.map(([v, t, d]) => `<button type="button" class="mixopt" data-mixl="${v}" aria-pressed="${(sh.layout || "clasico") === v}" title="${esc(d)}">${templateSwatch({ look: { ...sh, backgroundColor: sh.backgroundColor || "#0d0a1a", accentColor: sh.accentColor || "#8b5cf6", accent2Color: sh.accent2Color || "#ec4899", layout: v } })}<span>${esc(t)}</span></button>`).join("")}</div>
+        <h3 class="mixh">b · Colores y letras</h3>
+        <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}" aria-pressed="${(sh.backgroundColor || "").toLowerCase() === t.look.backgroundColor.toLowerCase() && (sh.accentColor || "").toLowerCase() === t.look.accentColor.toLowerCase()}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div>
+        <h3 class="mixh">c · Textos de la portada</h3>
+        <div class="mixtexts">${PAGE_TEMPLATES.map((t) => `<button type="button" class="mixtxt" data-mixt="${t.id}" aria-pressed="${sh.heroTitle === t.look.heroTitle}"><b>${esc(t.look.heroTitle)} <span>${esc(t.look.heroHighlight)}</span></b><small>${esc(t.look.heroText)}</small></button>`).join("")}</div>
+        <small class="empty">¿Querés tus propios textos? Escribilos abajo en “Tu marca”.</small></details>
       <p class="empty" style="margin:0">👇 <b>O armá la tuya a tu gusto</b> con todo lo de abajo: logo, portada, colores, letras y textos.</p></div>
 
     <div class="reditor">
@@ -1581,7 +1589,18 @@ document.addEventListener("click", async (ev) => {
     catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
+  if (d.mixl || d.mixt || d.mixrand) {
+    // Combinar: forma, textos o una combinación al azar (los colores van por data-theme).
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const txt = (t) => ({ heroTitle: t.look.heroTitle, heroHighlight: t.look.heroHighlight, heroText: t.look.heroText, heroChip: t.look.heroChip });
+    const body = d.mixl ? { layout: d.mixl } : d.mixt ? txt(PAGE_TEMPLATES.find((x) => x.id === d.mixt)) : { ...pick(THEMES).look, layout: pick(LAYOUT_LIST)[0], ...txt(pick(PAGE_TEMPLATES)) };
+    el.disabled = true; S.data.mixOpen = true;
+    try { S.data.shop = await api("PUT", "/api/me/shop", body); toast(d.mixrand ? "🎲 Combinación nueva aplicada: miralá con “Abrir”" : "Listo, aplicado"); render(); }
+    catch (e) { el.disabled = false; toast(e.message); }
+    return;
+  }
   if (d.theme) {
+    S.data.mixOpen = true;
     const t = THEMES.find((x) => x.id === d.theme);
     el.disabled = true;
     try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Estilo “${t.name}” aplicado`); render(); }

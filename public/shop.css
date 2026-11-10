@@ -876,3 +876,14 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .tpsw .tp-grid{height:22px;background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--a) 35%,transparent) 0 28px,transparent 28px 33px)}
 .tpsw .tp-line{height:8px;background:color-mix(in srgb,var(--a) 40%,transparent)}
 .tponly{margin-top:4px}.tponly>summary{cursor:pointer;font-weight:700;padding:6px 0}
+
+/* Combinar forma + colores + textos (revendedores) */
+.tponly{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.mixh{margin:12px 0 4px;font-size:15px}
+.mixrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.mixopt{display:grid;justify-items:center;gap:6px;min-width:0;padding:8px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center}
+.mixopt .tpsw{width:88px;height:88px}
+.mixopt[aria-pressed=true],.tgrid .tcard[aria-pressed=true],.mixtxt[aria-pressed=true]{border-color:var(--s-blue);box-shadow:0 0 0 2px var(--s-blue)}
+.mixtexts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.mixtxt{display:grid;gap:4px;padding:10px 12px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);font:inherit;text-align:left;cursor:pointer}
+.mixtxt b{font-size:14px}.mixtxt b span{color:var(--s-blue-text)}.mixtxt small{color:var(--s-muted);font-size:12.5px;line-height:1.35}
