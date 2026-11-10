@@ -18,6 +18,7 @@ import type { AuthCtx, Permission } from "../lib/rbac.js";
 import { clinicZone, STATUS_LABELS } from "./agenda.js";
 import { CONDITIONS } from "./clinical.js";
 import { BUDGET_LABELS, METHOD_LABELS } from "./billing.js";
+import { CALL_OUTCOME_LABELS } from "./coordination/calls.js";
 
 export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages"] as const;
 export type TimelineCategory = (typeof TIMELINE_CATEGORIES)[number];
@@ -150,7 +151,13 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            jsonb_build_object('reason', r.reason, 'channel', t.channel, 'outcome', t.outcome, 'note', t.note),
            u.full_name, b.name, NULL::timestamptz, NULL::bigint
       FROM recall_attempts t JOIN recalls r ON r.id = t.recall_id JOIN branches b ON b.id = r.branch_id JOIN users u ON u.id = t.user_id
-     WHERE r.patient_id = $1`,
+     WHERE r.patient_id = $1
+    UNION ALL
+    SELECT k.created_at, 'pc:' || k.id, 'call', 'recalls',
+           jsonb_build_object('outcome', k.outcome, 'durationMin', k.duration_min, 'note', k.note, 'appointmentId', k.appointment_id),
+           u.full_name, b.name, ap.starts_at, NULL::bigint
+      FROM patient_calls k JOIN users u ON u.id = k.user_id JOIN branches b ON b.id = k.branch_id LEFT JOIN appointments ap ON ap.id = k.appointment_id
+     WHERE k.patient_id = $1`,
   messages: () => `
     SELECT m.created_at, 'om:' || m.id, 'message', 'messages',
            jsonb_build_object('channel', m.channel, 'template', m.template, 'purpose', m.purpose, 'status', m.status,
@@ -233,6 +240,11 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
       return { title: `Control descartado: ${x.reason}`, detail: x.dismissReason ?? null };
     case "recall.attempt":
       return { title: `Intento de contacto: ${CHANNEL_LABELS[x.channel] ?? x.channel}, ${OUTCOME_LABELS[x.outcome] ?? x.outcome}`, detail: [x.reason, x.note].filter(Boolean).join(" · ") || null };
+    case "call":
+      return {
+        title: `Llamada: ${CALL_OUTCOME_LABELS[x.outcome]?.toLowerCase() ?? x.outcome}`,
+        detail: [x.durationMin != null ? `${x.durationMin} min` : null, r.appt_at ? `sobre la cita del ${f(r.appt_at)}` : null, x.note].filter(Boolean).join(" · ") || null,
+      };
     case "message":
       return {
         title: `Mensaje por ${CHANNEL_LABELS[x.channel] ?? x.channel} (${MSG_STATUS[x.status] ?? x.status})`,

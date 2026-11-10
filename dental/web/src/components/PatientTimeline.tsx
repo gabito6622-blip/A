@@ -61,6 +61,12 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
   }, [patientId, types]);
 
   useEffect(() => { setItems(null); load(null); }, [load]);
+  // Una llamada registrada desde la ficha vuelve a cargar el historial.
+  useEffect(() => {
+    const k = () => load(null);
+    window.addEventListener("patient-timeline-refresh", k);
+    return () => window.removeEventListener("patient-timeline-refresh", k);
+  }, [load]);
 
   const toggle = (id: string) => setTypes((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
   let lastDay = "";

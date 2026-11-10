@@ -16,6 +16,7 @@ import { Periodontogram } from "../components/perio/Periodontogram";
 import { PatientLabCard } from "../components/lab/LabShared";
 import { PatientTimeline } from "../components/PatientTimeline";
 import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocuments";
+import { PatientContactActions } from "../components/coordination/Calls";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos";
 
@@ -46,6 +47,7 @@ export function PatientDetailPage() {
               {years !== null && years < 18 && <span className="badge warn">Menor · responsable: {pt.guardianName}</span>}
               {pt.archivedAt && <span className="badge danger">Archivado</span>}
             </div>
+            <PatientContactActions who={{ patientId: pt.id, patientName: `${pt.firstName} ${pt.lastName}`, phone: pt.phone }} />
           </div>
           <div className="row">
             {p.data.account && (
