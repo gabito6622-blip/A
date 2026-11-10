@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Gabriel Store · Publicidad</title>
+<!--
+  Publicidad vertical 1080x1920 de Gabriel Store. Animación determinista: window.seek(t) dibuja el segundo t.
+  ?v=full (38,5 s) · ?v=short (15,5 s) · ?v=cover (portada) · agregá &play para verla en vivo.
+  Precios verificados en la tienda publicada (tienda-production-8c7b.up.railway.app/api/catalog) el 10/11/2026.
+  Las plataformas se muestran con su nombre en nuestra tipografía: no se usan logotipos de terceros.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #080b19; }
+  body { font-family: "Inter Display", "Inter", sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  :root { --bg: #080b19; --blue: #1565ff; --violet: #8b3dff; --magenta: #ff3ea5; --white: #ffffff; --soft: rgba(255,255,255,.72); }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--bg); }
+  .abs { position: absolute; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .center { left: 0; right: 0; text-align: center; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; }
+
+  /* luz y fondo */
+  #fx { position: absolute; inset: 0; }
+  #floor { position: absolute; left: -540px; right: -540px; top: 1180px; height: 1400px; transform-origin: 50% 0; transform: perspective(700px) rotateX(72deg);
+    background-image: linear-gradient(rgba(21,101,255,.55) 2px, transparent 2px), linear-gradient(90deg, rgba(21,101,255,.55) 2px, transparent 2px);
+    background-size: 120px 120px; -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), transparent 70%); mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), transparent 70%); }
+  #glowA, #glowB, #glowC { position: absolute; width: 1400px; height: 1400px; border-radius: 50%; }
+  #glowA { background: radial-gradient(circle, rgba(21,101,255,.40), rgba(21,101,255,0) 60%); }
+  #glowB { background: radial-gradient(circle, rgba(139,61,255,.36), rgba(139,61,255,0) 60%); }
+  #glowC { background: radial-gradient(circle, rgba(255,62,165,.26), rgba(255,62,165,0) 60%); }
+  #tint { position: absolute; inset: 0; }
+  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 50%, rgba(0,0,0,.6) 100%); }
+  #flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, rgba(160,200,255,1), rgba(21,101,255,.6) 35%, rgba(8,11,25,0) 70%); opacity: 0; mix-blend-mode: screen; }
+
+  /* tipografía */
+  .h-xl { font-size: 118px; font-weight: 900; letter-spacing: -.035em; line-height: .95; }
+  .h-l { font-size: 92px; font-weight: 900; letter-spacing: -.03em; line-height: 1; }
+  .h-m { font-size: 60px; font-weight: 800; letter-spacing: -.02em; line-height: 1.08; }
+  .label { font-size: 34px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: var(--soft); }
+  .grad { background: linear-gradient(90deg, #6aa2ff, #b48bff 50%, #ff7cc4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .price { font-size: 300px; font-weight: 900; letter-spacing: -.06em; line-height: .85; font-variant-numeric: tabular-nums; }
+  .price small { font-size: .42em; letter-spacing: -.02em; margin-right: .12em; vertical-align: .62em; }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+  .w > span { display: inline-block; }
+  .grad .w > span { background: linear-gradient(90deg, #6aa2ff, #b48bff 50%, #ff7cc4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* logo (no existe un logo original cargado en la tienda: monograma y logotipo creados para esta pieza) */
+  .mono { position: absolute; border-radius: 30%; background: conic-gradient(from 210deg, #1565ff, #8b3dff, #ff3ea5, #1565ff); padding: 7px; box-shadow: 0 0 80px rgba(21,101,255,.55), 0 0 160px rgba(139,61,255,.35); }
+  .mono i { display: flex; width: 100%; height: 100%; border-radius: 27%; background: radial-gradient(circle at 30% 25%, #1b2450, #0a0e22 70%); align-items: center; justify-content: center; font-style: normal; font-weight: 900; color: #fff; letter-spacing: -.05em; }
+  .word { font-weight: 900; letter-spacing: .14em; white-space: nowrap; }
+
+  /* tarjetas */
+  .card { position: absolute; border-radius: 40px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.10); }
+  .card .gloss { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(255,255,255,.22), rgba(255,255,255,0) 35%); }
+  .card .name { position: absolute; left: 0; right: 0; text-align: center; font-weight: 900; letter-spacing: -.03em; }
+  .card .sub { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; color: rgba(255,255,255,.78); }
+  .tile { position: absolute; width: 440px; height: 250px; border-radius: 34px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.10); }
+  .tile b { position: absolute; left: 34px; top: 40px; font-size: 54px; font-weight: 900; letter-spacing: -.03em; }
+  .tile em { position: absolute; left: 34px; bottom: 34px; font-style: normal; font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tile em span { font-size: 26px; font-weight: 600; opacity: .8; margin-right: 8px; }
+  .tile .gloss { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(255,255,255,.18), rgba(255,255,255,0) 40%); }
+
+  .pill { display: inline-flex; align-items: center; gap: 18px; padding: 26px 44px; border-radius: 999px; font-size: 42px; font-weight: 800; }
+
+  /* celular */
+  .phone { position: absolute; width: 560px; height: 1140px; border-radius: 80px; padding: 16px; background: linear-gradient(145deg, #3a4160, #12162b 30%, #0b0e1d 60%, #2b3150);
+    box-shadow: 0 60px 120px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08), 0 0 140px rgba(21,101,255,.25); }
+  .screen { position: relative; width: 528px; height: 1108px; border-radius: 66px; overflow: hidden; background: #0d1120; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="particles" width="1080" height="1920" class="abs" style="inset:0"></canvas>
+  <div id="fx"><div id="glowA"></div><div id="glowB"></div><div id="glowC"></div><div id="floor"></div><div id="tint"></div></div>
+  <div id="cam" class="abs" style="inset:0"><div id="scenes"></div></div>
+  <div id="flash"></div>
+  <div id="vignette"></div>
+</div>
+<script>
+// ------------------------------------------------------------------ versión y tiempos (sincronizados con la narración)
+const V = new URLSearchParams(location.search).get("v") || "full";
+const VO = V === "short" ? 0.3 : 0.5;   // la voz empieza VO segundos después del inicio
+// Tiempos de palabras (s, sin el desfase VO) sacados de audio/palabras-*.json
+const T = V === "short" ? {
+  end: 15.5, logo: [0, 2.2], netflix: [2.2, 4.3], gemini: [4.3, 6.6], catalog: [6.6, 10.5], buy: [10.5, 12.0], close: [12.0, 15.5],
+  wNetflix: 2.0, wCuarenta: 2.84, wGemini: 4.08, wDieciocho: 5.28,
+  names: { disney: 6.40, prime: 7.16, max: 8.12, chatgpt: 8.52, canva: 9.2, capcut: 9.44 }, wMas: 9.44,
+  wWhats: 11.28, wGS: 11.83, wMundo: 13.03, wCerca: null,
+} : {
+  end: 38.5, hook: [0, 5.4], logo: [5.4, 7.3], netflix: [7.3, 10.0], gemini: [10.0, 15.0], catalog: [15.0, 22.5], pillars: [22.5, 27.6], buy: [27.6, 31.8], close: [31.8, 38.5],
+  wQ: 0.06, wHerr: 3.6, wBienv: 5.21, wNetflix: 7.28, wCuarenta: 8.08, wIA: 10.48, wGemini: 11.91, wDieciocho: 13.04,
+  names: { disney: 15.52, prime: 16.40, max: 17.36, chatgpt: 17.92, canva: 18.96, capcut: 19.52 }, wMas: 20.48,
+  wEnt: 22.16, wIA2: 23.12, wProd: 24.40, wTodo: 25.44, wConsulta: 27.41, wElegi: 28.56, wWhats: 30.64, wGS: 31.53, wMundo: 32.55, wCerca: 33.68,
+};
+const at = (w) => w + VO;   // tiempo de palabra en la línea de tiempo del video
+window.DURATION = V === "cover" ? 0.04 : T.end;
+
+// ------------------------------------------------------------------ utilidades
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const oCubic = (p) => 1 - Math.pow(1 - p, 3), iCubic = (p) => p * p * p;
+const ioCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const oExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const oBack = (p, s = 1.6) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+const spring = (p) => (p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(10 * p));
+const el = (h) => { const d = document.createElement("div"); d.innerHTML = h.trim(); return d.firstElementChild; };
+const set = (e, css) => Object.assign(e.style, css);
+const words = (text) => text.split(" ").map((w) => `<span class="w"><span>${w}</span></span>`).join(" ");
+const revealWords = (nodes, t, t0, step = .06, dur = .45) => nodes.forEach((w, i) => { const p = oExpo(P(t, t0 + i * step, dur)); set(w.firstChild, { transform: `translateY(${(1 - p) * 115}%)` }); });
+const monoHTML = (size) => `<div class="mono" style="width:${size}px;height:${size}px"><i style="font-size:${size * .56}px">G</i></div>`;
+const wordmarkHTML = (fs) => `<div class="word" style="font-size:${fs}px">GABRIEL <span class="grad">STORE</span></div>`;
+
+// marcas: colores de cada plataforma, nombre en nuestra tipografía (sin logotipos)
+const BR = {
+  netflix: { name: "Netflix", bg: "linear-gradient(160deg,#2a0306,#0b0102 60%)", accent: "#e50914" },
+  disney: { name: "Disney+", bg: "linear-gradient(150deg,#0d2a8a,#06123d)", price: "17", from: true },
+  prime: { name: "Prime Video", bg: "linear-gradient(150deg,#0b6fa8,#062a45)", price: "20" },
+  max: { name: "Max", bg: "linear-gradient(150deg,#3b1bd1,#120a45)", price: "15" },
+  chatgpt: { name: "ChatGPT", bg: "linear-gradient(150deg,#0f8a6c,#05302a)", price: "40" },
+  canva: { name: "Canva", bg: "linear-gradient(150deg,#7d2ae8,#1aa3c6)", price: "5" },
+  capcut: { name: "CapCut", bg: "linear-gradient(150deg,#1c1c1f,#000)", price: "35", ring: true },
+  gemini: { name: "Gemini Pro", bg: "linear-gradient(150deg,#1d4fd8,#6a2bd9 60%,#b03bd0)" },
+};
+
+const scenes = $("#scenes"), registry = [];
+function scene(range, node, update) { if (!range) return; scenes.appendChild(node); registry.push({ a: range[0], b: range[1], el: node, update }); }
+
+// ------------------------------------------------------------------ 1. gancho (solo versión completa)
+if (T.hook) {
+  const s = el(`<section class="scene">
+    <div class="abs center label" id="hLabel" style="top:330px">STREAMING · INTELIGENCIA ARTIFICIAL</div>
+    <div class="abs center h-xl" id="hT1" style="top:420px">${words("TODO TU")}</div>
+    <div class="abs center h-xl" id="hT2" style="top:540px;font-size:104px">${words("ENTRETENIMIENTO")}</div>
+    <div class="abs center h-xl grad" id="hT3" style="top:660px">${words("EN UN LUGAR")}</div>
+  </section>`);
+  const cardsDef = [["netflix", -330, 1130, -14], ["disney", 330, 1060, 12], ["chatgpt", -250, 1440, 8], ["max", 300, 1420, -10], ["gemini", 0, 1240, 0]];
+  const cards = cardsDef.map(([k, x, y, r], i) => {
+    const b = BR[k];
+    const c = el(`<div class="card" style="left:${540 - 170 + x}px;top:${y - 110}px;width:340px;height:220px;background:${b.bg}"><div class="name" style="top:76px;font-size:56px;${k === "netflix" ? "color:#e50914" : ""}">${b.name}</div><i class="gloss"></i></div>`);
+    s.appendChild(c); return { c, x, y, r, i };
+  });
+  const w1 = [...s.querySelectorAll("#hT1 .w")], w2 = [...s.querySelectorAll("#hT2 .w")], w3 = [...s.querySelectorAll("#hT3 .w")];
+  scene(T.hook, s, (t) => {
+    set($("#hLabel", s), { opacity: oCubic(P(t, .2, .6)), letterSpacing: `${.32 + (1 - oCubic(P(t, .2, 1.2))) * .2}em` });
+    revealWords(w1, t, .35); revealWords(w2, t, .7); revealWords(w3, t, 1.25, .08);
+    cards.forEach(({ c, x, y, r, i }) => {
+      const p = oExpo(P(t, .5 + i * .22, .9));
+      const fl = Math.sin(t * 1.3 + i * 1.7) * 14;
+      set(c, { opacity: p, transform: `perspective(1200px) translate(${(1 - p) * x * .6}px, ${(1 - p) * 300 + fl}px) rotateZ(${r * p}deg) rotateY(${Math.sin(t * .8 + i) * 12}deg) rotateX(${8 + Math.cos(t + i) * 5}deg) scale(${.7 + .3 * p})` });
+    });
+    const out = iCubic(P(t, T.hook[1] - .35, .35));
+    set(s, { opacity: 1 - out, transform: `scale(${1 + out * .15})` });
+  });
+}
+
+// ------------------------------------------------------------------ 2. presentación (logo)
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="lRing" style="left:540px;top:760px"></div>
+    <div class="abs" id="lMono" style="left:390px;top:610px">${monoHTML(300)}</div>
+    <div class="abs center" id="lWord" style="top:1000px">${wordmarkHTML(96)}</div>
+    <div class="abs center h-m" id="lHi" style="top:1150px;color:var(--soft);font-weight:700">Bienvenido</div>
+    <div class="abs" id="lSweep" style="left:-400px;top:560px;width:260px;height:700px;background:linear-gradient(90deg,transparent,rgba(160,200,255,.55),transparent);transform:skewX(-20deg);mix-blend-mode:screen"></div>
+  </section>`);
+  const ring = $("#lRing", s);
+  for (let i = 0; i < 3; i++) ring.appendChild(el(`<i style="position:absolute;left:-260px;top:-260px;width:520px;height:520px;border-radius:50%;border:3px solid rgba(106,162,255,.6)"></i>`));
+  const rings = [...ring.children];
+  scene(T.logo, s, (t) => {
+    const lt = t - T.logo[0], dur = T.logo[1] - T.logo[0];
+    const pm = spring(P(lt, 0, .9));
+    set($("#lMono", s), { transform: `perspective(900px) rotateY(${(1 - pm) * 90}deg) scale(${.4 + .6 * pm})`, opacity: clamp(pm * 2) });
+    rings.forEach((r, i) => { const p = P(lt, i * .25, 1.2); set(r, { transform: `scale(${.6 + p * 1.5})`, opacity: (1 - p) * .7 }); });
+    const pw = oExpo(P(lt, .25, .8));
+    set($("#lWord", s), { opacity: pw, letterSpacing: "0", transform: `translateY(${(1 - pw) * 40}px)` });
+    $("#lWord .word", s).style.letterSpacing = `${.14 + (1 - pw) * .4}em`;
+    const ph = oExpo(P(lt, .55, .6));
+    set($("#lHi", s), { opacity: V === "short" ? ph : 0, transform: `translateY(${(1 - ph) * 20}px)` });
+    set($("#lSweep", s), { transform: `translateX(${lerp(0, 1900, ioCubic(P(lt, .35, 1.0)))}px) skewX(-20deg)` });
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out, transform: `scale(${1 - out * .08})` });
+  });
+}
+
+// ------------------------------------------------------------------ 3. Netflix
+{
+  const s = el(`<section class="scene">
+    <div class="abs center label" id="nLabel" style="top:330px">STREAMING</div>
+    <div class="card" id="nCard" style="left:150px;top:430px;width:780px;height:480px;background:${BR.netflix.bg}">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,rgba(229,9,20,.55),transparent 60%)"></div>
+      <div class="name" style="top:150px;font-size:150px;color:#e50914">Netflix</div>
+      <div class="sub" style="top:330px;font-size:38px">Perfil Premium · HD y 4K</div>
+      <i class="gloss"></i>
+    </div>
+    <div class="abs center label" id="nDesde" style="top:1030px;color:#fff;font-size:44px">DESDE</div>
+    <div class="abs center price" id="nPrice" style="top:1100px"><small>Bs</small>40</div>
+    <div class="abs center" id="nPer" style="top:1380px;font-size:40px;font-weight:600;color:var(--soft)">por 30 días</div>
+  </section>`);
+  scene(T.netflix, s, (t) => {
+    const lt = t - T.netflix[0], dur = T.netflix[1] - T.netflix[0];
+    const pc = oExpo(P(lt, 0, .7));
+    set($("#nCard", s), { opacity: pc, transform: `perspective(1400px) translateY(${(1 - pc) * 200}px) rotateX(${(1 - pc) * 30 + Math.sin(t) * 3}deg) rotateY(${Math.sin(t * .9) * 6}deg)` });
+    set($("#nLabel", s), { opacity: oCubic(P(lt, .1, .4)) });
+    const tp = at(T.wCuarenta) - .1;
+    const pp = oBack(P(t, tp, .45), 1.4);
+    set($("#nDesde", s), { opacity: oCubic(P(t, tp - .35, .3)) });
+    set($("#nPrice", s), { opacity: clamp(pp * 2), transform: `scale(${.6 + .4 * pp})`, textShadow: `0 0 ${60 * pp}px rgba(229,9,20,.6)` });
+    set($("#nPer", s), { opacity: oCubic(P(t, tp + .4, .4)) });
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out, transform: `translateX(${-out * 120}px)` });
+  });
+}
+
+// ------------------------------------------------------------------ 4. Gemini Pro
+{
+  const s = el(`<section class="scene">
+    <div class="abs center h-m" id="gQ" style="top:330px">${words("¿Querés aprovechar la")}<br>${words("inteligencia artificial?")}</div>
+    <div class="abs" id="gHolo" style="left:540px;top:820px"></div>
+    <div class="card" id="gCard" style="left:190px;top:640px;width:700px;height:360px;background:${BR.gemini.bg}">
+      <div class="name" style="top:110px;font-size:118px">Gemini Pro</div>
+      <div class="sub" style="top:258px;font-size:36px">Inteligencia artificial · 30 días</div>
+      <i class="gloss"></i>
+    </div>
+    <div class="abs center price grad" id="gPrice" style="top:1110px"><small style="-webkit-text-fill-color:#fff">Bs</small>18</div>
+    <div class="abs center" id="gSolo" style="top:1390px;font-size:40px;font-weight:600;color:var(--soft)">por 30 días</div>
+  </section>`);
+  const holo = $("#gHolo", s);
+  for (let i = 0; i < 3; i++) holo.appendChild(el(`<i style="position:absolute;left:${-300 - i * 70}px;top:${-300 - i * 70}px;width:${600 + i * 140}px;height:${600 + i * 140}px;border-radius:50%;border:2px solid rgba(139,61,255,${.55 - i * .15});box-shadow:0 0 40px rgba(21,101,255,.25) inset"></i>`));
+  const rings = [...holo.children];
+  const qw = [...s.querySelectorAll("#gQ .w")];
+  scene(T.gemini, s, (t) => {
+    const lt = t - T.gemini[0], dur = T.gemini[1] - T.gemini[0];
+    if (T.wIA) revealWords(qw, t, at(T.wIA) - 1.0, .07); else qw.forEach((w) => (w.style.display = "none"));
+    const tg = at(T.wGemini) - .25;
+    const pc = oExpo(P(t, tg, .7));
+    set($("#gCard", s), { opacity: pc, transform: `perspective(1400px) translateY(${(1 - pc) * 160}px) rotateY(${(1 - pc) * -35 + Math.sin(t * .9) * 6}deg) rotateX(${Math.cos(t) * 4}deg) scale(${.85 + .15 * pc})` });
+    rings.forEach((r, i) => set(r, { opacity: oCubic(P(lt, .1 + i * .15, .6)) * (.6 + .4 * Math.sin(t * 2 + i)), transform: `rotateX(70deg) rotateZ(${t * (20 + i * 12)}deg) scale(${.9 + .1 * Math.sin(t * 1.5 + i)})` }));
+    const tp = at(T.wDieciocho) - .1, pp = oBack(P(t, tp, .45), 1.4);
+    set($("#gPrice", s), { opacity: clamp(pp * 2), transform: `scale(${.6 + .4 * pp})` });
+    set($("#gSolo", s), { opacity: oCubic(P(t, tp + .4, .4)) });
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out, transform: `scale(${1 + out * .1})` });
+  });
+}
+
+// ------------------------------------------------------------------ 5. catálogo
+{
+  const order = ["disney", "prime", "max", "chatgpt", "canva", "capcut"];
+  const s = el(`<section class="scene">
+    <div class="abs center label" id="cLabel" style="top:300px">TAMBIÉN ENCONTRÁS</div>
+    <div class="abs center" id="cMore" style="top:1460px"><span class="pill" style="background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2)">y muchas plataformas más</span></div>
+  </section>`);
+  const tiles = order.map((k, i) => {
+    const b = BR[k], col = i % 2, row = Math.floor(i / 2);
+    const x = 70 + col * 500, y = 420 + row * 320;
+    const node = el(`<div class="tile" style="left:${x}px;top:${y}px;background:${b.bg}${b.ring ? ";box-shadow:0 30px 70px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.35)" : ""}"><b>${b.name}</b><em>${b.from ? "<span>desde</span>" : ""}Bs ${b.price}</em><i class="gloss"></i></div>`);
+    s.appendChild(node); return { node, k, i, col };
+  });
+  scene(T.catalog, s, (t) => {
+    const lt = t - T.catalog[0], dur = T.catalog[1] - T.catalog[0];
+    set($("#cLabel", s), { opacity: oCubic(P(lt, 0, .5)) });
+    tiles.forEach(({ node, k, i, col }) => {
+      const t0 = at(T.names[k]) - .15, p = oExpo(P(t, t0, .55));
+      const fl = Math.sin(t * 1.4 + i) * 6;
+      set(node, { opacity: p, transform: `perspective(1200px) translate(${(1 - p) * (col ? 160 : -160)}px, ${fl}px) rotateY(${(1 - p) * (col ? -40 : 40) + Math.sin(t * .8 + i) * 4}deg) scale(${.85 + .15 * p})` });
+    });
+    const pm = oBack(P(t, at(T.wMas) - .1, .5), 1.5);
+    set($("#cMore", s), { opacity: clamp(pm * 2), transform: `scale(${.7 + .3 * pm})` });
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out, transform: `translateY(${-out * 80}px)` });
+  });
+}
+
+// ------------------------------------------------------------------ 5b. pilares (solo completa)
+if (T.pillars) {
+  const items = [["ENTRETENIMIENTO", "wEnt", "#6aa2ff"], ["INTELIGENCIA ARTIFICIAL", "wIA2", "#b48bff"], ["PRODUCTIVIDAD", "wProd", "#ff7cc4"]];
+  const s = el(`<section class="scene">
+    ${items.map(([txt, , c], i) => `<div class="abs center" data-p="${i}" style="top:${560 + i * 190}px"><div style="font-size:${txt.length > 16 ? 78 : 96}px;font-weight:900;letter-spacing:-.02em">${txt}</div><i style="display:block;margin:18px auto 0;width:180px;height:8px;border-radius:4px;background:${c};box-shadow:0 0 30px ${c}"></i></div>`).join("")}
+    <div class="abs center h-l" id="pAll" style="top:1220px">${words("todo en un")} <span class="grad">${words("solo lugar")}</span></div>
+  </section>`);
+  const rows = [...s.querySelectorAll("[data-p]")], all = [...s.querySelectorAll("#pAll .w")];
+  scene(T.pillars, s, (t) => {
+    const lt = t - T.pillars[0], dur = T.pillars[1] - T.pillars[0];
+    rows.forEach((r, i) => { const p = oExpo(P(t, at(T[items[i][1]]) - .12, .5)); set(r, { opacity: p, transform: `translateY(${(1 - p) * 60}px) scale(${.92 + .08 * p})`, filter: `brightness(${1 + (1 - p) * .8})` }); });
+    revealWords(all, t, at(T.wTodo) - .1, .07);
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out });
+  });
+}
+
+// ------------------------------------------------------------------ 6. compra
+{
+  const s = el(`<section class="scene">
+    <div class="abs center h-l" id="bT" style="top:250px">${words("Escribinos por")}<br><span style="color:#25d366">${words("WhatsApp")}</span></div>
+    <div class="phone" id="bPhone" style="left:260px;top:600px"><div class="screen">
+      <div style="position:absolute;left:0;right:0;top:0;height:170px;background:#0f1a2e;display:flex;align-items:flex-end;gap:20px;padding:0 30px 26px">
+        <div style="position:relative;width:76px;height:76px">${monoHTML(76)}</div>
+        <div><div style="font-size:34px;font-weight:800">Gabriel Store</div><div style="font-size:24px;color:#25d366;font-weight:600">en línea</div></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;top:170px;bottom:0;background:radial-gradient(circle at 30% 20%,#101a33,#0a0f1e)"></div>
+      <div id="bMsg" style="position:absolute;right:28px;top:560px;max-width:420px;padding:26px 30px;border-radius:30px 30px 8px 30px;background:#1a6b4a;font-size:36px;font-weight:600;line-height:1.25">${"Hola 👋 Quiero consultar precios".replace("👋", '<span class="emoji">👋</span>')}<div style="text-align:right;font-size:22px;opacity:.7;margin-top:8px">✓✓</div></div>
+      <div id="bTyping" style="position:absolute;left:28px;right:28px;bottom:36px;height:96px;border-radius:48px;background:#1a2238;display:flex;align-items:center;padding:0 34px;font-size:32px;color:rgba(255,255,255,.55)">Escribí un mensaje</div>
+    </div></div>
+    <div class="abs center" id="bQr" style="top:1500px"><span class="pill" style="background:#fff;color:#0b1030;font-size:46px">
+      <svg width="54" height="54" viewBox="0 0 10 10" style="flex:none"><path fill="#0b1030" d="M0 0h4v4H0zM6 0h4v4H6zM0 6h4v4H0zM1 1v2h2V1zM7 1v2h2V1zM1 7v2h2V7zM5 5h1v1H5zM6 6h2v1H6zM8 5h2v1H8zM5 7h1v3H5zM7 8h3v2H7z"/></svg>
+      PAGÁ CON QR BANCARIO</span></div>
+  </section>`);
+  const tw = [...s.querySelectorAll("#bT .w")];
+  scene(T.buy, s, (t) => {
+    const lt = t - T.buy[0], dur = T.buy[1] - T.buy[0];
+    revealWords(tw, t, T.buy[0] + .05, .07);
+    const pp = oExpo(P(lt, 0, .8));
+    set($("#bPhone", s), { opacity: pp, transform: `perspective(1600px) translateY(${(1 - pp) * 260}px) rotateY(${-14 + Math.sin(t * .8) * 4}deg) rotateX(${6 + Math.cos(t * .7) * 2}deg)` });
+    const tm = T.wConsulta ? at(T.wConsulta) + .2 : T.buy[0] + .45;
+    const pm = oBack(P(t, tm, .45), 1.6);
+    set($("#bMsg", s), { opacity: clamp(pm * 2), transform: `translateY(${(1 - pm) * 40}px) scale(${.8 + .2 * pm})`, transformOrigin: "100% 100%" });
+    const tq = T.wElegi ? at(T.wElegi) + .2 : T.buy[0] + .7;
+    const pq = oBack(P(t, tq, .5), 1.8);
+    set($("#bQr", s), { opacity: clamp(pq * 2), transform: `scale(${.6 + .4 * pq})` });
+    const out = iCubic(P(lt, dur - .25, .25));
+    set(s, { opacity: 1 - out, transform: `scale(${1 - out * .06})` });
+  });
+}
+
+// ------------------------------------------------------------------ 7. cierre
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="zMono" style="left:405px;top:470px">${monoHTML(270)}</div>
+    <div class="abs center" id="zWord" style="top:830px">${wordmarkHTML(104)}</div>
+    <div class="abs center h-m grad" id="zTag" style="top:990px;font-size:72px;font-weight:900">TU MUNDO DIGITAL</div>
+    <div class="abs center" id="zCta" style="top:1200px"><span class="pill" style="background:#25d366;color:#04140b;font-size:46px">CONSULTÁ POR WHATSAPP</span></div>
+    <div class="abs center" id="zNum" style="top:1350px;font-size:52px;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums">+591 69047715</div>
+    <div class="abs" id="zSweep" style="left:-400px;top:420px;width:300px;height:1100px;background:linear-gradient(90deg,transparent,rgba(170,205,255,.5),transparent);transform:skewX(-20deg);mix-blend-mode:screen"></div>
+  </section>`);
+  scene(T.close, s, (t) => {
+    const lt = t - T.close[0];
+    const pm = spring(P(lt, 0, 1.0));
+    set($("#zMono", s), { opacity: clamp(pm * 2), transform: `perspective(900px) rotateY(${(1 - pm) * -90 + Math.sin(t * .7) * 6}deg) scale(${.5 + .5 * pm})` });
+    const pw = oExpo(P(lt, .2, .8));
+    set($("#zWord", s), { opacity: pw, transform: `translateY(${(1 - pw) * 40}px)` });
+    $("#zWord .word", s).style.letterSpacing = `${.14 + (1 - pw) * .4}em`;
+    const ptg = oExpo(P(t, at(T.wMundo) - .1, .6));
+    set($("#zTag", s), { opacity: ptg, transform: `translateY(${(1 - ptg) * 30}px)`, backgroundPosition: `${(t * 30) % 200}% 0` });
+    const pc = oBack(P(t, at(T.wCerca ?? T.wMundo + .6) + .1, .5), 1.6);
+    set($("#zCta", s), { opacity: clamp(pc * 2), transform: `scale(${.6 + .4 * pc})` });
+    const pn = oExpo(P(t, at(T.wCerca ?? T.wMundo + .6) + .35, .5));
+    set($("#zNum", s), { opacity: pn, transform: `translateY(${(1 - pn) * 20}px)` });
+    set($("#zSweep", s), { transform: `translateX(${lerp(0, 1900, ioCubic(P(lt, .3, 1.2)))}px) skewX(-20deg)` });
+  });
+}
+
+// ------------------------------------------------------------------ portada (TikTok)
+if (V === "cover") {
+  const s = el(`<section class="scene" style="display:block">
+    <div class="abs" style="left:415px;top:250px">${monoHTML(250)}</div>
+    <div class="abs center" style="top:560px">${wordmarkHTML(100)}</div>
+    <div class="card" style="left:110px;top:740px;width:860px;height:300px;background:${BR.netflix.bg}"><div class="name" style="top:58px;font-size:96px;color:#e50914">Netflix</div><div class="sub" style="top:190px;font-size:52px;color:#fff;font-weight:800">desde Bs 40</div><i class="gloss"></i></div>
+    <div class="card" style="left:110px;top:1080px;width:860px;height:300px;background:${BR.gemini.bg}"><div class="name" style="top:58px;font-size:96px">Gemini Pro</div><div class="sub" style="top:190px;font-size:52px;color:#fff;font-weight:800">Bs 18</div><i class="gloss"></i></div>
+    <div class="abs center" style="top:1440px;font-size:46px;font-weight:700;color:var(--soft)">Streaming e IA · precios en Bs</div>
+  </section>`);
+  scenes.appendChild(s);
+}
+
+// ------------------------------------------------------------------ partículas, luces y cámara
+const pc = $("#particles").getContext("2d");
+let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const PARTS = Array.from({ length: 140 }, () => ({ x: rnd() * 1080, y: rnd() * 1920, z: .3 + rnd() * .7, s: 1 + rnd() * 3, h: rnd() }));
+function drawParticles(t, boost) {
+  pc.clearRect(0, 0, 1080, 1920);
+  for (const p of PARTS) {
+    const y = (p.y - t * 60 * p.z * (1 + boost * 2)) % 1920, yy = y < 0 ? y + 1920 : y;
+    const x = p.x + Math.sin(t * .5 + p.h * 10) * 20 * p.z;
+    const a = (.25 + .5 * p.z) * (.6 + .4 * Math.sin(t * 2 + p.h * 20));
+    pc.fillStyle = p.h < .45 ? `rgba(106,162,255,${a})` : p.h < .8 ? `rgba(180,139,255,${a})` : `rgba(255,124,196,${a})`;
+    pc.beginPath(); pc.arc(x, yy, p.s * p.z, 0, Math.PI * 2); pc.fill();
+  }
+}
+const CUTS = V === "short" ? [T.netflix[0], T.gemini[0], T.catalog[0], T.buy[0], T.close[0]] : [T.logo[0], T.netflix[0], T.gemini[0], T.catalog[0], T.pillars[0], T.buy[0], T.close[0]];
+function seek(t) {
+  for (const r of registry) {
+    if (V === "cover") { r.el.style.display = "none"; continue; }
+    const on = t >= r.a && t < r.b + (r.b >= T.end ? 1 : 0);
+    r.el.style.display = on ? "block" : "none";
+    if (on) r.update(t);
+  }
+  // atmósfera: más violeta en Gemini, más roja en Netflix
+  const inG = T.gemini && t >= T.gemini[0] && t < T.gemini[1], inN = t >= T.netflix[0] && t < T.netflix[1];
+  set($("#glowA"), { left: `${-450 + Math.sin(t * .3) * 160}px`, top: `${-500 + Math.cos(t * .25) * 140}px`, opacity: inN ? .5 : 1 });
+  set($("#glowB"), { left: `${200 + Math.cos(t * .27) * 170}px`, top: `${700 + Math.sin(t * .31) * 180}px`, opacity: inG ? 1.6 : 1 });
+  set($("#glowC"), { left: `${-300 + Math.sin(t * .22 + 2) * 200}px`, top: `${1100 + Math.cos(t * .2) * 160}px` });
+  $("#tint").style.background = inN ? "radial-gradient(ellipse at 50% 40%, rgba(229,9,20,.18), transparent 60%)" : inG ? "radial-gradient(ellipse at 50% 45%, rgba(139,61,255,.22), transparent 65%)" : "none";
+  set($("#floor"), { backgroundPosition: `0 ${(t * 90) % 120}px`, opacity: V === "cover" ? .6 : .55 });
+  // destello y temblor suave en cada corte
+  let fl = 0, sh = 0;
+  for (const c of CUTS) { const d = t - c; if (d >= 0 && d < .45) { fl = Math.max(fl, .55 * (1 - d / .45)); sh = Math.max(sh, 1 - d / .35); } }
+  $("#flash").style.opacity = fl;
+  const drift = Math.sin(t * .6) * 6;
+  set($("#cam"), { transform: `translate(${Math.sin(t * 80) * 6 * clamp(sh)}px, ${drift + Math.cos(t * 70) * 6 * clamp(sh)}px)` });
+  drawParticles(t, fl);
+}
+window.seek = seek;
+window.READY = (async () => {
+  await document.fonts.load('900 100px "Inter Display"'); await document.fonts.load('800 100px "Inter Display"'); await document.fonts.load('700 100px "Inter Display"');
+  await document.fonts.load('40px "Noto Color Emoji"'); await document.fonts.ready;
+  seek(V === "cover" ? 1.5 : 0); return true;
+})();
+if (location.search.includes("play")) window.READY.then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % T.end); requestAnimationFrame(loop); }; loop(); });
+</script>
+</body>
+</html>
