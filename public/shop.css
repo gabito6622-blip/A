@@ -781,3 +781,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .filepick .fp-name{font-size:12px;color:var(--s-muted);overflow-wrap:anywhere;max-width:100%}
 .filepick.has .fp-name{color:var(--s-ink);font-weight:600}
 .filepick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%)}
+
+/* Pestañas del revendedor: en el celular bajan de renglón (nada queda escondido fuera de la pantalla). */
+@media (max-width:700px){.rtabs{flex-wrap:wrap;overflow:visible}.rtabs button{flex:1 1 auto;min-height:44px}}

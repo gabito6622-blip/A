@@ -3,7 +3,8 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
-import type { Actor, Cents, Customer, Id, ResellerApp, ResellerCombo, ResellerShop, ShopRent, Testimonial } from "./types.js";
+import type { Actor, Cents, Customer, Id, ResellerApp, ResellerCombo, ResellerCoupon, ResellerShop, ShopRent, Testimonial } from "./types.js";
+import { normCode } from "./coupons.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -212,7 +213,7 @@ export function myShop(e: Engine, actor: Actor) {
   const c = me(e, actor);
   const s = c.shop ?? defaults(e, c);
   const canPage = pageAllowed(e, c);
-  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, pageAllowed: canPage, allowed: canPage && e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30 };
+  return { ...structuredClone(s), saved: !!c.shop, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, pageAllowed: canPage, allowed: canPage && e.s.settings.resellerShops !== false, rent: rentInfo(e, c), marginPct: e.s.settings.resellerMarginPct ?? 30, couponsAllowed: !!e.s.settings.resellerCoupons };
 }
 
 export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unknown>) {
@@ -406,7 +407,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     .filter((p) => p.published && c!.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id)))
     .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: c!.resellerPrices![p.id], available: Math.min(stock[p.id] ?? 0, 20) }));
   const look: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "products", "whatsapp", "title", "combos", "comboDiscounts"].includes(k)) look[k] = v;
+  for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
   const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined)).map((cb) => ({
@@ -415,6 +416,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   }));
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
+    hasCoupons: !!e.s.settings.resellerCoupons && (s.coupons ?? []).some((x) => x.active && (!x.expiresAt || x.expiresAt > e.now())),
     currencySymbol: e.s.settings.currencySymbol || "Bs",
     comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => v > 0) ? s.comboDiscounts : null,
     ...look, products: [...comboCards, ...products],
@@ -485,4 +487,109 @@ export function myReferrals(e: Engine, actor: Actor) {
     .filter((l) => l.customerId === c.id && l.type === "referral")
     .reduce((t, l) => t + l.amount, 0);
   return { code: c.id, bonus, enabled: bonus > 0, count: people.length, earned, people };
+}
+
+/* ---------------- Cupones del revendedor (para su página) ---------------- */
+
+/** El dueño permite (o no) que los revendedores creen cupones para su página. */
+export function setResellerCoupons(e: Engine, actor: Actor, allowed: boolean) {
+  authorize(actor, "catalog.manage");
+  return e.tx(() => {
+    e.s.settings.resellerCoupons = !!allowed;
+    e.audit(actor, "reseller.coupons_allowed", "settings", "resellerCoupons", { allowed: !!allowed });
+    return { allowed: !!allowed };
+  });
+}
+
+function couponOwner(e: Engine, actor: Actor): Customer {
+  const c = me(e, actor);
+  if (!e.s.settings.resellerCoupons) throw new DomainError("FORBIDDEN", "La tienda todavía no habilitó los cupones para revendedores");
+  if (!pageAllowed(e, c) || !c.shop) throw new DomainError("FORBIDDEN", "Primero armá tu página");
+  return c;
+}
+
+export function myCoupons(e: Engine, actor: Actor) {
+  const c = me(e, actor);
+  return { allowed: !!e.s.settings.resellerCoupons && pageAllowed(e, c) && !!c.shop, coupons: structuredClone(c.shop?.coupons ?? []) };
+}
+
+export function saveMyCoupon(e: Engine, actor: Actor, input: Record<string, unknown>): ResellerCoupon {
+  const c = couponOwner(e, actor);
+  const code = normCode(input.code);
+  if (!/^[A-Z0-9_-]{3,20}$/.test(code)) throw new DomainError("VALIDATION", "El código lleva de 3 a 20 letras o números, sin espacios (ej.: AMIGOS10)");
+  const type = input.type === "fixed" ? "fixed" : input.type === "percent" ? "percent" : null;
+  if (!type) throw new DomainError("VALIDATION", "Elegí si el descuento es en % o un monto fijo");
+  const value = Number(input.value);
+  if (type === "percent" && (!Number.isInteger(value) || value < 1 || value > 90)) throw new DomainError("VALIDATION", "El porcentaje va de 1 a 90");
+  if (type === "fixed" && (!Number.isInteger(value) || value < 1 || value > 10_000_000)) throw new DomainError("VALIDATION", "Monto de descuento inválido");
+  const expiresAt = input.expiresAt ? Number(input.expiresAt) : undefined;
+  if (expiresAt !== undefined && (!Number.isFinite(expiresAt) || expiresAt <= 0)) throw new DomainError("VALIDATION", "Fecha de vencimiento inválida");
+  const minTotal = input.minTotal ? Number(input.minTotal) : undefined;
+  if (minTotal !== undefined && (!Number.isInteger(minTotal) || minTotal < 1)) throw new DomainError("VALIDATION", "Compra mínima inválida");
+  const mine = c.resellerPrices ?? {};
+  const productIds = Array.isArray(input.productIds) ? [...new Set(input.productIds.map(String))] : [];
+  for (const p of productIds) if (mine[p] === undefined) throw new DomainError("VALIDATION", "Elegí productos que tengan tu precio");
+  return e.tx(() => {
+    const list = (c.shop!.coupons ??= []);
+    const prev = input.id ? list.find((x) => x.id === input.id) : undefined;
+    if (input.id && !prev) throw new DomainError("NOT_FOUND", "Cupón inexistente");
+    if (!prev && list.length >= 30) throw new DomainError("VALIDATION", "Máximo 30 cupones");
+    if (list.some((x) => x.code === code && x.id !== prev?.id)) throw new DomainError("VALIDATION", `Ya tenés un cupón ${code}`);
+    const cp: ResellerCoupon = {
+      id: prev?.id ?? e.id("rcup"), code, type, value,
+      ...(expiresAt ? { expiresAt } : {}), ...(minTotal ? { minTotal } : {}), ...(productIds.length ? { productIds } : {}),
+      active: input.active === undefined ? prev?.active ?? true : !!input.active, createdAt: prev?.createdAt ?? e.now(),
+    };
+    if (prev) list[list.indexOf(prev)] = cp; else list.push(cp);
+    e.audit(actor, prev ? "reseller.coupon_update" : "reseller.coupon_create", "customer", c.id, { code, type, value });
+    return structuredClone(cp);
+  });
+}
+
+export function deleteMyCoupon(e: Engine, actor: Actor, id: Id) {
+  const c = me(e, actor);
+  return e.tx(() => {
+    const list = c.shop?.coupons ?? [];
+    const cp = list.find((x) => x.id === id);
+    if (!cp) throw new DomainError("NOT_FOUND", "Cupón inexistente");
+    c.shop!.coupons = list.filter((x) => x !== cp);
+    e.audit(actor, "reseller.coupon_delete", "customer", c.id, { code: cp.code });
+    return { ok: true as const };
+  });
+}
+
+/**
+ * Cuánto descuenta un cupón en la página /r/<slug>. Calcula con los precios del revendedor y su
+ * "Armá tu combo" (igual que el carrito); el cupón va sobre lo que queda y siempre deja algo a pagar.
+ */
+export function quoteShopCoupon(e: Engine, slug: string, rawCode: unknown, items: unknown) {
+  const c = findBySlug(e, slug);
+  if (!c) throw new DomainError("NOT_FOUND", "Esta página no existe o no está publicada");
+  if (!Array.isArray(items) || !items.length || items.length > 20) throw new DomainError("VALIDATION", "El carrito está vacío");
+  const prices = c.resellerPrices ?? {};
+  const combos = c.shop!.combos ?? [];
+  const lines = items.map((it) => {
+    const id = String((it as { productId?: unknown })?.productId ?? ""), qty = Number((it as { qty?: unknown })?.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
+    const own = id.startsWith("rc_") ? combos.find((cb) => `rc_${cb.id}` === id)?.price : undefined;
+    const price = own ?? (e.s.products[id]?.published ? prices[id] : undefined);
+    if (price === undefined) throw new DomainError("NOT_FOUND", "Uno de los productos ya no está en esta página");
+    return { productId: id, qty, price };
+  });
+  const gross = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  // Armá tu combo de su página: apps sueltas distintas (no combos ni productos solo para revendedores).
+  const d = c.shop!.comboDiscounts;
+  const n = new Set(lines.filter((l) => { const p = e.s.products[l.productId]; return p && p.kind !== "combo" && !p.resellersOnly; }).map((l) => l.productId)).size;
+  const discount = d && d.some((v) => v > 0) ? Math.min(gross, n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0) : 0;
+  const net = gross - discount;
+  const code = normCode(rawCode);
+  const cp = e.s.settings.resellerCoupons ? (c.shop!.coupons ?? []).find((x) => x.code === code && x.active) : undefined;
+  if (!cp) throw new DomainError("VALIDATION", "Ese cupón no existe o ya no está activo");
+  if (cp.expiresAt && cp.expiresAt < e.now()) throw new DomainError("VALIDATION", "Ese cupón ya venció");
+  if (cp.minTotal && gross < cp.minTotal) throw new DomainError("VALIDATION", `Este cupón pide una compra mínima de ${(cp.minTotal / 100).toFixed(2)}`);
+  const base = cp.productIds?.length ? Math.min(net, lines.filter((l) => cp.productIds!.includes(l.productId)).reduce((s, l) => s + l.price * l.qty, 0)) : net;
+  if (base <= 0) throw new DomainError("VALIDATION", "Ese cupón no aplica a estos productos");
+  const amount = Math.max(0, Math.min(cp.type === "percent" ? Math.round((base * cp.value) / 100) : Math.min(cp.value, base), net - 100));
+  if (amount <= 0) throw new DomainError("VALIDATION", "Con este monto el cupón no descuenta nada");
+  return { code: cp.code, amount, gross, discount, total: net - amount };
 }
