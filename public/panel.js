@@ -177,11 +177,7 @@ const V = {
     const tag = (kd) => `<span class="pp pp-${kd === "topup" ? "ok" : kd === "renewal" ? "warn" : "mute"}">${KIND_TEXT[kd] ?? kd}</span>`;
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Ver como cliente</a></div></div>
-      ${hechos < pasos.length ? `<section class="card setupcard"><h2>🚀 Primeros pasos <small>${hechos} de ${pasos.length} listos</small></h2>
-        <p class="muted" style="margin:0">Completá estos pasos y ya estás vendiendo. Cada uno se marca solo cuando lo hacés.</p>
-        <div class="pgbar"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div>
-        <div class="pasos">${pasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="pbtn blue sm" type="button" data-go="${go}">${esc(b)} ${icon("arrow")}</button>`}</div>`).join("")}</div></section>`
-        : (P.tab.hideSetup ? "" : `<section class="card ok-card setupcard"><div class="inline" style="justify-content:space-between"><h2 style="margin:0">🎉 ¡Tu tienda está lista para vender!</h2><button class="pbtn sm" type="button" data-hidesetup="1">Ocultar</button></div><p class="muted" style="margin:0">Completaste todo. Cuando quieras, seguí personalizando desde Apariencia.</p></section>`)}
+      ${hechos < pasos.length ? `<section class="card setupmini"><div class="inline" style="justify-content:space-between;gap:10px"><div><b>🚀 Te faltan ${pasos.length - hechos} paso(s) para estar listo</b><br><small class="muted">Completalos desde la Guía.</small></div><button class="pbtn sm blue" type="button" data-go="ayuda">Ver primeros pasos ${icon("arrow")}</button></div><div class="pgbar" style="margin-top:8px"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div></section>` : ""}
       ${stressCard}
       <div class="dkpis">
         ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
@@ -211,6 +207,21 @@ const V = {
       <section class="card helpcard"><div class="inline" style="justify-content:space-between"><div><b>📖 ¿Dudas con alguna pantalla?</b><br><small class="muted">La guía de qué sirve cada parte está en su propio lugar.</small></div><button class="pbtn sm" type="button" data-go="ayuda">Abrir la Guía ${icon("arrow")}</button></div></section>`;
   },
   async ayuda() {
+    const [set, products, accounts] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
+    const pasos = [
+      ["Creá tus productos", products.length > 0, "productos", "Crear producto"],
+      ["Cargá tus cuentas (tu stock)", accounts.length > 0, "carga", "Cargar cuenta"],
+      ["Subí tu QR de cobro", !!set.hasQr, "configuracion", "Subir QR"],
+      ["Cargá el WhatsApp de la tienda", !!set.whatsapp, "configuracion", "Configurar"],
+      ["Ponele nombre y logo a tu tienda", !!set.hasLogo, "apariencia", "Personalizar"],
+    ];
+    const hechos = pasos.filter((p) => p[1]).length;
+    const setupCard = hechos < pasos.length
+      ? `<section class="card setupcard"><h2>🚀 Primeros pasos <small>${hechos} de ${pasos.length} listos</small></h2>
+        <p class="muted" style="margin:0">Completá estos pasos y ya estás vendiendo. Cada uno se marca solo cuando lo hacés.</p>
+        <div class="pgbar"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div>
+        <div class="pasos">${pasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="pbtn blue sm" type="button" data-go="${go}">${esc(b)} ${icon("arrow")}</button>`}</div>`).join("")}</div></section>`
+      : `<section class="card ok-card setupcard"><h2 style="margin:0">🎉 ¡Tu tienda está lista para vender!</h2><p class="muted" style="margin:6px 0 0">Completaste todos los primeros pasos. Cuando quieras, seguí personalizando desde Apariencia.</p></section>`;
     const G = [
       ["Inicio / Dashboard", "Tu resumen del día: ingresos, pedidos, lo que vence y tus mejores revendedores.", "dashboard"],
       ["Vender", "Registrás una venta: elegís cliente y producto, y el sistema arma el mensaje para WhatsApp.", "vender"],
@@ -229,7 +240,8 @@ const V = {
       ["Excel", "Exportás e importás tus clientes y servicios con una planilla.", "excel"],
       ["Configuración", "Nombre, WhatsApp, QR de cobro, verificación en dos pasos y respaldo.", "configuracion"],
     ];
-    return `<section class="card"><h2>${icon("help")}¿Para qué sirve cada pantalla?</h2>
+    return `${setupCard}
+      <section class="card"><h2>${icon("help")}¿Para qué sirve cada pantalla?</h2>
       <p class="muted" style="margin:0 0 12px">Una explicación corta de cada parte del sistema. Tocá “Ir” para abrirla.</p>
       <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></section>
       <section class="card"><h2>👁️ Ver tu tienda como la ve el cliente</h2>
