@@ -88,6 +88,11 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.storeName !== undefined && (!patch.storeName.trim() || patch.storeName.length > 60)) throw new DomainError("VALIDATION", "Nombre de tienda inválido");
   if (patch.whatsapp !== undefined && !/^\d{7,15}$/.test(patch.whatsapp)) throw new DomainError("VALIDATION", "WhatsApp: solo números con código de país, p. ej. 59170000000");
   if (patch.paymentNote !== undefined && patch.paymentNote.length > 300) throw new DomainError("VALIDATION", "La nota de pago es muy larga");
+  if (patch.currencySymbol !== undefined) {
+    const s = String(patch.currencySymbol).trim().slice(0, 6);
+    if (!s) throw new DomainError("VALIDATION", "Poné el símbolo de la moneda (ej.: US$, Bs)");
+    patch.currencySymbol = s;
+  }
   if (patch.usdt !== undefined) {
     const u = patch.usdt as Record<string, unknown>;
     if (!u || typeof u !== "object") throw new DomainError("VALIDATION", "Configuración de USDT inválida");
@@ -121,7 +126,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

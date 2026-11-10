@@ -207,7 +207,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
-      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef, binance: binanceOn(),
+      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
@@ -727,7 +727,7 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/admin/settings", "staff", (c) => {
     const b = c.body ?? {};
-    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", ...LOOK_KEYS]
+    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", "currencySymbol", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;

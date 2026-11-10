@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -741,6 +741,20 @@ const V = {
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
+      ${(() => {
+        const lists = groups.filter((g) => g.id !== "final" && g.id !== "revendedor");
+        const nonCombo = products.filter((p) => p.kind !== "combo");
+        const row = (g, p) => `<label class="plrow"><span>${esc(p.name)}</span><input name="pp-${esc(p.id)}" inputmode="decimal" value="${g.prices[p.id] != null ? g.prices[p.id] / 100 : ""}" placeholder="base ${p.price / 100}"></label>`;
+        return `<section class="card"><h2>🌎 Listas de precios <small>· distintos precios por país o tipo de cliente</small></h2>
+          <p class="muted" style="margin:0">Creá una lista (ej.: Panamá, Paraguay), poné el precio de cada producto y asignásela al cliente en <b>Clientes</b>. Precio vacío = usa el precio base del producto.</p>
+          ${lists.map((g) => `<details class="pricelist"><summary><b>${esc(g.name)}</b> · ${Object.keys(g.prices).length} precios</summary>
+            <form class="form" data-pricelist="${esc(g.id)}" style="margin-top:8px">
+              <label>Nombre de la lista<input name="name" value="${esc(g.name)}" maxlength="40" required></label>
+              <div class="pltable">${nonCombo.map((p) => row(g, p)).join("")}</div>
+              <button class="pbtn dark" type="submit" style="justify-self:start">Guardar lista</button>
+            </form></details>`).join("") || `<p class="muted" style="margin:0">Todavía no tenés listas. Creá la primera abajo 👇</p>`}
+          <form class="inline" id="newListForm" style="margin-top:10px"><input name="name" placeholder="Nueva lista (ej.: Panamá)" maxlength="40" required><button class="pbtn dark" type="submit">${icon("plus")}Crear lista</button></form></section>`;
+      })()}
       <section class="card"><h2>Productos <small>· ${products.length} · tocá una tarjeta para editar</small></h2>
       ${products.length ? `<div class="prodgrid">${products.map((p) => {
         const st = stock[p.id]?.available ?? 0;
@@ -772,7 +786,8 @@ const V = {
 
   async clientes() {
     const q = P.tab.q ?? "";
-    const list = await api("GET", "/api/admin/customers?q=" + encodeURIComponent(q));
+    const [list, priceGroups] = await Promise.all([api("GET", "/api/admin/customers?q=" + encodeURIComponent(q)), api("GET", "/api/admin/price-groups").catch(() => [])]);
+    const priceLists = priceGroups.filter((g) => g.id !== "final" && g.id !== "revendedor");
     const link = P.tab.link;
     const ledger = P.tab.ledger ? await api("GET", `/api/admin/customers/${P.tab.ledger}/ledger`) : null;
     const lc = list.find((c) => c.id === P.tab.ledger);
@@ -811,6 +826,7 @@ const V = {
           <form class="form" data-editcusform data-id="${esc(c.id)}">
             <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
             ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
+            ${canReview() && c.kind !== "reseller" && priceLists.length ? `<label>💲 Lista de precios<select name="priceList">${opt("final", "Base (precio normal)", !c.priceGroupId || c.priceGroupId === "final")}${priceLists.map((g) => opt(g.id, g.name, c.priceGroupId === g.id)).join("")}</select></label>` : ""}
             <label>🏷️ Etiqueta<select name="tag">${opt("", "Sin etiqueta", !c.tag)}${Object.entries(CTAGS).map(([k, v]) => opt(k, v[0], c.tag === k)).join("")}</select></label>
             <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
@@ -1062,6 +1078,7 @@ const V = {
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
+      <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
         <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (Bs)<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
@@ -1423,6 +1440,7 @@ async function start() {
   if (!me.loggedIn || me.kind !== "staff") return showLogin(me.kind === "customer" ? "Estás con una sesión de cliente. Entrá con tu usuario del panel." : "");
   P.me = me;
   P.settings = await api("GET", "/api/settings");
+  setCurrency(P.settings.currencySymbol);
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#pName").textContent = me.name;
@@ -2082,7 +2100,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "editCusForm" || f.dataset.editcusform !== undefined) {
       const body = { name: f.name.value, phone: f.phone.value, email: f.email.value, notes: f.notes.value };
       if (f.tag) body.tag = f.tag.value;
-      if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : "final"; }
+      if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : (f.priceList?.value || "final"); }
       await api("POST", `/api/admin/customers/${f.dataset.id}`, body);
       await api("POST", `/api/admin/customers/${f.dataset.id}/consent`, { whatsapp: f.consent.checked });
       P.tab.editCus = null;
@@ -2108,6 +2126,14 @@ document.addEventListener("submit", async (ev) => {
         if (out) out.innerHTML = `<div class="pok" style="margin-top:10px">✅ Prueba generada. Mandale esto al cliente:</div><pre class="rpre" style="white-space:pre-wrap">${esc(msg)}</pre><div class="inline"><button class="pbtn sm" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar</button>${r.delivery?.customerPhone ? `<a class="pbtn sm" href="${esc(waLink(r.delivery.customerPhone, msg))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a>` : ""}</div>`;
         toast("Prueba generada ✓");
       } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+    } else if (f.id === "newListForm") {
+      const name = f.name.value.trim();
+      const base = name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "lista";
+      await act(() => api("POST", "/api/admin/price-groups", { id: "lp-" + base, name, prices: {} }), `Lista "${name}" creada`);
+    } else if (f.dataset.pricelist) {
+      const prices = {};
+      for (const inp of f.querySelectorAll('input[name^="pp-"]')) { const v = inp.value.trim(); if (v !== "") { const c = toCents(v); if (Number.isFinite(c) && c >= 0) prices[inp.name.slice(3)] = c; } }
+      await act(() => api("POST", "/api/admin/price-groups", { id: f.dataset.pricelist, name: f.name.value.trim(), prices }), "Lista de precios guardada");
     } else if (f.id === "iptvForm") {
       const mode = f.mode.value;
       const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
@@ -2203,8 +2229,9 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "comboForm") {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
     } else if (f.id === "setForm") {
-      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value }), "Configuración guardada");
+      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");
+      setCurrency(P.settings.currencySymbol);
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;

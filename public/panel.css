@@ -739,3 +739,10 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .notirow.noti-ok{border-left-color:var(--blue)}
 .ibtn .count,#menu .count{position:absolute;top:2px;right:2px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:999px;padding:0 4px}
 .ibtn{position:relative}
+/* Listas de precios por país/cliente */
+.pricelist{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.pricelist>summary{cursor:pointer;font-weight:600}
+.pltable{display:grid;gap:8px;margin:10px 0}
+.plrow{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:10px;margin:0}
+.plrow>span{font-size:13.5px;color:var(--ink)}
+.plrow input{text-align:right}

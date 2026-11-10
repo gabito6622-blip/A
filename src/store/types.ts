@@ -74,6 +74,8 @@ export interface StoreSettings extends Look {
   /** WhatsApp de ventas, solo dígitos con código de país. */
   whatsapp: string;
   currency: "BOB";
+  /** Símbolo que se muestra en los precios (ej.: "Bs", "US$", "₲"). Por defecto "Bs". */
+  currencySymbol?: string;
   /** Archivo del QR de cobro (subido por el staff). */
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */

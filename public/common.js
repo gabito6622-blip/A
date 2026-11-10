@@ -19,8 +19,13 @@ export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/** Centavos → "Bs 25" o "Bs 25,50". */
-export const bs = (cents) => "Bs " + (cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
+/** Símbolo de moneda (configurable por la tienda; por defecto "Bs"). */
+let CUR_SYM = "Bs";
+/** La tienda y el panel lo fijan al cargar la configuración (ej.: "US$", "$", "₲"). */
+export const setCurrency = (sym) => { const s = String(sym ?? "").trim(); if (s) CUR_SYM = s.slice(0, 6); };
+export const currencySym = () => CUR_SYM;
+/** Centavos → "Bs 25" / "US$ 25,50" según el símbolo configurado. */
+export const bs = (cents) => `${CUR_SYM} ` + (cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
 /** "25" o "25,50" → centavos. */
 export const toCents = (v) => Math.round(parseFloat(String(v).replace(",", ".")) * 100);
 
