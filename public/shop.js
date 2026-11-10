@@ -10,8 +10,8 @@ const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar"
 const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
 const VIEWS = {
-  rshop: ["inicio", "catalogo", "combo"],
-  store: ["inicio", "catalogo", "combo", "cuentas", "codigos", "recargas"],
+  rshop: ["inicio", "catalogo", "combo", "asesor"],
+  store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos"],
 }[MODE];
 
@@ -224,6 +224,50 @@ function trustBand() {
   ];
   return `<section class="trustband">${it.map(([e, b, s]) => `<div><span class="te">${e}</span><b>${esc(b)}</b><small>${esc(s)}</small></div>`).join("")}</section>`;
 }
+const hasCombos = () => (S.catalog ?? []).some((p) => p.kind === "combo" && p.comboParts?.length);
+/* Franja de atención: horario + WhatsApp, para que se vea que hay alguien real. */
+function availBar() {
+  const wa = S.settings.whatsapp;
+  if (!wa) return "";
+  return `<div class="availbar"><span>🟢 Atención todos los días · respondemos por WhatsApp</span><a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a></div>`;
+}
+/* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
+const FAQ = [
+  ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Escribinos por WhatsApp y te pasamos una nueva al toque."],
+  ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
+  ["¿Cómo pago?", "Con QR y comprobante, o al instante con tu saldo si tenés cuenta. Te activamos y te avisamos por WhatsApp."],
+  ["¿Es seguro comprar acá?", "Sí. Nunca pedimos tus claves por WhatsApp: tus accesos quedan solo en tu área privada."],
+  ["¿En cuántos dispositivos puedo usarlo?", "Depende del servicio. Consultanos por WhatsApp y te decimos el detalle de cada plataforma."],
+];
+function faqSection() {
+  return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
+    <div class="faqlist">${FAQ.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
+    ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
+}
+/* Asesor: encontrá tu combo ideal por presupuesto y cantidad de plataformas. */
+function asesorView() {
+  const combos = (S.catalog ?? []).filter((p) => p.kind === "combo" && p.comboParts?.length);
+  if (!combos.length) return `<div class="sbox"><h2>🧮 Asesor de combos</h2><p class="empty">Pronto vas a poder encontrar tu combo ideal acá. Mientras, mirá el catálogo o armá tu combo.</p><div class="inline"><button class="sbtn pri" type="button" data-s="catalogo">Ver catálogo ${icon("arrow")}</button>${comboOn() ? `<button class="sbtn" type="button" data-s="combo">Armá tu combo</button>` : ""}</div></div>`;
+  const a = (S.data.asesor ??= { budget: 80, plats: 0 });
+  const platOpts = [...new Set(combos.map((c) => c.comboParts.length))].sort((x, y) => x - y);
+  let list = combos.filter((c) => c.price <= a.budget * 100 && (!a.plats || c.comboParts.length === a.plats));
+  list.sort((x, y) => y.comboParts.length - x.comboParts.length || x.price - y.price);
+  const partName = (id) => product(id)?.name ?? id;
+  const comboCard = (c, best) => `<div class="acombo${best ? " best" : ""}">${best ? `<span class="abest">★ Mejor opción para vos</span>` : ""}
+    <div class="atop"><b>${esc(c.name)}</b><span class="aprice">${bs(c.price)}<small>/ ${c.durationDays} días</small></span></div>
+    <div class="alogos">${c.comboParts.slice(0, 6).map((id) => miniMark(product(id) ?? { name: partName(id), color: "#3984ff" })).join("")}</div>
+    <p class="empty" style="margin:0">${c.comboParts.length} plataformas: ${esc(c.comboParts.map(partName).join(" + "))}</p>
+    <div class="inline"><button class="sbtn pri sm" type="button" data-add="${esc(c.id)}">Agregar al carrito</button>${S.settings.whatsapp ? `<a class="sbtn sm" href="${waLink(S.settings.whatsapp, `Hola, me interesa el ${c.name} (${bs(c.price)})`)}" target="_blank" rel="noopener">${icon("wa")}Consultar</a>` : ""}</div></div>`;
+  return `<div class="sec-h"><div><span class="chip">Asesor</span><h2>Encontrá tu combo ideal</h2><p>Decinos tu presupuesto y cuántas plataformas querés. Te mostramos combos reales del catálogo, sin inventar precios.</p></div></div>
+    <div class="asesor">
+      <aside class="actrl">
+        <div class="afield"><label>¿Cuánto querés gastar?</label><div class="abudget"><input type="range" min="20" max="140" step="10" value="${a.budget}" data-abudget><b>Hasta ${bs(a.budget * 100)}</b></div><small class="empty">Mostramos combos dentro de tu presupuesto.</small></div>
+        <div class="afield"><label>¿Cuántas plataformas?</label><div class="aplats"><button type="button" class="${a.plats === 0 ? "on" : ""}" data-aplats="0">Cualquiera</button>${platOpts.map((n) => `<button type="button" class="${a.plats === n ? "on" : ""}" data-aplats="${n}">${n}</button>`).join("")}</div></div>
+        ${comboOn() ? `<button class="sbtn" type="button" data-s="combo">¿Preferís armarlo vos? ${icon("arrow")}</button>` : ""}
+      </aside>
+      <div class="arecs">${list.length ? list.slice(0, 6).map((c, i) => comboCard(c, i === 0)).join("") : `<div class="sbox"><p class="empty" style="margin:0">No hay combos para ese presupuesto. Subí un poco el monto o elegí "Cualquiera" cantidad de plataformas.</p>${comboOn() ? `<button class="sbtn pri" type="button" data-s="combo" style="justify-self:start">Armá el tuyo a medida</button>` : ""}</div>`}</div>
+    </div>`;
+}
 function card(p, badge) {
   const s = p.available;
   const rib = badge ? `<span class="prib">${esc(badge)}</span>` : (s && s <= 2 ? `<span class="prib hot">🔥 Últimas</span>` : "");
@@ -258,10 +302,10 @@ function qrBlock() {
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
 
-const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
+const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], asesor: ["grid", "Asesor"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
   clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
 function buildNav() {
-  const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), "cuentas", "codigos", "recargas"]
+  const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : []), "cuentas", "codigos", "recargas"]
     : hubPanel() ? ["inicio", "precios", "cuentas", "codigos", "clientes", "recargas"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? [...(comboOn() ? ["inicio", "catalogo", "combo", "cart"] : ["inicio", "catalogo", "cart"])] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
     : hubPanel() ? ["inicio", "precios", "cart", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
@@ -297,7 +341,7 @@ function render() {
         : showMock ? (SLUG ? `<div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)}</div><div class="mgrid">${pub.slice(0, 4).map((p) => `<div>${esc(p.name)}<b>${bs(p.price)}</b>${p.durationDays} días</div>`).join("") || "<div>Pronto<b>✦</b>nuevos productos</div>"}</div></div>` : `<div class="mock" aria-hidden="true"><div class="t">${esc(S.settings.storeName)} · tu resumen</div>
         <div class="mgrid"><div>Catálogo<b>${pub.length}</b>productos</div><div>Mis servicios<b>${S.me?.loggedIn ? services.length : "—"}</b>activos</div><div>Mi saldo<b>${S.me?.loggedIn ? bs(S.me.balance) : "—"}</b>para comprar al instante</div><div>Carrito<b>${S.cart.length}</b>productos</div></div></div>`)
         : "";
-      return `<section class="hero"><div style="display:grid;min-width:0">
+      return `${availBar()}<section class="hero"><div style="display:grid;min-width:0">
         ${S.settings.heroChip ? `<span class="chip">${esc(S.settings.heroChip)}</span>` : ""}
         <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
         <p>${esc(S.settings.heroText)}</p>
@@ -308,7 +352,9 @@ function render() {
       ${trustBand()}
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>${featTitle}</h2></div>${L === "catalogo" ? "" : `<button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button>`}</div>
       <div class="pgrid">${pub.slice(0, nFeat).map((p, i) => card(p, i === 0 ? "🔥 Popular" : i === 1 && L !== "minimal" ? "⭐ Top" : "")).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿No sabés cuál elegir?</b><span>Usá el Asesor: decís tu presupuesto y te recomendamos el combo ideal.</span>${icon("arrow")}</button>` : ""}
       ${SLUG ? "" : reviewsSection()}
+      ${faqSection()}
       ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
       ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
       ${L === "minimal" ? "" : `<section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
@@ -326,6 +372,7 @@ function render() {
       ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
     },
     combo: () => comboView(),
+    asesor: () => asesorView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
@@ -936,6 +983,7 @@ function comboView() {
 
 function comboClick(d) {
   if (d.ccat !== undefined) { S.data.ccat = d.ccat; render(); return true; }
+  if (d.aplats !== undefined) { (S.data.asesor ??= { budget: 80, plats: 0 }).plats = +d.aplats; render(); return true; }
   if (d.cpick) {
     const p = product(d.cpick), sel = (S.data.combo ??= []);
     if (sel.includes(p.id)) S.data.combo = sel.filter((x) => x !== p.id);
@@ -1257,8 +1305,15 @@ document.addEventListener("change", async (ev) => {
   }
 });
 
-let qTimer;
+let qTimer, asesorTimer;
 document.addEventListener("input", (ev) => {
+  if (ev.target.dataset?.abudget !== undefined) {
+    (S.data.asesor ??= { budget: 80, plats: 0 }).budget = +ev.target.value;
+    clearTimeout(asesorTimer);
+    const lbl = ev.target.parentElement?.querySelector("b"); if (lbl) lbl.textContent = "Hasta " + bs(+ev.target.value * 100);
+    asesorTimer = setTimeout(() => render(), 160);
+    return;
+  }
   if (ev.target.form?.id === "shopForm") {
     if (ev.target.type === "color") ev.target.nextElementSibling.textContent = ev.target.value;
     clearTimeout(qTimer);
