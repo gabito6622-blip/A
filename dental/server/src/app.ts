@@ -23,6 +23,7 @@ import { reportRoutes } from "./modules/reports.js";
 import { platformRoutes } from "./modules/platform.js";
 import { assistantRoutes } from "./modules/assistant.js";
 import { consentRoutes } from "./modules/consents.js";
+import { portalRoutes } from "./modules/portal/index.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
@@ -114,6 +115,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   platformRoutes(route, cfg);
   assistantRoutes(route);
   consentRoutes(route);
+  portalRoutes(route, cfg);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

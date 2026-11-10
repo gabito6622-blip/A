@@ -10,7 +10,7 @@ import { SignaturePad } from "./SignaturePad";
 const DECISION: Record<string, { label: string; tone: string }> = {
   granted: { label: "Acepta", tone: "ok" }, refused: { label: "No acepta", tone: "danger" }, revoked: { label: "Revocado", tone: "warn" },
 };
-const METHOD: Record<string, string> = { signature_pad: "Firma en pantalla", paper_signed: "Firmado en papel", staff_registered: "Registrado por el personal" };
+const METHOD: Record<string, string> = { signature_pad: "Firma en pantalla", paper_signed: "Firmado en papel", staff_registered: "Registrado por el personal", online_checkbox: "Casilla marcada por el paciente en la web" };
 const REL: Record<string, string> = { self: "El paciente", guardian: "Madre, padre o tutor", legal_representative: "Representante legal" };
 
 export function ConsentsPanel({ patient }: { patient: { id: string; firstName: string; lastName: string; documentNumber: string | null; birthDate: string | null; guardianName: string | null } }) {

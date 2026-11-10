@@ -6,6 +6,7 @@ import { useApi, useDebounced } from "../lib/hooks";
 import { api, newKey, qs } from "../lib/api";
 import { addDays, fmtDateLong, fmtTime, laPazISO, localDate, minutesOfDay } from "../lib/format";
 import { Dialog, Drawer, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
+import { PortalRequestsButton } from "./PortalRequests";
 
 const START = 7 * 60, END = 21 * 60, STEP = 15, PX = 18;
 const ROWS = (END - START) / STEP;
@@ -71,6 +72,7 @@ export function AgendaPage() {
           </select>
           <button className="btn" onClick={() => setSearch(true)}><CalendarSearch size={16} />Buscar horario</button>
           <button className="btn" onClick={() => setReminders(true)}><MessageCircle size={16} />Recordatorios</button>
+          <PortalRequestsButton branchId={branchId} onChanged={reload} />
           {can("agenda.write") && <button className="btn btn-primary" onClick={() => setNewAppt({ date })}><Plus size={16} />Nueva cita</button>}
         </div>
       </div>

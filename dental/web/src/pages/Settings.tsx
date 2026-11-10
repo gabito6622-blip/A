@@ -5,8 +5,9 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
+import { PortalSettingsTab } from "./PortalSettings";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "consents" | "security" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "consents" | "portal" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -51,6 +52,7 @@ export function SettingsPage() {
     { id: "schedules", label: "Horarios", hidden: !can("clinic.manage") },
     { id: "procedures", label: "Prestaciones", hidden: !can("clinic.manage") },
     { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
+    { id: "portal", label: "Reserva online", hidden: !can("clinic.manage") },
     { id: "security", label: "Seguridad", hidden: me?.membership?.role !== "owner" },
     { id: "audit", label: "Auditoría", hidden: !can("audit.read") },
   ];
@@ -72,6 +74,7 @@ export function SettingsPage() {
       {tab === "schedules" && <SchedulesTab />}
       {tab === "procedures" && <ProceduresTab />}
       {tab === "consents" && <ConsentsTab />}
+      {tab === "portal" && <PortalSettingsTab />}
       {tab === "security" && <SecurityTab />}
       {tab === "audit" && <AuditTab />}
     </div>

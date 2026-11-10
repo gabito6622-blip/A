@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { Layout } from "./components/Layout";
 import { LoginPage, ClinicSelectPage, MfaVerifyPage, ResetPasswordPage } from "./pages/Login";
@@ -15,10 +16,15 @@ import { SettingsPage } from "./pages/Settings";
 import { AssistantPage } from "./pages/Assistant";
 import { PlatformPage } from "./pages/Platform";
 import { Loading } from "./components/ui";
+import { MessagesPage } from "./pages/Messages";
+
+const PortalApp = lazy(() => import("./portal/PortalApp"));
 
 export function App() {
   const { me, loading } = useAuth();
+  const { pathname } = useLocation();
   if (window.location.pathname === "/restablecer") return <ResetPasswordPage />;
+  if (/^\/(reservar|mi-cuenta)\//.test(pathname)) return <Suspense fallback={<Loading rows={4} />}><PortalApp /></Suspense>;
   if (loading) return <Loading rows={6} />;
   if (!me) return <LoginPage />;
   if (me.mfaPending) return <MfaVerifyPage />;
@@ -41,6 +47,7 @@ export function App() {
         <Route path="/reportes" element={<ReportsPage />} />
         <Route path="/configuracion" element={<SettingsPage />} />
         <Route path="/asistente" element={<AssistantPage />} />
+        <Route path="/mensajes" element={<MessagesPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog } from "lucide-react";
+import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, MessagesSquare } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 export const Logo = () => (
@@ -20,6 +20,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
         { to: "/caja", label: "Caja", icon: Wallet, show: can("payments.read") },
         { to: "/reportes", label: "Reportes", icon: BarChart3, show: can("reports.financial") || can("reports.operational") },
         { to: "/asistente", label: "Asistente", icon: Sparkles, show: can("assistant.use") },
+        { to: "/mensajes", label: "Mensajes", icon: MessagesSquare, show: can("clinic.manage") },
         { to: "/configuracion", label: "Configuración", icon: Settings, show: can("clinic.manage") || can("staff.manage") || can("audit.read") },
         { to: "/plataforma", label: "Plataforma SaaS", icon: Building2, show: !!me?.user.isPlatformAdmin },
       ].filter((i) => i.show);
