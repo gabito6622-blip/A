@@ -1347,7 +1347,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.editaccopen !== undefined) { P.tab.editAcc = d.editaccopen || null; if (P.tab.editAcc && !P.tab.secrets) P.tab.secrets = true; await render(); return scrollTo(0, 0); }
   if (d.editcus !== undefined) { P.tab.editCus = d.editcus || null; await render(); return scrollTo(0, 0); }
-  if (d.slotfree) return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender");
+  if (d.slotfree) { if (!confirm("¿Poner este perfil libre para vender? Deja de contar para el cliente que lo tenía.")) return; return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender"); }
   if (d.slotact !== undefined) { P.tab.slotAct = d.slotact || null; await render(); return scrollTo(0, 0); }
   if (d.slotrelease) {
     if (!confirm("¿Liberar este perfil? Deja de contar para ese cliente y queda libre para vender.")) return;
@@ -1676,6 +1676,7 @@ document.addEventListener("submit", async (ev) => {
       toast("Cliente actualizado");
       await render();
     } else if (f.dataset.down) {
+      if (!confirm("¿Marcar esta cuenta como caída? Se retira y se mueve a TODOS sus clientes a otra cuenta libre. Revisá que haya cupo.")) { done(); return; }
       await act(() => api("POST", `/api/admin/accounts/${f.dataset.down}/replace`, { reason: f.reason.value }), (r) => r.retired ? `Cuenta retirada. ${r.results.length} cliente(s) movidos` : `No se pudo mover a todos: ${r.results.find((x) => !x.ok)?.error}`);
     } else if (f.id === "quickForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
