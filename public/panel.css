@@ -563,3 +563,6 @@ img.svbadge{padding:5px;background:#0e1424}
 .dropzone.over{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--soft))}
 .dropzone .dztext{font-size:14px;color:var(--muted)}
 .dropzone .dzname{font-size:13px;color:var(--ok);font-weight:600}
+
+/* --- Mi semana: monto por día --- */
+.hd-amt{font-size:11px;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);border-radius:999px;padding:1px 7px;margin-top:2px}
