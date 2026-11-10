@@ -504,6 +504,7 @@ function resellerView() {
       }).join("") || `<p class="empty">${clients.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
 
     <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>
+      ${prices.some((p) => p.sell === null) ? `<button class="sbtn pri" type="button" data-sugerir="1" style="justify-self:start">✨ Ponerme precios sugeridos a todo</button>` : ""}
       <div class="rtable">${prices.map((p) => `<div class="rprow"><span><b>${esc(p.name)}</b><br><small class="empty">Te cuesta ${bs(p.cost)} · ${p.durationDays} días</small></span>
         <label class="rprice">Le cobro Bs<input name="p-${esc(p.productId)}" inputmode="decimal" value="${p.sell !== null ? (p.sell / 100).toFixed(2).replace(/\.00$/, "") : ""}" placeholder="—" data-cost="${p.cost}"></label>
         <span class="rprofit" data-profit="${esc(p.productId)}">${p.profit !== null ? `<b style="color:${p.profit < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${p.profit < 0 ? "−" : "+"}${bs(Math.abs(p.profit))}</b>` : ""}</span></div>`).join("")}</div>
@@ -1212,6 +1213,20 @@ document.addEventListener("click", async (ev) => {
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.apply) return openApply();
+  if (d.sugerir) {
+    const f = $("#myPrices"); if (!f) return;
+    const m = S.data.shop?.marginPct ?? S.settings?.resellerMarginPct ?? 30;
+    let n = 0;
+    f.querySelectorAll("input[data-cost]").forEach((inp) => {
+      if (inp.value.trim()) return; // no pisa lo que el revendedor ya puso
+      const cost = +inp.dataset.cost || 0;
+      inp.value = String(roundBs(cost * (1 + m / 100)) / 100);
+      inp.dispatchEvent(new Event("input", { bubbles: true })); // recalcula la ganancia
+      n++;
+    });
+    toast(n ? `Listo: ${n} precio(s) con +${m}% de ganancia. Revisá y tocá Guardar.` : "Ya tenés todos los precios puestos.");
+    return;
+  }
   if (d.makecodelink) {
     el.disabled = true;
     try { const k = await api("POST", "/api/me/code-link", { keepLink: true }); S.data.codeLink = { url: k.url, mode: "email" }; toast("Tu link quedó listo (modo correo)"); render(); }
