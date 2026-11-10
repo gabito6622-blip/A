@@ -35,6 +35,7 @@ import { portalRoutes } from "./modules/portal/index.js";
 import { labRoutes } from "./modules/lab.js";
 import { agendaPlusRoutes } from "./modules/agendaPlus.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
+import { messagingRoutes } from "./modules/messaging/index.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
@@ -136,6 +137,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   portalRoutes(route, cfg);
   labRoutes(route);
   agendaPlusRoutes(route);
+  messagingRoutes(route, cfg, app);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

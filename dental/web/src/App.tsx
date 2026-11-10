@@ -23,6 +23,7 @@ import { Loading } from "./components/ui";
 import { PublicBudgetPage } from "./pages/PublicBudget";
 import { MessagesPage } from "./pages/Messages";
 import { LabPage } from "./pages/Lab";
+import { ConfirmAppointmentPage } from "./pages/ConfirmAppointment";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -31,6 +32,7 @@ export function App() {
   const { pathname } = useLocation();
   if (window.location.pathname === "/restablecer") return <ResetPasswordPage />;
   if (window.location.pathname.startsWith("/p/presupuesto/")) return <PublicBudgetPage />;
+  if (window.location.pathname.startsWith("/c/")) return <ConfirmAppointmentPage />;
   if (/^\/(reservar|mi-cuenta)\//.test(pathname)) return <Suspense fallback={<Loading rows={4} />}><PortalApp /></Suspense>;
   if (loading) return <Loading rows={6} />;
   if (!me) return <LoginPage />;

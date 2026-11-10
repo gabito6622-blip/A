@@ -8,8 +8,9 @@ import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../compon
 import { SessionTemplateEditor } from "../components/BudgetV2";
 import { PortalSettingsTab } from "./PortalSettings";
 import { AppointmentTypesSettings } from "../components/agenda/AppointmentTypesSettings";
+import { MessagingSettingsTab } from "./MessagingSettings";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "consents" | "portal" | "security" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "consents" | "portal" | "messaging" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -57,6 +58,7 @@ export function SettingsPage() {
     { id: "appointmentTypes", label: "Tipos de cita", hidden: !can("clinic.manage") },
     { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
     { id: "portal", label: "Reserva online", hidden: !can("clinic.manage") },
+    { id: "messaging", label: "Mensajes automáticos", hidden: !can("clinic.manage") },
     { id: "security", label: "Seguridad", hidden: me?.membership?.role !== "owner" },
     { id: "audit", label: "Auditoría", hidden: !can("audit.read") },
   ];
@@ -80,6 +82,7 @@ export function SettingsPage() {
       {tab === "appointmentTypes" && <AppointmentTypesSettings />}
       {tab === "consents" && <ConsentsTab />}
       {tab === "portal" && <PortalSettingsTab />}
+      {tab === "messaging" && <MessagingSettingsTab />}
       {tab === "security" && <SecurityTab />}
       {tab === "audit" && <AuditTab />}
     </div>
