@@ -681,8 +681,8 @@ export function createApp(cfg: AppConfig): App {
     try { return await reviewOrder(c.params.id); }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
-  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
-  route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
+  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
+  route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
   route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));

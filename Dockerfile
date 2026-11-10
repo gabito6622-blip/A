@@ -9,6 +9,7 @@ RUN npx tsc -p tsconfig.json
 
 FROM node:22-slim
 ENV NODE_ENV=production \
+    TZ=America/La_Paz \
     PORT=8080 \
     GS_DATA_DIR=/data \
     GS_STATIC_DIR=/app/public \

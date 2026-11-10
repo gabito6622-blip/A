@@ -184,7 +184,20 @@ const SCOLS = {
   supExpires: ["vence proveedor", "vencimiento proveedor", "fecha proveedor", "vence cuenta"],
   supplier: ["proveedor"],
   cost: ["costo", "costo cuenta", "costo bs"],
+  kind: ["tipo", "tipo cliente", "tipo de cliente", "es revendedor"],
+  price: ["precio", "precio bs", "le cobro", "cobro", "monto", "precio cliente"],
+  seller: ["revendedor", "vendedor", "vendio"],
+  note: ["nota", "notas", "observacion", "observaciones", "comentario"],
 } as const;
+
+/** "revendedor", "rev", "r", "si" → revendedor; "cliente", "final", "c", "no" → cliente final; vacío → no cambia. */
+const parseKind = (v: string): "reseller" | "customer" | undefined => {
+  const s = v.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (!s) return undefined;
+  if (/^(revendedor(a)?|rev|r|si|reseller|mayorista)$/.test(s)) return "reseller";
+  if (/^(cliente( final)?|final|c|no|customer|particular)$/.test(s)) return "customer";
+  return undefined;
+};
 
 /**
  * Fecha de una celda: número de serie de Excel (46012), "15/12/2026", "15-12-26" o "2026-12-15".
@@ -230,7 +243,8 @@ export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts
   const idx = {
     supExpires: find(SCOLS.supExpires), name: find(SCOLS.name), phone: find(SCOLS.phone), product: find(SCOLS.product),
     password: find(SCOLS.password), profile: find(SCOLS.profile), pin: find(SCOLS.pin), expires: find(SCOLS.expires),
-    supplier: find(SCOLS.supplier), cost: find(SCOLS.cost), email: find(SCOLS.email),
+    supplier: find(SCOLS.supplier), cost: find(SCOLS.cost), kind: find(SCOLS.kind), price: find(SCOLS.price), seller: find(SCOLS.seller), note: find(SCOLS.note),
+    email: find(SCOLS.email),
   };
   const missing = [["Cliente", idx.name], ["WhatsApp", idx.phone], ["Producto", idx.product], ["Cuenta (correo)", idx.email], ["Vence", idx.expires]].filter(([, i]) => (i as number) < 0).map(([n]) => n);
   if (missing.length) throw new DomainError("VALIDATION", `Faltan columnas: ${missing.join(", ")}. Encabezados leídos: ${rows[0].join(", ")}. Descargá la plantilla de servicios para ver el formato.`);
@@ -253,25 +267,30 @@ export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts
     const pin = cell(r, idx.pin).replace(/\.0+$/, "");
     if (pin && !/^\d{1,8}$/.test(pin)) { fail(`PIN inválido: "${pin}"`); continue; }
     const costRaw = cell(r, idx.cost).replace(",", ".");
+    const kindRaw = cell(r, idx.kind), kind = parseKind(kindRaw);
+    if (kindRaw && !kind) { fail(`Tipo inválido: "${kindRaw}" (escribí revendedor o cliente)`); continue; }
+    const priceRaw = cell(r, idx.price).replace(/^bs\.?\s*/i, "").replace(",", ".");
+    if (priceRaw && !(Number.isFinite(+priceRaw) && +priceRaw >= 0)) { fail(`Precio inválido: "${cell(r, idx.price)}"`); continue; }
     valid.push({
       row: k + 1, customerName: base.customer, phone: rawPhone ? phoneWithCountry(rawPhone) : "", product: base.product, email: base.account,
       password: cell(r, idx.password), profile: base.profile, pin: pin || undefined, customerExpiresAt: exp,
       supplierExpiresAt: supExp ?? undefined, supplier: cell(r, idx.supplier) || undefined,
       cost: costRaw && Number.isFinite(+costRaw) ? Math.round(+costRaw * 100) : undefined,
+      kind, price: priceRaw ? Math.round(+priceRaw * 100) : undefined, seller: cell(r, idx.seller) || undefined, note: cell(r, idx.note) || undefined,
     });
   }
-  const res = valid.length ? s.inventory.importServices(a, valid, opts) : { dryRun: opts.dryRun, summary: { ok: 0, errores: 0, clientesNuevos: 0, cuentasNuevas: 0, perfilesNuevos: 0, avisos: 0 }, rows: [] as ServiceResult[] };
+  const res = valid.length ? s.inventory.importServices(a, valid, opts) : { dryRun: opts.dryRun, summary: { ok: 0, errores: 0, clientesNuevos: 0, cuentasNuevas: 0, perfilesNuevos: 0, revendedores: 0, avisos: 0 }, rows: [] as ServiceResult[] };
   res.rows = [...res.rows, ...parseErrors].sort((x, y) => x.row - y.row);
   res.summary.errores += parseErrors.length;
   return res;
 }
 
 export const servicesTemplate = () => writeXlsx([{
-  name: "Servicios", widths: [22, 16, 16, 28, 16, 14, 8, 14, 16, 18, 10],
+  name: "Servicios", widths: [22, 14, 12, 16, 28, 16, 12, 8, 13, 9, 15, 18, 9, 16, 24],
   rows: [
-    ["Cliente", "WhatsApp", "Producto", "Cuenta", "Contraseña", "Perfil", "PIN", "Vence", "Vence proveedor", "Proveedor", "Costo"],
-    ["María Quispe", "70011223", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 1", "1234", "15/12/2026", "31/01/2027", "Proveedor Andes", 30],
-    ["Luis Choque", "78889900", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 2", "5678", "20/12/2026", "31/01/2027", "Proveedor Andes", ""],
+    ["Cliente", "WhatsApp", "Tipo", "Producto", "Cuenta", "Contraseña", "Perfil", "PIN", "Vence", "Precio", "Vence proveedor", "Proveedor", "Costo", "Revendedor", "Nota"],
+    ["María Quispe", "70011223", "cliente", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 1", "1234", "15/12/2026", 35, "31/01/2027", "Proveedor Andes", 30, "", ""],
+    ["Luis Choque", "78889900", "revendedor", "Netflix", "netflix01@correo.com", "Clave#123", "Perfil 2", "5678", "20/12/2026", 30, "31/01/2027", "Proveedor Andes", "", "", "paga los lunes"],
   ],
 }]);
 

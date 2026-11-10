@@ -248,7 +248,7 @@ export function setCustomersKind(e: Engine, actor: Actor, ids: Id[] | "all", kin
 }
 
 /** La lista "revendedor" se crea sola la primera vez (sin precios propios usa el precio normal). Debe llamarse dentro de `tx`. */
-function ensureResellerGroup(e: Engine, id: Id): void {
+export function ensureResellerGroup(e: Engine, id: Id): void {
   if (id === "revendedor" && !e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
 }
 

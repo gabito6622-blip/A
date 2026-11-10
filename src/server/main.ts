@@ -23,6 +23,9 @@ import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { createApp } from "./app.js";
 
+// Fechas, "hoy", días y meses del Dashboard y Finanzas: siempre con la hora de Bolivia.
+process.env.TZ ||= "America/La_Paz";
+
 const env = process.env;
 const origin = env.GS_PUBLIC_ORIGIN;
 const staticDir = env.GS_STATIC_DIR ?? (existsSync("public") ? "public" : undefined);

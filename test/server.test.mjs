@@ -268,6 +268,22 @@ describe("servidor Gabriel Store", () => {
     assert.match(tpl.headers.get("content-disposition"), /plantilla-servicios/);
   });
 
+  test("importar servicios con Tipo y Precio: entra ya como revendedor y con su precio", async () => {
+    const { writeXlsx } = await import("../dist/server/xlsx.js");
+    const file = writeXlsx([{ name: "s", rows: [["Cliente", "WhatsApp", "Tipo", "Producto", "Cuenta", "Contraseña", "Perfil", "Vence", "Precio", "Revendedor", "Nota"],
+      ["Tito Revende", "72223333", "Revendedor", "Netflix perfil", "nf88@gabostore.lat", "R#8", "Perfil 1", "15/12/2030", "Bs 30", "Tito", "paga lunes"],
+      ["Mala Fila", "72224444", "jefe", "Netflix perfil", "nf88@gabostore.lat", "R#8", "Perfil 2", "15/12/2030", "", "", ""]] }]).toString("base64");
+    const pre = await state.owner.post("/api/admin/import/services", { contentBase64: file, dryRun: true });
+    assert.equal(pre.status, 200, JSON.stringify(pre.json));
+    assert.deepEqual([pre.json.summary.ok, pre.json.summary.errores, pre.json.summary.revendedores], [1, 1, 1]);
+    assert.match(pre.json.rows[1].error, /Tipo inválido/);
+    await state.owner.post("/api/admin/import/services", { contentBase64: file, dryRun: false });
+    const tito = (await state.owner.get("/api/admin/customers?q=Tito")).json[0];
+    assert.equal(tito.kind, "reseller");
+    const asg = (await state.owner.get("/api/admin/assignments")).json.find((a) => a.customerId === tito.id);
+    assert.deepEqual([asg.customerKind, asg.control.price, asg.control.seller, asg.control.note], ["reseller", 3000, "Tito", "paga lunes"]);
+  });
+
   test("protecciones: origen ajeno, JSON obligatorio, tamaño máximo", async () => {
     assert.equal((await state.maria.post("/api/orders", { items: [], paymentMethod: "qr" }, { origin: "https://sitio-malo.com" })).status, 403);
     const r = await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "text/plain" }, body: "x" });
