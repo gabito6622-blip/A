@@ -412,7 +412,7 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 /* ---- tablas que se vuelven tarjetas en el celular ---- */
 @media (max-width:900px){
   .rtbl{overflow:visible}
-  .rtbl table,.rtbl tbody,.rtbl tr,.rtbl td{display:block;width:auto}
+  .rtbl table,.rtbl tbody,.rtbl tr,.rtbl td{display:block;width:auto;min-width:0}
   .rtbl thead{display:none}
   .rtbl tr{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:14px;padding:12px 14px;margin-bottom:12px}
   .rtbl td{border:0!important;padding:7px 0;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:14px}
