@@ -1070,6 +1070,7 @@ const V = {
         <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/tienda/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
       <section class="card"><h2>Página para conseguir revendedores</h2>
         <p class="muted" style="margin:0">En <a href="/revendedores" target="_blank" rel="noopener"><b>/revendedores</b></a> hay una página que explica tu programa: beneficios, estilos, las tiendas de tus revendedores y un botón a tu WhatsApp. Compartila en tus estados y grupos.</p>
+        <label class="chk"><input type="checkbox" id="alwaysAvailable" ${s.alwaysAvailable ? "checked" : ""} ${isOwner() ? "" : "disabled"}> En la tienda, mostrar todo como <b>Disponible</b> aunque no tenga cuentas cargadas (lo consigo con mis proveedores; el cliente pide por WhatsApp)</label>
         <label class="chk"><input type="checkbox" id="resellerProgramPrices" ${s.resellerProgramPrices ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Mostrar la tabla “Tu ganancia” (precio público vs. precio de revendedor)</label>
         <div class="inline"><a class="pbtn" href="/revendedores" target="_blank" rel="noopener">${icon("ext")}Abrir la página</a><button class="pbtn" type="button" data-copy="${esc(location.origin + "/revendedores")}">${icon("copy")}Copiar link</button></div></section>
       <section class="card"><h2>Páginas de revendedores</h2>
@@ -1100,8 +1101,17 @@ const V = {
 
   async usuarios() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño administra usuarios.</div></section>`;
-    const list = await api("GET", "/api/admin/staff");
-    return `<section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
+    const [list, asis] = await Promise.all([api("GET", "/api/admin/staff"), api("GET", "/api/admin/assistant").catch(() => ({ enabled: false }))]);
+    const newKey = P.tab.asisKey;
+    P.tab.asisKey = null;
+    return `<section class="card ${asis.enabled ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asis.enabled ? "· prendido" : "· apagado"}</small></h2>
+      <p class="muted" style="margin:0">Para que Claude entre a tu panel y haga cambios por vos (precios, descripciones, diseño). Entra como <b>Admin</b> con su propio usuario <b>asistente</b>: no puede tocar usuarios ni ser dueño, y todo lo que haga queda en <b>Auditoría</b>. Lo apagás con un toque.</p>
+      ${newKey ? `<div class="pok" style="display:grid;gap:8px"><b>🔑 Esta es la llave (se muestra UNA sola vez):</b><code class="mono" style="overflow-wrap:anywhere;user-select:all">${esc(newKey)}</code>
+        <button class="pbtn sm dark" type="button" data-copy="${esc(newKey)}" style="justify-self:start">${icon("copy")}Copiar llave</button>
+        <small>⚠️ <b>No la pegues en el chat.</b> Pegala solo en el <b>formulario seguro</b> que te abre Claude (dice "API credential"). Si la perdés, tocá "Crear llave nueva" y la vieja deja de servir.</small></div>` : ""}
+      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>` : ""}
+      <div class="inline"><button class="pbtn ${asis.enabled ? "" : "dark"}" type="button" data-asis="new">${asis.enabled ? "🔁 Crear llave nueva" : "🔑 Crear llave para mi asistente"}</button>${asis.enabled ? `<button class="pbtn danger" type="button" data-asis="off">⛔ Apagar acceso</button>` : ""}</div></section>
+      <section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
       <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
         <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
@@ -1313,7 +1323,7 @@ const AUD_VERB = {
   "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
   "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
   "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
-  "staff.password": "cambió la contraseña de {x}", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
   "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
   "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
 };
@@ -2400,6 +2410,12 @@ document.addEventListener("click", async (ev) => {
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
   if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
+  if (d.asis) {
+    if (d.asis === "off") { if (!confirm("¿Apagar el acceso del asistente? Deja de poder entrar al instante.")) return; return act(() => api("POST", "/api/admin/assistant/off", {}), "⛔ Acceso del asistente apagado"); }
+    if (!confirm("¿Crear la llave para tu asistente? Si ya había una, la anterior deja de servir.")) return;
+    try { const r = await api("POST", "/api/admin/assistant", {}); P.tab.asisKey = r.token; await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.supdel) {
     if (!confirm(`¿Borrar el proveedor "${d.name}"? ${+d.n ? `Sus ${d.n} cuenta(s) pasan a "Propias" (las tuyas). ` : ""}No se pierde ninguna cuenta ni cliente.`)) return;
     return act(() => api("POST", `/api/admin/suppliers/${d.supdel}/delete`, {}), (r) => `🗑️ Proveedor borrado${r.moved ? ` · ${r.moved} cuenta(s) ahora son tuyas` : ""}`);
@@ -2533,6 +2549,7 @@ document.addEventListener("change", async (ev) => {
   }
   if (t.id === "cfromDate") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab.cfrom = new Date(y, mo - 1, da).getTime(); } else P.tab.cfrom = undefined; return render(); }
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
+  if (ev.target.id === "alwaysAvailable") act(() => api("POST", "/api/admin/settings", { alwaysAvailable: ev.target.checked }), ev.target.checked ? "✅ La tienda muestra todo como Disponible" : "La tienda vuelve a mostrar el stock real");
   if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
   if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");
   if (ev.target.id === "days") { P.tab.days = +ev.target.value; render(); }

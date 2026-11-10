@@ -2,7 +2,8 @@
 // Sin frameworks: node:http. Cada ruta declara quién puede llamarla; el núcleo vuelve a
 // validar permisos (defensa en dos capas).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
@@ -207,7 +208,23 @@ export function createApp(cfg: AppConfig): App {
   function clearCookie(res: ServerResponse) {
     res.setHeader("Set-Cookie", `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${cfg.secureCookies ? "; Secure" : ""}`);
   }
+  // Llave del asistente: el dueño la crea en Usuarios y la apaga cuando quiere. Entra como un Admin
+  // propio ("asistente"), nunca como dueño; todo lo que hace queda en la Auditoría con su nombre.
+  type AssistKey = { hash: string; staffId: string; createdAt: number; lastUsedAt?: number };
+  const assistGet = (): AssistKey | null => { try { return JSON.parse(db.getSecret("assistant_key") ?? "null"); } catch { return null; } };
+  function resolveAssistant(req: IncomingMessage): { actor?: Actor } {
+    const h = req.headers.authorization ?? "";
+    const m = /^Bearer\s+(gsa_[A-Za-z0-9_-]{20,})$/.exec(h);
+    if (!m) return {};
+    const k = assistGet();
+    if (!k || !timingSafeEqualStr(sha256(m[1]), k.hash)) return {};
+    const u = store.engine.s.staff[k.staffId];
+    if (!u || !u.active || u.role === "owner") return {};
+    if (!k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, lastUsedAt: now() }), now());
+    return { actor: { id: u.id, role: u.role } };
+  }
   function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"] } {
+    if (req.headers.authorization) { const a = resolveAssistant(req); if (a.actor) return a; }
     const raw = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
     if (!raw) return {};
     const s = db.getSession(sha256(raw), now());
@@ -255,7 +272,7 @@ export function createApp(cfg: AppConfig): App {
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
       fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico", storeHours: st.storeHours ?? "",
-      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, resellerProgramPrices: st.resellerProgramPrices !== false,
+      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, alwaysAvailable: !!st.alwaysAvailable, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
@@ -784,6 +801,32 @@ export function createApp(cfg: AppConfig): App {
     if (!u.active) db.deleteSessionsOf(u.id);
     return u;
   });
+  // Acceso para el asistente: crear (o cambiar) la llave, ver cuándo la usó y apagarla.
+  route("GET", "/api/admin/assistant", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const k = assistGet(), u = k ? store.engine.s.staff[k.staffId] : undefined;
+    return { enabled: !!(k && u?.active), username: u?.username ?? null, createdAt: k?.createdAt ?? null, lastUsedAt: k?.lastUsedAt ?? null };
+  });
+  route("POST", "/api/admin/assistant", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño crea el acceso del asistente");
+    const st = store.engine.s;
+    let u = Object.values(st.staff).find((x) => x.username === "asistente");
+    if (u && u.role === "owner") throw new HttpError(400, "VALIDATION", "El usuario \"asistente\" ya existe como dueño");
+    if (!u) u = st.staff[store.admin.createStaff(A(c), { username: "asistente", name: "Claude (asistente)", role: "admin", passwordHash: hashPassword(randomBytes(24).toString("hex")) }).id];
+    else if (!u.active) store.admin.setStaffActive(A(c), u.id, true);
+    const token = "gsa_" + randomBytes(24).toString("base64url");
+    db.setSecret("assistant_key", JSON.stringify({ hash: sha256(token), staffId: u.id, createdAt: now() }), now());
+    store.engine.tx(() => store.engine.audit(A(c), "assistant.key", "staff", u!.id, {}));
+    return { token, username: u.username };
+  });
+  route("POST", "/api/admin/assistant/off", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const k = assistGet();
+    db.setSecret("assistant_key", null, now());
+    if (k && store.engine.s.staff[k.staffId]?.active) { store.admin.setStaffActive(A(c), k.staffId, false); db.deleteSessionsOf(k.staffId); }
+    store.engine.tx(() => store.engine.audit(A(c), "assistant.off", "staff", k?.staffId ?? "-", {}));
+    return { ok: true };
+  });
   // El dueño le pone una contraseña nueva a un admin o vendedor que se la olvidó (y lo saca de las sesiones abiertas).
   route("POST", "/api/admin/staff/:id/password", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño cambia contraseñas de otros usuarios");
@@ -844,6 +887,7 @@ export function createApp(cfg: AppConfig): App {
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
+    if (typeof b.alwaysAvailable === "boolean") pick.alwaysAvailable = b.alwaysAvailable;
     if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
     return store.catalog.updateSettings(A(c), pick);
   });

@@ -104,6 +104,8 @@ export interface StoreSettings extends Look {
   resellerCoupons?: boolean;
   /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */
   resellerProgramPrices?: boolean;
+  /** La tienda muestra "Disponible" aunque no haya cuentas cargadas (el dueño las consigue con sus proveedores). */
+  alwaysAvailable?: boolean;
   /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
   testimonials?: Testimonial[];
   /** Preguntas frecuentes de la tienda (editables). Vacío = se usan las de por defecto. */

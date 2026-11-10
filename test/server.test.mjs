@@ -298,6 +298,22 @@ describe("servidor Gabriel Store", () => {
     assert.equal((await c.post("/api/auth/staff/login", { username: "vendedor1", password: "clave-vendedor-1" })).status, 429);
   });
 
+  test("llave del asistente: entra como admin con la llave, nunca como dueño, y se apaga al instante", async () => {
+    assert.equal((await state.seller.post("/api/admin/assistant", {})).status, 403, "solo el dueño crea la llave");
+    const r = await state.owner.post("/api/admin/assistant", {});
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.match(r.json.token, /^gsa_/);
+    const hdr = (t) => ({ authorization: `Bearer ${t}`, "content-type": "application/json" });
+    const prods = await fetch(base + "/api/admin/products", { headers: hdr(r.json.token) });
+    assert.equal(prods.status, 200, "con la llave entra al panel");
+    assert.equal((await fetch(base + "/api/admin/staff", { headers: hdr(r.json.token) })).status, 403, "no administra usuarios (no es dueño)");
+    assert.equal((await fetch(base + "/api/admin/products", { headers: hdr("gsa_" + "x".repeat(32)) })).status, 401, "llave falsa: no entra");
+    const st = await state.owner.get("/api/admin/assistant");
+    assert.equal(st.json.enabled, true);
+    await state.owner.post("/api/admin/assistant/off", {});
+    assert.equal((await fetch(base + "/api/admin/products", { headers: hdr(r.json.token) })).status, 401, "apagado: deja de entrar");
+  });
+
   test("desactivar a un vendedor corta su sesión al instante", async () => {
     const list = await state.owner.get("/api/admin/staff");
     const seller = list.json.find((u) => u.username === "vendedor1");
