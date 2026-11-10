@@ -124,6 +124,17 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
  * Datos completos para ENTREGAR un alquiler al cliente (correo, contraseña, perfil, PIN) y un
  * mensaje de WhatsApp listo para mandar. Solo staff; cada vez que se revela queda en la auditoría.
  */
+/** "Cómo verlo": líneas de la guía de instalación del producto (app, enlace, pasos). */
+function guideLines(prod: { guide?: { app?: string; link?: string; steps?: string } } | undefined): string[] {
+  const g = prod?.guide;
+  if (!g || (!g.app && !g.link && !g.steps)) return [];
+  const out = ["", "📲 *Cómo verlo:*"];
+  if (g.app) out.push(`App: ${g.app}`);
+  if (g.link) out.push(`Descargala acá: ${g.link}`);
+  if (g.steps) out.push(g.steps);
+  return out;
+}
+
 /** Arma las líneas del mensaje de una línea IPTV según cómo se entrega. */
 function iptvLines(iptv: NonNullable<Account["iptv"]>, user: string, secret: string): string[] {
   const out: string[] = [];
@@ -159,6 +170,7 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
       ``,
       ...iptvLines(acc.iptv, acc.email, acc.password),
       `📅 Vence: ${expiresText}`,
+      ...guideLines(prod),
       ``,
       `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
     ]

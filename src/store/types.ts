@@ -54,6 +54,8 @@ export interface Product {
   comboProductIds?: Id[];
   /** Regla / recordatorio que aparece al vender este servicio (ej.: "Disney pide PIN", "este panel tarda"). */
   saleNote?: string;
+  /** "Cómo verlo": guía que recibe el cliente al comprar (app, enlace de descarga y pasos). */
+  guide?: { app?: string; link?: string; steps?: string };
 }
 
 /** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */
@@ -378,6 +380,8 @@ export interface Order {
   discount?: Cents;
   /** Pago por Binance Pay (USDT), si el pedido se cobra así. */
   binance?: BinancePay;
+  /** Prueba gratis: no cuenta como venta en las estadísticas. */
+  trial?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -410,6 +414,8 @@ export interface Assignment {
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */
   control?: RentalControl;
+  /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
+  trial?: boolean;
 }
 
 export interface RentalControl {

@@ -108,6 +108,38 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
   }));
 }
 
+/** Prueba gratis: entrega una línea/perfil por unas horas, sin cobrar. No cuenta como venta. */
+export function createTrial(e: Engine, actor: Actor, input: { customerId: Id; productId: Id; hours?: number; preferredSlotId?: Id }): { assignment: Assignment; order: Order } {
+  authorize(actor, "order.create_any");
+  const hours = Math.max(1, Math.min(72, Math.trunc(Number(input.hours) || 24)));
+  return e.tx(() => {
+    e.get("customers", input.customerId);
+    e.get("products", input.productId);
+    const now = e.now();
+    const id = e.id("ord");
+    const reserved = reserveSlots(e, input.productId, 1, id, [], input.preferredSlotId ? [input.preferredSlotId] : []);
+    const slot = reserved[0];
+    const order: Order = {
+      id, kind: "sale", customerId: input.customerId, payerId: input.customerId, createdBy: actor.id, channel: "panel",
+      items: [{ productId: input.productId, qty: 1, unitPrice: 0 }], total: 0, status: "fulfilled",
+      paymentMethod: "cash", reservedSlotIds: [slot.id], assignmentIds: [], trial: true, approvedBy: actor.id, createdAt: now, updatedAt: now,
+    };
+    e.s.orders[id] = order;
+    slot.status = "assigned";
+    delete slot.reservedUntil;
+    delete slot.reservedByOrder;
+    const a: Assignment = {
+      id: e.id("asg"), slotId: slot.id, productId: input.productId, customerId: input.customerId, orderId: id,
+      startsAt: now, customerExpiresAt: now + hours * HOUR, status: "active", trial: true,
+      history: [{ at: now, by: actor.id, event: "assigned", slotId: slot.id }],
+    };
+    e.s.assignments[a.id] = a;
+    order.assignmentIds.push(a.id);
+    e.audit(actor, "trial.create", "assignment", a.id, { customer: input.customerId, product: input.productId, hours });
+    return { assignment: structuredClone(a), order: structuredClone(order) };
+  });
+}
+
 /** Entrega el pedido según su tipo. Debe correr dentro de `tx`. */
 function fulfill(e: Engine, actor: Actor, order: Order): void {
   const now = e.now();
@@ -477,10 +509,12 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
   return e.tx(() => {
     let n = 0;
     for (const a of Object.values(e.s.assignments)) {
-      if (a.status !== "active" || a.holdOpen || a.customerExpiresAt + graceDays * DAY > e.now()) continue;
+      if (a.status !== "active" || a.holdOpen) continue;
+      // Una prueba gratis vence sin período de gracia y deja el perfil libre (no hubo problema).
+      if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
       a.status = "revoked";
-      a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: "vencido" });
-      e.s.slots[a.slotId].status = "quarantined";
+      a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
+      e.s.slots[a.slotId].status = a.trial ? "available" : "quarantined";
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -583,7 +617,7 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
   return e.tx(() => {
     let n = 0;
     for (const a of Object.values(e.s.assignments)) {
-      if (a.status !== "active") continue;
+      if (a.status !== "active" || a.trial) continue;
       const left = a.customerExpiresAt - e.now();
       if (left > withinDays * DAY) continue;
       if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY) continue;

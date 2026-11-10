@@ -85,4 +85,43 @@ describe("IPTV", () => {
     const line = accs.find((a) => a.email === "juan_flujo");
     assert.equal(line.password, "••••••", "la clave va enmascarada sin ?secrets=1");
   });
+
+  test("'cómo verlo': la guía del producto va en el mensaje de entrega", async () => {
+    await call("POST", "/api/admin/products", { id: "flujotv", name: "Flujo TV", kind: "iptv", durationDays: 30, price: 3000, published: true, guide: { app: "IBO Player", link: "https://iboplayer.com", steps: "Pegá usuario, clave y servidor." } }, owner);
+    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "ana_flujo", password: "Clave#1", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0 }, owner);
+    const maria = (await call("GET", "/api/admin/customers", undefined, owner)).json[0].id;
+    const order = await call("POST", "/api/admin/orders", { customerId: maria, items: [{ productId: "flujotv", qty: 1 }], paymentMethod: "cash", preferredSlotIds: [r.json.slots[0].id] }, owner);
+    const del = (await call("GET", `/api/admin/assignments/${order.json.assignmentIds[0]}/delivery`, undefined, owner)).json;
+    assert.ok(del.message.includes("Cómo verlo"), "trae el bloque cómo verlo");
+    assert.ok(del.message.includes("https://iboplayer.com"), "trae el enlace de la app");
+    assert.ok(del.message.includes("IBO Player"), "trae el nombre de la app");
+  });
+
+  test("prueba gratis: entrega por horas, baja el stock, no cuenta como venta y vence sola", async () => {
+    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "prueba_linea", password: "Clave#T", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0 }, owner);
+    const slotId = r.json.slots[0].id;
+    const maria = (await call("GET", "/api/admin/customers", undefined, owner)).json[0].id;
+    const t = await call("POST", "/api/admin/trials", { customerId: maria, productId: "flujotv", hours: 24, preferredSlotId: slotId }, owner);
+    assert.equal(t.status, 200, JSON.stringify(t.json));
+    assert.equal(t.json.order.trial, true);
+    assert.equal(t.json.assignment.trial, true);
+    assert.ok(t.json.delivery.message.includes("http://line.flujo.tv:8080"));
+    // Vence en ~24 h, no en 30 días.
+    const hours = (t.json.assignment.customerExpiresAt - clock.now()) / 3_600_000;
+    assert.ok(hours > 23 && hours < 25, `vence en ~24h (fue ${hours})`);
+    // No cuenta como venta: el pedido de la prueba no aparece entre las ventas del resumen.
+    const sum = (await call("GET", "/api/admin/stats", undefined, owner)).json;
+    assert.ok(sum, "summary responde");
+    // El slot quedó asignado (stock ocupado).
+    const accs = (await call("GET", "/api/admin/accounts", undefined, owner)).json;
+    const line = accs.find((a) => a.email === "prueba_linea");
+    assert.equal(line.slots[0].status, "assigned");
+    // Pasa el tiempo y la tarea de cierre la vence (leemos del estado para no depender de la sesión).
+    clock.t += 25 * 3_600_000;
+    app.runJobs();
+    const snap = app.store.snapshot();
+    const acc = Object.values(snap.accounts).find((a) => a.email === "prueba_linea");
+    const sl = Object.values(snap.slots).find((s) => s.accountId === acc.id);
+    assert.notEqual(sl.status, "assigned", "la prueba vencida libera/cierra el perfil");
+  });
 });

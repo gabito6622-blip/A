@@ -49,7 +49,7 @@ export function notificationItems(e: Engine) {
 export function summary(e: Engine, actor: Actor, range: { from: number; to: number }) {
   authorize(actor, "stats.view");
   const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.updatedAt >= range.from && o.updatedAt < range.to);
-  const sales = inRange.filter((o) => o.kind !== "topup" && o.channel !== "import");
+  const sales = inRange.filter((o) => o.kind !== "topup" && o.channel !== "import" && !o.trial);
   const byProduct: Record<Id, { units: number; revenue: number }> = {};
   const byDay: Record<string, number> = {};
   for (const o of sales) {
@@ -85,7 +85,7 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const span = Math.min(Math.max(Math.round(days) || 30, 7), 365) * DAY;
   const from = now - span, prevFrom = from - span;
   const done = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.channel !== "import");
-  const sales = (a: number, b: number) => done.filter((o) => o.kind !== "topup" && o.updatedAt >= a && o.updatedAt < b);
+  const sales = (a: number, b: number) => done.filter((o) => o.kind !== "topup" && !o.trial && o.updatedAt >= a && o.updatedAt < b);
   const cur = sales(from, now + 1), prev = sales(prevFrom, from);
   const sum = (l: { total: number }[]) => l.reduce((s, o) => s + o.total, 0);
   const dayKey = (t: number) => new Date(t).toISOString().slice(0, 10);

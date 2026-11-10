@@ -70,6 +70,7 @@ export function createStore(opts: EngineOptions = {}) {
     },
     orders: {
       create: bind(e, orders.createOrder),
+      createTrial: bind(e, orders.createTrial),
       comboDiscount: bind(e, orders.comboDiscount),
       submitEvidence: bind(e, orders.submitEvidence),
       approvePayment: bind(e, orders.approvePayment),

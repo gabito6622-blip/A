@@ -42,6 +42,15 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       if (sn.length > 200) throw new DomainError("VALIDATION", "La regla al vender es demasiado larga (máx. 200)");
       prod.saleNote = sn.trim();
     }
+    // "Cómo verlo": guía de instalación que recibe el cliente (app, enlace de descarga, pasos).
+    const g = p.guide !== undefined ? p.guide : prev?.guide;
+    if (g && typeof g === "object") {
+      const app = String(g.app ?? "").trim().slice(0, 60);
+      const link = String(g.link ?? "").trim().slice(0, 300);
+      const steps = String(g.steps ?? "").trim().slice(0, 600);
+      if (link && !/^https?:\/\/\S+$/.test(link)) throw new DomainError("VALIDATION", "El enlace de la guía debe empezar con http(s)://");
+      if (app || link || steps) prod.guide = { ...(app ? { app } : {}), ...(link ? { link } : {}), ...(steps ? { steps } : {}) };
+    }
     // Componentes del combo: apps que incluye (para detectar "armá tu combo" igual a uno existente).
     if (prod.kind === "combo") {
       const src = p.comboProductIds !== undefined ? p.comboProductIds : prev?.comboProductIds;

@@ -334,7 +334,16 @@ const V = {
     const combos = pub.filter((p) => p.kind === "combo");
     const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
     const shownProds = sk === "combos" ? combos : apps;
-    return `<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
+    const trialProds = products.filter((p) => p.kind !== "combo");
+    const trialCard = !customers.length || !trialProds.length ? "" : `<section class="card"><h2>🎁 Prueba gratis <small>· línea de cortesía por horas (ideal IPTV)</small></h2>
+      <form class="form" id="trialForm">
+        <label>Cliente<select name="customerId" required>${customers.map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}</select></label>
+        <label>Producto<select name="productId">${trialProds.map((p) => opt(p.id, p.name)).join("")}</select></label>
+        <label>Duración<select name="hours">${[[6, "6 horas"], [24, "24 horas"], [48, "48 horas"]].map(([v, t]) => opt(v, t, v === 24)).join("")}</select></label>
+        <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Generar prueba</button>
+      </form><div id="trialOut"></div>
+      <p class="muted" style="margin:0">La prueba vence sola y <b>no cuenta como venta</b>. Se descuenta del stock mientras dure.</p></section>`;
+    return `${trialCard}<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
       ${customers.length ? `<form class="form sellform" id="sellForm" data-key="${newKey()}">
         <div class="sstep"><span class="sstepn">1</span><div class="sstepb">
           <label class="sstepl">👤 ¿A quién le vendés?</label>
@@ -715,6 +724,13 @@ const V = {
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label style="grid-column:1/-1">📌 Regla al vender <small class="muted">(opcional · aparece cuando vas a vender este servicio)</small><input name="saleNote" maxlength="200" value="${esc(f.saleNote ?? "")}" placeholder="Ej.: Disney pide PIN al entrar · este panel tarda 10 min"></label>
+      <div style="grid-column:1/-1" class="pdefs"><div class="selbl">📲 Cómo verlo <small class="muted">opcional · el cliente recibe esto al comprar (ideal para IPTV)</small></div>
+        <div style="display:grid;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>App<input name="guideApp" maxlength="60" value="${esc(f.guide?.app ?? "")}" placeholder="IBO Player, IPTV Smarters…"></label>
+            <label>Enlace de descarga<input name="guideLink" maxlength="300" value="${esc(f.guide?.link ?? "")}" placeholder="https://…"></label></div>
+          <label>Pasos<textarea name="guideSteps" rows="2" maxlength="600" placeholder="Ej.: Abrí la app, elegí 'Xtream Codes', pegá usuario, clave y servidor.">${esc(f.guide?.steps ?? "")}</textarea></label>
+        </div></div>
       <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
       <div style="grid-column:1/-1" class="pdefs combo-only" ${f.kind === "combo" ? "" : "hidden"}><div class="selbl">🎁 Apps que incluye este combo <small class="muted">cuando el cliente arma el mismo combo en la tienda, le cobramos este precio</small></div>
         <div class="combopick">${products.filter((x) => x.kind !== "combo").map((x) => `<label class="chk"><input type="checkbox" name="combopart" value="${esc(x.id)}" ${f.comboProductIds?.includes(x.id) ? "checked" : ""}> ${esc(x.name)}</label>`).join("") || `<span class="muted">Primero creá productos sueltos (no combo) para elegirlos acá.</span>`}</div>
@@ -2083,6 +2099,15 @@ document.addEventListener("submit", async (ev) => {
         supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
+    } else if (f.id === "trialForm") {
+      const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+      try {
+        const r = await api("POST", "/api/admin/trials", { customerId: f.customerId.value, productId: f.productId.value, hours: +f.hours.value });
+        const msg = r.delivery?.message ?? "";
+        const out = $("#trialOut");
+        if (out) out.innerHTML = `<div class="pok" style="margin-top:10px">✅ Prueba generada. Mandale esto al cliente:</div><pre class="rpre" style="white-space:pre-wrap">${esc(msg)}</pre><div class="inline"><button class="pbtn sm" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar</button>${r.delivery?.customerPhone ? `<a class="pbtn sm" href="${esc(waLink(r.delivery.customerPhone, msg))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a>` : ""}</div>`;
+        toast("Prueba generada ✓");
+      } catch (e) { toast(e.message); } finally { btn.disabled = false; }
     } else if (f.id === "iptvForm") {
       const mode = f.mode.value;
       const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
@@ -2118,6 +2143,7 @@ document.addEventListener("submit", async (ev) => {
       for (let i = 0; i < 10; i++) { const lab = f[`pd-label-${i}`]?.value?.trim(); if (lab) pdefs.push({ label: lab, pin: (f[`pd-pin-${i}`]?.value || "").replace(/\D/g, "") || undefined }); }
       body.profileDefaults = pdefs;
       body.saleNote = f.saleNote?.value?.trim() ?? "";
+      body.guide = { app: f.guideApp?.value?.trim() ?? "", link: f.guideLink?.value?.trim() ?? "", steps: f.guideSteps?.value?.trim() ?? "" };
       if (body.kind === "combo") body.comboProductIds = [...f.querySelectorAll('input[name="combopart"]:checked')].map((x) => x.value);
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");

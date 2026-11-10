@@ -33,6 +33,7 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           productId: a.productId, product: e.s.products[a.productId].name, expiresAt: a.customerExpiresAt,
           daysLeft: Math.ceil((a.customerExpiresAt - e.now()) / 86_400_000),
           access: { email: acc.email, password: acc.password || "Pedila por WhatsApp", profile: slot.label, pin: slot.pin ?? null, passwordPending: !acc.password, ...(acc.iptv ? { iptv: acc.iptv } : {}) },
+          guide: e.s.products[a.productId].guide ?? null,
           canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
           renewPrice: a.control?.price ?? priceFor(e, actor.customerId!, a.productId),
         };
