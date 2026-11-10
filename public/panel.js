@@ -437,12 +437,13 @@ const V = {
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
     return `<section class="card ctl-top">
         <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Por cobrar (precio)</small><b>${bs(sum((r) => r.price))}</b></div><div><small>Costo</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="up">${bs(sum((r) => r.gain))}</b></div><div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
-        ${T.cf === "cobrar" || T.cfrom ? `<div class="pok">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `Mostrando los que vencen el ${fdate(T.cfrom)}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
+        ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
         <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, WhatsApp, correo, revendedor…" value="${esc(T.cq ?? "")}" aria-label="Buscar">
           <select id="cday" aria-label="Día que vence">${opt("", "Día que vence: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `Vence ${d} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
           <select id="cprod" aria-label="Plataforma">${opt("", "Plataforma: todas", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
+          <label class="cdatelbl">📅 Cobros del día<input type="date" id="cfromDate" value="${T.cfrom ? `${new Date(T.cfrom).getFullYear()}-${String(new Date(T.cfrom).getMonth() + 1).padStart(2, "0")}-${String(new Date(T.cfrom).getDate()).padStart(2, "0")}` : ""}" aria-label="Elegí la fecha para ver cuánto cobrás ese día"></label>
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
       ${(() => {
         // Si el texto buscado coincide con el nombre de UN solo cliente, se muestra su resumen.
@@ -1701,6 +1702,7 @@ document.addEventListener("change", async (ev) => {
     return;
   }
   if (t.id === "cday" || t.id === "cprod" || t.id === "cpay") { P.tab[t.id] = t.value; return render(); }
+  if (t.id === "cfromDate") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab.cfrom = new Date(y, mo - 1, da).getTime(); } else P.tab.cfrom = undefined; return render(); }
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
   if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
   if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");
