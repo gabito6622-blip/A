@@ -6,6 +6,7 @@ import { useApi } from "../lib/hooks";
 import { api, newKey, qs } from "../lib/api";
 import { bs, fmtDateTime, localDate, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
+import { CashSessionsHistory, MyCashPanel } from "./CashSessions";
 
 const PAY_STATUS: Record<string, string> = { confirmed: "Confirmado", pending_verification: "Por verificar", rejected: "Rechazado", voided: "Anulado" };
 
@@ -45,6 +46,7 @@ export function CashPage() {
         {["Efectivo", "Transferencia", "QR"].map((m) => <div key={m} className="card kpi"><div className="label">{m}</div><div className="value">{bs(confirmed[m] ?? 0)}</div></div>)}
       </div>
 
+      <MyCashPanel onChanged={reload} />
       {can("payments.verify") && (
         <div className="card">
           <div className="card-head"><h2>Pagos por verificar en el banco</h2><span className="badge warn">{pending.data?.length ?? 0}</span></div>
@@ -80,6 +82,7 @@ export function CashPage() {
             </tbody></table></div>
         ) : <Empty>Sin movimientos en esta fecha.</Empty>}
       </div>
+      <CashSessionsHistory />
     </div>
   );
 }

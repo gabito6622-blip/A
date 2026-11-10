@@ -1,0 +1,39 @@
+/* Estilos propios de Caja (sesiones) y Honorarios. Se apoyan en los tokens de styles.css. */
+.cf .btn { min-height: 40px; }
+.cf .btn-sm { min-height: 40px; }
+.cf-diff { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cf-diff.zero { color: var(--ok); }
+.cf-diff.short { color: var(--danger); }
+.cf-diff.over { color: var(--warn); }
+.cf-count td { padding: 6px 10px; }
+.cf-count input { width: 92px; text-align: right; }
+.cf-only-mobile { display: none; }
+.cf-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cf-totals > div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.cf-totals .label { display: block; }
+.cf-totals b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.cf-seg { align-self: flex-start; display: inline-flex; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; }
+.cf-seg button { border: none; background: var(--surface); font: inherit; font-weight: 600; padding: 0 16px; min-height: 40px; cursor: pointer; color: var(--ink-2); }
+.cf-seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+.cf-seg button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: -3px; }
+.cf-err { color: var(--danger); font-size: 12.5px; font-weight: 550; }
+.cf-sign { display: none; }
+.cf-ledger td:first-child { color: var(--ink-2); }
+.cf-ledger tr.total td { font-weight: 700; border-top: 2px solid var(--line-2); }
+.cf-rule-row { display: grid; grid-template-columns: 1.4fr 1.2fr 1fr 1.1fr 40px; gap: 10px; align-items: end; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.cf-rule-row:last-child { border-bottom: none; }
+@media (max-width: 860px) {
+  .cf-totals { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .cf-totals > div { padding: 8px; }
+  .cf-totals b { font-size: 15px; }
+  .cf-rule-row { grid-template-columns: 1fr 1fr; }
+  .cf-count td, .cf-count th { padding: 6px 6px; }
+  .cf-count input { width: 68px; }
+  .cf-only-mobile { display: inline; }
+}
+@media print {
+  .cf .card { break-inside: avoid; }
+  .cf-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
+  .cf-sign div { border-top: 1px solid #333; padding-top: 6px; text-align: center; font-size: 12px; }
+  .cf .table-wrap { overflow: visible; }
+}
