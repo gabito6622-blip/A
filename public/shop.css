@@ -907,3 +907,46 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .tkhero.withban>div{display:grid;gap:6px;min-width:0}
 .tkban{width:clamp(110px,26vw,260px);aspect-ratio:1;object-fit:cover;border-radius:50%;filter:drop-shadow(0 10px 30px color-mix(in srgb,var(--s-blue) 35%,transparent))}
 @media (max-width:420px){.tkban{width:104px}}
+
+/* Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias */
+.rkpis small{color:var(--s-muted);font-size:12.5px}
+.rkpis b.bad,.bad{color:var(--s-bad)} .rkpis b.ok{color:var(--s-ok)}
+.rc-top{gap:10px}
+.rc-top input#rcq{width:100%}
+.tkbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px;color:var(--s-muted)}
+.tkbar label{display:flex;gap:6px;align-items:center}
+.tkbar select{width:auto;padding:6px 8px}
+.rclist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.rcard{background:var(--s-card);border:1px solid var(--s-line);border-left:4px solid var(--s-ok);border-radius:16px;padding:12px 14px;display:grid;gap:10px;min-width:0}
+.rcard.rc-bad{border-left-color:var(--s-bad)} .rcard.rc-today,.rcard.rc-week{border-left-color:var(--s-warn)} .rcard.rc-hold{border-left-color:var(--s-muted)}
+.rcard header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.rcard header>div{display:grid;gap:2px;min-width:0}
+.rcard header small{color:var(--s-muted);overflow-wrap:anywhere}
+.rcrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:end;font-size:14px}
+.rcrow label,.rcnote{display:grid;gap:3px;font-size:12px;color:var(--s-muted);min-width:0}
+.rcin{width:100%;min-width:0;padding:8px 10px;font-size:15px}
+.rcin.pay-pendiente{border-color:var(--s-warn)} .rcin.pay-no_pago{border-color:var(--s-bad);color:var(--s-bad)}
+.rcard footer{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+.rcmore{flex-basis:100%}
+.rcmore>summary{list-style:none;cursor:pointer;width:max-content}
+.rcmore>summary::-webkit-details-marker{display:none}
+.rcmore[open]>summary{margin-bottom:8px}
+.rcest{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;background:rgba(40,214,162,.14);color:var(--s-ok)}
+.rcest.rc-bad{background:rgba(251,113,133,.14);color:var(--s-bad)} .rcest.rc-today,.rcest.rc-week{background:rgba(255,191,105,.16);color:var(--s-warn)} .rcest.rc-hold{background:var(--s-card2);color:var(--s-muted)}
+.rcwarn{border-color:color-mix(in srgb,var(--s-warn) 50%,var(--s-line))}
+.rcinline{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid color-mix(in srgb,var(--s-warn) 50%,var(--s-line));border-radius:12px;padding:10px 12px;font-size:14px}
+.rcsoon{display:grid;gap:6px}
+.rcsoon-r{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--s-line)}
+.rcsoon-r>span{display:grid;gap:2px;min-width:0}
+.rcsoon-r small{color:var(--s-muted)}
+.rcsoon-r.done{opacity:.6}
+.rebar{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14px}
+.rebar>div{display:grid;gap:3px}
+.rebar i,.rekey{display:block;height:9px;border-radius:9px;min-width:2px}
+.rekey{display:inline-block;width:14px;vertical-align:middle}
+.rebar i.c,.rekey.c{background:color-mix(in srgb,var(--s-muted) 55%,transparent)}
+.rebar i.r,.rekey.r{background:var(--s-ok)}
+.hquick{gap:10px}
+.hqrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hqrow .sbtn{flex-direction:column;gap:4px;white-space:normal;text-align:center;padding:12px 6px;font-size:13px}
+.hqrow .sbtn span{font-size:22px}

@@ -440,6 +440,8 @@ export interface Assignment {
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */
   control?: RentalControl;
+  /** Control del revendedor sobre el servicio de SU cliente (su precio, si le pagó, su nota). */
+  rcontrol?: RentalControl;
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
 }
@@ -457,6 +459,8 @@ export interface FiadoEntry {
   dueAt?: number;
   /** Si el cargo vino de un alquiler del Control. */
   assignmentId?: Id;
+  /** De quién es la libreta: vacío = del dueño; id = de ese revendedor (lo que le deben sus clientes). */
+  creditorId?: Id;
 }
 
 export interface RentalControl {

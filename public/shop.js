@@ -185,6 +185,7 @@ async function loadPrivate() {
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
+  if (S.view === "clientes" && isReseller() && ["control", "debe", "ganancias"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
 }
 
 async function refresh() {
@@ -579,10 +580,10 @@ function renderInner() {
     clientes: () => !isReseller() ? needLogin("tus clientes") : (() => {
       const canPage = !!S.me?.pageAllowed;
       let tab = S.data.rtab ?? "ventas";
-      if (!canPage && tab !== "ventas") tab = "ventas";
-      const tabs = canPage ? [["ventas", "Clientes y ventas"], ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"]];
+      if (!canPage && !["ventas", "control", "debe", "ganancias"].includes(tab)) tab = "ventas";
+      const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
-      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "control" ? rControlView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -596,6 +597,74 @@ const accessText = (a) => a.access.iptv ? iptvAccessText(a) : `*${a.product}*\nC
 const sellPrice = (productId) => (S.data.prices ?? []).find((x) => x.productId === productId)?.sell ?? null;
 const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`}</span>`;
 
+/* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
+const RT_TABS = [["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]];
+async function loadRTab(tab) {
+  if (tab === "control") S.data.rctl = await api("GET", "/api/me/control").catch(() => []);
+  if (tab === "debe") {
+    S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
+    S.data.rfdetail = S.data.rfdet ? await api("GET", `/api/me/fiado/${S.data.rfdet}`).catch(() => null) : null;
+  }
+  if (tab === "ganancias") S.data.rearn = await api("GET", "/api/me/earnings").catch(() => null);
+}
+const myStore = () => S.data.shop?.title || S.me?.name || "";
+const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
+const seen = (r) => { try { return localStorage.getItem(`gs-av-${r.id}-${r.expiresAt}`) === "1"; } catch { return false; } };
+function rControlView() {
+  const rows = S.data.rctl ?? [];
+  const T = (S.data.rc ??= { q: "", f: "todos", sort: "" });
+  const dl = (r) => daysLeft(r.expiresAt);
+  const est = (r) => (r.holdOpen ? "hold" : dl(r) < 0 ? "bad" : dl(r) === 0 ? "today" : dl(r) <= 7 ? "week" : "ok");
+  const ESTS = [["todos", "Todos"], ["bad", "Vencidos"], ["today", "Vencen hoy"], ["week", "En 7 días"], ["ok", "Activos"], ["debe", "Me deben"]];
+  const q = T.q.toLowerCase();
+  let view = rows.filter((r) => (T.f === "todos" || (T.f === "debe" ? r.pay !== "pagado" : est(r) === T.f)) && (!q || `${r.client} ${r.phone} ${r.product} ${r.email} ${r.profile} ${r.note}`.toLowerCase().includes(q)));
+  const by = { cliente: (a, b) => a.client.localeCompare(b.client, "es"), app: (a, b) => a.product.localeCompare(b.product, "es"), precio: (a, b) => (b.price ?? 0) - (a.price ?? 0) }[T.sort];
+  if (by) view = view.slice().sort(by);
+  const sum = (l, f) => l.reduce((t, r) => t + (f(r) || 0), 0);
+  const soon = rows.filter((r) => !r.holdOpen && dl(r) >= -3 && dl(r) <= 3).sort((a, b) => a.expiresAt - b.expiresAt);
+  const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  const pill = (r) => `<span class="rcest rc-${est(r)}">${r.holdOpen ? "Esperando fecha" : dl(r) < 0 ? `Venció hace ${-dl(r)} d` : dl(r) === 0 ? "Vence hoy" : `${dl(r)} d`}</span>`;
+  return `<div class="sbox rc-top"><div class="rkpis"><div><small>Servicios</small><b>${view.length}</b></div><div><small>Cobrás</small><b>${bs(sum(view, (r) => r.price))}</b></div><div><small>Te deben</small><b class="bad">${bs(sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price))}</b></div><div><small>Vencen en 3 días</small><b>${soon.length}</b></div></div>
+      <input id="rcq" class="rsearch" placeholder="🔍 Buscar cliente, WhatsApp, app o nota" value="${esc(T.q)}" aria-label="Buscar en mi control">
+      <div class="cats tkcats">${ESTS.map(([k, t]) => `<button type="button" data-rcf="${k}" aria-pressed="${T.f === k}">${t}</button>`).join("")}</div>
+      <div class="tkbar"><span>${view.length} servicio(s)</span><label>Ordenar <select id="rcsort">${[["", "Por vencimiento"], ["cliente", "Cliente A-Z"], ["app", "App"], ["precio", "Precio"]].map(([v, t]) => `<option value="${v}" ${T.sort === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <button class="sbtn sm" type="button" data-rcsv="1">⬇️ Excel</button></div></div>
+    ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen (${soon.filter(seen).length}/${soon.length} avisados)</h3><p class="empty" style="margin:0">Tocá cada uno: se abre WhatsApp con el mensaje listo y queda marcado.</p>
+      <div class="rcsoon">${soon.map((r) => `<div class="rcsoon-r ${seen(r) ? "done" : ""}"><span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${pill(r)}</small></span>${r.phone ? `<button class="sbtn sm ${seen(r) ? "" : "pri"}" type="button" data-ravisar="${esc(r.id)}">${seen(r) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+    <div class="rclist">${view.map((r) => `<article class="rcard rc-${est(r)}"><header><div><b>${esc(r.client)}</b><small>${esc(r.product)} · ${esc(r.profile)}</small></div>${pill(r)}</header>
+      <div class="rcrow"><span>Vence <b>${fdate(r.expiresAt)}</b></span>${r.phone ? `<span class="empty">${esc(r.phone.replace(/^\+591/, ""))}</span>` : ""}</div>
+      <div class="rcrow"><label>Le cobro<input class="rcin" data-rc="${esc(r.id)}" data-f="price" inputmode="decimal" value="${r.price !== null ? r.price / 100 : ""}" placeholder="Bs"></label>
+        <label>Pago<select class="rcin pay-${r.pay}" data-rc="${esc(r.id)}" data-f="payStatus">${Object.entries(PAYS).map(([k, t]) => `<option value="${k}" ${r.pay === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+      <label class="rcnote">Nota<input class="rcin" data-rc="${esc(r.id)}" data-f="note" maxlength="120" value="${esc(r.note)}" placeholder="Ej.: paga los lunes"></label>
+      <footer>${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
+}
+function rDebeView() {
+  const ov = S.data.rfiado ?? { rows: [], totals: {} }, det = S.data.rfdetail;
+  const clients = S.data.customers ?? [];
+  const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  const pend = ov.rows.filter((r) => r.unlinked.count);
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+      <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
+      ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
+      <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
+        <label>Monto (Bs)<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
+    ${det ? `<div class="sbox"><h3 style="margin:0">📜 Movimientos · debe ${bs(det.owed)} <button class="sbtn sm" type="button" data-rfdet="">Cerrar</button></h3>${det.entries.map((x) => `<div class="line"><span>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"} <small class="empty">${esc(x.note || "")} · ${fdate(x.at)}</small></span><span><b style="color:${x.kind === "cargo" ? "var(--s-bad)" : "var(--s-ok)"}">${bs(x.amount)}</b> <button class="sbtn sm" type="button" data-rfdel="${esc(x.id)}" aria-label="Borrar movimiento">🗑️</button></span></div>`).join("") || `<p class="empty">Sin movimientos.</p>`}</div>` : ""}
+    <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b><small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
+      ${r.unlinked.count ? `<div class="rcrow"><span class="empty">${r.unlinked.count} sin pagar en Mi control</span><button class="sbtn sm" type="button" data-rffrom="${esc(r.customerId)}">➕ Pasar</button></div>` : ""}
+      <footer>${r.phone && r.owed ? `<a class="sbtn sm pri" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
+        <details class="rcmore"><summary class="sbtn sm">💵 Me pagó</summary><form class="sform" data-rfpay="${esc(r.customerId)}"><label>Monto (Bs)<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" maxlength="120" placeholder="QR, efectivo, una parte…"></label><button class="sbtn sm pri" type="submit">Guardar pago</button></form></details>
+        <button class="sbtn sm" type="button" data-rfdet="${esc(r.customerId)}">📜 Movimientos</button></footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">Nadie te debe nada 🎉</p></div>`}</div>`;
+}
+function rEarnView() {
+  const g = S.data.rearn;
+  if (!g) return `<div class="sbox"><p class="empty" style="margin:0">No pudimos cargar tus ganancias. Probá de nuevo.</p></div>`;
+  const m = g.month, max = Math.max(1, ...g.months.map((x) => Math.max(x.revenue, x.cost)));
+  return `<div class="sbox"><h2 style="margin:0">📈 Mis ganancias · ${esc(m.label)}</h2>
+      <div class="rkpis"><div><small>Ventas y renovaciones</small><b>${m.sales}</b></div><div><small>Cobraste</small><b>${bs(m.revenue)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div><div><small>Ganaste</small><b class="ok">${bs(m.profit)}</b></div></div>
+      ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
+    ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · cobraste ${bs(p.revenue)} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
+    <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> cobraste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
+}
 function resellerView() {
   const clients = S.data.customers ?? [];
   const byId = Object.fromEntries(clients.map((c) => [c.id, c]));
@@ -759,6 +828,7 @@ function resellerHome() {
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"]].map(([k, e, t]) => `<button class="sbtn" type="button" data-rtool="${k}"><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
     ${referralCard(S.data.referrals)}
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ""}.</p>
       <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
@@ -808,7 +878,7 @@ function tourStepList() {
     steps.push(['.htiles [data-gopage], .htiles [data-wiz]', "Mi página 🏪", "Tu tienda propia: ponele tu logo, tus colores y tus precios, y publicala para compartir."]);
   steps.push(
     ['.htiles [data-s="recargas"]', "Recargar saldo 💵", "Cuando necesites saldo, pedí una recarga o pagá por QR en el momento."],
-    ['.htiles [data-s="clientes"]', "Mis clientes 👥", "Cargá a quién le revendés y mandале los datos por WhatsApp con un toque."],
+    ['.htiles [data-s="clientes"]', "Mis clientes 👥", "Cargá a quién le revendés y mandales los datos por WhatsApp con un toque. Ahí también tenés Mi control, Quién me debe y Mis ganancias."],
     ["#myPin", "Tu acceso 🔑", "Entrás con tu número y tu PIN. Acá lo podés cambiar cuando quieras."],
     ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
   );
@@ -1528,6 +1598,7 @@ document.addEventListener("click", async (ev) => {
   if (d.wizback) { S.data.wiz.step = 1; return render(); }
   if (d.wizall !== undefined) { Object.values(S.data.wiz.picks ?? {}).forEach((x) => (x.on = d.wizall === "1")); return render(); }
   if (d.gopage) { S.data.rtab = "pagina"; return setView("clientes"); }
+  if (d.rtool) { S.data.rtab = d.rtool; return setView("clientes"); }
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
   if (d.allthemes) { S.allThemes = true; return render(); }
@@ -1570,8 +1641,34 @@ document.addEventListener("click", async (ev) => {
   if (d.rtab) {
     S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null;
     if (d.rtab === "cupones") S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
+    await loadRTab(d.rtab);
     return render();
   }
+  if (d.rcf) { S.data.rc.f = d.rcf; return render(); }
+  if (d.ravisar) {
+    const r = (S.data.rctl ?? []).find((x) => x.id === d.ravisar);
+    if (!r) return;
+    const dl = daysLeft(r.expiresAt);
+    window.open(waLink(r.phone, `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl < 0 ? "venció" : dl === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`), "_blank", "noopener");
+    try { localStorage.setItem(`gs-av-${r.id}-${r.expiresAt}`, "1"); } catch { /* sin almacenamiento */ }
+    return render();
+  }
+  if (d.rcsv) {
+    const rows = S.data.rctl ?? [];
+    const H = ["Cliente", "WhatsApp", "App", "Perfil", "Correo", "Vence", "Días", "Le cobro (Bs)", "Pago", "Nota"];
+    const lines = [H, ...rows.map((r) => [r.client, r.phone, r.product, r.profile, r.email, fdate(r.expiresAt), daysLeft(r.expiresAt), r.price !== null ? r.price / 100 : "", PAYS[r.pay], r.note])];
+    const csv = "\ufeff" + lines.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `mi-control-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href); return;
+  }
+  if (d.rcfiado) { try { const r = await api("POST", `/api/me/fiado/${d.rcfiado}/from-control`, {}); toast(r.added ? `➕ ${r.added} pasado(s) a “Quién me debe” · ${bs(r.amount)}` : "Ya estaba en “Quién me debe”"); } catch (e) { toast(e.message); } return; }
+  if (d.rffrom) { try { const r = await api("POST", `/api/me/fiado/${d.rffrom}/from-control`, {}); toast(`➕ ${r.added} pasado(s) · ${bs(r.amount)}`); await loadRTab("debe"); render(); } catch (e) { toast(e.message); } return; }
+  if (d.rffromall) {
+    try { let n = 0; for (const r of (S.data.rfiado?.rows ?? []).filter((x) => x.unlinked.count)) n += (await api("POST", `/api/me/fiado/${r.customerId}/from-control`, {})).added; toast(`➕ ${n} servicio(s) pasados`); await loadRTab("debe"); render(); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.rfdet !== undefined) { S.data.rfdet = S.data.rfdet === d.rfdet ? "" : d.rfdet; await loadRTab("debe"); render(); if (S.data.rfdet) scrollTo(0, 0); return; }
+  if (d.rfdel) { if (!confirm("¿Borrar este movimiento? Solo si lo anotaste por error.")) return; try { await api("POST", `/api/me/fiado/entry/${d.rfdel}/delete`, {}); toast("Movimiento borrado"); await loadRTab("debe"); render(); } catch (e) { toast(e.message); } return; }
   if (d.rcedit !== undefined) { S.data.rcedit = d.rcedit || null; return render(); }
   if (d.rcdel) {
     if (!confirm(`¿Borrar el cupón ${el.dataset.name}?`)) return;
@@ -1705,6 +1802,12 @@ document.addEventListener("change", async (ev) => {
 
 let qTimer, asesorTimer;
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "rcq") {
+    S.data.rc.q = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { render(); const f = $("#rcq"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }, 250);
+    return;
+  }
   if (ev.target.dataset?.abudget !== undefined) {
     (S.data.asesor ??= { budget: 80, plats: 0, like: "" }).budget = +ev.target.value;
     clearTimeout(asesorTimer);
@@ -1757,6 +1860,19 @@ document.addEventListener("submit", async (ev) => {
   const btn = f.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
+    if (f.id === "rfNew" || f.dataset.rfpay) {
+      const amount = toCents(f.amount.value || "0");
+      if (!(amount > 0)) throw new Error("Poné un monto mayor a 0");
+      if (f.id === "rfNew") {
+        await api("POST", "/api/me/fiado/charge", { customerId: f.who.value, amount, note: f.note.value, ...(f.due.value ? { dueAt: new Date(`${f.due.value}T23:59:00`).getTime() } : {}) });
+        toast("➕ Fiado anotado");
+      } else {
+        const r = await api("POST", "/api/me/fiado/payment", { customerId: f.dataset.rfpay, amount, note: f.note.value });
+        toast(r.owed ? `💵 Pago guardado · todavía debe ${bs(r.owed)}` : "💵 Pago guardado · ya no debe nada 🎉");
+      }
+      await loadRTab("debe");
+      return render();
+    }
     if (f.dataset.evidence) {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", `/api/orders/${f.dataset.evidence}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
@@ -1915,6 +2031,14 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
 
 document.addEventListener("change", (ev) => {
   const t = ev.target;
+  if (t.dataset.rc) {
+    const f = t.dataset.f;
+    let v = t.value.trim();
+    if (f === "price") { v = v === "" ? null : toCents(v); if (v !== null && Number.isNaN(v)) return toast("Solo números"); }
+    api("POST", `/api/me/control/${t.dataset.rc}`, { [f]: v }).then(async () => { toast("Guardado"); if (f !== "note") { await loadRTab("control"); render(); } }).catch((e) => toast(e.message));
+    return;
+  }
+  if (t.id === "rcsort") { S.data.rc.sort = t.value; return render(); }
   if (t.dataset.tkv) { (S.tkv ??= {})[t.dataset.tkv] = t.value; return render(); }
   if (t.id === "tksort") { S.sort = t.value; return render(); }
   if (t.id === "cmpA" || t.id === "cmpB") { S[t.id] = t.value; return render(); }

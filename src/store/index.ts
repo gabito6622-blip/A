@@ -15,6 +15,7 @@ import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as fiado from "./fiado.js";
+import * as rtools from "./resellerTools.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
@@ -240,6 +241,11 @@ export function createStore(opts: EngineOptions = {}) {
       remove: bind(e, fiado.removeEntry),
       fromControl: bind(e, fiado.chargeUnpaidRentals),
       owedBy: (customerId: string) => fiado.owedBy(e, customerId),
+    },
+    rtools: {
+      control: bind(e, rtools.myControl),
+      setControl: bind(e, rtools.setMyControl),
+      earnings: bind(e, rtools.myEarnings),
     },
   };
 }

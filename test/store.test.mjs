@@ -1344,3 +1344,32 @@ describe("Cuentas sin proveedor (opcional)", () => {
     assert.equal(s.inventory.stock().netflix.available >= 1, true);
   });
 });
+
+describe("Herramientas del revendedor: su control, su fiado y sus ganancias", () => {
+  test("ve y anota solo lo de SUS clientes; su fiado no se mezcla con el del dueño; sus ganancias salen de su precio", () => {
+    const { s, carla, maria, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Cliente de Carla", phone: "+591 71234567" });
+    const o = s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    assert.equal(o.status, "fulfilled");
+    const rows = s.rtools.control(as(carla));
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].client, rows[0].price, rows[0].pay], ["Cliente de Carla", 4000, "pagado"]);
+    assert.equal(rows[0].password, undefined, "el control no muestra contraseñas");
+    assert.throws(() => s.rtools.control(as(maria)), err("FORBIDDEN"), "un cliente común no tiene control");
+    // Anota que no le pagó y lo pasa a SU fiado
+    s.rtools.setControl(as(carla), rows[0].id, { payStatus: "pendiente", price: 4500 });
+    assert.deepEqual(s.fiado.fromControl(as(carla), cli.id), { added: 1, amount: 4500 });
+    assert.equal(s.fiado.overview(as(carla)).totals.owed, 4500);
+    assert.equal(s.fiado.overview(owner).totals.owed, 0, "el dueño no ve lo que le deben a Carla");
+    assert.throws(() => s.fiado.charge(as(carla), { customerId: maria.id, amount: 100 }), err("FORBIDDEN"), "no anota fiado a clientes ajenos");
+    s.fiado.pay(as(carla), { customerId: cli.id, amount: 4500 });
+    assert.equal(s.rtools.control(as(carla))[0].pay, "pagado", "pagado del todo: su control pasa a Pagado");
+    assert.equal(s.engine.s.assignments[rows[0].id].control, undefined, "no toca el control del dueño");
+    // Ganancias: le costó 2500 (precio revendedor) y le cobró 4500 (su precio anotado)
+    const g = s.rtools.earnings(as(carla));
+    assert.deepEqual([g.month.sales, g.month.cost, g.month.revenue, g.month.profit], [1, 2500, 4500, 2000]);
+    assert.equal(g.byApp[0].name, "Netflix perfil");
+  });
+});

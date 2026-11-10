@@ -517,6 +517,16 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/codes", "customer", (c) => store.portal.codes(c.actor!, String(c.query.get("customerId") ?? c.actor!.customerId)));
   route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp), { ok: true }));
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
+  // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
+  route("GET", "/api/me/control", "customer", (c) => store.rtools.control(c.actor!));
+  route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
+  route("GET", "/api/me/earnings", "customer", (c) => store.rtools.earnings(c.actor!));
+  route("GET", "/api/me/fiado", "customer", (c) => store.fiado.overview(c.actor!));
+  route("GET", "/api/me/fiado/:id", "customer", (c) => store.fiado.history(c.actor!, c.params.id));
+  route("POST", "/api/me/fiado/charge", "customer", (c) => store.fiado.charge(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
+  route("POST", "/api/me/fiado/payment", "customer", (c) => store.fiado.pay(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
+  route("POST", "/api/me/fiado/:id/from-control", "customer", (c) => store.fiado.fromControl(c.actor!, c.params.id));
+  route("POST", "/api/me/fiado/entry/:id/delete", "customer", (c) => store.fiado.remove(c.actor!, c.params.id));
   route("POST", "/api/me/customers", "customer", (c) => store.catalog.createCustomer(c.actor!, { name: c.body?.name, phone: c.body?.phone, email: c.body?.email, whatsappConsent: !!c.body?.whatsappConsent }));
   route("PUT", "/api/me/customers/:id", "customer", (c) => store.portal.updateClient(c.actor!, c.params.id, {
     name: c.body?.name, phone: c.body?.phone, whatsappConsent: c.body?.whatsappConsent, note: c.body?.note,
