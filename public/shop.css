@@ -355,7 +355,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mkdone{display:grid;gap:10px}
 .mkdone pre{margin:0;white-space:pre-wrap;font:13px/1.55 ui-monospace,Menlo,monospace;padding:12px;border-radius:10px;background:color-mix(in srgb,var(--s-ink) 5%,transparent);border:1px solid var(--s-line)}
 .mkdone div{display:flex;gap:8px;flex-wrap:wrap}.mkdone i{font-style:normal;font-weight:700;font-size:13px;padding:8px 12px;border-radius:9px;border:1px solid var(--s-line)}
-.mkdone i.g{color:#fff;border-color:transparent;background:#1faa59}
+.mkdone i.g{color:#fff;border-color:transparent;background:#15803d}
 .mkchat{display:grid;gap:10px;padding:6px;background:color-mix(in srgb,#0b141a 85%,var(--s-bg));border-radius:10px;font-size:14px}
 .mkchat span{max-width:85%;padding:9px 12px;border-radius:12px;line-height:1.45}
 .mkchat .in{justify-self:end;background:#005c4b;color:#e9fdf4;border-top-right-radius:3px}

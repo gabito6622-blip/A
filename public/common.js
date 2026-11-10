@@ -73,7 +73,9 @@ export function brand(name) {
 }
 export const brandBadge = (name, color, cls = "svbadge") => {
   const b = brand(name), c = b?.color ?? color ?? "#3984ff", m = b?.mark ?? (String(name ?? "?")[0] || "?").toUpperCase();
-  return `<span class="${cls}" style="background:${c}">${esc(m)}</span>`;
+  // Letra blanca o negra, la que se lea sobre el color de la marca.
+  const ink = /^#[0-9a-f]{6}$/i.test(c) ? readableOn([c]) : "#fff";
+  return `<span class="${cls}" style="background:${c};color:${ink}">${esc(m)}</span>`;
 };
 
 export const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
@@ -195,7 +197,7 @@ export const THEMES = [
 /** Muestra en miniatura de un estilo (para elegir con un toque). */
 export const themeSwatch = (t) => {
   const L = t.look;
-  return `<span class="tsw" style="background:${L.backgroundColor}"><i style="background:linear-gradient(135deg,${L.accentColor},${L.accent2Color})"></i><b style="color:${L.accentColor}">Aa</b></span>`;
+  return `<span class="tsw" style="background:${L.backgroundColor}"><i style="background:linear-gradient(135deg,${L.accentColor},${L.accent2Color})"></i><b style="color:${ensureContrast(L.accentColor, [L.backgroundColor], 3)}">Aa</b></span>`;
 };
 
 /* ---------------- Aviso de software protegido ----------------

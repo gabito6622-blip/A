@@ -157,8 +157,8 @@ const V = {
     const al = d.alerts;
     const sPts = al.overdue.count * 3 + al.due3.count * 2 + k.pendingReview * 2 + al.unpaid.count;
     const stress = Math.min(100, sPts * 4);
-    const sl = stress < 20 ? ["Tranqui", "😌", "#10b981"] : stress < 45 ? ["Movido", "🙂", "#3b82f6"] : stress < 75 ? ["Cargado", "😅", "#f59e0b"] : ["Al límite", "🥵", "#ef4444"];
-    const stressCard = `<section class="card stresscard"><div class="stresshead"><div><span class="stresscap">NIVEL DE ESTRÉS</span><h2 style="margin:2px 0 0">${sl[1]} ${sl[0]}</h2></div><b class="stresspct" style="color:${sl[2]}">${stress}%</b></div>
+    const sl = stress < 20 ? ["Tranqui", "😌", "#10b981", "var(--ok)"] : stress < 45 ? ["Movido", "🙂", "#3b82f6", "var(--blue-text)"] : stress < 75 ? ["Cargado", "😅", "#f59e0b", "var(--warn)"] : ["Al límite", "🥵", "#ef4444", "var(--bad)"];
+    const stressCard = `<section class="card stresscard"><div class="stresshead"><div><span class="stresscap">NIVEL DE ESTRÉS</span><h2 style="margin:2px 0 0">${sl[1]} ${sl[0]}</h2></div><b class="stresspct" style="color:${sl[3]}">${stress}%</b></div>
       <div class="stressbar"><i style="width:${Math.max(4, stress)}%;background:${sl[2]}"></i></div>
       <div class="stresswhy">${al.overdue.count ? `<button type="button" data-go="control"><b>${al.overdue.count}</b> vencidos</button>` : ""}${al.due3.count ? `<button type="button" data-go="control"><b>${al.due3.count}</b> por vencer</button>` : ""}${k.pendingReview ? `<button type="button" data-go="aprobacion"><b>${k.pendingReview}</b> por revisar</button>` : ""}${al.unpaid.count ? `<button type="button" data-go="aprobacion"><b>${al.unpaid.count}</b> por cobrar</button>` : ""}${sPts === 0 ? `<span class="muted">Todo al día ✨ Relajá.</span>` : ""}</div></section>`;
     // --- Atajos de alerta (vencidos / por vencer / sin cobrar) ---
@@ -938,7 +938,7 @@ const V = {
         <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-ptheme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
       <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><div id="lookWarn" class="lookwarn" role="status" aria-live="polite"></div><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
-        <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
+        <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" aria-label="Segundo color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
         <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
         <div class="form"><label>Letra de los títulos<select name="headingFont">${FONTS.map(([v, t]) => opt(v, t, v === s.headingFont)).join("")}</select></label>
           <label>Letra del texto<select name="fontFamily">${FONTS.map(([v, t]) => opt(v, t, v === s.fontFamily)).join("")}</select></label>

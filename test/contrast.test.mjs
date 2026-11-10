@@ -41,3 +41,22 @@ describe("contraste de colores", () => {
     assert.match(contrastNote({ accentColor: "#ffffff", backgroundColor: "#767676" }).text, /tono medio/);
   });
 });
+
+// Revisión de accesibilidad (axe): marcas de servicio y muestras de estilo también se leen.
+import { brandBadge, themeSwatch } from "../public/common.js";
+describe("accesibilidad: colores de marcas y muestras", () => {
+  test("la letra de la marca es blanca o negra según su color", () => {
+    for (const c of ["#10a37f", "#e50914", "#ffd000", "#1db954", "#0063e5", "#f5f5f5"]) {
+      const html = brandBadge("Xyz", c);
+      const ink = html.match(/;color:(#[0-9a-f]{6})/i)[1];
+      assert.ok(contrast(ink, c) >= 4.5, `${c} con ${ink}: ${contrast(ink, c).toFixed(2)}`);
+    }
+  });
+  test("el \"Aa\" de cada estilo se lee sobre su fondo (texto grande, 3:1)", () => {
+    for (const t of THEMES) {
+      const m = themeSwatch(t).match(/background:(#[0-9a-f]{6})".*<b style="color:(#[0-9a-f]{6})">Aa/i);
+      assert.ok(m, t.id);
+      assert.ok(contrast(m[2], m[1]) >= 3, `${t.id}: ${contrast(m[2], m[1]).toFixed(2)}`);
+    }
+  });
+});
