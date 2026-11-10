@@ -104,9 +104,21 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       // Combo: se reserva un perfil de CADA app que lo compone (por la cantidad pedida). Se cobra el
       // precio del combo, pero el cliente recibe un acceso por cada servicio del combo.
       const parts = prod?.kind === "combo" ? (prod.comboProductIds ?? []) : null;
-      if (parts && parts.length) return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
+      const manualPay = input.paymentMethod === "qr" || input.paymentMethod === "usdt" || input.paymentMethod === "local";
+      if (parts && parts.length) {
+        // Con "todo Disponible" y pago manual, la app del combo que no tenga perfil libre queda a pedido:
+        // se reserva lo que hay y el resto se entrega al aprobar (después de cargar esas cuentas).
+        if (e.s.settings.alwaysAvailable && manualPay) {
+          return parts.flatMap((partId) => {
+            if (freeCount(e, partId) < it.qty) { back.push({ productId: partId, qty: it.qty }); return []; }
+            return reserveSlots(e, partId, it.qty, id, [], []);
+          });
+        }
+        return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
+      }
       // A pedido (se paga y se entrega al aprobar): productos para revendedores, o toda la tienda si el dueño
-      // marcó "mostrar todo como Disponible" (consigue las cuentas con sus proveedores). Los combos no.
+      // marcó "mostrar todo como Disponible" (consigue las cuentas con sus proveedores). Un combo sin sus
+      // apps cargadas no se puede entregar solo: se pide por WhatsApp.
       const onDemand = prod?.resellersOnly || (e.s.settings.alwaysAvailable && prod?.kind !== "combo");
       if (onDemand && (input.paymentMethod === "qr" || input.paymentMethod === "usdt" || input.paymentMethod === "local") && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
       const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];

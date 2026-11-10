@@ -206,7 +206,7 @@ const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, 
 
 /** Productos para revendedores: se pueden comprar sin stock pagando con QR (se entregan al aprobar). */
 /** Se puede pedir aunque no haya cuentas cargadas (se paga con QR y se entrega al aprobar). */
-const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && p.kind !== "combo");
+const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && (p.kind !== "combo" || !!p.comboParts?.length));
 const maxQty = (p) => (onDemand(p) ? 10 : p.available);
 /** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
 const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
