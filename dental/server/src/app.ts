@@ -38,6 +38,7 @@ import { documentRoutes } from "./modules/documents.js";
 import { inventoryRoutes } from "./modules/inventory/index.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 import { messagingRoutes } from "./modules/messaging/index.js";
+import { clinicalFileRoutes } from "./modules/clinicalFiles.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
@@ -142,6 +143,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   messagingRoutes(route, cfg, app);
   documentRoutes(route, cfg);
   inventoryRoutes(route);
+  clinicalFileRoutes(route, cfg, app);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });
