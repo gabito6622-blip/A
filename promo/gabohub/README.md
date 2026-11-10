@@ -36,9 +36,12 @@ cd promo/gabohub
 python3 music.py music.wav
 node render.cjs frames
 ffmpeg -y -framerate 30 -i frames/f%05d.png -i music.wav \
-  -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -profile:v high -movflags +faststart \
+  -c:v libx264 -preset slow -b:v 5200k -maxrate 7000k -bufsize 10000k -pix_fmt yuv420p -profile:v high -movflags +faststart \
   -c:a aac -b:a 192k -shortest gabohub-revendedores.mp4
+ffmpeg -y -ss 6.2 -i gabohub-revendedores.mp4 -frames:v 1 -q:v 3 portada.jpg
 ```
+
+Con `-crf 16` sale de más de 100 MB (por el grano de la imagen) y GitHub no lo acepta: por eso va a 5,2 Mbps (~27 MB).
 
 Notas de las capturas:
 - La semilla de demo arma clientes al azar, así que los números de los textos (28 clientes, 39 servicios, 10 vencen esta
