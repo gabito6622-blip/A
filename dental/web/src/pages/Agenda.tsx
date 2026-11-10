@@ -8,6 +8,7 @@ import { addDays, fmtDateLong, fmtTime, laPazISO, localDate, minutesOfDay } from
 import { Dialog, Drawer, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
 import { NextControlDialog, RecallLinkPicker } from "../components/Recalls";
 import { PortalRequestsButton } from "./PortalRequests";
+import { LabHint } from "../components/lab/LabShared";
 
 const START = 7 * 60, END = 21 * 60, STEP = 15, PX = 18;
 const ROWS = (END - START) / STEP;
@@ -286,6 +287,7 @@ export function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { 
               <option value="reception">Recepción</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option><option value="walk_in">Sin cita (presencial)</option>
             </select>
           </Field>
+          {patient && <LabHint key={`lab-${patient.id}`} patientId={patient.id} date={f.date} />}
           {patient && <RecallLinkPicker key={patient.id} patientId={patient.id} procedureId={f.procedureId || null} date={f.date} fixed={patient.id === prefill.patient?.id ? prefill.recall : null} value={recallId} onChange={setRecallId} />}
         </div>
       </div>

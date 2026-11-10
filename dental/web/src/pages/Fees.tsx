@@ -20,9 +20,9 @@ function previousMonth() {
   return { from: `${py}-${String(pm).padStart(2, "0")}-01`, to: new Date(Date.UTC(py, pm, 0)).toISOString().slice(0, 10) };
 }
 
-export function ruleText(r: { category: string | null; mode: string; percentBp: number | null; fixedCents: number | null; deductCents: number }) {
+export function ruleText(r: { category: string | null; mode: string; percentBp: number | null; fixedCents: number | null; deductCents: number; deductActualLab?: boolean }) {
   const v = r.mode === "percent" ? `${((r.percentBp ?? 0) / 100).toLocaleString("es-BO")} %` : `${bs(r.fixedCents)} por unidad`;
-  return `${r.category ?? "General"}: ${v}${r.deductCents ? ` (descontando ${bs(r.deductCents)} de laboratorio y materiales)` : ""}`;
+  return `${r.category ?? "General"}: ${v}${r.deductCents ? ` (descontando ${bs(r.deductCents)} de laboratorio y materiales)` : ""}${r.deductActualLab ? " · costo real de laboratorio" : ""}`;
 }
 
 export function FeesPage() {
@@ -141,12 +141,12 @@ function RulesTab() {
   );
 }
 
-interface RuleForm { category: string | null; mode: "percent" | "fixed"; value: string; deduct: string }
+interface RuleForm { category: string | null; mode: "percent" | "fixed"; value: string; deduct: string; actualLab?: boolean }
 
 function RuleDialog({ pro, categories, onClose, onSaved }: { pro: any; categories: string[]; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
   const init: RuleForm[] = pro.rules.length
-    ? pro.rules.map((r: any) => ({ category: r.category, mode: r.mode, value: r.mode === "percent" ? String(r.percentBp / 100).replace(".", ",") : toBsInput(r.fixedCents).replace(".", ","), deduct: r.deductCents ? toBsInput(r.deductCents).replace(".", ",") : "" }))
+    ? pro.rules.map((r: any) => ({ category: r.category, mode: r.mode, value: r.mode === "percent" ? String(r.percentBp / 100).replace(".", ",") : toBsInput(r.fixedCents).replace(".", ","), deduct: r.deductCents ? toBsInput(r.deductCents).replace(".", ",") : "", actualLab: !!r.deductActualLab }))
     : [{ category: null, mode: "percent", value: pro.commissionPct != null ? String(pro.commissionPct).replace(".", ",") : "", deduct: "" }];
   const [base, setBase] = useState<"production" | "collected">(pro.base ?? "production");
   const [rules, setRules] = useState<RuleForm[]>(init);
@@ -176,6 +176,7 @@ function RuleDialog({ pro, categories, onClose, onSaved }: { pro: any; categorie
           category: i === 0 ? null : r.category, mode: r.mode,
           percent: r.mode === "percent" ? num(r.value) : null, fixedCents: r.mode === "fixed" ? parseBs(r.value) : null,
           deductCents: base === "production" && r.deduct ? parseBs(r.deduct) : 0,
+          deductActualLab: base === "production" && r.mode === "percent" && !!r.actualLab,
         })),
       });
       toast("Reglas guardadas");
@@ -215,13 +216,14 @@ function RuleDialog({ pro, categories, onClose, onSaved }: { pro: any; categorie
               <div className="field"><label style={{ display: "contents" }}><span className="label">{r.mode === "percent" ? "Porcentaje (%)" : "Monto (Bs)"}</span>
                 <input className="input" inputMode="decimal" value={r.value} aria-invalid={!!errs[`${i}.value`]} onChange={(e) => upd(i, { value: e.target.value })} /></label><E k={`${i}.value`} /></div>
               <div className="field"><label style={{ display: "contents" }}><span className="label">Lab. y materiales (Bs)</span>
-                <input className="input" inputMode="decimal" value={base === "production" && r.mode === "percent" ? r.deduct : ""} disabled={base !== "production" || r.mode !== "percent"} placeholder="0" aria-invalid={!!errs[`${i}.deduct`]} onChange={(e) => upd(i, { deduct: e.target.value })} /></label><E k={`${i}.deduct`} /></div>
+                <input className="input" inputMode="decimal" value={base === "production" && r.mode === "percent" ? r.deduct : ""} disabled={base !== "production" || r.mode !== "percent"} placeholder="0" aria-invalid={!!errs[`${i}.deduct`]} onChange={(e) => upd(i, { deduct: e.target.value })} /></label><E k={`${i}.deduct`} />
+                {base === "production" && r.mode === "percent" && <label className="check small"><input type="checkbox" checked={!!r.actualLab} onChange={(e) => upd(i, { actualLab: e.target.checked })} />Usar costo real de laboratorio</label>}<E k={`${i}.deductActualLab`} /></div>
               <div>{i > 0 && <button className="btn btn-ghost btn-icon" aria-label={`Quitar excepción ${i}`} onClick={() => setRules(rules.filter((_, k) => k !== i))}><Trash2 size={16} /></button>}</div>
             </div>
           ))}
         </div>
         <div><button className="btn" onClick={() => setRules([...rules, { category: null, mode: "percent", value: "", deduct: "" }])}><Plus size={16} />Agregar excepción por categoría</button></div>
-        <p className="muted small" style={{ margin: 0 }}>El descuento de laboratorio y materiales se resta por unidad antes de aplicar el porcentaje. Los cambios no afectan las liquidaciones ya cerradas.</p>
+        <p className="muted small" style={{ margin: 0 }}>El descuento de laboratorio y materiales se resta por unidad antes de aplicar el porcentaje. Con «Usar costo real de laboratorio», se descuenta el costo de las órdenes de laboratorio vinculadas al tratamiento; si no hay ninguna, se usa el monto por unidad. Los cambios no afectan las liquidaciones ya cerradas.</p>
       </div>
     </Dialog>
   );
@@ -332,7 +334,7 @@ export function FeeSettlementPage() {
               <tr key={l.id ?? i}>
                 <td className="nowrap hide-mobile">{fmtDate(l.occurredAt)}</td><td className="hide-mobile">{l.branchName}</td><td className="hide-mobile">{l.patientName}</td>
                 <td>{l.description}{l.quantity > 1 && <> × {l.quantity}</>}<div className="muted small"><span className="cf-only-mobile">{fmtDate(l.occurredAt)} · </span>{l.category ?? "General"}</div></td>
-                <td className="num">{bs(l.baseCents)}</td><td className="num hide-mobile">{l.deductCents ? bs(l.deductCents) : "—"}</td><td className="num hide-mobile">{rule(l)}</td><td className="num"><b>{bs(l.feeCents)}</b></td>
+                <td className="num">{bs(l.baseCents)}</td><td className="num hide-mobile">{l.deductCents ? bs(l.deductCents) : "—"}{l.labActualCents != null && <div className="muted small">costo real</div>}</td><td className="num hide-mobile">{rule(l)}</td><td className="num"><b>{bs(l.feeCents)}</b></td>
               </tr>))}
             </tbody>
             <tfoot><tr><td className="hide-mobile">Total</td><td className="hide-mobile" /><td className="hide-mobile" /><td><span className="cf-only-mobile">Total</span></td><td className="num">{bs(s.baseTotalCents)}</td><td className="hide-mobile" /><td className="hide-mobile" /><td className="num">{bs(s.feeTotalCents)}</td></tr></tfoot>

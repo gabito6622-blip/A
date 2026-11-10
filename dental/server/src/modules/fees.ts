@@ -5,6 +5,10 @@
 //    o "cobrado" (pagos confirmados de presupuestos cuyo profesional es él: budgets.dentist_id).
 //  * Una regla general y excepciones por categoría de prestación: porcentaje o monto fijo por unidad,
 //    con descuento opcional de laboratorio y materiales por unidad (solo con base producción).
+//  * Opción "costo real de laboratorio" (deduct_actual_lab_cost, B-063): la línea de un tratamiento descuenta
+//    el costo de las órdenes de laboratorio vinculadas a su ítem de presupuesto (no canceladas ni en borrador,
+//    con costo). Si el ítem tiene varias sesiones, el costo se descuenta una sola vez, en orden, sin superar
+//    la base de cada línea. Sin órdenes vinculadas con costo, se usa el monto fijo por unidad.
 //  * Base "cobrado": cada pago se reparte entre las categorías del presupuesto en proporción a sus
 //    importes (método del mayor resto, sin perder centavos). Los pagos SIN presupuesto no se atribuyen
 //    a ningún profesional: se informan aparte como "cobros sin presupuesto" para que administración decida.
@@ -24,16 +28,17 @@ import { dayBounds } from "../lib/slots.js";
 import { clinicZone } from "./agenda.js";
 import { resolveRange } from "./reports.js";
 
-export interface FeeRule { category: string | null; mode: "percent" | "fixed"; percentBp: number | null; fixedCents: number | null; deductCents: number }
+export interface FeeRule { category: string | null; mode: "percent" | "fixed"; percentBp: number | null; fixedCents: number | null; deductCents: number; deductActualLab?: boolean }
 export type FeeBase = "production" | "collected";
 
 export const BASE_LABELS: Record<FeeBase, string> = { production: "Producción (tratamientos realizados)", collected: "Cobrado (pagos confirmados)" };
 const KIND_LABELS: Record<string, string> = { production: "Tratamiento", collected: "Cobro", adjustment: "Ajuste" };
 
-/** Honorario de una línea (centavos, redondeo al centavo más cercano). */
-export function feeFor(baseCents: number, quantity: number, rule: FeeRule): { feeCents: number; deductCents: number } {
+/** Honorario de una línea (centavos, redondeo al centavo más cercano).
+ *  `actualLabCents`: costo real de laboratorio a descontar (reemplaza al monto fijo por unidad). */
+export function feeFor(baseCents: number, quantity: number, rule: FeeRule, actualLabCents: number | null = null): { feeCents: number; deductCents: number } {
   if (rule.mode === "fixed") return { feeCents: (rule.fixedCents ?? 0) * quantity, deductCents: 0 };
-  const net = Math.max(0, baseCents - rule.deductCents * quantity);
+  const net = Math.max(0, baseCents - (actualLabCents ?? rule.deductCents * quantity));
   return { feeCents: Math.floor((net * (rule.percentBp ?? 0) + 5000) / 10000), deductCents: baseCents - net };
 }
 
@@ -63,7 +68,7 @@ async function loadConfig(c: Client, dentistId: string): Promise<{ base: FeeBase
   const p = (await c.query<{ base: FeeBase }>("SELECT base FROM fee_profiles WHERE dentist_id = $1", [dentistId])).rows[0];
   if (!p) return null;
   const rules = (await c.query<FeeRule>(
-    `SELECT category, mode, percent_bp AS "percentBp", fixed_cents AS "fixedCents", deduct_cents AS "deductCents"
+    `SELECT category, mode, percent_bp AS "percentBp", fixed_cents AS "fixedCents", deduct_cents AS "deductCents", deduct_actual_lab_cost AS "deductActualLab"
        FROM fee_rules WHERE dentist_id = $1 ORDER BY category NULLS FIRST`, [dentistId])).rows;
   return { base: p.base, rules };
 }
@@ -74,6 +79,8 @@ export interface Line {
   chargeId: string | null; paymentId: string | null; adjustsLineId: string | null;
   occurredAt: Date | string; description: string; category: string | null; quantity: number;
   baseCents: number; deductCents: number; mode: "percent" | "fixed" | null; percentBp: number | null; fixedCents: number | null; feeCents: number;
+  /** Parte del descuento que es costo real de laboratorio (null = monto fijo por unidad o sin descuento). */
+  labActualCents?: number | null;
 }
 
 interface SettlementRow { id: string; dentist_id: string; period_start: string; period_end: string; status: string }
@@ -91,7 +98,7 @@ export async function computeLines(c: Client, clinicId: string, s: SettlementRow
   if (cfg.base === "production") {
     // Cargos positivos del profesional en el período, no anulados y no liquidados antes.
     const rows = (await c.query(
-      `SELECT ch.id, ch.branch_id, br.name AS branch_name, ch.patient_id, pt.first_name || ' ' || pt.last_name AS patient_name, ch.description,
+      `SELECT ch.id, ch.budget_item_id, ch.branch_id, br.name AS branch_name, ch.patient_id, pt.first_name || ' ' || pt.last_name AS patient_name, ch.description,
               ch.amount_cents, ch.created_at, pr.category, COALESCE(bi.quantity, 1) AS quantity
          FROM charges ch JOIN branches br ON br.id = ch.branch_id JOIN patients pt ON pt.id = ch.patient_id
          LEFT JOIN budget_items bi ON bi.id = ch.budget_item_id LEFT JOIN procedures pr ON pr.id = bi.procedure_id
@@ -99,13 +106,17 @@ export async function computeLines(c: Client, clinicId: string, s: SettlementRow
           AND NOT EXISTS (SELECT 1 FROM charges v WHERE v.voids_charge_id = ch.id)
           AND NOT EXISTS (SELECT 1 FROM fee_settlement_lines l WHERE l.charge_id = ch.id AND l.kind = 'production')
         ORDER BY ch.created_at, ch.id`, [s.dentist_id, from, to])).rows;
+    const labLeft = await actualLabRemaining(c, rows.filter((r) => r.budget_item_id && pickRule(cfg.rules, r.category)?.deductActualLab).map((r) => r.budget_item_id));
     for (const r of rows) {
       const rule = pickRule(cfg.rules, r.category);
-      const f = rule ? feeFor(Number(r.amount_cents), r.quantity, rule) : { feeCents: 0, deductCents: 0 };
+      const left = rule?.deductActualLab && rule.mode === "percent" && r.budget_item_id ? labLeft.get(r.budget_item_id) : undefined;
+      const f = rule ? feeFor(Number(r.amount_cents), r.quantity, rule, left ?? null) : { feeCents: 0, deductCents: 0 };
+      if (left !== undefined) labLeft.set(r.budget_item_id, left - f.deductCents);
       lines.push({
         kind: "production", branchId: r.branch_id, branchName: r.branch_name, patientId: r.patient_id, patientName: r.patient_name,
         chargeId: r.id, paymentId: null, adjustsLineId: null, occurredAt: r.created_at, description: r.description, category: r.category,
         quantity: r.quantity, baseCents: Number(r.amount_cents), deductCents: f.deductCents, ...ruleCols(rule), feeCents: f.feeCents,
+        labActualCents: left !== undefined ? f.deductCents : null,
       });
     }
   } else {
@@ -164,6 +175,23 @@ export async function computeLines(c: Client, clinicId: string, s: SettlementRow
   return { cfg, lines, from, to };
 }
 
+/** Costo real de laboratorio aún no descontado por ítem de presupuesto (solo ítems con órdenes con costo).
+ *  Resta lo ya descontado en liquidaciones cerradas (líneas de cargos no anulados). */
+export async function actualLabRemaining(c: Client, itemIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!itemIds.length) return out;
+  const ids = [...new Set(itemIds)];
+  const cost = (await c.query<{ id: string; v: number }>(
+    `SELECT budget_item_id AS id, sum(cost_cents) AS v FROM lab_orders
+      WHERE budget_item_id = ANY($1) AND status NOT IN ('draft','cancelled') AND cost_cents IS NOT NULL GROUP BY budget_item_id`, [ids])).rows;
+  const used = (await c.query<{ id: string; v: number }>(
+    `SELECT ch.budget_item_id AS id, sum(l.lab_actual_cents) AS v FROM fee_settlement_lines l JOIN charges ch ON ch.id = l.charge_id
+      WHERE ch.budget_item_id = ANY($1) AND l.kind = 'production' AND l.lab_actual_cents IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM charges v WHERE v.voids_charge_id = ch.id) GROUP BY ch.budget_item_id`, [ids])).rows;
+  for (const r of cost) out.set(r.id, Math.max(0, Number(r.v) - Number(used.find((u) => u.id === r.id)?.v ?? 0)));
+  return out;
+}
+
 export function totalsOf(lines: Pick<Line, "kind" | "baseCents" | "feeCents">[]) {
   const regular = lines.filter((l) => l.kind !== "adjustment");
   const baseTotalCents = regular.reduce((s, l) => s + l.baseCents, 0);
@@ -188,7 +216,7 @@ export async function settlementDetail(c: Client, clinicId: string, id: string) 
       `SELECT l.id, l.kind, l.branch_id AS "branchId", br.name AS "branchName", l.patient_id AS "patientId", pt.first_name || ' ' || pt.last_name AS "patientName",
               l.charge_id AS "chargeId", l.payment_id AS "paymentId", l.adjusts_line_id AS "adjustsLineId", l.occurred_at AS "occurredAt", l.description,
               l.category, l.quantity, l.base_cents AS "baseCents", l.deduct_cents AS "deductCents", l.mode, l.percent_bp AS "percentBp",
-              l.fixed_cents AS "fixedCents", l.fee_cents AS "feeCents"
+              l.fixed_cents AS "fixedCents", l.fee_cents AS "feeCents", l.lab_actual_cents AS "labActualCents"
          FROM fee_settlement_lines l JOIN branches br ON br.id = l.branch_id LEFT JOIN patients pt ON pt.id = l.patient_id
         WHERE l.settlement_id = $1 ORDER BY (l.kind = 'adjustment'), l.occurred_at, l.id`, [id])).rows;
     return { ...h, baseLabel: BASE_LABELS[h.base as FeeBase], lines, unassigned: null };
@@ -215,12 +243,12 @@ export async function closeSettlement(c: Client, auth: Pick<AuthCtx, "userId" | 
   if (lines.length) {
     await c.query(
       `INSERT INTO fee_settlement_lines (clinic_id, settlement_id, kind, branch_id, patient_id, charge_id, payment_id, adjusts_line_id, occurred_at, description,
-                                         category, quantity, base_cents, deduct_cents, mode, percent_bp, fixed_cents, fee_cents)
+                                         category, quantity, base_cents, deduct_cents, mode, percent_bp, fixed_cents, fee_cents, lab_actual_cents)
        SELECT $1, $2, x.kind, x."branchId", x."patientId", x."chargeId", x."paymentId", x."adjustsLineId", x."occurredAt", x.description,
-              x.category, x.quantity, x."baseCents", x."deductCents", x.mode, x."percentBp", x."fixedCents", x."feeCents"
+              x.category, x.quantity, x."baseCents", x."deductCents", x.mode, x."percentBp", x."fixedCents", x."feeCents", x."labActualCents"
          FROM jsonb_to_recordset($3::jsonb) AS x(kind text, "branchId" uuid, "patientId" uuid, "chargeId" uuid, "paymentId" uuid, "adjustsLineId" uuid,
               "occurredAt" timestamptz, description text, category text, quantity int, "baseCents" bigint, "deductCents" bigint, mode text,
-              "percentBp" int, "fixedCents" bigint, "feeCents" bigint)`,
+              "percentBp" int, "fixedCents" bigint, "feeCents" bigint, "labActualCents" bigint)`,
       [auth.clinicId, id, JSON.stringify(lines.map(({ branchName: _b, patientName: _p, ...l }) => l))],
     );
   }
@@ -351,6 +379,7 @@ const zRule = z.object({
   percent: z.number().min(0, "El porcentaje va de 0 a 100").max(100, "El porcentaje va de 0 a 100").nullish(),
   fixedCents: z.number().int().min(0).max(10_000_000_00).nullish(),
   deductCents: z.number().int().min(0).max(10_000_000_00).default(0),
+  deductActualLab: z.boolean().default(false),
 });
 
 export function feeRoutes(route: Route) {
@@ -360,7 +389,7 @@ export function feeRoutes(route: Route) {
       requireFeesAccess(auth);
       const pros = (await c.query(
         `SELECT m.user_id AS "dentistId", u.full_name AS "dentistName", m.role, m.commission_pct AS "commissionPct", fp.base, fp.notes, fp.updated_at AS "updatedAt",
-                COALESCE((SELECT json_agg(json_build_object('category', r.category, 'mode', r.mode, 'percentBp', r.percent_bp, 'fixedCents', r.fixed_cents, 'deductCents', r.deduct_cents)
+                COALESCE((SELECT json_agg(json_build_object('category', r.category, 'mode', r.mode, 'percentBp', r.percent_bp, 'fixedCents', r.fixed_cents, 'deductCents', r.deduct_cents, 'deductActualLab', r.deduct_actual_lab_cost)
                                  ORDER BY r.category NULLS FIRST) FROM fee_rules r WHERE r.dentist_id = m.user_id), '[]') AS rules
            FROM memberships m JOIN users u ON u.id = m.user_id LEFT JOIN fee_profiles fp ON fp.dentist_id = m.user_id
           WHERE m.is_professional AND m.active ORDER BY u.full_name`)).rows;
@@ -385,10 +414,11 @@ export function feeRoutes(route: Route) {
         if (r.mode === "fixed" && (r.fixedCents == null)) throw badRequest(`Regla ${i + 1}: indica el monto fijo`, { index: i, field: "fixedCents" });
         if (r.mode === "fixed" && body.base === "collected") throw badRequest("Con base «cobrado» solo se usan porcentajes (el monto fijo es por tratamiento realizado)", { index: i, field: "mode" });
         if (r.deductCents && body.base === "collected") throw badRequest("El descuento de laboratorio y materiales solo aplica con base «producción»", { index: i, field: "deductCents" });
+        if (r.deductActualLab && (body.base === "collected" || r.mode !== "percent")) throw badRequest("El costo real de laboratorio solo se descuenta en reglas por porcentaje con base «producción»", { index: i, field: "deductActualLab" });
         if (r.mode === "percent" && Math.abs(Math.round(r.percent! * 100) - r.percent! * 100) > 1e-6) {
           throw badRequest(`Regla ${i + 1}: el porcentaje admite como máximo 2 decimales`, { index: i, field: "percent" });
         }
-        return { category: r.category, mode: r.mode, percentBp: r.mode === "percent" ? Math.round(r.percent! * 100) : null, fixedCents: r.mode === "fixed" ? r.fixedCents! : null, deductCents: r.deductCents };
+        return { category: r.category, mode: r.mode, percentBp: r.mode === "percent" ? Math.round(r.percent! * 100) : null, fixedCents: r.mode === "fixed" ? r.fixedCents! : null, deductCents: r.deductCents, deductActualLab: r.deductActualLab };
       });
       await c.query(
         `INSERT INTO fee_profiles (clinic_id, dentist_id, base, notes, updated_by) VALUES ($1,$2,$3,$4,$5)
@@ -396,8 +426,8 @@ export function feeRoutes(route: Route) {
         [auth.clinicId, params.id, body.base, body.notes, auth.userId]);
       await c.query("DELETE FROM fee_rules WHERE dentist_id = $1", [params.id]);
       for (const r of rules) {
-        await c.query("INSERT INTO fee_rules (clinic_id, dentist_id, category, mode, percent_bp, fixed_cents, deduct_cents) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-          [auth.clinicId, params.id, r.category, r.mode, r.percentBp, r.fixedCents, r.deductCents]);
+        await c.query("INSERT INTO fee_rules (clinic_id, dentist_id, category, mode, percent_bp, fixed_cents, deduct_cents, deduct_actual_lab_cost) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+          [auth.clinicId, params.id, r.category, r.mode, r.percentBp, r.fixedCents, r.deductCents, r.deductActualLab]);
       }
       await audit(c, auth, "fee_rules.updated", "membership", params.id, { base: body.base, rules });
       return { ok: true };

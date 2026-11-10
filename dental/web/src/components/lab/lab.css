@@ -1,0 +1,67 @@
+/* Laboratorio protésico. Se apoya en los tokens de styles.css. */
+.lab-err { color: var(--danger) !important; font-weight: 550; }
+.lab-foot { justify-content: flex-end; flex-wrap: wrap; }
+
+/* Selector de piezas FDI: cuadrantes 1 | 2 arriba y 4 | 3 abajo, como se ve al paciente de frente. */
+.lab-teeth { display: flex; flex-direction: column; gap: 8px; }
+.lab-teeth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.lab-quad { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.lab-quad.temp { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.lab-quad:nth-child(odd) { border-right: 2px solid var(--line-2); padding-right: 10px; }
+.lab-teeth-grid .lab-quad:nth-child(-n + 2) { border-bottom: 2px solid var(--line-2); padding-bottom: 8px; }
+.lab-tooth {
+  min-height: 40px; min-width: 0; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface);
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; padding: 0;
+}
+.lab-tooth:hover { border-color: var(--brand); }
+.lab-tooth[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+.lab-tooth:focus-visible, .lab-seg button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 1px; }
+
+.lab-seg { align-self: flex-start; display: inline-flex; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; }
+.lab-seg button { border: none; background: var(--surface); font: inherit; font-weight: 600; padding: 0 18px; min-height: 40px; cursor: pointer; color: var(--ink-2); }
+.lab-seg button + button { border-left: 1px solid var(--line-2); }
+.lab-seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+
+.lab-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.lab-kv-row { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 6px 0; }
+.lab-kv-row > span:last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.lab-timeline { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+
+.lab-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 10px; align-items: end; }
+.lab-filters .check { min-height: 40px; }
+.lab-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.lab-chips .btn { min-height: 40px; }
+.lab-pay-row td { vertical-align: middle; }
+.lab-pay-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--brand); }
+.lab-pay-row .input { max-width: 120px; text-align: right; }
+.lab-prices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+/* Orden impresa para el laboratorio */
+.lab-slip { max-width: 820px; margin: 0 auto; }
+.lab-slip h1 { font-size: 22px; margin: 0; }
+.lab-slip .lab-slip-head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+.lab-slip table { width: 100%; border-collapse: collapse; }
+.lab-slip th, .lab-slip td { text-align: left; border: 1px solid var(--line-2); padding: 8px 10px; vertical-align: top; }
+.lab-slip th { width: 30%; background: var(--surface-2); font-weight: 600; }
+.lab-slip .lab-quad { pointer-events: none; }
+.lab-slip-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 56px; }
+.lab-slip-sign div { border-top: 1px solid #333; padding-top: 6px; text-align: center; font-size: 12px; }
+
+@media (max-width: 860px) {
+  .lab-filters { grid-template-columns: 1fr 1fr; }
+  .lab-prices { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .lab-teeth-grid { grid-template-columns: 1fr; }
+  .lab-quad, .lab-quad.temp { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lab-quad:nth-child(odd) { border-right: none; padding-right: 0; }
+  .lab-teeth-grid .lab-quad { border-bottom: 1px dashed var(--line-2); padding-bottom: 8px; }
+  .lab-kv { grid-template-columns: 1fr; }
+  .lab-slip-sign { gap: 16px; }
+}
+@media print {
+  .lab-slip { max-width: none; }
+  .lab-slip .card { box-shadow: none; border: none; }
+  .lab-tooth { border-color: #999; }
+  .lab-tooth[aria-pressed="true"] { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
