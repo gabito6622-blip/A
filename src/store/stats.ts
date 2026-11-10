@@ -37,6 +37,11 @@ export function notificationItems(e: Engine) {
   const supplierSoon = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + 7 * DAY).length;
   add("supplier", "📅", supplierSoon === 1 ? "1 cuenta vence con el proveedor (7 días)" : `${supplierSoon} cuentas vencen con el proveedor (7 días)`, supplierSoon, "cuentas", "warn");
 
+  const risky = new Set((e.s.accountAlerts ?? []).filter((a) => !a.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(a.kind)).map((a) => a.accountId)).size;
+  add("accountRisk", "🚨", risky === 1 ? "1 cuenta en riesgo (aviso de la plataforma)" : `${risky} cuentas en riesgo (avisos de la plataforma)`, risky, "cuentas", "bad");
+  const dupPay = Object.values(e.s.orders).filter((o) => o.status === "payment_review" && o.evidence?.duplicateOf).length;
+  add("dupReceipt", "🔁", dupPay === 1 ? "1 comprobante repetido por revisar" : `${dupPay} comprobantes repetidos por revisar`, dupPay, "aprobacion", "bad");
+
   const sup1 = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + DAY).length;
   add("supplier1d", "⚠️", sup1 === 1 ? "1 cuenta vence MAÑANA con el proveedor" : `${sup1} cuentas vencen MAÑANA con el proveedor`, sup1, "cuentas", "bad");
 

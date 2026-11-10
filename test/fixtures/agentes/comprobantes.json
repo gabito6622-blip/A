@@ -1,0 +1,17 @@
+{
+  "_nota": "Comprobantes de prueba. El script los dibuja como imagen (no son reales). 'pedido' es lo que el cliente dice haber pagado; 'espera' son los veredictos aceptados.",
+  "casos": [
+    { "id": "bnb-ok", "banco": "BNB", "monto": "Bs 35,00", "ref": "123456789", "fecha": "10/11/2026 14:02", "destino": "GABRIEL STORE", "pedido": { "total": 3500, "ref": "123456789" }, "espera": ["parece_ok"] },
+    { "id": "tigo-ok", "banco": "Tigo Money", "monto": "Bs 25,00", "ref": "TM88231190", "fecha": "10/11/2026 09:15", "destino": "Gabriel S.", "pedido": { "total": 2500, "ref": "TM88231190" }, "espera": ["parece_ok"] },
+    { "id": "monto-menor", "banco": "BCP", "monto": "Bs 3,50", "ref": "554433221", "fecha": "10/11/2026 18:40", "destino": "GABRIEL STORE", "pedido": { "total": 3500, "ref": "554433221" }, "espera": ["no_coincide"] },
+    { "id": "otra-ref", "banco": "Banco Unión", "monto": "Bs 35,00", "ref": "777000111", "fecha": "09/11/2026 20:10", "destino": "GABRIEL STORE", "pedido": { "total": 3500, "ref": "999888777" }, "espera": ["no_coincide"] },
+    { "id": "editado", "banco": "BNB", "monto": "Bs 70,00", "ref": "246813579", "fecha": "10/11/2026 11:11", "destino": "GABRIEL STORE", "editado": true, "pedido": { "total": 7000, "ref": "246813579" }, "espera": ["revisar", "no_coincide"] },
+    { "id": "no-es-comprobante", "noComprobante": true, "pedido": { "total": 3500, "ref": "123" }, "espera": ["no_coincide", "revisar"] },
+    { "id": "usdt", "banco": "Binance", "monto": "2.65 USDT", "ref": "0x9f3c…a71b", "fecha": "10/11/2026 16:20", "destino": "TRC20 T9x…", "usdt": true, "pedido": { "total": 3500, "ref": "0x9f3c" }, "espera": ["revisar", "parece_ok"] },
+    { "id": "sin-monto", "banco": "BCP", "monto": "", "ref": "334455667", "fecha": "10/11/2026 10:00", "destino": "GABRIEL STORE", "borroso": true, "pedido": { "total": 2000, "ref": "334455667" }, "espera": ["revisar", "no_coincide"] },
+    { "id": "yappy", "banco": "Yappy", "monto": "$2.90", "ref": "YP-4471209", "fecha": "10/11/2026 13:05", "destino": "Gabriel Store", "pedido": { "total": 290, "ref": "4471209" }, "espera": ["parece_ok"] },
+    { "id": "ref-espacios", "banco": "BNB", "monto": "Bs 20,00", "ref": "123 456 780", "fecha": "10/11/2026 12:30", "destino": "GABRIEL STORE", "pedido": { "total": 2000, "ref": "123456780" }, "espera": ["parece_ok"] },
+    { "id": "monto-mayor", "banco": "Banco Unión", "monto": "Bs 350,00", "ref": "665544332", "fecha": "10/11/2026 15:45", "destino": "GABRIEL STORE", "pedido": { "total": 3500, "ref": "665544332" }, "espera": ["no_coincide"] },
+    { "id": "otro-destino", "banco": "BNB", "monto": "Bs 25,00", "ref": "112233445", "fecha": "10/11/2026 08:20", "destino": "JUAN PEREZ", "pedido": { "total": 2500, "ref": "112233445" }, "espera": ["parece_ok", "revisar"] }
+  ]
+}

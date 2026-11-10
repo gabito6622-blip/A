@@ -18,6 +18,7 @@ import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
 import * as payMethods from "./payMethods.js";
+import * as watch from "./watch.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -200,6 +201,12 @@ export function createStore(opts: EngineOptions = {}) {
       audit: bind(e, stats.auditLog),
       notifications: bind(e, stats.notifications),
       feed: () => stats.notificationItems(e),
+    },
+    watch: {
+      classify: watch.classifyRisk,
+      record: bind(e, watch.recordAlert),
+      list: bind(e, watch.listAlerts),
+      seen: bind(e, watch.markAlertSeen),
     },
     payMethods: {
       list: bind(e, payMethods.listPayMethods),

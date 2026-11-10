@@ -428,6 +428,7 @@ const V = {
         <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
+          ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. Revisalo bien antes de aprobar.</small></div>` : ""}
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
@@ -464,9 +465,13 @@ const V = {
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
-    const daily = isOwner() ? await api("GET", "/api/admin/ai").then((a) => a.daily).catch(() => null) : null;
+    const aiInfo = canReview() ? await api("GET", "/api/admin/ai").catch(() => null) : null;
+    const daily = isOwner() ? aiInfo?.daily ?? null : null;
+    const askCard = aiInfo?.hasKey && aiInfo.enabled.daily ? `<section class="card askcard"><h2>🧠 Preguntale a tu negocio</h2>
+      <form class="inline" id="askForm" style="flex-wrap:wrap"><input name="q" maxlength="600" required placeholder="Ej.: ¿quién vence esta semana?" aria-label="Tu pregunta" style="flex:1 1 220px"><button class="pbtn dark" type="submit">Preguntar</button></form>
+      <div id="askOut" class="dailytext" aria-live="polite"></div><small class="muted">Responde con tus datos de hoy. Solo lee: no cambia nada.</small></section>` : "";
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
-    return dailyCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
@@ -619,7 +624,12 @@ const V = {
 
   async cuentas() {
     const show = P.tab.secrets && canReview();
-    const [accs, products, suppliers, customers] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), api("GET", "/api/admin/customers").catch(() => [])]);
+    const [accs, products, suppliers, customers, alerts] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/account-alerts?unseen=1").catch(() => [])]);
+    const alertsCard = alerts.length ? `<section class="card alertcard"><h2>🚨 Avisos de las plataformas <small>${alerts.length} sin ver</small></h2>
+      <p class="muted" style="margin:0">Correos que llegaron a tus cuentas y pueden significar un problema. Revisá la cuenta antes de que se quejen tus clientes.</p>
+      <div class="alertlist">${alerts.map((a) => `<div class="alertrow ${a.severe ? "sev" : ""}"><div><b>${esc(a.product)}</b> <span class="mono">${esc(a.email)}</span><br>
+        <small>${a.severe ? "⚠️" : "ℹ️"} ${esc(a.text)} · ${fdt(a.at)}${a.clients ? ` · <b>${a.clients} cliente(s)</b> en esta cuenta` : ""}${a.source === "ai" ? " · detectado por IA" : ""}</small><br><small class="muted">"${esc(a.subject)}"</small></div>
+        <div class="inline"><button class="pbtn sm" type="button" data-go="reubicar">Reubicar</button><button class="pbtn sm" type="button" data-alertseen="${esc(a.id)}">✓ Visto</button></div></div>`).join("")}</div></section>` : "";
     const pname = (id) => products.find((p) => p.id === id)?.name ?? id;
     // Panel para asignar/liberar un perfil tocado.
     let slotCard = "";
@@ -695,7 +705,7 @@ const V = {
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     }).join("");
-    return `${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
+    return `${alertsCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
       <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
@@ -1171,7 +1181,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1413,9 +1423,10 @@ function aiCheckBox(c) {
     ${c.notes ? `<small class="muted">${esc(c.notes)}</small>` : ""}<small class="muted">Sugerencia: igual mirá tu banco antes de aprobar.</small></div>`;
 }
 const AI_AGENTS = [
-  ["receipts", "🧾 Revisor de comprobantes", "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos."],
-  ["whatsapp", "💬 Atención por WhatsApp", "Responde lo que el bot de palabras clave no entiende, con tus precios y formas de pago. Si no sabe o el cliente reclama, te lo pasa a vos. Necesita el bot de WhatsApp prendido."],
-  ["daily", "📋 Reporte del día", "Cada mañana (8 h) te resume pagos pendientes, stock, cuentas por vencer y ganancia, con qué hacer hoy. Llega por Telegram y queda en Inicio."],
+  ["whatsapp", "💬 Atención por WhatsApp", "El único que habla con tus clientes. Responde lo que el bot de palabras clave no entiende: precios, cómo pagar, \"no me deja entrar\", \"me pide un código\", renovaciones. Los códigos, links y el QR los manda el sistema, nunca la IA. Si la cuenta tiene problemas o el cliente reclama, te lo pasa a vos. Necesita el bot de WhatsApp prendido."],
+  ["receipts", "🧾 Revisor de comprobantes", "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos. (Los comprobantes repetidos se detectan siempre, sin IA.)"],
+  ["daily", "🧠 Asistente del dueño", "Cada mañana (8 h) te manda el reporte del día, y en Inicio le podés preguntar lo que quieras de tu negocio: \"¿quién vence esta semana?\", \"¿cuánto vendí de Disney?\". Solo lee: nunca cambia nada."],
+  ["watch", "🚨 Vigilante de cuentas (IA)", "Las reglas ya avisan siempre (sin IA) cuando una plataforma manda \"cambió la contraseña\", \"pago rechazado\" o \"cuenta cancelada\". Esto suma la IA para los correos raros que las reglas no reconocen (máximo 30 por día)."],
 ];
 async function aiCard() {
   const a = await api("GET", "/api/admin/ai").catch(() => null);
@@ -2001,6 +2012,7 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (d.alertseen) return act(() => api("POST", `/api/admin/account-alerts/${d.alertseen}/seen`, {}), "Aviso marcado como visto");
   if (d.aicheck) { el.disabled = true; el.textContent = "🤖 Revisando…"; return act(() => api("POST", `/api/admin/orders/${d.aicheck}/ai-check`, {}), "Revisión lista"); }
   if (el.id === "aiDailyNow") { el.disabled = true; el.textContent = "Armando…"; return act(() => api("POST", "/api/admin/ai/daily", {}), "📋 Reporte listo: está en Inicio"); }
   if (el.id === "pushOn") { el.disabled = true; try { await pushEnable(); toast("🔔 Avisos activados en este celular"); } catch (e) { toast(e.message || "No se pudo activar"); } return render(); }
@@ -2479,6 +2491,11 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "askForm") {
+      const out = $("#askOut"), q = f.q.value.trim(); if (!q) return;
+      const b = f.querySelector("button"); b.disabled = true; out.textContent = "Pensando…";
+      try { const r = await api("POST", "/api/admin/ai/ask", { question: q }); out.innerHTML = esc(r.answer).replace(/\n/g, "<br>"); }
+      catch (e) { out.textContent = e.message; } finally { b.disabled = false; }
     } else if (f.id === "aiForm") {
       const enabled = Object.fromEntries(AI_AGENTS.map(([k]) => [k, !!f[`ag_${k}`]?.checked]));
       P.ai = null;

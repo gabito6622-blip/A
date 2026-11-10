@@ -924,3 +924,11 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
 .aibox small{font-size:12px;overflow-wrap:anywhere}
 .aiag{align-items:flex-start !important}.aiag input{margin-top:4px}
 .dailyai .dailytext{line-height:1.55;overflow-wrap:anywhere}
+
+/* Vigilante de cuentas */
+.alertlist{display:grid;gap:8px;margin-top:10px}
+.alertrow{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft);min-width:0}
+.alertrow > div:first-child{min-width:0;overflow-wrap:anywhere}
+.alertrow.sev{border-left:5px solid var(--bad)}
+.askcard #askOut{margin:10px 0 4px}
+.askcard #askOut:empty{display:none}

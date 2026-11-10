@@ -1,0 +1,17 @@
+{
+  "_nota": "Correos típicos de las plataformas. 'espera' = tipo de aviso (null = no es un riesgo: códigos, publicidad, recibos normales).",
+  "casos": [
+    { "id": "nf-clave", "from": "Netflix <info@account.netflix.com>", "subject": "Se cambió la contraseña de tu cuenta", "body": "Hola: te confirmamos que se cambió la contraseña de tu cuenta de Netflix. Si no fuiste vos, restablecé tu contraseña ahora.", "espera": "password_changed" },
+    { "id": "nf-espera", "from": "Netflix <info@mailer.netflix.com>", "subject": "Tu membresía está en espera", "body": "Tuvimos un problema con tu pago. Actualizá tu forma de pago para seguir viendo Netflix.", "espera": "payment_failed" },
+    { "id": "dp-password", "from": "Disney+ <disneyplus@trx.mail2.disneyplus.com>", "subject": "Your password has been changed", "body": "The password for your Disney+ account was changed. If you didn't make this change, contact us.", "espera": "password_changed" },
+    { "id": "max-cancel", "from": "Max <no-reply@max.com>", "subject": "Your subscription has been canceled", "body": "We're sorry to see you go. Your Max subscription has been canceled and will end on Dec 3.", "espera": "cancelled" },
+    { "id": "nf-dispositivo", "from": "Netflix <info@account.netflix.com>", "subject": "Nuevo inicio de sesión en tu cuenta", "body": "Detectamos un nuevo inicio de sesión desde un dispositivo Android en Santa Cruz, Bolivia.", "espera": "new_device" },
+    { "id": "nf-codigo", "from": "Netflix <info@account.netflix.com>", "subject": "Tu código de inicio de sesión", "body": "Ingresa este código para iniciar sesión: 4821. Vence en 15 minutos.", "espera": null },
+    { "id": "dp-promo", "from": "Disney+ <news@mail.disneyplus.com>", "subject": "Estrenos de la semana en Disney+", "body": "Mirá lo nuevo: series, películas y documentales que llegan esta semana.", "espera": null },
+    { "id": "nf-correo", "from": "Netflix <info@account.netflix.com>", "subject": "Se cambió el correo electrónico de tu cuenta", "body": "El correo de tu cuenta de Netflix fue cambiado a otro correo. Si no fuiste vos, avisanos.", "espera": "email_changed" },
+    { "id": "sp-pago", "from": "Spotify <no-reply@spotify.com>", "subject": "No pudimos procesar tu pago", "body": "Hubo un problema con tu pago de Spotify Premium. Revisá tu método de pago.", "espera": "payment_failed" },
+    { "id": "nf-hogar", "from": "Netflix <info@account.netflix.com>", "subject": "Actualiza tu hogar con Netflix", "body": "Para actualizar tu hogar con Netflix tocá el botón 'Sí, la envié yo'. Este enlace vence en 15 minutos.", "espera": null },
+    { "id": "nf-recibo", "from": "Netflix <info@mailer.netflix.com>", "subject": "Tu recibo de Netflix", "body": "Gracias por tu pago de USD 15,49. Tu próximo cobro es el 10 de diciembre.", "espera": null },
+    { "id": "yt-suspendida", "from": "YouTube <noreply-purchases@youtube.com>", "subject": "Tu membresía de YouTube Premium se suspendió", "body": "No pudimos cobrar tu membresía, por eso se suspendió. Actualizá tu forma de pago.", "espera": "payment_failed" }
+  ]
+}

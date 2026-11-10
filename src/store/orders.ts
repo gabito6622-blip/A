@@ -222,7 +222,7 @@ function alertPayment(e: Engine, o: Order): void {
   queueStaff(e, "staff_payment_review", { order: o.id, name: e.s.customers[o.customerId]?.name ?? "cliente", total: fmt(o.total) });
 }
 
-export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileRef: string; declaredReference: string }): Order {
+export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
   return e.tx(() => {
     const o = e.get("orders", orderId);
     requireActFor(e, actor, o.customerId);
@@ -230,7 +230,10 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
     if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);
-    o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now() };
+    // Mismo archivo que en otro pedido: se marca para que el dueño lo vea (la estafa más común).
+    const dup = ev.hash ? Object.values(e.s.orders).find((x) => x.id !== o.id && x.evidence?.hash === ev.hash) : undefined;
+    o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now(), ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) };
+    if (dup) e.audit(actor, "order.evidence_duplicate", "order", o.id, { duplicateOf: dup.id });
     o.status = "payment_review";
     o.updatedAt = e.now();
     // Mientras se revisa, la reserva se mantiene (no se vende a otro).
@@ -799,16 +802,17 @@ export function updateStaffAlerts(e: Engine, actor: Actor, patch: Partial<StaffA
 
 /* ---------------- Recargas de saldo ---------------- */
 
-export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string }): Order {
+export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
   requireActFor(e, actor, customerId);
   if (!Number.isInteger(amount) || amount < 1000 || amount > 500_000) throw new DomainError("VALIDATION", "La recarga debe estar entre Bs 10 y Bs 5.000");
   if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el comprobante o el número de operación");
   return e.tx(() => {
     const now = e.now();
+    const dup = ev.hash ? Object.values(e.s.orders).find((x) => x.evidence?.hash === ev.hash) : undefined;
     const o: Order = {
       id: e.id("ord"), kind: "topup", customerId, payerId: customerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : "store", items: [], total: amount, topupAmount: amount, status: "payment_review",
-      paymentMethod: "qr", evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now },
+      paymentMethod: "qr", evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
       reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
     };
     e.s.orders[o.id] = o;

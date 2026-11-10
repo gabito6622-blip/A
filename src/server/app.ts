@@ -151,6 +151,8 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
   checkDailyReport(): Promise<void>;
+  /** Vigilante de cuentas: revisa un correo de una cuenta (lo usa la lectura de correos; expuesto para pruebas). */
+  watchMail(m: { to: string; from: string; subject: string; body: string; at: number }): void;
   /** Procesa un mensaje de WhatsApp entrante (lo usa el webhook; expuesto para pruebas). */
   handleInbound(m: InboundMessage): Promise<void>;
   /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
@@ -231,6 +233,8 @@ export function createApp(cfg: AppConfig): App {
     writeFileSync(join(uploads, name), buf, { flag: "wx" });
     return name;
   }
+  /** Huella del archivo subido (para detectar el mismo comprobante en dos pedidos). */
+  const fileHash = (name: string) => sha256(readFileSync(join(uploads, name)).toString("base64"));
   const dropUpload = (name: string) => {
     try { unlinkSync(join(uploads, name)); } catch { /* ya no está */ }
   };
@@ -562,7 +566,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/orders/:id/evidence", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.submitEvidence(c.actor!, c.params.id, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      const o = store.orders.submitEvidence(c.actor!, c.params.id, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) });
       autoReview(o.id);
       return o;
     } catch (e) {
@@ -600,7 +604,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? "") });
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) });
       autoReview(o.id);
       return o;
     } catch (e) {
@@ -1131,9 +1135,16 @@ export function createApp(cfg: AppConfig): App {
     if (a.unknown && agents.isOn("whatsapp")) {
       try {
         const history = (store.engine.s.chats[phone]?.messages ?? []).slice(-11, -1).map((x) => ({ from: x.direction === "in" ? "cliente" as const : "tienda" as const, text: x.text }));
-        const r = await agents.whatsappReply({ storeContext: storeContext(cust?.id), history, message: m.text, customerName: cust?.name ?? m.name });
+        const r = await agents.whatsappReply({ storeContext: storeContext(cust?.id), customerContext: cust ? customerContext(cust.id) : undefined, history, message: m.text, customerName: cust?.name ?? m.name });
         a.replies = [r.reply];
         if (r.handoff) a.human = true;
+        // Lo que pidió el agente lo arma el sistema con datos reales (códigos, link de acceso, cómo pagar…): la IA nunca los escribe.
+        const KEY: Record<string, string> = { codes: "5", login_link: "4", renew: "renovar", pay_info: "3", prices: "2" };
+        if (r.action !== "none" && !r.handoff) {
+          const extra = botAnswer({ store, origin: cfg.publicOrigin, loginLink: (id) => (cfg.publicOrigin ? makeLoginLink(id, cfg.publicOrigin) : null) }, phone, KEY[r.action], m.name);
+          a.replies.push(...extra.replies);
+          if (extra.sendQr) a.sendQr = true;
+        }
       } catch (e) { log(`agente de WhatsApp: ${(e as Error).message}`); }
     }
     if (a.consent !== undefined && cust) store.catalog.setWhatsappConsent({ id: `wa:${cust.id}`, role: "customer", customerId: cust.id }, cust.id, a.consent);
@@ -1290,6 +1301,10 @@ export function createApp(cfg: AppConfig): App {
       throw new HttpError(502, "META", (e as Error).message);
     }
   });
+  // ── Vigilante de cuentas ──
+  route("GET", "/api/admin/account-alerts", "staff", (c) => store.watch.list(A(c), { unseenOnly: c.query.get("unseen") === "1" }));
+  route("POST", "/api/admin/account-alerts/:id/seen", "staff", (c) => store.watch.seen(A(c), c.params.id));
+
   // ── Agentes con Claude ──
   route("GET", "/api/admin/ai", "staff", () => {
     const c = agents.cfg();
@@ -1307,6 +1322,16 @@ export function createApp(cfg: AppConfig): App {
     aiSave({ ...cur, enabled, model, monthlyLimitUsd: Math.round(limit * 100) / 100 });
     store.engine.tx(() => store.engine.audit(A(c), "ai.config", "settings", "ai", { model, limit, on: AGENT_KINDS.filter((k) => enabled[k]).join(",") }));
     return { ok: true, ...agents.cfg() };
+  });
+  // Asistente del dueño: preguntas sobre el negocio (solo lee).
+  const askLimiter = new RateLimiter(30, 60 * 60_000, now);
+  route("POST", "/api/admin/ai/ask", "staff", async (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin");
+    const q = String(c.body?.question ?? "").trim();
+    if (q.length < 3 || q.length > 600) throw new HttpError(400, "VALIDATION", "Escribí tu pregunta (hasta 600 letras)");
+    if (!askLimiter.take(A(c).id)) throw new HttpError(429, "RATE_LIMIT", "Muchas preguntas seguidas: probá en un rato");
+    try { return { answer: await agents.ownerAnswer(ownerSnapshot(), q) }; }
+    catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
   route("POST", "/api/admin/ai/daily", "staff", async (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño pide el reporte");
@@ -1693,6 +1718,23 @@ export function createApp(cfg: AppConfig): App {
     }
   }
 
+  /** Vigilante: primero reglas; si no hay regla y el correo es de una plataforma, la IA (si está prendida) decide. */
+  const PLATFORM_FROM = /(netflix|disney|hbo|max\.com|primevideo|amazon|spotify|youtube|google|apple|crunchyroll|paramount|star|vix|canva|chatgpt|openai|duolingo)/i;
+  const watchCount = { day: "", n: 0 };
+  function watchMail(m: { to: string; from: string; subject: string; body: string; at: number }) {
+    const kind = store.watch.classify(m.subject, m.body);
+    if (kind) { store.watch.record(system, { to: m.to, kind, subject: m.subject, from: m.from, at: m.at }); return; }
+    if (!agents.isOn("watch") || !PLATFORM_FROM.test(m.from) || extractCodeLike(m.body)) return;
+    const day = new Date(now()).toISOString().slice(0, 10);
+    if (watchCount.day !== day) { watchCount.day = day; watchCount.n = 0; }
+    if (watchCount.n++ >= 30) return; // como mucho 30 consultas por día
+    agents.classifyMail({ from: m.from, subject: m.subject, body: m.body }).then((k) => {
+      if (k !== "none") store.watch.record(system, { to: m.to, kind: k, subject: m.subject, from: m.from, at: m.at, source: "ai" });
+    }).catch((e) => log(`vigilante (IA): ${(e as Error).message}`));
+  }
+  /** Los correos que traen un código de acceso no son avisos de riesgo. */
+  const extractCodeLike = (body: string) => /(c[oó]digo|code)[^0-9\n]{0,40}\d{4,8}/i.test(body);
+
   /** Lee los correos nuevos de los buzones conectados y guarda los códigos. */
   type PollResult = { checked: number; found: number; errors: number };
   let polling: Promise<PollResult> | null = null;
@@ -1714,6 +1756,8 @@ export function createApp(cfg: AppConfig): App {
             const to = p.recipients.find((x) => known.has(x)) ?? emailsIn(p.text).find((x) => known.has(x)) ?? p.recipients.find((x) => x !== box.address) ?? p.recipients[0] ?? "";
             const saved = store.codes.ingest(system, box.id, { to, from: p.fromRaw, subject: p.subject, body: p.text, html: p.html, receivedAt: Math.min(p.date ?? now(), now()) });
             if (saved) n++;
+            // Vigilante de cuentas: correos de riesgo (cambio de clave, pago rechazado…) de cuentas cargadas.
+            if (known.has(to)) watchMail({ to, from: p.fromRaw, subject: p.subject, body: p.text, at: Math.min(p.date ?? now(), now()) });
           }
           found += n;
           store.codes.setStatus(system, box.id, { lastUid: r.lastUid, uidValidity: r.uidValidity, found: n });
@@ -1861,6 +1905,68 @@ export function createApp(cfg: AppConfig): App {
       `Formas de pago: ${pays.join(", ")}. Después de pagar, el cliente sube el comprobante en la tienda y una persona lo revisa en 10-30 minutos.`,
       faq.length ? `Preguntas frecuentes:\n${faq.join("\n")}` : ""].filter(Boolean).join("\n\n");
   }
+  /** Lo que el agente de WhatsApp sabe de ESTE cliente (sin claves, PIN ni códigos). */
+  function customerContext(customerId: string): string {
+    const st = store.engine.s, c = st.customers[customerId];
+    if (!c) return "";
+    const sym = st.settings.currencySymbol || "Bs";
+    const t = now();
+    const riskAcc = new Set((st.accountAlerts ?? []).filter((x) => !x.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(x.kind)).map((x) => x.accountId));
+    const svcs = Object.values(st.assignments).filter((a) => a.customerId === customerId && a.status === "active").map((a) => {
+      const sl = st.slots[a.slotId], acc = sl ? st.accounts[sl.accountId] : undefined;
+      const problem = !acc || acc.status !== "active" || sl?.status === "quarantined" || acc.supplierExpiresAt <= t || riskAcc.has(acc.id);
+      const d = Math.ceil((a.customerExpiresAt - t) / 86_400_000);
+      return `- ${st.products[a.productId]?.name ?? a.productId}: ${d < 0 ? `vencido hace ${-d} día(s)` : d === 0 ? "vence hoy" : `vence en ${d} día(s)`}${problem ? "; la cuenta tiene un problema (la estamos revisando)" : "; la cuenta está bien"}`;
+    });
+    const pend = Object.values(st.orders).filter((o) => o.customerId === customerId && (o.status === "awaiting_payment" || o.status === "payment_review"))
+      .map((o) => `- pedido ${o.id}: ${o.status === "payment_review" ? "pago en revisión" : "esperando pago"}`);
+    return [`Tipo: ${c.kind === "reseller" ? "revendedor" : "cliente"}`, `Saldo: ${sym} ${(store.wallet.balance(c.id) / 100).toFixed(2)}`,
+      svcs.length ? `Servicios:\n${svcs.join("\n")}` : "Sin servicios activos.", pend.length ? `Pedidos abiertos:\n${pend.join("\n")}` : ""].filter(Boolean).join("\n");
+  }
+  /** Foto del negocio para el asistente del dueño: números y listas acotadas (solo lectura). */
+  function ownerSnapshot(): string {
+    const st = store.engine.s, t = now(), sym = st.settings.currencySymbol || "Bs";
+    const money = (c: number) => `${sym} ${(c / 100).toFixed(2)}`;
+    const fd = (x: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x));
+    const sys = { id: "system:ai", role: "owner" } as const;
+    const pname = (id: string) => st.products[id]?.name ?? id;
+    const cname = (id: string) => st.customers[id]?.name ?? id;
+    const monthKey = (x: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz", year: "numeric", month: "2-digit" }).format(new Date(x));
+    const thisM = monthKey(t), lastM = monthKey(new Date(new Date(t).setUTCDate(0)).getTime());
+    const sales: Record<string, Record<string, { u: number; r: number }>> = { [thisM]: {}, [lastM]: {} };
+    for (const o of Object.values(st.orders)) {
+      if (o.status !== "fulfilled" || o.kind === "topup" || o.trial) continue;
+      const k = monthKey(o.updatedAt); if (!sales[k]) continue;
+      for (const it of o.items) { const b = (sales[k][it.productId] ??= { u: 0, r: 0 }); b.u += it.qty; b.r += it.unitPrice * it.qty; }
+    }
+    const salesTxt = (k: string) => Object.entries(sales[k]).map(([id, v]) => `${pname(id)}: ${v.u} venta(s), ${money(v.r)}`).join("; ") || "sin ventas";
+    const stock = store.inventory.stock();
+    const products = Object.values(st.products).filter((p) => p.published).map((p) => `- ${p.name}: precio ${money(p.price)}, libres ${stock[p.id]?.available ?? 0}`);
+    const act = Object.values(st.assignments).filter((a) => a.status === "active");
+    const soon = act.filter((a) => a.customerExpiresAt >= t - 86_400_000 && a.customerExpiresAt <= t + 7 * 86_400_000).sort((a, b) => a.customerExpiresAt - b.customerExpiresAt).slice(0, 60)
+      .map((a) => `- ${cname(a.customerId)}${st.customers[a.customerId]?.resellerId ? ` (cliente de ${cname(st.customers[a.customerId].resellerId!)})` : ""}: ${pname(a.productId)}, vence ${fd(a.customerExpiresAt)}`);
+    const overdue = act.filter((a) => a.customerExpiresAt < t - 86_400_000 && a.customerExpiresAt > t - 20 * 86_400_000).slice(0, 40).map((a) => `- ${cname(a.customerId)}: ${pname(a.productId)}, venció ${fd(a.customerExpiresAt)}`);
+    const resellers = Object.values(st.customers).filter((c) => c.kind === "reseller").slice(0, 50).map((c) => {
+      const last = Object.values(st.orders).filter((o) => o.payerId === c.id && o.status === "fulfilled" && o.kind !== "topup").sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      const clients = Object.values(st.customers).filter((x) => x.resellerId === c.id).length;
+      return `- ${c.name}: saldo ${money(store.wallet.balance(c.id))}, ${clients} cliente(s), última compra ${last ? fd(last.updatedAt) : "nunca"}`;
+    });
+    const pend = Object.values(st.orders).filter((o) => o.status === "payment_review").slice(0, 20).map((o) => `- ${o.id}: ${cname(o.customerId)}, ${money(o.total)}${o.evidence?.duplicateOf ? " (¡comprobante repetido!)" : ""}`);
+    const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);
+    const alerts = store.watch.list(sys, { unseenOnly: true }).slice(0, 20).map((a) => `- ${a.product} ${a.email}: ${a.text} (${fd(a.at)}, ${a.clients} cliente(s) en esa cuenta)`);
+    const fin = store.finance.report(sys, 2);
+    const mg = store.finance.margins(sys).products.filter((p) => p.public).map((p) => `- ${p.name}: te cuesta ${p.unitCost === null ? "?" : money(p.unitCost)}, ganás ${money(p.public!.gain)} (${p.public!.pct}%)`);
+    const totalClients = Object.values(st.customers).filter((c) => c.kind !== "reseller").length;
+    return [`Hoy: ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", dateStyle: "full" }).format(new Date(t))}. Moneda: ${sym}.`,
+      `Clientes: ${totalClients}. Revendedores: ${resellers.length}. Servicios activos: ${act.length}.`,
+      `Ventas de este mes (${thisM}): ${salesTxt(thisM)}.`, `Ventas del mes pasado (${lastM}): ${salesTxt(lastM)}.`,
+      `Finanzas: ${fin.months.map((m) => `${m.label}: entró ${money(m.ingresos)}, salió ${money(m.gastos)} (${money(m.cuentas)} en cuentas), quedó ${money(m.ganancia)}`).join(" | ")}.`,
+      `Productos publicados:\n${products.join("\n") || "-"}`, `Ganancia por venta:\n${mg.join("\n") || "-"}`,
+      `Vencen en los próximos 7 días (clientes):\n${soon.join("\n") || "- nadie"}`, `Vencidos sin renovar (últimos 20 días):\n${overdue.join("\n") || "- nadie"}`,
+      `Revendedores:\n${resellers.join("\n") || "- ninguno"}`, `Pagos por revisar:\n${pend.join("\n") || "- ninguno"}`,
+      `Cuentas que vencen con el proveedor en 7 días:\n${supSoon.join("\n") || "- ninguna"}`, `Avisos de cuentas en riesgo sin ver:\n${alerts.join("\n") || "- ninguno"}`,
+    ].join("\n\n").slice(0, 40_000);
+  }
   const aiDaily = (): { text: string; at: number; day: string } | null => { try { return JSON.parse(db.getSecret("ai_daily") ?? "null"); } catch { return null; } };
   const laDay = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(t));
   /** Datos del día (los calcula el sistema; la IA solo los redacta). */
@@ -1873,10 +1979,21 @@ export function createApp(cfg: AppConfig): App {
     const sys = { id: "system:ai", role: "owner" } as const;
     const fin = store.finance.report(sys, 1).current;
     const mg = store.finance.margins(sys).products.filter((p) => p.public && p.public.state !== "ok").slice(0, 5);
+    // Revendedores que se enfriaron (sin comprar en 14 días) o con poco saldo; perfiles libres en cuentas que vencen pronto.
+    const t0 = now();
+    const cold = Object.values(st.customers).filter((c) => c.kind === "reseller").filter((c) => {
+      const last = Object.values(st.orders).filter((o) => o.payerId === c.id && o.status === "fulfilled" && o.kind !== "topup").sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      return last && t0 - last.updatedAt > 14 * 86_400_000;
+    }).slice(0, 5).map((c) => c.name);
+    const wasted = Object.values(st.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > t0 && a.supplierExpiresAt <= t0 + 5 * 86_400_000)
+      .map((a) => ({ a, free: Object.values(st.slots).filter((x) => x.accountId === a.id && x.status === "available").length })).filter((x) => x.free > 0)
+      .slice(0, 5).map((x) => `${st.products[x.a.productId]?.name ?? "?"} (${x.free} libre(s), la cuenta vence en ${Math.ceil((x.a.supplierExpiresAt - t0) / 86_400_000)} día(s))`);
     return [`Ventas de ayer (${yday}): ${sold.length}, por ${money(sold.reduce((s, o) => s + o.total, 0))}.`,
       `Este mes: entró ${money(fin.ingresos)}, salió ${money(fin.gastos)} (${money(fin.cuentas)} en cuentas), quedó ${money(fin.ganancia)}.`,
       feed.items.length ? `Pendientes ahora:\n${feed.items.map((i) => `- ${i.text}`).join("\n")}` : "Pendientes ahora: nada urgente.",
-      mg.length ? `Productos que dejan poca ganancia:\n${mg.map((p) => `- ${p.name}: ganás ${money(p.public!.gain)} por venta (${p.public!.pct}%)`).join("\n")}` : ""].filter(Boolean).join("\n");
+      mg.length ? `Productos que dejan poca ganancia:\n${mg.map((p) => `- ${p.name}: ganás ${money(p.public!.gain)} por venta (${p.public!.pct}%)`).join("\n")}` : "",
+      cold.length ? `Revendedores que no compran hace más de 14 días: ${cold.join(", ")}.` : "",
+      wasted.length ? `Perfiles libres que se pierden si no se venden pronto (sugerí una promo o cupón): ${wasted.join("; ")}.` : ""].filter(Boolean).join("\n");
   }
   /** Arma el reporte del día y lo manda por Telegram / aviso al celular si están prendidos. */
   async function runDailyReport(manual = false): Promise<{ text: string; at: number; day: string }> {
@@ -1953,7 +2070,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts, checkDailyReport, handleInbound,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts, checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;
