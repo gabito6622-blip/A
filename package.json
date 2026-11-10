@@ -28,7 +28,8 @@
     "gen:postman": "node scripts/gen-postman.mjs",
     "example": "node --experimental-strip-types examples/demo.ts",
     "start": "node dist/server/main.js",
-    "seed:demo": "node scripts/seed-demo.mjs"
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "vapid": "npm run build && node scripts/vapid.mjs"
   },
   "keywords": [
     "vendeplay",

@@ -1132,6 +1132,7 @@ const V = {
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${await pushCard()}
       ${isOwner() ? await telegramCard() : ""}
       ${isOwner() ? await binanceCard() : ""}
       ${canReview() ? await usdtCard() : ""}
@@ -1153,7 +1154,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "push.config": "cambió los avisos al celular", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1265,7 +1266,8 @@ async function ownerCards() {
 /* ---------------- Avisos del dueño por Telegram ---------------- */
 const TG_LABELS = {
   payment: "Pagos por revisar", reseller: "Solicitudes de revendedor", reloc: "Clientes en cuentas caídas (reubicar)",
-  supplier: "Cuentas que vencen con el proveedor", overdue: "Servicios vencidos sin renovar", due: "Servicios que vencen en 3 días",
+  supplier: "Cuentas que vencen con el proveedor", supplier1d: "Cuentas que vencen mañana con el proveedor", lowstock: "Stock bajo",
+  overdue: "Servicios vencidos sin renovar", due: "Servicios que vencen en 3 días",
 };
 async function telegramCard() {
   const t = await api("GET", "/api/admin/telegram").catch(() => null);
@@ -1292,6 +1294,70 @@ async function telegramCard() {
       ${t.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento falló: ${esc(t.lastError)}</p>` : ""}
       <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="tgTest">Enviar prueba</button></div>
     </form></section>`;
+}
+
+/* ---------------- Avisos al celular (Web Push) ---------------- */
+const PUSH_LABELS = { payment: "💳 Pagos por revisar", lowstock: "📦 Stock bajo", supplier1d: "⚠️ Cuentas que vencen mañana con el proveedor", reseller: "👤 Solicitudes de revendedor", reloc: "🔀 Clientes en cuentas caídas" };
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+async function pushCard() {
+  const p = await api("GET", "/api/admin/push").catch(() => null);
+  if (!p) return "";
+  const sel = new Set(p.alerts || []);
+  const cfg = canReview() ? `<form class="form" id="pushForm">
+      <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
+        <legend style="padding:0 6px;font-weight:600">¿De qué te avisamos?</legend>
+        ${Object.entries(PUSH_LABELS).map(([k, t]) => `<label class="chk"><input type="checkbox" name="pa_${k}" ${sel.has(k) ? "checked" : ""}> ${t}</label>`).join("")}
+      </fieldset>
+      <label>Stock bajo: avisar cuando queden menos de<input name="lowStockAt" type="number" min="0" max="50" step="1" inputmode="numeric" value="${p.lowStockAt}"></label>
+      <p class="muted" style="margin:0;align-self:end">perfiles libres de un producto (0 = no avisar).</p>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button></div>
+    </form>` : "";
+  if (!p.configured) return `<section class="card"><h2>${icon("bell")}Avisos al celular ${pill("Falta configurar el servidor", "mute")}</h2>
+    <p class="muted" style="margin:0">Notificaciones en el celular (como las de WhatsApp) cuando entra un pago, se acaba el stock o una cuenta vence mañana. Para prenderlas, quien maneja el servidor tiene que cargar las claves una sola vez:</p>
+    ${p.error ? `<p class="perr" style="margin:0">Las claves cargadas no sirven: ${esc(p.error)}</p>` : ""}
+    <details class="tg-help"><summary>¿Cómo se configura? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>En la carpeta del proyecto, corré <code>npm run vapid</code>. Te da tres líneas.</li>
+        <li>Cargalas como variables de entorno del servidor: <code>VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code> (es secreta) y <code>VAPID_SUBJECT</code> (tu correo, con <code>mailto:</code> adelante).</li>
+        <li>Reiniciá el servidor y volvé a esta pantalla para activar los avisos en tu celular.</li>
+      </ol></details>${cfg}</section>`;
+  return `<section class="card"><h2>${icon("bell")}Avisos al celular ${p.mine ? pill(`Activo en ${p.mine} equipo(s)`, "ok") : pill("Apagado en tus equipos", "warn")}</h2>
+    <p class="muted" style="margin:0">Te llega una notificación aunque tengas el panel cerrado. El aviso no lleva datos de tus clientes: el celular abre el panel con tu sesión para ver el detalle.</p>
+    <div id="pushHere" class="inline" style="flex-wrap:wrap"><span class="muted">Revisando este celular…</span></div>
+    ${p.lastError ? `<p class="perr" style="margin:0">Último envío falló: ${esc(p.lastError)}</p>` : ""}${cfg}</section>`;
+}
+/** Después de dibujar Configuración: muestra el estado de ESTE celular y el botón que corresponde. */
+async function pushStatus() {
+  const box = $("#pushHere"); if (!box) return;
+  if (!pushSupported()) {
+    box.innerHTML = isIOS() && !navigator.standalone
+      ? `<p class="muted" style="margin:0">En iPhone: primero tocá <b>Compartir → Agregar a inicio</b>, abrí el panel desde ese ícono y volvé acá.</p>`
+      : `<p class="muted" style="margin:0">Este navegador no permite avisos. Probá con Chrome en Android o con el panel instalado en el iPhone.</p>`;
+    return;
+  }
+  if (Notification.permission === "denied") { box.innerHTML = `<p class="perr" style="margin:0">Bloqueaste las notificaciones de este sitio. Activalas en los ajustes del navegador (ícono del candado → Notificaciones) y volvé a intentar.</p>`; return; }
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  const sub = reg && await reg.pushManager.getSubscription().catch(() => null);
+  box.innerHTML = sub
+    ? `<span class="pp pp-ok">✓ Activo en este celular</span><button class="pbtn" type="button" id="pushTest">Probar aviso</button><button class="pbtn" type="button" id="pushOff">Apagar en este celular</button>`
+    : `<button class="pbtn dark" type="button" id="pushOn">🔔 Activar avisos en este celular</button>`;
+}
+const b64uBytes = (s) => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function pushEnable() {
+  const p = await api("GET", "/api/admin/push");
+  if (!p.configured) return toast("Falta configurar el servidor");
+  if (await Notification.requestPermission() !== "granted") { toast("Sin permiso no te podemos avisar"); return pushStatus(); }
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(p.publicKey) });
+  const label = /Android/.test(navigator.userAgent) ? "Android" : isIOS() ? "iPhone" : "Computadora";
+  await api("POST", "/api/admin/push/subscribe", { subscription: sub.toJSON(), label });
+}
+async function pushDisable() {
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (sub) { await api("POST", "/api/admin/push/unsubscribe", { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
 }
 
 /* ---------------- Cobros con Binance Pay (USDT) ---------------- */
@@ -1536,6 +1602,7 @@ async function render() {
     fitChartText($("#pout"));
     if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
     if (P.view === "apariencia") previewLook();
+    if (P.view === "configuracion") pushStatus();
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -1855,6 +1922,9 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (el.id === "pushOn") { el.disabled = true; try { await pushEnable(); toast("🔔 Avisos activados en este celular"); } catch (e) { toast(e.message || "No se pudo activar"); } return render(); }
+  if (el.id === "pushOff") { el.disabled = true; await pushDisable(); toast("Avisos apagados en este celular"); return render(); }
+  if (el.id === "pushTest") return act(() => api("POST", "/api/admin/push/test", {}), (r) => r.sent ? "Aviso de prueba enviado ✓" : "No se pudo enviar: activá de nuevo los avisos");
   if (el.id === "tgTest") { const form = el.closest("form"); const chatId = form?.chatId.value.trim(); return act(() => api("POST", "/api/admin/telegram/test", chatId ? { chatId } : {}), "Prueba enviada: revisá tu Telegram ✓"); }
   if (el.id === "binTest") { el.disabled = true; el.textContent = "Probando…"; return act(() => api("POST", "/api/admin/binance/test", {}), "Conexión con Binance OK ✓"); }
   if (d.appok) {
@@ -2321,6 +2391,9 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "pushForm") {
+      const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
+      await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
     } else if (f.id === "tgForm") {
       const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
       if (f.token.value.trim()) body.token = f.token.value.trim();

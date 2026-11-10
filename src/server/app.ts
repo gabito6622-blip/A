@@ -18,6 +18,8 @@ import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
 import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
+import { sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
+import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
@@ -65,6 +67,8 @@ export interface AppConfig {
   metaBaseUrl?: string;
   /** Para pruebas: URL base de la API de Telegram (por defecto https://api.telegram.org). */
   telegramBaseUrl?: string;
+  /** Claves VAPID para avisos al celular (Web Push). Sin ellas, los avisos al celular quedan apagados. */
+  vapid?: VapidKeys | null;
   /** Para pruebas: URL base de Binance Pay (por defecto https://bpay.binanceapi.com). */
   binanceBaseUrl?: string;
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
@@ -137,6 +141,8 @@ export interface App {
   close(): Promise<void>;
   /** Lee los correos nuevos ya (si no, se leen solos cada minuto). */
   pollMail(only?: string): Promise<{ checked: number; found: number; errors: number }>;
+  /** Revisa si hay avisos nuevos y los manda al celular (lo corre el reloj cada minuto). */
+  checkPushAlerts(): Promise<void>;
   /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
   resetTwoFactor(username: string): boolean;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
@@ -1236,6 +1242,52 @@ export function createApp(cfg: AppConfig): App {
       throw new HttpError(502, "META", (e as Error).message);
     }
   });
+  // ── Avisos al celular (Web Push) ──
+  route("GET", "/api/admin/push", "staff", (c) => {
+    const me = A(c).id, subs = pushSubs(), pc = pushCfg();
+    return { configured: pushOn(), error: vapidError || null, publicKey: pushOn() ? cfg.vapid!.publicKey : null,
+      alerts: pc.alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
+      lastAt: pc.lastAt ?? null, lastError: pc.lastError ?? null };
+  });
+  route("POST", "/api/admin/push/subscribe", "staff", (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están configurados en el servidor");
+    const sub = validSubscription(c.body?.subscription);
+    if (!sub) throw new HttpError(400, "VALIDATION", "Suscripción inválida");
+    const me = A(c).id;
+    const others = pushSubs().filter((x) => x.endpoint !== sub.endpoint);
+    const mine = others.filter((x) => x.staffId === me).sort((a, b) => a.createdAt - b.createdAt);
+    const drop = new Set(mine.slice(0, Math.max(0, mine.length - 9)).map((x) => x.endpoint)); // hasta 10 celulares por usuario
+    pushSubsSave([...others.filter((x) => !drop.has(x.endpoint)), { ...sub, staffId: me, label: String(c.body?.label ?? "").slice(0, 60), createdAt: now() }]);
+    store.engine.tx(() => store.engine.audit(A(c), "push.subscribe", "staff", me));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/push/unsubscribe", "staff", (c) => {
+    const ep = String(c.body?.endpoint ?? ""), me = A(c).id;
+    pushSubsSave(pushSubs().filter((x) => !(x.endpoint === ep && x.staffId === me)));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/push/test", "staff", async (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están configurados en el servidor");
+    const mine = pushSubs().filter((x) => x.staffId === A(c).id);
+    if (!mine.length) throw new HttpError(409, "PUSH_NONE", "Primero activá los avisos en este celular");
+    return pushSend(mine, { title: "✅ Avisos activados", body: "Así te van a llegar los pagos por revisar, el stock bajo y las cuentas que vencen.", go: "notificaciones" });
+  });
+  route("POST", "/api/admin/push/config", "staff", (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin cambian los avisos");
+    const alerts = Array.isArray(c.body?.alerts) ? c.body.alerts.map(String).filter((k: string) => PUSH_ALERTS.includes(k)) : pushCfg().alerts;
+    const low = c.body?.lowStockAt;
+    if (low !== undefined && (!Number.isInteger(low) || low < 0 || low > 50)) throw new HttpError(400, "VALIDATION", "Stock bajo: un número entre 0 y 50");
+    pushCfgSave({ alerts });
+    store.engine.tx(() => {
+      if (low !== undefined) store.engine.s.settings.lowStockAt = low;
+      store.engine.audit(A(c), "push.config", "settings", "push", { alerts: alerts.join(","), ...(low !== undefined ? { lowStockAt: low } : {}) });
+    });
+    return { ok: true, alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
+  });
+  // El service worker pide acá el texto del último aviso (con la sesión del panel).
+  route("GET", "/api/admin/push/latest", "staff", () =>
+    pushLatest && now() - pushLatest.at < 6 * 3_600_000 ? pushLatest : { title: "Tenés avisos en el panel", body: "Tocá para verlos.", go: "notificaciones", at: now() });
+
   // ── Telegram: avisos del dueño ──
   route("GET", "/api/admin/telegram", "staff", (c) => {
     const t = tgCfg();
@@ -1584,7 +1636,7 @@ export function createApp(cfg: AppConfig): App {
 
   // ── Avisos del dueño por Telegram (opcional) ──────────────────────────────
   // El token del bot es secreto (db secrets). La config (chat y qué avisos) vive junto a los secretos.
-  const TG_ALERTS = ["payment", "reseller", "reloc", "supplier", "overdue", "due"] as const;
+  const TG_ALERTS = ["payment", "reseller", "reloc", "supplier", "supplier1d", "lowstock", "overdue", "due"] as const;
   type TgCfg = { enabled: boolean; chatId?: string; alerts: string[]; lastAt?: number; lastError?: string };
   const tgBase = () => (cfg.telegramBaseUrl ?? "https://api.telegram.org").replace(/\/$/, "");
   const tgToken = () => db.getSecret("tg_token");
@@ -1628,6 +1680,49 @@ export function createApp(cfg: AppConfig): App {
     catch (e) { tgSave({ lastError: (e as Error).message.slice(0, 200) }); log(`telegram falló: ${(e as Error).message}`); }
   }
   const escTg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ── Avisos al celular (Web Push) ──────────────────────────────────────────
+  // Las claves VAPID vienen por variables de entorno. Las suscripciones (una por celular) se guardan
+  // junto a los secretos. El toque va sin contenido: el celular le pide el texto al panel.
+  const PUSH_ALERTS = ["payment", "lowstock", "supplier1d", "reseller", "reloc"];
+  type PushSub = PushSubscriptionData & { staffId: string; label?: string; createdAt: number };
+  type PushCfg = { alerts: string[]; lastAt?: number; lastError?: string };
+  let vapidKey: KeyObject | null = null, vapidError = "";
+  if (cfg.vapid) { try { vapidKey = vapidKeyObject(cfg.vapid); } catch (e) { vapidError = (e as Error).message; log(`avisos al celular apagados: ${vapidError}`); } }
+  const pushOn = () => !!vapidKey && !!cfg.vapid;
+  const pushSubs = (): PushSub[] => { try { const l = JSON.parse(db.getSecret("push_subs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
+  const pushSubsSave = (l: PushSub[]) => db.setSecret("push_subs", JSON.stringify(l), now());
+  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
+  const pushCfgSave = (patch: Partial<PushCfg>) => db.setSecret("push_cfg", JSON.stringify({ ...pushCfg(), ...patch }), now());
+  /** Lo último que avisamos: el service worker del celular lo pide para mostrar el texto. */
+  let pushLatest: { title: string; body: string; go: string; at: number } | null = null;
+  async function pushSend(subs: PushSub[], msg: { title: string; body: string; go: string }) {
+    pushLatest = { ...msg, at: now() };
+    const f = cfg.fetchImpl ?? fetch;
+    let sent = 0, failed = 0; const gone = new Set<string>(); let lastError = "";
+    for (const sub of subs) {
+      try { if ((await sendPush(sub, cfg.vapid!, vapidKey!, f, now())) === "gone") gone.add(sub.endpoint); else sent++; }
+      catch (e) { failed++; lastError = (e as Error).message.slice(0, 200); }
+    }
+    if (gone.size) pushSubsSave(pushSubs().filter((x) => !gone.has(x.endpoint)));
+    pushCfgSave(failed ? { lastError } : { lastAt: now(), lastError: undefined });
+    return { sent, failed, removed: gone.size };
+  }
+  let pushLast: Record<string, number> | null = null;
+  async function checkPushAlerts(): Promise<void> {
+    const subs = pushSubs();
+    if (!pushOn() || !subs.length) { pushLast = null; return; }
+    const c = pushCfg();
+    const feed = store.stats.feed();
+    const counts: Record<string, number> = {};
+    for (const it of feed.items) counts[it.kind] = it.count;
+    if (pushLast === null) { pushLast = counts; return; } // al arrancar no avisamos lo viejo
+    const news = feed.items.filter((it) => c.alerts.includes(it.kind) && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
+    pushLast = counts;
+    if (!news.length) return;
+    await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
+      body: news.length === 1 ? "Tocá para abrir el panel." : news.map((it) => `${it.icon} ${it.text}`).join("\n"), go: news[0].go });
+  }
 
   // ── Pagos con Binance Pay (USDT) ──────────────────────────────────────────
   // Las llaves (API Key / Secret) son secretas. La config (tasa Bs→USDT, Pay ID) vive junto a los secretos.
@@ -1679,12 +1774,13 @@ export function createApp(cfg: AppConfig): App {
       flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
       pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
       checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
+      checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

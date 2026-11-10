@@ -11,6 +11,7 @@ Hay tres formas. Las tres usan el mismo código; elegí una.
 En todas:
 - **`GS_PUBLIC_ORIGIN`** = la dirección final con `https://` (p. ej. `https://gabostore.lat`). Sin esto no funcionan el bot de WhatsApp ni los links de acceso.
 - **`GS_OWNER_USER`** y **`GS_OWNER_PASSWORD`** (mín. 10 caracteres): crean el dueño **solo la primera vez**. Después podés borrarlas.
+- (Opcional) **Avisos al celular:** corré `npm run vapid` en tu PC y cargá las tres líneas que te da (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`). La privada es secreta. Después, en el panel → Configuración → *Avisos al celular*, tocá **Activar** en cada celular. En iPhone primero agregá el panel a la pantalla de inicio. Sin estas variables todo funciona igual, solo que sin esas notificaciones.
 - Los datos (base, comprobantes y respaldos) viven en **`/data`**. Si esa carpeta no está en un disco persistente, **se pierde todo** al reiniciar.
 
 ---

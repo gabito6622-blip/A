@@ -112,6 +112,8 @@ export interface StoreSettings extends Look {
   reminders?: ReminderSettings;
   /** Avisos por WhatsApp para el dueño. */
   staffAlerts?: StaffAlertSettings;
+  /** Aviso de stock bajo: cuando a un producto le quedan menos perfiles libres que esto (por defecto 2). */
+  lowStockAt?: number;
 }
 
 export interface StaffAlertSettings {

@@ -45,7 +45,7 @@ describe("avisos del dueño por Telegram", () => {
     assert.equal(r.status, 200);
     assert.equal(r.json.hasToken, false);
     assert.equal(r.json.enabled, false);
-    assert.deepEqual(r.json.alertTypes, ["payment", "reseller", "reloc", "supplier", "overdue", "due"]);
+    assert.deepEqual(r.json.alertTypes, ["payment", "reseller", "reloc", "supplier", "supplier1d", "lowstock", "overdue", "due"]);
   });
 
   test("solo el dueño configura", async () => {

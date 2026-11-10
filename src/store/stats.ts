@@ -37,6 +37,18 @@ export function notificationItems(e: Engine) {
   const supplierSoon = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + 7 * DAY).length;
   add("supplier", "📅", supplierSoon === 1 ? "1 cuenta vence con el proveedor (7 días)" : `${supplierSoon} cuentas vencen con el proveedor (7 días)`, supplierSoon, "cuentas", "warn");
 
+  const sup1 = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + DAY).length;
+  add("supplier1d", "⚠️", sup1 === 1 ? "1 cuenta vence MAÑANA con el proveedor" : `${sup1} cuentas vencen MAÑANA con el proveedor`, sup1, "cuentas", "bad");
+
+  // Stock bajo: productos publicados (no combos) que ya tuvieron cuentas y les quedan pocos perfiles libres.
+  const minFree = e.s.settings.lowStockAt ?? 2;
+  if (minFree > 0) {
+    const st = stockByProduct(e);
+    const low = Object.values(e.s.products).filter((p) => p.published && p.kind !== "combo" && st[p.id] && (st[p.id].available ?? 0) < minFree)
+      .map((p) => `${p.name} (${st[p.id].available ?? 0})`);
+    add("lowstock", "📦", low.length === 1 ? `Stock bajo: ${low[0]}` : `Stock bajo en ${low.length} productos: ${low.slice(0, 4).join(", ")}${low.length > 4 ? "…" : ""}`, low.length, "cuentas", "warn");
+  }
+
   const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
   const overdue = active.filter((a) => a.customerExpiresAt < now).length;
   add("overdue", "🔴", overdue === 1 ? "1 servicio vencido sin renovar" : `${overdue} servicios vencidos sin renovar`, overdue, "control", "bad");
