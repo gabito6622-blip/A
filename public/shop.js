@@ -180,6 +180,18 @@ const onDemand = (p) => !!p?.resellersOnly && isReseller();
 const maxQty = (p) => (onDemand(p) ? 10 : p.available);
 /** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
 const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
+/* Reseñas de clientes con estrellas (confianza en la portada). */
+function reviewsSection() {
+  const ts = (S.settings.testimonials ?? []).filter((t) => t && t.name && t.text);
+  if (!ts.length) return "";
+  const rated = ts.filter((t) => t.rating);
+  const avg = rated.length ? rated.reduce((a, t) => a + t.rating, 0) / rated.length : 0;
+  const head = avg
+    ? `<div class="sec-h"><div><span class="chip">★ ${avg.toFixed(1)} de 5</span><h2>Lo que dicen nuestros clientes</h2><p>${rated.length} opinion${rated.length === 1 ? "" : "es"} de gente que ya compró.</p></div></div>`
+    : `<div class="sec-h"><div><span class="chip">Opiniones</span><h2>Lo que dicen nuestros clientes</h2></div></div>`;
+  return `<section style="display:grid;gap:18px">${head}
+    <div class="ptesti">${ts.map((t) => `<figure><blockquote>“${esc(t.text)}”</blockquote>${t.rating ? `<span class="pstars" aria-label="${t.rating} de 5 estrellas">${"★".repeat(t.rating)}${"☆".repeat(5 - t.rating)}</span>` : ""}<figcaption><i>${esc(t.name[0] || "?")}</i><span><b>${esc(t.name)}</b>${t.business ? `<small>${esc(t.business)}</small>` : ""}</span></figcaption></figure>`).join("")}</div></section>`;
+}
 /* Franja de logos de apps que se desliza sola (confianza + vida). */
 function brandStrip() {
   const items = (S.catalog ?? []).filter((p) => p.name);
@@ -275,6 +287,7 @@ function render() {
       ${trustBand()}
       ${pub.length ? `<section style="display:grid;gap:18px"><div class="sec-h"><div><span class="chip">Catálogo digital</span><h2>Servicios populares</h2></div><button class="sbtn" type="button" data-s="catalogo">Ver todos ${icon("arrow")}</button></div>
       <div class="pgrid">${pub.slice(0, 4).map((p, i) => card(p, i === 0 ? "🔥 Popular" : i === 1 ? "⭐ Top" : "")).join("")}</div></section>` : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${SLUG ? "" : reviewsSection()}
       ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
       ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
       <section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">

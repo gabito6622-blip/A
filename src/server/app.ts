@@ -211,6 +211,7 @@ export function createApp(cfg: AppConfig): App {
       accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
+      testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
     };
   });
   route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
