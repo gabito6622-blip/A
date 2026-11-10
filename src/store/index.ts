@@ -15,6 +15,8 @@ import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as fiado from "./fiado.js";
+import * as rtools from "./resellerTools.js";
+import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
@@ -137,7 +139,7 @@ export function createStore(opts: EngineOptions = {}) {
       setTestimonials: bind(e, rshop.setTestimonials),
       setFaq: bind(e, rshop.setFaq),
       public: (slug: string, viewer?: Actor) => rshop.publicShop(e, slug, viewer),
-      image: (slug: string, kind: "logo" | "banner", viewer?: Actor) => rshop.shopImage(e, slug, kind, viewer),
+      image: (slug: string, kind: "logo" | "banner" | "qr", viewer?: Actor) => rshop.shopImage(e, slug, kind, viewer),
     },
     portal: {
       services: bind(e, portal.myServices),
@@ -240,6 +242,18 @@ export function createStore(opts: EngineOptions = {}) {
       remove: bind(e, fiado.removeEntry),
       fromControl: bind(e, fiado.chargeUnpaidRentals),
       owedBy: (customerId: string) => fiado.owedBy(e, customerId),
+    },
+    tickets: {
+      report: bind(e, tickets.report),
+      mine: bind(e, tickets.mine),
+      list: bind(e, tickets.list),
+      setStatus: bind(e, tickets.setStatus),
+      kinds: tickets.TICKET_KINDS,
+    },
+    rtools: {
+      control: bind(e, rtools.myControl),
+      setControl: bind(e, rtools.setMyControl),
+      earnings: bind(e, rtools.myEarnings),
     },
   };
 }

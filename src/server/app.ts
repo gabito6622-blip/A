@@ -19,7 +19,7 @@ import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
 import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
-import { sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
+import { generateVapidKeys, sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
 import { AGENT_KINDS, AI_MODELS, Agents, AiError, defaultAiCfg, type AgentKind, type AiCfg, type ReceiptCheck } from "./agents.js";
 import { runBank, type BankResult } from "./agent-bank.js";
 import { localHour } from "../store/orders.js";
@@ -517,6 +517,27 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/codes", "customer", (c) => store.portal.codes(c.actor!, String(c.query.get("customerId") ?? c.actor!.customerId)));
   route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp), { ok: true }));
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
+  // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
+  route("GET", "/api/me/control", "customer", (c) => store.rtools.control(c.actor!));
+  route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
+  route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
+  route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
+  route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
+  route("POST", "/api/admin/tickets/:id", "staff", (c) => {
+    const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
+    if (r.notify) {
+      const t = r.ticket, st = { recibido: "📥 Recibimos tu reporte", revisando: "🔧 Estamos revisando", solucionado: "✅ Falla solucionada" }[t.status];
+      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url: "/#fallas" }).catch(() => {});
+    }
+    return r.ticket;
+  });
+  route("GET", "/api/me/earnings", "customer", (c) => store.rtools.earnings(c.actor!));
+  route("GET", "/api/me/fiado", "customer", (c) => store.fiado.overview(c.actor!));
+  route("GET", "/api/me/fiado/:id", "customer", (c) => store.fiado.history(c.actor!, c.params.id));
+  route("POST", "/api/me/fiado/charge", "customer", (c) => store.fiado.charge(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
+  route("POST", "/api/me/fiado/payment", "customer", (c) => store.fiado.pay(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
+  route("POST", "/api/me/fiado/:id/from-control", "customer", (c) => store.fiado.fromControl(c.actor!, c.params.id));
+  route("POST", "/api/me/fiado/entry/:id/delete", "customer", (c) => store.fiado.remove(c.actor!, c.params.id));
   route("POST", "/api/me/customers", "customer", (c) => store.catalog.createCustomer(c.actor!, { name: c.body?.name, phone: c.body?.phone, email: c.body?.email, whatsappConsent: !!c.body?.whatsappConsent }));
   route("PUT", "/api/me/customers/:id", "customer", (c) => store.portal.updateClient(c.actor!, c.params.id, {
     name: c.body?.name, phone: c.body?.phone, whatsappConsent: c.body?.whatsappConsent, note: c.body?.note,
@@ -536,7 +557,7 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/reseller-coupons", "staff", () => ({ allowed: !!store.engine.s.settings.resellerCoupons }));
   route("POST", "/api/admin/reseller-coupons", "staff", (c) => store.shops.setCouponsAllowed(A(c), !!c.body?.allowed));
-  const shopImage = (kind: "logo" | "banner") => (c: Ctx) => {
+  const shopImage = (kind: "logo" | "banner" | "qr") => (c: Ctx) => {
     if (c.body?.remove === true) {
       const old = store.shops.setImage(c.actor!, kind, null);
       if (old) dropUpload(old);
@@ -552,9 +573,11 @@ export function createApp(cfg: AppConfig): App {
   };
   route("POST", "/api/me/shop/logo", "customer", shopImage("logo"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
+  route("POST", "/api/me/shop/qr", "customer", shopImage("qr"), MAX_UPLOAD_JSON);
   route("GET", "/api/resellers/program", "public", () => store.shops.program());
   route("GET", "/api/shops/:slug", "public", (c) => store.shops.public(c.params.slug, c.actor ?? undefined));
   route("GET", "/api/shops/:slug/logo", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "logo", c.actor ?? undefined), "Sin logo"));
+  route("GET", "/api/shops/:slug/qr", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "qr", c.actor ?? undefined), "Sin QR"));
   route("GET", "/api/shops/:slug/banner", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "banner", c.actor ?? undefined), "Sin portada"));
   route("GET", "/api/admin/shops", "staff", (c) => store.shops.list(A(c)));
   route("POST", "/api/admin/customers/:id/shop-feature", "staff", (c) => store.shops.setFeatured(A(c), c.params.id, !!c.body?.featured));
@@ -1497,7 +1520,36 @@ export function createApp(cfg: AppConfig): App {
   });
   // El service worker pide acá el texto del último aviso (con la sesión del panel).
   route("GET", "/api/admin/push/latest", "staff", () =>
-    pushLatest && now() - pushLatest.at < 6 * 3_600_000 ? pushLatest : { title: "Tenés avisos en el panel", body: "Tocá para verlos.", go: "notificaciones", at: now() });
+    pushLatest && now() - pushLatest.at < 6 * 3_600_000 ? pushLatest : { title: "Tenés avisos en el panel", body: "Tocá para verlos.", go: "notificaciones", at: 0 });
+
+  // ── Avisos al celular de clientes y revendedores ──
+  route("GET", "/api/me/push", "customer", (c) => ({ configured: pushOn(), publicKey: pushOn() ? cfg.vapid!.publicKey : null, mine: cpushSubs().filter((x) => x.customerId === c.actor!.customerId).length }));
+  route("POST", "/api/me/push/subscribe", "customer", (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están prendidos en la tienda");
+    const sub = validSubscription(c.body?.subscription);
+    if (!sub) throw new HttpError(400, "VALIDATION", "Suscripción inválida");
+    const me = c.actor!.customerId!;
+    const others = cpushSubs().filter((x) => x.endpoint !== sub.endpoint);
+    const mine = others.filter((x) => x.customerId === me).sort((a, b) => a.createdAt - b.createdAt);
+    const drop = new Set(mine.slice(0, Math.max(0, mine.length - 4)).map((x) => x.endpoint)); // hasta 5 celulares
+    cpushSubsSave([...others.filter((x) => !drop.has(x.endpoint)), { ...sub, customerId: me, createdAt: now() }]);
+    return { ok: true };
+  });
+  route("POST", "/api/me/push/unsubscribe", "customer", (c) => {
+    const ep = String(c.body?.endpoint ?? ""), me = c.actor!.customerId;
+    cpushSubsSave(cpushSubs().filter((x) => !(x.endpoint === ep && x.customerId === me)));
+    return { ok: true };
+  });
+  route("POST", "/api/me/push/test", "customer", async (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están prendidos en la tienda");
+    const r = await customerPush(c.actor!.customerId!, { title: "✅ Avisos activados", body: "Te vamos a avisar cuando tus clientes vencen, si te falta saldo y cuando se soluciona una falla.", url: "/#inicio" });
+    if (!r.sent) throw new HttpError(409, "PUSH_NONE", "Primero activá los avisos en este celular");
+    return r;
+  });
+  route("GET", "/api/me/push/latest", "customer", (c) => {
+    const m = cpushLatest.get(c.actor!.customerId!);
+    return m && now() - m.at < 6 * 3_600_000 ? m : { title: "Tenés avisos", body: "Tocá para verlos.", url: "/#inicio", at: 0 };
+  });
 
   // ── Telegram: avisos del dueño ──
   route("GET", "/api/admin/telegram", "staff", (c) => {
@@ -1959,6 +2011,15 @@ export function createApp(cfg: AppConfig): App {
   type PushSub = PushSubscriptionData & { staffId: string; label?: string; createdAt: number };
   type PushCfg = { alerts: string[]; lastAt?: number; lastError?: string };
   let vapidKey: KeyObject | null = null, vapidError = "";
+  // Sin claves cargadas a mano: en la tienda publicada (https) las generamos una vez y quedan guardadas
+  // junto a los secretos, así los avisos al celular funcionan sin configurar nada.
+  if (!cfg.vapid && cfg.publicOrigin?.startsWith("https://")) {
+    try {
+      let k = JSON.parse(db.getSecret("vapid_auto") ?? "null") as { publicKey: string; privateKey: string } | null;
+      if (!k?.publicKey || !k?.privateKey) { k = generateVapidKeys(); db.setSecret("vapid_auto", JSON.stringify(k), now()); log("avisos al celular: claves generadas"); }
+      cfg.vapid = { ...k, subject: cfg.publicOrigin };
+    } catch (e) { vapidError = (e as Error).message; }
+  }
   if (cfg.vapid) { try { vapidKey = vapidKeyObject(cfg.vapid); } catch (e) { vapidError = (e as Error).message; log(`avisos al celular apagados: ${vapidError}`); } }
   const pushOn = () => !!vapidKey && !!cfg.vapid;
   const pushSubs = (): PushSub[] => { try { const l = JSON.parse(db.getSecret("push_subs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
@@ -1979,6 +2040,48 @@ export function createApp(cfg: AppConfig): App {
     pushCfgSave(failed ? { lastError } : { lastAt: now(), lastError: undefined });
     return { sent, failed, removed: gone.size };
   }
+  // Suscripciones de clientes y revendedores (aparte de las del equipo: nunca reciben avisos del panel).
+  type CPushSub = PushSubscriptionData & { customerId: string; createdAt: number };
+  const cpushSubs = (): CPushSub[] => { try { const l = JSON.parse(db.getSecret("push_csubs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
+  const cpushSubsSave = (l: CPushSub[]) => db.setSecret("push_csubs", JSON.stringify(l), now());
+  const cpushLatest = new Map<string, { title: string; body: string; url: string; at: number }>();
+  async function customerPush(customerId: string, msg: { title: string; body: string; url: string }) {
+    const subs = cpushSubs().filter((x) => x.customerId === customerId);
+    if (!pushOn() || !subs.length) return { sent: 0, failed: 0 };
+    cpushLatest.set(customerId, { ...msg, at: now() });
+    const f = cfg.fetchImpl ?? fetch;
+    let sent = 0, failed = 0; const gone = new Set<string>();
+    for (const sub of subs) {
+      try { if ((await sendPush(sub, cfg.vapid!, vapidKey!, f, now())) === "gone") gone.add(sub.endpoint); else sent++; }
+      catch { failed++; }
+    }
+    if (gone.size) cpushSubsSave(cpushSubs().filter((x) => !gone.has(x.endpoint)));
+    return { sent, failed };
+  }
+  /** Una vez por día (desde las 9, hora de Bolivia): a cada revendedor, sus clientes que vencen mañana y si le alcanza el saldo. */
+  async function checkResellerPush(): Promise<void> {
+    if (!pushOn() || localHour(now(), "America/La_Paz") < 9) return;
+    const day = laDay(now());
+    if (db.getSecret("rpush_day") === day) return;
+    db.setSecret("rpush_day", day, now());
+    const subs = cpushSubs();
+    const s = store.engine.s, DAYMS = 86_400_000, t = now();
+    for (const cid of new Set(subs.map((x) => x.customerId))) {
+      const me = s.customers[cid];
+      if (!me || me.kind !== "reseller") continue;
+      const soon = Object.values(s.assignments).filter((a) => a.status === "active" && !a.holdOpen && s.customers[a.customerId]?.resellerId === cid
+        && a.customerExpiresAt > t && a.customerExpiresAt - t <= 2 * DAYMS);
+      if (!soon.length) continue;
+      const need = soon.reduce((n, a) => n + (a.control?.price ?? store.catalog.priceFor(cid, a.productId)), 0);
+      const bal = store.wallet.balance(cid);
+      const names = soon.slice(0, 3).map((a) => s.customers[a.customerId]?.name.split(" ")[0]).join(", ");
+      await customerPush(cid, {
+        title: soon.length === 1 ? "📅 1 cliente tuyo vence mañana" : `📅 ${soon.length} clientes tuyos vencen mañana`,
+        body: `${names}${soon.length > 3 ? "…" : ""}${need > bal ? ` · ⚠️ Te falta saldo para renovarlos (tenés ${(bal / 100).toFixed(0)}, necesitás ${(need / 100).toFixed(0)})` : " · Avisales desde Mi control"}`.slice(0, 180),
+        url: "/#clientes",
+      }).catch(() => {});
+    }
+  }
   let pushLast: Record<string, number> | null = null;
   async function checkPushAlerts(): Promise<void> {
     const subs = pushSubs();
@@ -1988,7 +2091,7 @@ export function createApp(cfg: AppConfig): App {
     const counts: Record<string, number> = {};
     for (const it of feed.items) counts[it.kind] = it.count;
     if (pushLast === null) { pushLast = counts; return; } // al arrancar no avisamos lo viejo
-    const news = feed.items.filter((it) => c.alerts.includes(it.kind) && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
+    const news = feed.items.filter((it) => (c.alerts.includes(it.kind) || it.kind === "falla") && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
     pushLast = counts;
     if (!news.length) return;
     await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
@@ -2199,6 +2302,7 @@ export function createApp(cfg: AppConfig): App {
       checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
+      checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }

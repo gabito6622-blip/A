@@ -312,6 +312,10 @@ export interface ResellerShop extends Look {
   logoFileRef?: string;
   /** Imagen de portada. */
   bannerFileRef?: string;
+  /** QR de cobro del revendedor (su cliente le paga directo a él). */
+  qrFileRef?: string;
+  /** Datos para pagarle (banco, a nombre de…), se muestran junto al QR. */
+  payNote?: string;
   /** Productos que muestra (vacío = todos los que tienen precio). */
   products?: Id[];
   /** Bloqueada por la tienda (contenido inapropiado, deuda, etc.). */
@@ -440,11 +444,32 @@ export interface Assignment {
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */
   control?: RentalControl;
+  /** Control del revendedor sobre el servicio de SU cliente (su precio, si le pagó, su nota). */
+  rcontrol?: RentalControl;
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
 }
 
 /** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */
+/** Falla reportada por un cliente o revendedor sobre un servicio ("no entra", "pide código"…). */
+export type TicketKind = "no_entra" | "codigo" | "pantallas" | "perfil" | "otro";
+export type TicketStatus = "recibido" | "revisando" | "solucionado";
+export interface Ticket {
+  id: Id;
+  assignmentId: Id;
+  /** Cliente dueño del servicio. */
+  customerId: Id;
+  /** Quién lo reportó (el cliente o su revendedor). */
+  reporterId: Id;
+  kind: TicketKind;
+  note: string;
+  status: TicketStatus;
+  /** Respuesta de la tienda (se le muestra a quien reportó). */
+  reply?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface FiadoEntry {
   id: Id;
   customerId: Id;
@@ -457,6 +482,8 @@ export interface FiadoEntry {
   dueAt?: number;
   /** Si el cargo vino de un alquiler del Control. */
   assignmentId?: Id;
+  /** De quién es la libreta: vacío = del dueño; id = de ese revendedor (lo que le deben sus clientes). */
+  creditorId?: Id;
 }
 
 export interface RentalControl {
@@ -624,6 +651,8 @@ export interface State {
   expenses: Expense[];
   /** Fiado: lo que te deben (cargos y pagos por cliente). */
   fiado?: FiadoEntry[];
+  /** Fallas reportadas (soporte). */
+  tickets?: Record<Id, Ticket>;
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */
