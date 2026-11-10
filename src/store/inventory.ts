@@ -20,13 +20,33 @@ export interface NewAccount {
   /** Solo para importar: acepta cuentas ya vencidas con el proveedor (para supervisarlas y renovarlas). */
   allowPastSupplierExpiry?: boolean;
   notes?: string;
+  /** Datos de la línea IPTV (cuando el producto es de tipo "iptv"). */
+  iptv?: import("./types.js").IptvLine;
 }
 
 export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: Account; slots: Slot[] } {
   authorize(actor, "inventory.manage");
-  if (!/^[^@\s]+@[^@\s]+$/.test(a.email)) throw new DomainError("VALIDATION", "Email de cuenta inválido");
-  if (!a.password && !a.passwordPending) throw new DomainError("VALIDATION", "Falta la contraseña de la cuenta");
-  if (!a.profiles.length || a.profiles.length > 20) throw new DomainError("VALIDATION", "Entre 1 y 20 perfiles por cuenta");
+  const prod = e.s.products[a.productId];
+  const isIptv = prod?.kind === "iptv";
+  let iptv: import("./types.js").IptvLine | undefined;
+  if (isIptv) {
+    // Una línea IPTV: no hay email de verdad; `email` es el usuario o un nombre para identificarla.
+    if (!a.email?.trim()) throw new DomainError("VALIDATION", "Poné el usuario o un nombre para la línea");
+    if (a.email.length > 120) throw new DomainError("VALIDATION", "El usuario/nombre es muy largo");
+    const raw = (a.iptv ?? {}) as Partial<import("./types.js").IptvLine>;
+    const mode = raw.mode ?? "xtream";
+    if (!["xtream", "m3u", "mac", "code"].includes(mode)) throw new DomainError("VALIDATION", "Tipo de línea IPTV inválido");
+    const server = raw.server ? String(raw.server).trim().slice(0, 200) : undefined;
+    const mac = raw.mac ? String(raw.mac).trim().slice(0, 40) : undefined;
+    const app = raw.app ? String(raw.app).trim().slice(0, 60) : undefined;
+    const connections = raw.connections != null && raw.connections !== 0 ? Math.max(1, Math.min(20, Math.trunc(Number(raw.connections)))) : undefined;
+    if (mode === "mac" && !mac) throw new DomainError("VALIDATION", "Para una línea por MAC cargá la MAC del aparato");
+    iptv = { mode, ...(server ? { server } : {}), ...(mac ? { mac } : {}), ...(app ? { app } : {}), ...(connections ? { connections } : {}) };
+  } else if (!/^[^@\s]+@[^@\s]+$/.test(a.email)) throw new DomainError("VALIDATION", "Email de cuenta inválido");
+  if (!a.password && !a.passwordPending) throw new DomainError("VALIDATION", isIptv ? "Falta la clave / enlace de la línea" : "Falta la contraseña de la cuenta");
+  // Una línea IPTV es una unidad: siempre un solo slot, aunque venga otra cosa.
+  const profiles = isIptv ? [{ label: a.profiles[0]?.label?.trim() || "Línea IPTV" }] : a.profiles;
+  if (!profiles.length || profiles.length > 20) throw new DomainError("VALIDATION", "Entre 1 y 20 perfiles por cuenta");
   if (!Number.isInteger(a.cost) || a.cost < 0) throw new DomainError("VALIDATION", "Costo inválido");
   return e.tx(() => {
     e.get("products", a.productId);
@@ -40,12 +60,13 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
     if (supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
     const id = e.id("acc");
     const account: Account = {
-      id, productId: a.productId, supplierId, email: a.email.toLowerCase(), password: a.password ?? "",
+      id, productId: a.productId, supplierId, email: isIptv ? a.email.trim() : a.email.toLowerCase(), password: a.password ?? "",
       supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
+      ...(iptv ? { iptv } : {}),
       ...(a.notes?.trim() ? { notes: a.notes.trim().slice(0, 500) } : {}),
     };
     e.s.accounts[id] = account;
-    const slots = a.profiles.map((p) => {
+    const slots = profiles.map((p) => {
       const s: Slot = { id: e.id("slt"), accountId: id, productId: a.productId, label: p.label, pin: p.pin, status: "available" };
       e.s.slots[s.id] = s;
       return s;

@@ -578,6 +578,28 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.orders.create(admin, { customerId: maria.id, items: [{ productId: "duo", qty: 1 }], paymentMethod: "cash" }), err("OUT_OF_STOCK"));
   });
 
+  test("reubicar: clientes de cuentas caídas se mueven a una cuenta sana conservando la fecha", () => {
+    const { s, maria } = setup();
+    const o = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const aid = o.assignmentIds[0];
+    const asg = s.engine.s.assignments[aid];
+    const oldSlotId = asg.slotId, fecha = asg.customerExpiresAt;
+    assert.equal(s.orders.relocationQueue(admin).length, 0, "sin cuentas caídas, cola vacía");
+    // La cuenta de María se cae (venció con el proveedor): aparece en la cola con una cuenta sana sugerida.
+    const accId = s.engine.s.slots[oldSlotId].accountId;
+    s.inventory.updateAccount(admin, accId, { supplierExpiresAt: T0 - DAY });
+    const q = s.orders.relocationQueue(admin);
+    assert.equal(q.length, 1);
+    assert.equal(q[0].assignmentId, aid);
+    assert.equal(q[0].reason, "venció con el proveedor");
+    assert.ok(q[0].suggest, "sugiere una cuenta sana con cupo");
+    // La movemos: queda en otro perfil, conserva su fecha y sale de la cola.
+    const moved = s.orders.replace(admin, aid, { reason: "reubicación", oldSlot: "retired", otherAccount: true });
+    assert.notEqual(moved.slotId, oldSlotId, "quedó en otro perfil/cuenta");
+    assert.equal(s.engine.s.assignments[aid].customerExpiresAt, fecha, "conserva la fecha de vencimiento");
+    assert.equal(s.orders.relocationQueue(admin).length, 0, "ya no está en la cola");
+  });
+
   test("dashboard: período, comparación, series y vencimientos", () => {
     const { s, maria, luis, as } = setup();
     const t = s.orders.requestTopup(as(maria), maria.id, 10000, { fileRef: "r", declaredReference: "d" });

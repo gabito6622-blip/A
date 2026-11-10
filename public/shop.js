@@ -2,7 +2,7 @@
 //  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
-import { api, $, $$, esc, bs, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -56,6 +56,7 @@ const hubPanel = () => MODE === "hub" && isReseller();
 async function loadBase() {
   if (SLUG) return loadResellerShop();
   [S.settings, S.me, S.catalog] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/me"), api("GET", "/api/catalog")]);
+  setCurrency(S.settings.currencySymbol);
   S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
@@ -76,6 +77,7 @@ async function loadResellerShop() {
   S.me = { loggedIn: false };
   S.catalog = sh.products;
   S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo?v=${Date.now() % 1e6}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner?v=${Date.now() % 1e6}` : null };
+  setCurrency(sh.currencySymbol);
   if (!sh.published) S.settings.announcement = "👀 Vista previa: tu página está apagada. Solo vos la ves. Publicala desde Mis clientes → Mi página.";
   S.cart = S.cart.filter((l) => product(l.productId));
   applyLook(S.settings);
@@ -84,9 +86,11 @@ async function loadResellerShop() {
   footer();
 }
 
+/** "bolivianos" si la tienda usa Bs; si no, el símbolo configurado (ej.: "US$"). */
+const preciosEn = () => { const c = (S.settings?.currencySymbol || "Bs").trim(); return c === "Bs" ? "bolivianos" : c; };
 function footer() {
   const st = S.settings;
-  $("#footName").textContent = `© ${st.storeName} · ${st.footerText || "Precios en bolivianos"}`;
+  $("#footName").textContent = `© ${st.storeName} · ${st.footerText || `Precios en ${preciosEn()}`}`;
   const links = [
     st.whatsapp && [waLink(st.whatsapp, "Hola, tengo una consulta"), "WhatsApp"],
     st.instagram && [`https://instagram.com/${encodeURIComponent(st.instagram)}`, "Instagram"],
@@ -95,7 +99,9 @@ function footer() {
   ].filter(Boolean);
   $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ")
     + (MODE === "store" ? ` · <a href="/">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "")
-    + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`);
+    + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`)
+    + ` · <a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`;
+  softwareNotice();
 }
 
 /** Mezcla dos colores #RRGGBB (t = proporción del segundo). */
@@ -129,7 +135,7 @@ export function applyLook(st) {
     r.setProperty("--s-line", mix(bg, "#000000", 0.13));
     r.setProperty("--s-ink", "#111827");
     r.setProperty("--s-muted", "#4b5567");
-    r.setProperty("--s-ok", "#0b8a63"); r.setProperty("--s-warn", "#a15c00"); r.setProperty("--s-bad", "#c81e4a");
+    r.setProperty("--s-ok", "#097a54"); r.setProperty("--s-warn", "#8f5200"); r.setProperty("--s-bad", "#b3163f");
     r.setProperty("--s-sky", /^#[0-9a-f]{6}$/i.test(st.accent2Color || "") ? st.accent2Color : mix(ac, "#000000", 0.18));
     r.setProperty("--s-chip", mix(ac, "#000000", 0.35));
   } else {
@@ -142,8 +148,14 @@ export function applyLook(st) {
     r.setProperty("--s-chip", mix(ac, "#ffffff", 0.6));
   }
   r.setProperty("--s-blue", ac);
-  // Color del texto SOBRE el color principal (botones): oscuro si el principal es claro (ej.: dorado), blanco si es oscuro.
-  r.setProperty("--s-on-blue", lum(ac) > 0.6 ? "#111827" : "#ffffff");
+  // Contraste garantizado (WCAG 4,5:1) para cualquier color que elijan:
+  // texto del botón (blanco o casi negro según se lea mejor sobre las dos puntas del degradado),
+  // degradado del botón ajustado si hiciera falta, y el color principal usado como texto (precios, links).
+  const lc = lookColors({ accentColor: ac, accent2Color: st.accent2Color, backgroundColor: bg });
+  r.setProperty("--s-on-blue", lc.on);
+  r.setProperty("--s-btn-a", lc.btnA);
+  r.setProperty("--s-btn-b", lc.btnB);
+  r.setProperty("--s-blue-text", lc.text);
   document.documentElement.style.colorScheme = light ? "light" : "dark";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
   const body = st.fontFamily || "inter", head = st.headingFont || body;
@@ -281,18 +293,40 @@ function asesorView() {
 function card(p, badge) {
   const s = p.available;
   const rib = badge ? `<span class="prib">${esc(badge)}</span>` : (s && s <= 2 ? `<span class="prib hot">🔥 Últimas</span>` : "");
-  if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${rib}${mark(p)}</div>
+  if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:var(--s-warn)">A pedido · pagás con QR y te la entregamos al confirmar</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small></div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
-  return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${rib}${mark(p)}</div>
+  return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${s ? (s <= 2 ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? "var(--s-muted)" : "var(--s-bad)"}">${s ? (s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? "Disponible a pedido" : "Agotado"}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
-const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" })[k] ?? k;
+const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" })[k] ?? k;
+/** Filas de credenciales IPTV (como <div><dt>..</dt><dd>..</dd></div>). */
+function iptvCredRows(ac) {
+  const v = ac.iptv, rows = [];
+  const row = (k, val) => val ? `<div><dt>${k}</dt><dd>${esc(String(val))}</dd></div>` : "";
+  if (v.mode === "m3u") rows.push(row("Enlace M3U", ac.password));
+  else if (v.mode === "code") rows.push(row("Código", ac.password));
+  else { rows.push(row("Servidor", v.server), row("Usuario", ac.email), row("Contraseña", ac.password)); }
+  rows.push(row("MAC", v.mac), row("Dispositivos", v.connections), row("App", v.app));
+  return rows.join("");
+}
+/** Texto IPTV para copiar / WhatsApp. */
+function iptvAccessText(a) {
+  const v = a.access.iptv, L = [`*${a.product}*`];
+  if (v.mode === "m3u") L.push(`Enlace M3U: ${a.access.password}`);
+  else if (v.mode === "code") L.push(`Código: ${a.access.password}`);
+  else { if (v.server) L.push(`Servidor: ${v.server}`); L.push(`Usuario: ${a.access.email}`, `Contraseña: ${a.access.password}`); }
+  if (v.mac) L.push(`MAC: ${v.mac}`);
+  if (v.connections) L.push(`Dispositivos: ${v.connections}`);
+  if (v.app) L.push(`App: ${v.app}`);
+  L.push(`Vence: ${fdate(a.expiresAt)}`);
+  return L.join("\n");
+}
 
 const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores</h2><p class="empty">Tus compras y cuentas están en la tienda.</p><a class="sbtn pri" href="/tienda/#cuentas" style="justify-self:start">Ir a la tienda ${icon("arrow")}</a></div>`;
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
@@ -300,7 +334,9 @@ const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p c
 function pendingOrders() {
   const list = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review");
   return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]} ${esc(o.id)} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>
-    ${o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. Te avisamos por WhatsApp cuando esté listo.</span>`
+    ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
+      : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. Te avisamos por WhatsApp cuando esté listo.</span>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
         <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
@@ -310,6 +346,30 @@ function pendingOrders() {
 function qrBlock() {
   const st = S.settings;
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
+}
+/** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
+function localBlock(m, toPay) {
+  return `<div class="qr" style="align-items:flex-start">${m.hasQr ? `<img src="/api/paymethods/${esc(m.id)}/qr" alt="QR de ${esc(m.name)}">` : ""}<div style="display:grid;gap:8px;min-width:0">
+    <b style="color:var(--s-ink);font-size:16px">Pagá ${bs(toPay)} por ${esc(m.name)}</b>
+    <span class="empty">${m.country ? `${esc(m.country)} · ` : ""}A: <b style="color:var(--s-ink);overflow-wrap:anywhere">${esc(m.account)}</b> <button class="sbtn sm" type="button" data-copy="${esc(m.account)}">Copiar</button></span>
+    ${m.holder ? `<span class="empty">A nombre de <b style="color:var(--s-ink)">${esc(m.holder)}</b></span>` : ""}
+    ${m.instructions ? `<span class="empty">${esc(m.instructions)}</span>` : ""}
+    <span class="empty">Después subí abajo la captura del pago y el número de operación. Te confirmamos y activamos.</span>
+  </div></div>`;
+}
+/** Instrucciones de pago en USDT manual: cuánto mandar, a qué dirección / Pay ID. */
+function usdtBlock(toPay) {
+  const u = S.settings.usdt;
+  if (!u) return "";
+  const amt = Math.ceil((toPay / 100) / u.rate * 100) / 100;
+  return `<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
+    <b style="color:var(--s-ink);font-size:16px">Enviá ${amt} USDT</b>
+    ${u.network ? `<span class="empty">Red: <b style="color:var(--s-ink)">${esc(u.network)}</b></span>` : ""}
+    ${u.address ? `<div class="empty">Dirección:<br><code style="word-break:break-all;color:var(--s-ink)">${esc(u.address)}</code><br><button class="sbtn sm" type="button" data-copy="${esc(u.address)}">Copiar dirección</button></div>` : ""}
+    ${u.payId ? `<span class="empty">Binance Pay ID: <b style="color:var(--s-ink)">${esc(u.payId)}</b> <button class="sbtn sm" type="button" data-copy="${esc(u.payId)}">Copiar</button></span>` : ""}
+    ${u.note ? `<span class="empty">${esc(u.note)}</span>` : ""}
+    <span class="empty">Mandá exactamente <b style="color:var(--s-ink)">${amt} USDT</b> y pegá abajo el <b>hash</b> (o número de la transacción) y una captura. Te confirmamos y activamos.</span>
+  </div></div>`;
 }
 
 const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], asesor: ["grid", "Asesor"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
@@ -335,6 +395,11 @@ function buildNav() {
 }
 
 function render() {
+  const r = renderInner();
+  enhanceFiles(document);
+  return r;
+}
+function renderInner() {
   buildNav();
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
@@ -375,7 +440,7 @@ function render() {
     catalogo: () => {
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
       const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
-      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en bolivianos${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>
+      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
@@ -404,7 +469,8 @@ function render() {
         const d = a.daysLeft;
         return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
-        <dl class="cred" style="margin:0"><div><dt>Correo</dt><dd>${esc(a.access.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}</dl>
+        <dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap">${a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button></div></div>`;
@@ -449,7 +515,7 @@ function render() {
 }
 
 /* ---------------- revendedor ---------------- */
-const accessText = (a) => `*${a.product}*\nCorreo: ${a.access.email}\nContraseña: ${a.access.password}\nPerfil: ${a.access.profile}${a.access.pin ? `\nPIN: ${a.access.pin}` : ""}\nVence: ${fdate(a.expiresAt)}`;
+const accessText = (a) => a.access.iptv ? iptvAccessText(a) : `*${a.product}*\nCorreo: ${a.access.email}\nContraseña: ${a.access.password}\nPerfil: ${a.access.profile}${a.access.pin ? `\nPIN: ${a.access.pin}` : ""}\nVence: ${fdate(a.expiresAt)}`;
 const sellPrice = (productId) => (S.data.prices ?? []).find((x) => x.productId === productId)?.sell ?? null;
 const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`}</span>`;
 
@@ -533,7 +599,7 @@ function phoneMock(t, items) {
 }
 
 /** Ventana de navegador de mentira (para mostrar el sistema por dentro). */
-const browser = (url, inner, cls = "") => `<div class="bw ${cls}"><div class="bw-bar"><i></i><i></i><i></i><span>${esc(url)}</span></div><div class="bw-body">${inner}</div></div>`;
+const browser = (url, inner, cls = "") => `<div class="bw ${cls}" aria-hidden="true"><div class="bw-bar"><i></i><i></i><i></i><span>${esc(url)}</span></div><div class="bw-body">${inner}</div></div>`;
 const spark = (pts, color) => { const max = Math.max(...pts), w = 180, h = 46; return `<svg viewBox="0 0 ${w} ${h}" class="spark" aria-hidden="true"><polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${pts.map((v, i) => `${(i / (pts.length - 1)) * w},${h - 4 - (v / max) * (h - 10)}`).join(" ")}"/></svg>`; };
 const checks = (list) => `<ul class="pchk">${list.map((x) => `<li>${x}</li>`).join("")}</ul>`;
 
@@ -572,7 +638,7 @@ function referralCard(r) {
   const waMsg = encodeURIComponent(`¡Volvete revendedor conmigo! Registrate acá y empezá a vender: ${link}`);
   return `<section class="sbox refbox"><h2>🎁 Referí y ganá</h2>
     <p class="empty" style="margin:0">${premio}</p>
-    <div class="reflink"><input id="refLink" value="${esc(link)}" readonly onclick="this.select()"><button class="sbtn pri" type="button" data-copy="${esc(link)}">Copiar link</button></div>
+    <div class="reflink"><input id="refLink" value="${esc(link)}" readonly data-selectall="1"><button class="sbtn pri" type="button" data-copy="${esc(link)}">Copiar link</button></div>
     <div class="hrow"><a class="sbtn" href="https://wa.me/?text=${waMsg}" target="_blank" rel="noopener noreferrer">Compartir por WhatsApp</a></div>
     <div class="refstat"><div><b>${r.count}</b><small>referidos</small></div><div><b>${bs(r.earned)}</b><small>ganado</small></div></div>
     ${list}</section>`;
@@ -772,9 +838,9 @@ function programView() {
       <div class="pshot">${browser(location.host + "/#clientes", `<div class="mk"><div class="mk-side">${["Vender", "Mis clientes", "Por vencer", "Mi página", "Mis precios", "Saldo"].map((t, i) => `<span class="${i === 1 ? "on" : ""}">${t}</span>`).join("")}</div>
           <div class="mk-main"><b class="mk-t">Mi panel de revendedor</b><div class="mk-kpi">${[["Mi saldo", "Bs 420"], ["Clientes", "38"], ["Activos", "52"], ["Vencen en 7 días", "6"]].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join("")}</div>
           ${[["Ana P.", ex, "Vence en 2 d", "w"], ["Luis C.", sample[1]?.name ?? "Spotify", "Vence en 5 d", "w"], ["María Q.", sample[2]?.name ?? "Disney+", "Vence en 21 d", "o"], ["Jorge R.", ex, "Vence en 28 d", "o"]].map(([n, pr, d, k]) => `<div class="mk-row"><span>${esc(n)}</span><span>${esc(pr)}</span><em class="${k}">${d}</em><i>Renovar</i></div>`).join("")}</div></div>`)}
-        <div class="fcard f1"><small>GANANCIA · ESTE MES</small><b>Bs 1.240 <em>+22%</em></b>${spark([3, 4, 3.5, 5, 4.8, 6.5, 6, 8], "var(--s-ok)")}</div>
-        <div class="fcard f2"><small>RECORDATORIOS HOY</small><b>6 clientes</b><span class="bars">${[3, 5, 4, 6, 5, 7, 9].map((h) => `<i style="height:${h * 4}px"></i>`).join("")}</span><small>4 ya renovaron</small></div>
-        <div class="fcard f3"><b>Venta lista · ${esc(ex)}</b><small>Datos copiados para tu cliente</small></div></div>
+        <div aria-hidden="true" class="fcard f1"><small>GANANCIA · ESTE MES</small><b>Bs 1.240 <em>+22%</em></b>${spark([3, 4, 3.5, 5, 4.8, 6.5, 6, 8], "var(--s-ok)")}</div>
+        <div aria-hidden="true" class="fcard f2"><small>RECORDATORIOS HOY</small><b>6 clientes</b><span class="bars">${[3, 5, 4, 6, 5, 7, 9].map((h) => `<i style="height:${h * 4}px"></i>`).join("")}</span><small>4 ya renovaron</small></div>
+        <div aria-hidden="true" class="fcard f3"><b>Venta lista · ${esc(ex)}</b><small>Datos copiados para tu cliente</small></div></div>
       <p class="pnote">Imagen ilustrativa con datos de ejemplo.</p></section>
 
     <section class="pstats">${[[pg.stats.products, "productos para vender"], [pg.stats.categories, "categorías"], [pg.stats.shops || 12, pg.stats.shops ? (pg.stats.shops === 1 ? "tienda de revendedor" : "tiendas de revendedores") : "estilos de tienda"], ["24/7", "bot de WhatsApp"]]
@@ -783,7 +849,7 @@ function programView() {
     <section class="psec"><div class="peyebrow">Lo que incluye</div><div class="psplit"><h2>Tres herramientas<br>que trabajan juntas</h2><p>Tu página, tu panel y el bot comparten los mismos datos: vendés en el panel, tu cliente aparece en tus recordatorios y el bot ya sabe cuándo vence.</p></div>
       <div class="prow"><div class="pvis">${browser(location.host + "/r/tu-tienda", `<div class="phones pmini">${mocks.map((t) => phoneMock(t, sample)).join("")}</div>`)}</div>
         <div class="ptxt"><span class="pnum">01</span><h3>Tu tienda con tu marca</h3><p>Elegís un estilo, subís tu logo y portada, ponés tus precios y compartís tu link. Tus clientes arman el pedido y te llega a tu WhatsApp.</p>
-          ${checks(["12 estilos listos para arrancar", "Logo, portada, colores y letras", "Tus precios, no los nuestros", "Pedidos directo a tu WhatsApp", "Link propio: /r/tu-tienda", "Perfecta en el celular"])}</div></div>
+          ${checks([`${THEMES.length} estilos listos para arrancar`, "Logo, portada, colores y letras", "Tus precios, no los nuestros", "Pedidos directo a tu WhatsApp", "Link propio: /r/tu-tienda", "Perfecta en el celular"])}</div></div>
       <div class="prow rev"><div class="pvis">${browser(location.host + "/#clientes", `<div class="mkdone"><b>✅ Venta lista: mandale estos datos a Ana</b><pre>*${esc(ex)}*\nCorreo: cliente01@correo.com\nContraseña: ••••••••\nPerfil: Perfil 3\nVence: 07/12/2026</pre><div><i>Copiar datos</i><i class="g">Mandar por WhatsApp</i></div></div>`)}</div>
         <div class="ptxt"><span class="pnum">02</span><h3>Panel de revendedor</h3><p>Vendés con tu saldo y la cuenta sale al instante. Tus clientes, sus servicios, notas y renovaciones, todo ordenado.</p>
           ${checks(["Venta y entrega en segundos", "Copiar o mandar datos por WhatsApp", "Renovar con un toque", "Clientes por vencer en 7 días", "Notas privadas por cliente", "Lista de precios con tu ganancia"])}</div></div>
@@ -806,7 +872,7 @@ function programView() {
         <div class="ptesti">${pg.testimonials.map((t) => `<figure><blockquote>“${esc(t.text)}”</blockquote>${t.rating ? `<span class="pstars" aria-label="${t.rating} de 5 estrellas">${"★".repeat(t.rating)}${"☆".repeat(5 - t.rating)}</span>` : ""}<figcaption><i>${esc(t.name[0])}</i><span><b>${esc(t.name)}</b>${t.business ? `<small>${esc(t.business)}</small>` : ""}</span></figcaption></figure>`).join("")}</div></section>`;
     })() : ""}
 
-    <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>12 estilos para tu tienda</h2><p>Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
+    <section class="psec"><div class="peyebrow">Tu estilo</div><div class="psplit"><h2>${THEMES.length} estilos para tu tienda</h2><p>Arrancás con uno y después cambiás todo: colores, fondo, tarjetas, letras, logo y portada.</p></div>
       <div class="tgrid pthemes">${THEMES.map((t) => `<div class="tcard">${themeSwatch(t)}<span>${esc(t.name)}</span></div>`).join("")}</div></section>
 
     ${pg.shops.length ? directoryView(false) : ""}
@@ -859,6 +925,7 @@ function shopEditor() {
         <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
         <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
       <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
+      <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>
       <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
       <h2>🏪 Tipo de tienda</h2>
       <p class="empty" style="margin:0;font-size:13px">El diseño de tu página. Cambia la vista previa de arriba al instante.</p>
@@ -877,7 +944,7 @@ function shopEditor() {
         <label class="rwide">Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(sh.heroTicks ?? "")}"></label>
         <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="Ej.: 🔥 Netflix a Bs 30 solo hoy"></label>
         <label class="rwide">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(sh.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00"></label>
-        <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en bolivianos"></label></div>
+        <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en ${preciosEn()}"></label></div>
       <h2>7 · Redes</h2>
       <div class="rgrid"><label>Instagram<input name="instagram" maxlength="80" value="${esc(sh.instagram ?? "")}" placeholder="tu.usuario"></label>
         <label>TikTok<input name="tiktok" maxlength="80" value="${esc(sh.tiktok ?? "")}" placeholder="tu.usuario"></label>
@@ -942,6 +1009,9 @@ function shopFormLook(f) {
 function pushPreview(look) {
   const fr = $("#shopPreview");
   try { fr?.contentWindow?.postMessage({ type: "gs-look", look }, location.origin); } catch { /* aún cargando */ }
+  // Aviso si el color elegido se lee poco sobre el fondo.
+  const w = $("#shopWarn");
+  if (w && look.accentColor) { const n = contrastNote(look); w.className = "lookwarn " + n.cls; w.textContent = n.text; }
 }
 
 function updateSellSummary(f) {
@@ -1037,7 +1107,23 @@ function comboClick(d) {
   return false;
 }
 
+/* Cupón: se pide al servidor cuánto descuenta; vale mientras el carrito no cambie. */
+const cartKey = () => JSON.stringify(S.cart.map((l) => [l.productId, l.qty]));
+const couponNow = () => (S.coupon && S.coupon.key === cartKey() && S.coupon.amount ? S.coupon : null);
+async function applyCoupon(code) {
+  code = String(code || "").trim().toUpperCase();
+  if (!code) { S.coupon = null; return; }
+  try {
+    const q = await api("POST", "/api/orders/quote", { items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), couponCode: code });
+    S.coupon = q.coupon ? { key: cartKey(), code: q.coupon.code, amount: q.coupon.amount } : { key: cartKey(), code, amount: 0, error: q.couponError };
+  } catch (e) { S.coupon = { key: cartKey(), code, amount: 0, error: e.message }; }
+}
+
 function renderCart(msg = "") {
+  renderCartInner(msg);
+  enhanceFiles($("#drawer"));
+}
+function renderCartInner(msg = "") {
   const tot = cartTotal();
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
@@ -1059,35 +1145,76 @@ function renderCart(msg = "") {
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
   }
-  const canBalance = S.me.balance >= toPay && !cartBackorder();
+  const cup = couponNow(), cupErr = S.coupon && S.coupon.key === cartKey() && S.coupon.error ? S.coupon : null;
+  const net = toPay - (cup?.amount ?? 0);
+  const canBalance = S.me.balance >= net && !cartBackorder();
+  const pmx = S.data.payMethods ?? { qr: true, methods: [] };
+  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
-    ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
+    ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
+    ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
+      : `<div class="cupbox"><label for="cupIn">¿Tenés un cupón de descuento?</label><div class="cuprow"><input id="cupIn" name="coupon" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10" value="${esc(cupErr?.code ?? "")}"><button class="sbtn sm" type="button" data-coupon="apply">Aplicar</button></div>${cupErr ? `<div class="err" role="alert">${esc(cupErr.error)}</div>` : ""}</div>`}
+    <div class="total"><span>Total</span><span>${bs(net)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
-    <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label></div>
+    ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
+    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>` : ""}
+    ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
+    ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    <div id="qrPart" style="display:grid;gap:12px" ${canBalance ? "hidden" : ""}>${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación<input name="ref" placeholder="Ej.: 123456789"></label></div>
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
+    ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
+    ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
+    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación o hash<input name="ref" placeholder="Ej.: 123456789 o el hash de la transacción"></label></div>
     <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
 
 async function submitCheckout(form) {
   const btn = form.querySelector('[type="submit"]');
-  const pm = form.pm.value;
+  const pmRaw = form.pm.value;
+  const localId = pmRaw.startsWith("local:") ? pmRaw.slice(6) : null;
+  const pm = localId ? "local" : pmRaw;
   btn.disabled = true;
   btn.textContent = "Procesando…";
   try {
     let file, ref;
-    if (pm === "qr") {
+    if (pm === "qr" || pm === "usdt" || pm === "local") {
       ref = form.ref.value.trim();
-      if (!form.file.files[0] || !ref) throw new Error("Subí la foto del comprobante y escribí el número de operación");
+      if (!form.file.files[0] || !ref) throw new Error(pm === "usdt" ? "Subí la captura del pago y pegá el hash o número de la transacción" : "Subí la foto del comprobante y escribí el número de operación");
       file = await fileToBase64(form.file.files[0]);
     }
     const order = await api("POST", "/api/orders", {
       items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
       customerId: form.customerId?.value || undefined, idempotencyKey: S.checkoutKey,
+      ...(couponNow() ? { couponCode: couponNow().code } : {}),
+      ...(localId ? { localMethodId: localId } : {}),
     });
+    if (pm === "binance") {
+      let pay;
+      try {
+        pay = await api("POST", `/api/orders/${order.id}/binance`, {});
+      } catch (e) {
+        S.cart = []; saveCart(); S.step = 3;
+        $("#drawer").innerHTML = `<h2>Pedido ${esc(order.id)}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="err">El pedido quedó reservado, pero no se pudo abrir el pago con Binance: ${esc(e.message)}</div><button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button>`;
+        await refresh();
+        return;
+      }
+      S.cart = []; saveCart(); S.step = 3;
+      $("#drawer").innerHTML = `<h2>Pagá con Binance<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
+        <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span>3 · Listo</span></div>
+        <div class="sbox" style="text-align:center;gap:10px">
+          <b style="font-size:17px">${esc(String(pay.usdt))} USDT</b>
+          <span class="empty">Pedido ${esc(order.id)} · pagás en la app de Binance. Apenas se confirme, tu acceso aparece solo en Mis cuentas.</span>
+          ${pay.qr ? `<img src="${esc(pay.qr)}" alt="QR de Binance Pay" style="width:180px;height:180px;object-fit:contain;align-self:center;background:#fff;border-radius:10px;padding:6px">` : ""}
+          ${pay.link ? `<a class="sbtn pri" href="${esc(pay.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}
+          <span class="empty">Cuando termines de pagar, tocá “Ya pagué” para revisar el estado.</span>
+          <button class="sbtn" type="button" data-close="1" data-s="cuentas">Ya pagué · ver mis cuentas</button>
+        </div>`;
+      await refresh();
+      return;
+    }
     let final = order;
-    if (pm === "qr") {
+    if (pm === "qr" || pm === "usdt" || pm === "local") {
       try {
         final = await api("POST", `/api/orders/${order.id}/evidence`, { contentBase64: file, declaredReference: ref });
       } catch (e) {
@@ -1197,7 +1324,7 @@ async function afterLogin() {
   toast("¡Bienvenido!");
   await refresh();
   if (MODE === "hub") { if (isReseller()) setView("inicio"); else location.href = "/tienda/#cuentas"; return; }
-  if (S.cart.length) { openDrawer(); S.step = 2; renderCart(); }
+  if (S.cart.length) { openDrawer(); S.step = 2; S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null); renderCart(); }
 }
 
 /** Link de acceso: /#acceso=TOKEN */
@@ -1316,9 +1443,22 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.inc) { const l = S.cart[d.inc]; if (l.qty < maxQty(product(l.productId))) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
   if (d.dec) { if (--S.cart[d.dec].qty <= 0) S.cart.splice(d.dec, 1); saveCart(); renderCart(); return render(); }
+  if (d.coupon) {
+    const form = $("#checkout"), pm = form?.pm?.value, who = form?.customerId?.value;
+    if (d.coupon === "off") S.coupon = null;
+    else { el.disabled = true; await applyCoupon(form?.coupon?.value); }
+    renderCart();
+    const f2 = $("#checkout");
+    if (f2 && who !== undefined && f2.customerId) f2.customerId.value = who;
+    const r = pm && f2?.querySelector(`[name="pm"][value="${pm}"]:not(:disabled)`);
+    if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); }
+    (couponNow() ? f2?.querySelector('[name="pm"]:checked') : $("#cupIn"))?.focus();
+    return;
+  }
   if (d.step) {
     S.step = +d.step;
     if (S.step === 2 && isReseller() && !S.data.customers) S.data.customers = await api("GET", "/api/me/customers").catch(() => []);
+    if (S.step === 2 && S.me?.loggedIn) S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null);
     return renderCart();
   }
   if (d.renew) {
@@ -1343,9 +1483,17 @@ document.addEventListener("click", async (ev) => {
   if (d.logout) { await api("POST", "/api/auth/logout", {}); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
 });
 
+// Tocar un campo de solo lectura (ej. tu link de referido) lo selecciona entero, para copiarlo fácil.
+document.addEventListener("focusin", (ev) => { if (ev.target?.dataset?.selectall) ev.target.select(); });
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
-  if (t.name === "pm") { const qr = t.value === "qr"; $("#qrPart").hidden = !qr; }
+  if (t.name === "pm") {
+    const proof = t.value === "qr" || t.value === "usdt" || t.value.startsWith("local:");
+    const pp = $("#proofPart"); if (pp) pp.hidden = !proof;
+    $$(".lpInfo").forEach((x) => (x.hidden = t.value !== `local:${x.dataset.lp}`));
+    const qi = $("#qrInfo"); if (qi) qi.hidden = t.value !== "qr";
+    const ui = $("#usdtInfo"); if (ui) ui.hidden = t.value !== "usdt";
+  }
   if (t.form?.id === "resSell") updateSellSummary(t.form);
   if (t.form?.id === "shopForm") pushPreview(shopFormLook(t.form));
   if (t.id === "shopOn") {
@@ -1581,3 +1729,8 @@ function openApply(msg = "") {
   $("#scrim").hidden = false;
   $("#modal input")?.focus();
 }
+
+// Enter en el campo del cupón aplica el cupón (no manda el pedido).
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.id === "cupIn") { ev.preventDefault(); document.querySelector('[data-coupon="apply"]')?.click(); }
+});

@@ -415,6 +415,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   }));
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
+    currencySymbol: e.s.settings.currencySymbol || "Bs",
     comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => v > 0) ? s.comboDiscounts : null,
     ...look, products: [...comboCards, ...products],
   };

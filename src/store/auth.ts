@@ -12,6 +12,7 @@ export type Permission =
   | "order.create_any"
   | "order.create_self"
   | "payment.review"
+  | "payment.gateway"
   | "assignment.renew_any"
   | "assignment.renew_beyond_supplier"
   | "assignment.replace"
@@ -32,6 +33,8 @@ const MATRIX: Record<Permission, Role[]> = {
   "order.create_any": ["owner", "admin", "seller"],
   "order.create_self": ["customer", "reseller"],
   "payment.review": ["owner", "admin"],
+  // Confirmación automática de una pasarela (Binance Pay) desde el webhook firmado: la corre el sistema.
+  "payment.gateway": ["system", "owner"],
   "assignment.renew_any": ["owner", "admin", "seller"],
   "assignment.renew_beyond_supplier": ["owner"],
   "assignment.replace": ["owner", "admin"],

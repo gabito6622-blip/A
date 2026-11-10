@@ -16,7 +16,21 @@ export interface Actor {
   customerId?: Id;
 }
 
-export type ProductKind = "profile" | "full_account" | "invite" | "combo";
+export type ProductKind = "profile" | "full_account" | "invite" | "combo" | "iptv";
+
+/** Datos de una línea IPTV (Flujo TV, Más TV, etc.). El secreto va en Account.password (cifrado). */
+export interface IptvLine {
+  /** Cómo se entrega: Xtream (usuario/clave/servidor), lista M3U, por MAC o código de activación. */
+  mode: "xtream" | "m3u" | "mac" | "code";
+  /** Servidor / URL del portal (Xtream) o dominio del panel. No es secreto. */
+  server?: string;
+  /** MAC del aparato del cliente (MAG/StbEmu), si se activa por MAC. */
+  mac?: string;
+  /** App recomendada para ver (IBO Player, IPTV Smarters, etc.). */
+  app?: string;
+  /** Cuántos dispositivos a la vez permite la línea. */
+  connections?: number;
+}
 
 export interface Product {
   id: Id;
@@ -40,6 +54,8 @@ export interface Product {
   comboProductIds?: Id[];
   /** Regla / recordatorio que aparece al vender este servicio (ej.: "Disney pide PIN", "este panel tarda"). */
   saleNote?: string;
+  /** "Cómo verlo": guía que recibe el cliente al comprar (app, enlace de descarga y pasos). */
+  guide?: { app?: string; link?: string; steps?: string };
 }
 
 /** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */
@@ -58,10 +74,26 @@ export interface StoreSettings extends Look {
   /** WhatsApp de ventas, solo dígitos con código de país. */
   whatsapp: string;
   currency: "BOB";
+  /** Símbolo que se muestra en los precios (ej.: "Bs", "US$", "₲"). Por defecto "Bs". */
+  currencySymbol?: string;
   /** Archivo del QR de cobro (subido por el staff). */
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */
   paymentNote?: string;
+  /** Pago en USDT manual (plan B sin API): el cliente manda a esta dirección/Pay ID y sube el comprobante. */
+  usdt?: {
+    enabled: boolean;
+    /** Dirección de la billetera (p. ej. empieza con T en TRC20) o vacío si solo usa Pay ID. */
+    address?: string;
+    /** Red de la dirección (TRC20, BEP20, …). */
+    network?: string;
+    /** Binance Pay ID (pago interno Binance-a-Binance). */
+    payId?: string;
+    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). */
+    rate?: number;
+    /** Nota/instrucciones extra para el cliente. */
+    note?: string;
+  };
   /** Logo de la tienda (el resto de la apariencia viene de Look). */
   logoFileRef?: string;
   /** Nombre de la plataforma de revendedores (la tienda es una más adentro). */
@@ -80,6 +112,10 @@ export interface StoreSettings extends Look {
   reminders?: ReminderSettings;
   /** Avisos por WhatsApp para el dueño. */
   staffAlerts?: StaffAlertSettings;
+  /** Aviso de stock bajo: cuando a un producto le quedan menos perfiles libres que esto (por defecto 2). */
+  lowStockAt?: number;
+  /** Métodos de cobro por país (Yappy, Tigo Money…), manuales con comprobante. */
+  payMethods?: LocalPayMethod[];
 }
 
 export interface StaffAlertSettings {
@@ -186,6 +222,8 @@ export interface Account {
   status: "active" | "retired";
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
+  /** Datos de la línea IPTV (cuando el producto es de tipo "iptv"). El secreto va en `password`. */
+  iptv?: IptvLine;
   /** Vencimiento con el proveedor para el que ya se avisó al dueño. */
   supplierAlertSentFor?: number;
   createdAt: number;
@@ -290,7 +328,24 @@ export type OrderStatus =
   | "rejected"
   | "expired"
   | "cancelled";
-export type PaymentMethod = "qr" | "balance" | "cash";
+export type PaymentMethod = "qr" | "balance" | "cash" | "binance" | "usdt" | "local";
+
+/** Datos de un pago por Binance Pay (USDT). El monto en USDT se calcula con la tasa que pone el dueño. */
+export interface BinancePay {
+  /** Número de operación que mandamos a Binance (lo devuelve el webhook para encontrar el pedido). */
+  merchantTradeNo: string;
+  /** ID de prepago que devuelve Binance al crear la orden. */
+  prepayId?: string;
+  /** Enlace de pago (checkout) o QR que abre la app de Binance. */
+  link?: string;
+  qr?: string;
+  /** Monto cobrado en USDT (hasta 2 decimales) y la tasa Bs→USDT usada. */
+  usdt: number;
+  rate: number;
+  status: "PENDING" | "PAID" | "CANCELED" | "EXPIRED";
+  /** ID de transacción de Binance al pagarse (sirve de referencia y evita doble crédito). */
+  txnId?: string;
+}
 
 export interface OrderItem {
   productId: Id;
@@ -329,6 +384,14 @@ export interface Order {
   backorder?: { productId: Id; qty: number }[];
   /** Descuento "Armá tu combo" ya restado del total. */
   discount?: Cents;
+  /** Pago por Binance Pay (USDT), si el pedido se cobra así. */
+  binance?: BinancePay;
+  /** Prueba gratis: no cuenta como venta en las estadísticas. */
+  trial?: boolean;
+  /** Método de cobro por país usado (copia del nombre por si después se borra). */
+  localPay?: { id: Id; name: string };
+  /** Cupón usado (copia del código por si después se borra) y cuánto descontó. */
+  coupon?: { id: Id; code: string; amount: Cents };
   createdAt: number;
   updatedAt: number;
 }
@@ -361,6 +424,8 @@ export interface Assignment {
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */
   control?: RentalControl;
+  /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
+  trial?: boolean;
 }
 
 export interface RentalControl {
@@ -526,6 +591,8 @@ export interface State {
   settings: StoreSettings;
   /** Gastos manuales del dueño (para Finanzas: lo que salió). */
   expenses: Expense[];
+  /** Cupones de descuento. */
+  coupons: Record<Id, Coupon>;
   seq: number;
 }
 
@@ -535,4 +602,44 @@ export interface Expense {
   amount: Cents;
   note: string;
   at: number;
+}
+
+/** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */
+export interface Coupon {
+  id: Id;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  expiresAt?: number;
+  /** Usos en total (sin límite si falta). */
+  maxUses?: number;
+  /** Usos por cliente (sin límite si falta). */
+  perCustomer?: number;
+  /** Compra mínima, en centavos. */
+  minTotal?: Cents;
+  /** Si se llena, el descuento solo cuenta sobre estos productos. */
+  productIds?: Id[];
+  /** Los revendedores también lo pueden usar (si no, es solo para clientes). */
+  resellers: boolean;
+  active: boolean;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Método de cobro manual de un país (Yappy, Tigo Money, transferencia…). */
+export interface LocalPayMethod {
+  id: Id;
+  name: string;
+  country?: string;
+  /** Número, alias o cuenta donde paga el cliente. */
+  account: string;
+  holder?: string;
+  instructions?: string;
+  /** Listas de precios (países) que lo ven. Vacío = todos. */
+  priceGroupIds: Id[];
+  /** Para esos clientes, esconde el QR de Bolivia. */
+  replacesQr: boolean;
+  enabled: boolean;
+  qrFileRef?: string;
 }

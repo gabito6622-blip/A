@@ -17,6 +17,8 @@ import { canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
+import { couponFor } from "./coupons.js";
+import { methodsFor, qrAllowedFor } from "./payMethods.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fdate = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -39,6 +41,10 @@ export interface CreateOrderInput {
   idempotencyKey?: string;
   /** Solo staff: perfiles concretos a asignar (si no, el sistema elige el que vence antes). */
   preferredSlotIds?: Id[];
+  /** Código de cupón de descuento (opcional). */
+  couponCode?: string;
+  /** Con paymentMethod "local": cuál método de cobro del país usa. */
+  localMethodId?: Id;
 }
 
 /**
@@ -64,6 +70,15 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
   const key = input.idempotencyKey ? `order:${actor.id}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
     const payerId = payerFor(e, actor, input.customerId);
+    // Cobro por país: el método tiene que ser uno de los que ve quien paga.
+    let localPay: Order["localPay"];
+    if (input.paymentMethod === "local") {
+      const m = methodsFor(e, payerId).find((x) => x.id === input.localMethodId);
+      if (!m) throw new DomainError("VALIDATION", "Ese método de pago no está disponible para vos");
+      localPay = { id: m.id, name: m.name };
+    } else if (input.paymentMethod === "qr" && !isStaff(actor) && !qrAllowedFor(e, payerId)) {
+      throw new DomainError("VALIDATION", "En tu país se paga con otro método: elegilo en el carrito");
+    }
     const id = e.id("ord");
     const items: OrderItem[] = input.items.map((it) => {
       const p = e.get("products", it.productId);
@@ -78,7 +93,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       // precio del combo, pero el cliente recibe un acceso por cada servicio del combo.
       const parts = prod?.kind === "combo" ? (prod.comboProductIds ?? []) : null;
       if (parts && parts.length) return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
-      if (prod?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
+      if (prod?.resellersOnly && (input.paymentMethod === "qr" || input.paymentMethod === "usdt" || input.paymentMethod === "local") && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
       const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];
       return reserveSlots(e, it.productId, it.qty, id, [], prefer);
     });
@@ -86,15 +101,18 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
     const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
     const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
+    const cup = input.couponCode ? couponFor(e, input.couponCode, payerId, items, gross - discount) : null;
     const order: Order = {
       id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id, channel,
-      items, total: gross - discount, status: "awaiting_payment",
+      items, total: gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
+      ...(cup ? { coupon: { id: cup.coupon.id, code: cup.coupon.code, amount: cup.amount } } : {}),
+      ...(localPay ? { localPay } : {}),
       ...(back.length ? { backorder: back } : {}),
     };
     e.s.orders[id] = order;
-    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length });
+    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}), ...(localPay ? { via: localPay.name } : {}) });
     if (input.paymentMethod === "balance") {
       post(e, actor, payerId, -order.total, "purchase", id);
       fulfill(e, actor, order);
@@ -106,6 +124,66 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     }
     return structuredClone(order);
   }));
+}
+
+/**
+ * Lo que costaría un pedido, sin crearlo: sirve para mostrar el descuento del cupón en el carrito
+ * antes de pagar. Si el cupón no aplica, devuelve el motivo en `couponError`.
+ */
+export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; items: { productId: Id; qty: number }[]; couponCode?: string; channel?: Order["channel"] }) {
+  if (isStaff(actor)) authorize(actor, "order.create_any");
+  else authorize(actor, "order.create_self");
+  requireActFor(e, actor, input.customerId);
+  if (!Array.isArray(input.items) || !input.items.length || input.items.length > 20) throw new DomainError("VALIDATION", "El pedido necesita entre 1 y 20 ítems");
+  const payerId = payerFor(e, actor, input.customerId);
+  const items = input.items.map((it) => {
+    const qty = Number(it.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
+    const p = e.get("products", it.productId);
+    if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
+    return { productId: it.productId, qty, unitPrice: priceFor(e, payerId, it.productId) };
+  });
+  const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
+  const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+  const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
+  let coupon: { code: string; amount: Cents } | null = null, couponError: string | null = null;
+  if (input.couponCode) {
+    try { const r = couponFor(e, input.couponCode, payerId, items, gross - discount); coupon = { code: r.coupon.code, amount: r.amount }; }
+    catch (err) { if (err instanceof DomainError) couponError = err.message; else throw err; }
+  }
+  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0) };
+}
+
+/** Prueba gratis: entrega una línea/perfil por unas horas, sin cobrar. No cuenta como venta. */
+export function createTrial(e: Engine, actor: Actor, input: { customerId: Id; productId: Id; hours?: number; preferredSlotId?: Id }): { assignment: Assignment; order: Order } {
+  authorize(actor, "order.create_any");
+  const hours = Math.max(1, Math.min(72, Math.trunc(Number(input.hours) || 24)));
+  return e.tx(() => {
+    e.get("customers", input.customerId);
+    e.get("products", input.productId);
+    const now = e.now();
+    const id = e.id("ord");
+    const reserved = reserveSlots(e, input.productId, 1, id, [], input.preferredSlotId ? [input.preferredSlotId] : []);
+    const slot = reserved[0];
+    const order: Order = {
+      id, kind: "sale", customerId: input.customerId, payerId: input.customerId, createdBy: actor.id, channel: "panel",
+      items: [{ productId: input.productId, qty: 1, unitPrice: 0 }], total: 0, status: "fulfilled",
+      paymentMethod: "cash", reservedSlotIds: [slot.id], assignmentIds: [], trial: true, approvedBy: actor.id, createdAt: now, updatedAt: now,
+    };
+    e.s.orders[id] = order;
+    slot.status = "assigned";
+    delete slot.reservedUntil;
+    delete slot.reservedByOrder;
+    const a: Assignment = {
+      id: e.id("asg"), slotId: slot.id, productId: input.productId, customerId: input.customerId, orderId: id,
+      startsAt: now, customerExpiresAt: now + hours * HOUR, status: "active", trial: true,
+      history: [{ at: now, by: actor.id, event: "assigned", slotId: slot.id }],
+    };
+    e.s.assignments[a.id] = a;
+    order.assignmentIds.push(a.id);
+    e.audit(actor, "trial.create", "assignment", a.id, { customer: input.customerId, product: input.productId, hours });
+    return { assignment: structuredClone(a), order: structuredClone(order) };
+  });
 }
 
 /** Entrega el pedido según su tipo. Debe correr dentro de `tx`. */
@@ -148,7 +226,7 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
   return e.tx(() => {
     const o = e.get("orders", orderId);
     requireActFor(e, actor, o.customerId);
-    if (o.paymentMethod !== "qr") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
+    if (o.paymentMethod !== "qr" && o.paymentMethod !== "usdt" && o.paymentMethod !== "local") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
     if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);
@@ -163,6 +241,32 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
   });
 }
 
+/** Entrega un pedido que está en revisión: re-reserva si hiciera falta, guarda la referencia y cumple.
+ *  Debe correr dentro de `tx`. La usan tanto la aprobación manual (QR) como la pasarela (Binance). */
+function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
+  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
+  if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
+  // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
+  if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
+    releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
+    o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
+    delete o.backorder;
+  } else if (o.kind === "sale" && o.backorder?.length) {
+    for (const b of o.backorder) {
+      try {
+        o.reservedSlotIds.push(...reserveSlots(e, b.productId, b.qty, o.id).map((s) => s.id));
+      } catch {
+        throw new DomainError("OUT_OF_STOCK", `Es un pedido a pedido: primero cargá ${b.qty > 1 ? `${b.qty} cuentas` : "la cuenta"} de ${e.s.products[b.productId]?.name ?? b.productId} (Carga de Cuentas) y después aprobá.`);
+      }
+    }
+    delete o.backorder;
+  }
+  o.confirmedReference = ref;
+  o.approvedBy = actor.id;
+  e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
+  fulfill(e, actor, o);
+}
+
 export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { confirmedReference: string; idempotencyKey?: string }): Order {
   authorize(actor, "payment.review");
   const key = input.idempotencyKey ? `approve:${orderId}:${input.idempotencyKey}` : undefined;
@@ -173,27 +277,39 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { co
     if (actor.customerId && actor.customerId === o.customerId) throw new DomainError("FORBIDDEN", "No podés aprobar tu propio pedido");
     const ref = input.confirmedReference?.trim();
     if (!ref) throw new DomainError("VALIDATION", "Indicá la referencia bancaria verificada");
-    const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
-    if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
-    // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
-    if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
-      releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
-      o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
-      delete o.backorder;
-    } else if (o.kind === "sale" && o.backorder?.length) {
-      for (const b of o.backorder) {
-        try {
-          o.reservedSlotIds.push(...reserveSlots(e, b.productId, b.qty, o.id).map((s) => s.id));
-        } catch {
-          throw new DomainError("OUT_OF_STOCK", `Es un pedido a pedido: primero cargá ${b.qty > 1 ? `${b.qty} cuentas` : "la cuenta"} de ${e.s.products[b.productId]?.name ?? b.productId} (Carga de Cuentas) y después aprobá.`);
-        }
-      }
-      delete o.backorder;
-    }
-    o.confirmedReference = ref;
-    o.approvedBy = actor.id;
-    e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
-    fulfill(e, actor, o);
+    settle(e, actor, o, ref);
+    return structuredClone(o);
+  }));
+}
+
+/** Guarda en el pedido la orden de pago creada en Binance (la llama el servidor tras crearla). */
+export function attachBinance(e: Engine, actor: Actor, orderId: Id, data: { merchantTradeNo: string; prepayId?: string; link?: string; qr?: string; usdt: number; rate: number }): Order {
+  return e.tx(() => {
+    const o = e.get("orders", orderId);
+    requireActFor(e, actor, o.customerId);
+    if (o.paymentMethod !== "binance") throw new DomainError("INVALID_STATE", "Este pedido no se paga con Binance");
+    if (o.status !== "awaiting_payment") throw new DomainError("INVALID_STATE", `No se puede adjuntar el pago en estado ${o.status}`);
+    o.binance = { merchantTradeNo: data.merchantTradeNo, prepayId: data.prepayId, link: data.link, qr: data.qr, usdt: data.usdt, rate: data.rate, status: "PENDING" };
+    o.updatedAt = e.now();
+    e.audit(actor, "order.binance", "order", o.id, { usdt: data.usdt, rate: data.rate });
+    return structuredClone(o);
+  });
+}
+
+/** Confirma un pago de Binance Pay desde el webhook firmado (actor del sistema) y entrega el pedido. */
+export function confirmBinancePayment(e: Engine, actor: Actor, orderId: Id, input: { txnId: string }): Order {
+  authorize(actor, "payment.gateway");
+  const txnId = String(input.txnId ?? "").trim();
+  if (!txnId) throw new DomainError("VALIDATION", "Falta el ID de transacción de Binance");
+  return e.tx(() => e.idempotent(`binance:${orderId}:${txnId}`, () => {
+    const o = e.get("orders", orderId);
+    if (o.paymentMethod !== "binance" || !o.binance) throw new DomainError("INVALID_STATE", "No es un pedido de Binance");
+    if (o.status === "fulfilled") return structuredClone(o); // webhook repetido: ya se entregó
+    if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede confirmar en estado ${o.status}`);
+    o.binance.status = "PAID";
+    o.binance.txnId = txnId;
+    o.status = "payment_review";
+    settle(e, actor, o, `binance:${txnId}`);
     return structuredClone(o);
   }));
 }
@@ -380,6 +496,36 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
 }
 
 /** Cuenta caída: mueve a todos sus clientes a otras cuentas y la retira si quedó vacía. */
+/**
+ * Cola de "Reubicar": clientes activos cuyo perfil está en una cuenta caída
+ * (en cuarentena, retirada o vencida con el proveedor). Para cada uno sugiere una
+ * cuenta sana del mismo producto con cupo libre. Mover usa replaceAssignment.
+ */
+export function relocationQueue(e: Engine, actor: Actor) {
+  authorize(actor, "assignment.replace");
+  const now = e.now();
+  const freeOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId && s.status === "available").length;
+  const healthy = Object.values(e.s.accounts).filter((t) => t.status === "active" && t.supplierExpiresAt > now && freeOf(t.id) > 0);
+  const rows: unknown[] = [];
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.status !== "active") continue;
+    const slot = e.s.slots[a.slotId]; if (!slot) continue;
+    const acc = e.s.accounts[slot.accountId];
+    const down = slot.status === "quarantined" ? "cuarentena" : acc?.status !== "active" ? "cuenta retirada" : acc.supplierExpiresAt <= now ? "venció con el proveedor" : null;
+    if (!down) continue;
+    const cust = e.s.customers[a.customerId];
+    const target = healthy.find((t) => t.id !== acc?.id && t.productId === a.productId);
+    rows.push({
+      assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "",
+      productId: a.productId, product: e.s.products[a.productId]?.name ?? a.productId, profile: slot.label,
+      currentEmail: acc?.email ?? "", reason: down, expiresAt: a.customerExpiresAt,
+      daysLeft: Math.ceil((a.customerExpiresAt - now) / DAY),
+      suggest: target ? { email: target.email, free: freeOf(target.id) } : null,
+    });
+  }
+  return rows;
+}
+
 export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: string) {
   authorize(actor, "assignment.replace");
   const acc = e.get("accounts", accountId);
@@ -409,10 +555,12 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
   return e.tx(() => {
     let n = 0;
     for (const a of Object.values(e.s.assignments)) {
-      if (a.status !== "active" || a.holdOpen || a.customerExpiresAt + graceDays * DAY > e.now()) continue;
+      if (a.status !== "active" || a.holdOpen) continue;
+      // Una prueba gratis vence sin período de gracia y deja el perfil libre (no hubo problema).
+      if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
       a.status = "revoked";
-      a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: "vencido" });
-      e.s.slots[a.slotId].status = "quarantined";
+      a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
+      e.s.slots[a.slotId].status = a.trial ? "available" : "quarantined";
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -515,7 +663,7 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
   return e.tx(() => {
     let n = 0;
     for (const a of Object.values(e.s.assignments)) {
-      if (a.status !== "active") continue;
+      if (a.status !== "active" || a.trial) continue;
       const left = a.customerExpiresAt - e.now();
       if (left > withinDays * DAY) continue;
       if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY) continue;

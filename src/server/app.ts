@@ -17,8 +17,31 @@ import { hashPassword, hashSecret, newToken, OtpStore, RateLimiter, sha256, veri
 import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
+import { OG_H, OG_W, ogCard, ogTags } from "./og.js";
+import { sendPush, validSubscription, vapidKeyObject, type PushSubscriptionData, type VapidKeys } from "./push.js";
+import type { KeyObject } from "node:crypto";
+import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
+
+/** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
+ *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
+ *  - style-src 'unsafe-inline': las vistas usan atributos style="…" (no ejecutan código).
+ *  - img-src https:: el QR de Binance Pay viene de un servidor de Binance.
+ *  - frame-ancestors 'self': nadie de afuera puede incrustar la tienda (anti clickjacking). */
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self'",
+  "frame-src 'self'",
+  "frame-ancestors 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
 
 export interface AppConfig {
   /** Carpeta de datos: base SQLite (gabriel.db) y comprobantes (uploads/). */
@@ -42,6 +65,12 @@ export interface AppConfig {
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
+  /** Para pruebas: URL base de la API de Telegram (por defecto https://api.telegram.org). */
+  telegramBaseUrl?: string;
+  /** Claves VAPID para avisos al celular (Web Push). Sin ellas, los avisos al celular quedan apagados. */
+  vapid?: VapidKeys | null;
+  /** Para pruebas: URL base de Binance Pay (por defecto https://bpay.binanceapi.com). */
+  binanceBaseUrl?: string;
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
   dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
@@ -112,6 +141,8 @@ export interface App {
   close(): Promise<void>;
   /** Lee los correos nuevos ya (si no, se leen solos cada minuto). */
   pollMail(only?: string): Promise<{ checked: number; found: number; errors: number }>;
+  /** Revisa si hay avisos nuevos y los manda al celular (lo corre el reloj cada minuto). */
+  checkPushAlerts(): Promise<void>;
   /** Recuperación: apaga la verificación en dos pasos de un usuario (si perdió el celular). */
   resetTwoFactor(username: string): boolean;
   /** Crea el primer dueño si no existe ninguno. Devuelve false si ya había. */
@@ -202,7 +233,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
-      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef,
+      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
+      usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
@@ -496,7 +528,12 @@ export function createApp(cfg: AppConfig): App {
     store.orders.create(c.actor!, {
       customerId: c.body?.customerId ?? c.actor!.customerId!, items: c.body?.items ?? [],
       paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey,
+      couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined,
+      localMethodId: c.body?.localMethodId ? String(c.body.localMethodId) : undefined,
     }));
+  // Cuánto saldría el pedido con el cupón (para mostrarlo en el carrito antes de pagar).
+  route("POST", "/api/orders/quote", "customer", (c) =>
+    store.orders.quote(c.actor!, { customerId: c.body?.customerId ?? c.actor!.customerId!, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
 
   route("POST", "/api/orders/:id/evidence", "customer", (c) => {
     const file = saveUpload(c.body);
@@ -507,6 +544,27 @@ export function createApp(cfg: AppConfig): App {
       throw e;
     }
   }, MAX_UPLOAD_JSON);
+
+  // Crea la orden de pago en Binance para un pedido ya creado con método "binance". Devuelve enlace/QR.
+  route("POST", "/api/orders/:id/binance", "customer", async (c) => {
+    if (!binanceOn()) throw new HttpError(409, "BINANCE_OFF", "Los pagos con Binance no están disponibles ahora");
+    const o = store.engine.s.orders[c.params.id];
+    if (!o) throw new HttpError(404, "NOT_FOUND", "Pedido no encontrado");
+    if (!store.catalog.canActFor(c.actor!, o.customerId)) throw new HttpError(403, "FORBIDDEN", "Ese pedido no es tuyo");
+    if (o.paymentMethod !== "binance") throw new HttpError(400, "VALIDATION", "Ese pedido no se paga con Binance");
+    if (o.status !== "awaiting_payment") throw new HttpError(409, "INVALID_STATE", "Ese pedido ya no espera pago");
+    const client = binanceClient()!;
+    const rate = binCfg().rate;
+    const usdt = usdtFor(o.total);
+    const merchantTradeNo = "BP" + randomBytes(12).toString("hex"); // alfanumérico, 26 caracteres
+    let res;
+    try {
+      res = await client.createOrder({ merchantTradeNo, amount: usdt, goodsName: `Pedido ${o.id}`, returnUrl: cfg.publicOrigin ? `${cfg.publicOrigin}/tienda/` : undefined, expireAt: now() + 60 * 60_000 });
+    } catch (e) { binSave({ lastError: (e as Error).message.slice(0, 200) }); throw new HttpError(502, "BINANCE", (e as Error).message); }
+    const link = res.checkoutUrl || res.universalUrl || res.deeplink;
+    store.orders.attachBinance(c.actor!, o.id, { merchantTradeNo, prepayId: res.prepayId, link, qr: res.qrcodeLink, usdt, rate });
+    return { orderId: o.id, usdt, rate, link, qr: res.qrcodeLink ?? null, qrContent: res.qrContent ?? null, expireAt: res.expireTime ?? null };
+  });
 
   route("POST", "/api/orders/:id/cancel", "customer", (c) => store.orders.cancel(c.actor!, c.params.id));
 
@@ -559,7 +617,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
     return store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
-      passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true });
+      passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
   });
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
@@ -573,10 +631,21 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
+  route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
+  route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
+  route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
 
   route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined }));
-  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined }));
+  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
+  route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined }));
+  route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
+  route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
+  route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));
   route("POST", "/api/admin/orders/:id/approve", "staff", (c) => store.orders.approvePayment(A(c), c.params.id, { confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/trials", "staff", (c) => {
+    const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
+    return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
+  });
   route("POST", "/api/admin/orders/:id/reject", "staff", (c) => store.orders.rejectPayment(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("GET", "/api/admin/orders/:id/evidence", "staff", (c) => {
     const ev = store.admin.evidence(A(c), c.params.id);
@@ -693,7 +762,7 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/admin/settings", "staff", (c) => {
     const b = c.body ?? {};
-    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", ...LOOK_KEYS]
+    const pick: Record<string, unknown> = ["storeName", "whatsapp", "paymentNote", "platformName", "currencySymbol", ...LOOK_KEYS]
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
@@ -701,6 +770,7 @@ export function createApp(cfg: AppConfig): App {
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
+    if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
     return store.catalog.updateSettings(A(c), pick);
   });
   const imageSetting = (key: "qrFileRef" | "logoFileRef", what: string) => (c: Ctx) => {
@@ -1095,6 +1165,30 @@ export function createApp(cfg: AppConfig): App {
     return RAW;
   }, 1024 * 1024);
 
+  // Webhook de Binance Pay: avisa cuando un pago se completó. Se verifica la firma RSA con el certificado de Binance.
+  route("POST", "/api/binance/webhook", "public", async (c) => {
+    const client = binanceClient();
+    if (!client || !c.raw) throw new HttpError(400, "BINANCE_OFF", "Binance Pay no está configurado");
+    const hdr = { timestamp: c.req.headers["binancepay-timestamp"] as string | undefined, nonce: c.req.headers["binancepay-nonce"] as string | undefined, signature: c.req.headers["binancepay-signature"] as string | undefined };
+    let certs = await client.getCertificates().catch(() => []);
+    let ok = verifyBinanceWebhook(c.raw, hdr, certs);
+    if (!ok) { certs = await client.getCertificates(true).catch(() => []); ok = verifyBinanceWebhook(c.raw, hdr, certs); } // el certificado pudo rotar
+    if (!ok) throw new HttpError(400, "BAD_SIGNATURE", "Firma inválida");
+    const ev = parseBinanceWebhook(c.body ?? {});
+    send(c.res, 200, { returnCode: "SUCCESS", returnMessage: null });
+    if (ev.bizStatus === "PAY_SUCCESS" && ev.merchantTradeNo && ev.transactionId) {
+      void (async () => {
+        try {
+          const order = Object.values(store.engine.s.orders).find((o) => o.binance?.merchantTradeNo === ev.merchantTradeNo);
+          if (!order) { log(`binance: pago sin pedido (merchantTradeNo ${ev.merchantTradeNo})`); return; }
+          store.orders.confirmBinancePayment(system, order.id, { txnId: ev.transactionId! });
+          log(`binance: pedido ${order.id} pagado (${ev.totalFee} ${ev.currency})`);
+        } catch (e) { log(`binance webhook: ${(e as Error).message}`); }
+      })();
+    }
+    return RAW;
+  }, 1024 * 1024);
+
   const ownerOrAdmin = (c: Ctx) => {
     if (A(c).role !== "owner" && A(c).role !== "admin") throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin");
   };
@@ -1148,6 +1242,146 @@ export function createApp(cfg: AppConfig): App {
     } catch (e) {
       throw new HttpError(502, "META", (e as Error).message);
     }
+  });
+  // ── Avisos al celular (Web Push) ──
+  route("GET", "/api/admin/push", "staff", (c) => {
+    const me = A(c).id, subs = pushSubs(), pc = pushCfg();
+    return { configured: pushOn(), error: vapidError || null, publicKey: pushOn() ? cfg.vapid!.publicKey : null,
+      alerts: pc.alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
+      lastAt: pc.lastAt ?? null, lastError: pc.lastError ?? null };
+  });
+  route("POST", "/api/admin/push/subscribe", "staff", (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están configurados en el servidor");
+    const sub = validSubscription(c.body?.subscription);
+    if (!sub) throw new HttpError(400, "VALIDATION", "Suscripción inválida");
+    const me = A(c).id;
+    const others = pushSubs().filter((x) => x.endpoint !== sub.endpoint);
+    const mine = others.filter((x) => x.staffId === me).sort((a, b) => a.createdAt - b.createdAt);
+    const drop = new Set(mine.slice(0, Math.max(0, mine.length - 9)).map((x) => x.endpoint)); // hasta 10 celulares por usuario
+    pushSubsSave([...others.filter((x) => !drop.has(x.endpoint)), { ...sub, staffId: me, label: String(c.body?.label ?? "").slice(0, 60), createdAt: now() }]);
+    store.engine.tx(() => store.engine.audit(A(c), "push.subscribe", "staff", me));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/push/unsubscribe", "staff", (c) => {
+    const ep = String(c.body?.endpoint ?? ""), me = A(c).id;
+    pushSubsSave(pushSubs().filter((x) => !(x.endpoint === ep && x.staffId === me)));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/push/test", "staff", async (c) => {
+    if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están configurados en el servidor");
+    const mine = pushSubs().filter((x) => x.staffId === A(c).id);
+    if (!mine.length) throw new HttpError(409, "PUSH_NONE", "Primero activá los avisos en este celular");
+    return pushSend(mine, { title: "✅ Avisos activados", body: "Así te van a llegar los pagos por revisar, el stock bajo y las cuentas que vencen.", go: "notificaciones" });
+  });
+  route("POST", "/api/admin/push/config", "staff", (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin cambian los avisos");
+    const alerts = Array.isArray(c.body?.alerts) ? c.body.alerts.map(String).filter((k: string) => PUSH_ALERTS.includes(k)) : pushCfg().alerts;
+    const low = c.body?.lowStockAt;
+    if (low !== undefined && (!Number.isInteger(low) || low < 0 || low > 50)) throw new HttpError(400, "VALIDATION", "Stock bajo: un número entre 0 y 50");
+    pushCfgSave({ alerts });
+    store.engine.tx(() => {
+      if (low !== undefined) store.engine.s.settings.lowStockAt = low;
+      store.engine.audit(A(c), "push.config", "settings", "push", { alerts: alerts.join(","), ...(low !== undefined ? { lowStockAt: low } : {}) });
+    });
+    return { ok: true, alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
+  });
+  // El service worker pide acá el texto del último aviso (con la sesión del panel).
+  route("GET", "/api/admin/push/latest", "staff", () =>
+    pushLatest && now() - pushLatest.at < 6 * 3_600_000 ? pushLatest : { title: "Tenés avisos en el panel", body: "Tocá para verlos.", go: "notificaciones", at: now() });
+
+  // ── Telegram: avisos del dueño ──
+  route("GET", "/api/admin/telegram", "staff", (c) => {
+    const t = tgCfg();
+    return { enabled: t.enabled, chatId: t.chatId ?? "", alerts: t.alerts, hasToken: !!tgToken(), alertTypes: TG_ALERTS, lastAt: t.lastAt, lastError: t.lastError };
+  });
+  route("POST", "/api/admin/telegram", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los avisos de Telegram");
+    const b = c.body ?? {};
+    const changed: string[] = [];
+    if (typeof b.token === "string") {
+      const tok = b.token.trim();
+      if (tok && !/^\d{6,12}:[A-Za-z0-9_\-]{30,50}$/.test(tok)) throw new HttpError(400, "VALIDATION", "El token del bot no parece válido (lo da @BotFather)");
+      db.setSecret("tg_token", tok || null, now()); changed.push("token");
+    }
+    const patch: Partial<TgCfg> = {};
+    if (typeof b.chatId === "string") patch.chatId = b.chatId.trim() || undefined;
+    if (Array.isArray(b.alerts)) patch.alerts = b.alerts.filter((x: unknown) => (TG_ALERTS as readonly string[]).includes(String(x))).map(String);
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (Object.keys(patch).length) tgSave(patch);
+    tgLast = null; // re-sincroniza el dedupe tras un cambio
+    store.engine.tx(() => store.engine.audit(A(c), "telegram.config", "settings", "telegram", { changed: [...changed, ...Object.keys(patch)].join(",") }));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/telegram/test", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const chatId = String(c.body?.chatId ?? "").trim() || undefined;
+    try {
+      await sendTelegram("✅ <b>Listo.</b> Acá vas a recibir los avisos de tu tienda.", chatId);
+      return { ok: true };
+    } catch (e) {
+      throw new HttpError(502, "TG", (e as Error).message);
+    }
+  });
+  // ── Cobro por país (Yappy, Tigo Money…): manual, con comprobante ──
+  route("GET", "/api/me/paymethods", "customer", (c) => store.payMethods.mine(c.actor!));
+  route("GET", "/api/paymethods/:id/qr", "customer", (c) => {
+    const m = store.payMethods.forCustomer(c.actor!.customerId!).find((x) => x.id === c.params.id);
+    return sendImage(c, m?.qrFileRef, "Este método no tiene QR");
+  });
+  route("GET", "/api/admin/paymethods", "staff", (c) => store.payMethods.list(A(c)).map(({ qrFileRef, ...m }) => ({ ...m, hasQr: !!qrFileRef })));
+  route("GET", "/api/admin/paymethods/:id/qr", "staff", (c) => {
+    const m = store.payMethods.list(A(c)).find((x) => x.id === c.params.id);
+    return sendImage(c, m?.qrFileRef, "Este método no tiene QR");
+  });
+  route("POST", "/api/admin/paymethods", "staff", (c) => { const { qrFileRef, ...m } = store.payMethods.save(A(c), c.body ?? {}); return { ...m, hasQr: !!qrFileRef }; });
+  route("POST", "/api/admin/paymethods/:id/delete", "staff", (c) => { const r = store.payMethods.remove(A(c), c.params.id); if (r.old) dropUpload(r.old); return { ok: true }; });
+  route("POST", "/api/admin/paymethods/:id/qr", "staff", (c) => {
+    if (c.body?.remove) { const r = store.payMethods.setQr(A(c), c.params.id, null); if (r.old) dropUpload(r.old); return { ok: true }; }
+    const file = saveUpload(c.body);
+    if (file.endsWith(".pdf")) { dropUpload(file); throw new HttpError(400, "VALIDATION", "El QR tiene que ser una imagen (JPG, PNG o WEBP)"); }
+    try { const r = store.payMethods.setQr(A(c), c.params.id, file); if (r.old) dropUpload(r.old); return { ok: true }; }
+    catch (e) { dropUpload(file); throw e; }
+  }, MAX_UPLOAD_JSON);
+
+  // USDT manual: configuración cruda (para el panel; la dirección es pública pero la mostramos solo al staff).
+  route("GET", "/api/admin/usdt", "staff", () => {
+    const u = store.engine.s.settings.usdt;
+    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, note: u?.note ?? "" };
+  });
+
+  // ── Binance Pay: configuración del dueño ──
+  route("GET", "/api/admin/binance", "staff", (c) => {
+    const b = binCfg();
+    return { enabled: b.enabled, rate: b.rate, payId: b.payId ?? "", hasKeys: !!binKeys(), ready: binanceOn(), https: !!cfg.publicOrigin?.startsWith("https://"), webhookUrl: cfg.publicOrigin ? `${cfg.publicOrigin}/api/binance/webhook` : null, lastError: b.lastError };
+  });
+  route("POST", "/api/admin/binance", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura Binance Pay");
+    const b = c.body ?? {};
+    const changed: string[] = [];
+    if (typeof b.apiKey === "string") {
+      const k = b.apiKey.trim();
+      if (k && !/^[A-Za-z0-9]{20,128}$/.test(k)) throw new HttpError(400, "VALIDATION", "La API Key no parece válida");
+      db.setSecret("binance_key", k || null, now()); changed.push("apiKey");
+    }
+    if (typeof b.apiSecret === "string") {
+      const s = b.apiSecret.trim();
+      if (s && !/^[A-Za-z0-9]{20,128}$/.test(s)) throw new HttpError(400, "VALIDATION", "La API Secret no parece válida");
+      db.setSecret("binance_secret", s || null, now()); changed.push("apiSecret");
+    }
+    const patch: Partial<BinanceCfg> = {};
+    if (b.rate != null && b.rate !== "") { const r = Number(b.rate); if (!(r > 0) || r > 1000) throw new HttpError(400, "VALIDATION", "Poné cuántos Bs vale 1 USDT (ej. 13)"); patch.rate = Math.round(r * 100) / 100; }
+    if (typeof b.payId === "string") patch.payId = b.payId.trim() || undefined;
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (Object.keys(patch).length) binSave(patch);
+    store.engine.tx(() => store.engine.audit(A(c), "binance.config", "settings", "binance", { changed: [...changed, ...Object.keys(patch)].join(",") }));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/binance/test", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const client = binanceClient();
+    if (!client) throw new HttpError(409, "BINANCE_OFF", "Cargá primero la API Key y la API Secret");
+    try { const certs = await client.getCertificates(true); binSave({ lastError: undefined }); return { ok: true, certs: certs.length }; }
+    catch (e) { binSave({ lastError: (e as Error).message.slice(0, 200) }); throw new HttpError(502, "BINANCE", (e as Error).message); }
   });
   route("POST", "/api/admin/whatsapp/flush", "staff", async (c) => {
     ownerOrAdmin(c);
@@ -1212,6 +1446,73 @@ export function createApp(cfg: AppConfig): App {
     if (origin !== allowed && origin !== `https://${req.headers.host}`) throw new HttpError(403, "BAD_ORIGIN", "Origen no permitido");
   }
 
+  /* ---------- Vista previa al compartir (WhatsApp, Facebook, Telegram) ----------
+     Las páginas públicas llevan título, descripción e imagen propios en el <head>, y la imagen
+     se dibuja en el servidor con el nombre y los colores de cada tienda. */
+  type OgInfo = { title: string; description: string; siteName: string; img: string; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
+  const oneLine = (s: unknown, max = 200) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  function ogInfo(pathname: string): OgInfo | null {
+    const st = store.engine.s.settings;
+    const platform = st.platformName || "GaboHub";
+    const slug = pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase();
+    if (slug) {
+      try {
+        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string };
+        const title = oneLine(sh.title || slug, 60);
+        const description = oneLine(sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${title}.`);
+        return { title, description, siteName: title, img: `/og/r/${slug}.png`, card: { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor } };
+      } catch { return null; }
+    }
+    if (/^\/tienda(\/|$)/.test(pathname)) {
+      const title = oneLine(st.storeName || "Tienda", 60);
+      const description = oneLine(st.heroText || "Suscripciones digitales: pagá con QR o saldo y recibí tus accesos en tu cuenta.");
+      return { title, description, siteName: title, img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
+    }
+    if (pathname === "/" || /^\/(revendedores|tiendas)\/?$/.test(pathname)) {
+      const title = oneLine(platform, 60);
+      return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
+        img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
+    }
+    return null;
+  }
+  /** Origen absoluto para las etiquetas (WhatsApp exige URLs completas). */
+  function originOf(req: IncomingMessage) {
+    if (cfg.publicOrigin) return cfg.publicOrigin.replace(/\/$/, "");
+    const host = String(req.headers.host ?? "");
+    return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${cfg.secureCookies ? "https" : "http"}://${host}` : "";
+  }
+  const ogCache = new Map<string, Buffer>();
+  function serveOgImage(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+    const m = pathname.match(/^\/og\/(tienda|hub|r\/([a-z0-9-]{3,30}))\.png$/i);
+    if (!m || (req.method !== "GET" && req.method !== "HEAD")) return false;
+    const info = ogInfo(m[2] ? `/r/${m[2].toLowerCase()}` : m[1] === "tienda" ? "/tienda/" : "/");
+    if (!info) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
+    const key = JSON.stringify(info.card);
+    let img = ogCache.get(key);
+    if (!img) {
+      img = ogCard(info.card);
+      if (ogCache.size >= 64) ogCache.delete(ogCache.keys().next().value!);
+      ogCache.set(key, img);
+    }
+    res.writeHead(200, { "Content-Type": "image/png", "Content-Length": img.length, "Cache-Control": "public, max-age=3600" });
+    res.end(req.method === "HEAD" ? undefined : img);
+    return true;
+  }
+  let shellHtml: { file: string; mtime: number; html: string } | null = null;
+  function shellWithOg(req: IncomingMessage, file: string, pathname: string): string | null {
+    const info = ogInfo(pathname);
+    if (!info) return null;
+    const mtime = statSync(file).mtimeMs;
+    if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
+    const origin = originOf(req);
+    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, imageW: OG_W, imageH: OG_H });
+    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return shellHtml.html
+      .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
+      .replace(/<meta name="description"[^>]*>\n?/, "")
+      .replace("</head>", `${tags}\n</head>`);
+  }
+
   function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
@@ -1223,6 +1524,14 @@ export function createApp(cfg: AppConfig): App {
     if (/^\/recuperar\/?$/.test(pathname)) file = join(root, "recuperar.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
+    if (file === join(root, "index.html")) {
+      const html = shellWithOg(req, file, pathname);
+      if (html !== null) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(req.method === "HEAD" ? undefined : html);
+        return true;
+      }
+    }
     res.writeHead(200, {
       "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
       // HTML, JS, CSS y manifiesto se revalidan siempre: así cada actualización se ve al instante.
@@ -1238,12 +1547,19 @@ export function createApp(cfg: AppConfig): App {
     res.setHeader("Referrer-Policy", "no-referrer");
     // SAMEORIGIN: el panel muestra la tienda en una vista previa; ningún otro sitio puede incrustarla.
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    // Lista blanca de lo que el navegador puede cargar. Sin scripts en línea ni de otros sitios:
+    // si alguien lograra meter HTML, su <script> no corre.
+    res.setHeader("Content-Security-Policy", CSP);
+    // La tienda no usa cámara, micrófono ni ubicación: los apagamos para que nada incrustado los pida.
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    // HSTS solo con HTTPS de verdad (en local con http rompería el acceso).
+    if (cfg.secureCookies) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     const url = new URL(req.url ?? "/", "http://local");
     const fwd = cfg.trustProxy ? String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {
-        if (!serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
+        if (!serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
       const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
@@ -1340,6 +1656,116 @@ export function createApp(cfg: AppConfig): App {
     return polling;
   }
 
+  // ── Avisos del dueño por Telegram (opcional) ──────────────────────────────
+  // El token del bot es secreto (db secrets). La config (chat y qué avisos) vive junto a los secretos.
+  const TG_ALERTS = ["payment", "reseller", "reloc", "supplier", "supplier1d", "lowstock", "overdue", "due"] as const;
+  type TgCfg = { enabled: boolean; chatId?: string; alerts: string[]; lastAt?: number; lastError?: string };
+  const tgBase = () => (cfg.telegramBaseUrl ?? "https://api.telegram.org").replace(/\/$/, "");
+  const tgToken = () => db.getSecret("tg_token");
+  const tgCfg = (): TgCfg => {
+    try { const c = JSON.parse(db.getSecret("tg_cfg") ?? "") as TgCfg; return { enabled: !!c.enabled, chatId: c.chatId, alerts: Array.isArray(c.alerts) ? c.alerts : [...TG_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; }
+    catch { return { enabled: false, alerts: [...TG_ALERTS] }; }
+  };
+  const tgSave = (patch: Partial<TgCfg>) => db.setSecret("tg_cfg", JSON.stringify({ ...tgCfg(), ...patch }), now());
+  const tgOn = () => { const c = tgCfg(); return c.enabled && !!tgToken() && !!c.chatId; };
+  async function sendTelegram(text: string, chatId?: string): Promise<void> {
+    const token = tgToken();
+    const to = chatId ?? tgCfg().chatId;
+    if (!token || !to) throw new HttpError(409, "TG_OFF", "Falta el token del bot o el chat de Telegram");
+    const f = cfg.fetchImpl ?? fetch;
+    const r = await f(`${tgBase()}/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: to, text, parse_mode: "HTML", disable_web_page_preview: true }),
+    });
+    if (!r.ok) { const b = await r.text().catch(() => ""); throw new Error(`Telegram ${r.status}: ${b.slice(0, 200)}`); }
+  }
+  // Dedupe: solo avisamos cuando un contador SUBE respecto de lo último avisado (no repetir cada minuto).
+  let tgLast: Record<string, number> | null = null;
+  async function checkTelegramAlerts(): Promise<void> {
+    if (!tgOn()) { tgLast = null; return; }
+    const c = tgCfg();
+    const feed = store.stats.feed();
+    const counts: Record<string, number> = {};
+    for (const it of feed.items) counts[it.kind] = it.count;
+    if (tgLast === null) { tgLast = counts; return; } // primer arranque: no spamear lo viejo
+    const lines: string[] = [];
+    for (const it of feed.items) {
+      if (!c.alerts.includes(it.kind)) continue;
+      if ((counts[it.kind] ?? 0) > (tgLast[it.kind] ?? 0)) lines.push(`${it.icon} ${it.text}`);
+    }
+    tgLast = counts;
+    if (!lines.length) return;
+    const st = store.engine.s;
+    const head = `<b>${escTg(st.settings.platformName || "GaboHub")}</b> · algo necesita tu atención:`;
+    try { await sendTelegram([head, ...lines].join("\n")); tgSave({ lastAt: now(), lastError: undefined }); }
+    catch (e) { tgSave({ lastError: (e as Error).message.slice(0, 200) }); log(`telegram falló: ${(e as Error).message}`); }
+  }
+  const escTg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ── Avisos al celular (Web Push) ──────────────────────────────────────────
+  // Las claves VAPID vienen por variables de entorno. Las suscripciones (una por celular) se guardan
+  // junto a los secretos. El toque va sin contenido: el celular le pide el texto al panel.
+  const PUSH_ALERTS = ["payment", "lowstock", "supplier1d", "reseller", "reloc"];
+  type PushSub = PushSubscriptionData & { staffId: string; label?: string; createdAt: number };
+  type PushCfg = { alerts: string[]; lastAt?: number; lastError?: string };
+  let vapidKey: KeyObject | null = null, vapidError = "";
+  if (cfg.vapid) { try { vapidKey = vapidKeyObject(cfg.vapid); } catch (e) { vapidError = (e as Error).message; log(`avisos al celular apagados: ${vapidError}`); } }
+  const pushOn = () => !!vapidKey && !!cfg.vapid;
+  const pushSubs = (): PushSub[] => { try { const l = JSON.parse(db.getSecret("push_subs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
+  const pushSubsSave = (l: PushSub[]) => db.setSecret("push_subs", JSON.stringify(l), now());
+  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
+  const pushCfgSave = (patch: Partial<PushCfg>) => db.setSecret("push_cfg", JSON.stringify({ ...pushCfg(), ...patch }), now());
+  /** Lo último que avisamos: el service worker del celular lo pide para mostrar el texto. */
+  let pushLatest: { title: string; body: string; go: string; at: number } | null = null;
+  async function pushSend(subs: PushSub[], msg: { title: string; body: string; go: string }) {
+    pushLatest = { ...msg, at: now() };
+    const f = cfg.fetchImpl ?? fetch;
+    let sent = 0, failed = 0; const gone = new Set<string>(); let lastError = "";
+    for (const sub of subs) {
+      try { if ((await sendPush(sub, cfg.vapid!, vapidKey!, f, now())) === "gone") gone.add(sub.endpoint); else sent++; }
+      catch (e) { failed++; lastError = (e as Error).message.slice(0, 200); }
+    }
+    if (gone.size) pushSubsSave(pushSubs().filter((x) => !gone.has(x.endpoint)));
+    pushCfgSave(failed ? { lastError } : { lastAt: now(), lastError: undefined });
+    return { sent, failed, removed: gone.size };
+  }
+  let pushLast: Record<string, number> | null = null;
+  async function checkPushAlerts(): Promise<void> {
+    const subs = pushSubs();
+    if (!pushOn() || !subs.length) { pushLast = null; return; }
+    const c = pushCfg();
+    const feed = store.stats.feed();
+    const counts: Record<string, number> = {};
+    for (const it of feed.items) counts[it.kind] = it.count;
+    if (pushLast === null) { pushLast = counts; return; } // al arrancar no avisamos lo viejo
+    const news = feed.items.filter((it) => c.alerts.includes(it.kind) && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
+    pushLast = counts;
+    if (!news.length) return;
+    await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
+      body: news.length === 1 ? "Tocá para abrir el panel." : news.map((it) => `${it.icon} ${it.text}`).join("\n"), go: news[0].go });
+  }
+
+  // ── Pagos con Binance Pay (USDT) ──────────────────────────────────────────
+  // Las llaves (API Key / Secret) son secretas. La config (tasa Bs→USDT, Pay ID) vive junto a los secretos.
+  type BinanceCfg = { enabled: boolean; rate: number; payId?: string; lastError?: string };
+  const binCfg = (): BinanceCfg => {
+    try { const c = JSON.parse(db.getSecret("binance_cfg") ?? "") as BinanceCfg; return { enabled: !!c.enabled, rate: Number(c.rate) || 0, payId: c.payId, lastError: c.lastError }; }
+    catch { return { enabled: false, rate: 0 }; }
+  };
+  const binSave = (patch: Partial<BinanceCfg>) => db.setSecret("binance_cfg", JSON.stringify({ ...binCfg(), ...patch }), now());
+  const binKeys = () => { const apiKey = db.getSecret("binance_key"); const apiSecret = db.getSecret("binance_secret"); return apiKey && apiSecret ? { apiKey, apiSecret } : null; };
+  let binInstance: BinancePay | null = null; let binInstanceKey = "";
+  const binanceClient = (): BinancePay | null => {
+    const k = binKeys();
+    if (!k) { binInstance = null; return null; }
+    if (!binInstance || binInstanceKey !== k.apiKey) { binInstance = new BinancePay(k, cfg.fetchImpl ?? fetch, cfg.binanceBaseUrl); binInstanceKey = k.apiKey; }
+    return binInstance;
+  };
+  const binanceOn = () => { const c = binCfg(); return c.enabled && c.rate > 0 && !!binKeys(); };
+  /** Convierte el total en Bs (centavos) a USDT con la tasa; redondea hacia arriba para no cobrar de menos. */
+  const usdtFor = (totalCents: number) => Math.max(0.01, Math.ceil((totalCents / 100) / binCfg().rate * 100) / 100);
+
   let lastRentRun = 0;
   function runJobs() {
     const expired = store.orders.expireReservations(system);
@@ -1369,12 +1795,14 @@ export function createApp(cfg: AppConfig): App {
       }
       flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
       pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
+      checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
+      checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

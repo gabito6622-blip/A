@@ -1,6 +1,6 @@
 // Usuarios del panel y listados para el staff.
 // El hash de contraseña lo calcula el servidor (scrypt); el núcleo solo lo guarda y nunca lo devuelve.
-import type { Actor, Id, OrderStatus, StaffUser } from "./types.js";
+import type { Account, Actor, Id, OrderStatus, StaffUser } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -124,6 +124,33 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
  * Datos completos para ENTREGAR un alquiler al cliente (correo, contraseña, perfil, PIN) y un
  * mensaje de WhatsApp listo para mandar. Solo staff; cada vez que se revela queda en la auditoría.
  */
+/** "Cómo verlo": líneas de la guía de instalación del producto (app, enlace, pasos). */
+function guideLines(prod: { guide?: { app?: string; link?: string; steps?: string } } | undefined): string[] {
+  const g = prod?.guide;
+  if (!g || (!g.app && !g.link && !g.steps)) return [];
+  const out = ["", "📲 *Cómo verlo:*"];
+  if (g.app) out.push(`App: ${g.app}`);
+  if (g.link) out.push(`Descargala acá: ${g.link}`);
+  if (g.steps) out.push(g.steps);
+  return out;
+}
+
+/** Arma las líneas del mensaje de una línea IPTV según cómo se entrega. */
+function iptvLines(iptv: NonNullable<Account["iptv"]>, user: string, secret: string): string[] {
+  const out: string[] = [];
+  if (iptv.mode === "m3u") out.push(`🔗 Lista M3U: ${secret || "(te la paso aparte)"}`);
+  else if (iptv.mode === "code") out.push(`🔢 Código de activación: ${secret || "(te lo paso aparte)"}`);
+  else {
+    if (iptv.server) out.push(`🖥️ Servidor: ${iptv.server}`);
+    out.push(`👤 Usuario: ${user}`);
+    out.push(`🔑 Contraseña: ${secret || "(te la paso aparte)"}`);
+  }
+  if (iptv.mac) out.push(`📺 MAC: ${iptv.mac}`);
+  if (iptv.connections) out.push(`📱 Dispositivos a la vez: ${iptv.connections}`);
+  if (iptv.app) out.push(`⬇️ App para ver: ${iptv.app}`);
+  return out;
+}
+
 export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
   const a = e.s.assignments[assignmentId];
@@ -137,17 +164,27 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const storeName = e.s.settings.storeName || "la tienda";
   const first = (cust?.name ?? "").split(" ")[0] || "";
   const pin = slot.pin ?? "";
-  const message = [
-    `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
-    ``,
-    `📧 Correo: ${acc.email}`,
-    `🔑 Contraseña: ${acc.password || "(te la paso aparte)"}`,
-    `👤 Perfil: ${slot.label}`,
-    ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
-    `📅 Vence: ${expiresText}`,
-    ``,
-    `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
-  ].join("\n");
+  const message = (acc.iptv
+    ? [
+      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
+      ``,
+      ...iptvLines(acc.iptv, acc.email, acc.password),
+      `📅 Vence: ${expiresText}`,
+      ...guideLines(prod),
+      ``,
+      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+    ]
+    : [
+      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
+      ``,
+      `📧 Correo: ${acc.email}`,
+      `🔑 Contraseña: ${acc.password || "(te la paso aparte)"}`,
+      `👤 Perfil: ${slot.label}`,
+      ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
+      `📅 Vence: ${expiresText}`,
+      ``,
+      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+    ]).join("\n");
   e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId });
   return {
     assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerFirst: first,

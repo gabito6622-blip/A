@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -13,12 +13,14 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["finanzas", "coins", "Finanzas", "owner"],
+  ["notificaciones", "bell", "Notificaciones"],
+  ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
-  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
+  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -145,7 +147,7 @@ const V = {
       ang += f * 100;
       return c;
     }).join("");
-    const donut = A.length ? `<div class="donut"><svg viewBox="0 0 42 42"><circle r="15.915" cx="21" cy="21" fill="none" class="ring" stroke-width="6"/>${arcs}<text x="21" y="21" class="dn">${k.activeServices}</text><text x="21" y="26.5" class="dt">activos</text></svg>
+    const donut = A.length ? `<div class="donut"><svg viewBox="0 0 42 42"><circle r="15.915" cx="21" cy="21" fill="none" class="ring" stroke-width="6"/>${arcs}<text x="21" y="21" class="dn">${k.activeServices}</text><text x="21" y="27.5" class="dt">activos</text></svg>
       <ul>${A.map((x, i) => `<li><i style="background:${PAL[i % 8]}"></i>${esc(x.name)}<b>${x.count}</b></li>`).join("")}</ul></div>` : `<div class="emptybox">Sin servicios activos.</div>`;
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
@@ -155,8 +157,8 @@ const V = {
     const al = d.alerts;
     const sPts = al.overdue.count * 3 + al.due3.count * 2 + k.pendingReview * 2 + al.unpaid.count;
     const stress = Math.min(100, sPts * 4);
-    const sl = stress < 20 ? ["Tranqui", "😌", "#10b981"] : stress < 45 ? ["Movido", "🙂", "#3b82f6"] : stress < 75 ? ["Cargado", "😅", "#f59e0b"] : ["Al límite", "🥵", "#ef4444"];
-    const stressCard = `<section class="card stresscard"><div class="stresshead"><div><span class="stresscap">NIVEL DE ESTRÉS</span><h2 style="margin:2px 0 0">${sl[1]} ${sl[0]}</h2></div><b class="stresspct" style="color:${sl[2]}">${stress}%</b></div>
+    const sl = stress < 20 ? ["Tranqui", "😌", "#10b981", "var(--ok)"] : stress < 45 ? ["Movido", "🙂", "#3b82f6", "var(--blue-text)"] : stress < 75 ? ["Cargado", "😅", "#f59e0b", "var(--warn)"] : ["Al límite", "🥵", "#ef4444", "var(--bad)"];
+    const stressCard = `<section class="card stresscard"><div class="stresshead"><div><span class="stresscap">NIVEL DE ESTRÉS</span><h2 style="margin:2px 0 0">${sl[1]} ${sl[0]}</h2></div><b class="stresspct" style="color:${sl[3]}">${stress}%</b></div>
       <div class="stressbar"><i style="width:${Math.max(4, stress)}%;background:${sl[2]}"></i></div>
       <div class="stresswhy">${al.overdue.count ? `<button type="button" data-go="control"><b>${al.overdue.count}</b> vencidos</button>` : ""}${al.due3.count ? `<button type="button" data-go="control"><b>${al.due3.count}</b> por vencer</button>` : ""}${k.pendingReview ? `<button type="button" data-go="aprobacion"><b>${k.pendingReview}</b> por revisar</button>` : ""}${al.unpaid.count ? `<button type="button" data-go="aprobacion"><b>${al.unpaid.count}</b> por cobrar</button>` : ""}${sPts === 0 ? `<span class="muted">Todo al día ✨ Relajá.</span>` : ""}</div></section>`;
     // --- Atajos de alerta (vencidos / por vencer / sin cobrar) ---
@@ -282,13 +284,34 @@ const V = {
         <h2>Gastos de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
         <form id="expenseForm" class="finform" autocomplete="off">
-          <label>Monto (Bs)<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
+          <label>Monto (${currencySym()})<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
           <label class="grow">¿En qué? <input name="note" maxlength="120" placeholder="Ej: publicidad en Facebook" required></label>
           <button class="pbtn blue" type="submit">Agregar gasto</button>
         </form>
         ${table(["Gasto", "Monto", "Cuándo", ""], rows, "Todavía no cargaste gastos este mes.")}
       </section>
     </div>`;
+  },
+  async reubicar() {
+    const list = await api("GET", "/api/admin/relocations");
+    const reasonTxt = { cuarentena: "⚠️ En cuarentena", "cuenta retirada": "🚫 Cuenta retirada", "venció con el proveedor": "📅 Venció con el proveedor" };
+    return `<section class="card"><h2>${icon("renew")}Reubicar perfiles <small>pasá tus clientes de cuentas caídas a cuentas sanas</small></h2>
+      <p class="muted" style="margin:0 0 12px">Acá aparecen los clientes que están en una cuenta caída (en cuarentena, retirada o vencida con el proveedor). Reubicalos a una cuenta sana: conservan su fecha y el perfil viejo queda retirado.</p>
+      ${list.length ? `<div class="reloc">${list.map((r) => `<div class="relrow">
+        <div class="relc"><b>${esc(r.customerName || "—")}</b><small class="muted">${esc(r.product)} · ${esc(r.profile)}${r.customerPhone ? ` · ${esc(r.customerPhone)}` : ""} · vence ${fdate(r.expiresAt)}</small></div>
+        <div class="relfrom"><span class="pp pp-bad">${reasonTxt[r.reason] ?? esc(r.reason)}</span><small class="muted mono">${esc(r.currentEmail)}</small></div>
+        <div class="relto">${r.suggest ? `<small class="muted">Mover a</small><b class="mono">${esc(r.suggest.email)}</b><small class="muted">${r.suggest.free} cupo${r.suggest.free === 1 ? "" : "s"} libre${r.suggest.free === 1 ? "" : "s"}</small>` : `<span class="pp pp-warn">No hay cuenta sana con cupo</span>`}</div>
+        <div class="relact">${r.suggest ? `<button class="pbtn dark sm" type="button" data-relocate="${esc(r.assignmentId)}" data-name="${esc(r.customerName || "")}">${icon("renew")}Mover</button>` : `<button class="pbtn sm" type="button" data-go="carga">Cargar cuenta</button>`}</div>
+      </div>`).join("")}</div>` : `<div class="emptybox">🎉 Ninguna cuenta caída con clientes. Todo está en cuentas sanas.</div>`}</section>`;
+  },
+  async notificaciones() {
+    const d = await api("GET", "/api/admin/notifications");
+    const sevcls = { bad: "bad", warn: "warn", info: "ok" };
+    return `<section class="card"><h2>${icon("bell")}Notificaciones <small>lo que necesita tu atención ahora</small></h2>
+      <p class="muted" style="margin:0 0 12px">Todo junto en un solo lugar: pagos por revisar, solicitudes, cuentas caídas y vencimientos. Tocá una para ir a resolverla.</p>
+      ${d.items.length ? `<div class="notis">${d.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
+        <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
+      : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>`;
   },
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
@@ -311,7 +334,16 @@ const V = {
     const combos = pub.filter((p) => p.kind === "combo");
     const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
     const shownProds = sk === "combos" ? combos : apps;
-    return `<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
+    const trialProds = products.filter((p) => p.kind !== "combo");
+    const trialCard = !customers.length || !trialProds.length ? "" : `<section class="card"><h2>🎁 Prueba gratis <small>· línea de cortesía por horas (ideal IPTV)</small></h2>
+      <form class="form" id="trialForm">
+        <label>Cliente<select name="customerId" required>${customers.map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}</select></label>
+        <label>Producto<select name="productId">${trialProds.map((p) => opt(p.id, p.name)).join("")}</select></label>
+        <label>Duración<select name="hours">${[[6, "6 horas"], [24, "24 horas"], [48, "48 horas"]].map(([v, t]) => opt(v, t, v === 24)).join("")}</select></label>
+        <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Generar prueba</button>
+      </form><div id="trialOut"></div>
+      <p class="muted" style="margin:0">La prueba vence sola y <b>no cuenta como venta</b>. Se descuenta del stock mientras dure.</p></section>`;
+    return `${trialCard}<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
       ${customers.length ? `<form class="form sellform" id="sellForm" data-key="${newKey()}">
         <div class="sstep"><span class="sstepn">1</span><div class="sstepb">
           <label class="sstepl">👤 ¿A quién le vendés?</label>
@@ -333,12 +365,50 @@ const V = {
             <div><span class="selbl">💳 Estado de pago</span><div class="seg payseg"><button type="button" data-pay="pagado" aria-pressed="true">✅ Pagado</button><button type="button" data-pay="pendiente" aria-pressed="false">⏳ Pendiente</button></div></div>
             <label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
             <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
+            <label>🏷️ Cupón <small class="muted">(opcional)</small><input name="couponCode" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10"></label>
           </div>
         </details>
         <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
         <div id="sellSummary" class="sellsum" hidden></div>
         <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
       <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
+  },
+
+  async cupones() {
+    let list;
+    try { list = await api("GET", "/api/admin/coupons"); }
+    catch (e) { if (e.status === 403) return `<section class="card"><div class="emptybox">Solo el dueño o un admin manejan los cupones.</div></section>`; throw e; }
+    const products = (await api("GET", "/api/admin/products")).filter((p) => p.kind !== "combo");
+    const ed = list.find((c) => c.id === P.tab.couponEdit) ?? null;
+    const ST = { active: ["✅ Activo", "on"], paused: ["⏸️ Pausado", "off"], expired: ["📅 Vencido", "bad"], used_up: ["🔚 Sin usos", "bad"] };
+    const val = (c) => c.type === "percent" ? `${c.value}%` : bs(c.value);
+    const rules = (c) => [c.expiresAt ? `vence ${fdate(c.expiresAt)}` : "", c.maxUses ? `${c.uses}/${c.maxUses} usos` : `${c.uses} uso(s)`,
+      c.perCustomer ? `${c.perCustomer} por cliente` : "", c.minTotal ? `desde ${bs(c.minTotal)}` : "",
+      c.productIds?.length ? `solo ${c.productIds.map((id) => products.find((p) => p.id === id)?.name ?? id).join(", ")}` : "",
+      c.resellers ? "también revendedores" : "solo clientes"].filter(Boolean).join(" · ");
+    const rows = list.map((c) => `<tr><td><b class="mono">${esc(c.code)}</b>${c.note ? `<br><small class="muted">${esc(c.note)}</small>` : ""}</td><td><b>${val(c)}</b></td>
+      <td><small>${esc(rules(c))}</small></td><td><span class="cupst ${ST[c.state][1]}">${ST[c.state][0]}</span></td>
+      <td><div class="inline"><button class="pbtn sm" type="button" data-cupedit="${esc(c.id)}">${icon("edit")}Editar</button>
+        <button class="pbtn sm" type="button" data-cuptoggle="${esc(c.id)}">${c.active ? "⏸️ Pausar" : "▶️ Activar"}</button>
+        <button class="pbtn sm" type="button" data-cupdel="${esc(c.id)}" data-name="${esc(c.code)}" aria-label="Borrar el cupón ${esc(c.code)}">${icon("trash")}</button></div></td></tr>`);
+    const f = ed ?? { type: "percent", resellers: false };
+    return `<section class="card"><h2>${icon("tag")}${ed ? `Editar cupón ${esc(ed.code)}` : "Nuevo cupón"} <small>el cliente lo escribe en el carrito</small></h2>
+      <form class="form" id="couponForm" autocomplete="off" ${ed ? `data-id="${esc(ed.id)}"` : ""}>
+        <label>Código<input name="code" required maxlength="20" autocapitalize="characters" value="${esc(f.code ?? "")}" placeholder="Ej.: VERANO10"></label>
+        <label>Tipo de descuento<select name="type">${opt("percent", "Porcentaje (%)", f.type === "percent")}${opt("fixed", `Monto fijo (${currencySym()})`, f.type === "fixed")}</select></label>
+        <label>Descuento<input name="value" type="number" min="0.01" step="0.01" inputmode="decimal" required value="${f.value ? (f.type === "percent" ? f.value : f.value / 100) : ""}" placeholder="Ej.: 10"></label>
+        <label>Vence el <small class="muted">(opcional)</small><input name="expiresAt" type="date" value="${f.expiresAt ? dateInput(f.expiresAt) : ""}"></label>
+        <label>Usos en total <small class="muted">(vacío = sin límite)</small><input name="maxUses" type="number" min="1" step="1" inputmode="numeric" value="${f.maxUses ?? ""}"></label>
+        <label>Usos por cliente <small class="muted">(vacío = sin límite)</small><input name="perCustomer" type="number" min="1" step="1" inputmode="numeric" value="${f.perCustomer ?? ""}" placeholder="Ej.: 1"></label>
+        <label>Compra mínima (${currencySym()}) <small class="muted">(opcional)</small><input name="minTotal" type="number" min="0" step="0.01" inputmode="decimal" value="${f.minTotal ? f.minTotal / 100 : ""}"></label>
+        <label>Nota interna <small class="muted">(opcional)</small><input name="note" maxlength="120" value="${esc(f.note ?? "")}" placeholder="Ej.: para el grupo de Facebook"></label>
+        <fieldset class="cupprods" style="grid-column:1/-1"><legend>¿Para qué productos? <small class="muted">(ninguno marcado = todos)</small></legend>
+          ${products.map((p) => `<label class="chk"><input type="checkbox" name="cupprod" value="${esc(p.id)}" ${f.productIds?.includes(p.id) ? "checked" : ""}> ${esc(p.name)}</label>`).join("") || `<span class="muted">Todavía no hay productos.</span>`}</fieldset>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="resellers" ${f.resellers ? "checked" : ""}> Los revendedores también lo pueden usar</label>
+        <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("plus")}${ed ? "Guardar cambios" : "Crear cupón"}</button>${ed ? `<button class="pbtn" type="button" data-cupedit="">Cancelar</button>` : ""}</div>
+      </form>
+      <p class="muted" style="margin:10px 0 0">El descuento se suma al de “Armá tu combo” y siempre queda algo a pagar. Si un pedido vence o se cancela, el uso vuelve al cupón.</p></section>
+      <section class="card"><h2>${icon("tag")}Tus cupones <small>${list.length}</small></h2>${table(["Código", "Descuento", "Reglas", "Estado", ""], rows, "Todavía no creaste cupones.")}</section>`;
   },
 
   async aprobacion() {
@@ -349,7 +419,7 @@ const V = {
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
-        <td>${bs(o.total)}</td><td>${esc({ qr: "QR", balance: "Saldo", cash: "Efectivo" }[o.paymentMethod])}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
+        <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
@@ -443,9 +513,9 @@ const V = {
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
-        <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, WhatsApp, correo, revendedor…" value="${esc(T.cq ?? "")}" aria-label="Buscar">
-          <select id="cday" aria-label="Día que vence">${opt("", "Día que vence: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `Vence ${d} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
-          <select id="cprod" aria-label="Plataforma">${opt("", "Plataforma: todas", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
+        <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, correo o WhatsApp" value="${esc(T.cq ?? "")}" aria-label="Buscar">
+          <select id="cday" aria-label="Día que vence">${opt("", "Día: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `${d[0].toUpperCase() + d.slice(1)} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
+          <select id="cprod" aria-label="Plataforma">${opt("", "Todas las apps", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
           <label class="cdatelbl">📅 Cobros del día<input type="date" id="cfromDate" value="${T.cfrom ? `${new Date(T.cfrom).getFullYear()}-${String(new Date(T.cfrom).getMonth() + 1).padStart(2, "0")}-${String(new Date(T.cfrom).getDate()).padStart(2, "0")}` : ""}" aria-label="Elegí la fecha para ver cuánto cobrás ese día"></label>
           <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
@@ -460,7 +530,7 @@ const V = {
           <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
       <section class="ctl-cards">${view.map((r) => `<article class="ccard rv-${r.est[1]}">
-        <header><label class="ccheck"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
+        <header><label class="ccheck selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
           <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small><br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
         <div class="crow mono">${esc(r.email)}</div>
@@ -484,7 +554,7 @@ const V = {
       <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
         <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
         ${view.map((r) => `<tr class="rv-${r.est[1]}">
-          <td><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
+          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
           <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
           <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
           <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
@@ -509,7 +579,7 @@ const V = {
     return `<section class="card"><div class="inline"><button class="pbtn dark sm" type="button" data-renewsel="1">${icon("renew")}Renovar seleccionados (+1 período, efectivo)</button><span class="muted">${list.length} servicios activos</span></div>
       ${table(["<input type=checkbox id=selAll aria-label='Seleccionar todo'>", "Cliente", "Producto", "Cuenta / perfil", "Vence cliente", "Vence proveedor", "Acciones"], list.map((a) => {
         const d = daysLeft(a.customerExpiresAt);
-        return `<tr><td><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
+        return `<tr><td><label class="selbox"><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></label></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
           <td>${fdate(a.customerExpiresAt)} ${d <= 3 ? pill(d < 0 ? "Vencido" : `${d} d`, d < 0 ? "bad" : "warn") : ""}${a.holdOpen ? `<br>${pill("Esperando fecha", "mute")}` : ""}</td><td>${fdate(a.supplierExpiresAt)}</td>
           <td><button class="pbtn sm dark" type="button" data-renew="${esc(a.id)}">+1 período</button>
           <details class="more" ${a.holdOpen ? "open" : ""}><summary>Cambiar fecha</summary><form class="inline" data-expiry="${esc(a.id)}" style="margin-top:6px"><input type="date" name="date" required value="${new Date(Math.max(a.customerExpiresAt, Date.now())).toISOString().slice(0, 10)}" aria-label="Nueva fecha de vencimiento"><button class="pbtn sm" type="submit">Guardar</button></form></details>
@@ -574,7 +644,7 @@ const V = {
             <label>Contraseña nueva<input name="password" placeholder="Vacío = no cambia" autocomplete="off"></label>
             <label>Proveedor<select name="supplierId">${suppliers.map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
             <label>Vence con el proveedor<input name="exp" type="date" value="${dateInput(a.supplierExpiresAt)}"></label>
-            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
@@ -629,13 +699,32 @@ const V = {
   async carga() {
     const [products, suppliers] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
     if (!products.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas creá al menos un producto.<div class="inline"><button class="pbtn dark" type="button" data-go="productos">Crear producto</button></div></div></section>`;
-    const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
+    const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products.filter((x) => x.kind !== "iptv") : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
+    const iptvProds = products.filter((p) => p.kind === "iptv");
+    const iptvCard = !iptvProds.length ? "" : `<section class="card ok-card"><h2>📺 Registrar línea IPTV <small>· Flujo TV, Más TV, etc.</small></h2>
+      <form class="form" id="iptvForm">
+        <label>Producto IPTV<select name="productId">${iptvProds.map((p) => opt(p.id, p.name)).join("")}</select></label>
+        <label>Cómo se entrega<select name="mode">${[["xtream", "Usuario + clave + servidor (Xtream)"], ["m3u", "Enlace M3U / lista"], ["mac", "Por MAC"], ["code", "Código de activación"]].map(([v, t]) => opt(v, t)).join("")}</select></label>
+        <label style="grid-column:1/-1">Usuario o nombre de la línea<input name="email" required placeholder="usuario123 o 'Juan - Flujo TV'" autocomplete="off"></label>
+        <label style="grid-column:1/-1" class="iptv-secret">Clave / enlace M3U / código<input name="password" required placeholder="la clave, el enlace M3U completo o el código" autocomplete="off"></label>
+        <label class="iptv-xtream">Servidor / URL<input name="server" placeholder="http://servidor.com:8080"></label>
+        <label class="iptv-mac" hidden>MAC del aparato<input name="mac" placeholder="00:1A:79:XX:XX:XX"></label>
+        <label>App para ver <small class="muted">(opcional)</small><input name="app" placeholder="IBO Player, IPTV Smarters…"></label>
+        <label>Dispositivos a la vez<input name="connections" type="number" min="1" max="20" placeholder="1"></label>
+        <details style="grid-column:1/-1"><summary>Proveedor, vencimiento y costo <small class="muted">(opcional)</small></summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name)).join("")}</select></label>
+            <label>Vence con el proveedor<input type="date" name="exp"></label>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label></div></details>
+        <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Guardar línea IPTV</button>
+      </form>
+      <p class="muted" style="margin:0">La línea queda <b>libre</b>, lista para vender o asignar en Vender/Cuentas. Al venderla, el cliente recibe sus datos y cómo verla.</p></section>`;
     const last = (() => { try { return JSON.parse(localStorage.getItem("gs-carga") || "{}"); } catch { return {}; } })();
     P.tab.prodDefaults = Object.fromEntries(products.map((p) => [p.id, p.profileDefaults ?? []]));
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
@@ -645,17 +734,17 @@ const V = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
             <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
             <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
-            <label>Costo (Bs)<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (Bs)<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (Bs)<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
       <textarea name="rows" rows="5" style="grid-column:1/-1" placeholder="cuenta1@correo.com, Clave#1, 5, 2026-12-31&#10;cuenta2@correo.com, Clave#2, 5, 2026-12-31" aria-label="Lista de cuentas"></textarea>
       <button class="pbtn dark" type="submit" style="justify-self:start">Cargar lista</button></form><div id="bulkOut"></div></section>`;
   },
@@ -667,26 +756,47 @@ const V = {
     const f = edit ?? { name: "", category: "", description: "", kind: "profile", durationDays: 30, price: 0, color: "#3984ff", published: true };
     return `<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
       <label>Nombre<input name="name" required maxlength="60" value="${esc(f.name)}"></label><label>Categoría<input name="category" maxlength="40" value="${esc(f.category ?? "")}" placeholder="Streaming, IA, Educación…"></label>
-      <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
-      <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (Bs)<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
-      <label>Precio revendedor (Bs, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
-      <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
+      <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"], ["iptv", "IPTV (TV en vivo)"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
+      <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (${currencySym()})<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
+      <label>Precio revendedor (${currencySym()}, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
+      <label>Color de la tarjeta<span class="colorrow"><input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"><output class="hex">${esc(f.color ?? "#3984ff")}</output></span></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label style="grid-column:1/-1">📌 Regla al vender <small class="muted">(opcional · aparece cuando vas a vender este servicio)</small><input name="saleNote" maxlength="200" value="${esc(f.saleNote ?? "")}" placeholder="Ej.: Disney pide PIN al entrar · este panel tarda 10 min"></label>
+      <div style="grid-column:1/-1" class="pdefs"><div class="selbl">📲 Cómo verlo <small class="muted">opcional · el cliente recibe esto al comprar (ideal para IPTV)</small></div>
+        <div style="display:grid;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>App<input name="guideApp" maxlength="60" value="${esc(f.guide?.app ?? "")}" placeholder="IBO Player, IPTV Smarters…"></label>
+            <label>Enlace de descarga<input name="guideLink" maxlength="300" value="${esc(f.guide?.link ?? "")}" placeholder="https://…"></label></div>
+          <label>Pasos<textarea name="guideSteps" rows="2" maxlength="600" placeholder="Ej.: Abrí la app, elegí 'Xtream Codes', pegá usuario, clave y servidor.">${esc(f.guide?.steps ?? "")}</textarea></label>
+        </div></div>
       <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
       <div style="grid-column:1/-1" class="pdefs combo-only" ${f.kind === "combo" ? "" : "hidden"}><div class="selbl">🎁 Apps que incluye este combo <small class="muted">cuando el cliente arma el mismo combo en la tienda, le cobramos este precio</small></div>
         <div class="combopick">${products.filter((x) => x.kind !== "combo").map((x) => `<label class="chk"><input type="checkbox" name="combopart" value="${esc(x.id)}" ${f.comboProductIds?.includes(x.id) ? "checked" : ""}> ${esc(x.name)}</label>`).join("") || `<span class="muted">Primero creá productos sueltos (no combo) para elegirlos acá.</span>`}</div>
       </div>
       <div style="grid-column:1/-1" class="pdefs noncombo-only" ${f.kind !== "combo" ? "" : "hidden"}><div class="selbl">👤 Nombre y PIN por defecto de cada perfil <small class="muted">opcional · se precargan al cargar una cuenta</small></div>
-        ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
+        ${Array.from({ length: Math.min(10, Math.max(5, (f.profileDefaults?.length ?? 0) + 1)) }, (_, i) => { const d = f.profileDefaults?.[i]; return `<div class="pdrow"><span class="pdn">${i + 1}</span><input name="pd-label-${i}" placeholder="Perfil ${i + 1}" maxlength="40" value="${esc(d?.label ?? "")}"><input name="pd-pin-${i}" placeholder="PIN" aria-label="PIN (opcional)" inputmode="numeric" maxlength="8" value="${esc(d?.pin ?? "")}"></div>`; }).join("")}
       </div>
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
+      ${(() => {
+        const lists = groups.filter((g) => g.id !== "final" && g.id !== "revendedor");
+        const nonCombo = products.filter((p) => p.kind !== "combo");
+        const row = (g, p) => `<label class="plrow"><span>${esc(p.name)}</span><input name="pp-${esc(p.id)}" inputmode="decimal" value="${g.prices[p.id] != null ? g.prices[p.id] / 100 : ""}" placeholder="base ${p.price / 100}"></label>`;
+        return `<section class="card"><h2>🌎 Listas de precios <small>· distintos precios por país o tipo de cliente</small></h2>
+          <p class="muted" style="margin:0">Creá una lista (ej.: Panamá, Paraguay), poné el precio de cada producto y asignásela al cliente en <b>Clientes</b>. Precio vacío = usa el precio base del producto.</p>
+          ${lists.map((g) => `<details class="pricelist"><summary><b>${esc(g.name)}</b> · ${Object.keys(g.prices).length} precios</summary>
+            <form class="form" data-pricelist="${esc(g.id)}" style="margin-top:8px">
+              <label>Nombre de la lista<input name="name" value="${esc(g.name)}" maxlength="40" required></label>
+              <div class="pltable">${nonCombo.map((p) => row(g, p)).join("")}</div>
+              <button class="pbtn dark" type="submit" style="justify-self:start">Guardar lista</button>
+            </form></details>`).join("") || `<p class="muted" style="margin:0">Todavía no tenés listas. Creá la primera abajo 👇</p>`}
+          <form class="inline" id="newListForm" style="margin-top:10px"><input name="name" placeholder="Nueva lista (ej.: Panamá)" maxlength="40" required><button class="pbtn dark" type="submit">${icon("plus")}Crear lista</button></form></section>`;
+      })()}
       <section class="card"><h2>Productos <small>· ${products.length} · tocá una tarjeta para editar</small></h2>
       ${products.length ? `<div class="prodgrid">${products.map((p) => {
         const st = stock[p.id]?.available ?? 0;
-        const kindTxt = { profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" }[p.kind];
+        const kindTxt = { profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" }[p.kind];
         const estado = !p.published ? ["Oculto", "mute"] : p.resellersOnly ? ["Solo revendedores", "warn"] : ["Publicado", "ok"];
         const face = p.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(p.name, p.color);
         return `<article class="prodcard" tabindex="0" role="button" data-editprod="${esc(p.id)}">
@@ -714,7 +824,8 @@ const V = {
 
   async clientes() {
     const q = P.tab.q ?? "";
-    const list = await api("GET", "/api/admin/customers?q=" + encodeURIComponent(q));
+    const [list, priceGroups] = await Promise.all([api("GET", "/api/admin/customers?q=" + encodeURIComponent(q)), api("GET", "/api/admin/price-groups").catch(() => [])]);
+    const priceLists = priceGroups.filter((g) => g.id !== "final" && g.id !== "revendedor");
     const link = P.tab.link;
     const ledger = P.tab.ledger ? await api("GET", `/api/admin/customers/${P.tab.ledger}/ledger`) : null;
     const lc = list.find((c) => c.id === P.tab.ledger);
@@ -753,6 +864,7 @@ const V = {
           <form class="form" data-editcusform data-id="${esc(c.id)}">
             <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
             ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
+            ${canReview() && c.kind !== "reseller" && priceLists.length ? `<label>💲 Lista de precios<select name="priceList">${opt("final", "Base (precio normal)", !c.priceGroupId || c.priceGroupId === "final")}${priceLists.map((g) => opt(g.id, g.name, c.priceGroupId === g.id)).join("")}</select></label>` : ""}
             <label>🏷️ Etiqueta<select name="tag">${opt("", "Sin etiqueta", !c.tag)}${Object.entries(CTAGS).map(([k, v]) => opt(k, v[0], c.tag === k)).join("")}</select></label>
             <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
@@ -824,9 +936,9 @@ const V = {
         <div class="laygrid">${LAYOUT_LIST.map(([v, t, d]) => `<button type="button" class="laycard${(s.layout || "clasico") === v ? " on" : ""}" data-layout="${v}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join("")}</div></section>
       <section class="card"><h2>Estilos listos <small>· colores</small></h2><p class="muted" style="margin:0">Tocá uno para probarlo en la vista previa de abajo. Si te gusta, tocá <b>Guardar apariencia</b>.</p>
         <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-ptheme="${t.id}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div></section>
-      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
+      <section class="card"><h2>Colores</h2><form id="lookForm" style="display:grid;gap:16px"><div id="lookWarn" class="lookwarn" role="status" aria-live="polite"></div><input type="hidden" name="layout" value="${esc(s.layout || "clasico")}">
         <div><b>Color principal</b> <span class="muted">· botones, precios y detalles</span>${sw("accentColor", ACCENTS, s.accentColor)}</div>
-        <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
+        <div><b>Segundo color</b> <span class="muted">· para los degradados (vacío = automático)</span><div class="inline"><input type="color" name="accent2Color" aria-label="Segundo color" value="${esc(s.accent2Color || s.accentColor)}" style="width:54px;height:38px;padding:2px"><label class="chk"><input type="checkbox" name="accent2Auto" ${s.accent2Color ? "" : "checked"}> Automático</label></div></div>
         <div><b>Fondo</b> <span class="muted">· oscuro o claro: los textos cambian solos para que siempre se lean</span>${sw("backgroundColor", BGS, s.backgroundColor)}</div>
         <div class="form"><label>Letra de los títulos<select name="headingFont">${FONTS.map(([v, t]) => opt(v, t, v === s.headingFont)).join("")}</select></label>
           <label>Letra del texto<select name="fontFamily">${FONTS.map(([v, t]) => opt(v, t, v === s.fontFamily)).join("")}</select></label>
@@ -940,10 +1052,10 @@ const V = {
     ${isOwner() ? `<section class="card"><h2>${icon("gear")}Ajustes de revendedores</h2>
       <form class="form" id="resCfg">
         <label>Ganancia sugerida para sus precios (%)<input name="margin" inputmode="numeric" value="${esc(marginPct)}"><small class="muted">El asistente les propone tu precio + este %. Ellos lo pueden cambiar.</small></label>
-        <label>🎁 Premio por traer un revendedor (Bs, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
+        <label>🎁 Premio por traer un revendedor (${currencySym()}, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rentOn" ${rent.enabled ? "checked" : ""}> Cobrar alquiler mensual por la página (se descuenta solo de su saldo)</label>
-        <label>Precio por mes (Bs)<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
-        <label>Gratis si ese mes te compran (Bs, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
+        <label>Precio por mes (${currencySym()})<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
+        <label>Gratis si ese mes te compran (${currencySym()}, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, su página sigue publicada los días de gracia y después se apaga sola. Apenas recarga, se cobra y se prende sola.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
@@ -995,8 +1107,15 @@ const V = {
 
   async auditoria() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño ve la auditoría.</div></section>`;
-    const list = await api("GET", "/api/admin/audit?limit=300");
-    return `<section class="card">${table(["Fecha", "Quién", "Rol", "Acción", "Sobre", "Detalle"], list.map((a) => `<tr><td>${fdt(a.at)}</td><td>${esc(a.actorId)}</td><td>${esc(a.role)}</td><td>${esc(a.action)}</td><td class="mono">${esc(a.entityId)}</td><td><small class="muted">${esc(a.data ? JSON.stringify(a.data) : "")}</small></td></tr>`))}</section>`;
+    const [list, staff, customers, products] = await Promise.all([
+      api("GET", "/api/admin/audit?limit=300"), api("GET", "/api/admin/staff").catch(() => []),
+      api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => []),
+    ]);
+    const maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
+    const rows = list.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
+      <div class="audtxt"><b>${esc(t.who)}</b>${t.role ? ` <span class="muted">(${esc(t.role)})</span>` : ""} ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div>
+      <div class="audmeta"><small class="muted">${fdt(a.at)}</small><details class="audtech"><summary>Ver detalle técnico</summary><code>${esc(a.action)} · ${esc(a.entityId)}${a.data && Object.keys(a.data).length ? " · " + esc(JSON.stringify(a.data)) : ""}</code></details></div></div>`; }).join("");
+    return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>${rows || `<div class="emptybox">Todavía no hay movimientos.</div>`}</section>`;
   },
 
   async configuracion() {
@@ -1004,19 +1123,96 @@ const V = {
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
+      <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
-        <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (Bs)<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
+        <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (${currencySym()})<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
         <p class="muted" style="grid-column:1/-1;margin:0">Los combos ya armados mantienen su precio. Los revendedores no reciben este descuento. Poné 0 en los tres para apagar “Armá tu combo”.</p>
         <button class="pbtn dark" type="submit">Guardar descuentos</button></form></section>
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${await pushCard()}
+      ${isOwner() ? await telegramCard() : ""}
+      ${isOwner() ? await binanceCard() : ""}
+      ${canReview() ? await payMethodsCard() : ""}
+      ${canReview() ? await usdtCard() : ""}
       ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
 };
 
+
+/* ---------------- Auditoría en frases que se entienden ---------------- */
+const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "vendedor", customer: "cliente", reseller: "revendedor", system: "automático" };
+const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT", local: "con un método del país" };
+const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
+// {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
+const AUD_VERB = {
+  "account.add": "cargó {x}", "account.retire": "retiró {x}", "account.update": "editó {x}",
+  "alerts.settings": "cambió los avisos para el dueño", "alerts.supplier_expiry": "recibió el aviso de vencimiento con el proveedor de {x}",
+  "assignment.control": "actualizó el control de {x}", "assignment.deliver": "abrió los datos de entrega de {x}", "assignment.expire": "cerró por vencido {x}",
+  "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
+  "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
+  "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
+  "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
+  "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
+  "expense.add": "anotó un gasto", "expense.remove": "borró un gasto", "export": "exportó un Excel", "faq.update": "editó las preguntas frecuentes",
+  "import.customers": "importó clientes desde Excel", "mailbox.remove": "desconectó un correo",
+  "order.binance": "abrió el pago con Binance de {x}", "order.cancel": "canceló {x}", "order.create": "creó {x}", "order.evidence": "subió el comprobante de {x}",
+  "order.expire": "dejó vencer la reserva de {x}", "order.fulfill": "entregó {x}",
+  "outbox.flush": "mandó los avisos de WhatsApp pendientes", "outbox.sent_manually": "marcó un aviso como enviado a mano",
+  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "price_group.upsert": "guardó la lista de precios {x}",
+  "product.image": "cambió el logo de {x}", "product.upsert": "guardó el producto {x}",
+  "reminders.auto": "programó recordatorios automáticos", "reminders.queue": "puso en cola recordatorios de vencimiento", "reminders.settings": "cambió los recordatorios",
+  "renewal.create": "pidió una renovación ({x})", "reseller.apply": "mandó una solicitud para ser revendedor", "reseller.approve": "aprobó la solicitud de revendedor {x}",
+  "reseller.client_update": "editó a su cliente {x}", "reseller.prices": "cambió sus precios", "reseller.referral_paid": "cobró el premio por referido",
+  "reseller.reject": "rechazó la solicitud de revendedor {x}", "reseller.shop_rent_free": "quedó sin alquiler de página", "reseller.shop_suspend": "pausó la página de {x}",
+  "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
+  "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
+  "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
+  "staff.password": "cambió la contraseña de {x}", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
+  "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
+};
+const audNum = (id) => { const m = String(id ?? "").match(/(\d+)$/); return m ? "#" + Number(m[1]) : ""; };
+function auditText(a, maps) {
+  // Quién
+  let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
+  const aid = String(a.actorId ?? "");
+  if (aid.startsWith("system")) { who = "El sistema"; role = "automático"; }
+  else if (maps.staff[aid]) who = maps.staff[aid].name;
+  else { const cid = aid.split(":")[1]; const c = cid && maps.cust[cid]; if (c) { who = c.name; if (aid.startsWith("wa:")) role = (role ? role + ", " : "") + "por WhatsApp"; } else if (aid) who = role ? role[0].toUpperCase() + role.slice(1) : aid; }
+  if (who.toLowerCase() === role) role = "";
+  // Sobre qué
+  const id = a.entityId;
+  const many = id === "*" || String(id).includes(",");
+  const obj = many ? "varios" : ({
+    order: () => `el pedido ${audNum(id)}`, assignment: () => `el alquiler ${audNum(id)}`, account: () => `la cuenta ${audNum(id)}`, slot: () => `el perfil ${audNum(id)}`,
+    customer: () => maps.cust[id] ? `al cliente ${maps.cust[id].name}` : `al cliente ${audNum(id)}`, product: () => maps.prod[id] ? `"${maps.prod[id].name}"` : `"${id}"`,
+    coupon: () => (a.data?.code ? `"${a.data.code}"` : ""),
+    staff: () => maps.staff[id]?.name ?? `un usuario`, supplier: () => `"${id}"`, price_group: () => `"${id}"`, reseller_app: () => `${audNum(id)}`,
+  }[a.entity] ?? (() => ""))();
+  const verb = AUD_VERB[a.action] ?? a.action.replace(/[._]/g, " ");
+  const what = verb.includes("{x}") ? verb.replace("{x}", obj).replace(/\s+\)/, ")").replace(/\(\)/, "").trim() : verb;
+  // Detalle útil (lo técnico queda plegado)
+  const d = a.data ?? {}, parts = [];
+  if (d.kind && AUD_KIND[d.kind]) parts.push(AUD_KIND[d.kind]);
+  if (Number.isFinite(d.total)) parts.push(bs(d.total) + (d.via ? ` por ${d.via}` : AUD_METHOD[d.method] ? " " + AUD_METHOD[d.method] : ""));
+  else if (AUD_METHOD[d.method]) parts.push(AUD_METHOD[d.method]);
+  if (Number.isFinite(d.amount)) parts.push(bs(d.amount));
+  if (Number.isFinite(d.price)) parts.push(bs(d.price));
+  if (d.confirmedReference) parts.push(`ref. ${d.confirmedReference}`);
+  if (d.reason) parts.push(`motivo: "${d.reason}"`);
+  if (Number.isFinite(d.hours)) parts.push(`${d.hours} h`);
+  if (Number.isFinite(d.usdt)) parts.push(`${d.usdt} USDT`);
+  if (Number.isFinite(d.count)) parts.push(`${d.count}`);
+  if (Number.isFinite(d.slots) && d.slots) parts.push(`${d.slots} perfil(es)`);
+  if (d.coupon) parts.push(`cupón ${d.coupon}${Number.isFinite(d.couponAmount) ? ` (−${bs(d.couponAmount)})` : ""}`);
+  return { who, role, what, detail: parts.join(" · ") };
+}
 
 /* ---------------- Verificación en dos pasos ---------------- */
 async function twoFactorCard() {
@@ -1068,6 +1264,184 @@ async function ownerCards() {
       <p class="muted" style="margin:0">Para volver a un respaldo: apagá la tienda y reemplazá <code>gabriel.db</code> y la carpeta <code>uploads</code> en la carpeta de datos (el .zip trae un LEEME con los pasos).</p></section>`;
 }
 
+/* ---------------- Avisos del dueño por Telegram ---------------- */
+const TG_LABELS = {
+  payment: "Pagos por revisar", reseller: "Solicitudes de revendedor", reloc: "Clientes en cuentas caídas (reubicar)",
+  supplier: "Cuentas que vencen con el proveedor", supplier1d: "Cuentas que vencen mañana con el proveedor", lowstock: "Stock bajo",
+  overdue: "Servicios vencidos sin renovar", due: "Servicios que vencen en 3 días",
+};
+async function telegramCard() {
+  const t = await api("GET", "/api/admin/telegram").catch(() => null);
+  if (!t) return "";
+  const on = t.enabled && t.hasToken && t.chatId;
+  const sel = new Set(t.alerts || []);
+  return `<section class="card"><h2>${icon("bell")}Avisos por Telegram ${on ? pill("Activo", "ok") : t.hasToken ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">Recibí en tu celular un mensaje de Telegram cuando algo necesita tu atención (un pago por revisar, un cliente en una cuenta caída, etc.), aunque no tengas el panel abierto. Es gratis y no depende de Meta.</p>
+    <details class="tg-help"><summary>¿Cómo lo conecto? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>En Telegram, buscá <b>@BotFather</b> y mandale <code>/newbot</code>. Elegí un nombre. Te da un <b>token</b> (algo como <code>123456:AA...</code>). Pegalo abajo.</li>
+        <li>Abrí tu bot nuevo (el enlace que te da BotFather) y tocá <b>Iniciar / Start</b>.</li>
+        <li>Para saber tu <b>chat ID</b>: buscá <b>@userinfobot</b> en Telegram, tocá Start y te dice tu número. Pegalo abajo.</li>
+        <li>Guardá, tocá <b>Enviar prueba</b> y listo.</li>
+      </ol></details>
+    <form class="form" id="tgForm">
+      <label>Token del bot (de @BotFather)<input name="token" autocomplete="off" placeholder="${t.hasToken ? "Guardado · dejalo vacío para no cambiarlo" : "123456:AA..."}"></label>
+      <label>Tu chat ID (de @userinfobot)<input name="chatId" inputmode="numeric" placeholder="123456789" value="${esc(t.chatId || "")}"></label>
+      <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
+        <legend style="padding:0 6px;font-weight:600">¿De qué querés que te avise?</legend>
+        ${(t.alertTypes || []).map((k) => `<label class="chk"><input type="checkbox" name="al_${k}" ${sel.has(k) ? "checked" : ""}> ${esc(TG_LABELS[k] || k)}</label>`).join("")}
+      </fieldset>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${t.enabled ? "checked" : ""}> Mandarme estos avisos por Telegram</label>
+      ${t.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento falló: ${esc(t.lastError)}</p>` : ""}
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="tgTest">Enviar prueba</button></div>
+    </form></section>`;
+}
+
+/* ---------------- Avisos al celular (Web Push) ---------------- */
+const PUSH_LABELS = { payment: "💳 Pagos por revisar", lowstock: "📦 Stock bajo", supplier1d: "⚠️ Cuentas que vencen mañana con el proveedor", reseller: "👤 Solicitudes de revendedor", reloc: "🔀 Clientes en cuentas caídas" };
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+async function pushCard() {
+  const p = await api("GET", "/api/admin/push").catch(() => null);
+  if (!p) return "";
+  const sel = new Set(p.alerts || []);
+  const cfg = canReview() ? `<form class="form" id="pushForm">
+      <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
+        <legend style="padding:0 6px;font-weight:600">¿De qué te avisamos?</legend>
+        ${Object.entries(PUSH_LABELS).map(([k, t]) => `<label class="chk"><input type="checkbox" name="pa_${k}" ${sel.has(k) ? "checked" : ""}> ${t}</label>`).join("")}
+      </fieldset>
+      <label>Stock bajo: avisar cuando queden menos de<input name="lowStockAt" type="number" min="0" max="50" step="1" inputmode="numeric" value="${p.lowStockAt}"></label>
+      <p class="muted" style="margin:0;align-self:end">perfiles libres de un producto (0 = no avisar).</p>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button></div>
+    </form>` : "";
+  if (!p.configured) return `<section class="card"><h2>${icon("bell")}Avisos al celular ${pill("Falta configurar el servidor", "mute")}</h2>
+    <p class="muted" style="margin:0">Notificaciones en el celular (como las de WhatsApp) cuando entra un pago, se acaba el stock o una cuenta vence mañana. Para prenderlas, quien maneja el servidor tiene que cargar las claves una sola vez:</p>
+    ${p.error ? `<p class="perr" style="margin:0">Las claves cargadas no sirven: ${esc(p.error)}</p>` : ""}
+    <details class="tg-help"><summary>¿Cómo se configura? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>En la carpeta del proyecto, corré <code>npm run vapid</code>. Te da tres líneas.</li>
+        <li>Cargalas como variables de entorno del servidor: <code>VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code> (es secreta) y <code>VAPID_SUBJECT</code> (tu correo, con <code>mailto:</code> adelante).</li>
+        <li>Reiniciá el servidor y volvé a esta pantalla para activar los avisos en tu celular.</li>
+      </ol></details>${cfg}</section>`;
+  return `<section class="card"><h2>${icon("bell")}Avisos al celular ${p.mine ? pill(`Activo en ${p.mine} equipo(s)`, "ok") : pill("Apagado en tus equipos", "warn")}</h2>
+    <p class="muted" style="margin:0">Te llega una notificación aunque tengas el panel cerrado. El aviso no lleva datos de tus clientes: el celular abre el panel con tu sesión para ver el detalle.</p>
+    <div id="pushHere" class="inline" style="flex-wrap:wrap"><span class="muted">Revisando este celular…</span></div>
+    ${p.lastError ? `<p class="perr" style="margin:0">Último envío falló: ${esc(p.lastError)}</p>` : ""}${cfg}</section>`;
+}
+/** Después de dibujar Configuración: muestra el estado de ESTE celular y el botón que corresponde. */
+async function pushStatus() {
+  const box = $("#pushHere"); if (!box) return;
+  if (!pushSupported()) {
+    box.innerHTML = isIOS() && !navigator.standalone
+      ? `<p class="muted" style="margin:0">En iPhone: primero tocá <b>Compartir → Agregar a inicio</b>, abrí el panel desde ese ícono y volvé acá.</p>`
+      : `<p class="muted" style="margin:0">Este navegador no permite avisos. Probá con Chrome en Android o con el panel instalado en el iPhone.</p>`;
+    return;
+  }
+  if (Notification.permission === "denied") { box.innerHTML = `<p class="perr" style="margin:0">Bloqueaste las notificaciones de este sitio. Activalas en los ajustes del navegador (ícono del candado → Notificaciones) y volvé a intentar.</p>`; return; }
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  const sub = reg && await reg.pushManager.getSubscription().catch(() => null);
+  box.innerHTML = sub
+    ? `<span class="pp pp-ok">✓ Activo en este celular</span><button class="pbtn" type="button" id="pushTest">Probar aviso</button><button class="pbtn" type="button" id="pushOff">Apagar en este celular</button>`
+    : `<button class="pbtn dark" type="button" id="pushOn">🔔 Activar avisos en este celular</button>`;
+}
+const b64uBytes = (s) => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function pushEnable() {
+  const p = await api("GET", "/api/admin/push");
+  if (!p.configured) return toast("Falta configurar el servidor");
+  if (await Notification.requestPermission() !== "granted") { toast("Sin permiso no te podemos avisar"); return pushStatus(); }
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(p.publicKey) });
+  const label = /Android/.test(navigator.userAgent) ? "Android" : isIOS() ? "iPhone" : "Computadora";
+  await api("POST", "/api/admin/push/subscribe", { subscription: sub.toJSON(), label });
+}
+async function pushDisable() {
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (sub) { await api("POST", "/api/admin/push/unsubscribe", { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+}
+
+/* ---------------- Cobros con Binance Pay (USDT) ---------------- */
+async function binanceCard() {
+  const b = await api("GET", "/api/admin/binance").catch(() => null);
+  if (!b) return "";
+  return `<section class="card"><h2>${icon("coins")}Cobrar en USDT (Binance Pay) ${b.ready ? pill("Activo", "ok") : b.hasKeys ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">Aceptá pagos en <b>USDT</b> por Binance Pay. El cliente paga en su app de Binance y el pedido se activa <b>solo</b>, sin que revises nada. Vos ponés la tasa Bs→USDT.</p>
+    ${!b.https ? `<div class="pok">Para que Binance te avise de los pagos necesitás la tienda publicada con HTTPS (Railway) y arrancar con <code>GS_PUBLIC_ORIGIN</code>.</div>` : ""}
+    <details class="tg-help"><summary>¿Cómo lo conecto? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>Necesitás una cuenta de <b>comerciante</b> de Binance Pay (empresa verificada): pedila en <a href="https://merchant.binance.com" target="_blank" rel="noopener">merchant.binance.com</a>.</li>
+        <li>En el panel de comerciante → <b>Developers / API</b>, creá una <b>API Key</b> y su <b>API Secret</b>. Pegalas abajo.</li>
+        <li>Cargá el <b>Webhook URL</b> de abajo en la configuración de pagos de Binance (para que te avise cuando el cliente paga).</li>
+        <li>Poné tu <b>tasa</b> (cuántos Bs vale 1 USDT), activá y tocá <b>Probar conexión</b>.</li>
+      </ol></details>
+    ${b.webhookUrl ? `<label>Webhook URL <small class="muted">(copialo en Binance)</small><div class="inline"><input value="${esc(b.webhookUrl)}" readonly style="flex:1"><button class="pbtn sm" type="button" data-copy="${esc(b.webhookUrl)}">${icon("copy")}Copiar</button></div></label>` : ""}
+    <form class="form" id="binForm">
+      <label>API Key<input name="apiKey" autocomplete="off" placeholder="${b.hasKeys ? "Guardada · dejala vacía para no cambiarla" : "Tu API Key de Binance Pay"}"></label>
+      <label>API Secret<input name="apiSecret" type="password" autocomplete="off" placeholder="${b.hasKeys ? "Guardada · dejala vacía" : "Tu API Secret"}"></label>
+      <label>Tasa: ¿cuántos Bs vale 1 USDT?<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${b.rate || ""}"></label>
+      <label>Tu Binance Pay ID <small class="muted">(opcional, informativo)</small><input name="payId" inputmode="numeric" placeholder="Ej.: 123456789" value="${esc(b.payId || "")}"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${b.enabled ? "checked" : ""}> Aceptar pagos con Binance en la tienda</label>
+      ${b.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento con Binance falló: ${esc(b.lastError)}</p>` : ""}
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="binTest">Probar conexión</button></div>
+    </form></section>`;
+}
+
+/* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+/* ---------------- Cobro por país (Yappy, Tigo Money…) ---------------- */
+async function payMethodsCard() {
+  const [list, groups] = await Promise.all([api("GET", "/api/admin/paymethods").catch(() => null), api("GET", "/api/admin/price-groups").catch(() => [])]);
+  if (!list) return "";
+  const lists = groups.filter((g) => g.id !== "revendedor");
+  const gname = (id) => groups.find((g) => g.id === id)?.name ?? id;
+  const ed = list.find((m) => m.id === P.tab.pmEdit) ?? null;
+  const f = ed ?? { priceGroupIds: [], replacesQr: false, enabled: true };
+  const rows = list.map((m) => `<div class="pmrow">
+      <div class="pmhead"><b>${esc(m.name)}</b>${m.country ? ` <span class="muted">· ${esc(m.country)}</span>` : ""} ${m.enabled ? pill("Activo", "ok") : pill("Apagado", "mute")}</div>
+      <small class="muted">${esc(m.account)}${m.holder ? ` · ${esc(m.holder)}` : ""}</small>
+      <small>Lo ven: ${m.priceGroupIds.length ? m.priceGroupIds.map((g) => esc(gname(g))).join(", ") : "todos los clientes"}${m.replacesQr ? " · <b>en lugar del QR de Bolivia</b>" : ""}</small>
+      <div class="inline" style="flex-wrap:wrap">
+        <button class="pbtn sm" type="button" data-pmedit="${esc(m.id)}">${icon("edit")}Editar</button>
+        <label class="pbtn sm filebtn">${m.hasQr ? "Cambiar QR" : "Subir QR"}<input type="file" accept="image/png,image/jpeg,image/webp" data-pmqr="${esc(m.id)}" data-fp="1" class="vh"></label>
+        ${m.hasQr ? `<a class="pbtn sm" href="/api/admin/paymethods/${esc(m.id)}/qr" target="_blank" rel="noopener">Ver QR</a><button class="pbtn sm" type="button" data-pmqrdel="${esc(m.id)}">Quitar QR</button>` : ""}
+        <button class="pbtn sm" type="button" data-pmdel="${esc(m.id)}" data-name="${esc(m.name)}" aria-label="Borrar ${esc(m.name)}">${icon("trash")}</button>
+      </div></div>`).join("");
+  return `<section class="card"><h2>${icon("coins")}Cobro por país <small>Yappy, Tigo Money, giros, transferencia…</small></h2>
+    <p class="muted" style="margin:0">Cada cliente ve en el carrito cómo pagar en su país, según su <b>lista de precios</b> (Panamá, Paraguay…). Paga, sube el comprobante y vos lo aprobás en <b>Aprobar pagos</b>, igual que un QR. No se conecta a ninguna cuenta: los datos solo se muestran.</p>
+    ${rows ? `<div class="pmlist">${rows}</div>` : ""}
+    <form class="form" id="pmForm" autocomplete="off" ${ed ? `data-id="${esc(ed.id)}"` : ""}>
+      <h3 style="grid-column:1/-1;margin:4px 0 0;font-size:15px">${ed ? `Editar ${esc(ed.name)}` : "Agregar un método"}</h3>
+      <label>Nombre<input name="name" required maxlength="40" list="pmNames" value="${esc(f.name ?? "")}" placeholder="Ej.: Yappy"><datalist id="pmNames"><option>Yappy</option><option>Tigo Money</option><option>Giros Tigo</option><option>Transferencia bancaria</option><option>Nequi</option></datalist></label>
+      <label>País <small class="muted">(opcional)</small><input name="country" maxlength="30" value="${esc(f.country ?? "")}" placeholder="Ej.: Panamá"></label>
+      <label>Número, alias o cuenta<input name="account" required maxlength="120" value="${esc(f.account ?? "")}" placeholder="Ej.: 6123-4567"></label>
+      <label>A nombre de <small class="muted">(opcional)</small><input name="holder" maxlength="60" value="${esc(f.holder ?? "")}" placeholder="Ej.: Gabriel …"></label>
+      <label style="grid-column:1/-1">Indicaciones para el cliente <small class="muted">(opcional)</small><input name="instructions" maxlength="300" value="${esc(f.instructions ?? "")}" placeholder="Ej.: En el concepto poné tu nombre."></label>
+      <fieldset class="cupprods" style="grid-column:1/-1"><legend>¿Quiénes lo ven? <small class="muted">(ninguna marcada = todos)</small></legend>
+        ${lists.map((g) => `<label class="chk"><input type="checkbox" name="pmgroup" value="${esc(g.id)}" ${f.priceGroupIds.includes(g.id) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || `<span class="muted">Creá listas de precios por país en Clientes.</span>`}</fieldset>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="replacesQr" ${f.replacesQr ? "checked" : ""}> Para esos clientes, esconder el QR de Bolivia</label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${f.enabled ? "checked" : ""}> Mostrarlo en la tienda</label>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${ed ? "Guardar cambios" : "Agregar método"}</button>${ed ? `<button class="pbtn" type="button" data-pmedit="">Cancelar</button>` : ""}</div>
+    </form></section>`;
+}
+
+async function usdtCard() {
+  const u = await api("GET", "/api/admin/usdt").catch(() => null);
+  if (!u) return "";
+  const on = u.enabled && (u.address || u.payId) && u.rate > 0;
+  return `<section class="card"><h2>${icon("coins")}Cobrar en USDT a mano ${on ? pill("Activo", "ok") : (u.address || u.payId) ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">La forma simple, sin cuenta de empresa: el cliente ve tu <b>dirección USDT</b> (o tu Binance Pay ID) y el monto, te manda el pago y sube el comprobante. Vos lo aprobás como un pago por QR. Ideal mientras Binance Pay automático no esté habilitado.</p>
+    <form class="form" id="usdtForm">
+      <label>Red<input name="network" placeholder="Ej.: TRC20" value="${esc(u.network || "")}" list="usdtNets"><datalist id="usdtNets"><option>TRC20</option><option>BEP20</option><option>ERC20</option><option>Polygon</option></datalist></label>
+      <label>Tasa: ¿cuántos Bs vale 1 USDT?<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${u.rate || ""}"></label>
+      <label style="grid-column:1/-1">Dirección de tu billetera USDT<input name="address" autocomplete="off" placeholder="Ej.: T... (la dirección de esa red)" value="${esc(u.address || "")}"></label>
+      <label style="grid-column:1/-1">Binance Pay ID <small class="muted">(opcional, pago Binance-a-Binance)</small><input name="payId" inputmode="numeric" placeholder="Ej.: 123456789" value="${esc(u.payId || "")}"></label>
+      <label style="grid-column:1/-1">Nota para el cliente <small class="muted">(opcional)</small><input name="note" maxlength="300" placeholder="Ej.: Mandá solo por TRC20. Avisame por WhatsApp con el hash." value="${esc(u.note || "")}"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${u.enabled ? "checked" : ""}> Aceptar pagos en USDT a mano en la tienda</label>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button></div>
+      <p class="muted" style="grid-column:1/-1;margin:0">⚠️ Revisá el pago en tu billetera antes de aprobar: en cripto, una transferencia no se puede revertir.</p>
+    </form></section>`;
+}
+
 /* Vigila pagos nuevos cada 30 s: sonido, contador en la pestaña y notificación del navegador. */
 const watch = { last: null };
 function beep() {
@@ -1085,6 +1459,13 @@ function showPending(n) {
   document.title = (n ? `(${n}) ` : "") + "Panel · " + (P.settings?.storeName ?? "Gabriel Store");
   const b = $('#menu [data-go="aprobacion"]');
   if (b) { b.querySelector(".count")?.remove(); if (n) b.insertAdjacentHTML("beforeend", `<span class="count">${n}</span>`); }
+}
+async function refreshNotifCount() {
+  try {
+    const d = await api("GET", "/api/admin/notifications");
+    const el = $("#notifcount"); if (el) { el.textContent = d.total > 99 ? "99+" : String(d.total); el.hidden = !d.total; }
+    const m = $('#menu [data-go="notificaciones"]'); if (m) { m.querySelector(".count")?.remove(); if (d.total) m.insertAdjacentHTML("beforeend", `<span class="count">${d.total > 99 ? "99+" : d.total}</span>`); }
+  } catch { /* sin permiso o sin sesión */ }
 }
 async function watchPayments() {
   if (!P.me) return;
@@ -1240,18 +1621,25 @@ async function render() {
   const pend = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0);
   watch.last = pend;
   showPending(pend);
-  const inG = ["cuentas", "carga", "productos"].includes(P.view);
+  refreshNotifCount();
+  const inG = ["cuentas", "carga", "productos", "cupones"].includes(P.view);
   $("#menu").innerHTML = MENU.filter((m) => !m[3] || m[3] === "owner" && isOwner() || Array.isArray(m[3])).map(([k, i, t, sub]) => Array.isArray(sub)
     ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
     : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(i)}${t}${k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : ""}</button>`).join("");
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
-  const bnavFor = ["cuentas", "carga", "productos"].includes(P.view) ? "cuentas" : P.view;
+  const bnavFor = ["cuentas", "carga", "productos", "cupones"].includes(P.view) ? "cuentas" : P.view;
   $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", b.dataset.go === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {
     $("#pout").innerHTML = await V[P.view]();
     $$(".msgs").forEach((m) => (m.scrollTop = m.scrollHeight));
+    enhanceDates($("#pout"));
+    enhanceFiles($("#pout"));
+    fitChartText($("#pout"));
+    if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
+    if (P.view === "apariencia") previewLook();
+    if (P.view === "configuracion") pushStatus();
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -1262,6 +1650,77 @@ function go(v) {
   history.replaceState(null, "", "#" + P.view);
   scrollTo(0, 0);
   render();
+}
+
+/* ---------------- Letras de los gráficos legibles en cualquier ancho ----------------
+   Los gráficos son SVG y se achican con la pantalla: calculamos el tamaño para que en pantalla
+   se vean siempre a ~12,5 px (antes los ejes quedaban en 10–11 px en el celular). */
+function fitChartText(root = document) {
+  for (const svg of root.querySelectorAll("svg")) {
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    const labels = svg.querySelectorAll("text.ax");
+    if (!vb || !vb.width || !labels.length) continue;
+    const scale = svg.getBoundingClientRect().width / vb.width;
+    if (!scale) continue;
+    const units = 12.5 / scale;
+    for (const tx of labels) tx.style.fontSize = Math.max(units, 8) + "px";
+  }
+}
+let fitTimer;
+addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fitChartText($("#pout") || document), 150); });
+
+/* ---------------- Selector de archivo en español ----------------
+   El nativo dice "Choose File / No file chosen" (idioma del navegador) y se salía de la tarjeta. */
+
+/* ---------------- Secciones plegables en el celular ----------------
+   Apariencia y Configuración medían 6.000–7.000 px de alto. En el celular cada tarjeta se pliega;
+   la primera queda abierta y se recuerda cuál dejaste abierta aunque guardes. */
+P.fold = P.fold || {};
+function foldCards(root) {
+  if (!matchMedia("(max-width:900px)").matches) return;
+  const cards = [...root.querySelectorAll(":scope > section.card")];
+  cards.forEach((card, i) => {
+    const h = card.querySelector(":scope > h2");
+    if (!h || card.dataset.folded) return;
+    card.dataset.folded = "1";
+    const key = `${P.view}:${i}`;
+    const det = document.createElement("details");
+    det.className = "cardfold";
+    det.open = key in P.fold ? P.fold[key] : i === 0;
+    const sum = document.createElement("summary");
+    sum.innerHTML = h.innerHTML;
+    const body = document.createElement("div");
+    body.className = "cf-body";
+    h.remove();
+    body.append(...[...card.childNodes]);
+    det.append(sum, body);
+    card.append(det);
+    card.classList.add("folded");
+    det.addEventListener("toggle", () => { P.fold[key] = det.open; });
+  });
+}
+
+/* ---------------- Fechas siempre en dd/mm/aaaa ----------------
+   El selector nativo muestra la fecha con el idioma del aparato (en uno en inglés sale mm/dd/yyyy).
+   Mostramos nosotros la fecha en dd/mm/aaaa encima, y el selector nativo sigue abriendo el calendario. */
+const dmy = (v) => { if (!v) return ""; const [y, m, d] = v.split("-"); return `${d}/${m}/${y}`; };
+function enhanceDates(root = document) {
+  for (const inp of root.querySelectorAll('input[type="date"]:not([data-dmy])')) {
+    inp.dataset.dmy = "1";
+    const wrap = document.createElement("span");
+    wrap.className = "dmy";
+    const shown = document.createElement("span");
+    shown.className = "dmy-v";
+    shown.setAttribute("aria-hidden", "true");
+    const sync = () => { shown.textContent = dmy(inp.value) || "dd/mm/aaaa"; wrap.classList.toggle("empty", !inp.value); };
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.append(shown, inp);
+    inp.addEventListener("input", sync);
+    inp.addEventListener("change", sync);
+    // En la compu, tocar el campo abre el calendario (en el celular ya lo abre solo).
+    inp.addEventListener("click", () => { try { inp.showPicker?.(); } catch { /* algunos navegadores no lo permiten */ } });
+    sync();
+  }
 }
 
 /* ---------------- sesión ---------------- */
@@ -1277,6 +1736,7 @@ async function start() {
   if (!me.loggedIn || me.kind !== "staff") return showLogin(me.kind === "customer" ? "Estás con una sesión de cliente. Entrá con tu usuario del panel." : "");
   P.me = me;
   P.settings = await api("GET", "/api/settings");
+  setCurrency(P.settings.currencySymbol);
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#pName").textContent = me.name;
@@ -1284,6 +1744,7 @@ async function start() {
   $("#pStore").textContent = P.settings.storeName;
   if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
+  softwareNotice();
   go(location.hash.slice(1) || "inicio");
 }
 
@@ -1323,6 +1784,20 @@ function showDeliveries(list) {
   document.body.appendChild(el);
 }
 
+// Presupuesto con cupón para la venta manual (se pide al servidor, que es quien decide).
+const sellQuote = { key: "", r: null, timer: 0 };
+function quoteSell(cid, productId, qty, code) {
+  const key = `${cid}|${productId}|${qty}|${code}`;
+  clearTimeout(sellQuote.timer);
+  sellQuote.timer = setTimeout(async () => {
+    try {
+      const r = await api("POST", "/api/admin/orders/quote", { customerId: cid, items: [{ productId, qty }], couponCode: code });
+      Object.assign(sellQuote, { key, r });
+    } catch (e) { Object.assign(sellQuote, { key, r: { coupon: null, couponError: e.message } }); }
+    sellSummary();
+  }, 350);
+}
+
 // Resumen en vivo de la venta: se ve exactamente qué se va a cobrar y a quién antes de confirmar.
 function sellSummary() {
   const f = $("#sellForm"); if (!f) return;
@@ -1339,12 +1814,17 @@ function sellSummary() {
   const method = f.paymentMethod.value === "balance" ? "Saldo del cliente" : "Efectivo / QR";
   const pay = f.payStatus.value === "pendiente" ? "⏳ Pendiente" : "✅ Pagado";
   const extra = `${qty > 1 ? ` · ${qty}×` : ""}${months > 1 ? ` · ${months} meses` : ""}`;
+  const code = (f.couponCode?.value || "").trim().toUpperCase();
+  const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}` ? sellQuote.r : null;
+  if (code && !q) quoteSell(cid, f.productId.value, qty, code);
+  const total = q?.coupon ? q.total : price * qty;
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
     <div class="sumline"><span>${combo ? "🎁 Combo" : "Producto"}</span><b>${esc(name)}${extra}</b></div>
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
-    <div class="sumtot"><span>Total a cobrar</span><b>${bs(price * qty)}</b></div>`;
-  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(price * qty)}`;
+    ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
+    <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
+  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
@@ -1456,6 +1936,11 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (el.id === "pushOn") { el.disabled = true; try { await pushEnable(); toast("🔔 Avisos activados en este celular"); } catch (e) { toast(e.message || "No se pudo activar"); } return render(); }
+  if (el.id === "pushOff") { el.disabled = true; await pushDisable(); toast("Avisos apagados en este celular"); return render(); }
+  if (el.id === "pushTest") return act(() => api("POST", "/api/admin/push/test", {}), (r) => r.sent ? "Aviso de prueba enviado ✓" : "No se pudo enviar: activá de nuevo los avisos");
+  if (el.id === "tgTest") { const form = el.closest("form"); const chatId = form?.chatId.value.trim(); return act(() => api("POST", "/api/admin/telegram/test", chatId ? { chatId } : {}), "Prueba enviada: revisá tu Telegram ✓"); }
+  if (el.id === "binTest") { el.disabled = true; el.textContent = "Probando…"; return act(() => api("POST", "/api/admin/binance/test", {}), "Conexión con Binance OK ✓"); }
   if (d.appok) {
     el.disabled = true;
     try {
@@ -1511,7 +1996,7 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.rtop) {
-    const v = prompt("¿Cuánto saldo le cargás? (Bs, negativo para descontar)");
+    const v = prompt(`¿Cuánto saldo le cargás? (${currencySym()}, negativo para descontar)`);
     if (!v) return;
     try { await api("POST", `/api/admin/customers/${d.rtop}/adjust`, { amount: toCents(v), reason: "Recarga de saldo (panel)" }); toast("Saldo actualizado"); } catch (e) { toast(e.message); }
     return render();
@@ -1629,9 +2114,32 @@ document.addEventListener("click", async (ev) => {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
   }
+  if (d.pmedit !== undefined) { P.tab.pmEdit = d.pmedit || null; return render(); }
+  if (d.pmqrdel) return act(() => api("POST", `/api/admin/paymethods/${d.pmqrdel}/qr`, { remove: true }), "QR quitado");
+  if (d.pmdel) {
+    if (!confirm(`¿Borrar el método ${el.dataset.name}?\n\nLos pedidos que ya lo usaron no cambian.`)) return;
+    if (P.tab.pmEdit === d.pmdel) P.tab.pmEdit = null;
+    return act(() => api("POST", `/api/admin/paymethods/${d.pmdel}/delete`, {}), "Método borrado");
+  }
+  if (d.cupedit !== undefined) { P.tab.couponEdit = d.cupedit || null; return render(); }
+  if (d.cuptoggle) {
+    const c = (await api("GET", "/api/admin/coupons")).find((x) => x.id === d.cuptoggle);
+    if (!c) return;
+    const { uses, state, ...body } = c;
+    return act(() => api("POST", "/api/admin/coupons", { ...body, active: !c.active }), c.active ? `Cupón ${c.code} pausado` : `Cupón ${c.code} activo`);
+  }
+  if (d.cupdel) {
+    if (!confirm(`¿Borrar el cupón ${el.dataset.name}?\n\nLos pedidos que ya lo usaron no cambian.`)) return;
+    if (P.tab.couponEdit === d.cupdel) P.tab.couponEdit = null;
+    return act(() => api("POST", `/api/admin/coupons/${d.cupdel}/delete`, {}), "Cupón borrado");
+  }
   if (d.rmexp) {
     if (!confirm("¿Quitar este gasto?")) return;
     return act(() => api("POST", `/api/admin/expenses/${d.rmexp}/remove`, {}), "Gasto quitado");
+  }
+  if (d.relocate) {
+    if (!confirm(`¿Mover a ${el.dataset.name || "este cliente"} a una cuenta sana?\n\nConserva su fecha de vencimiento y el perfil viejo queda retirado.`)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.relocate}/relocate`, { reason: "Reubicación: cuenta caída" }), "✅ Cliente reubicado a una cuenta sana");
   }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
@@ -1663,6 +2171,8 @@ function previewLook() {
     accent2Color: f.accent2Auto.checked ? "" : f.accent2Color.value };
   for (const k of ["fontFamily", "headingFont", "bgStyle", "cardStyle", "corners", "layout", "storeHours", "heroTitle", "heroHighlight", "heroText", "announcement", "heroChip", "heroTicks", "footerText", "instagram", "tiktok", "facebook"]) look[k] = f[k]?.value;
   $$("iframe[data-look]").forEach((fr) => { try { fr.contentWindow.postMessage({ type: "gs-look", look }, location.origin); } catch { /* cargando */ } });
+  const w = $("#lookWarn");
+  if (w) { const n = contrastNote(look); w.className = "lookwarn " + n.cls; w.textContent = n.text; }
 }
 let lookTimer, cqTimer;
 document.addEventListener("input", (ev) => {
@@ -1677,7 +2187,20 @@ document.addEventListener("dragleave", (ev) => { const dz = ev.target.closest?.(
 document.addEventListener("drop", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (!dz) return; ev.preventDefault(); dz.classList.remove("over"); const inp = dz.querySelector('input[type="file"]'); if (inp && ev.dataTransfer?.files?.length) { inp.files = ev.dataTransfer.files; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
 document.addEventListener("change", (ev) => { const inp = ev.target; if (inp?.type === "file") { const dz = inp.closest?.(".dropzone"); if (dz) { const n = dz.querySelector(".dzname"); if (n) n.textContent = inp.files[0] ? "✅ " + inp.files[0].name : ""; } } });
 // Al cambiar el tipo de producto, mostrar las apps del combo o los perfiles por defecto.
+document.addEventListener("input", (ev) => { const t = ev.target; if (t?.type === "color") { const o = t.parentElement?.querySelector(".hex"); if (o) o.textContent = t.value; } });
 document.addEventListener("change", (ev) => { if (ev.target?.name === "kind" && ev.target.form?.id === "prodForm") { const combo = ev.target.value === "combo"; ev.target.form.querySelector(".combo-only")?.toggleAttribute("hidden", !combo); ev.target.form.querySelector(".noncombo-only")?.toggleAttribute("hidden", combo); } });
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t?.name === "mode" && t.form?.id === "iptvForm") {
+    const m = t.value, f = t.form;
+    f.querySelector(".iptv-xtream")?.toggleAttribute("hidden", m !== "xtream");
+    f.querySelector(".iptv-mac")?.toggleAttribute("hidden", m !== "mac");
+    const secret = f.querySelector(".iptv-secret input");
+    if (secret) secret.placeholder = m === "m3u" ? "pegá el enlace M3U completo" : m === "code" ? "el código de activación" : m === "mac" ? "clave del portal (si tiene)" : "la clave de la línea";
+    const sl = f.querySelector(".iptv-secret"); if (sl) { const lbl = sl.childNodes[0]; if (lbl) lbl.textContent = m === "m3u" ? "Enlace M3U" : m === "code" ? "Código de activación" : "Clave de la línea"; }
+    if (m === "mac" || m === "code") secret.required = false; else secret.required = true;
+  }
+});
 
 let rqTimer, accqTimer;
 document.addEventListener("input", (ev) => {
@@ -1804,7 +2327,7 @@ document.addEventListener("submit", async (ev) => {
       const dur = P.tab.sellDur?.[f.productId.value] || 30;
       if (btn) btn.disabled = true;
       try {
-        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) });
+        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}) });
         for (const id of (o.assignmentIds ?? [])) {
           if (months > 1) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: Date.now() + months * dur * 86400000 }).catch(() => {});
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
@@ -1857,6 +2380,19 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "faqForm") {
       const items = [...f.querySelectorAll(".fq-row")].map((r) => ({ q: r.querySelector('[name="fq"]').value.trim(), a: r.querySelector('[name="fa"]').value.trim() })).filter((x) => x.q && x.a);
       await act(() => api("POST", "/api/admin/faq", { items }), `${items.length} pregunta(s) guardadas`);
+    } else if (f.id === "couponForm") {
+      const type = f.type.value, raw = Number(String(f.value.value).replace(",", "."));
+      const value = type === "percent" ? Math.round(raw) : toCents(f.value.value);
+      if (!value || value <= 0) return toast("Poné cuánto descuenta");
+      const ymd = f.expiresAt.value; // fin del día elegido, hora local
+      const body = { id: f.dataset.id || undefined, code: f.code.value, type, value,
+        expiresAt: ymd ? new Date(`${ymd}T23:59:59`).getTime() : null,
+        maxUses: f.maxUses.value ? +f.maxUses.value : null, perCustomer: f.perCustomer.value ? +f.perCustomer.value : null,
+        minTotal: f.minTotal.value ? toCents(f.minTotal.value) : null, note: f.note.value.trim(),
+        productIds: [...f.querySelectorAll('[name="cupprod"]:checked')].map((x) => x.value), resellers: f.resellers.checked };
+      const prev = P.tab.couponEdit; P.tab.couponEdit = null;
+      const ok = await act(() => api("POST", "/api/admin/coupons", body), (c) => `🏷️ Cupón ${c.code} guardado`);
+      if (!ok) P.tab.couponEdit = prev;
     } else if (f.id === "expenseForm") {
       const amount = toCents(f.amount.value);
       if (!amount || Number.isNaN(amount) || amount <= 0) return toast("Poné un monto mayor a 0");
@@ -1876,6 +2412,27 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "pushForm") {
+      const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
+      await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
+    } else if (f.id === "tgForm") {
+      const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
+      if (f.token.value.trim()) body.token = f.token.value.trim();
+      await act(() => api("POST", "/api/admin/telegram", body), "Avisos de Telegram guardados");
+    } else if (f.id === "binForm") {
+      const body = { rate: f.rate.value.trim(), payId: f.payId.value.trim(), enabled: f.enabled.checked };
+      if (f.apiKey.value.trim()) body.apiKey = f.apiKey.value.trim();
+      if (f.apiSecret.value.trim()) body.apiSecret = f.apiSecret.value.trim();
+      await act(() => api("POST", "/api/admin/binance", body), "Binance Pay guardado");
+    } else if (f.id === "pmForm") {
+      const body = { id: f.dataset.id || undefined, name: f.name.value, country: f.country.value, account: f.account.value, holder: f.holder.value, instructions: f.instructions.value,
+        priceGroupIds: [...f.querySelectorAll('[name="pmgroup"]:checked')].map((x) => x.value), replacesQr: f.replacesQr.checked, enabled: f.enabled.checked };
+      const prev = P.tab.pmEdit; P.tab.pmEdit = null;
+      const ok = await act(() => api("POST", "/api/admin/paymethods", body), (m) => `💳 ${m.name} guardado`);
+      if (!ok) P.tab.pmEdit = prev;
+    } else if (f.id === "usdtForm") {
+      const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim(), note: f.note.value.trim() };
+      await act(() => api("POST", "/api/admin/settings", { usdt }), "Cobro en USDT guardado");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });
@@ -1906,7 +2463,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "editCusForm" || f.dataset.editcusform !== undefined) {
       const body = { name: f.name.value, phone: f.phone.value, email: f.email.value, notes: f.notes.value };
       if (f.tag) body.tag = f.tag.value;
-      if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : "final"; }
+      if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : (f.priceList?.value || "final"); }
       await api("POST", `/api/admin/customers/${f.dataset.id}`, body);
       await api("POST", `/api/admin/customers/${f.dataset.id}/consent`, { whatsapp: f.consent.checked });
       P.tab.editCus = null;
@@ -1923,6 +2480,31 @@ document.addEventListener("submit", async (ev) => {
         supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
+    } else if (f.id === "trialForm") {
+      const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+      try {
+        const r = await api("POST", "/api/admin/trials", { customerId: f.customerId.value, productId: f.productId.value, hours: +f.hours.value });
+        const msg = r.delivery?.message ?? "";
+        const out = $("#trialOut");
+        if (out) out.innerHTML = `<div class="pok" style="margin-top:10px">✅ Prueba generada. Mandale esto al cliente:</div><pre class="rpre" style="white-space:pre-wrap">${esc(msg)}</pre><div class="inline"><button class="pbtn sm" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar</button>${r.delivery?.customerPhone ? `<a class="pbtn sm" href="${esc(waLink(r.delivery.customerPhone, msg))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a>` : ""}</div>`;
+        toast("Prueba generada ✓");
+      } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+    } else if (f.id === "newListForm") {
+      const name = f.name.value.trim();
+      const base = name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "lista";
+      await act(() => api("POST", "/api/admin/price-groups", { id: "lp-" + base, name, prices: {} }), `Lista "${name}" creada`);
+    } else if (f.dataset.pricelist) {
+      const prices = {};
+      for (const inp of f.querySelectorAll('input[name^="pp-"]')) { const v = inp.value.trim(); if (v !== "") { const c = toCents(v); if (Number.isFinite(c) && c >= 0) prices[inp.name.slice(3)] = c; } }
+      await act(() => api("POST", "/api/admin/price-groups", { id: f.dataset.pricelist, name: f.name.value.trim(), prices }), "Lista de precios guardada");
+    } else if (f.id === "iptvForm") {
+      const mode = f.mode.value;
+      const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
+      await act(() => api("POST", "/api/admin/accounts", {
+        productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
+        supplierExpiresAt: f.exp.value ? new Date(f.exp.value + "T23:59:00").getTime() : 0, cost: toCents(f.cost.value || 0),
+        profiles: [{ label: "Línea IPTV" }], iptv,
+      }), "📺 Línea IPTV registrada, lista para vender");
     } else if (f.id === "accForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
       const pin = f.pin.value.trim() || undefined;
@@ -1950,6 +2532,7 @@ document.addEventListener("submit", async (ev) => {
       for (let i = 0; i < 10; i++) { const lab = f[`pd-label-${i}`]?.value?.trim(); if (lab) pdefs.push({ label: lab, pin: (f[`pd-pin-${i}`]?.value || "").replace(/\D/g, "") || undefined }); }
       body.profileDefaults = pdefs;
       body.saleNote = f.saleNote?.value?.trim() ?? "";
+      body.guide = { app: f.guideApp?.value?.trim() ?? "", link: f.guideLink?.value?.trim() ?? "", steps: f.guideSteps?.value?.trim() ?? "" };
       if (body.kind === "combo") body.comboProductIds = [...f.querySelectorAll('input[name="combopart"]:checked')].map((x) => x.value);
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");
@@ -2009,8 +2592,9 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "comboForm") {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
     } else if (f.id === "setForm") {
-      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value }), "Configuración guardada");
+      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");
+      setCurrency(P.settings.currencySymbol);
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;
@@ -2044,3 +2628,11 @@ $("#sscrim").onclick = () => $("#app").classList.remove("open");
 const tick = () => ($("#clock").textContent = new Date().toLocaleString("es-BO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }));
 tick(); setInterval(tick, 30_000);
 start();
+
+// Cobro por país: subir el QR de un método apenas se elige la imagen.
+document.addEventListener("change", async (ev) => {
+  const inp = ev.target;
+  if (!inp?.dataset?.pmqr || !inp.files?.[0]) return;
+  const b64 = await fileToBase64(inp.files[0]);
+  await act(() => api("POST", `/api/admin/paymethods/${inp.dataset.pmqr}/qr`, { contentBase64: b64 }), "QR guardado");
+});

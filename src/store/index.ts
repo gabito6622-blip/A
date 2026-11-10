@@ -16,6 +16,8 @@ import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
+import * as coupons from "./coupons.js";
+import * as payMethods from "./payMethods.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -70,9 +72,13 @@ export function createStore(opts: EngineOptions = {}) {
     },
     orders: {
       create: bind(e, orders.createOrder),
+      quote: bind(e, orders.quoteOrder),
+      createTrial: bind(e, orders.createTrial),
       comboDiscount: bind(e, orders.comboDiscount),
       submitEvidence: bind(e, orders.submitEvidence),
       approvePayment: bind(e, orders.approvePayment),
+      attachBinance: bind(e, orders.attachBinance),
+      confirmBinancePayment: bind(e, orders.confirmBinancePayment),
       rejectPayment: bind(e, orders.rejectPayment),
       cancel: bind(e, orders.cancelOrder),
       expireReservations: bind(e, orders.expireReservations),
@@ -80,6 +86,7 @@ export function createStore(opts: EngineOptions = {}) {
       renewMany: bind(e, orders.renewMany),
       replace: bind(e, orders.replaceAssignment),
       replaceAccount: bind(e, orders.replaceAccount),
+      relocationQueue: bind(e, orders.relocationQueue),
       transfer: bind(e, orders.transferAssignment),
       releaseSlot: bind(e, orders.releaseSlot),
       refundAssignment: bind(e, orders.refundAssignment),
@@ -186,6 +193,21 @@ export function createStore(opts: EngineOptions = {}) {
       dashboard: bind(e, stats.dashboard),
       suppliers: bind(e, stats.supplierReport),
       audit: bind(e, stats.auditLog),
+      notifications: bind(e, stats.notifications),
+      feed: () => stats.notificationItems(e),
+    },
+    payMethods: {
+      list: bind(e, payMethods.listPayMethods),
+      save: bind(e, payMethods.savePayMethod),
+      remove: bind(e, payMethods.deletePayMethod),
+      setQr: bind(e, payMethods.setPayMethodQr),
+      mine: bind(e, payMethods.myPayMethods),
+      forCustomer: (customerId: Id) => payMethods.methodsFor(e, customerId),
+    },
+    coupons: {
+      list: bind(e, coupons.listCoupons),
+      save: bind(e, coupons.saveCoupon),
+      remove: bind(e, coupons.deleteCoupon),
     },
     finance: {
       report: bind(e, finance.report),
