@@ -1,0 +1,24 @@
+/* Inventario: complementos mínimos del sistema de diseño */
+.inv-err { color: var(--danger); font-size: 12.5px; font-weight: 560; }
+.inv-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.inv-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-actions .btn { min-height: 44px; white-space: normal; text-align: left; max-width: 100%; }
+.inv-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.inv-row-actions .btn { min-height: 40px; }
+.inv-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.inv-fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0; min-width: 0; }
+.inv-fieldset legend { font-weight: 600; font-size: 13px; padding: 0 6px; }
+.inv-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.inv-kpis button.card { text-align: left; font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--line); width: 100%; }
+.inv-kpis button.card:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); }
+.inv-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.inv-filters .field { min-width: 140px; flex: 1 1 140px; }
+.inv-count-input { width: 110px; min-height: 44px; }
+.inv-sub { display: block; color: var(--muted); font-size: 12.5px; }
+.inv-mobile-only { display: none; }
+@media (max-width: 860px) {
+  .inv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-line { grid-template-columns: 1fr; }
+  .inv-count-input { width: 90px; }
+  .inv-mobile-only { display: inline; }
+}

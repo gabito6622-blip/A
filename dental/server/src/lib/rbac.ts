@@ -23,29 +23,33 @@ export type Permission =
   | "payments.read" | "payments.create" | "payments.verify" | "payments.void"
   | "reports.financial" | "reports.operational"
   | "assistant.use"
-  | "biosafety.read" | "biosafety.write";
+  | "biosafety.read" | "biosafety.write"
+  | "inventory.read" | "inventory.write" | "inventory.manage";
 
 const BASE: Record<Role, Permission[]> = {
   owner: [
     "clinic.manage", "staff.manage", "audit.read", "patients.read", "patients.write", "patients.import", "patients.export",
     "agenda.read", "agenda.write", "budgets.read", "budgets.write", "payments.read", "payments.create", "payments.verify",
     "payments.void", "reports.financial", "reports.operational", "assistant.use", "biosafety.read",
+    "inventory.read", "inventory.write", "inventory.manage",
   ],
   admin: [
     "clinic.manage", "staff.manage", "audit.read", "patients.read", "patients.write", "patients.import", "patients.export",
     "agenda.read", "agenda.write", "budgets.read", "budgets.write", "payments.read", "payments.create", "payments.verify",
     "payments.void", "reports.financial", "reports.operational", "assistant.use", "biosafety.read", "biosafety.write",
+    "inventory.read", "inventory.write", "inventory.manage",
   ],
   receptionist: [
     "patients.read", "patients.write", "agenda.read", "agenda.write", "budgets.read", "budgets.write",
-    "payments.read", "payments.create", "reports.operational", "assistant.use",
+    "payments.read", "payments.create", "reports.operational", "assistant.use", "inventory.read",
   ],
   dentist: [
     "patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "clinical.write",
     "budgets.read", "budgets.write", "treatments.perform", "assistant.use", "biosafety.read", "biosafety.write",
+    "inventory.read", "inventory.write",
   ],
-  assistant: ["patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "assistant.use", "biosafety.read", "biosafety.write"],
-  accountant: ["patients.read", "budgets.read", "payments.read", "payments.verify", "reports.financial", "assistant.use"],
+  assistant: ["patients.read", "patients.write", "agenda.read", "agenda.write", "clinical.read", "assistant.use", "biosafety.read", "biosafety.write", "inventory.read", "inventory.write"],
+  accountant: ["patients.read", "budgets.read", "payments.read", "payments.verify", "reports.financial", "assistant.use", "inventory.read"],
   // Limpieza y apoyo: solo bioseguridad (mínimo privilegio; sin datos de pacientes).
   support: ["biosafety.read", "biosafety.write"],
 };

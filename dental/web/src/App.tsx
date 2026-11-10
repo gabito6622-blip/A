@@ -25,6 +25,7 @@ import { MessagesPage } from "./pages/Messages";
 import { LabPage } from "./pages/Lab";
 import { ConfirmAppointmentPage } from "./pages/ConfirmAppointment";
 import { VerifyPage } from "./pages/Verify";
+import { InventoryPage } from "./pages/Inventory";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -65,6 +66,7 @@ export function App() {
         <Route path="/asistente" element={<AssistantPage />} />
         <Route path="/mensajes" element={<MessagesPage />} />
         <Route path="/laboratorio/*" element={<LabPage />} />
+        <Route path="/inventario" element={<InventoryPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

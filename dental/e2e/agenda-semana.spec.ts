@@ -93,15 +93,22 @@ test("serie mensual de ortodoncia: se muestra un conflicto, se usa el horario su
 test("vista semanal: arrastrar una cita a otro horario, conflicto revertido y Deshacer", async ({ page }) => {
   await login(page, "recepcion.lpz@demo.local");
   const c = await ctx(page);
-  let day = laPaz(new Date(Date.now() + 2 * 86_400_000));
-  while ([0, 6].includes(weekday(day))) day = laPaz(new Date(Date.parse(day + "T12:00:00Z") + 86_400_000));
+  // La semilla demo cambia con la fecha: se busca un día hábil con 18:30 libre y al menos dos huecos más por la tarde.
+  const toMin = (iso: string) => Number(hm(iso).slice(0, 2)) * 60 + Number(hm(iso).slice(3));
+  let day = "";
+  let free: number[] = [];
+  for (let k = 2; k <= 12 && free.length < 2; k++) {
+    const d = laPaz(new Date(Date.now() + k * 86_400_000));
+    if ([0, 6].includes(weekday(d))) continue;
+    const av = await (await page.request.get(`/api/availability?date=${d}&branchId=${c.lpz}&dentistId=${c.vargas}&durationMin=30`)).json();
+    const slots: number[] = (av[0]?.slots ?? []).map(toMin);
+    if (!slots.includes(18 * 60 + 30)) continue;
+    day = d;
+    free = slots.filter((m) => m >= 16 * 60 && Math.abs(m - (18 * 60 + 30)) >= 30)
+      .sort((a, b) => Math.abs(a - 1110) - Math.abs(b - 1110));
+  }
   const pid = await c.patient("Arrastre E2E");
   const apptId = await c.book(pid, day, "18:30");
-  // Dos huecos libres de la Dra. Vargas cerca de las 18:30: uno queda libre y el otro se ocupa (conflicto).
-  const av = await (await page.request.get(`/api/availability?date=${day}&branchId=${c.lpz}&dentistId=${c.vargas}&durationMin=30`)).json();
-  const toMin = (iso: string) => Number(hm(iso).slice(0, 2)) * 60 + Number(hm(iso).slice(3));
-  const free = (av[0]?.slots ?? []).map(toMin).filter((m: number) => m >= 16 * 60 && m !== 18 * 60 + 30 && Math.abs(m - (18 * 60 + 30)) >= 30)
-    .sort((a: number, b: number) => Math.abs(a - 1110) - Math.abs(b - 1110));
   expect(free.length).toBeGreaterThanOrEqual(2);
   const target = free[0] as number;
   const busy = free.find((m: number) => Math.abs(m - target) >= 30) as number; // sin chocar con el destino libre

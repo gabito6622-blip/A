@@ -10,6 +10,7 @@ import { CONDITIONS } from "./clinical.js";
 import { clinicZone } from "./agenda.js";
 import { dayBounds } from "../lib/slots.js";
 import { assertCashSessionForPayment } from "./cashSessions.js";
+import { consumeForTreatment } from "./inventory/index.js";
 import { budgetExtras, budgetMoney, lineDiscount, onChargeVoided, patientMoney, performPendingSessions, recalcBudget, supersededError, zGlobalDiscount, zPercent } from "./budgets-v2-core.js";
 
 const BUDGET_TRANSITIONS: Record<string, string[]> = {
@@ -257,6 +258,7 @@ export function billingRoutes(route: Route) {
       }
       const pending = await c.query("SELECT 1 FROM budget_items WHERE budget_id = $1 AND status = 'pending'", [it.budget_id]);
       if (!pending.rowCount) await c.query("UPDATE budgets SET status = 'completed' WHERE id = $1", [it.budget_id]);
+      await consumeForTreatment(c, auth, { budgetItemId: params.id, appointmentId: body.appointmentId ?? null }); // inventario: nunca bloquea
       await audit(c, auth, "treatment.performed", "budget_item", params.id, { budgetId: it.budget_id, chargeId, amountCents: it.total }, it.branch_id);
       return { ok: true, chargeId };
     },

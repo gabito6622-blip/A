@@ -5,6 +5,7 @@ import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
+import { StandardConsumptionEditor } from "../components/inventory/StandardConsumption";
 import { SessionTemplateEditor } from "../components/BudgetV2";
 import { PortalSettingsTab } from "./PortalSettings";
 import { AppointmentTypesSettings } from "../components/agenda/AppointmentTypesSettings";
@@ -622,6 +623,7 @@ function ProcedureDialog({ proc, onClose, onSaved }: { proc: any; onClose: () =>
           <label className="check span-2"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />Activa (disponible para presupuestos y citas)</label>
         </div>
         {!isNew && <SessionTemplateEditor procedure={proc} />}
+        {!isNew && <StandardConsumptionEditor procedureId={proc.id} />}
       </div>
     </Dialog>
   );
