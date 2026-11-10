@@ -73,7 +73,12 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     // Productos para revendedores sin stock: se pueden pedir pagando con QR y se entregan al aprobar.
     const back: { productId: Id; qty: number }[] = [];
     const reserved = items.flatMap((it) => {
-      if (e.s.products[it.productId]?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
+      const prod = e.s.products[it.productId];
+      // Combo: se reserva un perfil de CADA app que lo compone (por la cantidad pedida). Se cobra el
+      // precio del combo, pero el cliente recibe un acceso por cada servicio del combo.
+      const parts = prod?.kind === "combo" ? (prod.comboProductIds ?? []) : null;
+      if (parts && parts.length) return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
+      if (prod?.resellersOnly && input.paymentMethod === "qr" && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
       const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];
       return reserveSlots(e, it.productId, it.qty, id, [], prefer);
     });

@@ -220,6 +220,12 @@ export function stockByProduct(e: Engine) {
     const k = sellable(e, s) ? "available" : s.status === "available" ? "unsellable" : s.status;
     (out[s.productId] ??= {})[k] = (out[s.productId][k] ?? 0) + 1;
   }
+  // Un combo tiene el stock del servicio más escaso que lo compone: no se puede vender si falta uno.
+  for (const p of Object.values(e.s.products)) {
+    if (p.kind === "combo" && p.comboProductIds?.length) {
+      out[p.id] = { ...(out[p.id] ?? {}), available: Math.min(...p.comboProductIds.map((id) => out[id]?.available ?? 0)) };
+    }
+  }
   return out;
 }
 

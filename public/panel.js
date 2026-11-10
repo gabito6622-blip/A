@@ -274,11 +274,15 @@ const V = {
     P.tab.sellAccts = accounts;
     P.tab.custMap = Object.fromEntries(customers.map((c) => [`${c.name} · ${c.phone}`, c.id]));
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
+    P.tab.sellPrice = Object.fromEntries(products.map((p) => [p.id, p.price]));
+    const comboParts = Object.fromEntries(products.filter((p) => p.kind === "combo").map((p) => [p.id, (p.comboProductIds ?? []).map((id) => products.find((x) => x.id === id)?.name).filter(Boolean)]));
     const tile = (p) => {
       const n = stock[p.id]?.available ?? 0;
-      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-rule="${esc(p.saleNote ?? "")}" ${n ? "" : "disabled"} aria-pressed="false">
-        ${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`}
-        <b>${esc(p.name)}</b><span class="selprice">${bs(p.price)}</span>
+      const combo = p.kind === "combo";
+      const face = combo ? `<i class="selcombo">🎁</i>` : p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`;
+      const sub = combo ? `<em class="selparts">${esc((comboParts[p.id] ?? []).join(" + ") || "combo")}</em>` : "";
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-price="${p.price}" data-rule="${esc(p.saleNote ?? "")}" ${n ? "" : "disabled"} aria-pressed="false">
+        ${face}<b>${esc(p.name)}</b>${sub}<span class="selprice">${bs(p.price)}</span>
         <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
     };
     const pub = products.filter((p) => p.published !== false);
@@ -286,26 +290,33 @@ const V = {
     const combos = pub.filter((p) => p.kind === "combo");
     const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
     const shownProds = sk === "combos" ? combos : apps;
-    return `<section class="card"><h2>${icon("cart")}Nueva venta <small>tocá el producto y listo</small></h2>
-      ${customers.length ? `<form class="form" id="sellForm" data-key="${newKey()}">
-        <label>👤 Cliente<input name="customerName" list="custlist" autocomplete="off" placeholder="Escribí el nombre del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist></label>
+    return `<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
+      ${customers.length ? `<form class="form sellform" id="sellForm" data-key="${newKey()}">
+        <div class="sstep"><span class="sstepn">1</span><div class="sstepb">
+          <label class="sstepl">👤 ¿A quién le vendés?</label>
+          <input name="customerName" list="custlist" autocomplete="off" value="${esc(P.tab.sellCustomer ?? "")}" placeholder="Escribí el nombre del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist>
+        </div></div>
         <input type="hidden" name="customerId" value="">
         <input type="hidden" name="productId" value="">
-        <div class="sellpick">
-          ${combos.length ? `<div class="seg sellseg"><button type="button" data-tab="sellKind:apps" aria-pressed="${sk === "apps"}">📺 Cuentas individuales</button><button type="button" data-tab="sellKind:combos" aria-pressed="${sk === "combos"}">🎁 Combos <span class="segn">${combos.length}</span></button></div>` : ""}
-          <div class="selgrid">${shownProds.map(tile).join("") || `<span class="muted">${sk === "combos" ? "Todavía no armaste combos." : "No hay productos."}</span>`}</div>
-        </div>
-        <div id="sellNote" class="sellnote">👆 Elegí un producto de arriba.</div>
         <input type="hidden" name="slotId" value="">
+        <div class="sstep"><span class="sstepn">2</span><div class="sstepb">
+          <label class="sstepl">🛍️ ¿Qué le vendés?</label>
+          ${combos.length ? `<div class="seg sellseg"><button type="button" data-tab="sellKind:apps" aria-pressed="${sk === "apps"}">📺 Individuales</button><button type="button" data-tab="sellKind:combos" aria-pressed="${sk === "combos"}">🎁 Combos <span class="segn">${combos.length}</span></button></div>` : ""}
+          <div class="selgrid">${shownProds.map(tile).join("") || `<span class="muted">${sk === "combos" ? "Todavía no armaste combos. Creálos en Productos." : "No hay productos."}</span>`}</div>
+        </div></div>
+        <div id="sellNote" class="sellnote">👆 Tocá un producto de arriba.</div>
         <div id="profPick" class="profpick" hidden></div>
-        <div class="selrow"><label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
-          <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label></div>
-        <div class="sellopts">
-          <div><span class="selbl">⏳ Período</span><div class="seg periodseg">${[[1, "1 mes"], [3, "3 meses"], [6, "6 meses"], [12, "1 año"]].map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${v === 1}">${t}</button>`).join("")}</div></div>
-          <div><span class="selbl">💳 Estado de pago</span><div class="seg payseg"><button type="button" data-pay="pagado" aria-pressed="true">✅ Pagado</button><button type="button" data-pay="pendiente" aria-pressed="false">⏳ Pendiente</button></div></div>
-        </div>
+        <details class="selladv"><summary>⚙️ Más opciones <small>por defecto: 1 mes · pagado · efectivo/QR</small></summary>
+          <div class="seladvgrid">
+            <div><span class="selbl">⏳ Período</span><div class="seg periodseg">${[[1, "1 mes"], [3, "3 meses"], [6, "6 meses"], [12, "1 año"]].map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${v === 1}">${t}</button>`).join("")}</div></div>
+            <div><span class="selbl">💳 Estado de pago</span><div class="seg payseg"><button type="button" data-pay="pagado" aria-pressed="true">✅ Pagado</button><button type="button" data-pay="pendiente" aria-pressed="false">⏳ Pendiente</button></div></div>
+            <label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
+            <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
+          </div>
+        </details>
         <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
-        <button class="pbtn dark" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
+        <div id="sellSummary" class="sellsum" hidden></div>
+        <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
       <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
   },
 
@@ -1258,6 +1269,32 @@ function showDeliveries(list) {
   document.body.appendChild(el);
 }
 
+// Resumen en vivo de la venta: se ve exactamente qué se va a cobrar y a quién antes de confirmar.
+function sellSummary() {
+  const f = $("#sellForm"); if (!f) return;
+  const box = $("#sellSummary"), btn = $("#sellBtn");
+  const tile = document.querySelector('.selp[aria-pressed="true"]');
+  const cname = f.customerName.value.trim();
+  const cid = P.tab.custMap?.[cname] || "";
+  const ready = !!tile && !!cid;
+  if (btn) btn.disabled = !ready;
+  if (!ready) { if (box) box.hidden = true; if (btn) btn.innerHTML = `${icon("cart")}Registrar venta`; return; }
+  const name = tile.dataset.name, first = cname.split(" · ")[0];
+  const price = +tile.dataset.price || 0, qty = Math.max(1, +f.qty.value || 1), months = Math.max(1, +f.periodMonths.value || 1);
+  const combo = tile.dataset.kind === "combo";
+  const method = f.paymentMethod.value === "balance" ? "Saldo del cliente" : "Efectivo / QR";
+  const pay = f.payStatus.value === "pendiente" ? "⏳ Pendiente" : "✅ Pagado";
+  const extra = `${qty > 1 ? ` · ${qty}×` : ""}${months > 1 ? ` · ${months} meses` : ""}`;
+  box.hidden = false;
+  box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
+    <div class="sumline"><span>${combo ? "🎁 Combo" : "Producto"}</span><b>${esc(name)}${extra}</b></div>
+    <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
+    <div class="sumtot"><span>Total a cobrar</span><b>${bs(price * qty)}</b></div>`;
+  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(price * qty)}`;
+}
+document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
+document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
+
 async function act(fn, okMsg) {
   try {
     const r = await fn();
@@ -1500,7 +1537,7 @@ document.addEventListener("click", async (ev) => {
       ? `Vendés <b>${esc(el.dataset.name)}</b> — se entrega la <b>cuenta completa</b>${n ? ` (${n} disponible${n > 1 ? "s" : ""})` : ""}.`
       : `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`);
     $("#sellNote").classList.add("on");
-    $("#sellBtn").disabled = false;
+    sellSummary();
     // Perfiles libres de ese producto para elegir a mano (opcional).
     const estadoK = { available: "Libre" };
     const accs = (P.tab.sellAccts ?? []).filter((a) => a.productId === d.pick && a.status === "active" && a.slots.some((s) => s.status === "available"));
@@ -1518,16 +1555,19 @@ document.addEventListener("click", async (ev) => {
     $$("#profPick .ppchip").forEach((x) => x.classList.toggle("on", x.dataset.slot === d.slot));
     const em = el.querySelector("small")?.textContent, lb = el.querySelector("b")?.textContent;
     if (f && em && lb) { $("#sellNote").innerHTML = `Vas a entregar <b>${esc(lb)}</b> de <b>${esc(em)}</b>.`; $("#sellNote").classList.add("on"); }
+    sellSummary();
     return;
   }
   if (d.period !== undefined && el.dataset.period) {
     const f = $("#sellForm"); if (f) f.periodMonths.value = d.period;
     $$(".periodseg button").forEach((x) => x.setAttribute("aria-pressed", String(x === el)));
+    sellSummary();
     return;
   }
   if (d.pay) {
     const f = $("#sellForm"); if (f) f.payStatus.value = d.pay;
     $$(".payseg button").forEach((x) => x.setAttribute("aria-pressed", String(x === el)));
+    sellSummary();
     return;
   }
   if (d.paid) return act(() => api("POST", `/api/admin/assignments/${d.paid}/control`, { payStatus: "pagado" }), "💵 Marcado como cobrado");
@@ -1717,6 +1757,7 @@ document.addEventListener("submit", async (ev) => {
         const deliveries = [];
         for (const id of (o.assignmentIds ?? [])) { const info = await api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null); if (info) deliveries.push(info); }
         toast(`✅ Venta registrada: ${pname}`);
+        P.tab.sellCustomer = ""; P.tab.sellKind = "apps";
         await render();
         if (deliveries.length) showDeliveries(deliveries);
         else toast("Venta sin perfil asignado (quedó a pedido). Revisá Aprobación.");

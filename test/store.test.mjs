@@ -560,6 +560,24 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.throws(() => s.catalog.updateSettings(owner, { comboDiscounts: [-1, 0, 0] }), err("VALIDATION"));
   });
 
+  test("combo armado (producto): se cobra el precio del combo y se entrega un perfil de cada app", () => {
+    const { s, maria, as } = setup();
+    s.inventory.addAccount(admin, { productId: "gemini", supplierId: "andes", email: "gm01@gabostore.lat", password: "Gm-Clave#1", supplierExpiresAt: T0 + 90 * DAY, cost: 1000, profiles: [{ label: "Invitación 1" }] });
+    // El dueño arma un combo Netflix + Gemini a un precio propio.
+    s.catalog.upsertProduct(owner, { id: "duo", name: "Combo Netflix + Gemini", kind: "combo", durationDays: 30, price: 5000, published: true, comboProductIds: ["netflix", "gemini"] });
+    // El stock del combo es el del servicio más escaso (gemini: 1).
+    assert.equal(s.inventory.stock().duo.available, 1);
+    const o = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "duo", qty: 1 }], paymentMethod: "cash" });
+    assert.equal(o.total, 5000, "cobra el precio del combo, no la suma de las apps");
+    assert.equal(o.status, "fulfilled");
+    assert.equal(o.assignmentIds.length, 2, "un acceso por cada app del combo");
+    const prods = o.assignmentIds.map((id) => s.engine.s.assignments[id].productId).sort();
+    assert.deepEqual(prods, ["gemini", "netflix"]);
+    // Ya no queda stock de gemini: el combo no se puede vender de nuevo.
+    assert.equal(s.inventory.stock().duo.available, 0);
+    assert.throws(() => s.orders.create(admin, { customerId: maria.id, items: [{ productId: "duo", qty: 1 }], paymentMethod: "cash" }), err("OUT_OF_STOCK"));
+  });
+
   test("dashboard: período, comparación, series y vencimientos", () => {
     const { s, maria, luis, as } = setup();
     const t = s.orders.requestTopup(as(maria), maria.id, 10000, { fileRef: "r", declaredReference: "d" });
