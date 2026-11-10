@@ -9,7 +9,7 @@ export const FONTS: Record<string, string> = {
   bebas: "Bebas Neue", orbitron: "Orbitron", righteous: "Righteous", pacifico: "Pacifico", playfair: "Playfair Display",
   bungee: "Bungee", fredoka: "Fredoka", lobster: "Lobster", russo: "Russo One", system: "",
 };
-export const BG_STYLES = ["solid", "glow", "gradient", "aurora", "dots", "grid"] as const;
+export const BG_STYLES = ["solid", "glow", "gradient", "aurora", "live", "dots", "grid"] as const;
 export const CARD_STYLES = ["solid", "glass", "outline", "neon"] as const;
 export const CORNERS = ["round", "soft", "square"] as const;
 

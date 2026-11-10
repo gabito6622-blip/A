@@ -86,7 +86,7 @@ export const FONT_LIST = [
   ["righteous", "Righteous", "Retro"], ["pacifico", "Pacifico", "Manuscrita"], ["playfair", "Playfair Display", "Lujo"], ["bungee", "Bungee", "Gamer"],
   ["fredoka", "Fredoka", "Divertida"], ["lobster", "Lobster", "Cursiva"], ["russo", "Russo One", "Deportiva"], ["system", "", "La del celular"],
 ];
-export const BG_LIST = [["solid", "Liso"], ["glow", "Brillo arriba"], ["gradient", "Degradado"], ["aurora", "Aurora"], ["dots", "Puntitos"], ["grid", "Cuadrícula"]];
+export const BG_LIST = [["solid", "Liso"], ["glow", "Brillo arriba"], ["gradient", "Degradado"], ["aurora", "Aurora"], ["live", "Animado ✨"], ["dots", "Puntitos"], ["grid", "Cuadrícula"]];
 export const CARD_LIST = [["solid", "Sólidas"], ["glass", "Vidrio"], ["outline", "Solo borde"], ["neon", "Neón"]];
 /** Estilos listos: un toque y la página queda armada; después se puede cambiar todo. */
 export const THEMES = [
@@ -102,6 +102,10 @@ export const THEMES = [
   { id: "minimal", name: "Minimal Blanco", look: { backgroundColor: "#f7f7f9", accentColor: "#111827", accent2Color: "#6366f1", bgStyle: "solid", cardStyle: "outline", headingFont: "dmsans", fontFamily: "dmsans", corners: "soft" } },
   { id: "lujo-rosa", name: "Glam", look: { backgroundColor: "#170812", accentColor: "#f472b6", accent2Color: "#fbbf24", bgStyle: "glow", cardStyle: "glass", headingFont: "lobster", fontFamily: "montserrat", corners: "round" } },
   { id: "galaxia", name: "Galaxia", look: { backgroundColor: "#060318", accentColor: "#6366f1", accent2Color: "#22d3ee", bgStyle: "aurora", cardStyle: "glass", headingFont: "bungee", fontFamily: "dmsans", corners: "round" } },
+  { id: "aurora-viva", name: "Aurora Viva ✨", look: { backgroundColor: "#050914", accentColor: "#38bdf8", accent2Color: "#a855f7", bgStyle: "live", cardStyle: "glass", headingFont: "outfit", fontFamily: "outfit", corners: "round" } },
+  { id: "neon-vivo", name: "Neón Vivo ✨", look: { backgroundColor: "#06040f", accentColor: "#ff2bd6", accent2Color: "#00e5ff", bgStyle: "live", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },
+  { id: "fuego", name: "Fuego ✨", look: { backgroundColor: "#120604", accentColor: "#ff6a00", accent2Color: "#ffd000", bgStyle: "live", cardStyle: "neon", headingFont: "bebas", fontFamily: "outfit", corners: "soft" } },
+  { id: "esmeralda", name: "Esmeralda ✨", look: { backgroundColor: "#03140f", accentColor: "#10e0a0", accent2Color: "#38bdf8", bgStyle: "live", cardStyle: "glass", headingFont: "poppins", fontFamily: "poppins", corners: "round" } },
 ];
 /** Muestra en miniatura de un estilo (para elegir con un toque). */
 export const themeSwatch = (t) => {

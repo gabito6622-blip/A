@@ -533,3 +533,44 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ktag.k-hogar{background:color-mix(in srgb,#8b5cf6 22%,transparent);color:#a78bfa}
 .ktag.k-temporal{background:color-mix(in srgb,#f59e0b 22%,transparent);color:#fbbf24}
 .ktag.k-verificacion{background:color-mix(in srgb,#10b981 22%,transparent);color:#34d399}
+
+/* ===================== VIDA / animaciones ===================== */
+.shop{overflow-x:clip}
+@keyframes gsFloat{0%,100%{transform:translateY(0) rotate(1.2deg)}50%{transform:translateY(-12px) rotate(1.2deg)}}
+@keyframes gsShimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes gsRise{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:none}}
+@keyframes gsBlob{0%{transform:translate(0,0) scale(1)}33%{transform:translate(8%,-6%) scale(1.1)}66%{transform:translate(-6%,6%) scale(.94)}100%{transform:translate(0,0) scale(1)}}
+@keyframes gsSheen{0%{transform:translateX(-130%)}60%,100%{transform:translateX(230%)}}
+@keyframes gsBgPan{0%{background-position:0% 0%,100% 0%,50% 100%,0 0}50%{background-position:100% 25%,0% 45%,60% 75%,0 0}100%{background-position:0% 0%,100% 0%,50% 100%,0 0}}
+@keyframes gsPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.25)}}
+/* globos de luz flotando detrás del hero */
+.hero{position:relative;isolation:isolate}
+.hero::before,.hero::after{content:"";position:absolute;z-index:-1;border-radius:50%;filter:blur(55px);opacity:.5;pointer-events:none}
+.hero::before{width:min(320px,70vw);height:min(320px,70vw);top:-70px;left:-50px;background:radial-gradient(circle,color-mix(in srgb,var(--s-blue) 75%,transparent),transparent 70%);animation:gsBlob 15s ease-in-out infinite}
+.hero::after{width:min(280px,60vw);height:min(280px,60vw);bottom:-60px;right:-30px;background:radial-gradient(circle,color-mix(in srgb,var(--s-sky) 70%,transparent),transparent 70%);animation:gsBlob 19s ease-in-out infinite reverse}
+/* título que brilla */
+.hero h1 span{background:linear-gradient(90deg,var(--s-blue),var(--s-sky),var(--s-blue));background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gsShimmer 6s linear infinite}
+/* tarjeta de vista previa flotando */
+.mock{animation:gsFloat 7s ease-in-out infinite}
+.mock .t::before{animation:gsPulse 2.4s ease-in-out infinite}
+/* productos que entran de a uno */
+.pgrid .pc{animation:gsRise .5s ease both}
+.pgrid .pc:nth-child(2){animation-delay:.06s}.pgrid .pc:nth-child(3){animation-delay:.12s}.pgrid .pc:nth-child(4){animation-delay:.18s}.pgrid .pc:nth-child(n+5){animation-delay:.24s}
+.pc:hover{transform:translateY(-4px)}
+/* brillo que pasa por la imagen al pasar el dedo/mouse */
+.pimg::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.22) 50%,transparent 68%);transform:translateX(-130%);pointer-events:none}
+.pc:hover .pimg::after{animation:gsSheen 1.1s ease}
+/* brillo en el botón principal */
+.sbtn.pri{position:relative;overflow:hidden}
+.sbtn.pri::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-130%);pointer-events:none}
+.sbtn.pri:hover::after{animation:gsSheen 1s ease}
+/* fondo "Animado": luces que se mueven solas */
+.shop[data-bg="live"]{background:
+  radial-gradient(60% 50% at 12% 0,color-mix(in srgb,var(--s-blue) 34%,transparent),transparent 70%),
+  radial-gradient(60% 50% at 88% 10%,color-mix(in srgb,var(--s-sky) 30%,transparent),transparent 70%),
+  radial-gradient(70% 60% at 50% 115%,color-mix(in srgb,var(--s-blue) 22%,transparent),transparent 70%),var(--s-bg);
+  background-size:200% 200%,200% 200%,200% 200%,100% 100%;background-attachment:fixed;animation:gsBgPan 26s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .hero::before,.hero::after,.hero h1 span,.mock,.mock .t::before,.pgrid .pc,.shop[data-bg="live"],.pc:hover .pimg::after,.sbtn.pri:hover::after{animation:none}
+  .pgrid .pc{opacity:1}
+}
