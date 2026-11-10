@@ -236,7 +236,7 @@ const V = {
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
     const tile = (p) => {
       const n = stock[p.id]?.available ?? 0;
-      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" ${n ? "" : "disabled"} aria-pressed="false">
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-rule="${esc(p.saleNote ?? "")}" ${n ? "" : "disabled"} aria-pressed="false">
         ${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`}
         <b>${esc(p.name)}</b><span class="selprice">${bs(p.price)}</span>
         <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
@@ -596,6 +596,7 @@ const V = {
       <label>Precio revendedor (Bs, opcional)<input name="resPrice" inputmode="decimal" value="${rev?.prices[edit?.id] !== undefined ? rev.prices[edit.id] / 100 : ""}"></label>
       <label>Color de la tarjeta<input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
+      <label style="grid-column:1/-1">📌 Regla al vender <small class="muted">(opcional · aparece cuando vas a vender este servicio)</small><input name="saleNote" maxlength="200" value="${esc(f.saleNote ?? "")}" placeholder="Ej.: Disney pide PIN al entrar · este panel tarda 10 min"></label>
       <label>Visible para<select name="audience">${opt("all", "Todos (tienda pública)", f.published && !f.resellersOnly)}${opt("resellers", "Solo revendedores (ven precio, compran y renuevan con saldo)", f.published && f.resellersOnly)}${opt("none", "Nadie (oculto, solo el panel)", !f.published)}</select></label>
       <div style="grid-column:1/-1" class="pdefs combo-only" ${f.kind === "combo" ? "" : "hidden"}><div class="selbl">🎁 Apps que incluye este combo <small class="muted">cuando el cliente arma el mismo combo en la tienda, le cobramos este precio</small></div>
         <div class="combopick">${products.filter((x) => x.kind !== "combo").map((x) => `<label class="chk"><input type="checkbox" name="combopart" value="${esc(x.id)}" ${f.comboProductIds?.includes(x.id) ? "checked" : ""}> ${esc(x.name)}</label>`).join("") || `<span class="muted">Primero creá productos sueltos (no combo) para elegirlos acá.</span>`}</div>
@@ -1452,9 +1453,10 @@ document.addEventListener("click", async (ev) => {
     $$(".selp").forEach((x) => x.setAttribute("aria-pressed", x.dataset.pick === d.pick ? "true" : "false"));
     const n = +el.dataset.stock;
     const full = el.dataset.kind === "full_account";
-    $("#sellNote").innerHTML = full
+    const rule = (el.dataset.rule || "").trim();
+    $("#sellNote").innerHTML = (rule ? `<div class="salerule">📌 <b>Antes de vender:</b> ${esc(rule)}</div>` : "") + (full
       ? `Vendés <b>${esc(el.dataset.name)}</b> — se entrega la <b>cuenta completa</b>${n ? ` (${n} disponible${n > 1 ? "s" : ""})` : ""}.`
-      : `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`;
+      : `Vendés <b>${esc(el.dataset.name)}</b>. Se asigna solo un perfil libre${n ? ` (quedan ${n})` : ""} y el aviso queda listo en WhatsApp.`);
     $("#sellNote").classList.add("on");
     $("#sellBtn").disabled = false;
     // Perfiles libres de ese producto para elegir a mano (opcional).
@@ -1796,6 +1798,7 @@ document.addEventListener("submit", async (ev) => {
       const pdefs = [];
       for (let i = 0; i < 10; i++) { const lab = f[`pd-label-${i}`]?.value?.trim(); if (lab) pdefs.push({ label: lab, pin: (f[`pd-pin-${i}`]?.value || "").replace(/\D/g, "") || undefined }); }
       body.profileDefaults = pdefs;
+      body.saleNote = f.saleNote?.value?.trim() ?? "";
       if (body.kind === "combo") body.comboProductIds = [...f.querySelectorAll('input[name="combopart"]:checked')].map((x) => x.value);
       await api("POST", "/api/admin/products", body);
       const groups = await api("GET", "/api/admin/price-groups");

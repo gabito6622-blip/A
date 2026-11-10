@@ -38,6 +38,8 @@ export interface Product {
   profileDefaults?: { label: string; pin?: string }[];
   /** Solo para kind "combo": las apps (ids de productos) que incluye. Sirve para detectar cuando el cliente arma el mismo combo. */
   comboProductIds?: Id[];
+  /** Regla / recordatorio que aparece al vender este servicio (ej.: "Disney pide PIN", "este panel tarda"). */
+  saleNote?: string;
 }
 
 /** Descuento "Armá tu combo" por defecto (centavos) para 2, 3 y 4 o más servicios distintos. */
