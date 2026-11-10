@@ -62,7 +62,8 @@ function ToothSvg({ tooth, entries, size = 38, onSurface }: { tooth: number; ent
   );
 }
 
-export function Odontogram({ patientId, canWrite }: { patientId: string; canWrite: boolean }) {
+/** onShowImages: enlace mínimo a «Imágenes y archivos» filtrado por la pieza (B-012). */
+export function Odontogram({ patientId, canWrite, onShowImages }: { patientId: string; canWrite: boolean; onShowImages?: (tooth: number) => void }) {
   const toast = useToast();
   const ask = useAsk();
   const data = useApi<{ active: Entry[]; history: Entry[] }>(`/api/patients/${patientId}/odontogram`);
@@ -141,7 +142,7 @@ export function Odontogram({ patientId, canWrite }: { patientId: string; canWrit
 
       {sel && (
         <div className="card">
-          <div className="card-head"><h2>Pieza {sel}</h2><button className="btn btn-ghost btn-sm" onClick={() => setSel(null)}>Cerrar</button></div>
+          <div className="card-head"><h2>Pieza {sel}</h2><div className="row">{onShowImages && <button className="btn btn-sm" onClick={() => onShowImages(sel)}>Ver imágenes de la pieza {sel}</button>}<button className="btn btn-ghost btn-sm" onClick={() => setSel(null)}>Cerrar</button></div></div>
           <div className="card-pad grid grid-2">
             <div className="stack">
               <h3>Estado actual</h3>

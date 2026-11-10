@@ -16,8 +16,9 @@ import { Periodontogram } from "../components/perio/Periodontogram";
 import { PatientLabCard } from "../components/lab/LabShared";
 import { PatientTimeline } from "../components/PatientTimeline";
 import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocuments";
+import { ClinicalFilesPanel } from "../components/ClinicalFiles";
 
-type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos";
+type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos" | "imagenes";
 
 export function PatientDetailPage() {
   const { id } = useParams();
@@ -25,6 +26,7 @@ export function PatientDetailPage() {
   const p = useApi<any>(`/api/patients/${id}`);
   const [tab, setTab] = useState<Tab>("resumen");
   const [editing, setEditing] = useState(false);
+  const [filesTooth, setFilesTooth] = useState<number | null>(null);
   if (p.error) return <div className="alert danger">{p.error}</div>;
   if (!p.data) return <Loading rows={6} />;
   const pt = p.data.patient;
@@ -69,6 +71,7 @@ export function PatientDetailPage() {
         { id: "periodontograma", label: "Periodontograma", hidden: !can("clinical.read") },
         { id: "historia", label: "Historia clínica", hidden: !can("clinical.read") },
         { id: "documentos", label: "Documentos", hidden: !can("clinical.read") },
+        { id: "imagenes", label: "Imágenes y archivos" },
         { id: "presupuestos", label: "Presupuestos", hidden: !can("budgets.read") },
         { id: "cuenta", label: "Cuenta y pagos", hidden: !can("payments.read") },
         { id: "consentimientos", label: "Consentimientos" },
@@ -99,13 +102,14 @@ export function PatientDetailPage() {
           <PatientTimeline patientId={id!} />
         </div>
       )}
-      {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} />}
+      {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} onShowImages={(t) => { setFilesTooth(t); setTab("imagenes"); }} />}
       {tab === "periodontograma" && <Periodontogram patientId={id!} patientName={`${pt.firstName} ${pt.lastName}`} />}
       {tab === "historia" && <ClinicalHistory patientId={id!} />}
       {tab === "presupuestos" && <PatientBudgets patientId={id!} onChanged={p.reload} />}
       {tab === "cuenta" && <PatientAccount patientId={id!} onChanged={p.reload} />}
       {tab === "consentimientos" && <ConsentsPanel patient={pt} />}
       {tab === "documentos" && <ClinicalDocumentsPanel patient={pt} />}
+      {tab === "imagenes" && <ClinicalFilesPanel patientId={id!} tooth={filesTooth} onToothChange={setFilesTooth} />}
       {editing && <PatientFormDialog patient={pt} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); p.reload(); }} />}
     </div>
   );

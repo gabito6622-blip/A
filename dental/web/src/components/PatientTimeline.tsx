@@ -2,14 +2,14 @@
 // presupuestos, cargos y pagos, documentos, controles y mensajes. El servidor solo envía lo que
 // el rol puede ver. Horas en la zona de la clínica (America/La_Paz).
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, FileSignature, History, MessageSquare, PhoneCall, ReceiptText, Smile, Stethoscope, Wallet } from "lucide-react";
+import { CalendarDays, FileSignature, History, Images, MessageSquare, PhoneCall, ReceiptText, Smile, Stethoscope, Wallet } from "lucide-react";
 import { api, qs } from "../lib/api";
 import { bs } from "../lib/format";
 import { Empty, Loading } from "./ui";
 
 const ICONS: Record<string, typeof History> = {
   appointments: CalendarDays, notes: Stethoscope, odontogram: Smile, budgets: ReceiptText, payments: Wallet,
-  documents: FileSignature, recalls: PhoneCall, messages: MessageSquare,
+  documents: FileSignature, recalls: PhoneCall, messages: MessageSquare, files: Images,
 };
 
 interface Item {

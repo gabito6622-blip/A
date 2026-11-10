@@ -18,19 +18,22 @@ import type { AuthCtx, Permission } from "../lib/rbac.js";
 import { clinicZone, STATUS_LABELS } from "./agenda.js";
 import { CONDITIONS } from "./clinical.js";
 import { BUDGET_LABELS, METHOD_LABELS } from "./billing.js";
+import { FILE_KIND_LABELS } from "./clinicalFiles-core.js";
 
-export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages"] as const;
+export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages", "files"] as const;
 export type TimelineCategory = (typeof TIMELINE_CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   appointments: "Citas", notes: "Notas clínicas", odontogram: "Odontograma", budgets: "Presupuestos",
   payments: "Cargos y pagos", documents: "Documentos firmados", recalls: "Controles y contactos", messages: "Mensajes",
+  files: "Imágenes y archivos",
 };
 
 /** Permiso que habilita cada fuente. */
 const CATEGORY_PERM: Record<TimelineCategory, Permission> = {
   appointments: "agenda.read", notes: "clinical.read", odontogram: "clinical.read", budgets: "budgets.read",
   payments: "payments.read", documents: "patients.read", recalls: "agenda.read", messages: "patients.read",
+  files: "clinical.read",
 };
 
 export function allowedCategories(auth: Pick<AuthCtx, "permissions">): TimelineCategory[] {
@@ -158,6 +161,19 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            NULL::text, b.name, NULL::timestamptz, NULL::bigint
       FROM outbound_messages m LEFT JOIN branches b ON b.id = m.branch_id
      WHERE m.patient_id = $1`,
+  // Imágenes y archivos (B-012): subidas y archivados/restaurados con motivo.
+  files: () => `
+    SELECT f.created_at, 'cf:' || f.id, 'file.uploaded', 'files',
+           jsonb_build_object('fileId', f.id, 'fileKind', f.kind, 'teeth', f.teeth, 'takenOn', f.taken_on, 'description', left(f.description, 240)),
+           u.full_name, b.name, NULL::timestamptz, NULL::bigint
+      FROM clinical_files f JOIN branches b ON b.id = f.branch_id JOIN users u ON u.id = f.uploaded_by
+     WHERE f.patient_id = $1
+    UNION ALL
+    SELECT e.created_at, 'fe:' || e.id, CASE WHEN e.kind = 'archived' THEN 'file.archived' ELSE 'file.restored' END, 'files',
+           jsonb_build_object('fileId', f.id, 'fileKind', f.kind, 'teeth', f.teeth, 'reason', e.reason),
+           u.full_name, b.name, NULL::timestamptz, NULL::bigint
+      FROM clinical_file_events e JOIN clinical_files f ON f.id = e.file_id JOIN branches b ON b.id = f.branch_id JOIN users u ON u.id = e.user_id
+     WHERE f.patient_id = $1`,
 };
 
 const NOTE_KINDS: Record<string, string> = { evolution: "Evolución", diagnosis: "Diagnóstico", prescription: "Receta", referral: "Derivación", consent: "Consentimiento", other: "Nota" };
@@ -238,6 +254,17 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
         title: `Mensaje por ${CHANNEL_LABELS[x.channel] ?? x.channel} (${MSG_STATUS[x.status] ?? x.status})`,
         detail: x.purpose === "otp" ? "Código de verificación (contenido oculto)" : x.body ?? null,
       };
+    case "file.uploaded":
+    case "file.archived":
+    case "file.restored": {
+      const label = FILE_KIND_LABELS[x.fileKind as keyof typeof FILE_KIND_LABELS] ?? "Archivo";
+      const teeth = Array.isArray(x.teeth) && x.teeth.length ? `${x.teeth.length > 1 ? "Piezas" : "Pieza"} ${x.teeth.join(", ")}` : null;
+      if (r.kind === "file.uploaded") {
+        const taken = x.takenOn ? `Tomada el ${DateTime.fromISO(String(x.takenOn)).toFormat("dd/MM/yyyy")}` : null;
+        return { title: `Imagen o archivo agregado: ${label}`, detail: [teeth, taken, x.description].filter(Boolean).join(" · ") || null };
+      }
+      return { title: `${r.kind === "file.archived" ? "Se archivó" : "Se restauró"}: ${label}`, detail: [teeth, x.reason].filter(Boolean).join(" · ") || null };
+    }
     default:
       return { title: r.kind, detail: null };
   }
@@ -320,6 +347,6 @@ export function patientTimelineRoutes(route: Route) {
 function pickRef(r: Row) {
   const x = r.ref;
   const out: Record<string, unknown> = {};
-  for (const k of ["appointmentId", "budgetId", "documentId", "typeColor", "status", "to", "decision"]) if (x[k] != null) out[k] = x[k];
+  for (const k of ["appointmentId", "budgetId", "documentId", "fileId", "typeColor", "status", "to", "decision"]) if (x[k] != null) out[k] = x[k];
   return out;
 }
