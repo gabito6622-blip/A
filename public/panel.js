@@ -659,11 +659,21 @@ const V = {
       <div class="inline"><button class="pbtn dark" type="submit">${edit ? "Guardar cambios" : "Crear producto"}</button>${edit ? `<button class="pbtn" type="button" data-editprod="">Cancelar</button>` : ""}</div></form>
       ${edit ? `<form class="inline" id="prodImg" data-id="${esc(edit.id)}" style="margin-top:12px">${edit.imageFileRef ? `<img src="/api/products/${esc(edit.id)}/image?v=${Date.now() % 1e6}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#0e1424;padding:6px">` : `<span class="muted">Sin logo: se ve la inicial.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Logo del producto"><button class="pbtn dark" type="submit">${edit.imageFileRef ? "Cambiar logo" : "Subir logo"}</button>${edit.imageFileRef ? `<button class="pbtn" type="button" data-noprodimg="${esc(edit.id)}">Quitar</button>` : ""}</form>` : `<p class="muted" style="margin:10px 0 0">Después de crearlo, tocá <b>Editar</b> para subirle el logo.</p>`}</section>
-      <section class="card"><h2>Productos <small>· ${products.length}</small></h2>${table(["Producto", "Tipo", "Precio", "Revendedor", "Duración", "Stock libre", "Tienda", ""], products.map((p) => `<tr>
-        <td>${p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px">` : `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${esc(p.color ?? "#3984ff")};margin-right:6px"></span>`}${esc(p.name)}<br><small class="muted">${esc(p.category ?? "")}</small></td>
-        <td>${esc({ profile: "Perfil", full_account: "Cuenta", invite: "Invitación", combo: "Combo" }[p.kind])}</td><td>${bs(p.price)}</td><td>${rev?.prices[p.id] !== undefined ? bs(rev.prices[p.id]) : "—"}</td>
-        <td>${p.durationDays} días</td><td>${stock[p.id]?.available ?? 0}</td><td>${!p.published ? pill("Oculto", "mute") : p.resellersOnly ? pill("Solo revendedores", "warn") : pill("Publicado", "ok")}</td>
-        <td><button class="pbtn sm" type="button" data-editprod="${esc(p.id)}">${icon("edit")}Editar</button></td></tr>`), "Todavía no hay productos.")}</section>`;
+      <section class="card"><h2>Productos <small>· ${products.length} · tocá una tarjeta para editar</small></h2>
+      ${products.length ? `<div class="prodgrid">${products.map((p) => {
+        const st = stock[p.id]?.available ?? 0;
+        const kindTxt = { profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo" }[p.kind];
+        const estado = !p.published ? ["Oculto", "mute"] : p.resellersOnly ? ["Solo revendedores", "warn"] : ["Publicado", "ok"];
+        const face = p.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(p.name, p.color);
+        return `<article class="prodcard" tabindex="0" role="button" data-editprod="${esc(p.id)}">
+          <header>${face}<div class="pcinfo"><b>${esc(p.name)}</b><small class="muted">${esc(p.category || kindTxt)}</small></div>${pill(estado[0], estado[1])}</header>
+          <div class="prow"><span class="muted">Precio</span><b>${bs(p.price)}</b></div>
+          <div class="prow"><span class="muted">Revendedor</span><b>${rev?.prices[p.id] !== undefined ? bs(rev.prices[p.id]) : "—"}</b></div>
+          <div class="prow"><span class="muted">Stock libre</span><b class="${st ? (st <= 2 ? "lowst" : "okst") : "nost"}">${st}</b></div>
+          <div class="prow"><span class="muted">Duración</span><b>${p.durationDays} días</b></div>
+          <div class="pcfoot"><span class="pcbtn">${icon("edit")}Editar</span></div>
+        </article>`;
+      }).join("")}</div>` : `<div class="emptybox">Todavía no hay productos.</div>`}</section>`;
   },
 
   async proveedores() {

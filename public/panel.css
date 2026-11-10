@@ -665,3 +665,18 @@ img.svbadge{padding:5px;background:#0e1424}
 .finform input[name=amount]{width:130px}
 .pbtn.danger{color:#e5484d;border-color:color-mix(in srgb,#e5484d 40%,var(--line))}
 td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+
+/* Productos en grilla de tarjetas (estilo catálogo de servicios) */
+.prodgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.prodcard{display:grid;gap:8px;padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--line);cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s}
+.prodcard:hover,.prodcard:focus-visible{transform:translateY(-2px);border-color:var(--blue);box-shadow:0 6px 18px rgba(16,24,40,.12);outline:none}
+.prodcard header{display:flex;align-items:center;gap:10px}
+.prodcard .pcinfo{display:grid;min-width:0;flex:1}
+.prodcard .pcinfo b{font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prodcard .pcinfo small{font-size:12px}
+.prodcard .prow{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px}
+.prodcard .prow b{font-variant-numeric:tabular-nums}
+.prodcard .prow b.okst{color:var(--ok)}.prodcard .prow b.lowst{color:var(--warn)}.prodcard .prow b.nost{color:var(--bad)}
+.prodcard .pcfoot{border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.prodcard .pcbtn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--blue)}
+.prodcard .pcbtn svg{width:15px;height:15px}
