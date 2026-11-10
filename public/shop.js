@@ -300,7 +300,9 @@ const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p c
 function pendingOrders() {
   const list = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review");
   return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]} ${esc(o.id)} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>
-    ${o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. Te avisamos por WhatsApp cuando esté listo.</span>`
+    ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
+      : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. Te avisamos por WhatsApp cuando esté listo.</span>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
         <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
@@ -1064,7 +1066,8 @@ function renderCart(msg = "") {
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
-    <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label></div>
+    <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>
+    ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
     <div id="qrPart" style="display:grid;gap:12px" ${canBalance ? "hidden" : ""}>${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación<input name="ref" placeholder="Ej.: 123456789"></label></div>
     <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
@@ -1086,6 +1089,30 @@ async function submitCheckout(form) {
       items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
       customerId: form.customerId?.value || undefined, idempotencyKey: S.checkoutKey,
     });
+    if (pm === "binance") {
+      let pay;
+      try {
+        pay = await api("POST", `/api/orders/${order.id}/binance`, {});
+      } catch (e) {
+        S.cart = []; saveCart(); S.step = 3;
+        $("#drawer").innerHTML = `<h2>Pedido ${esc(order.id)}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="err">El pedido quedó reservado, pero no se pudo abrir el pago con Binance: ${esc(e.message)}</div><button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button>`;
+        await refresh();
+        return;
+      }
+      S.cart = []; saveCart(); S.step = 3;
+      $("#drawer").innerHTML = `<h2>Pagá con Binance<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
+        <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span>3 · Listo</span></div>
+        <div class="sbox" style="text-align:center;gap:10px">
+          <b style="font-size:17px">${esc(String(pay.usdt))} USDT</b>
+          <span class="empty">Pedido ${esc(order.id)} · pagás en la app de Binance. Apenas se confirme, tu acceso aparece solo en Mis cuentas.</span>
+          ${pay.qr ? `<img src="${esc(pay.qr)}" alt="QR de Binance Pay" style="width:180px;height:180px;object-fit:contain;align-self:center;background:#fff;border-radius:10px;padding:6px">` : ""}
+          ${pay.link ? `<a class="sbtn pri" href="${esc(pay.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}
+          <span class="empty">Cuando termines de pagar, tocá “Ya pagué” para revisar el estado.</span>
+          <button class="sbtn" type="button" data-close="1" data-s="cuentas">Ya pagué · ver mis cuentas</button>
+        </div>`;
+      await refresh();
+      return;
+    }
     let final = order;
     if (pm === "qr") {
       try {
@@ -1345,7 +1372,7 @@ document.addEventListener("click", async (ev) => {
 
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
-  if (t.name === "pm") { const qr = t.value === "qr"; $("#qrPart").hidden = !qr; }
+  if (t.name === "pm") { $("#qrPart").hidden = t.value !== "qr"; }
   if (t.form?.id === "resSell") updateSellSummary(t.form);
   if (t.form?.id === "shopForm") pushPreview(shopFormLook(t.form));
   if (t.id === "shopOn") {

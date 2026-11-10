@@ -1036,6 +1036,7 @@ const V = {
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
       ${isOwner() ? await telegramCard() : ""}
+      ${isOwner() ? await binanceCard() : ""}
       ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
@@ -1121,6 +1122,32 @@ async function telegramCard() {
       <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${t.enabled ? "checked" : ""}> Mandarme estos avisos por Telegram</label>
       ${t.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento falló: ${esc(t.lastError)}</p>` : ""}
       <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="tgTest">Enviar prueba</button></div>
+    </form></section>`;
+}
+
+/* ---------------- Cobros con Binance Pay (USDT) ---------------- */
+async function binanceCard() {
+  const b = await api("GET", "/api/admin/binance").catch(() => null);
+  if (!b) return "";
+  return `<section class="card"><h2>${icon("coins")}Cobrar en USDT (Binance Pay) ${b.ready ? pill("Activo", "ok") : b.hasKeys ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">Aceptá pagos en <b>USDT</b> por Binance Pay. El cliente paga en su app de Binance y el pedido se activa <b>solo</b>, sin que revises nada. Vos ponés la tasa Bs→USDT.</p>
+    ${!b.https ? `<div class="pok">Para que Binance te avise de los pagos necesitás la tienda publicada con HTTPS (Railway) y arrancar con <code>GS_PUBLIC_ORIGIN</code>.</div>` : ""}
+    <details class="tg-help"><summary>¿Cómo lo conecto? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>Necesitás una cuenta de <b>comerciante</b> de Binance Pay (empresa verificada): pedila en <a href="https://merchant.binance.com" target="_blank" rel="noopener">merchant.binance.com</a>.</li>
+        <li>En el panel de comerciante → <b>Developers / API</b>, creá una <b>API Key</b> y su <b>API Secret</b>. Pegalas abajo.</li>
+        <li>Cargá el <b>Webhook URL</b> de abajo en la configuración de pagos de Binance (para que te avise cuando el cliente paga).</li>
+        <li>Poné tu <b>tasa</b> (cuántos Bs vale 1 USDT), activá y tocá <b>Probar conexión</b>.</li>
+      </ol></details>
+    ${b.webhookUrl ? `<label>Webhook URL <small class="muted">(copialo en Binance)</small><div class="inline"><input value="${esc(b.webhookUrl)}" readonly style="flex:1"><button class="pbtn sm" type="button" data-copy="${esc(b.webhookUrl)}">${icon("copy")}Copiar</button></div></label>` : ""}
+    <form class="form" id="binForm">
+      <label>API Key<input name="apiKey" autocomplete="off" placeholder="${b.hasKeys ? "Guardada · dejala vacía para no cambiarla" : "Tu API Key de Binance Pay"}"></label>
+      <label>API Secret<input name="apiSecret" type="password" autocomplete="off" placeholder="${b.hasKeys ? "Guardada · dejala vacía" : "Tu API Secret"}"></label>
+      <label>Tasa: ¿cuántos Bs vale 1 USDT?<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${b.rate || ""}"></label>
+      <label>Tu Binance Pay ID <small class="muted">(opcional, informativo)</small><input name="payId" inputmode="numeric" placeholder="Ej.: 123456789" value="${esc(b.payId || "")}"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${b.enabled ? "checked" : ""}> Aceptar pagos con Binance en la tienda</label>
+      ${b.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento con Binance falló: ${esc(b.lastError)}</p>` : ""}
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="binTest">Probar conexión</button></div>
     </form></section>`;
 }
 
@@ -1521,6 +1548,7 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
   if (el.id === "tgTest") { const form = el.closest("form"); const chatId = form?.chatId.value.trim(); return act(() => api("POST", "/api/admin/telegram/test", chatId ? { chatId } : {}), "Prueba enviada: revisá tu Telegram ✓"); }
+  if (el.id === "binTest") { el.disabled = true; el.textContent = "Probando…"; return act(() => api("POST", "/api/admin/binance/test", {}), "Conexión con Binance OK ✓"); }
   if (d.appok) {
     el.disabled = true;
     try {
@@ -1949,6 +1977,11 @@ document.addEventListener("submit", async (ev) => {
       const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
       if (f.token.value.trim()) body.token = f.token.value.trim();
       await act(() => api("POST", "/api/admin/telegram", body), "Avisos de Telegram guardados");
+    } else if (f.id === "binForm") {
+      const body = { rate: f.rate.value.trim(), payId: f.payId.value.trim(), enabled: f.enabled.checked };
+      if (f.apiKey.value.trim()) body.apiKey = f.apiKey.value.trim();
+      if (f.apiSecret.value.trim()) body.apiSecret = f.apiSecret.value.trim();
+      await act(() => api("POST", "/api/admin/binance", body), "Binance Pay guardado");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });

@@ -17,6 +17,7 @@ import { hashPassword, hashSecret, newToken, OtpStore, RateLimiter, sha256, veri
 import { sendMail } from "./smtp.js";
 import { botAnswer } from "./bot.js";
 import { parseWebhook, verifySignature, WaError, WhatsAppCloud, type InboundMessage } from "./whatsapp.js";
+import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
@@ -44,6 +45,8 @@ export interface AppConfig {
   metaBaseUrl?: string;
   /** Para pruebas: URL base de la API de Telegram (por defecto https://api.telegram.org). */
   telegramBaseUrl?: string;
+  /** Para pruebas: URL base de Binance Pay (por defecto https://bpay.binanceapi.com). */
+  binanceBaseUrl?: string;
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
   dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
@@ -204,7 +207,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
-      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef,
+      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, hasQr: !!st.qrFileRef, binance: binanceOn(),
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
@@ -509,6 +512,27 @@ export function createApp(cfg: AppConfig): App {
       throw e;
     }
   }, MAX_UPLOAD_JSON);
+
+  // Crea la orden de pago en Binance para un pedido ya creado con método "binance". Devuelve enlace/QR.
+  route("POST", "/api/orders/:id/binance", "customer", async (c) => {
+    if (!binanceOn()) throw new HttpError(409, "BINANCE_OFF", "Los pagos con Binance no están disponibles ahora");
+    const o = store.engine.s.orders[c.params.id];
+    if (!o) throw new HttpError(404, "NOT_FOUND", "Pedido no encontrado");
+    if (!store.catalog.canActFor(c.actor!, o.customerId)) throw new HttpError(403, "FORBIDDEN", "Ese pedido no es tuyo");
+    if (o.paymentMethod !== "binance") throw new HttpError(400, "VALIDATION", "Ese pedido no se paga con Binance");
+    if (o.status !== "awaiting_payment") throw new HttpError(409, "INVALID_STATE", "Ese pedido ya no espera pago");
+    const client = binanceClient()!;
+    const rate = binCfg().rate;
+    const usdt = usdtFor(o.total);
+    const merchantTradeNo = "BP" + randomBytes(12).toString("hex"); // alfanumérico, 26 caracteres
+    let res;
+    try {
+      res = await client.createOrder({ merchantTradeNo, amount: usdt, goodsName: `Pedido ${o.id}`, returnUrl: cfg.publicOrigin ? `${cfg.publicOrigin}/tienda/` : undefined, expireAt: now() + 60 * 60_000 });
+    } catch (e) { binSave({ lastError: (e as Error).message.slice(0, 200) }); throw new HttpError(502, "BINANCE", (e as Error).message); }
+    const link = res.checkoutUrl || res.universalUrl || res.deeplink;
+    store.orders.attachBinance(c.actor!, o.id, { merchantTradeNo, prepayId: res.prepayId, link, qr: res.qrcodeLink, usdt, rate });
+    return { orderId: o.id, usdt, rate, link, qr: res.qrcodeLink ?? null, qrContent: res.qrContent ?? null, expireAt: res.expireTime ?? null };
+  });
 
   route("POST", "/api/orders/:id/cancel", "customer", (c) => store.orders.cancel(c.actor!, c.params.id));
 
@@ -1100,6 +1124,30 @@ export function createApp(cfg: AppConfig): App {
     return RAW;
   }, 1024 * 1024);
 
+  // Webhook de Binance Pay: avisa cuando un pago se completó. Se verifica la firma RSA con el certificado de Binance.
+  route("POST", "/api/binance/webhook", "public", async (c) => {
+    const client = binanceClient();
+    if (!client || !c.raw) throw new HttpError(400, "BINANCE_OFF", "Binance Pay no está configurado");
+    const hdr = { timestamp: c.req.headers["binancepay-timestamp"] as string | undefined, nonce: c.req.headers["binancepay-nonce"] as string | undefined, signature: c.req.headers["binancepay-signature"] as string | undefined };
+    let certs = await client.getCertificates().catch(() => []);
+    let ok = verifyBinanceWebhook(c.raw, hdr, certs);
+    if (!ok) { certs = await client.getCertificates(true).catch(() => []); ok = verifyBinanceWebhook(c.raw, hdr, certs); } // el certificado pudo rotar
+    if (!ok) throw new HttpError(400, "BAD_SIGNATURE", "Firma inválida");
+    const ev = parseBinanceWebhook(c.body ?? {});
+    send(c.res, 200, { returnCode: "SUCCESS", returnMessage: null });
+    if (ev.bizStatus === "PAY_SUCCESS" && ev.merchantTradeNo && ev.transactionId) {
+      void (async () => {
+        try {
+          const order = Object.values(store.engine.s.orders).find((o) => o.binance?.merchantTradeNo === ev.merchantTradeNo);
+          if (!order) { log(`binance: pago sin pedido (merchantTradeNo ${ev.merchantTradeNo})`); return; }
+          store.orders.confirmBinancePayment(system, order.id, { txnId: ev.transactionId! });
+          log(`binance: pedido ${order.id} pagado (${ev.totalFee} ${ev.currency})`);
+        } catch (e) { log(`binance webhook: ${(e as Error).message}`); }
+      })();
+    }
+    return RAW;
+  }, 1024 * 1024);
+
   const ownerOrAdmin = (c: Ctx) => {
     if (A(c).role !== "owner" && A(c).role !== "admin") throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin");
   };
@@ -1186,6 +1234,40 @@ export function createApp(cfg: AppConfig): App {
     } catch (e) {
       throw new HttpError(502, "TG", (e as Error).message);
     }
+  });
+  // ── Binance Pay: configuración del dueño ──
+  route("GET", "/api/admin/binance", "staff", (c) => {
+    const b = binCfg();
+    return { enabled: b.enabled, rate: b.rate, payId: b.payId ?? "", hasKeys: !!binKeys(), ready: binanceOn(), https: !!cfg.publicOrigin?.startsWith("https://"), webhookUrl: cfg.publicOrigin ? `${cfg.publicOrigin}/api/binance/webhook` : null, lastError: b.lastError };
+  });
+  route("POST", "/api/admin/binance", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura Binance Pay");
+    const b = c.body ?? {};
+    const changed: string[] = [];
+    if (typeof b.apiKey === "string") {
+      const k = b.apiKey.trim();
+      if (k && !/^[A-Za-z0-9]{20,128}$/.test(k)) throw new HttpError(400, "VALIDATION", "La API Key no parece válida");
+      db.setSecret("binance_key", k || null, now()); changed.push("apiKey");
+    }
+    if (typeof b.apiSecret === "string") {
+      const s = b.apiSecret.trim();
+      if (s && !/^[A-Za-z0-9]{20,128}$/.test(s)) throw new HttpError(400, "VALIDATION", "La API Secret no parece válida");
+      db.setSecret("binance_secret", s || null, now()); changed.push("apiSecret");
+    }
+    const patch: Partial<BinanceCfg> = {};
+    if (b.rate != null && b.rate !== "") { const r = Number(b.rate); if (!(r > 0) || r > 1000) throw new HttpError(400, "VALIDATION", "Poné cuántos Bs vale 1 USDT (ej. 13)"); patch.rate = Math.round(r * 100) / 100; }
+    if (typeof b.payId === "string") patch.payId = b.payId.trim() || undefined;
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (Object.keys(patch).length) binSave(patch);
+    store.engine.tx(() => store.engine.audit(A(c), "binance.config", "settings", "binance", { changed: [...changed, ...Object.keys(patch)].join(",") }));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/binance/test", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const client = binanceClient();
+    if (!client) throw new HttpError(409, "BINANCE_OFF", "Cargá primero la API Key y la API Secret");
+    try { const certs = await client.getCertificates(true); binSave({ lastError: undefined }); return { ok: true, certs: certs.length }; }
+    catch (e) { binSave({ lastError: (e as Error).message.slice(0, 200) }); throw new HttpError(502, "BINANCE", (e as Error).message); }
   });
   route("POST", "/api/admin/whatsapp/flush", "staff", async (c) => {
     ownerOrAdmin(c);
@@ -1424,6 +1506,26 @@ export function createApp(cfg: AppConfig): App {
     catch (e) { tgSave({ lastError: (e as Error).message.slice(0, 200) }); log(`telegram falló: ${(e as Error).message}`); }
   }
   const escTg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ── Pagos con Binance Pay (USDT) ──────────────────────────────────────────
+  // Las llaves (API Key / Secret) son secretas. La config (tasa Bs→USDT, Pay ID) vive junto a los secretos.
+  type BinanceCfg = { enabled: boolean; rate: number; payId?: string; lastError?: string };
+  const binCfg = (): BinanceCfg => {
+    try { const c = JSON.parse(db.getSecret("binance_cfg") ?? "") as BinanceCfg; return { enabled: !!c.enabled, rate: Number(c.rate) || 0, payId: c.payId, lastError: c.lastError }; }
+    catch { return { enabled: false, rate: 0 }; }
+  };
+  const binSave = (patch: Partial<BinanceCfg>) => db.setSecret("binance_cfg", JSON.stringify({ ...binCfg(), ...patch }), now());
+  const binKeys = () => { const apiKey = db.getSecret("binance_key"); const apiSecret = db.getSecret("binance_secret"); return apiKey && apiSecret ? { apiKey, apiSecret } : null; };
+  let binInstance: BinancePay | null = null; let binInstanceKey = "";
+  const binanceClient = (): BinancePay | null => {
+    const k = binKeys();
+    if (!k) { binInstance = null; return null; }
+    if (!binInstance || binInstanceKey !== k.apiKey) { binInstance = new BinancePay(k, cfg.fetchImpl ?? fetch, cfg.binanceBaseUrl); binInstanceKey = k.apiKey; }
+    return binInstance;
+  };
+  const binanceOn = () => { const c = binCfg(); return c.enabled && c.rate > 0 && !!binKeys(); };
+  /** Convierte el total en Bs (centavos) a USDT con la tasa; redondea hacia arriba para no cobrar de menos. */
+  const usdtFor = (totalCents: number) => Math.max(0.01, Math.ceil((totalCents / 100) / binCfg().rate * 100) / 100);
 
   let lastRentRun = 0;
   function runJobs() {

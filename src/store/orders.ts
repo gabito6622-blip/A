@@ -163,6 +163,32 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
   });
 }
 
+/** Entrega un pedido que está en revisión: re-reserva si hiciera falta, guarda la referencia y cumple.
+ *  Debe correr dentro de `tx`. La usan tanto la aprobación manual (QR) como la pasarela (Binance). */
+function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
+  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
+  if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
+  // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
+  if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
+    releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
+    o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
+    delete o.backorder;
+  } else if (o.kind === "sale" && o.backorder?.length) {
+    for (const b of o.backorder) {
+      try {
+        o.reservedSlotIds.push(...reserveSlots(e, b.productId, b.qty, o.id).map((s) => s.id));
+      } catch {
+        throw new DomainError("OUT_OF_STOCK", `Es un pedido a pedido: primero cargá ${b.qty > 1 ? `${b.qty} cuentas` : "la cuenta"} de ${e.s.products[b.productId]?.name ?? b.productId} (Carga de Cuentas) y después aprobá.`);
+      }
+    }
+    delete o.backorder;
+  }
+  o.confirmedReference = ref;
+  o.approvedBy = actor.id;
+  e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
+  fulfill(e, actor, o);
+}
+
 export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { confirmedReference: string; idempotencyKey?: string }): Order {
   authorize(actor, "payment.review");
   const key = input.idempotencyKey ? `approve:${orderId}:${input.idempotencyKey}` : undefined;
@@ -173,27 +199,39 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { co
     if (actor.customerId && actor.customerId === o.customerId) throw new DomainError("FORBIDDEN", "No podés aprobar tu propio pedido");
     const ref = input.confirmedReference?.trim();
     if (!ref) throw new DomainError("VALIDATION", "Indicá la referencia bancaria verificada");
-    const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
-    if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
-    // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
-    if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
-      releaseSlots(e, o.reservedSlotIds.filter((id) => e.s.slots[id].reservedByOrder === o.id));
-      o.reservedSlotIds = o.items.flatMap((it) => reserveSlots(e, it.productId, it.qty, o.id)).map((s) => s.id);
-      delete o.backorder;
-    } else if (o.kind === "sale" && o.backorder?.length) {
-      for (const b of o.backorder) {
-        try {
-          o.reservedSlotIds.push(...reserveSlots(e, b.productId, b.qty, o.id).map((s) => s.id));
-        } catch {
-          throw new DomainError("OUT_OF_STOCK", `Es un pedido a pedido: primero cargá ${b.qty > 1 ? `${b.qty} cuentas` : "la cuenta"} de ${e.s.products[b.productId]?.name ?? b.productId} (Carga de Cuentas) y después aprobá.`);
-        }
-      }
-      delete o.backorder;
-    }
-    o.confirmedReference = ref;
-    o.approvedBy = actor.id;
-    e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
-    fulfill(e, actor, o);
+    settle(e, actor, o, ref);
+    return structuredClone(o);
+  }));
+}
+
+/** Guarda en el pedido la orden de pago creada en Binance (la llama el servidor tras crearla). */
+export function attachBinance(e: Engine, actor: Actor, orderId: Id, data: { merchantTradeNo: string; prepayId?: string; link?: string; qr?: string; usdt: number; rate: number }): Order {
+  return e.tx(() => {
+    const o = e.get("orders", orderId);
+    requireActFor(e, actor, o.customerId);
+    if (o.paymentMethod !== "binance") throw new DomainError("INVALID_STATE", "Este pedido no se paga con Binance");
+    if (o.status !== "awaiting_payment") throw new DomainError("INVALID_STATE", `No se puede adjuntar el pago en estado ${o.status}`);
+    o.binance = { merchantTradeNo: data.merchantTradeNo, prepayId: data.prepayId, link: data.link, qr: data.qr, usdt: data.usdt, rate: data.rate, status: "PENDING" };
+    o.updatedAt = e.now();
+    e.audit(actor, "order.binance", "order", o.id, { usdt: data.usdt, rate: data.rate });
+    return structuredClone(o);
+  });
+}
+
+/** Confirma un pago de Binance Pay desde el webhook firmado (actor del sistema) y entrega el pedido. */
+export function confirmBinancePayment(e: Engine, actor: Actor, orderId: Id, input: { txnId: string }): Order {
+  authorize(actor, "payment.gateway");
+  const txnId = String(input.txnId ?? "").trim();
+  if (!txnId) throw new DomainError("VALIDATION", "Falta el ID de transacción de Binance");
+  return e.tx(() => e.idempotent(`binance:${orderId}:${txnId}`, () => {
+    const o = e.get("orders", orderId);
+    if (o.paymentMethod !== "binance" || !o.binance) throw new DomainError("INVALID_STATE", "No es un pedido de Binance");
+    if (o.status === "fulfilled") return structuredClone(o); // webhook repetido: ya se entregó
+    if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede confirmar en estado ${o.status}`);
+    o.binance.status = "PAID";
+    o.binance.txnId = txnId;
+    o.status = "payment_review";
+    settle(e, actor, o, `binance:${txnId}`);
     return structuredClone(o);
   }));
 }

@@ -47,7 +47,7 @@ export function myOrders(e: Engine, actor: Actor) {
   return Object.values(e.s.orders)
     .filter((o) => ids.includes(o.customerId) || o.payerId === actor.customerId)
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.total, method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt }));
+    .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.total, method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) }));
 }
 
 export function myBalance(e: Engine, actor: Actor) {

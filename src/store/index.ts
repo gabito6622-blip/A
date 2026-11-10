@@ -73,6 +73,8 @@ export function createStore(opts: EngineOptions = {}) {
       comboDiscount: bind(e, orders.comboDiscount),
       submitEvidence: bind(e, orders.submitEvidence),
       approvePayment: bind(e, orders.approvePayment),
+      attachBinance: bind(e, orders.attachBinance),
+      confirmBinancePayment: bind(e, orders.confirmBinancePayment),
       rejectPayment: bind(e, orders.rejectPayment),
       cancel: bind(e, orders.cancelOrder),
       expireReservations: bind(e, orders.expireReservations),

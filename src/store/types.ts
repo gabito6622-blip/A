@@ -290,7 +290,24 @@ export type OrderStatus =
   | "rejected"
   | "expired"
   | "cancelled";
-export type PaymentMethod = "qr" | "balance" | "cash";
+export type PaymentMethod = "qr" | "balance" | "cash" | "binance";
+
+/** Datos de un pago por Binance Pay (USDT). El monto en USDT se calcula con la tasa que pone el dueño. */
+export interface BinancePay {
+  /** Número de operación que mandamos a Binance (lo devuelve el webhook para encontrar el pedido). */
+  merchantTradeNo: string;
+  /** ID de prepago que devuelve Binance al crear la orden. */
+  prepayId?: string;
+  /** Enlace de pago (checkout) o QR que abre la app de Binance. */
+  link?: string;
+  qr?: string;
+  /** Monto cobrado en USDT (hasta 2 decimales) y la tasa Bs→USDT usada. */
+  usdt: number;
+  rate: number;
+  status: "PENDING" | "PAID" | "CANCELED" | "EXPIRED";
+  /** ID de transacción de Binance al pagarse (sirve de referencia y evita doble crédito). */
+  txnId?: string;
+}
 
 export interface OrderItem {
   productId: Id;
@@ -329,6 +346,8 @@ export interface Order {
   backorder?: { productId: Id; qty: number }[];
   /** Descuento "Armá tu combo" ya restado del total. */
   discount?: Cents;
+  /** Pago por Binance Pay (USDT), si el pedido se cobra así. */
+  binance?: BinancePay;
   createdAt: number;
   updatedAt: number;
 }
