@@ -18,6 +18,8 @@ const VIEWS = {
 const CART_KEY = `gs-cart-${MODE}${SLUG ? "-" + SLUG : ""}`;
 try { S.cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]"); } catch { S.cart = []; }
 const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(S.cart)); } catch { /* sin almacenamiento */ } };
+const guideSeen = () => { try { return !!localStorage.getItem("gs-guide-" + (S.me?.id || "")); } catch { return false; } };
+const markGuideSeen = () => { try { localStorage.setItem("gs-guide-" + (S.me?.id || ""), "1"); } catch { /* sin almacenamiento */ } };
 const product = (id) => S.catalog.find((p) => p.id === id);
 const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
@@ -469,7 +471,21 @@ function resellerHome() {
     else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu página vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se apague." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
     else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu página está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
   }
-  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></section>
+  const plat = S.settings.platformName || S.storeName || "la plataforma";
+  const showGuide = S.data.guideOpen || !guideSeen();
+  const guideCard = showGuide ? `<section class="sbox guidecard"><div class="ghd"><h2>👋 Bienvenido a ${esc(plat)}</h2><button class="sbtn sm" type="button" data-guideok="1" aria-label="Cerrar guía">✕</button></div>
+    <p class="empty" style="margin:0">Guía rápida para empezar. La podés volver a abrir con <b>📖 Guía</b> cuando quieras.</p>
+    <ol class="glist">
+      <li><b>🛒 Comprar</b> — En <b>Comprar</b> elegís cuentas y pagás con tu saldo o por QR. Apenas pagás, la cuenta te llega al instante.</li>
+      <li><b>📺 Mis cuentas</b> — Ahí ves todo lo que compraste y cuándo vence cada cosa.</li>
+      <li><b>👥 Mis clientes</b> — Cargás a quién le revendés y le mandás los datos por WhatsApp con un toque.</li>
+      ${canPage ? `<li><b>🏪 Mi página</b> — Tenés tu propia tienda. En <b>Mi página</b> le ponés tu logo, tus colores y tus precios, y la publicás para compartirla.</li>` : ""}
+      <li><b>💰 Saldo</b> — Para comprar necesitás saldo: pedí una recarga o pagá por QR en el momento.</li>
+      <li><b>🔑 Tu acceso</b> — Entrás con tu número y tu PIN de 4 dígitos${me.email ? ", o con tu correo y contraseña" : ""}. Podés cambiar el PIN más abajo.</li>
+    </ol>
+    <button class="sbtn pri" type="button" data-guideok="1" style="justify-self:start">¡Entendido! 🚀</button></section>` : "";
+  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-guideopen="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+    ${guideCard}
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
@@ -984,6 +1000,8 @@ document.addEventListener("click", async (ev) => {
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
+  if (d.guideok) { markGuideSeen(); S.data.guideOpen = false; return render(); }
+  if (d.guideopen) { S.data.guideOpen = true; return render(); }
   if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
   if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }
   if (d.wizback) { S.data.wiz.step = 1; return render(); }
