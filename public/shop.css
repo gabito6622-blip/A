@@ -861,3 +861,9 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .tksave{padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--s-ok) 18%,transparent);color:var(--s-ok);font-size:12.5px;font-weight:700}
 .cmpl li{display:flex;align-items:center;gap:8px}
 @media (max-width:420px){.tkgrid{width:46px;height:46px;padding:3px}}
+
+/* Portada con imagen en la lista compacta */
+.tkhero.withban{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px}
+.tkhero.withban>div{display:grid;gap:6px;min-width:0}
+.tkban{width:clamp(110px,26vw,260px);aspect-ratio:1;object-fit:cover;border-radius:50%;filter:drop-shadow(0 10px 30px color-mix(in srgb,var(--s-blue) 35%,transparent))}
+@media (max-width:420px){.tkban{width:104px}}

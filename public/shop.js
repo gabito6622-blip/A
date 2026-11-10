@@ -58,6 +58,7 @@ async function loadBase() {
   [S.settings, S.me, S.catalog] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/me"), api("GET", "/api/catalog")]);
   setCurrency(S.settings.currencySymbol);
   S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
+  S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner?v=${Date.now() % 1e6}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
@@ -367,7 +368,7 @@ function ticketCatalog(pub, hero) {
   const from = pub.length ? Math.min(...pub.map((p) => p.price)) : 0;
   const title = S.settings.heroTitle && S.settings.heroTitle !== "Streaming premium," ? `${esc(S.settings.heroTitle)} <span>${esc(S.settings.heroHighlight || "")}</span>`
     : `Netflix, Disney+, Spotify y más <span>desde ${bs(from)}</span>`;
-  return `${hero ? `<section class="tkhero"><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
+  return `${hero ? `<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
     <div class="tktools"><input id="q" placeholder="Buscar: Netflix, Spotify, combo…" value="${esc(S.q)}" aria-label="Buscar productos">
       <div class="cats tkcats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
