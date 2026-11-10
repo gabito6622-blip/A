@@ -249,9 +249,12 @@ function faqSection() {
 function asesorView() {
   const combos = (S.catalog ?? []).filter((p) => p.kind === "combo" && p.comboParts?.length);
   if (!combos.length) return `<div class="sbox"><h2>🧮 Asesor de combos</h2><p class="empty">Pronto vas a poder encontrar tu combo ideal acá. Mientras, mirá el catálogo o armá tu combo.</p><div class="inline"><button class="sbtn pri" type="button" data-s="catalogo">Ver catálogo ${icon("arrow")}</button>${comboOn() ? `<button class="sbtn" type="button" data-s="combo">Armá tu combo</button>` : ""}</div></div>`;
-  const a = (S.data.asesor ??= { budget: 80, plats: 0 });
+  const a = (S.data.asesor ??= { budget: 80, plats: 0, like: "" });
   const platOpts = [...new Set(combos.map((c) => c.comboParts.length))].sort((x, y) => x - y);
-  let list = combos.filter((c) => c.price <= a.budget * 100 && (!a.plats || c.comboParts.length === a.plats));
+  // Apps que aparecen en algún combo, para el filtro "¿Qué querés que incluya?"
+  const likeApps = [...new Set(combos.flatMap((c) => c.comboParts))].map((id) => product(id)).filter((p) => p).sort((x, y) => x.name.localeCompare(y.name));
+  if (a.like && !likeApps.some((p) => p.id === a.like)) a.like = "";
+  let list = combos.filter((c) => c.price <= a.budget * 100 && (!a.plats || c.comboParts.length === a.plats) && (!a.like || c.comboParts.includes(a.like)));
   list.sort((x, y) => y.comboParts.length - x.comboParts.length || x.price - y.price);
   const partName = (id) => product(id)?.name ?? id;
   const comboCard = (c, best) => `<div class="acombo${best ? " best" : ""}">${best ? `<span class="abest">★ Mejor opción para vos</span>` : ""}
@@ -264,6 +267,7 @@ function asesorView() {
       <aside class="actrl">
         <div class="afield"><label>¿Cuánto querés gastar?</label><div class="abudget"><input type="range" min="20" max="140" step="10" value="${a.budget}" data-abudget><b>Hasta ${bs(a.budget * 100)}</b></div><small class="empty">Mostramos combos dentro de tu presupuesto.</small></div>
         <div class="afield"><label>¿Cuántas plataformas?</label><div class="aplats"><button type="button" class="${a.plats === 0 ? "on" : ""}" data-aplats="0">Cualquiera</button>${platOpts.map((n) => `<button type="button" class="${a.plats === n ? "on" : ""}" data-aplats="${n}">${n}</button>`).join("")}</div></div>
+        ${likeApps.length ? `<div class="afield"><label>¿Qué querés que incluya?</label><div class="aplats"><button type="button" class="${a.like === "" ? "on" : ""}" data-alike="">Cualquiera</button>${likeApps.map((p) => `<button type="button" class="${a.like === p.id ? "on" : ""}" data-alike="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}
         ${comboOn() ? `<button class="sbtn" type="button" data-s="combo">¿Preferís armarlo vos? ${icon("arrow")}</button>` : ""}
       </aside>
       <div class="arecs">${list.length ? list.slice(0, 6).map((c, i) => comboCard(c, i === 0)).join("") : `<div class="sbox"><p class="empty" style="margin:0">No hay combos para ese presupuesto. Subí un poco el monto o elegí "Cualquiera" cantidad de plataformas.</p>${comboOn() ? `<button class="sbtn pri" type="button" data-s="combo" style="justify-self:start">Armá el tuyo a medida</button>` : ""}</div>`}</div>
@@ -985,7 +989,8 @@ function comboView() {
 
 function comboClick(d) {
   if (d.ccat !== undefined) { S.data.ccat = d.ccat; render(); return true; }
-  if (d.aplats !== undefined) { (S.data.asesor ??= { budget: 80, plats: 0 }).plats = +d.aplats; render(); return true; }
+  if (d.aplats !== undefined) { (S.data.asesor ??= { budget: 80, plats: 0, like: "" }).plats = +d.aplats; render(); return true; }
+  if (d.alike !== undefined) { (S.data.asesor ??= { budget: 80, plats: 0, like: "" }).like = d.alike; render(); return true; }
   if (d.cpick) {
     const p = product(d.cpick), sel = (S.data.combo ??= []);
     if (sel.includes(p.id)) S.data.combo = sel.filter((x) => x !== p.id);
@@ -1310,7 +1315,7 @@ document.addEventListener("change", async (ev) => {
 let qTimer, asesorTimer;
 document.addEventListener("input", (ev) => {
   if (ev.target.dataset?.abudget !== undefined) {
-    (S.data.asesor ??= { budget: 80, plats: 0 }).budget = +ev.target.value;
+    (S.data.asesor ??= { budget: 80, plats: 0, like: "" }).budget = +ev.target.value;
     clearTimeout(asesorTimer);
     const lbl = ev.target.parentElement?.querySelector("b"); if (lbl) lbl.textContent = "Hasta " + bs(+ev.target.value * 100);
     asesorTimer = setTimeout(() => render(), 160);
