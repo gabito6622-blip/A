@@ -331,6 +331,7 @@ function render() {
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
+  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour")) setTimeout(() => { if (S.view === "inicio" && !guideSeen()) startTour(); }, 700);
 }
 
 /* ---------------- revendedor ---------------- */
@@ -471,21 +472,7 @@ function resellerHome() {
     else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu página vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se apague." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
     else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu página está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
   }
-  const plat = S.settings.platformName || S.storeName || "la plataforma";
-  const showGuide = S.data.guideOpen || !guideSeen();
-  const guideCard = showGuide ? `<section class="sbox guidecard"><div class="ghd"><h2>👋 Bienvenido a ${esc(plat)}</h2><button class="sbtn sm" type="button" data-guideok="1" aria-label="Cerrar guía">✕</button></div>
-    <p class="empty" style="margin:0">Guía rápida para empezar. La podés volver a abrir con <b>📖 Guía</b> cuando quieras.</p>
-    <ol class="glist">
-      <li><b>🛒 Comprar</b> — En <b>Comprar</b> elegís cuentas y pagás con tu saldo o por QR. Apenas pagás, la cuenta te llega al instante.</li>
-      <li><b>📺 Mis cuentas</b> — Ahí ves todo lo que compraste y cuándo vence cada cosa.</li>
-      <li><b>👥 Mis clientes</b> — Cargás a quién le revendés y le mandás los datos por WhatsApp con un toque.</li>
-      ${canPage ? `<li><b>🏪 Mi página</b> — Tenés tu propia tienda. En <b>Mi página</b> le ponés tu logo, tus colores y tus precios, y la publicás para compartirla.</li>` : ""}
-      <li><b>💰 Saldo</b> — Para comprar necesitás saldo: pedí una recarga o pagá por QR en el momento.</li>
-      <li><b>🔑 Tu acceso</b> — Entrás con tu número y tu PIN de 4 dígitos${me.email ? ", o con tu correo y contraseña" : ""}. Podés cambiar el PIN más abajo.</li>
-    </ol>
-    <button class="sbtn pri" type="button" data-guideok="1" style="justify-self:start">¡Entendido! 🚀</button></section>` : "";
-  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-guideopen="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
-    ${guideCard}
+  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
@@ -521,6 +508,99 @@ function wizardView() {
     <div class="hrow"><a class="sbtn pri" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a><a class="sbtn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a><a class="sbtn" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">Ver mi página</a></div>
     <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> → Avanzado.</p>
     <button class="sbtn" type="button" data-wizexit="1">Volver al inicio</button></div>`;
+}
+
+/* ---------------- Tour guiado (spotlight, estilo juego) ---------------- */
+let tourSteps = [], tourIdx = 0, tourReposition = null;
+function tourStepList() {
+  const plat = S.settings.platformName || S.storeName || "la plataforma";
+  const steps = [
+    [".hhead .chip", `¡Bienvenido a ${plat}! 👋`, "Te muestro en 1 minuto para qué sirve cada botón. Tocá Siguiente."],
+    [".hbal", "Tu saldo 💰", "Con tu saldo comprás cuentas. Cuando se te acabe, recargás y listo."],
+    ['.htiles [data-s="precios"]', "Comprar 🛒", "Elegí las cuentas que querés y pagá con tu saldo o por QR. Te llegan al instante."],
+    ['.htiles [data-s="cuentas"]', "Mis cuentas 📺", "Acá ves todo lo que compraste y cuándo vence cada cosa."],
+    ['.htiles [data-s="codigos"]', "Códigos 🔑", "Los códigos de Disney y otras apps te aparecen acá solos."],
+  ];
+  if (document.querySelector('.htiles [data-gopage], .htiles [data-wiz]'))
+    steps.push(['.htiles [data-gopage], .htiles [data-wiz]', "Mi página 🏪", "Tu tienda propia: ponele tu logo, tus colores y tus precios, y publicala para compartir."]);
+  steps.push(
+    ['.htiles [data-s="recargas"]', "Recargar saldo 💵", "Cuando necesites saldo, pedí una recarga o pagá por QR en el momento."],
+    ['.htiles [data-s="clientes"]', "Mis clientes 👥", "Cargá a quién le revendés y mandале los datos por WhatsApp con un toque."],
+    ["#myPin", "Tu acceso 🔑", "Entrás con tu número y tu PIN. Acá lo podés cambiar cuando quieras."],
+    ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
+  );
+  return steps.map(([sel, title, text]) => ({ sel, title, text }));
+}
+function buildTourDom() {
+  let t = document.getElementById("tour");
+  if (t) return t;
+  t = document.createElement("div");
+  t.id = "tour";
+  t.innerHTML = `<div class="tour-hole"></div><div class="tour-pop" role="dialog" aria-live="polite">
+    <div class="tour-hd"><b class="tour-ttl"></b><button type="button" class="tour-x" aria-label="Cerrar">✕</button></div>
+    <p class="tour-tx"></p>
+    <div class="tour-ft"><span class="tour-dots"></span><div class="tour-btns"><button type="button" class="sbtn sm tour-prev">Atrás</button><button type="button" class="sbtn sm pri tour-next">Siguiente</button></div></div></div>`;
+  document.body.appendChild(t);
+  t.querySelector(".tour-x").onclick = () => endTour();
+  t.querySelector(".tour-prev").onclick = () => goTour(tourIdx - 1);
+  t.querySelector(".tour-next").onclick = () => goTour(tourIdx + 1);
+  return t;
+}
+function startTour() {
+  if (!(MODE === "hub" && hubPanel())) return;
+  if (S.view !== "inicio") { setView("inicio"); setTimeout(startTour, 400); return; }
+  tourSteps = tourStepList();
+  if (!tourSteps.length) return;
+  buildTourDom();
+  tourReposition = () => { const s = tourSteps[tourIdx]; const el = s && document.querySelector(s.sel); if (el) placeTour(el, s); };
+  addEventListener("resize", tourReposition);
+  addEventListener("scroll", tourReposition, true);
+  goTour(0);
+}
+function goTour(i) {
+  if (i < 0) i = 0;
+  if (i >= tourSteps.length) return endTour(true);
+  tourIdx = i;
+  const step = tourSteps[i];
+  const el = document.querySelector(step.sel);
+  if (!el) return goTour(i + 1);
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  setTimeout(() => placeTour(el, step), 320);
+}
+function placeTour(el, step) {
+  const t = document.getElementById("tour");
+  if (!t) return;
+  const r = el.getBoundingClientRect(), pad = 8;
+  const hole = t.querySelector(".tour-hole");
+  hole.style.left = (r.left - pad) + "px";
+  hole.style.top = (r.top - pad) + "px";
+  hole.style.width = (r.width + pad * 2) + "px";
+  hole.style.height = (r.height + pad * 2) + "px";
+  t.querySelector(".tour-ttl").textContent = step.title;
+  t.querySelector(".tour-tx").textContent = step.text;
+  const prev = t.querySelector(".tour-prev"), next = t.querySelector(".tour-next");
+  prev.style.visibility = tourIdx === 0 ? "hidden" : "visible";
+  next.textContent = tourIdx === tourSteps.length - 1 ? "¡Listo! 🎉" : "Siguiente";
+  t.querySelector(".tour-dots").textContent = `${tourIdx + 1} / ${tourSteps.length}`;
+  const pop = t.querySelector(".tour-pop");
+  pop.style.visibility = "hidden";
+  requestAnimationFrame(() => {
+    const vh = innerHeight, vw = innerWidth, ph = pop.offsetHeight, pw = pop.offsetWidth, gap = 14;
+    let top = r.bottom + gap;
+    if (top + ph > vh - 10) top = Math.max(10, r.top - gap - ph);
+    if (top + ph > vh - 10) top = Math.max(10, (vh - ph) / 2);
+    let left = Math.min(Math.max(10, r.left + r.width / 2 - pw / 2), vw - pw - 10);
+    pop.style.top = top + "px";
+    pop.style.left = left + "px";
+    pop.style.visibility = "visible";
+  });
+}
+function endTour(done) {
+  markGuideSeen();
+  if (tourReposition) { removeEventListener("resize", tourReposition); removeEventListener("scroll", tourReposition, true); tourReposition = null; }
+  const t = document.getElementById("tour");
+  if (t) t.remove();
+  if (done) toast("¡Listo! Ya conocés tu panel 🎉");
 }
 
 function programView() {
@@ -1000,8 +1080,7 @@ document.addEventListener("click", async (ev) => {
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
-  if (d.guideok) { markGuideSeen(); S.data.guideOpen = false; return render(); }
-  if (d.guideopen) { S.data.guideOpen = true; return render(); }
+  if (d.tour) { ev.preventDefault(); return startTour(); }
   if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
   if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }
   if (d.wizback) { S.data.wiz.step = 1; return render(); }

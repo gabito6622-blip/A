@@ -502,11 +502,17 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .htile{display:grid;justify-items:center;gap:4px;padding:22px 10px;border-radius:18px;border:1px solid var(--s-line);background:var(--s-card);color:inherit;font:inherit;cursor:pointer;text-align:center;transition:transform .15s}
 .htile:hover{transform:translateY(-2px);border-color:var(--s-blue)}.htile span{font-size:34px}.htile b{font-size:16px}.htile small{color:var(--s-muted);font-size:12px}
 .hhead-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.guidecard{border-color:color-mix(in srgb,var(--s-blue) 55%,var(--s-line));box-shadow:0 10px 26px color-mix(in srgb,var(--s-blue) 14%,transparent)}
-.guidecard .ghd{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.guidecard .ghd h2{margin:0}
-.glist{margin:0;padding-left:20px;display:grid;gap:9px;line-height:1.45}
-.glist li{padding-left:2px}
+#tour{position:fixed;inset:0;z-index:300;pointer-events:none}
+#tour .tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 3px var(--s-blue),0 0 0 9999px rgba(3,7,18,.74);transition:top .28s ease,left .28s ease,width .28s ease,height .28s ease;pointer-events:none}
+#tour .tour-pop{position:fixed;width:min(320px,calc(100vw - 20px));background:var(--s-card);color:var(--s-ink);border:1px solid var(--s-line);border-radius:16px;padding:16px;box-shadow:0 18px 44px rgba(0,0,0,.4);pointer-events:auto;display:grid;gap:10px}
+#tour .tour-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#tour .tour-ttl{font-size:17px;font-weight:800}
+#tour .tour-x{background:none;border:0;color:var(--s-muted);font-size:17px;cursor:pointer;line-height:1;padding:2px 4px}
+#tour .tour-tx{margin:0;color:var(--s-muted);line-height:1.45}
+#tour .tour-ft{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#tour .tour-dots{font-size:13px;color:var(--s-muted);font-weight:700}
+#tour .tour-btns{display:flex;gap:8px}
+@media (prefers-reduced-motion:reduce){#tour .tour-hole{transition:none}}
 .hbox{display:grid;gap:6px;padding:14px 16px;border-radius:16px;border:1px solid var(--s-line);background:var(--s-card)}
 .hbox.warn{border-color:color-mix(in srgb,var(--s-warn) 60%,transparent)}.hbox.bad{border-color:var(--s-bad);background:color-mix(in srgb,var(--s-bad) 10%,var(--s-card))}
 .hbox span{color:var(--s-muted);font-size:14px}.hrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
