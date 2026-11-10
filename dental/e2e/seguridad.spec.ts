@@ -15,11 +15,14 @@ function totp(secretB32: string, at = Date.now()) {
   return ((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).toString().padStart(6, "0");
 }
 
+/** Ingresa y espera a que la sesión quede establecida (respuesta de /api/auth/me tras el login). */
 async function login(page: Page, email: string, password = PW) {
   await page.goto("/");
   await page.fill("#email", email);
   await page.fill("#pw", password);
+  const me = page.waitForResponse((r) => r.url().endsWith("/api/auth/me") && r.request().method() === "GET");
   await page.click('button:has-text("Ingresar")');
+  await me;
 }
 
 test.describe.configure({ mode: "serial" });
@@ -52,6 +55,7 @@ test("gerente activa la verificación en dos pasos y luego ingresa con el códig
 
 test("la propietaria restablece la contraseña de una recepcionista y esta debe cambiarla al ingresar", async ({ page, browser }) => {
   await login(page, "propietaria@demo.local");
+  await expect(page.locator(".sidebar")).toBeVisible();
   await page.goto("/configuracion");
   await page.getByRole("tab", { name: "Personal" }).click();
   const row = page.locator("tr", { hasText: "recepcion.sur@demo.local" });
@@ -74,6 +78,7 @@ test("la propietaria restablece la contraseña de una recepcionista y esta debe 
 
 test("recepción registra el consentimiento de datos con firma en pantalla y queda verificado", async ({ page }) => {
   await login(page, "recepcion.lpz@demo.local");
+  await expect(page.locator(".sidebar")).toBeVisible();
   await page.goto("/pacientes");
   await page.locator("tbody tr").first().click();
   await page.getByRole("tab", { name: "Consentimientos" }).click();
@@ -95,6 +100,7 @@ test("recepción registra el consentimiento de datos con firma en pantalla y que
 
 test("en la sala de espera, marcar 'Llegó' pasa al paciente a la columna de espera", async ({ page }) => {
   await login(page, "recepcion.lpz@demo.local");
+  await expect(page.locator(".sidebar")).toBeVisible();
   await page.goto("/sala-espera");
   const column = (title: string) => page.locator("section", { has: page.getByRole("heading", { name: title, exact: true }) });
   await expect(column("Por llegar")).toBeVisible();
