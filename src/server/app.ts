@@ -42,6 +42,8 @@ export interface AppConfig {
   /** Para pruebas: reemplaza fetch y la URL de Meta. */
   fetchImpl?: typeof fetch;
   metaBaseUrl?: string;
+  /** Para pruebas: URL base de la API de Telegram (por defecto https://api.telegram.org). */
+  telegramBaseUrl?: string;
   /** Clave para cifrar las contraseñas de las cuentas en la base (GS_DATA_KEY). */
   dataKey?: string;
   /** true detrás de un proxy de confianza (Render, Railway, Cloudflare): usa X-Forwarded-For para los límites. */
@@ -1152,6 +1154,39 @@ export function createApp(cfg: AppConfig): App {
       throw new HttpError(502, "META", (e as Error).message);
     }
   });
+  // ── Telegram: avisos del dueño ──
+  route("GET", "/api/admin/telegram", "staff", (c) => {
+    const t = tgCfg();
+    return { enabled: t.enabled, chatId: t.chatId ?? "", alerts: t.alerts, hasToken: !!tgToken(), alertTypes: TG_ALERTS, lastAt: t.lastAt, lastError: t.lastError };
+  });
+  route("POST", "/api/admin/telegram", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los avisos de Telegram");
+    const b = c.body ?? {};
+    const changed: string[] = [];
+    if (typeof b.token === "string") {
+      const tok = b.token.trim();
+      if (tok && !/^\d{6,12}:[A-Za-z0-9_\-]{30,50}$/.test(tok)) throw new HttpError(400, "VALIDATION", "El token del bot no parece válido (lo da @BotFather)");
+      db.setSecret("tg_token", tok || null, now()); changed.push("token");
+    }
+    const patch: Partial<TgCfg> = {};
+    if (typeof b.chatId === "string") patch.chatId = b.chatId.trim() || undefined;
+    if (Array.isArray(b.alerts)) patch.alerts = b.alerts.filter((x: unknown) => (TG_ALERTS as readonly string[]).includes(String(x))).map(String);
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (Object.keys(patch).length) tgSave(patch);
+    tgLast = null; // re-sincroniza el dedupe tras un cambio
+    store.engine.tx(() => store.engine.audit(A(c), "telegram.config", "settings", "telegram", { changed: [...changed, ...Object.keys(patch)].join(",") }));
+    return { ok: true };
+  });
+  route("POST", "/api/admin/telegram/test", "staff", async (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const chatId = String(c.body?.chatId ?? "").trim() || undefined;
+    try {
+      await sendTelegram("✅ <b>Listo.</b> Acá vas a recibir los avisos de tu tienda.", chatId);
+      return { ok: true };
+    } catch (e) {
+      throw new HttpError(502, "TG", (e as Error).message);
+    }
+  });
   route("POST", "/api/admin/whatsapp/flush", "staff", async (c) => {
     ownerOrAdmin(c);
     if (!botOn()) throw new HttpError(409, "WA_OFF", "El bot está apagado o falta configurarlo");
@@ -1343,6 +1378,53 @@ export function createApp(cfg: AppConfig): App {
     return polling;
   }
 
+  // ── Avisos del dueño por Telegram (opcional) ──────────────────────────────
+  // El token del bot es secreto (db secrets). La config (chat y qué avisos) vive junto a los secretos.
+  const TG_ALERTS = ["payment", "reseller", "reloc", "supplier", "overdue", "due"] as const;
+  type TgCfg = { enabled: boolean; chatId?: string; alerts: string[]; lastAt?: number; lastError?: string };
+  const tgBase = () => (cfg.telegramBaseUrl ?? "https://api.telegram.org").replace(/\/$/, "");
+  const tgToken = () => db.getSecret("tg_token");
+  const tgCfg = (): TgCfg => {
+    try { const c = JSON.parse(db.getSecret("tg_cfg") ?? "") as TgCfg; return { enabled: !!c.enabled, chatId: c.chatId, alerts: Array.isArray(c.alerts) ? c.alerts : [...TG_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; }
+    catch { return { enabled: false, alerts: [...TG_ALERTS] }; }
+  };
+  const tgSave = (patch: Partial<TgCfg>) => db.setSecret("tg_cfg", JSON.stringify({ ...tgCfg(), ...patch }), now());
+  const tgOn = () => { const c = tgCfg(); return c.enabled && !!tgToken() && !!c.chatId; };
+  async function sendTelegram(text: string, chatId?: string): Promise<void> {
+    const token = tgToken();
+    const to = chatId ?? tgCfg().chatId;
+    if (!token || !to) throw new HttpError(409, "TG_OFF", "Falta el token del bot o el chat de Telegram");
+    const f = cfg.fetchImpl ?? fetch;
+    const r = await f(`${tgBase()}/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: to, text, parse_mode: "HTML", disable_web_page_preview: true }),
+    });
+    if (!r.ok) { const b = await r.text().catch(() => ""); throw new Error(`Telegram ${r.status}: ${b.slice(0, 200)}`); }
+  }
+  // Dedupe: solo avisamos cuando un contador SUBE respecto de lo último avisado (no repetir cada minuto).
+  let tgLast: Record<string, number> | null = null;
+  async function checkTelegramAlerts(): Promise<void> {
+    if (!tgOn()) { tgLast = null; return; }
+    const c = tgCfg();
+    const feed = store.stats.feed();
+    const counts: Record<string, number> = {};
+    for (const it of feed.items) counts[it.kind] = it.count;
+    if (tgLast === null) { tgLast = counts; return; } // primer arranque: no spamear lo viejo
+    const lines: string[] = [];
+    for (const it of feed.items) {
+      if (!c.alerts.includes(it.kind)) continue;
+      if ((counts[it.kind] ?? 0) > (tgLast[it.kind] ?? 0)) lines.push(`${it.icon} ${it.text}`);
+    }
+    tgLast = counts;
+    if (!lines.length) return;
+    const st = store.engine.s;
+    const head = `<b>${escTg(st.settings.platformName || "GaboHub")}</b> · algo necesita tu atención:`;
+    try { await sendTelegram([head, ...lines].join("\n")); tgSave({ lastAt: now(), lastError: undefined }); }
+    catch (e) { tgSave({ lastError: (e as Error).message.slice(0, 200) }); log(`telegram falló: ${(e as Error).message}`); }
+  }
+  const escTg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   let lastRentRun = 0;
   function runJobs() {
     const expired = store.orders.expireReservations(system);
@@ -1372,6 +1454,7 @@ export function createApp(cfg: AppConfig): App {
       }
       flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
       pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
+      checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }

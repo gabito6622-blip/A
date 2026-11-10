@@ -1035,6 +1035,7 @@ const V = {
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
       ${isOwner() ? await ownerCards() : ""}
+      ${isOwner() ? await telegramCard() : ""}
       ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
   },
@@ -1089,6 +1090,38 @@ async function ownerCards() {
           <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button>${off.enabled ? `<button class="pbtn" type="button" id="offNow">Guardar una copia ahora</button>` : ""}</div>
         </form></div>
       <p class="muted" style="margin:0">Para volver a un respaldo: apagá la tienda y reemplazá <code>gabriel.db</code> y la carpeta <code>uploads</code> en la carpeta de datos (el .zip trae un LEEME con los pasos).</p></section>`;
+}
+
+/* ---------------- Avisos del dueño por Telegram ---------------- */
+const TG_LABELS = {
+  payment: "Pagos por revisar", reseller: "Solicitudes de revendedor", reloc: "Clientes en cuentas caídas (reubicar)",
+  supplier: "Cuentas que vencen con el proveedor", overdue: "Servicios vencidos sin renovar", due: "Servicios que vencen en 3 días",
+};
+async function telegramCard() {
+  const t = await api("GET", "/api/admin/telegram").catch(() => null);
+  if (!t) return "";
+  const on = t.enabled && t.hasToken && t.chatId;
+  const sel = new Set(t.alerts || []);
+  return `<section class="card"><h2>${icon("bell")}Avisos por Telegram ${on ? pill("Activo", "ok") : t.hasToken ? pill("Configurado · apagado", "warn") : pill("Sin configurar", "mute")}</h2>
+    <p class="muted" style="margin:0">Recibí en tu celular un mensaje de Telegram cuando algo necesita tu atención (un pago por revisar, un cliente en una cuenta caída, etc.), aunque no tengas el panel abierto. Es gratis y no depende de Meta.</p>
+    <details class="tg-help"><summary>¿Cómo lo conecto? (una sola vez)</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
+        <li>En Telegram, buscá <b>@BotFather</b> y mandale <code>/newbot</code>. Elegí un nombre. Te da un <b>token</b> (algo como <code>123456:AA...</code>). Pegalo abajo.</li>
+        <li>Abrí tu bot nuevo (el enlace que te da BotFather) y tocá <b>Iniciar / Start</b>.</li>
+        <li>Para saber tu <b>chat ID</b>: buscá <b>@userinfobot</b> en Telegram, tocá Start y te dice tu número. Pegalo abajo.</li>
+        <li>Guardá, tocá <b>Enviar prueba</b> y listo.</li>
+      </ol></details>
+    <form class="form" id="tgForm">
+      <label>Token del bot (de @BotFather)<input name="token" autocomplete="off" placeholder="${t.hasToken ? "Guardado · dejalo vacío para no cambiarlo" : "123456:AA..."}"></label>
+      <label>Tu chat ID (de @userinfobot)<input name="chatId" inputmode="numeric" placeholder="123456789" value="${esc(t.chatId || "")}"></label>
+      <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
+        <legend style="padding:0 6px;font-weight:600">¿De qué querés que te avise?</legend>
+        ${(t.alertTypes || []).map((k) => `<label class="chk"><input type="checkbox" name="al_${k}" ${sel.has(k) ? "checked" : ""}> ${esc(TG_LABELS[k] || k)}</label>`).join("")}
+      </fieldset>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${t.enabled ? "checked" : ""}> Mandarme estos avisos por Telegram</label>
+      ${t.lastError ? `<p class="perr" style="grid-column:1/-1;margin:0">Último intento falló: ${esc(t.lastError)}</p>` : ""}
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar</button><button class="pbtn" type="button" id="tgTest">Enviar prueba</button></div>
+    </form></section>`;
 }
 
 /* Vigila pagos nuevos cada 30 s: sonido, contador en la pestaña y notificación del navegador. */
@@ -1487,6 +1520,7 @@ document.addEventListener("click", async (ev) => {
   if (el.id === "notifOn") { await Notification.requestPermission().catch(() => {}); return render(); }
   if (el.id === "backupNow") return act(() => api("POST", "/api/admin/backups", {}), "Respaldo hecho");
   if (el.id === "offNow") { el.disabled = true; el.textContent = "Guardando…"; return act(() => api("POST", "/api/admin/offsite/send", {}), "Copia guardada en tu Gmail ✓"); }
+  if (el.id === "tgTest") { const form = el.closest("form"); const chatId = form?.chatId.value.trim(); return act(() => api("POST", "/api/admin/telegram/test", chatId ? { chatId } : {}), "Prueba enviada: revisá tu Telegram ✓"); }
   if (d.appok) {
     el.disabled = true;
     try {
@@ -1911,6 +1945,10 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/whatsapp/config", { templates }), `${Object.keys(templates).length} plantilla(s) guardadas`);
     } else if (f.id === "waTest") {
       await act(() => api("POST", "/api/admin/whatsapp/test", { to: f.to.value }), "Prueba enviada: revisá ese WhatsApp");
+    } else if (f.id === "tgForm") {
+      const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
+      if (f.token.value.trim()) body.token = f.token.value.trim();
+      await act(() => api("POST", "/api/admin/telegram", body), "Avisos de Telegram guardados");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });

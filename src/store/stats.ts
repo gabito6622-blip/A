@@ -14,6 +14,11 @@ import { balance } from "./wallet.js";
  */
 export function notifications(e: Engine, actor: Actor) {
   authorize(actor, "catalog.manage");
+  return notificationItems(e);
+}
+
+/** Igual que notifications() pero sin permisos: lo usan las tareas internas (avisos del dueño). */
+export function notificationItems(e: Engine) {
   const now = e.now();
   const out: { kind: string; icon: string; text: string; count: number; go: string; sev: "bad" | "warn" | "info" }[] = [];
   const add = (kind: string, icon: string, text: string, count: number, go: string, sev: "bad" | "warn" | "info") => { if (count > 0) out.push({ kind, icon, text, count, go, sev }); };
