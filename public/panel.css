@@ -556,3 +556,10 @@ img.svbadge{padding:5px;background:#0e1424}
 }
 .app{max-width:100vw}
 #pout,.workspace{min-width:0}
+
+/* --- Importar: zona para arrastrar y soltar --- */
+.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;border:2px dashed var(--line);border-radius:14px;padding:22px 14px;background:var(--soft);cursor:pointer;transition:border-color .15s,background .15s}
+.dropzone:hover{border-color:var(--blue)}
+.dropzone.over{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--soft))}
+.dropzone .dztext{font-size:14px;color:var(--muted)}
+.dropzone .dzname{font-size:13px;color:var(--ok);font-weight:600}

@@ -422,7 +422,7 @@ const V = {
         if (sl.status === "assigned") {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>
             <p class="muted" style="margin:0">Ocupado por <b>${esc(sl.customerName || "—")}</b>${sl.customerPhone ? ` · ${esc(sl.customerPhone)}` : ""}${sl.expiresAt ? ` · vence ${fdate(sl.expiresAt)}` : ""}.</p>
-            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar para vender</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
+            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-renew="${esc(sl.assignmentId)}" data-renewinfo="¿Renovar este alquiler un período más?">${icon("renew")}Renovar</button><button class="pbtn" type="button" data-paid="${esc(sl.assignmentId)}">💵 Cobrado</button><button class="pbtn" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋, te recuerdo el pago de tu ${esc(pname(acc.productId))}${sl.expiresAt ? ` que vence el ${fdate(sl.expiresAt)}` : ""}. ¿Lo renovamos? 🙌`)}" target="_blank" rel="noopener">${icon("wa")}Cobrar por WA</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
             <p class="muted" style="margin:0;font-size:12.5px">Al liberar, deja de contar para ese cliente (y sus códigos) y queda libre para vender a otro.</p></section>`;
         } else if (sl.status === "available") {
           slotCard = `<section class="card ok-card"><h2>Asignar ${head}</h2>
@@ -460,7 +460,9 @@ const V = {
     const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter(fn).length, 0);
     const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Por vencer", cnt((s) => slotState(s) === "soon")], ["vencidas", "Vencidas", cnt((s) => slotState(s) === "exp")]];
     const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")); };
-    const shownAccs = accs.filter(matchF);
+    const aq = (P.tab.accq ?? "").trim().toLowerCase();
+    const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
+    const shownAccs = accs.filter(matchF).filter(matchQ);
     const prodOf = (id) => products.find((x) => x.id === id);
     const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(pname(a.productId), p?.color); };
     const cards = shownAccs.map((a) => {
@@ -478,6 +480,7 @@ const V = {
       </article>`;
     }).join("");
     return `${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
+      <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
       <div class="acc-cards">${accs.length ? (shownAccs.length ? cards : `<div class="emptybox">Ninguna cuenta con ese filtro.</div>`) : `<div class="emptybox">Todavía no cargaste cuentas.</div>`}</div>
@@ -610,7 +613,7 @@ const V = {
       <section class="card"><h2>Importar clientes desde Excel</h2>
         <p class="muted" style="margin:0">Subí tu Excel (.xlsx) o un .csv. La primera fila tiene que tener los títulos: <b>Nombre</b> y <b>WhatsApp</b> (o Teléfono / Celular) son obligatorios; <b>Email</b>, <b>Notas</b> y <b>Tipo</b> son opcionales. Los números sin código de país se toman como de Bolivia (+591). Los que ya son clientes no se tocan.</p>
         <div class="inline"><a class="pbtn" href="/api/admin/import/template" download>${icon("ext")}Descargar plantilla</a></div>
-        <form class="inline" id="importForm"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de clientes"><button class="pbtn dark" type="submit">Ver vista previa</button></form>
+        <form id="importForm"><label class="dropzone"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de clientes" hidden><span class="dztext">📄 Arrastrá tu Excel acá, o <b>tocá para elegir</b></span><small class="dzname"></small></label><button class="pbtn dark" type="submit" style="margin-top:8px">Ver vista previa</button></form>
         ${imp ? `<div style="display:grid;gap:10px">
           <div class="inline">${pill(`${imp.result.summary.nuevos} nuevos`, "ok")} ${pill(`${imp.result.summary.existentes} ya existen`, "mute")} ${pill(`${imp.result.summary.errores} con error`, imp.result.summary.errores ? "bad" : "mute")}
             <span class="muted">Columnas usadas: Nombre = “${esc(imp.result.columns.nombre)}”, WhatsApp = “${esc(imp.result.columns.whatsapp)}”${imp.result.columns.email ? `, Email = “${esc(imp.result.columns.email)}”` : ""}${imp.result.columns.notas ? `, Notas = “${esc(imp.result.columns.notas)}”` : ""}</span></div>
@@ -623,7 +626,7 @@ const V = {
         <p class="muted" style="margin:0">Una fila por servicio. Columnas obligatorias: <b>Cliente</b>, <b>WhatsApp</b>, <b>Producto</b> (como figura en Productos), <b>Cuenta</b> (correo) y <b>Vence</b> (15/12/2026). Opcionales: <b>Contraseña</b> (obligatoria si la cuenta es nueva), <b>Perfil</b>, <b>PIN</b>, <b>Vence proveedor</b>, <b>Proveedor</b>, <b>Costo</b>.
         Se crean solos los clientes, cuentas y perfiles que falten. No se manda ningún WhatsApp y no cuenta como venta.</p>
         <div class="inline"><a class="pbtn" href="/api/admin/import/template?type=services" download>${icon("ext")}Descargar plantilla de servicios</a></div>
-        <form class="inline" id="importSvcForm"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de servicios"><button class="pbtn dark" type="submit">Ver vista previa</button></form>
+        <form id="importSvcForm"><label class="dropzone"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de servicios" hidden><span class="dztext">📄 Arrastrá tu Excel acá, o <b>tocá para elegir</b></span><small class="dzname"></small></label><button class="pbtn dark" type="submit" style="margin-top:8px">Ver vista previa</button></form>
         ${P.tab.importSvc ? (() => { const r = P.tab.importSvc.result; return `<div style="display:grid;gap:10px">
           <div class="inline">${pill(`${r.summary.ok} servicios ${r.dryRun ? "listos" : "importados"}`, "ok")} ${pill(`${r.summary.errores} con error`, r.summary.errores ? "bad" : "mute")} ${pill(`${r.summary.clientesNuevos} clientes nuevos`, "mute")} ${pill(`${r.summary.cuentasNuevas} cuentas nuevas`, "mute")} ${pill(`${r.summary.perfilesNuevos} perfiles nuevos`, "mute")} ${r.summary.avisos ? pill(`${r.summary.avisos} avisos`, "warn") : ""}</div>
           ${table(["Fila", "Cliente", "Producto", "Cuenta / perfil", "Vence", "Resultado"], r.rows.slice(0, 300).map((x) => `<tr><td>${x.row}</td><td>${esc(x.customer)}</td><td>${esc(x.product)}</td><td class="mono">${esc(x.account)}<br><small class="muted">${esc(x.profile)}</small></td><td>${x.expiresAt ? fdate(x.expiresAt) : ""}</td>
@@ -1403,6 +1406,7 @@ document.addEventListener("click", async (ev) => {
     $$(".payseg button").forEach((x) => x.setAttribute("aria-pressed", String(x === el)));
     return;
   }
+  if (d.paid) return act(() => api("POST", `/api/admin/assignments/${d.paid}/control`, { payStatus: "pagado" }), "💵 Marcado como cobrado");
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `✅ Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
@@ -1441,12 +1445,22 @@ document.addEventListener("input", (ev) => {
   clearTimeout(cqTimer);
   cqTimer = setTimeout(async () => { await render(); const f = $("#cq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
 });
-let rqTimer;
+// Arrastrar y soltar un Excel/CSV en las zonas de importación.
+document.addEventListener("dragover", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (dz) { ev.preventDefault(); dz.classList.add("over"); } });
+document.addEventListener("dragleave", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (dz) dz.classList.remove("over"); });
+document.addEventListener("drop", (ev) => { const dz = ev.target.closest?.(".dropzone"); if (!dz) return; ev.preventDefault(); dz.classList.remove("over"); const inp = dz.querySelector('input[type="file"]'); if (inp && ev.dataTransfer?.files?.length) { inp.files = ev.dataTransfer.files; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
+document.addEventListener("change", (ev) => { const inp = ev.target; if (inp?.type === "file") { const dz = inp.closest?.(".dropzone"); if (dz) { const n = dz.querySelector(".dzname"); if (n) n.textContent = inp.files[0] ? "✅ " + inp.files[0].name : ""; } } });
+
+let rqTimer, accqTimer;
 document.addEventListener("input", (ev) => {
   const t = ev.target;
   if (t.id === "rq") {
     P.tab.rq = t.value; clearTimeout(rqTimer);
     rqTimer = setTimeout(async () => { await render(); const f = $("#rq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
+  }
+  if (t.id === "accq") {
+    P.tab.accq = t.value; clearTimeout(accqTimer);
+    accqTimer = setTimeout(async () => { await render(); const f = $("#accq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
   }
   if (t.dataset.slugsrc && t.form) {
     const slug = t.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
