@@ -81,6 +81,7 @@ export function createStore(opts: EngineOptions = {}) {
       replaceAccount: bind(e, orders.replaceAccount),
       transfer: bind(e, orders.transferAssignment),
       releaseSlot: bind(e, orders.releaseSlot),
+      refundAssignment: bind(e, orders.refundAssignment),
       closeExpired: bind(e, orders.closeExpired),
       queueExpiryReminders: bind(e, orders.queueExpiryReminders),
       autoReminders: bind(e, orders.autoReminders),

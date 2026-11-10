@@ -436,6 +436,28 @@ export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string)
   });
 }
 
+/** Devolución proporcional: cierra un servicio activo y acredita al cliente por los días que le faltaban. */
+export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string } = {}) {
+  authorize(actor, "assignment.replace");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    if (a.status !== "active") throw new DomainError("INVALID_STATE", "Este servicio ya no está activo");
+    const prod = e.get("products", a.productId);
+    const total = Math.max(1, prod.durationDays);
+    const remaining = Math.max(0, Math.ceil((a.customerExpiresAt - e.now()) / DAY));
+    const suggested = Math.round(prod.price * Math.min(remaining, total) / total);
+    const amount = input.amount !== undefined ? Number(input.amount) : suggested;
+    if (!Number.isInteger(amount) || amount < 0 || amount > prod.price) throw new DomainError("VALIDATION", "Monto de devolución inválido");
+    if (amount > 0) post(e, actor, a.customerId, amount, "refund", a.id, (input.reason || "").trim() || `Devolución de ${prod.name}`);
+    a.status = "revoked";
+    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${(amount / 100).toFixed(2)}` });
+    const slot = e.s.slots[a.slotId];
+    if (slot && slot.status === "assigned") slot.status = "available";
+    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining });
+    return { amount, remaining, suggested, balance: balance(e, a.customerId) };
+  });
+}
+
 export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patch: Partial<RentalControl>) {
   authorize(actor, "assignment.renew_any");
   const money = (v: unknown, what: string) => {

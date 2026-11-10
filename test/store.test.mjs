@@ -67,6 +67,19 @@ describe("1. Inventario transaccional", () => {
     assert.equal(s.inventory.stock().netflix.available, 3, "el perfil de Netflix no quedó reservado");
   });
 
+  test("devolución proporcional: cierra el servicio y acredita por los días que faltan", () => {
+    const { s, clock, maria } = setup();
+    const o = s.orders.create(admin, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+    const asgId = o.assignmentIds[0];
+    const bal0 = s.wallet.balance(maria.id);
+    clock.t += 15 * DAY; // usó la mitad de los 30 días
+    const r = s.orders.refundAssignment(admin, asgId);
+    assert.equal(r.amount, Math.round(3500 * 15 / 30)); // 1750: proporcional a lo que faltaba
+    assert.equal(s.wallet.balance(maria.id), bal0 + r.amount);
+    assert.equal(s.inventory.stock().netflix.available, 3); // el cupo vuelve a estar libre
+    assert.throws(() => s.orders.refundAssignment(admin, asgId), err("INVALID_STATE")); // no se devuelve dos veces
+  });
+
   test("reservas vencidas se liberan; las que están en revisión no", () => {
     const { s, clock, maria, luis, as } = setup();
     const a = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
