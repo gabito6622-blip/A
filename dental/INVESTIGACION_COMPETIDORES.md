@@ -3,6 +3,7 @@
 - **Fecha de consulta:** 10 de noviembre de 2026.
 - **Cliente piloto:** clínica boliviana con 5 sucursales, varios odontólogos, recepción y administración.
 - **Anexos con la evidencia completa** (en `docs/research/`):
+  - Segunda ronda (§9): F — DentinCloud (solo información pública; no se pudo entrar a la cuenta de prueba), G — otras demos y el lado del paciente, H — DentalPin a fondo, I — Panel Dental a fondo.
   - A — fuentes públicas de 19 productos.
   - B — demo de DentalPin.
   - C — demo de Panel Dental.
@@ -238,3 +239,48 @@ Marcas: ✓ anunciado · ✗ no aparece en las páginas leídas (no prueba que n
 ## 8. Fuentes
 
 Todas las URL, fechas y evidencias están en los anexos A–E. Las capturas de las demos públicas están en `docs/research/capturas/`; el nombre de cada archivo indica producto, número y tema.
+
+---
+
+## 9. Segunda ronda (10-nov-2026): demos a fondo y lado del paciente
+
+| Anexo | Producto | Acceso | Qué se probó |
+|---|---|---|---|
+| H | DentalPin | Demo pública | Agenda semanal y tablero de estados, recall, planes por sesiones, presupuesto con descuentos y versiones, enlace público al paciente, copiloto (5 preguntas), informes, módulos |
+| I | Panel Dental | Demo pública | Periodontograma, inventario y compras, finanzas y comisiones, presupuesto y firma, agenda con arrastre, permisos, auditoría; WhatsApp solo en lectura (la demo envía mensajes reales) |
+| G | boliviadental.com | El widget de la portada (la "demo" real pide inicio de sesión) | Odontograma, simulación de QR y WhatsApp |
+| G | Open Dental | Demos oficiales de reserva online y portal del paciente | Reserva de paciente existente y nuevo, portal completo |
+| G | AgendaPro (Chile), Doctoralia (México) | Reserva pública real, detenida antes de enviar datos | Experiencia de reserva en el celular |
+| G | MyDentalPMS | Demo beta sin inicio de sesión | Lista de espera, riesgo de inasistencia, ficha de ingreso |
+| F | DentinCloud | Cuenta de prueba aportada por el usuario | **No se pudo entrar**: pide código de clínica, teléfono y verificación humana de Cloudflare. Solo información pública |
+
+### 9.1 Errores confirmados en la competencia (que nuestra plataforma debe evitar, y en parte ya evita)
+
+| Hallazgo | Dónde | Nuestra plataforma |
+|---|---|---|
+| Al arrastrar una cita se superpone con otra de la misma doctora, sin aviso | Panel Dental | Imposible: restricción en la base de datos (probado) |
+| Descuento del 150 % aceptado: total negativo, sin auditoría | Panel Dental | El descuento no puede superar el importe (restricción y validación); todo cambio queda auditado |
+| Al crear la v2 de un presupuesto, la v1 sigue aceptable | DentalPin | Pendiente: R2-13 |
+| Saldo del paciente distinto según la pestaña (0 € y 100 €) | DentalPin | Un solo cálculo del saldo; pendiente una prueba que compare todas las vistas (R2-11) |
+| Producción "sin doctor" al registrar una sesión | DentalPin | El cargo lleva siempre al profesional que realizó el tratamiento |
+| Horas del asistente desplazadas una hora (UTC); propuesta de cancelar una cita con ID nulo | DentalPin | Zona de la clínica en todas las herramientas; las propuestas se validan en el servidor (reforzar con R2-20) |
+| Índices periodontales calculados sobre 192 sitios aunque se midan 18; acepta "564" en un campo de máximo 15 | Panel Dental | A construir con los índices sobre lo medido (PE-03, PE-04) |
+| El stock no coincide con la suma de los lotes; SKU repetido | Panel Dental | A construir con esa invariante probada (IN-01, IN-02) |
+| Sin apertura ni cierre de caja ni arqueo | Panel Dental | A construir (FI-01) |
+| La auditoría no registra inventario, periodontograma ni descuentos | Panel Dental | Auditoría de todas las operaciones (principio vigente) |
+| QR dibujado; "Simular pago" lo marca como cobrado sin verificar | boliviadental | Pago pendiente → verificado por otra persona (probado) |
+| Reserva en días pasados; error de código "123546" frente a "123456" | Open Dental | Disponibilidad con el mismo motor de la agenda (no ofrece el pasado) |
+| La reserva rápida no agrega la cita ("Operatory: undefined") | MyDentalPMS | — |
+| Urgencia artificial ("podrían agotarse") y una barbería en el directorio dental | AgendaPro | Tono honesto (R11) |
+
+### 9.2 Lo mejor que vimos (inspiración funcional, sin copiar)
+- **Tiempos de la cita:** llegó, en sillón, terminada. Con ellos se mide la espera, la puntualidad y la duración real (DentalPin).
+- **Recall:** cola de llamadas por mes con motivo, prioridad e intentos. Al terminar una cita se ofrece programar el control (DentalPin).
+- **Planes por sesiones:** cada sesión realizada genera su cargo (DentalPin).
+- **Enlace público del presupuesto** con verificación por los 4 últimos dígitos del celular y registro de "visto" (DentalPin).
+- **Compras con recepción parcial y rechazo con motivo; lotes con vencimiento y consumo del más próximo a vencer** (Panel Dental).
+- **Periodontograma** de 6 sitios con borrador y cierre (Panel Dental).
+- **Reserva en el celular:** hoja inferior, fotos de los profesionales y "pagar y agendar" (AgendaPro). Portal del paciente completo: citas, saldo, planes, documentos y familia (Open Dental).
+
+### 9.3 Requisitos resultantes
+Están en los anexos G (R1–R32), H (R2-01 a R2-44) e I (PE, IN, FI, WA, RP). Se resumen y priorizan en `BACKLOG.md` (sección "Ronda 2").
