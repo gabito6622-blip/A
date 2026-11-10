@@ -111,7 +111,7 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
       const acc = e.s.accounts[slot.accountId];
       return {
         id: a.id, customerId: a.customerId, customerName: e.s.customers[a.customerId]?.name, productId: a.productId,
-        product: e.s.products[a.productId]?.name, email: acc.email, profile: slot.label,
+        product: e.s.products[a.productId]?.name, email: acc.email, profile: slot.label, slotId: a.slotId,
         customerExpiresAt: a.customerExpiresAt, supplierExpiresAt: acc.supplierExpiresAt, lastReminderAt: a.lastReminderAt ?? null, holdOpen: !!a.holdOpen,
         passwordPending: !acc.password, customerPhone: e.s.customers[a.customerId]?.phone ?? "",
         startsAt: a.control?.startedAt ?? a.startsAt, control: a.control ?? {}, productPrice: e.s.products[a.productId]?.price ?? 0, durationDays: e.s.products[a.productId]?.durationDays ?? 30,
