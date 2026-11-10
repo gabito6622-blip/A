@@ -325,6 +325,29 @@ function ticketRow({ k, g }) {
   return `<article class="tk"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${mark(p)}</button>
     <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
 }
+/** Comparador de combos: el cliente elige dos y los ve lado a lado (qué incluye, precio, ahorro). */
+function comboCompare(pub) {
+  const combos = pub.filter((p) => p.kind === "combo");
+  if (combos.length < 2) return "";
+  const a = combos.find((c) => c.id === S.cmpA) ?? combos[0];
+  const b = combos.find((c) => c.id === S.cmpB && c.id !== a.id) ?? combos.find((c) => c.id !== a.id && c.price > a.price) ?? combos.find((c) => c.id !== a.id);
+  const apps = (c) => (c.comboParts?.length ? c.comboParts.map((id) => product(id)?.name ?? id) : (c.description || "").split("·")[0].split(/\s\+\s/).map((x) => x.trim().replace(/\.$/, ""))).filter(Boolean);
+  const save = (c) => (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1];
+  const per = (c) => c.price / Math.max(1, apps(c).length);
+  const best = per(a) === per(b) ? "" : per(a) < per(b) ? a.id : b.id;
+  const btn = (c) => (c.available || onDemand(c) ? `<button class="tkbtn" type="button" data-add="${esc(c.id)}">Agregar</button>`
+    : askWa(c) ? `<a class="tkbtn" href="${askWa(c)}" target="_blank" rel="noopener">Pedir</a>` : "");
+  const col = (c) => `<article class="cmpc${best === c.id ? " best" : ""}">${best === c.id ? `<span class="cmpbadge">⭐ Más conveniente por plataforma</span>` : ""}
+      <h3>${esc(c.name)}</h3><div class="cmpp"><b>${bs(c.price)}</b><small>/ ${tkDur(c)}</small></div>
+      <p class="cmpn">Incluye ${apps(c).length} plataforma${apps(c).length === 1 ? "" : "s"}</p>
+      <ul class="cmpl">${apps(c).map((x) => `<li>✓ ${esc(x)}</li>`).join("")}</ul>
+      ${save(c) ? `<p class="cmpsave">💰 Ahorrás Bs ${esc(save(c))} frente a comprarlos por separado</p>` : ""}
+      <small class="muted">Sale ${bs(Math.round(per(c)))} por plataforma</small>${btn(c)}</article>`;
+  const sel = (id, cur, other) => `<select id="${id}" aria-label="${id === "cmpA" ? "Primer" : "Segundo"} combo">${combos.filter((c) => c.id !== other.id).map((c) => `<option value="${esc(c.id)}" ${c.id === cur.id ? "selected" : ""}>${esc(c.name)} · ${bs(c.price)}</option>`).join("")}</select>`;
+  return `<section class="cmp"><h2>¿Cuál combo te conviene más?</h2><p>Elegí dos combos y comparalos: qué plataformas trae cada uno, cuánto sale y cuánto ahorrás.</p>
+    <div class="cmpsel"><label>Primer combo${sel("cmpA", a, b)}</label><span class="cmpvs">vs</span><label>Segundo combo${sel("cmpB", b, a)}</label></div>
+    <div class="cmpgrid">${col(a)}${col(b)}</div></section>`;
+}
 function ticketCatalog(pub, hero) {
   const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
   const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
@@ -449,6 +472,7 @@ function renderInner() {
       if (L === "ticket") return `${pub.length ? ticketCatalog(pub, true) : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
       ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : ""}
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
+      ${comboCompare(pub)}
       ${SLUG ? "" : reviewsSection()}${faqSection()}`;
       const nFeat = L === "catalogo" ? pub.length : L === "vitrina" ? 6 : 4;
       const featTitle = L === "catalogo" ? "Todo el catálogo" : L === "minimal" ? "Nuestros servicios" : "Servicios populares";
@@ -1843,6 +1867,7 @@ document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (t.dataset.tkv) { (S.tkv ??= {})[t.dataset.tkv] = t.value; return render(); }
   if (t.id === "tksort") { S.sort = t.value; return render(); }
+  if (t.id === "cmpA" || t.id === "cmpB") { S[t.id] = t.value; return render(); }
   if (t.dataset.cpk) {
     const d = (S.data.cdraft ??= { picks: [], price: "", name: "" });
     const nm = document.querySelector('#comboForm [name=name]'); if (nm) d.name = nm.value;
