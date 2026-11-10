@@ -694,3 +694,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .clistats small{color:var(--muted);font-size:11px}
 .clistats b{font-size:14px;font-variant-numeric:tabular-nums}
 .cfil{margin-bottom:8px}
+
+/* Proyección del mes (Control) */
+.proyban{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:11px 14px;border-radius:12px;background:color-mix(in srgb,#12b76a 12%,var(--card));border:1px solid color-mix(in srgb,#12b76a 35%,var(--line));font-size:14.5px}
+.proyban b{font-variant-numeric:tabular-nums}
+.proyban small{white-space:nowrap}
