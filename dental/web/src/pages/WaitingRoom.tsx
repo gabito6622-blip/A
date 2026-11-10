@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { addDays, fmtDateLong, fmtTime, laPazISO, localDate } from "../lib/format";
-import { Empty, Loading, StatusBadge, useToast } from "../components/ui";
+import { Empty, Loading, StatusBadge, useAsk, useToast } from "../components/ui";
 import { NextControlDialog } from "../components/Recalls";
 import { UnclosedAppointments } from "../components/VisitQuality";
 import { AppointmentDrawer } from "./Agenda";
@@ -34,6 +34,7 @@ const CANCELLABLE = new Set(["scheduled", "confirmed", "arrived"]);
 export function WaitingRoomPage() {
   const { me, can, branchId: selBranch } = useAuth();
   const toast = useToast();
+  const ask = useAsk();
   const branchId = selBranch ?? me?.branches[0]?.id ?? null;
   const today = localDate();
   const url = branchId ? `/api/appointments${qs({ from: laPazISO(today, "00:00"), to: laPazISO(addDays(today, 1), "00:00"), branchId, includeCancelled: "1" })}` : null;
@@ -54,7 +55,7 @@ export function WaitingRoomPage() {
   const move = async (a: Appt, to: string) => {
     let reason: string | null = null;
     if (to === "cancelled") {
-      reason = window.prompt(`Motivo de la cancelación de ${a.patientName}:`);
+      reason = await ask({ title: "Cancelar cita", message: `${a.patientName}`, inputLabel: "Motivo de la cancelación", confirmLabel: "Cancelar cita", danger: true });
       if (!reason?.trim()) return;
     }
     setBusy(a.id);

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useApi } from "../lib/hooks";
 import { api } from "../lib/api";
 import { fmtDateTime } from "../lib/format";
-import { Empty, Field, Loading, useToast } from "./ui";
+import { Empty, Field, Loading, useAsk, useToast } from "./ui";
 
 type Surface = "M" | "D" | "O" | "V" | "L";
 interface Entry { id: string; tooth: number; surfaces: Surface[]; condition: string; state: "existing" | "planned" | "completed"; notes: string | null; recordedAt: string; recordedBy: string; voided?: boolean; voidsEntryId?: string | null }
@@ -64,6 +64,7 @@ function ToothSvg({ tooth, entries, size = 38, onSurface }: { tooth: number; ent
 
 export function Odontogram({ patientId, canWrite }: { patientId: string; canWrite: boolean }) {
   const toast = useToast();
+  const ask = useAsk();
   const data = useApi<{ active: Entry[]; history: Entry[] }>(`/api/patients/${patientId}/odontogram`);
   const meta = useApi<{ conditions: Record<string, { label: string; surface: boolean }> }>("/api/odontogram/conditions");
   const [dentition, setDentition] = useState<"permanent" | "primary" | "mixed">("permanent");
@@ -95,7 +96,7 @@ export function Odontogram({ patientId, canWrite }: { patientId: string; canWrit
     } catch (e: any) { setErr(e.message); }
   };
   const voidEntry = async (id: string) => {
-    const reason = window.prompt("Motivo de la anulación (queda en el historial):");
+    const reason = await ask({ title: "Anular registro del odontograma", message: "El registro no se borra: queda en el historial como anulado.", inputLabel: "Motivo de la anulación", confirmLabel: "Anular", danger: true });
     if (!reason) return;
     try { await api.post(`/api/odontogram/${id}/void`, { reason }); toast("Registro anulado"); data.reload(); } catch (e: any) { toast(e.message, true); }
   };

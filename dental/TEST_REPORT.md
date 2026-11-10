@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.2
+# Informe de pruebas — v0.3
 
 - **Fecha:** 10-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,8 +8,9 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **105/105**, 12 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **11/11** |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **256/256**, 22 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **20/20** |
+| Recorrido automático de diseño (5 roles × escritorio 1440 px y celular 390 px, todas las pantallas del menú y las pestañas de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
 | Revisión visual | Playwright, 22 capturas (escritorio 1440 px y celular 390 px), 8 pantallas por rol | ✅ sin errores de consola, salvo el 401 esperado al cargar sin sesión |
@@ -99,6 +100,18 @@ Las pruebas de integración usan la API real (`fastify.inject`) contra una base 
 5. Recepción no ve la pestaña del odontograma. Registra un pago QR, que queda "por verificar"; contabilidad lo confirma y pasa a "Confirmado".
 6. El asistente informa que la IA no está configurada y ofrece acciones rápidas.
 7. **Celular (Pixel 7):** barra inferior, sin desborde horizontal en Inicio, Agenda, Pacientes y Caja.
+
+### Módulos de v0.3 (pruebas escritas por cada equipo y re-ejecutadas juntas tras integrar)
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `recalls.test.ts`, `visit-quality.test.ts` | 31 | Ciclo de vida de los controles, vínculo automático, regla de 3 intentos, eventos inmutables, métricas de espera, puntualidad y duración que cuadran exactamente con los datos sembrados |
+| `cash-sessions.test.ts`, `fees.test.ts` | 24 | Arqueo exacto al centavo, una caja abierta por cajero, inmutabilidad de lo cerrado, exigencia de caja abierta, liquidación en ambas bases, ajustes en el período siguiente |
+| `perio-unit.test.ts`, `perio.test.ts` | 34 | Índices sobre lo medido (18 sitios → 16,7 %, no 1,6 %), rechazo del "564", inmutabilidad, enmiendas, comparación, conflicto de revisión |
+| `budgets-v2.test.ts` | 25 | Prorrateo exacto, nunca total negativo, sesiones, versiones, enlace público (verificación, bloqueo, nada visible antes de verificar), saldo único |
+| `portal.test.ts` | 27 | Código sin enumeración, límites, retención del horario, concurrencia (dos pacientes, un horario → uno gana), modo solicitud, datos solo de la familia, 404 con la reserva desactivada |
+| `biosafety.test.ts`, `myday.test.ts` | 10 | El rol de limpieza no ve pacientes ni agenda, limpiezas pendientes por consultorio, numeración correlativa de ciclos, alertas, inmutabilidad, aislamiento entre clínicas |
+
+Todas incluyen pruebas de **aislamiento entre clínicas** para sus tablas nuevas.
 
 ### Seguridad y consentimientos (v0.2, `tests/security.test.ts` con 15 pruebas, más 4 end-to-end)
 - **TOTP:** cumple los vectores oficiales del RFC 6238 (T=59 s → 287082; T=1111111109 → 081804) y tolera ±30 s. Se rechazan los códigos viejos.

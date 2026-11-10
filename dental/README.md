@@ -11,6 +11,12 @@ Software de gestión para clínicas odontológicas, pensado para una red de 5 su
 - Odontograma FDI e historia clínica inmutable.
 - Presupuestos y cobros en Bs con verificación de QR y transferencias.
 - Panel comparativo por sucursal y reportes.
+- Controles "volver a citar", calidad de la atención, sala de espera.
+- Caja por cajero con arqueo y liquidación de honorarios.
+- Periodontograma.
+- Presupuestos v2 con enlace para el paciente.
+- Reserva online y portal del paciente.
+- Bioseguridad (limpieza y esterilización).
 - Asistente con herramientas.
 - Superadministrador SaaS.
 
@@ -38,7 +44,10 @@ Usuarios demo (contraseña `Demo2026dental`, **solo para desarrollo**):
 | `contabilidad@demo.local` | Contabilidad |
 | `recepcion.lpz@demo.local` | Recepción La Paz Centro (también `.sur`, `.eal`, `.cbb`, `.scz`) |
 | `dr.mendoza@demo.local` | Odontólogo (La Paz Centro y La Paz Sur); `dra.vargas@demo.local` y otros |
+| `limpieza.lpz@demo.local` | Limpieza y apoyo (solo Bioseguridad) |
 | `superadmin@demo.local` | Superadministrador SaaS |
+
+Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y `/mi-cuenta/sonrisa-andina-demo`. En desarrollo, los códigos de verificación se ven en **Configuración → Mensajes** (nunca se envían).
 
 ## Comandos
 

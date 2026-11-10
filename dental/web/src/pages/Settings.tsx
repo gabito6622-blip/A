@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
-import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
+import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
 import { SessionTemplateEditor } from "../components/BudgetV2";
 import { PortalSettingsTab } from "./PortalSettings";
 
@@ -305,10 +305,11 @@ function BranchDialog({ branch, onClose, onSaved }: { branch: any; onClose: () =
 function StaffTab() {
   const { me } = useAuth();
   const toast = useToast();
+  const ask = useAsk();
   const s = useApi<any[]>("/api/staff");
   const [resetting, setResetting] = useState<string | null>(null);
   const resetPassword = async (p: any) => {
-    if (!window.confirm(`¿Generar una contraseña temporal para ${p.fullName}? Su contraseña actual dejará de funcionar y se cerrarán sus sesiones abiertas.`)) return;
+    if (!(await ask({ title: "Restablecer contraseña", message: `¿Generar una contraseña temporal para ${p.fullName}? Su contraseña actual dejará de funcionar y se cerrarán sus sesiones abiertas.`, confirmLabel: "Generar contraseña temporal" }))) return;
     setResetting(p.userId);
     try {
       const r = await api.post<{ temporaryPassword: string }>(`/api/staff/${p.userId}/reset-password`);

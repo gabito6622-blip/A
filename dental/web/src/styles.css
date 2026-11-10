@@ -99,6 +99,10 @@ p { margin: 0; }
 .card-pad { padding: 18px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .grid { display: grid; gap: 16px; }
+/* Los hijos de una grilla pueden encogerse: las tablas anchas usan su propio desplazamiento. */
+.grid > * { min-width: 0; }
+.split-2-1 { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.split-2-1 > * { min-width: 0; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -266,7 +270,8 @@ table.table { width: 100%; border-collapse: collapse; }
   .sidebar { display: none; }
   .content { padding: 16px 16px 90px; }
   .topbar { padding: 8px 16px; }
-  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .split-2-1 { grid-template-columns: 1fr; }
+  .row-between { flex-wrap: wrap; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: auto; }
   .bottom-nav {

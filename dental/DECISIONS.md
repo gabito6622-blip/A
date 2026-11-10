@@ -93,3 +93,15 @@ Ver `ARCHITECTURE.md` §7. El modelo por defecto se configura con `ASSISTANT_MOD
   - el hash SHA-256 cubre texto, firmante, decisión, fecha y firma;
   - la firma en pantalla es una **firma electrónica simple**.
 - ⚠ Según el anexo E (Ley 164, art. 78), solo la **firma digital** certificada tiene plena validez; la firma electrónica simple vale como indicio. Para documentos donde se requiera firma digital, evaluar la integración con la entidad certificadora (AGETIC). Pendiente de validación legal.
+
+### D-19 · Desarrollo en paralelo con ramas aisladas e integración verificada
+Cinco equipos trabajaron en ramas separadas (worktrees), cada uno con su propia base de pruebas y un número de migración asignado. El integrador fusionó rama por rama y corrió **todas** las pruebas y el recorrido de diseño después de cada fusión. Los conflictos se limitaron a líneas de registro (importaciones, rutas, menú).
+
+### D-20 · Periodontograma en JSON validado
+Una exploración (unos 1000 valores) se edita, se guarda sola y se congela como un todo. Por eso se guarda como **JSON validado** en una fila, y no como filas normalizadas. La API valida con zod y la base vuelve a validar con un `CHECK`. La inmutabilidad es un trigger sobre una sola fila.
+
+### D-21 · Bandeja de mensajes con simulador obligatorio
+Todo mensaje (códigos, recordatorios) pasa por `outbound_messages`. Fuera de producción el estado es `simulated` y nunca sale. En producción, sin proveedor configurado, queda `queued`. El proveedor real (WhatsApp Cloud API) se conecta por la interfaz `MessageProvider` (B-060).
+
+### D-22 · Rol "Limpieza y apoyo" con mínimo privilegio
+El personal de limpieza registra limpieza y esterilización sin ver pacientes, agenda ni dinero: los permisos `biosafety.*` son su único acceso. Así su trabajo queda documentado (útil ante inspecciones) sin exponer datos de salud.

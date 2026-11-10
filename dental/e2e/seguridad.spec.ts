@@ -59,8 +59,8 @@ test("la propietaria restablece la contraseña de una recepcionista y esta debe 
   await page.goto("/configuracion");
   await page.getByRole("tab", { name: "Personal" }).click();
   const row = page.locator("tr", { hasText: "recepcion.sur@demo.local" });
-  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: /Restablecer contraseña/ }).click();
+  await page.getByRole("dialog", { name: "Restablecer contraseña" }).getByRole("button", { name: "Generar contraseña temporal" }).click();
   const temp = (await page.getByText(/^Tmp-/).first().innerText()).trim();
   expect(temp).toMatch(/^Tmp-/);
 

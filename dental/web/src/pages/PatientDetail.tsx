@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { age, bs, fmtDate, fmtDateTime } from "../lib/format";
-import { Empty, Field, Loading, StatusBadge, Tabs, useToast } from "../components/ui";
+import { Empty, Field, Loading, StatusBadge, Tabs, useAsk, useToast } from "../components/ui";
 import { Odontogram } from "../components/Odontogram";
 import { PatientFormDialog } from "./Patients";
 import { BudgetEditor, BudgetDetailDialog } from "./Budgets";
@@ -130,7 +130,7 @@ function ClinicalHistory({ patientId }: { patientId: string }) {
     try { await api.post(`/api/patients/${patientId}/medical-history`, h); toast("Antecedentes actualizados"); setH(null); mh.reload(); } catch (e: any) { toast(e.message, true); }
   };
   return (
-    <div className="grid" style={{ gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)", gap: 16 }}>
+    <div className="split-2-1">
       <div className="stack">
         {write && (
           <div className="card card-pad stack">
@@ -218,10 +218,11 @@ function PatientBudgets({ patientId, onChanged }: { patientId: string; onChanged
 function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged: () => void }) {
   const { can } = useAuth();
   const toast = useToast();
+  const ask = useAsk();
   const acc = useApi<any>(`/api/patients/${patientId}/account`);
   const [paying, setPaying] = useState(false);
   const voidCharge = async (id: string) => {
-    const reason = window.prompt("Motivo de la anulación del cargo:");
+    const reason = await ask({ title: "Anular cargo", message: "Se registra un asiento negativo; el cargo original se conserva.", inputLabel: "Motivo de la anulación", confirmLabel: "Anular cargo", danger: true });
     if (!reason) return;
     try { await api.post(`/api/charges/${id}/void`, { reason }); toast("Cargo anulado"); acc.reload(); onChanged(); } catch (e: any) { toast(e.message, true); }
   };

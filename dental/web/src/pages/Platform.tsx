@@ -3,7 +3,7 @@ import { KeyRound, Plus, ShieldOff } from "lucide-react";
 import { useApi } from "../lib/hooks";
 import { api } from "../lib/api";
 import { bs, fmtDate, fmtDateTime, parseBs } from "../lib/format";
-import { Dialog, Empty, Field, Loading, useToast } from "../components/ui";
+import { Dialog, Empty, Field, Loading, useAsk, useToast } from "../components/ui";
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   trial: { label: "Prueba", tone: "info" },
@@ -180,6 +180,7 @@ function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 
 function ResetMfaTool() {
   const toast = useToast();
+  const ask = useAsk();
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [found, setFound] = useState<any | null>(null);
@@ -199,7 +200,7 @@ function ResetMfaTool() {
     setErr(null);
     if (!valid) return setErr("Ingresa un identificador de usuario válido (UUID)");
     if (reason.trim().length < 5) return setErr("Describe el motivo y cómo verificaste la identidad");
-    if (!window.confirm("¿Quitar la verificación en dos pasos de este usuario? Se cerrarán todas sus sesiones.")) return;
+    if (!(await ask({ title: "Quitar verificación en dos pasos", message: "¿Quitar la verificación en dos pasos de este usuario? Se cerrarán todas sus sesiones.", confirmLabel: "Quitar", danger: true }))) return;
     setBusy(true);
     try {
       await api.post(`/api/platform/users/${userId.trim()}/reset-mfa`, { reason: reason.trim() });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { KeyRound, ShieldCheck } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Field, useToast } from "../components/ui";
+import { Field, useAsk, useToast } from "../components/ui";
 
 export function ChangePasswordCard({ forced, onDone }: { forced?: boolean; onDone?: () => void }) {
   const toast = useToast();
@@ -47,6 +47,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
 export function MfaCard({ forced, onDone }: { forced?: boolean; onDone?: () => void }) {
   const { me, refresh } = useAuth();
   const toast = useToast();
+  const ask = useAsk();
   const enabled = !!me?.user.mfaEnabled;
   const [step, setStep] = useState<"idle" | "password" | "scan" | "done" | "disable">("idle");
   const [password, setPassword] = useState("");
@@ -67,7 +68,7 @@ export function MfaCard({ forced, onDone }: { forced?: boolean; onDone?: () => v
     try { await api.post("/api/auth/mfa/disable", { password, code }); toast("Verificación en dos pasos desactivada"); setStep("idle"); setPassword(""); setCode(""); await refresh(); } catch (e) { setErr((e as Error).message); }
   };
   const regen = async () => {
-    const c = window.prompt("Ingresa un código actual de tu app para generar nuevos códigos de recuperación:");
+    const c = await ask({ title: "Nuevos códigos de recuperación", message: "Los códigos anteriores dejarán de funcionar.", inputLabel: "Código actual de tu app (6 dígitos)", minLength: 6, inputMode: "numeric", confirmLabel: "Generar" });
     if (!c) return;
     try { setCodes((await api.post("/api/auth/mfa/recovery-codes", { code: c })).recoveryCodes); setStep("done"); } catch (e) { toast((e as Error).message, true); }
   };

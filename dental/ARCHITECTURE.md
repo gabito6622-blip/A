@@ -142,6 +142,13 @@ erDiagram
 | `platform` | Superadministrador: planes, clínicas, estados y métricas agregadas |
 | `assistant` | Herramientas con permisos, acciones rápidas y chat opcional con Claude |
 | `consents` | Plantillas versionadas, documentos firmados con hash, consentimientos de recordatorios y marketing |
+| `recalls`, `appointmentEvents`, `visitQuality` | Controles "volver a citar", eventos inmutables de la cita, informe de calidad de la atención |
+| `cashSessions`, `fees` | Caja por cajero con arqueo y cierre inmutable; liquidación de honorarios |
+| `perio` | Periodontograma (datos JSON validados por la API y por un CHECK en la base) e índices |
+| `budgets-v2*` | Descuentos prorrateados, sesiones, versiones, enlace público al paciente, embudo, `patient_money` |
+| `portal/*` | Reserva online y portal del paciente (API pública por slug, código de un solo uso, sesiones `psid`), bandeja de mensajes |
+| `biosafety` | Limpieza por consultorio y libro de esterilización |
+| `myday` | Agenda del día del profesional con alertas médicas |
 
 **Patrón de ruta** (`lib/http.ts`): cada endpoint declara acceso, permiso y esquemas zod (para validar y para OpenAPI). El helper aplica autenticación, CSRF y permisos y abre la transacción con contexto. Así ningún endpoint puede "olvidar" el aislamiento.
 
@@ -189,3 +196,13 @@ Radiografías, fotografías y consentimientos firmados irán en almacenamiento d
 - URL firmadas de corta duración, emitidas **solo** tras validar el permiso;
 - registro de cada descarga en la auditoría;
 - cifrado en reposo del proveedor y hash SHA-256 por archivo.
+
+## 11. Superficies públicas (sin sesión del personal)
+
+| Ruta | Protección |
+|---|---|
+| `/restablecer` | Token de un solo uso (SHA-256 guardado), 30 min |
+| `/p/presupuesto/:token` | Token por presupuesto, que vence y se puede revocar; verificación con los 4 últimos dígitos del celular o la fecha de nacimiento; bloqueo tras 5 intentos; nada visible antes de verificar |
+| `/reservar/:slug`, `/mi-cuenta/:slug` | Solo si la clínica habilitó la reserva (función `portal_clinic_by_slug`); código de 6 dígitos (10 min, 5 intentos); sesión del paciente `psid` separada; límites por IP y documento; respuestas idénticas exista o no el paciente |
+
+La parte del paciente se carga como un bloque aparte (`lazy`), con estilos propios pensados para el celular.

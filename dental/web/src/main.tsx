@@ -5,14 +5,16 @@ import "@fontsource-variable/inter";
 import "./styles.css";
 import { App } from "./App";
 import { AuthProvider } from "./lib/auth";
-import { ToastProvider } from "./components/ui";
+import { AskProvider, ToastProvider } from "./components/ui";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <App />
+          <AskProvider>
+            <App />
+          </AskProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

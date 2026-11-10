@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, newKey, qs } from "../lib/api";
 import { bs, fmtDateTime, localDate, parseBs, toBsInput } from "../lib/format";
-import { Dialog, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
+import { Dialog, Empty, Field, Loading, StatusBadge, useAsk, useToast } from "../components/ui";
 import { CashSessionsHistory, MyCashPanel } from "./CashSessions";
 
 const PAY_STATUS: Record<string, string> = { confirmed: "Confirmado", pending_verification: "Por verificar", rejected: "Rechazado", voided: "Anulado" };
@@ -13,18 +13,19 @@ const PAY_STATUS: Record<string, string> = { confirmed: "Confirmado", pending_ve
 export function CashPage() {
   const { can, branchId, me } = useAuth();
   const toast = useToast();
+  const ask = useAsk();
   const [date, setDate] = useState(localDate());
   const summary = useApi<any[]>(`/api/cash-summary${qs({ date, branchId })}`);
   const pending = useApi<any[]>(`/api/payments${qs({ status: "pending_verification", branchId })}`);
   const day = useApi<any[]>(`/api/payments${qs({ from: date, to: date, branchId })}`);
   const reload = () => { summary.reload(); pending.reload(); day.reload(); };
   const verify = async (id: string, decision: "confirmed" | "rejected") => {
-    const reason = decision === "rejected" ? window.prompt("Motivo del rechazo (p. ej. no figura en el extracto):") : null;
+    const reason = decision === "rejected" ? await ask({ title: "Rechazar pago", inputLabel: "Motivo del rechazo", placeholder: "Ej.: no figura en el extracto bancario", confirmLabel: "Rechazar", danger: true }) : null;
     if (decision === "rejected" && !reason) return;
     try { await api.post(`/api/payments/${id}/verify`, { decision, reason }); toast(decision === "confirmed" ? "Pago confirmado" : "Pago rechazado"); reload(); } catch (e: any) { toast(e.message, true); }
   };
   const voidPay = async (id: string) => {
-    const reason = window.prompt("Motivo de la anulación (devolución, error de registro…):");
+    const reason = await ask({ title: "Anular pago", inputLabel: "Motivo de la anulación", placeholder: "Devolución, error de registro…", confirmLabel: "Anular pago", danger: true });
     if (!reason) return;
     try { await api.post(`/api/payments/${id}/void`, { reason }); toast("Pago anulado"); reload(); } catch (e: any) { toast(e.message, true); }
   };

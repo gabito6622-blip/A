@@ -106,3 +106,54 @@ const STATUS_TONE: Record<string, string> = {
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   return <span className={`badge ${STATUS_TONE[status] ?? ""}`}>{label ?? status}</span>;
 }
+
+// ---------- Preguntas al usuario (reemplazo accesible de window.prompt / window.confirm) ----------
+interface AskOptions {
+  title: string;
+  message?: string;
+  /** Si se indica, se pide un texto (p. ej. un motivo). */
+  inputLabel?: string;
+  placeholder?: string;
+  /** Mínimo de caracteres del texto (por defecto 3 si hay campo). */
+  minLength?: number;
+  inputMode?: "text" | "numeric";
+  confirmLabel?: string;
+  danger?: boolean;
+}
+type AskFn = (o: AskOptions) => Promise<string | null>;
+const AskCtx = createContext<AskFn>(async () => null);
+
+export function AskProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<(AskOptions & { resolve: (v: string | null) => void }) | null>(null);
+  const [value, setValue] = useState("");
+  const [touched, setTouched] = useState(false);
+  const ask = useCallback<AskFn>((o) => new Promise((resolve) => { setValue(""); setTouched(false); setState({ ...o, resolve }); }), []);
+  const close = (v: string | null) => { state?.resolve(v); setState(null); };
+  const min = state?.inputLabel ? state.minLength ?? 3 : 0;
+  const invalid = !!state?.inputLabel && value.trim().length < min;
+  const submit = () => { setTouched(true); if (!invalid) close(state?.inputLabel ? value.trim() : "ok"); };
+  return (
+    <AskCtx.Provider value={ask}>
+      {children}
+      {state && (
+        <Dialog title={state.title} onClose={() => close(null)} footer={<>
+          <button className="btn" onClick={() => close(null)}>Cancelar</button>
+          <button className={`btn ${state.danger ? "btn-danger" : "btn-primary"}`} onClick={submit}>{state.confirmLabel ?? "Aceptar"}</button>
+        </>}>
+          <form className="stack" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+            {state.message && <p>{state.message}</p>}
+            {state.inputLabel && (
+              <div className="field">
+                <label htmlFor="ask-input" className="label">{state.inputLabel}</label>
+                <input id="ask-input" className="input" autoFocus value={value} inputMode={state.inputMode} placeholder={state.placeholder}
+                  aria-invalid={touched && invalid} onChange={(e) => setValue(e.target.value)} />
+                {touched && invalid && <span className="hint" style={{ color: "var(--danger)" }}>Escribe al menos {min} caracteres</span>}
+              </div>
+            )}
+          </form>
+        </Dialog>
+      )}
+    </AskCtx.Provider>
+  );
+}
+export const useAsk = () => useContext(AskCtx);

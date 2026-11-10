@@ -2,6 +2,63 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.3.0] — 2026-11-10
+
+Etapa construida por cinco equipos en paralelo (ramas aisladas integradas con todas las pruebas en verde) más el integrador. Se basa en la segunda ronda de investigación (`INVESTIGACION_COMPETIDORES.md` §9).
+
+### Agregado
+- **Controles "volver a citar" (B-040):**
+  - al marcar una cita como atendida se propone el próximo control según la prestación (profilaxis 6 meses, ortodoncia 1, implante 6, endodoncia 12; editable en Prestaciones);
+  - página **Controles** por sucursal y mes, con contadores (vencen esta semana, atrasados, agendados, conversión);
+  - intentos de contacto de solo inserción; 3 sin éxito pasan a "Revisar";
+  - WhatsApp manual solo con consentimiento y sin datos clínicos;
+  - vínculo automático entre cita y control.
+- **Tiempos de la cita y calidad de la atención (B-041):**
+  - cada cambio de estado queda registrado de forma inmutable;
+  - informe por sucursal y profesional: espera (media, mediana, P90), puntualidad, duración real frente a la planificada, inasistencia y cancelación, con exportación;
+  - "Citas pasadas sin cerrar" en la sala de espera, que nunca se cierran solas.
+- **Caja por cajero y honorarios (B-043, B-044):**
+  - apertura con fondo; los cobros en efectivo entran a la caja de quien los recibe;
+  - movimientos con motivo, de solo inserción;
+  - cierre con arqueo de billetes y monedas en Bs, diferencia calculada y motivo obligatorio;
+  - una caja cerrada es inmutable, y la revisa gerencia o contabilidad;
+  - la clínica puede exigir caja abierta para cobrar en efectivo.
+  - **Honorarios:** reglas por profesional y categoría (porcentaje o monto fijo, base producción o cobrado, descuento de laboratorio); liquidaciones de borrador a cerradas e inmutables; los ajustes van al período siguiente; exportación a Excel; resultado por sucursal.
+- **Periodontograma (B-042):**
+  - carga con el teclado y avance automático, con atajos y teclado en pantalla para tabletas;
+  - rechazo de valores fuera de rango, también en la base de datos;
+  - índices calculados solo sobre los sitios medidos, mostrando el denominador;
+  - borrador con guardado automático, cierre inmutable y enmiendas;
+  - comparación por sitio, gráfico y resumen para el paciente.
+- **Presupuestos v2 (B-045):**
+  - descuento por línea y global prorrateado exacto al centavo; nunca total negativo;
+  - prestaciones de varias sesiones con un cargo por sesión;
+  - versiones: la anterior deja de poder aceptarse;
+  - **enlace para el paciente** verificado (4 últimos dígitos del celular o fecha de nacimiento), con bloqueo tras 5 intentos; aceptación con firma opcional y registro de "visto";
+  - embudo con días en cada estado;
+  - **una sola función de saldo** (`patient_money`) en todas las vistas.
+- **Reserva online y portal del paciente (B-046):**
+  - `/reservar/:slug` en el celular, con el mismo motor de la agenda;
+  - identificación con código de 6 dígitos sin contraseña y retención del horario;
+  - modo inmediato o solicitud por sucursal, con la bandeja "Solicitudes web";
+  - `/mi-cuenta/:slug`: citas (reprogramar y cancelar dentro del plazo), saldo, pagos, presupuestos y menores a cargo.
+  - **Bandeja de mensajes:** fuera de producción ningún mensaje sale del sistema.
+- **Bioseguridad (integrador):**
+  - rol **"Limpieza y apoyo"** que solo accede a este módulo;
+  - limpieza por consultorio (entre pacientes, apertura, cierre, desinfección), con los pendientes según los pacientes atendidos;
+  - ciclos de autoclave numerados por equipo, con indicador químico y biológico y alertas si fallan;
+  - **libro de esterilización en Excel**; todo de solo inserción.
+- **"Mis pacientes de hoy" (integrador):** el inicio del odontólogo muestra sus pacientes del día con alertas médicas, la primera visita y los tratamientos pendientes.
+
+### Cambiado
+- Se reemplazaron todos los `window.prompt` y `window.confirm` por diálogos accesibles con validación junto al campo (`useAsk`).
+- Las grillas permiten que su contenido se encoja, y la historia clínica se apila en el celular: no queda desborde horizontal en ninguna pantalla para ningún rol (verificado con un recorrido automático de 5 roles × 2 tamaños).
+- Corregida la lectura de montos con punto decimal en los formularios ("60.00" se leía como 6.000 Bs).
+- Se eliminó la función de saldo duplicada de la migración 0007 (migración 0009).
+
+### Pruebas
+- 256 pruebas unitarias y de integración (22 archivos) y 20 end-to-end.
+
 ## [0.2.0] — 2026-11-10
 
 ### Agregado
