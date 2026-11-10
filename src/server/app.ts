@@ -763,6 +763,16 @@ export function createApp(cfg: AppConfig): App {
     if (!u.active) db.deleteSessionsOf(u.id);
     return u;
   });
+  // El dueño le pone una contraseña nueva a un admin o vendedor que se la olvidó (y lo saca de las sesiones abiertas).
+  route("POST", "/api/admin/staff/:id/password", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño cambia contraseñas de otros usuarios");
+    const u = store.engine.s.staff[c.params.id];
+    if (!u) throw new HttpError(404, "NOT_FOUND", "No existe ese usuario");
+    if (u.role === "owner") throw new HttpError(400, "VALIDATION", "Tu propia contraseña se cambia en Seguridad");
+    store.admin.setStaffPassword(A(c), u.id, hashOrThrow(c.body?.password));
+    db.deleteSessionsOf(u.id);
+    return { ok: true };
+  });
   /* ---- verificación en dos pasos del usuario actual ---- */
   route("GET", "/api/admin/me/2fa", "staff", (c) => ({ enabled: !!db.getSecret(`totp:${A(c).id}`) }));
   route("POST", "/api/admin/me/2fa/setup", "staff", (c) => {

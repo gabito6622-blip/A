@@ -126,6 +126,18 @@ describe("avisos para el dueño por HTTP", () => {
   });
   after(() => s.stop());
 
+  test("el dueño le pone una contraseña nueva a un usuario que se la olvidó", async () => {
+    const list = await (await s.call("GET", "/api/admin/staff", owner)).json();
+    const adm = list.find((u) => u.username === "admin1"), own = list.find((u) => u.role === "owner");
+    assert.equal((await s.call("POST", `/api/admin/staff/${adm.id}/password`, seller, { password: "otra-clave-12345" })).status, 403);
+    assert.equal((await s.call("POST", `/api/admin/staff/${own.id}/password`, owner, { password: "otra-clave-12345" })).status, 400);
+    assert.equal((await s.call("POST", `/api/admin/staff/${adm.id}/password`, owner, { password: "corta" })).status, 400);
+    assert.equal((await s.call("POST", `/api/admin/staff/${adm.id}/password`, owner, { password: "nueva-clave-admin-1" })).status, 200);
+    assert.equal((await s.call("GET", "/api/admin/staff", seller)).status, 401, "su sesión vieja se cerró");
+    seller = await s.login("admin1", "nueva-clave-admin-1");
+    assert.ok(seller);
+  });
+
   test("solo el dueño ve y cambia su WhatsApp de avisos", async () => {
     assert.equal((await s.call("GET", "/api/admin/alerts", seller)).status, 403);
     assert.equal((await s.call("POST", "/api/admin/alerts", seller, { phone: "+59170000000" })).status, 403);

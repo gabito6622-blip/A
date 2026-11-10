@@ -1019,7 +1019,9 @@ const V = {
     return `<section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
       <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
-        <td>${u.role !== "owner" ? `<button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`))}</section>`;
+        <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
+          <form data-staffpw="${esc(u.id)}" style="display:grid;gap:6px"><input name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Contraseña nueva" aria-label="Contraseña nueva para ${esc(u.username)}" style="min-width:0;width:100%"><button class="pbtn sm" type="submit">Cambiar contraseña</button></form></div>` : ""}</td></tr>`))}
+      <p class="muted" style="margin:10px 0 0">¿Alguien se olvidó la contraseña? Escribile una nueva (mínimo 10 letras) y tocá <b>Cambiar contraseña</b>: se cierra su sesión y entra con la nueva.</p></section>`;
   },
 
   async revendedores() {
@@ -2681,6 +2683,8 @@ document.addEventListener("submit", async (ev) => {
       P.tab.q = f.q.value; await render();
     } else if (f.id === "adjForm") {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
+    } else if (f.dataset.staffpw) {
+      await act(() => api("POST", `/api/admin/staff/${f.dataset.staffpw}/password`, { password: f.password.value }), "Contraseña cambiada: ya puede entrar con la nueva");
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
     } else if (f.id === "offForm") {
