@@ -845,3 +845,19 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .cmpsave{margin:0;color:var(--s-ok);font-weight:700;font-size:14px}
 .cmpc .tkbtn{margin-top:6px}
 @media (max-width:600px){.cmpsel{grid-template-columns:minmax(0,1fr)}.cmpvs{display:none}.cmpgrid{grid-template-columns:minmax(0,1fr)}}
+
+/* Combos: logos de cada app ordenados, etiquetas de apps y ahorro */
+.tkgrid{display:grid;gap:3px;width:52px;height:52px;padding:4px;box-sizing:border-box;border-radius:12px;background:color-mix(in srgb,var(--s-ink) 8%,transparent)}
+.tkgrid.n1{grid-template-columns:1fr}
+.tkgrid.n2{grid-template-columns:1fr 1fr;align-content:center}
+.tkgrid.n3,.tkgrid.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.tkgrid img,.tkgrid i{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:10px;color:#fff}
+.tkgrid.n3>:last-child{grid-column:1/-1;justify-self:center;width:calc(50% - 1.5px)}
+.tkapps{display:flex;flex-wrap:wrap;gap:6px}
+.tkapp{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 3px;border-radius:999px;background:color-mix(in srgb,var(--s-ink) 8%,transparent);font-size:12.5px;font-weight:600;white-space:nowrap}
+.tkapp .mini,.cmpl .mini{width:20px;height:20px;min-width:20px;border-radius:6px;overflow:hidden;display:inline-grid;place-items:center;font-size:11px;color:#fff;font-weight:800}
+.tkapp .mini img,.cmpl .mini img{width:100%;height:100%;object-fit:cover}
+.tkmeta{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tksave{padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--s-ok) 18%,transparent);color:var(--s-ok);font-size:12.5px;font-weight:700}
+.cmpl li{display:flex;align-items:center;gap:8px}
+@media (max-width:420px){.tkgrid{width:46px;height:46px;padding:3px}}
