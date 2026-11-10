@@ -126,7 +126,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

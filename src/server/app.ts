@@ -2,7 +2,8 @@
 // Sin frameworks: node:http. Cada ruta declara quién puede llamarla; el núcleo vuelve a
 // validar permisos (defensa en dos capas).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
@@ -207,7 +208,23 @@ export function createApp(cfg: AppConfig): App {
   function clearCookie(res: ServerResponse) {
     res.setHeader("Set-Cookie", `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${cfg.secureCookies ? "; Secure" : ""}`);
   }
+  // Llave del asistente: el dueño la crea en Usuarios y la apaga cuando quiere. Entra como un Admin
+  // propio ("asistente"), nunca como dueño; todo lo que hace queda en la Auditoría con su nombre.
+  type AssistKey = { hash: string; staffId: string; createdAt: number; lastUsedAt?: number };
+  const assistGet = (): AssistKey | null => { try { return JSON.parse(db.getSecret("assistant_key") ?? "null"); } catch { return null; } };
+  function resolveAssistant(req: IncomingMessage): { actor?: Actor } {
+    const h = req.headers.authorization ?? "";
+    const m = /^Bearer\s+(gsa_[A-Za-z0-9_-]{20,})$/.exec(h);
+    if (!m) return {};
+    const k = assistGet();
+    if (!k || !timingSafeEqualStr(sha256(m[1]), k.hash)) return {};
+    const u = store.engine.s.staff[k.staffId];
+    if (!u || !u.active || u.role === "owner") return {};
+    if (!k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, lastUsedAt: now() }), now());
+    return { actor: { id: u.id, role: u.role } };
+  }
   function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"] } {
+    if (req.headers.authorization) { const a = resolveAssistant(req); if (a.actor) return a; }
     const raw = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
     if (!raw) return {};
     const s = db.getSession(sha256(raw), now());
@@ -255,7 +272,7 @@ export function createApp(cfg: AppConfig): App {
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
       fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico", storeHours: st.storeHours ?? "",
-      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, resellerProgramPrices: st.resellerProgramPrices !== false,
+      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, alwaysAvailable: !!st.alwaysAvailable, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
@@ -645,6 +662,13 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
   route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
+  // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
+  route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
+  route("GET", "/api/admin/fiado/:id", "staff", (c) => store.fiado.history(A(c), c.params.id));
+  route("POST", "/api/admin/fiado/charge", "staff", (c) => store.fiado.charge(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
+  route("POST", "/api/admin/fiado/payment", "staff", (c) => store.fiado.pay(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
+  route("POST", "/api/admin/fiado/:id/from-control", "staff", (c) => store.fiado.fromControl(A(c), c.params.id));
+  route("POST", "/api/admin/fiado/entry/:id/delete", "staff", (c) => store.fiado.remove(A(c), c.params.id));
   // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
@@ -712,6 +736,18 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
+  // Ficha del revendedor: todos sus perfiles (los suyos y los de sus clientes) por cuenta, lo que debe y su link de códigos.
+  route("GET", "/api/admin/resellers/:id/sheet", "staff", (c) => {
+    const st = store.engine.s, r = st.customers[c.params.id];
+    if (!r || r.kind !== "reseller") throw new HttpError(404, "NOT_FOUND", "No es un revendedor");
+    const grp = st.priceGroups[r.priceGroupId ?? "revendedor"]?.prices ?? {};
+    const rows = store.admin.assignments(A(c)).filter((a) => a.customerId === r.id || st.customers[a.customerId]?.resellerId === r.id).map((a) => ({
+      id: a.id, client: a.customerId === r.id ? "" : a.customerName ?? "", clientPhone: a.customerId === r.id ? "" : a.customerPhone, product: a.product ?? "", email: a.email, profile: a.profile,
+      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.control?.price ?? grp[a.productId] ?? a.productPrice, pay: a.control?.payStatus ?? "pagado",
+    }));
+    const cl = r.codeLink;
+    return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
+  });
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;
     return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
@@ -764,6 +800,32 @@ export function createApp(cfg: AppConfig): App {
     const u = store.admin.setStaffActive(A(c), c.params.id, !!c.body?.active);
     if (!u.active) db.deleteSessionsOf(u.id);
     return u;
+  });
+  // Acceso para el asistente: crear (o cambiar) la llave, ver cuándo la usó y apagarla.
+  route("GET", "/api/admin/assistant", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const k = assistGet(), u = k ? store.engine.s.staff[k.staffId] : undefined;
+    return { enabled: !!(k && u?.active), username: u?.username ?? null, createdAt: k?.createdAt ?? null, lastUsedAt: k?.lastUsedAt ?? null };
+  });
+  route("POST", "/api/admin/assistant", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño crea el acceso del asistente");
+    const st = store.engine.s;
+    let u = Object.values(st.staff).find((x) => x.username === "asistente");
+    if (u && u.role === "owner") throw new HttpError(400, "VALIDATION", "El usuario \"asistente\" ya existe como dueño");
+    if (!u) u = st.staff[store.admin.createStaff(A(c), { username: "asistente", name: "Claude (asistente)", role: "admin", passwordHash: hashPassword(randomBytes(24).toString("hex")) }).id];
+    else if (!u.active) store.admin.setStaffActive(A(c), u.id, true);
+    const token = "gsa_" + randomBytes(24).toString("base64url");
+    db.setSecret("assistant_key", JSON.stringify({ hash: sha256(token), staffId: u.id, createdAt: now() }), now());
+    store.engine.tx(() => store.engine.audit(A(c), "assistant.key", "staff", u!.id, {}));
+    return { token, username: u.username };
+  });
+  route("POST", "/api/admin/assistant/off", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const k = assistGet();
+    db.setSecret("assistant_key", null, now());
+    if (k && store.engine.s.staff[k.staffId]?.active) { store.admin.setStaffActive(A(c), k.staffId, false); db.deleteSessionsOf(k.staffId); }
+    store.engine.tx(() => store.engine.audit(A(c), "assistant.off", "staff", k?.staffId ?? "-", {}));
+    return { ok: true };
   });
   // El dueño le pone una contraseña nueva a un admin o vendedor que se la olvidó (y lo saca de las sesiones abiertas).
   route("POST", "/api/admin/staff/:id/password", "staff", (c) => {
@@ -825,6 +887,7 @@ export function createApp(cfg: AppConfig): App {
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
+    if (typeof b.alwaysAvailable === "boolean") pick.alwaysAvailable = b.alwaysAvailable;
     if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
     return store.catalog.updateSettings(A(c), pick);
   });

@@ -13,6 +13,7 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["finanzas", "coins", "Finanzas", "owner"],
+  ["fiado", "coins", "Fiado (lo que te deben)"],
   ["notificaciones", "bell", "Notificaciones"],
   ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
@@ -20,7 +21,7 @@ const MENU = [
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["coins", "Fiado"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -433,7 +434,9 @@ const V = {
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
-          ${o.status === "awaiting_payment" && canReview() ? `<form class="inline" data-reject="${esc(o.id)}"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
+          ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
+            <small class="muted">¿Te mandó el comprobante por WhatsApp? Mirá la plata en tu banco, escribí la referencia y se entrega solo.</small>` : ""}
+            <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
         tab === "payment_review" ? "No hay pagos por revisar." : "No hay pedidos.")}
       <p class="muted" style="margin:0">Aprobá solo después de ver el dinero en tu banco: escribí la referencia que figura en tu extracto. Una misma referencia no se puede usar dos veces.</p></section>`;
   },
@@ -627,6 +630,45 @@ const V = {
         }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
         </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
         <p class="muted" style="margin:0">Como en Excel: tocá un <b>título</b> para ordenar (otra vez, al revés), escribí en <b>🔍 filtrar</b> debajo de cada título, y con <b>🧱 Columnas</b> escondés las que no usás. WhatsApp, perfil, vencimiento, precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. La fila azul de abajo suma lo que estás viendo.</p></section>`;
+  },
+
+  /* Fiado: lo que te deben, por persona, con pagos parciales y fecha de cobro. */
+  async fiado() {
+    const T = P.tab;
+    const [ov, customers] = await Promise.all([api("GET", "/api/admin/fiado"), canReview() ? api("GET", "/api/admin/customers").catch(() => []) : []]);
+    const k = T.fk ?? "todos", q = (T.fq ?? "").toLowerCase();
+    const rows = ov.rows.filter((r) => (k === "todos" || (k === "rev") === (r.kind === "reseller")) && (!q || `${r.name} ${r.phone}`.toLowerCase().includes(q)));
+    const det = T.fdet ? await api("GET", `/api/admin/fiado/${T.fdet}`).catch(() => null) : null;
+    const detName = ov.rows.find((r) => r.customerId === T.fdet)?.name ?? customers.find((c) => c.id === T.fdet)?.name ?? "";
+    const kb = (r) => (r.kind === "reseller" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`);
+    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
+    const pend = ov.rows.filter((r) => r.unlinked.count);
+    const card = (r) => `<article class="fcardx${r.overdue ? " late" : ""}">
+        <header><div><b>${esc(r.name)}</b> ${kb(r)}<br><small class="muted">${esc(r.phone ? r.phone.replace(/^\+591/, "") : "Sin WhatsApp")}</small></div>
+          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
+        ${r.nextDue || r.oldestAt ? `<div class="frow">${r.nextDue ? `<span>${r.overdue ? "⏰ <b>Ya tenía que pagar</b>" : "📅 Cobrar"} el <b>${fdate(r.nextDue)}</b></span>` : ""}${r.oldestAt ? `<span class="muted">Debe desde ${fdate(r.oldestAt)}</span>` : ""}</div>` : ""}
+        ${r.unlinked.count && canReview() ? `<div class="fpend"><span>📋 ${r.unlinked.count} alquiler(es) marcado(s) sin pagar en el Control · ${bs(r.unlinked.amount)}</span><button class="pbtn sm" type="button" data-ffrom="${esc(r.customerId)}">➕ Pasarlos al fiado</button></div>` : ""}
+        <footer>${r.phone && r.owed ? `<a class="pbtn sm green" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
+          ${canReview() ? `<details class="more"><summary>💵 Me pagó</summary><form class="fform" data-fpay="${esc(r.customerId)}"><label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" placeholder="QR, efectivo, una parte…" maxlength="120"></label><button class="pbtn sm green" type="submit">Guardar pago</button></form></details>
+          <details class="more"><summary>➕ Fiar más</summary><form class="fform" data-fcharge="${esc(r.customerId)}"><label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120" placeholder="Disney perfil 3, préstamo…"></label><label>Cobrar el<input type="date" name="due"></label><button class="pbtn sm dark" type="submit">Guardar</button></form></details>` : ""}
+          <button class="pbtn sm" type="button" data-fdet="${esc(r.customerId)}" aria-pressed="${T.fdet === r.customerId}">📜 Movimientos</button></footer></article>`;
+    return `<section class="card"><h2>💸 Fiado <small>· lo que te deben</small></h2>
+        <div class="ctl-kpis"><div><small>Te deben</small><b class="down">${bs(ov.totals.owed)}</b></div><div><small>Personas que deben</small><b>${ov.totals.people}</b></div><div><small>Cobros vencidos</small><b class="${ov.totals.overdue ? "down" : ""}">${ov.totals.overdue}</b></div><div><small>A cobrar esta semana</small><b>${ov.totals.dueWeek}</b></div><div><small>Sin pasar del Control</small><b>${bs(ov.totals.unlinked)}</b></div></div>
+        <p class="muted" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Los pagos cubren primero lo más viejo; cuando un alquiler del Control queda cubierto, pasa solo a <b>Pagado</b>.</p>
+        ${pend.length && canReview() ? `<div class="fpend"><span>📋 En el Control hay <b>${pend.reduce((t, r) => t + r.unlinked.count, 0)}</b> alquiler(es) "Pendiente" o "No pagó" de ${pend.length} persona(s) (${bs(ov.totals.unlinked)}).</span><button class="pbtn sm dark" type="button" data-ffromall="1">➕ Pasar todos al fiado</button></div>` : ""}
+        <div class="tabs ctl-chips" role="tablist">${[["todos", `Todos (${ov.rows.length})`], ["fin", `👤 Clientes finales (${ov.rows.filter((r) => r.kind !== "reseller").length})`], ["rev", `🏪 Revendedores (${ov.rows.filter((r) => r.kind === "reseller").length})`]].map(([x, t]) => `<button type="button" role="tab" data-tab="fk:${x}" aria-selected="${k === x}">${t}</button>`).join("")}</div>
+        <input id="fq" placeholder="🔍 Buscar por nombre o WhatsApp" value="${esc(T.fq ?? "")}" aria-label="Buscar en el fiado"></section>
+      ${canReview() ? `<section class="card"><details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado nuevo</b></summary>
+        <form class="fform" id="fNewForm" style="margin-top:10px"><label>Cliente o revendedor<input name="who" list="fWho" required placeholder="Escribí el nombre" autocomplete="off"></label>
+          <datalist id="fWho">${customers.map((c) => `<option value="${esc(`${c.name} · ${c.phone || "sin WhatsApp"}`)}"></option>`).join("")}</datalist>
+          <label>Monto (${currencySym()})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120" placeholder="Disney perfil 3, préstamo…"></label>
+          <label>Cobrar el<input type="date" name="due"></label><button class="pbtn dark" type="submit">Guardar</button></form></details></section>` : ""}
+      ${det ? `<section class="card"><h2>📜 Movimientos de ${esc(detName)} · debe ${bs(det.owed)} <button class="pbtn sm" type="button" data-fdet="">Cerrar</button></h2>
+        ${table(["Fecha", "Qué", "Monto", "Nota", "Estado", ""], det.entries.map((x) => `<tr><td>${fdt(x.at)}</td><td>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"}</td>
+          <td class="${x.kind === "cargo" ? "down" : "up"}"><b>${bs(x.amount)}</b></td><td>${esc(x.note || "")}${x.dueAt ? `<br><small class="muted">cobrar el ${fdate(x.dueAt)}</small>` : ""}</td>
+          <td>${x.kind === "cargo" ? (x.covered >= x.amount ? pill("Pagado", "ok") : x.covered ? pill(`Pagó ${bs(x.covered)}`, "warn") : pill("Debe", "bad")) : ""}</td>
+          <td>${canReview() ? `<button class="pbtn sm danger" type="button" data-fdel="${esc(x.id)}" title="Borrar este movimiento">🗑️</button>` : ""}</td></tr>`), "Sin movimientos.")}</section>` : ""}
+      <section class="fgrid">${rows.map(card).join("") || `<div class="emptybox">${ov.rows.length ? "Nadie con ese filtro." : "Nadie te debe nada 🎉"}</div>`}</section>`;
   },
 
   async renovar() {
@@ -1028,6 +1070,7 @@ const V = {
         <div class="inline"><button class="pbtn dark" type="submit">Guardar apariencia</button><a class="pbtn" href="/tienda/" target="_blank" rel="noopener">${icon("ext")}Abrir mi tienda</a></div></form></section>
       <section class="card"><h2>Página para conseguir revendedores</h2>
         <p class="muted" style="margin:0">En <a href="/revendedores" target="_blank" rel="noopener"><b>/revendedores</b></a> hay una página que explica tu programa: beneficios, estilos, las tiendas de tus revendedores y un botón a tu WhatsApp. Compartila en tus estados y grupos.</p>
+        <label class="chk"><input type="checkbox" id="alwaysAvailable" ${s.alwaysAvailable ? "checked" : ""} ${isOwner() ? "" : "disabled"}> En la tienda, mostrar todo como <b>Disponible</b> aunque no tenga cuentas cargadas (lo consigo con mis proveedores; el cliente pide por WhatsApp)</label>
         <label class="chk"><input type="checkbox" id="resellerProgramPrices" ${s.resellerProgramPrices ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Mostrar la tabla “Tu ganancia” (precio público vs. precio de revendedor)</label>
         <div class="inline"><a class="pbtn" href="/revendedores" target="_blank" rel="noopener">${icon("ext")}Abrir la página</a><button class="pbtn" type="button" data-copy="${esc(location.origin + "/revendedores")}">${icon("copy")}Copiar link</button></div></section>
       <section class="card"><h2>Páginas de revendedores</h2>
@@ -1058,8 +1101,17 @@ const V = {
 
   async usuarios() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño administra usuarios.</div></section>`;
-    const list = await api("GET", "/api/admin/staff");
-    return `<section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
+    const [list, asis] = await Promise.all([api("GET", "/api/admin/staff"), api("GET", "/api/admin/assistant").catch(() => ({ enabled: false }))]);
+    const newKey = P.tab.asisKey;
+    P.tab.asisKey = null;
+    return `<section class="card ${asis.enabled ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asis.enabled ? "· prendido" : "· apagado"}</small></h2>
+      <p class="muted" style="margin:0">Para que Claude entre a tu panel y haga cambios por vos (precios, descripciones, diseño). Entra como <b>Admin</b> con su propio usuario <b>asistente</b>: no puede tocar usuarios ni ser dueño, y todo lo que haga queda en <b>Auditoría</b>. Lo apagás con un toque.</p>
+      ${newKey ? `<div class="pok" style="display:grid;gap:8px"><b>🔑 Esta es la llave (se muestra UNA sola vez):</b><code class="mono" style="overflow-wrap:anywhere;user-select:all">${esc(newKey)}</code>
+        <button class="pbtn sm dark" type="button" data-copy="${esc(newKey)}" style="justify-self:start">${icon("copy")}Copiar llave</button>
+        <small>⚠️ <b>No la pegues en el chat.</b> Pegala solo en el <b>formulario seguro</b> que te abre Claude (dice "API credential"). Si la perdés, tocá "Crear llave nueva" y la vieja deja de servir.</small></div>` : ""}
+      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>` : ""}
+      <div class="inline"><button class="pbtn ${asis.enabled ? "" : "dark"}" type="button" data-asis="new">${asis.enabled ? "🔁 Crear llave nueva" : "🔑 Crear llave para mi asistente"}</button>${asis.enabled ? `<button class="pbtn danger" type="button" data-asis="off">⛔ Apagar acceso</button>` : ""}</div></section>
+      <section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
       <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
         <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
@@ -1075,7 +1127,33 @@ const V = {
     const q = (T.rq ?? "").toLowerCase();
     const shown = list.filter((r) => !q || `${r.name} ${r.phone} ${r.shop.slug}`.toLowerCase().includes(q));
     const sent = T.rlink;
-    return `<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    // Ficha del revendedor: sus perfiles por cuenta, lo que debe y su lista lista para mandarle.
+    const fs = T.rficha ? await api("GET", `/api/admin/resellers/${T.rficha}/sheet`).catch((e) => { toast(e.message); T.rficha = ""; return null; }) : null;
+    const ficha = (() => {
+      if (!fs) return "";
+      const pn = (x) => x.replace(/ \(alquiler revendedores\)/, "");
+      const apps = [...new Set(fs.rows.map((x) => pn(x.product)))];
+      const app = apps.includes(T.rfp) ? T.rfp : "";
+      const rows = fs.rows.filter((x) => !app || pn(x.product) === app).sort((a, b) => a.email.localeCompare(b.email) || a.expiresAt - b.expiresAt);
+      const byAcc = Object.entries(rows.reduce((m, x) => ((m[`${pn(x.product)}|${x.email}`] ??= []).push(x), m), {}));
+      const dl = (x) => daysLeft(x.expiresAt);
+      const venc = rows.filter((x) => dl(x) < 0 || x.holdOpen).length, semana = rows.filter((x) => dl(x) >= 0 && dl(x) <= 7).length;
+      const total = rows.reduce((t, x) => t + (x.price || 0), 0), debe = rows.filter((x) => x.pay !== "pagado");
+      const st = (x) => (x.holdOpen ? pill("Esperando fecha", "mute") : dl(x) < 0 ? pill(`Venció hace ${-dl(x)} d`, "bad") : dl(x) === 0 ? pill("Vence hoy", "warn") : dl(x) <= 7 ? pill(`${dl(x)} d`, "warn") : pill(`${dl(x)} d`, "ok"));
+      const PAYT = { pagado: "", pendiente: " · ⏳ pendiente", no_pago: " · ❌ no pagó" };
+      const msg = `Hola ${fs.name.split(" ")[0]} 👋 tu resumen${app ? ` de *${app}*` : ""}:\n\n` + byAcc.map(([k, l]) => `*${k.split("|")[0]}* · ${k.split("|")[1]}\n` + l.map((x) => `• ${x.profile}${x.client ? ` – ${x.client}` : ""} – ${x.holdOpen ? "esperando fecha" : `vence ${fdate(x.expiresAt)}`} – ${bs(x.price || 0)}${PAYT[x.pay] ?? ""}`).join("\n")).join("\n\n")
+        + `\n\nTotal: ${rows.length} perfil(es) · ${bs(total)}${semana ? `\nVencen esta semana: ${semana}` : ""}${venc ? `\nYa vencidos: ${venc}` : ""}${fs.owed ? `\n💸 Me debés: ${bs(fs.owed)}` : ""}${fs.codeLink ? `\n\n🔗 Códigos de tus cuentas: ${fs.codeLink}` : ""}`;
+      return `<section class="card rficha"><h2>📋 Ficha de ${esc(fs.name)} <button class="pbtn sm" type="button" data-rficha="">Cerrar</button></h2>
+        <div class="ctl-kpis"><div><small>Perfiles</small><b>${rows.length}</b></div><div><small>Vencen en 7 días</small><b>${semana}</b></div><div><small>Vencidos</small><b class="${venc ? "down" : ""}">${venc}</b></div><div><small>Te debe (fiado)</small><b class="${fs.owed ? "down" : ""}">${bs(fs.owed)}</b></div><div><small>Su saldo</small><b>${bs(fs.balance)}</b></div></div>
+        ${apps.length > 1 ? `<div class="tabs ctl-chips" role="tablist">${["", ...apps].map((a) => `<button type="button" role="tab" data-tab="rfp:${esc(a)}" aria-selected="${app === a}">${a ? esc(a) : `Todas (${fs.rows.length})`}</button>`).join("")}</div>` : ""}
+        <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
+          <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
+          ${debe.length || fs.owed ? `<button class="pbtn" type="button" data-fgo="${esc(fs.name)}">💸 Ver su fiado</button>` : ""}
+          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>
+        ${byAcc.length ? byAcc.map(([k, l]) => `<div class="racc"><div class="racc-h"><b>${esc(k.split("|")[0])}</b> <span class="mono">${esc(k.split("|")[1])}</span> <small class="muted">${l.length} perfil(es)</small></div>
+          ${l.map((x) => `<div class="racc-r"><span><b>${esc(x.profile)}</b>${x.client ? ` · ${esc(x.client)}` : ` · <small class="muted">para él</small>`}</span><span>${x.holdOpen ? "" : fdate(x.expiresAt)} ${st(x)}</span><span>${bs(x.price || 0)}${x.pay !== "pagado" ? ` ${pill(x.pay === "no_pago" ? "No pagó" : "Pendiente", "bad")}` : ""}</span></div>`).join("")}</div>`).join("") : `<div class="emptybox">Todavía no tiene perfiles${app ? ` de ${esc(app)}` : ""}.</div>`}</section>`;
+    })();
+    return `${ficha}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}</section>
       ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
@@ -1115,6 +1193,7 @@ const V = {
                <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
                <button class="pbtn sm" type="button" data-rpage="${esc(r.id)}" data-on="">Quitar página</button>`
             : `<button class="pbtn sm green" type="button" data-rpage="${esc(r.id)}" data-on="1">✦ Habilitar página</button>`}
+          <button class="pbtn sm dark" type="button" data-rficha="${esc(r.id)}">📋 Ficha</button>
           <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔗 Link de códigos${r.codeLink ? " ✓" : ""}</button>
           ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
         </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
@@ -1244,7 +1323,7 @@ const AUD_VERB = {
   "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
   "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
   "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
-  "staff.password": "cambió la contraseña de {x}", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
   "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
   "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
 };
@@ -2056,6 +2135,15 @@ document.addEventListener("click", async (ev) => {
     }
     if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
   }
+  if (d.rficha !== undefined) { P.tab.rficha = d.rficha; P.tab.rfp = ""; await render(); scrollTo(0, 0); return; }
+  if (d.fgo) { P.tab.fq = d.fgo; return go("fiado"); }
+  if (d.ffrom) return act(() => api("POST", `/api/admin/fiado/${d.ffrom}/from-control`, {}), (r) => `➕ ${r.added} alquiler(es) al fiado · ${bs(r.amount)}`);
+  if (d.ffromall) {
+    const ov = await api("GET", "/api/admin/fiado");
+    return act(async () => { let n = 0, amt = 0; for (const r of ov.rows.filter((x) => x.unlinked.count)) { const x = await api("POST", `/api/admin/fiado/${r.customerId}/from-control`, {}); n += x.added; amt += x.amount; } return { n, amt }; }, (r) => `➕ ${r.n} alquiler(es) pasados al fiado · ${bs(r.amt)}`);
+  }
+  if (d.fdet !== undefined) { P.tab.fdet = P.tab.fdet === d.fdet ? "" : d.fdet; await render(); if (P.tab.fdet) scrollTo(0, 0); return; }
+  if (d.fdel) { if (!confirm("¿Borrar este movimiento? Usalo solo si lo anotaste por error.")) return; return act(() => api("POST", `/api/admin/fiado/entry/${d.fdel}/delete`, {}), "Movimiento borrado"); }
   if (d.csort) {
     const [k, dir] = (P.tab.csort ?? "").split(":");
     P.tab.csort = k !== d.csort ? `${d.csort}:asc` : dir === "asc" ? `${d.csort}:desc` : undefined;
@@ -2322,6 +2410,12 @@ document.addEventListener("click", async (ev) => {
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
   if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
+  if (d.asis) {
+    if (d.asis === "off") { if (!confirm("¿Apagar el acceso del asistente? Deja de poder entrar al instante.")) return; return act(() => api("POST", "/api/admin/assistant/off", {}), "⛔ Acceso del asistente apagado"); }
+    if (!confirm("¿Crear la llave para tu asistente? Si ya había una, la anterior deja de servir.")) return;
+    try { const r = await api("POST", "/api/admin/assistant", {}); P.tab.asisKey = r.token; await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.supdel) {
     if (!confirm(`¿Borrar el proveedor "${d.name}"? ${+d.n ? `Sus ${d.n} cuenta(s) pasan a "Propias" (las tuyas). ` : ""}No se pierde ninguna cuenta ni cliente.`)) return;
     return act(() => api("POST", `/api/admin/suppliers/${d.supdel}/delete`, {}), (r) => `🗑️ Proveedor borrado${r.moved ? ` · ${r.moved} cuenta(s) ahora son tuyas` : ""}`);
@@ -2427,6 +2521,7 @@ document.addEventListener("change", async (ev) => {
     return;
   }
   if (t.id === "cday" || t.id === "cprod" || t.id === "cpay") { P.tab[t.id] = t.value; return render(); }
+  if (t.id === "fq") { P.tab.fq = t.value; return render(); }
   if (t.id === "csortSel" || t.id === "cgroup") { P.tab[t.id === "csortSel" ? "csort" : "cgroup"] = t.value || undefined; return render(); }
   if (t.id === "cr1" || t.id === "cr2") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab[t.id] = new Date(y, mo - 1, da).getTime(); } else P.tab[t.id] = undefined; return render(); }
   if (t.dataset?.ccol) {
@@ -2454,6 +2549,7 @@ document.addEventListener("change", async (ev) => {
   }
   if (t.id === "cfromDate") { if (t.value) { const [y, mo, da] = t.value.split("-").map(Number); P.tab.cfrom = new Date(y, mo - 1, da).getTime(); } else P.tab.cfrom = undefined; return render(); }
   if (ev.target.form?.id === "lookForm") setTimeout(previewLook, 0);
+  if (ev.target.id === "alwaysAvailable") act(() => api("POST", "/api/admin/settings", { alwaysAvailable: ev.target.checked }), ev.target.checked ? "✅ La tienda muestra todo como Disponible" : "La tienda vuelve a mostrar el stock real");
   if (ev.target.id === "resellerProgramPrices") act(() => api("POST", "/api/admin/settings", { resellerProgramPrices: ev.target.checked }), ev.target.checked ? "La tabla de ganancias se muestra" : "La tabla de ganancias quedó oculta");
   if (ev.target.id === "resellerShops") act(() => api("POST", "/api/admin/settings", { resellerShops: ev.target.checked }), ev.target.checked ? "Los revendedores ya pueden publicar su página" : "Páginas de revendedores apagadas");
   if (ev.target.id === "days") { P.tab.days = +ev.target.value; render(); }
@@ -2771,6 +2867,22 @@ document.addEventListener("submit", async (ev) => {
       P.tab.q = f.q.value; await render();
     } else if (f.id === "adjForm") {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
+    } else if (f.dataset.fpay) {
+      const amount = toCents(f.amount.value);
+      if (!(amount > 0)) return toast("Escribí el monto que te pagó");
+      await act(() => api("POST", "/api/admin/fiado/payment", { customerId: f.dataset.fpay, amount, note: f.note.value }), (r) => r.owed ? `💵 Pago guardado · todavía debe ${bs(r.owed)}` : "💵 Pago guardado · ¡ya no debe nada! 🎉");
+    } else if (f.dataset.fcharge || f.id === "fNewForm") {
+      const amount = toCents(f.amount.value);
+      if (!(amount > 0)) return toast("Escribí el monto");
+      let customerId = f.dataset.fcharge;
+      if (!customerId) {
+        const cs = await api("GET", "/api/admin/customers");
+        const v = f.who.value.trim();
+        customerId = cs.find((c) => `${c.name} · ${c.phone || "sin WhatsApp"}` === v)?.id ?? cs.find((c) => c.name.toLowerCase() === v.toLowerCase())?.id;
+        if (!customerId) return toast("Elegí a la persona de la lista (o creala primero en Clientes)");
+      }
+      const due = f.due.value ? (() => { const [y, m, d] = f.due.value.split("-").map(Number); return new Date(y, m - 1, d, 23, 59).getTime(); })() : undefined;
+      await act(() => api("POST", "/api/admin/fiado/charge", { customerId, amount, note: f.note.value, ...(due ? { dueAt: due } : {}) }), "➕ Fiado anotado");
     } else if (f.dataset.staffpw) {
       await act(() => api("POST", `/api/admin/staff/${f.dataset.staffpw}/password`, { password: f.password.value }), "Contraseña cambiada: ya puede entrar con la nueva");
     } else if (f.id === "staffForm") {

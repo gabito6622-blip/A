@@ -104,6 +104,8 @@ export interface StoreSettings extends Look {
   resellerCoupons?: boolean;
   /** Mostrar precio público vs precio de revendedor en la página /revendedores. Por defecto sí. */
   resellerProgramPrices?: boolean;
+  /** La tienda muestra "Disponible" aunque no haya cuentas cargadas (el dueño las consigue con sus proveedores). */
+  alwaysAvailable?: boolean;
   /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
   testimonials?: Testimonial[];
   /** Preguntas frecuentes de la tienda (editables). Vacío = se usan las de por defecto. */
@@ -440,6 +442,21 @@ export interface Assignment {
   trial?: boolean;
 }
 
+/** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */
+export interface FiadoEntry {
+  id: Id;
+  customerId: Id;
+  kind: "cargo" | "pago";
+  amount: Cents;
+  note: string;
+  at: number;
+  by: Id;
+  /** Cuándo se le cobra (solo cargos). */
+  dueAt?: number;
+  /** Si el cargo vino de un alquiler del Control. */
+  assignmentId?: Id;
+}
+
 export interface RentalControl {
   /** Precio que cobra por período (centavos). */
   price?: Cents;
@@ -603,6 +620,8 @@ export interface State {
   settings: StoreSettings;
   /** Gastos manuales del dueño (para Finanzas: lo que salió). */
   expenses: Expense[];
+  /** Fiado: lo que te deben (cargos y pagos por cliente). */
+  fiado?: FiadoEntry[];
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */

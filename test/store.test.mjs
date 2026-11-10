@@ -118,13 +118,22 @@ describe("2. Ventas, pagos, asignaciones, reemplazos y renovaciones", () => {
     const o = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
     assert.equal(o.status, "awaiting_payment");
     assert.equal(o.total, 3500, "precio calculado en el servidor");
-    assert.throws(() => s.orders.approvePayment(admin, o.id, { confirmedReference: "BNB-1" }), err("INVALID_STATE"), "sin comprobante no se aprueba");
     s.orders.submitEvidence(as(maria), o.id, { fileRef: "up/comp.jpg", declaredReference: "DEP-55" });
     assert.throws(() => s.orders.approvePayment(admin, o.id, { confirmedReference: "  " }), err("VALIDATION"));
     const done = s.orders.approvePayment(admin, o.id, { confirmedReference: "BNB-1", idempotencyKey: "k1" });
     assert.equal(done.status, "fulfilled");
     assert.equal(done.assignmentIds.length, 1);
     assert.equal(s.inventory.stock().netflix.assigned, 1);
+  });
+
+  test("esperando pago: si el comprobante llegó por WhatsApp, el dueño aprueba con la referencia del banco", () => {
+    const { s, maria, as } = setup();
+    const o = s.orders.create(as(maria), { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "qr" });
+    assert.throws(() => s.orders.approvePayment(seller, o.id, { confirmedReference: "BNB-7" }), err("FORBIDDEN"), "un vendedor no aprueba pagos");
+    assert.throws(() => s.orders.approvePayment(admin, o.id, { confirmedReference: "" }), err("VALIDATION"), "sin referencia no");
+    const done = s.orders.approvePayment(admin, o.id, { confirmedReference: "BNB-7" });
+    assert.equal(done.status, "fulfilled");
+    assert.equal(done.assignmentIds.length, 1);
   });
 
   test("aprobar es idempotente y una referencia bancaria no se usa dos veces", () => {

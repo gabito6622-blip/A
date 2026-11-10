@@ -979,3 +979,24 @@ table.ctl tfoot td.ccli{z-index:3}
 .ctl-cols>summary{list-style:none;cursor:pointer}.ctl-cols>summary::-webkit-details-marker{display:none}
 .ctl-colsbox{position:absolute;z-index:30;top:calc(100% + 6px);left:0;display:grid;grid-template-columns:repeat(2,minmax(130px,1fr));gap:4px 12px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--line);box-shadow:0 14px 40px rgba(0,0,0,.25);width:max-content;max-width:min(360px,calc(100vw - 40px))}
 @media (max-width:860px){.ctl-colsbox{position:static;width:auto;max-width:none;margin-top:6px}}
+
+/* Fiado */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.fcardx{display:grid;gap:10px;padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--line);border-left:6px solid #f59e0b}
+.fcardx.late{border-left-color:#ef4444}
+.fcardx header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.fcardx .fowed{display:grid;text-align:right;gap:2px}.fcardx .fowed b{font-size:22px}.fcardx .fowed small{font-size:12px;color:var(--muted)}
+.fcardx .frow{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}
+.fcardx footer{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.fpend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,#f59e0b 14%,var(--card));font-size:14px}
+.fform{display:grid;gap:8px;margin-top:8px;min-width:220px}
+.fform label{display:grid;gap:4px;font-size:13px}
+#fq{width:100%;margin-top:4px}
+@media (max-width:860px){.fgrid{grid-template-columns:minmax(0,1fr)}.fcardx footer .more{flex:1 1 100%}}
+
+/* Ficha del revendedor */
+.rficha{border-left:5px solid #7c3aed}
+.racc{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.racc-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:10px 12px;background:color-mix(in srgb,#7c3aed 10%,var(--card));overflow-wrap:anywhere}
+.racc-r{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) auto;gap:8px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:14px}
+@media (max-width:600px){.racc-r{grid-template-columns:minmax(0,1fr) auto}.racc-r>span:nth-child(2){grid-column:1/-1;order:3}}
