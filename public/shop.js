@@ -205,7 +205,8 @@ const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/p
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
 
 /** Productos para revendedores: se pueden comprar sin stock pagando con QR (se entregan al aprobar). */
-const onDemand = (p) => !!p?.resellersOnly && isReseller();
+/** Se puede pedir aunque no haya cuentas cargadas (se paga con QR y se entrega al aprobar). */
+const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && p.kind !== "combo");
 const maxQty = (p) => (onDemand(p) ? 10 : p.available);
 /** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
 const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
@@ -295,7 +296,7 @@ function card(p, badge) {
   const rib = badge ? `<span class="prib">${esc(badge)}</span>` : (s && s <= 2 ? `<span class="prib hot">🔥 Últimas</span>` : "");
   if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:var(--s-warn)">A pedido · pagás con QR y te la entregamos al confirmar</span>
+  <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? "✅ Disponible · pagás con QR y te lo activamos al confirmar" : "A pedido · pagás con QR y te la entregamos al confirmar"}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small></div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
@@ -303,6 +304,42 @@ function card(p, badge) {
   <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
+}
+/* ---------------- Diseño "Lista tipo ticket": catálogo directo, filas compactas ---------------- */
+/** "Netflix Premium HD 4K · 3 meses" y "Netflix Premium HD 4K" van en la misma fila, con selector. */
+const tkBase = (p) => p.name.replace(/\s*[·\-–]\s*\d+\s*mes(es)?\s*$/i, "").trim();
+const tkDur = (x) => (x.durationDays % 30 === 0 ? `${x.durationDays / 30} ${x.durationDays === 30 ? "mes" : "meses"}` : `${x.durationDays} días`);
+function tkGroups(list) {
+  const m = new Map();
+  for (const p of list) { const k = `${p.category}|${tkBase(p)}`; if (!m.has(k)) m.set(k, []); m.get(k).push(p); }
+  return [...m.entries()].map(([k, g]) => ({ k, g: g.sort((a, b) => a.durationDays - b.durationDays) }));
+}
+function ticketRow({ k, g }) {
+  const p = g.find((x) => x.id === S.tkv?.[k]) ?? g[0];
+  const s = p.available, od = onDemand(p);
+  const sel = g.length > 1
+    ? `<select class="tksel" data-tkv="${esc(k)}" aria-label="Duración de ${esc(tkBase(p))}">${g.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${tkDur(x)} · ${bs(x.price)}</option>`).join("")}</select>`
+    : `<small class="tkdur">${p.kind === "combo" && p.description ? `${esc(p.description)}<br>` : ""}${tkDur(p)}</small>`;
+  const btn = s || od ? `<button class="tkbtn" type="button" data-add="${esc(p.id)}">Agregar</button>`
+    : askWa(p) ? `<a class="tkbtn" href="${askWa(p)}" target="_blank" rel="noopener">Pedir</a>` : `<button class="tkbtn" type="button" disabled>Agotado</button>`;
+  return `<article class="tk"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${mark(p)}</button>
+    <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
+}
+function ticketCatalog(pub, hero) {
+  const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
+  const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
+  const groups = tkGroups(list);
+  const min = (x) => Math.min(...x.g.map((p) => p.price));
+  if (S.sort === "asc") groups.sort((a, b) => min(a) - min(b));
+  if (S.sort === "desc") groups.sort((a, b) => min(b) - min(a));
+  const from = pub.length ? Math.min(...pub.map((p) => p.price)) : 0;
+  const title = S.settings.heroTitle && S.settings.heroTitle !== "Streaming premium," ? `${esc(S.settings.heroTitle)} <span>${esc(S.settings.heroHighlight || "")}</span>`
+    : `Netflix, Disney+, Spotify y más <span>desde ${bs(from)}</span>`;
+  return `${hero ? `<section class="tkhero"><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
+    <div class="tktools"><input id="q" placeholder="Buscar: Netflix, Spotify, combo…" value="${esc(S.q)}" aria-label="Buscar productos">
+      <div class="cats tkcats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
+      <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
+    ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" })[k] ?? k;
 /** Filas de credenciales IPTV (como <div><dt>..</dt><dd>..</dd></div>). */
@@ -409,6 +446,10 @@ function renderInner() {
   const V = {
     inicio: () => {
       const L = S.settings.layout || "clasico";
+      if (L === "ticket") return `${pub.length ? ticketCatalog(pub, true) : `<div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : ""}
+      ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
+      ${SLUG ? "" : reviewsSection()}${faqSection()}`;
       const nFeat = L === "catalogo" ? pub.length : L === "vitrina" ? 6 : 4;
       const featTitle = L === "catalogo" ? "Todo el catálogo" : L === "minimal" ? "Nuestros servicios" : "Servicios populares";
       const showMock = L === "clasico";
@@ -438,6 +479,7 @@ function renderInner() {
           .map(([k, t, d]) => `<div style="display:grid;gap:4px"><span class="chip">Paso ${k}</span><b style="font-size:18px">${t}</b><span class="empty">${d}</span></div>`).join("")}</section>`}`;
     },
     catalogo: () => {
+      if ((S.settings.layout || "") === "ticket") return ticketCatalog(pub, false);
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
       const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
       return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>
@@ -1799,6 +1841,8 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
 
 document.addEventListener("change", (ev) => {
   const t = ev.target;
+  if (t.dataset.tkv) { (S.tkv ??= {})[t.dataset.tkv] = t.value; return render(); }
+  if (t.id === "tksort") { S.sort = t.value; return render(); }
   if (t.dataset.cpk) {
     const d = (S.data.cdraft ??= { picks: [], price: "", name: "" });
     const nm = document.querySelector('#comboForm [name=name]'); if (nm) d.name = nm.value;

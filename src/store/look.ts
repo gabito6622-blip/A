@@ -14,7 +14,7 @@ export const BG_STYLES = ["solid", "glow", "gradient", "aurora", "live", "dots",
 export const CARD_STYLES = ["solid", "glass", "outline", "neon", "ticket", "lista", "poster"] as const;
 export const CORNERS = ["round", "soft", "square"] as const;
 /** Tipo de tienda (estructura/diseño de la portada). */
-export const LAYOUTS = ["clasico", "vitrina", "catalogo", "minimal"] as const;
+export const LAYOUTS = ["clasico", "vitrina", "catalogo", "minimal", "ticket"] as const;
 
 export interface Look {
   accentColor?: string;
