@@ -14,6 +14,7 @@ import { ConsentsPanel } from "../components/Consents";
 import { PatientRecallsCard } from "../components/Recalls";
 import { Periodontogram } from "../components/perio/Periodontogram";
 import { PatientLabCard } from "../components/lab/LabShared";
+import { PatientTimeline } from "../components/PatientTimeline";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
 
@@ -93,6 +94,7 @@ export function PatientDetailPage() {
           </div>
           {can("agenda.read") && <PatientRecallsCard patientId={id!} />}
           {(can("clinical.read") || can("budgets.read")) && <PatientLabCard patientId={id!} patientName={`${pt.firstName} ${pt.lastName}`} />}
+          <PatientTimeline patientId={id!} />
         </div>
       )}
       {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} />}

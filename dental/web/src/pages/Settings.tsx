@@ -7,8 +7,9 @@ import { bs, fmtDateTime, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
 import { SessionTemplateEditor } from "../components/BudgetV2";
 import { PortalSettingsTab } from "./PortalSettings";
+import { AppointmentTypesSettings } from "../components/agenda/AppointmentTypesSettings";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "consents" | "portal" | "security" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "consents" | "portal" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -53,6 +54,7 @@ export function SettingsPage() {
     { id: "staff", label: "Personal", hidden: !can("staff.manage") },
     { id: "schedules", label: "Horarios", hidden: !can("clinic.manage") },
     { id: "procedures", label: "Prestaciones", hidden: !can("clinic.manage") },
+    { id: "appointmentTypes", label: "Tipos de cita", hidden: !can("clinic.manage") },
     { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
     { id: "portal", label: "Reserva online", hidden: !can("clinic.manage") },
     { id: "security", label: "Seguridad", hidden: me?.membership?.role !== "owner" },
@@ -75,6 +77,7 @@ export function SettingsPage() {
       {tab === "staff" && <StaffTab />}
       {tab === "schedules" && <SchedulesTab />}
       {tab === "procedures" && <ProceduresTab />}
+      {tab === "appointmentTypes" && <AppointmentTypesSettings />}
       {tab === "consents" && <ConsentsTab />}
       {tab === "portal" && <PortalSettingsTab />}
       {tab === "security" && <SecurityTab />}
