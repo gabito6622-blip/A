@@ -7,6 +7,7 @@ import { audit } from "../lib/audit.js";
 import type { Client } from "../lib/db.js";
 import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { dayBounds, isoWeekday, slotStarts, subtract, workIntervalsForDay, type Interval } from "../lib/slots.js";
+import { afterAppointmentStatusChange, linkRecallOnBooking, recordAppointmentEvent } from "./appointmentEvents.js";
 
 export async function clinicZone(c: Client, clinicId: string): Promise<string> {
   return (await c.query<{ timezone: string }>("SELECT timezone FROM clinics WHERE id = $1", [clinicId])).rows[0]?.timezone ?? "America/La_Paz";
@@ -235,7 +236,7 @@ export function agendaRoutes(route: Route) {
 
   route({
     method: "POST", url: "/api/appointments", summary: "Agendar cita (sin solapamientos, idempotente con idempotencyKey)", tags: ["agenda"], perm: "agenda.write",
-    body: apptBody,
+    body: apptBody.extend({ recallId: zId.nullish() }),
     handler: async ({ c, auth, body }) => {
       if (body.idempotencyKey) {
         await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1 || ':appt:' || $2, 0))", [auth.clinicId, body.idempotencyKey]);
@@ -256,7 +257,9 @@ export function agendaRoutes(route: Route) {
       );
       const id = r.rows[0]!.id;
       await audit(c, auth, "appointment.created", "appointment", id, { startsAt, endsAt, dentistId: body.dentistId, patientId: body.patientId }, body.branchId);
-      return { id };
+      await recordAppointmentEvent(c, auth, { appointmentId: id, branchId: body.branchId, from: null, to: "scheduled" });
+      const recall = await linkRecallOnBooking(c, auth, { appointmentId: id, patientId: body.patientId, procedureId: body.procedureId, startsAt, zone, recallId: body.recallId });
+      return { id, recall };
     },
   });
 
@@ -308,6 +311,7 @@ export function agendaRoutes(route: Route) {
           WHERE id = $1`,
         [params.id, next.branchId, next.chairId, next.dentistId, next.procedureId, startsAt, endsAt, body.reason !== undefined, body.reason ?? null, body.notes !== undefined, body.notes ?? null, timeChanged],
       );
+      if (timeChanged && cur.status !== "scheduled") await recordAppointmentEvent(c, auth, { appointmentId: params.id, branchId: next.branchId, from: cur.status, to: "scheduled", reason: "Reprogramada" });
       await audit(c, auth, timeChanged ? "appointment.rescheduled" : "appointment.updated", "appointment", params.id,
         { from: { startsAt: cur.starts_at, dentistId: cur.dentist_id, branchId: cur.branch_id }, to: { startsAt, dentistId: next.dentistId, branchId: next.branchId } }, next.branchId);
       return { ok: true, rescheduled: timeChanged };
@@ -333,6 +337,7 @@ export function agendaRoutes(route: Route) {
         [params.id, body.status, body.reason],
       );
       await audit(c, auth, "appointment.status", "appointment", params.id, { from: cur.status, to: body.status, reason: body.reason }, cur.branch_id);
+      await afterAppointmentStatusChange(c, auth, { appointmentId: params.id, branchId: cur.branch_id, from: cur.status, to: body.status, reason: body.reason });
       return { ok: true };
     },
   });

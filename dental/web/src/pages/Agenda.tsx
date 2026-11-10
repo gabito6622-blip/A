@@ -6,6 +6,7 @@ import { useApi, useDebounced } from "../lib/hooks";
 import { api, newKey, qs } from "../lib/api";
 import { addDays, fmtDateLong, fmtTime, laPazISO, localDate, minutesOfDay } from "../lib/format";
 import { Dialog, Drawer, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
+import { NextControlDialog, RecallLinkPicker } from "../components/Recalls";
 
 const START = 7 * 60, END = 21 * 60, STEP = 15, PX = 18;
 const ROWS = (END - START) / STEP;
@@ -14,7 +15,7 @@ const TRANSITION_LABELS: Record<string, string> = {
   confirmed: "Confirmar", arrived: "Llegó", in_progress: "En atención", completed: "Atendido", cancelled: "Cancelar", no_show: "No asistió", scheduled: "Volver a agendada",
 };
 
-export interface NewApptPrefill { date?: string; time?: string; dentistId?: string; durationMin?: number; procedureId?: string | null; patient?: { id: string; name: string } | null }
+export interface NewApptPrefill { date?: string; time?: string; dentistId?: string; durationMin?: number; procedureId?: string | null; patient?: { id: string; name: string } | null; recall?: { id: string; reason: string } | null }
 
 export function AgendaPage() {
   const { me, can, branchId: selBranch, setBranchId } = useAuth();
@@ -25,6 +26,7 @@ export function AgendaPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState(false);
   const [reminders, setReminders] = useState(false);
+  const [nextControl, setNextControl] = useState<string | null>(null);
   const appts = useApi<any[]>(branchId ? `/api/appointments${qs({ from: laPazISO(date, "00:00"), to: laPazISO(addDays(date, 1), "00:00"), branchId })}` : null);
   const avail = useApi<any[]>(branchId ? `/api/availability${qs({ date, branchId, durationMin: 15 })}` : null);
   const staff = useApi<any[]>("/api/staff?professionals=1");
@@ -138,7 +140,8 @@ export function AgendaPage() {
       </div>
 
       {newAppt && <NewAppointmentDialog branchId={branchId} prefill={newAppt} onClose={() => setNewAppt(null)} onSaved={() => { setNewAppt(null); reload(); }} />}
-      {openId && <AppointmentDrawer id={openId} onClose={() => setOpenId(null)} onChanged={reload} />}
+      {openId && <AppointmentDrawer id={openId} onClose={() => setOpenId(null)} onChanged={reload} onCompleted={(id) => { setOpenId(null); setNextControl(id); }} />}
+      {nextControl && <NextControlDialog appointmentId={nextControl} onClose={() => setNextControl(null)} />}
       {search && <SlotSearchDialog branchId={branchId} onClose={() => setSearch(false)} onPick={(p) => { setSearch(false); setDate(p.date!); setNewAppt(p); }} />}
       {reminders && <RemindersDialog branchId={branchId} onClose={() => setReminders(false)} />}
     </div>
@@ -215,7 +218,7 @@ export function QuickPatientDialog({ onClose, onCreated }: { onClose: () => void
   );
 }
 
-function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { branchId: string; prefill: NewApptPrefill; onClose: () => void; onSaved: () => void }) {
+export function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { branchId: string; prefill: NewApptPrefill; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
   const { me } = useAuth();
   const staff = useApi<any[]>("/api/staff?professionals=1");
@@ -230,6 +233,7 @@ function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { branchI
   const [key] = useState(newKey());
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recallId, setRecallId] = useState<string | null | undefined>(prefill.recall?.id);
   const dentists = (staff.data ?? []).filter((s) => s.allBranches || s.role === "owner" || s.branchIds.includes(branchId));
   useEffect(() => {
     const p = procs.data?.find((x) => x.id === f.procedureId);
@@ -240,11 +244,11 @@ function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { branchI
     if (!f.dentistId) { setErr("Elige el profesional"); return; }
     setBusy(true); setErr(null);
     try {
-      await api.post("/api/appointments", {
+      const r = await api.post("/api/appointments", {
         branchId, patientId: patient.id, dentistId: f.dentistId, chairId: f.chairId || null, procedureId: f.procedureId || null,
-        startsAt: laPazISO(f.date, f.time), durationMin: Number(f.durationMin), reason: f.reason || null, source: f.source, idempotencyKey: key,
+        startsAt: laPazISO(f.date, f.time), durationMin: Number(f.durationMin), reason: f.reason || null, source: f.source, idempotencyKey: key, recallId,
       });
-      toast("Cita agendada");
+      toast(r.recall?.linkedRecallId ? "Cita agendada y vinculada al control" : "Cita agendada");
       onSaved();
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -280,13 +284,14 @@ function NewAppointmentDialog({ branchId, prefill, onClose, onSaved }: { branchI
               <option value="reception">Recepción</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option><option value="walk_in">Sin cita (presencial)</option>
             </select>
           </Field>
+          {patient && <RecallLinkPicker key={patient.id} patientId={patient.id} procedureId={f.procedureId || null} date={f.date} fixed={patient.id === prefill.patient?.id ? prefill.recall : null} value={recallId} onChange={setRecallId} />}
         </div>
       </div>
     </Dialog>
   );
 }
 
-function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+export function AppointmentDrawer({ id, onClose, onChanged, onCompleted }: { id: string; onClose: () => void; onChanged: () => void; onCompleted?: (id: string) => void }) {
   const toast = useToast();
   const { can } = useAuth();
   const a = useApi<any>(`/api/appointments/${id}`);
@@ -298,6 +303,7 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
     try {
       await api.post(`/api/appointments/${id}/status`, { status, reason: reason ?? null });
       toast("Estado actualizado"); a.reload(); onChanged(); setCancelReason(null);
+      if (status === "completed") onCompleted?.(id);
     } catch (e: any) { setErr(e.message); }
   };
   const reschedule = async () => {

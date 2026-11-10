@@ -15,6 +15,7 @@ import { ReportsPage } from "./pages/Reports";
 import { SettingsPage } from "./pages/Settings";
 import { AssistantPage } from "./pages/Assistant";
 import { PlatformPage } from "./pages/Platform";
+import { RecallsPage } from "./pages/Recalls";
 import { Loading } from "./components/ui";
 
 export function App() {
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/sala-espera" element={<WaitingRoomPage />} />
+        <Route path="/controles" element={<RecallsPage />} />
         <Route path="/cuenta" element={<AccountPage />} />
         <Route path="/bioseguridad" element={<BiosafetyPage />} />
         <Route path="/pacientes" element={<PatientsPage />} />

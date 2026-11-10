@@ -306,7 +306,7 @@ export function clinicRoutes(route: Route) {
       (
         await c.query(
           `SELECT id, code, name, category, price_cents AS "priceCents", duration_min AS "durationMin", scope,
-                  odontogram_condition AS "odontogramCondition", active
+                  odontogram_condition AS "odontogramCondition", active, recall_months AS "recallMonths"
              FROM procedures WHERE ($1::boolean OR active) ORDER BY category, name`,
           [query.all === "1"],
         )
@@ -322,6 +322,8 @@ export function clinicRoutes(route: Route) {
     scope: z.enum(["mouth", "quadrant", "tooth", "surface"]).default("tooth"),
     odontogramCondition: zOptText(40),
     active: z.boolean().default(true),
+    /** Meses hasta el próximo control (null = no genera control; ausente = sin cambios). */
+    recallMonths: z.number().int().min(1, "Mínimo 1 mes").max(60, "Máximo 60 meses").nullable().optional(),
   });
 
   route({
@@ -332,6 +334,7 @@ export function clinicRoutes(route: Route) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
         [auth.clinicId, body.code, body.name, body.category, body.priceCents, body.durationMin, body.scope, body.odontogramCondition, body.active],
       );
+      if (body.recallMonths !== undefined) await c.query("UPDATE procedures SET recall_months = $2 WHERE id = $1", [r.rows[0]!.id, body.recallMonths]);
       await audit(c, auth, "procedure.created", "procedure", r.rows[0]!.id, body);
       return { id: r.rows[0]!.id };
     },
@@ -346,6 +349,7 @@ export function clinicRoutes(route: Route) {
         `UPDATE procedures SET code=$2, name=$3, category=$4, price_cents=$5, duration_min=$6, scope=$7, odontogram_condition=$8, active=$9 WHERE id=$1`,
         [params.id, body.code, body.name, body.category, body.priceCents, body.durationMin, body.scope, body.odontogramCondition, body.active],
       );
+      if (body.recallMonths !== undefined) await c.query("UPDATE procedures SET recall_months = $2 WHERE id = $1", [params.id, body.recallMonths]);
       await audit(c, auth, "procedure.updated", "procedure", params.id, { ...body, previousPriceCents: prev.price_cents });
       return { ok: true };
     },
