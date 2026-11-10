@@ -192,7 +192,9 @@ describe("Panel de códigos", () => {
       assert.equal((await pub("4821")).status, 429, "se bloquea tras muchos intentos");
       const page = await fetch(`${base}/codigos/${token}`);
       assert.equal(page.status, 200);
-      assert.match(await page.text(), /PIN de 4 números/, "sirve la página del link");
+      const html = await page.text();
+      assert.match(html, /<script type="module" src="\/codigos\.js"><\/script>/, "sirve la página del link (con su script aparte, por la CSP)");
+      assert.match(await (await fetch(`${base}/codigos.js`)).text(), /PIN de 4 números/, "el script de la página pide el PIN");
 
       // Link "escribí tu correo" (sin PIN) para Beto: el cliente pone su correo y ve solo ese código.
       const elk = await call(`/api/admin/customers/${beto.id}/code-link`, {});

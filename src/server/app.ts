@@ -21,6 +21,25 @@ import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as pars
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
+/** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
+ *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
+ *  - style-src 'unsafe-inline': las vistas usan atributos style="…" (no ejecutan código).
+ *  - img-src https:: el QR de Binance Pay viene de un servidor de Binance.
+ *  - frame-ancestors 'self': nadie de afuera puede incrustar la tienda (anti clickjacking). */
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self'",
+  "frame-src 'self'",
+  "frame-ancestors 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 export interface AppConfig {
   /** Carpeta de datos: base SQLite (gabriel.db) y comprobantes (uploads/). */
   dataDir: string;
@@ -1370,6 +1389,13 @@ export function createApp(cfg: AppConfig): App {
     res.setHeader("Referrer-Policy", "no-referrer");
     // SAMEORIGIN: el panel muestra la tienda en una vista previa; ningún otro sitio puede incrustarla.
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    // Lista blanca de lo que el navegador puede cargar. Sin scripts en línea ni de otros sitios:
+    // si alguien lograra meter HTML, su <script> no corre.
+    res.setHeader("Content-Security-Policy", CSP);
+    // La tienda no usa cámara, micrófono ni ubicación: los apagamos para que nada incrustado los pida.
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    // HSTS solo con HTTPS de verdad (en local con http rompería el acceso).
+    if (cfg.secureCookies) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     const url = new URL(req.url ?? "/", "http://local");
     const fwd = cfg.trustProxy ? String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
     const ip = fwd || (req.socket.remoteAddress ?? "?");
