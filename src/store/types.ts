@@ -384,6 +384,8 @@ export interface Order {
   binance?: BinancePay;
   /** Prueba gratis: no cuenta como venta en las estadísticas. */
   trial?: boolean;
+  /** Cupón usado (copia del código por si después se borra) y cuánto descontó. */
+  coupon?: { id: Id; code: string; amount: Cents };
   createdAt: number;
   updatedAt: number;
 }
@@ -583,6 +585,8 @@ export interface State {
   settings: StoreSettings;
   /** Gastos manuales del dueño (para Finanzas: lo que salió). */
   expenses: Expense[];
+  /** Cupones de descuento. */
+  coupons: Record<Id, Coupon>;
   seq: number;
 }
 
@@ -592,4 +596,27 @@ export interface Expense {
   amount: Cents;
   note: string;
   at: number;
+}
+
+/** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */
+export interface Coupon {
+  id: Id;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  expiresAt?: number;
+  /** Usos en total (sin límite si falta). */
+  maxUses?: number;
+  /** Usos por cliente (sin límite si falta). */
+  perCustomer?: number;
+  /** Compra mínima, en centavos. */
+  minTotal?: Cents;
+  /** Si se llena, el descuento solo cuenta sobre estos productos. */
+  productIds?: Id[];
+  /** Los revendedores también lo pueden usar (si no, es solo para clientes). */
+  resellers: boolean;
+  active: boolean;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
 }

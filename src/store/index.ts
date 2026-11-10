@@ -16,6 +16,7 @@ import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
+import * as coupons from "./coupons.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -70,6 +71,7 @@ export function createStore(opts: EngineOptions = {}) {
     },
     orders: {
       create: bind(e, orders.createOrder),
+      quote: bind(e, orders.quoteOrder),
       createTrial: bind(e, orders.createTrial),
       comboDiscount: bind(e, orders.comboDiscount),
       submitEvidence: bind(e, orders.submitEvidence),
@@ -192,6 +194,11 @@ export function createStore(opts: EngineOptions = {}) {
       audit: bind(e, stats.auditLog),
       notifications: bind(e, stats.notifications),
       feed: () => stats.notificationItems(e),
+    },
+    coupons: {
+      list: bind(e, coupons.listCoupons),
+      save: bind(e, coupons.saveCoupon),
+      remove: bind(e, coupons.deleteCoupon),
     },
     finance: {
       report: bind(e, finance.report),

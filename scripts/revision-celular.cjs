@@ -11,7 +11,7 @@ const OUT = process.argv[2] || ".";
 const USER = process.env.GS_USER || "gabriel";
 const PASS = process.env.GS_PASS || "demo-gabriel-2026";
 const shopViews = ["inicio", "catalogo", "combo", "asesor", "cuentas", "recargas"];
-const panelViews = process.env.VIEWS ? process.env.VIEWS.split(",") : ["inicio", "vender", "control", "renovar", "dashboard", "finanzas", "notificaciones", "reubicar", "aprobacion", "recordatorios", "codigos", "cuentas", "carga", "productos", "revendedores", "proveedores", "clientes", "excel", "whatsapp", "apariencia", "usuarios", "auditoria", "configuracion", "ayuda"];
+const panelViews = process.env.VIEWS ? process.env.VIEWS.split(",") : ["inicio", "vender", "control", "renovar", "dashboard", "finanzas", "notificaciones", "reubicar", "aprobacion", "recordatorios", "codigos", "cuentas", "carga", "productos", "cupones", "revendedores", "proveedores", "clientes", "excel", "whatsapp", "apariencia", "usuarios", "auditoria", "configuracion", "ayuda"];
 const widths = process.env.WIDTHS ? process.env.WIDTHS.split(",").map(Number) : [360, 390, 768];
 const themes = process.env.THEMES ? process.env.THEMES.split(",") : ["light", "dark"];
 

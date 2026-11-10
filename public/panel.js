@@ -16,11 +16,11 @@ const MENU = [
   ["notificaciones", "bell", "Notificaciones"],
   ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
-  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
+  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -365,12 +365,50 @@ const V = {
             <div><span class="selbl">💳 Estado de pago</span><div class="seg payseg"><button type="button" data-pay="pagado" aria-pressed="true">✅ Pagado</button><button type="button" data-pay="pendiente" aria-pressed="false">⏳ Pendiente</button></div></div>
             <label>Cantidad<input name="qty" type="number" min="1" max="10" value="1"></label>
             <label>💵 Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
+            <label>🏷️ Cupón <small class="muted">(opcional)</small><input name="couponCode" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10"></label>
           </div>
         </details>
         <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
         <div id="sellSummary" class="sellsum" hidden></div>
         <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
       <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
+  },
+
+  async cupones() {
+    let list;
+    try { list = await api("GET", "/api/admin/coupons"); }
+    catch (e) { if (e.status === 403) return `<section class="card"><div class="emptybox">Solo el dueño o un admin manejan los cupones.</div></section>`; throw e; }
+    const products = (await api("GET", "/api/admin/products")).filter((p) => p.kind !== "combo");
+    const ed = list.find((c) => c.id === P.tab.couponEdit) ?? null;
+    const ST = { active: ["✅ Activo", "on"], paused: ["⏸️ Pausado", "off"], expired: ["📅 Vencido", "bad"], used_up: ["🔚 Sin usos", "bad"] };
+    const val = (c) => c.type === "percent" ? `${c.value}%` : bs(c.value);
+    const rules = (c) => [c.expiresAt ? `vence ${fdate(c.expiresAt)}` : "", c.maxUses ? `${c.uses}/${c.maxUses} usos` : `${c.uses} uso(s)`,
+      c.perCustomer ? `${c.perCustomer} por cliente` : "", c.minTotal ? `desde ${bs(c.minTotal)}` : "",
+      c.productIds?.length ? `solo ${c.productIds.map((id) => products.find((p) => p.id === id)?.name ?? id).join(", ")}` : "",
+      c.resellers ? "también revendedores" : "solo clientes"].filter(Boolean).join(" · ");
+    const rows = list.map((c) => `<tr><td><b class="mono">${esc(c.code)}</b>${c.note ? `<br><small class="muted">${esc(c.note)}</small>` : ""}</td><td><b>${val(c)}</b></td>
+      <td><small>${esc(rules(c))}</small></td><td><span class="cupst ${ST[c.state][1]}">${ST[c.state][0]}</span></td>
+      <td><div class="inline"><button class="pbtn sm" type="button" data-cupedit="${esc(c.id)}">${icon("edit")}Editar</button>
+        <button class="pbtn sm" type="button" data-cuptoggle="${esc(c.id)}">${c.active ? "⏸️ Pausar" : "▶️ Activar"}</button>
+        <button class="pbtn sm" type="button" data-cupdel="${esc(c.id)}" data-name="${esc(c.code)}" aria-label="Borrar el cupón ${esc(c.code)}">${icon("trash")}</button></div></td></tr>`);
+    const f = ed ?? { type: "percent", resellers: false };
+    return `<section class="card"><h2>${icon("tag")}${ed ? `Editar cupón ${esc(ed.code)}` : "Nuevo cupón"} <small>el cliente lo escribe en el carrito</small></h2>
+      <form class="form" id="couponForm" autocomplete="off" ${ed ? `data-id="${esc(ed.id)}"` : ""}>
+        <label>Código<input name="code" required maxlength="20" autocapitalize="characters" value="${esc(f.code ?? "")}" placeholder="Ej.: VERANO10"></label>
+        <label>Tipo de descuento<select name="type">${opt("percent", "Porcentaje (%)", f.type === "percent")}${opt("fixed", `Monto fijo (${currencySym()})`, f.type === "fixed")}</select></label>
+        <label>Descuento<input name="value" type="number" min="0.01" step="0.01" inputmode="decimal" required value="${f.value ? (f.type === "percent" ? f.value : f.value / 100) : ""}" placeholder="Ej.: 10"></label>
+        <label>Vence el <small class="muted">(opcional)</small><input name="expiresAt" type="date" value="${f.expiresAt ? dateInput(f.expiresAt) : ""}"></label>
+        <label>Usos en total <small class="muted">(vacío = sin límite)</small><input name="maxUses" type="number" min="1" step="1" inputmode="numeric" value="${f.maxUses ?? ""}"></label>
+        <label>Usos por cliente <small class="muted">(vacío = sin límite)</small><input name="perCustomer" type="number" min="1" step="1" inputmode="numeric" value="${f.perCustomer ?? ""}" placeholder="Ej.: 1"></label>
+        <label>Compra mínima (${currencySym()}) <small class="muted">(opcional)</small><input name="minTotal" type="number" min="0" step="0.01" inputmode="decimal" value="${f.minTotal ? f.minTotal / 100 : ""}"></label>
+        <label>Nota interna <small class="muted">(opcional)</small><input name="note" maxlength="120" value="${esc(f.note ?? "")}" placeholder="Ej.: para el grupo de Facebook"></label>
+        <fieldset class="cupprods" style="grid-column:1/-1"><legend>¿Para qué productos? <small class="muted">(ninguno marcado = todos)</small></legend>
+          ${products.map((p) => `<label class="chk"><input type="checkbox" name="cupprod" value="${esc(p.id)}" ${f.productIds?.includes(p.id) ? "checked" : ""}> ${esc(p.name)}</label>`).join("") || `<span class="muted">Todavía no hay productos.</span>`}</fieldset>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="resellers" ${f.resellers ? "checked" : ""}> Los revendedores también lo pueden usar</label>
+        <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("plus")}${ed ? "Guardar cambios" : "Crear cupón"}</button>${ed ? `<button class="pbtn" type="button" data-cupedit="">Cancelar</button>` : ""}</div>
+      </form>
+      <p class="muted" style="margin:10px 0 0">El descuento se suma al de “Armá tu combo” y siempre queda algo a pagar. Si un pedido vence o se cancela, el uso vuelve al cupón.</p></section>
+      <section class="card"><h2>${icon("tag")}Tus cupones <small>${list.length}</small></h2>${table(["Código", "Descuento", "Reglas", "Estado", ""], rows, "Todavía no creaste cupones.")}</section>`;
   },
 
   async aprobacion() {
@@ -1115,7 +1153,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1152,6 +1190,7 @@ function auditText(a, maps) {
   const obj = many ? "varios" : ({
     order: () => `el pedido ${audNum(id)}`, assignment: () => `el alquiler ${audNum(id)}`, account: () => `la cuenta ${audNum(id)}`, slot: () => `el perfil ${audNum(id)}`,
     customer: () => maps.cust[id] ? `al cliente ${maps.cust[id].name}` : `al cliente ${audNum(id)}`, product: () => maps.prod[id] ? `"${maps.prod[id].name}"` : `"${id}"`,
+    coupon: () => (a.data?.code ? `"${a.data.code}"` : ""),
     staff: () => maps.staff[id]?.name ?? `un usuario`, supplier: () => `"${id}"`, price_group: () => `"${id}"`, reseller_app: () => `${audNum(id)}`,
   }[a.entity] ?? (() => ""))();
   const verb = AUD_VERB[a.action] ?? a.action.replace(/[._]/g, " ");
@@ -1169,6 +1208,7 @@ function auditText(a, maps) {
   if (Number.isFinite(d.usdt)) parts.push(`${d.usdt} USDT`);
   if (Number.isFinite(d.count)) parts.push(`${d.count}`);
   if (Number.isFinite(d.slots) && d.slots) parts.push(`${d.slots} perfil(es)`);
+  if (d.coupon) parts.push(`cupón ${d.coupon}${Number.isFinite(d.couponAmount) ? ` (−${bs(d.couponAmount)})` : ""}`);
   return { who, role, what, detail: parts.join(" · ") };
 }
 
@@ -1479,13 +1519,13 @@ async function render() {
   watch.last = pend;
   showPending(pend);
   refreshNotifCount();
-  const inG = ["cuentas", "carga", "productos"].includes(P.view);
+  const inG = ["cuentas", "carga", "productos", "cupones"].includes(P.view);
   $("#menu").innerHTML = MENU.filter((m) => !m[3] || m[3] === "owner" && isOwner() || Array.isArray(m[3])).map(([k, i, t, sub]) => Array.isArray(sub)
     ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
     : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(i)}${t}${k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : ""}</button>`).join("");
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
-  const bnavFor = ["cuentas", "carga", "productos"].includes(P.view) ? "cuentas" : P.view;
+  const bnavFor = ["cuentas", "carga", "productos", "cupones"].includes(P.view) ? "cuentas" : P.view;
   $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", b.dataset.go === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {
@@ -1663,6 +1703,20 @@ function showDeliveries(list) {
   document.body.appendChild(el);
 }
 
+// Presupuesto con cupón para la venta manual (se pide al servidor, que es quien decide).
+const sellQuote = { key: "", r: null, timer: 0 };
+function quoteSell(cid, productId, qty, code) {
+  const key = `${cid}|${productId}|${qty}|${code}`;
+  clearTimeout(sellQuote.timer);
+  sellQuote.timer = setTimeout(async () => {
+    try {
+      const r = await api("POST", "/api/admin/orders/quote", { customerId: cid, items: [{ productId, qty }], couponCode: code });
+      Object.assign(sellQuote, { key, r });
+    } catch (e) { Object.assign(sellQuote, { key, r: { coupon: null, couponError: e.message } }); }
+    sellSummary();
+  }, 350);
+}
+
 // Resumen en vivo de la venta: se ve exactamente qué se va a cobrar y a quién antes de confirmar.
 function sellSummary() {
   const f = $("#sellForm"); if (!f) return;
@@ -1679,12 +1733,17 @@ function sellSummary() {
   const method = f.paymentMethod.value === "balance" ? "Saldo del cliente" : "Efectivo / QR";
   const pay = f.payStatus.value === "pendiente" ? "⏳ Pendiente" : "✅ Pagado";
   const extra = `${qty > 1 ? ` · ${qty}×` : ""}${months > 1 ? ` · ${months} meses` : ""}`;
+  const code = (f.couponCode?.value || "").trim().toUpperCase();
+  const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}` ? sellQuote.r : null;
+  if (code && !q) quoteSell(cid, f.productId.value, qty, code);
+  const total = q?.coupon ? q.total : price * qty;
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
     <div class="sumline"><span>${combo ? "🎁 Combo" : "Producto"}</span><b>${esc(name)}${extra}</b></div>
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
-    <div class="sumtot"><span>Total a cobrar</span><b>${bs(price * qty)}</b></div>`;
-  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(price * qty)}`;
+    ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
+    <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
+  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
@@ -1971,6 +2030,18 @@ document.addEventListener("click", async (ev) => {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
   }
+  if (d.cupedit !== undefined) { P.tab.couponEdit = d.cupedit || null; return render(); }
+  if (d.cuptoggle) {
+    const c = (await api("GET", "/api/admin/coupons")).find((x) => x.id === d.cuptoggle);
+    if (!c) return;
+    const { uses, state, ...body } = c;
+    return act(() => api("POST", "/api/admin/coupons", { ...body, active: !c.active }), c.active ? `Cupón ${c.code} pausado` : `Cupón ${c.code} activo`);
+  }
+  if (d.cupdel) {
+    if (!confirm(`¿Borrar el cupón ${el.dataset.name}?\n\nLos pedidos que ya lo usaron no cambian.`)) return;
+    if (P.tab.couponEdit === d.cupdel) P.tab.couponEdit = null;
+    return act(() => api("POST", `/api/admin/coupons/${d.cupdel}/delete`, {}), "Cupón borrado");
+  }
   if (d.rmexp) {
     if (!confirm("¿Quitar este gasto?")) return;
     return act(() => api("POST", `/api/admin/expenses/${d.rmexp}/remove`, {}), "Gasto quitado");
@@ -2165,7 +2236,7 @@ document.addEventListener("submit", async (ev) => {
       const dur = P.tab.sellDur?.[f.productId.value] || 30;
       if (btn) btn.disabled = true;
       try {
-        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}) });
+        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}) });
         for (const id of (o.assignmentIds ?? [])) {
           if (months > 1) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: Date.now() + months * dur * 86400000 }).catch(() => {});
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
@@ -2218,6 +2289,19 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "faqForm") {
       const items = [...f.querySelectorAll(".fq-row")].map((r) => ({ q: r.querySelector('[name="fq"]').value.trim(), a: r.querySelector('[name="fa"]').value.trim() })).filter((x) => x.q && x.a);
       await act(() => api("POST", "/api/admin/faq", { items }), `${items.length} pregunta(s) guardadas`);
+    } else if (f.id === "couponForm") {
+      const type = f.type.value, raw = Number(String(f.value.value).replace(",", "."));
+      const value = type === "percent" ? Math.round(raw) : toCents(f.value.value);
+      if (!value || value <= 0) return toast("Poné cuánto descuenta");
+      const ymd = f.expiresAt.value; // fin del día elegido, hora local
+      const body = { id: f.dataset.id || undefined, code: f.code.value, type, value,
+        expiresAt: ymd ? new Date(`${ymd}T23:59:59`).getTime() : null,
+        maxUses: f.maxUses.value ? +f.maxUses.value : null, perCustomer: f.perCustomer.value ? +f.perCustomer.value : null,
+        minTotal: f.minTotal.value ? toCents(f.minTotal.value) : null, note: f.note.value.trim(),
+        productIds: [...f.querySelectorAll('[name="cupprod"]:checked')].map((x) => x.value), resellers: f.resellers.checked };
+      const prev = P.tab.couponEdit; P.tab.couponEdit = null;
+      const ok = await act(() => api("POST", "/api/admin/coupons", body), (c) => `🏷️ Cupón ${c.code} guardado`);
+      if (!ok) P.tab.couponEdit = prev;
     } else if (f.id === "expenseForm") {
       const amount = toCents(f.amount.value);
       if (!amount || Number.isNaN(amount) || amount <= 0) return toast("Poné un monto mayor a 0");

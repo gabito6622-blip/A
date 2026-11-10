@@ -17,6 +17,7 @@ import { canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
+import { couponFor } from "./coupons.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fdate = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -39,6 +40,8 @@ export interface CreateOrderInput {
   idempotencyKey?: string;
   /** Solo staff: perfiles concretos a asignar (si no, el sistema elige el que vence antes). */
   preferredSlotIds?: Id[];
+  /** Código de cupón de descuento (opcional). */
+  couponCode?: string;
 }
 
 /**
@@ -86,15 +89,17 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
     const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
     const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
+    const cup = input.couponCode ? couponFor(e, input.couponCode, payerId, items, gross - discount) : null;
     const order: Order = {
       id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id, channel,
-      items, total: gross - discount, status: "awaiting_payment",
+      items, total: gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
+      ...(cup ? { coupon: { id: cup.coupon.id, code: cup.coupon.code, amount: cup.amount } } : {}),
       ...(back.length ? { backorder: back } : {}),
     };
     e.s.orders[id] = order;
-    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length });
+    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}) });
     if (input.paymentMethod === "balance") {
       post(e, actor, payerId, -order.total, "purchase", id);
       fulfill(e, actor, order);
@@ -106,6 +111,34 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     }
     return structuredClone(order);
   }));
+}
+
+/**
+ * Lo que costaría un pedido, sin crearlo: sirve para mostrar el descuento del cupón en el carrito
+ * antes de pagar. Si el cupón no aplica, devuelve el motivo en `couponError`.
+ */
+export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; items: { productId: Id; qty: number }[]; couponCode?: string; channel?: Order["channel"] }) {
+  if (isStaff(actor)) authorize(actor, "order.create_any");
+  else authorize(actor, "order.create_self");
+  requireActFor(e, actor, input.customerId);
+  if (!Array.isArray(input.items) || !input.items.length || input.items.length > 20) throw new DomainError("VALIDATION", "El pedido necesita entre 1 y 20 ítems");
+  const payerId = payerFor(e, actor, input.customerId);
+  const items = input.items.map((it) => {
+    const qty = Number(it.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
+    const p = e.get("products", it.productId);
+    if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
+    return { productId: it.productId, qty, unitPrice: priceFor(e, payerId, it.productId) };
+  });
+  const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
+  const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+  const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
+  let coupon: { code: string; amount: Cents } | null = null, couponError: string | null = null;
+  if (input.couponCode) {
+    try { const r = couponFor(e, input.couponCode, payerId, items, gross - discount); coupon = { code: r.coupon.code, amount: r.amount }; }
+    catch (err) { if (err instanceof DomainError) couponError = err.message; else throw err; }
+  }
+  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0) };
 }
 
 /** Prueba gratis: entrega una línea/perfil por unas horas, sin cobrar. No cuenta como venta. */

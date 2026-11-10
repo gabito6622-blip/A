@@ -1092,6 +1092,18 @@ function comboClick(d) {
   return false;
 }
 
+/* Cupón: se pide al servidor cuánto descuenta; vale mientras el carrito no cambie. */
+const cartKey = () => JSON.stringify(S.cart.map((l) => [l.productId, l.qty]));
+const couponNow = () => (S.coupon && S.coupon.key === cartKey() && S.coupon.amount ? S.coupon : null);
+async function applyCoupon(code) {
+  code = String(code || "").trim().toUpperCase();
+  if (!code) { S.coupon = null; return; }
+  try {
+    const q = await api("POST", "/api/orders/quote", { items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), couponCode: code });
+    S.coupon = q.coupon ? { key: cartKey(), code: q.coupon.code, amount: q.coupon.amount } : { key: cartKey(), code, amount: 0, error: q.couponError };
+  } catch (e) { S.coupon = { key: cartKey(), code, amount: 0, error: e.message }; }
+}
+
 function renderCart(msg = "") {
   const tot = cartTotal();
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
@@ -1114,9 +1126,14 @@ function renderCart(msg = "") {
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
   }
-  const canBalance = S.me.balance >= toPay && !cartBackorder();
+  const cup = couponNow(), cupErr = S.coupon && S.coupon.key === cartKey() && S.coupon.error ? S.coupon : null;
+  const net = toPay - (cup?.amount ?? 0);
+  const canBalance = S.me.balance >= net && !cartBackorder();
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
-    ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
+    ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
+    ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
+      : `<div class="cupbox"><label for="cupIn">¿Tenés un cupón de descuento?</label><div class="cuprow"><input id="cupIn" name="coupon" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10" value="${esc(cupErr?.code ?? "")}"><button class="sbtn sm" type="button" data-coupon="apply">Aplicar</button></div>${cupErr ? `<div class="err" role="alert">${esc(cupErr.error)}</div>` : ""}</div>`}
+    <div class="total"><span>Total</span><span>${bs(net)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
     <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>
@@ -1124,7 +1141,7 @@ function renderCart(msg = "") {
     ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
     <div id="qrInfo" ${canBalance ? "hidden" : ""}>${qrBlock()}</div>
-    ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(toPay)}</div>` : ""}
+    ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${canBalance ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación o hash<input name="ref" placeholder="Ej.: 123456789 o el hash de la transacción"></label></div>
     <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
@@ -1144,6 +1161,7 @@ async function submitCheckout(form) {
     const order = await api("POST", "/api/orders", {
       items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
       customerId: form.customerId?.value || undefined, idempotencyKey: S.checkoutKey,
+      ...(couponNow() ? { couponCode: couponNow().code } : {}),
     });
     if (pm === "binance") {
       let pay;
@@ -1399,6 +1417,18 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.inc) { const l = S.cart[d.inc]; if (l.qty < maxQty(product(l.productId))) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
   if (d.dec) { if (--S.cart[d.dec].qty <= 0) S.cart.splice(d.dec, 1); saveCart(); renderCart(); return render(); }
+  if (d.coupon) {
+    const form = $("#checkout"), pm = form?.pm?.value, who = form?.customerId?.value;
+    if (d.coupon === "off") S.coupon = null;
+    else { el.disabled = true; await applyCoupon(form?.coupon?.value); }
+    renderCart();
+    const f2 = $("#checkout");
+    if (f2 && who !== undefined && f2.customerId) f2.customerId.value = who;
+    const r = pm && f2?.querySelector(`[name="pm"][value="${pm}"]:not(:disabled)`);
+    if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); }
+    (couponNow() ? f2?.querySelector('[name="pm"]:checked') : $("#cupIn"))?.focus();
+    return;
+  }
   if (d.step) {
     S.step = +d.step;
     if (S.step === 2 && isReseller() && !S.data.customers) S.data.customers = await api("GET", "/api/me/customers").catch(() => []);
@@ -1671,3 +1701,8 @@ function openApply(msg = "") {
   $("#scrim").hidden = false;
   $("#modal input")?.focus();
 }
+
+// Enter en el campo del cupón aplica el cupón (no manda el pedido).
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.id === "cupIn") { ev.preventDefault(); document.querySelector('[data-coupon="apply"]')?.click(); }
+});

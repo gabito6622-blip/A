@@ -765,3 +765,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .lookwarn:empty{display:none}
 .lookwarn.ok{background:color-mix(in srgb,var(--s-ok) 14%,var(--s-card))}
 .lookwarn.warn{background:color-mix(in srgb,var(--s-warn) 22%,var(--s-card));border:1px solid color-mix(in srgb,var(--s-warn) 55%,transparent)}
+
+/* Cupón en el carrito */
+.cupbox{display:grid;gap:6px}
+.cupbox label{font-size:14px;font-weight:600}
+.cuprow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.cuprow input{min-height:44px;text-transform:uppercase}
+.cuprow .sbtn{min-height:44px}
+.cupx{background:none;border:0;color:inherit;text-decoration:underline;font:inherit;font-size:13px;cursor:pointer;min-height:44px;padding:0 6px}
