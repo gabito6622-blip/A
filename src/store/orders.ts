@@ -289,7 +289,10 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { co
   return e.tx(() => e.idempotent(key, () => {
     const o = e.get("orders", orderId);
     if (o.status === "fulfilled") throw new DomainError("ALREADY_PROCESSED", "El pedido ya fue aprobado");
-    if (o.status !== "payment_review") throw new DomainError("INVALID_STATE", `Solo se aprueban pedidos en revisión (estado: ${o.status})`);
+    // "Esperando pago" también se aprueba cuando el cliente mandó el comprobante por otro lado (WhatsApp):
+    // solo pagos manuales (QR, método del país, USDT); Binance se confirma solo y el saldo se cobra al pedir.
+    const manual = o.status === "awaiting_payment" && (o.paymentMethod === "qr" || o.paymentMethod === "local" || o.paymentMethod === "usdt");
+    if (o.status !== "payment_review" && !manual) throw new DomainError("INVALID_STATE", `Solo se aprueban pedidos en revisión (estado: ${o.status})`);
     if (actor.customerId && actor.customerId === o.customerId) throw new DomainError("FORBIDDEN", "No podés aprobar tu propio pedido");
     const ref = input.confirmedReference?.trim();
     if (!ref) throw new DomainError("VALIDATION", "Indicá la referencia bancaria verificada");

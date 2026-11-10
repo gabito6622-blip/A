@@ -433,7 +433,9 @@ const V = {
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
-          ${o.status === "awaiting_payment" && canReview() ? `<form class="inline" data-reject="${esc(o.id)}"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
+          ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
+            <small class="muted">¿Te mandó el comprobante por WhatsApp? Mirá la plata en tu banco, escribí la referencia y se entrega solo.</small>` : ""}
+            <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
         tab === "payment_review" ? "No hay pagos por revisar." : "No hay pedidos.")}
       <p class="muted" style="margin:0">Aprobá solo después de ver el dinero en tu banco: escribí la referencia que figura en tu extracto. Una misma referencia no se puede usar dos veces.</p></section>`;
   },
