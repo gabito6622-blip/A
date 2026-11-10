@@ -948,11 +948,18 @@ function renderCart(msg = "") {
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
+  const toPay = tot - cartDiscount();
   if (!S.me?.loggedIn) {
-    $("#drawer").innerHTML = head + `<p class="empty">Para pagar, primero entrá con tu número de WhatsApp. Tu carrito queda guardado.</p><button class="sbtn pri" type="button" data-login="1">Acceder</button><button class="sbtn" type="button" data-step="1">Volver</button>`;
+    // Invitado (sin cuenta): ve el QR y coordina el pedido por WhatsApp, sin obligarlo a entrar.
+    const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
+    $("#drawer").innerHTML = head
+      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
+      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock()}` : `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>`}
+      ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
+      <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
+      <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
   }
-  const toPay = tot - cartDiscount();
   const canBalance = S.me.balance >= toPay && !cartBackorder();
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
