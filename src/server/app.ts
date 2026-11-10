@@ -274,7 +274,7 @@ export function createApp(cfg: AppConfig): App {
       fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico", storeHours: st.storeHours ?? "",
       accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, alwaysAvailable: !!st.alwaysAvailable, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
-      footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "",
+      footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "", seoTitle: st.seoTitle ?? "", seoDescription: st.seoDescription ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
       faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
     };
@@ -1659,16 +1659,16 @@ export function createApp(cfg: AppConfig): App {
     const slug = pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase();
     if (slug) {
       try {
-        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string };
-        const title = oneLine(sh.title || slug, 60);
-        const description = oneLine(sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${title}.`);
+        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string; seoTitle?: string; seoDescription?: string };
+        const title = oneLine(sh.seoTitle || sh.title || slug, 70);
+        const description = oneLine(sh.seoDescription || sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${sh.title || slug}.`);
         return { title, description, siteName: title, img: `/og/r/${slug}.png`, card: { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor } };
       } catch { return null; }
     }
     if (/^\/tienda(\/|$)/.test(pathname)) {
-      const title = oneLine(st.storeName || "Tienda", 60);
-      const description = oneLine(st.heroText || "Suscripciones digitales: pagá con QR o saldo y recibí tus accesos en tu cuenta.");
-      return { title, description, siteName: title, img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
+      const title = oneLine(st.seoTitle || st.storeName || "Tienda", 70);
+      const description = oneLine(st.seoDescription || st.heroText || "Suscripciones digitales: pagá con QR o saldo y recibí tus accesos en tu cuenta.");
+      return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
     }
     if (pathname === "/" || /^\/(revendedores|tiendas)\/?$/.test(pathname)) {
       const title = oneLine(platform, 60);
@@ -1682,6 +1682,25 @@ export function createApp(cfg: AppConfig): App {
     if (cfg.publicOrigin) return cfg.publicOrigin.replace(/\/$/, "");
     const host = String(req.headers.host ?? "");
     return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${cfg.secureCookies ? "https" : "http"}://${host}` : "";
+  }
+  /** robots.txt y sitemap.xml para Google: la tienda, la portada y las páginas de revendedores publicadas. */
+  function serveSeoFiles(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+    if ((req.method !== "GET" && req.method !== "HEAD") || (pathname !== "/robots.txt" && pathname !== "/sitemap.xml")) return false;
+    const origin = originOf(req);
+    let body: string, type: string;
+    if (pathname === "/robots.txt") {
+      type = "text/plain; charset=utf-8";
+      body = `User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api/\nDisallow: /codigos\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ""}`;
+    } else {
+      type = "application/xml; charset=utf-8";
+      let shops: string[] = [];
+      try { shops = (store.shops.program() as { shops: { slug: string }[] }).shops.map((x) => `/r/${x.slug}`); } catch { /* sin páginas */ }
+      const urls = ["/tienda/", "/", "/revendedores", "/tiendas", ...shops];
+      body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${origin}${u}</loc></url>`).join("\n")}\n</urlset>\n`;
+    }
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "public, max-age=3600" });
+    res.end(req.method === "HEAD" ? undefined : body);
+    return true;
   }
   const ogCache = new Map<string, Buffer>();
   function serveOgImage(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
@@ -1761,7 +1780,7 @@ export function createApp(cfg: AppConfig): App {
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {
-        if (!serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
+        if (!serveSeoFiles(req, res, url.pathname) && !serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
       const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
