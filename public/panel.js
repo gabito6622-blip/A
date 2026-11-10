@@ -1435,7 +1435,6 @@ async function aiCard() {
   const anyOn = AI_AGENTS.some(([k]) => a.enabled[k]);
   return `<section class="card"><h2>🤖 Oficina virtual <small>agentes con Claude</small> ${!a.hasKey ? pill("Falta la clave", "mute") : anyOn ? pill("Trabajando", "ok") : pill("Apagados", "warn")}</h2>
     <p class="muted" style="margin:0">Cada agente hace una sola tarea. Ninguno aprueba pagos, entrega cuentas ni toca plata: eso lo hacés vos.</p>
-    ${a.hasKey && a.keyShape === "not_api_key" ? `<p class="perr" style="margin:0">⚠️ La clave cargada en Railway no tiene la forma de una clave de API (tiene que empezar con <code>sk-ant-api</code>). Creá una en console.anthropic.com → API Keys y pegala de nuevo.</p>` : ""}
     ${a.hasKey && a.lastError ? `<p class="perr" style="margin:0">Último error: ${esc(a.lastError)}</p>` : ""}
     ${!a.hasKey ? `<details class="tg-help" open><summary>¿Cómo se prende? (una sola vez)</summary><ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
       <li>Entrá a <b>console.anthropic.com</b>, creá una cuenta y cargá crédito (se paga aparte de tu suscripción de Claude).</li>
