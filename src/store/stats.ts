@@ -6,6 +6,41 @@ import { authorize } from "./auth.js";
 import { stockByProduct } from "./inventory.js";
 import { balance } from "./wallet.js";
 
+/**
+ * Centro de notificaciones del dueño: junta en un solo lugar lo que necesita su
+ * atención ahora (pagos por revisar, solicitudes de revendedor, cuentas caídas,
+ * cuentas que vencen con el proveedor, servicios vencidos o por vencer).
+ * Se calcula de los datos actuales (no guarda estado leído/no leído).
+ */
+export function notifications(e: Engine, actor: Actor) {
+  authorize(actor, "catalog.manage");
+  const now = e.now();
+  const out: { kind: string; icon: string; text: string; count: number; go: string; sev: "bad" | "warn" | "info" }[] = [];
+  const add = (kind: string, icon: string, text: string, count: number, go: string, sev: "bad" | "warn" | "info") => { if (count > 0) out.push({ kind, icon, text, count, go, sev }); };
+
+  const pay = Object.values(e.s.orders).filter((o) => o.status === "payment_review").length;
+  add("payment", "💳", pay === 1 ? "1 pago por revisar" : `${pay} pagos por revisar`, pay, "aprobacion", "warn");
+
+  const apps = Object.values(e.s.resellerApps ?? {}).filter((a) => a.status === "pending").length;
+  add("reseller", "👤", apps === 1 ? "1 solicitud de revendedor" : `${apps} solicitudes de revendedor`, apps, "revendedores", "info");
+
+  // Cuentas caídas con clientes (perfil en cuarentena, cuenta retirada o vencida con el proveedor).
+  const down = new Set(Object.values(e.s.accounts).filter((a) => a.status !== "active" || a.supplierExpiresAt <= now).map((a) => a.id));
+  const reloc = Object.values(e.s.assignments).filter((a) => { if (a.status !== "active") return false; const s = e.s.slots[a.slotId]; return s && (s.status === "quarantined" || down.has(s.accountId)); }).length;
+  add("reloc", "🔀", reloc === 1 ? "1 cliente en una cuenta caída (reubicar)" : `${reloc} clientes en cuentas caídas (reubicar)`, reloc, "reubicar", "bad");
+
+  const supplierSoon = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + 7 * DAY).length;
+  add("supplier", "📅", supplierSoon === 1 ? "1 cuenta vence con el proveedor (7 días)" : `${supplierSoon} cuentas vencen con el proveedor (7 días)`, supplierSoon, "cuentas", "warn");
+
+  const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
+  const overdue = active.filter((a) => a.customerExpiresAt < now).length;
+  add("overdue", "🔴", overdue === 1 ? "1 servicio vencido sin renovar" : `${overdue} servicios vencidos sin renovar`, overdue, "control", "bad");
+  const due3 = active.filter((a) => { const d = (a.customerExpiresAt - now) / DAY; return d >= 0 && d <= 3; }).length;
+  add("due", "⏰", due3 === 1 ? "1 servicio vence en 3 días" : `${due3} servicios vencen en 3 días`, due3, "control", "warn");
+
+  return { total: out.reduce((n, x) => n + x.count, 0), items: out };
+}
+
 export function summary(e: Engine, actor: Actor, range: { from: number; to: number }) {
   authorize(actor, "stats.view");
   const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.updatedAt >= range.from && o.updatedAt < range.to);

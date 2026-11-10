@@ -187,6 +187,7 @@ export function createStore(opts: EngineOptions = {}) {
       dashboard: bind(e, stats.dashboard),
       suppliers: bind(e, stats.supplierReport),
       audit: bind(e, stats.auditLog),
+      notifications: bind(e, stats.notifications),
     },
     finance: {
       report: bind(e, finance.report),

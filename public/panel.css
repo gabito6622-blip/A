@@ -726,3 +726,16 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .relrow .mono{overflow-wrap:anywhere}
 .relrow .relact{justify-self:end}
 @media (max-width:720px){.relrow{grid-template-columns:1fr 1fr;row-gap:10px}.relrow .relact{grid-column:1/-1;justify-self:stretch}.relrow .relact .pbtn{width:100%;justify-content:center}}
+
+/* Centro de notificaciones */
+.notis{display:grid;gap:9px}
+.notirow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;background:var(--card)}
+.notirow:hover{transform:translateY(-1px);border-color:var(--blue)}
+.notirow .notiic{font-size:20px;flex:none}
+.notirow .notitx{flex:1;min-width:0;font-size:14.5px}
+.notirow .notigo{color:var(--muted);flex:none}
+.notirow.noti-bad{border-left-color:var(--bad)}
+.notirow.noti-warn{border-left-color:var(--warn)}
+.notirow.noti-ok{border-left-color:var(--blue)}
+.ibtn .count,#menu .count{position:absolute;top:2px;right:2px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:999px;padding:0 4px}
+.ibtn{position:relative}

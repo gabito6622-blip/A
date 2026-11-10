@@ -13,13 +13,14 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
   ["finanzas", "coins", "Finanzas", "owner"],
+  ["notificaciones", "bell", "Notificaciones"],
   ["reubicar", "renew", "Reubicar"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"]]],
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control de alquileres"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobación de Ventas"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel: exportar e importar"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia de la tienda"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -302,6 +303,15 @@ const V = {
         <div class="relto">${r.suggest ? `<small class="muted">Mover a</small><b class="mono">${esc(r.suggest.email)}</b><small class="muted">${r.suggest.free} cupo${r.suggest.free === 1 ? "" : "s"} libre${r.suggest.free === 1 ? "" : "s"}</small>` : `<span class="pp pp-warn">No hay cuenta sana con cupo</span>`}</div>
         <div class="relact">${r.suggest ? `<button class="pbtn dark sm" type="button" data-relocate="${esc(r.assignmentId)}" data-name="${esc(r.customerName || "")}">${icon("renew")}Mover</button>` : `<button class="pbtn sm" type="button" data-go="carga">Cargar cuenta</button>`}</div>
       </div>`).join("")}</div>` : `<div class="emptybox">🎉 Ninguna cuenta caída con clientes. Todo está en cuentas sanas.</div>`}</section>`;
+  },
+  async notificaciones() {
+    const d = await api("GET", "/api/admin/notifications");
+    const sevcls = { bad: "bad", warn: "warn", info: "ok" };
+    return `<section class="card"><h2>${icon("bell")}Notificaciones <small>lo que necesita tu atención ahora</small></h2>
+      <p class="muted" style="margin:0 0 12px">Todo junto en un solo lugar: pagos por revisar, solicitudes, cuentas caídas y vencimientos. Tocá una para ir a resolverla.</p>
+      ${d.items.length ? `<div class="notis">${d.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
+        <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
+      : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>`;
   },
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
@@ -1099,6 +1109,13 @@ function showPending(n) {
   const b = $('#menu [data-go="aprobacion"]');
   if (b) { b.querySelector(".count")?.remove(); if (n) b.insertAdjacentHTML("beforeend", `<span class="count">${n}</span>`); }
 }
+async function refreshNotifCount() {
+  try {
+    const d = await api("GET", "/api/admin/notifications");
+    const el = $("#notifcount"); if (el) { el.textContent = d.total > 99 ? "99+" : String(d.total); el.hidden = !d.total; }
+    const m = $('#menu [data-go="notificaciones"]'); if (m) { m.querySelector(".count")?.remove(); if (d.total) m.insertAdjacentHTML("beforeend", `<span class="count">${d.total > 99 ? "99+" : d.total}</span>`); }
+  } catch { /* sin permiso o sin sesión */ }
+}
 async function watchPayments() {
   if (!P.me) return;
   const n = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => null);
@@ -1253,6 +1270,7 @@ async function render() {
   const pend = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0);
   watch.last = pend;
   showPending(pend);
+  refreshNotifCount();
   const inG = ["cuentas", "carga", "productos"].includes(P.view);
   $("#menu").innerHTML = MENU.filter((m) => !m[3] || m[3] === "owner" && isOwner() || Array.isArray(m[3])).map(([k, i, t, sub]) => Array.isArray(sub)
     ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
