@@ -11,8 +11,9 @@ import { PatientFormDialog } from "./Patients";
 import { BudgetEditor, BudgetDetailDialog } from "./Budgets";
 import { PaymentDialog } from "./Cash";
 import { ConsentsPanel } from "../components/Consents";
+import { Periodontogram } from "../components/perio/Periodontogram";
 
-type Tab = "resumen" | "odontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
+type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos";
 
 export function PatientDetailPage() {
   const { id } = useParams();
@@ -61,6 +62,7 @@ export function PatientDetailPage() {
       <Tabs<Tab> value={tab} onChange={setTab} items={[
         { id: "resumen", label: "Resumen" },
         { id: "odontograma", label: "Odontograma", hidden: !can("clinical.read") },
+        { id: "periodontograma", label: "Periodontograma", hidden: !can("clinical.read") },
         { id: "historia", label: "Historia clínica", hidden: !can("clinical.read") },
         { id: "presupuestos", label: "Presupuestos", hidden: !can("budgets.read") },
         { id: "cuenta", label: "Cuenta y pagos", hidden: !can("payments.read") },
@@ -90,6 +92,7 @@ export function PatientDetailPage() {
         </div>
       )}
       {tab === "odontograma" && <Odontogram patientId={id!} canWrite={can("clinical.write")} />}
+      {tab === "periodontograma" && <Periodontogram patientId={id!} patientName={`${pt.firstName} ${pt.lastName}`} />}
       {tab === "historia" && <ClinicalHistory patientId={id!} />}
       {tab === "presupuestos" && <PatientBudgets patientId={id!} onChanged={p.reload} />}
       {tab === "cuenta" && <PatientAccount patientId={id!} onChanged={p.reload} />}
