@@ -530,6 +530,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/finance", "staff", (c) => store.finance.report(A(c), Number(c.query.get("months")) || 6));
   route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
+  route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));
+  route("POST", "/api/admin/finance/min-margin", "staff", (c) => store.finance.setMinMargin(A(c), c.body?.pct));
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
   route("POST", "/api/admin/faq", "staff", (c) => store.shops.setFaq(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
@@ -628,9 +630,13 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
-    return store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
+    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
+    // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
+    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
+    return r;
   });
+  route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/accounts/:id", "staff", (c) => {

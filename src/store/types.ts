@@ -114,6 +114,8 @@ export interface StoreSettings extends Look {
   reminders?: ReminderSettings;
   /** Avisos por WhatsApp para el dueño. */
   staffAlerts?: StaffAlertSettings;
+  /** Margen mínimo (%) por debajo del cual Finanzas marca un producto en rojo (por defecto 15). */
+  minMarginPct?: number;
   /** Aviso de stock bajo: cuando a un producto le quedan menos perfiles libres que esto (por defecto 2). */
   lowStockAt?: number;
   /** Métodos de cobro por país (Yappy, Tigo Money…), manuales con comprobante. */
@@ -606,6 +608,8 @@ export interface Expense {
   amount: Cents;
   note: string;
   at: number;
+  /** Si es el pago de una cuenta (renovación con el proveedor o la tarjeta): cuál. */
+  accountId?: Id;
 }
 
 /** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */

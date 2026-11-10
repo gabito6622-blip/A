@@ -254,7 +254,7 @@ const V = {
       <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
-    const d = await api("GET", "/api/admin/finance?months=6");
+    const [d, mg] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null)]);
     const c = d.current;
     const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos)));
     const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
@@ -264,17 +264,18 @@ const V = {
         <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, (m.gastos / max) * 100)}%"></i></div>
         <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
-    const rows = d.expenses.map((x) => `<tr><td><b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
+    const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, y lo que te quedó limpio este mes.</p>
         <div class="finkpis">
           <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
-          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>gastos que cargaste</small></div>
+          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que cargaste"}</small></div>
           <div class="finkpi net ${gcls(c.ganancia)}"><span>✅ Te quedó</span><b>${bs(c.ganancia)}</b><small>${c.ganancia >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
         </div>
       </section>
+      ${mg ? marginsCard(mg) : ""}
       <section class="card">
         <h2>Últimos 6 meses <small>entró vs. salió, y lo que quedó</small></h2>
         <div class="finlegend"><span><i class="inb"></i>Entró</span><span><i class="exb"></i>Salió</span></div>
@@ -652,7 +653,13 @@ const V = {
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
-            <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>` : "";
+            <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">Guardar cambios</button><button class="pbtn" type="button" data-editaccopen="">Cancelar</button></div><small class="muted" style="grid-column:1/-1">Si cambiás email o contraseña, los clientes ven el dato nuevo en Mis cuentas y les queda un aviso en WhatsApp.</small></form></section>
+      <section class="card ok-card"><h2>💳 Pagué la renovación <small>· ${esc(a.email)}</small></h2>
+        <p class="muted" style="margin:0">Anota el pago como gasto (para tu ganancia real) y corre el vencimiento con el proveedor, manteniendo el día de cobro. Hoy vence el <b>${fdate(a.supplierExpiresAt)}</b>.</p>
+        <form class="form" data-renewpaid="${esc(a.id)}">
+          <label>¿Cuánto pagaste? (${currencySym()})<input name="amount" inputmode="decimal" required value="${a.cost ? a.cost / 100 : ""}" placeholder="Ej.: 66"></label>
+          <label>¿Cuántos meses?<select name="months">${[1, 2, 3, 6, 12].map((m) => opt(m, m === 1 ? "1 mes" : `${m} meses`, m === 1)).join("")}</select></label>
+          <button class="pbtn dark" type="submit" style="grid-column:1/-1">💳 Registrar pago y renovar</button></form></section>` : "";
     const estadoTxt = { available: "Libre", reserved: "Reservado", assigned: "Vendido", quarantined: "Cuarentena", retired: "Retirado" };
     const estadoK = { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" };
     // Mapa de perfiles en colores + filtros (estilo Netxly).
@@ -738,14 +745,14 @@ const V = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
             <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
             <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
-            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label></div></details>
+            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label></div></details>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
+      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
@@ -1159,7 +1166,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1392,6 +1399,20 @@ async function binanceCard() {
 }
 
 /* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+/* ---------------- Ganancia por producto ---------------- */
+function marginsCard(mg) {
+  const ST = { ok: ["✅", "pp-ok"], low: ["⚠️ poco", "pp-warn"], loss: ["🔴 perdés", "pp-bad"] };
+  const cell = (r) => !r ? `<span class="muted">—</span>` : `<b>${bs(r.gain)}</b> <small class="muted">(${r.pct}%)</small> <span class="pp ${ST[r.state][1]}">${ST[r.state][0]}</span>`;
+  const rows = mg.products.filter((p) => p.public || p.reseller).map((p) => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc({ full_account: "Cuenta completa", profile: "Perfil", invite: "Invitación", iptv: "IPTV" }[p.kind] ?? p.kind)}</small></td>
+    <td class="num">${p.unitCost === null ? "—" : bs(p.unitCost)}</td><td class="num">${p.public ? bs(p.public.price) : "—"}</td><td>${cell(p.public)}</td><td>${cell(p.reseller)}</td></tr>`);
+  const sinCosto = mg.products.filter((p) => p.unitCost === null && p.accounts > 0).length;
+  return `<section class="card"><h2>${icon("coins")}¿Cuánto ganás por venta? <small>precio menos lo que te cuesta</small></h2>
+    <p class="muted" style="margin:0 0 10px">El costo sale de lo que pagás por cada cuenta (dividido entre sus perfiles), por mes. Lo que menos te deja aparece primero.</p>
+    ${table(["Producto", "Te cuesta", "Precio", "Ganás (cliente final)", "Ganás (revendedor)"], rows, "Cargá el costo de tus cuentas para ver tu ganancia.")}
+    ${sinCosto ? `<p class="muted" style="margin:8px 0 0">${sinCosto} producto(s) tienen cuentas sin costo cargado: editá la cuenta y poné cuánto pagás.</p>` : ""}
+    <form class="inline" id="minMarginForm" style="margin-top:10px;flex-wrap:wrap"><label>Avisarme si gano menos del (%)<input name="pct" type="number" min="0" max="90" step="1" inputmode="numeric" value="${mg.minMarginPct}" style="width:90px"></label><button class="pbtn sm" type="submit">Guardar</button></form></section>`;
+}
+
 /* ---------------- Cobro por país (Yappy, Tigo Money…) ---------------- */
 async function payMethodsCard() {
   const [list, groups] = await Promise.all([api("GET", "/api/admin/paymethods").catch(() => null), api("GET", "/api/admin/price-groups").catch(() => [])]);
@@ -2449,6 +2470,13 @@ document.addEventListener("submit", async (ev) => {
       await render();
     } else if (f.dataset.transfer) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value }), "Servicio transferido: misma fecha y mismo perfil");
+    } else if (f.dataset.renewpaid) {
+      const amount = toCents(f.amount.value);
+      if (!amount || amount <= 0) return toast("Poné cuánto pagaste");
+      await act(() => api("POST", `/api/admin/accounts/${f.dataset.renewpaid}/renew-paid`, { amount, months: +f.months.value }),
+        (r) => `✅ Pago anotado (${bs(r.expense.amount)}). Ahora vence el ${fdate(r.supplierExpiresAt)}`);
+    } else if (f.id === "minMarginForm") {
+      await act(() => api("POST", "/api/admin/finance/min-margin", { pct: Math.round(+f.pct.value || 0) }), "Margen mínimo guardado");
     } else if (f.dataset.editacc) {
       const body = { email: f.email.value.trim(), supplierId: f.supplierId.value, supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), notes: f.notes.value };
       if (f.password.value) body.password = f.password.value;
@@ -2481,7 +2509,7 @@ document.addEventListener("submit", async (ev) => {
       try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, exp: f.exp.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
     } else if (f.id === "trialForm") {
@@ -2514,7 +2542,7 @@ document.addEventListener("submit", async (ev) => {
       const pin = f.pin.value.trim() || undefined;
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0),
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
         profiles: n === 1 ? [{ label: "Cuenta completa", pin }] : Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}`, pin })),
       }), `Cuenta cargada con ${n} perfil(es)`);
     } else if (f.id === "bulkForm") {
