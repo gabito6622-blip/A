@@ -111,7 +111,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .mock{transform:none}
   .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .snav,.shead .acc{display:none}
-  .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--s-card) 97%,transparent);border-top:1px solid var(--s-line);
+  .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--s-card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--s-line);
     padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
   .bnav button{border:0;background:none;color:var(--s-muted);display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;padding:6px 0}
   .bnav button svg{width:20px;height:20px}
@@ -721,3 +721,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .refbox .reflist{display:grid;gap:6px}
 .refbox .refrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--s-line);border-radius:10px;background:var(--s-card2)}
 .refbox .refrow small{color:var(--s-muted);font-size:12px;white-space:nowrap}
+
+/* GaboHub en celular: el mock de "cómo se ve tu tienda" muestra UN teléfono
+   centrado (en vez de 3 superpuestos y cortados, que se veían apretados). */
+@media (max-width:560px){
+  .phones.pmini{height:330px}
+  .phones.pmini .ph:nth-child(1),.phones.pmini .ph:nth-child(3){display:none}
+  .phones.pmini .ph:nth-child(2){left:50%;transform:translateX(-50%) rotate(0deg);top:8px;width:184px;height:316px;font-size:11px}
+  .phones.pmini .ph:nth-child(2) .ph-hero strong{font-size:17px}
+}
