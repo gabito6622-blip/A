@@ -75,6 +75,12 @@ export interface AuthCtx {
   membership: Membership | null;
   permissions: Set<Permission>;
   ip: string;
+  /** Contraseña correcta pero falta el segundo paso (TOTP). */
+  mfaPending: boolean;
+  mfaEnabled: boolean;
+  /** La política de la clínica exige 2 pasos para este rol y el usuario aún no lo activó. */
+  mfaEnrollmentRequired: boolean;
+  mustChangePassword: boolean;
 }
 
 export function can(a: AuthCtx, p: Permission): boolean {

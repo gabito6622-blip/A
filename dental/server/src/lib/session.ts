@@ -23,13 +23,17 @@ interface SessionRow {
   full_name: string;
   is_platform_admin: boolean;
   last_seen_at: Date;
+  mfa_pending: boolean;
+  mfa_enabled_at: Date | null;
+  must_change_password: boolean;
 }
 
 export async function resolveSession(db: Db, req: FastifyRequest, token: string | undefined): Promise<AuthCtx | null> {
   if (!token || token.length > 100) return null;
   return withTenant(db.appPool, { clinicId: null, userId: null }, async (c) => {
     const r = await c.query<SessionRow>(
-      `SELECT s.id, s.user_id, s.clinic_id, s.csrf_token, s.last_seen_at, u.email, u.full_name, u.is_platform_admin
+      `SELECT s.id, s.user_id, s.clinic_id, s.csrf_token, s.last_seen_at, s.mfa_pending, u.email, u.full_name, u.is_platform_admin,
+              u.mfa_enabled_at, u.must_change_password
          FROM sessions s JOIN users u ON u.id = s.user_id
         WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now() AND u.disabled_at IS NULL`,
       [hashToken(token)],
@@ -50,13 +54,19 @@ export async function resolveSession(db: Db, req: FastifyRequest, token: string 
       membership: null,
       permissions: new Set(),
       ip: req.ip,
+      mfaPending: s.mfa_pending,
+      mfaEnabled: !!s.mfa_enabled_at,
+      mfaEnrollmentRequired: false,
+      mustChangePassword: s.must_change_password,
     };
+    if (s.mfa_pending) return auth; // sin acceso a la clínica hasta completar el segundo paso
     if (s.clinic_id) {
       await c.query("SELECT set_config('app.user_id', $1, true)", [s.user_id]);
       const m = await c.query<{
-        id: string; clinic_id: string; role: Role; all_branches: boolean; branch_ids: string[]; is_professional: boolean; clinic_status: string;
+        id: string; clinic_id: string; role: Role; all_branches: boolean; branch_ids: string[]; is_professional: boolean; clinic_status: string; mfa_roles: string[] | null;
       }>(
-        `SELECT m.id, m.clinic_id, m.role, m.all_branches, m.branch_ids, m.is_professional, cl.status AS clinic_status
+        `SELECT m.id, m.clinic_id, m.role, m.all_branches, m.branch_ids, m.is_professional, cl.status AS clinic_status,
+                ARRAY(SELECT jsonb_array_elements_text(COALESCE(cl.settings->'mfaRequiredRoles', '[]'::jsonb))) AS mfa_roles
            FROM memberships m JOIN clinics cl ON cl.id = m.clinic_id
           WHERE m.clinic_id = $1 AND m.user_id = $2 AND m.active`,
         [s.clinic_id, s.user_id],
@@ -69,6 +79,7 @@ export async function resolveSession(db: Db, req: FastifyRequest, token: string 
           branchIds: row.branch_ids, isProfessional: row.is_professional,
         };
         auth.permissions = permissionsFor(row.role, row.is_professional);
+        auth.mfaEnrollmentRequired = !auth.mfaEnabled && (row.mfa_roles ?? []).includes(row.role);
       }
     }
     return auth;

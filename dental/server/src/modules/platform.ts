@@ -7,8 +7,10 @@ import { zIdParams, zMoney } from "../lib/http.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { hashPassword } from "../lib/password.js";
 import { seedCatalog } from "../lib/catalog.js";
+import { seedConsentTemplates } from "./consents.js";
+import type { Config } from "../config.js";
 
-export function platformRoutes(route: Route) {
+export function platformRoutes(route: Route, _cfg: Config) {
   route({
     method: "GET", url: "/api/platform/plans", summary: "Planes comerciales", tags: ["plataforma"], access: "platform",
     handler: async ({ c }) =>
@@ -67,10 +69,11 @@ export function platformRoutes(route: Route) {
       let temporaryPassword: string | null = null;
       if (!userId) {
         temporaryPassword = `Tmp-${randomBytes(6).toString("base64url")}7`;
-        userId = (await c.query<{ id: string }>("INSERT INTO users (email, full_name, password_hash) VALUES ($1,$2,$3) RETURNING id", [body.ownerEmail, body.ownerName, await hashPassword(temporaryPassword)])).rows[0]!.id;
+        userId = (await c.query<{ id: string }>("INSERT INTO users (email, full_name, password_hash, must_change_password) VALUES ($1,$2,$3,true) RETURNING id", [body.ownerEmail, body.ownerName, await hashPassword(temporaryPassword)])).rows[0]!.id;
       }
       await c.query("INSERT INTO memberships (clinic_id, user_id, role, all_branches) VALUES ($1,$2,'owner',true)", [clinicId, userId]);
       if (body.seedCatalog) await seedCatalog(c, clinicId);
+      await seedConsentTemplates(c, clinicId, auth.userId);
       await c.query("INSERT INTO audit_log (clinic_id, user_id, action, entity, entity_id, data, ip) VALUES ($1,$2,'platform.clinic_created','clinic',$1,$3,$4)",
         [clinicId, auth.userId, JSON.stringify({ slug: body.slug, plan: body.planCode }), auth.ip]);
       return { clinicId, ownerUserId: userId, temporaryPassword };
@@ -87,6 +90,19 @@ export function platformRoutes(route: Route) {
       if (!r.rowCount) throw notFound("Clínica");
       await c.query("INSERT INTO audit_log (clinic_id, user_id, action, entity, entity_id, data, ip) VALUES ($1,$2,'platform.clinic_updated','clinic',$1,$3,$4)",
         [params.id, auth.userId, JSON.stringify(body), auth.ip]);
+      return { ok: true };
+    },
+  });
+
+  route({
+    method: "POST", url: "/api/platform/users/:id/reset-mfa", summary: "Quitar la verificación en dos pasos de un usuario que perdió su celular (verificar identidad antes)", tags: ["plataforma"], access: "platform", params: zIdParams,
+    body: z.object({ reason: z.string().trim().min(5).max(300) }),
+    handler: async ({ c, auth, params, body }) => {
+      const r = await c.query("UPDATE users SET mfa_secret_enc = NULL, mfa_pending_secret_enc = NULL, mfa_enabled_at = NULL WHERE id = $1", [params.id]);
+      if (!r.rowCount) throw notFound("Usuario");
+      await c.query("DELETE FROM mfa_recovery_codes WHERE user_id = $1", [params.id]);
+      await c.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [params.id]);
+      await c.query("INSERT INTO audit_log (user_id, action, entity, entity_id, data, ip) VALUES ($1,'platform.mfa_reset','user',$2,$3,$4)", [auth.userId, params.id, JSON.stringify({ reason: body.reason }), auth.ip]);
       return { ok: true };
     },
   });

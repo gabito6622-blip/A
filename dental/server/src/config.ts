@@ -13,6 +13,24 @@ export interface Config {
   filesDir: string;
   /** Desactiva el límite de intentos de login (solo pruebas automatizadas). */
   disableRateLimit: boolean;
+  /** Clave de 32 bytes (hex o base64) para cifrar secretos de la verificación en dos pasos. */
+  secretKey: Buffer;
+  /** URL pública de la aplicación (enlaces en correos). */
+  publicUrl: string;
+  /** smtp(s)://usuario:clave@host:puerto — sin esto los correos solo se registran en desarrollo. */
+  smtpUrl: string | null;
+  mailFrom: string;
+}
+
+function parseKey(raw: string | undefined, isProduction: boolean): Buffer {
+  if (raw) {
+    const k = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
+    if (k.length !== 32) throw new Error("DENTAL_SECRET_KEY debe tener 32 bytes (64 caracteres hex o base64)");
+    return k;
+  }
+  if (isProduction) throw new Error("DENTAL_SECRET_KEY es obligatorio en producción");
+  // Solo desarrollo y pruebas: clave fija conocida. Nunca usar en producción.
+  return Buffer.alloc(32, 7);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -29,5 +47,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: env.TRUST_PROXY === "1" || isProduction,
     filesDir: env.DENTAL_FILES_DIR ?? "./data/files",
     disableRateLimit: env.DENTAL_DISABLE_RATE_LIMIT === "1" && !isProduction,
+    secretKey: parseKey(env.DENTAL_SECRET_KEY, isProduction),
+    publicUrl: (env.PUBLIC_URL ?? `http://localhost:${env.PORT ?? 3100}`).replace(/\/$/, ""),
+    smtpUrl: env.SMTP_URL ?? null,
+    mailFrom: env.MAIL_FROM ?? "Dentalia <no-responder@localhost>",
   };
 }

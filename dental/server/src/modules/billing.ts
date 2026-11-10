@@ -330,6 +330,8 @@ export function billingRoutes(route: Route) {
     }),
     handler: async ({ c, auth, body }) => {
       requireBranch(auth, body.branchId);
+      // Serializa los envíos con la misma clave: el segundo espera y recibe el mismo pago (sin error ni doble cobro).
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2, 0))", [auth.clinicId, body.idempotencyKey]);
       const ex = (await c.query<{ id: string; amount_cents: number; patient_id: string; receipt_number: number; status: string }>(
         "SELECT id, amount_cents, patient_id, receipt_number, status FROM payments WHERE idempotency_key = $1", [body.idempotencyKey])).rows[0];
       if (ex) {

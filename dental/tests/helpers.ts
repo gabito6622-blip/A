@@ -6,19 +6,22 @@ import { createDb, type Db } from "../server/src/lib/db.js";
 import { buildApp } from "../server/src/app.js";
 import { hashPassword } from "../server/src/lib/password.js";
 import { seedCatalog } from "../server/src/lib/catalog.js";
+import { seedConsentTemplates } from "../server/src/modules/consents.js";
+import { MemoryMailer } from "../server/src/lib/mailer.js";
 import type { Role } from "../server/src/lib/rbac.js";
 
 export const PASSWORD = "Prueba12345";
 let pwHash: string | null = null;
 
-export interface Env { app: FastifyInstance; db: Db }
+export interface Env { app: FastifyInstance; db: Db; mailer: MemoryMailer }
 
 export async function setupEnv(): Promise<Env> {
   const cfg = loadConfig();
   const db = createDb(cfg.databaseUrl);
-  const app = await buildApp(cfg, db);
+  const mailer = new MemoryMailer();
+  const app = await buildApp(cfg, db, { mailer });
   await app.ready();
-  return { app, db };
+  return { app, db, mailer };
 }
 
 export async function teardown(env: Env) {
@@ -57,6 +60,7 @@ export async function createClinic(db: Db, opts: { branches?: number; name?: str
       chairs.push(ch);
     }
     await seedCatalog(c, clinicId);
+    await seedConsentTemplates(c, clinicId, null);
     return { clinicId, branches, chairs, ownerEmail, ownerId };
   } finally {
     c.release();

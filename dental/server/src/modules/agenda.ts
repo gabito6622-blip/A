@@ -238,6 +238,7 @@ export function agendaRoutes(route: Route) {
     body: apptBody,
     handler: async ({ c, auth, body }) => {
       if (body.idempotencyKey) {
+        await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1 || ':appt:' || $2, 0))", [auth.clinicId, body.idempotencyKey]);
         const ex = (await c.query<{ id: string }>("SELECT id FROM appointments WHERE idempotency_key = $1", [body.idempotencyKey])).rows[0];
         if (ex) return { id: ex.id, duplicate: true };
       }

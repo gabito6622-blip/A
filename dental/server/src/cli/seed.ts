@@ -8,6 +8,7 @@ import { migrate } from "../lib/migrate.js";
 import { hashPassword } from "../lib/password.js";
 import { seedCatalog } from "../lib/catalog.js";
 import { normalize } from "../lib/text.js";
+import { seedConsentTemplates } from "../modules/consents.js";
 
 const cfg = loadConfig();
 if (cfg.isProduction && process.env.SEED_ALLOW !== "1") {
@@ -27,7 +28,7 @@ const pick = <T>(a: T[]): T => a[Math.floor(rnd() * a.length)]!;
 try {
   await migrate(db.adminPool);
   if (process.argv.includes("--reset")) {
-    await q(`TRUNCATE audit_log, payments, charges, budget_items, budgets, clinical_notes, odontogram_entries, waitlist_entries, appointments,
+    await q(`TRUNCATE signed_documents, consent_templates, password_resets, mfa_recovery_codes, audit_log, payments, charges, budget_items, budgets, clinical_notes, odontogram_entries, waitlist_entries, appointments,
       procedures, medical_histories, patients, counters, schedule_blocks, dentist_schedules, chairs, branches, memberships, sessions, users, clinics, plans CASCADE`);
     console.log("Datos borrados.");
   }
@@ -64,7 +65,7 @@ try {
     for (let i = 1; i <= nChairs; i++) chairs.push((await q("INSERT INTO chairs (clinic_id, branch_id, name) VALUES ($1,$2,$3) RETURNING id", [clinicId, id, `Consultorio ${i}`])).rows[0].id);
     branches.push({ id, code, chairs });
   }
-  { const c = await db.adminPool.connect(); await seedCatalog(c, clinicId); c.release(); }
+  { const c = await db.adminPool.connect(); await seedCatalog(c, clinicId); await seedConsentTemplates(c, clinicId, null); c.release(); }
 
   async function user(email: string, name: string, role: string, opts: { branches?: string[]; all?: boolean; pro?: boolean; color?: string; pct?: number; license?: string } = {}) {
     const id = (await q("INSERT INTO users (email, full_name, password_hash) VALUES ($1,$2,$3) RETURNING id", [email, name, pw])).rows[0].id;

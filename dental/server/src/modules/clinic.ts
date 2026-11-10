@@ -26,7 +26,7 @@ export function clinicRoutes(route: Route) {
     handler: async ({ c, auth }) => {
       const r = await c.query(
         `SELECT cl.id, cl.name, cl.legal_name AS "legalName", cl.tax_id AS "taxId", cl.timezone, cl.currency, cl.locale, cl.status,
-                cl.settings, p.name AS "planName", p.max_branches AS "maxBranches", p.max_users AS "maxUsers"
+                cl.settings, COALESCE(cl.settings->'mfaRequiredRoles', '[]'::jsonb) AS "mfaRequiredRoles", p.name AS "planName", p.max_branches AS "maxBranches", p.max_users AS "maxUsers"
            FROM clinics cl LEFT JOIN plans p ON p.id = cl.plan_id WHERE cl.id = $1`,
         [auth.clinicId],
       );
@@ -41,8 +41,13 @@ export function clinicRoutes(route: Route) {
       legalName: zOptText(200).optional(),
       taxId: zOptText(30).optional(),
       timezone: z.string().max(60).optional(),
+      mfaRequiredRoles: z.array(z.enum(ROLES)).max(6).optional(),
     }),
     handler: async ({ c, auth, body }) => {
+      if (body.mfaRequiredRoles && auth.membership!.role !== "owner") throw forbidden("Solo el propietario cambia la política de verificación en dos pasos");
+      if (body.mfaRequiredRoles) {
+        await c.query("UPDATE clinics SET settings = jsonb_set(settings, '{mfaRequiredRoles}', $2::jsonb) WHERE id = $1", [auth.clinicId, JSON.stringify(body.mfaRequiredRoles)]);
+      }
       if (body.timezone && !Intl.supportedValuesOf("timeZone").includes(body.timezone)) throw badRequest("Zona horaria inválida");
       await c.query(
         `UPDATE clinics SET name = COALESCE($2, name), legal_name = CASE WHEN $3::boolean THEN $4 ELSE legal_name END,
@@ -135,7 +140,7 @@ export function clinicRoutes(route: Route) {
     handler: async ({ c, query, auth }) => {
       const full = auth.permissions.has("staff.manage");
       const r = await c.query(
-        `SELECT m.user_id AS "userId", u.full_name AS "fullName", ${full ? `u.email,` : ""} m.role, m.all_branches AS "allBranches",
+        `SELECT m.user_id AS "userId", u.full_name AS "fullName", ${full ? `u.email, (u.mfa_enabled_at IS NOT NULL) AS "mfaEnabled",` : ""} m.role, m.all_branches AS "allBranches",
                 m.branch_ids AS "branchIds", m.is_professional AS "isProfessional", m.professional_license AS "license",
                 m.color, ${full ? `m.commission_pct AS "commissionPct",` : ""} m.active
            FROM memberships m JOIN users u ON u.id = m.user_id
@@ -181,7 +186,7 @@ export function clinicRoutes(route: Route) {
       if (!userId) {
         temporaryPassword = `Tmp-${randomBytes(6).toString("base64url")}7`;
         userId = (
-          await c.query<{ id: string }>("INSERT INTO users (email, full_name, password_hash) VALUES ($1,$2,$3) RETURNING id", [
+          await c.query<{ id: string }>("INSERT INTO users (email, full_name, password_hash, must_change_password) VALUES ($1,$2,$3,true) RETURNING id", [
             body.email, body.fullName, await hashPassword(temporaryPassword),
           ])
         ).rows[0]!.id;
@@ -214,6 +219,24 @@ export function clinicRoutes(route: Route) {
       }
       await audit(c, auth, "staff.updated", "user", params.id, { from: cur.role, to: body.role, branchIds: body.branchIds, active: body.active });
       return { ok: true };
+    },
+  });
+
+  route({
+    method: "POST", url: "/api/staff/:id/reset-password", summary: "Generar contraseña temporal para una persona (debe cambiarla al ingresar)", tags: ["personal"], perm: "staff.manage",
+    params: zIdParams,
+    handler: async ({ c, auth, params }) => {
+      const cur = (await c.query<{ role: Role }>("SELECT role FROM memberships WHERE clinic_id = $1 AND user_id = $2", [auth.clinicId, params.id])).rows[0];
+      if (!cur) throw notFound("Persona");
+      assertCanGrant(auth.membership!.role, cur.role, cur.role);
+      if (params.id === auth.userId) throw badRequest("Para tu propia cuenta usa 'Cambiar contraseña'");
+      const n = (await c.query<{ n: number }>("SELECT user_clinic_count($1) AS n", [params.id])).rows[0]!.n;
+      if (n > 1) throw new AppError(409, "multi_clinic_user", "Esta persona también trabaja en otra clínica: debe usar 'Olvidé mi contraseña' desde su correo");
+      const temporaryPassword = `Tmp-${randomBytes(6).toString("base64url")}7`;
+      await c.query("UPDATE users SET password_hash = $2, must_change_password = true, failed_logins = 0, locked_until = NULL WHERE id = $1", [params.id, await hashPassword(temporaryPassword)]);
+      await c.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [params.id]);
+      await audit(c, auth, "staff.password_reset", "user", params.id);
+      return { temporaryPassword };
     },
   });
 

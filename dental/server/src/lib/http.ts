@@ -46,6 +46,8 @@ export interface RouteDef<BS extends z.ZodType, QS extends z.ZodType, PS extends
   limit?: { max: number; timeWindow: string };
   /** Respuesta binaria/archivo: el handler escribe en reply. */
   raw?: boolean;
+  /** Permitida aunque la sesión esté restringida (falta 2.º paso, cambio de contraseña obligatorio o activación de 2 pasos). */
+  restricted?: "mfa_pending" | "setup";
   /** No abrir transacción (p. ej. llamadas largas a servicios externos). c no estará disponible. */
   noTx?: boolean;
   handler: (ctx: Ctx<z.infer<BS>, z.infer<QS>, z.infer<PS>>) => Promise<unknown>;
@@ -87,6 +89,13 @@ export function makeRouter(app: FastifyInstance, db: Db) {
         const auth = req.auth;
         if (access !== "public") {
           if (!auth) throw new AppError(401, "unauthenticated", "Inicia sesión para continuar");
+          if (auth.mfaPending && def.restricted !== "mfa_pending") {
+            throw new AppError(401, "mfa_required", "Ingresa el código de verificación para continuar");
+          }
+          if (!auth.mfaPending && !def.restricted) {
+            if (auth.mustChangePassword) throw new AppError(403, "password_change_required", "Debes cambiar tu contraseña temporal");
+            if (auth.mfaEnrollmentRequired) throw new AppError(403, "mfa_enrollment_required", "Tu clínica exige activar la verificación en dos pasos");
+          }
           if (MUTATING.has(def.method) && req.headers["x-csrf-token"] !== auth.csrfToken) {
             throw new AppError(403, "csrf", "Token de seguridad inválido. Recarga la página.");
           }

@@ -22,8 +22,11 @@ import { billingRoutes } from "./modules/billing.js";
 import { reportRoutes } from "./modules/reports.js";
 import { platformRoutes } from "./modules/platform.js";
 import { assistantRoutes } from "./modules/assistant.js";
+import { consentRoutes } from "./modules/consents.js";
+import { createMailer, type Mailer } from "./lib/mailer.js";
 
-export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
+export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
+  const mailer = opts.mailer ?? createMailer(cfg);
   const app = Fastify({
     logger: opts.logger ?? false,
     trustProxy: cfg.trustProxy,
@@ -101,15 +104,16 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } =
   });
 
   const route = makeRouter(app, db);
-  authRoutes(route, cfg);
+  authRoutes(route, cfg, mailer);
   clinicRoutes(route);
   patientRoutes(route);
   agendaRoutes(route);
   clinicalRoutes(route);
   billingRoutes(route);
   reportRoutes(route);
-  platformRoutes(route);
+  platformRoutes(route, cfg);
   assistantRoutes(route);
+  consentRoutes(route);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

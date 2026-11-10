@@ -126,8 +126,9 @@ describe("pagos y cuenta del paciente", () => {
     const k = key();
     const body = { branchId: B(), patientId: patient, amountCents: 3000, method: "cash", idempotencyKey: k };
     const [a, b2] = await Promise.all([rec.post("/api/payments", body), rec.post("/api/payments", body)]);
-    const ok = [a, b2].filter((x) => x.status === 200);
-    expect(ok.length).toBeGreaterThanOrEqual(1);
+    // Ambas respuestas son exitosas y apuntan al mismo pago (B-007)
+    expect([a.status, b2.status]).toEqual([200, 200]);
+    expect(a.body.id).toBe(b2.body.id);
     const rows = await env.db.adminPool.query("SELECT count(*)::int AS n FROM payments WHERE idempotency_key = $1", [k]);
     expect(rows.rows[0].n).toBe(1);
     expect((await rec.post("/api/payments", { ...body, amountCents: 9999 })).body.error.code).toBe("idempotency_mismatch");

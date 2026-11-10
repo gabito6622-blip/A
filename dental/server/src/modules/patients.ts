@@ -7,6 +7,7 @@ import { audit } from "../lib/audit.js";
 import { nextCounter, type Client } from "../lib/db.js";
 import { normalize, normalizePhone } from "../lib/text.js";
 import type { AuthCtx } from "../lib/rbac.js";
+import { recordConsentFlag } from "./consents.js";
 
 export const PATIENT_COLUMNS = `p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
   p.document_type AS "documentType", p.document_number AS "documentNumber", p.document_issued AS "documentIssued",
@@ -165,6 +166,9 @@ export function patientRoutes(route: Route) {
         if (d.length) throw new AppError(409, "possible_duplicate", "Hay pacientes parecidos ya registrados", { duplicates: d });
       }
       const res = await insertPatient(c, auth, body);
+      const who = { id: res.id, name: `${body.firstName} ${body.lastName}`, preferredBranchId: body.preferredBranchId };
+      if (body.consentReminders) await recordConsentFlag(c, auth, who, "reminders", true);
+      if (body.consentMarketing) await recordConsentFlag(c, auth, who, "marketing", true);
       await audit(c, auth, "patient.created", "patient", res.id, { recordNumber: res.recordNumber });
       return res;
     },
@@ -229,6 +233,9 @@ export function patientRoutes(route: Route) {
           searchText({ ...body, phone }, prev.record_number),
         ],
       );
+      const who = { id: params.id, name: `${body.firstName} ${body.lastName}`, preferredBranchId: body.preferredBranchId };
+      if (prev.consent_reminders !== body.consentReminders) await recordConsentFlag(c, auth, who, "reminders", body.consentReminders);
+      if (prev.consent_marketing !== body.consentMarketing) await recordConsentFlag(c, auth, who, "marketing", body.consentMarketing);
       await audit(c, auth, "patient.updated", "patient", params.id, consentChanged ? { consentReminders: body.consentReminders, consentMarketing: body.consentMarketing } : {});
       return { ok: true };
     },
