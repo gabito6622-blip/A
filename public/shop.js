@@ -314,15 +314,24 @@ function tkGroups(list) {
   for (const p of list) { const k = `${p.category}|${tkBase(p)}`; if (!m.has(k)) m.set(k, []); m.get(k).push(p); }
   return [...m.entries()].map(([k, g]) => ({ k, g: g.sort((a, b) => a.durationDays - b.durationDays) }));
 }
+/** Apps de un combo (si el dueño las cargó) y su nombre corto para las etiquetas. */
+const comboApps = (c) => (c?.kind === "combo" ? (c.comboParts ?? []).map((id) => product(id)).filter(Boolean) : []);
+const appShort = (p) => p.name.replace(/^Amazon\s+/i, "").replace(/\s+Premium\b.*$/i, "").replace(/\s+sin ESPN$/i, "").replace(/\s+con\s+ESPN$/i, " ESPN").trim();
+const comboSave = (c) => (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1];
+/** Ícono del combo: los logos de cada app ordenados (en vez de una imagen ancha recortada). */
+const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="/api/products/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
 function ticketRow({ k, g }) {
   const p = g.find((x) => x.id === S.tkv?.[k]) ?? g[0];
   const s = p.available, od = onDemand(p);
-  const sel = g.length > 1
+  const apps = comboApps(p);
+  const sel = apps.length
+    ? `<div class="tkapps">${apps.map((x) => `<span class="tkapp">${miniMark(x)}${esc(appShort(x))}</span>`).join("")}</div><div class="tkmeta">${comboSave(p) ? `<span class="tksave">Ahorrás Bs ${esc(comboSave(p))}</span>` : ""}<small class="tkdur">${tkDur(p)}</small></div>`
+    : g.length > 1
     ? `<select class="tksel" data-tkv="${esc(k)}" aria-label="Duración de ${esc(tkBase(p))}">${g.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${tkDur(x)} · ${bs(x.price)}</option>`).join("")}</select>`
     : `<small class="tkdur">${p.kind === "combo" && p.description ? `${esc(p.description)}<br>` : ""}${tkDur(p)}</small>`;
   const btn = s || od ? `<button class="tkbtn" type="button" data-add="${esc(p.id)}">Agregar</button>`
     : askWa(p) ? `<a class="tkbtn" href="${askWa(p)}" target="_blank" rel="noopener">Pedir</a>` : `<button class="tkbtn" type="button" disabled>Agotado</button>`;
-  return `<article class="tk"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${mark(p)}</button>
+  return `<article class="tk${apps.length ? " tkcombo" : ""}"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${apps.length ? comboIcon(apps) : mark(p)}</button>
     <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
 }
 /** Comparador de combos: el cliente elige dos y los ve lado a lado (qué incluye, precio, ahorro). */
@@ -340,7 +349,7 @@ function comboCompare(pub) {
   const col = (c) => `<article class="cmpc${best === c.id ? " best" : ""}">${best === c.id ? `<span class="cmpbadge">⭐ Más conveniente por plataforma</span>` : ""}
       <h3>${esc(c.name)}</h3><div class="cmpp"><b>${bs(c.price)}</b><small>/ ${tkDur(c)}</small></div>
       <p class="cmpn">Incluye ${apps(c).length} plataforma${apps(c).length === 1 ? "" : "s"}</p>
-      <ul class="cmpl">${apps(c).map((x) => `<li>✓ ${esc(x)}</li>`).join("")}</ul>
+      <ul class="cmpl">${(comboApps(c).length ? comboApps(c).map((x) => `<li>${miniMark(x)}${esc(x.name)}</li>`) : apps(c).map((x) => `<li>✓ ${esc(x)}</li>`)).join("")}</ul>
       ${save(c) ? `<p class="cmpsave">💰 Ahorrás Bs ${esc(save(c))} frente a comprarlos por separado</p>` : ""}
       <small class="muted">Sale ${bs(Math.round(per(c)))} por plataforma</small>${btn(c)}</article>`;
   const sel = (id, cur, other) => `<select id="${id}" aria-label="${id === "cmpA" ? "Primer" : "Segundo"} combo">${combos.filter((c) => c.id !== other.id).map((c) => `<option value="${esc(c.id)}" ${c.id === cur.id ? "selected" : ""}>${esc(c.name)} · ${bs(c.price)}</option>`).join("")}</select>`;
