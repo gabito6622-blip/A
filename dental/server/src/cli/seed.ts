@@ -150,7 +150,7 @@ try {
     const day = today.plus({ days: d });
     if (day.weekday === 7) continue;
     for (const dent of dentistIds) {
-      const slots = day.weekday === 6 ? ["08:00", "09:00", "10:30"] : ["08:00", "09:00", "10:00", "11:30", "14:30", "15:30", "16:30", "17:30"];
+      const slots = day.weekday === 6 ? ["08:00", "09:00", "10:30"] : ["08:00", "09:00", "10:00", "11:00", "14:30", "15:30", "16:30", "17:30"];
       for (const s of slots) {
         if (rnd() < 0.35) continue;
         const start = DateTime.fromISO(`${day.toISODate()}T${s}`, { zone: ZONE });
