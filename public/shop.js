@@ -42,7 +42,6 @@ const discountFor = (ids) => {
   return n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0;
 };
 const cartDiscount = () => Math.min(discountFor(S.cart.map((l) => l.productId)), cartTotal());
-const cartComboMatch = () => comboMatch(S.cart.map((l) => l.productId));
 /** Familia del servicio (Netflix, Disney+…): las variantes de una misma app son alternativas. */
 const family = (p) => p.name.toLowerCase().replace(/^(invitación|cuenta|perfil)\s+/, "").split(/\s+/)[0];
 /** El panel de GaboHub es para revendedores. */
@@ -207,7 +206,7 @@ function reviewsSection() {
 }
 /* Franja de logos de apps que se desliza sola (confianza + vida). */
 function brandStrip() {
-  const items = (S.catalog ?? []).filter((p) => p.name);
+  const items = (S.catalog ?? []).filter((p) => p.name && p.kind !== "combo");
   if (items.length < 3) return "";
   const chip = (p) => `<span class="bchip" style="--c:${esc(p.color || "#3984ff")}"><i>${esc((p.name[0] || "?").toUpperCase())}</i>${esc(p.name)}</span>`;
   const row = items.map(chip).join("");
@@ -235,8 +234,8 @@ function availBar() {
 const FAQ = [
   ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Escribinos por WhatsApp y te pasamos una nueva al toque."],
   ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
-  ["¿Cómo pago?", "Con QR y comprobante, o al instante con tu saldo si tenés cuenta. Te activamos y te avisamos por WhatsApp."],
-  ["¿Es seguro comprar acá?", "Sí. Nunca pedimos tus claves por WhatsApp: tus accesos quedan solo en tu área privada."],
+  ["¿Cómo pago?", "Con QR y comprobante, o coordinando por WhatsApp. Te activamos y te avisamos cuando esté listo."],
+  ["¿Es seguro comprar acá?", "Sí. Te entregamos tus accesos y te damos soporte por WhatsApp si algo falla."],
   ["¿En cuántos dispositivos puedo usarlo?", "Depende del servicio. Consultanos por WhatsApp y te decimos el detalle de cada plataforma."],
 ];
 function faqSection() {
@@ -369,7 +368,7 @@ function render() {
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
-      ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
+      ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
     },
     combo: () => comboView(),
     asesor: () => asesorView(),
@@ -421,7 +420,7 @@ function render() {
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
       return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Precios para revendedores</h2><p>Comprá con tu saldo y la cuenta se entrega al instante. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
-        ${list.length ? `<div class="pgrid">${list.map(card).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
+        ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
     })(),
     tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : (() => {
