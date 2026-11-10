@@ -590,3 +590,13 @@ img.svbadge{padding:5px;background:#0e1424}
 .paso .pnum{width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--line);color:var(--muted)}
 .paso.done .pnum{background:#16b47e;color:#fff}
 .paso .pdone{color:#16b47e;font-weight:700;font-size:13px;white-space:nowrap}
+
+/* Glosario "¿Para qué sirve cada pantalla?" */
+.glos summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:17px;font-weight:800}
+.glos summary::-webkit-details-marker{display:none}
+.glos summary .muted{font-size:13px;font-weight:600}
+.glos[open] summary{margin-bottom:4px}
+.glist{display:grid;gap:8px;margin-top:12px}
+.gitem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.gitem small{line-height:1.4}
+.gitem .pbtn{flex:none}

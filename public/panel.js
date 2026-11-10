@@ -206,7 +206,28 @@ const V = {
         <section class="card"><h2>Últimos movimientos</h2><div class="recent">${d.recent.length ? d.recent.map((o) => `<div><div><b>${esc(o.customer || "—")}</b><small>${esc(o.product)} · ${fdt(o.at)}</small></div><div>${tag(o.kind)}<b>${bs(o.total)}</b>${o.status !== "fulfilled" ? orderPill(o.status) : ""}</div></div>`).join("") : `<div class="emptybox">Sin movimientos.</div>`}</div></section>
       </div>
       <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Mensual", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
-        d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>`;
+        d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>
+      ${(() => {
+        const G = [
+          ["Vender", "Registrás una venta: elegís cliente y producto, y el sistema arma el mensaje para WhatsApp.", "vender"],
+          ["Control", "Lo que vence con tus clientes y proveedores; desde acá avisás y renovás.", "control"],
+          ["Cuentas", "Las cuentas que compraste al mayorista, con sus perfiles o cupos.", "cuentas"],
+          ["Carga de cuentas", "Cargás una cuenta nueva: correo, clave, costo y cuándo vence.", "carga"],
+          ["Productos", "Qué servicios vendés y a qué precio (incluido el precio de revendedor).", "productos"],
+          ["Clientes", "La agenda de tus clientes y revendedores: WhatsApp, notas y qué compraron.", "clientes"],
+          ["Revendedores", "Tus revendedores: su página, su saldo y las solicitudes nuevas.", "revendedores"],
+          ["Aprobación de ventas", "Los pagos por QR que esperan tu visto bueno antes de entregar.", "aprobacion"],
+          ["Panel de códigos", "Conectás un correo y los códigos (Disney, etc.) se leen solos para tus clientes.", "codigos"],
+          ["WhatsApp", "El bot que atiende solo y los avisos automáticos a tus clientes.", "whatsapp"],
+          ["Apariencia", "El diseño de tu tienda: estilo, colores, fuentes, horario y preguntas frecuentes.", "apariencia"],
+          ["Recordatorios", "Avisos automáticos de vencimiento para que no se te escape ninguno.", "recordatorios"],
+          ["Excel", "Exportás e importás tus clientes y servicios con una planilla.", "excel"],
+          ["Configuración", "Nombre, WhatsApp, QR de cobro, verificación en dos pasos y respaldo.", "configuracion"],
+        ];
+        return `<section class="card"><details class="glos"><summary><b>📖 ¿Para qué sirve cada pantalla?</b><span class="muted">tocá para abrir</span></summary>
+          <p class="muted" style="margin:10px 0 0">Una explicación corta de cada parte del sistema. Tocá “Ir” para abrirla.</p>
+          <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></details></section>`;
+      })()}`;
   },
   async vender() {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
