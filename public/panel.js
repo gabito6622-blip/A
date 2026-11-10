@@ -175,7 +175,7 @@ const V = {
       ${mpts.map((p, i) => `<g><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="#0b1220" stroke="#22d3ee" stroke-width="2"><title>${esc(M[i].label)}: ${bs(M[i].revenue)}</title></circle><text x="${p[0].toFixed(1)}" y="${MH - 6}" class="ax" text-anchor="middle">${esc(M[i].label)}</text></g>`).join("")}</svg>`;
     const tag = (kd) => `<span class="pp pp-${kd === "topup" ? "ok" : kd === "renewal" ? "warn" : "mute"}">${KIND_TEXT[kd] ?? kd}</span>`;
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
-      <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button></div></div>
+      <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Ver como cliente</a></div></div>
       ${hechos < pasos.length ? `<section class="card setupcard"><h2>🚀 Primeros pasos <small>${hechos} de ${pasos.length} listos</small></h2>
         <p class="muted" style="margin:0">Completá estos pasos y ya estás vendiendo. Cada uno se marca solo cuando lo hacés.</p>
         <div class="pgbar"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div>
