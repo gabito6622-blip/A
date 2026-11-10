@@ -645,6 +645,8 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
   route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
+  // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
+  route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {
@@ -762,6 +764,16 @@ export function createApp(cfg: AppConfig): App {
     const u = store.admin.setStaffActive(A(c), c.params.id, !!c.body?.active);
     if (!u.active) db.deleteSessionsOf(u.id);
     return u;
+  });
+  // El dueño le pone una contraseña nueva a un admin o vendedor que se la olvidó (y lo saca de las sesiones abiertas).
+  route("POST", "/api/admin/staff/:id/password", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño cambia contraseñas de otros usuarios");
+    const u = store.engine.s.staff[c.params.id];
+    if (!u) throw new HttpError(404, "NOT_FOUND", "No existe ese usuario");
+    if (u.role === "owner") throw new HttpError(400, "VALIDATION", "Tu propia contraseña se cambia en Seguridad");
+    store.admin.setStaffPassword(A(c), u.id, hashOrThrow(c.body?.password));
+    db.deleteSessionsOf(u.id);
+    return { ok: true };
   });
   /* ---- verificación en dos pasos del usuario actual ---- */
   route("GET", "/api/admin/me/2fa", "staff", (c) => ({ enabled: !!db.getSecret(`totp:${A(c).id}`) }));

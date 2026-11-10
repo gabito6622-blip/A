@@ -506,14 +506,16 @@ const V = {
     const rows = list.map((a, i) => {
       const d = daysLeft(a.customerExpiresAt);
       const price = a.control.price ?? a.productPrice, cost = a.control.cost ?? 0;
-      return { ...a, n: i + 1, d, est: estado(d, a.holdOpen), day: DAYS[new Date(a.customerExpiresAt).getDay()], price, cost, gain: price - cost, pay: a.control.payStatus ?? "pagado" };
+      return { ...a, n: i + 1, d, est: estado(d, a.holdOpen), day: DAYS[new Date(a.customerExpiresAt).getDay()], price, cost, gain: price - cost, pay: a.control.payStatus ?? "pagado", kind: a.customerKind === "reseller" ? "rev" : "fin" };
     });
     const products = [...new Set(rows.map((r) => r.product))];
     const q = (T.cq ?? "").toLowerCase();
     const sameDay = (t, u) => new Date(t).toDateString() === new Date(u).toDateString();
-    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay)
+    const view = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay) && (!T.ck || T.ck === "todos" || r.kind === T.ck)
       && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.control.note ?? ""}`.toLowerCase().includes(q)));
     P.controlView = view;
+    const xl = (T.cv ?? "excel") === "excel";
+    const kb = (r) => r.kind === "rev" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`;
     const sum = (f) => view.reduce((t, r) => t + f(r), 0);
     const cnt = (k) => rows.filter((r) => r.est[1] === k).length;
     const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
@@ -527,6 +529,8 @@ const V = {
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
+        <div class="ctl-kindrow"><div class="tabs ctl-chips" role="tablist" aria-label="Tipo de cliente">${[["todos", `👥 Clientes y revendedores (${rows.length})`], ["fin", `👤 Clientes finales (${rows.filter((r) => r.kind === "fin").length})`], ["rev", `🏪 Revendedores (${rows.filter((r) => r.kind === "rev").length})`]].map(([k, t]) => `<button type="button" role="tab" class="kc-${k}" data-tab="ck:${k}" aria-selected="${(T.ck ?? "todos") === k}">${t}</button>`).join("")}</div>
+          <div class="ctl-viewsw" role="group" aria-label="Cómo ver la lista"><button type="button" data-tab="cv:excel" aria-pressed="${xl}">📋 Tabla (Excel)</button><button type="button" data-tab="cv:cards" aria-pressed="${!xl}">🗂️ Tarjetas</button></div></div>
         <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, correo o WhatsApp" value="${esc(T.cq ?? "")}" aria-label="Buscar">
           <select id="cday" aria-label="Día que vence">${opt("", "Día: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `${d[0].toUpperCase() + d.slice(1)} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
           <select id="cprod" aria-label="Plataforma">${opt("", "Todas las apps", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
@@ -543,9 +547,9 @@ const V = {
           <small>${mine.length} alquiler(es) · ${mine.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(mine.reduce((t, r) => t + r.price, 0))}</small>${mine.length < view.length ? `<br><small class="muted">+ ${view.length - mine.length} donde figura como revendedor o en la nota</small>` : ""}</div>
           <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
-      <section class="ctl-cards">${view.map((r) => `<article class="ccard rv-${r.est[1]}">
+      <section class="ctl-cards${xl ? " off" : ""}">${view.map((r) => `<article class="ccard rv-${r.est[1]} k-${r.kind}">
         <header><label class="ccheck selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
-          <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small><br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
+          <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small> ${kb(r)}<br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
         <div class="crow mono">${esc(r.email)}</div>
         <div class="crow"><span>Vence <b>${fdate(r.customerExpiresAt)}</b> (${r.day})</span><span>Inicio ${fdate(r.startsAt)}</span></div>
@@ -565,10 +569,10 @@ const V = {
         <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button>
         <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
         <label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label></div>
-      <section class="card ctl-card">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
-        <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th>Cliente</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
-        ${view.map((r) => `<tr class="rv-${r.est[1]}">
-          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td class="mono">${r.n}</td><td><b>${esc(r.customerName)}</b></td>
+      <section class="card ctl-card${xl ? " xl" : ""}">${view.length ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
+        <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th><th>N°</th><th class="ccli">Cliente</th><th>Tipo</th><th>WhatsApp</th><th>Plataforma</th><th>Correo</th><th>Perfil</th><th>Inicio</th><th>Vencimiento</th><th>Día vence</th><th>Precio Bs</th><th>Costo Bs</th><th>Ganancia Bs</th><th>Estado pago</th><th>Estado</th><th>Días</th><th>Revendedor</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>
+        ${view.map((r) => `<tr class="rv-${r.est[1]} k-${r.kind}">
+          <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td class="mono">${r.n}</td><td class="ccli"><b>${esc(r.customerName)}</b></td><td>${kb(r)}</td>
           <td class="mono">${r.customerPhone ? esc(r.customerPhone.replace(/^\+591/, "")) : `<span class="pp pp-warn">Sin WhatsApp</span>`}</td>
           <td>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))}</td><td class="mono">${esc(r.email)}</td><td>${esc(r.profile)}</td>
           <td>${fdate(r.startsAt)}</td><td><b>${fdate(r.customerExpiresAt)}</b></td><td>${r.day}</td>
@@ -661,7 +665,7 @@ const V = {
     const editCard = a && canReview() ? `<section class="card"><h2>Editar cuenta ${esc(a.email)} <small>· ${esc(pname(a.productId))}</small></h2><form class="form" data-editacc="${esc(a.id)}">
             <label>Email<input name="email" type="email" value="${esc(a.email)}"></label>
             <label>Contraseña nueva<input name="password" placeholder="Vacío = no cambia" autocomplete="off"></label>
-            <label>Proveedor<select name="supplierId">${suppliers.map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
+            <label>Proveedor<select name="supplierId">${opt("propias", "Propias (tuyas, sin proveedor)", a.supplierId === "propias")}${suppliers.filter((s) => s.id !== "propias" && (s.active || s.id === a.supplierId)).map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
             <label>Vence con el proveedor<input name="exp" type="date" value="${dateInput(a.supplierExpiresAt)}"></label>
             <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
@@ -698,7 +702,7 @@ const V = {
         <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
         ${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
-        <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
+        <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
@@ -714,7 +718,7 @@ const V = {
         const d = daysLeft(a.supplierExpiresAt);
         return `<tr><td>${esc(pname(a.productId))}</td><td class="mono">${esc(a.email)}${a.notes ? `<br><small class="muted" style="font-family:inherit">📝 ${esc(a.notes)}</small>` : ""}</td><td class="mono">${esc(a.password)}</td>
           <td><div style="display:flex;flex-wrap:wrap;gap:4px">${a.slots.map((s) => canReview() ? `<button type="button" class="pp pp-${{ available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status]} clk" data-slotact="${esc(s.id)}" style="border:0;cursor:pointer;font:inherit">${esc(s.label)}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}` : ""}</button>` : pill(`${s.label}: ${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena", retired: "retirado" }[s.status]}`, { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" }[s.status])).join("")}</div></td>
-          <td>${esc(suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</td><td>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</td>
+          <td>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</td><td>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</td>
           <td>${a.status === "active" ? pill("Activa", "ok") : pill("Retirada", "mute")}</td>
           <td>${canReview() ? `<button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>` : ""}
           ${a.status === "active" && canReview() ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</td></tr>`;
@@ -843,8 +847,9 @@ const V = {
         return `<tr><td>${esc(s.name)}<br><small class="muted">${esc(s.contact ?? "")}</small></td><td>${r?.activeAccounts ?? "—"}</td><td>${r?.assigned ?? "—"}</td><td>${r?.quarantined ?? "—"}</td>
           <td>${r ? bs(r.cost) : "—"}</td><td>${r ? bs(r.revenue) : "—"}</td><td class="${r && r.margin < 0 ? "down" : "up"}">${r ? bs(r.margin) : "—"}</td>
           <td>${r?.expiringIn7Days.length ? r.expiringIn7Days.map((a) => `<small class="mono">${esc(a.email)}</small>`).join("<br>") : "—"}</td>
-          <td>${canReview() ? `<button class="pbtn sm" type="button" data-supactive="${esc(s.id)}" data-on="${s.active ? 0 : 1}">${s.active ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`;
-      }), "Todavía no hay proveedores.")}</section>`;
+          <td>${canReview() && s.id !== "propias" ? `<div class="inline" style="flex-wrap:nowrap"><button class="pbtn sm" type="button" data-supactive="${esc(s.id)}" data-on="${s.active ? 0 : 1}">${s.active ? "Desactivar" : "Activar"}</button><button class="pbtn sm danger" type="button" data-supdel="${esc(s.id)}" data-name="${esc(s.name)}" data-n="${r?.activeAccounts ?? 0}">🗑️ Borrar</button></div>` : s.id === "propias" ? `<small class="muted">Tus cuentas</small>` : ""}</td></tr>`;
+      }), "Todavía no hay proveedores.")}
+      <p class="muted" style="margin:0">¿Vos sos el proveedor? Tocá <b>🗑️ Borrar</b>: sus cuentas pasan a <b>Propias</b> (las tuyas) y no se pierde ninguna cuenta ni cliente.</p></section>`;
   },
 
   async clientes() {
@@ -1019,7 +1024,9 @@ const V = {
     return `<section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
       <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
-        <td>${u.role !== "owner" ? `<button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`))}</section>`;
+        <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
+          <form data-staffpw="${esc(u.id)}" style="display:grid;gap:6px"><input name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Contraseña nueva" aria-label="Contraseña nueva para ${esc(u.username)}" style="min-width:0;width:100%"><button class="pbtn sm" type="submit">Cambiar contraseña</button></form></div>` : ""}</td></tr>`))}
+      <p class="muted" style="margin:10px 0 0">¿Alguien se olvidó la contraseña? Escribile una nueva (mínimo 10 letras) y tocá <b>Cambiar contraseña</b>: se cierra su sesión y entra con la nueva.</p></section>`;
   },
 
   async revendedores() {
@@ -2012,9 +2019,9 @@ document.addEventListener("click", async (ev) => {
     if (d.cbulk === "paid") return act(async () => { for (const id of ids) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus: "pagado" }); }, `💵 ${ids.length} marcadas como pagadas`);
   }
   if (d.ctlcsv) {
-    const H = ["N°", "Cliente", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
+    const H = ["N°", "Cliente", "Tipo", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
     const PAYT = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
-    const lines = [H, ...(P.controlView ?? []).map((r) => [r.n, r.customerName, r.customerPhone, r.product.replace(/ \(alquiler revendedores\)/, ""), r.email, r.profile, fdate(r.startsAt), fdate(r.customerExpiresAt), r.day, r.price / 100, r.cost / 100, r.gain / 100, PAYT[r.pay], r.est[0], r.d, r.control.seller ?? "", r.control.note ?? ""])];
+    const lines = [H, ...(P.controlView ?? []).map((r) => [r.n, r.customerName, r.kind === "rev" ? "Revendedor" : "Cliente final", r.customerPhone, r.product.replace(/ \(alquiler revendedores\)/, ""), r.email, r.profile, fdate(r.startsAt), fdate(r.customerExpiresAt), r.day, r.price / 100, r.cost / 100, r.gain / 100, PAYT[r.pay], r.est[0], r.d, r.control.seller ?? "", r.control.note ?? ""])];
     const csv = "\ufeff" + lines.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `control-alquileres-${new Date().toISOString().slice(0, 10)}.csv` });
     a.click(); URL.revokeObjectURL(a.href); return;
@@ -2267,6 +2274,10 @@ document.addEventListener("click", async (ev) => {
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
   if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
+  if (d.supdel) {
+    if (!confirm(`¿Borrar el proveedor "${d.name}"? ${+d.n ? `Sus ${d.n} cuenta(s) pasan a "Propias" (las tuyas). ` : ""}No se pierde ninguna cuenta ni cliente.`)) return;
+    return act(() => api("POST", `/api/admin/suppliers/${d.supdel}/delete`, {}), (r) => `🗑️ Proveedor borrado${r.moved ? ` · ${r.moved} cuenta(s) ahora son tuyas` : ""}`);
+  }
   if (d.supactive) {
     const s = (await api("GET", "/api/admin/suppliers")).find((x) => x.id === d.supactive);
     return act(() => api("POST", "/api/admin/suppliers", { ...s, active: d.on === "1" }), "Proveedor actualizado");
@@ -2681,6 +2692,8 @@ document.addEventListener("submit", async (ev) => {
       P.tab.q = f.q.value; await render();
     } else if (f.id === "adjForm") {
       await act(() => api("POST", `/api/admin/customers/${f.dataset.id}/adjust`, { amount: toCents(f.amount.value), reason: f.reason.value }), "Saldo ajustado");
+    } else if (f.dataset.staffpw) {
+      await act(() => api("POST", `/api/admin/staff/${f.dataset.staffpw}/password`, { password: f.password.value }), "Contraseña cambiada: ya puede entrar con la nueva");
     } else if (f.id === "staffForm") {
       await act(() => api("POST", "/api/admin/staff", { name: f.name.value, username: f.username.value, role: f.role.value, password: f.password.value }), "Usuario creado");
     } else if (f.id === "offForm") {

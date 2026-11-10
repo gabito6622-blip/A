@@ -77,3 +77,23 @@ describe("ganancia real", () => {
     assert.equal(rep.current.ganancia, -6600, "sin ventas todavía, la ganancia es negativa: es la verdad");
   });
 });
+
+describe("proveedores: cuando el proveedor sos vos", () => {
+  test("borrar un proveedor pasa sus cuentas a Propias, sin perder nada", () => {
+    const { s, full, prof } = setup();
+    assert.throws(() => s.catalog.deleteSupplier(seller, "tarjeta"), err("FORBIDDEN"));
+    assert.deepEqual(s.catalog.deleteSupplier(owner, "tarjeta"), { moved: 2 });
+    assert.equal(s.engine.s.suppliers.tarjeta, undefined);
+    assert.equal(s.engine.s.accounts[full.id].supplierId, "propias");
+    assert.equal(s.engine.s.accounts[prof.id].supplierId, "propias");
+    assert.throws(() => s.catalog.deleteSupplier(owner, "propias"), err("VALIDATION"));
+  });
+
+  test("al editar una cuenta se puede elegir Propias aunque todavía no exista", () => {
+    const { s, full } = setup();
+    assert.equal(s.engine.s.suppliers.propias, undefined);
+    s.inventory.updateAccount(owner, full.id, { supplierId: "propias" });
+    assert.equal(s.engine.s.accounts[full.id].supplierId, "propias");
+    assert.equal(s.engine.s.suppliers.propias.name, "Propias");
+  });
+});
