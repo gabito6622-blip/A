@@ -114,6 +114,8 @@ export interface StoreSettings extends Look {
   staffAlerts?: StaffAlertSettings;
   /** Aviso de stock bajo: cuando a un producto le quedan menos perfiles libres que esto (por defecto 2). */
   lowStockAt?: number;
+  /** Métodos de cobro por país (Yappy, Tigo Money…), manuales con comprobante. */
+  payMethods?: LocalPayMethod[];
 }
 
 export interface StaffAlertSettings {
@@ -326,7 +328,7 @@ export type OrderStatus =
   | "rejected"
   | "expired"
   | "cancelled";
-export type PaymentMethod = "qr" | "balance" | "cash" | "binance" | "usdt";
+export type PaymentMethod = "qr" | "balance" | "cash" | "binance" | "usdt" | "local";
 
 /** Datos de un pago por Binance Pay (USDT). El monto en USDT se calcula con la tasa que pone el dueño. */
 export interface BinancePay {
@@ -386,6 +388,8 @@ export interface Order {
   binance?: BinancePay;
   /** Prueba gratis: no cuenta como venta en las estadísticas. */
   trial?: boolean;
+  /** Método de cobro por país usado (copia del nombre por si después se borra). */
+  localPay?: { id: Id; name: string };
   /** Cupón usado (copia del código por si después se borra) y cuánto descontó. */
   coupon?: { id: Id; code: string; amount: Cents };
   createdAt: number;
@@ -621,4 +625,21 @@ export interface Coupon {
   note?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Método de cobro manual de un país (Yappy, Tigo Money, transferencia…). */
+export interface LocalPayMethod {
+  id: Id;
+  name: string;
+  country?: string;
+  /** Número, alias o cuenta donde paga el cliente. */
+  account: string;
+  holder?: string;
+  instructions?: string;
+  /** Listas de precios (países) que lo ven. Vacío = todos. */
+  priceGroupIds: Id[];
+  /** Para esos clientes, esconde el QR de Bolivia. */
+  replacesQr: boolean;
+  enabled: boolean;
+  qrFileRef?: string;
 }

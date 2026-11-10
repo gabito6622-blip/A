@@ -18,6 +18,7 @@ import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
+import { methodsFor, qrAllowedFor } from "./payMethods.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fdate = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -42,6 +43,8 @@ export interface CreateOrderInput {
   preferredSlotIds?: Id[];
   /** Código de cupón de descuento (opcional). */
   couponCode?: string;
+  /** Con paymentMethod "local": cuál método de cobro del país usa. */
+  localMethodId?: Id;
 }
 
 /**
@@ -67,6 +70,15 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
   const key = input.idempotencyKey ? `order:${actor.id}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
     const payerId = payerFor(e, actor, input.customerId);
+    // Cobro por país: el método tiene que ser uno de los que ve quien paga.
+    let localPay: Order["localPay"];
+    if (input.paymentMethod === "local") {
+      const m = methodsFor(e, payerId).find((x) => x.id === input.localMethodId);
+      if (!m) throw new DomainError("VALIDATION", "Ese método de pago no está disponible para vos");
+      localPay = { id: m.id, name: m.name };
+    } else if (input.paymentMethod === "qr" && !isStaff(actor) && !qrAllowedFor(e, payerId)) {
+      throw new DomainError("VALIDATION", "En tu país se paga con otro método: elegilo en el carrito");
+    }
     const id = e.id("ord");
     const items: OrderItem[] = input.items.map((it) => {
       const p = e.get("products", it.productId);
@@ -81,7 +93,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       // precio del combo, pero el cliente recibe un acceso por cada servicio del combo.
       const parts = prod?.kind === "combo" ? (prod.comboProductIds ?? []) : null;
       if (parts && parts.length) return parts.flatMap((partId) => reserveSlots(e, partId, it.qty, id, [], []));
-      if (prod?.resellersOnly && (input.paymentMethod === "qr" || input.paymentMethod === "usdt") && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
+      if (prod?.resellersOnly && (input.paymentMethod === "qr" || input.paymentMethod === "usdt" || input.paymentMethod === "local") && freeCount(e, it.productId) < it.qty) { back.push({ productId: it.productId, qty: it.qty }); return []; }
       const prefer = isStaff(actor) ? (input.preferredSlotIds ?? []).filter((sid) => e.s.slots[sid]?.productId === it.productId) : [];
       return reserveSlots(e, it.productId, it.qty, id, [], prefer);
     });
@@ -96,10 +108,11 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
       ...(cup ? { coupon: { id: cup.coupon.id, code: cup.coupon.code, amount: cup.amount } } : {}),
+      ...(localPay ? { localPay } : {}),
       ...(back.length ? { backorder: back } : {}),
     };
     e.s.orders[id] = order;
-    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}) });
+    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}), ...(localPay ? { via: localPay.name } : {}) });
     if (input.paymentMethod === "balance") {
       post(e, actor, payerId, -order.total, "purchase", id);
       fulfill(e, actor, order);
@@ -213,7 +226,7 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
   return e.tx(() => {
     const o = e.get("orders", orderId);
     requireActFor(e, actor, o.customerId);
-    if (o.paymentMethod !== "qr" && o.paymentMethod !== "usdt") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
+    if (o.paymentMethod !== "qr" && o.paymentMethod !== "usdt" && o.paymentMethod !== "local") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
     if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);

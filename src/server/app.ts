@@ -529,6 +529,7 @@ export function createApp(cfg: AppConfig): App {
       customerId: c.body?.customerId ?? c.actor!.customerId!, items: c.body?.items ?? [],
       paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey,
       couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined,
+      localMethodId: c.body?.localMethodId ? String(c.body.localMethodId) : undefined,
     }));
   // Cuánto saldría el pedido con el cupón (para mostrarlo en el carrito antes de pagar).
   route("POST", "/api/orders/quote", "customer", (c) =>
@@ -1321,6 +1322,27 @@ export function createApp(cfg: AppConfig): App {
       throw new HttpError(502, "TG", (e as Error).message);
     }
   });
+  // ── Cobro por país (Yappy, Tigo Money…): manual, con comprobante ──
+  route("GET", "/api/me/paymethods", "customer", (c) => store.payMethods.mine(c.actor!));
+  route("GET", "/api/paymethods/:id/qr", "customer", (c) => {
+    const m = store.payMethods.forCustomer(c.actor!.customerId!).find((x) => x.id === c.params.id);
+    return sendImage(c, m?.qrFileRef, "Este método no tiene QR");
+  });
+  route("GET", "/api/admin/paymethods", "staff", (c) => store.payMethods.list(A(c)).map(({ qrFileRef, ...m }) => ({ ...m, hasQr: !!qrFileRef })));
+  route("GET", "/api/admin/paymethods/:id/qr", "staff", (c) => {
+    const m = store.payMethods.list(A(c)).find((x) => x.id === c.params.id);
+    return sendImage(c, m?.qrFileRef, "Este método no tiene QR");
+  });
+  route("POST", "/api/admin/paymethods", "staff", (c) => { const { qrFileRef, ...m } = store.payMethods.save(A(c), c.body ?? {}); return { ...m, hasQr: !!qrFileRef }; });
+  route("POST", "/api/admin/paymethods/:id/delete", "staff", (c) => { const r = store.payMethods.remove(A(c), c.params.id); if (r.old) dropUpload(r.old); return { ok: true }; });
+  route("POST", "/api/admin/paymethods/:id/qr", "staff", (c) => {
+    if (c.body?.remove) { const r = store.payMethods.setQr(A(c), c.params.id, null); if (r.old) dropUpload(r.old); return { ok: true }; }
+    const file = saveUpload(c.body);
+    if (file.endsWith(".pdf")) { dropUpload(file); throw new HttpError(400, "VALIDATION", "El QR tiene que ser una imagen (JPG, PNG o WEBP)"); }
+    try { const r = store.payMethods.setQr(A(c), c.params.id, file); if (r.old) dropUpload(r.old); return { ok: true }; }
+    catch (e) { dropUpload(file); throw e; }
+  }, MAX_UPLOAD_JSON);
+
   // USDT manual: configuración cruda (para el panel; la dirección es pública pero la mostramos solo al staff).
   route("GET", "/api/admin/usdt", "staff", () => {
     const u = store.engine.s.settings.usdt;

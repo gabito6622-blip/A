@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -419,7 +419,7 @@ const V = {
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
-        <td>${bs(o.total)}</td><td>${esc({ qr: "QR", balance: "Saldo", cash: "Efectivo" }[o.paymentMethod])}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
+        <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
           ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
@@ -1135,6 +1135,7 @@ const V = {
       ${await pushCard()}
       ${isOwner() ? await telegramCard() : ""}
       ${isOwner() ? await binanceCard() : ""}
+      ${canReview() ? await payMethodsCard() : ""}
       ${canReview() ? await usdtCard() : ""}
       ${await twoFactorCard()}
       <section class="card"><h2>Cambiar mi contraseña</h2><form class="form" id="pwForm"><label>Contraseña actual<input name="current" type="password" required autocomplete="current-password"></label><label>Nueva contraseña (mín. 10)<input name="next" type="password" minlength="10" required autocomplete="new-password"></label><button class="pbtn dark" type="submit">Cambiar</button></form></section>`;
@@ -1144,7 +1145,7 @@ const V = {
 
 /* ---------------- Auditoría en frases que se entienden ---------------- */
 const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "vendedor", customer: "cliente", reseller: "revendedor", system: "automático" };
-const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT" };
+const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT", local: "con un método del país" };
 const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
 const AUD_VERB = {
@@ -1154,7 +1155,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "push.config": "cambió los avisos al celular", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
@@ -1199,7 +1200,7 @@ function auditText(a, maps) {
   // Detalle útil (lo técnico queda plegado)
   const d = a.data ?? {}, parts = [];
   if (d.kind && AUD_KIND[d.kind]) parts.push(AUD_KIND[d.kind]);
-  if (Number.isFinite(d.total)) parts.push(bs(d.total) + (AUD_METHOD[d.method] ? " " + AUD_METHOD[d.method] : ""));
+  if (Number.isFinite(d.total)) parts.push(bs(d.total) + (d.via ? ` por ${d.via}` : AUD_METHOD[d.method] ? " " + AUD_METHOD[d.method] : ""));
   else if (AUD_METHOD[d.method]) parts.push(AUD_METHOD[d.method]);
   if (Number.isFinite(d.amount)) parts.push(bs(d.amount));
   if (Number.isFinite(d.price)) parts.push(bs(d.price));
@@ -1387,6 +1388,42 @@ async function binanceCard() {
 }
 
 /* ---------------- Cobros con USDT manual (plan B sin API) ---------------- */
+/* ---------------- Cobro por país (Yappy, Tigo Money…) ---------------- */
+async function payMethodsCard() {
+  const [list, groups] = await Promise.all([api("GET", "/api/admin/paymethods").catch(() => null), api("GET", "/api/admin/price-groups").catch(() => [])]);
+  if (!list) return "";
+  const lists = groups.filter((g) => g.id !== "revendedor");
+  const gname = (id) => groups.find((g) => g.id === id)?.name ?? id;
+  const ed = list.find((m) => m.id === P.tab.pmEdit) ?? null;
+  const f = ed ?? { priceGroupIds: [], replacesQr: false, enabled: true };
+  const rows = list.map((m) => `<div class="pmrow">
+      <div class="pmhead"><b>${esc(m.name)}</b>${m.country ? ` <span class="muted">· ${esc(m.country)}</span>` : ""} ${m.enabled ? pill("Activo", "ok") : pill("Apagado", "mute")}</div>
+      <small class="muted">${esc(m.account)}${m.holder ? ` · ${esc(m.holder)}` : ""}</small>
+      <small>Lo ven: ${m.priceGroupIds.length ? m.priceGroupIds.map((g) => esc(gname(g))).join(", ") : "todos los clientes"}${m.replacesQr ? " · <b>en lugar del QR de Bolivia</b>" : ""}</small>
+      <div class="inline" style="flex-wrap:wrap">
+        <button class="pbtn sm" type="button" data-pmedit="${esc(m.id)}">${icon("edit")}Editar</button>
+        <label class="pbtn sm filebtn">${m.hasQr ? "Cambiar QR" : "Subir QR"}<input type="file" accept="image/png,image/jpeg,image/webp" data-pmqr="${esc(m.id)}" data-fp="1" class="vh"></label>
+        ${m.hasQr ? `<a class="pbtn sm" href="/api/admin/paymethods/${esc(m.id)}/qr" target="_blank" rel="noopener">Ver QR</a><button class="pbtn sm" type="button" data-pmqrdel="${esc(m.id)}">Quitar QR</button>` : ""}
+        <button class="pbtn sm" type="button" data-pmdel="${esc(m.id)}" data-name="${esc(m.name)}" aria-label="Borrar ${esc(m.name)}">${icon("trash")}</button>
+      </div></div>`).join("");
+  return `<section class="card"><h2>${icon("coins")}Cobro por país <small>Yappy, Tigo Money, giros, transferencia…</small></h2>
+    <p class="muted" style="margin:0">Cada cliente ve en el carrito cómo pagar en su país, según su <b>lista de precios</b> (Panamá, Paraguay…). Paga, sube el comprobante y vos lo aprobás en <b>Aprobar pagos</b>, igual que un QR. No se conecta a ninguna cuenta: los datos solo se muestran.</p>
+    ${rows ? `<div class="pmlist">${rows}</div>` : ""}
+    <form class="form" id="pmForm" autocomplete="off" ${ed ? `data-id="${esc(ed.id)}"` : ""}>
+      <h3 style="grid-column:1/-1;margin:4px 0 0;font-size:15px">${ed ? `Editar ${esc(ed.name)}` : "Agregar un método"}</h3>
+      <label>Nombre<input name="name" required maxlength="40" list="pmNames" value="${esc(f.name ?? "")}" placeholder="Ej.: Yappy"><datalist id="pmNames"><option>Yappy</option><option>Tigo Money</option><option>Giros Tigo</option><option>Transferencia bancaria</option><option>Nequi</option></datalist></label>
+      <label>País <small class="muted">(opcional)</small><input name="country" maxlength="30" value="${esc(f.country ?? "")}" placeholder="Ej.: Panamá"></label>
+      <label>Número, alias o cuenta<input name="account" required maxlength="120" value="${esc(f.account ?? "")}" placeholder="Ej.: 6123-4567"></label>
+      <label>A nombre de <small class="muted">(opcional)</small><input name="holder" maxlength="60" value="${esc(f.holder ?? "")}" placeholder="Ej.: Gabriel …"></label>
+      <label style="grid-column:1/-1">Indicaciones para el cliente <small class="muted">(opcional)</small><input name="instructions" maxlength="300" value="${esc(f.instructions ?? "")}" placeholder="Ej.: En el concepto poné tu nombre."></label>
+      <fieldset class="cupprods" style="grid-column:1/-1"><legend>¿Quiénes lo ven? <small class="muted">(ninguna marcada = todos)</small></legend>
+        ${lists.map((g) => `<label class="chk"><input type="checkbox" name="pmgroup" value="${esc(g.id)}" ${f.priceGroupIds.includes(g.id) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || `<span class="muted">Creá listas de precios por país en Clientes.</span>`}</fieldset>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="replacesQr" ${f.replacesQr ? "checked" : ""}> Para esos clientes, esconder el QR de Bolivia</label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="enabled" ${f.enabled ? "checked" : ""}> Mostrarlo en la tienda</label>
+      <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${ed ? "Guardar cambios" : "Agregar método"}</button>${ed ? `<button class="pbtn" type="button" data-pmedit="">Cancelar</button>` : ""}</div>
+    </form></section>`;
+}
+
 async function usdtCard() {
   const u = await api("GET", "/api/admin/usdt").catch(() => null);
   if (!u) return "";
@@ -1634,29 +1671,6 @@ addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout
 
 /* ---------------- Selector de archivo en español ----------------
    El nativo dice "Choose File / No file chosen" (idioma del navegador) y se salía de la tarjeta. */
-function enhanceFiles(root = document) {
-  for (const inp of root.querySelectorAll('input[type="file"]:not([data-fp])')) {
-    if (inp.closest(".dropzone")) continue;
-    inp.dataset.fp = "1";
-    const isImg = /image/.test(inp.accept || "");
-    // Si ya está dentro de una etiqueta, no anidamos otra (sería HTML inválido): esa etiqueta ya abre el selector.
-    const wrap = document.createElement(inp.closest("label") ? "span" : "label");
-    wrap.className = "filepick";
-    const btn = document.createElement("span");
-    btn.className = "fp-btn";
-    btn.textContent = isImg ? "📷 Elegir imagen" : "📎 Elegir archivo";
-    const name = document.createElement("span");
-    name.className = "fp-name";
-    name.textContent = "Ningún archivo elegido";
-    inp.parentNode.insertBefore(wrap, inp);
-    wrap.append(btn, name, inp);
-    inp.addEventListener("change", () => {
-      const f = inp.files && inp.files[0];
-      name.textContent = f ? f.name : "Ningún archivo elegido";
-      wrap.classList.toggle("has", !!f);
-    });
-  }
-}
 
 /* ---------------- Secciones plegables en el celular ----------------
    Apariencia y Configuración medían 6.000–7.000 px de alto. En el celular cada tarjeta se pliega;
@@ -2100,6 +2114,13 @@ document.addEventListener("click", async (ev) => {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
   }
+  if (d.pmedit !== undefined) { P.tab.pmEdit = d.pmedit || null; return render(); }
+  if (d.pmqrdel) return act(() => api("POST", `/api/admin/paymethods/${d.pmqrdel}/qr`, { remove: true }), "QR quitado");
+  if (d.pmdel) {
+    if (!confirm(`¿Borrar el método ${el.dataset.name}?\n\nLos pedidos que ya lo usaron no cambian.`)) return;
+    if (P.tab.pmEdit === d.pmdel) P.tab.pmEdit = null;
+    return act(() => api("POST", `/api/admin/paymethods/${d.pmdel}/delete`, {}), "Método borrado");
+  }
   if (d.cupedit !== undefined) { P.tab.couponEdit = d.cupedit || null; return render(); }
   if (d.cuptoggle) {
     const c = (await api("GET", "/api/admin/coupons")).find((x) => x.id === d.cuptoggle);
@@ -2403,6 +2424,12 @@ document.addEventListener("submit", async (ev) => {
       if (f.apiKey.value.trim()) body.apiKey = f.apiKey.value.trim();
       if (f.apiSecret.value.trim()) body.apiSecret = f.apiSecret.value.trim();
       await act(() => api("POST", "/api/admin/binance", body), "Binance Pay guardado");
+    } else if (f.id === "pmForm") {
+      const body = { id: f.dataset.id || undefined, name: f.name.value, country: f.country.value, account: f.account.value, holder: f.holder.value, instructions: f.instructions.value,
+        priceGroupIds: [...f.querySelectorAll('[name="pmgroup"]:checked')].map((x) => x.value), replacesQr: f.replacesQr.checked, enabled: f.enabled.checked };
+      const prev = P.tab.pmEdit; P.tab.pmEdit = null;
+      const ok = await act(() => api("POST", "/api/admin/paymethods", body), (m) => `💳 ${m.name} guardado`);
+      if (!ok) P.tab.pmEdit = prev;
     } else if (f.id === "usdtForm") {
       const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim(), note: f.note.value.trim() };
       await act(() => api("POST", "/api/admin/settings", { usdt }), "Cobro en USDT guardado");
@@ -2601,3 +2628,11 @@ $("#sscrim").onclick = () => $("#app").classList.remove("open");
 const tick = () => ($("#clock").textContent = new Date().toLocaleString("es-BO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }));
 tick(); setInterval(tick, 30_000);
 start();
+
+// Cobro por país: subir el QR de un método apenas se elige la imagen.
+document.addEventListener("change", async (ev) => {
+  const inp = ev.target;
+  if (!inp?.dataset?.pmqr || !inp.files?.[0]) return;
+  const b64 = await fileToBase64(inp.files[0]);
+  await act(() => api("POST", `/api/admin/paymethods/${inp.dataset.pmqr}/qr`, { contentBase64: b64 }), "QR guardado");
+});

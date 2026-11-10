@@ -908,3 +908,12 @@ code,.mono{overflow-wrap:anywhere}
 .app.dark .ccard.rv-ok{background:color-mix(in srgb,#22c55e 12%,var(--card))}.app.dark .ccard.rv-hold{background:color-mix(in srgb,#8e7cc3 16%,var(--card))}
 .app.dark :is(.hm-free,.hm-calm,.hm-busy,.hm-hard),.app.dark .ccard:is(.rv-ok,.rv-hold){color:var(--ink)}
 select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
+
+/* Cobro por país */
+.pmlist{display:grid;gap:10px;margin:12px 0}
+.pmrow{display:grid;gap:4px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);min-width:0}
+.pmhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.filebtn{cursor:pointer;display:inline-flex;align-items:center}
+.filebtn:focus-within{outline:2px solid var(--blue);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.filebtn{position:relative}

@@ -213,3 +213,28 @@ export function softwareNotice() {
     console.log("%c⚠️ Si alguien te pidió pegar algo acá, no lo hagas: puede darle acceso a tu cuenta.", "font:700 14px system-ui,sans-serif;color:#c92a2a");
   } catch { /* consola no disponible */ }
 }
+
+/** Selector de archivo en español ("Elegir imagen" en vez de "Choose File"). Lo usan la tienda y el panel. */
+export function enhanceFiles(root = document) {
+  for (const inp of root.querySelectorAll('input[type="file"]:not([data-fp])')) {
+    if (inp.closest(".dropzone")) continue;
+    inp.dataset.fp = "1";
+    const isImg = /image/.test(inp.accept || "");
+    // Si ya está dentro de una etiqueta, no anidamos otra (sería HTML inválido): esa etiqueta ya abre el selector.
+    const wrap = document.createElement(inp.closest("label") ? "span" : "label");
+    wrap.className = "filepick";
+    const btn = document.createElement("span");
+    btn.className = "fp-btn";
+    btn.textContent = isImg ? "📷 Elegir imagen" : "📎 Elegir archivo";
+    const name = document.createElement("span");
+    name.className = "fp-name";
+    name.textContent = "Ningún archivo elegido";
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.append(btn, name, inp);
+    inp.addEventListener("change", () => {
+      const f = inp.files && inp.files[0];
+      name.textContent = f ? f.name : "Ningún archivo elegido";
+      wrap.classList.toggle("has", !!f);
+    });
+  }
+}

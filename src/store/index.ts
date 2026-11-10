@@ -17,6 +17,7 @@ import * as finance from "./finance.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
+import * as payMethods from "./payMethods.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -194,6 +195,14 @@ export function createStore(opts: EngineOptions = {}) {
       audit: bind(e, stats.auditLog),
       notifications: bind(e, stats.notifications),
       feed: () => stats.notificationItems(e),
+    },
+    payMethods: {
+      list: bind(e, payMethods.listPayMethods),
+      save: bind(e, payMethods.savePayMethod),
+      remove: bind(e, payMethods.deletePayMethod),
+      setQr: bind(e, payMethods.setPayMethodQr),
+      mine: bind(e, payMethods.myPayMethods),
+      forCustomer: (customerId: Id) => payMethods.methodsFor(e, customerId),
     },
     coupons: {
       list: bind(e, coupons.listCoupons),

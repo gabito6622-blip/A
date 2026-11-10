@@ -2,7 +2,7 @@
 //  - "hub"   (/)          GaboHub: la plataforma. Presentación, tiendas y el panel del revendedor.
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
-import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -347,6 +347,16 @@ function qrBlock() {
   const st = S.settings;
   return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
+/** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
+function localBlock(m, toPay) {
+  return `<div class="qr" style="align-items:flex-start">${m.hasQr ? `<img src="/api/paymethods/${esc(m.id)}/qr" alt="QR de ${esc(m.name)}">` : ""}<div style="display:grid;gap:8px;min-width:0">
+    <b style="color:var(--s-ink);font-size:16px">Pagá ${bs(toPay)} por ${esc(m.name)}</b>
+    <span class="empty">${m.country ? `${esc(m.country)} · ` : ""}A: <b style="color:var(--s-ink);overflow-wrap:anywhere">${esc(m.account)}</b> <button class="sbtn sm" type="button" data-copy="${esc(m.account)}">Copiar</button></span>
+    ${m.holder ? `<span class="empty">A nombre de <b style="color:var(--s-ink)">${esc(m.holder)}</b></span>` : ""}
+    ${m.instructions ? `<span class="empty">${esc(m.instructions)}</span>` : ""}
+    <span class="empty">Después subí abajo la captura del pago y el número de operación. Te confirmamos y activamos.</span>
+  </div></div>`;
+}
 /** Instrucciones de pago en USDT manual: cuánto mandar, a qué dirección / Pay ID. */
 function usdtBlock(toPay) {
   const u = S.settings.usdt;
@@ -385,6 +395,11 @@ function buildNav() {
 }
 
 function render() {
+  const r = renderInner();
+  enhanceFiles(document);
+  return r;
+}
+function renderInner() {
   buildNav();
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
@@ -1105,6 +1120,10 @@ async function applyCoupon(code) {
 }
 
 function renderCart(msg = "") {
+  renderCartInner(msg);
+  enhanceFiles($("#drawer"));
+}
+function renderCartInner(msg = "") {
   const tot = cartTotal();
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
@@ -1129,6 +1148,8 @@ function renderCart(msg = "") {
   const cup = couponNow(), cupErr = S.coupon && S.coupon.key === cartKey() && S.coupon.error ? S.coupon : null;
   const net = toPay - (cup?.amount ?? 0);
   const canBalance = S.me.balance >= net && !cartBackorder();
+  const pmx = S.data.payMethods ?? { qr: true, methods: [] };
+  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
     ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
@@ -1136,24 +1157,28 @@ function renderCart(msg = "") {
     <div class="total"><span>Total</span><span>${bs(net)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
-    <label><input type="radio" name="pm" value="qr" ${canBalance ? "" : "checked"}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>
+    ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
+    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>` : ""}
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    <div id="qrInfo" ${canBalance ? "hidden" : ""}>${qrBlock()}</div>
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
+    ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
-    <div id="proofPart" style="display:grid;gap:12px" ${canBalance ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación o hash<input name="ref" placeholder="Ej.: 123456789 o el hash de la transacción"></label></div>
+    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación o hash<input name="ref" placeholder="Ej.: 123456789 o el hash de la transacción"></label></div>
     <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
 
 async function submitCheckout(form) {
   const btn = form.querySelector('[type="submit"]');
-  const pm = form.pm.value;
+  const pmRaw = form.pm.value;
+  const localId = pmRaw.startsWith("local:") ? pmRaw.slice(6) : null;
+  const pm = localId ? "local" : pmRaw;
   btn.disabled = true;
   btn.textContent = "Procesando…";
   try {
     let file, ref;
-    if (pm === "qr" || pm === "usdt") {
+    if (pm === "qr" || pm === "usdt" || pm === "local") {
       ref = form.ref.value.trim();
       if (!form.file.files[0] || !ref) throw new Error(pm === "usdt" ? "Subí la captura del pago y pegá el hash o número de la transacción" : "Subí la foto del comprobante y escribí el número de operación");
       file = await fileToBase64(form.file.files[0]);
@@ -1162,6 +1187,7 @@ async function submitCheckout(form) {
       items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
       customerId: form.customerId?.value || undefined, idempotencyKey: S.checkoutKey,
       ...(couponNow() ? { couponCode: couponNow().code } : {}),
+      ...(localId ? { localMethodId: localId } : {}),
     });
     if (pm === "binance") {
       let pay;
@@ -1188,7 +1214,7 @@ async function submitCheckout(form) {
       return;
     }
     let final = order;
-    if (pm === "qr" || pm === "usdt") {
+    if (pm === "qr" || pm === "usdt" || pm === "local") {
       try {
         final = await api("POST", `/api/orders/${order.id}/evidence`, { contentBase64: file, declaredReference: ref });
       } catch (e) {
@@ -1298,7 +1324,7 @@ async function afterLogin() {
   toast("¡Bienvenido!");
   await refresh();
   if (MODE === "hub") { if (isReseller()) setView("inicio"); else location.href = "/tienda/#cuentas"; return; }
-  if (S.cart.length) { openDrawer(); S.step = 2; renderCart(); }
+  if (S.cart.length) { openDrawer(); S.step = 2; S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null); renderCart(); }
 }
 
 /** Link de acceso: /#acceso=TOKEN */
@@ -1432,6 +1458,7 @@ document.addEventListener("click", async (ev) => {
   if (d.step) {
     S.step = +d.step;
     if (S.step === 2 && isReseller() && !S.data.customers) S.data.customers = await api("GET", "/api/me/customers").catch(() => []);
+    if (S.step === 2 && S.me?.loggedIn) S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null);
     return renderCart();
   }
   if (d.renew) {
@@ -1461,8 +1488,9 @@ document.addEventListener("focusin", (ev) => { if (ev.target?.dataset?.selectall
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
   if (t.name === "pm") {
-    const proof = t.value === "qr" || t.value === "usdt";
+    const proof = t.value === "qr" || t.value === "usdt" || t.value.startsWith("local:");
     const pp = $("#proofPart"); if (pp) pp.hidden = !proof;
+    $$(".lpInfo").forEach((x) => (x.hidden = t.value !== `local:${x.dataset.lp}`));
     const qi = $("#qrInfo"); if (qi) qi.hidden = t.value !== "qr";
     const ui = $("#usdtInfo"); if (ui) ui.hidden = t.value !== "usdt";
   }
