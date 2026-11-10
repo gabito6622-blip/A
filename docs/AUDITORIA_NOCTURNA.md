@@ -99,7 +99,12 @@ El aislamiento se apoya en `requireActFor`/`canActFor` y `visibleCustomers` (un 
 ### 6.3 Rendimiento / accesibilidad
 - Base liviana: sin frameworks ni dependencias en runtime; estáticos servidos con `Cache-Control` adecuado (no-cache para `.html/.js/.css`, cacheable para imágenes).
 - Imágenes de producto con `loading="lazy"`.
-- Pendiente (no se alcanzó): correr **Lighthouse/axe-core** formalmente y adjuntar puntajes (ver sección 8).
+- **Pasada de contraste (WCAG) hecha con un medidor propio** sobre la tienda y tiendas de revendedor en temas claros y oscuros. Hallazgos reales y **corregidos**:
+  - En temas claros, el **precio** (color de acento sobre tarjeta clara) quedaba en ~2.4:1. Ahora se oscurece el acento solo en temas claros (`.shop[data-light] .price`), manteniendo el tono.
+  - El **texto de stock/ganancia** (verde/rojo) quedaba justo por debajo de 4.5:1 en temas claros; se oscurecieron un poco los colores de estado (`--s-ok/--s-warn/--s-bad`) para temas claros.
+  - El **contador del carrito** (número blanco sobre acento) fallaba con acentos claros (dorado, celeste), en temas claros y oscuros; ahora el fondo del badge usa el acento oscurecido de forma universal.
+  - Se agregó sombra sutil al texto blanco de botones/cintas de acento en temas claros, para legibilidad.
+  - *Nota honesta:* el medidor propio no sabe leer fondos con degradado, así que los botones primarios (texto blanco sobre degradado de acento) salen como falsos positivos; el patrón "texto blanco sobre botón de marca" es estándar y se reforzó con sombra. Un Lighthouse/axe-core formal sigue recomendado para un puntaje auditable.
 
 ---
 

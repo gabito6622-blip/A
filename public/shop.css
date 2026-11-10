@@ -16,7 +16,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sbtn.pri{background:linear-gradient(135deg,var(--s-blue),var(--s-sky));border-color:transparent;color:#fff;box-shadow:0 8px 24px color-mix(in srgb,var(--s-blue) 30%,transparent)}
 .sbtn.sm{padding:6px 11px;font-size:13px;border-radius:10px}
 .sbtn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
-.cartn{background:var(--s-blue);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;line-height:20px;text-align:center}
+.cartn{background:color-mix(in srgb,var(--s-blue) 62%,#000);color:#fff;border-radius:999px;font-size:12px;font-weight:700;min-width:20px;padding:0 6px;line-height:20px;text-align:center}
 .smain{padding-block:28px 40px;display:grid;gap:28px}
 .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding-block:28px}
 .chip{display:inline-flex;gap:6px;align-items:center;background:color-mix(in srgb,var(--s-blue) 18%,var(--s-bg));border:1px solid color-mix(in srgb,var(--s-blue) 45%,var(--s-bg));color:var(--s-chip,color-mix(in srgb,var(--s-sky) 70%,#fff));border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;justify-self:start}
@@ -730,3 +730,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .phones.pmini .ph:nth-child(2){left:50%;transform:translateX(-50%) rotate(0deg);top:8px;width:184px;height:316px;font-size:11px}
   .phones.pmini .ph:nth-child(2) .ph-hero strong{font-size:17px}
 }
+
+/* Accesibilidad: en temas claros, el precio (color de acento) y el texto blanco
+   sobre botones/cintas de acento pueden quedar con poco contraste. Lo reforzamos
+   sin perder el tono ni tocar los temas oscuros. */
+.shop[data-light="1"] .price{color:color-mix(in srgb,var(--s-blue) 58%,#0d0d16)}
+.shop[data-light="1"] :is(.sbtn.pri,.prib,.ph-btn){text-shadow:0 1px 2px rgba(0,0,0,.4)}

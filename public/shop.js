@@ -129,7 +129,7 @@ export function applyLook(st) {
     r.setProperty("--s-line", mix(bg, "#000000", 0.13));
     r.setProperty("--s-ink", "#111827");
     r.setProperty("--s-muted", "#4b5567");
-    r.setProperty("--s-ok", "#0b8a63"); r.setProperty("--s-warn", "#a15c00"); r.setProperty("--s-bad", "#c81e4a");
+    r.setProperty("--s-ok", "#097a54"); r.setProperty("--s-warn", "#8f5200"); r.setProperty("--s-bad", "#b3163f");
     r.setProperty("--s-sky", /^#[0-9a-f]{6}$/i.test(st.accent2Color || "") ? st.accent2Color : mix(ac, "#000000", 0.18));
     r.setProperty("--s-chip", mix(ac, "#000000", 0.35));
   } else {
