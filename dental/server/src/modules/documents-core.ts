@@ -6,6 +6,7 @@
 // es byte a byte lo que la clínica puede mostrar, aunque cambie la plantilla, la
 // biblioteca de PDF o los datos vivos (p. ej. un ítem del presupuesto anulado después).
 import { DateTime } from "luxon";
+import { logoForPdf } from "./clinicLogo.js";
 import type { Client } from "../lib/db.js";
 import { conflict, notFound } from "../lib/errors.js";
 import { formatVerifyCode, newVerifyCode, sha256hex, snapshotHash } from "../lib/pdf.js";
@@ -66,7 +67,7 @@ export async function storePdf(c: Client, o: {
   const pdf = await renderSnapshot(o.snapshot, {
     docTitle: DOC_TITLES[o.kind]!, docLabel: `${KIND_SHORT[o.kind]} N° ${o.docNumber}`,
     issuedAt: o.issuedAt, zone: o.snapshot.clinic.timezone,
-    letterhead: { clinicName: o.snapshot.clinic.name, legalName: o.snapshot.clinic.legalName, taxId: o.snapshot.clinic.taxId, ...o.snapshot.branch, branchName: o.snapshot.branch.name },
+    letterhead: { clinicName: o.snapshot.clinic.name, legalName: o.snapshot.clinic.legalName, taxId: o.snapshot.clinic.taxId, ...o.snapshot.branch, branchName: o.snapshot.branch.name, logo: await logoForPdf(c) },
     issuer: o.issuer ?? null, fingerprint, verifyCode: code, verifyUrl, watermark: o.variant === "voided" ? (o.kind === "receipt" || o.kind === "budget" ? "ANULADO" : "ANULADA") : null,
   }, { signaturePng: o.signaturePng ?? null });
   const r = await c.query<PdfRow>(

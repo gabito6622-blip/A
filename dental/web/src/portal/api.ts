@@ -47,7 +47,7 @@ export interface Branch { id: string; name: string; address: string | null; city
 export interface Service { id: string; name: string; category: string; durationMin: number; priceFromCents: number | null }
 export interface Session { patient: { id: string; firstName: string; lastName: string } | null; family: { id: string; firstName: string; lastName: string; isMinor: boolean; isSelf: boolean; consentReminders: boolean; consentMarketing: boolean }[]; phoneMasked: string }
 export interface Info {
-  clinic: { name: string; slug: string };
+  clinic: { name: string; slug: string; logoVersion?: string | null };
   rules: { leadTimeHours: number; maxDaysAhead: number; changeWindowHours: number; firstDay: string; lastDay: string; holdMinutes: number };
   instructions: string | null; cancellationPolicy: string; paymentNote: string;
   branches: Branch[]; services: Service[]; session: Session | null;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { makeLogo, makeThumbnail } from "../lib/thumbnail";
 import { useSearchParams } from "react-router-dom";
 import { KeyRound, LockOpen, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -135,6 +136,8 @@ function ClinicTab() {
           <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={save}>{busy ? "Guardando…" : "Guardar cambios"}</button>
         </div>
       </div>
+      <LogoCard />
+      <MissingThumbsCard />
       <div className="card">
         <div className="card-head"><h2>Plan contratado</h2></div>
         <div className="card-pad stack-sm">
@@ -145,6 +148,104 @@ function ClinicTab() {
           <div className="row-between"><span className="muted">Estado</span><span className="badge brand">{({ trial: "Prueba", active: "Activa", suspended: "Suspendida", cancelled: "Cancelada" } as Record<string, string>)[c.data.status] ?? c.data.status}</span></div>
           <p className="muted small" style={{ marginTop: 8 }}>Para cambiar de plan, comunícate con el proveedor del servicio.</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Logo de la clínica (B-096) ----------------
+function LogoCard() {
+  const toast = useToast();
+  const ask = useAsk();
+  const info = useApi<{ version: string; width: number; height: number } | null>("/api/clinic/logo-info");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const changed = () => { info.reload(); window.dispatchEvent(new Event("clinic-logo-changed")); };
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setErr(null);
+    if (!/^image\/(png|jpeg)$/.test(file.type)) return setErr("Elige una imagen PNG o JPG.");
+    setBusy(true);
+    try {
+      const logo = await makeLogo(file);
+      if (!logo) throw new Error("No se pudo preparar la imagen. Prueba con otro archivo PNG o JPG.");
+      await api.postBinary("/api/clinic/logo", logo);
+      toast("Logo guardado"); changed();
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if ((await ask({ title: "Quitar logo", message: "La barra lateral, los documentos nuevos y la página de reservas volverán a mostrarse sin logo. Los documentos ya emitidos no cambian.", confirmLabel: "Quitar logo", danger: true })) === null) return;
+    try { await api.post("/api/clinic/logo/remove"); toast("Logo quitado"); changed(); } catch (e: any) { toast(e.message, true); }
+  };
+  return (
+    <div className="card">
+      <div className="card-head"><h2>Logo de la clínica</h2></div>
+      <div className="card-pad stack">
+        <p className="muted small">Aparece en la barra lateral, en recetas, recibos, presupuestos y demás documentos nuevos, y en la página de reservas. PNG o JPG; se ajusta solo a 512 px.</p>
+        {err && <div className="alert danger" role="alert">{err}</div>}
+        {info.loading && !info.data ? <Loading rows={1} /> : info.data ? (
+          <div className="row" style={{ gap: 16, alignItems: "center" }}>
+            <img className="logo-preview" src={`/api/clinic/logo?v=${info.data.version}`} alt="Logo actual de la clínica" />
+            <span className="muted small">{info.data.width}×{info.data.height} px</span>
+          </div>
+        ) : <Empty>Todavía no hay logo.</Empty>}
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <label className={`btn btn-primary${busy ? " disabled" : ""}`} style={{ cursor: busy ? "wait" : "pointer" }}>
+            {busy ? "Subiendo…" : info.data ? "Cambiar logo" : "Subir logo"}
+            <input type="file" accept="image/png,image/jpeg" className="sr-only" aria-label="Elegir imagen del logo" disabled={busy}
+              onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {info.data && <button className="btn" onClick={remove} disabled={busy}>Quitar logo</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Miniaturas de imágenes antiguas (B-096) ----------------
+// Las imágenes subidas antes de v0.6 no tienen miniatura: la galería muestra un marcador. Este
+// navegador las genera desde el original (cada apertura queda auditada como vista) y las sube.
+function MissingThumbsCard() {
+  const m = useApi<{ total: number; items: { id: string; viewUrl: string }[] }>("/api/clinical-files/missing-thumbs?limit=1");
+  const [run, setRun] = useState<{ done: number; failed: number; total: number } | null>(null);
+  if (!m.data || (m.data.total === 0 && !run)) return null;
+  const start = async () => {
+    const total = m.data!.total;
+    let done = 0, failed = 0;
+    const skip = new Set<string>();
+    setRun({ done, failed, total });
+    for (;;) {
+      const page = await api.get<{ total: number; items: { id: string; viewUrl: string }[] }>("/api/clinical-files/missing-thumbs?limit=10").catch(() => null);
+      const todo = (page?.items ?? []).filter((x) => !skip.has(x.id));
+      if (!todo.length) break;
+      for (const x of todo) {
+        try {
+          const res = await fetch(x.viewUrl, { credentials: "same-origin" });
+          const thumb = res.ok ? await makeThumbnail(await res.blob()) : null;
+          if (!thumb) throw new Error("sin miniatura");
+          await api.postBinary(`/api/clinical-files/${x.id}/thumb`, thumb);
+          done++;
+        } catch { failed++; skip.add(x.id); }
+        setRun({ done, failed, total });
+      }
+    }
+    m.reload();
+  };
+  const busy = !!run && run.done + run.failed < run.total && m.data.total > 0;
+  return (
+    <div className="card">
+      <div className="card-head"><h2>Miniaturas de imágenes antiguas</h2></div>
+      <div className="card-pad stack-sm">
+        <p className="muted small">{m.data.total > 0
+          ? `${m.data.total} imágenes subidas antes de la versión 0.6 no tienen miniatura: la galería muestra un marcador hasta que alguien las abra. Puedes generarlas todas ahora desde este navegador.`
+          : "Todas las imágenes tienen miniatura."}</p>
+        {run && (
+          <div className="stack-sm" role="status" aria-live="polite">
+            <progress max={run.total || 1} value={run.done + run.failed} style={{ width: "100%" }} />
+            <span className="small">{run.done} generadas{run.failed ? ` · ${run.failed} no se pudieron generar` : ""} de {run.total}</span>
+          </div>
+        )}
+        {m.data.total > 0 && <button className="btn" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => void start()}>{busy ? "Generando…" : "Generar miniaturas"}</button>}
       </div>
     </div>
   );
@@ -770,6 +871,20 @@ function ConsentsTab() {
     try { await api.post(`/api/consent-templates/${tpl.id}/active`, { active }); toast(active ? "Plantilla activada" : "Plantilla desactivada"); t.reload(); }
     catch (e: any) { toast(e.message, true); }
   };
+  const ask = useAsk();
+  // B-096: revisión interna (p. ej. «la leyó nuestra asesoría»); no declara validez legal.
+  const markReviewed = async (tpl: any) => {
+    const note = await ask({
+      title: "Marcar revisada", confirmLabel: "Marcar revisada",
+      message: `«${tpl.title}» v${tpl.version} quedará marcada como revisada por la clínica, con tu nombre y la fecha. Es una marca interna: no reemplaza la revisión legal.`,
+      inputLabel: "Nota (opcional)", placeholder: "Ej.: revisada por la asesoría legal", minLength: 0,
+    });
+    if (note === null) return;
+    try {
+      await api.post(`/api/consent-templates/${tpl.id}/review`, { note: note.trim() ? note.trim().slice(0, 300) : null });
+      toast("Plantilla marcada como revisada"); t.reload();
+    } catch (e: any) { toast(e.message, true); }
+  };
   return (
     <div className="stack">
       <div className="alert warn small stack-sm">
@@ -786,7 +901,7 @@ function ConsentsTab() {
             <div className="card-head"><h2>{k.label}</h2></div>
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Título</th><th className="hide-mobile">Categoría</th><th className="num">Versión</th><th className="hide-mobile">Creada</th><th>Estado</th><th /></tr></thead>
+                <thead><tr><th>Título</th><th className="hide-mobile">Categoría</th><th className="num">Versión</th><th className="hide-mobile">Creada</th><th>Revisión</th><th>Estado</th><th /></tr></thead>
                 <tbody>
                   {t.data!.filter((x) => x.kind === k.id).map((x) => (
                     <tr key={x.id}>
@@ -794,8 +909,12 @@ function ConsentsTab() {
                       <td className="hide-mobile">{x.category ?? "—"}</td>
                       <td className="num">v{x.version}</td>
                       <td className="hide-mobile small">{fmtDateTime(x.createdAt)}</td>
+                      <td className="small">{x.reviewedAt
+                        ? <span title={x.reviewNote ?? undefined}><span className="badge ok">Revisada</span> <span className="muted">{x.reviewedByName} · {fmtDateTime(x.reviewedAt)}</span></span>
+                        : <span className="badge warn">Sin revisar</span>}</td>
                       <td>{x.active ? <span className="badge ok">Vigente</span> : <span className="badge">Inactiva</span>}</td>
                       <td className="num nowrap">
+                        {x.active && !x.reviewedAt && <><button className="btn btn-sm" onClick={() => markReviewed(x)}><ShieldCheck size={14} />Marcar revisada</button>{" "}</>}
                         {x.active && <button className="btn btn-sm" onClick={() => setEdit({ mode: "version", tpl: x })}><Pencil size={14} />Nueva versión</button>}{" "}
                         <button className="btn btn-sm btn-ghost" onClick={() => setActive(x, !x.active)}>{x.active ? "Desactivar" : "Activar"}</button>
                       </td>

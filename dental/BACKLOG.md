@@ -78,7 +78,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-093 | ✅ v0.7 | Respuesta «BAJA» de WhatsApp asociada por número completo y clínica del mensaje original, no por los últimos 8 dígitos |
 | B-094 | ✅ v0.7 | Claves separadas para cifrar los 2 pasos y para firmar enlaces (rotación independiente) |
 | B-095 | ✅ v0.7 | Embudo de presupuestos: limitar la lista de vencidos (hoy ~2 s con 100 000 pacientes); exportación de pacientes en streaming (~4,7 s) |
-| B-096 | P2 | Miniaturas para los archivos subidos antes de v0.6; botón «Marcar revisada» en plantillas de consentimiento; logo de la clínica |
+| B-096 | ✅ v0.7.1 | Miniaturas para los archivos subidos antes de v0.6; botón «Marcar revisada» en plantillas de consentimiento; logo de la clínica |
 | B-097 | P2 | Rentabilidad: «Cobrado» con los pagos de empresas; liberar el tope anual del convenio al trasladar al paciente; gastos fijos compartidos |
 
 ## Nuevos pendientes detectados en v0.7

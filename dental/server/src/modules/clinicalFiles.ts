@@ -25,7 +25,7 @@ import type { Route } from "../lib/http.js";
 import { zDate, zId, zIdParams } from "../lib/http.js";
 import { AppError, badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
-import { requireBranch, type AuthCtx } from "../lib/rbac.js";
+import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import type { Client } from "../lib/db.js";
 import { createFileStore, EXTENSION, imageDimensions, isImage, newStorageKey, sniffType, storeFor, type DetectedType, type FileStore } from "../lib/filestore.js";
 import { clinicZone } from "./agenda.js";
@@ -284,6 +284,56 @@ export function clinicalFileRoutes(route: Route, cfg: Config, app: FastifyInstan
         .header("content-security-policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox")
         .header("cross-origin-resource-policy", "same-origin");
       return stream;
+    },
+  });
+
+  // ---------------- Miniaturas de archivos antiguos (B-096) ----------------
+  // Las imágenes subidas antes de v0.6 no tienen miniatura. El navegador la genera desde el original
+  // (al abrirlo en el visor o en lote desde Gestión) y la sube aquí, con los mismos controles de 0023.
+  route({
+    method: "GET", url: "/api/clinical-files/missing-thumbs",
+    summary: "Imágenes sin miniatura que el rol puede ver (para generarlas desde el navegador). Incluye enlaces de vista de 5 minutos",
+    tags: ["archivos clínicos"], perm: "patients.read",
+    query: z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }),
+    handler: async ({ c, auth, query }) => {
+      const kinds = viewableKinds(auth);
+      const base = `FROM clinical_files f
+         WHERE f.kind = ANY($1::text[]) AND f.mime_type IN ('image/jpeg','image/png','image/webp')
+           AND NOT EXISTS (SELECT 1 FROM clinical_file_thumbs th WHERE th.file_id = f.id)
+           AND ($2::uuid[] IS NULL OR f.branch_id = ANY($2))`;
+      const params = [kinds, allowedBranches(auth)];
+      const total = (await c.query<{ n: number }>(`SELECT count(*)::int AS n ${base}`, params)).rows[0]!.n;
+      const items = (await c.query<{ id: string }>(`SELECT f.id ${base} ORDER BY f.created_at DESC LIMIT $3`, [...params, query.limit])).rows
+        .map((r) => ({ id: r.id, viewUrl: contentUrl(r.id, sign(auth, r.id, "view").token) }));
+      return { total, items };
+    },
+  });
+
+  route({
+    method: "POST", url: "/api/clinical-files/:id/thumb",
+    summary: "Agregar la miniatura de una imagen que no la tiene (cuerpo application/octet-stream; WebP, JPG o PNG de hasta 400 px y 100 KB)",
+    tags: ["archivos clínicos"], perm: "patients.read", params: zIdParams, limit: { max: 120, timeWindow: "1 minute" },
+    handler: async ({ c, auth, params, req }) => {
+      const f = await loadFile(c, params.id);
+      if (!canViewKind(auth, f.kind)) throw forbidden("No tienes permiso para ver este archivo");
+      if (f.thumb_key) throw new AppError(409, "thumb_exists", "Este archivo ya tiene miniatura");
+      const body = req.body;
+      if (!Buffer.isBuffer(body) || body.length === 0) throw new AppError(415, "unsupported_media_type", "Envía la miniatura como application/octet-stream");
+      const thumb = validateThumb(body, f.mime_type);
+      const key = newStorageKey(auth.clinicId!);
+      await store.put(key, thumb.buf);
+      try {
+        await c.query(
+          `INSERT INTO clinical_file_thumbs (clinic_id, file_id, mime_type, width, height, size_bytes, sha256, storage_driver, storage_key, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [auth.clinicId, f.id, thumb.mime, thumb.width, thumb.height, thumb.buf.length, createHash("sha256").update(thumb.buf).digest("hex"), store.driver, key, auth.userId]);
+      } catch (e) {
+        await store.remove(key).catch(() => {});
+        if ((e as { constraint?: string }).constraint === "clinical_file_thumbs_file_uq") throw new AppError(409, "thumb_exists", "Este archivo ya tiene miniatura");
+        throw e;
+      }
+      await audit(c, auth, "clinical_file.thumb_added", "clinical_file", f.id, { mimeType: thumb.mime, width: thumb.width, height: thumb.height }, f.branch_id);
+      return { thumbUrl: thumbUrl(f.id, sign(auth, f.id, "thumb").token) };
     },
   });
 

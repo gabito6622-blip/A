@@ -95,6 +95,7 @@ export function ClinicalFilesPanel({ patientId, tooth, onToothChange }: { patien
   useEffect(() => { setToothSel(tooth ?? null); }, [tooth]);
   const [pending, setPending] = useState<File[] | null>(null);
   const [viewer, setViewer] = useState<number | null>(null);
+  const thumbsAdded = useRef(false); // miniaturas generadas en el visor: al cerrarlo se recarga la galería
   const [compareMode, setCompareMode] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -232,7 +233,8 @@ export function ClinicalFilesPanel({ patientId, tooth, onToothChange }: { patien
           onClose={() => setPending(null)} onDone={(n) => { setPending(null); if (n) { toast(n === 1 ? "1 archivo subido" : `${n} archivos subidos`); setStatus("active"); data.reload(); } }} />
       )}
       {viewer != null && filtered[viewer] && (
-        <Viewer files={filtered} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} onChanged={() => { setViewer(null); data.reload(); }} />
+        <Viewer files={filtered} index={viewer} onIndex={setViewer} onClose={() => { setViewer(null); if (thumbsAdded.current) { thumbsAdded.current = false; data.reload(); } }}
+          onChanged={() => { setViewer(null); data.reload(); }} onThumb={() => { thumbsAdded.current = true; }} />
       )}
       {comparing && pickedFiles.length === 2 && <CompareViewer a={pickedFiles[0]!} b={pickedFiles[1]!} onClose={() => setComparing(false)} />}
     </div>
@@ -363,7 +365,7 @@ interface ZoomState { s: number; x: number; y: number }
 const Z0: ZoomState = { s: 1, x: 0, y: 0 };
 const clampS = (s: number) => Math.min(8, Math.max(1, s));
 
-function ZoomPane({ src, alt, z, setZ, label }: { src: string; alt: string; z: ZoomState; setZ: (f: (z: ZoomState) => ZoomState) => void; label: string }) {
+function ZoomPane({ src, alt, z, setZ, label, onImage }: { src: string; alt: string; z: ZoomState; setZ: (f: (z: ZoomState) => ZoomState) => void; label: string; onImage?: (img: HTMLImageElement) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ d: number; s: number } | null>(null);
@@ -419,7 +421,7 @@ function ZoomPane({ src, alt, z, setZ, label }: { src: string; alt: string; z: Z
       onDoubleClick={() => setZ((z) => (z.s > 1 ? Z0 : { ...z, s: 2.5 }))} role="img" aria-label={label}>
       {!loaded && !failed && <span className="cf-loading muted">Cargando imagen…</span>}
       {failed && <span className="cf-loading">No se pudo cargar la imagen. Cierra y vuelve a abrirla.</span>}
-      <img src={src} alt={alt} draggable={false} onLoad={() => setLoaded(true)} onError={() => setFailed(true)}
+      <img src={src} alt={alt} draggable={false} onLoad={(e) => { setLoaded(true); onImage?.(e.currentTarget); }} onError={() => setFailed(true)}
         style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.s})` }} />
     </div>
   );
@@ -474,7 +476,7 @@ async function download(f: ClinicalFile): Promise<string | null> {
 }
 
 // ---------------- Visor ----------------
-function Viewer({ files, index, onIndex, onClose, onChanged }: { files: ClinicalFile[]; index: number; onIndex: (i: number) => void; onClose: () => void; onChanged: () => void }) {
+function Viewer({ files, index, onIndex, onClose, onChanged, onThumb }: { files: ClinicalFile[]; index: number; onIndex: (i: number) => void; onClose: () => void; onChanged: () => void; onThumb?: () => void }) {
   const f = files[index]!;
   const toast = useToast();
   const ask = useAsk();
@@ -503,6 +505,14 @@ function Viewer({ files, index, onIndex, onClose, onChanged }: { files: Clinical
     catch (e: any) { toast(e.message, true); } finally { setBusy(false); }
   };
   const dl = async () => { setBusy(true); const e = await download(f); setBusy(false); if (e) toast(e, true); };
+  // B-096: una imagen antigua sin miniatura la recibe al abrirla, desde la imagen ya cargada (sin
+  // volver a descargar el original). Si falla, no pasa nada: la galería sigue con el marcador.
+  const thumbTried = useRef(new Set<string>());
+  const onImage = (img: HTMLImageElement) => {
+    if (f.thumbUrl || thumbTried.current.has(f.id)) return;
+    thumbTried.current.add(f.id);
+    void makeThumbnail(img).then((b) => (b ? api.postBinary(`/api/clinical-files/${f.id}/thumb`, b) : null)).then((r) => { if (r) onThumb?.(); }).catch(() => {});
+  };
   const title = `${f.kindLabel}${f.teeth.length ? ` · pieza ${f.teeth.join(", ")}` : ""}`;
   return (
     <div className="cf-full" role="dialog" aria-modal="true" aria-label={`Visor: ${title}`}>
@@ -523,7 +533,7 @@ function Viewer({ files, index, onIndex, onClose, onChanged }: { files: Clinical
         </div>
       </div>
       <div className="cf-full-body">
-        {f.isImage ? (url ? <ZoomPane src={url} alt={title} z={z} setZ={setZ} label={`${title}. Rueda o pellizco para acercar; arrastra para desplazar.`} />
+        {f.isImage ? (url ? <ZoomPane src={url} alt={title} z={z} setZ={setZ} onImage={onImage} label={`${title}. Rueda o pellizco para acercar; arrastra para desplazar.`} />
           : <span className="cf-loading">{err ?? "Preparando imagen…"}</span>) : (
           <div className="cf-nofile">
             <FileText size={56} aria-hidden="true" />

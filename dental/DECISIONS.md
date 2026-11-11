@@ -211,3 +211,15 @@ Responde solo `{ok}` (200 o 503). El detalle lo ve únicamente la plataforma.
 ### D-49 · Alertas por episodio, sin repetirse
 - La deduplicación se guarda en la base, con un respaldo en memoria para cuando la base no responde.
 - Las alertas no llevan datos de pacientes.
+
+### D-50 · Logo y revisión de plantillas como historial de solo inserción (B-096)
+- `clinic_logos`: el logo vigente es la última fila; quitarlo es otra fila.
+- `consent_template_reviews`: cada revisión de una versión de plantilla queda con quién, cuándo y una nota.
+- Así la auditoría y el historial no dependen de que nadie borre ni cambie filas.
+- Los bytes del logo van al mismo almacenamiento privado que los archivos clínicos, pero en su propia tabla, y se sirven con `nosniff` y CSP `sandbox`.
+- El PDF lo incluye solo al emitirse: un documento emitido nunca cambia.
+
+### D-51 · Miniaturas antiguas generadas en el navegador
+- El servidor no decodifica imágenes, porque no agregamos dependencias nativas.
+- El visor genera la miniatura desde la imagen que ya cargó (sin otra descarga auditada del original).
+- La generación en lote de Configuración sí abre cada original, y cada apertura queda auditada como vista.

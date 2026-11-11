@@ -9,7 +9,7 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promi
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, quality));
 }
 
-export async function makeThumbnail(file: Blob): Promise<Blob | null> {
+export async function makeThumbnail(file: Blob | HTMLImageElement): Promise<Blob | null> {
   try {
     if (typeof createImageBitmap !== "function") return null;
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -33,5 +33,35 @@ export async function makeThumbnail(file: Blob): Promise<Blob | null> {
     } finally { bmp.close(); }
   } catch {
     return null; // imagen que el navegador no puede decodificar: se sube sin miniatura
+  }
+}
+
+/**
+ * Logo de la clínica (B-096): PNG de 512 px como máximo por el lado mayor, conservando la
+ * transparencia. El servidor lo vuelve a validar (PNG o JPG, 16–512 px, ≤ 300 KB).
+ */
+export const LOGO_SIDE = 512;
+export const LOGO_MAX_BYTES = 300 * 1024;
+export async function makeLogo(file: Blob): Promise<Blob | null> {
+  try {
+    if (typeof createImageBitmap !== "function") return null;
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      for (const side of [LOGO_SIDE, 384, 256]) {
+        const scale = Math.min(1, side / Math.max(bmp.width, bmp.height));
+        const w = Math.max(16, Math.round(bmp.width * scale)), h = Math.max(16, Math.round(bmp.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(bmp, 0, 0, w, h);
+        const b = await toBlob(canvas, "image/png", 1);
+        if (b && b.type === "image/png" && b.size <= LOGO_MAX_BYTES) return b;
+      }
+      return null;
+    } finally { bmp.close(); }
+  } catch {
+    return null;
   }
 }

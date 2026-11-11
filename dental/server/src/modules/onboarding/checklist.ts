@@ -45,7 +45,9 @@ export async function buildChecklist(c: Client, auth: AuthCtx) {
   const procs = (await c.query<{ code: string; name: string; price_cents: number }>("SELECT code, name, price_cents FROM procedures WHERE active")).rows;
   const types = (await c.query<{ n: number }>("SELECT count(*)::int AS n FROM appointment_types WHERE active")).rows[0]!.n;
   const consents = (await c.query<{ title: string; version: number; reviewed: boolean }>(
-    `SELECT t.title, t.version, (m.user_id IS NOT NULL) AS reviewed
+    // Revisada: alguien de la clínica la marcó como revisada (B-096) o la propia clínica guardó esa versión.
+    `SELECT t.title, t.version,
+            (m.user_id IS NOT NULL OR EXISTS (SELECT 1 FROM consent_template_reviews r WHERE r.template_id = t.id)) AS reviewed
        FROM consent_templates t LEFT JOIN memberships m ON m.clinic_id = t.clinic_id AND m.user_id = t.created_by AND m.role IN ('owner','admin')
       WHERE t.active ORDER BY t.kind, t.title`)).rows;
   const pts = (await c.query<{ total: number; imported: number }>(
@@ -144,7 +146,7 @@ export async function buildChecklist(c: Client, auth: AuthCtx) {
       id: "consents", title: "Plantillas de consentimiento revisadas", optional: false,
       description: "Los textos que trae Dentalia son modelos. Una plantilla cuenta como revisada cuando propietario o administración guardan su versión (botón «Nueva versión»), idealmente después de que la revise su asesoría legal.",
       done: consents.length > 0 && !pending.length, warning: null,
-      detail: !consents.length ? ["No hay plantillas vigentes."] : pending.length ? [`Sin revisar (${pending.length} de ${consents.length}): ${list(pending, 3)}.`] : [`Las ${consents.length} plantillas vigentes fueron guardadas por la clínica.`],
+      detail: !consents.length ? ["No hay plantillas vigentes."] : pending.length ? [`Sin revisar (${pending.length} de ${consents.length}): ${list(pending, 3)}.`] : [`Las ${consents.length} plantillas vigentes fueron revisadas o guardadas por la clínica.`],
       href: "/configuracion?tab=consents", action: "Abrir Configuración › Consentimientos",
     });
   }

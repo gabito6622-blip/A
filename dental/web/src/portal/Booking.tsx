@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CalendarPlus, MapPin, MessageCircle } from "lucide-react";
 import { newKey, papi, qs, PortalError, type Info, type Session } from "./api";
-import { ErrorBox, ExistingForm, OtpForm, Progress, Shell, SignupForm, SlotPicker, Sticky, bs, fmtTime, type Slot } from "./shared";
+import { ErrorBox, ExistingForm, OtpForm, Progress, Shell, SignupForm, SlotPicker, Sticky, bs, fmtTime, portalLogoUrl, type Slot } from "./shared";
 
 const LABELS = ["Sucursal", "Servicio", "Profesional", "Día y hora", "Tus datos", "Revisión", "Listo"];
 
@@ -80,7 +80,7 @@ function Funnel({ slug, info, onSession }: { slug: string; info: Info; onSession
   };
 
   return (
-    <Shell clinic={info.clinic.name} sub="Reserva tu cita en línea"
+    <Shell clinic={info.clinic.name} logo={portalLogoUrl(info)} sub="Reserva tu cita en línea"
       right={<a href={`/mi-cuenta/${slug}`} className="small">Mis citas</a>}>
       <div ref={top} />
       {step < 6 && <Progress step={step} furthest={furthest} labels={LABELS} />}

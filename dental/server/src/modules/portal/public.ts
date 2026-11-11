@@ -2,6 +2,7 @@
 // Sin sesión del personal. La clínica se resuelve por slug (solo si la reserva está activa) y
 // cada solicitud corre con RLS fijado a esa clínica. Toda acción queda en la auditoría.
 import { randomBytes, randomUUID } from "node:crypto";
+import { currentLogo, logoVersion, portalLogo, sendLogo } from "../clinicLogo.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { Config } from "../../config.js";
@@ -84,6 +85,16 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
     };
   }
 
+  // ---------------- Logo de la clínica (B-096) ----------------
+  pub({
+    method: "GET", url: "/logo", summary: "Logo de la clínica para la página de reservas (404 si no tiene)",
+    handler: async ({ c, reply }) => {
+      const l = await portalLogo(c);
+      if (!l) throw notFound("Logo");
+      return sendLogo(reply, l.row, l.bytes, "public, max-age=86400");
+    },
+  });
+
   // ---------------- Información pública ----------------
   pub({
     method: "GET", url: "/info", summary: "Datos públicos de la clínica para reservar: sucursales (dirección y mapa), prestaciones (duración y precio desde) y reglas",
@@ -91,7 +102,7 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
       const s = await findSession(c, req);
       const w = bookingWindow(ctx);
       return {
-        clinic: { name: ctx.clinicName, slug: ctx.slug },
+        clinic: { name: ctx.clinicName, slug: ctx.slug, logoVersion: logoVersion(await currentLogo(c)) },
         rules: { leadTimeHours: ctx.settings.leadTimeHours, maxDaysAhead: ctx.settings.maxDaysAhead, changeWindowHours: ctx.settings.changeWindowHours, firstDay: w.today, lastDay: w.lastDay, holdMinutes: HOLD_MINUTES },
         instructions: ctx.settings.instructions, cancellationPolicy: policyText(ctx), paymentNote: PAYMENT_NOTE,
         branches: (await publicBranches(c, ctx)).map((b) => ({ ...b, whatsappUrl: whatsappLink(b.whatsapp, `Hola, escribo desde la página de reservas de ${ctx.clinicName}.`) })),

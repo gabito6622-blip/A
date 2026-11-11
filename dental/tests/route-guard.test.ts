@@ -43,6 +43,7 @@ const PUBLIC_ROUTES = new Set([
     "GET /me/bookings/{id}", "POST /me/bookings/{id}/cancel", "GET /me/appointments", "GET /me/appointments/{id}/ics",
     "POST /me/appointments/{id}/cancel", "POST /me/appointments/{id}/reschedule", "GET /me/account", "GET /me/payments/{id}",
     "GET /me/budgets", "POST /me/messages/opt-out",
+    "GET /logo", // logo de la clínica (B-096): solo una imagen pública, sin datos
   ].map((s) => { const [m, p] = s.split(" "); return `${m} /api/public/c/{slug}${p}`; }),
 ]);
 
@@ -56,6 +57,7 @@ const SESSION_ROUTES = new Set([
 const ANY_MEMBER_ROUTES = new Set([
   "GET /api/clinic", "GET /api/branches", "GET /api/staff", "GET /api/schedules", "GET /api/procedures",
   "GET /api/consent-templates", "GET /api/medications", "GET /api/procedure-sessions",
+  "GET /api/clinic/logo-info", "GET /api/clinic/logo", // logo de la clínica (B-096): lo muestra la barra lateral a todos
 ]);
 
 const key = (o: Pick<Op, "method" | "path">) => `${o.method} ${o.path}`;

@@ -40,6 +40,7 @@ import { inventoryRoutes } from "./modules/inventory/index.js";
 import { createMailer, type Mailer } from "./lib/mailer.js";
 import { messagingRoutes } from "./modules/messaging/index.js";
 import { clinicalFileRoutes } from "./modules/clinicalFiles.js";
+import { clinicLogoRoutes } from "./modules/clinicLogo.js";
 import { coordinationRoutes } from "./modules/coordination/index.js";
 import { managementRoutes } from "./modules/management/index.js";
 import { expenseAttachmentRoutes } from "./modules/management/attachments.js";
@@ -154,6 +155,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   documentRoutes(route, cfg);
   inventoryRoutes(route);
   clinicalFileRoutes(route, cfg, app);
+  clinicLogoRoutes(route, cfg);
   coordinationRoutes(route);
   managementRoutes(route);
   expenseAttachmentRoutes(route, cfg, app);

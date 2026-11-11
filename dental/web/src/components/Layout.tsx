@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useApi } from "../lib/hooks";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -66,6 +67,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
           <div className="brand-mark"><Logo /></div>
           <div><b>Dentalia</b><small>{me?.clinic?.name ?? "Plataforma"}</small></div>
         </div>
+        {me?.clinic && <ClinicLogo />}
         <nav className="nav" aria-label="Principal">
           {sections.map((g) => (
             <div className="nav-group" key={g.id} role="group" aria-label={g.label}>
@@ -130,6 +132,22 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Logo de la clínica en la barra lateral (B-096); no ocupa lugar si la clínica no tiene logo. */
+function ClinicLogo() {
+  const info = useApi<{ version: string } | null>("/api/clinic/logo-info");
+  useEffect(() => {
+    const on = () => info.reload();
+    window.addEventListener("clinic-logo-changed", on);
+    return () => window.removeEventListener("clinic-logo-changed", on);
+  }, [info.reload]);
+  if (!info.data) return null;
+  return (
+    <div className="clinic-logo">
+      <img src={`/api/clinic/logo?v=${info.data.version}`} alt="Logo de la clínica" />
     </div>
   );
 }

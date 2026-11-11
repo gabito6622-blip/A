@@ -182,8 +182,12 @@ export function consentRoutes(route: Route) {
     query: z.object({ all: z.enum(["1", "0"]).optional(), kind: z.enum(KINDS).optional() }),
     handler: async ({ c, query }) =>
       (await c.query(
-        `SELECT id, kind, title, body, version, category, active, created_at AS "createdAt" FROM consent_templates
-          WHERE ($1::boolean OR active) AND ($2::text IS NULL OR kind = $2) ORDER BY kind, title, version DESC`,
+        `SELECT t.id, t.kind, t.title, t.body, t.version, t.category, t.active, t.created_at AS "createdAt",
+                r.created_at AS "reviewedAt", ru.full_name AS "reviewedByName", r.note AS "reviewNote"
+           FROM consent_templates t
+           LEFT JOIN LATERAL (SELECT x.created_at, x.reviewed_by, x.note FROM consent_template_reviews x WHERE x.template_id = t.id ORDER BY x.created_at DESC LIMIT 1) r ON true
+           LEFT JOIN users ru ON ru.id = r.reviewed_by
+          WHERE ($1::boolean OR t.active) AND ($2::text IS NULL OR t.kind = $2) ORDER BY t.kind, t.title, t.version DESC`,
         [query.all === "1", query.kind ?? null])).rows.map((t) => ({ ...t, kindLabel: KIND_LABELS[t.kind as Kind] })),
   });
 
@@ -198,6 +202,21 @@ export function consentRoutes(route: Route) {
         [auth.clinicId, body.kind, body.title, body.body, prev + 1, body.category, auth.userId]);
       await audit(c, auth, "consent_template.versioned", "consent_template", r.rows[0]!.id, { kind: body.kind, title: body.title, version: prev + 1 });
       return { id: r.rows[0]!.id, version: prev + 1 };
+    },
+  });
+
+  route({
+    method: "POST", url: "/api/consent-templates/:id/review",
+    summary: "Marcar una versión de plantilla como revisada por la clínica (revisión interna: no declara validez legal)", tags: ["consentimientos"], perm: "clinic.manage", params: zIdParams,
+    body: z.object({ note: zOptText(300) }),
+    handler: async ({ c, auth, params, body }) => {
+      const t = (await c.query<{ title: string; version: number }>("SELECT title, version FROM consent_templates WHERE id = $1", [params.id])).rows[0];
+      if (!t) throw notFound("Plantilla");
+      const r = (await c.query<{ id: string; created_at: Date }>(
+        "INSERT INTO consent_template_reviews (clinic_id, template_id, reviewed_by, note) VALUES ($1,$2,$3,$4) RETURNING id, created_at",
+        [auth.clinicId, params.id, auth.userId, body.note])).rows[0]!;
+      await audit(c, auth, "consent_template.reviewed", "consent_template", params.id, { title: t.title, version: t.version, note: body.note });
+      return { id: r.id, reviewedAt: r.created_at };
     },
   });
 

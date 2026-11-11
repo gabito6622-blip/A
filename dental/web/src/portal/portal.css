@@ -91,3 +91,6 @@
   .pt, .pt-main { background: #fff; padding: 0; }
   .pt-receipt { border: none; }
 }
+
+/* Logo de la clínica (B-096) */
+.pt-logo { height: 36px; max-width: 96px; object-fit: contain; border-radius: 6px; background: #fff; flex: none; }

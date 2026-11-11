@@ -5,6 +5,7 @@
 // Una empresa paga cargos de pacientes de varias sucursales: lo gestiona quien tiene acceso a
 // todas las sucursales (como las cuentas por pagar del laboratorio).
 import { z } from "zod";
+import { logoForPdf } from "../clinicLogo.js";
 import ExcelJS from "exceljs";
 import { DateTime } from "luxon";
 import type { FastifyReply } from "fastify";
@@ -245,7 +246,7 @@ export function payerRoutes(route: Route, cfg: Config) {
       const zone = head.clinic.timezone;
       const pdf = await renderPdf({
         docTitle: "Estado de cuenta", docLabel: `Estado de cuenta N° ${docNumber}`, issuedAt, zone,
-        letterhead: { clinicName: head.clinic.name, legalName: head.clinic.legalName, taxId: head.clinic.taxId, branchName: head.branch.name, address: head.branch.address, city: head.branch.city, phone: head.branch.phone },
+        letterhead: { clinicName: head.clinic.name, legalName: head.clinic.legalName, taxId: head.clinic.taxId, branchName: head.branch.name, address: head.branch.address, city: head.branch.city, phone: head.branch.phone, logo: await logoForPdf(c) },
         issuer: null, fingerprint, verifyCode: code, verifyUrl,
       }, (w) => {
         w.notice("Estado de cuenta del convenio. No es una factura fiscal.", "warn", true);

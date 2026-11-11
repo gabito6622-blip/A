@@ -25,7 +25,20 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   return data as T;
 }
 
+/** POST de un archivo como application/octet-stream (logo, miniaturas): misma sesión y CSRF. */
+async function postBinary<T>(url: string, body: Blob): Promise<T> {
+  const res = await fetch(url, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/octet-stream", "x-csrf-token": csrf }, body });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const e = data?.error ?? {};
+    throw new ApiError(res.status, e.code ?? "error", e.message ?? "Error de conexión", e.details);
+  }
+  window.dispatchEvent(new CustomEvent("api-write", { detail: url }));
+  return data as T;
+}
+
 export const api = {
+  postBinary,
   get: <T = any>(url: string) => request<T>("GET", url),
   post: <T = any>(url: string, body?: unknown) => request<T>("POST", url, body),
   put: <T = any>(url: string, body?: unknown) => request<T>("PUT", url, body),

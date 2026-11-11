@@ -94,6 +94,8 @@ export interface Letterhead {
   address?: string | null;
   city?: string | null;
   phone?: string | null;
+  /** Logo de la clínica (PNG o JPG, B-096). Sin logo, el membrete queda como antes. */
+  logo?: Buffer | null;
 }
 
 export interface PdfMeta {
@@ -281,19 +283,27 @@ function drawLetterhead(doc: Doc, meta: PdfMeta) {
   const L = meta.letterhead;
   const W = doc.page.width - M.left - M.right;
   const rightW = 190;
-  const leftW = W - rightW - 16;
   const top = 40;
-  doc.font("B").fontSize(16).fillColor(C.brand).text(L.clinicName, M.left, top, { width: leftW, height: 22, ellipsis: true, lineBreak: false });
+  // Logo (B-096): a la izquierda del nombre, en un recuadro de 48 px. Si la imagen no se puede leer, se omite.
+  let lx = M.left;
+  if (L.logo) {
+    try {
+      doc.image(L.logo, M.left, top - 2, { fit: [48, 48], align: "center", valign: "center" });
+      lx = M.left + 58;
+    } catch { lx = M.left; }
+  }
+  const leftW = W - rightW - 16 - (lx - M.left);
+  doc.font("B").fontSize(16).fillColor(C.brand).text(L.clinicName, lx, top, { width: leftW, height: 22, ellipsis: true, lineBreak: false });
   const legal = [L.legalName, L.taxId ? `NIT ${L.taxId}` : null].filter(Boolean).join(" · ");
   let y = top + 22;
   if (legal) {
-    doc.font("R").fontSize(8.5).fillColor(C.muted).text(legal, M.left, y, { width: leftW, height: 12, ellipsis: true, lineBreak: false });
+    doc.font("R").fontSize(8.5).fillColor(C.muted).text(legal, lx, y, { width: leftW, height: 12, ellipsis: true, lineBreak: false });
     y += 12;
   }
-  doc.font("B").fontSize(9).fillColor(C.ink2).text(`Sucursal ${L.branchName}`, M.left, y, { width: leftW, height: 12, ellipsis: true, lineBreak: false });
+  doc.font("B").fontSize(9).fillColor(C.ink2).text(`Sucursal ${L.branchName}`, lx, y, { width: leftW, height: 12, ellipsis: true, lineBreak: false });
   y += 12;
   const addr = [[L.address, L.city].filter(Boolean).join(", "), L.phone ? `Tel. ${L.phone}` : null].filter(Boolean).join(" · ");
-  if (addr) doc.font("R").fontSize(8.5).fillColor(C.muted).text(addr, M.left, y, { width: leftW, height: 24, ellipsis: true });
+  if (addr) doc.font("R").fontSize(8.5).fillColor(C.muted).text(addr, lx, y, { width: leftW, height: 24, ellipsis: true });
 
   const rx = M.left + W - rightW;
   doc.font("B").fontSize(11).fillColor(C.ink).text(meta.docTitle.toUpperCase(), rx, top + 2, { width: rightW, align: "right", height: 30, ellipsis: true, characterSpacing: 0.4 });

@@ -2,6 +2,24 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.7.1] — 2026-11-11
+
+Cierra B-096, lo último que dependía solo de nosotros. Migración 0028.
+
+### Agregado
+- **Logo de la clínica:**
+  - se sube desde Configuración › Clínica: PNG o JPG; el navegador lo ajusta a 512 px y el servidor lo verifica por firma de bytes, tamaño y medidas;
+  - se ve en la barra lateral, en los documentos PDF nuevos (recetas, recibos, presupuestos, consentimientos, estados de cuenta) y en la página de reservas;
+  - quitarlo o cambiarlo queda en el historial y en la auditoría;
+  - los documentos ya emitidos no cambian.
+- **«Marcar revisada» en las plantillas de consentimiento:**
+  - queda con quién, cuándo y una nota opcional, y es de solo inserción;
+  - «Primeros pasos» la cuenta como revisada;
+  - es una marca interna de la clínica: no declara validez legal.
+- **Miniaturas de las imágenes antiguas:**
+  - al abrir en el visor una imagen sin miniatura, se genera desde la imagen ya cargada, sin volver a descargar el original;
+  - Configuración › Clínica muestra cuántas faltan y las genera todas con una barra de progreso.
+
 ## [0.7.0] — 2026-11-11
 
 Lo que faltaba de nuestro lado antes del piloto: seguridad decidida, informes rápidos, copias de seguridad que se prueban solas y manuales para capacitar al personal. Migraciones 0025 y 0027. Sin despliegue: todo probado en local.

@@ -12,12 +12,17 @@ export const fmtDateShort = (iso: string) => new Intl.DateTimeFormat("es-BO", { 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export const fmtDayLong = (date: string) => cap(new Intl.DateTimeFormat("es-BO", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(new Date(date + "T12:00:00Z")));
 
-export function Shell({ clinic, sub, children, right }: { clinic: string; sub?: string; children: ReactNode; right?: ReactNode }) {
+/** URL del logo de la clínica en el portal (B-096), o null si no tiene. */
+export const portalLogoUrl = (info: { clinic: { slug: string; logoVersion?: string | null } }) =>
+  info.clinic.logoVersion ? `/api/public/c/${encodeURIComponent(info.clinic.slug)}/logo?v=${info.clinic.logoVersion}` : null;
+
+export function Shell({ clinic, sub, children, right, logo }: { clinic: string; sub?: string; children: ReactNode; right?: ReactNode; logo?: string | null }) {
   useEffect(() => { document.title = `${clinic} · ${sub ?? "Reserva"}`; }, [clinic, sub]);
   return (
     <div className="pt">
       <header className="pt-head">
         <div className="pt-head-in">
+          {logo && <img className="pt-logo" src={logo} alt="" />}
           <div className="grow"><b>{clinic}</b>{sub && <small>{sub}</small>}</div>
           {right}
         </div>

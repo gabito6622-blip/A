@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CalendarPlus, MapPin, MessageCircle } from "lucide-react";
 import { papi, qs, type Session } from "./api";
-import { ErrorBox, ExistingForm, OtpForm, Shell, SlotPicker, Sticky, bs, fmtDateShort, type Slot } from "./shared";
+import { ErrorBox, ExistingForm, OtpForm, Shell, SlotPicker, Sticky, bs, fmtDateShort, type Slot, portalLogoUrl } from "./shared";
 import { NotAvailable, useInfo } from "./Booking";
 
 type Tab = "citas" | "pagos" | "presupuestos";
@@ -19,7 +19,7 @@ export function MyAccountPage() {
   if (!info.session) {
     const help = info.branches.find((b) => b.whatsappUrl)?.whatsappUrl ?? null;
     return (
-      <Shell clinic={info.clinic.name} sub="Mis citas y pagos">
+      <Shell clinic={info.clinic.name} logo={portalLogoUrl(info)} sub="Mis citas y pagos">
         <h1>Ingresa a tu cuenta</h1>
         <p className="muted">Sin contraseña: te enviamos un código de un solo uso por WhatsApp.</p>
         {ch ? <OtpForm slug={slug} challenge={ch.c} resend={ch.resend} onVerified={setSession} onBack={() => setCh(null)} helpUrl={help} />
@@ -28,16 +28,16 @@ export function MyAccountPage() {
       </Shell>
     );
   }
-  return <Portal slug={slug} clinic={info.clinic.name} session={info.session} paymentNote={info.paymentNote} onLogout={() => setSession(null)} />;
+  return <Portal slug={slug} clinic={info.clinic.name} logo={portalLogoUrl(info)} session={info.session} paymentNote={info.paymentNote} onLogout={() => setSession(null)} />;
 }
 
-function Portal({ slug, clinic, session, paymentNote, onLogout }: { slug: string; clinic: string; session: Session; paymentNote: string; onLogout: () => void }) {
+function Portal({ slug, clinic, logo, session, paymentNote, onLogout }: { slug: string; clinic: string; logo: string | null; session: Session; paymentNote: string; onLogout: () => void }) {
   const api = papi(slug);
   const [tab, setTab] = useState<Tab>("citas");
   const [who, setWho] = useState(session.patient?.id ?? session.family[0]!.id);
   const logout = async () => { await api.post("/auth/logout").catch(() => {}); onLogout(); };
   return (
-    <Shell clinic={clinic} sub="Mis citas y pagos" right={<button type="button" className="pt-link" onClick={logout}>Salir</button>}>
+    <Shell clinic={clinic} logo={logo} sub="Mis citas y pagos" right={<button type="button" className="pt-link" onClick={logout}>Salir</button>}>
       <h1>Hola, {session.patient?.firstName ?? session.family[0]?.firstName}</h1>
       <div className="pt-seg" role="tablist" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
         <button type="button" role="tab" aria-selected={tab === "citas"} onClick={() => setTab("citas")}>Citas</button>

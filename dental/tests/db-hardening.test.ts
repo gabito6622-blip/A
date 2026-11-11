@@ -36,6 +36,8 @@ const INSERT_ONLY = [
   "staff_task_comments", "sterilization_bio_results", "sterilization_cycles", "time_entries",
   // v0.6 (equipos P, R y S)
   "clinical_file_thumbs", "expense_attachments", "import_batches", "import_records", "opening_balances", "payer_transfers",
+  // v0.7.1 (B-096)
+  "clinic_logos", "consent_template_reviews",
 ];
 
 /** Funciones SECURITY DEFINER revisadas: cada una solo resuelve la clínica o un agregado mínimo. */
