@@ -32,6 +32,8 @@ import { ManagementPage } from "./pages/Management";
 import { AgreementsPage } from "./pages/Agreements";
 import { ReconciliationPage } from "./pages/Reconciliation";
 import { ExperiencePage, PublicCheckinPage, PublicSurveyPage } from "./pages/experience-routes";
+import { ImportPage } from "./pages/Import";
+import { HelpPage } from "./pages/Help";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -80,6 +82,8 @@ export function App() {
         <Route path="/convenios" element={<AgreementsPage />} />
         <Route path="/conciliacion" element={<ReconciliationPage />} />
         <Route path="/experiencia" element={<ExperiencePage />} />
+        <Route path="/importar" element={<ImportPage />} />
+        <Route path="/ayuda" element={<HelpPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

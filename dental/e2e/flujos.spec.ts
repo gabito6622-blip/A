@@ -36,6 +36,12 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7));
   const iso = monday.toLocaleDateString("en-CA");
   await page.fill('input[aria-label="Fecha"]', iso);
+  // Hora libre real de la Dra. Vargas ese día (la semilla demo genera citas relativas a hoy: no se usa una hora fija).
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const staff = await (await page.request.get("/api/staff?professionals=1")).json();
+  const vargas = staff.find((d: any) => d.fullName === "Dra. Elena Vargas");
+  const av = await (await page.request.get(`/api/availability?date=${iso}&branchId=${me.branches[0].id}&dentistId=${vargas.userId}&durationMin=60`)).json();
+  const free = new Date(av[0].slots[0]).toLocaleTimeString("en-GB", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" });
   await page.getByRole("button", { name: "Nueva cita" }).click();
   await page.getByRole("button", { name: "Paciente nuevo" }).click();
   const dlg = page.getByRole("dialog", { name: "Paciente nuevo" });
@@ -50,7 +56,7 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   await appt.getByRole("button", { name: "Agendar" }).click();
   // 07:00 está fuera del horario → error visible, nada se guarda
   await expect(appt.getByRole("alert")).toContainText("Fuera del horario");
-  await appt.getByLabel("Hora").fill("12:00");
+  await appt.getByLabel("Hora").fill(free);
   await appt.getByRole("button", { name: "Agendar" }).click();
   await expect(page.getByText("Cita agendada")).toBeVisible();
   await expect(page.locator(".appt", { hasText: "Prueba E2E Automática" })).toBeVisible();
@@ -61,7 +67,7 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   await appt2.getByPlaceholder("Buscar por nombre, CI, teléfono o N° de ficha").fill("Mamani");
   await appt2.locator(".card button").first().click();
   await appt2.getByLabel("Profesional").selectOption({ label: "Dra. Elena Vargas" });
-  await appt2.getByLabel("Hora").fill("12:00");
+  await appt2.getByLabel("Hora").fill(free);
   await appt2.getByRole("button", { name: "Agendar" }).click();
   await expect(appt2.getByRole("alert")).toContainText(/ya tiene una cita|ocupado|otra cita/);
 });

@@ -56,7 +56,7 @@ function isMinor(birthDate: string | null): boolean {
   return age < 18;
 }
 
-function validatePatient(p: PatientInput) {
+export function validatePatient(p: PatientInput) {
   if (p.documentType !== "SIN" && !p.documentNumber) throw badRequest("Indica el número de documento o elige 'Sin documento'");
   if (p.birthDate && p.birthDate > new Date().toISOString().slice(0, 10)) throw badRequest("La fecha de nacimiento no puede ser futura");
   if (isMinor(p.birthDate) && !p.guardianName) throw badRequest("Para menores de edad indica el nombre del responsable");

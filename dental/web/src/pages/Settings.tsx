@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { KeyRound, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
@@ -66,7 +67,11 @@ export function SettingsPage() {
     { id: "audit", label: "Auditoría", hidden: !can("audit.read") },
   ];
   const visible = items.filter((i) => !i.hidden);
-  const [tab, setTab] = useState<Tab>(visible[0]?.id ?? "clinic");
+  // ?tab=… abre una pestaña concreta (enlaces de «Primeros pasos» y de la Ayuda).
+  const [sp] = useSearchParams();
+  const wanted = visible.find((i) => i.id === sp.get("tab"))?.id;
+  const [tab, setTab] = useState<Tab>(wanted ?? visible[0]?.id ?? "clinic");
+  useEffect(() => { if (wanted) setTab(wanted); }, [wanted]);
   if (!visible.length) return <Empty>No tienes acceso a la configuración.</Empty>;
   return (
     <div className="stack">

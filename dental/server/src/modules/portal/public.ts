@@ -652,14 +652,14 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
     handler: async ({ c, ctx, query, req }) => {
       const s = await requireSession(c, req);
       await requireFamilyMember(c, s, query.patientId);
-      const bal = (await c.query<{ charged_cents: number; paid_cents: number; pending_cents: number; balance_cents: number }>(
+      const bal = (await c.query<{ charged_cents: number; paid_cents: number; pending_cents: number; balance_cents: number; opening_cents: number }>(
         "SELECT * FROM patient_money($1)", [query.patientId])).rows[0]!;
       const payments = (await c.query(
         `SELECT p.id, p.receipt_number AS "receiptNumber", p.amount_cents AS "amountCents", p.method, p.status, p.received_at AS "receivedAt", b.name AS "branchName"
            FROM payments p JOIN branches b ON b.id = p.branch_id WHERE p.patient_id = $1 ORDER BY p.received_at DESC LIMIT 100`, [query.patientId])).rows;
       await paudit(c, ctx, "portal.viewed", "patient", query.patientId, { section: "account" });
       return {
-        chargedCents: bal.charged_cents, paidCents: bal.paid_cents, pendingVerificationCents: bal.pending_cents, balanceCents: bal.balance_cents,
+        chargedCents: bal.charged_cents, paidCents: bal.paid_cents, pendingVerificationCents: bal.pending_cents, balanceCents: bal.balance_cents, openingCents: bal.opening_cents,
         payments: payments.map((p) => ({ ...p, methodLabel: METHOD_LABELS[p.method], statusLabel: PAYMENT_STATUS[p.status] })),
         paymentNote: PAYMENT_NOTE,
       };

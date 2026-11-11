@@ -20,6 +20,7 @@ import { ClinicalFilesPanel } from "../components/ClinicalFiles";
 import { PatientContactActions } from "../components/coordination/Calls";
 import { PatientAgreementsCard } from "../components/agreements/AgreementWidgets";
 import { PatientFamilyCard, PatientTagsRow } from "../components/family";
+import { OpeningBalanceCard } from "../components/onboarding/OpeningBalance";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos" | "imagenes";
 
@@ -252,7 +253,7 @@ function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged
         <div className="card kpi"><div className="label">Tratamientos realizados{a.charges.some((c: any) => c.thirdPartyCents) ? " (parte del paciente)" : ""}</div><div className="value">{bs(a.chargedCents)}</div></div>
         <div className="card kpi"><div className="label">Pagado (confirmado)</div><div className="value">{bs(a.paidCents)}</div></div>
         <div className="card kpi"><div className="label">Por verificar</div><div className="value" style={{ color: a.pendingVerificationCents ? "var(--warn)" : undefined }}>{bs(a.pendingVerificationCents)}</div></div>
-        <div className="card kpi"><div className="label">Saldo</div><div className="value" style={{ color: a.balanceCents > 0 ? "var(--danger)" : "var(--ok)" }}>{bs(a.balanceCents)}</div><div className="foot">{a.balanceCents < 0 ? "A favor del paciente" : a.balanceCents > 0 ? "Pendiente de cobro" : "Al día"}</div></div>
+        <div className="card kpi"><div className="label">Saldo</div><div className="value" style={{ color: a.balanceCents > 0 ? "var(--danger)" : "var(--ok)" }}>{bs(a.balanceCents)}</div><div className="foot">{a.balanceCents < 0 ? "A favor del paciente" : a.balanceCents > 0 ? "Pendiente de cobro" : "Al día"}{a.openingCents ? ` · incluye saldo inicial ${bs(a.openingCents)}` : ""}</div></div>
       </div>
       <div className="grid grid-2">
         <div className="card">
@@ -274,6 +275,7 @@ function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged
             ))}</tbody></table></div> : <Empty>Sin cargos.</Empty>}
         </div>
       </div>
+      <OpeningBalanceCard patientId={patientId} onChanged={() => { acc.reload(); onChanged(); }} />
       {paying && <PaymentDialog patientId={patientId} onClose={() => setPaying(false)} onSaved={() => { setPaying(false); acc.reload(); onChanged(); }} />}
     </div>
   );

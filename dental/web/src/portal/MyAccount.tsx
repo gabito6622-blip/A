@@ -217,6 +217,7 @@ function Payments({ slug, patientId, note }: { slug: string; patientId: string; 
         <span className="muted">Saldo</span>
         <span className="pt-balance">{bal > 0 ? `Debes ${bs(bal)}` : bal < 0 ? `Tienes a favor ${bs(-bal)}` : "Estás al día"}</span>
         <dl className="pt-dl">
+          {data.openingCents ? <><dt>Saldo anterior de la clínica</dt><dd>{bs(data.openingCents)}</dd></> : null}
           <dt>Tratamientos realizados</dt><dd>{bs(data.chargedCents)}</dd>
           <dt>Pagado y confirmado</dt><dd>{bs(data.paidCents)}</dd>
           {data.pendingVerificationCents > 0 && <><dt>En verificación</dt><dd>{bs(data.pendingVerificationCents)} <span className="small muted">(no se descuenta hasta que la clínica lo confirme)</span></dd></>}

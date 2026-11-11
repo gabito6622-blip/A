@@ -271,13 +271,16 @@ export async function supersededError(c: Client, budgetId: string): Promise<AppE
 export interface PatientMoney {
   budgetedCents: number; chargedCents: number; paidCents: number; onAccountCents: number;
   pendingVerificationCents: number; balanceCents: number; lastPaymentAt: string | null;
+  /** Saldo inicial traído del sistema anterior (>0 deuda, <0 a favor); ya está sumado en balanceCents. */
+  openingCents: number;
 }
 
 /** Saldo del paciente: presupuestado, realizado, cobrado, a cuenta, por verificar y deuda. */
 export async function patientMoney(c: Client, patientId: string): Promise<PatientMoney> {
   const r = (await c.query(
     `SELECT budgeted_cents AS "budgetedCents", charged_cents AS "chargedCents", paid_cents AS "paidCents", on_account_cents AS "onAccountCents",
-            pending_cents AS "pendingVerificationCents", balance_cents AS "balanceCents", last_payment_at AS "lastPaymentAt"
+            pending_cents AS "pendingVerificationCents", balance_cents AS "balanceCents", last_payment_at AS "lastPaymentAt",
+            opening_cents AS "openingCents"
        FROM patient_money($1)`, [patientId])).rows[0];
   return r as PatientMoney;
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FileSpreadsheet, Plus, Search } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useApi, useDebounced } from "../lib/hooks";
@@ -16,13 +16,12 @@ export function PatientsPage() {
   const dq = useDebounced(q);
   const list = useApi<any>(`/api/patients${qs({ q: dq, limit: 25, offset: page * 25 })}`);
   const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(false);
   return (
     <div className="stack">
       <div className="page-head">
         <div><h1>Pacientes</h1><p className="sub">{list.data ? `${list.data.total} pacientes` : " "}</p></div>
         <div className="row">
-          {can("patients.import") && <button className="btn" onClick={() => setImporting(true)}><FileSpreadsheet size={16} />Importar Excel</button>}
+          {can("patients.import") && <Link className="btn" to="/importar?tipo=patients"><FileSpreadsheet size={16} />Importar Excel</Link>}
           {can("patients.write") && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Nuevo paciente</button>}
         </div>
       </div>
@@ -53,7 +52,6 @@ export function PatientsPage() {
         ) : <Empty>{dq ? "Sin resultados para esa búsqueda." : "Todavía no hay pacientes."}</Empty>}
       </div>
       {creating && <PatientFormDialog onClose={() => setCreating(false)} onSaved={(id) => nav(`/pacientes/${id}`)} />}
-      {importing && <ImportDialog onClose={() => { setImporting(false); list.reload(); }} />}
     </div>
   );
 }
@@ -152,48 +150,6 @@ export function PatientFormDialog({ patient, onClose, onSaved }: { patient?: any
             <label className="check"><input type="checkbox" checked={f.consentMarketing} onChange={set("consentMarketing")} />Acepta recibir promociones y novedades</label>
           </div>
         </div>
-      </div>
-    </Dialog>
-  );
-}
-
-function ImportDialog({ onClose }: { onClose: () => void }) {
-  const [file, setFile] = useState<string | null>(null);
-  const [res, setRes] = useState<any>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const load = (f: File) => {
-    const r = new FileReader();
-    r.onload = () => setFile(String(r.result).split(",")[1] ?? null);
-    r.readAsDataURL(f);
-    setRes(null);
-  };
-  const run = async (dryRun: boolean) => {
-    if (!file) return;
-    setBusy(true); setErr(null);
-    try { setRes(await api.post("/api/patients/import", { fileBase64: file, dryRun })); } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
-  };
-  return (
-    <Dialog wide title="Importar pacientes desde Excel" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cerrar</button>
-      <button className="btn" disabled={!file || busy} onClick={() => run(true)}>1. Validar</button>
-      <button className="btn btn-primary" disabled={!res?.summary?.dryRun || !res.summary.ok || busy} onClick={() => run(false)}>2. Importar {res?.summary?.dryRun ? res.summary.ok : ""}</button></>}>
-      <div className="stack">
-        <div className="alert info small">La primera fila debe tener encabezados. Reconocemos: <b>Nombre, Apellido, CI, Expedido, Fecha de nacimiento (dd/mm/aaaa), Sexo, Celular, Correo, Dirección, Ciudad, Notas</b>. Primero se valida sin guardar nada; los duplicados por documento se omiten.</div>
-        <input type="file" accept=".xlsx" onChange={(e) => e.target.files?.[0] && load(e.target.files[0])} />
-        {err && <div className="alert danger">{err}</div>}
-        {res && (
-          <>
-            <div className={`alert ${res.summary.dryRun ? "warn" : "ok"}`}>
-              {res.summary.dryRun ? "Validación (no se guardó nada): " : "Importación completada: "}
-              <b>{res.summary.ok}</b> correctos · <b>{res.summary.duplicates}</b> duplicados · <b>{res.summary.errors}</b> con errores
-            </div>
-            <div className="table-wrap" style={{ maxHeight: 300 }}><table className="table">
-              <thead><tr><th>Fila</th><th>Resultado</th><th>Detalle</th></tr></thead>
-              <tbody>{res.results.filter((r: any) => r.status !== "ok" || !res.summary.dryRun).map((r: any) => (
-                <tr key={r.row}><td>{r.row}</td><td><span className={`badge ${r.status === "ok" ? "ok" : r.status === "duplicate" ? "warn" : "danger"}`}>{r.status === "ok" ? "Importado" : r.status === "duplicate" ? "Duplicado" : "Error"}</span></td><td className="small">{r.message ?? (r.recordNumber ? `Ficha ${r.recordNumber}` : "")}</td></tr>
-              ))}</tbody></table></div>
-          </>
-        )}
       </div>
     </Dialog>
   );
