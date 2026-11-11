@@ -9,6 +9,7 @@ import { ownStockView, initOwnStock } from "/ownstock.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
+import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -193,6 +194,7 @@ async function loadPrivate() {
     if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
+  if (S.view === "cuentas" && MODE === "store" && !isReseller()) await loadAlertsCard(); // 🔔 avisos antes de que venza
   if (S.view === "fallas") S.data.tickets = await api("GET", "/api/me/tickets").catch(() => ({ kinds: {}, list: [] }));
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
@@ -202,6 +204,7 @@ async function loadPrivate() {
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
+    await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   }
@@ -605,6 +608,7 @@ function renderInner() {
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
+      ${MODE === "store" && !isReseller() ? alertsCard() : ""}
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
@@ -958,7 +962,7 @@ function rSubsView() {
       <div class="rbtns"><button class="sbtn sm pri" type="submit">${s ? "Guardar" : "➕ Agregar perfil"}</button>${s ? `<button class="sbtn sm" type="button" data-subrenew="${esc(aid)}|${esc(s.id)}">🔄 Renovó +30 días</button><button class="sbtn sm" type="button" data-subdel="${esc(aid)}|${esc(s.id)}">🗑️ Quitar</button>` : ""}</div></form>`;
   return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
       <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${mine(sm.owed)}</b></div></div>
-      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${selfCodesHead()}</div>
+      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${selfCodesHead()}${alertsSummary()}</div>
     ${(() => { const due = d.list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7); if (!due.length) return "";
       const tot = due.reduce((t, r) => t + r.cost, 0);
       return `<div class="sbox rcwarn"><h3 style="margin:0">🔄 Tus cuentas que vencen esta semana</h3><p class="empty" style="margin:0">${due.map((r) => `${esc(r.product)} (${fdate(r.expiresAt)})`).join(" · ")}</p>
@@ -969,7 +973,7 @@ function rSubsView() {
       return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header>${am(r.productId, r.product, "")}<div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
         <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${selfCodesRental(r.assignmentId)}${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
-        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
+        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
           ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
         <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
         <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
@@ -2000,6 +2004,7 @@ document.addEventListener("click", async (ev) => {
     toast(bad.length ? `🔄 Renovaste ${ok} · no se pudo: ${bad.join(" · ")}` : `🔄 ¡Listo! ${ok} cuenta(s) renovada(s) por 30 días`);
     return;
   }
+  if (d.avisos) return void await alertsClick(d, render);
   if ((d.sublink || d.sublinknew) && await subLinkClick(d, el)) { S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs); return render(); }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
   if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {

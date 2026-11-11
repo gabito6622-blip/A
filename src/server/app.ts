@@ -31,6 +31,7 @@ import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as pars
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
+import { createExpiryPush } from "./expiryPush.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
@@ -161,6 +162,8 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
   checkResellerPush(): Promise<void>;
+  /** "🔔 Avisarme antes de que venza": avisos a clientes finales (una vez por día, desde las 9 de Bolivia). */
+  checkExpiryPush(): Promise<unknown>;
   /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
   checkDailyReport(): Promise<void>;
   /** Vigilante de cuentas: revisa un correo de una cuenta (lo usa la lectura de correos; expuesto para pruebas). */
@@ -542,20 +545,24 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
   route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
-  route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => store.subs.remove(c.actor!, c.params.id, c.params.sub));
+  route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => { const r = store.subs.remove(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
   // Link de cobro de un perfil repartido (/c/<token>): lo arma el revendedor, lo abre su cliente sin cuenta.
   const cobroUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/c/${token}`;
   route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
-  route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => store.subs.revokeLink(c.actor!, c.params.id, c.params.sub));
+  route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => { const r = store.subs.revokeLink(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
   // Contra el barrido de tokens: cada link que no sirve cuenta por IP; pasado el límite, 429 a todo por un rato.
   const cobroMissLimiter = new RateLimiter(20, 15 * 60_000, now);
   const cobro = <T>(c: Ctx, fn: () => T): T => {
     if (cobroMissLimiter.blocked(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     try { return fn(); } catch (e) { if (e instanceof DomainError && e.code === "NOT_FOUND") cobroMissLimiter.take(c.ip); throw e; }
   };
-  route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => store.subs.publicView(c.params.token)));
+  // Avisos automáticos de vencimiento al celular del cliente final (expiryPush.ts). `alerts`: si alguien los activó en ese link.
+  const expiry = createExpiryPush({ route, store, db, now, pushOn: () => pushOn(), publicKey: () => cfg.vapid?.publicKey ?? null,
+    send: (sub) => sendPush(sub, cfg.vapid!, vapidKey!, cfg.fetchImpl ?? fetch, now()), customerPush, customerIds: () => cpushSubs().map((x) => x.customerId),
+    cobro, tooMany: () => { throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos."); } });
+  route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => ({ ...store.subs.publicView(c.params.token), alerts: expiry.hasAlerts(c.params.token) })));
   route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
-  registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON }); // país/moneda y cuentas propias
+  registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON, onLinkGone: () => expiry.purge() }); // país/moneda y cuentas propias
   route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   // "📩 Ver mi código de acceso" en /c/<token> + interruptores del revendedor y del dueño.
   registerSelfCodesRoutes({ route, store, cobro, now, tooMany: (m) => { throw new HttpError(429, "RATE_LIMIT", m); } });
@@ -2464,13 +2471,14 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      expiry.check().catch((e) => log(`avisos de vencimiento fallaron: ${(e as Error).message}`));
       checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

@@ -2,14 +2,15 @@
 // que el revendedor le manda a su cliente (cuándo vence, cuánto es, su QR y "Ya pagué"). Nada se manda solo:
 // el revendedor copia el link o abre su WhatsApp con el mensaje listo.
 import { api, esc, waLink, toast } from "/common.js";
+import { inviteSub } from "/avisos.js";
 
 export const cobroUrl = (token) => `${location.origin}/c/${token}`;
 
 /** Renglón para sumar a los recordatorios que ya existen, si el perfil ya tiene link. */
-export const cobroLine = (s) => (s?.linkToken ? `\nMirá cuánto es y cómo pagar acá 👉 ${cobroUrl(s.linkToken)}` : "");
+export const cobroLine = (s) => (s?.linkToken ? `\nMirá cuánto es y cómo pagar acá 👉 ${cobroUrl(s.linkToken)}${inviteSub(s.id)}` : "");
 
 /** Mensaje para mandarle el link por primera vez. */
-export const cobroMsg = (s, product, store) => `Hola ${String(s.name).split(" ")[0]} 👋 acá ves tu perfil de ${product}${s.label ? ` (${s.label})` : ""}: cuándo vence, cuánto es y cómo pagar 👇\n${cobroUrl(s.linkToken)}${store ? `\n— ${store}` : ""}`;
+export const cobroMsg = (s, product, store) => `Hola ${String(s.name).split(" ")[0]} 👋 acá ves tu perfil de ${product}${s.label ? ` (${s.label})` : ""}: cuándo vence, cuánto es y cómo pagar 👇\n${cobroUrl(s.linkToken)}${inviteSub(s.id)}${store ? `\n— ${store}` : ""}`;
 
 /** Recuadro dentro de un perfil abierto. `aid` = alquiler, `s` = perfil, `product` = nombre de la app. */
 export function subLinkBox(aid, s, product, store) {

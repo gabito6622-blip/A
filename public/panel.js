@@ -322,10 +322,11 @@ const V = {
       </div>`).join("")}</div>` : `<div class="emptybox">🎉 Ninguna cuenta caída con clientes. Todo está en cuentas sanas.</div>`}</section>`;
   },
   async notificaciones() {
-    const d = await api("GET", "/api/admin/notifications");
+    const [d, ex] = await Promise.all([api("GET", "/api/admin/notifications"), api("GET", "/api/admin/expiry-alerts").catch(() => null)]);
     const sevcls = { bad: "bad", warn: "warn", info: "ok" };
     return `<section class="card"><h2>${icon("bell")}Notificaciones <small>lo que necesita tu atención ahora</small></h2>
       <p class="muted" style="margin:0 0 12px">Todo junto en un solo lugar: pagos por revisar, solicitudes, cuentas caídas y vencimientos. Tocá una para ir a resolverla.</p>
+      ${ex?.on ? `<p class="muted" id="expiryCount" style="margin:0 0 12px">🔔 <b>Avisos automáticos de hoy: ${ex.sent} enviado${ex.sent === 1 ? "" : "s"}</b> a clientes finales (${ex.customers} con cuenta · ${ex.links} por link de cobro).</p>` : ""}
       ${d.items.length ? `<div class="notis">${d.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>`;

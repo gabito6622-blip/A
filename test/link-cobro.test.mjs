@@ -17,7 +17,8 @@ const APP_SRC = new URL("../src/server/app.ts", import.meta.url).pathname;
 const owner = { id: "u_owner", role: "owner" };
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const GONE = "Este link ya no sirve. Pedile uno nuevo a quien te vendió.";
-const PUBLIC_KEYS = ["codes", "currency", "expiresAt", "hasLogo", "hasQr", "label", "name", "pay", "price", "product", "seller", "sellerWhatsapp"];
+// `alerts`: solo un booleano (alguien activó los avisos automáticos en este link; test/avisos-solos.test.mjs).
+const PUBLIC_KEYS = ["alerts", "codes", "currency", "expiresAt", "hasLogo", "hasQr", "label", "name", "pay", "price", "product", "seller", "sellerWhatsapp"];
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
