@@ -55,7 +55,7 @@ async function openPayments(c: Client, zone: string) {
      SELECT 'payer_payment', pp.id, pp.status, pp.amount_cents, pp.bank_reference, pp.method, pp.received_at, pp.received_by, u.full_name, pp.branch_id,
             'Empresa: ' || a.name
        FROM payer_payments pp JOIN agreements a ON a.id = pp.agreement_id JOIN users u ON u.id = pp.received_by
-      WHERE NOT EXISTS (SELECT 1 FROM bank_statement_lines l WHERE l.payer_payment_id = pp.id)
+      WHERE pp.method <> 'cash' AND NOT EXISTS (SELECT 1 FROM bank_statement_lines l WHERE l.payer_payment_id = pp.id)
         AND (pp.status = 'pending_verification' OR (pp.status = 'confirmed' AND pp.received_at > now() - interval '180 days'))`)).rows;
   return rows.map((r) => ({ ...r, amount_cents: Number(r.amount_cents), date: DateTime.fromJSDate(new Date(r.received_at)).setZone(zone).toISODate()!, ref: normRef(r.bank_reference) }));
 }

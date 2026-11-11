@@ -35,3 +35,7 @@
   .ag-alloc > :last-child { grid-column: 2; }
   .ag-tap { min-height: 44px; }
 }
+/* Tarjetas del celular (B-082): la primera celda es el título de la tarjeta, sin etiqueta. */
+@media (max-width: 640px) {
+  table.cards-sm.ag-cards td:first-child::before { content: none; }
+}

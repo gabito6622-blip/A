@@ -7,9 +7,10 @@ import { zDate, zId, zIdParams, zOptText } from "../../lib/http.js";
 import type { Client } from "../../lib/db.js";
 import { audit } from "../../lib/audit.js";
 import { AppError, badRequest, conflict, notFound } from "../../lib/errors.js";
-import { allowedBranches, requireBranch, type AuthCtx } from "../../lib/rbac.js";
+import { allowedBranches, canAccessBranch, requireBranch, type AuthCtx } from "../../lib/rbac.js";
 import { CATEGORIES, CATEGORY_LABELS, localToday, monthRange, zMonth } from "./common.js";
 import { addSheet, bsCell, newWorkbook, sendXlsx } from "./xlsx.js";
+import { mainShareIndex, parseShares, requireShareBranches, saveShares, scopeOf, zShares } from "./shares.js";
 
 const zAmount = z.number().int("Monto en centavos (entero)").min(1, "El monto debe ser mayor que cero").max(100_000_000_000, "Monto demasiado alto");
 const zCategory = z.enum(CATEGORIES, { message: "Elige una categoría" });
@@ -26,6 +27,8 @@ const zExpense = z.object({
   notes: zOptText(500),
   asDraft: z.boolean().default(false),
   idempotencyKey: z.string().trim().min(8).max(80).optional(),
+  // Gasto compartido (B-083): % por sucursal que suma 100. Vacío o ausente = solo `branchId`.
+  shares: zShares,
 });
 
 const zListQuery = z.object({
@@ -39,34 +42,58 @@ export type ExpenseQuery = z.infer<typeof zListQuery>;
 export const EXPENSE_COLS = `e.id, e.branch_id AS "branchId", b.name AS "branchName", e.category, e.description, e.amount_cents AS "amountCents",
   e.expense_date AS "expenseDate", e.supplier, e.receipt_ref AS "receiptRef", e.notes, e.status, e.recurring_id AS "recurringId",
   e.period_month AS "periodMonth", e.created_at AS "createdAt", cu.full_name AS "createdByName", e.confirmed_at AS "confirmedAt",
-  v.reason AS "voidReason", v.voided_at AS "voidedAt", vu.full_name AS "voidedByName"`;
+  v.reason AS "voidReason", v.voided_at AS "voidedAt", vu.full_name AS "voidedByName",
+  COALESCE((SELECT json_agg(json_build_object('branchId', s.branch_id, 'branchName', sb.name, 'percentBp', s.percent_bp, 'amountCents', s.amount_cents)
+                            ORDER BY s.percent_bp DESC, sb.code)
+              FROM expense_shares s JOIN branches sb ON sb.id = s.branch_id WHERE s.expense_id = e.id), '[]'::json) AS shares,
+  (SELECT count(*)::int FROM expense_attachments a WHERE a.expense_id = e.id) AS "attachmentCount"`;
 const EXPENSE_FROM = `expenses e JOIN branches b ON b.id = e.branch_id JOIN users cu ON cu.id = e.created_by
   LEFT JOIN expense_voids v ON v.expense_id = e.id LEFT JOIN users vu ON vu.id = v.voided_by`;
 
-const decorate = (x: Record<string, any>): Record<string, any> & { amountCents: number; state: string; stateLabel: string; categoryLabel: string } => ({
+type ShareRow = { branchId: string; branchName: string; percentBp: number; amountCents: number };
+interface ExpenseRow {
+  id: string; branchId: string; branchName: string; category: string; description: string; amountCents: number; expenseDate: string;
+  supplier: string | null; receiptRef: string | null; notes: string | null; status: string; recurringId: string | null; voidReason: string | null;
+  attachmentCount: number; shares: ShareRow[]; state: string; stateLabel: string; categoryLabel: string; [k: string]: unknown;
+}
+const decorate = (x: Record<string, any>): ExpenseRow => ({
   ...x,
   amountCents: Number(x.amountCents),
+  shares: (x.shares ?? []).map((s: ShareRow) => ({ ...s, percentBp: Number(s.percentBp), amountCents: Number(s.amountCents) })),
   categoryLabel: CATEGORY_LABELS[x.category] ?? x.category,
   state: x.voidedAt ? "voided" : x.status,
   stateLabel: x.voidedAt ? "Anulado" : x.status === "draft" ? "Borrador" : "Confirmado",
-});
+}) as ExpenseRow;
 
-/** Lista y totales de gastos del mes (lo usan la pantalla y la exportación: mismos filtros, mismos totales). */
+/** Sucursales del gasto: las del reparto o la única. */
+const branchesOf = (e: { branchId: string; shares: ShareRow[] }) => (e.shares.length ? e.shares.map((s) => s.branchId) : [e.branchId]);
+
+/** Parte del gasto que corresponde a las sucursales del alcance (null = todas). */
+const scopedCents = (e: { branchId: string; amountCents: number; shares: ShareRow[] }, scope: string[] | null) =>
+  !e.shares.length ? (scope === null || scope.includes(e.branchId) ? e.amountCents : 0)
+    : e.shares.filter((s) => scope === null || scope.includes(s.branchId)).reduce((a, s) => a + s.amountCents, 0);
+
+/** Lista y totales de gastos del mes (lo usan la pantalla y la exportación: mismos filtros, mismos totales).
+ *  Un gasto compartido aparece en cada sucursal del reparto; los totales cuentan solo la parte de las
+ *  sucursales del alcance (la filtrada o las permitidas), así cuadran con la rentabilidad. */
 export async function expenseList(c: Client, auth: AuthCtx, q: ExpenseQuery) {
   if (q.branchId) requireBranch(auth, q.branchId);
   const range = await monthRange(c, auth, q.month);
   const allowed = allowedBranches(auth);
+  const scope = scopeOf(auth, q.branchId);
   const rows = (await c.query(
     `SELECT ${EXPENSE_COLS} FROM ${EXPENSE_FROM}
       WHERE e.expense_date >= $1::date AND e.expense_date < $2::date
-        AND ($3::uuid IS NULL OR e.branch_id = $3) AND ($4::uuid[] IS NULL OR e.branch_id = ANY($4))
+        AND ($3::uuid IS NULL OR e.branch_id = $3 OR EXISTS (SELECT 1 FROM expense_shares s WHERE s.expense_id = e.id AND s.branch_id = $3))
+        AND ($4::uuid[] IS NULL OR e.branch_id = ANY($4) OR EXISTS (SELECT 1 FROM expense_shares s WHERE s.expense_id = e.id AND s.branch_id = ANY($4)))
         AND ($5::text IS NULL OR e.category = $5)
       ORDER BY e.expense_date DESC, e.created_at DESC`,
-    [range.fromDate, range.toDateExclusive, q.branchId ?? null, allowed, q.category ?? null])).rows.map(decorate);
+    [range.fromDate, range.toDateExclusive, q.branchId ?? null, allowed, q.category ?? null])).rows.map(decorate)
+    .map((r) => ({ ...r, scopeCents: scopedCents(r, scope), canEdit: branchesOf(r).every((b) => canAccessBranch(auth, b)) }));
   const items = q.status === "all" ? rows : rows.filter((r) => r.state === q.status);
   const confirmed = rows.filter((r) => r.state === "confirmed");
   const byCategory = CATEGORIES.map((k) => ({
-    category: k, label: CATEGORY_LABELS[k]!, amountCents: confirmed.filter((r) => r.category === k).reduce((s, r) => s + r.amountCents, 0),
+    category: k, label: CATEGORY_LABELS[k]!, amountCents: confirmed.filter((r) => r.category === k).reduce((s, r) => s + r.scopeCents, 0),
   })).filter((x) => x.amountCents > 0);
   const recurringPending = (await c.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM expense_recurring r
@@ -78,23 +105,37 @@ export async function expenseList(c: Client, auth: AuthCtx, q: ExpenseQuery) {
     month: range.month, label: range.label, from: range.fromDate, to: range.toDate,
     items,
     totals: {
-      confirmedCents: confirmed.reduce((s, r) => s + r.amountCents, 0),
+      confirmedCents: confirmed.reduce((s, r) => s + r.scopeCents, 0),
       confirmedCount: confirmed.length,
-      draftCents: rows.filter((r) => r.state === "draft").reduce((s, r) => s + r.amountCents, 0),
+      draftCents: rows.filter((r) => r.state === "draft").reduce((s, r) => s + r.scopeCents, 0),
       draftCount: rows.filter((r) => r.state === "draft").length,
       voidedCount: rows.filter((r) => r.state === "voided").length,
-      listedCents: items.reduce((s, r) => s + r.amountCents, 0),
+      listedCents: items.reduce((s, r) => s + r.scopeCents, 0),
+      listedFullCents: items.reduce((s, r) => s + r.amountCents, 0),
+      sharedCount: items.filter((r) => r.shares.length).length,
       byCategory,
     },
     recurringPending,
   };
 }
 
-async function loadExpense(c: Client, auth: AuthCtx, id: string) {
+/** Un gasto se ve si alguna de sus sucursales está permitida; se modifica solo con acceso a todas ellas. */
+export async function loadExpense(c: Client, auth: AuthCtx, id: string, mode: "read" | "write" = "write") {
   const e = (await c.query(`SELECT ${EXPENSE_COLS} FROM ${EXPENSE_FROM} WHERE e.id = $1`, [id])).rows[0];
   if (!e) throw notFound("Gasto");
-  requireBranch(auth, e.branchId);
-  return decorate(e);
+  const d = decorate(e);
+  const branches = branchesOf(d);
+  if (mode === "read") { if (!branches.some((b) => canAccessBranch(auth, b))) throw notFound("Gasto"); }
+  else requireShareBranches(auth, branches);
+  return d;
+}
+
+/** Sucursal principal y reparto a guardar (valida el acceso a cada sucursal). */
+function resolveShares(auth: AuthCtx, body: { branchId: string; shares?: z.infer<typeof zShares> }) {
+  const shares = parseShares(body.shares);
+  if (!shares) { requireBranch(auth, body.branchId); return { branchId: body.branchId, shares: null }; }
+  requireShareBranches(auth, shares.map((s) => s.branchId));
+  return { branchId: shares[mainShareIndex(shares.map((s) => s.bp))]!.branchId, shares };
 }
 
 function checkDateForConfirm(date: string, today: string) {
@@ -137,10 +178,13 @@ export function expenseRoutes(route: Route) {
       addSheet(wb, "Gastos", [
         { header: "Fecha", width: 12 }, { header: "Sucursal" }, { header: "Categoría", width: 24 }, { header: "Descripción", width: 34 },
         { header: "Proveedor" }, { header: "Comprobante" }, { header: "Estado", width: 12 }, { header: "Monto (Bs)", money: true }, { header: "Motivo de anulación", width: 30 },
-      ], d.items.map((x) => [x.expenseDate, x.branchName, x.categoryLabel, x.description, x.supplier, x.receiptRef, x.stateLabel, bsCell(x.amountCents), x.voidReason]),
-      { title: `Gastos · ${d.label}`, totals: ["Total de la lista", "", "", "", "", "", "", bsCell(d.totals.listedCents), ""],
+        { header: "Reparto entre sucursales", width: 40 }, { header: "Parte que cuenta aquí (Bs)", money: true }, { header: "Archivos adjuntos", width: 10 },
+      ], d.items.map((x) => [x.expenseDate, x.branchName, x.categoryLabel, x.description, x.supplier, x.receiptRef, x.stateLabel, bsCell(x.amountCents), x.voidReason,
+        x.shares.map((s) => `${s.branchName} ${(s.percentBp / 100).toLocaleString("es-BO")} % = Bs ${(s.amountCents / 100).toFixed(2)}`).join("; ") || "", bsCell(x.scopeCents), x.attachmentCount]),
+      { title: `Gastos · ${d.label}`, totals: ["Total de la lista", "", "", "", "", "", "", bsCell(d.totals.listedFullCents), "", "", bsCell(d.totals.listedCents), ""],
         notes: [`Confirmados: Bs ${(d.totals.confirmedCents / 100).toFixed(2)} (${d.totals.confirmedCount}). Borradores: ${d.totals.draftCount}. Anulados: ${d.totals.voidedCount}.`,
-          "Solo los gastos confirmados y no anulados cuentan en la rentabilidad."] });
+          "Solo los gastos confirmados y no anulados cuentan en la rentabilidad.",
+          "Un gasto compartido cuenta en cada sucursal solo por su parte (columna «Parte que cuenta aquí»); los totales de la pantalla usan esa parte."] });
       addSheet(wb, "Por categoría", [{ header: "Categoría", width: 28 }, { header: "Confirmado (Bs)", money: true }],
         d.totals.byCategory.map((x) => [x.label, bsCell(x.amountCents)]), { totals: ["Total", bsCell(d.totals.confirmedCents)] });
       await audit(c, auth, "report.exported", "expenses", null, { month: d.month, branchId: query.branchId ?? null, rows: d.items.length });
@@ -149,22 +193,26 @@ export function expenseRoutes(route: Route) {
   });
 
   route({
-    method: "POST", url: "/api/expenses", summary: "Registrar un gasto (confirmado o como borrador). Idempotente con idempotencyKey", tags: ["gestión"],
+    method: "POST", url: "/api/expenses",
+    summary: "Registrar un gasto (confirmado o como borrador), de una sucursal o compartido por porcentaje entre varias (shares). Idempotente con idempotencyKey", tags: ["gestión"],
     perm: "reports.financial", body: zExpense,
     handler: async ({ c, auth, body }) => {
-      requireBranch(auth, body.branchId);
+      const { branchId, shares } = resolveShares(auth, body);
       if (body.idempotencyKey) {
         const prev = (await c.query("SELECT id FROM expenses WHERE idempotency_key = $1", [body.idempotencyKey])).rows[0];
-        if (prev) return loadExpense(c, auth, prev.id);
+        if (prev) return loadExpense(c, auth, prev.id, "read");
       }
       if (!body.asDraft) checkDateForConfirm(body.expenseDate, await localToday(c, auth));
+      // Se inserta como borrador para guardar el reparto (solo cambia en borrador) y luego se confirma.
       const id = (await c.query<{ id: string }>(
-        `INSERT INTO expenses (clinic_id, branch_id, category, description, amount_cents, expense_date, supplier, receipt_ref, notes, status, idempotency_key, created_by, confirmed_by, confirmed_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
-        [auth.clinicId, body.branchId, body.category, body.description, body.amountCents, body.expenseDate, body.supplier, body.receiptRef, body.notes,
-          body.asDraft ? "draft" : "confirmed", body.idempotencyKey ?? null, auth.userId, body.asDraft ? null : auth.userId, body.asDraft ? null : new Date()])).rows[0]!.id;
+        `INSERT INTO expenses (clinic_id, branch_id, category, description, amount_cents, expense_date, supplier, receipt_ref, notes, status, idempotency_key, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11) RETURNING id`,
+        [auth.clinicId, branchId, body.category, body.description, body.amountCents, body.expenseDate, body.supplier, body.receiptRef, body.notes,
+          body.idempotencyKey ?? null, auth.userId])).rows[0]!.id;
+      await saveShares(c, auth.clinicId!, id, body.amountCents, shares);
+      if (!body.asDraft) await c.query("UPDATE expenses SET status = 'confirmed', confirmed_by = $2, confirmed_at = now() WHERE id = $1", [id, auth.userId]);
       await audit(c, auth, body.asDraft ? "expense.drafted" : "expense.created", "expense", id,
-        { category: body.category, amountCents: body.amountCents, expenseDate: body.expenseDate }, body.branchId);
+        { category: body.category, amountCents: body.amountCents, expenseDate: body.expenseDate, shares: shares?.map((s) => ({ branchId: s.branchId, percentBp: s.bp })) ?? null }, branchId);
       return loadExpense(c, auth, id);
     },
   });
@@ -174,13 +222,15 @@ export function expenseRoutes(route: Route) {
     perm: "reports.financial", params: zIdParams, body: zExpense.omit({ asDraft: true, idempotencyKey: true }),
     handler: async ({ c, auth, params, body }) => {
       const e = await loadExpense(c, auth, params.id);
-      requireBranch(auth, body.branchId);
+      const { branchId, shares } = resolveShares(auth, body);
       if (e.state !== "draft") throw conflict("Solo se editan los borradores. Un gasto confirmado se anula y se registra de nuevo.", "not_draft");
       await c.query(
         `UPDATE expenses SET branch_id = $2, category = $3, description = $4, amount_cents = $5, expense_date = $6, supplier = $7, receipt_ref = $8, notes = $9 WHERE id = $1`,
-        [params.id, body.branchId, body.category, body.description, body.amountCents, body.expenseDate, body.supplier, body.receiptRef, body.notes]);
+        [params.id, branchId, body.category, body.description, body.amountCents, body.expenseDate, body.supplier, body.receiptRef, body.notes]);
+      await saveShares(c, auth.clinicId!, params.id, body.amountCents, shares);
       await audit(c, auth, "expense.draft_updated", "expense", params.id,
-        { before: { amountCents: e.amountCents, expenseDate: e.expenseDate, category: e.category }, after: { amountCents: body.amountCents, expenseDate: body.expenseDate, category: body.category } }, body.branchId);
+        { before: { amountCents: e.amountCents, expenseDate: e.expenseDate, category: e.category, shares: e.shares.map((s) => ({ branchId: s.branchId, percentBp: s.percentBp })) },
+          after: { amountCents: body.amountCents, expenseDate: body.expenseDate, category: body.category, shares: shares?.map((s) => ({ branchId: s.branchId, percentBp: s.bp })) ?? null } }, branchId);
       return loadExpense(c, auth, params.id);
     },
   });

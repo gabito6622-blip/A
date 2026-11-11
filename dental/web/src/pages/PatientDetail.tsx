@@ -19,6 +19,7 @@ import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocumen
 import { ClinicalFilesPanel } from "../components/ClinicalFiles";
 import { PatientContactActions } from "../components/coordination/Calls";
 import { PatientAgreementsCard } from "../components/agreements/AgreementWidgets";
+import { PayerTransferNotice } from "../components/agreements/PayerTransfers";
 import { PatientFamilyCard, PatientTagsRow } from "../components/family";
 import { OpeningBalanceCard } from "../components/onboarding/OpeningBalance";
 
@@ -71,6 +72,7 @@ export function PatientDetailPage() {
         )}
       </div>
 
+      <PayerTransferNotice patientId={id!} />
       <Tabs<Tab> value={tab} onChange={setTab} items={[
         { id: "resumen", label: "Resumen" },
         { id: "odontograma", label: "Odontograma", hidden: !can("clinical.read") },

@@ -340,7 +340,7 @@ export function CashSessionReportPage() {
         {s.payments.length === 0 ? <Empty>Sin cobros en efectivo.</Empty> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Recibo</th><th>Hora</th><th>Paciente</th><th className="num">Monto</th><th>Estado</th></tr></thead>
-            <tbody>{s.payments.map((p: any) => <tr key={p.id}><td>{p.receiptNumber}</td><td>{fmtTime(p.receivedAt)}</td><td>{p.patientName}</td><td className="num">{bs(p.amountCents)}</td>
+            <tbody>{s.payments.map((p: any) => <tr key={p.id}><td>{p.fromPayer ? `E-${p.receiptNumber}` : p.receiptNumber}</td><td>{fmtTime(p.receivedAt)}</td><td>{p.patientName}</td><td className="num">{bs(p.amountCents)}</td>
               <td><StatusBadge status={p.status} label={PAY_STATUS[p.status]} />{p.statusReason && <div className="muted small">{p.statusReason}</div>}</td></tr>)}</tbody>
           </table></div>
         )}

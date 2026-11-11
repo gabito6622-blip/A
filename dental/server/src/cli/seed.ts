@@ -23,6 +23,7 @@ import { seedClinicalFilesDemo } from "../modules/clinicalFilesSeed.js";
 import { seedCoordinationDemo } from "../modules/coordination/seed.js";
 import { seedManagementDemo } from "../modules/management/seed.js";
 import { seedAgreementsDemo } from "../modules/agreements/seed.js";
+import { seedAgreementsV2Demo } from "../modules/agreements/seedV2.js";
 import { seedExperienceDemo } from "../modules/experience/seed.js";
 import { seedOnboardingDemo } from "../modules/onboarding/seed.js";
 
@@ -241,6 +242,7 @@ try {
   await seedCoordinationDemo(db.adminPool, clinicId);
   await seedManagementDemo(db.adminPool, clinicId);
   await seedAgreementsDemo(db.adminPool, clinicId);
+  await seedAgreementsV2Demo(db.adminPool, clinicId, cfg);
   await seedExperienceDemo(db.adminPool, clinicId, cfg.secretKey);
   await seedOnboardingDemo(db.adminPool, clinicId);
   console.log(`Clínica demo creada: 5 sucursales, ${dentists.length} odontólogos, 90 pacientes ficticios, ${created} citas, ${budgetNo} presupuestos.`);

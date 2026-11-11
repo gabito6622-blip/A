@@ -1,11 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Check, Pencil, Plus, Repeat, XCircle } from "lucide-react";
+import { Check, Paperclip, Pencil, Plus, Repeat, XCircle } from "lucide-react";
 import { useApi } from "../../lib/hooks";
 import { api, newKey, qs, type ApiError } from "../../lib/api";
 import { bs, fmtDate, localDate, parseBs, toBsInput } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { Dialog, Empty, Field, Loading, StatusBadge, useAsk, useToast } from "../ui";
 import { ExportLink, MonthPicker, monthLabel, thisMonth } from "./shared";
+import { AttachmentsDialog, SharesEditor, sharesBody, sharesError, type ShareRow } from "./ExpenseExtras";
 
 export const CATEGORY_OPTIONS: [string, string][] = [
   ["rent", "Alquiler"], ["salaries", "Sueldos"], ["utilities", "Servicios básicos"], ["supplies", "Insumos fuera de inventario"],
@@ -45,6 +46,11 @@ function ExpenseDialog({ initial, onClose, onSaved }: { initial: any | null; onC
     notes: initial?.notes ?? "",
     asDraft: false,
   }));
+  // Gasto compartido entre sucursales (B-083)
+  const [shared, setShared] = useState<boolean>(!!initial?.shares?.length);
+  const [shares, setShares] = useState<ShareRow[]>(() => initial?.shares?.length
+    ? initial.shares.map((x: any) => ({ branchId: x.branchId, percent: String(x.percentBp / 100).replace(".", ",") }))
+    : branches.slice(0, 2).map((b, i) => ({ branchId: b.id, percent: i === 0 ? "50" : "50" })));
   const [key] = useState(newKey);
   const [errs, setErrs] = useState<FieldErrors>({});
   const [msg, setMsg] = useState<string | null>(null);
@@ -56,18 +62,20 @@ function ExpenseDialog({ initial, onClose, onSaved }: { initial: any | null; onC
     if (!f.amount.trim() || !Number.isFinite(cents) || cents <= 0) local.amountCents = "Escribe un monto mayor que cero (por ejemplo 1.250,50)";
     if (f.description.trim().length < 3) local.description = "Describe el gasto (mínimo 3 caracteres)";
     if (!f.expenseDate) local.expenseDate = "Elige la fecha";
+    if (shared) { const se = sharesError(shares); if (se) local.shares = se; }
     setErrs(local); setMsg(null);
     if (Object.keys(local).length) return;
     setBusy(true);
     const body = { branchId: f.branchId, category: f.category, description: f.description.trim(), amountCents: cents, expenseDate: f.expenseDate,
-      supplier: f.supplier.trim() || null, receiptRef: f.receiptRef.trim() || null, notes: f.notes.trim() || null };
+      supplier: f.supplier.trim() || null, receiptRef: f.receiptRef.trim() || null, notes: f.notes.trim() || null,
+      shares: shared ? sharesBody(shares) : [] };
     try {
       if (editing) await api.put(`/api/expenses/${initial.id}`, body);
       else await api.post("/api/expenses", { ...body, asDraft: f.asDraft, idempotencyKey: key });
       onSaved();
     } catch (e) {
       const x = errorsOf(e);
-      const shown = ["amountCents", "description", "expenseDate"];
+      const shown = ["amountCents", "description", "expenseDate", "shares"];
       setErrs(x.fields);
       setMsg(Object.keys(x.fields).some((k) => shown.includes(k)) ? null : x.message);
     } finally { setBusy(false); }
@@ -79,11 +87,13 @@ function ExpenseDialog({ initial, onClose, onSaved }: { initial: any | null; onC
     </>}>
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); save(); }} noValidate>
         {msg && <div className="alert danger span-2" role="alert">{msg}</div>}
-        <Field label="Sucursal">
-          <select className="input" value={f.branchId} onChange={(e) => set("branchId", e.target.value)} aria-invalid={!!errs.branchId}>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </Field>
+        {!shared && (
+          <Field label="Sucursal">
+            <select className="input" value={f.branchId} onChange={(e) => set("branchId", e.target.value)} aria-invalid={!!errs.branchId}>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Categoría">
           <select className="input" value={f.category} onChange={(e) => set("category", e.target.value)}>
             {CATEGORY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -101,6 +111,10 @@ function ExpenseDialog({ initial, onClose, onSaved }: { initial: any | null; onC
         <Field label="Proveedor (opcional)"><input className="input" value={f.supplier} maxLength={120} onChange={(e) => set("supplier", e.target.value)} /></Field>
         <Field label="Comprobante (opcional)" hint="N° de factura, recibo o referencia"><input className="input" value={f.receiptRef} maxLength={120} onChange={(e) => set("receiptRef", e.target.value)} /></Field>
         <Field label="Notas (opcional)" span2><textarea className="input" rows={2} value={f.notes} maxLength={500} onChange={(e) => set("notes", e.target.value)} /></Field>
+        {branches.length > 1 && (
+          <label className="check span-2"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />Gasto compartido entre sucursales (repartir por porcentaje)</label>
+        )}
+        {shared && <SharesEditor rows={shares} onChange={setShares} amountCents={Number.isFinite(parseBs(f.amount)) ? parseBs(f.amount) : 0} error={errs.shares} />}
         {!editing && (
           <label className="check span-2"><input type="checkbox" checked={f.asDraft} onChange={(e) => set("asDraft", e.target.checked)} />Guardar como borrador (todavía no se pagó; no cuenta en la rentabilidad hasta confirmarlo)</label>
         )}
@@ -166,6 +180,7 @@ export function ExpensesTab() {
   const [status, setStatus] = useState("all");
   const [dlg, setDlg] = useState<any | null>(null);
   const [rdlg, setRdlg] = useState<any | null>(null);
+  const [files, setFiles] = useState<any | null>(null);
   const filters = useMemo(() => ({ month, branchId, category: category || undefined, status }), [month, branchId, category, status]);
   const list = useApi<any>(`/api/expenses${qs(filters)}`);
   const rec = useApi<any[]>(`/api/expenses/recurring${qs({ branchId })}`);
@@ -232,16 +247,19 @@ export function ExpensesTab() {
                       <tr key={x.id}>
                         <td className="mg-head">{x.description}{x.supplier ? <span className="muted small" style={{ display: "block", fontWeight: 400 }}>{x.supplier}</span> : null}</td>
                         <td data-label="Fecha" className="nowrap">{fmtDate(x.expenseDate + "T12:00:00Z")}</td>
-                        <td data-label="Sucursal">{x.branchName}</td>
+                        <td data-label="Sucursal">{x.shares?.length
+                          ? <span>Compartido<span className="mg-split">{x.shares.map((sh: any) => `${sh.branchName} ${String(sh.percentBp / 100).replace(".", ",")} %`).join(" · ")}</span></span>
+                          : x.branchName}</td>
                         <td data-label="Categoría"><span>{x.categoryLabel}{x.recurringId && <span className="badge" style={{ marginLeft: 6 }} title="Generado por un gasto fijo mensual">fijo</span>}</span></td>
-                        <td data-label="Comprobante">{x.receiptRef ?? <span className="muted">—</span>}</td>
+                        <td data-label="Comprobante"><span>{x.receiptRef ?? (x.attachmentCount ? null : <span className="muted">—</span>)}{x.attachmentCount > 0 && <span className="badge" style={{ marginLeft: x.receiptRef ? 6 : 0 }}>{x.attachmentCount} adjunto(s)</span>}</span></td>
                         <td data-label="Estado"><span><StatusBadge status={STATE_TONE[x.state] ?? x.state} label={x.stateLabel} />{x.voidReason && <span className="muted small" style={{ display: "block" }}>{x.voidReason}</span>}</span></td>
-                        <td data-label="Monto" className="num" style={x.state === "voided" ? { textDecoration: "line-through", color: "var(--muted)" } : undefined}>{bs(x.amountCents)}</td>
+                        <td data-label="Monto" className="num" style={x.state === "voided" ? { textDecoration: "line-through", color: "var(--muted)" } : undefined}><span>{bs(x.amountCents)}{x.scopeCents !== x.amountCents && <span className="mg-split">cuenta aquí {bs(x.scopeCents)}</span>}</span></td>
                         <td data-label="Acciones">
                           <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
-                            {x.state === "draft" && <button className="btn btn-sm" onClick={() => confirm(x)} title="Confirmar (ya se pagó)"><Check size={15} />Confirmar</button>}
-                            {x.state === "draft" && <button className="btn btn-ghost btn-icon" onClick={() => setDlg(x)} aria-label={`Editar ${x.description}`}><Pencil size={15} /></button>}
-                            {x.state !== "voided" && <button className="btn btn-ghost btn-icon" onClick={() => voidIt(x)} aria-label={`Anular ${x.description}`}><XCircle size={16} /></button>}
+                            {x.state === "draft" && x.canEdit !== false && <button className="btn btn-sm" onClick={() => confirm(x)} title="Confirmar (ya se pagó)"><Check size={15} />Confirmar</button>}
+                            <button className="btn btn-ghost btn-icon" onClick={() => setFiles(x)} aria-label={`Comprobantes de ${x.description}`} title="Comprobantes"><Paperclip size={15} /></button>
+                            {x.state === "draft" && x.canEdit !== false && <button className="btn btn-ghost btn-icon" onClick={() => setDlg(x)} aria-label={`Editar ${x.description}`}><Pencil size={15} /></button>}
+                            {x.state !== "voided" && x.canEdit !== false && <button className="btn btn-ghost btn-icon" onClick={() => voidIt(x)} aria-label={`Anular ${x.description}`}><XCircle size={16} /></button>}
                           </div>
                         </td>
                       </tr>
@@ -278,6 +296,7 @@ export function ExpensesTab() {
       </div>
 
       {dlg && <ExpenseDialog initial={dlg.id ? dlg : null} onClose={() => setDlg(null)} onSaved={() => { setDlg(null); toast(dlg.id ? "Borrador actualizado" : "Gasto registrado"); reload(); }} />}
+      {files && <AttachmentsDialog expense={files} onClose={() => setFiles(null)} onChanged={reload} />}
       {rdlg && <RecurringDialog initial={rdlg.id ? rdlg : null} onClose={() => setRdlg(null)} onSaved={() => { setRdlg(null); toast("Gasto fijo guardado"); reload(); }} />}
     </div>
   );

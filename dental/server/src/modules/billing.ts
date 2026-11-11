@@ -288,6 +288,9 @@ export function billingRoutes(route: Route) {
       if (!ch || ch.voids_charge_id) throw notFound("Cargo");
       requireBranch(auth, ch.branch_id);
       if ((await c.query("SELECT 1 FROM charges WHERE voids_charge_id = $1", [params.id])).rowCount) throw conflict("Ese cargo ya fue anulado");
+      if ((await c.query("SELECT 1 FROM payer_transfers WHERE charge_id = $1 HAVING sum(amount_cents) <> 0", [params.id])).rowCount) {
+        throw conflict("Parte de este cargo se trasladó de la empresa al paciente: revierte primero el traslado (Convenios → Por cobrar a empresas)", "has_payer_transfer");
+      }
       const r = await c.query<{ id: string }>(
         `INSERT INTO charges (clinic_id, branch_id, patient_id, description, amount_cents, voids_charge_id, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,

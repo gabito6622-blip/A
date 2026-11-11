@@ -9,6 +9,7 @@ import { bs, fmtDate, localDate, parseBs, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, Tabs, useAsk, useToast } from "../components/ui";
 import { PdfButton } from "../components/ClinicalDocuments";
 import { fieldErrors, pctText, ymdText } from "../components/agreements/AgreementWidgets";
+import { TransferDialog } from "../components/agreements/PayerTransfers";
 import "../components/agreements/agreements.css";
 
 type Tab = "agreements" | "receivables" | "invoices";
@@ -75,7 +76,7 @@ function AgreementDialog({ agreement, readOnly, onClose, onSaved }: { agreement:
     defaultDiscountPercent: agreement.defaultDiscountPercent != null ? String(agreement.defaultDiscountPercent) : "0",
     companySharePercent: agreement.companySharePercent != null ? String(agreement.companySharePercent) : "0",
     companyCap: agreement.companyCapCents ? toBsInput(agreement.companyCapCents) : "",
-    paymentTermsDays: String(agreement.paymentTermsDays ?? 30), notes: agreement.notes ?? "", active: agreement.active ?? true,
+    paymentTermsDays: String(agreement.paymentTermsDays ?? 30), patientTransferDays: String(agreement.patientTransferDays ?? 60), notes: agreement.notes ?? "", active: agreement.active ?? true,
   });
   const [rules, setRules] = useState<RuleRow[]>((agreement.rules ?? []).map((r: any) => ({
     target: r.procedureId ? `p:${r.procedureId}` : `c:${r.category}`, mode: r.priceCents != null ? "price" : "percent",
@@ -97,6 +98,8 @@ function AgreementDialog({ agreement, readOnly, onClose, onSaved }: { agreement:
     const cap = f.companyCap ? parseBs(f.companyCap) : null;
     if (cap !== null && (!Number.isFinite(cap) || cap <= 0)) e.companyCapCents = "Monto inválido";
     if (cap && !pct(f.companySharePercent)) e.companyCapCents = "El tope solo aplica si la empresa paga un porcentaje";
+    const td = Number(f.patientTransferDays);
+    if (!Number.isInteger(td) || td < 0 || td > 730) e.patientTransferDays = "Entre 0 y 730 días";
     const outRules = rules.map((r, k) => {
       const [kind, val] = [r.target.slice(0, 1), r.target.slice(2)];
       if (!val) e[`rules.${k}`] = "Elige la prestación o la categoría";
@@ -110,7 +113,7 @@ function AgreementDialog({ agreement, readOnly, onClose, onSaved }: { agreement:
     const body = {
       ...f, taxId: f.taxId || null, billingName: f.billingName || null, contactName: f.contactName || null, contactPhone: f.contactPhone || null, contactEmail: f.contactEmail || null,
       validTo: f.validTo || null, defaultDiscountPercent: pct(f.defaultDiscountPercent || "0"), companySharePercent: pct(f.companySharePercent || "0"),
-      companyCapCents: cap, paymentTermsDays: Number(f.paymentTermsDays) || 0, notes: f.notes || null, rules: outRules,
+      companyCapCents: cap, paymentTermsDays: Number(f.paymentTermsDays) || 0, patientTransferDays: Number(f.patientTransferDays), notes: f.notes || null, rules: outRules,
     };
     try {
       if (isNew) await api.post("/api/agreements", body); else await api.put(`/api/agreements/${agreement.id}`, body);
@@ -135,6 +138,7 @@ function AgreementDialog({ agreement, readOnly, onClose, onSaved }: { agreement:
           <Field label="Teléfono"><input className="input" inputMode="tel" value={f.contactPhone} onChange={set("contactPhone")} /></Field>
           <Field label="Correo"><input className="input" type="email" value={f.contactEmail} aria-invalid={!!fe.contactEmail} onChange={set("contactEmail")} />{ferr("contactEmail")}</Field>
           <Field label="Plazo de pago de la empresa (días)"><input className="input" type="number" min={0} max={180} value={f.paymentTermsDays} onChange={set("paymentTermsDays")} /></Field>
+          <Field label="Pasar al paciente lo impago después de (días)" hint="Desde el tratamiento. Gerencia decide cada caso; nunca es automático."><input className="input" type="number" min={0} max={730} value={f.patientTransferDays} aria-invalid={!!fe.patientTransferDays} onChange={set("patientTransferDays")} />{ferr("patientTransferDays")}</Field>
           <Field label="Vigente desde"><input className="input" type="date" value={f.validFrom} onChange={set("validFrom")} /></Field>
           <Field label="Vigente hasta (opcional)"><input className="input" type="date" value={f.validTo} aria-invalid={!!fe.validTo} onChange={set("validTo")} />{ferr("validTo")}</Field>
           <Field label="Descuento general (%)" hint="Para prestaciones sin regla propia."><input className="input" inputMode="decimal" value={f.defaultDiscountPercent} aria-invalid={!!fe.defaultDiscountPercent} onChange={set("defaultDiscountPercent")} />{ferr("defaultDiscountPercent")}</Field>
@@ -187,6 +191,7 @@ function Receivables() {
   const recent = useApi<any[]>("/api/payer-payments");
   const [statement, setStatement] = useState<any | null>(null);
   const [paying, setPaying] = useState<any | null>(null);
+  const [unpaid, setUnpaid] = useState<any | null>(null);
   const reload = () => { rx.reload(); pending.reload(); recent.reload(); };
   const verify = async (p: any, decision: "confirmed" | "rejected") => {
     const reason = decision === "rejected" ? await ask({ title: "Rechazar pago de la empresa", inputLabel: "Motivo del rechazo", placeholder: "Ej.: no figura en el extracto", confirmLabel: "Rechazar", danger: true }) : null;
@@ -213,13 +218,15 @@ function Receivables() {
             <thead><tr><th>Empresa</th><th className="num">Facturado a la empresa</th><th className="num">Cobrado</th><th className="num">Por verificar</th><th className="num">Saldo</th><th /></tr></thead>
             <tbody>{rx.data.map((a) => (
               <tr key={a.id}>
-                <td className="rt-main"><b>{a.name}</b><div className="muted small">{a.openCharges} cargos con saldo{a.overdueCents > 0 ? ` · ${bs(a.overdueCents)} vencido (plazo ${a.paymentTermsDays} días)` : ""}</div></td>
+                <td className="rt-main"><b>{a.name}</b><div className="muted small">{a.openCharges} cargos con saldo{a.overdueCents > 0 ? ` · ${bs(a.overdueCents)} vencido (plazo ${a.paymentTermsDays} días)` : ""}{a.transferredCents ? ` · ${bs(a.transferredCents)} trasladado a pacientes` : ""}</div>
+                  {a.transferableCharges > 0 && <div className="small" style={{ color: "var(--warn)" }}>{a.transferableCharges} porción(es) impaga(s) por {bs(a.transferableCents)} con más de {a.patientTransferDays} días</div>}</td>
                 <td data-label="Facturado" className="num">{bs(a.billedCents)}</td>
                 <td data-label="Cobrado" className="num">{bs(a.paidCents)}</td>
                 <td data-label="Por verificar" className="num">{a.pendingCents ? <span style={{ color: "var(--warn)" }}>{bs(a.pendingCents)}</span> : "—"}</td>
                 <td data-label="Saldo" className="num"><b>{bs(a.balanceCents)}</b></td>
                 <td className="nowrap"><div className="row" style={{ justifyContent: "flex-end" }}>
                   <button className="btn btn-sm ag-tap" onClick={() => setStatement(a)}>Estado de cuenta</button>
+                  {a.openCharges > 0 && <button className="btn btn-sm ag-tap" onClick={() => setUnpaid(a)}>Porciones impagas</button>}
                   {can("payments.create") && a.openCharges > 0 && <button className="btn btn-sm btn-primary ag-tap" onClick={() => setPaying(a)}><Wallet size={15} />Registrar pago</button>}
                 </div></td>
               </tr>))}
@@ -260,7 +267,7 @@ function Receivables() {
             <thead><tr><th>Pago</th><th>Empresa</th><th className="num">Monto</th><th>Estado</th><th /></tr></thead>
             <tbody>{recent.data.slice(0, 20).map((p) => (
               <tr key={p.id}>
-                <td className="rt-main">N° {p.number} · {fmtDate(p.receivedAt)}<div className="muted small">{p.methodLabel} · ref. {p.bankReference}</div></td>
+                <td className="rt-main">N° {p.number} · {fmtDate(p.receivedAt)}<div className="muted small">{p.methodLabel}{p.bankReference ? ` · ref. ${p.bankReference}` : ""}</div></td>
                 <td data-label="Empresa">{p.agreementName}</td>
                 <td data-label="Monto" className="num">{bs(p.amountCents)}</td>
                 <td data-label="Estado"><StatusBadge status={p.status} label={PAY_STATUS[p.status]} />{p.statusReason && <div className="small muted">{p.statusReason}</div>}</td>
@@ -272,6 +279,7 @@ function Receivables() {
       </div>
       {statement && <StatementDialog agreement={statement} onClose={() => setStatement(null)} />}
       {paying && <PayerPaymentDialog agreement={paying} onClose={() => setPaying(null)} onSaved={() => { setPaying(null); reload(); }} />}
+      {unpaid && <TransferDialog agreement={unpaid} onClose={() => setUnpaid(null)} onChanged={reload} />}
     </div>
   );
 }
@@ -332,7 +340,7 @@ function PayerPaymentDialog({ agreement, onClose, onSaved }: { agreement: any; o
   const total = Object.values(sel).reduce((s, v) => s + (parseBs(v || "0") || 0), 0);
   const save = async () => {
     const e: Record<string, string> = {};
-    if (!f.bankReference.trim()) e.bankReference = "Escribe el N° de operación del banco";
+    if (f.method !== "cash" && !f.bankReference.trim()) e.bankReference = "Escribe el N° de operación del banco";
     const allocations = Object.entries(sel).map(([chargeId, v]) => ({ chargeId, amountCents: parseBs(v || "0") }));
     for (const a of allocations) {
       const ch = charges.data?.find((x) => x.id === a.chargeId);
@@ -344,8 +352,8 @@ function PayerPaymentDialog({ agreement, onClose, onSaved }: { agreement: any; o
     if (Object.keys(e).length) return;
     setBusy(true);
     try {
-      const r = await api.post(`/api/agreements/${agreement.id}/payments`, { ...f, notes: f.notes || null, amountCents: total, idempotencyKey: key, allocations });
-      toast(`Pago N° ${r.number} registrado; queda por verificar en el banco`); onSaved();
+      const r = await api.post(`/api/agreements/${agreement.id}/payments`, { ...f, bankReference: f.method === "cash" ? null : f.bankReference, notes: f.notes || null, amountCents: total, idempotencyKey: key, allocations });
+      toast(r.status === "confirmed" ? `Pago N° ${r.number} en efectivo registrado${r.cashSessionId ? " en tu caja" : ""}` : `Pago N° ${r.number} registrado; queda por verificar en el banco`); onSaved();
     } catch (x: any) { setFe(fieldErrors(x)); setErr(x.message); } finally { setBusy(false); }
   };
   return (
@@ -355,9 +363,11 @@ function PayerPaymentDialog({ agreement, onClose, onSaved }: { agreement: any; o
       <div className="stack">
         {err && <div className="alert danger" role="alert">{err}</div>}
         <div className="form-grid">
-          <Field label="Medio"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}><option value="transfer">Transferencia</option><option value="qr">QR bancario</option><option value="card">Tarjeta</option></select></Field>
-          <Field label="N° de operación / referencia" hint="Queda por verificar hasta que otra persona lo confirme en el banco."><input className="input" value={f.bankReference} aria-invalid={!!fe.bankReference} onChange={(e) => setF({ ...f, bankReference: e.target.value })} />{fe.bankReference && <span className="ag-err">{fe.bankReference}</span>}</Field>
-          <Field label="Sucursal que registra"><select className="input" value={f.branchId} onChange={(e) => setF({ ...f, branchId: e.target.value })}>{me?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
+          <Field label="Medio"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}><option value="transfer">Transferencia</option><option value="qr">QR bancario</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option></select></Field>
+          {f.method === "cash"
+            ? <div className="alert info" role="note" style={{ alignSelf: "end" }}>El efectivo queda confirmado al recibirlo y entra a tu caja abierta en la sucursal elegida.</div>
+            : <Field label="N° de operación / referencia" hint="Queda por verificar hasta que otra persona lo confirme en el banco."><input className="input" value={f.bankReference} aria-invalid={!!fe.bankReference} onChange={(e) => setF({ ...f, bankReference: e.target.value })} />{fe.bankReference && <span className="ag-err">{fe.bankReference}</span>}</Field>}
+          <Field label={f.method === "cash" ? "Sucursal donde se recibe" : "Sucursal que registra"}><select className="input" value={f.branchId} onChange={(e) => setF({ ...f, branchId: e.target.value })}>{me?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
           <Field label="Nota"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         </div>
         <div className="row-between"><b>¿Qué cargos paga?</b>{charges.data && <button type="button" className="btn btn-sm" onClick={() => setSel(Object.fromEntries(charges.data!.map((c) => [c.id, toBsInput(c.openCents)])))}>Todos con su saldo</button>}</div>

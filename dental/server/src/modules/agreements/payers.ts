@@ -19,8 +19,9 @@ import { fmtBs, fmtDateTime, fmtYmd, formatVerifyCode, newVerifyCode, renderPdf,
 import { clinicZone } from "../agenda.js";
 import { letterheadData } from "../documents-core.js";
 import { AGREEMENT_KINDS, clinicToday } from "./core.js";
+import { assertCashSessionForPayment } from "../cashSessions.js";
 
-export const PAYER_METHOD_LABELS: Record<string, string> = { transfer: "Transferencia", qr: "QR", card: "Tarjeta" };
+export const PAYER_METHOD_LABELS: Record<string, string> = { cash: "Efectivo", transfer: "Transferencia", qr: "QR", card: "Tarjeta" };
 export const PAYER_STATUS_LABELS: Record<string, string> = { pending_verification: "Por verificar", confirmed: "Confirmado", rejected: "Rechazado", voided: "Anulado" };
 
 export function requireAllBranches(auth: AuthCtx) {
@@ -36,6 +37,7 @@ const CHARGES_SQL = `
          COALESCE(bi.description, ch.description) || CASE WHEN ch.session_id IS NOT NULL THEN ' · sesión' ELSE '' END AS "service",
          ch.amount_cents AS "amountCents", ch.third_party_cents AS "companyCents",
          COALESCE((SELECT sum(v.third_party_cents) FROM charges v WHERE v.voids_charge_id = ch.id), 0)::bigint AS "voidedCents",
+         COALESCE((SELECT sum(t.amount_cents) FROM payer_transfers t WHERE t.charge_id = ch.id), 0)::bigint AS "transferredCents",
          COALESCE((SELECT sum(a.amount_cents) FROM payer_payment_allocations a JOIN payer_payments pp ON pp.id = a.payment_id
                     WHERE a.charge_id = ch.id AND pp.status = 'confirmed'), 0)::bigint AS "paidCents",
          COALESCE((SELECT sum(a.amount_cents) FROM payer_payment_allocations a JOIN payer_payments pp ON pp.id = a.payment_id
@@ -46,15 +48,15 @@ const CHARGES_SQL = `
 
 export interface PayerCharge {
   id: string; createdAt: Date; branchName: string; patientId: string; patientName: string; recordNumber: number; memberNumber: string | null; service: string;
-  amountCents: number; companyCents: number; voidedCents: number; paidCents: number; pendingCents: number; dueCents: number; openCents: number; voided: boolean;
+  amountCents: number; companyCents: number; voidedCents: number; transferredCents: number; paidCents: number; pendingCents: number; dueCents: number; openCents: number; voided: boolean;
 }
 
 export async function payerCharges(c: Client, agreementId: string, onlyOpen = false): Promise<PayerCharge[]> {
   const rows = (await c.query(`${CHARGES_SQL} ORDER BY ch.created_at, ch.id`, [agreementId])).rows;
   const out = rows.map((r) => {
-    const company = Number(r.companyCents), voided = Number(r.voidedCents), paid = Number(r.paidCents), pending = Number(r.pendingCents);
-    const due = company + voided; // porción viva (una anulación la deja en cero)
-    return { ...r, recordNumber: Number(r.recordNumber), amountCents: Number(r.amountCents), companyCents: company, voidedCents: voided, paidCents: paid, pendingCents: pending,
+    const company = Number(r.companyCents), voided = Number(r.voidedCents), transferred = Number(r.transferredCents), paid = Number(r.paidCents), pending = Number(r.pendingCents);
+    const due = company + voided - transferred; // porción viva (una anulación la deja en cero; un traslado al paciente la quita)
+    return { ...r, recordNumber: Number(r.recordNumber), amountCents: Number(r.amountCents), companyCents: company, voidedCents: voided, transferredCents: transferred, paidCents: paid, pendingCents: pending,
       dueCents: due - paid, openCents: due - paid - pending, voided: voided !== 0 } as PayerCharge;
   });
   return onlyOpen ? out.filter((x) => x.openCents > 0) : out;
@@ -75,7 +77,8 @@ export async function payerStatement(c: Client, agreementId: string, from: strin
   const s = DateTime.fromISO(from, { zone }).startOf("day").toJSDate();
   const e = DateTime.fromISO(to, { zone }).plus({ days: 1 }).startOf("day").toJSDate();
   const before = (await c.query<{ debit: number; credit: number }>(
-    `SELECT COALESCE((SELECT sum(third_party_cents) FROM charges WHERE payer_agreement_id = $1 AND created_at < $2), 0)::bigint AS debit,
+    `SELECT (COALESCE((SELECT sum(third_party_cents) FROM charges WHERE payer_agreement_id = $1 AND created_at < $2), 0)
+           - COALESCE((SELECT sum(amount_cents) FROM payer_transfers WHERE agreement_id = $1 AND created_at < $2), 0))::bigint AS debit,
             COALESCE((SELECT sum(amount_cents) FROM payer_payments WHERE agreement_id = $1 AND status = 'confirmed' AND received_at < $2), 0)::bigint AS credit`,
     [agreementId, s])).rows[0]!;
   const charges = (await c.query(
@@ -88,7 +91,12 @@ export async function payerStatement(c: Client, agreementId: string, from: strin
   const pays = (await c.query(
     `SELECT id, number, received_at, amount_cents, method, bank_reference, status FROM payer_payments
       WHERE agreement_id = $1 AND received_at >= $2 AND received_at < $3 AND status IN ('confirmed','pending_verification')`, [agreementId, s, e])).rows;
-  type Mv = { date: string; at: string; kind: "charge" | "void" | "payment"; id: string; description: string; patient: string | null; memberNumber: string | null; debitCents: number; creditCents: number; balanceCents?: number };
+  const transfers = (await c.query(
+    `SELECT t.id, t.created_at, t.amount_cents, t.reason, p.first_name || ' ' || p.last_name AS patient, p.record_number,
+            COALESCE(bi.description, ch.description) AS service
+       FROM payer_transfers t JOIN charges ch ON ch.id = t.charge_id JOIN patients p ON p.id = t.patient_id LEFT JOIN budget_items bi ON bi.id = ch.budget_item_id
+      WHERE t.agreement_id = $1 AND t.created_at >= $2 AND t.created_at < $3`, [agreementId, s, e])).rows;
+  type Mv = { date: string; at: string; kind: "charge" | "void" | "payment" | "transfer"; id: string; description: string; patient: string | null; memberNumber: string | null; debitCents: number; creditCents: number; balanceCents?: number };
   const moves: Mv[] = [
     ...charges.map((ch) => ({
       date: DateTime.fromJSDate(new Date(ch.created_at)).setZone(zone).toISODate()!, at: new Date(ch.created_at).toISOString(),
@@ -98,7 +106,13 @@ export async function payerStatement(c: Client, agreementId: string, from: strin
     })),
     ...pays.filter((p) => p.status === "confirmed").map((p) => ({
       date: DateTime.fromJSDate(new Date(p.received_at)).setZone(zone).toISODate()!, at: new Date(p.received_at).toISOString(), kind: "payment" as const, id: p.id,
-      description: `Pago N° ${p.number} · ${PAYER_METHOD_LABELS[p.method]} · ref. ${p.bank_reference}`, patient: null, memberNumber: null, debitCents: 0, creditCents: Number(p.amount_cents),
+      description: `Pago N° ${p.number} · ${PAYER_METHOD_LABELS[p.method]}${p.bank_reference ? ` · ref. ${p.bank_reference}` : ""}`, patient: null, memberNumber: null, debitCents: 0, creditCents: Number(p.amount_cents),
+    })),
+    ...transfers.map((t) => ({
+      date: DateTime.fromJSDate(new Date(t.created_at)).setZone(zone).toISODate()!, at: new Date(t.created_at).toISOString(), kind: "transfer" as const, id: t.id,
+      description: Number(t.amount_cents) > 0 ? `Trasladado al paciente: ${t.service} · ${t.reason}` : `Reversión del traslado: ${t.service} · ${t.reason}`,
+      patient: `${t.patient} (ficha ${t.record_number})`, memberNumber: null,
+      debitCents: Math.max(-Number(t.amount_cents), 0), creditCents: Math.max(Number(t.amount_cents), 0),
     })),
   ].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   const opening = Number(before.debit) - Number(before.credit);
@@ -120,6 +134,12 @@ async function sendXlsx(reply: FastifyReply, wb: ExcelJS.Workbook, name: string)
     .send(Buffer.from(await wb.xlsx.writeBuffer()));
 }
 
+/** Días entre la fecha de un movimiento (en la zona de la clínica) y `today` (AAAA-MM-DD). */
+export function ageDays(today: string, at: Date | string, zone = "America/La_Paz"): number {
+  const d = DateTime.fromJSDate(new Date(at)).setZone(zone).toISODate()!;
+  return Math.round(DateTime.fromISO(today).diff(DateTime.fromISO(d), "days").days);
+}
+
 const zPeriod = z.object({ from: zDate, to: zDate }).refine((q) => q.to >= q.from, { message: "El período termina antes de empezar", path: ["to"] })
   .refine((q) => DateTime.fromISO(q.to).diff(DateTime.fromISO(q.from), "days").days <= 1830, { message: "El período no puede superar 5 años", path: ["to"] });
 
@@ -131,18 +151,24 @@ export function payerRoutes(route: Route, cfg: Config) {
       const r = (await c.query(
         `SELECT a.id, a.name, a.kind, a.payment_terms_days AS "paymentTermsDays",
                 COALESCE((SELECT sum(third_party_cents) FROM charges ch WHERE ch.payer_agreement_id = a.id), 0)::bigint AS "billedCents",
+                COALESCE((SELECT sum(amount_cents) FROM payer_transfers t WHERE t.agreement_id = a.id), 0)::bigint AS "transferredCents",
+                a.patient_transfer_days AS "patientTransferDays",
                 COALESCE((SELECT sum(amount_cents) FROM payer_payments pp WHERE pp.agreement_id = a.id AND pp.status = 'confirmed'), 0)::bigint AS "paidCents",
                 COALESCE((SELECT sum(amount_cents) FROM payer_payments pp WHERE pp.agreement_id = a.id AND pp.status = 'pending_verification'), 0)::bigint AS "pendingCents"
            FROM agreements a ORDER BY a.name`)).rows;
       const out = [];
+      const todayIso = await clinicToday(c);
+      const zone = await clinicZone(c, auth.clinicId!);
       for (const a of r) {
         const open = await payerCharges(c, a.id, false);
         const due = open.filter((x) => x.dueCents > 0);
-        const today = DateTime.fromISO(await clinicToday(c));
+        const today = DateTime.fromISO(todayIso);
         const overdue = due.filter((x) => today.diff(DateTime.fromJSDate(new Date(x.createdAt)), "days").days > a.paymentTermsDays);
+        const transferable = open.filter((x) => x.openCents > 0 && ageDays(todayIso, x.createdAt, zone) >= a.patientTransferDays);
         out.push({
-          ...a, kindLabel: AGREEMENT_KINDS[a.kind], billedCents: Number(a.billedCents), paidCents: Number(a.paidCents), pendingCents: Number(a.pendingCents),
-          balanceCents: Number(a.billedCents) - Number(a.paidCents), openCharges: due.length, overdueCents: overdue.reduce((s, x) => s + x.dueCents, 0),
+          ...a, kindLabel: AGREEMENT_KINDS[a.kind], billedCents: Number(a.billedCents), transferredCents: Number(a.transferredCents), paidCents: Number(a.paidCents), pendingCents: Number(a.pendingCents),
+          balanceCents: Number(a.billedCents) - Number(a.transferredCents) - Number(a.paidCents), openCharges: due.length, overdueCents: overdue.reduce((s, x) => s + x.dueCents, 0),
+          transferableCents: transferable.reduce((s, x) => s + x.openCents, 0), transferableCharges: transferable.length,
           oldestDueAt: due[0]?.createdAt ?? null,
         });
       }
@@ -282,8 +308,8 @@ export function payerRoutes(route: Route, cfg: Config) {
     body: z.object({
       branchId: zId,
       amountCents: zMoney.refine((v) => v > 0, "El monto debe ser mayor a cero"),
-      method: z.enum(["transfer", "qr", "card"]),
-      bankReference: z.string().trim().min(1, "Indica el número de operación o referencia bancaria").max(80),
+      method: z.enum(["cash", "transfer", "qr", "card"]),
+      bankReference: z.string().trim().max(80).nullish().transform((v) => v || null),
       notes: zOptText(500),
       idempotencyKey: z.string().min(8).max(80),
       allocations: z.array(z.object({ chargeId: zId, amountCents: zMoney.refine((v) => v > 0, "Cada monto aplicado debe ser mayor a cero") })).min(1, "Elige al menos un cargo").max(500),
@@ -299,6 +325,11 @@ export function payerRoutes(route: Route, cfg: Config) {
         return { id: ex.id, number: Number(ex.number), status: ex.status, duplicate: true };
       }
       await agreementRow(c, params.id);
+      if (body.method !== "cash" && !body.bankReference) {
+        throw new AppError(400, "validation", "Indica el número de operación o referencia bancaria", [{ path: "bankReference", message: "Indica el número de operación o referencia bancaria" }]);
+      }
+      // El efectivo entra a la caja abierta de quien lo recibe (si la clínica exige caja, sin caja abierta no se registra).
+      await assertCashSessionForPayment(c, auth, body.branchId, body.method);
       // Serializa los pagos del mismo convenio: lo pendiente de cada cargo se calcula sin carreras.
       await c.query("SELECT pg_advisory_xact_lock(hashtextextended('payer:' || $1, 0))", [params.id]);
       const sum = body.allocations.reduce((s, a) => s + a.amountCents, 0);
@@ -314,15 +345,19 @@ export function payerRoutes(route: Route, cfg: Config) {
         }
       }
       const number = await nextCounter(c, auth.clinicId!, "payer_payment");
-      const id = (await c.query<{ id: string }>(
-        `INSERT INTO payer_payments (clinic_id, number, agreement_id, branch_id, amount_cents, method, status, bank_reference, notes, idempotency_key, received_by)
-         VALUES ($1,$2,$3,$4,$5,$6,'pending_verification',$7,$8,$9,$10) RETURNING id`,
-        [auth.clinicId, number, params.id, body.branchId, body.amountCents, body.method, body.bankReference, body.notes, body.idempotencyKey, auth.userId])).rows[0]!.id;
+      // D-07: el efectivo queda confirmado al recibirlo; transferencia, QR o tarjeta esperan la verificación de otra persona.
+      const status = body.method === "cash" ? "confirmed" : "pending_verification";
+      const ins = (await c.query<{ id: string; cash_session_id: string | null }>(
+        `INSERT INTO payer_payments (clinic_id, number, agreement_id, branch_id, amount_cents, method, status, bank_reference, notes, idempotency_key, received_by, verified_by, verified_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, CASE WHEN $7 = 'confirmed' THEN $11::uuid END, CASE WHEN $7 = 'confirmed' THEN now() END) RETURNING id, cash_session_id`,
+        [auth.clinicId, number, params.id, body.branchId, body.amountCents, body.method, status, body.bankReference, body.notes, body.idempotencyKey, auth.userId])).rows[0]!;
+      const id = ins.id;
       for (const a of body.allocations) {
         await c.query("INSERT INTO payer_payment_allocations (clinic_id, payment_id, charge_id, amount_cents) VALUES ($1,$2,$3,$4)", [auth.clinicId, id, a.chargeId, a.amountCents]);
       }
-      await audit(c, auth, "payer_payment.created", "payer_payment", id, { agreementId: params.id, number, amountCents: body.amountCents, method: body.method, charges: ids.length }, body.branchId);
-      return { id, number, status: "pending_verification" };
+      await audit(c, auth, "payer_payment.created", "payer_payment", id,
+        { agreementId: params.id, number, amountCents: body.amountCents, method: body.method, status, cashSessionId: ins.cash_session_id, charges: ids.length }, body.branchId);
+      return { id, number, status, cashSessionId: ins.cash_session_id };
     },
   });
 

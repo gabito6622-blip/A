@@ -76,8 +76,10 @@ interface Totals { floatCents: number; cashInCents: number; voidedCents: number;
 export async function liveTotals(c: Client, sessionId: string): Promise<Totals> {
   const r = (await c.query<{ f: number; cin: number; vo: number; mi: number; mo: number }>(
     `SELECT s.opening_float_cents AS f,
-            COALESCE((SELECT sum(amount_cents) FROM payments WHERE cash_session_id = s.id AND status IN ('confirmed','voided')),0) AS cin,
-            COALESCE((SELECT sum(amount_cents) FROM payments WHERE cash_session_id = s.id AND status = 'voided'),0) AS vo,
+            COALESCE((SELECT sum(amount_cents) FROM payments WHERE cash_session_id = s.id AND status IN ('confirmed','voided')),0)
+              + COALESCE((SELECT sum(amount_cents) FROM payer_payments WHERE cash_session_id = s.id AND status IN ('confirmed','voided')),0) AS cin,
+            COALESCE((SELECT sum(amount_cents) FROM payments WHERE cash_session_id = s.id AND status = 'voided'),0)
+              + COALESCE((SELECT sum(amount_cents) FROM payer_payments WHERE cash_session_id = s.id AND status = 'voided'),0) AS vo,
             COALESCE((SELECT sum(amount_cents) FROM cash_movements WHERE session_id = s.id AND kind = 'in'),0) AS mi,
             COALESCE((SELECT sum(amount_cents) FROM cash_movements WHERE session_id = s.id AND kind = 'out'),0) AS mo
        FROM cash_sessions s WHERE s.id = $1`, [sessionId])).rows[0];
@@ -104,8 +106,13 @@ export async function sessionReport(c: Client, id: string) {
     : { floatCents: s.openingFloatCents, cashInCents: s.cashInCents, voidedCents: s.voidedCents, movementsInCents: s.movementsInCents, movementsOutCents: s.movementsOutCents, expectedCents: s.expectedCents };
   const payments = (await c.query(
     `SELECT p.id, p.receipt_number AS "receiptNumber", p.amount_cents AS "amountCents", p.status, p.received_at AS "receivedAt",
-            pt.first_name || ' ' || pt.last_name AS "patientName", p.patient_id AS "patientId", p.status_reason AS "statusReason"
-       FROM payments p JOIN patients pt ON pt.id = p.patient_id WHERE p.cash_session_id = $1 ORDER BY p.received_at`, [id])).rows;
+            pt.first_name || ' ' || pt.last_name AS "patientName", p.patient_id AS "patientId", p.status_reason AS "statusReason", false AS "fromPayer"
+       FROM payments p JOIN patients pt ON pt.id = p.patient_id WHERE p.cash_session_id = $1
+     UNION ALL
+     -- Pagos de empresas (convenios) en efectivo recibidos en esta caja (B-082): receiptNumber = N° del pago de la empresa.
+     SELECT pp.id, pp.number, pp.amount_cents, pp.status, pp.received_at, 'Empresa: ' || a.name, NULL::uuid, pp.status_reason, true
+       FROM payer_payments pp JOIN agreements a ON a.id = pp.agreement_id WHERE pp.cash_session_id = $1
+     ORDER BY "receivedAt"`, [id])).rows;
   // Otros medios recibidos por el mismo cajero en la sucursal durante la sesión: solo referencia, no cuentan en el arqueo.
   const others = (await c.query(
     `SELECT p.id, p.receipt_number AS "receiptNumber", p.amount_cents AS "amountCents", p.method, p.status, p.bank_reference AS "bankReference",
@@ -280,6 +287,7 @@ export function cashSessionRoutes(route: Route) {
         `SELECT ${SESSION_COLS},
                 CASE WHEN s.status = 'open' THEN s.opening_float_cents
                   + COALESCE((SELECT sum(amount_cents) FROM payments WHERE cash_session_id = s.id AND status = 'confirmed'),0)
+                  + COALESCE((SELECT sum(amount_cents) FROM payer_payments WHERE cash_session_id = s.id AND status = 'confirmed'),0)
                   + COALESCE((SELECT sum(CASE WHEN kind = 'in' THEN amount_cents ELSE -amount_cents END) FROM cash_movements WHERE session_id = s.id),0)
                 END AS "liveExpectedCents"
            FROM ${SESSION_FROM}
