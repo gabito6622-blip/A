@@ -2,12 +2,44 @@
 
 Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P3 = lindo de tener.
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
+Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-| # | Para | Pendiente | Prioridad | Estado |
+## Decisiones del dueño
+| # | Pendiente | Prioridad | Estado |
+|---|---|---|---|
+| B1 | Descuento de revendedor (hoy pagan precio público) | P1 | 🧑 |
+| B2 | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
+| B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
+
+## Auditoría del pulido
+| # | De | Pendiente | Prioridad | Estado |
 |---|---|---|---|---|
-| B1 | Dueño | Descuento de revendedor (hoy pagan precio público) | P1 | 🧑 |
-| B2 | Dueño | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
-| B3 | Todos | Conectar dominio gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
-| B4 | Revendedor | Renovación automática con saldo por cliente | P2 | ⏳ |
-
-Los hallazgos de la auditoría del pulido se agregan abajo con su origen (cliente/revendedor/atención/dueño/seguridad).
+| S1 | 🔒 | Registrarse con correo ajeno abría esa cuenta (toma de cuenta) | P1 | ✅ prueba `pulido-seguridad` |
+| S2 | 🔒 | Dos clientes con el mismo correo | P2 | ✅ prueba `pulido-seguridad` |
+| S3 | 🔒🎧 | Atención veía costo de cuentas y proveedores | P2 | ✅ prueba `pulido-seguridad` |
+| C1 | 🛒 | Sin QR/WhatsApp el pedido quedaba sin salida; QR ofrecido sin QR | P1 | ✅ prueba `paymethods` + navegador |
+| C2 | 🛒 | Botón Atrás del celular sacaba de la tienda | P1 | ✅ navegador |
+| C3 | 🛒🏪🎧 | "Renovar" aparecía y fallaba por vencimiento del proveedor | P1 | ✅ candado 🔒 + navegador |
+| C4 | 🛒 | Asesor recomendaba combos agotados | P2 | ✅ navegador |
+| C5 | 🛒 | Portada prometía QR/WhatsApp/"al instante" que no había | P2 | ✅ |
+| C6 | 🛒 | Acceso abría en correo, todo decía "con tu número" | P2 | ✅ navegador |
+| C7 | 🛒 | "Últimas 1 unidades", pie con "·" suelto, índice de términos | P3 | ✅ |
+| C8 | 🛒 | Copiar correo/contraseña en Mis cuentas | P2 | ✅ |
+| C9 | 🛒 | En celular el primer precio aparece lejos (diseño clásico) | P2 | ⏳ (la tienda real usa "ticket", que ya muestra precios arriba) |
+| C10 | 🛒 | Descripción del producto oculta en celular (diseño clásico) | P3 | ⏳ |
+| C11 | 🛒 | 310 KB por visita sin comprimir | P2 | ✅ gzip + ETag (227→66 KB) |
+| C12 | 🛒 | "Tu pedido en vivo" (barra Recibido → Entregado) | P3 | ⏳ idea wow |
+| R1 | 🏪 | Teléfono sin +591 → WhatsApp roto y clientes duplicados | P1 | ✅ prueba `store` + navegador |
+| R2 | 🏪 | Ganancias contaban lo que no te pagaron | P1 | ✅ prueba `store` |
+| R3 | 🏪 | Quién me debe en Bs 0 mientras Mi control decía que te deben | P1 | ✅ prueba `store` |
+| R4 | 🏪 | Cada pantalla contaba distinto "los que vencen"; aviso llevaba a Mis cuentas | P2 | ✅ "📣 Avisarles" + semana completa |
+| R5 | 🏪 | "Tu acceso" ofrecía correo sin tener contraseña | P2 | ✅ |
+| R6 | 🏪 | Mis combos sin estilo y se borraban sin preguntar | P2 | ✅ |
+| R7 | 🏪 | Afiche con combos agotados y sin los combos propios | P2 | ✅ |
+| R8 | 🏪 | Barra de abajo sin Clientes; pestañas en 4 filas | P2 | ✅ |
+| R9 | 🏪 | Vender fiado; datos tapados tras vender; confirmación | P2 | ✅ navegador |
+| R10 | 🏪 | Mi control y Mis cuentas muy largos con muchos clientes (filas plegables) | P2 | ⏳ |
+| R11 | 🏪 | Vista previa de Mi página tapa lo que editás; deshacer plantilla | P3 | ⏳ |
+| R12 | 🏪 | Movimientos de saldo con códigos (ord_…) en vez de qué y para quién | P3 | ✅ prueba `store` ("Netflix perfil para Rodrigo Paz") |
+| R13 | 🏪 | "Tu día" en Inicio (por avisar · te deben · ganaste) | P2 | ✅ idea wow |
+| D1–D15, A1–A15 | 👔🎧 | Números del panel, permisos de Atención, PIN/saldo con confirmación | P1–P3 | 🔧 equipo del panel (ver INFORME_PRUEBAS) |

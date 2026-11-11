@@ -1433,4 +1433,13 @@ describe("Pulido: Mi control, libreta y ganancias siempre de acuerdo", () => {
     assert.equal(s.fiado.overview(as(carla)).totals.owed, 0, "marcar Pagado salda la libreta");
     assert.equal(s.rtools.earnings(as(carla)).month.collected, 4000);
   });
+  test("los movimientos de saldo dicen qué fue y para quién", () => {
+    const { s, carla, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Rodrigo Paz", phone: "71113333" });
+    s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    const last = s.wallet.history(as(carla), carla.id).at(-1);
+    assert.equal(last.label, "Netflix perfil para Rodrigo Paz");
+  });
 });

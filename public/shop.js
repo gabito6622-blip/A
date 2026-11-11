@@ -584,7 +584,7 @@ function renderInner() {
       ${pendingOrders()}
       <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
         ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
-      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)} <small class="empty">${esc(m.ref)}</small><br><small class="empty">${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") : `<p class="empty">Sin movimientos.</p>`}</div>`,
+      <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
@@ -1815,6 +1815,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.rselclear) { S.data.rsel = []; return render(); }
   if (d.rrclose) { S.data.renewResult = null; return render(); }
+  if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);

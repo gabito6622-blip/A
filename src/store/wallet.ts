@@ -33,5 +33,16 @@ export function history(e: Engine, actor: Actor, customerId: Id) {
   let run = 0;
   return e.s.ledger
     .filter((l) => l.customerId === customerId)
-    .map((l) => ({ ...l, balanceAfter: (run += l.amount) }));
+    .map((l) => ({ ...l, label: labelOf(e, l), balanceAfter: (run += l.amount) }));
+}
+
+/** Qué fue cada movimiento, en palabras: "Netflix para Rodrigo" en vez de "ord_01182". */
+function labelOf(e: Engine, l: { ref: Id; note?: string; customerId: Id }): string {
+  const o = e.s.orders[l.ref];
+  if (o) {
+    const what = o.items.map((it) => `${it.qty > 1 ? `${it.qty} × ` : ""}${e.s.products[it.productId]?.name ?? "servicio"}`).join(" + ");
+    const who = o.customerId !== l.customerId ? e.s.customers[o.customerId]?.name : "";
+    return `${what}${who ? ` para ${who}` : ""}`;
+  }
+  return l.note ?? "";
 }
