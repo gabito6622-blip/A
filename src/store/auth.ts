@@ -10,6 +10,7 @@ export type Permission =
   | "customer.manage"
   | "reseller.manage"
   | "customer.create_own"
+  | "reseller.own_stock"
   | "order.create_any"
   | "order.create_self"
   | "payment.review"
@@ -33,6 +34,8 @@ const MATRIX: Record<Permission, Role[]> = {
   // Aprobar revendedores, darles la página premium o armarla: solo dueño o admin (Atención no).
   "reseller.manage": ["owner", "admin"],
   "customer.create_own": ["reseller"],
+  // "Mis cuentas propias": solo el revendedor; el dueño y su equipo no las ven (ownStock.ts).
+  "reseller.own_stock": ["reseller"],
   "order.create_any": ["owner", "admin", "seller"],
   "order.create_self": ["customer", "reseller"],
   "payment.review": ["owner", "admin"],

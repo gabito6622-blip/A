@@ -27,8 +27,10 @@ export interface SessionRow {
  * La clave NO está en la base ni en los respaldos: viene de la variable GS_DATA_KEY.
  */
 const ENC = "enc1:";
-const isAccount = (o: unknown): o is { email: string; supplierId: string; password: string } =>
-  !!o && typeof o === "object" && "email" in o && "supplierId" in o && "password" in o;
+const isAccount = (o: unknown): o is { password: string } =>
+  !!o && typeof o === "object" && "password" in o
+  // Cuentas de la tienda, y las cuentas propias de cada revendedor (ownStock.ts: `own: true`).
+  && (("email" in o && "supplierId" in o) || (o as { own?: unknown }).own === true);
 
 export class Db {
   private db: DatabaseSync;

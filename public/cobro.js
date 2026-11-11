@@ -1,5 +1,6 @@
 // Página del link de cobro (/c/<token>): el cliente de un revendedor ve cuándo vence su perfil, cuánto es,
 // el QR del revendedor y un botón para avisarle por WhatsApp que ya pagó. No manda nada sola.
+import { money as fmtMoney } from "/country.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const token = location.pathname.split("/").filter(Boolean)[1] ?? "";
@@ -11,7 +12,8 @@ const daysLeft = (t) => {
   return Math.round((Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) - Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) / DAY);
 };
 const ddmm = (t) => { const d = new Date(t); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`; };
-const money = (cents, cur) => `${cur} ${(cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+// Bs como siempre; otra moneda (₲ del revendedor de Paraguay…) con la función de plata por moneda.
+const money = (cents, cur) => (cur === "Bs" ? `${cur} ${(cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}` : fmtMoney(cents, { symbol: cur, decimals: cur === "₲" ? 0 : 2 }));
 const when = (n) => (n > 1 ? `faltan ${n} días` : n === 1 ? "falta 1 día" : n === 0 ? "vence hoy" : n === -1 ? "venció ayer" : `venció hace ${-n} días`);
 const wa = (digits, text) => `https://wa.me/${String(digits).replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 

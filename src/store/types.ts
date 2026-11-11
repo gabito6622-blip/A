@@ -3,6 +3,8 @@
 
 import type { Look } from "./look.js";
 export type { Look } from "./look.js";
+import type { ResellerLocale } from "./country.js";
+import type { OwnStockBook } from "./ownStock.js";
 
 export type Cents = number;
 export type Id = string;
@@ -281,6 +283,8 @@ export interface Customer {
   pageAllowed?: boolean;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
+  /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
+  locale?: ResellerLocale;
 }
 
 export interface Testimonial {
@@ -685,6 +689,8 @@ export interface State {
   accountAlerts: AccountAlert[];
   /** "Que vuelvan": a quién ya se le escribió para recuperar la venta y a quién no molestar (por cliente). */
   winback?: Record<Id, WinbackMark>;
+  /** "Mis cuentas propias" de cada revendedor (ownStock.ts), por id del revendedor. El dueño no las ve. */
+  ownStock?: Record<Id, OwnStockBook>;
   seq: number;
 }
 
