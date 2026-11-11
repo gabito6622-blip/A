@@ -22,3 +22,9 @@
 .os-logorow{margin-top:8px}
 .os-prod textarea{width:100%;min-height:110px;background:var(--s-bg);color:var(--s-ink);border:1px solid var(--s-line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px}
 @media (max-width:520px){.os-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* IPTV: datos para el cliente y pruebas gratis */
+.os-iptv{border:1px dashed var(--s-line);border-radius:12px;padding:8px 12px}
+.os-iptv>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.os-iptv textarea{width:100%;resize:vertical}
+.os-trial{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;background:color-mix(in srgb,var(--s-blue) 18%,transparent);color:var(--s-ink)}

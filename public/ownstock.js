@@ -15,7 +15,7 @@ let RENDER = () => {};
 /** shop.js le pasa su render() para redibujar después de cada cambio. */
 export function initOwnStock(render) { RENDER = render; }
 
-const KINDS = { full: "Cuenta completa", profiles: "Perfiles (varios cupos)", line: "Línea o usuario" };
+const KINDS = { full: "Cuenta completa", profiles: "Perfiles (varios cupos)", line: "Línea / IPTV (usuario y contraseña)" };
 const cur = () => OS.data?.currency ?? { symbol: "Bs", decimals: 2 };
 const $m = (c) => money(c, cur());
 const ymd = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -52,16 +52,17 @@ function countryCard() {
 
 function accessText(s) {
   const a = (OS.data?.accounts ?? []).find((x) => x.id === s.accountId), p = (OS.data?.products ?? []).find((x) => x.id === s.productId);
-  return `*${s.product}*\nUsuario: ${a?.user ?? ""}\nContraseña: ${a?.password ?? ""}${p?.kind === "profiles" ? `\nPerfil: ${s.slot}` : ""}\nVence: ${fdate(s.expiresAt)}`;
+  const extra = [p?.server ? `Servidor: ${p.server}` : "", p?.app ? `App: ${p.app}` : "", p?.screens ? `Pantallas a la vez: ${p.screens}` : "", p?.guide ?? ""].filter(Boolean).join("\n");
+  return `*${s.product}*${s.trial ? " (prueba gratis)" : ""}\nUsuario: ${a?.user ?? ""}\nContraseña: ${a?.password ?? ""}${p?.kind === "profiles" ? `\nPerfil: ${s.slot}` : ""}${extra ? `\n${extra}` : ""}\n${s.trial ? `La prueba termina: ${fdate(s.expiresAt)}` : `Vence: ${fdate(s.expiresAt)}`}`;
 }
 const remindText = (s) => `Hola ${firstName(s.name)} 👋 tu ${s.product} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${$m(s.price)}.` : ""} ¿Lo renovamos? 🙌${s.linkToken ? `\nPagá acá: ${location.origin}/c/${s.linkToken}` : ""}`;
 
 function saleRow(s) {
   const open = OS.open.sale === s.id;
-  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.price != null ? ` · ${$m(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
     ${open ? `<div class="os-sale">
       <div class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, accessText(s))}" target="_blank" rel="noopener">🔑 Mandar acceso por WhatsApp</a><a class="sbtn sm" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : `<small class="empty">Sin WhatsApp</small>`}</div>
-      <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">🔄 Renovó +${OS.data.products.find((p) => p.id === s.productId)?.durationDays ?? 30} días</button>
+      <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"} +${OS.data.products.find((p) => p.id === s.productId)?.durationDays ?? 30} días</button>
         <button class="sbtn sm" type="button" data-os="pay" data-id="${esc(s.id)}" data-pay="${s.pay === "pagado" ? "pendiente" : "pagado"}">${s.pay === "pagado" ? "⏳ Marcar pendiente" : "💵 Me pagó"}</button>
         <button class="sbtn sm" type="button" data-os="release" data-id="${esc(s.id)}">🗑️ Liberar cupo</button></div>
       <form class="sform os-grid" data-osf="sale" data-id="${esc(s.id)}"><label>Le vence<input type="date" name="exp" required value="${ymd(s.expiresAt)}"></label><label>Le cobro (${esc(cur().symbol)})<input name="price" inputmode="decimal" value="${s.price != null ? s.price / 100 : ""}"></label>
@@ -80,7 +81,7 @@ function assignForm(a) {
     <label>Le vence<input type="date" name="exp" required value="${ymd(Date.now() + (p?.durationDays ?? 30) * 86_400_000)}"></label>
     <label>Le cobro (${esc(cur().symbol)})<input name="price" inputmode="decimal" value="${p ? p.price / 100 : ""}"></label>
     <label>Pago<select name="pay"><option value="pagado">Pagado</option><option value="pendiente">Pendiente</option></select></label>
-    ${errBox("assign:" + a.id)}<button class="sbtn sm pri os-wide" type="submit">Guardar</button></form>`;
+    ${errBox("assign:" + a.id)}<button class="sbtn sm pri" type="submit">Guardar</button><button class="sbtn sm" type="button" data-os="trial" data-id="${esc(a.id)}" title="Le das la cuenta 24 horas gratis; si la renueva, pasa a venta">🎁 Prueba gratis 24 h</button></form>`;
 }
 
 function accountRow(a) {
@@ -108,6 +109,12 @@ function productForm(p) {
     <label>Dura (días)<input name="days" type="number" min="1" max="400" required value="${p?.durationDays ?? 30}"></label>
     <label>Precio a tus clientes (${esc(cur().symbol)})<input name="price" inputmode="decimal" required value="${p ? p.price / 100 : ""}" placeholder="${cur().decimals === 0 ? "35.000" : "35"}"></label>
     <label class="chk os-wide"><input type="checkbox" name="onPage" ${p?.onPage ? "checked" : ""}> Mostrarlo en mi página para que me lo pidan por WhatsApp</label>
+    <details class="os-wide os-iptv" ${p?.server || p?.app || p?.guide ? "open" : ""}><summary><b>📺 Datos para tu cliente</b> <small class="empty">(IPTV: servidor, app, pantallas)</small></summary>
+      <div class="os-grid"><label class="os-wide">Servidor o URL<input name="server" maxlength="200" value="${esc(p?.server ?? "")}" placeholder="Ej.: http://flujo.tv:8080"></label>
+      <label>App recomendada<input name="app" maxlength="40" value="${esc(p?.app ?? "")}" placeholder="Ej.: Flujo TV, IPTV Smarters"></label>
+      <label>Pantallas a la vez<input name="screens" type="number" min="1" max="10" value="${p?.screens ?? ""}" placeholder="1"></label>
+      <label class="os-wide">Instrucciones<textarea name="guide" maxlength="300" rows="2" placeholder="Ej.: Descargá la app, poné usuario y contraseña, listo.">${esc(p?.guide ?? "")}</textarea></label>
+      <small class="empty os-wide">Van solos en el mensaje “Mandar acceso”.</small></div></details>
     ${errBox(k)}<button class="sbtn ${p ? "sm" : ""} pri os-wide" type="submit">${p ? "Guardar cambios" : "➕ Crear producto"}</button></form>`;
 }
 
@@ -187,6 +194,15 @@ if (typeof document !== "undefined") {
     if (k === "pasteoff") { OS.paste = null; return RENDER(); }
     if (k === "copy") { try { await navigator.clipboard.writeText(d.text); toast("Copiado"); } catch { toast(d.text); } return; }
     if (k === "pastesave") { el.disabled = true; const r = await act(() => api("POST", "/api/me/own/accounts/bulk", { productId: id, text: OS.paste?.text ?? "" }), null, "paste"); if (r) { toast(`✅ ${r.added} cuenta(s) guardada(s)`); OS.paste = null; RENDER(); } return; }
+    if (k === "trial") {
+      const f = document.querySelector(`form[data-osf="assign"][data-acc="${CSS.escape(id)}"]`);
+      if (!f) return;
+      const who = f.who.value;
+      const body = { accountId: id, trialHours: 24, ...(who === "__new" ? { name: f.name.value, phone: f.phone.value } : { customerId: who }), ...(f.slot ? { slot: Number(f.slot.value) } : {}) };
+      const r = await act(() => api("POST", "/api/me/own/sales", body), "🎁 Prueba de 24 h lista: mandale el acceso", "assign:" + id);
+      if (r) { OS.open.sale = r.id; RENDER(); }
+      return;
+    }
     if (k === "renew") return act(() => api("POST", `/api/me/own/sales/${id}/renew`, { paid: true }), "🔄 Renovado");
     if (k === "pay") return act(() => api("POST", `/api/me/own/sales/${id}`, { pay: d.pay }), d.pay === "pagado" ? "💵 Marcado pagado" : "Quedó pendiente");
     if (k === "release") { if (!confirm("¿Liberar este cupo? El cliente sale de la cuenta y su link de cobro deja de servir.")) return; return act(() => api("POST", `/api/me/own/sales/${id}/release`), "Cupo libre"); }
@@ -216,7 +232,7 @@ if (typeof document !== "undefined") {
       if (k === "product") {
         const key = "product:" + (f.dataset.id ?? "new");
         let body;
-        try { body = { ...(f.dataset.id ? { id: f.dataset.id } : {}), name: f.name.value, emoji: f.emoji.value, kind: f.kind.value, slots: Number(f.slots.value), durationDays: Number(f.days.value), price: price(f.price.value) ?? 0, onPage: f.onPage.checked }; }
+        try { body = { ...(f.dataset.id ? { id: f.dataset.id } : {}), name: f.name.value, emoji: f.emoji.value, kind: f.kind.value, slots: Number(f.slots.value), durationDays: Number(f.days.value), price: price(f.price.value) ?? 0, onPage: f.onPage.checked, server: f.server.value, app: f.app.value, screens: f.screens.value, guide: f.guide.value }; }
         catch (e) { OS.msg[key] = e.message; return RENDER(); }
         const r = await act(() => api("POST", "/api/me/own/products", body), f.dataset.id ? "Guardado" : "📦 Producto creado", key);
         if (r && !f.dataset.id) { OS.open.product = r.id; RENDER(); }

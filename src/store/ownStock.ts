@@ -35,6 +35,11 @@ export interface OwnProduct {
   slots: number;
   /** Mostrarlo en su página /r/<slug> para que se lo pidan por WhatsApp. */
   onPage?: boolean;
+  /** Datos para el cliente (IPTV como Flujo TV): servidor o URL, app, pantallas e instrucciones. Van en "Mandar acceso". */
+  server?: string;
+  app?: string;
+  screens?: number;
+  guide?: string;
   createdAt: number;
 }
 
@@ -71,6 +76,8 @@ export interface OwnSale {
   createdAt: number;
   /** Link de cobro (/c/<token>), igual que en el cuaderno de perfiles. */
   link?: { token: string; at: number };
+  /** Prueba gratis (IPTV: 24 h): no cuenta como venta ni como deuda hasta que se renueva. */
+  trial?: boolean;
 }
 
 export interface OwnStockBook {
@@ -173,8 +180,9 @@ export function view(e: Engine, actor: Actor) {
     },
     totals: {
       clients: sales.length,
-      owed: sales.filter((s) => s.pay !== "pagado").reduce((t, s) => t + (s.price ?? 0), 0),
-      monthly: sales.reduce((t, s) => { const d = accById.get(s.accountId); const days = b.products.find((p) => p.id === d?.productId)?.durationDays ?? 30; return t + Math.round(((s.price ?? 0) * 30) / Math.max(1, days)); }, 0),
+      owed: sales.filter((s) => s.pay !== "pagado" && !s.trial).reduce((t, s) => t + (s.price ?? 0), 0),
+      trials: sales.filter((s) => s.trial && s.expiresAt > now).length,
+      monthly: sales.filter((s) => !s.trial).reduce((t, s) => { const d = accById.get(s.accountId); const days = b.products.find((p) => p.id === d?.productId)?.durationDays ?? 30; return t + Math.round(((s.price ?? 0) * 30) / Math.max(1, days)); }, 0),
     },
   };
 }
@@ -192,6 +200,11 @@ export function saveProduct(e: Engine, actor: Actor, raw: Record<string, unknown
   if (!["full", "profiles", "line"].includes(kind)) throw new DomainError("VALIDATION", "Elegí el tipo: cuenta completa, perfiles o línea");
   const slots = kind === "profiles" ? Number(raw.slots ?? 4) : 1;
   if (!Number.isInteger(slots) || slots < 1 || slots > MAX_SLOTS) throw new DomainError("VALIDATION", `Cupos por cuenta: de 1 a ${MAX_SLOTS}`);
+  const server = text(raw.server, 200, "el servidor o URL");
+  const app = text(raw.app, 40, "la app");
+  const guide = text(raw.guide, 300, "las instrucciones");
+  const screens = raw.screens === undefined || raw.screens === null || raw.screens === "" ? undefined : Number(raw.screens);
+  if (screens !== undefined && !(Number.isInteger(screens) && screens >= 1 && screens <= 10)) throw new DomainError("VALIDATION", "Pantallas: de 1 a 10");
   return e.tx(() => {
     const b = book(e, c.id);
     const id = typeof raw.id === "string" && raw.id ? raw.id : "";
@@ -208,6 +221,8 @@ export function saveProduct(e: Engine, actor: Actor, raw: Record<string, unknown
     Object.assign(p, { name, durationDays, price, kind, slots });
     if (emoji) p.emoji = emoji; else delete p.emoji;
     if (raw.onPage !== undefined) p.onPage = !!raw.onPage;
+    for (const [k, v] of [["server", server], ["app", app], ["guide", guide]] as const) { if (v) p[k] = v; else if (raw[k] !== undefined) delete p[k]; }
+    if (screens !== undefined) p.screens = screens; else if (raw.screens !== undefined) delete p.screens;
     e.audit(actor, id ? "own.product_update" : "own.product_create", "customer", c.id, { product: p.id });
     const { logoFileRef, ...out } = p;
     return { ...out, hasLogo: !!logoFileRef };
@@ -367,6 +382,9 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
   const loc = localeOf(e, c);
   const note = text(raw.note, 120, "la nota");
   const pay = raw.pay === "pendiente" ? "pendiente" : "pagado";
+  // Prueba gratis (IPTV): unas horas, sin precio ni deuda. Se vuelve venta cuando la renueva.
+  const trialHours = raw.trialHours === undefined || raw.trialHours === null || raw.trialHours === "" ? 0 : Number(raw.trialHours);
+  if (trialHours && !(Number.isInteger(trialHours) && trialHours >= 1 && trialHours <= 72)) throw new DomainError("VALIDATION", "La prueba dura de 1 a 72 horas");
   return e.tx(() => {
     const b = book(e, c.id);
     const a = accountOf(b, raw.accountId);
@@ -388,9 +406,9 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
     if (slot === undefined) throw new DomainError("OUT_OF_STOCK", "Esta cuenta no tiene cupos libres");
     if (!Number.isInteger(slot) || slot < 1 || slot > a.slots) throw new DomainError("VALIDATION", "Ese cupo no existe en la cuenta");
     if (!free.includes(slot)) throw new DomainError("OUT_OF_STOCK", "Ese cupo ya lo tiene otro cliente");
-    const expiresAt = raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : e.now() + p.durationDays * DAY;
-    const price = raw.price === undefined || raw.price === null || raw.price === "" ? p.price : amount(e, c, raw.price);
-    const s: OwnSale = { id: e.id("osl"), accountId: a.id, slot, name, phone, ...(customerId ? { customerId } : {}), expiresAt, price, pay, ...(note ? { note } : {}), createdAt: e.now() };
+    const expiresAt = trialHours ? e.now() + trialHours * 3_600_000 : raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : e.now() + p.durationDays * DAY;
+    const price = trialHours ? 0 : raw.price === undefined || raw.price === null || raw.price === "" ? p.price : amount(e, c, raw.price);
+    const s: OwnSale = { id: e.id("osl"), accountId: a.id, slot, name, phone, ...(customerId ? { customerId } : {}), expiresAt, price, pay: trialHours ? "pagado" : pay, ...(note ? { note } : {}), ...(trialHours ? { trial: true } : {}), createdAt: e.now() };
     b.sales.push(s);
     e.audit(actor, "own.assign", "customer", c.id, { sale: s.id, account: a.id, slot });
     const { link, ...out } = s;
@@ -424,6 +442,8 @@ export function renew(e: Engine, actor: Actor, saleId: Id, paid = true) {
     const days = b.products.find((p) => p.id === b.accounts.find((a) => a.id === s.accountId)?.productId)?.durationDays ?? 30;
     s.expiresAt = Math.max(s.expiresAt, e.now()) + days * DAY;
     s.pay = paid ? "pagado" : "pendiente";
+    // Renovar una prueba gratis la convierte en venta, al precio del producto.
+    if (s.trial) { delete s.trial; if (!s.price) s.price = b.products.find((p) => p.id === b.accounts.find((a) => a.id === s.accountId)?.productId)?.price ?? 0; }
     e.audit(actor, "own.renew", "customer", c.id, { sale: s.id });
     return { expiresAt: s.expiresAt, pay: s.pay };
   });

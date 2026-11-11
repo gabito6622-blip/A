@@ -103,6 +103,29 @@ describe("cuentas propias (núcleo)", () => {
     clock.t = T0;
   });
 
+  test("IPTV: datos para el cliente en el producto y prueba gratis de 24 h que se vuelve venta al renovar", () => {
+    const p = s.own.saveProduct(asR(py), { name: "Flujo TV Prueba", kind: "line", durationDays: 30, price: 3500000, server: "http://flujo.tv:8080", app: "Flujo TV", screens: 2, guide: "Bajá la app y entrá con tu usuario." });
+    assert.deepEqual([p.server, p.app, p.screens, p.guide], ["http://flujo.tv:8080", "Flujo TV", 2, "Bajá la app y entrá con tu usuario."]);
+    assert.throws(() => s.own.saveProduct(asR(py), { id: p.id, name: "Flujo TV Prueba", kind: "line", price: 3500000, screens: 11 }), err("VALIDATION", /Pantallas/));
+    s.own.saveAccount(asR(py), { productId: p.id, user: "demo-iptv", password: "Demo#123" });
+    const acc = s.own.view(asR(py)).accounts.find((a) => a.user === "demo-iptv");
+    const before = s.own.view(asR(py)).totals;
+    const t = s.own.assign(asR(py), { accountId: acc.id, name: "Prueba Uno", phone: "0983 111 222", trialHours: 24 });
+    assert.deepEqual([t.trial, t.price, t.pay, t.expiresAt], [true, 0, "pagado", T0 + 24 * 3_600_000]);
+    const v = s.own.view(asR(py)).totals;
+    assert.equal(v.owed, before.owed, "la prueba no es deuda");
+    assert.equal(v.monthly, before.monthly, "ni venta");
+    assert.equal(v.trials, (before.trials ?? 0) + 1);
+    assert.throws(() => s.own.assign(asR(py), { accountId: acc.id, name: "X", phone: "0983000000", trialHours: 100 }), err("VALIDATION", /1 a 72 horas/));
+    s.own.renew(asR(py), t.id, true);
+    const sold = s.own.view(asR(py)).sales.find((x) => x.id === t.id);
+    assert.equal(sold.trial, undefined, "al renovar deja de ser prueba");
+    assert.equal(sold.price, 3500000, "y toma el precio del producto");
+    s.own.release(asR(py), t.id);
+    s.own.deleteAccount(asR(py), acc.id);
+    s.own.deleteProduct(asR(py), p.id);
+  });
+
   test("aislamiento en el núcleo: otro revendedor, un cliente y el staff no tocan nada", () => {
     const v = s.own.view(asR(py));
     const [acc] = v.accounts, [sale] = v.sales, [prod] = v.products;
