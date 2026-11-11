@@ -2,6 +2,7 @@
 //  * /api/public/confirmar/:token — página «Confirmo / Necesito reprogramar» (funciona con cualquier canal);
 //  * /api/public/c/:slug/me/messages/opt-out — «Dejar de recibir mensajes» desde el portal del paciente;
 //  * /api/webhooks/whatsapp — estados de entrega y respuestas «BAJA» (firma X-Hub-Signature-256).
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Config } from "../../config.js";
 import type { Client } from "../../lib/db.js";
@@ -19,6 +20,12 @@ import { confirmTokenHash, verifyConfirmToken } from "./tokens.js";
 import { isOptOut, parseWebhook, verifyWebhookSignature } from "./whatsapp.js";
 
 export const WEBHOOK_PATH = "/api/webhooks/whatsapp";
+
+/** Comparación en tiempo constante (sobre el SHA-256, así no depende del largo). */
+export function sameSecret(given: string, expected: string): boolean {
+  const h = (s: string) => createHash("sha256").update(s).digest();
+  return timingSafeEqual(h(given), h(expected));
+}
 const TAGS = ["mensajes automáticos"];
 const zToken = z.object({ token: z.string().min(10).max(120) });
 type Actor = { clinicId: string; userId: string | null; ip: string | null };
@@ -141,7 +148,7 @@ export function messagingPublicRoutes(route: Route, cfg: Config, messenger: Mess
     query: z.object({ "hub.mode": z.string().max(40).optional(), "hub.verify_token": z.string().max(200).optional(), "hub.challenge": z.string().max(200).optional() }),
     handler: async ({ query, reply }) => {
       const expected = process.env.WHATSAPP_VERIFY_TOKEN;
-      if (!expected || query["hub.mode"] !== "subscribe" || query["hub.verify_token"] !== expected) {
+      if (!expected || query["hub.mode"] !== "subscribe" || !sameSecret(query["hub.verify_token"] ?? "", expected)) {
         reply.code(403).send({ error: { code: "forbidden", message: "Verificación del webhook rechazada" } });
         return;
       }

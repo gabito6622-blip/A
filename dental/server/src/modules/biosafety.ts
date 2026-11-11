@@ -11,6 +11,7 @@ import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import type { Client } from "../lib/db.js";
 import { dayBounds } from "../lib/slots.js";
 import { clinicZone } from "./agenda.js";
+import { xlsxBuffer } from "../lib/xlsxSafe.js";
 
 export const TASK_LABELS: Record<string, string> = {
   between_patients: "Limpieza entre pacientes",
@@ -212,7 +213,7 @@ export function biosafetyRoutes(route: Route) {
       await audit(c, auth, "report.exported", "sterilization", null, { rows: rows.length });
       reply.header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="libro-esterilizacion.xlsx"`)
-        .send(Buffer.from(await wb.xlsx.writeBuffer()));
+        .send(await xlsxBuffer(wb));
     },
   });
 }

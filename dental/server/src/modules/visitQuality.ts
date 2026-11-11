@@ -12,6 +12,7 @@ import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { STATUS_LABELS } from "./agenda.js";
 import { resolveRange } from "./reports.js";
 import { afterAppointmentStatusChange } from "./appointmentEvents.js";
+import { xlsxBuffer } from "../lib/xlsxSafe.js";
 
 const r1 = (v: unknown) => (v == null ? null : Math.round(Number(v) * 10) / 10);
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 1000) / 10 : null);
@@ -145,7 +146,7 @@ export function visitQualityRoutes(route: Route) {
       reply
         .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="calidad-atencion-${d.range.from}.xlsx"`)
-        .send(Buffer.from(await wb.xlsx.writeBuffer()));
+        .send(await xlsxBuffer(wb));
     },
   });
 

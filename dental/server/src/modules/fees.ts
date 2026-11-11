@@ -27,6 +27,7 @@ import { allowedBranches, hasAllBranches, type AuthCtx } from "../lib/rbac.js";
 import { dayBounds } from "../lib/slots.js";
 import { clinicZone } from "./agenda.js";
 import { resolveRange } from "./reports.js";
+import { xlsxBuffer } from "../lib/xlsxSafe.js";
 
 export interface FeeRule { category: string | null; mode: "percent" | "fixed"; percentBp: number | null; fixedCents: number | null; deductCents: number; deductActualLab?: boolean }
 export type FeeBase = "production" | "collected";
@@ -311,7 +312,7 @@ async function exportXlsx(c: Client, auth: AuthCtx, id: string, reply: import("f
   reply
     .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     .header("content-disposition", `attachment; filename="${name}"`)
-    .send(Buffer.from(await wb.xlsx.writeBuffer()));
+    .send(await xlsxBuffer(wb));
 }
 
 /** Resultado por sucursal (FI-04 inicial): cobrado, producción, gastos menores de caja y honorarios liquidados. */

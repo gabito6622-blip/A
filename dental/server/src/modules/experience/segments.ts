@@ -25,6 +25,7 @@ import { clinicZone } from "../agenda.js";
 import { loadMessagingSettings } from "../messaging/scheduler.js";
 import { OPT_OUT_LINE, renderTemplate, validateTemplate } from "../messaging/templates.js";
 import { isQuiet } from "../messaging/timing.js";
+import { xlsxBuffer } from "../../lib/xlsxSafe.js";
 
 const TAGS = ["etiquetas y segmentos"];
 /** Tope de destinatarios por campaña: un segmento más grande se debe dividir. */
@@ -114,7 +115,7 @@ export async function runSegment(c: Client, auth: AuthCtx, f: Filters, opts: { l
        FROM patients p
        LEFT JOIN branches br ON br.id = p.preferred_branch_id
        LEFT JOIN LATERAL (SELECT max(a.starts_at) AS last_visit FROM appointments a WHERE a.patient_id = p.id AND a.status = 'completed') lv ON true
-       ${withMoney ? "LEFT JOIN LATERAL (SELECT balance_cents FROM patient_money(p.id)) m ON true" : ""}
+       ${withMoney ? "LEFT JOIN patient_money_v m ON m.patient_id = p.id" : ""}
       WHERE ${where.join(" AND ")}
       ORDER BY p.last_name, p.first_name
       LIMIT ${limit}`, params);
@@ -356,7 +357,7 @@ export function segmentRoutes(route: Route, cfg: Config, messenger: Messenger) {
         });
       }
       await audit(c, auth, "segment.exported", "segment", params.id, { count: r.items.length });
-      const buf = await wb.xlsx.writeBuffer();
+      const buf = await xlsxBuffer(wb);
       const fname = s.name.normalize("NFD").replace(/[^\w-]+/g, "-").replace(/-+/g, "-").slice(0, 40).toLowerCase() || "segmento";
       reply.header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="segmento-${fname}.xlsx"`).send(Buffer.from(buf));

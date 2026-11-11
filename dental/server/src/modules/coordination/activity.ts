@@ -21,6 +21,7 @@ import { allowedBranches, requireBranch, ROLE_LABELS, type AuthCtx, type Role } 
 import { dayBounds } from "../../lib/slots.js";
 import { clinicZone } from "../agenda.js";
 import { ACTIVITY_TYPES, KNOWN_PREFIXES, phrase, prefixesOf, typeOfAction, type ActivityType } from "./phrases.js";
+import { xlsxBuffer } from "../../lib/xlsxSafe.js";
 
 const UUID_RE = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
 /** Campos de `data` que pueden salir de la base (estructurados, nunca texto libre ni clínico). */
@@ -96,9 +97,13 @@ export async function activityRows(c: Client, auth: AuthCtx, f: ActivityFilters,
      SELECT pg.id::text AS id, pg.created_at, to_char(pg.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at_key, pg.user_id, pg.action, pg.branch_id, pg.d,
             u.full_name AS actor_name, m.role AS actor_role, b.name AS branch_name,
             (SELECT tu.full_name FROM users tu WHERE pg.entity = 'user' AND tu.id = pg.eid) AS target_name,
-            CASE WHEN $12::boolean THEN (SELECT p.first_name || ' ' || left(p.last_name, 1) || '.' FROM patients p WHERE p.id = ${PATIENT_OF}) END AS patient_short
+            CASE WHEN $12::boolean THEN pt.first_name || ' ' || left(pt.last_name, 1) || '.' END AS patient_short
        FROM pg LEFT JOIN users u ON u.id = pg.user_id LEFT JOIN branches b ON b.id = pg.branch_id
        LEFT JOIN memberships m ON m.clinic_id = $1 AND m.user_id = pg.user_id
+       -- El paciente se resuelve primero y luego se une por su clave (con 100 000 pacientes, la
+       -- subconsulta «WHERE p.id = COALESCE(CASE …)» recorría la tabla completa por cada fila).
+       LEFT JOIN LATERAL (SELECT ${PATIENT_OF} AS pid) px ON $12::boolean
+       LEFT JOIN patients pt ON pt.id = px.pid
       ORDER BY pg.created_at DESC, pg.id DESC`,
     [auth.clinicId, cur?.[0] ?? null, f.userId ?? null, f.branchId ?? null, allowedBranches(auth),
       prefixes, f.type === "other", KNOWN_PREFIXES, fromTs, toTs, opts.limit, auth.permissions.has("patients.read"), cur?.[1] ?? null],
@@ -171,7 +176,7 @@ export function activityRoutes(route: Route) {
       reply
         .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="actividad-${DateTime.now().toISODate()}.xlsx"`)
-        .send(Buffer.from(await wb.xlsx.writeBuffer()));
+        .send(await xlsxBuffer(wb));
     },
   });
 }

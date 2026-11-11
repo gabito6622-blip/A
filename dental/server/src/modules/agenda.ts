@@ -391,6 +391,10 @@ export function agendaRoutes(route: Route) {
     method: "POST", url: "/api/waitlist/:id/status", summary: "Marcar entrada de lista de espera como agendada o cancelada", tags: ["agenda"], perm: "agenda.write", params: zIdParams,
     body: z.object({ status: z.enum(["booked", "cancelled"]), appointmentId: zId.optional() }),
     handler: async ({ c, auth, params, body }) => {
+      // Alcance por sucursal ANTES de modificar (una entrada de otra sucursal no se toca).
+      const cur = (await c.query<{ branch_id: string }>("SELECT branch_id FROM waitlist_entries WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
+      if (!cur) throw notFound("Entrada de lista de espera");
+      requireBranch(auth, cur.branch_id);
       const r = await c.query("UPDATE waitlist_entries SET status = $2, appointment_id = $3 WHERE id = $1 AND status = 'waiting' RETURNING branch_id", [params.id, body.status, body.appointmentId ?? null]);
       if (!r.rowCount) throw notFound("Entrada de lista de espera");
       await audit(c, auth, `waitlist.${body.status}`, "waitlist", params.id, {}, r.rows[0].branch_id);
