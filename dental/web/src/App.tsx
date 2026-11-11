@@ -29,6 +29,8 @@ import { InventoryPage } from "./pages/Inventory";
 import { TasksPage } from "./pages/Tasks";
 import { ActivityPage } from "./pages/Activity";
 import { ManagementPage } from "./pages/Management";
+import { AgreementsPage } from "./pages/Agreements";
+import { ReconciliationPage } from "./pages/Reconciliation";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -73,6 +75,8 @@ export function App() {
         <Route path="/tareas" element={<TasksPage />} />
         <Route path="/actividad" element={<ActivityPage />} />
         <Route path="/gestion" element={<ManagementPage />} />
+        <Route path="/convenios" element={<AgreementsPage />} />
+        <Route path="/conciliacion" element={<ReconciliationPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

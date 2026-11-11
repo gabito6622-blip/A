@@ -18,6 +18,7 @@ import { PatientTimeline } from "../components/PatientTimeline";
 import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocuments";
 import { ClinicalFilesPanel } from "../components/ClinicalFiles";
 import { PatientContactActions } from "../components/coordination/Calls";
+import { PatientAgreementsCard } from "../components/agreements/AgreementWidgets";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos" | "imagenes";
 
@@ -99,6 +100,7 @@ export function PatientDetailPage() {
             <Row k="Notas" v={pt.notes} />
             <Row k="Consentimiento actualizado" v={pt.consentUpdatedAt ? fmtDateTime(pt.consentUpdatedAt) : null} />
           </div>
+          <PatientAgreementsCard patientId={id!} />
           {can("agenda.read") && <PatientRecallsCard patientId={id!} />}
           {(can("clinical.read") || can("budgets.read")) && <PatientLabCard patientId={id!} patientName={`${pt.firstName} ${pt.lastName}`} />}
           <PatientTimeline patientId={id!} />
@@ -244,7 +246,7 @@ function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged
   return (
     <div className="stack">
       <div className="grid grid-4">
-        <div className="card kpi"><div className="label">Tratamientos realizados</div><div className="value">{bs(a.chargedCents)}</div></div>
+        <div className="card kpi"><div className="label">Tratamientos realizados{a.charges.some((c: any) => c.thirdPartyCents) ? " (parte del paciente)" : ""}</div><div className="value">{bs(a.chargedCents)}</div></div>
         <div className="card kpi"><div className="label">Pagado (confirmado)</div><div className="value">{bs(a.paidCents)}</div></div>
         <div className="card kpi"><div className="label">Por verificar</div><div className="value" style={{ color: a.pendingVerificationCents ? "var(--warn)" : undefined }}>{bs(a.pendingVerificationCents)}</div></div>
         <div className="card kpi"><div className="label">Saldo</div><div className="value" style={{ color: a.balanceCents > 0 ? "var(--danger)" : "var(--ok)" }}>{bs(a.balanceCents)}</div><div className="foot">{a.balanceCents < 0 ? "A favor del paciente" : a.balanceCents > 0 ? "Pendiente de cobro" : "Al día"}</div></div>
@@ -264,7 +266,7 @@ function PatientAccount({ patientId, onChanged }: { patientId: string; onChanged
           {a.charges.length ? <div className="table-wrap"><table className="table"><tbody>
             {a.charges.map((c: any) => (
               <tr key={c.id} style={c.voided ? { textDecoration: "line-through", color: "var(--muted)" } : undefined}>
-                <td className="nowrap">{fmtDate(c.createdAt)}</td><td>{c.description}<div className="muted small">{c.dentistName ?? ""}</div></td><td className="num">{bs(c.amountCents)}</td>
+                <td className="nowrap">{fmtDate(c.createdAt)}</td><td>{c.description}<div className="muted small">{c.dentistName ?? ""}</div>{c.thirdPartyCents ? <div className="small" style={{ color: "var(--brand-ink)" }}>Paga {c.payerName}: {bs(c.thirdPartyCents)} · paciente {bs(c.amountCents - c.thirdPartyCents)}</div> : null}</td><td className="num">{bs(c.amountCents)}</td>
                 <td>{can("payments.void") && !c.voided && !c.voidsChargeId && <button className="btn btn-ghost btn-sm" onClick={() => voidCharge(c.id)}>Anular</button>}</td></tr>
             ))}</tbody></table></div> : <Empty>Sin cargos.</Empty>}
         </div>
