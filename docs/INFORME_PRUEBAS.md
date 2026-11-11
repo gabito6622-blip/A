@@ -9,6 +9,7 @@
 | USDT | `test/usdt-afuera.test.mjs`: recarga USDT solo si está configurado, se acredita en Bs; en el navegador Paraguay ve USDT primero, montos en USDT, sin QR; Bolivia igual que antes | ✅ |
 | Vista previa y logos | `test/vista-previa.test.mjs` (8) + `test/revendedor-pantallas.test.mjs` (navegador): etiquetas por ruta, `/r/` no publicada genérica, `/c/` sin datos, escape, sin caché cruzada, logos en las pantallas | ✅ |
 | Era una prueba | `test/era-prueba.test.mjs` (4) | ✅ |
+| Dólar flexible | `test/usdt-afuera.test.mjs`: `rateAt` solo cambia si cambia la tasa; recarga en USDT calcula Bs con la tasa de hoy; cambiar la tasa no mueve lo ya pedido; compra en USDT fija su cotización; tarjeta de Inicio cambia la tasa con coma | ✅ 383/383 |
 | Al integrar | 4 choques en `shop.js`, `app.ts` y `subLinks.ts` (logos de un equipo + moneda del otro en la misma línea): se conservaron los dos lados | 382/382 |
 | Celular | Barrida del equipo: 166 → 0 problemas en las pantallas del revendedor; Paraguay a 360/390 claro y oscuro sin desborde; panel del dueño (Inicio, Control, Revendedores, Cómo van, Que vuelvan) sin desborde. Arreglado al integrar: botones de Control a 44 px y etiqueta a 12 px | ✅ (queda el deslizador del asesor de la tienda, que ya estaba) |
 

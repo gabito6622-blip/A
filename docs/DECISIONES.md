@@ -13,6 +13,11 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - El dueño ve solo cantidades; ni contraseñas ni clientes. Los clientes nuevos de cuentas propias no se crean como clientes de la tienda.
 - **IPTV:** los datos para el cliente (servidor, app, pantallas, instrucciones) van en el producto y salen en "Mandar acceso". La prueba gratis dura de 1 a 72 h, no cuenta como venta ni deuda, y al renovarse toma el precio del producto.
 
+## 2026-11-11 · Dólar flexible: tasa a mano, fijada por pedido
+- **Qué:** el dueño actualiza la tasa (Inicio, un toque); se guarda `rateAt` y se avisa si tiene más de 24 h. Cada pedido o recarga en USDT guarda `usdtQuote` (USDT y tasa) al crearse; aprobar acredita lo pedido, aunque la tasa haya cambiado.
+- **Recarga en USDT:** el revendedor de afuera elige USDT y el servidor calcula los Bs (no confía en el monto del navegador).
+- **Por qué no automática:** Binance no tiene una tasa oficial USDT→Bs por API. Usar una página no oficial sería inventar una fuente. Si el dueño elige una fuente concreta, se puede sumar como sugerencia.
+
 ## 2026-11-11 · Pago en USDT para revendedores de afuera
 - "Afuera" = su país no es Bolivia. Si la tienda acepta USDT (Pay ID o dirección + tasa), ven USDT primero y no ven el QR de Bolivia. La recarga se pide en Bs y se muestra cuánto es en USDT con la tasa de la tienda; se acredita en Bs al aprobar.
 - Sin USDT configurado, nada cambia (siguen con QR o el medio de su país).
