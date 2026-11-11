@@ -1042,3 +1042,16 @@ table.ctl tfoot td.ccli{z-index:3}
 .cobsum{display:grid;gap:4px}
 .cobpre{white-space:pre-wrap;font:inherit;font-size:13px;background:var(--soft);border-radius:10px;padding:10px;margin:0;max-height:220px;overflow:auto}
 .hm-invite{display:grid;gap:10px;border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.hm-invite h2{margin:0}.hm-invite .pbtn{justify-self:start;min-height:44px}
+/* Que vuelvan: ventas para recuperar */
+.wb{display:grid;gap:14px;min-width:0}
+.wb-sum,.wb-home{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.wb-sum h2,.wb-home h2{margin:0}
+.wb-home{display:grid;gap:10px}.wb-home .pbtn{justify-self:start;min-height:44px}
+.wb-row .pbtn{min-height:44px}.wb-row a.pbtn{justify-self:start}
+.wb-acts{flex-wrap:wrap;gap:8px}
+.wb-things{margin:0;padding-left:18px;display:grid;gap:2px;font-size:13px;overflow-wrap:anywhere}
+.wb .invstep .wb-things b{font-size:inherit}
+.wb-full>summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.wb-full h3{font-size:14px;margin:6px 0 0}
+.wb-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.wb-item{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px;min-width:0;overflow-wrap:anywhere}
+.wb-item .pbtn{justify-self:start;min-height:44px}

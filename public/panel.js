@@ -1,5 +1,6 @@
 // Panel del vendedor conectado al servidor.
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { winbackView, winbackHomeCard } from "/winback.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -14,6 +15,7 @@ const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
   ["finanzas", "coins", "Finanzas", "owner"],
   ["fiado", "flag", "Fiado (lo que te deben)"],
+  ["quevuelvan", "coins", "💸 Que vuelvan"],
   ["notificaciones", "bell", "Notificaciones"],
   ["fallas", "help", "Fallas reportadas"],
   ["reubicar", "renew", "Reubicar", "review"],
@@ -22,7 +24,7 @@ const MENU = [
   ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda", "review"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -92,6 +94,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
 
 /* ---------------- vistas ---------------- */
 const V = {
+  quevuelvan: () => winbackView(),
   async dashboard() {
     const dd = Number(P.tab.dd ?? 30);
     const [d, set, products, accounts] = await Promise.all([api("GET", `/api/admin/dashboard?days=${dd}`), api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
@@ -506,7 +509,7 @@ const V = {
         ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
         ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
         ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
-      ${invCard}${tuMes}
+      ${invCard}${await winbackHomeCard()}${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}

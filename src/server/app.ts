@@ -703,6 +703,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/suppliers", "staff", (c) => (A(c).role === "seller" ? [] : Object.values(snap().suppliers)));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
   // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
+  route("GET", "/api/admin/winback", "staff", (c) => store.winback.list(A(c)));
+  route("POST", "/api/admin/winback/:customerId", "staff", (c) => store.winback.mark(A(c), c.params.customerId, c.body?.outcome));
   route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
   route("GET", "/api/admin/fiado/:id", "staff", (c) => store.fiado.history(A(c), c.params.id));
   route("POST", "/api/admin/fiado/charge", "staff", (c) => store.fiado.charge(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));

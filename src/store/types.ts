@@ -675,7 +675,16 @@ export interface State {
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */
   accountAlerts: AccountAlert[];
+  /** "Que vuelvan": a quién ya se le escribió para recuperar la venta y a quién no molestar (por cliente). */
+  winback?: Record<Id, WinbackMark>;
   seq: number;
+}
+
+/** Marca de "Que vuelvan": cuándo se le escribió por última vez y cuándo pidió que no lo molesten. */
+export interface WinbackMark {
+  writtenAt?: number;
+  mutedAt?: number;
+  by: Id;
 }
 
 /** Gasto manual que carga el dueño (proveedor, internet, etc.). */
