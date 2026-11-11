@@ -39,7 +39,10 @@ function view(v) {
     : `<span class="pill p-warn">${n < 0 ? "Para renovar" : "Vence pronto"}</span>`;
   const who = v.seller || "quien te vendió";
   document.title = `${v.product} · ${who}`;
-  const info = `<section class="card" aria-label="Tu perfil"><div class="top"><span class="prod">${esc(v.product)}</span>${pill}</div>
+  // Logo de la app (Disney, Prime…) si la tienda lo cargó; si no, la inicial en un cuadrito de color.
+  const initial = `<span class="plogo pini" aria-hidden="true">${esc((v.product || "?").trim()[0]?.toUpperCase() ?? "?")}</span>`;
+  const logo = v.hasLogo ? `<img class="plogo" src="/api/cobro/${encodeURIComponent(token)}/logo" alt="" width="44" height="44">` : initial;
+  const info = `<section class="card" aria-label="Tu perfil"><div class="top"><span class="prodw">${logo}<span class="prod">${esc(v.product)}</span></span>${pill}</div>
     <dl>${v.label ? `<dt>Perfil</dt><dd>${esc(v.label)}</dd>` : ""}<dt>Vence</dt><dd>${ddmm(v.expiresAt)} · ${when(n)}</dd></dl></section>`;
   if (upToDate) {
     $("#app").innerHTML = `<h1>Hola ${esc(v.name)} 👋</h1>
@@ -61,6 +64,7 @@ function view(v) {
     <p class="foot">Se abre tu WhatsApp con el mensaje listo. Mandale también la foto del comprobante.</p>` : `<p class="foot">Cuando pagues, avisale a ${esc(who)} y mandale el comprobante.</p>`}`;
   // Si la imagen no carga, se saca el recuadro (sin mostrar una imagen rota).
   $(".qr img")?.addEventListener("error", () => $(".qr")?.remove());
+  $("img.plogo")?.addEventListener("error", (ev) => { ev.target.outerHTML = initial; });
 }
 
 async function load() {

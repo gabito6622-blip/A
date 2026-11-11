@@ -263,6 +263,7 @@ export function createStore(opts: EngineOptions = {}) {
       revokeLink: bind(e, subLinks.revokeSubLink),
       publicView: (token: unknown) => subLinks.publicView(e, token),
       publicQr: (token: unknown) => subLinks.publicQr(e, token),
+      publicLogo: (token: unknown) => subLinks.publicLogo(e, token),
     },
     winback: {
       list: bind(e, winback.list),

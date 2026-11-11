@@ -115,6 +115,8 @@ export function publicView(e: Engine, token: unknown) {
     seller,
     sellerWhatsapp: String(c.shop?.whatsapp || c.phone || "").replace(/\D/g, ""),
     hasQr: !!usableQr(e, c.id),
+    // Solo si el PRODUCTO tiene logo (se pide por /api/cobro/<token>/logo, sin ids): nada del cliente.
+    hasLogo: !!productLogo(e, a.productId),
     currency: e.s.settings.currencySymbol || "Bs",
   };
 }
@@ -123,4 +125,22 @@ export function publicView(e: Engine, token: unknown) {
 export function publicQr(e: Engine, token: unknown): string | undefined {
   const { a } = resolve(e, token);
   return usableQr(e, a.customerId);
+}
+
+/**
+ * Logo del producto: el suyo, o el de la app del mismo nombre comercial ("Disney+ (alquiler revendedores)"
+ * casi nunca tiene imagen propia y usa la de "Disney+"). Solo imágenes de productos, nada del cliente.
+ */
+function productLogo(e: Engine, productId: Id): string | undefined {
+  const p = e.s.products[productId];
+  if (!p) return undefined;
+  if (p.imageFileRef) return p.imageFileRef;
+  const name = commercialName(p.name).toLowerCase();
+  return Object.values(e.s.products).find((x) => x.imageFileRef && x.kind !== "combo" && commercialName(x.name).toLowerCase() === name)?.imageFileRef;
+}
+
+/** Logo del producto de ese link (Disney, Prime…), o undefined. */
+export function publicLogo(e: Engine, token: unknown): string | undefined {
+  const { a } = resolve(e, token);
+  return productLogo(e, a.productId);
 }

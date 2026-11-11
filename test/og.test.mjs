@@ -63,7 +63,8 @@ describe("vista previa al compartir (Open Graph)", () => {
     assert.equal((await fetch(base + "/og/r/no-existe.png")).status, 404);
     const r = await fetch(base + "/r/no-existe");
     assert.equal(r.status, 200, "la página igual carga (muestra su propio aviso)");
-    assert.equal(meta(await r.text(), "og:image"), undefined, "sin etiquetas de una tienda que no existe");
+    // Una página que no existe (o está apagada/bloqueada) lleva la vista previa genérica de la plataforma, nada propio.
+    assert.equal(meta(await r.text(), "og:image"), "https://ejemplo.test/og/hub.png", "vista previa genérica para una tienda que no existe");
   });
 
   test("SEO: título y descripción para Google, robots.txt y sitemap.xml", async () => {
