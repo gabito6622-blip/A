@@ -3,6 +3,7 @@
 // igual que en patients.ts, fees.ts y labPayables.ts).
 import ExcelJS from "exceljs";
 import type { FastifyReply } from "fastify";
+import { xlsxBuffer } from "../../lib/xlsxSafe.js";
 
 export const safe = (v: unknown) => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
 
@@ -52,7 +53,7 @@ export async function sendXlsx(reply: FastifyReply, wb: ExcelJS.Workbook, name: 
   reply
     .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     .header("content-disposition", `attachment; filename="${fileSafe(name.replace(/\.xlsx$/, ""))}.xlsx"`)
-    .send(Buffer.from(await wb.xlsx.writeBuffer()));
+    .send(await xlsxBuffer(wb));
 }
 
 export function newWorkbook() {

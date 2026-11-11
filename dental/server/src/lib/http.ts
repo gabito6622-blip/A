@@ -63,6 +63,7 @@ const toSchema = (s: z.ZodType | undefined) => {
 };
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+export const PUBLIC_BODY_LIMIT = 1024 * 1024;
 
 export function makeRouter(app: FastifyInstance, db: Db) {
   return function route<
@@ -75,6 +76,15 @@ export function makeRouter(app: FastifyInstance, db: Db) {
       method: def.method,
       url: def.url,
       ...(def.limit ? { config: { rateLimit: def.limit } } : {}),
+      // Rutas públicas: cuerpo de 1 MB como máximo (el límite global de 15 MB es para el personal).
+      ...(access === "public" ? { bodyLimit: PUBLIC_BODY_LIMIT } : {}),
+      // Rutas del personal: sin sesión se responde 401 ANTES de leer el cuerpo (no se procesan
+      // cuerpos grandes de quien no inició sesión). El resto de los controles sigue en el handler.
+      ...(access === "public" ? {} : {
+        onRequest: async (req: FastifyRequest) => {
+          if (!req.auth) throw new AppError(401, "unauthenticated", "Inicia sesión para continuar");
+        },
+      }),
       schema: Object.fromEntries(
         Object.entries({
           summary: def.summary,
@@ -83,6 +93,9 @@ export function makeRouter(app: FastifyInstance, db: Db) {
           querystring: toSchema(def.query),
           params: toSchema(def.params),
           security: access === "public" ? undefined : [{ sessionCookie: [] }],
+          // Metadatos para la auditoría automática de permisos (tests/route-guard.test.ts).
+          "x-access": access,
+          "x-permission": def.perm,
         }).filter(([, v]) => v !== undefined),
       ),
       handler: async (req, reply) => {

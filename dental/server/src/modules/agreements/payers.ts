@@ -20,6 +20,7 @@ import { clinicZone } from "../agenda.js";
 import { letterheadData } from "../documents-core.js";
 import { AGREEMENT_KINDS, clinicToday } from "./core.js";
 import { assertCashSessionForPayment } from "../cashSessions.js";
+import { xlsxBuffer } from "../../lib/xlsxSafe.js";
 
 export const PAYER_METHOD_LABELS: Record<string, string> = { cash: "Efectivo", transfer: "Transferencia", qr: "QR", card: "Tarjeta" };
 export const PAYER_STATUS_LABELS: Record<string, string> = { pending_verification: "Por verificar", confirmed: "Confirmado", rejected: "Rechazado", voided: "Anulado" };
@@ -131,7 +132,7 @@ async function sendXlsx(reply: FastifyReply, wb: ExcelJS.Workbook, name: string)
   reply
     .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     .header("content-disposition", `attachment; filename="${name}"`)
-    .send(Buffer.from(await wb.xlsx.writeBuffer()));
+    .send(await xlsxBuffer(wb));
 }
 
 /** Días entre la fecha de un movimiento (en la zona de la clínica) y `today` (AAAA-MM-DD). */

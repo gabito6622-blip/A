@@ -8,10 +8,11 @@ import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { ZodError } from "zod";
-import type { Config } from "./config.js";
+import { trustProxyOption, type Config } from "./config.js";
 import type { Db } from "./lib/db.js";
 import { makeRouter } from "./lib/http.js";
 import { AppError, fromPgError } from "./lib/errors.js";
+import { loggerOptions } from "./lib/logger.js";
 import { SESSION_COOKIE, resolveSession } from "./lib/session.js";
 import { authRoutes } from "./modules/auth.js";
 import { clinicRoutes } from "./modules/clinic.js";
@@ -49,8 +50,8 @@ import { onboardingRoutes } from "./modules/onboarding/index.js";
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
   const app = Fastify({
-    logger: opts.logger ?? false,
-    trustProxy: cfg.trustProxy,
+    logger: opts.logger ? loggerOptions : false,
+    trustProxy: trustProxyOption(cfg.trustProxy),
     bodyLimit: 15 * 1024 * 1024,
     // Validación con zod en cada ruta; el esquema JSON solo documenta (OpenAPI).
     ajv: { customOptions: { strict: false } },

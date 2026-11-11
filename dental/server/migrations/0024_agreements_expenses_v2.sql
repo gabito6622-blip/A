@@ -133,27 +133,33 @@ END $$;
 
 -- ---------------- Saldo único del paciente: + lo trasladado desde la empresa ----------------
 -- Único cambio respecto de 0019: charged_cents suma también payer_transfers.amount_cents del paciente.
-DROP FUNCTION patient_money(uuid);
--- Integración v0.6: combina el traslado de porciones impagas (esta migración) con los saldos
--- iniciales de 0021 (columna opening_cents al final, incluida en el saldo).
-CREATE FUNCTION patient_money(p_patient uuid)
-  RETURNS TABLE (budgeted_cents bigint, charged_cents bigint, paid_cents bigint, on_account_cents bigint,
-                 pending_cents bigint, balance_cents bigint, last_payment_at timestamptz, opening_cents bigint)
-  LANGUAGE sql STABLE AS $$
-  WITH ch AS (SELECT (COALESCE((SELECT sum(amount_cents - third_party_cents) FROM charges WHERE patient_id = p_patient), 0)
-                    + COALESCE((SELECT sum(amount_cents) FROM payer_transfers WHERE patient_id = p_patient), 0))::bigint AS v),
-       ob AS (SELECT COALESCE(sum(amount_cents), 0)::bigint AS v FROM opening_balances WHERE patient_id = p_patient),
-       pay AS (SELECT COALESCE(sum(amount_cents) FILTER (WHERE status = 'confirmed'), 0)::bigint AS paid,
-                      COALESCE(sum(amount_cents) FILTER (WHERE status = 'confirmed' AND budget_id IS NULL), 0)::bigint AS on_account,
-                      COALESCE(sum(amount_cents) FILTER (WHERE status = 'pending_verification'), 0)::bigint AS pending,
+-- Integración v0.6: una sola fórmula del saldo (vista patient_money_v de 0022) que ahora suma lo
+-- trasladado desde la empresa al paciente; incluye los saldos iniciales de 0021.
+CREATE OR REPLACE VIEW patient_money_v WITH (security_invoker = true) AS
+  SELECT p.id AS patient_id,
+         COALESCE(bud.v, 0)::bigint AS budgeted_cents,
+         (COALESCE(ch.v, 0) + COALESCE(tr.v, 0))::bigint AS charged_cents,
+         COALESCE(pay.paid, 0)::bigint AS paid_cents,
+         COALESCE(pay.on_account, 0)::bigint AS on_account_cents,
+         COALESCE(pay.pending, 0)::bigint AS pending_cents,
+         (COALESCE(ch.v, 0) + COALESCE(tr.v, 0) + COALESCE(ob.v, 0) - COALESCE(pay.paid, 0))::bigint AS balance_cents,
+         pay.last_at AS last_payment_at,
+         COALESCE(ob.v, 0)::bigint AS opening_cents
+    FROM patients p
+    LEFT JOIN (SELECT patient_id, sum(amount_cents - third_party_cents) AS v FROM charges GROUP BY patient_id) ch ON ch.patient_id = p.id
+    LEFT JOIN (SELECT patient_id, sum(amount_cents) AS v FROM payer_transfers GROUP BY patient_id) tr ON tr.patient_id = p.id
+    LEFT JOIN (SELECT patient_id, sum(amount_cents) AS v FROM opening_balances GROUP BY patient_id) ob ON ob.patient_id = p.id
+    LEFT JOIN (SELECT patient_id,
+                      sum(amount_cents) FILTER (WHERE status = 'confirmed') AS paid,
+                      sum(amount_cents) FILTER (WHERE status = 'confirmed' AND budget_id IS NULL) AS on_account,
+                      sum(amount_cents) FILTER (WHERE status = 'pending_verification') AS pending,
                       max(received_at) FILTER (WHERE status = 'confirmed') AS last_at
-                 FROM payments WHERE patient_id = p_patient),
-       bud AS (SELECT COALESCE(sum(i.net_cents), 0)::bigint AS v
+                 FROM payments GROUP BY patient_id) pay ON pay.patient_id = p.id
+    LEFT JOIN (SELECT b.patient_id, sum(i.net_cents) AS v
                  FROM budget_items i JOIN budgets b ON b.id = i.budget_id
-                WHERE b.patient_id = p_patient AND b.status IN ('accepted','completed') AND i.status <> 'cancelled')
-  SELECT bud.v, ch.v, pay.paid, pay.on_account, pay.pending, ch.v + ob.v - pay.paid, pay.last_at, ob.v FROM ch, ob, pay, bud
-$$;
-GRANT EXECUTE ON FUNCTION patient_money(uuid) TO dental_app;
+                WHERE b.status IN ('accepted','completed') AND i.status <> 'cancelled'
+                GROUP BY b.patient_id) bud ON bud.patient_id = p.id;
+-- patient_money (de 0022) ya lee la vista: no cambia.
 
 -- ---------------- Pagos de la empresa en efectivo ----------------
 ALTER TABLE payer_payments DROP CONSTRAINT payer_payments_method_check;

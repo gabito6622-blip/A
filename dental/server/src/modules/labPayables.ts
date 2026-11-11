@@ -13,6 +13,7 @@ import { audit } from "../lib/audit.js";
 import type { Client } from "../lib/db.js";
 import { hasAllBranches, type AuthCtx } from "../lib/rbac.js";
 import { LAB_PAY, initials, orderLabel, requireAny, todayIn } from "./lab.js";
+import { xlsxBuffer } from "../lib/xlsxSafe.js";
 
 export const LAB_PAY_METHODS = ["cash", "transfer", "qr", "card", "check", "other"] as const;
 export const LAB_PAY_METHOD_LABELS: Record<string, string> = {
@@ -93,7 +94,7 @@ async function sendXlsx(reply: FastifyReply, wb: ExcelJS.Workbook, name: string)
   reply
     .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     .header("content-disposition", `attachment; filename="${name}"`)
-    .send(Buffer.from(await wb.xlsx.writeBuffer()));
+    .send(await xlsxBuffer(wb));
 }
 const fileSafe = (s: string) => s.normalize("NFD").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 

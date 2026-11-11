@@ -5,7 +5,10 @@ import { zId, zIdParams, zMoney, zOptText } from "../lib/http.js";
 import { AppError, badRequest, forbidden, notFound } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
 import { hashPassword } from "../lib/password.js";
-import { ROLES, ROLE_LABELS, type Role } from "../lib/rbac.js";
+import { ROLES, ROLE_LABELS, allowedBranches, type Role } from "../lib/rbac.js";
+
+/** Acciones de auditoría cuyo detalle es clínico (solo lo ve quien tiene clinical.read). */
+export const CLINICAL_AUDIT_PREFIXES = ["odontogram", "clinical_note", "medical_history", "perio", "prescription", "certificate", "referral", "clinical_file", "clinical_document"];
 import type { Client } from "../lib/db.js";
 
 const zTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida (HH:MM)");
@@ -359,15 +362,20 @@ export function clinicRoutes(route: Route) {
   route({
     method: "GET", url: "/api/audit", summary: "Registro de auditoría de la clínica", tags: ["auditoría"], perm: "audit.read",
     query: z.object({ entity: z.string().max(40).optional(), entityId: z.string().max(80).optional(), limit: z.coerce.number().int().min(1).max(500).default(100), before: z.coerce.number().int().optional() }),
-    handler: async ({ c, query }) =>
+    // Alcance por sucursal (como el diario de actividad) y minimización: quien no tiene acceso
+    // clínico ve que hubo una acción clínica, pero no su detalle (pieza, condición, motivo…).
+    handler: async ({ c, auth, query }) =>
       (
         await c.query(
-          `SELECT a.id, a.action, a.entity, a.entity_id AS "entityId", a.branch_id AS "branchId", a.data, a.ip, a.created_at AS "createdAt",
-                  u.full_name AS "userName"
+          `SELECT a.id, a.action, a.entity, a.entity_id AS "entityId", a.branch_id AS "branchId",
+                  CASE WHEN $6::boolean AND split_part(a.action, '.', 1) = ANY($7::text[]) THEN '{"detalle":"reservado: datos clínicos"}'::jsonb ELSE a.data END AS data,
+                  a.ip, a.created_at AS "createdAt", u.full_name AS "userName"
              FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
             WHERE ($1::text IS NULL OR a.entity = $1) AND ($2::text IS NULL OR a.entity_id = $2) AND ($4::bigint IS NULL OR a.id < $4)
+              AND ($5::uuid[] IS NULL OR a.branch_id IS NULL OR a.branch_id = ANY($5))
             ORDER BY a.id DESC LIMIT $3`,
-          [query.entity ?? null, query.entityId ?? null, query.limit, query.before ?? null],
+          [query.entity ?? null, query.entityId ?? null, query.limit, query.before ?? null, allowedBranches(auth),
+            !auth.permissions.has("clinical.read"), CLINICAL_AUDIT_PREFIXES],
         )
       ).rows,
   });

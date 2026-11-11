@@ -9,6 +9,7 @@ import type { Client } from "../lib/db.js";
 import { allowedBranches, type AuthCtx } from "../lib/rbac.js";
 import { clinicZone } from "./agenda.js";
 import { METHOD_LABELS } from "./billing.js";
+import { xlsxBuffer } from "../lib/xlsxSafe.js";
 
 export async function resolveRange(c: Client, auth: AuthCtx, from?: string, to?: string) {
   const zone = await clinicZone(c, auth.clinicId!);
@@ -77,16 +78,17 @@ export async function dashboardData(c: Client, auth: AuthCtx, fromISO?: string, 
   let finance = null;
   if (financial) {
     const rec = (await c.query<{ receivable: number; patients: number }>(
-      `SELECT COALESCE(sum(bal),0) AS receivable, count(*)::int AS patients FROM (
-         SELECT p.id, (SELECT balance_cents FROM patient_money(p.id)) AS bal
-           FROM patients p) t WHERE bal > 0`)).rows[0]!;
+      // patient_money_v: la misma fórmula de patient_money(), en una sola pasada (migración 0022).
+      `SELECT COALESCE(sum(balance_cents),0) AS receivable, count(*)::int AS patients FROM patient_money_v WHERE balance_cents > 0`)).rows[0]!;
     const bud = (await c.query(
       `SELECT count(*) FILTER (WHERE status = 'presented')::int AS presented_open,
               COALESCE(sum(t.total) FILTER (WHERE status = 'presented'),0) AS presented_open_cents,
               count(*) FILTER (WHERE status IN ('accepted','completed') AND decided_at >= $1 AND decided_at < $2)::int AS accepted,
               count(*) FILTER (WHERE status = 'rejected' AND decided_at >= $1 AND decided_at < $2)::int AS rejected
          FROM budgets b CROSS JOIN LATERAL (SELECT COALESCE(sum(net_cents),0) AS total FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled') t
-        WHERE ($3::uuid[] IS NULL OR b.branch_id = ANY($3))`, params)).rows[0];
+        WHERE ($3::uuid[] IS NULL OR b.branch_id = ANY($3))
+          -- Solo las filas que cuentan los FILTER (antes se sumaban los ítems de TODOS los presupuestos).
+          AND (b.status = 'presented' OR (b.status IN ('accepted','completed','rejected') AND b.decided_at >= $1 AND b.decided_at < $2))`, params)).rows[0];
     const decided = bud.accepted + bud.rejected;
     finance = {
       receivableCents: Number(rec.receivable), patientsWithDebt: rec.patients,
@@ -163,7 +165,7 @@ export function reportRoutes(route: Route) {
           `SELECT * FROM (
              SELECT p.id AS "patientId", p.first_name || ' ' || p.last_name AS name, p.phone,
                     m.balance_cents AS "balanceCents", m.last_payment_at AS "lastPaymentAt"
-               FROM patients p CROSS JOIN LATERAL patient_money(p.id) m) t WHERE "balanceCents" > 0 ORDER BY "balanceCents" DESC LIMIT 500`,
+               FROM patients p JOIN patient_money_v m ON m.patient_id = p.id) t WHERE "balanceCents" > 0 ORDER BY "balanceCents" DESC LIMIT 500`,
         )
       ).rows,
   });
@@ -198,7 +200,7 @@ export function reportRoutes(route: Route) {
       reply
         .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="pagos-${range.fromDate}.xlsx"`)
-        .send(Buffer.from(await wb.xlsx.writeBuffer()));
+        .send(await xlsxBuffer(wb));
     },
   });
 }

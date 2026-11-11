@@ -10,6 +10,8 @@ import type { AuthCtx } from "../lib/rbac.js";
 import { recordConsentFlag } from "./consents.js";
 import { patientMoney } from "./budgets-v2-core.js";
 import { createRelationship, prefillGuardian, zFamilyLink } from "./experience/family.js";
+import { PassThrough } from "node:stream";
+import { safeCell } from "../lib/xlsxSafe.js";
 
 export const PATIENT_COLUMNS = `p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
   p.document_type AS "documentType", p.document_number AS "documentNumber", p.document_issued AS "documentIssued",
@@ -145,13 +147,15 @@ export function patientRoutes(route: Route) {
     query: z.object({ q: z.string().max(100).optional(), limit: z.coerce.number().int().min(1).max(200).default(50), offset: z.coerce.number().int().min(0).default(0), archived: z.enum(["1", "0"]).optional() }),
     handler: async ({ c, query }) => {
       const q = normalize(query.q);
-      const tokens = q ? q.split(" ").filter(Boolean).map((t) => `%${t.replace(/[%_\\]/g, "")}%`) : [];
+      // La palabra más larga va primero: es la que usa el índice trigram en patient_search_ids()
+      // (migración 0022; bajo RLS el índice no se usaba y se recorría la tabla completa).
+      const tokens = q ? q.split(" ").filter(Boolean).slice(0, 8).sort((a, b) => b.length - a.length).map((t) => `%${t.replace(/[%_\\]/g, "")}%`) : [];
       const r = await c.query(
         `SELECT ${PATIENT_COLUMNS},
                 (SELECT min(a.starts_at) FROM appointments a WHERE a.patient_id = p.id AND a.starts_at > now() AND a.status NOT IN ('cancelled','no_show')) AS "nextAppointment",
                 count(*) OVER() AS total
            FROM patients p
-          WHERE ($1 = '' OR p.search_text LIKE ALL($5::text[]) OR word_similarity($1, p.search_text) > 0.7)
+          WHERE ($1 = '' OR p.id IN (SELECT patient_search_ids($1, $5::text[])))
             AND (($4::boolean AND p.archived_at IS NOT NULL) OR (NOT $4::boolean AND p.archived_at IS NULL))
           ORDER BY CASE WHEN $1 = '' THEN 0 ELSE 1 - word_similarity($1, p.search_text) END, p.last_name, p.first_name
           LIMIT $2 OFFSET $3`,
@@ -370,22 +374,30 @@ export function patientRoutes(route: Route) {
   route({
     method: "GET", url: "/api/patients/export.xlsx", summary: "Exportar padrón de pacientes (Excel)", tags: ["pacientes"], perm: "patients.export", raw: true,
     handler: async ({ c, auth, reply }) => {
-      const r = await c.query(`SELECT ${PATIENT_COLUMNS} FROM patients p WHERE p.archived_at IS NULL ORDER BY p.record_number`);
-      const wb = new ExcelJS.Workbook();
+      const r = await c.query(
+        `SELECT p.record_number, p.first_name, p.last_name, p.document_number, p.document_issued, p.birth_date, p.sex, p.phone, p.email, p.city, p.consent_reminders
+           FROM patients p WHERE p.archived_at IS NULL ORDER BY p.record_number`);
+      // Escritura en flujo (100 000 filas: ~7,7 s → ~4,4 s medido con scripts/perf-bench.ts). Cada celda de
+      // texto pasa por safeCell() (inyección de fórmulas), igual que lo hace xlsxBuffer() en las demás.
+      const out = new PassThrough();
+      const chunks: Buffer[] = [];
+      out.on("data", (ch: Buffer) => chunks.push(ch));
+      const wb = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: out, useStyles: true, useSharedStrings: false });
       const ws = wb.addWorksheet("Pacientes");
       ws.columns = [
-        { header: "Ficha", key: "recordNumber", width: 8 }, { header: "Nombre", key: "firstName", width: 20 },
-        { header: "Apellido", key: "lastName", width: 22 }, { header: "Documento", key: "documentNumber", width: 14 },
-        { header: "Expedido", key: "documentIssued", width: 9 }, { header: "Fecha de nacimiento", key: "birthDate", width: 14 },
-        { header: "Sexo", key: "sex", width: 6 }, { header: "Teléfono", key: "phone", width: 15 }, { header: "Correo", key: "email", width: 26 },
-        { header: "Ciudad", key: "city", width: 14 }, { header: "Acepta recordatorios", key: "consentReminders", width: 12 },
+        { header: "Ficha", width: 8 }, { header: "Nombre", width: 20 }, { header: "Apellido", width: 22 }, { header: "Documento", width: 14 },
+        { header: "Expedido", width: 9 }, { header: "Fecha de nacimiento", width: 14 }, { header: "Sexo", width: 6 }, { header: "Teléfono", width: 15 },
+        { header: "Correo", width: 26 }, { header: "Ciudad", width: 14 }, { header: "Acepta recordatorios", width: 12 },
       ];
       ws.getRow(1).font = { bold: true };
-      // Evita inyección de fórmulas al abrir en Excel
-      const safe = (v: unknown) => (typeof v === "string" && /^[=+\-@]/.test(v) ? `'${v}` : v);
-      for (const p of r.rows) ws.addRow(Object.fromEntries(Object.entries(p).map(([k, v]) => [k, k === "consentReminders" ? (v ? "Sí" : "No") : safe(v)])));
+      for (const p of r.rows) {
+        ws.addRow([p.record_number, safeCell(p.first_name), safeCell(p.last_name), safeCell(p.document_number), safeCell(p.document_issued), p.birth_date,
+          p.sex, safeCell(p.phone), safeCell(p.email), safeCell(p.city), p.consent_reminders ? "Sí" : "No"]).commit();
+      }
       await audit(c, auth, "patient.exported", "patient", null, { count: r.rowCount });
-      const buf = await wb.xlsx.writeBuffer();
+      ws.commit();
+      await wb.commit();
+      const buf = Buffer.concat(chunks);
       reply
         .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header("content-disposition", `attachment; filename="pacientes-${new Date().toISOString().slice(0, 10)}.xlsx"`)

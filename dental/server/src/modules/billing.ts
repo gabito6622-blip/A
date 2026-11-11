@@ -272,6 +272,10 @@ export function billingRoutes(route: Route) {
     method: "POST", url: "/api/budget-items/:id/cancel", summary: "Anular un tratamiento pendiente del presupuesto", tags: ["presupuestos"], perm: "budgets.write", params: zIdParams,
     body: z.object({ reason: z.string().trim().min(3).max(300) }),
     handler: async ({ c, auth, params, body }) => {
+      const it = (await c.query<{ branch_id: string }>(
+        "SELECT b.branch_id FROM budget_items i JOIN budgets b ON b.id = i.budget_id WHERE i.id = $1 FOR UPDATE OF i", [params.id])).rows[0];
+      if (!it) throw notFound("Tratamiento");
+      requireBranch(auth, it.branch_id);
       const r = await c.query<{ budget_id: string }>("UPDATE budget_items SET status = 'cancelled' WHERE id = $1 AND status = 'pending' RETURNING budget_id", [params.id]);
       if (!r.rowCount) throw conflict("Solo se anulan tratamientos pendientes", "invalid_status");
       await audit(c, auth, "treatment.cancelled", "budget_item", params.id, { reason: body.reason, budgetId: r.rows[0]!.budget_id });

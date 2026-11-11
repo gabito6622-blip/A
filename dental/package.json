@@ -21,7 +21,9 @@
     "test:e2e": "npm run build:web && playwright test --trace off",
     "files:sweep": "tsx server/src/cli/filesSweep.ts",
     "backup": "bash scripts/backup.sh",
-    "restore": "bash scripts/restore.sh"
+    "restore": "bash scripts/restore.sh",
+    "perf:seed": "tsx scripts/perf-seed.ts",
+    "perf:bench": "tsx scripts/perf-bench.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

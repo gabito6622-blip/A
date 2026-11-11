@@ -31,11 +31,11 @@ async function freedSlots(c: Client, auth: AuthCtx, zone: string, branchId: stri
   const [, dayEnd] = dayBounds(today, zone);
   const rows = (await c.query<Slot>(
     `WITH freed AS (
-       SELECT a.branch_id, a.dentist_id, a.starts_at, a.ends_at
+       SELECT a.branch_id, a.dentist_id, a.starts_at, a.ends_at, a.starts_at - interval '12 hours' AS lo
          FROM appointments a
         WHERE a.status = 'cancelled' AND a.starts_at > now() AND a.starts_at < $1
        UNION
-       SELECT x.branch_id, x.dentist_id, x.starts_at, x.ends_at FROM (
+       SELECT x.branch_id, x.dentist_id, x.starts_at, x.ends_at, x.starts_at - interval '12 hours' FROM (
          SELECT (l.data->'from'->>'branchId')::uuid AS branch_id, (l.data->'from'->>'dentistId')::uuid AS dentist_id,
                 (l.data->'from'->>'startsAt')::timestamptz AS starts_at,
                 (l.data->'from'->>'startsAt')::timestamptz + (ap.ends_at - ap.starts_at) AS ends_at
@@ -44,10 +44,13 @@ async function freedSlots(c: Client, auth: AuthCtx, zone: string, branchId: stri
             AND l.data->'from'->>'startsAt' IS NOT NULL AND l.data->'from'->>'dentistId' IS NOT NULL AND l.data->'from'->>'branchId' IS NOT NULL
        ) x WHERE x.starts_at > now() AND x.starts_at < $1
      ), slots AS (
-       SELECT DISTINCT ON (f.dentist_id, f.starts_at) f.* FROM freed f
+       SELECT DISTINCT ON (f.dentist_id, f.starts_at) f.branch_id, f.dentist_id, f.starts_at, f.ends_at FROM freed f
         WHERE ($2::uuid[] IS NULL OR f.branch_id = ANY($2)) AND ($3::uuid IS NULL OR f.branch_id = $3) AND ($4::uuid IS NULL OR f.dentist_id = $4)
           AND NOT EXISTS (SELECT 1 FROM appointments o WHERE o.dentist_id = f.dentist_id AND o.status NOT IN ('cancelled','no_show')
-                            AND o.starts_at < f.ends_at AND o.ends_at > f.starts_at)
+                            AND o.starts_at < f.ends_at AND o.ends_at > f.starts_at
+                            -- Una cita dura 12 h como máximo (CHECK): acota el índice sin cambiar el resultado.
+                            -- (f.lo es una columna: bajo RLS una expresión no LEAKPROOF no sirve de condición de índice).
+                            AND o.starts_at > f.lo)
           AND NOT EXISTS (SELECT 1 FROM schedule_blocks k WHERE k.starts_at < f.ends_at AND k.ends_at > f.starts_at
                             AND (k.dentist_id = f.dentist_id OR (k.dentist_id IS NULL AND k.branch_id = f.branch_id))
                             AND (k.branch_id IS NULL OR k.branch_id = f.branch_id))
