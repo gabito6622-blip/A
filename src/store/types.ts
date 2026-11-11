@@ -518,6 +518,11 @@ export interface RentalControl {
   /** Revendedor o proveedor anotado. */
   seller?: string;
   note?: string;
+  /**
+   * Cobros marcados a mano ("💵 Marcar cobrado"): cuándo, de qué período y cuánto.
+   * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
+   */
+  paidLog?: { at: number; from: number; amount: Cents }[];
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent" | "referral";

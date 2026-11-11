@@ -135,6 +135,50 @@ describe("Cómo van: números", () => {
   });
 });
 
+describe("Cómo van: cobros marcados en el Control", () => {
+  test("cuenta lo marcado 💵 cobrado (viejo y nuevo), una vez por mes, sin duplicar lo que ya tiene pedido", () => {
+    const w = world(NOV1 - 120 * DAY);
+    const ana = w.reseller("Ana Control", NOV1 - 100 * DAY);
+    const E = w.s.engine.s;
+    // Alquiler importado del Excel: su pedido no es un pago (channel "import").
+    const imported = (productId, t) => {
+      const id = w.buy(ana.id, productId, t);
+      for (const o of Object.values(E.orders)) if (o.assignmentIds?.includes(id)) o.channel = "import";
+      return id;
+    };
+    // a) Marca vieja (de antes de esta versión, sin anotación): cuenta el día que empezó el período.
+    const a1 = imported("disney-alq", NOV1 - 60 * DAY);
+    w.at(NOW - 6 * DAY); w.s.orders.setExpiry(OWNER, a1, NOW + 25 * DAY); // período: 05/11 → 05/12
+    E.assignments[a1].control = { payStatus: "pagado", price: 6900 };
+    // b) Marca nueva: queda anotada con fecha y monto. Si te equivocás y la volvés a "pendiente", se borra.
+    const a2 = imported("prime-alq", NOV1 - 60 * DAY);
+    w.at(NOW - 3 * DAY); w.s.orders.setExpiry(OWNER, a2, NOW + 20 * DAY);
+    w.at(NOW - 2 * DAY); w.s.orders.setControl(OWNER, a2, { payStatus: "pagado" });
+    assert.equal(E.assignments[a2].control.paidLog.length, 1);
+    assert.equal(E.assignments[a2].control.paidLog[0].amount, 2000, "a su precio de revendedor");
+    w.s.orders.setControl(OWNER, a2, { payStatus: "pendiente" });
+    assert.equal(E.assignments[a2].control.paidLog, undefined, "volver a pendiente borra el cobro");
+    w.s.orders.setControl(OWNER, a2, { payStatus: "pagado" });
+    w.s.orders.setControl(OWNER, a2, { note: "pagó por QR" });
+    assert.equal(E.assignments[a2].control.paidLog.length, 1, "el mismo período cuenta una sola vez");
+    // c) Comprado con pedido (ya cuenta) y además marcado cobrado: no se suma dos veces.
+    const a3 = w.buy(ana.id, "hbo-alq", NOV1 + 2 * DAY);
+    w.at(NOV1 + 3 * DAY); w.s.orders.setControl(OWNER, a3, { payStatus: "pagado" });
+    // d) Un cobro marcado en octubre cuenta para el mes pasado, no para este.
+    const a4 = imported("disneyse-alq", NOV1 - 80 * DAY);
+    w.at(NOV1 - 20 * DAY); w.s.orders.setExpiry(OWNER, a4, NOV1 + 10 * DAY);
+    w.s.orders.setControl(OWNER, a4, { payStatus: "pagado" });
+
+    const r = w.view().list.find((x) => x.id === ana.id);
+    assert.equal(r.thisMonth, 6900 + 2000 + 1500, "Disney (marca vieja) + Prime (marca nueva) + HBO (pedido, una vez)");
+    assert.equal(r.prevMonth, 3400, "Disney sin ESPN marcado en octubre");
+    assert.equal(r.fromControl30, 6900 + 2000 + 3400, "lo que vino del Control en 30 días");
+    const t = w.view().totals;
+    assert.equal(t.fromControl30, r.fromControl30);
+    assert.equal(t.changePct, null, "sin mes pasado comparable a esta altura, no se muestra un % gigante");
+  });
+});
+
 describe("Cómo van: un caso por estado", () => {
   test("nuevo, dormido, creciendo, bajando y estable", () => {
     const w = world(NOW - 200 * DAY);
