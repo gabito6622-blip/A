@@ -810,6 +810,9 @@ export function createApp(cfg: AppConfig): App {
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), currency: store.usd.currency(r.id).code, owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
   });
+  // 📋 Cargar sus cuentas: anotar en lote lo que ya le vendiste (solo dueño y admin; no cobra ni avisa).
+  route("POST", "/api/admin/customers/:id/bulk-assign/preview", "staff", (c) => store.bulk.preview(A(c), c.params.id, c.body?.text));
+  route("POST", "/api/admin/customers/:id/bulk-assign", "staff", (c) => store.bulk.apply(A(c), c.params.id, c.body?.text));
   // 📈 Cómo van tus revendedores (solo dueño y admin: son montos del negocio).
   route("GET", "/api/admin/resellers/overview", "staff", (c) => {
     const r = resellerOverview(store.engine, A(c), now());
