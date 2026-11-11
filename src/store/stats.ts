@@ -8,6 +8,16 @@ import { stockByProduct } from "./inventory.js";
 import { balance } from "./wallet.js";
 import { effectivePrice } from "./admin.js";
 import { marginsData } from "./finance.js";
+import { isUsd, sumBalancesBs } from "./usd.js";
+
+/**
+ * "Saldo que les debés a tus clientes" sin mezclar monedas: `balancesOwed` en Bs (los saldos en dólares
+ * convertidos con la tasa de hoy) y aparte cuánto de eso son dólares (`balancesOwedUsd`, centavos de US$).
+ */
+function owedSplit(e: Engine, ids: Id[]) {
+  const t = sumBalancesBs(e, ids, (id) => balance(e, id));
+  return { balancesOwed: t.bs + t.usdAsBs, balancesOwedBs: t.bs, balancesOwedUsd: t.usd, balancesOwedUsdRate: t.rate || null };
+}
 
 /** Día "AAAA-MM-DD" con la hora local del servidor (Bolivia: TZ=America/La_Paz), no UTC. */
 export const localDayKey = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -136,8 +146,8 @@ export function summary(e: Engine, actor: Actor, range: { from: number; to: numb
     stock: stockByProduct(e),
     // Mismo criterio en todas las pantallas: vencen en los próximos 7 días (los ya vencidos van aparte).
     expiringIn7Days: Object.values(e.s.assignments).filter((a) => a.status === "active" && a.customerExpiresAt >= e.now() && a.customerExpiresAt - e.now() <= 7 * DAY).length,
-    /** Saldo que la tienda le debe a sus clientes (pasivo). */
-    balancesOwed: customerIds.reduce((s, id) => s + balance(e, id), 0),
+    /** Saldo que la tienda le debe a sus clientes (pasivo), en Bs: los saldos en dólares se convierten con la tasa de hoy. */
+    ...owedSplit(e, customerIds),
   };
 }
 
@@ -179,7 +189,7 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const resellers = custs.filter((c) => c.kind === "reseller").map((c) => {
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     const spent = sum(cur.filter((o) => o.payerId === c.id));
-    return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), due7: mine.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length };
+    return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), currency: isUsd(e, c) ? "USD" as const : "BOB" as const, due7: mine.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length };
   }).sort((a, b) => b.monthly - a.monthly || b.services - a.services).slice(0, 8);
   const upcoming = Array.from({ length: 14 }, (_, i) => {
     const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
@@ -217,7 +227,7 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
       activeServices: active.length, monthlyRecurring: active.reduce((s, a) => s + priceOf(a), 0),
       overdue: active.filter((a) => a.customerExpiresAt < now || a.holdOpen).length, due7: active.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length,
       pendingReview: Object.values(e.s.orders).filter((o) => o.status === "payment_review").length,
-      balancesOwed: custs.reduce((s, c) => s + balance(e, c.id), 0),
+      ...owedSplit(e, custs.map((c) => c.id)),
       unpaid: active.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado").length,
     },
     series, upcoming,

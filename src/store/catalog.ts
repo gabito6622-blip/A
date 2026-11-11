@@ -5,6 +5,7 @@ import type { Engine } from "./engine.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { dialFor } from "./country.js";
+import { groupCurrency, isUsd, pendingOrdersOf } from "./usd.js";
 
 const money = (n: number, what: string) => {
   if (!Number.isInteger(n) || n < 0) throw new DomainError("VALIDATION", `${what} debe ser un entero >= 0 (centavos)`);
@@ -141,11 +142,24 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
 
 export function upsertPriceGroup(e: Engine, actor: Actor, g: PriceGroup): PriceGroup {
   authorize(actor, "catalog.manage");
+  if (!g || typeof g !== "object" || !g.id || typeof g.id !== "string" || !g.prices || typeof g.prices !== "object") throw new DomainError("VALIDATION", "Lista de precios inválida");
   Object.values(g.prices).forEach((v) => money(v, "precio del grupo"));
+  // Moneda de la lista: "USD" (precios en centavos de dólar) o Bs (sin campo). Si no la manda, queda la que tenía.
+  const raw = (g as { currency?: unknown }).currency;
+  if (raw !== undefined && raw !== null && raw !== "" && raw !== "USD" && raw !== "BOB") throw new DomainError("VALIDATION", "Moneda de la lista: Bs o US$");
   return e.tx(() => {
-    e.s.priceGroups[g.id] = structuredClone(g);
-    e.audit(actor, "price_group.upsert", "price_group", g.id, { products: Object.keys(g.prices).length });
-    return g;
+    const prev = e.s.priceGroups[g.id];
+    const currency: "USD" | undefined = raw === undefined || raw === null ? prev?.currency : raw === "USD" ? "USD" : undefined;
+    if (currency === "USD" && (g.id === "final" || g.id === "revendedor")) throw new DomainError("VALIDATION", "La lista base y la de revendedores van en Bs: creá una lista aparte en dólares");
+    if (prev && (prev.currency ?? "BOB") !== (currency ?? "BOB")) {
+      // Cambiar la moneda de una lista cambia la moneda del saldo de todos sus clientes: solo sin plata en juego.
+      const busy = Object.values(e.s.customers).filter((c) => c.priceGroupId === g.id && (e.s.ledger.some((l) => l.customerId === c.id) || pendingOrdersOf(e, c.id).length));
+      if (busy.length) throw new DomainError("INVALID_STATE", `No se puede cambiar la moneda: ${busy.length} cliente(s) de esta lista ya tienen movimientos de saldo o pagos pendientes. Creá una lista nueva en la otra moneda.`);
+    }
+    const next: PriceGroup = { id: g.id, name: String(g.name ?? prev?.name ?? g.id).trim().slice(0, 60) || g.id, prices: { ...g.prices }, ...(currency ? { currency } : {}) };
+    e.s.priceGroups[g.id] = next;
+    e.audit(actor, "price_group.upsert", "price_group", g.id, { products: Object.keys(g.prices).length, ...(currency ? { currency } : {}) });
+    return structuredClone(next);
   });
 }
 
@@ -154,7 +168,22 @@ export function priceFor(e: Engine, customerId: Id, productId: Id): Cents {
   const c = e.get("customers", customerId);
   const p = e.get("products", productId);
   const g = e.s.priceGroups[c.priceGroupId];
+  // Lista en dólares: solo su precio en US$; nunca se cae al precio en Bs.
+  if (g?.currency === "USD") {
+    const v = g.prices[productId];
+    if (v === undefined) throw new DomainError("NOT_FOUND", `${p.name} no tiene precio en la lista "${g.name}"`);
+    return v;
+  }
   return g?.prices[productId] ?? p.price;
+}
+
+/**
+ * Lo que le cuesta a quien paga renovar un servicio (mismo criterio que orders.renew): en Bs, el precio
+ * acordado del Control o el de su lista; en dólares, el de su lista en US$ (0 si no tiene precio: no lo renueva).
+ */
+export function renewPriceFor(e: Engine, payerId: Id, a: { productId: Id; control?: { price?: Cents } }): Cents {
+  if (isUsd(e, payerId)) return e.s.priceGroups[e.s.customers[payerId].priceGroupId]?.prices[a.productId] ?? 0;
+  return a.control?.price ?? priceFor(e, payerId, a.productId);
 }
 
 export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> & { id?: Id }): Supplier {
@@ -286,7 +315,8 @@ export function setCustomersKind(e: Engine, actor: Actor, ids: Id[] | "all", kin
       if (c.kind === kind) continue;
       if (kind === "customer" && Object.values(e.s.customers).some((x) => x.resellerId === c.id)) { skipped.push({ id: c.id, name: c.name, reason: "tiene clientes propios" }); continue; }
       c.kind = kind;
-      c.priceGroupId = kind === "reseller" ? "revendedor" : "final";
+      // Un cliente en dólares sigue en su lista (cambiarla movería la moneda de su saldo).
+      if (!isUsd(e, c)) c.priceGroupId = kind === "reseller" ? "revendedor" : "final";
       changed++;
     }
     e.audit(actor, "customer.bulk_kind", "customer", ids === "all" ? "*" : ids.join(",").slice(0, 200), { kind, changed });
@@ -378,6 +408,14 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
     if (patch.priceGroupId !== undefined && patch.priceGroupId !== c.priceGroupId) {
       ensureResellerGroup(e, patch.priceGroupId);
       if (!e.s.priceGroups[patch.priceGroupId]) throw new DomainError("NOT_FOUND", "Grupo de precios inexistente");
+      const from = groupCurrency(e, c.priceGroupId), to = groupCurrency(e, patch.priceGroupId);
+      if (from !== to) {
+        // Su saldo pasaría de Bs a US$ (o al revés): solo con saldo en 0 y sin pagos por revisar, así nunca se mezclan monedas.
+        const bal = e.s.ledger.reduce((t, l) => (l.customerId === c.id ? t + l.amount : t), 0);
+        const what = to === "USD" ? "a dólares" : "a Bs";
+        if (bal !== 0) throw new DomainError("INVALID_STATE", `No se puede cambiar de lista: su saldo pasaría ${what} y tiene saldo. Dejalo en 0 (ajuste de saldo) y volvé a probar.`);
+        if (pendingOrdersOf(e, c.id).length) throw new DomainError("INVALID_STATE", `No se puede cambiar de lista: su saldo pasaría ${what} y tiene pagos por revisar. Aprobalos o rechazalos primero.`);
+      }
       c.priceGroupId = patch.priceGroupId; changed.push("priceGroupId");
     }
     e.audit(actor, "customer.update", "customer", c.id, { fields: changed.join(",") });
@@ -418,8 +456,14 @@ export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
 }
 
 /** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
-export function visibleTo(e: Engine, p: { published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
+export function visibleTo(e: Engine, p: { id?: Id; published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
   if (!p.published) return false;
+  // Cliente en dólares: solo ve lo que tiene precio en su lista (nunca un precio en Bs).
+  if (customerId && isUsd(e, customerId)) {
+    const g = e.s.priceGroups[e.s.customers[customerId].priceGroupId];
+    const id = p.id;
+    if (!id || g?.prices[id] === undefined) return false;
+  }
   const isReseller = !!customerId && e.s.customers[customerId]?.kind === "reseller";
   // "Solo lo de revendedores": el revendedor compra únicamente los productos marcados para revendedores.
   if (isReseller && e.s.settings.resellerOnlyCatalog) return !!p.resellersOnly;
@@ -428,6 +472,16 @@ export function visibleTo(e: Engine, p: { published: boolean; resellersOnly?: bo
 }
 
 export function publicCatalog(e: Engine, customerId?: Id) {
+  if (customerId && isUsd(e, customerId)) {
+    // Cliente en dólares: precios de su lista en US$ (sin "precio público" en Bs al lado).
+    return Object.values(e.s.products).filter((p) => visibleTo(e, p, customerId)).map((p) => ({
+      id: p.id, name: p.name, kind: p.kind, durationDays: p.durationDays,
+      category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, resellersOnly: !!p.resellersOnly,
+      price: priceFor(e, customerId, p.id), currency: "USD" as const,
+      ...(p.kind === "combo" && p.comboProductIds?.length ? { comboParts: p.comboProductIds } : {}),
+      available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
+    }));
+  }
   return Object.values(e.s.products)
     .filter((p) => visibleTo(e, p, customerId))
     .map((p) => ({

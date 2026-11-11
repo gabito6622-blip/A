@@ -43,7 +43,7 @@ function countryCard() {
       <label>Código de teléfono (sin +)<input name="dial" inputmode="numeric" maxlength="4" value="${esc(l.dial)}" required></label>
       <label>Símbolo de tu moneda<input name="symbol" maxlength="4" value="${esc(l.symbol)}" required></label>
       <label>Decimales<select name="decimals"><option value="2" ${l.decimals === 2 ? "selected" : ""}>Con centavos (12,50)</option><option value="0" ${l.decimals === 0 ? "selected" : ""}>Sin centavos (35.000)</option></select></label>
-      <label class="os-wide">Tipo de cambio: 1 ${esc(store)} = <input name="rate" inputmode="decimal" value="${l.rate ?? ""}" placeholder="Ej.: 1050" aria-describedby="osRateHelp"> ${esc(l.symbol)}</label>
+      <label class="os-wide">Tipo de cambio: 1 ${esc(store)} = <input name="rate" inputmode="decimal" value="${l.rate ?? ""}" placeholder="${store === "US$" ? "Ej.: 7300" : "Ej.: 1050"}" aria-describedby="osRateHelp"> ${esc(l.symbol)}</label>
       <p class="empty os-wide" id="osRateHelp" style="margin:0">Con tu tipo de cambio, tu página muestra los productos de la tienda en ${esc(l.symbol)} (redondeados). Sin tipo de cambio, esos productos no salen en tu página. Lo que le comprás a la tienda sigue en ${esc(store)}.</p>
       <p class="empty os-wide" style="margin:0">Tus clientes nuevos se cargan con +${esc(l.dial)}. Si cambiás de moneda, los montos que ya anotaste no se convierten solos.</p>
       ${errBox("locale")}

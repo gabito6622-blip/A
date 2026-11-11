@@ -61,6 +61,8 @@ async function loadBase() {
   if (SLUG) return loadResellerShop();
   [S.settings, S.me, S.catalog] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/me"), api("GET", "/api/catalog")]);
   setCurrency(S.settings.currencySymbol); setMine(S.me?.locale);
+  // Cliente en la lista en dólares: todos sus montos (precios, carrito, saldo, movimientos) en US$.
+  if (usdMode()) setCurrency(S.me.currency.symbol, 2);
   S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
   S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner?v=${Date.now() % 1e6}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
@@ -431,6 +433,10 @@ function pendingOrders() {
     ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
       : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. ${eta} Cuando esté listo, tus accesos aparecen acá abajo.</span>`
+      : o.method === "usdt" ? `<span class="empty">Falta enviar el comprobante del pago en USDT.</span>
+        <form class="inline-form" data-evidence="${esc(o.id)}">${usdtBlock(o.total, o.usdt)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
+        <label>Hash o número de la transacción<input name="ref" required placeholder="Pegá el hash de Binance"></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
         <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
@@ -453,19 +459,23 @@ function localBlock(m, toPay) {
 }
 /** Instrucciones de pago en USDT manual: cuánto mandar, a qué dirección / Pay ID. */
 // Revendedor de afuera (Paraguay, Panamá…): paga en USDT por Binance. Ve los montos también en USDT y el QR de Bolivia no se le ofrece.
-const abroad = () => !!S.settings.usdt && !!myLocale()?.country && myLocale().country !== "BO";
-const usdtOf = (cents) => (S.settings.usdt?.rate ? Math.ceil((cents / 100) / S.settings.usdt.rate * 100) / 100 : null);
-const usdtHint = (cents) => (abroad() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
+// Cliente en la lista en dólares: precios y saldo en US$, paga con saldo o USDT (1 USDT = 1 US$), nunca con QR de Bolivia.
+const usdMode = () => S.me?.currency?.code === "USD";
+const abroad = () => !!S.settings.usdt && (usdMode() || (!!myLocale()?.country && myLocale().country !== "BO"));
+const usdtOf = (cents) => (usdMode() ? cents / 100 : S.settings.usdt?.rate ? Math.ceil((cents / 100) / S.settings.usdt.rate * 100) / 100 : null);
+const usdtHint = (cents) => (abroad() && !usdMode() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
+/** En dólares, sin USDT configurado (o sin tasa) no hay cómo recargar ni pagar fuera del saldo: se dice claro. */
+const usdNoPay = () => `<div class="err" role="alert">${S.me?.currency?.rate ? "La tienda todavía no recibe USDT." : "La tienda todavía no tiene la tasa del dólar."} ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero recargar saldo en USDT")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Volvé en un rato."}</div>`;
 function usdtBlock(toPay, fixedUsdt) {
   const u = S.settings.usdt;
   if (!u) return "";
-  const amt = fixedUsdt ?? Math.ceil((toPay / 100) / u.rate * 100) / 100;
+  const amt = fixedUsdt ?? usdtOf(toPay);
   return `<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
     <b style="color:var(--s-ink);font-size:16px">Enviá ${amt} USDT</b>
     ${u.network ? `<span class="empty">Red: <b style="color:var(--s-ink)">${esc(u.network)}</b></span>` : ""}
     ${u.address ? `<div class="empty">Dirección:<br><code style="word-break:break-all;color:var(--s-ink)">${esc(u.address)}</code><br><button class="sbtn sm" type="button" data-copy="${esc(u.address)}">Copiar dirección</button></div>` : ""}
     ${u.payId ? `<span class="empty">Binance Pay ID: <b style="color:var(--s-ink)">${esc(u.payId)}</b> <button class="sbtn sm" type="button" data-copy="${esc(u.payId)}">Copiar</button></span>` : ""}
-    <span class="empty">Tasa de hoy: 1 USDT = <b style="color:var(--s-ink)">Bs ${esc(String(u.rate).replace(".", ","))}</b></span>
+    <span class="empty">${usdMode() ? `1 USDT = <b style="color:var(--s-ink)">US$ 1</b>` : `Tasa de hoy: 1 USDT = <b style="color:var(--s-ink)">Bs ${esc(String(u.rate).replace(".", ","))}</b>`}</span>
     ${u.note ? `<span class="empty">${esc(u.note)}</span>` : ""}
     <span class="empty">Mandá exactamente <b style="color:var(--s-ink)">${amt} USDT</b> y pegá abajo el <b>hash</b> (o número de la transacción) y una captura. Te confirmamos y activamos.</span>
   </div></div>`;
@@ -586,7 +596,7 @@ function renderInner() {
           ? `<span class="rlock">🔒 Se renueva cuando la tienda renueve esta cuenta.${S.settings.whatsapp ? ` <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar a la tienda</a>` : ""}</span>`
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
-          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button><button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
+          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button><button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
@@ -603,10 +613,10 @@ function renderInner() {
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
-      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${abroad() ? [10, 20, 50, 100].map((v, i) => `<label><input type="radio" name="pack" value="${v}" data-usdt="1" ${i === 1 ? "checked" : ""}><b>${v} USDT</b><small>≈ ${bs(Math.round(v * S.settings.usdt.rate * 100))} de saldo</small></label>`).join("")
+      ${usdMode() && !S.settings.usdt ? `<div class="sbox"><h2>Solicitar recarga</h2><p class="empty" style="margin:0">Tu saldo es en dólares: recargás con USDT (1 USDT = US$ 1).</p>${usdNoPay()}</div>` : `<form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${abroad() ? [10, 20, 50, 100].map((v, i) => `<label><input type="radio" name="pack" value="${v}" data-usdt="1" ${i === 1 ? "checked" : ""}><b>${v} USDT</b><small>${usdMode() ? `+ ${bs(v * 100)} de saldo` : `≈ ${bs(Math.round(v * S.settings.usdt.rate * 100))} de saldo`}</small></label>`).join("")
           : [50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
         ${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
-        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
+        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>`}
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
@@ -1669,11 +1679,11 @@ function renderCartInner(msg = "") {
   const net = toPay - (cup?.amount ?? 0);
   const canBalance = S.me.balance >= net && !cartBackorder();
   const pmx = S.data.payMethods ?? { qr: true, methods: [] };
-  const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || S.settings.binance;
+  const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || (S.settings.binance && !usdMode());
   const firstPm = canBalance ? "balance" : abroad() ? "usdt" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
-    ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
+    ${usdMode() ? "" : cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
       : `<div class="cupbox"><label for="cupIn">¿Tenés un cupón de descuento?</label><div class="cuprow"><input id="cupIn" name="coupon" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10" value="${esc(cupErr?.code ?? "")}"><button class="sbtn sm" type="button" data-coupon="apply">Aplicar</button></div>${cupErr ? `<div class="err" role="alert">${esc(cupErr.error)}</div>` : ""}</div>`}
     <div class="total"><span>Total</span><span>${bs(net)}</span></div>
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
@@ -1681,13 +1691,13 @@ function renderCartInner(msg = "") {
     ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
     ${pmx.qr && !abroad() ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
-    ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
+    ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
     ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
-    ${anyPay ? "" : `<div class="err" role="alert">Tu saldo no alcanza y la tienda todavía no cargó otra forma de pago. ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Recargá saldo o volvé en un rato."}</div>`}
+    ${anyPay ? "" : usdMode() ? usdNoPay() : `<div class="err" role="alert">Tu saldo no alcanza y la tienda todavía no cargó otra forma de pago. ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Recargá saldo o volvé en un rato."}</div>`}
     <button class="sbtn pri" type="submit" ${anyPay ? "" : "disabled"}>Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
 

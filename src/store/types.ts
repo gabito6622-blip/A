@@ -212,7 +212,10 @@ export interface ChatThread {
 export interface PriceGroup {
   id: Id;
   name: string;
+  /** Precios por producto. En una lista "USD", en centavos de dólar (US$ 3,50 = 350). */
   prices: Record<Id, Cents>;
+  /** "USD" = lista en dólares: sus clientes compran y tienen el saldo en US$ (usd.ts). Sin campo = Bs. */
+  currency?: "USD";
 }
 
 export interface Supplier {
@@ -372,7 +375,10 @@ export interface BinancePay {
 export interface OrderItem {
   productId: Id;
   qty: number;
+  /** Siempre en Bs (en un pedido en dólares: el precio en US$ × la tasa del pedido). */
   unitPrice: Cents;
+  /** Pedido en dólares: precio unitario cobrado, en centavos de dólar. */
+  usd?: Cents;
 }
 
 export interface PaymentEvidence {
@@ -399,7 +405,10 @@ export interface Order {
   /** "import" = servicio que ya existía y se cargó desde Excel (no cuenta como venta). */
   channel: "store" | "panel" | "reseller" | "import";
   items: OrderItem[];
+  /** Siempre en Bs (en un pedido en dólares: `usd` × la tasa del pedido, redondeado). */
   total: Cents;
+  /** Pedido de un cliente en dólares: lo cobrado (o recargado) en centavos de dólar. Ver usd.ts. */
+  usd?: Cents;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   evidence?: PaymentEvidence;
@@ -565,7 +574,10 @@ export interface ResellerApp {
 export interface LedgerEntry {
   id: Id;
   customerId: Id;
+  /** Centavos de la moneda del saldo (Bs, o dólares si `cur` es "USD"). */
   amount: Cents;
+  /** Movimiento de un saldo en dólares. */
+  cur?: "USD";
   type: LedgerType;
   ref: Id;
   note?: string;

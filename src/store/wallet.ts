@@ -4,6 +4,7 @@ import type { Actor, Cents, Id, LedgerEntry, LedgerType } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { isUsd } from "./usd.js";
 
 export function balance(e: Engine, customerId: Id): Cents {
   return e.s.ledger.reduce((s, l) => (l.customerId === customerId ? s + l.amount : s), 0);
@@ -14,13 +15,15 @@ export function post(e: Engine, by: Actor, customerId: Id, amount: Cents, type: 
   if (!Number.isInteger(amount) || amount === 0) throw new DomainError("VALIDATION", "Monto inválido");
   e.get("customers", customerId);
   if (balance(e, customerId) + amount < 0) throw new DomainError("INSUFFICIENT_BALANCE", "Saldo insuficiente");
-  const entry: LedgerEntry = { id: e.id("led"), customerId, amount, type, ref, note, by: by.id, at: e.now() };
+  // Saldo en dólares (lista USD): el movimiento queda marcado; el monto va en centavos de dólar.
+  const usd = isUsd(e, customerId);
+  const entry: LedgerEntry = { id: e.id("led"), customerId, amount, ...(usd ? { cur: "USD" as const } : {}), type, ref, note, by: by.id, at: e.now() };
   e.s.ledger.push(entry);
-  e.audit(by, `ledger.${type}`, "customer", customerId, { amount, ref });
+  e.audit(by, `ledger.${type}`, "customer", customerId, { amount, ref, ...(usd ? { currency: "USD" } : {}) });
   return entry;
 }
 
-/** Ajuste manual: solo el dueño, con motivo obligatorio. */
+/** Ajuste manual: solo el dueño, con motivo obligatorio. A un cliente en dólares, el monto va en centavos de dólar. */
 export function adjust(e: Engine, actor: Actor, customerId: Id, amount: Cents, reason: string): LedgerEntry {
   authorize(actor, "wallet.adjust");
   if (!reason?.trim()) throw new DomainError("VALIDATION", "Un ajuste necesita motivo");

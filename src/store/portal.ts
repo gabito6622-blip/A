@@ -5,7 +5,8 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, phoneTaken, phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
+import { canActFor, phoneTaken, phoneWithCountry, priceFor, renewPriceFor, visibleTo } from "./catalog.js";
+import { isUsd } from "./usd.js";
 import { balance } from "./wallet.js";
 import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
@@ -39,7 +40,7 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
           // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
           renewableNow: renewableNow(e, a),
-          renewPrice: a.control?.price ?? priceFor(e, actor.customerId!, a.productId),
+          renewPrice: renewPriceFor(e, actor.customerId!, a),
         };
       });
     if (out.length) e.audit(actor, "credentials.view", "assignment", out.map((o) => o.assignmentId).join(","));
@@ -52,7 +53,8 @@ export function myOrders(e: Engine, actor: Actor) {
   return Object.values(e.s.orders)
     .filter((o) => ids.includes(o.customerId) || o.payerId === actor.customerId)
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.total, method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) }));
+    // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
+    .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) }));
 }
 
 export function myBalance(e: Engine, actor: Actor) {

@@ -516,7 +516,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -805,7 +805,7 @@ export function createApp(cfg: AppConfig): App {
       expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.effectivePrice, pay: a.control?.payStatus ?? "pagado",
     }));
     const cl = r.codeLink;
-    return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
+    return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), currency: store.usd.currency(r.id).code, owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
   });
   // 📈 Cómo van tus revendedores (solo dueño y admin: son montos del negocio).
   route("GET", "/api/admin/resellers/overview", "staff", (c) => {
@@ -2172,7 +2172,7 @@ export function createApp(cfg: AppConfig): App {
         continue;
       }
       if (!soon.length) continue;
-      const need = soon.reduce((n, a) => n + (a.control?.price ?? store.catalog.priceFor(cid, a.productId)), 0);
+      const need = soon.reduce((n, a) => n + store.catalog.renewPriceFor(cid, a), 0);
       const bal = store.wallet.balance(cid);
       const names = soon.slice(0, 3).map((a) => s.customers[a.customerId]?.name.split(" ")[0]).join(", ");
       await customerPush(cid, {
@@ -2229,7 +2229,8 @@ export function createApp(cfg: AppConfig): App {
   };
   /** Lo que el agente de WhatsApp sabe de la tienda: precios para ese cliente, formas de pago, horario, preguntas frecuentes. */
   function storeContext(customerId?: string): string {
-    const st = store.engine.s.settings, sym = st.currencySymbol || "Bs";
+    // Cliente en la lista en dólares: sus precios van en US$.
+    const st = store.engine.s.settings, sym = customerId && store.engine.s.customers[customerId] ? store.usd.currency(customerId).symbol : st.currencySymbol || "Bs";
     const money = (c: number) => `${sym} ${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
     const cat = store.catalog.publicCatalog(customerId).slice(0, 40).map((p) => `- ${p.name}: ${money(p.price)} por ${p.durationDays} días${p.available === 0 ? " (sin stock ahora)" : ""}`);
     const pm = store.payMethods.mine({ id: "bot", role: "customer", customerId });
