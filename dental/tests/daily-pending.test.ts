@@ -99,7 +99,9 @@ describe("enviar o copiar el enlace de la encuesta desde la cita atendida", () =
     expect(r.body.whatsappUrl).toMatch(/^https:\/\/wa\.me\/59171234567\?text=/);
     expect(r.body.message).toContain("Marcela");
     expect(r.body.message).toContain(r.body.url);
-    expect(r.body.message).not.toMatch(/Endodoncia|36/);
+    // Sin el enlace ni el nombre aleatorio de la clínica de prueba (pueden contener «36» por azar).
+    const text = String(r.body.message).replace(r.body.url, "").replace(/Clínica [0-9a-f]{8}/, "");
+    expect(text).not.toMatch(/Endodoncia|36/);
     expect(decodeURIComponent(r.body.whatsappUrl.split("text=")[1])).toBe(r.body.message);
     // pedirlo otra vez devuelve el mismo enlace (un solo uso por cita)
     expect((await rec.post(`/api/appointments/${apptA}/survey-link`)).body.url).toBe(r.body.url);
