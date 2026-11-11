@@ -10,6 +10,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B1 | Qué compran y a cuánto los revendedores | P1 | ✅ solo alquileres: Disney 69/34, Prime 20, HBO 15 |
 | B2 | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
+| B4 | 2 servicios del producto Disney de perfil (cuenta de 7 perfiles): ¿quedan como perfiles o pasan a cuenta completa? | P3 | 🧑 |
+| B5 | Alquileres como cuenta completa (1 perfil "Cuenta completa") | P2 | ✅ 123 cuentas, sin avisos |
 
 ## Auditoría del pulido
 | # | De | Pendiente | Prioridad | Estado |

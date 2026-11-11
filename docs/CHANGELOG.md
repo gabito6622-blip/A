@@ -3,7 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Cobro de alquileres (rama `cobranza`)
+## 2026-11-11 · #30 Cuentas de alquiler: todas "Cuenta completa"
+- **Dueño:** las 123 cuentas de alquiler (Disney con y sin ESPN, Prime, HBO) quedaron con **un solo perfil llamado "Cuenta completa"**. Se renombraron 54 perfiles ("pack", "Pack 15", "Perfil 1", "ENLAZAR"…) y se retiraron 28 perfiles libres que sobraban, que inflaban el stock. Las 21 notas viejas del Excel quedaron guardadas en Control como "Excel: …".
+- **Revendedores:** no reciben ningún aviso por esto: renombrar el perfil de una cuenta completa ya no manda "cambió tu acceso", porque el acceso no cambia. Cambiar el PIN sí sigue avisando.
+
+## 2026-11-11 · #29 Cobro de alquileres
 - **Dueño:** "💰 Cobrar alquileres de la semana" en Revendedores: por revendedor, lo que le vence en 7 días (o ya venció) con el total a su precio, y un solo WhatsApp con la lista y cómo renovar; fila guiada que marca a quién ya avisaste.
 - **Revendedor:** en Repartir perfiles, "🔄 Renovar cuenta" en cada alquiler y "Renovar las N que vencen" con su saldo (con candado 🔒 cuando la tienda debe renovar primero).
 
