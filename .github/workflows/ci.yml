@@ -58,5 +58,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npx playwright install --with-deps chromium
+      # Si el espejo de paquetes de Ubuntu no responde (pasa a veces en los runners), se instala solo
+      # el navegador: la imagen ya trae casi todas sus dependencias y las e2e dirán si falta alguna.
+      - run: |
+          npx playwright install --with-deps chromium || {
+            echo "::warning::No se pudieron instalar las dependencias del sistema; se instala solo Chromium"
+            npx playwright install chromium
+          }
       - run: npm run test:e2e
