@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Flujo TV para los de afuera
+## 2026-11-11 · #36 Flujo TV para los de afuera
 - **Revendedores:** con "solo lo de revendedores" ven también los productos que tienen precio en su propia lista. Así Paraguay y Panamá ven Flujo TV a US$ 2,50. La lista general "Revendedor" no abre productos nuevos y la tienda normal no cambia.
 - **Datos (tienda real):** Flujo TV US$ 2,50 en la lista "Panamá y Paraguay (US$)"; "panama" y "EXTRANJERO" pasados a Panamá 🇵🇦 (+507, US$).
 
