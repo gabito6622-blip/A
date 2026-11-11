@@ -1510,3 +1510,16 @@ describe("Repartir perfiles de una cuenta alquilada (cuaderno del revendedor)", 
     assert.throws(() => s.subs.save(as(carla), aid, { name: "", expiresAt: T0 }), err("VALIDATION"));
   });
 });
+
+describe("Cuentas completas: renombrar el perfil no avisa al cliente", () => {
+  test("renombrar 'pack' → 'Cuenta completa' no encola aviso; cambiar el PIN sí", () => {
+    const { s, carla } = setup();
+    s.catalog.upsertProduct(owner, { id: "dis-alq", name: "Disney (alquiler)", kind: "full_account", durationDays: 30, price: 6900, published: true, resellersOnly: true });
+    const { slots } = s.inventory.addAccount(admin, { productId: "dis-alq", supplierId: "andes", email: "dfull@x.lat", password: "Clave-Larga#7", supplierExpiresAt: T0 + 90 * DAY, cost: 4000, profiles: [{ label: "pack" }] });
+    s.orders.create(owner, { customerId: carla.id, items: [{ productId: "dis-alq", qty: 1 }], paymentMethod: "cash" });
+    const before = s.engine.s.outbox?.length ?? 0;
+    assert.deepEqual(s.inventory.updateSlot(owner, slots[0].id, { label: "Cuenta completa" }), { notified: false });
+    assert.equal(s.engine.s.outbox?.length ?? 0, before, "sin avisos en cola");
+    assert.deepEqual(s.inventory.updateSlot(owner, slots[0].id, { pin: "1234" }), { notified: true }, "el PIN sí avisa");
+  });
+});

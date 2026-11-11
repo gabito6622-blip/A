@@ -194,7 +194,9 @@ export function updateSlot(e: Engine, actor: Actor, slotId: Id, patch: { label?:
     if (patch.label !== undefined) s.label = patch.label.trim();
     if (patch.pin !== undefined) s.pin = patch.pin || undefined;
     let notified = false;
-    if ((pinChanged || patch.label !== undefined) && s.status === "assigned") {
+    // En una cuenta completa el "perfil" es solo un nombre interno: renombrarlo no cambia el acceso, no se avisa.
+    const labelMatters = patch.label !== undefined && e.s.products[s.productId]?.kind !== "full_account";
+    if ((pinChanged || labelMatters) && s.status === "assigned") {
       const a = Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active");
       if (a) {
         a.history.push({ at: e.now(), by: actor.id, event: "access_updated", slotId: s.id, note: "perfil o PIN actualizado" });
