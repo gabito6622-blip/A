@@ -1,0 +1,13 @@
+/* "📩 Ver mi código de acceso" en /c/<token> (cobro-codigos.js). Usa las variables de cobro.css. */
+.cc h2{font-size:18px;margin:0;line-height:1.3}
+.cc-btn{background:var(--acc);color:#fff}
+@media (prefers-color-scheme:dark){.cc-btn{color:#0b1120}}
+.cc-btn:disabled{opacity:.7;cursor:progress}
+.cc-out{display:grid;gap:10px}
+.cc-out:empty{display:none}
+.cc-code{display:grid;gap:6px;border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.cc-code small{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.cc-kind{font-size:14px;font-weight:700}
+.cc-num{font-size:34px;line-height:1.15;font-weight:800;letter-spacing:.12em;font-variant-numeric:tabular-nums;text-align:center;overflow-wrap:anywhere}
+.cc-empty{color:var(--muted);font-size:14px;text-align:center}
+.cc-err{color:var(--bad);font-size:14px;text-align:center}

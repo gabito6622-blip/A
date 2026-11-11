@@ -5,6 +5,7 @@ import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
+import { selfCodesCard } from "/panel-codigos-solos.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -1349,7 +1350,7 @@ const V = {
 
   async codigos() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
-    const [boxes, codes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes")]);
+    const [boxes, codes, selfCodes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes"), selfCodesCard(render)]);
     const T = P.tab;
     const ed = T.mbEdit === "new" ? { kind: T.mbKind ?? "gmail" } : boxes.find((b) => b.id === T.mbEdit);
     const kind = ed ? (T.mbKind ?? ed.kind ?? "gmail") : "gmail";
@@ -1381,7 +1382,7 @@ const V = {
       ${boxes.length ? table(["Correo", "Tipo", "Estado", "Última lectura", "Códigos", ""], boxes.map((b) => `<tr><td><b>${esc(b.name || b.address)}</b>${b.name ? `<br><small class="muted">${esc(b.address)}</small>` : ""}${b.lastError ? `<br><small style="color:var(--bad)">${esc(b.lastError)}</small>` : ""}</td><td>${b.kind === "imap" ? esc(b.host) : "Gmail"}</td><td>${st(b)}</td><td>${ago(b.lastCheckAt)}</td><td>${b.codesFound ?? 0}</td>
         <td><div class="inline"><button class="pbtn sm" type="button" data-mbcheck="${esc(b.id)}">${icon("renew")}Leer ahora</button><button class="pbtn sm" type="button" data-tab="mbEdit:${esc(b.id)}">${icon("edit")}</button><button class="pbtn sm" type="button" data-mbdel="${esc(b.id)}" aria-label="Quitar">${icon("trash")}</button></div></td></tr>`))
         : `<div class="emptybox">Todavía no conectaste ningún correo.<br><br><button class="pbtn dark" type="button" data-tab="mbEdit:new">${icon("plus")}Conectar un correo</button></div>`}</section>
-    <section class="card"><h2>Últimos códigos que llegaron <small>los clientes ven solo los de sus cuentas</small></h2>
+    ${selfCodes}<section class="card"><h2>Últimos códigos que llegaron <small>los clientes ven solo los de sus cuentas</small></h2>
       ${table(["Hora", "Cuenta", "Tipo", "Código"], codes.map((c) => `<tr><td>${fdt(c.receivedAt)}</td><td>${esc(c.to || "—")}<br><small class="muted">${c.matched ? esc(c.product) : "⚠ no coincide con ninguna cuenta cargada"}</small></td><td><span class="pp pp-${{login:"ok",hogar:"mute",temporal:"warn",verificacion:"ok"}[c.kind] || "mute"}">${KLABEL_P[c.kind] || "Código"}</span><br><small class="muted">${esc(c.subject)}</small></td><td><b style="font-size:16px;letter-spacing:.08em">${esc(c.code || "")}</b>${c.link ? ` <a href="${esc(c.link)}" target="_blank" rel="noopener">enlace</a>` : ""}</td></tr>`), "Todavía no llegó ningún código.")}</section>`;
   },
 
