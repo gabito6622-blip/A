@@ -266,7 +266,8 @@ export interface FamilyMember { id: string; firstName: string; lastName: string;
 
 /**
  * Pacientes que la sesión puede ver: el titular y los menores de edad cuyo teléfono de
- * responsable es el celular verificado con el código.
+ * responsable es el celular verificado con el código, o de quienes el titular es tutor legal
+ * declarado en la ficha (relaciones familiares, R2-39).
  */
 export async function family(c: Client, s: PatientSession): Promise<FamilyMember[]> {
   const r = await c.query(
@@ -274,7 +275,9 @@ export async function family(c: Client, s: PatientSession): Promise<FamilyMember
             preferred_branch_id AS "preferredBranchId", consent_reminders AS "consentReminders", consent_marketing AS "consentMarketing"
        FROM patients
       WHERE archived_at IS NULL
-        AND (id = $1 OR (guardian_phone = $2 AND birth_date IS NOT NULL AND birth_date > (now() - interval '18 years')::date))
+        AND (id = $1 OR (birth_date IS NOT NULL AND birth_date > (now() - interval '18 years')::date
+              AND (guardian_phone = $2 OR EXISTS (SELECT 1 FROM patient_relationships r
+                    WHERE r.person_a = $1 AND r.person_b = patients.id AND r.legal_guardian AND r.ended_at IS NULL))))
       ORDER BY (id = $1) DESC, birth_date`, [s.patientId, s.phone]);
   return r.rows.map((p) => ({ ...p, isMinor: isMinorDate(p.birthDate), isSelf: p.id === s.patientId }));
 }

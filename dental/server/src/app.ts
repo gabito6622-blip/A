@@ -42,6 +42,7 @@ import { clinicalFileRoutes } from "./modules/clinicalFiles.js";
 import { coordinationRoutes } from "./modules/coordination/index.js";
 import { managementRoutes } from "./modules/management/index.js";
 import { agreementRoutes } from "./modules/agreements/index.js";
+import { experienceRoutes } from "./modules/experience/index.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
@@ -150,6 +151,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   coordinationRoutes(route);
   managementRoutes(route);
   agreementRoutes(route, cfg);
+  experienceRoutes(route, cfg);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

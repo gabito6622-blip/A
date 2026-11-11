@@ -9,6 +9,7 @@ import { normalize, normalizePhone } from "../lib/text.js";
 import type { AuthCtx } from "../lib/rbac.js";
 import { recordConsentFlag } from "./consents.js";
 import { patientMoney } from "./budgets-v2-core.js";
+import { createRelationship, prefillGuardian, zFamilyLink } from "./experience/family.js";
 
 export const PATIENT_COLUMNS = `p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
   p.document_type AS "documentType", p.document_number AS "documentNumber", p.document_issued AS "documentIssued",
@@ -61,23 +62,31 @@ function validatePatient(p: PatientInput) {
   if (isMinor(p.birthDate) && !p.guardianName) throw badRequest("Para menores de edad indica el nombre del responsable");
 }
 
-/** Posibles duplicados: mismo documento, mismo teléfono, o nombre muy parecido + misma fecha de nacimiento. */
-export async function findDuplicates(c: Client, p: Partial<PatientInput>, excludeId: string | null = null) {
+/**
+ * Posibles duplicados: mismo documento, mismo teléfono, o nombre muy parecido + misma fecha de nacimiento.
+ * Un celular compartido con un familiar declarado (R2-39) se informa como «mismo celular, familiar declarado»
+ * y no bloquea el registro (declaredFamily = true).
+ */
+export async function findDuplicates(c: Client, p: Partial<PatientInput>, excludeId: string | null = null, familyOf: string | null = null) {
   const name = normalize(`${p.firstName ?? ""} ${p.lastName ?? ""}`);
   const phone = normalizePhone(p.phone ?? null);
   const r = await c.query(
     `SELECT p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
             p.document_number AS "documentNumber", p.phone, p.birth_date AS "birthDate",
             CASE WHEN $1::text IS NOT NULL AND p.document_number = $1 THEN 'documento'
+                 WHEN $2::text IS NOT NULL AND p.phone = $2 AND fam.declared THEN 'mismo celular, familiar declarado'
                  WHEN $2::text IS NOT NULL AND p.phone = $2 THEN 'teléfono'
-                 ELSE 'nombre' END AS reason
+                 ELSE 'nombre' END AS reason,
+            fam.declared AND ($1::text IS NULL OR p.document_number IS DISTINCT FROM $1) AS "declaredFamily"
        FROM patients p
+       CROSS JOIN LATERAL (SELECT (p.id = $6::uuid OR EXISTS (SELECT 1 FROM patient_relationships r WHERE r.ended_at IS NULL
+                  AND ((r.person_a = p.id AND r.person_b IN ($5::uuid, $6::uuid)) OR (r.person_b = p.id AND r.person_a IN ($5::uuid, $6::uuid))))) IS TRUE AS declared) fam
       WHERE p.archived_at IS NULL AND ($5::uuid IS NULL OR p.id <> $5)
         AND (($1::text IS NOT NULL AND p.document_number = $1)
           OR ($2::text IS NOT NULL AND p.phone = $2)
           OR (length($3) > 5 AND word_similarity($3, p.search_text) > 0.75 AND ($4::date IS NULL OR p.birth_date IS NULL OR p.birth_date = $4)))
       LIMIT 5`,
-    [p.documentNumber ?? null, phone, name, p.birthDate ?? null, excludeId],
+    [p.documentNumber ?? null, phone, name, p.birthDate ?? null, excludeId, familyOf],
   );
   return r.rows;
 }
@@ -160,13 +169,16 @@ export function patientRoutes(route: Route) {
 
   route({
     method: "POST", url: "/api/patients", summary: "Registrar paciente", tags: ["pacientes"], perm: "patients.write",
-    body: patientBody.extend({ allowDuplicate: z.boolean().default(false) }),
+    body: patientBody.extend({ allowDuplicate: z.boolean().default(false), family: zFamilyLink.optional() }),
     handler: async ({ c, auth, body }) => {
       if (!body.allowDuplicate) {
-        const d = await findDuplicates(c, body);
+        // El celular compartido con el familiar que se declara al registrar no es un duplicado.
+        const d = (await findDuplicates(c, body, null, body.family?.relatedPatientId ?? null)).filter((x) => !x.declaredFamily);
         if (d.length) throw new AppError(409, "possible_duplicate", "Hay pacientes parecidos ya registrados", { duplicates: d });
       }
+      if (body.family) await prefillGuardian(c, body);
       const res = await insertPatient(c, auth, body);
+      if (body.family) await createRelationship(c, auth, res.id, body.family);
       const who = { id: res.id, name: `${body.firstName} ${body.lastName}`, preferredBranchId: body.preferredBranchId };
       if (body.consentReminders) await recordConsentFlag(c, auth, who, "reminders", true);
       if (body.consentMarketing) await recordConsentFlag(c, auth, who, "marketing", true);

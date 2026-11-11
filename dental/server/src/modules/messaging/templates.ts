@@ -5,7 +5,7 @@
 // prestación, tratamiento o diagnóstico, y una plantilla que intente usarla se rechaza.
 
 export const VARIABLES = [
-  "nombre", "clinica", "sucursal", "direccion", "fecha", "hora", "profesional", "enlace_confirmar", "enlace_portal", "telefono_sucursal",
+  "nombre", "clinica", "sucursal", "direccion", "fecha", "hora", "profesional", "enlace_confirmar", "enlace_portal", "telefono_sucursal", "enlace_encuesta",
 ] as const;
 export type Variable = (typeof VARIABLES)[number];
 
@@ -20,12 +20,13 @@ export const VARIABLE_LABELS: Record<Variable, string> = {
   enlace_confirmar: "Enlace para confirmar o pedir reprogramar la cita",
   enlace_portal: "Enlace al portal del paciente o a la reserva",
   telefono_sucursal: "Teléfono o WhatsApp de la sucursal",
+  enlace_encuesta: "Enlace a la encuesta de satisfacción (un solo uso)",
 };
 
 /** Palabras que nunca pueden ser variables (datos clínicos). */
 const CLINICAL = /^(procedimientos?|tratamientos?|diagn[oó]sticos?|prestaci[oó]n(es)?|servicios?|procedures?|treatments?|diagnosis|diagnoses|motivo|pieza|diente)$/i;
 
-export const TRIGGERS = ["appointment_created", "appointment_reminder", "after_visit", "recall_due", "budget_unanswered"] as const;
+export const TRIGGERS = ["appointment_created", "appointment_reminder", "after_visit", "recall_due", "budget_unanswered", "satisfaction_survey"] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 
 export const TRIGGER_LABELS: Record<Trigger, string> = {
@@ -34,15 +35,17 @@ export const TRIGGER_LABELS: Record<Trigger, string> = {
   after_visit: "Después de la visita (cuidados o encuesta)",
   recall_due: "Control pendiente (volver a citar)",
   budget_unanswered: "Presupuesto sin respuesta",
+  satisfaction_survey: "Encuesta de satisfacción (después de la cita atendida)",
 };
 
 /** Variables disponibles según el disparador (lo que no existe en ese contexto se rechaza al guardar la regla). */
 export const TRIGGER_VARIABLES: Record<Trigger, readonly Variable[]> = {
-  appointment_created: VARIABLES,
-  appointment_reminder: VARIABLES,
+  appointment_created: VARIABLES.filter((v) => v !== "enlace_encuesta"),
+  appointment_reminder: VARIABLES.filter((v) => v !== "enlace_encuesta"),
   after_visit: ["nombre", "clinica", "sucursal", "direccion", "fecha", "hora", "profesional", "enlace_portal", "telefono_sucursal"],
   recall_due: ["nombre", "clinica", "sucursal", "direccion", "fecha", "profesional", "enlace_portal", "telefono_sucursal"],
   budget_unanswered: ["nombre", "clinica", "sucursal", "direccion", "fecha", "profesional", "enlace_portal", "telefono_sucursal"],
+  satisfaction_survey: ["nombre", "clinica", "sucursal", "fecha", "telefono_sucursal", "enlace_encuesta"],
 };
 
 export const OPT_OUT_LINE = "Responde BAJA para no recibir más.";
@@ -129,5 +132,6 @@ export function sampleVars(clinicName: string, publicUrl: string): Record<Variab
     nombre: "Lucía", clinica: clinicName, sucursal: "Sucursal Centro (ejemplo)", direccion: "Av. Ejemplo 123",
     fecha: "jueves 12 de noviembre", hora: "10:30", profesional: "Dra. Ejemplo",
     enlace_confirmar: `${publicUrl}/c/EJEMPLO`, enlace_portal: `${publicUrl}/mi-cuenta/ejemplo`, telefono_sucursal: "+591 70000000",
+    enlace_encuesta: `${publicUrl}/e/EJEMPLO`,
   };
 }

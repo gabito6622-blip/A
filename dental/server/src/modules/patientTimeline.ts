@@ -21,13 +21,14 @@ import { BUDGET_LABELS, METHOD_LABELS } from "./billing.js";
 import { FILE_KIND_LABELS } from "./clinicalFiles-core.js";
 import { CALL_OUTCOME_LABELS } from "./coordination/calls.js";
 
-export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages", "files"] as const;
+export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages", "files", "feedback"] as const;
 export type TimelineCategory = (typeof TIMELINE_CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   appointments: "Citas", notes: "Notas clínicas", odontogram: "Odontograma", budgets: "Presupuestos",
   payments: "Cargos y pagos", documents: "Documentos firmados", recalls: "Controles y contactos", messages: "Mensajes",
   files: "Imágenes y archivos",
+  feedback: "Encuestas de satisfacción",
 };
 
 /** Permiso que habilita cada fuente. */
@@ -35,6 +36,8 @@ const CATEGORY_PERM: Record<TimelineCategory, Permission> = {
   appointments: "agenda.read", notes: "clinical.read", odontogram: "clinical.read", budgets: "budgets.read",
   payments: "payments.read", documents: "patients.read", recalls: "agenda.read", messages: "patients.read",
   files: "clinical.read",
+  // Los comentarios de la encuesta los lee propietario y administración (como el panel de satisfacción).
+  feedback: "clinic.manage",
 };
 
 export function allowedCategories(auth: Pick<AuthCtx, "permissions">): TimelineCategory[] {
@@ -193,6 +196,12 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            u.full_name, b.name, NULL::timestamptz, NULL::bigint
       FROM clinical_file_events e JOIN clinical_files f ON f.id = e.file_id JOIN branches b ON b.id = f.branch_id JOIN users u ON u.id = e.user_id
      WHERE f.patient_id = $1`,
+  feedback: () => `
+    SELECT s.answered_at, 'sv:' || s.id, 'survey.answered', 'feedback',
+           jsonb_build_object('score', s.score, 'comment', left(s.comment, 240), 'followup', s.followup_note),
+           NULL::text, b.name, a.starts_at, NULL::bigint
+      FROM satisfaction_surveys s JOIN branches b ON b.id = s.branch_id JOIN appointments a ON a.id = s.appointment_id
+     WHERE s.patient_id = $1 AND s.answered_at IS NOT NULL`,
 };
 
 const NOTE_KINDS: Record<string, string> = { evolution: "Evolución", diagnosis: "Diagnóstico", prescription: "Receta", referral: "Derivación", consent: "Consentimiento", other: "Nota" };
@@ -296,6 +305,11 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
       }
       return { title: `${r.kind === "file.archived" ? "Se archivó" : "Se restauró"}: ${label}`, detail: [teeth, x.reason].filter(Boolean).join(" · ") || null };
     }
+    case "survey.answered":
+      return {
+        title: `Respondió la encuesta de satisfacción: ${x.score}/10${x.score <= 6 ? " (detractor)" : x.score >= 9 ? " (promotor)" : ""}`,
+        detail: [`Visita del ${f(r.appt_at)}`, x.comment ? `«${x.comment}»` : null, x.followup ? `Seguimiento: ${x.followup}` : null].filter(Boolean).join(" · "),
+      };
     default:
       return { title: r.kind, detail: null };
   }

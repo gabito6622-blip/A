@@ -6,6 +6,7 @@ import { useApi, useDebounced } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { age, fmtDate, fmtDateTime } from "../lib/format";
 import { Dialog, Empty, Field, Loading, useToast } from "../components/ui";
+import { RELATION_OPTIONS } from "../components/family/FamilyCard";
 
 export function PatientsPage() {
   const { can } = useAuth();
@@ -75,9 +76,11 @@ export function PatientFormDialog({ patient, onClose, onSaved }: { patient?: any
   const [err, setErr] = useState<string | null>(null);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const minor = (age(f.birthDate || null) ?? 99) < 18;
-  const save = async (allowDuplicate = false) => {
+  // R2-39: el celular compartido con un familiar no es un duplicado si se declara la relación.
+  const [family, setFamily] = useState<{ relatedPatientId: string; relation: string; legalGuardian: boolean } | null>(null);
+  const save = async (allowDuplicate = false, fam = family) => {
     setErr(null);
-    const body: any = { ...f };
+    const body: any = { ...f, ...(fam && !patient ? { family: fam } : {}) };
     for (const k of Object.keys(body)) if (body[k] === "") body[k] = null;
     if (body.documentType !== "SIN" && !body.documentNumber) { setErr("Indica el número de documento o elige 'Sin documento'"); return; }
     try {
@@ -100,6 +103,23 @@ export function PatientFormDialog({ patient, onClose, onSaved }: { patient?: any
           <div className="alert warn stack-sm">
             <b>Ya hay pacientes parecidos. Revisa antes de duplicar el expediente:</b>
             {dups.map((d) => <a key={d.id} href={`/pacientes/${d.id}`}>Ficha {d.recordNumber}: {d.firstName} {d.lastName} — coincide por {d.reason}</a>)}
+            {!patient && dups.some((d) => d.reason === "teléfono") && (
+              <div className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+                <b className="small">¿Comparten celular porque son familia? Regístralo como familiar (no es un duplicado):</b>
+                {dups.filter((d) => d.reason === "teléfono").map((d) => (
+                  <div key={d.id} className="row" style={{ gap: 6 }}>
+                    <select className="input" style={{ maxWidth: 220 }} aria-label={`Qué es ${d.firstName} ${d.lastName} del paciente nuevo`}
+                      value={family && family.relatedPatientId === d.id ? family.relation : ""}
+                      onChange={(e) => setFamily(e.target.value ? { relatedPatientId: d.id, relation: e.target.value, legalGuardian: minor && ["mother", "father", "guardian"].includes(e.target.value) } : null)}>
+                      <option value="">{d.firstName} es…</option>
+                      {RELATION_OPTIONS.filter((r) => r.id !== "other").map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                    <button className="btn btn-sm" disabled={family?.relatedPatientId !== d.id} onClick={() => save(false)}>Registrar como familiar de {d.firstName}</button>
+                  </div>
+                ))}
+                {family && minor && family.legalGuardian && <span className="muted small">Se registrará como su tutor legal y se completarán los datos del responsable.</span>}
+              </div>
+            )}
             <button className="btn btn-sm btn-danger" style={{ alignSelf: "flex-start" }} onClick={() => save(true)}>Es otra persona: registrar igual</button>
           </div>
         )}

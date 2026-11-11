@@ -19,6 +19,7 @@ import { ClinicalDocumentsPanel, PdfButton } from "../components/ClinicalDocumen
 import { ClinicalFilesPanel } from "../components/ClinicalFiles";
 import { PatientContactActions } from "../components/coordination/Calls";
 import { PatientAgreementsCard } from "../components/agreements/AgreementWidgets";
+import { PatientFamilyCard, PatientTagsRow } from "../components/family";
 
 type Tab = "resumen" | "odontograma" | "periodontograma" | "historia" | "presupuestos" | "cuenta" | "consentimientos" | "documentos" | "imagenes";
 
@@ -51,6 +52,7 @@ export function PatientDetailPage() {
               {pt.archivedAt && <span className="badge danger">Archivado</span>}
             </div>
             <PatientContactActions who={{ patientId: pt.id, patientName: `${pt.firstName} ${pt.lastName}`, phone: pt.phone }} />
+            <PatientTagsRow patientId={id!} />
           </div>
           <div className="row">
             {p.data.account && (
@@ -101,6 +103,7 @@ export function PatientDetailPage() {
             <Row k="Consentimiento actualizado" v={pt.consentUpdatedAt ? fmtDateTime(pt.consentUpdatedAt) : null} />
           </div>
           <PatientAgreementsCard patientId={id!} />
+          <PatientFamilyCard key={id} patient={pt} />
           {can("agenda.read") && <PatientRecallsCard patientId={id!} />}
           {(can("clinical.read") || can("budgets.read")) && <PatientLabCard patientId={id!} patientName={`${pt.firstName} ${pt.lastName}`} />}
           <PatientTimeline patientId={id!} />

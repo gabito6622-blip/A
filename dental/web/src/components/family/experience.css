@@ -1,0 +1,66 @@
+/* Experiencia del paciente: familia, etiquetas, segmentos, encuestas y QR de llegada. */
+.xp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; border: 1px solid transparent; line-height: 1.5; max-width: 100%; overflow-wrap: anywhere; }
+.xp-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.xp-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.xp-chip-toggle { cursor: pointer; min-height: 40px; padding: 6px 12px; background: #fff; border: 1.5px solid var(--line-2); font: inherit; font-size: 13.5px; color: var(--ink); }
+.xp-chip-toggle[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.xp-chip-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.xp-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.xp-member { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 18px; border-top: 1px solid var(--line); align-items: start; }
+.xp-member:first-child { border-top: none; }
+.xp-member .who { min-width: 0; overflow-wrap: anywhere; }
+.xp-member .money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-member .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Tablas que en el celular pasan a tarjetas apiladas */
+@media (max-width: 640px) {
+  .xp-table thead { display: none; }
+  .xp-table, .xp-table tbody, .xp-table tr, .xp-table td { display: block; width: 100%; }
+  .xp-table tr { border-bottom: 1px solid var(--line); padding: 10px 14px; }
+  .xp-table td { border: none !important; padding: 3px 0 !important; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .xp-table td::before { content: attr(data-label); color: var(--muted); font-size: 12.5px; text-align: left; flex: none; }
+  .xp-table td.xp-main { display: block; text-align: left; font-weight: 600; }
+  .xp-table td.xp-main::before { content: none; }
+}
+
+.xp-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .xp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.xp-nps-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--line); }
+.xp-nps-bar span { display: block; height: 100%; }
+
+.xp-qr { width: 100%; max-width: 240px; aspect-ratio: 1; margin: 0 auto; background: #fff; border-radius: 12px; padding: 8px; border: 1px solid var(--line); }
+.xp-qr svg { width: 100%; height: 100%; display: block; }
+.xp-url { font-size: 12.5px; overflow-wrap: anywhere; color: var(--muted); }
+
+/* Hoja imprimible del QR (solo se imprime esta zona) */
+.xp-print { text-align: center; }
+.xp-print .xp-qr { max-width: 320px; border: none; }
+@media print {
+  body.xp-printing .app > *:not(.main), body.xp-printing .main > *:not(.content) { display: none !important; }
+  body.xp-printing .content > * { display: none !important; }
+  body.xp-printing .overlay { position: static; background: none; padding: 0; display: block !important; }
+  body.xp-printing .dialog { box-shadow: none; border: none; max-width: none; width: 100%; }
+  body.xp-printing .dialog-head, body.xp-printing .dialog-foot { display: none !important; }
+  body.xp-printing .xp-print h2 { font-size: 30px; }
+  body.xp-printing .xp-print p { font-size: 18px; }
+}
+
+/* Páginas públicas (encuesta y llegada) */
+.xp-scale { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+@media (min-width: 420px) { .xp-scale { grid-template-columns: repeat(11, 1fr); gap: 6px; } }
+.xp-scale button { min-height: 48px; border-radius: 12px; border: 1.5px solid var(--line-2); background: #fff; font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); cursor: pointer; padding: 0; }
+.xp-scale button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand); color: #fff; }
+.xp-scale button:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.xp-scale-legend { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.xp-big-icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto; }
+.xp-big-icon.ok { background: #dcfce7; color: #166534; }
+.xp-big-icon.info { background: var(--brand-soft); color: var(--brand-ink); }
+.xp-big-icon.warn { background: #fef3c7; color: #92400e; }
+.xp-center { text-align: center; }
+.xp-pin { letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* Botones táctiles de 40 px o más en las vistas del módulo */
+.xp .btn-sm, .xp .btn { min-height: 40px; }
+.xp .card-head { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 640px) { .xp-table td .xp-nps-bar { flex: 1; max-width: 60%; align-self: center; } }
