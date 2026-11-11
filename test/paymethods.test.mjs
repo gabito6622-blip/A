@@ -25,6 +25,7 @@ function setup() {
   const as = (c) => ({ id: "u_" + c.id, role: "customer", customerId: c.id });
   const yappy = s.payMethods.save(owner, { name: "Yappy", country: "Panamá", account: "6123-4567", holder: "Gabriel", priceGroupIds: ["panama"], replacesQr: true });
   const tigo = s.payMethods.save(owner, { name: "Tigo Money", country: "Paraguay", account: "0981 123 456", priceGroupIds: ["paraguay"] });
+  s.engine.s.settings.qrFileRef = "qr-bolivia.png"; // la tienda cargó su QR (sin QR no se ofrece "pagar con QR")
   return { s, ana, pedro, bo, as, yappy, tigo };
 }
 
@@ -94,6 +95,7 @@ describe("cobro por país (API)", () => {
 
   test("crear, subir QR, ver como cliente y borrar", async () => {
     const st = app.store, sys = { id: "t", role: "owner" };
+    st.engine.s.settings.qrFileRef = "qr-bolivia.png";
     st.catalog.upsertPriceGroup(sys, { id: "panama", name: "Panamá", prices: {} });
     const m = await call("POST", "/api/admin/paymethods", { name: "Yappy", account: "6123-4567", priceGroupIds: ["panama"], replacesQr: true });
     assert.equal(m.status, 200);
@@ -116,5 +118,13 @@ describe("cobro por país (API)", () => {
     assert.equal((await call("GET", "/api/me/paymethods", undefined, "")).status, 401);
     assert.equal((await call("POST", `/api/admin/paymethods/${m.json.id}/delete`, {})).status, 200);
     assert.deepEqual((await call("GET", "/api/me/paymethods", undefined, anaCk)).json, { qr: true, methods: [] });
+  });
+});
+
+describe("cobro: sin QR cargado no se ofrece pagar con QR", () => {
+  test("la tienda sin QR no ofrece QR (el cliente no queda pagando algo imposible)", () => {
+    const { s, bo, as } = setup();
+    delete s.engine.s.settings.qrFileRef;
+    assert.equal(s.payMethods.mine(as(bo)).qr, false);
   });
 });

@@ -98,10 +98,12 @@ function footer() {
     st.tiktok && [`https://www.tiktok.com/@${encodeURIComponent(st.tiktok)}`, "TikTok"],
     st.facebook && [`https://facebook.com/${encodeURIComponent(st.facebook)}`, "Facebook"],
   ].filter(Boolean);
-  $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ")
-    + (MODE === "store" ? ` · <a href="/hub">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "")
-    + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`)
-    + ` · <a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`;
+  $("#footWa").innerHTML = [
+    ...links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`),
+    MODE === "store" ? `<a href="/hub">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? `<a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "",
+    `<a href="/terminos">Términos</a>`, MODE === "rshop" ? "" : `<a href="/privacidad">Privacidad</a>`,
+    `<a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`,
+  ].filter(Boolean).join(" · ");
   softwareNotice();
 }
 
@@ -184,7 +186,10 @@ async function loadPrivate() {
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "fallas") S.data.tickets = await api("GET", "/api/me/tickets").catch(() => ({ kinds: {}, list: [] }));
-  if (S.view === "inicio" && hubPanel()) S.data.pushOn = await pushSubscribed();
+  if (S.view === "inicio" && hubPanel()) {
+    [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
+      api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
+  }
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller() && ["control", "debe", "ganancias"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
@@ -237,12 +242,14 @@ function brandStrip() {
 /* Banda de confianza: entrega, pago, soporte y contador. */
 function trustBand() {
   const n = (S.catalog ?? []).length;
+  const st = S.settings;
   const it = [
     ["⚡", n ? `${n}+` : "24/7", n ? "servicios al toque" : "siempre abierto"],
-    ["💳", "QR", "pago fácil y seguro"],
-    ["🕒", "al instante", "entrega inmediata"],
-    ["💬", "WhatsApp", "soporte de verdad"],
-  ];
+    st.hasQr && ["💳", "QR", "pago fácil y seguro"],
+    ["🕒", "con saldo", "entrega al instante"],
+    st.whatsapp && ["💬", "WhatsApp", "soporte de verdad"],
+    ["🛡️", "garantía", "reponemos si falla"],
+  ].filter(Boolean).slice(0, 4);
   return `<section class="trustband">${it.map(([e, b, s]) => `<div><span class="te">${e}</span><b>${esc(b)}</b><small>${esc(s)}</small></div>`).join("")}</section>`;
 }
 const hasCombos = () => (S.catalog ?? []).some((p) => p.kind === "combo" && p.comboParts?.length);
@@ -250,11 +257,11 @@ const hasCombos = () => (S.catalog ?? []).some((p) => p.kind === "combo" && p.co
 function availBar() {
   const wa = S.settings.whatsapp, hours = (S.settings.storeHours ?? "").trim();
   if (!wa && !hours) return "";
-  return `<div class="availbar"><span>🟢 ${hours ? esc(hours) : "Atención todos los días"} · respondemos por WhatsApp</span>${wa ? `<a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a>` : ""}</div>`;
+  return `<div class="availbar"><span>🟢 ${hours ? esc(hours) : "Te respondemos por WhatsApp"}${hours && wa ? " · respondemos por WhatsApp" : ""}</span>${wa ? `<a href="${waLink(wa, "Hola, tengo una consulta 👋")}" target="_blank" rel="noopener">💬 +${esc(String(wa).replace(/\D/g, ""))}</a>` : ""}</div>`;
 }
 /* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
 const FAQ_DEFAULT = [
-  ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Escribinos por WhatsApp y te pasamos una nueva al toque."],
+  ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Avisanos dentro de las 24 h desde Mis cuentas → ⚠️ Reportar falla y seguí el estado ahí mismo."],
   ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
   ["¿Cómo pago?", "Con QR y comprobante, o coordinando por WhatsApp. Te activamos y te avisamos cuando esté listo."],
   ["¿Es seguro comprar acá?", "Sí. Te entregamos tus accesos y te damos soporte por WhatsApp si algo falla."],
@@ -276,7 +283,7 @@ function asesorView() {
   // Apps que aparecen en algún combo, para el filtro "¿Qué querés que incluya?"
   const likeApps = [...new Set(combos.flatMap((c) => c.comboParts))].map((id) => product(id)).filter((p) => p).sort((x, y) => x.name.localeCompare(y.name));
   if (a.like && !likeApps.some((p) => p.id === a.like)) a.like = "";
-  let list = combos.filter((c) => c.price <= a.budget * 100 && (!a.plats || c.comboParts.length === a.plats) && (!a.like || c.comboParts.includes(a.like)));
+  let list = combos.filter((c) => (c.available || onDemand(c)) && c.price <= a.budget * 100 && (!a.plats || c.comboParts.length === a.plats) && (!a.like || c.comboParts.includes(a.like)));
   list.sort((x, y) => y.comboParts.length - x.comboParts.length || x.price - y.price);
   const partName = (id) => product(id)?.name ?? id;
   const comboCard = (c, best) => `<div class="acombo${best ? " best" : ""}">${best ? `<span class="abest">★ Mejor opción para vos</span>` : ""}
@@ -305,7 +312,7 @@ function card(p, badge) {
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s <= 2 ? `Últimas ${s} unidades` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
+  <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s === 1 ? "¡Queda 1!" : s <= 2 ? `Quedan ${s}` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
@@ -418,7 +425,7 @@ function pendingOrders() {
 
 function qrBlock() {
   const st = S.settings;
-  return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : "La tienda todavía no cargó su QR de cobro. Escribinos por WhatsApp para pagar."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
+  return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
 }
 /** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
 function localBlock(m, toPay) {
@@ -451,7 +458,7 @@ function buildNav() {
   const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : []), "cuentas", "codigos", "recargas"]
     : hubPanel() ? ["inicio", "precios", "cuentas", "codigos", "clientes", "recargas"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? [...(comboOn() ? ["inicio", "catalogo", "combo", "cart"] : ["inicio", "catalogo", "cart"])] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
-    : hubPanel() ? ["inicio", "precios", "cart", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
+    : hubPanel() ? ["inicio", "clientes", "precios", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
   const key = `${MODE}:${top}:${bottom}`;
   if (buildNav.last === key) return;
   buildNav.last = key;
@@ -471,6 +478,8 @@ function render() {
   const r = renderInner();
   enhanceFiles(document);
   if ($("#poster")) drawPoster();
+  const tabOn = $('.rtabs [aria-selected="true"]');
+  if (tabOn) tabOn.parentElement.scrollLeft = Math.max(0, tabOn.offsetLeft - 24); // la pestaña elegida siempre a la vista
   return r;
 }
 function renderInner() {
@@ -529,7 +538,7 @@ function renderInner() {
     combo: () => comboView(),
     asesor: () => asesorView(),
     fallas: () => fallasView(),
-    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp.</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
@@ -550,9 +559,11 @@ function renderInner() {
         const d = a.daysLeft;
         return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
-        <dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)}</dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)}</dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        <dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${a.canRenew === false
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.renewableNow === false
+          ? `<span class="rlock">🔒 Se renueva cuando la tienda renueve esta cuenta.${S.settings.whatsapp ? ` <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar a la tienda</a>` : ""}</span>`
+          : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button><button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button><button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
@@ -625,25 +636,28 @@ function rControlView() {
   const by = { cliente: (a, b) => a.client.localeCompare(b.client, "es"), app: (a, b) => a.product.localeCompare(b.product, "es"), precio: (a, b) => (b.price ?? 0) - (a.price ?? 0) }[T.sort];
   if (by) view = view.slice().sort(by);
   const sum = (l, f) => l.reduce((t, r) => t + (f(r) || 0), 0);
-  const soon = rows.filter((r) => !r.holdOpen && dl(r) >= -3 && dl(r) <= 3).sort((a, b) => a.expiresAt - b.expiresAt);
+  // Mismo criterio que Inicio: de los que vencieron hace poco a los que vencen esta semana.
+  const soon = rows.filter((r) => !r.holdOpen && dl(r) >= -3 && dl(r) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
+  const canR = (r) => r.canRenew && r.renewableNow !== false;
   const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const sel = new Set(S.data.rsel ?? []), selRows = rows.filter((r) => sel.has(r.id)), selCost = selRows.reduce((t, r) => t + (r.cost || 0), 0);
   const codesMsg = (r) => `Hola ${r.client.split(" ")[0]} 👋 si tu ${r.product} te pide un código para entrar, miralo acá al toque 👇\n${S.data.codeLink?.url}${S.data.codeLink?.mode === "pin" ? "\n(Entrá con el PIN que te pasé)" : "\n(Escribí el correo de tu cuenta)"}`;
   const pill = (r) => `<span class="rcest rc-${est(r)}">${r.holdOpen ? "Esperando fecha" : dl(r) < 0 ? `Venció hace ${-dl(r)} d` : dl(r) === 0 ? "Vence hoy" : `${dl(r)} d`}</span>`;
-  return `<div class="sbox rc-top"><div class="rkpis"><div><small>Servicios</small><b>${view.length}</b></div><div><small>Cobrás</small><b>${bs(sum(view, (r) => r.price))}</b></div><div><small>Te deben</small><b class="bad">${bs(sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price))}</b></div><div><small>Vencen en 3 días</small><b>${soon.length}</b></div></div>
+  const rr = S.data.renewResult && Date.now() - S.data.renewResult.at < 10 * 60_000 ? S.data.renewResult : null;
+  return `${rr ? `<div class="sbox ${rr.bad.length ? "rcwarn" : "rdone"}"><b>🔄 Renovaste ${rr.ok}${rr.bad.length ? ` · no se pudo ${rr.bad.length}` : " ✅"}</b>${rr.bad.map((x) => `<small class="empty">• ${esc(x)}</small>`).join("")}<button class="sbtn sm" type="button" data-rrclose="1" style="justify-self:start">Listo</button></div>` : ""}<div class="sbox rc-top"><div class="rkpis"><div><small>Servicios</small><b>${view.length}</b></div><div><small>Cobrás</small><b>${bs(sum(view, (r) => r.price))}</b></div><div><small>Te deben</small><b class="bad">${bs(sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price))}</b></div><div><small>Vencen en 3 días</small><b>${soon.length}</b></div></div>
       <input id="rcq" class="rsearch" placeholder="🔍 Buscar cliente, WhatsApp, app o nota" value="${esc(T.q)}" aria-label="Buscar en mi control">
       <div class="cats tkcats">${ESTS.map(([k, t]) => `<button type="button" data-rcf="${k}" aria-pressed="${T.f === k}">${t}</button>`).join("")}</div>
       <div class="tkbar"><span>${view.length} servicio(s)</span><label>Ordenar <select id="rcsort">${[["", "Por vencimiento"], ["cliente", "Cliente A-Z"], ["app", "App"], ["precio", "Precio"]].map(([v, t]) => `<option value="${v}" ${T.sort === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
         <button class="sbtn sm" type="button" data-rcsv="1">⬇️ Excel</button></div>
-      <div class="rcrenew"><button class="sbtn sm" type="button" data-rselsoon="1">☑️ Elegir los que vencen (3 días)</button>${sel.size ? `<button class="sbtn sm pri" type="button" data-rrenewsel="1">🔄 Renovar ${sel.size} · ${bs(selCost)}</button><button class="sbtn sm" type="button" data-rselclear="1">Quitar</button>` : `<small class="empty">Marcá ☐ en cada tarjeta para renovar varios juntos con tu saldo (${bs(S.me?.balance ?? 0)}).</small>`}</div></div>
-    ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen (${soon.filter(seen).length}/${soon.length} avisados)</h3><p class="empty" style="margin:0">Tocá cada uno: se abre WhatsApp con el mensaje listo y queda marcado.</p>
+      <div class="rcrenew"><button class="sbtn sm" type="button" data-rselsoon="1">☑️ Elegir los que vencen esta semana</button>${sel.size ? `<button class="sbtn sm pri" type="button" data-rrenewsel="1">🔄 Renovar ${sel.size} · ${bs(selCost)}</button><button class="sbtn sm" type="button" data-rselclear="1">Quitar</button>` : `<small class="empty">Marcá ☐ en cada tarjeta para renovar varios juntos con tu saldo (${bs(S.me?.balance ?? 0)}).</small>`}</div></div>
+    ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(seen).length}/${soon.length} avisados)</h3><p class="empty" style="margin:0">Tocá cada uno: se abre WhatsApp con el mensaje listo y queda marcado.</p>
       <div class="rcsoon">${soon.map((r) => `<div class="rcsoon-r ${seen(r) ? "done" : ""}"><span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${pill(r)}</small></span>${r.phone ? `<button class="sbtn sm ${seen(r) ? "" : "pri"}" type="button" data-ravisar="${esc(r.id)}">${seen(r) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
-    <div class="rclist">${view.map((r) => `<article class="rcard rc-${est(r)}${sel.has(r.id) ? " picked" : ""}"><header>${r.canRenew ? `<input class="rcsel" type="checkbox" data-rsel="${esc(r.id)}" ${sel.has(r.id) ? "checked" : ""} aria-label="Elegir ${esc(r.client)} para renovar">` : ""}<div><b>${esc(r.client)}</b><small>${esc(r.product)} · ${esc(r.profile)}</small></div>${pill(r)}</header>
+    <div class="rclist">${view.map((r) => `<article class="rcard rc-${est(r)}${sel.has(r.id) ? " picked" : ""}"><header>${canR(r) ? `<input class="rcsel" type="checkbox" data-rsel="${esc(r.id)}" ${sel.has(r.id) ? "checked" : ""} aria-label="Elegir ${esc(r.client)} para renovar">` : ""}<div><b>${esc(r.client)}</b><small>${esc(r.product)} · ${esc(r.profile)}</small></div>${pill(r)}</header>
       <div class="rcrow"><span>Vence <b>${fdate(r.expiresAt)}</b></span>${r.phone ? `<span class="empty">${esc(r.phone.replace(/^\+591/, ""))}</span>` : ""}</div>
       <div class="rcrow"><label>Le cobro<input class="rcin" data-rc="${esc(r.id)}" data-f="price" inputmode="decimal" value="${r.price !== null ? r.price / 100 : ""}" placeholder="Bs"></label>
         <label>Pago<select class="rcin pay-${r.pay}" data-rc="${esc(r.id)}" data-f="payStatus">${Object.entries(PAYS).map(([k, t]) => `<option value="${k}" ${r.pay === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
       <label class="rcnote">Nota<input class="rcin" data-rc="${esc(r.id)}" data-f="note" maxlength="120" value="${esc(r.note)}" placeholder="Ej.: paga los lunes"></label>
-      <footer>${r.canRenew ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
+      <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 function rDebeView() {
   const ov = S.data.rfiado ?? { rows: [], totals: {} }, det = S.data.rfdetail;
@@ -667,10 +681,11 @@ function rEarnView() {
   if (!g) return `<div class="sbox"><p class="empty" style="margin:0">No pudimos cargar tus ganancias. Probá de nuevo.</p></div>`;
   const m = g.month, max = Math.max(1, ...g.months.map((x) => Math.max(x.revenue, x.cost)));
   return `<div class="sbox"><h2 style="margin:0">📈 Mis ganancias · ${esc(m.label)}</h2>
-      <div class="rkpis"><div><small>Ventas y renovaciones</small><b>${m.sales}</b></div><div><small>Cobraste</small><b>${bs(m.revenue)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div><div><small>Ganaste</small><b class="ok">${bs(m.profit)}</b></div></div>
+      <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
+      <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · cobraste ${bs(p.revenue)} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
-    <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> cobraste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
+    ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
+    <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> vendiste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
 }
 /* ---------------- Fallas, avisos al celular, app instalable y afiches ---------------- */
 const TK_ST = { recibido: ["📥", "Recibido"], revisando: ["🔧", "Revisando"], solucionado: ["✅", "Solucionado"] };
@@ -680,7 +695,7 @@ function fallasView() {
   const order = ["recibido", "revisando", "solucionado"];
   const okMsg = (t) => `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}\nProbá entrar de nuevo y cualquier cosa me avisás 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   return `<div class="sec-h"><div><span class="chip">Soporte</span><h2>⚠️ Reportar una falla</h2><p>Contanos qué pasa y seguí el estado acá: <b>Recibido → Revisando → Solucionado</b>. Si activaste los avisos, te llega al celular cuando cambia.</p></div></div>
-    <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${esc(a.customerName)} · ${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
+    <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${isReseller() ? `${esc(a.customerName)} · ` : ""}${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
       <label>¿Qué pasa?<select name="kind">${Object.entries(T.kinds).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
       <label>Detalle (opcional)<textarea name="note" maxlength="300" rows="2" placeholder="Ej.: dice contraseña incorrecta desde hoy a la mañana"></textarea></label>
       <button class="sbtn pri" type="submit">Enviar reporte</button></form>` : `<p class="empty" style="margin:0">No tenés servicios activos para reportar.</p>`}</div>
@@ -723,10 +738,23 @@ function infoModal(title, html) {
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between;gap:8px">${title}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><p>${html}</p><button class="sbtn pri" type="button" data-close="1">Entendido</button></div>`;
   $("#modal").hidden = false;
 }
+/** "Tu día": lo que el revendedor tiene que hacer hoy, en una sola tarjeta con botones directos. */
+function todayCard() {
+  const rows = S.data.rctl, fi = S.data.rfiado, g = S.data.rearn;
+  if (!rows && !fi && !g) return "";
+  const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length;
+  const owed = fi?.totals?.owed ?? 0, gain = g?.month ? (g.month.profitCollected ?? g.month.profit) : null;
+  const it = [
+    ["control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : ""],
+    ["debe", "💸", owed ? bs(owed) : "Bs 0", owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
+    ["ganancias", "📈", gain === null ? "—" : bs(gain), "ganaste este mes", "g"],
+  ];
+  return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small></button>`).join("")}</div></section>`;
+}
 function appCard() {
   return `<div class="sbox hquick"><b>📲 Tu panel en el celular</b><div class="hqrow two">
       ${standalone() ? `<span class="sbtn" aria-disabled="true"><span>✅</span>Ya es una app</span>` : `<button class="sbtn" type="button" data-rinstall="1"><span>📲</span>Instalar como app</button>`}
-      ${S.data.pushOn ? `<button class="sbtn" type="button" data-rpushtest="1"><span>🔔</span>Avisos activos ✓<small>Probar</small></button>` : `<button class="sbtn" type="button" data-rpush="1"><span>🔔</span>Activar avisos</button>`}</div>
+      ${S.data.pushCfg && !S.data.pushCfg.configured ? "" : S.data.pushOn ? `<button class="sbtn" type="button" data-rpushtest="1"><span>🔔</span>Avisos activos ✓<small>Probar</small></button>` : `<button class="sbtn" type="button" data-rpush="1"><span>🔔</span>Activar avisos</button>`}</div>
     <small class="empty">Te avisamos cuando tus clientes vencen mañana, si te falta saldo para renovarlos y cuando se soluciona una falla.</small></div>`;
 }
 
@@ -751,7 +779,9 @@ const loadImg = (src) => new Promise((ok) => { const i = new Image(); i.onload =
 async function drawPoster() {
   const cv = $("#poster"); if (!cv) return;
   const P = S.data.poster, st = POSTER_STYLES[P.style] ?? POSTER_STYLES.noche, sh = S.data.shop ?? {};
-  const rows = (S.data.prices ?? []).filter((p) => p.sell !== null && !P.off.includes(p.productId)).slice(0, 11);
+  const sellable = (id) => { const p = product(id); return !p || p.available > 0 || onDemand(p); };
+  const own = (S.data.shop?.combos ?? []).map((cb) => ({ productId: `rc_${cb.id}`, name: cb.name, sell: cb.price, durationDays: 30 }));
+  const rows = [...(S.data.prices ?? []).filter((p) => p.sell !== null && sellable(p.productId)), ...own].filter((p) => !P.off.includes(p.productId)).slice(0, 11);
   const x = cv.getContext("2d"), W = 1080, H = 1920, F = "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, st.bg[0]); g.addColorStop(1, st.bg[1]);
   x.fillStyle = g; x.fillRect(0, 0, W, H);
@@ -801,8 +831,9 @@ async function renewMany(ids, el) {
     catch (e) { bad.push(`${r.client.split(" ")[0]} (${e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "su cuenta vence antes: avisá a la tienda" : e.code === "INSUFFICIENT_BALANCE" ? "sin saldo" : e.message})`); }
   }
   S.data.rsel = [];
+  S.data.renewResult = { ok, bad, at: Date.now() };
   await refresh();
-  toast(bad.length ? `🔄 Renovados ${ok} · no se pudo: ${bad.join(", ")}` : `🔄 ¡Listo! ${ok} renovado(s)`);
+  toast(bad.length ? `🔄 Renovados ${ok} · ${bad.length} no se pudo (mirá arriba)` : `🔄 ¡Listo! ${ok} renovado(s)`);
 }
 function resellerView() {
   const clients = S.data.customers ?? [];
@@ -818,7 +849,7 @@ function resellerView() {
     return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${bs(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
   const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
-    <div class="rbtns">${a.canRenew === false ? "" : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
+    <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda</span>` : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
   const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
@@ -832,9 +863,10 @@ function resellerView() {
 
     <form class="sbox sform" id="resSell"><h2>Vender a un cliente</h2>
       <label>Cliente<select name="client" required><option value="">Elegí un cliente…</option>${clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new">➕ Cliente nuevo</option></select></label>
-      <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" placeholder="+591 7…"></label></div>
+      <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" value="+591 " placeholder="+591 7…"></label></div>
       <label>Producto<select name="product" required><option value="">Elegí un producto…</option>${S.catalog.map((p) => `<option value="${esc(p.id)}" ${p.available ? "" : "disabled"}>${esc(p.name)} · ${bs(p.price)}${p.available ? "" : " · agotado"}</option>`).join("")}</select></label>
       <label>Cantidad<select name="qty">${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></label>
+      <fieldset class="rpaid"><legend>¿Te pagó?</legend><label class="chk"><input type="radio" name="paid" value="si" checked> Sí, ya me pagó</label><label class="chk"><input type="radio" name="paid" value="no"> Me paga después (queda en “Quién me debe”)</label></fieldset>
       <p class="empty" id="sellSum" style="margin:0">Elegí cliente y producto.</p>
       <button class="sbtn pri" type="submit">Comprar con mi saldo</button></form>
 
@@ -962,17 +994,18 @@ function resellerHome() {
     <div class="pgbar"><i style="width:${Math.round(rhechos / rpasos.length * 100)}%"></i></div>
     <div class="pasos">${rpasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="sbtn sm pri" type="button" ${go === "gopage" ? `data-gopage="1"` : go === "wiz" ? `data-wiz="1"` : `data-s="${go}"`}>${esc(b)}</button>`}</div>`).join("")}</div></section>` : "";
   return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+    ${isReseller() ? todayCard() : ""}
     ${setupR}
-    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow"><button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
+    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
+    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${hubPanel() ? appCard() : ""}
-    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
     ${referralCard(S.data.referrals)}
-    <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ""}.</p>
+    <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email && me.hasPassword ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ". Si querés, creá una contraseña para entrar también con tu correo"}.</p>
       <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
-      <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.email ? "Cambiar mi correo o contraseña" : "Entrar con correo y contraseña"}</button></div>`;
+      <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.hasPassword ? "Cambiar mi correo o contraseña" : "Crear mi contraseña"}</button></div>`;
 }
 
 /* ---------------- Asistente: tu página en 3 pasos ---------------- */
@@ -999,7 +1032,7 @@ function wizardView() {
   return `${steps}<div class="sbox wiz done"><div class="wbig">🎉</div><h2>¡Tu página está lista!</h2><p class="empty" style="margin:0">Compartila con tus clientes: te piden directo a tu WhatsApp.</p>
     <div class="linkrow"><code>${esc(url)}</code><button class="sbtn sm" type="button" data-copy="${esc(url)}">Copiar</button></div>
     <div class="hrow"><a class="sbtn pri" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a><a class="sbtn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a><a class="sbtn" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">Ver mi página</a></div>
-    <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> → Avanzado.</p>
+    <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> y bajá hasta <b>Colores</b> y <b>Letras</b>.</p>
     <button class="sbtn" type="button" data-wizexit="1">Volver al inicio</button></div>`;
 }
 
@@ -1287,7 +1320,7 @@ function combosEditor() {
   const nameOf = (id) => (priced.find((p) => p.productId === id)?.name ?? id);
   const draft = S.data.cdraft ?? { picks: [], price: "", name: "" };
   const sum = draft.picks.reduce((t, id) => t + (priced.find((p) => p.productId === id)?.sell ?? 0), 0);
-  return `<div class="sec-h"><div><span class="chip">Tus reglas</span><h2>Mis combos y descuentos</h2><p>Vos armás tus propios combos con tu precio, y ponés tus descuentos. Son independientes de los míos.</p></div></div>
+  return `<div class="sec-h"><div><span class="chip">Tus reglas</span><h2>Mis combos y descuentos</h2><p>Vos armás tus propios combos con tu precio, y ponés tus descuentos. Son independientes de los combos de la tienda.</p></div></div>
     ${priced.length < 2 ? `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>` : ""}
 
     <form class="sbox sform" id="discForm"><h2>✦ Armá tu combo (descuento por cantidad)</h2>
@@ -1377,7 +1410,11 @@ async function copyText(text) {
 }
 
 /* ---------------- carrito y pago ---------------- */
+/** Al abrir el carrito o una ventana dejamos una marca en el historial: "Atrás" la cierra en vez de salir. */
+function markSheet() { if (!history.state?.sheet) history.pushState({ sheet: 1 }, "", location.href); }
+window.addEventListener("popstate", () => { if (!$("#drawer").hidden || !$("#modal").hidden) closeAll(true); });
 function openDrawer() {
+  markSheet();
   $("#modal").hidden = true;
   $("#drawer").hidden = false;
   $("#scrim").hidden = false;
@@ -1385,10 +1422,12 @@ function openDrawer() {
   S.checkoutKey = newKey();
   renderCart();
 }
-function closeAll() {
+function closeAll(fromHistory = false) {
+  const open = !$("#drawer").hidden || !$("#modal").hidden;
   $("#modal").hidden = true;
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
+  if (open && !fromHistory && history.state?.sheet) history.back();
 }
 /* ---------------- Armá tu combo ---------------- */
 function comboView() {
@@ -1483,7 +1522,7 @@ function renderCart(msg = "") {
 }
 function renderCartInner(msg = "") {
   const tot = cartTotal();
-  const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps"><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
+  const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps" ${SLUG ? "hidden" : ""}><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
@@ -1498,7 +1537,7 @@ function renderCartInner(msg = "") {
     const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
     $("#drawer").innerHTML = head
       + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
-      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock()}` : `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>`}
+      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock()}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
       ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
       <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
@@ -1508,7 +1547,8 @@ function renderCartInner(msg = "") {
   const net = toPay - (cup?.amount ?? 0);
   const canBalance = S.me.balance >= net && !cartBackorder();
   const pmx = S.data.payMethods ?? { qr: true, methods: [] };
-  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : "qr";
+  const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || S.settings.binance;
+  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
     ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
@@ -1517,15 +1557,16 @@ function renderCartInner(msg = "") {
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
     ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
-    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Revisamos el pago en 10–30 minutos.</small></span></label>` : ""}
+    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
     ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
-    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación o hash<input name="ref" placeholder="Ej.: 123456789 o el hash de la transacción"></label></div>
-    <button class="sbtn pri" type="submit">Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
+    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
+    ${anyPay ? "" : `<div class="err" role="alert">Tu saldo no alcanza y la tienda todavía no cargó otra forma de pago. ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Recargá saldo o volvé en un rato."}</div>`}
+    <button class="sbtn pri" type="submit" ${anyPay ? "" : "disabled"}>Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
 
 async function submitCheckout(form) {
@@ -1606,7 +1647,7 @@ async function submitCheckout(form) {
 
 /* ---------------- acceso ---------------- */
 function openLogin(step, phone = "", msg = "", email = "") {
-  if (!step) step = MODE === "store" ? "email" : "pin";
+  if (!step) step = "pin"; // toda la tienda dice "entrá con tu número": el correo queda como alternativa
   $("#drawer").hidden = true;
   const st = S.settings;
   const body = {
@@ -1628,12 +1669,13 @@ function openLogin(step, phone = "", msg = "", email = "") {
     pin: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
       <label>Tu PIN (4 números)<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" class="pinbox" placeholder="••••"></label>
       <button class="sbtn pri" type="submit">Entrar</button>
-      <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="email">Entrar con correo</button><button class="sbtn sm" type="button" data-loginstep="phone">No tengo PIN / soy nuevo</button></div>`,
+      <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="email">Entrar con correo</button><button class="sbtn sm" type="button" data-loginstep="phone">Olvidé mi PIN / soy nuevo</button></div>`,
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
     link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da la tienda por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a la tienda para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
   }[step];
+  markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
   $("#modal").hidden = false;
   $("#scrim").hidden = false;
@@ -1721,9 +1763,10 @@ function previewTheme(id) {
 function setView(v) {
   if (!VIEWS.includes(v)) v = "inicio";
   if (S.pvTheme && v !== "inicio") previewTheme(null);
-  if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
+  // pushState: así el botón "Atrás" del celular vuelve a la pantalla anterior de la tienda, no afuera.
+  if (location.hash !== "#" + v) history.pushState(null, "", "#" + v);
   S.view = v;
-  closeAll();
+  closeAll(true);
   scrollTo(0, 0);
   loadPrivate().then(render, (e) => toast(e.message));
   render();
@@ -1763,8 +1806,15 @@ document.addEventListener("click", async (ev) => {
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); return;
   }
-  if (d.rselsoon) { S.data.rsel = (S.data.rctl ?? []).filter((r) => r.canRenew && !r.holdOpen && daysLeft(r.expiresAt) <= 3).map((r) => r.id); if (!S.data.rsel.length) toast("Nadie vence en los próximos 3 días 🙌"); return render(); }
+  if (d.rselsoon) {
+    const all = (S.data.rctl ?? []).filter((r) => r.canRenew && !r.holdOpen && daysLeft(r.expiresAt) <= 7);
+    S.data.rsel = all.filter((r) => r.renewableNow !== false).map((r) => r.id);
+    const locked = all.length - S.data.rsel.length;
+    toast(!all.length ? "Nadie vence esta semana 🙌" : locked ? `Elegí ${S.data.rsel.length}. ${locked} los renueva la tienda (🔒)` : `Elegí ${S.data.rsel.length} para renovar`);
+    return render();
+  }
   if (d.rselclear) { S.data.rsel = []; return render(); }
+  if (d.rrclose) { S.data.renewResult = null; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
   if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
@@ -1850,6 +1900,8 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.delcombo) {
+    const cb0 = (S.data.shop.combos ?? []).find((c) => c.id === d.delcombo);
+    if (!confirm(`¿Borrar el combo “${cb0?.name ?? ""}”? Tus clientes dejan de verlo en tu página.`)) return;
     const combos = (S.data.shop.combos ?? []).filter((c) => c.id !== d.delcombo);
     try { S.data.shop = await api("PUT", "/api/me/shop", { combos: combos.map((c) => ({ id: c.id, name: c.name, productIds: c.productIds, price: c.price })) }); toast("Combo borrado"); } catch (e) { toast(e.message); }
     return render();
@@ -1859,7 +1911,7 @@ document.addEventListener("click", async (ev) => {
     const t = PAGE_TEMPLATES.find((x) => x.id === d.tpl);
     if (!t || !confirm(`¿Usar la página "${t.name}"? Se cambian los colores, las letras, la forma de mostrar y los textos de la portada. Tu nombre, logo, WhatsApp y precios quedan igual.`)) return;
     el.disabled = true;
-    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Página “${t.name}” aplicada: miralá con “Abrir”`); render(); }
+    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Página “${t.name}” aplicada: mirala con “Abrir”`); render(); }
     catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
@@ -1869,7 +1921,7 @@ document.addEventListener("click", async (ev) => {
     const txt = (t) => ({ heroTitle: t.look.heroTitle, heroHighlight: t.look.heroHighlight, heroText: t.look.heroText, heroChip: t.look.heroChip });
     const body = d.mixl ? { layout: d.mixl } : d.mixt ? txt(PAGE_TEMPLATES.find((x) => x.id === d.mixt)) : { ...pick(THEMES).look, layout: pick(LAYOUT_LIST)[0], ...txt(pick(PAGE_TEMPLATES)) };
     el.disabled = true; S.data.mixOpen = true;
-    try { S.data.shop = await api("PUT", "/api/me/shop", body); toast(d.mixrand ? "🎲 Combinación nueva aplicada: miralá con “Abrir”" : "Listo, aplicado"); render(); }
+    try { S.data.shop = await api("PUT", "/api/me/shop", body); toast(d.mixrand ? "🎲 Combinación nueva aplicada: mirala con “Abrir”" : "Listo, aplicado"); render(); }
     catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
@@ -1890,7 +1942,7 @@ document.addEventListener("click", async (ev) => {
   if (d.add) {
     const p = product(d.add);
     const l = S.cart.find((x) => x.productId === d.add);
-    if ((l?.qty ?? 0) >= maxQty(p)) return toast("No hay más unidades disponibles");
+    if ((l?.qty ?? 0) >= maxQty(p)) return toast(maxQty(p) ? "No hay más unidades disponibles" : `${p.name} está agotado por ahora`);
     l ? l.qty++ : S.cart.push({ productId: d.add, qty: 1 });
     saveCart(); closeAll(); render();
     return toast(`${p.name} agregado al carrito`);
@@ -2108,14 +2160,20 @@ document.addEventListener("submit", async (ev) => {
       }
       if (!f.product.value) throw new Error("Elegí un producto");
       try {
+        const pname = f.product.selectedOptions[0]?.textContent.split(" · ")[0] ?? "este servicio";
+        if (!confirm(`¿Comprar ${f.qty.value} × ${pname} con tu saldo?`)) return;
         const o = await api("POST", "/api/orders", { customerId, items: [{ productId: f.product.value, qty: +f.qty.value }], paymentMethod: "balance", idempotencyKey: newKey() });
         S.data.lastSale = o.assignmentIds ?? [];
-        toast("¡Vendido! Abajo tenés los datos para mandarle");
+        // "Me paga después": queda Pendiente en Mi control y se anota solo en Quién me debe.
+        if (f.paid?.value === "no") for (const id of S.data.lastSale) await api("POST", `/api/me/control/${id}`, { payStatus: "pendiente" }).catch(() => {});
+        toast(f.paid?.value === "no" ? "¡Vendido! Quedó anotado en “Quién me debe”" : "¡Vendido! Acá tenés los datos para mandarle");
       } catch (e) {
         if (e.code === "INSUFFICIENT_BALANCE") { toast("Tu saldo no alcanza: recargá primero"); await refresh(); return setView("recargas"); }
         throw e;
       }
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      await refresh();
+      $(".rdone")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     } else if (f.id === "discForm") {
       const d = [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0"));
       if (d.some((v) => Number.isNaN(v) || v < 0)) throw new Error("Revisá los descuentos: solo números");

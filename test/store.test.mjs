@@ -1360,7 +1360,8 @@ describe("Herramientas del revendedor: su control, su fiado y sus ganancias", ()
     assert.throws(() => s.rtools.control(as(maria)), err("FORBIDDEN"), "un cliente común no tiene control");
     // Anota que no le pagó y lo pasa a SU fiado
     s.rtools.setControl(as(carla), rows[0].id, { payStatus: "pendiente", price: 4500 });
-    assert.deepEqual(s.fiado.fromControl(as(carla), cli.id), { added: 1, amount: 4500 });
+    // Se anota solo en su libreta (no hace falta "Pasarlos acá")
+    assert.deepEqual(s.fiado.fromControl(as(carla), cli.id), { added: 0, amount: 0 });
     assert.equal(s.fiado.overview(as(carla)).totals.owed, 4500);
     assert.equal(s.fiado.overview(owner).totals.owed, 0, "el dueño no ve lo que le deben a Carla");
     assert.throws(() => s.fiado.charge(as(carla), { customerId: maria.id, amount: 100 }), err("FORBIDDEN"), "no anota fiado a clientes ajenos");
@@ -1409,5 +1410,27 @@ describe("Fallas y renovar varios: revendedor y dueño", () => {
     assert.deepEqual([pub.hasQr, pub.payNote, pub.qrFileRef], [true, "Banco Unión · Carla", undefined]);
     assert.equal(s.shops.image("carla-tv", "qr"), "qr-carla.png");
     assert.throws(() => s.shops.update(as(carla), { payNote: "x".repeat(161) }), err("VALIDATION"));
+  });
+});
+
+describe("Pulido: Mi control, libreta y ganancias siempre de acuerdo", () => {
+  test("No pagó → la libreta lo anota y Ganancias lo separa; Pagado → se salda solo", () => {
+    const { s, carla, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Rodrigo", phone: "71112222" });
+    assert.equal(cli.phone, "+59171112222", "el número sin +591 se guarda con código de país");
+    assert.throws(() => s.catalog.createCustomer(as(carla), { name: "Rodrigo bis", phone: "+591 7111 2222" }), err("VALIDATION"), "no se repite el cliente");
+    s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    const row = s.rtools.control(as(carla))[0];
+    let g = s.rtools.earnings(as(carla)).month;
+    assert.deepEqual([g.revenue, g.unpaid, g.collected], [4000, 0, 4000]);
+    s.rtools.setControl(as(carla), row.id, { payStatus: "no_pago" });
+    assert.equal(s.fiado.overview(as(carla)).totals.owed, 4000, "Quién me debe ya lo muestra");
+    g = s.rtools.earnings(as(carla)).month;
+    assert.deepEqual([g.revenue, g.unpaid, g.collected, g.profitCollected], [4000, 4000, 0, -2500], "vendiste 40, cobraste 0");
+    s.rtools.setControl(as(carla), row.id, { payStatus: "pagado" });
+    assert.equal(s.fiado.overview(as(carla)).totals.owed, 0, "marcar Pagado salda la libreta");
+    assert.equal(s.rtools.earnings(as(carla)).month.collected, 4000);
   });
 });

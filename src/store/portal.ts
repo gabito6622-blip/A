@@ -5,7 +5,7 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, normalizePhone, priceFor, visibleTo } from "./catalog.js";
+import { canActFor, phoneTaken, phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
 import { balance } from "./wallet.js";
 import { renewableNow } from "./orders.js";
 
@@ -83,10 +83,10 @@ export function updateMyClient(e: Engine, actor: Actor, customerId: Id, patch: {
     if (!c || c.resellerId !== actor.customerId) throw new DomainError("FORBIDDEN", "Ese cliente no es tuyo");
     const changed: string[] = [];
     if (patch.phone !== undefined) {
-      const phone = normalizePhone(String(patch.phone));
+      const phone = phoneWithCountry(String(patch.phone));
       if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");
       if (phone !== c.phone) {
-        if (Object.values(e.s.customers).some((x) => x.id !== c.id && x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+        if (phoneTaken(e, phone, c.id)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
         c.phone = phone; changed.push("phone");
       }
     }
