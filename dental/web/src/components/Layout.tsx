@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useApi } from "../lib/hooks";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
+import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package, MessageCircleReply } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { FlaskConical, PhoneCall, ListTodo, ScrollText, Scale, Handshake, Landmark, Menu, X, HeartHandshake, FileUp, LifeBuoy } from "lucide-react";
 import { TaskCount, TaskDot } from "./coordination/TaskCount";
+import { ReplyCount } from "./messaging/ReplyCount";
 import { HelpButton } from "./onboarding/HelpButton";
 
 export const Logo = () => (
@@ -33,6 +34,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
         { group: "day", to: "/tareas", label: "Tareas", icon: ListTodo, show: can("tasks.use") },
         { group: "patients", to: "/pacientes", label: "Pacientes", icon: Users, show: can("patients.read") },
         { group: "patients", to: "/presupuestos", label: "Presupuestos", icon: FileText, show: can("budgets.read") },
+        { group: "patients", to: "/respuestas", label: "Respuestas", icon: MessageCircleReply, show: can("patients.read") },
         { group: "money", to: "/caja", label: "Caja", icon: Wallet, show: can("payments.read") },
         { group: "patients", to: "/experiencia", label: "Experiencia", icon: HeartHandshake, show: can("patients.read") || can("clinic.manage") },
         { group: "patients", to: "/convenios", label: "Convenios", icon: Handshake, show: can("patients.read") && (can("payments.read") || can("clinic.manage")) },
@@ -73,7 +75,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
             <div className="nav-group" key={g.id} role="group" aria-label={g.label}>
               {sections.length > 1 && g.label && <div className="nav-title" aria-hidden>{g.label}</div>}
               {g.items.map((i) => (
-                <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={18} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
+                <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={18} />{i.label}{i.to === "/tareas" && <TaskCount />}{i.to === "/respuestas" && <ReplyCount />}</NavLink>
               ))}
             </div>
           ))}
@@ -101,7 +103,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
       </div>
       <nav className="bottom-nav" aria-label="Navegación móvil">
         {quick.map((i) => (
-          <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
+          <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}{i.to === "/respuestas" && <ReplyCount />}</NavLink>
         ))}
         {items.length > quick.length && (
           <button type="button" className={inMore ? "active" : ""} aria-expanded={moreOpen} aria-controls="menu-completo" onClick={() => setMoreOpen(true)}>
@@ -123,7 +125,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
                   {g.label && <div className="more-title">{g.label}</div>}
                   <div className="more-grid">
                     {g.items.map((i) => (
-                      <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
+                      <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}{i.to === "/respuestas" && <ReplyCount />}</NavLink>
                     ))}
                   </div>
                 </div>

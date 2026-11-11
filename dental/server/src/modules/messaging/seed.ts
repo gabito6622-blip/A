@@ -42,3 +42,26 @@ export async function seedMessagingDemo(q: Q, clinicId: string) {
       [clinicId, name, trigger, off, ids[tpl], active]);
   }
 }
+
+/**
+ * Respuestas de ejemplo de pacientes por WhatsApp (B-070), ficticias, para la bandeja de recepción.
+ * Una por sucursal de la lista, con un paciente de esa sucursal; idempotente por provider_message_id.
+ */
+export async function seedRepliesDemo(q: Q, clinicId: string) {
+  const texts = [
+    "Hola, ¿puedo pasar mi cita del jueves a la tarde?",
+    "Gracias, ahí estaré puntual.",
+    "¿Cuánto cuesta la limpieza? Mi hijo también necesita.",
+  ];
+  const branches = (await q("SELECT id, code FROM branches WHERE clinic_id = $1 AND active ORDER BY code", [clinicId])).rows as { id: string; code: string }[];
+  let i = 0;
+  for (const b of branches) {
+    const p = (await q("SELECT id, phone FROM patients WHERE clinic_id = $1 AND preferred_branch_id = $2 AND phone IS NOT NULL ORDER BY record_number LIMIT 1", [clinicId, b.id])).rows[0];
+    if (!p) continue;
+    await q(
+      `INSERT INTO inbound_messages (clinic_id, patient_id, sender, body, kind, provider_message_id, branch_id, created_at)
+       VALUES ($1,$2,$3,$4,'other',$5,$6, now() - make_interval(mins => $7)) ON CONFLICT (clinic_id, provider_message_id) DO NOTHING`,
+      [clinicId, p.id, String(p.phone).replace(/\D/g, "").slice(-12), texts[i % texts.length], `demo.respuesta.${b.code}`, b.id, 30 + i * 47]);
+    i++;
+  }
+}

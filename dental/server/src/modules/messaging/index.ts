@@ -8,6 +8,7 @@ import type { Messenger } from "../../lib/messaging.js";
 import { messagingMessenger } from "./scheduler.js";
 import { messagingPublicRoutes, WEBHOOK_PATH } from "./public.js";
 import { messagingStaffRoutes } from "./routes.js";
+import { messagingReplyRoutes } from "./replies.js";
 
 export { runSchedulerOnce, runForClinic, startMessagingScheduler } from "./scheduler.js";
 
@@ -31,4 +32,5 @@ export function messagingRoutes(route: Route, cfg: Config, app: FastifyInstance,
   });
   messagingPublicRoutes(route, cfg, messenger);
   messagingStaffRoutes(route, cfg, messenger);
+  messagingReplyRoutes(route);
 }

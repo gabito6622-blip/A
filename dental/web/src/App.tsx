@@ -27,6 +27,7 @@ import { ConfirmAppointmentPage } from "./pages/ConfirmAppointment";
 import { VerifyPage } from "./pages/Verify";
 import { InventoryPage } from "./pages/Inventory";
 import { TasksPage } from "./pages/Tasks";
+import { RepliesPage } from "./pages/Replies";
 import { ActivityPage } from "./pages/Activity";
 import { ManagementPage } from "./pages/Management";
 import { AgreementsPage } from "./pages/Agreements";
@@ -79,6 +80,7 @@ export function App() {
         <Route path="/laboratorio/*" element={<LabPage />} />
         <Route path="/inventario" element={<InventoryPage />} />
         <Route path="/tareas" element={<TasksPage />} />
+        <Route path="/respuestas" element={<RepliesPage />} />
         <Route path="/actividad" element={<ActivityPage />} />
         <Route path="/gestion" element={<ManagementPage />} />
         <Route path="/convenios" element={<AgreementsPage />} />

@@ -16,7 +16,7 @@ import { seedBudgetsV2 } from "../modules/budgets-v2-seed.js";
 import { seedPortalDemo } from "../modules/portal/seed.js";
 import { seedLabDemo } from "../modules/labSeed.js";
 import { seedAgendaPlusDemo } from "../modules/agendaPlusDemo.js";
-import { seedMessagingDemo } from "../modules/messaging/seed.js";
+import { seedMessagingDemo, seedRepliesDemo } from "../modules/messaging/seed.js";
 import { seedDocumentsDemo } from "../modules/documents-seed.js";
 import { seedInventoryDemo } from "../modules/inventory/seed.js";
 import { seedClinicalFilesDemo } from "../modules/clinicalFilesSeed.js";
@@ -236,6 +236,7 @@ try {
   await seedLabDemo(db.adminPool, clinicId);
   await seedAgendaPlusDemo(db.adminPool, clinicId);
   await seedMessagingDemo(q, clinicId);
+  await seedRepliesDemo(q, clinicId);
   await seedDocumentsDemo(db, clinicId, cfg.publicUrl);
   await seedInventoryDemo(db.adminPool, clinicId);
   await seedClinicalFilesDemo(db, clinicId, cfg);
