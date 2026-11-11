@@ -1078,3 +1078,11 @@ input[type=color]{min-width:44px;min-height:44px}
 .reflink input{min-height:44px}
 .rcin{background:var(--s-bg);color:var(--s-ink);border:1px solid var(--s-line);border-radius:12px}
 .shop[data-light="1"] .spill.sp-ok{color:#06603f}
+
+/* Revendedor de afuera: montos también en USDT y elección de cómo paga la recarga */
+.price small.usdt{display:block;color:var(--s-muted);font-weight:600}
+.packs small.usdt{display:block;font-size:12px;color:var(--s-muted)}
+.tmethod{border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;display:grid;gap:6px;margin:0}
+.tmethod legend{font-weight:700;padding:0 4px}
+#topup .tmethod label{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;min-height:44px;text-align:left}
+#topup .tmethod label input{width:auto;min-height:0;margin:0}

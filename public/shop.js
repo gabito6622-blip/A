@@ -4,7 +4,7 @@
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
 import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
-import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView } from "/country.js";
+import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock } from "/ownstock.js";
 import { appMark, appsRow } from "/applogo.js";
 
@@ -318,12 +318,12 @@ function card(p, badge) {
   if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? "✅ Disponible · pagás con QR y te lo activamos al confirmar" : "A pedido · pagás con QR y te la entregamos al confirmar"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small></div>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small>${usdtHint(p.price)}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s === 1 ? "¡Queda 1!" : s <= 2 ? `Quedan ${s}` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${usdtHint(p.price)}${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
 /* ---------------- Diseño "Lista tipo ticket": catálogo directo, filas compactas ---------------- */
@@ -452,6 +452,10 @@ function localBlock(m, toPay) {
   </div></div>`;
 }
 /** Instrucciones de pago en USDT manual: cuánto mandar, a qué dirección / Pay ID. */
+// Revendedor de afuera (Paraguay, Panamá…): paga en USDT por Binance. Ve los montos también en USDT y el QR de Bolivia no se le ofrece.
+const abroad = () => !!S.settings.usdt && !!myLocale()?.country && myLocale().country !== "BO";
+const usdtOf = (cents) => (S.settings.usdt?.rate ? Math.ceil((cents / 100) / S.settings.usdt.rate * 100) / 100 : null);
+const usdtHint = (cents) => (abroad() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
 function usdtBlock(toPay) {
   const u = S.settings.usdt;
   if (!u) return "";
@@ -598,8 +602,9 @@ function renderInner() {
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
-      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
-        ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
+      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
+        ${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
+        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
@@ -1663,7 +1668,7 @@ function renderCartInner(msg = "") {
   const canBalance = S.me.balance >= net && !cartBackorder();
   const pmx = S.data.payMethods ?? { qr: true, methods: [] };
   const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || S.settings.binance;
-  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
+  const firstPm = canBalance ? "balance" : abroad() ? "usdt" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
     ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
@@ -1672,7 +1677,7 @@ function renderCartInner(msg = "") {
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
     ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
-    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
+    ${pmx.qr && !abroad() ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
@@ -2187,6 +2192,16 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("focusin", (ev) => { if (ev.target?.dataset?.selectall) ev.target.select(); });
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
+  // Recarga: QR de Bolivia o USDT; el monto en USDT sigue al paquete elegido.
+  if ((t.name === "tm" || t.name === "pack") && t.form?.id === "topup") {
+    const usdt = t.form.tm?.value === "usdt" || (!t.form.tm && abroad());
+    const q = $("#tmQr"), u = $("#tmUsdt");
+    if (q) q.hidden = usdt;
+    if (u) { u.hidden = !usdt; u.innerHTML = usdtBlock(+t.form.pack.value); }
+    const l = $("#tmRefLbl"); if (l) l.textContent = usdt ? "Hash o número de la transacción" : "Número de operación";
+    if (t.form.ref) t.form.ref.placeholder = usdt ? "Pegá el hash de Binance" : "Ej.: 123456789";
+    return;
+  }
   if (t.name === "pm") {
     const proof = t.value === "qr" || t.value === "usdt" || t.value.startsWith("local:");
     const pp = $("#proofPart"); if (pp) pp.hidden = !proof;
@@ -2345,7 +2360,7 @@ document.addEventListener("submit", async (ev) => {
       render();
     } else if (f.id === "topup") {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
-      await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
+      await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method: f.tm?.value === "usdt" || (!f.tm && abroad()) ? "usdt" : "qr" });
       toast("Recarga enviada: la acreditamos al verificar el pago");
     } else if (f.id === "resSell") {
       let customerId = f.client.value;

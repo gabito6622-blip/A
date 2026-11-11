@@ -914,8 +914,12 @@ export function updateStaffAlerts(e: Engine, actor: Actor, patch: Partial<StaffA
 
 /* ---------------- Recargas de saldo ---------------- */
 
-export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
+export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }, method: "qr" | "usdt" = "qr"): Order {
   requireActFor(e, actor, customerId);
+  // Revendedores de afuera (Paraguay, Panamá…) recargan mandando USDT por Binance: solo si el dueño lo configuró.
+  const u = e.s.settings.usdt;
+  if (method === "usdt" && !(u?.enabled && (u.address || u.payId) && u.rate)) throw new DomainError("VALIDATION", "La tienda todavía no recibe USDT");
+  if (method !== "qr" && method !== "usdt") throw new DomainError("VALIDATION", "Elegí cómo pagaste");
   if (!Number.isInteger(amount) || amount < 1000 || amount > 500_000) throw new DomainError("VALIDATION", "La recarga debe estar entre Bs 10 y Bs 5.000");
   if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el comprobante o el número de operación");
   return e.tx(() => {
@@ -924,12 +928,12 @@ export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Ce
     const o: Order = {
       id: e.id("ord"), kind: "topup", customerId, payerId: customerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : "store", items: [], total: amount, topupAmount: amount, status: "payment_review",
-      paymentMethod: "qr", evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
+      paymentMethod: method, evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
       reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
     };
     e.s.orders[o.id] = o;
     if (!isStaff(actor)) alertPayment(e, o);
-    e.audit(actor, "topup.request", "order", o.id, { amount });
+    e.audit(actor, "topup.request", "order", o.id, { amount, method });
     return structuredClone(o);
   });
 }

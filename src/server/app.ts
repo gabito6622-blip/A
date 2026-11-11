@@ -677,7 +677,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) });
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr");
       autoReview(o.id);
       return o;
     } catch (e) {
