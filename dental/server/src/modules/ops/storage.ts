@@ -2,7 +2,7 @@
 // (distinto de los archivos clínicos). Solo se listan, descargan o borran archivos con el nombre
 // exacto de un respaldo (dental-AAAAMMDDTHHMMSSZ…), y solo dentro de la carpeta o prefijo propio.
 import { constants, createReadStream, createWriteStream } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, open, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { S3ObjectClient } from "../../lib/filestore-s3.js";
@@ -10,8 +10,11 @@ import { targetLabel, type BackupTarget } from "./config.js";
 
 /** Archivos que forman un juego de respaldo. */
 export const BACKUP_FILE_RE = /^dental-(?:files-)?(\d{8}T\d{6}Z)\.(?:dump(?:\.enc)?(?:\.sha256)?|tar\.gz(?:\.enc)?(?:\.sha256)?|manifest\.json)$/;
-/** Límite de una subida en un solo PUT (S3 admite 5 GB; las subidas por partes quedan pendientes). */
-export const MAX_SINGLE_PUT = 4.5 * 1024 ** 3;
+/** Hasta este tamaño se sube en un solo PUT; más grande, por partes (B-101). */
+export const SINGLE_PUT_MAX = 64 * 1024 ** 2;
+/** Tamaño de cada parte (S3 pide al menos 5 MB salvo la última y como máximo 10 000 partes: hasta 640 GB). */
+export const PART_SIZE = 64 * 1024 ** 2;
+const MAX_PARTS = 10_000;
 
 export interface BackupObject { name: string; size: number; modifiedAt: Date }
 
@@ -68,7 +71,8 @@ export class LocalBackupStorage implements BackupStorage {
 export class S3BackupStorage implements BackupStorage {
   readonly kind = "s3" as const;
   private readonly client: S3ObjectClient;
-  constructor(private readonly target: Extract<BackupTarget, { kind: "s3" }>, fetchImpl: typeof fetch = fetch) {
+  constructor(private readonly target: Extract<BackupTarget, { kind: "s3" }>, fetchImpl: typeof fetch = fetch,
+    private readonly sizes: { singlePutMax: number; partSize: number } = { singlePutMax: SINGLE_PUT_MAX, partSize: PART_SIZE }) {
     this.client = new S3ObjectClient(target.s3, fetchImpl);
   }
   get label() { return targetLabel(this.target); }
@@ -86,8 +90,28 @@ export class S3BackupStorage implements BackupStorage {
   async upload(name: string, srcPath: string) {
     assertName(name);
     const st = await stat(srcPath);
-    if (st.size > MAX_SINGLE_PUT) throw new Error("El respaldo supera 4,5 GB: hace falta la subida por partes (pendiente)");
-    await this.client.putObject(this.target.prefix + name, await readFile(srcPath), { ifNoneMatch: true });
+    const key = this.target.prefix + name;
+    if (st.size <= this.sizes.singlePutMax) {
+      await this.client.putObject(key, await readFile(srcPath), { ifNoneMatch: true });
+      return;
+    }
+    // Por partes, leyendo el archivo de a una parte (la memoria no crece con el tamaño del respaldo).
+    const partSize = Math.max(this.sizes.partSize, Math.ceil(st.size / MAX_PARTS));
+    const uploadId = await this.client.createMultipartUpload(key);
+    const fh = await open(srcPath, "r");
+    try {
+      const parts: { partNumber: number; etag: string }[] = [];
+      for (let n = 1, pos = 0; pos < st.size; n++, pos += partSize) {
+        const buf = Buffer.alloc(Math.min(partSize, st.size - pos));
+        const { bytesRead } = await fh.read(buf, 0, buf.length, pos);
+        if (bytesRead !== buf.length) throw new Error("El archivo del respaldo cambió mientras se subía");
+        parts.push({ partNumber: n, etag: await this.client.uploadPart(key, uploadId, n, buf) });
+      }
+      await this.client.completeMultipartUpload(key, uploadId, parts, { ifNoneMatch: true });
+    } catch (e) {
+      await this.client.abortMultipartUpload(key, uploadId);
+      throw e;
+    } finally { await fh.close(); }
   }
 
   async download(name: string, destPath: string) {

@@ -2,7 +2,7 @@
 // proveedor real. Verifica la firma SigV4 de cada solicitud con la clave secreta conocida (rechaza
 // con 403 SignatureDoesNotMatch como AWS), el SHA-256 del cuerpo declarado y la fecha; implementa
 // PutObject (con If-None-Match y cifrado del lado del servidor), GetObject, DeleteObject y
-// ListObjectsV2 con prefijo y paginación.
+// ListObjectsV2 con prefijo y paginación, y la subida por partes (Create/UploadPart/Complete/Abort).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createHash } from "node:crypto";
@@ -22,6 +22,12 @@ export interface FakeS3 {
   /** Si es false, responde como un proveedor que no admite x-amz-server-side-encryption. */
   supportsSse: boolean;
   pageSize: number;
+  /** Subidas por partes en curso (UploadId → partes). */
+  uploads: Map<string, { key: string; parts: Map<number, Buffer>; sse: string | null }>;
+  /** Tamaño mínimo de cada parte salvo la última (AWS: 5 MB). */
+  minPartSize: number;
+  /** Si se define, esa parte responde 500 (para probar la cancelación). */
+  failPart: number | null;
   close(): Promise<void>;
 }
 
@@ -36,6 +42,7 @@ export async function startFakeS3(opts: { bucket?: string; accessKeyId?: string;
   const s3: Omit<FakeS3, "url" | "close"> = {
     bucket: opts.bucket ?? "dental-test", accessKeyId: opts.accessKeyId ?? "AKIDFAKETEST", secretAccessKey: opts.secretAccessKey ?? "secreto/de+prueba/NO-REAL",
     region: opts.region ?? "auto", objects: new Map(), log: [], supportsSse: true, pageSize: 1000,
+    uploads: new Map(), minPartSize: 5 * 1024 * 1024, failPart: null,
   };
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<number> {
@@ -80,6 +87,51 @@ export async function startFakeS3(opts: { bucket?: string; accessKeyId?: string;
         + `<IsTruncated>${next ? "true" : "false"}</IsTruncated>${next ? `<NextContinuationToken>${next}</NextContinuationToken>` : ""}</ListBucketResult>`);
       return 200;
     }
+    // --- subida por partes ---
+    if (req.method === "POST" && u.searchParams.has("uploads")) {
+      const sse = (req.headers["x-amz-server-side-encryption"] as string | undefined) ?? null;
+      const id = createHash("sha256").update(`${key}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 32);
+      s3.uploads.set(id, { key, parts: new Map(), sse });
+      res.writeHead(200, { "content-type": "application/xml" });
+      res.end(`<?xml version="1.0" encoding="UTF-8"?><InitiateMultipartUploadResult><Bucket>${s3.bucket}</Bucket><Key>${xml(key)}</Key><UploadId>${id}</UploadId></InitiateMultipartUploadResult>`);
+      return 200;
+    }
+    const uploadId = u.searchParams.get("uploadId");
+    if (uploadId) {
+      const up = s3.uploads.get(uploadId);
+      if (!up || up.key !== key) return err(res, 404, "NoSuchUpload");
+      if (req.method === "PUT") {
+        const n = Number(u.searchParams.get("partNumber"));
+        if (!Number.isInteger(n) || n < 1 || n > 10_000) return err(res, 400, "InvalidArgument");
+        if (s3.failPart === n) return err(res, 500, "InternalError");
+        up.parts.set(n, body);
+        res.writeHead(200, { etag: `"${createHash("md5").update(body).digest("hex")}"` });
+        res.end();
+        return 200;
+      }
+      if (req.method === "POST") {
+        const listed = [...body.toString().matchAll(/<Part><PartNumber>(\d+)<\/PartNumber><ETag>([^<]+)<\/ETag><\/Part>/g)].map((m) => ({ n: Number(m[1]), etag: m[2]!.replace(/&quot;/g, '"') }));
+        if (!listed.length) return err(res, 400, "MalformedXML");
+        for (let i = 0; i < listed.length; i++) {
+          const part = up.parts.get(listed[i]!.n);
+          if (!part || `"${createHash("md5").update(part).digest("hex")}"` !== listed[i]!.etag) return err(res, 400, "InvalidPart");
+          if (i > 0 && listed[i]!.n <= listed[i - 1]!.n) return err(res, 400, "InvalidPartOrder");
+          if (i < listed.length - 1 && part.length < s3.minPartSize) return err(res, 400, "EntityTooSmall");
+        }
+        if (req.headers["if-none-match"] === "*" && s3.objects.has(key)) return err(res, 412, "PreconditionFailed");
+        s3.objects.set(key, { body: Buffer.concat(listed.map((p) => up.parts.get(p.n)!)), lastModified: new Date(), sse: up.sse });
+        s3.uploads.delete(uploadId);
+        res.writeHead(200, { "content-type": "application/xml" });
+        res.end(`<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUploadResult><Key>${xml(key)}</Key></CompleteMultipartUploadResult>`);
+        return 200;
+      }
+      if (req.method === "DELETE") {
+        s3.uploads.delete(uploadId);
+        res.writeHead(204);
+        res.end();
+        return 204;
+      }
+    }
     if (req.method === "PUT") {
       const sse = (req.headers["x-amz-server-side-encryption"] as string | undefined) ?? null;
       if (sse && !s3.supportsSse) return err(res, 501, "NotImplemented");
@@ -118,6 +170,8 @@ export async function startFakeS3(opts: { bucket?: string; accessKeyId?: string;
     ...s3,
     get supportsSse() { return s3.supportsSse; }, set supportsSse(v) { s3.supportsSse = v; },
     get pageSize() { return s3.pageSize; }, set pageSize(v) { s3.pageSize = v; },
+    get minPartSize() { return s3.minPartSize; }, set minPartSize(v) { s3.minPartSize = v; },
+    get failPart() { return s3.failPart; }, set failPart(v) { s3.failPart = v; },
     url: `http://127.0.0.1:${port}`,
     close: () => new Promise<void>((r) => { server.closeAllConnections(); server.close(() => r()); }),
   };

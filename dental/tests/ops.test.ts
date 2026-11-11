@@ -424,3 +424,52 @@ describe("configuración y mínimo privilegio", () => {
     } finally { c.release(); }
   });
 });
+
+describe("subida por partes de respaldos grandes (B-101)", () => {
+  const s3cfg = (s3: Awaited<ReturnType<typeof startFakeS3>>) => loadOpsConfig(loadConfig({ ...process.env }), {
+    BACKUP_S3_ENDPOINT: s3.url, BACKUP_S3_REGION: s3.region, BACKUP_S3_BUCKET: s3.bucket,
+    BACKUP_S3_ACCESS_KEY_ID: s3.accessKeyId, BACKUP_S3_SECRET_ACCESS_KEY: s3.secretAccessKey, BACKUP_S3_PREFIX: "respaldos/",
+  }).backup.target as Extract<OpsConfig["backup"]["target"], { kind: "s3" }>;
+
+  it("un archivo más grande que el umbral se sube por partes y queda idéntico; uno chico, de una vez", async () => {
+    const s3 = await startFakeS3();
+    s3.minPartSize = 1024;
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "dental-multipart-"));
+      const big = Buffer.from(randomUUID().repeat(400)); // ~14 KB
+      writeFileSync(join(dir, "big"), big);
+      const storage = new S3BackupStorage(s3cfg(s3), fetch, { singlePutMax: 4096, partSize: 4096 });
+      await storage.upload("dental-20261111T071500Z.dump.enc", join(dir, "big"));
+      const o = s3.objects.get("respaldos/dental-20261111T071500Z.dump.enc")!;
+      expect(Buffer.compare(o.body, big)).toBe(0);
+      expect(o.sse).toBe("AES256");
+      const parts = s3.log.filter((l) => l.method === "PUT" && l.path.includes("partNumber="));
+      expect(parts).toHaveLength(Math.ceil(big.length / 4096));
+      expect(s3.uploads.size).toBe(0);
+      // No sobrescribe un respaldo existente.
+      await expect(storage.upload("dental-20261111T071500Z.dump.enc", join(dir, "big"))).rejects.toThrow(/ya existe/);
+      // Uno chico: un solo PUT, sin partes.
+      writeFileSync(join(dir, "small"), Buffer.from("chico"));
+      const before = s3.log.length;
+      await storage.upload("dental-20261111T071500Z.manifest.json", join(dir, "small"));
+      expect(s3.log.slice(before).map((l) => l.method)).toEqual(["PUT"]);
+      rmSync(dir, { recursive: true, force: true });
+    } finally { await s3.close(); }
+  });
+
+  it("si una parte falla, la subida se cancela (sin partes huérfanas) y el respaldo no aparece", async () => {
+    const s3 = await startFakeS3();
+    s3.minPartSize = 1024;
+    s3.failPart = 2;
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "dental-multipart-"));
+      writeFileSync(join(dir, "big"), Buffer.alloc(10_000, 7));
+      const storage = new S3BackupStorage(s3cfg(s3), fetch, { singlePutMax: 4096, partSize: 4096 });
+      await expect(storage.upload("dental-20261112T071500Z.dump.enc", join(dir, "big"))).rejects.toThrow();
+      expect(s3.uploads.size).toBe(0);
+      expect(s3.objects.has("respaldos/dental-20261112T071500Z.dump.enc")).toBe(false);
+      expect(s3.log.some((l) => l.method === "DELETE" && l.path.includes("uploadId="))).toBe(true);
+      rmSync(dir, { recursive: true, force: true });
+    } finally { await s3.close(); }
+  });
+});

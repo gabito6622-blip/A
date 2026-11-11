@@ -70,7 +70,7 @@ export class S3ObjectClient {
     return { url, path };
   }
 
-  async send(op: string, method: string, key: string | null, opts: { body?: Buffer; query?: [string, string][]; headers?: Record<string, string> } = {}) {
+  async send(op: string, method: string, key: string | null, opts: { body?: Buffer; query?: [string, string][]; headers?: Record<string, string>; timeoutMs?: number } = {}) {
     const { url, path } = this.target(key, opts.query);
     const payloadHash = opts.body ? payloadSha256(opts.body) : EMPTY_SHA256;
     const date = amzDate(this.now());
@@ -82,7 +82,7 @@ export class S3ObjectClient {
     try {
       res = await this.fetchImpl(url, {
         method, headers: { ...sendHeaders, authorization: sig.authorization }, body: opts.body ? new Uint8Array(opts.body) : undefined,
-        signal: AbortSignal.timeout(this.cfg.timeoutMs ?? 30_000), redirect: "manual",
+        signal: AbortSignal.timeout(opts.timeoutMs ?? this.cfg.timeoutMs ?? 30_000), redirect: "manual",
       });
     } catch (e) {
       throw new S3Error(0, (e as Error).name === "TimeoutError" ? "Timeout" : "NetworkError", op);
@@ -104,6 +104,47 @@ export class S3ObjectClient {
     if (res.status === 412) { await res.body?.cancel(); throw new Error("La clave de almacenamiento ya existe"); }
     if (!res.ok) await this.fail("subir", res);
     await res.body?.cancel();
+  }
+
+  // ---------------- Subida por partes (B-101: respaldos de más de 4,5 GB) ----------------
+  /** CreateMultipartUpload: devuelve el UploadId. */
+  async createMultipartUpload(key: string, opts: { contentType?: string } = {}): Promise<string> {
+    const headers: Record<string, string> = { "content-type": opts.contentType ?? "application/octet-stream" };
+    if (this.cfg.sse) headers["x-amz-server-side-encryption"] = this.cfg.sse;
+    const res = await this.send("iniciar subida por partes", "POST", key, { query: [["uploads", ""]], headers });
+    if (!res.ok) await this.fail("iniciar subida por partes", res);
+    const id = xmlText(await res.text(), "UploadId");
+    if (!id) throw new S3Error(res.status, "NoUploadId", "iniciar subida por partes");
+    return id;
+  }
+
+  /** UploadPart: devuelve el ETag de la parte (hace falta para completar). */
+  async uploadPart(key: string, uploadId: string, partNumber: number, data: Buffer, timeoutMs = 300_000): Promise<string> {
+    const res = await this.send("subir parte", "PUT", key, { body: data, query: [["partNumber", String(partNumber)], ["uploadId", uploadId]], timeoutMs });
+    if (!res.ok) await this.fail("subir parte", res);
+    await res.body?.cancel();
+    const etag = res.headers.get("etag");
+    if (!etag) throw new S3Error(res.status, "NoETag", "subir parte");
+    return etag;
+  }
+
+  /** CompleteMultipartUpload. Con `ifNoneMatch` (si el proveedor lo admite) nunca sobrescribe. */
+  async completeMultipartUpload(key: string, uploadId: string, parts: { partNumber: number; etag: string }[], opts: { ifNoneMatch?: boolean } = {}): Promise<void> {
+    const body = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUpload>${parts
+      .map((p) => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${p.etag.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;")}</ETag></Part>`).join("")}</CompleteMultipartUpload>`);
+    const headers: Record<string, string> = { "content-type": "application/xml" };
+    if (opts.ifNoneMatch && this.cfg.conditionalPut) headers["if-none-match"] = "*";
+    const res = await this.send("completar subida por partes", "POST", key, { body, query: [["uploadId", uploadId]], headers, timeoutMs: 300_000 });
+    if (res.status === 412) { await res.body?.cancel(); throw new Error("La clave de almacenamiento ya existe"); }
+    // S3 puede responder 200 con un <Error> en el cuerpo si la unión falla al final.
+    const text = await res.text().catch(() => "");
+    if (!res.ok || /<Error>/.test(text)) throw new S3Error(res.status, xmlText(text, "Code") ?? "Unknown", "completar subida por partes");
+  }
+
+  /** AbortMultipartUpload: libera las partes ya subidas (si falla, el proveedor las limpia con su regla de ciclo de vida). */
+  async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+    const res = await this.send("cancelar subida por partes", "DELETE", key, { query: [["uploadId", uploadId]] }).catch(() => null);
+    await res?.body?.cancel();
   }
 
   /** GetObject en streaming; null si no existe (404). */
