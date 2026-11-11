@@ -2,6 +2,44 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.6.0] — 2026-11-11
+
+Preparación del piloto: que la clínica pueda arrancar sola, traer sus datos y operar con seguridad y velocidad a escala. Cuatro equipos en paralelo (migraciones 0021–0024) más la integración.
+
+### Agregado
+- **Puesta en marcha (B-006):**
+  - «Primeros pasos» en el Inicio del propietario: lista calculada desde los datos reales (clínica y membrete, sucursales y consultorios, personal, horarios, precios con aviso si siguen los de ejemplo, tipos de cita, consentimientos revisados, verificación en dos pasos, pacientes), con progreso y enlace a cada pantalla;
+  - «Ayuda» con guías por rol, buscador y botón «?» que abre la guía de la pantalla actual;
+  - «Importar datos» desde Excel: pacientes, citas futuras (validadas con la agenda) y saldos iniciales; revisión sin guardar, importación con el número exacto confirmado, sin duplicar al reimportar, reporte de errores fila por fila y plantillas con ejemplos;
+  - el saldo inicial es un movimiento de apertura de solo inserción que el saldo del paciente suma, sin contar como producción ni como cobro.
+- **Archivos clínicos para producción (B-081):**
+  - miniaturas generadas en el navegador: la galería ya no descarga ni audita originales;
+  - almacenamiento S3 compatible (AWS, Cloudflare R2, Backblaze B2, MinIO) con firma SigV4 propia, cifrado AES256 y sin SDK;
+  - barrido de huérfanos `npm run files:sweep` (simulación por defecto; `--apply` borra solo lo no referenciado con más de 24 h).
+- **Uso diario (B-084):** «Enviar encuesta» o «Copiar enlace» desde la cita atendida, y contador de tareas pendientes en el menú.
+- **Convenios y gastos (B-082, B-083):**
+  - trasladar al paciente, con motivo y nunca automático, la porción que la empresa rechazó o no pagó en el plazo del convenio (reversible una vez);
+  - pagos de empresa en efectivo que entran a la caja de quien los recibe;
+  - cuentas por cobrar generales con antigüedad (0–30, 31–60, 61–90, +90 días), pacientes y empresas por separado, incluidos los saldos iniciales importados;
+  - honorarios «por cobro» que cuentan los pagos de empresas, al centavo y sin doble conteo;
+  - gastos repartidos entre sucursales por porcentaje y comprobante adjunto verificado.
+- **Seguridad (auditoría interna):**
+  - prueba automática que recorre **todas** las rutas de la API (sin sesión → 401, sin permiso → 403, lista explícita de rutas públicas) y la base (RLS, tablas de solo inserción, funciones `SECURITY DEFINER` revisadas);
+  - todas las exportaciones a Excel pasan por `lib/xlsxSafe.ts` (protección contra fórmulas) y una prueba impide escribirlas de otra forma.
+- **Rendimiento:** con 100 000 pacientes, 600 000 citas y 1 millón de registros de auditoría, las pantallas diarias responden por debajo de 300 ms (p95) y los informes mensuales por debajo de 0,6 s. Script de carga `npm run perf:seed` y `npm run perf:bench` (fuera de CI).
+
+### Corregido (seguridad)
+- **Alta:** detrás del proxy se confiaba en cualquier `X-Forwarded-For`, lo que permitía saltar los límites por IP (inicio de sesión, códigos, enlaces públicos). Ahora se confía en un número fijo de proxies (`TRUST_PROXY`, 1 por defecto en producción).
+- **Media:** inyección de fórmulas en `payments.xlsx` (B-085), el libro de esterilización y otras exportaciones.
+- **Media:** faltaba la verificación de sucursal al cambiar una entrada de la lista de espera y al cancelar un tratamiento; `/api/audit` mezclaba sucursales.
+- **Media:** el detalle de auditoría mostraba datos clínicos (pieza, diagnóstico, motivos) a propietarios y administradores sin permiso clínico.
+- **Media:** los registros del servidor incluían la consulta de búsqueda (nombres, CI), los tokens de enlaces públicos y el `detail` de PostgreSQL.
+- **Baja:** las rutas del personal responden 401 antes de leer el cuerpo; las públicas aceptan como máximo 1 MB; el token del webhook se compara en tiempo constante.
+
+### Integración
+- Tres equipos cambiaron en paralelo la fórmula del saldo del paciente (saldos iniciales, traslados de la empresa y cálculo por lotes). Queda **una sola fórmula** en la vista `patient_money_v`, que usan `patient_money()` y los informes, con una prueba de referencia.
+- La prueba de flujos de la agenda pide un horario libre a la agenda en lugar de usar una hora fija.
+
 ## [0.5.0] — 2026-11-11
 
 Revisión de lo que todavía faltaba frente a la competencia ("lo que todo software dental tiene"). Cinco equipos más en paralelo (migraciones 0015–0019), más el trabajo del integrador (migración 0020, app instalable y menú).

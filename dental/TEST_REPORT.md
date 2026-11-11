@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.5
+# Informe de pruebas — v0.6
 
 - **Fecha:** 11-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,9 +8,11 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **485/485**, 33 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **44/44** (más 1 que se omite sola cuando no hay citas por llegar en la sucursal a esa hora) |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **604/604**, 42 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **54/54** |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
+| Guardas automáticas de seguridad | `tests/route-guard.test.ts`, `tests/db-hardening.test.ts` | ✅ todas las rutas de la API (401/403, lista de públicas) y toda la base (RLS, solo inserción, funciones revisadas) |
+| Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s (salvo embudo de presupuestos y exportación de pacientes, B-095) |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
 | Revisión visual | Playwright, 22 capturas (escritorio 1440 px y celular 390 px), 8 pantallas por rol | ✅ sin errores de consola, salvo el 401 esperado al cargar sin sesión |
@@ -135,6 +137,31 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 
 End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
 
+### v0.6: puesta en marcha, archivos, convenios, seguridad y carga
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `onboarding.test.ts` | 11 | Primeros pasos derivados de datos (cambian al completar y reaparecen si algo falta), importación de pacientes, citas (solapes, fuera de horario, inexistentes) y saldos iniciales que cuadran con el saldo, idempotencia, inyección de fórmulas, aislamiento |
+| `files-s3.test.ts`, `files-thumbs.test.ts` | 27 | Vectores oficiales de SigV4, S3 falso que valida la firma (subir, leer, borrar, firma inválida, reloj desfasado, cifrado), miniaturas rechazadas si son enormes o no son imagen, la galería no audita originales, barrido seco y con `--apply` |
+| `daily-pending.test.ts` | 6 | Contador de tareas por rol y sucursal, encuesta desde la cita con permiso y consentimiento |
+| `agreements-expenses-v2.test.ts` | 27 | Traslado al paciente (saldos cuadran, plazo, sin dobles ni en paralelo, reversión), efectivo de empresa en la caja, antigüedad con límites exactos **y con saldos iniciales**, honorarios con pagos de empresa al centavo, reparto de gastos, comprobantes |
+| `route-guard.test.ts`, `db-hardening.test.ts`, `security-audit.test.ts` | 33 | Ver «Guardas automáticas»; además, regresión de cada hallazgo de la auditoría (IP falsificada, fórmulas, sucursal, auditoría clínica, registros sin datos) |
+| `perf-rewrites.test.ts` | 5 | La vista del saldo da lo mismo que la fórmula de referencia (con saldos iniciales y traslados); la búsqueda indexada da los mismos resultados y no cruza clínicas |
+
+### Carga (antes → después, p95 en ms, 10 repeticiones)
+| Ruta | Antes | Después |
+|---|---:|---:|
+| Búsqueda de pacientes (nombre / CI) | 612 / 482 | 76 / 44 |
+| Historial del paciente | 579 | 18 |
+| Tarjetas del Inicio | 313 | 14 |
+| Presupuestos presentados | 899 | 77 |
+| Diario de actividad | 1 774 | 44 |
+| Panel del mes / con comparación | 1 973 / 4 013 | 302 / 597 |
+| Cuentas por cobrar | 784 | 220 |
+| Exportar pacientes a Excel | 7 826 | 4 744 |
+| Embudo de presupuestos | 1 992 | 2 038 (B-095) |
+
+Agenda del día y de la semana, disponibilidad, ficha y «mi día» ya estaban por debajo de 100 ms. La máquina se compartía con otros equipos, así que los números tienen ruido.
+
 ### Seguridad y consentimientos (v0.2, `tests/security.test.ts` con 15 pruebas, más 4 end-to-end)
 - **TOTP:** cumple los vectores oficiales del RFC 6238 (T=59 s → 287082; T=1111111109 → 081804) y tolera ±30 s. Se rechazan los códigos viejos.
 - **Cifrado AES-256-GCM:** con otra clave o con datos alterados, falla.
@@ -182,6 +209,9 @@ End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.sp
 | (v0.2) El texto de ayuda de un campo formaba parte de su nombre accesible ("Nueva contraseña Mínimo 10…") | La ayuda queda fuera de la etiqueta |
 | (v0.2) La plantilla de recordatorios no nombraba al paciente | Las plantillas comienzan con "Yo, {paciente}" |
 | (v0.2, CI) El `pg_dump` del servidor de CI era más nuevo que PostgreSQL 16 y la restauración fallaba | CI con PostgreSQL 17 y requisito de versión documentado |
+| (v0.6) Tres equipos cambiaron a la vez la fórmula del saldo: al integrar, la migración de carga habría fallado o los informes habrían ignorado saldos iniciales y traslados | Una sola fórmula en `patient_money_v` con prueba de referencia (D-33) |
+| (v0.6) La antigüedad de saldos no contaba los saldos iniciales importados | Incluidos, con prueba |
+| (v0.6) Auditoría interna: 8 hallazgos (1 alto, 5 medios, 2 bajos) | Corregidos con prueba de regresión; los que requieren decisión, en B-090 a B-095 |
 | (v0.5) En el celular no había forma de llegar a pantallas fuera de la barra inferior; con 22 opciones el menú lateral cortaba las últimas (lo detectó una e2e que no encontraba «Configuración») | Menú por secciones con desplazamiento y botón «Más» en el celular, con prueba |
 | (v0.5) La demo mostraba una rentabilidad de −600 % (gastos realistas frente a muy poca producción de ejemplo) | La semilla genera unos dos meses de actividad |
 | (v0.5) Encuestas y tareas se hicieron en paralelo y el detractor solo quedaba como aviso | Migración 0020: el detractor crea una tarea de seguimiento para gerencia |

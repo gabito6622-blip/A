@@ -11,7 +11,7 @@ Estados: `pendiente` · `en curso` · `hecho (v0.1)`. Cada ítem tiene un criter
 | B-003 | ✅ (v0.2) Tabla `consents` versionada | Texto, versión, finalidad, fecha, quién registró y evidencia; la ficha muestra la vigente; revocar no borra el historial |
 | B-004 | ✅ (v0.2) Consentimiento informado por procedimiento con firma; impresión desde el navegador. Pendiente: vínculo automático al aceptar un presupuesto | El presupuesto aceptado genera un documento firmado; queda inmutable y descargable con auditoría |
 | B-005 | Despliegue de staging en Railway | **Requiere autorización.** HTTPS, `NODE_ENV=production`, copias diarias fuera del proveedor, restauración probada |
-| B-006 | Plantilla de importación acordada con la clínica | `dryRun` sin errores sobre los datos reales anonimizados de muestra |
+| B-006 | ✅ v0.6 (falta probar con la muestra real anonimizada) Plantilla de importación acordada con la clínica | `dryRun` sin errores sobre los datos reales anonimizados de muestra |
 | B-007 | ✅ (v0.2) Idempotencia concurrente de pagos | Dos envíos simultáneos con la misma clave → ambos responden con el mismo pago (verificado en v0.2) |
 | B-008 | Revisión de textos y catálogo con la clínica | Precios reales, nombres de prestaciones y horarios cargados |
 
@@ -62,12 +62,24 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | ID | Prioridad | Ítem |
 |---|---|---|
 | B-080 | P1 | ⚠ Revisión legal: datos de salud en el estado de cuenta que recibe la empresa del convenio |
-| B-081 | P1 | Volumen persistente para archivos clínicos en el despliegue; controlador S3 compatible; miniaturas generadas en el servidor; barrido de archivos huérfanos |
-| B-082 | P2 | Convenios: pasar al paciente la porción impaga de la empresa; pagos de empresa en efectivo; empresas en Reportes y en cuentas por cobrar generales; honorarios «por cobro» con pagos de empresas |
-| B-083 | P2 | Gastos compartidos entre sucursales con reparto por porcentaje y comprobante adjunto real |
-| B-084 | P2 | Botón en pantalla para generar el enlace de encuesta a mano; aviso de llamada entrante (fase 2 de R2-42); contador de tareas en el menú |
-| B-085 | P2 | Protección contra inyección de fórmulas en `payments.xlsx` (exportación antigua) |
+| B-081 | ✅ v0.6 | Volumen persistente para archivos clínicos en el despliegue; controlador S3 compatible; miniaturas generadas en el servidor; barrido de archivos huérfanos |
+| B-082 | ✅ v0.6 | Convenios: pasar al paciente la porción impaga de la empresa; pagos de empresa en efectivo; empresas en Reportes y en cuentas por cobrar generales; honorarios «por cobro» con pagos de empresas |
+| B-083 | ✅ v0.6 | Gastos compartidos entre sucursales con reparto por porcentaje y comprobante adjunto real |
+| B-084 | ✅ v0.6 | Botón en pantalla para generar el enlace de encuesta a mano; aviso de llamada entrante (fase 2 de R2-42); contador de tareas en el menú |
+| B-085 | ✅ v0.6 | Protección contra inyección de fórmulas en `payments.xlsx` (exportación antigua) |
 | B-086 | P3 | Semilla demo: producción atribuida a sillones (hoy mucha queda «sin sillón identificado») |
+
+## Nuevos pendientes detectados en v0.6
+| ID | Prioridad | Ítem |
+|---|---|---|
+| B-090 | P1 | ⚠ Bloqueo por intentos: no revelar que el correo existe y evitar que un tercero bloquee cuentas ajenas (p. ej. bloqueo por IP + cuenta y desbloqueo por correo) |
+| B-091 | P1 | Tabla `users`: quitar al rol de la app la lectura del hash de contraseña fuera del inicio de sesión (función dedicada) |
+| B-092 | P2 | `/api/docs` solo con sesión de plataforma en producción; `/api/messages` filtrado por sucursal |
+| B-093 | P2 | Respuesta «BAJA» de WhatsApp asociada por número completo y clínica del mensaje original, no por los últimos 8 dígitos |
+| B-094 | P2 | Claves separadas para cifrar los 2 pasos y para firmar enlaces (rotación independiente) |
+| B-095 | P2 | Embudo de presupuestos: limitar la lista de vencidos (hoy ~2 s con 100 000 pacientes); exportación de pacientes en streaming (~4,7 s) |
+| B-096 | P2 | Miniaturas para los archivos subidos antes de v0.6; botón «Marcar revisada» en plantillas de consentimiento; logo de la clínica |
+| B-097 | P2 | Rentabilidad: «Cobrado» con los pagos de empresas; liberar el tope anual del convenio al trasladar al paciente; gastos fijos compartidos |
 
 ## P1
 
@@ -82,7 +94,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-016 | Recetas e informes PDF | Plantilla con matrícula; registrado como nota clínica |
 | B-017 | ✅ v0.5 Panel: rango libre de fechas y comparación con el período anterior | Variación en % por sucursal |
 | B-018 | Correos transaccionales (citas, recuperación) | Proveedor configurable; sin datos clínicos |
-| B-019 | ✅ v0.5 (diario de actividad) Paginación con cursor en auditoría y pagos | Más de 10 000 filas sin degradación |
+| B-019 | ✅ v0.5–v0.6 (diario; consultas reescritas para 100 000 pacientes) Paginación con cursor en auditoría y pagos | Más de 10 000 filas sin degradación |
 
 ## P2
 

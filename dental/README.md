@@ -28,6 +28,8 @@ Software de gestión para clínicas odontológicas, pensado para una red de 5 su
 - Familias, segmentos y campañas con consentimiento, encuestas de satisfacción y llegada con QR.
 - Convenios con empresas, pagador tercero y conciliación bancaria por extracto.
 - App instalable en el celular (PWA), sin guardar datos de pacientes en el dispositivo.
+- Primeros pasos, ayuda por rol e importación de pacientes, citas y saldos desde el sistema anterior.
+- Archivos en disco o en un almacenamiento S3 compatible (R2, B2, AWS, MinIO), con miniaturas.
 - Asistente con herramientas.
 - Superadministrador SaaS.
 
@@ -71,6 +73,14 @@ Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y
 | `npm run migrate` | Aplica las migraciones pendientes |
 | `npm run backup -- ./backups` | Respaldo `pg_dump`, cifrado si se define `BACKUP_PASSPHRASE` |
 | `TARGET_DATABASE_URL=… npm run restore -- archivo` | Restaura en una base vacía |
+
+## Mantenimiento y carga
+
+| Comando | Qué hace |
+|---|---|
+| `npm run files:sweep` | Lista archivos sin registro y registros sin archivo (no borra nada). Con `-- --apply` borra solo huérfanos con más de 24 h |
+| `PERF_DATABASE_URL=…/dental_perf npm run perf:seed` | Llena una base de carga (el nombre debe contener «perf») con 100 000 pacientes y ~5 años de citas (~2,5 min) |
+| `npm run perf:bench` | Mide p50/p95 de las rutas críticas sobre esa base |
 
 ## Despliegue (requiere autorización)
 

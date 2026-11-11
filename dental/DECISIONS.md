@@ -135,3 +135,18 @@ El service worker solo guarda la cáscara de la aplicación (HTML, JS, CSS, íco
 
 ### D-32 · Las tareas creadas por el sistema no tienen autor
 Una tarea creada por una encuesta (detractor) no la crea una persona: `created_by` queda vacío solo con origen `survey` (CHECK). Así el diario no atribuye a nadie algo que no hizo.
+
+### D-33 · Una sola fórmula del saldo, en una vista
+Tres módulos necesitaban cambiar el saldo del paciente a la vez (saldos iniciales, traslados de la empresa y cálculo por lotes para los informes). Se concentró en la vista `patient_money_v` (`security_invoker`), que usan la función y los informes. Cualquier cambio futuro del saldo se hace en esa vista y en su prueba de referencia.
+
+### D-34 · Saldos iniciales como movimientos de apertura
+La deuda o el saldo a favor que trae el paciente del sistema anterior se registra como un movimiento de solo inserción, no como un cargo ni como un pago: no infla la producción ni la caja del mes de la importación. Envejece desde la fecha de corte del sistema anterior. Se anula con un asiento opuesto exacto.
+
+### D-35 · Confiar solo en un número fijo de proxies
+`X-Forwarded-For` lo puede escribir cualquiera. La app confía únicamente en los saltos declarados en `TRUST_PROXY` (1 en Railway), así los límites por IP no se pueden saltar falsificando la cabecera.
+
+### D-36 · Almacenamiento S3 sin SDK
+La firma SigV4 se implementó en ~150 líneas propias, probadas con los vectores oficiales de AWS y contra un servidor S3 falso local. Evita una dependencia grande y sirve igual para R2, B2, AWS y MinIO. Con S3, el respaldo de archivos lo da el versionado del bucket.
+
+### D-37 · Decisiones de seguridad pendientes (hallazgos de la auditoría interna) ⚠
+Quedan registradas en BACKLOG (B-090 a B-095) porque requieren una decisión de producto: el bloqueo por intentos revela que el correo existe y permite bloquear cuentas ajenas; la tabla `users` (con el hash de la contraseña) es legible por el rol de la app sin RLS; `/api/docs` es público en producción; `/api/messages` no filtra por sucursal; una respuesta «BAJA» se asocia por los últimos 8 dígitos del celular; una sola clave cifra los 2 pasos y firma los enlaces. No sustituye a una prueba de penetración externa (B-026).

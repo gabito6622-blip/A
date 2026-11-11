@@ -153,6 +153,9 @@ erDiagram
 | `lab`, `labPayables` | Órdenes de laboratorio con estados validados por trigger, eventos inmutables, cuentas por pagar y costo real para honorarios |
 | `documents*`, `lib/pdf.ts` | Recetas, certificados, derivaciones y PDF (presupuesto, consentimiento, recibo) con huella SHA-256; el primer PDF se guarda y se sirve siempre igual |
 | `messaging/*` | Reglas, plantillas versionadas, programador idempotente, tokens de confirmación, adaptador de WhatsApp Cloud API y webhook |
+| `onboarding/*` | Primeros pasos derivados de datos, importación por lotes (pacientes, citas, saldos iniciales) idempotente y saldos de apertura |
+| `lib/filestore-s3.ts`, `lib/sigv4.ts`, `clinicalFilesSweep` | Controlador S3 compatible con firma SigV4 propia, miniaturas y barrido de huérfanos |
+| `lib/xlsxSafe.ts`, `lib/logger.ts` | Toda exportación Excel protegida contra fórmulas; registros sin consultas, tokens ni detalles de la base |
 | `clinicalFiles*`, `lib/filestore.ts` | Imágenes y archivos clínicos: interfaz `FileStore` (disco local; S3 previsto), verificación por firma de bytes, SHA-256, enlaces HMAC de 5 min atados a la persona, auditoría de cada entrega |
 | `management/*` | Gastos, gastos fijos recurrentes, fichaje, rentabilidad por sucursal y sillón, comparación de períodos y exportaciones a Excel |
 | `coordination/*` | Tareas internas, llamadas, diario de actividad sobre la auditoría (cursor) y tarjetas proactivas del Inicio |
@@ -220,3 +223,12 @@ Radiografías, fotografías y consentimientos firmados irán en almacenamiento d
 | `/reservar/:slug`, `/mi-cuenta/:slug` | Solo si la clínica habilitó la reserva (función `portal_clinic_by_slug`); código de 6 dígitos (10 min, 5 intentos); sesión del paciente `psid` separada; límites por IP y documento; respuestas idénticas exista o no el paciente |
 
 La parte del paciente se carga como un bloque aparte (`lazy`), con estilos propios pensados para el celular.
+
+## 12. Saldo del paciente: una sola fórmula (v0.6)
+
+`patient_money_v` (vista con `security_invoker`, respeta RLS de quien consulta) calcula para cada paciente: lo cargado a su cargo (cargos menos la porción de la empresa, más lo trasladado desde la empresa), los saldos iniciales importados y los pagos confirmados. `patient_money(p)` lee esa vista para un paciente y los informes la leen por lotes. Ningún módulo calcula el saldo por su cuenta; `tests/perf-rewrites.test.ts` compara la vista con una fórmula de referencia escrita aparte.
+
+## 13. Guardas automáticas de seguridad (v0.6)
+
+- `tests/route-guard.test.ts` recorre el OpenAPI: toda ruta del personal responde 401 sin sesión y 403 a un rol sin el permiso; las rutas públicas están en una lista explícita.
+- `tests/db-hardening.test.ts`: toda tabla con `clinic_id` tiene RLS y la política `tenant_isolation`; las tablas de solo inserción no tienen UPDATE ni DELETE para `dental_app`; las funciones `SECURITY DEFINER` están revisadas. Una tabla nueva que no cumpla hace fallar la prueba.
