@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-11 · Sin publicar · Proyecto académico aparte (no toca la tienda)
+- **Nueva carpeta `proyectos/modelo-empresarial-filtro-ceramico/`:** modelo financiero en Excel que fusiona la metodología de los archivos Ñapefit e Hypotolab, aplicada a un kit purificador de agua con filtro cerámico. Incluye auditoría comparativa, informe de viabilidad, guía para la defensa e informe de pruebas.
+- **Tienda, GaboHub y revendedores:** sin cambios. No se tocó código, datos ni publicación.
+
 ## 2026-11-11 · Sin publicar · 🏢 Mi oficina
 - **Dueño y admin:** nueva pantalla «🏢 Mi oficina» en el menú. Muestra a los asistentes dibujados en 2D, cada uno en su escritorio:
   - con IA: Rocío (comprobantes), Wali (WhatsApp), Dani (asistente del dueño) y Vico (vigilante);

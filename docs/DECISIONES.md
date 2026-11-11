@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Proyecto académico en carpeta propia
+- **Qué:** el modelo empresarial pedido (Excel + 4 informes) vive en `proyectos/modelo-empresarial-filtro-ceramico/`, separado de `src/`, `public/` y `test/`.
+- **Por qué:** es un trabajo universitario sin relación con la tienda; mantenerlo aparte evita mezclarlo con el código que se publica y con la CI de la tienda.
+- **Cómo se regenera:** el Excel se construye con los scripts de la subcarpeta `generador/` y se verifica recalculando con LibreOffice (ver `INFORME_DE_PRUEBAS.md` de esa carpeta).
+
 ## 2026-11-11 · Mi oficina en 2D (pixel art propio)
 - **Por qué 2D y no 3D:** carga rápido y gasta poca batería en celulares sencillos. El 3D no agrega nada útil. Los dibujos son propios, hechos con cuadraditos en SVG, sin imágenes de terceros.
 - **Solo muestra:** no hace trabajo nuevo ni gasta Claude.
