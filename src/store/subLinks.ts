@@ -102,7 +102,7 @@ const usableQr = (e: Engine, customerId: Id) => {
   return sh && !sh.blocked ? sh.qrFileRef : undefined;
 };
 
-/** Lo que ve el cliente del revendedor. Solo estos campos (lista cerrada). */
+/** Lo que ve el cliente del revendedor. Solo estos campos (lista cerrada). La ruta suma solo `alerts` (booleano: alguien activó los avisos de este link; ver expiryPush.ts). */
 export function publicView(e: Engine, token: unknown) {
   // El mismo /c/<token> sirve para los clientes de "Mis cuentas propias" (misma lista cerrada de campos).
   const own = ownLinkView(e, token);

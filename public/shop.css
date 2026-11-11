@@ -1086,3 +1086,6 @@ input[type=color]{min-width:44px;min-height:44px}
 .tmethod legend{font-weight:700;padding:0 4px}
 #topup .tmethod label{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;min-height:44px;text-align:left}
 #topup .tmethod label input{width:auto;min-height:0;margin:0}
+
+/* 🔔 Avisos automáticos de vencimiento (avisos.js): la marca puede bajar de renglón en celular. */
+.spill.avtag{white-space:normal;margin-left:2px}
