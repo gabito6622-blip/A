@@ -44,7 +44,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | W1 | 🏪 | Cuentas propias: avisos de vencimiento en "Tu día" y en el aviso diario al celular | P2 | ✅ |
 | W2 | 🏪 | Afiches en la moneda del revendedor de afuera | P3 | ✅ |
 | W3 | 🏪 | Celulares de Argentina: el "9" después de +54 en wa.me | P3 | ✅ al armar el link (falta en los links que arma `panel.js`) |
-| W7 | 👔 | Al publicar: pasar a "panama" y "EXTRANJERO" del país "Otro (+507, $)" a Panamá (US$) | P3 | ⏳ |
+| W7 | 👔 | Pasar a "panama" y "EXTRANJERO" a Panamá (US$) | P3 | ✅ tienda real |
+| B20 | Flujo TV para los de afuera (US$ 2,50) | P1 | ✅ #36 (a pedido: no hay cuentas de Flujo TV cargadas) |
 | W8 | 🏪 | Que el panel no se redibuje mientras alguien escribe | P3 | ⏳ |
 | W4 | 🏪 | Vista previa de `/r/` con el logo del revendedor encima | P3 | ⏳ |
 | W5 | 🛒 | Montos negativos: "Bs -5" debería decir "-Bs 5" | P3 | ⏳ |

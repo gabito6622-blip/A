@@ -477,8 +477,12 @@ export function visibleTo(e: Engine, p: { id?: Id; published: boolean; resellers
     if (!id || g?.prices[id] === undefined) return false;
   }
   const isReseller = !!customerId && e.s.customers[customerId]?.kind === "reseller";
-  // "Solo lo de revendedores": el revendedor compra únicamente los productos marcados para revendedores.
-  if (isReseller && e.s.settings.resellerOnlyCatalog) return !!p.resellersOnly;
+  // "Solo lo de revendedores": el revendedor compra únicamente los productos marcados para revendedores…
+  // …o los que el dueño le puso precio en SU lista (ej. Flujo TV en la lista en dólares de Panamá y Paraguay).
+  if (isReseller && e.s.settings.resellerOnlyCatalog) {
+    const g = e.s.priceGroups[e.s.customers[customerId!].priceGroupId];
+    return !!p.resellersOnly || (!!p.id && g?.id !== "revendedor" && g?.prices[p.id] !== undefined);
+  }
   if (!p.resellersOnly) return true;
   return isReseller;
 }
