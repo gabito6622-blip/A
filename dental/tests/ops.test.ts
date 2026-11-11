@@ -378,10 +378,11 @@ describe("retención (fechas simuladas)", () => {
       const storage = new S3BackupStorage(o.backup.target as Extract<OpsConfig["backup"]["target"], { kind: "s3" }>);
       expect(groupSets(await storage.list()).map((s) => s.name)).toEqual(["dental-20261111T071500Z", "dental-20261110T071500Z", "dental-20250101T071500Z"]);
       expect((await pruneBackups(storage, o, new Date("2026-11-11T12:00:00Z"))).sort()).toEqual(["dental-20250101T071500Z", "dental-20261110T071500Z"]);
+      // Ambos lados ordenados: la clave clínica empieza con un id aleatorio y su posición varía.
       expect([...s3.objects.keys()].sort()).toEqual([
         `${K.clinicId}/2026/${"d".repeat(32)}`, "dental-20250101T071500Z.manifest.json",
         "respaldos/dental-20261111T071500Z.dump.enc", "respaldos/dental-20261111T071500Z.manifest.json",
-      ]);
+      ].sort());
     } finally { await s3.close(); }
   });
 });

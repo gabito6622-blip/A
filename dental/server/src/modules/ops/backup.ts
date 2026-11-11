@@ -17,7 +17,7 @@ import { Readable } from "node:stream";
 import type pg from "pg";
 import { MIGRATIONS_DIR } from "../../lib/migrate.js";
 import type { OpsConfig } from "./config.js";
-import { BackupError, writeMaybeEncrypted } from "./crypto.js";
+import { BackupError, manifestMac, writeMaybeEncrypted } from "./crypto.js";
 import { collectFacts, type DbFacts } from "./facts.js";
 import { groupSets, planRetention, stampOf } from "./retention.js";
 import { finishRun, pgBin, pgConn, spawnTool, startRun, summarizeError, type RunResult } from "./runs.js";
@@ -41,6 +41,8 @@ export interface Manifest {
   pendingMigrations: string[];
   tables: DbFacts["tables"];
   balances: DbFacts["balances"];
+  /** Firma HMAC del nombre y las huellas (solo respaldos cifrados; ver manifestMac). */
+  mac?: string | null;
 }
 
 export interface BackupDeps {
@@ -166,6 +168,7 @@ export async function runBackup(deps: BackupDeps): Promise<BackupOutcome> {
       tables: facts.tables,
       balances: facts.balances,
     };
+    if (passphrase) manifest.mac = await manifestMac(passphrase, manifest);
     await writeFile(join(tmp, `${name}.manifest.json`), JSON.stringify(manifest, null, 2), { mode: 0o600 });
 
     // ---- Subida (manifiesto al final: marca el juego como completo) ----

@@ -156,12 +156,12 @@ describe.skipIf(!hasTools)("respaldo programado y simulacro de restauración", (
     expect(out.name).toBe(first);
     expect(out.restoreDb).toMatch(/^dental_restore_v_20261110t071500z_[0-9a-f]{6}$/);
     expect(out.checks.map((c) => [c.id, c.ok])).toEqual([
-      ["integridad", true], ["clave", true], ["restauracion", true], ["migraciones", true], ["conteos", true], ["saldos", true], ["rls", true], ["archivos", true],
+      ["integridad", true], ["clave", true], ["autenticidad", true], ["restauracion", true], ["migraciones", true], ["conteos", true], ["saldos", true], ["rls", true], ["archivos", true],
     ]);
     expect(await restoreDbs()).toEqual([]);
     const run = (await db.adminPool.query("SELECT kind, status, backup_name, details FROM backup_runs WHERE id = $1", [out.runId])).rows[0];
     expect(run).toMatchObject({ kind: "verify", status: "ok", backup_name: first });
-    expect(run.details.checks).toHaveLength(8);
+    expect(run.details.checks).toHaveLength(9);
     expect(JSON.stringify(run.details)).not.toMatch(/Saldo\d/);
   }, 90_000);
 
@@ -199,7 +199,10 @@ describe.skipIf(!hasTools)("respaldo programado y simulacro de restauración", (
     const out2 = await runVerify({ pool: db.adminPool, ops: opsFor({ dir: bad }), now });
     expect(out2.ok).toBe(false);
     expect(out2.checks.find((c) => c.id === "integridad")?.ok).toBe(true);
-    expect(out2.checks.some((c) => !c.ok)).toBe(true);
+    // La firma del manifiesto (con la clave del respaldo) delata el cambio siempre, sin depender de
+    // en qué parte del volcado cayó el byte alterado.
+    expect(out2.checks.find((c) => c.id === "autenticidad")).toMatchObject({ ok: false });
+    expect(out2.error).toMatch(/modificado/);
     expect(await restoreDbs()).toEqual([]);
   }, 90_000);
 

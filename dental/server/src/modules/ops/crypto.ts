@@ -3,7 +3,7 @@
 //   "Salted__" + sal (8 bytes) + AES-256-CBC con relleno PKCS#7;
 //   clave (32) + IV (16) = PBKDF2-HMAC-SHA256(frase, sal, 200 000 iteraciones, 48 bytes).
 // Se hace en Node (sin el binario openssl) y en streaming: el volcado en claro nunca toca el disco.
-import { createCipheriv, createDecipheriv, createHash, pbkdf2, randomBytes, type Decipher } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, pbkdf2, randomBytes, timingSafeEqual, type Decipher } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { open } from "node:fs/promises";
 import { PassThrough, Transform, type Readable } from "node:stream";
@@ -95,4 +95,24 @@ export async function sha256File(path: string): Promise<string> {
   const h = createHash("sha256");
   for await (const ch of createReadStream(path)) h.update(ch as Buffer);
   return h.digest("hex");
+}
+
+/**
+ * Firma del manifiesto (HMAC-SHA256 con una clave derivada de BACKUP_PASSPHRASE). El cifrado de
+ * openssl enc (AES-CBC) no detecta cambios: sin esto, quien modificara el archivo y reescribiera su
+ * huella SHA-256 en el manifiesto y en el .sha256 podría colar un respaldo alterado. La firma cubre
+ * el nombre y las huellas de los archivos; sin la frase no se puede rehacer.
+ */
+export interface MacInput { name: string; database: { file: string; sha256: string }; files: { file: string; sha256: string } | null }
+const macPayload = (m: MacInput) => JSON.stringify({ name: m.name, db: [m.database.file, m.database.sha256], files: m.files ? [m.files.file, m.files.sha256] : null });
+const macKey = (pass: string, name: string) => new Promise<Buffer>((res, rej) =>
+  pbkdf2(pass, `dentalia-backup-mac:v1:${name}`, PBKDF2_ITER, 32, "sha256", (e, k) => (e ? rej(e) : res(k))));
+
+export async function manifestMac(passphrase: string, m: MacInput): Promise<string> {
+  return createHmac("sha256", await macKey(passphrase, m.name)).update(macPayload(m)).digest("hex");
+}
+
+export async function manifestMacMatches(passphrase: string, m: MacInput, given: string | undefined | null): Promise<boolean> {
+  if (typeof given !== "string" || !/^[0-9a-f]{64}$/.test(given)) return false;
+  return timingSafeEqual(Buffer.from(await manifestMac(passphrase, m), "hex"), Buffer.from(given, "hex"));
 }

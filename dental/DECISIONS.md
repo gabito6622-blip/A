@@ -197,8 +197,10 @@ Aprobado por la dueña (v0.7).
 ### D-45 · Conteos y volcado del respaldo de la misma instantánea
 El simulacro puede exigir conteos exactos por tabla aunque la base reciba escrituras durante el respaldo.
 
-### D-46 · Cifrado del respaldo en Node, compatible con openssl
-El volcado en claro nunca toca el disco y `restore.sh` sigue sirviendo.
+### D-46 · Cifrado del respaldo en Node, compatible con openssl, más firma del manifiesto
+- El volcado en claro nunca toca el disco y `restore.sh` sigue sirviendo.
+- Como AES-CBC no detecta alteraciones, el manifiesto de un respaldo cifrado lleva una firma HMAC-SHA256 de su nombre y de las huellas de sus archivos, con una clave derivada de `BACKUP_PASSPHRASE` (PBKDF2).
+- El simulacro la exige: sin la frase no se puede rehacer.
 
 ### D-47 · Tablas de operación globales y sin privilegios para la app
 `backup_runs` y `ops_alerts` no tienen `clinic_id` ni datos de pacientes. Solo las usan la CLI, el monitor y `/api/platform`.

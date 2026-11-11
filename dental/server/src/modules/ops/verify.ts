@@ -2,7 +2,8 @@
 //
 // Toma el último juego de respaldo completo, comprueba su SHA-256, lo descifra en streaming, lo
 // restaura en una base TEMPORAL `dental_restore_*` y verifica:
-//   1. integridad (SHA-256 del archivo = manifiesto = .sha256) y clave correcta;
+//   1. integridad (SHA-256 del archivo = manifiesto = .sha256), clave correcta y firma HMAC del
+//      manifiesto (detecta un archivo alterado aunque se reescriban sus huellas);
 //   2. migraciones completas (las mismas que tenía la base al respaldar, sin pendientes);
 //   3. conteo de filas por tabla idéntico al registrado al respaldar;
 //   4. una muestra de saldos con patient_money_v (huella idéntica);
@@ -19,7 +20,7 @@ import { pipeline } from "node:stream/promises";
 import pg from "pg";
 import type { OpsConfig } from "./config.js";
 import { readManifest, type Manifest } from "./backup.js";
-import { BackupError, decryptor, passphraseMatches, sha256File } from "./crypto.js";
+import { BackupError, decryptor, manifestMacMatches, passphraseMatches, sha256File } from "./crypto.js";
 import { collectFacts, diffCounts } from "./facts.js";
 import { groupSets } from "./retention.js";
 import { finishRun, pgBin, pgConn, spawnTool, startRun, summarizeError } from "./runs.js";
@@ -92,6 +93,11 @@ export async function runVerify(deps: VerifyDeps): Promise<VerifyOutcome> {
       const keyOk = await passphraseMatches(dbPath, passphrase, "dump");
       if (!check("clave", "Clave de descifrado", keyOk, keyOk ? "la clave descifra el respaldo" : "la clave no descifra este respaldo")) {
         throw new BackupError("wrong_passphrase", "La clave (BACKUP_PASSPHRASE) no corresponde a este respaldo");
+      }
+      // Firma del manifiesto: detecta un archivo alterado aunque alguien haya reescrito sus huellas.
+      const macOk = await manifestMacMatches(passphrase, manifest, manifest.mac);
+      if (!check("autenticidad", "Firma del respaldo", macOk, macOk ? "la firma con la clave del respaldo coincide" : "la firma NO coincide: el respaldo o su manifiesto fueron modificados")) {
+        throw new BackupError("tampered", "El respaldo fue modificado: la firma del manifiesto no coincide con la clave del respaldo");
       }
     }
 

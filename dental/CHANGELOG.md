@@ -24,7 +24,7 @@ Lo que faltaba de nuestro lado antes del piloto: seguridad decidida, informes r�
   - retención 7 diarios / 4 semanales / 12 mensuales.
 - **Simulacro de restauración** `npm run backup:verify`:
   - restaura el último respaldo en una base temporal;
-  - comprueba integridad, clave, migraciones, conteos por tabla, saldos, RLS y archivos;
+  - comprueba integridad, clave, **firma del respaldo** (HMAC con la clave del respaldo: detecta un archivo alterado aunque alguien reescriba sus huellas), migraciones, conteos por tabla, saldos, RLS y archivos;
   - borra la base temporal al terminar.
 - **Monitoreo:** `/api/ready`, métricas por ruta (sin datos personales) y panel «Estado del sistema» para la plataforma.
 - **Alertas** por correo y webhook, sin repetirse:
@@ -52,7 +52,7 @@ Lo que faltaba de nuestro lado antes del piloto: seguridad decidida, informes r�
 - El panel lateral (por ejemplo «Cita» en la Agenda) se anuncia con su nombre a los lectores de pantalla.
 - La guía «Liquidar honorarios» ya no le pide a contabilidad un botón que no tiene.
 - En el celular, la primera columna de las tablas en tarjetas ya no pega la etiqueta al valor.
-- Una prueba que fallaba por azar cuando el nombre de prueba de la clínica contenía «36».
+- Dos pruebas que fallaban por azar: el nombre de prueba de la clínica con «36» y el orden de un identificador aleatorio en la retención de S3. Una tercera fallaba por azar porque el cifrado del respaldo no detectaba un byte alterado según dónde cayera: se agregó la firma del respaldo.
 
 ## [0.6.0] — 2026-11-11
 
