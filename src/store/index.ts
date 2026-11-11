@@ -17,12 +17,14 @@ import * as finance from "./finance.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as subs from "./subRentals.js";
+import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
 import * as payMethods from "./payMethods.js";
 import * as watch from "./watch.js";
+import * as winback from "./winback.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -257,6 +259,14 @@ export function createStore(opts: EngineOptions = {}) {
       renew: bind(e, subs.renewSub),
       remove: bind(e, subs.removeSub),
       summary: bind(e, subs.rentalSummary),
+      link: bind(e, subLinks.subLink),
+      revokeLink: bind(e, subLinks.revokeSubLink),
+      publicView: (token: unknown) => subLinks.publicView(e, token),
+      publicQr: (token: unknown) => subLinks.publicQr(e, token),
+    },
+    winback: {
+      list: bind(e, winback.list),
+      mark: bind(e, winback.mark),
     },
     rtools: {
       control: bind(e, rtools.myControl),

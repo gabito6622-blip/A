@@ -3,7 +3,20 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Cobro de alquileres (rama `cobranza`)
+## Sin publicar — Vender más y revendedores que cobran mejor (3 equipos)
+- **Dueño y Atención · "💸 Que vuelvan":** junta a quienes dejaron un pedido sin pagar (últimos 7 días) y a quienes se les venció un servicio hace 1 a 30 días sin renovar, con el monto de hoy y un WhatsApp listo. Fila guiada (Abrir WhatsApp → pasa al siguiente, Saltar, Anterior, 🚫 No molestar) y la cuenta de cuántos volvieron a comprar. Tarjeta en Inicio. Los clientes de tus revendedores no salen (les escribe su revendedor). A quien le escribiste no vuelve a aparecer por 7 días.
+- **Dueño y admin · "📈 Cómo van tus revendedores":** lo que te pagaron este mes contra el mes pasado a la misma altura, lo que vence en 7 días, cuánto pesan tus 3 primeros, y por cada revendedor su estado (🌱 nuevo, creciendo, estable, bajando, dormido), alquileres activos, renovaciones a tiempo o tarde, alquileres caídos y un WhatsApp sugerido. Atención no lo ve.
+- **Revendedor · "🔗 Link de cobro":** en Repartir perfiles, cada cliente suyo puede tener un link propio: una página con su perfil, cuándo vence, cuánto debe, el QR del revendedor y un botón "Ya pagué" que le escribe al revendedor. Se copia, se manda por WhatsApp o se cambia; los recordatorios lo incluyen. La página no muestra correos, contraseñas, costos ni otros clientes.
+- **Seguridad:** al transferir un alquiler de un revendedor a otro, el nuevo dueño ya no hereda los clientes que anotó el anterior.
+
+## Sin publicar — Invitar revendedores desde Inicio
+- **Dueño:** en Inicio aparece "📲 N revendedores todavía sin acceso" con un solo botón, "▶ Invitarlos ahora", que abre la fila de invitaciones ya armada. En la fila, al tocar "Abrir WhatsApp" pasa sola al siguiente, y hay "◀ Anterior" para volver (el PIN generado se conserva). Atención no ve la tarjeta.
+
+## 2026-11-11 · #30 Cuentas de alquiler: todas "Cuenta completa"
+- **Dueño:** las 123 cuentas de alquiler (Disney con y sin ESPN, Prime, HBO) quedaron con **un solo perfil llamado "Cuenta completa"**. Se renombraron 54 perfiles ("pack", "Pack 15", "Perfil 1", "ENLAZAR"…) y se retiraron 28 perfiles libres que sobraban, que inflaban el stock. Las 21 notas viejas del Excel quedaron guardadas en Control como "Excel: …".
+- **Revendedores:** no reciben ningún aviso por esto: renombrar el perfil de una cuenta completa ya no manda "cambió tu acceso", porque el acceso no cambia. Cambiar el PIN sí sigue avisando.
+
+## 2026-11-11 · #29 Cobro de alquileres
 - **Dueño:** "💰 Cobrar alquileres de la semana" en Revendedores: por revendedor, lo que le vence en 7 días (o ya venció) con el total a su precio, y un solo WhatsApp con la lista y cómo renovar; fila guiada que marca a quién ya avisaste.
 - **Revendedor:** en Repartir perfiles, "🔄 Renovar cuenta" en cada alquiler y "Renovar las N que vencen" con su saldo (con candado 🔒 cuando la tienda debe renovar primero).
 

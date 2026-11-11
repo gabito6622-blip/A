@@ -12,3 +12,6 @@ data-demo/
 
 # Paquetes de entrega generados (no van al repo)
 *-para-chatgpt.zip
+
+# Copias de trabajo de los equipos (worktrees), no son parte del proyecto
+.claude/worktrees/

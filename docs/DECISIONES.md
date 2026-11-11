@@ -2,6 +2,25 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Tanda "vender más" con 3 equipos en paralelo
+- **Qué se eligió:** recuperar ventas perdidas (Que vuelvan), ver la salud de los revendedores (Cómo van) y ayudar al revendedor a cobrar (Link de cobro). Son las tres palancas de plata que no dependían de cuentas ni decisiones del dueño.
+- **Que vuelvan:** usa el permiso existente `customer.manage` (dueño, admin y Atención, que manda WhatsApp a diario). Los clientes de un revendedor no aparecen: le pertenecen a él. "Escrito" oculta 7 días; "No molestar", 60. Nada se manda solo (wa.me). El tope de 7 días vale también para pedidos esperando pago.
+- **Cómo van:** "lo que pagó" sale solo de pedidos entregados (venta o renovación; sin recargas, pruebas ni importados), igual que Dashboard y Finanzas, para no contar dos veces una renovación pagada con saldo. Los estados comparan 30 días contra 30 días; el ↑/↓ del mes compara contra el mes pasado a la misma altura. Es una vista propia y no una sección de Revendedores porque esa ya es larga y Atención no debe ver estos montos. Por privacidad no se muestra lo que cada revendedor cobra a sus clientes (la idea vieja D16 queda en "lo que te paga"). Las renovaciones ahora guardan el vencimiento anterior para saber si fueron a tiempo.
+- **Link de cobro:** token de 192 bits guardado en el perfil repartido, con índice en memoria que se rehace si una transacción se deshace. La respuesta pública es una lista cerrada de campos y cualquier fallo da el mismo 404. Límite de 20 links inválidos por IP cada 15 min. El QR del revendedor se muestra aunque su página esté apagada (no si la tienda la bloqueó). Si la cuenta se transfiere, el link muere.
+- **Transferir un alquiler borra el cuaderno del revendedor anterior** (`subs` y `rcontrol`): lo detectó el equipo del link de cobro; ya pasaba antes y rompía la separación entre revendedores. La auditoría anota cuántos perfiles se borraron.
+
+## 2026-11-11 · Invitar revendedores: el dueño lo hace con un botón, no Claude
+- **Qué:** el dueño pidió dejarlo "para hacerlo yo con un botón". La invitación queda en Inicio. Cada WhatsApp lo abre y lo manda el dueño (wa.me), nunca un envío automático.
+- **Por qué no un solo toque por persona:** generar el PIN necesita esperar al servidor, y el celular bloquea abrir WhatsApp después de esa espera. Por eso son 2 toques (Generar PIN, Abrir WhatsApp), y la fila avanza sola.
+- **Los 6 servicios de perfil:** los 5 de Disney comparten una sola cuenta de 7 perfiles y el de Prime es una venta de la tienda (10/11). No se pasan a cuenta completa: harían falta 5 cuentas distintas que no existen. Queda en BACKLOG B4.
+
+## 2026-11-11 · Los alquileres son siempre cuenta completa (1 perfil, nombre fijo)
+- **Qué:** cada cuenta de alquiler tiene un solo perfil, "Cuenta completa". Los perfiles libres de más se retiran (no se borran: quedan fuera de la venta) y las etiquetas viejas del Excel pasan a la nota del Control como "Excel: <etiqueta>".
+- **Por qué:** el dueño lo pidió: todas son cuentas completas. Los nombres "pack"/"Perfil N" confundían y los 28 perfiles libres de más mostraban stock que no existe.
+- **Aviso:** en un producto de cuenta completa, cambiar el nombre del perfil no avisa al cliente (no cambia su acceso). Así el arreglo no disparó unos 60 WhatsApp. Cambiar el PIN sigue avisando.
+- **Cómo se aplicó en la tienda real:** respaldo de cuentas y servicios antes; prueba con 1 perfil (la cola de avisos siguió en 33); después todo. Resultado verificado: 123 cuentas con 1 perfil, 91 servicios activos antes y después, cola de avisos en 33.
+- **No se tocó:** 2 servicios del producto "Disney" de perfil (una cuenta de 7 perfiles), porque son perfiles sueltos de verdad. Lo decide el dueño (BACKLOG B4).
+
 ## 2026-11-11 · Repartir perfiles: el cuaderno del revendedor
 - **Qué:** los revendedores alquilan cuentas completas (86 alquileres reales) y reparten perfiles por fuera; casi no cargan clientes uno por uno (1 servicio). Se agrega, por cuenta alquilada, la lista de perfiles repartidos (cliente, WhatsApp, vence, precio, pago, nota). Alimenta Avisar, Quién me debe, Ganancias, Tu día y el aviso diario.
 - **Privacidad:** son datos del revendedor. El dueño no los ve: las respuestas de la API al equipo se limpian (`pubAssignment` quita `subs` y `rcontrol`).

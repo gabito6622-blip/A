@@ -400,7 +400,8 @@ export interface Order {
   approvedBy?: Id;
   reservedSlotIds: Id[];
   assignmentIds: Id[];
-  renewal?: { assignmentId: Id; periods: number };
+  /** prevExpiresAt: vencimiento antes de renovar (para saber si renovó a tiempo o tarde). */
+  renewal?: { assignmentId: Id; periods: number; prevExpiresAt?: number };
   topupAmount?: Cents;
   /** "A pedido": ítems sin stock al comprar (solo revendedores, pagando con QR). Se entregan al aprobar el pago. */
   backorder?: { productId: Id; qty: number }[];
@@ -486,6 +487,8 @@ export interface SubRental {
   pay: "pagado" | "pendiente" | "no_pago";
   note?: string;
   createdAt: number;
+  /** Link de cobro para SU cliente (/c/<token>): lo crea y lo cambia solo el revendedor (subLinks.ts). */
+  link?: { token: string; by: Id; at: number };
 }
 
 export interface FiadoEntry {
@@ -675,7 +678,16 @@ export interface State {
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */
   accountAlerts: AccountAlert[];
+  /** "Que vuelvan": a quién ya se le escribió para recuperar la venta y a quién no molestar (por cliente). */
+  winback?: Record<Id, WinbackMark>;
   seq: number;
+}
+
+/** Marca de "Que vuelvan": cuándo se le escribió por última vez y cuándo pidió que no lo molesten. */
+export interface WinbackMark {
+  writtenAt?: number;
+  mutedAt?: number;
+  by: Id;
 }
 
 /** Gasto manual que carga el dueño (proveedor, internet, etc.). */

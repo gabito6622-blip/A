@@ -3,6 +3,7 @@
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
+import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -857,8 +858,8 @@ async function renewMany(ids, el) {
 /* ---------------- Repartir perfiles de las cuentas alquiladas (cuaderno del revendedor) ---------------- */
 const ymd = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const subSeen = (s) => { try { return localStorage.getItem(`gs-sv-${s.id}-${s.expiresAt}`) === "1"; } catch { return false; } };
-const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${product}${s.label ? ` (${s.label})` : ""} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${bs(s.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
-const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${bs(s.price)}` : ""}. ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${product}${s.label ? ` (${s.label})` : ""} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${bs(s.price)}.` : ""} ¿Lo renovamos? 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
+const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${bs(s.price)}` : ""}. ¡Gracias! 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
 /** Perfiles de todas sus cuentas, con la cuenta a la que pertenecen. */
 const allSubs = () => (S.data.rsubs?.list ?? []).flatMap((r) => r.subs.map((s) => ({ ...s, aid: r.assignmentId, product: r.product, accExp: r.expiresAt })));
 /** "Pegar mi lista": entiende líneas como "Rosa 71112233 15/12 Bs15 debe" o "Perfil 2 - Juan - 72223344 - 20/12 - 15". */
@@ -931,7 +932,7 @@ function rSubsView() {
         <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
         <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${bs(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
-          ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
+          ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
         <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
         <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
         ${S.data.paste?.aid === r.assignmentId ? pasteBox(r) : ""}</article>`; }).join("")}</div>`;
@@ -1960,6 +1961,7 @@ document.addEventListener("click", async (ev) => {
     toast(bad.length ? `🔄 Renovaste ${ok} · no se pudo: ${bad.join(" · ")}` : `🔄 ¡Listo! ${ok} cuenta(s) renovada(s) por 30 días`);
     return;
   }
+  if ((d.sublink || d.sublinknew) && await subLinkClick(d, el)) { S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs); return render(); }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
   if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {
     const [aid, sid] = String(d.subavisar || d.subrenew || d.subdel || d.subpaid).split("|");

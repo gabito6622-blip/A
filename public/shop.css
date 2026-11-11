@@ -1043,3 +1043,6 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .pasteprev>div{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--s-card2)}
 .pasteprev>div.bad{outline:1px solid var(--s-bad)}
 .pasteprev small{color:var(--s-muted)}
+/* Link de cobro de un perfil repartido (sublinks.js) */
+.sublink{display:grid;gap:8px;border:1px dashed var(--s-line);border-radius:14px;padding:12px;min-width:0}
+.sublink .linkrow code{display:block;font-size:12px;background:var(--s-card2);padding:6px 8px;border-radius:8px;overflow-wrap:anywhere;word-break:break-all}

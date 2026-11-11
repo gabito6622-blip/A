@@ -235,6 +235,7 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
     queue(e, order.customerId, "order_confirmed", { order: order.id });
   } else if (order.kind === "renewal") {
     const r = order.renewal!;
+    r.prevExpiresAt = e.s.assignments[r.assignmentId]?.customerExpiresAt;
     extend(e, actor, r.assignmentId, r.periods, false);
   } else {
     post(e, actor, order.customerId, order.topupAmount!, "topup", order.id);
@@ -471,6 +472,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmt(order.total) });
     } else {
       if (input.paymentMethod === "balance") post(e, actor, payerId, -order.total, "renewal", order.id);
+      order.renewal!.prevExpiresAt = a.customerExpiresAt;
       extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
@@ -535,10 +537,14 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
     const to = e.get("customers", toCustomerId);
     if (to.id === a.customerId) throw new DomainError("VALIDATION", "El servicio ya es de ese cliente");
     const from = e.s.customers[a.customerId];
+    // El cuaderno del revendedor (a quién le dio cada perfil) y su control son del dueño anterior:
+    // no viajan con la cuenta, así el nuevo dueño nunca ve los clientes de otro revendedor.
+    const dropped = a.subs?.length ?? 0;
+    delete a.subs; delete a.rcontrol;
     a.customerId = to.id;
     a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
     queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
-    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason });
+    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason, ...(dropped ? { subsDropped: dropped } : {}) });
     return pubAssignment(a);
   });
 }

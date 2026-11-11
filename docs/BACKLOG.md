@@ -10,6 +10,25 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B1 | Qué compran y a cuánto los revendedores | P1 | ✅ solo alquileres: Disney 69/34, Prime 20, HBO 15 |
 | B2 | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
+| B4 | 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
+| B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (sin publicar) |
+| B7 | Que vuelvan: ¿respetar el permiso de WhatsApp del cliente (`whatsappConsent`)? Hoy no filtra porque lo manda una persona a mano, como la fila de cobro | P2 | 🧑 |
+
+## Tanda "vender más" (equipos)
+| # | De | Pendiente | Prioridad | Estado |
+|---|---|---|---|---|
+| V1 | 👔 | Que vuelvan (recuperar ventas perdidas) | P1 | ✅ `test/winback*.test.mjs` |
+| V2 | 👔 | Cómo van tus revendedores | P2 | ✅ `test/como-van.test.mjs` |
+| V3 | 🏪 | Link de cobro para los clientes del revendedor | P1 | ✅ `test/link-cobro.test.mjs` |
+| V4 | 🔒 | Transferir un alquiler pasaba el cuaderno del revendedor anterior | P1 | ✅ prueba en `link-cobro` |
+| V5 | 👔 | Que vuelvan: revendedor con varias cuentas del mismo producto (se le cae 1 de 3 y no aparece) | P2 | ⏳ |
+| V6 | 👔 | Cómo van: % enorme cuando el mes anterior fue casi cero (ej. +2057 %); mostrar "nuevo ingreso" | P3 | ⏳ |
+| V7 | 👔 | Cómo van: sumar a los revendedores anotados solo como texto en el Control | P3 | ⏳ |
+| V8 | 🏪 | Link de cobro: mostrar los datos de pago escritos del revendedor (banco, a nombre de…) | P3 | ⏳ |
+| V9 | 🔒 | Que el log de errores no guarde la ruta `/api/cobro/<token>` | P3 | ⏳ |
+| V10 | 👔 | Que vuelvan: sumar pruebas gratis vencidas sin compra; "volvieron" solo del producto ofrecido | P3 | ⏳ |
+| V11 | 👔 | Revendedores a 360 px: tarjetas de la lista se salen 15 px, link de la página cortado (ya estaba) | P3 | ⏳ |
+| B5 | Alquileres como cuenta completa (1 perfil "Cuenta completa") | P2 | ✅ 123 cuentas, sin avisos |
 
 ## Auditoría del pulido
 | # | De | Pendiente | Prioridad | Estado |

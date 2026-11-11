@@ -24,6 +24,7 @@ import { generateVapidKeys, sendPush, validSubscription, vapidKeyObject, type Pu
 import { AGENT_KINDS, AI_MODELS, Agents, AiError, defaultAiCfg, type AgentKind, type AiCfg, type ReceiptCheck } from "./agents.js";
 import { runBank, type BankResult } from "./agent-bank.js";
 import { localHour } from "../store/orders.js";
+import { overview as resellerOverview } from "../store/resellerStats.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
@@ -534,6 +535,18 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
   route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
   route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => store.subs.remove(c.actor!, c.params.id, c.params.sub));
+  // Link de cobro de un perfil repartido (/c/<token>): lo arma el revendedor, lo abre su cliente sin cuenta.
+  const cobroUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/c/${token}`;
+  route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
+  route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => store.subs.revokeLink(c.actor!, c.params.id, c.params.sub));
+  // Contra el barrido de tokens: cada link que no sirve cuenta por IP; pasado el límite, 429 a todo por un rato.
+  const cobroMissLimiter = new RateLimiter(20, 15 * 60_000, now);
+  const cobro = <T>(c: Ctx, fn: () => T): T => {
+    if (cobroMissLimiter.blocked(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
+    try { return fn(); } catch (e) { if (e instanceof DomainError && e.code === "NOT_FOUND") cobroMissLimiter.take(c.ip); throw e; }
+  };
+  route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => store.subs.publicView(c.params.token)));
+  route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
@@ -703,6 +716,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/suppliers", "staff", (c) => (A(c).role === "seller" ? [] : Object.values(snap().suppliers)));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
   // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
+  route("GET", "/api/admin/winback", "staff", (c) => store.winback.list(A(c)));
+  route("POST", "/api/admin/winback/:customerId", "staff", (c) => store.winback.mark(A(c), c.params.customerId, c.body?.outcome));
   route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
   route("GET", "/api/admin/fiado/:id", "staff", (c) => store.fiado.history(A(c), c.params.id));
   route("POST", "/api/admin/fiado/charge", "staff", (c) => store.fiado.charge(A(c), { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
@@ -787,6 +802,11 @@ export function createApp(cfg: AppConfig): App {
     }));
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
+  });
+  // 📈 Cómo van tus revendedores (solo dueño y admin: son montos del negocio).
+  route("GET", "/api/admin/resellers/overview", "staff", (c) => {
+    const r = resellerOverview(store.engine, A(c), now());
+    return { ...r, list: r.list.map((x) => ({ ...x, lastLoginAt: Number(db.getSecret(`lastlogin:${x.id}`) ?? 0) || null })) };
   });
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;
@@ -1771,7 +1791,7 @@ export function createApp(cfg: AppConfig): App {
     let body: string, type: string;
     if (pathname === "/robots.txt") {
       type = "text/plain; charset=utf-8";
-      body = `User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api/\nDisallow: /codigos\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ""}`;
+      body = `User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api/\nDisallow: /codigos\nDisallow: /c/\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ""}`;
     } else {
       type = "application/xml; charset=utf-8";
       let shops: string[] = [];
@@ -1837,6 +1857,7 @@ export function createApp(cfg: AppConfig): App {
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file) && existsSync(file + ".html")) file += ".html"; // /panel → panel.html
     if (/^\/codigos\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "codigos.html");
+    if (/^\/c\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "cobro.html");
     if (/^\/recuperar\/?$/.test(pathname)) file = join(root, "recuperar.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;

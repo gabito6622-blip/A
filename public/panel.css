@@ -1041,3 +1041,51 @@ table.ctl tfoot td.ccli{z-index:3}
 .cobra{border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
 .cobsum{display:grid;gap:4px}
 .cobpre{white-space:pre-wrap;font:inherit;font-size:13px;background:var(--soft);border-radius:10px;padding:10px;margin:0;max-height:220px;overflow:auto}
+.hm-invite{display:grid;gap:10px;border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.hm-invite h2{margin:0}.hm-invite .pbtn{justify-self:start;min-height:44px}
+
+/* 📈 Cómo van tus revendedores (panel-comovan.js) */
+.cv-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cv-kpi{display:grid;gap:2px;align-content:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);min-width:0}
+.cv-kpi small{color:var(--muted);font-size:13px;font-weight:600}
+.cv-kpi>b{font-size:26px;line-height:1.2}
+.cv-kpi span{font-size:13px;overflow-wrap:anywhere}
+.cv-filters{border-bottom:0}
+.cv-filters button{min-height:44px;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:14px}
+.cv-filters button[aria-selected="true"]{background:var(--dark);color:var(--dark-ink);border-color:var(--dark)}
+.cv-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cv-row{border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.cv-row>summary{list-style:none;cursor:pointer;display:grid;gap:6px;padding:12px 14px;min-height:44px}
+.cv-row>summary::-webkit-details-marker{display:none}
+.cv-row[open]>summary{border-bottom:1px solid var(--line)}
+.cv-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.cv-name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.cv-amt{font-size:16px;white-space:nowrap;margin-left:auto}
+.cv-chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.cv-ok{background:var(--ok-soft);color:var(--ok)}.cv-warn{background:var(--warn-soft);color:var(--warn)}.cv-bad{background:var(--bad-soft);color:var(--bad)}.cv-mute{background:var(--soft);color:var(--muted)}
+.cv-new{background:color-mix(in srgb,var(--blue-text) 16%,var(--card));color:var(--blue-text)}
+.cv-bar{display:block;height:8px;border-radius:999px;background:var(--soft);overflow:hidden}
+.cv-bar i{display:block;height:100%;border-radius:999px;background:var(--blue-text)}
+.cv-mix{font-size:13px}
+.cv-det{display:grid;gap:10px;padding:12px 14px}
+.cv-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0}
+.cv-grid div{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--soft);min-width:0}
+.cv-grid dt{font-size:12px;color:var(--muted)}.cv-grid dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.cv-msg{margin:0;font-size:14px;background:var(--soft);border-radius:10px;padding:10px}
+.cv-det .pbtn{justify-self:start;min-height:44px}
+.cv-rules summary{cursor:pointer;color:var(--muted);font-weight:600;min-height:44px;display:flex;align-items:center}
+.cv-rules p{margin:0}
+@media (max-width:860px){.cv-kpis{grid-template-columns:1fr}.cv-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cv-filters{flex-wrap:nowrap;overflow-x:auto}}
+
+/* Que vuelvan: ventas para recuperar */
+.wb{display:grid;gap:14px;min-width:0}
+.wb-sum,.wb-home{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.wb-sum h2,.wb-home h2{margin:0}
+.wb-home{display:grid;gap:10px}.wb-home .pbtn{justify-self:start;min-height:44px}
+.wb-row .pbtn{min-height:44px}.wb-row a.pbtn{justify-self:start}
+.wb-acts{flex-wrap:wrap;gap:8px}
+.wb-things{margin:0;padding-left:18px;display:grid;gap:2px;font-size:13px;overflow-wrap:anywhere}
+.wb .invstep .wb-things b{font-size:inherit}
+.wb-full>summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.wb-full h3{font-size:14px;margin:6px 0 0}
+.wb-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.wb-item{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px;min-width:0;overflow-wrap:anywhere}
+.wb-item .pbtn{justify-self:start;min-height:44px}

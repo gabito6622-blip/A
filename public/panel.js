@@ -1,5 +1,7 @@
 // Panel del vendedor conectado al servidor.
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { comoVanView } from "/panel-comovan.js";
+import { winbackView, winbackHomeCard } from "/winback.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -14,15 +16,16 @@ const MENU = [
   ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
   ["finanzas", "coins", "Finanzas", "owner"],
   ["fiado", "flag", "Fiado (lo que te deben)"],
+  ["quevuelvan", "coins", "💸 Que vuelvan"],
   ["notificaciones", "bell", "Notificaciones"],
   ["fallas", "help", "Fallas reportadas"],
   ["reubicar", "renew", "Reubicar", "review"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
   ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]], "review"],
-  ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
+  ["revendedores", "userplus", "Revendedores"], ["comovan", "users", "📈 Cómo van", "review"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda", "review"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -92,6 +95,8 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
 
 /* ---------------- vistas ---------------- */
 const V = {
+  comovan: () => comoVanView(P.tab),
+  quevuelvan: () => winbackView(),
   async dashboard() {
     const dd = Number(P.tab.dd ?? 30);
     const [d, set, products, accounts] = await Promise.all([api("GET", `/api/admin/dashboard?days=${dd}`), api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
@@ -481,6 +486,11 @@ const V = {
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
     const aiInfo = canReview() ? await api("GET", "/api/admin/ai").catch(() => null) : null;
+    // Revendedores que todavía no tienen PIN: un botón en Inicio arranca la fila de invitaciones.
+    const sinPin = canReview() ? ((await api("GET", "/api/admin/resellers").catch(() => null))?.list ?? []).filter((r) => !r.hasPin).length : 0;
+    const invCard = sinPin ? `<section class="card hm-invite"><h2>📲 ${sinPin} revendedor${sinPin === 1 ? "" : "es"} todavía sin acceso</h2>
+      <p class="muted" style="margin:0">Por cada uno: tocás <b>Generar PIN</b> y después <b>Abrir WhatsApp</b> para mandarle su acceso. La fila pasa sola al siguiente.</p>
+      <button class="pbtn dark" type="button" data-hgo="revendedores:invitar">▶ Invitarlos ahora</button></section>` : "";
     const daily = isOwner() ? aiInfo?.daily ?? null : null;
     const askCard = aiInfo?.hasKey && aiInfo.enabled.daily ? `<section class="card askcard"><h2>🧠 Preguntale a tu negocio</h2>
       <form class="inline" id="askForm" style="flex-wrap:wrap"><input name="q" maxlength="600" required placeholder="Ej.: ¿quién vence esta semana?" aria-label="Tu pregunta" style="flex:1 1 220px"><button class="pbtn dark" type="submit">Preguntar</button></form>
@@ -501,7 +511,7 @@ const V = {
         ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
         ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
         ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
-      ${tuMes}
+      ${invCard}${await winbackHomeCard()}${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -1246,8 +1256,8 @@ const V = {
       : cur ? `<div class="invstep"><div><small class="muted">${inv.i + 1} de ${queue.length}</small><b>${esc(cur.name)}</b><span class="muted">${esc(cur.phone)} · ${cur.lastLoginAt ? `entró el ${fdate(cur.lastLoginAt)}` : cur.hasPin ? "tiene PIN" : "sin acceso todavía"} · ${cur.services} servicio(s)</span></div>
           ${inv.done[cur.id] ? `<a class="pbtn green" href="${waLink(cur.phone, invMsg(inv.done[cur.id]))}" target="_blank" rel="noopener" data-invsent="${esc(cur.id)}">${icon("wa")}Abrir WhatsApp (PIN ${esc(inv.done[cur.id].pin)})</a>`
             : `<button class="pbtn dark" type="button" data-inv="pin" data-id="${esc(cur.id)}">🔑 Generar PIN de ${esc(cur.name.split(" ")[0])}</button>`}
-          <div class="inline"><button class="pbtn sm" type="button" data-inv="next">${inv.done[cur.id] ? "Siguiente ▶" : "Saltar ▶"}</button><button class="pbtn sm" type="button" data-inv="stop">Terminar</button></div></div>`
-      : `<p style="margin:0">✅ ¡Listo! Recorriste ${queue.length} revendedor(es).</p><button class="pbtn sm" type="button" data-inv="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
+          <div class="inline">${inv.i ? `<button class="pbtn sm" type="button" data-inv="prev">◀ Anterior</button>` : ""}<button class="pbtn sm" type="button" data-inv="next">${inv.done[cur.id] ? "Siguiente ▶" : "Saltar ▶"}</button><button class="pbtn sm" type="button" data-inv="stop">Terminar</button></div></div>`
+      : `<p style="margin:0">✅ ¡Listo! Recorriste ${queue.length} revendedor(es)${Object.keys(inv.sent ?? {}).length ? ` y le mandaste el acceso a ${Object.keys(inv.sent).length}` : ""}.</p><button class="pbtn sm" type="button" data-inv="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
     // Cobrar alquileres en fila: por revendedor, lo que le vence en 7 días (o ya venció), en un solo WhatsApp.
     const due = canReview() ? await api("GET", "/api/admin/assignments?days=7").catch(() => []) : [];
     const byRes = new Map();
@@ -2221,6 +2231,8 @@ async function act(fn, okMsg) {
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-cobsent]");
   if (a) { (P.tab.cob ??= { on: true, i: 0, sent: {} }).sent[a.dataset.cobsent] = true; setTimeout(render, 300); }
+  const b = ev.target.closest("a[data-invsent]");
+  if (b && P.tab.inv?.on) { const inv = P.tab.inv; (inv.sent ??= {})[b.dataset.invsent] = true; inv.i++; setTimeout(render, 300); }
 });
 document.addEventListener("click", async (ev) => {
   const el = ev.target.closest("button");
@@ -2259,6 +2271,10 @@ document.addEventListener("click", async (ev) => {
       if (f === "nopay") P.tab.cpay = "debe";
       if (f === "fecha") P.tab.cfrom = Number(x);
       if (x === "mios") P.tab.ck = "fin"; // desde Inicio: solo lo que cobrás vos
+    }
+    if (v === "revendedores" && f === "invitar") {
+      const l = (await api("GET", "/api/admin/resellers").catch(() => null))?.list ?? [];
+      P.tab.inv = { on: true, all: false, i: 0, done: {}, sent: {}, ids: l.filter((r) => !r.hasPin).map((r) => r.id) };
     }
     return go(v);
   }
@@ -2403,6 +2419,7 @@ document.addEventListener("click", async (ev) => {
     }
     if (d.inv === "stop") { inv.on = false; inv.i = 0; inv.ids = null; }
     if (d.inv === "next") inv.i++;
+    if (d.inv === "prev") inv.i = Math.max(0, inv.i - 1);
     if (d.inv === "pin") {
       const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.id);
       if (!r) return toast("No encontré a ese revendedor");
