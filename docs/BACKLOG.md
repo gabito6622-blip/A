@@ -106,5 +106,5 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
 | M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🧑 |
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
-| M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ sin publicar |
+| M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |

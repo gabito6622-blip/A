@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-11 · Sin publicar · 🏢 Mi oficina
+## 2026-11-11 · #38 🏢 Mi oficina
 - **Dueño y admin:** nueva pantalla «🏢 Mi oficina» en el menú. Muestra a los asistentes dibujados en 2D, cada uno en su escritorio:
   - con IA: Rocío (comprobantes), Wali (WhatsApp), Dani (asistente del dueño) y Vico (vigilante);
   - gratis, sin IA: Coco (códigos) y Tito (avisos de vencimiento).

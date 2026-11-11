@@ -2,7 +2,7 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Ahora — 🏢 Mi oficina · 🔧 sin publicar
+## Hecho — 🏢 Mi oficina · ✅ publicado (#38)
 - Los asistentes dibujados en 2D, trabajando con datos reales. 463 pruebas en verde.
 
 ## Hecho — Lo que pidieron en el estudio de mercado · ✅ publicado (#37)
