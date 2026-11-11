@@ -3,7 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Invitar a todos y Pegar mi lista (rama `sorpresa`)
+## Sin publicar — Cobro de alquileres (rama `cobranza`)
+- **Dueño:** "💰 Cobrar alquileres de la semana" en Revendedores: por revendedor, lo que le vence en 7 días (o ya venció) con el total a su precio, y un solo WhatsApp con la lista y cómo renovar; fila guiada que marca a quién ya avisaste.
+- **Revendedor:** en Repartir perfiles, "🔄 Renovar cuenta" en cada alquiler y "Renovar las N que vencen" con su saldo (con candado 🔒 cuando la tienda debe renovar primero).
+
+## 2026-11-11 · #28 Invitar a todos y Pegar mi lista
 - **Dueño:** "📲 Invitar a tus revendedores": fila guiada que genera el PIN y deja listo el WhatsApp de cada uno (con el link a /hub y cómo usar Repartir perfiles). Por defecto solo a quienes no tienen PIN; a los que ya lo tienen no se les cambia. El panel ahora sabe quién tiene PIN y cuándo entró por última vez.
 - **Revendedor:** "📋 Pegar mi lista" en cada cuenta alquilada: pega su lista de WhatsApp o cuaderno (nombre, perfil, número con o sin +591, fecha "15/12" o "3 de enero", precio "Bs15"/"15bs", "debe"/"no pagó") y la revisa antes de guardar. Pegar la misma lista dos veces no duplica.
 

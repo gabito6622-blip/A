@@ -1483,6 +1483,8 @@ describe("Repartir perfiles de una cuenta alquilada (cuaderno del revendedor)", 
     s.subs.save(as(carla), aid, { name: "Tío Juan", expiresAt: T0 + 20 * DAY, price: 1500 });
     const mine = s.subs.list(as(carla));
     assert.deepEqual(mine[0].subs.map((x) => x.name), ["Rosa", "Tío Juan"]);
+    assert.equal(mine[0].canRenew, true, "el revendedor puede renovar su alquiler");
+    assert.equal(mine[0].renewableNow, true, "la cuenta del proveedor dura 90 días: se puede renovar ya");
     // Otro revendedor no puede tocarla
     const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 69990099", kind: "reseller", priceGroupId: "revendedor" });
     assert.throws(() => s.subs.save(as(otro), aid, { name: "X", expiresAt: T0 + DAY }), err("FORBIDDEN"));
