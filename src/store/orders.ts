@@ -644,6 +644,47 @@ export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string)
   });
 }
 
+/**
+ * "🧪 Era una prueba": la venta que creó este servicio no fue real (la hizo el dueño para probar).
+ * - La venta queda como prueba (`trial`): sale de Finanzas, Dashboard, Cómo van y Que vuelvan.
+ * - Sus servicios se cierran y los perfiles vuelven a estar libres sin cuarentena (nadie los usó de verdad).
+ * - Si se pagó con saldo, el saldo vuelve. No se manda ningún aviso.
+ * Solo ventas (no renovaciones ni recargas), solo dueño o admin.
+ */
+export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason?: string) {
+  authorize(actor, "assignment.replace");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    const o = Object.values(e.s.orders).find((x) => x.kind === "sale" && x.assignmentIds?.includes(a.id));
+    if (!o) throw new DomainError("VALIDATION", "No encontré la venta de este servicio");
+    if (o.status !== "fulfilled") throw new DomainError("INVALID_STATE", "Esa venta no está entregada");
+    if (o.trial) throw new DomainError("INVALID_STATE", "Esa venta ya está marcada como prueba");
+    const note = (reason ?? "").trim().slice(0, 120) || "era una prueba";
+    const closed: Id[] = [];
+    for (const id of o.assignmentIds) {
+      const x = e.s.assignments[id];
+      if (!x) continue;
+      x.trial = true;
+      if (x.status === "active") {
+        x.status = "revoked";
+        x.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: x.slotId, note });
+        const slot = e.s.slots[x.slotId];
+        if (slot && slot.status === "assigned") slot.status = "available";
+        closed.push(id);
+      }
+    }
+    // Las renovaciones de esos servicios también eran prueba.
+    const renewals = Object.values(e.s.orders).filter((x) => x.kind === "renewal" && x.status === "fulfilled" && !x.trial && x.renewal && o.assignmentIds.includes(x.renewal.assignmentId));
+    let refunded = 0;
+    for (const x of [o, ...renewals]) {
+      x.trial = true; x.updatedAt = e.now();
+      if (x.paymentMethod === "balance" && x.total > 0) { post(e, actor, x.payerId ?? x.customerId, x.total, "refund", x.id, "Era una prueba: vuelve el saldo"); refunded += x.total; }
+    }
+    e.audit(actor, "order.mark_test", "order", o.id, { assignments: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded, reason: note });
+    return { orderId: o.id, total: o.total + renewals.reduce((t, x) => t + x.total, 0), services: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded };
+  });
+}
+
 /** Devolución proporcional: cierra un servicio activo y acredita al cliente por los días que le faltaban. */
 export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string } = {}) {
   authorize(actor, "assignment.replace");

@@ -643,6 +643,7 @@ const V = {
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
+          ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real: se libera el perfil y sale de tus números">🧪 Era una prueba</button>` : ""}
           ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
@@ -2572,6 +2573,10 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.paid) return act(() => api("POST", `/api/admin/assignments/${d.paid}/control`, { payStatus: "pagado" }), "💵 Marcado como cobrado");
+  if (d.wastest) {
+    if (!confirm(`¿La venta de ${el.dataset.name || "este cliente"} era una prueba?\n\nSe cierra el servicio (y los otros de esa misma venta), el perfil vuelve a estar libre y la venta sale de tus números. No se le avisa a nadie.`)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);
+  }
   if (d.refund) {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);

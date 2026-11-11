@@ -748,6 +748,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/assignments/:id/test", "staff", (c) => store.orders.markTest(A(c), c.params.id, c.body?.reason));
   route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));

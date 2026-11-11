@@ -45,7 +45,8 @@ export function report(e: Engine, actor: Actor, n = 6) {
   });
   const idx = new Map(months.map((m, i) => [m.key, i]));
   for (const o of Object.values(e.s.orders)) {
-    if (o.status !== "fulfilled" || o.kind === "topup") continue;
+    // Las pruebas (gratis o marcadas "🧪 Era una prueba") no son plata que entró.
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial) continue;
     const i = idx.get(mk(new Date(o.updatedAt)));
     if (i !== undefined) months[i].ingresos += o.total;
   }
