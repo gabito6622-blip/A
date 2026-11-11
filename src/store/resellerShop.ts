@@ -422,7 +422,7 @@ export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked:
   });
 }
 
-function findBySlug(e: Engine, slug: string): Customer | undefined {
+export function findBySlug(e: Engine, slug: string): Customer | undefined {
   const c = Object.values(e.s.customers).find((x) => x.shop?.slug === String(slug).toLowerCase());
   if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || !pageAllowed(e, c) || e.s.settings.resellerShops === false) return undefined;
   return c;

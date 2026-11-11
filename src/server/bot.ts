@@ -28,6 +28,7 @@ export interface BotAnswer {
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 const bs = (c: number) => "Bs " + (c / 100).toLocaleString("es-BO", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 });
+const usdText = (c: number) => `US$ ${(c / 100).toFixed(2).replace(".", ",")}`;
 const fd = (t: number) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 const MATCH: [RegExp, string][] = [
@@ -58,6 +59,9 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
   const shop = ctx.origin ? `${ctx.origin}/tienda/` : "";
   const words = ` ${t} `;
   const isReseller = customer?.kind === "reseller";
+  // Cliente en la lista en dólares: sus precios, su saldo y sus pedidos van en US$ (nunca como si fueran Bs).
+  const usdW = !!customer && s.usd.isUsd(customer.id);
+  const money = (c: number) => (usdW ? usdText(c) : bs(c));
 
   // 1) Comandos exactos (números y palabras del menú).
   let intent = MATCH.find(([re]) => re.test(t))?.[1];
@@ -106,7 +110,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
     case "thanks":
       return { replies: [`¡De nada${name ? `, ${name}` : ""}! 🙌 Si necesitás algo más, escribí *menu*.`] };
     case "product": {
-      const lines = named.slice(0, 8).map((p) => `• *${p.name}*: ${bs(p.price)} / ${p.durationDays} días · ${p.available > 0 ? (p.available <= 2 ? `quedan ${p.available}` : "disponible ✅") : "agotado ❌"}`);
+      const lines = named.slice(0, 8).map((p) => `• *${p.name}*: ${money(p.price)} / ${p.durationDays} días · ${p.available > 0 ? (p.available <= 2 ? `quedan ${p.available}` : "disponible ✅") : "agotado ❌"}`);
       return { replies: [`${lines.join("\n")}${isReseller ? "\n_(precio de revendedor)_" : ""}${shop ? `\n\n🛒 Comprá acá: ${shop}#catalogo` : ""}\n\nEscribí *3* para ver cómo pagar o *2* para ver todos los precios.`] };
     }
     case "orders": {
@@ -116,7 +120,9 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
       const list = Object.values(st.orders).filter((o) => o.customerId === customer.id || o.payerId === customer.id).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
       if (!list.length) return { replies: [`Todavía no tenés pedidos.${shop ? ` Mirá los productos: ${shop}#catalogo` : ""}`] };
       const review = list.some((o) => o.status === "payment_review");
-      return { replies: [`🧾 *Tus últimos pedidos*\n${list.map((o) => `• ${KIND[o.kind] ?? o.kind} #${o.id} · ${bs(o.total)} · ${STATUS[o.status] ?? o.status}`).join("\n")}${review ? "\n\nLos pagos se verifican en 10–30 minutos (en horario de atención). Te avisamos por acá." : ""}`] };
+      // Lo que pagó su revendedor es el costo del revendedor: el cliente final no lo ve.
+      const orderAmount = (o: (typeof list)[number]) => ((o.payerId ?? o.customerId) !== customer.id ? "lo pagó tu revendedor" : o.usd !== undefined ? usdText(o.usd) : bs(o.total));
+      return { replies: [`🧾 *Tus últimos pedidos*\n${list.map((o) => `• ${KIND[o.kind] ?? o.kind} #${o.id} · ${orderAmount(o)} · ${STATUS[o.status] ?? o.status}`).join("\n")}${review ? "\n\nLos pagos se verifican en 10–30 minutos (en horario de atención). Te avisamos por acá." : ""}`] };
     }
     case "resellerClients": {
       if (!isReseller) return { replies: [menu()] };
@@ -140,7 +146,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
     case "prices": {
       const list = s.catalog.publicCatalog(customer?.id).filter((p) => p.available > 0);
       if (!list.length) return { replies: ["Ahora no tenemos productos disponibles. Escribí *0* y te avisamos cuando haya. 🙏"] };
-      const lines = list.slice(0, 25).map((p) => `• ${p.name}: *${bs(p.price)}* / ${p.durationDays} días`);
+      const lines = list.slice(0, 25).map((p) => `• ${p.name}: *${money(p.price)}* / ${p.durationDays} días`);
       return { replies: [`💰 *Precios${customer?.kind === "reseller" ? " de revendedor" : ""}*\n${lines.join("\n")}${shop ? `\n\n🛒 Comprá acá: ${shop}#catalogo` : ""}\n\nEscribí *3* para ver cómo pagar.`] };
     }
     case "pay": {
@@ -176,7 +182,8 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
     }
     case "balance": {
       if (!customer) return { replies: [notClient] };
-      return { replies: [`💼 Tu saldo es *${bs(s.wallet.balance(customer.id))}*.${shop ? ` Recargá en ${shop}#recargas` : ""}`] };
+      // Saldo en dólares (lista en US$): se dice en US$, nunca como si fueran Bs.
+      return { replies: [`💼 Tu saldo es *${money(s.wallet.balance(customer.id))}*.${shop ? ` Recargá en ${shop}#recargas` : ""}`] };
     }
     default:
       return { replies: [menu()] };

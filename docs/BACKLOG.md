@@ -15,11 +15,14 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), #34 |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |
-| B14 | Al publicar: crear la lista "Panamá y Paraguay (US$)" y pasar a paraguay, panama y EXTRANJERO (con saldo en 0) | P1 | 🔧 |
-| B15 | Que el cliente final de un revendedor no vea en "Mis pedidos" lo que pagó el revendedor (su costo). Ya pasaba antes | P2 | ⏳ |
-| B16 | Precio acordado en US$ en Control para clientes en dólares | P3 | ⏳ |
+| B14 | Lista "Panamá y Paraguay (US$)" creada en la tienda real y paraguay, panama y EXTRANJERO pasados a ella (saldo US$ 0, 85 servicios intactos, cola 33) | P1 | ✅ #34 |
+| B15 | Que el cliente final de un revendedor no vea en "Mis pedidos" lo que pagó el revendedor (su costo) | P2 | ✅ equipo seguridad y plata |
+| B16 | Precio acordado en US$ en Control para clientes en dólares | P3 | ✅ "Te paga US$" |
+| B17 | El cliente de un revendedor renueva con su revendedor | P2 | ✅ decisión del dueño |
+| B18 | Al cargar un cliente, que no se sepa si ese teléfono ya es cliente de otro revendedor ("Ya existe un cliente con ese teléfono") | P3 | ⏳ |
+| B19 | "Apps más vendidas" de Finanzas cuenta unidades cargadas en lote/importadas | P3 | ⏳ |
 | B12 | Datos de revendedores para invitarlos: "paraguay" ✅ corregido a +595 992 946 366 (captura del dueño); Panamá: +507 6554-3461 (cuentaspremiumpty) y +507 6045-0712 (Resell Panama), falta saber cuál es "panama" y cuál "EXTRANJERO"; sin WhatsApp: panama, EXTRANJERO, aneliz, Dani strem, ANDROID; JOSUE ORIAS incompleto (776115438). ¿De qué país es EXTRANJERO? | P1 | 🧑 |
-| B8 | Configurar USDT en tu tienda (Binance Pay ID y tasa Bs→USDT) para que Paraguay y Panamá recarguen | P1 | 🧑 |
+| B8 | USDT activado en la tienda real con el Binance Pay ID del dueño y la tasa del BCB (11,71). Lo ven todos los clientes como opción "USDT (manual)"; los de afuera, primero | P1 | ✅ |
 | B9 | Revendedores de otro país: ¿se les cobra algo extra? | P3 | 🧑 |
 | B7 | Que vuelvan: ¿respetar el permiso de WhatsApp del cliente (`whatsappConsent`)? Hoy no filtra porque lo manda una persona a mano, como la fila de cobro | P2 | 🧑 |
 
@@ -38,9 +41,11 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | V10 | 👔 | Que vuelvan: sumar pruebas gratis vencidas sin compra; "volvieron" solo del producto ofrecido | P3 | ⏳ |
 | V12 | 👔 | Cómo van: los cobros de alquiler que marcás como "pagado" en el Control (y lo importado del Excel) no son pedidos, así que no suman en "te pagaron". Hoy en la tienda real da Bs 34 este mes. Contarlos sin duplicar las renovaciones con pedido | P1 | ✅ prueba `como-van` (#32) |
 | V11 | 👔 | Revendedores a 360 px: tarjetas de la lista se salen 15 px, link de la página cortado (ya estaba) | P3 | ✅ equipo revendedores cómodos |
-| W1 | 🏪 | Cuentas propias: avisos de vencimiento en "Tu día" y en el aviso diario al celular | P2 | ⏳ |
-| W2 | 🏪 | Afiches en la moneda del revendedor de afuera | P3 | ⏳ |
-| W3 | 🏪 | Celulares de Argentina: el "9" después de +54 en wa.me | P3 | ⏳ |
+| W1 | 🏪 | Cuentas propias: avisos de vencimiento en "Tu día" y en el aviso diario al celular | P2 | ✅ |
+| W2 | 🏪 | Afiches en la moneda del revendedor de afuera | P3 | ✅ |
+| W3 | 🏪 | Celulares de Argentina: el "9" después de +54 en wa.me | P3 | ✅ al armar el link (falta en los links que arma `panel.js`) |
+| W7 | 👔 | Al publicar: pasar a "panama" y "EXTRANJERO" del país "Otro (+507, $)" a Panamá (US$) | P3 | ⏳ |
+| W8 | 🏪 | Que el panel no se redibuje mientras alguien escribe | P3 | ⏳ |
 | W4 | 🏪 | Vista previa de `/r/` con el logo del revendedor encima | P3 | ⏳ |
 | W5 | 🛒 | Montos negativos: "Bs -5" debería decir "-Bs 5" | P3 | ⏳ |
 | W6 | 🛒 | Revisar la regla de 44 px en la tienda del cliente y en `/r/` (estilos generales tocados en la barrida) | P3 | ⏳ |

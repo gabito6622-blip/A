@@ -13,6 +13,16 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - El dueño ve solo cantidades; ni contraseñas ni clientes. Los clientes nuevos de cuentas propias no se crean como clientes de la tienda.
 - **IPTV:** los datos para el cliente (servidor, app, pantallas, instrucciones) van en el producto y salen en "Mandar acceso". La prueba gratis dura de 1 a 72 h, no cuenta como venta ni deuda, y al renovarse toma el precio del producto.
 
+## 2026-11-11 · El cliente de un revendedor renueva con su revendedor
+- **Qué:** decisión del dueño, con la recomendación de Claude. Un cliente con `resellerId` no renueva su propio servicio con la tienda (FORBIDDEN en `orders.renew`). En "Mis cuentas" ve "Renovar con <revendedor>" (wa.me a su WhatsApp) y su página si está publicada (`src/store/myReseller.ts`).
+- **Por qué:** la confianza de los revendedores (que la tienda no les saque clientes) y no mostrarle al cliente dos precios. El revendedor le sigue renovando desde su panel.
+- **No cambia:** clientes directos. Las compras nuevas del cliente de un revendedor en la tienda siguen permitidas (no se pidió bloquearlas).
+
+## 2026-11-11 · Seguridad y plata (equipo)
+- El precio acordado del Control es de quien lo acordó. Para quien paga en dólares se anota aparte en US$ (`priceUsd`); no se reinterpreta el `price` en Bs.
+- Los avisos con montos van a quien paga.
+- "Cargar sus cuentas" reutiliza el alta sin cobro del importador (pedido de Bs 0, canal `import`).
+
 ## 2026-11-11 · Lista en dólares con saldo en dólares
 - **Saldo en US$** (el dueño no eligió; se fue con la opción recomendada): el revendedor no gana ni pierde si se mueve la tasa. Cada movimiento lleva `cur: "USD"`.
 - **Cada pedido guarda** lo cobrado en US$ (`order.usd`) y `order.total` en Bs = US$ × tasa del momento. Así Finanzas, Dashboard, Cómo van y Que vuelvan siguen en Bs sin cambios. `effectivePrice` convierte con la tasa de hoy.

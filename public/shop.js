@@ -6,6 +6,7 @@ import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNot
 import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock } from "/ownstock.js";
+import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
@@ -195,7 +196,7 @@ async function loadPrivate() {
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
       api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
-    S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
+    [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null)]);
   }
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
@@ -340,7 +341,8 @@ function tkGroups(list) {
 /** Apps de un combo (si el dueño las cargó) y su nombre corto para las etiquetas. */
 const comboApps = (c) => (c?.kind === "combo" ? (c.comboParts ?? []).map((id) => product(id)).filter(Boolean) : []);
 const appShort = (p) => p.name.replace(/^Amazon\s+/i, "").replace(/\s+Premium\b.*$/i, "").replace(/\s+sin ESPN$/i, "").replace(/\s+con\s+ESPN$/i, " ESPN").trim();
-const comboSave = (c) => (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1];
+// El ahorro sale del texto del dueño (en Bs): en una página o lista en otra moneda no se muestra.
+const comboSave = (c) => (buySym() === "Bs" ? (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1] : undefined);
 /** Ícono del combo: los logos de cada app ordenados (en vez de una imagen ancha recortada). */
 const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="/api/products/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
 function ticketRow({ k, g }) {
@@ -364,7 +366,7 @@ function comboCompare(pub) {
   const a = combos.find((c) => c.id === S.cmpA) ?? combos[0];
   const b = combos.find((c) => c.id === S.cmpB && c.id !== a.id) ?? combos.find((c) => c.id !== a.id && c.price > a.price) ?? combos.find((c) => c.id !== a.id);
   const apps = (c) => (c.comboParts?.length ? c.comboParts.map((id) => product(id)?.name ?? id) : (c.description || "").split("·")[0].split(/\s\+\s/).map((x) => x.trim().replace(/\.$/, ""))).filter(Boolean);
-  const save = (c) => (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1];
+  const save = comboSave;
   const per = (c) => c.price / Math.max(1, apps(c).length);
   const best = per(a) === per(b) ? "" : per(a) < per(b) ? a.id : b.id;
   const btn = (c) => (c.available || onDemand(c) ? `<button class="tkbtn" type="button" data-add="${esc(c.id)}">Agregar</button>`
@@ -424,7 +426,8 @@ const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
 function pendingOrders() {
-  const list = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review");
+  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él).
+  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review"));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
   const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
@@ -466,6 +469,9 @@ const usdtOf = (cents) => (usdMode() ? cents / 100 : S.settings.usdt?.rate ? Mat
 const usdtHint = (cents) => (abroad() && !usdMode() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
 /** En dólares, sin USDT configurado (o sin tasa) no hay cómo recargar ni pagar fuera del saldo: se dice claro. */
 const usdNoPay = () => `<div class="err" role="alert">${S.me?.currency?.rate ? "La tienda todavía no recibe USDT." : "La tienda todavía no tiene la tasa del dólar."} ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero recargar saldo en USDT")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Volvé en un rato."}</div>`;
+// Cliente de un revendedor: renueva con SU revendedor (WhatsApp con el mensaje listo y su página si tiene).
+const viaResellerBtns = (a) => { const r = a.viaReseller, app = a.product.replace(/ \(alquiler revendedores\)/, "");
+  return `${r.whatsapp ? `<a class="sbtn sm pri" href="${waLink(r.whatsapp, `Hola, quiero renovar mi ${app} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar con ${esc(r.name)}</a>` : `<span class="empty">Para renovar, escribile a ${esc(r.name)}.</span>`}${r.page ? `<a class="sbtn sm" href="${esc(r.page)}">🛍️ Ver su página</a>` : ""}`; };
 function usdtBlock(toPay, fixedUsdt) {
   const u = S.settings.usdt;
   if (!u) return "";
@@ -592,13 +598,13 @@ function renderInner() {
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.renewableNow === false
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
           ? `<span class="rlock">🔒 Se renueva cuando la tienda renueve esta cuenta.${S.settings.whatsapp ? ` <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar a la tienda</a>` : ""}</span>`
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button><button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
-      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
+      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
@@ -649,6 +655,7 @@ const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-war
 /* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
 const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
 initOwnStock(() => render());
+initAfuera(() => refresh());
 async function loadRTab(tab) {
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
@@ -783,7 +790,7 @@ function infoModal(title, html) {
 /** "Tu día": lo que el revendedor tiene que hacer hoy, en una sola tarjeta con botones directos. */
 function todayCard() {
   const rows = S.data.rctl, fi = S.data.rfiado, g = S.data.rearn;
-  if (!rows && !fi && !g) return "";
+  if (!rows && !fi && !g && !S.data.ownSoon?.clients?.length && !S.data.ownSoon?.provider?.length) return "";
   const subs = allSubs(), sm = S.data.rsubs?.summary;
   const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length
     + subs.filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7 && !subSeen(s)).length;
@@ -794,9 +801,9 @@ function todayCard() {
   const it = [
     [subs.length ? "perfiles" : "control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
     ["debe", "💸", mine(owed), owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
-    ["ganancias", "📈", gain === null ? "—" : bs(gain), "ganaste este mes", "g"],
+    ["ganancias", "📈", gain === null ? splitGainText(g, sm) : bs(gain), "ganaste este mes", "g"],
   ];
-  return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c, logos]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small>${logos ?? ""}</button>`).join("")}</div></section>`;
+  return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c, logos]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small>${logos ?? ""}</button>`).join("")}</div>${ownTodayRow(S.data.ownSoon)}</section>`;
 }
 function appCard() {
   return `<div class="sbox hquick"><b>📲 Tu panel en el celular</b><div class="hqrow two">
@@ -815,10 +822,11 @@ const POSTER_STYLES = {
 function postersView() {
   const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
   if (!priced.length) return `<div class="sbox"><h2 style="margin:0">🖼️ Afiches para tus estados</h2><p class="empty" style="margin:0">Primero poné tus precios en <b>Clientes y ventas → Mi lista de precios</b>: el afiche se arma con ellos.</p></div>`;
+  if (needsRate()) return posterRateBox();
   const P = (S.data.poster ??= { style: "noche", off: [] });
   return `<div class="sbox"><h2 style="margin:0">🖼️ Afiches para tus estados</h2><p class="empty" style="margin:0">Se arma solo con tu logo y tus precios. Descargalo y subilo a tu estado de WhatsApp o TikTok.</p>
       <div class="cats tkcats">${Object.entries(POSTER_STYLES).map(([k, s]) => `<button type="button" data-pstyle="${k}" aria-pressed="${P.style === k}">${s.name}</button>`).join("")}</div>
-      <details><summary><b>Elegí qué apps salen</b> (${priced.filter((p) => !P.off.includes(p.productId)).length} de ${priced.length})</summary><div class="pchips">${priced.map((p) => `<label class="chk"><input type="checkbox" data-pp="${esc(p.productId)}" ${P.off.includes(p.productId) ? "" : "checked"}> ${esc(p.name)} · ${bs(p.sell)}</label>`).join("")}</div></details>
+      <details><summary><b>Elegí qué apps salen</b> (${priced.filter((p) => !P.off.includes(p.productId)).length} de ${priced.length})</summary><div class="pchips">${priced.map((p) => `<label class="chk"><input type="checkbox" data-pp="${esc(p.productId)}" ${P.off.includes(p.productId) ? "" : "checked"}> ${esc(p.name)} · ${posterMoney(p.sell)}</label>`).join("")}</div></details>
       <canvas id="poster" class="pcanvas" width="1080" height="1920" aria-label="Vista previa del afiche"></canvas>
       <div class="rbtns"><button class="sbtn pri" type="button" data-pdown="1">⬇️ Descargar afiche</button><button class="sbtn" type="button" data-pshare="1">📤 Compartir</button></div></div>`;
 }
@@ -857,11 +865,11 @@ async function drawPoster() {
     if (label !== nm) label = label.trimEnd() + "…";
     x.fillText(label, 118, y + rh * .5);
     x.fillStyle = st.soft; x.font = `600 ${Math.round(rh * .22)}px ${F}`; x.fillText(`${p.durationDays} días`, 118, y + rh * .82);
-    x.textAlign = "right"; x.fillStyle = st.accent; x.font = `900 ${Math.round(rh * .42)}px ${F}`; x.fillText(bs(p.sell), W - 110, y + rh * .64);
+    x.textAlign = "right"; x.fillStyle = st.accent; x.font = `900 ${Math.round(rh * .42)}px ${F}`; x.fillText(posterMoney(p.sell) ?? "", W - 110, y + rh * .64);
   });
   x.textAlign = "center"; x.fillStyle = st.ink; x.font = `900 52px ${F}`; x.fillText("📲 Pedí por WhatsApp", cx, H - 220);
-  const wa = String(sh.whatsapp || S.me?.phone || "").replace(/\D/g, "").replace(/^591(?=\d{8}$)/, "");
-  if (wa) { x.fillStyle = st.accent; x.font = `900 76px ${F}`; x.fillText(wa.replace(/^(\d{4})(\d{4})$/, "$1 $2"), cx, H - 130); }
+  const wa = posterPhone(sh.whatsapp || S.me?.phone);
+  if (wa) { x.fillStyle = st.accent; fit(wa, W - 140, 76, 900); x.fillText(wa, cx, H - 130); }
   if (sh.enabled && sh.slug) { x.fillStyle = st.soft; x.font = `600 34px ${F}`; x.fillText(`${location.host}/r/${sh.slug}`, cx, H - 66); }
 }
 const posterBlob = () => new Promise((ok) => $("#poster").toBlob(ok, "image/png"));
@@ -1014,16 +1022,16 @@ function resellerView() {
             <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos automáticos por WhatsApp</label>
             <div class="rbtns"><button class="sbtn sm" type="submit">Guardar cambios</button><a class="sbtn sm" href="${waLink(c.phone, `Hola ${c.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a></div></form>
           <div class="sbox" style="margin-top:8px;padding:12px;gap:8px">
-            <b style="font-size:13px">🔑 Link de códigos de ${esc(c.name.split(" ")[0])} <small class="empty">(con su propio PIN)</small></b>
+            <b style="font-size:13px">🔑 Link de códigos de ${esc(c.name.split(" ")[0])} <small class="empty" style="font-size:12px">(con su propio PIN)</small></b>
             ${S.data.clientLinks?.[c.id] ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.clientLinks[c.id].url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.clientLinks[c.id].url)}">Copiar</button></div>
               <a class="sbtn sm pri" href="${waLink(c.phone, `Mirá tus códigos acá 👇 Tu PIN es ${S.data.clientLinks[c.id].pin}\n${S.data.clientLinks[c.id].url}`)}" target="_blank" rel="noopener" style="justify-self:start">${icon("wa")}Enviar link + PIN</a>` : ""}
             <form class="sform" data-clientcode="${esc(c.id)}" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end"><label>PIN de 4 números<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn sm pri" type="submit">${S.data.clientLinks?.[c.id] ? "Cambiar PIN" : "Crear link con PIN"}</button></form></div></details>`;
       }).join("") || `<p class="empty">${clients.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
 
-    <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>
+    <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>${listNote()}
       ${prices.some((p) => p.sell === null) ? `<button class="sbtn pri" type="button" data-sugerir="1" style="justify-self:start">✨ Ponerme precios sugeridos a todo</button>` : ""}
-      <div class="rtable">${prices.map((p) => `<div class="rprow"><span><b>${esc(p.name)}</b><br><small class="empty">Te cuesta ${bs(p.cost)} · ${p.durationDays} días</small></span>
-        <label class="rprice">Le cobro Bs<input name="p-${esc(p.productId)}" inputmode="decimal" value="${p.sell !== null ? (p.sell / 100).toFixed(2).replace(/\.00$/, "") : ""}" placeholder="—" data-cost="${p.cost}"></label>
+      <div class="rtable">${prices.map((p) => `<div class="rprow"><span><b>${esc(p.name)}</b><br><small class="empty">Te cuesta ${bs(p.cost)} · ${p.durationDays} días${sellHint(p.sell)}</small></span>
+        <label class="rprice">Le cobro ${esc(buySym())}<input name="p-${esc(p.productId)}" inputmode="decimal" value="${p.sell !== null ? (p.sell / 100).toFixed(2).replace(/\.00$/, "") : ""}" placeholder="—" data-cost="${p.cost}"></label>
         <span class="rprofit" data-profit="${esc(p.productId)}">${p.profit !== null ? `<b style="color:${p.profit < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${p.profit < 0 ? "−" : "+"}${bs(Math.abs(p.profit))}</b>` : ""}</span></div>`).join("")}</div>
       <div class="rbtns"><button class="sbtn pri" type="submit">Guardar precios</button>
       ${listText ? `<button class="sbtn" type="button" data-copy="${esc(`*Lista de precios*\n${listText}`)}">Copiar lista</button><a class="sbtn" href="https://wa.me/?text=${encodeURIComponent(`*Lista de precios*\n${listText}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a>` : ""}</div></form>
@@ -1095,7 +1103,7 @@ function resellerHome() {
   if (S.data.wiz) return wizardView();
   const sh = S.data.shop, sv = S.data.services ?? [], me = S.me;
   const venc = sv.filter((a) => a.daysLeft < 0).length, week = sv.filter((a) => a.daysLeft >= 0 && a.daysLeft <= 7).length;
-  const pend = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review").length;
+  const pend = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review")).length;
   const rent = sh?.rent;
   const canPage = !!me.pageAllowed;
   const tiles = [
@@ -1124,11 +1132,12 @@ function resellerHome() {
     <div class="pasos">${rpasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="sbtn sm pri" type="button" ${go === "gopage" ? `data-gopage="1"` : go === "wiz" ? `data-wiz="1"` : `data-s="${go}"`}>${esc(b)}</button>`}</div>`).join("")}</div></section>` : "";
   return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${isReseller() ? todayCard() : ""}
+    ${isReseller() ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
     ${setupR}
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc === 1 ? "1 cuenta vencida" : `${venc} cuentas vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
-    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
+    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}${countryMenuBtn()}</div></div>` : ""}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
@@ -1154,7 +1163,7 @@ function wizardView() {
     return `${steps}<form class="sbox sform wiz" id="wiz2"><h2>¿Qué vas a vender?</h2>
       <p class="empty" style="margin:0">Marcá lo que querés mostrar. Ya te pusimos un precio de venta sugerido (tu costo + ${m}%): cambialo si querés.</p>
       <div class="hrow"><button class="sbtn sm" type="button" data-wizall="1">Marcar todo</button><button class="sbtn sm" type="button" data-wizall="0">Desmarcar todo</button><span class="empty" style="font-size:13px">${on} elegido(s)</span></div>
-      <div class="wlist">${list.map((p) => { const k = w.picks[p.productId]; return `<label class="witem ${k.on ? "on" : ""}"><input type="checkbox" data-wpick="${esc(p.productId)}" ${k.on ? "checked" : ""}><span><b>${esc(p.name)}</b><small>Te cuesta ${bs(p.cost)} · ganás ${bs(Math.max(0, k.sell - p.cost))}</small></span><span class="wprice">Bs <input inputmode="decimal" data-wsell="${esc(p.productId)}" value="${k.sell / 100}"></span></label>`; }).join("")}</div>
+      <div class="wlist">${list.map((p) => { const k = w.picks[p.productId]; return `<label class="witem ${k.on ? "on" : ""}"><input type="checkbox" data-wpick="${esc(p.productId)}" ${k.on ? "checked" : ""}><span><b>${esc(p.name)}</b><small>Te cuesta ${bs(p.cost)} · ganás ${bs(Math.max(0, k.sell - p.cost))}</small></span><span class="wprice">${esc(buySym())} <input inputmode="decimal" data-wsell="${esc(p.productId)}" value="${k.sell / 100}"></span></label>`; }).join("")}</div>
       <div class="hrow"><button class="sbtn" type="button" data-wizback="1">Atrás</button><button class="sbtn pri" type="submit" ${on ? "" : "disabled"}>Publicar mi página ${icon("arrow")}</button></div></form>`;
   }
   const url = shopUrl(sh.slug), txt = `¡Mirá mi tienda! 🛍️ ${url}`;
@@ -1414,7 +1423,7 @@ function shopEditor() {
         <label>Parte en color<input name="heroHighlight" maxlength="40" value="${esc(sh.heroHighlight ?? "")}"></label>
         <label class="rwide">Descripción<input name="heroText" maxlength="220" value="${esc(sh.heroText ?? "")}"></label>
         <label class="rwide">Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(sh.heroTicks ?? "")}"></label>
-        <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="Ej.: 🔥 Netflix a Bs 30 solo hoy"></label>
+        <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="${myLocale()?.foreign ? "Ej.: 🔥 Netflix con descuento solo hoy" : "Ej.: 🔥 Netflix a Bs 30 solo hoy"}"></label>
         <label class="rwide">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(sh.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00"></label>
         <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en ${preciosEn()}"></label></div>
       <h2>7 · Redes</h2>
@@ -1457,7 +1466,7 @@ function combosEditor() {
 
     <form class="sbox sform" id="discForm"><h2>✦ Armá tu combo (descuento por cantidad)</h2>
       <p class="empty" style="margin:0">Tus clientes eligen 2, 3 o 4 apps sueltas y vos les hacés este descuento. Poné 0 en los tres para apagarlo.</p>
-      <div class="rgrid">${["2 apps", "3 apps", "4 o más"].map((t, i) => `<label>Descuento ${t} (Bs)<input name="d${i}" inputmode="decimal" value="${D[i] ? D[i] / 100 : ""}" placeholder="0"></label>`).join("")}</div>
+      <div class="rgrid">${["2 apps", "3 apps", "4 o más"].map((t, i) => `<label>Descuento ${t} (${esc(buySym())})<input name="d${i}" inputmode="decimal" value="${D[i] ? D[i] / 100 : ""}" placeholder="0"></label>`).join("")}</div>
       <button class="sbtn pri" type="submit">Guardar descuentos</button></form>
 
     <div class="sbox"><h2>🎁 Mis combos</h2>
@@ -1469,7 +1478,7 @@ function combosEditor() {
       <b class="rsub">Elegí las apps (2 o más)</b>
       <div class="ropts">${priced.map((p) => `<label><input type="checkbox" data-cpk="${esc(p.productId)}" ${draft.picks.includes(p.productId) ? "checked" : ""}><span>${esc(p.name)} · ${bs(p.sell)}</span></label>`).join("")}</div>
       ${draft.picks.length ? `<p class="empty" style="margin:0">Si lo vendieras suelto saldría ${bs(sum)}. Poné tu precio de combo (más barato para que convenga):</p>` : ""}
-      <label>Precio del combo (Bs)<input name="price" inputmode="decimal" required value="${esc(draft.price)}" placeholder="Ej.: ${sum ? Math.round(sum * 0.85 / 100) : 60}"></label>
+      <label>Precio del combo (${esc(buySym())})<input name="price" inputmode="decimal" required value="${esc(draft.price)}" placeholder="Ej.: ${sum ? Math.round(sum * 0.85 / 100) : 60}"></label>
       <button class="sbtn pri" type="submit" ${draft.picks.length >= 2 ? "" : "disabled"}>Guardar combo</button></form>` : ""}`;
 }
 
@@ -2066,7 +2075,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.rcsv) {
     const rows = S.data.rctl ?? [];
-    const H = ["Cliente", "WhatsApp", "App", "Perfil", "Correo", "Vence", "Días", "Le cobro (Bs)", "Pago", "Nota"];
+    const H = ["Cliente", "WhatsApp", "App", "Perfil", "Correo", "Vence", "Días", `Le cobro (${mySym()})`, "Pago", "Nota"];
     const lines = [H, ...rows.map((r) => [r.client, r.phone, r.product, r.profile, r.email, fdate(r.expiresAt), daysLeft(r.expiresAt), r.price !== null ? r.price / 100 : "", PAYS[r.pay], r.note])];
     const csv = "\ufeff" + lines.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `mi-control-${new Date().toISOString().slice(0, 10)}.csv` });

@@ -1,0 +1,31 @@
+/* Revendedor de afuera (afuera.js): tarjeta de país y tipo de cambio, aviso de cuentas propias en "Tu día".
+   Usa los colores de la tienda (--s-*) para claro y oscuro. */
+.af-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end;min-width:0;margin-top:6px}
+.af-grid>*{min-width:0}
+.af-wide{grid-column:1/-1}
+.af-rate{display:block!important;line-height:2.4}
+.af-rate input{display:inline-block;width:7.5em;margin:0 4px}
+.af-card{gap:8px}
+.af-card summary{cursor:pointer;min-height:44px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.af-card summary small{overflow-wrap:anywhere}
+.af-card details>summary.sbtn{display:inline-flex;width:auto}
+.af-card.af-warn{border-color:color-mix(in srgb,var(--s-warn) 70%,var(--s-line));background:color-mix(in srgb,var(--s-warn) 8%,var(--s-card))}
+.af-h{margin:0;font-size:18px;overflow-wrap:anywhere}
+.af-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.af-pill{display:inline-block;font-weight:800;font-size:14px;border-radius:999px;padding:4px 12px;background:color-mix(in srgb,var(--s-blue) 16%,var(--s-card));color:var(--s-ink);overflow-wrap:anywhere}
+.af-ex{margin:0;font-size:14px;font-weight:700;color:var(--s-ink);overflow-wrap:anywhere}
+.af-alert{margin:0;font-size:14px;font-weight:700;color:var(--s-ink);overflow-wrap:anywhere}
+.af-err{margin:0;color:var(--s-bad);font-size:13px;font-weight:700}
+.af-link{background:none;border:0;padding:0 2px;min-height:44px;font:inherit;font-weight:800;color:var(--s-blue);text-decoration:underline;cursor:pointer}
+.af-link:focus-visible{outline:2px solid var(--s-blue);outline-offset:2px}
+@media (max-width:520px){.af-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* "Tu día": una fila para las cuentas propias que vencen */
+.tday-own{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;min-height:44px;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--s-warn) 60%,var(--s-line));background:var(--s-card);color:var(--s-ink);font:inherit;cursor:pointer;min-width:0}
+.tday-own>span:first-child{font-size:20px}
+.tday-own b{display:block;font-size:14px;overflow-wrap:anywhere}
+.tday-own small{display:block;font-size:12px;color:var(--s-muted);overflow-wrap:anywhere}
+.tday-own i{font-style:normal;font-size:20px;color:var(--s-muted)}
+.tday-own:focus-visible{outline:2px solid var(--s-blue);outline-offset:2px}
+.af-more{border:1px dashed var(--s-line);border-radius:12px;padding:4px 12px}
+.af-more>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}

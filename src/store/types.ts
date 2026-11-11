@@ -527,6 +527,8 @@ export interface FiadoEntry {
 export interface RentalControl {
   /** Precio que cobra por período (centavos). */
   price?: Cents;
+  /** Precio acordado en US$ (centavos de dólar) cuando quien paga está en la lista en dólares. Manda sobre su lista al renovar. */
+  priceUsd?: Cents;
   /** Lo que le cuesta (centavos). */
   cost?: Cents;
   payStatus?: "pagado" | "pendiente" | "no_pago";

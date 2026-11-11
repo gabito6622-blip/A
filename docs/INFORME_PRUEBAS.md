@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Cargar sus cuentas + seguridad y plata + renovar con su revendedor (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar 2 equipos y los arreglos | **400 → 425 / 425 ✅** |
+| Cargar sus cuentas | `test/cargar-vendidas.test.mjs` (10): vista previa con todos los casos, no cobra ni avisa, no duplica, no dice de quién es una cuenta ajena, revendedor en dólares → "Te paga US$", permisos, navegador a 360 px | ✅ |
+| Seguridad y plata | `test/seguridad-plata.test.mjs` (12): todas las rutas `/api/me*` leídas del código y recorridas como cliente final en Bs y en US$; 16 intentos cruzados entre revendedores; precio en US$; monedas | ✅ (11 de 12 fallaban con el código anterior) |
+| Ficha en US$ | `test/ficha-usd.test.mjs` | ✅ |
+| Renovar con su revendedor | `test/renovar-con-revendedor.test.mjs` (2) + navegador: la clienta de Ariana ve "Renovar con Ariana Streaming" y "Ver su página", sin precio, 0 errores | ✅ |
+| Afuera completo | `test/afuera-completo.test.mjs` (9): "7.300", Panamá, avisos a 3 días, aislamiento de cuentas propias, aviso diario con push falso (1 por día), Argentina en wa.me, navegador a 360 px para Paraguay, Panamá y Bolivia | ✅ (434/434 integrado) |
+| Final integrado | Paraguay en la lista US$ a 360 px ve el aviso del tipo de cambio, sin desborde; panel del dueño sin desborde; tarjeta de la tasa en Inicio; 0 errores | ✅ |
+| Al integrar | 1 choque de imports en `panel.js` (se conservaron los dos). Cruces arreglados: ficha en Bs para revendedor en US$; precio en US$ como nota | ✅ |
+
+
 ## Tanda 11/11/2026 · Lista en dólares + tasa del Banco Central (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
@@ -7,6 +20,7 @@
 | Lista en dólares | `test/lista-dolares.test.mjs` (15): precios en US$, recarga USDT → US$, compra con saldo US$ 20 → 13, total en Bs con la tasa, la tasa cambia y el saldo no, renovaciones, devolución y "Era una prueba" en US$, ajuste del dueño, dashboard sin mezclar monedas, cambio de lista con saldo rechazado, sin tasa rechazado, permisos, navegador | ✅ |
 | Tasa del BCB | `test/tasa-bcb.test.mjs` (2) con una copia de la página; además la página real de hoy da 11,71 (11/11/2026) y se leyó en vivo desde el panel de prueba | ✅ |
 | Al integrar | sin choques. Corregido: productos a pedido decían "pagás con QR" a revendedores de afuera | ✅ |
+| **Después de publicar (#34), tienda real** | Tasa del BCB prendida: 11,71 (11/11). Lista US$ creada; 1 revendedor primero y después 2 más. Cola 33 → 33, servicios 85 → 85. Recorrido de tienda, /hub y panel: 0 desbordes, 0 errores | ✅ |
 | Celular | revendedor de Panamá en la lista US$ a 360 px: ve US$ 7 y recarga 20 USDT → US$ 20, sin QR, 0 desbordes, 0 errores | ✅ |
 
 
