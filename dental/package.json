@@ -19,6 +19,7 @@
     "start": "node server/dist/main.js",
     "test": "vitest run",
     "test:e2e": "npm run build:web && playwright test --trace off",
+    "files:sweep": "tsx server/src/cli/filesSweep.ts",
     "backup": "bash scripts/backup.sh",
     "restore": "bash scripts/restore.sh"
   },

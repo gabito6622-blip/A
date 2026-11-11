@@ -20,6 +20,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     if (res.status === 401 && e.code === "unauthenticated") window.dispatchEvent(new Event("session-expired"));
     throw new ApiError(res.status, e.code ?? "error", e.message ?? "Error de conexión", e.details);
   }
+  // Aviso para quien muestra contadores (p. ej. tareas pendientes del menú): hubo una escritura.
+  if (method !== "GET") window.dispatchEvent(new CustomEvent("api-write", { detail: url }));
   return data as T;
 }
 

@@ -1,15 +1,16 @@
 // Datos demo (ficticios) de imágenes y archivos: una paciente con radiografías periapicales de
 // la pieza 36 antes y después de la obturación, una panorámica, una foto intraoral y un documento
-// escaneado. Todas las imágenes son PNG SINTÉTICOS generados en código (lib/png.ts).
+// escaneado. Todas las imágenes son PNG SINTÉTICOS generados en código (lib/png.ts), cada una con
+// su miniatura (la misma imagen sintética reducida; en la app real la genera el navegador).
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import type { Db } from "../lib/db.js";
 import { nextCounter } from "../lib/db.js";
 import { normalize } from "../lib/text.js";
-import { createFileStore, newStorageKey } from "../lib/filestore.js";
+import { createFileStore, imageDimensions, newStorageKey, type FilesConfig } from "../lib/filestore.js";
 import { syntheticIntraoral, syntheticPanoramic, syntheticPeriapical, syntheticScan } from "../lib/png.js";
 
-export async function seedClinicalFilesDemo(db: Db, clinicId: string, cfg: { filesDir: string }) {
+export async function seedClinicalFilesDemo(db: Db, clinicId: string, cfg: FilesConfig) {
   const store = createFileStore(cfg);
   const c = await db.adminPool.connect();
   const written: string[] = [];
@@ -25,11 +26,11 @@ export async function seedClinicalFilesDemo(db: Db, clinicId: string, cfg: { fil
       [clinicId, n, normalize(`Valeria Demo Imagenes 9900002 +59170000002 ${n}`), br])).rows[0]!.id;
     const day = (d: number) => DateTime.now().setZone("America/La_Paz").minus({ days: d }).toISODate()!;
     const files = [
-      { kind: "xray_panoramic", teeth: [], taken: day(60), desc: "Panorámica de control inicial (imagen sintética de demostración)", png: syntheticPanoramic(), by: dr, name: "panoramica.png" },
-      { kind: "xray_periapical", teeth: [36], taken: day(45), desc: "Pieza 36 antes del tratamiento (imagen sintética)", png: syntheticPeriapical(1, false), by: dr, name: "periapical-36-antes.png" },
-      { kind: "xray_periapical", teeth: [36], taken: day(10), desc: "Pieza 36 después de la obturación (imagen sintética)", png: syntheticPeriapical(1, true), by: dr, name: "periapical-36-despues.png" },
-      { kind: "photo_intraoral", teeth: [11, 21], taken: day(10), desc: "Foto frontal (imagen sintética)", png: syntheticIntraoral(), by: dr, name: "intraoral.png" },
-      { kind: "scanned_document", teeth: [], taken: day(60), desc: "Formulario del seguro escaneado (documento sintético)", png: syntheticScan(), by: rec, name: "formulario-seguro.png" },
+      { kind: "xray_panoramic", teeth: [], taken: day(60), desc: "Panorámica de control inicial (imagen sintética de demostración)", png: syntheticPanoramic(), thumb: syntheticPanoramic(0.5), by: dr, name: "panoramica.png" },
+      { kind: "xray_periapical", teeth: [36], taken: day(45), desc: "Pieza 36 antes del tratamiento (imagen sintética)", png: syntheticPeriapical(1, false), thumb: syntheticPeriapical(1, false, 0.8), by: dr, name: "periapical-36-antes.png" },
+      { kind: "xray_periapical", teeth: [36], taken: day(10), desc: "Pieza 36 después de la obturación (imagen sintética)", png: syntheticPeriapical(1, true), thumb: syntheticPeriapical(1, true, 0.8), by: dr, name: "periapical-36-despues.png" },
+      { kind: "photo_intraoral", teeth: [11, 21], taken: day(10), desc: "Foto frontal (imagen sintética)", png: syntheticIntraoral(), thumb: syntheticIntraoral(2 / 3), by: dr, name: "intraoral.png" },
+      { kind: "scanned_document", teeth: [], taken: day(60), desc: "Formulario del seguro escaneado (documento sintético)", png: syntheticScan(), thumb: syntheticScan(2 / 3), by: rec, name: "formulario-seguro.png" },
     ];
     for (const f of files) {
       const key = newStorageKey(clinicId);
@@ -40,6 +41,14 @@ export async function seedClinicalFilesDemo(db: Db, clinicId: string, cfg: { fil
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'image/png',$9,$10,$11,$12,$13, ($6::date + time '10:30') AT TIME ZONE 'America/La_Paz') RETURNING id`,
         [clinicId, pid, br, f.kind, f.teeth, f.taken, f.desc, f.name, f.png.length, createHash("sha256").update(f.png).digest("hex"), store.driver, key, f.by],
       )).rows[0]!.id;
+      const thumbKey = newStorageKey(clinicId);
+      await store.put(thumbKey, f.thumb);
+      written.push(thumbKey);
+      const dim = imageDimensions(f.thumb)!;
+      await c.query(
+        `INSERT INTO clinical_file_thumbs (clinic_id, file_id, mime_type, width, height, size_bytes, sha256, storage_driver, storage_key, created_by)
+         VALUES ($1,$2,'image/png',$3,$4,$5,$6,$7,$8,$9)`,
+        [clinicId, id, dim.width, dim.height, f.thumb.length, createHash("sha256").update(f.thumb).digest("hex"), store.driver, thumbKey, f.by]);
       await c.query("INSERT INTO audit_log (clinic_id, user_id, action, entity, entity_id, branch_id, data) VALUES ($1,$2,'clinical_file.uploaded','clinical_file',$3,$4,$5)",
         [clinicId, f.by, id, br, JSON.stringify({ patientId: pid, kind: f.kind, seed: true })]);
     }

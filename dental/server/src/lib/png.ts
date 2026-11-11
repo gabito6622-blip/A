@@ -55,10 +55,13 @@ const gray = (v: number): [number, number, number] => [clamp(v), clamp(v), clamp
 /** Distancia normalizada a una elipse (<1 adentro). */
 const ell = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
 
+/** Las imágenes sintéticas aceptan `scale` para generar su miniatura (semilla demo, B-081). */
+
 /** "Radiografía periapical" sintética: dos piezas con raíces; con `restored`, una obturación radiopaca. */
-export function syntheticPeriapical(variant: number, restored: boolean): Buffer {
+export function syntheticPeriapical(variant: number, restored: boolean, scale = 1): Buffer {
   const W = 400, H = 300;
-  return encodePng(W, H, (x, y) => {
+  return encodePng(Math.round(W * scale), Math.round(H * scale), (px, py) => {
+    const x = px / scale, y = py / scale; // `scale` < 1: misma imagen reducida (miniaturas de la demo)
     let v = 28 + 18 * Math.sin((x + variant * 13) / 23) * Math.cos(y / 31); // hueso de fondo
     for (const cx of [140, 265]) {
       const crown = ell(x, y, cx, 95, 52, 58);
@@ -74,9 +77,10 @@ export function syntheticPeriapical(variant: number, restored: boolean): Buffer 
 }
 
 /** "Radiografía panorámica" sintética: arcada con 14 piezas por maxilar. */
-export function syntheticPanoramic(): Buffer {
+export function syntheticPanoramic(scale = 1): Buffer {
   const W = 640, H = 280;
-  return encodePng(W, H, (x, y) => {
+  return encodePng(Math.round(W * scale), Math.round(H * scale), (px, py) => {
+    const x = px / scale, y = py / scale; // `scale` < 1: misma imagen reducida (miniaturas de la demo)
     let v = 22 + 10 * Math.sin(x / 40);
     const t = (x - W / 2) / (W / 2);
     const curve = 40 * t * t;
@@ -91,9 +95,10 @@ export function syntheticPanoramic(): Buffer {
 }
 
 /** "Foto intraoral" sintética: encía y dientes en colores planos. */
-export function syntheticIntraoral(): Buffer {
+export function syntheticIntraoral(scale = 1): Buffer {
   const W = 480, H = 320;
-  return encodePng(W, H, (x, y) => {
+  return encodePng(Math.round(W * scale), Math.round(H * scale), (px, py) => {
+    const x = px / scale, y = py / scale; // `scale` < 1: misma imagen reducida (miniaturas de la demo)
     let c: [number, number, number] = [88, 30, 38];
     if (ell(x, y, 240, 160, 230, 130) < 1) c = [214, 112, 120];
     for (let i = 0; i < 8; i++) {
@@ -106,9 +111,10 @@ export function syntheticIntraoral(): Buffer {
 }
 
 /** "Documento escaneado" sintético: hoja con renglones. */
-export function syntheticScan(): Buffer {
+export function syntheticScan(scale = 1): Buffer {
   const W = 360, H = 480;
-  return encodePng(W, H, (x, y) => {
+  return encodePng(Math.round(W * scale), Math.round(H * scale), (px, py) => {
+    const x = px / scale, y = py / scale; // `scale` < 1: misma imagen reducida (miniaturas de la demo)
     if (x < 30 || x > W - 30 || y < 30 || y > H - 30) return [228, 228, 224];
     if (y > 60 && y < 76 && x < 220) return [70, 70, 80];
     if ((y - 110) % 26 < 3 && y > 100 && y < 420 && x < 300 - ((y * 7) % 90)) return [120, 120, 130];

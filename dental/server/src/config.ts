@@ -1,4 +1,6 @@
 // Configuración leída de variables de entorno. Nunca se escriben secretos en el código.
+import { loadFilesConfig, type StorageDriver } from "./lib/filestore.js";
+import type { S3Config } from "./lib/filestore-s3.js";
 export interface Config {
   databaseUrl: string;
   port: number;
@@ -11,6 +13,9 @@ export interface Config {
   trustProxy: boolean;
   /** Carpeta privada para archivos clínicos (radiografías, fotos). */
   filesDir: string;
+  /** Dónde se guardan los archivos nuevos: disco (local) o S3 compatible (DENTAL_FILES_DRIVER). */
+  filesDriver: StorageDriver;
+  s3: S3Config | null;
   /** Desactiva el límite de intentos de login (solo pruebas automatizadas). */
   disableRateLimit: boolean;
   /** Clave de 32 bytes (hex o base64) para cifrar secretos de la verificación en dos pasos. */
@@ -46,6 +51,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionTtlHours: Number(env.SESSION_TTL_HOURS ?? 12),
     trustProxy: env.TRUST_PROXY === "1" || isProduction,
     filesDir: env.DENTAL_FILES_DIR ?? "./data/files",
+    ...loadFilesConfig(env, isProduction),
     disableRateLimit: env.DENTAL_DISABLE_RATE_LIMIT === "1" && !isProduction,
     secretKey: parseKey(env.DENTAL_SECRET_KEY, isProduction),
     publicUrl: (env.PUBLIC_URL ?? `http://localhost:${env.PORT ?? 3100}`).replace(/\/$/, ""),
