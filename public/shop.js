@@ -189,10 +189,14 @@ async function loadPrivate() {
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
       api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
+    S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   }
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
-  if (S.view === "clientes" && isReseller() && ["control", "debe", "ganancias"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+  if (S.view === "clientes" && isReseller()) {
+    if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
+  }
 }
 
 async function refresh() {
@@ -600,11 +604,12 @@ function renderInner() {
     tiendas: () => directoryView(true),
     clientes: () => !isReseller() ? needLogin("tus clientes") : (() => {
       const canPage = !!S.me?.pageAllowed;
-      let tab = S.data.rtab ?? "ventas";
-      if (!canPage && !["ventas", "control", "debe", "ganancias", "afiches"].includes(tab)) tab = "ventas";
+      // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
+      let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
+      if (!canPage && !["ventas", "perfiles", "control", "debe", "ganancias", "afiches"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
-      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "perfiles" ? rSubsView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -619,7 +624,7 @@ const sellPrice = (productId) => (S.data.prices ?? []).find((x) => x.productId =
 const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`}</span>`;
 
 /* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
-const RT_TABS = [["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
+const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
 async function loadRTab(tab) {
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
@@ -627,6 +632,7 @@ async function loadRTab(tab) {
     S.data.rfdetail = S.data.rfdet ? await api("GET", `/api/me/fiado/${S.data.rfdet}`).catch(() => null) : null;
   }
   if (tab === "ganancias") S.data.rearn = await api("GET", "/api/me/earnings").catch(() => null);
+  if (["perfiles", "debe", "ganancias"].includes(tab)) S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
 }
 const myStore = () => S.data.shop?.title || S.me?.name || "";
 const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -678,6 +684,7 @@ function rDebeView() {
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
         <label>Monto (Bs)<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
     ${det ? `<div class="sbox"><h3 style="margin:0">📜 Movimientos · debe ${bs(det.owed)} <button class="sbtn sm" type="button" data-rfdet="">Cerrar</button></h3>${det.entries.map((x) => `<div class="line"><span>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"} <small class="empty">${esc(x.note || "")} · ${fdate(x.at)}</small></span><span><b style="color:${x.kind === "cargo" ? "var(--s-bad)" : "var(--s-ok)"}">${bs(x.amount)}</b> <button class="sbtn sm" type="button" data-rfdel="${esc(x.id)}" aria-label="Borrar movimiento">🗑️</button></span></div>`).join("") || `<p class="empty">Sin movimientos.</p>`}</div>` : ""}
+    ${(S.data.rsubs?.summary?.unpaid ?? []).length ? `<div class="sbox"><h3 style="margin:0">🧩 Perfiles sin pagar · ${bs(S.data.rsubs.summary.owed)}</h3>${S.data.rsubs.summary.unpaid.map((u) => `<div class="line"><span><b>${esc(u.name)}</b><br><small class="empty">${esc(u.product)}${u.label ? ` · ${esc(u.label)}` : ""}${u.price != null ? ` · ${bs(u.price)}` : ""}</small></span><span class="rbtns">${u.phone ? `<a class="sbtn sm" href="${waLink(u.phone, subCobrar(u, u.product))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm pri" type="button" data-subpaid="${esc(u.assignmentId)}|${esc(u.id)}">💵 Me pagó</button></span></div>`).join("")}</div>` : ""}
     <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b><small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
       ${r.unlinked.count ? `<div class="rcrow"><span class="empty">${r.unlinked.count} sin pagar en Mi control</span><button class="sbtn sm" type="button" data-rffrom="${esc(r.customerId)}">➕ Pasar</button></div>` : ""}
       <footer>${r.phone && r.owed ? `<a class="sbtn sm pri" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
@@ -692,6 +699,7 @@ function rEarnView() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
+    ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
     <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> vendiste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
 }
@@ -750,10 +758,13 @@ function infoModal(title, html) {
 function todayCard() {
   const rows = S.data.rctl, fi = S.data.rfiado, g = S.data.rearn;
   if (!rows && !fi && !g) return "";
-  const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length;
-  const owed = fi?.totals?.owed ?? 0, gain = g?.month ? (g.month.profitCollected ?? g.month.profit) : null;
+  const subs = allSubs(), sm = S.data.rsubs?.summary;
+  const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length
+    + subs.filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7 && !subSeen(s)).length;
+  const owed = (fi?.totals?.owed ?? 0) + (sm?.owed ?? 0);
+  const gain = g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
   const it = [
-    ["control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : ""],
+    [subs.length ? "perfiles" : "control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : ""],
     ["debe", "💸", owed ? bs(owed) : "Bs 0", owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
     ["ganancias", "📈", gain === null ? "—" : bs(gain), "ganaste este mes", "g"],
   ];
@@ -842,6 +853,39 @@ async function renewMany(ids, el) {
   S.data.renewResult = { ok, bad, at: Date.now() };
   await refresh();
   toast(bad.length ? `🔄 Renovados ${ok} · ${bad.length} no se pudo (mirá arriba)` : `🔄 ¡Listo! ${ok} renovado(s)`);
+}
+/* ---------------- Repartir perfiles de las cuentas alquiladas (cuaderno del revendedor) ---------------- */
+const ymd = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const subSeen = (s) => { try { return localStorage.getItem(`gs-sv-${s.id}-${s.expiresAt}`) === "1"; } catch { return false; } };
+const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${product}${s.label ? ` (${s.label})` : ""} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${bs(s.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${bs(s.price)}` : ""}. ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+/** Perfiles de todas sus cuentas, con la cuenta a la que pertenecen. */
+const allSubs = () => (S.data.rsubs?.list ?? []).flatMap((r) => r.subs.map((s) => ({ ...s, aid: r.assignmentId, product: r.product, accExp: r.expiresAt })));
+function rSubsView() {
+  const d = S.data.rsubs;
+  if (!d) return `<div class="sbox"><p class="empty" style="margin:0">Cargando…</p></div>`;
+  if (!d.list.length) return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2><p class="empty" style="margin:0">Cuando le alquiles a la tienda una <b>cuenta completa</b> (Disney, Prime, HBO…), aparece acá para que anotes a quién le diste cada perfil, cuándo le vence y si te pagó.</p><button class="sbtn pri" type="button" data-s="precios" style="justify-self:start">Ver cuentas para alquilar</button></div>`;
+  const sm = d.summary, soon = allSubs().filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
+  const pill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
+  const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
+  const open = S.data.subOpen ?? "";
+  const subForm = (aid, s) => `<form class="sform subform" data-subform="${esc(aid)}" ${s ? `data-sub="${esc(s.id)}"` : ""}>
+      <div class="rcrow"><label>Cliente<input name="name" maxlength="80" required value="${esc(s?.name ?? "")}" placeholder="Ej.: Rosa Pérez"></label><label>WhatsApp<input name="phone" inputmode="tel" value="${esc(s?.phone ?? "+591 ")}"></label></div>
+      <div class="rcrow"><label>Perfil<input name="label" maxlength="30" value="${esc(s?.label ?? "")}" placeholder="Perfil 1"></label><label>Le vence<input type="date" name="exp" required value="${ymd(s?.expiresAt ?? Date.now() + 30 * 86_400_000)}"></label></div>
+      <div class="rcrow"><label>Le cobro (Bs)<input name="price" inputmode="decimal" value="${s?.price != null ? s.price / 100 : ""}" placeholder="Ej.: 15"></label><label>Pago<select name="pay">${Object.entries(PAY).map(([k, t]) => `<option value="${k}" ${(s?.pay ?? "pagado") === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+      <label class="rcnote">Nota<input name="note" maxlength="120" value="${esc(s?.note ?? "")}" placeholder="Ej.: paga los lunes"></label>
+      <div class="rbtns"><button class="sbtn sm pri" type="submit">${s ? "Guardar" : "➕ Agregar perfil"}</button>${s ? `<button class="sbtn sm" type="button" data-subrenew="${esc(aid)}|${esc(s.id)}">🔄 Renovó +30 días</button><button class="sbtn sm" type="button" data-subdel="${esc(aid)}|${esc(s.id)}">🗑️ Quitar</button>` : ""}</div></form>`;
+  return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
+      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${bs(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${bs(sm.owed)}</b></div></div>
+      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p></div>
+    ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(subSeen).length}/${soon.length})</h3>
+      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}"><span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+    <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
+      return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header><div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
+        ${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
+        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${bs(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
+          ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
+        <details class="subadd" ${r.subs.length ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details></article>`; }).join("")}</div>`;
 }
 function resellerView() {
   const clients = S.data.customers ?? [];
@@ -1007,7 +1051,7 @@ function resellerHome() {
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
-    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
+    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
@@ -1826,6 +1870,24 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.rselclear) { S.data.rsel = []; return render(); }
   if (d.rrclose) { S.data.renewResult = null; return render(); }
+  if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
+  if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {
+    const [aid, sid] = String(d.subavisar || d.subrenew || d.subdel || d.subpaid).split("|");
+    const acc = (S.data.rsubs?.list ?? []).find((r) => r.assignmentId === aid), sub = acc?.subs.find((x) => x.id === sid);
+    if (!sub) return;
+    if (d.subavisar) {
+      window.open(waLink(sub.phone, subAvisar(sub, acc.product)), "_blank", "noopener");
+      try { localStorage.setItem(`gs-sv-${sub.id}-${sub.expiresAt}`, "1"); } catch { /* sin almacenamiento */ }
+      return render();
+    }
+    try {
+      if (d.subrenew) { const paid = confirm(`¿${sub.name} ya te pagó la renovación? (Aceptar = pagó · Cancelar = te paga después)`); const r = await api("POST", `/api/me/subs/${aid}/${sid}/renew`, { paid }); toast(`🔄 ${sub.name} renovado hasta ${fdate(r.sub.expiresAt)}${r.afterRental ? " · ⚠️ renová tu cuenta antes" : ""}`); }
+      if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
+      if (d.subpaid) { await api("POST", `/api/me/subs/${aid}`, { ...sub, pay: "pagado" }); toast(`💵 ${sub.name} ya no te debe`); }
+    } catch (e) { toast(e.message); }
+    S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
+    return render();
+  }
   if (d.rcopen) { const o2 = new Set(S.data.rcOpen ?? []); o2.has(d.rcopen) ? o2.delete(d.rcopen) : o2.add(d.rcopen); S.data.rcOpen = [...o2]; return render(); }
   if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
@@ -2101,6 +2163,16 @@ document.addEventListener("submit", async (ev) => {
   const btn = f.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
+    if (f.dataset.subform) {
+      const price = f.price.value.trim() ? toCents(f.price.value) : null;
+      if (price !== null && Number.isNaN(price)) throw new Error("Precio: solo números");
+      const body = { ...(f.dataset.sub ? { id: f.dataset.sub } : {}), name: f.name.value, phone: f.phone.value.replace(/^\+591\s*$/, ""), label: f.label.value, expiresAt: new Date(`${f.exp.value}T23:59:00`).getTime(), price, pay: f.pay.value, note: f.note.value };
+      const r = await api("POST", `/api/me/subs/${f.dataset.subform}`, body);
+      toast(r.afterRental ? "Guardado · ⚠️ vence después que tu alquiler: renová la cuenta a tiempo" : f.dataset.sub ? "Guardado" : `➕ ${r.sub.name} anotado en ${r.sub.label}`);
+      S.data.subOpen = f.dataset.sub ? S.data.subOpen : "";
+      S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
+      return render();
+    }
     if (f.id === "fallaForm") {
       await api("POST", "/api/me/tickets", { assignmentId: f.a.value, kind: f.kind.value, note: f.note.value });
       S.data.fallaPre = "";

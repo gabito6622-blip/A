@@ -210,7 +210,7 @@ export function createTrial(e: Engine, actor: Actor, input: { customerId: Id; pr
     e.s.assignments[a.id] = a;
     order.assignmentIds.push(a.id);
     e.audit(actor, "trial.create", "assignment", a.id, { customer: input.customerId, product: input.productId, hours });
-    return { assignment: structuredClone(a), order: structuredClone(order) };
+    return { assignment: pubAssignment(a), order: structuredClone(order) };
   });
 }
 
@@ -398,6 +398,13 @@ export function expireReservations(e: Engine, actor: Actor): number {
 
 /* ---------------- Renovaciones ---------------- */
 
+/** El servicio tal como lo devuelve la API: sin el cuaderno del revendedor (sus perfiles y sus precios). */
+export function pubAssignment(a: Assignment): Assignment {
+  const c = structuredClone(a);
+  delete c.subs; delete c.rcontrol;
+  return c;
+}
+
 /** ¿Se puede renovar ya este servicio (1 período) sin pasarse del vencimiento con el proveedor? */
 export function renewableNow(e: Engine, a: Assignment): boolean {
   const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
@@ -468,7 +475,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
     }
-    return { order: structuredClone(order), assignment: structuredClone(e.s.assignments[a.id]) };
+    return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id]) };
   }));
 }
 
@@ -511,7 +518,7 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
     a.history.push({ at: e.now(), by: actor.id, event: "replaced", slotId: fresh.id, note: `${input.reason} (antes ${old.id})` });
     queue(e, a.customerId, "replacement_done", { product: e.s.products[a.productId].name });
     e.audit(actor, "assignment.replace", "assignment", a.id, { from: old.id, to: fresh.id, reason: input.reason });
-    return structuredClone(a);
+    return pubAssignment(a);
   });
 }
 
@@ -532,7 +539,7 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
     a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
     queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
     e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason });
-    return structuredClone(a);
+    return pubAssignment(a);
   });
 }
 
@@ -703,7 +710,7 @@ export function setCustomerExpiry(e: Engine, actor: Actor, assignmentId: Id, exp
     a.remindersSent = [];
     a.history.push({ at: e.now(), by: actor.id, event: "date_changed", slotId: a.slotId, note: `${fdate(before)} → ${fdate(expiresAt)}${note ? ` · ${String(note).slice(0, 120)}` : ""}` });
     e.audit(actor, "assignment.set_expiry", "assignment", a.id, { before, after: expiresAt });
-    return structuredClone(a);
+    return pubAssignment(a);
   });
 }
 

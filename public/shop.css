@@ -1024,3 +1024,13 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 }
 .rundo{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .rundo>span{flex:1 1 200px}
+
+/* Repartir perfiles */
+.sublist{display:grid;gap:6px}
+.subrow{border-top:1px solid var(--s-line);padding-top:6px;display:grid;gap:8px}
+.subrow:first-child{border-top:0;padding-top:0}
+.subform{gap:8px}
+.subadd>summary{list-style:none;cursor:pointer;width:max-content}
+.subadd>summary::-webkit-details-marker{display:none}
+.subadd[open]>summary{margin-bottom:8px}
+.rcinline{margin:0}

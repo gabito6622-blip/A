@@ -527,6 +527,11 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
   // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
   route("GET", "/api/me/control", "customer", (c) => store.rtools.control(c.actor!));
+  // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
+  route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
+  route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
+  route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
+  route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => store.subs.remove(c.actor!, c.params.id, c.params.sub));
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
@@ -2120,6 +2125,13 @@ export function createApp(cfg: AppConfig): App {
       if (!me || me.kind !== "reseller") continue;
       const soon = Object.values(s.assignments).filter((a) => a.status === "active" && !a.holdOpen && s.customers[a.customerId]?.resellerId === cid
         && a.customerExpiresAt > t && a.customerExpiresAt - t <= 2 * DAYMS);
+      // Perfiles que reparte de sus cuentas alquiladas (su cuaderno) que vencen en 2 días.
+      const subsSoon = Object.values(s.assignments).filter((a) => a.customerId === cid && a.status === "active")
+        .flatMap((a) => (a.subs ?? []).filter((x) => x.expiresAt > t && x.expiresAt - t <= 2 * DAYMS));
+      if (!soon.length && subsSoon.length) {
+        await customerPush(cid, { title: subsSoon.length === 1 ? "📅 1 perfil tuyo vence mañana" : `📅 ${subsSoon.length} perfiles tuyos vencen mañana`, body: `${subsSoon.slice(0, 3).map((x) => x.name.split(" ")[0]).join(", ")}${subsSoon.length > 3 ? "…" : ""} · Avisales desde Repartir perfiles`.slice(0, 180), url: "/hub#clientes" }).catch(() => {});
+        continue;
+      }
       if (!soon.length) continue;
       const need = soon.reduce((n, a) => n + (a.control?.price ?? store.catalog.priceFor(cid, a.productId)), 0);
       const bal = store.wallet.balance(cid);

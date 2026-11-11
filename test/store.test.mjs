@@ -1466,3 +1466,45 @@ describe("Revendedores: solo lo de revendedores", () => {
     assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }));
   });
 });
+
+describe("Repartir perfiles de una cuenta alquilada (cuaderno del revendedor)", () => {
+  const alquilar = (s, carla) => {
+    s.catalog.upsertProduct(owner, { id: "disney-alq", name: "Disney Premium (alquiler revendedores)", kind: "full_account", durationDays: 30, price: 3400, published: true, resellersOnly: true });
+    s.inventory.addAccount(admin, { productId: "disney-alq", supplierId: "andes", email: "disney-full@x.lat", password: "Clave-Larga#9", supplierExpiresAt: T0 + 90 * DAY, cost: 2000, profiles: [{ label: "Cuenta completa" }] });
+    const o = s.orders.create(owner, { customerId: carla.id, items: [{ productId: "disney-alq", qty: 1 }], paymentMethod: "cash" });
+    return o.assignmentIds[0];
+  };
+  test("anota quién está en cada perfil; solo él lo ve; el dueño no recibe esos datos", () => {
+    const { s, carla, as } = setup();
+    const aid = alquilar(s, carla);
+    const r = s.subs.save(as(carla), aid, { name: "Rosa", phone: "71112233", expiresAt: T0 + 10 * DAY, price: 1500, pay: "pendiente" });
+    assert.equal(r.sub.phone, "+59171112233");
+    assert.equal(r.sub.label, "Perfil 1");
+    s.subs.save(as(carla), aid, { name: "Tío Juan", expiresAt: T0 + 20 * DAY, price: 1500 });
+    const mine = s.subs.list(as(carla));
+    assert.deepEqual(mine[0].subs.map((x) => x.name), ["Rosa", "Tío Juan"]);
+    // Otro revendedor no puede tocarla
+    const otro = s.catalog.createCustomer(admin, { name: "Otro Rev", phone: "+591 69990099", kind: "reseller", priceGroupId: "revendedor" });
+    assert.throws(() => s.subs.save(as(otro), aid, { name: "X", expiresAt: T0 + DAY }), err("FORBIDDEN"));
+    assert.equal(s.subs.list(as(otro)).length, 0);
+    // El dueño no recibe el cuaderno en sus respuestas
+    const ren = s.orders.renew(owner, aid, { paymentMethod: "cash" });
+    assert.equal(ren.assignment.subs, undefined);
+    assert.equal(JSON.stringify(s.admin.assignments(owner)).includes("Rosa"), false);
+    // Resumen: la cuenta le cuesta 34 y cobra 15+15 → pierde 4; Rosa debe 15
+    const sum = s.subs.summary(as(carla));
+    assert.deepEqual([sum.accounts, sum.profiles, sum.cost, sum.revenue, sum.profit, sum.owed], [1, 2, 3400, 3000, -400, 1500]);
+  });
+  test("renovar un perfil suma 30 días y avisa si queda después de la cuenta", () => {
+    const { s, carla, as } = setup();
+    const aid = alquilar(s, carla);
+    const { sub } = s.subs.save(as(carla), aid, { name: "Rosa", expiresAt: T0 + 25 * DAY });
+    const r = s.subs.renew(as(carla), aid, sub.id, true);
+    assert.equal(r.sub.expiresAt, T0 + 55 * DAY);
+    assert.equal(r.sub.pay, "pagado");
+    assert.equal(r.afterRental, true, "la cuenta vence a los 30 días: hay que renovarla");
+    s.subs.remove(as(carla), aid, sub.id);
+    assert.equal(s.subs.list(as(carla))[0].subs.length, 0);
+    assert.throws(() => s.subs.save(as(carla), aid, { name: "", expiresAt: T0 }), err("VALIDATION"));
+  });
+});
