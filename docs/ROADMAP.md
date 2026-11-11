@@ -2,6 +2,10 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## Ahora — Lo que pidieron en el estudio de mercado · 🔧 sin publicar
+- Hecho: avisos de vencimiento solos al celular del cliente final y "Ver mi código de acceso". 456 pruebas en verde.
+- Sigue: probar los avisos en celulares reales y después que el bot entregue y responda solo (M4, necesita la API de WhatsApp de Meta).
+
 ## Hecho — Vender más (noviembre 2026) · ✅ publicado (#31)
 - Que vuelvan, Cómo van tus revendedores, Link de cobro e invitar revendedores desde Inicio. 346 pruebas en verde.
 - Primera tanda con el método de equipos (`CLAUDE.md`, `docs/equipos/`).

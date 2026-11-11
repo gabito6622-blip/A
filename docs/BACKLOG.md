@@ -94,3 +94,15 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | A3 | 🎧 | Costo editable por Atención | P2 | ✅ 403 en servidor (`pulido-seguridad`) |
 | A4 | 🎧 | Fallas y avisos para Atención; buscar por número con +591 | P2 | ✅ |
 | A5 | 🎧 | Cola de avisos de WhatsApp para Atención; Reubicar para Atención | P2 | ⏳ (botones ocultos por ahora) |
+
+## Estudio de mercado (11/11/2026)
+| # | Pendiente | Prioridad | Estado |
+|---|---|---|---|
+| M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ sin publicar |
+| M2 | El cliente ve su código solo | P1 | ✅ sin publicar (el dueño lo prende) |
+| M3 | Probar los avisos en un Android y un iPhone reales con la tienda publicada | P1 | ⏳ |
+| M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
+| M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |
+| M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
+| M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🧑 |
+| M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
