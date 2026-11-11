@@ -314,7 +314,10 @@ const BUCKETS = [
 export function BudgetFunnel({ branchId, onOpen }: { branchId: string | null; onOpen: (id: string) => void }) {
   const { can } = useAuth();
   const toast = useToast();
-  const f = useApi<any>(`/api/budget-funnel${qs({ branchId })}`);
+  // B-095: por defecto, presupuestos que entraron a su estado en los últimos 90 días; «Ver más» sube el tope.
+  const [listDays, setListDays] = useState<"30" | "90" | "180" | "all">("90");
+  const [limit, setLimit] = useState(100);
+  const f = useApi<any>(`/api/budget-funnel${qs({ branchId, listDays, limit: String(limit) })}`);
   const [followUp, setFollowUp] = useState<string | null>(null);
   const [days, setDays] = useState<string | null>(null);
   const [daysErr, setDaysErr] = useState<string | null>(null);
@@ -326,18 +329,35 @@ export function BudgetFunnel({ branchId, onOpen }: { branchId: string | null; on
   };
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: "flex-end" }}><ExportLink small href={`/api/budget-funnel.xlsx${qs({ branchId })}`} /></div>
+      <div className="row-between" style={{ alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
+        <Field label="Bandejas: presupuestos de">
+          <select className="input" value={listDays} onChange={(e) => { setListDays(e.target.value as typeof listDays); setLimit(100); }} style={{ width: 220 }}>
+            <option value="30">Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="180">Últimos 180 días</option>
+            <option value="all">Todo el historial (puede tardar)</option>
+          </select>
+        </Field>
+        <ExportLink small href={`/api/budget-funnel.xlsx${qs({ branchId, listDays })}`} />
+      </div>
+      <p className="muted small" role="note">
+        {listDays === "all"
+          ? "Las bandejas muestran todos los presupuestos abiertos, sin límite de fecha."
+          : `Las bandejas muestran los presupuestos presentados o aceptados en los últimos ${listDays} días. Los más antiguos siguen guardados: elige «Todo el historial» para verlos.`}
+        {" "}La conversión de arriba se calcula siempre sobre los últimos {d.periodDays} días.
+      </p>
       <div className="grid grid-4">
         <div className="card kpi"><div className="label">Conversión ({d.periodDays} días)</div><div className="value">{d.conversion.conversionPct == null ? "—" : `${d.conversion.conversionPct} %`}</div><div className="foot">{d.conversion.accepted} de {d.conversion.presented} presentados</div></div>
         <div className="card kpi"><div className="label">Aceptado</div><div className="value">{bs(d.conversion.acceptedCents)}</div><div className="foot">de {bs(d.conversion.presentedCents)} presentados</div></div>
-        <div className="card kpi"><div className="label">Esperando respuesta</div><div className="value">{d.buckets.presentedNoResponse.length}</div><div className="foot">{d.buckets.presentedNoResponse.filter((x: any) => x.followUpDue).length} con seguimiento pendiente</div></div>
+        <div className="card kpi"><div className="label">Esperando respuesta</div><div className="value">{d.counts.presentedNoResponse}</div><div className="foot">{d.followUpDue} con seguimiento pendiente</div></div>
         <div className="card kpi"><div className="label">Aceptados en línea</div><div className="value">{d.conversion.acceptedOnline}</div><div className="foot">{d.conversion.rejected} rechazados</div></div>
       </div>
       {BUCKETS.map((b) => {
         const rows = d.buckets[b.id] as any[];
+        const total = d.counts[b.id] as number;
         return (
           <section key={b.id} className="card" aria-label={b.title}>
-            <div className="card-head"><div><h2>{b.title} <span className="badge">{rows.length}</span></h2><p className="muted small">{b.help}</p><p className="muted small">Días en este estado a la derecha.</p></div></div>
+            <div className="card-head"><div><h2>{b.title} <span className="badge">{total}</span></h2><p className="muted small">{b.help}</p><p className="muted small">Días en este estado a la derecha.</p></div></div>
             {rows.length === 0 ? <Empty>{b.empty}</Empty> : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {rows.map((r) => (
@@ -364,6 +384,12 @@ export function BudgetFunnel({ branchId, onOpen }: { branchId: string | null; on
                     </div>
                   </li>))}
               </ul>
+            )}
+            {total > rows.length && (
+              <div className="card-pad row-between">
+                <span className="muted small">Se muestran {rows.length} de {total} (los de más días primero).</span>
+                <button className="btn btn-sm" onClick={() => setLimit((n) => Math.min(2000, n * 4))} disabled={limit >= 2000}>Ver más</button>
+              </div>
             )}
           </section>
         );

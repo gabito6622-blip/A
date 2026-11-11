@@ -510,6 +510,22 @@ describe("embudo (R2-16)", () => {
     const d7 = await mk("presented", 7);
     const f3 = (await fo.get("/api/budget-funnel")).body;
     expect(f3.buckets.presentedNoResponse.find((x: any) => x.id === d7.id).followUpDue).toBe(7);
+
+    // B-095: período de las bandejas (por defecto 90 días) y tope con «ver más».
+    expect(f3.listDays).toBe("90");
+    const f30 = (await fo.get("/api/budget-funnel?listDays=30")).body;
+    expect(f30.buckets.presentedNoResponse.map((x: any) => x.id)).not.toContain(exp.id); // presentado hace 40 días
+    expect(f30.conversion).toEqual(f3.conversion); // la conversión no depende del período de las bandejas
+    const fAll = (await fo.get("/api/budget-funnel?listDays=all")).body;
+    expect(fAll.buckets.presentedNoResponse.map((x: any) => x.id)).toContain(exp.id);
+    const f1 = (await fo.get("/api/budget-funnel?limit=1")).body;
+    expect(f1.buckets.presentedNoResponse).toHaveLength(1);
+    expect(f1.counts.presentedNoResponse).toBe(f3.counts.presentedNoResponse);
+    expect(f1.counts.presentedNoResponse).toBeGreaterThan(1);
+    expect(f1.truncated).toBe(true);
+    expect(f1.buckets.presentedNoResponse[0].daysInState).toBe(Math.max(...f3.buckets.presentedNoResponse.map((x: any) => x.daysInState)));
+    expect(f1.followUpDue).toBe(f3.followUpDue);
+    expect((await fo.get("/api/budget-funnel?listDays=7")).status).toBe(400);
   });
 });
 

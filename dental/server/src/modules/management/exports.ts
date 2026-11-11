@@ -152,9 +152,12 @@ export function exportRoutes(route: Route) {
   // ---------------- Presupuestos: embudo ----------------
   route({
     method: "GET", url: "/api/budget-funnel.xlsx", summary: "Exportar a Excel el embudo de presupuestos (bandejas y conversión) con los mismos filtros de la pantalla", tags: ["presupuestos"],
-    perm: "budgets.read", query: z.object({ branchId: zId.optional(), days: z.coerce.number().int().min(7).max(365).optional() }), raw: true, noTx: true,
+    perm: "budgets.read",
+    query: z.object({ branchId: zId.optional(), days: z.coerce.number().int().min(7).max(365).optional(), listDays: z.enum(["30", "90", "180", "all"]).optional() }),
+    raw: true, noTx: true,
     handler: async ({ req, db, auth, query, reply }) => {
-      const d = await screenData<any>(req, "/api/budget-funnel", query);
+      // Mismo período que la pantalla, pero sin el corte de «ver más» (hasta 2000 por bandeja).
+      const d = await screenData<any>(req, "/api/budget-funnel", { ...query, limit: 2000 });
       const BUCKETS: [string, string][] = [["presentedNoResponse", "Presentado sin respuesta"], ["acceptedNoAppointment", "Aceptado sin cita"], ["inProgressNoNext", "En curso sin próxima cita"], ["expired", "Vencido"]];
       const rows = BUCKETS.flatMap(([k, label]) => (d.buckets[k] as any[]).map((b) => [label, Number(b.number), b.patientName, b.phone, b.branchName, b.dentistName, bsCell(b.totalCents), b.daysInState]));
       const total = BUCKETS.reduce((s, [k]) => s + (d.buckets[k] as any[]).reduce((t, b) => t + Number(b.totalCents), 0), 0);
@@ -167,6 +170,7 @@ export function exportRoutes(route: Route) {
         ["Presentados", cv.presented], ["Aceptados", cv.accepted], ["Rechazados", cv.rejected], ["Abiertos", cv.open], ["Aceptados en línea", cv.acceptedOnline],
         ["Monto presentado (Bs)", bsCell(cv.presentedCents)], ["Monto aceptado (Bs)", bsCell(cv.acceptedCents)], ["Conversión (%)", cv.conversionPct],
       ], { title: `Últimos ${d.periodDays} días` });
+      if (d.truncated) addSheet(wb, "Aviso", [{ header: "Aviso", width: 90 }], [["Alguna bandeja tiene más de 2000 presupuestos: se exportaron los 2000 con más días. Elige un período más corto para verlos todos."]]);
       await auditExport(db, auth, "budget_funnel", { ...query, rows: rows.length });
       await sendXlsx(reply, wb, "embudo-presupuestos");
     },

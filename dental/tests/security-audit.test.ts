@@ -57,14 +57,14 @@ describe("exportaciones a Excel sin inyección de fórmulas", () => {
     expect(safeCell("María")).toBe("María");
   });
 
-  it("ninguna exportación escribe el archivo sin pasar por xlsxBuffer()", () => {
+  it("ninguna exportación escribe el archivo sin pasar por xlsxBuffer() o streamXlsx()", () => {
     const root = join(__dirname, "../server/src");
     const offenders: string[] = [];
     const walk = (d: string) => {
       for (const f of readdirSync(d)) {
         const p = join(d, f);
         if (statSync(p).isDirectory()) walk(p);
-        else if (p.endsWith(".ts") && !p.endsWith("lib/xlsxSafe.ts") && /\.xlsx\.write(Buffer|File)?\(/.test(readFileSync(p, "utf8"))) offenders.push(p);
+        else if (p.endsWith(".ts") && !p.endsWith("lib/xlsxSafe.ts") && /\.xlsx\.write(Buffer|File)?\(|WorkbookWriter/.test(readFileSync(p, "utf8"))) offenders.push(p);
       }
     };
     walk(root);
