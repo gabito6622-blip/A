@@ -1,0 +1,110 @@
+// "📩 Mis clientes ven su código solos" (panel del revendedor) y "Ver códigos" de cada servicio en Mis cuentas.
+// - Repartir perfiles: un interruptor por cuenta alquilada (apagado por defecto) y el contador del mes.
+// - Mis cuentas propias: el mismo interruptor por cuenta, solo si su usuario es un correo; dice si la
+//   tienda ya recibe los códigos de ese correo (si no, su cliente ve "Pedile el código a tu vendedor").
+// - Mis cuentas (cliente con cuenta): "📩 Ver códigos" muestra ahí mismo los de ESE servicio.
+// shop.js y ownstock.js solo llaman a estas funciones; la carga y los eventos están acá.
+import { api, esc, toast } from "/common.js";
+
+if (typeof document !== "undefined" && !document.querySelector('link[href="/codigos-solos.css"]')) {
+  const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/codigos-solos.css"; document.head.append(l);
+}
+
+const CS = { data: null, loading: false, err: "", svc: {}, codes: null };
+let RENDER = () => {};
+/** shop.js le pasa su render() para redibujar después de cada cambio. */
+export function initSelfCodes(render) { RENDER = render; }
+
+export async function loadSelfCodes() {
+  CS.loading = true;
+  try { CS.data = await api("GET", "/api/me/self-codes"); CS.err = ""; }
+  catch (e) { CS.err = e.message; }
+  CS.loading = false;
+}
+/** Carga la primera vez que se dibuja (sin frenar la pestaña). */
+const ready = () => {
+  if (!CS.data && !CS.loading && !CS.err) loadSelfCodes().then(() => RENDER());
+  return CS.data;
+};
+
+const sw = (attrs, on, text, hint) => `<label class="cs-sw"><input type="checkbox" role="switch" ${attrs} ${on ? "checked" : ""}><span><b>${text}</b>${hint ? `<small>${hint}</small>` : ""}</span></label>`;
+const ownerOff = () => (CS.data && !CS.data.allowed ? `<small class="cs-off">La tienda todavía no lo activó: cuando lo active, empieza a funcionar.</small>` : "");
+
+/** Arriba de Repartir perfiles: cuántos códigos vieron solos sus clientes este mes. */
+export function selfCodesHead() {
+  const d = ready();
+  if (!d) return "";
+  const n = d.month;
+  return `<p class="cs-head" role="status">📩 ${n ? `Tus clientes vieron <b>${n}</b> código${n === 1 ? "" : "s"} solos este mes, sin escribirte.` : "Prendé “Mis clientes ven su código solos” en una cuenta y ellos lo ven en su link de cobro, sin escribirte."}</p>`;
+}
+
+/** Interruptor de una cuenta alquilada (Repartir perfiles). */
+export function selfCodesRental(assignmentId) {
+  const d = ready();
+  if (!d) return "";
+  const on = !!d.rentals.find((r) => r.assignmentId === assignmentId)?.on;
+  return `<div class="cs-box">${sw(`data-csrental="${esc(assignmentId)}"`, on, "📩 Mis clientes ven su código solos", "En su link de cobro aparece “Ver mi código de acceso”. Ven solo el código de esta cuenta (nunca la contraseña).")}${on ? ownerOff() : ""}</div>`;
+}
+
+/** Interruptor de una cuenta propia (solo si el usuario es un correo). */
+export function selfCodesOwn(account) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(account?.user ?? "").trim())) return "";
+  const d = ready();
+  if (!d) return "";
+  const x = d.own.find((r) => r.accountId === account.id) ?? { on: false, readable: false };
+  const state = !x.on ? "" : x.readable
+    ? `<small class="cs-ok">✅ La tienda ya recibe los códigos de este correo.</small>`
+    : `<small class="cs-off">⏳ La tienda todavía no recibió códigos de este correo. Hasta que lleguen, tu cliente ve “Pedile el código a tu vendedor”. Preguntale a la tienda a qué correo reenviarlos.</small>`;
+  return `<div class="cs-box">${sw(`data-csown="${esc(account.id)}"`, x.on, "📩 Mis clientes ven su código solos", "Solo si los correos de esta cuenta llegan a la tienda.")}${state}${x.on ? ownerOff() : ""}</div>`;
+}
+
+/* ---------------- Mis cuentas: los códigos de cada servicio ---------------- */
+const KIND = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
+const ago = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 60_000)); return m < 1 ? "recién" : `hace ${m} min`; };
+
+/** Botón "📩 Ver códigos" de un servicio (con correo) y, si está abierto, sus códigos ahí mismo. */
+export function svcCodes(a) {
+  const email = String(a?.access?.email ?? "").toLowerCase();
+  if (!email || a.access.iptv) return `<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button>`;
+  const id = a.assignmentId, open = CS.svc[id];
+  const btn = `<button class="sbtn sm" type="button" data-svccodes="${esc(id)}" aria-expanded="${!!open}">📩 ${open ? "Ocultar códigos" : "Ver códigos"}</button>`;
+  if (!open) return btn;
+  const list = CS.codes === null ? `<p class="empty" style="margin:0">Buscando…</p>`
+    : (CS.codes.filter((c) => c.to === email).map((c) => `<div class="cs-code"><span><span class="ktag k-${esc(c.kind || "otro")}">${KIND[c.kind] || KIND.otro}</span><small>${ago(c.receivedAt)}</small></span>
+        <span class="cs-act">${c.code ? `<b>${esc(c.code)}</b><button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</span></div>`).join("")
+      || `<p class="empty" style="margin:0">No llegó ningún código de esta cuenta en los últimos 30 minutos. Pedilo en la app y tocá Actualizar.</p>`);
+  return `${btn}<div class="cs-svc" role="region" aria-label="Códigos de esta cuenta">${list}<div class="rbtns"><button class="sbtn sm" type="button" data-svcreload="${esc(id)}">🔄 Actualizar</button></div></div>`;
+}
+
+async function loadCodes() {
+  CS.codes = null; RENDER();
+  try { CS.codes = await api("GET", "/api/me/codes"); } catch (e) { CS.codes = []; toast(e.message); }
+  RENDER();
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("change", async (ev) => {
+    const el = ev.target;
+    const rid = el?.dataset?.csrental, oid = el?.dataset?.csown;
+    if (!rid && !oid) return;
+    ev.stopPropagation();
+    el.disabled = true;
+    try {
+      const r = await api("POST", rid ? `/api/me/self-codes/rental/${encodeURIComponent(rid)}` : `/api/me/self-codes/own/${encodeURIComponent(oid)}`, { on: el.checked });
+      toast(r.on ? "📩 Listo: tus clientes ven su código solos" : "Apagado: tus clientes te piden el código a vos");
+      await loadSelfCodes();
+    } catch (e) { el.checked = !el.checked; toast(e.message); }
+    el.disabled = false;
+    RENDER();
+  }, true);
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest?.("[data-svccodes],[data-svcreload]");
+    if (!b) return;
+    ev.stopPropagation();
+    if (b.dataset.svcreload) return loadCodes();
+    const id = b.dataset.svccodes;
+    CS.svc[id] = !CS.svc[id];
+    if (CS.svc[id]) return loadCodes();
+    RENDER();
+  }, true);
+}

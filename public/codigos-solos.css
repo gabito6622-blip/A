@@ -1,0 +1,21 @@
+/* "📩 Mis clientes ven su código solos" y los códigos de cada servicio (codigos-solos.js). Usa las variables de shop.css. */
+.cs-box{display:grid;gap:6px;border:1px dashed var(--s-line);border-radius:12px;padding:8px 10px;min-width:0}
+.cs-sw{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer}
+.cs-sw input{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;border-radius:999px;background:var(--s-line);position:relative;cursor:pointer;margin:0;transition:background .15s}
+.cs-sw input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .15s}
+.cs-sw input:checked{background:var(--s-blue,#1e5be0)}
+.cs-sw input:checked::after{transform:translateX(18px)}
+.cs-sw input:focus-visible{outline:3px solid var(--s-blue,#1e5be0);outline-offset:2px}
+.cs-sw input:disabled{opacity:.6}
+.cs-sw span{display:grid;gap:2px;min-width:0}
+.cs-sw b{font-size:14px}
+.cs-sw small,.cs-off,.cs-ok{font-size:12.5px;color:var(--s-muted);overflow-wrap:anywhere}
+.cs-off{color:var(--s-warn,#b26a00)}
+.cs-ok{color:var(--s-ok,#0f7a46)}
+.cs-head{margin:0;font-size:14px;color:var(--s-ink)}
+.cs-svc{flex-basis:100%;display:grid;gap:8px;border:1px solid var(--s-line);border-radius:12px;padding:10px;min-width:0}
+.cs-code{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.cs-code>span:first-child{display:grid;gap:2px}
+.cs-code small{font-size:12px;color:var(--s-muted)}
+.cs-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cs-act b{font-size:20px;letter-spacing:.08em;font-variant-numeric:tabular-nums}

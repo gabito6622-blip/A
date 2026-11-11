@@ -515,8 +515,11 @@ function resolve(e: Engine, token: unknown) {
   const a = b.accounts.find((x) => x.id === s.accountId);
   const p = a && b.products.find((x) => x.id === a.productId);
   if (!a || !p) return undefined;
-  return { c, s, p };
+  return { c, s, p, a };
 }
+
+/** Revendedor, venta, cuenta y producto de un link de cuentas propias, o undefined (para codigosSolos.ts). */
+export const ownLinkTarget = (e: Engine, token: unknown) => resolve(e, token);
 
 /** Lo que ve su cliente: la MISMA lista cerrada de campos que el link del cuaderno (subLinks.publicView). */
 export function linkView(e: Engine, token: unknown) {

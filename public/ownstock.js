@@ -5,6 +5,7 @@
 import { api, esc, fdate, daysLeft, toCents, toast, waLink, fileToBase64 } from "/common.js";
 import { money, myLocale, myPhoneHint } from "/country.js";
 import { countryForm, formOpen, onLocaleSaved } from "/afuera.js";
+import { selfCodesOwn } from "/codigos-solos.js";
 
 // Estilos propios de la pestaña (archivo aparte: no se toca shop.css).
 if (typeof document !== "undefined" && !document.querySelector('link[href="/ownstock.css"]')) {
@@ -82,7 +83,7 @@ function accountRow(a) {
   const prov = a.providerExpiresAt ? ` · tu proveedor: ${fdate(a.providerExpiresAt)}` : "";
   return `<div class="subrow"><button type="button" class="rcopen" data-os="account" data-id="${esc(a.id)}" aria-expanded="${open}"><span><b>${esc(a.user)}</b><small>${a.slots - a.free.length}/${a.slots} ocupado(s)${prov}</small></span>${a.providerExpiresAt ? pill(a.providerExpiresAt) : ""}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
     ${open ? `<div class="os-acc"><div class="os-pass"><span>Contraseña o PIN: <code>${OS.show[a.id] ? esc(a.password) : "••••••"}</code></span><button class="sbtn sm" type="button" data-os="show" data-id="${esc(a.id)}">${OS.show[a.id] ? "Ocultar" : "👁 Ver"}</button></div>
-      ${sales.length ? `<div class="os-sales">${sales.map(saleRow).join("")}</div>` : `<small class="empty">Nadie usa esta cuenta todavía.</small>`}
+      ${selfCodesOwn(a)}${sales.length ? `<div class="os-sales">${sales.map(saleRow).join("")}</div>` : `<small class="empty">Nadie usa esta cuenta todavía.</small>`}
       ${a.free.length ? assignForm(a) : `<small class="empty">Sin cupos libres.</small>`}
       <details><summary class="sbtn sm">✏️ Corregir cuenta</summary><form class="sform os-grid" data-osf="account" data-id="${esc(a.id)}" data-product="${esc(a.productId)}">
         <label>Usuario o correo<input name="user" required maxlength="120" value="${esc(a.user)}" autocomplete="off"></label><label>Contraseña o PIN nueva<input name="password" maxlength="120" placeholder="(dejala vacía para no cambiarla)" autocomplete="off"></label>

@@ -2,6 +2,7 @@
 // el QR del revendedor y un botón para avisarle por WhatsApp que ya pagó. No manda nada sola.
 import { money as fmtMoney } from "/country.js";
 import { waDigits } from "/common.js";
+import { codesCard } from "/cobro-codigos.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const token = location.pathname.split("/").filter(Boolean)[1] ?? "";
@@ -50,7 +51,7 @@ function view(v) {
   if (upToDate) {
     $("#app").innerHTML = `<h1>Hola ${esc(v.name)} 👋</h1>
       <section class="card ok-big"><b>Estás al día ✅ hasta ${ddmm(v.expiresAt)}</b><p class="muted">No tenés nada para pagar por ahora.</p></section>
-      ${info}
+      ${info}${codesCard(v)}
       ${v.sellerWhatsapp ? `<a class="btn btn-ghost" href="${wa(v.sellerWhatsapp, `Hola, soy ${v.name}. Te escribo por mi perfil de ${v.product}.`)}" target="_blank" rel="noopener noreferrer">💬 Escribirle a ${esc(who)}</a>` : ""}
       <p class="foot">Este resumen te lo mandó ${esc(who)}.</p>`;
     return;
@@ -64,7 +65,7 @@ function view(v) {
   $("#app").innerHTML = `<h1>Hola ${esc(v.name)} 👋</h1>
     ${info}${amount}${qr}
     ${v.sellerWhatsapp ? `<a class="btn btn-wa" id="paid" href="${wa(v.sellerWhatsapp, paidMessage(v))}" target="_blank" rel="noopener noreferrer">✅ Ya pagué, avisar a ${esc(who)}</a>
-    <p class="foot">Se abre tu WhatsApp con el mensaje listo. Mandale también la foto del comprobante.</p>` : `<p class="foot">Cuando pagues, avisale a ${esc(who)} y mandale el comprobante.</p>`}`;
+    <p class="foot">Se abre tu WhatsApp con el mensaje listo. Mandale también la foto del comprobante.</p>` : `<p class="foot">Cuando pagues, avisale a ${esc(who)} y mandale el comprobante.</p>`}${codesCard(v)}`;
   // Si la imagen no carga, se saca el recuadro (sin mostrar una imagen rota).
   $(".qr img")?.addEventListener("error", () => $(".qr")?.remove());
   $("img.plogo")?.addEventListener("error", (ev) => { ev.target.outerHTML = initial; });
