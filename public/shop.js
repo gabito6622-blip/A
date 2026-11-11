@@ -456,15 +456,16 @@ function localBlock(m, toPay) {
 const abroad = () => !!S.settings.usdt && !!myLocale()?.country && myLocale().country !== "BO";
 const usdtOf = (cents) => (S.settings.usdt?.rate ? Math.ceil((cents / 100) / S.settings.usdt.rate * 100) / 100 : null);
 const usdtHint = (cents) => (abroad() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
-function usdtBlock(toPay) {
+function usdtBlock(toPay, fixedUsdt) {
   const u = S.settings.usdt;
   if (!u) return "";
-  const amt = Math.ceil((toPay / 100) / u.rate * 100) / 100;
+  const amt = fixedUsdt ?? Math.ceil((toPay / 100) / u.rate * 100) / 100;
   return `<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
     <b style="color:var(--s-ink);font-size:16px">Enviá ${amt} USDT</b>
     ${u.network ? `<span class="empty">Red: <b style="color:var(--s-ink)">${esc(u.network)}</b></span>` : ""}
     ${u.address ? `<div class="empty">Dirección:<br><code style="word-break:break-all;color:var(--s-ink)">${esc(u.address)}</code><br><button class="sbtn sm" type="button" data-copy="${esc(u.address)}">Copiar dirección</button></div>` : ""}
     ${u.payId ? `<span class="empty">Binance Pay ID: <b style="color:var(--s-ink)">${esc(u.payId)}</b> <button class="sbtn sm" type="button" data-copy="${esc(u.payId)}">Copiar</button></span>` : ""}
+    <span class="empty">Tasa de hoy: 1 USDT = <b style="color:var(--s-ink)">Bs ${esc(String(u.rate).replace(".", ","))}</b></span>
     ${u.note ? `<span class="empty">${esc(u.note)}</span>` : ""}
     <span class="empty">Mandá exactamente <b style="color:var(--s-ink)">${amt} USDT</b> y pegá abajo el <b>hash</b> (o número de la transacción) y una captura. Te confirmamos y activamos.</span>
   </div></div>`;
@@ -602,9 +603,10 @@ function renderInner() {
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
-      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
+      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${abroad() ? [10, 20, 50, 100].map((v, i) => `<label><input type="radio" name="pack" value="${v}" data-usdt="1" ${i === 1 ? "checked" : ""}><b>${v} USDT</b><small>≈ ${bs(Math.round(v * S.settings.usdt.rate * 100))} de saldo</small></label>`).join("")
+          : [50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
         ${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
-        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
+        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
@@ -2197,7 +2199,8 @@ document.addEventListener("change", async (ev) => {
     const usdt = t.form.tm?.value === "usdt" || (!t.form.tm && abroad());
     const q = $("#tmQr"), u = $("#tmUsdt");
     if (q) q.hidden = usdt;
-    if (u) { u.hidden = !usdt; u.innerHTML = usdtBlock(+t.form.pack.value); }
+    const pk = t.form.querySelector('input[name="pack"]:checked');
+    if (u) { u.hidden = !usdt; u.innerHTML = pk?.dataset.usdt ? usdtBlock(0, +pk.value) : usdtBlock(+pk.value); }
     const l = $("#tmRefLbl"); if (l) l.textContent = usdt ? "Hash o número de la transacción" : "Número de operación";
     if (t.form.ref) t.form.ref.placeholder = usdt ? "Pegá el hash de Binance" : "Ej.: 123456789";
     return;
@@ -2360,7 +2363,9 @@ document.addEventListener("submit", async (ev) => {
       render();
     } else if (f.id === "topup") {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
-      await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method: f.tm?.value === "usdt" || (!f.tm && abroad()) ? "usdt" : "qr" });
+      const pk = f.querySelector('input[name="pack"]:checked'), inUsdt = !!pk?.dataset.usdt;
+      const method = inUsdt || f.tm?.value === "usdt" ? "usdt" : "qr";
+      await api("POST", "/api/me/topups", { ...(inUsdt ? { amount: 0, usdtAmount: +pk.value } : { amount: +pk.value }), contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method });
       toast("Recarga enviada: la acreditamos al verificar el pago");
     } else if (f.id === "resSell") {
       let customerId = f.client.value;

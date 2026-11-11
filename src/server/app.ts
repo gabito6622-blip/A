@@ -271,7 +271,7 @@ export function createApp(cfg: AppConfig): App {
     const st = store.engine.s.settings;
     return {
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
-      usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, note: st.usdt.note ?? "" } : null,
+      usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
@@ -677,7 +677,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr");
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr", c.body?.usdtAmount);
       autoReview(o.id);
       return o;
     } catch (e) {
@@ -1652,7 +1652,7 @@ export function createApp(cfg: AppConfig): App {
   // USDT manual: configuración cruda (para el panel; la dirección es pública pero la mostramos solo al staff).
   route("GET", "/api/admin/usdt", "staff", () => {
     const u = store.engine.s.settings.usdt;
-    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, note: u?.note ?? "" };
+    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, rateAt: u?.rateAt ?? null, note: u?.note ?? "" };
   });
 
   // ── Binance Pay: configuración del dueño ──

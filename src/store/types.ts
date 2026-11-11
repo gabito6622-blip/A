@@ -91,8 +91,10 @@ export interface StoreSettings extends Look {
     network?: string;
     /** Binance Pay ID (pago interno Binance-a-Binance). */
     payId?: string;
-    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). */
+    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). Con el dólar flexible cambia seguido. */
     rate?: number;
+    /** Cuándo se cambió la tasa por última vez (para avisar si quedó vieja). */
+    rateAt?: number;
     /** Nota/instrucciones extra para el cliente. */
     note?: string;
   };
@@ -385,6 +387,8 @@ export interface PaymentEvidence {
 
 export interface Order {
   id: Id;
+  /** Pago en USDT: cuánto se pidió y a qué tasa, fijado al hacer el pedido (si después cambia la tasa, este pedido no se mueve). */
+  usdtQuote?: { usdt: number; rate: number };
   /** Venta de varios meses de una vez (solo staff): cada perfil dura períodos × duración. */
   periods?: number;
   kind: OrderKind;

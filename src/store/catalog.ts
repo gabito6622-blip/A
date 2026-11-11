@@ -109,7 +109,10 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     if (rate !== 0 && !(rate > 0 && rate <= 1000)) throw new DomainError("VALIDATION", "Poné cuántos Bs vale 1 USDT (ej. 13)");
     if (enabled && !address && !payId) throw new DomainError("VALIDATION", "Para aceptar USDT cargá una dirección o un Pay ID");
     if (enabled && !(rate > 0)) throw new DomainError("VALIDATION", "Para aceptar USDT poné la tasa Bs→USDT");
-    patch.usdt = { enabled, address: address || undefined, network: network || undefined, payId: payId || undefined, rate: Math.round(rate * 100) / 100, note: note || undefined };
+    const r = Math.round(rate * 100) / 100, prev = e.s.settings.usdt;
+    // Dólar flexible: se anota cuándo cambió la tasa, para avisar si quedó vieja.
+    const rateAt = r > 0 && r !== prev?.rate ? e.now() : prev?.rateAt;
+    patch.usdt = { enabled, address: address || undefined, network: network || undefined, payId: payId || undefined, rate: r, ...(rateAt ? { rateAt } : {}), note: note || undefined };
   }
   if (patch.platformName !== undefined && (!String(patch.platformName).trim() || String(patch.platformName).length > 40)) throw new DomainError("VALIDATION", "Nombre de la plataforma: de 1 a 40 letras");
   if (patch.shopRent !== undefined) {

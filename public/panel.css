@@ -1096,3 +1096,4 @@ table.ctl tfoot td.ccli{z-index:3}
 
 /* Control: botones Tabla/Tarjetas con tamaño de dedo */
 .ctl-viewsw button{min-height:44px}
+.hm-rate{display:grid;gap:10px}.hm-rate h2{margin:0}.hm-rate-old{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}.hm-rate .pbtn{min-height:44px}
