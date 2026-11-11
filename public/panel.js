@@ -154,7 +154,7 @@ const V = {
       <ul>${A.map((x, i) => `<li><i style="background:${PAL[i % 8]}"></i>${esc(x.name)}<b>${x.count}</b></li>`).join("")}</ul></div>` : `<div class="emptybox">Sin servicios activos.</div>`;
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
-    // --- Resumen por servicio (ganancia por app) ---
+    // --- Resumen por servicio (ingresos por app: lo que entró, no la ganancia) ---
     const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="background:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
     // --- Nivel de estrés (vencidos, por vencer, por cobrar, por revisar) ---
     const al = d.alerts;
@@ -171,7 +171,9 @@ const V = {
       <button type="button" class="dalert blue" data-hgo="control:nopay"><span class="aic">💳</span><div class="atx"><b>${al.unpaid.count} con pago pendiente</b><small>${bs(al.unpaid.amount)} por cobrar · Ver</small></div><span class="ar">${icon("arrow")}</span></button></div>`;
     // --- Ingresos por mes (12 meses), curva suave estilo Netxly ---
     const M = d.months, mtot = M.reduce((s, x) => s + x.revenue, 0), mmax = Math.max(...M.map((x) => x.revenue), 1);
-    const best = M.reduce((a, b) => (b.revenue > a.revenue ? b : a), M[0]), worst = M.reduce((a, b) => (b.revenue < a.revenue ? b : a), M[0]);
+    // El "menor mes" no cuenta los meses en que la tienda todavía no vendía.
+    const M0 = M.slice(Math.max(0, M.findIndex((x) => x.revenue > 0)));
+    const best = M.reduce((a, b) => (b.revenue > a.revenue ? b : a), M[0]), worst = M0.reduce((a, b) => (b.revenue < a.revenue ? b : a), M0[0]);
     const MW = mob ? 360 : 680, MH = mob ? 180 : 210, mpl = 6, mpb = 22, mpt = 12;
     const mX = (i) => mpl + (MW - mpl * 2) * (i / (M.length - 1)), mY = (v) => mpt + (MH - mpt - mpb) * (1 - v / mmax);
     const mpts = M.map((x, i) => [mX(i), mY(x.revenue)]);
@@ -186,31 +188,31 @@ const V = {
     return `<div class="dhead"><div class="seg">${[7, 30, 90].map((n) => `<button type="button" data-tab="dd:${n}" aria-pressed="${dd === n}">${n} días</button>`).join("")}</div>
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Ver como cliente</a></div></div>
       ${hechos < pasos.length ? `<section class="card setupmini"><div class="inline" style="justify-content:space-between;gap:10px"><div><b>🚀 Te faltan ${pasos.length - hechos} paso(s) para estar listo</b><br><small class="muted">Completalos desde la Guía.</small></div><button class="pbtn sm blue" type="button" data-go="ayuda">Ver primeros pasos ${icon("arrow")}</button></div><div class="pgbar" style="margin-top:8px"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div></section>` : ""}
-      ${stressCard}
       <div class="dkpis">
         ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
         ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
-        ${kpi("Ingreso mensual fijo", bs(k.monthlyRecurring), `${k.activeServices} servicios activos`)}
+        ${kpi("Lo que te pagan por mes", bs(k.monthlyRecurring), `${k.activeServices} servicios · con el precio de quien paga`)}
         ${kpi("Recargas de saldo", bs(k.topups), `saldo a favor: ${bs(k.balancesOwed)}`)}
         ${kpi("Vencidos / sin renovar", k.overdue, `${k.due7} vencen en 7 días`, k.overdue ? "bad" : "", "control")}
         ${kpi("Pagos por revisar", k.pendingReview, k.unpaid ? `${k.unpaid} alquileres sin pagar` : "todo al día", k.pendingReview ? "warn" : "", "aprobacion")}
         ${kpi("Clientes", k.customers, `${k.resellers} revendedores · +${k.newCustomers} nuevos`)}
       </div>
+      ${stressCard}
       ${alertCards}
       <section class="card"><div class="mctop"><div><h2 style="margin:0">Ingresos por mes <small>12 meses</small></h2><p class="muted" style="margin:2px 0 0">Total del rango: <b>${bs(mtot)}</b></p></div>
         <div class="mcstats"><div class="up"><small>▲ MEJOR MES</small><b>${esc(best.label)} · ${bs(best.revenue)}</b></div><div class="down"><small>▼ MENOR MES</small><b>${esc(worst.label)} · ${bs(worst.revenue)}</b></div></div></div>${monthChart}</section>
       <section class="card"><h2>Ingresos por día <small>pasá el dedo o el mouse por una barra</small></h2>
         <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
       <div class="dgrid">
-        <section class="card"><h2>Vencen en los próximos 14 días <small>${upCnt} servicios · ${bs(upSum)} por cobrar</small></h2>${upChart}
+        <section class="card"><h2>Vencen en los próximos 14 días <small>${upCnt} servicios · ${bs(upSum)} si todos renuevan</small></h2>${upChart}
           <button class="pbtn sm" type="button" data-go="control">Ver en el control ${icon("arrow")}</button></section>
         <section class="card"><h2>Servicios activos por producto</h2>${donut}</section>
       </div>
       <div class="dgrid">
-        <section class="card"><h2>Resumen por servicio <small>ganancia por app · ${dd} días</small></h2>${svcList}</section>
+        <section class="card"><h2>Resumen por servicio <small>lo que entró por app · ${dd} días</small></h2>${svcList}</section>
         <section class="card"><h2>Últimos movimientos</h2><div class="recent">${d.recent.length ? d.recent.map((o) => `<div><div><b>${esc(o.customer || "—")}</b><small>${esc(o.product)} · ${fdt(o.at)}</small></div><div>${tag(o.kind)}<b>${bs(o.total)}</b>${o.status !== "fulfilled" ? orderPill(o.status) : ""}</div></div>`).join("") : `<div class="emptybox">Sin movimientos.</div>`}</div></section>
       </div>
-      <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Mensual", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
+      <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Te paga por mes", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
         d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>
       <section class="card helpcard"><div class="inline" style="justify-content:space-between"><div><b>📖 ¿Dudas con alguna pantalla?</b><br><small class="muted">La guía de qué sirve cada parte está en su propio lugar.</small></div><button class="pbtn sm" type="button" data-go="ayuda">Abrir la Guía ${icon("arrow")}</button></div></section>`;
   },
@@ -271,12 +273,14 @@ const V = {
     return `<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
-        <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, y lo que te quedó limpio este mes.</p>
-        <div class="finkpis">
+        <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
+        <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
           <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
-          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que cargaste"}</small></div>
-          <div class="finkpi net ${gcls(c.ganancia)}"><span>✅ Te quedó</span><b>${bs(c.ganancia)}</b><small>${c.ganancia >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
+          <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que anotaste"}</small></div>
+          ${c.cuentasEstimado ? `<div class="finkpi out est"><span>🔑 Cuentas (estimado)</span><b>${bs(c.cuentasEstimado)}</b><small>${c.sinAnotar} cuenta(s) sin anotar: lo que te cuestan por mes</small></div>` : ""}
+          <div class="finkpi net ${gcls(c.gananciaEstimada)}"><span>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(c.gananciaEstimada)}</b><small>${c.gananciaEstimada >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
         </div>
+        ${c.cuentasEstimado ? `<div class="finwarn">⚠️ Tenés <b>${c.sinAnotar} cuenta(s) sin anotar como gasto</b> este mes. Las contamos con su costo mensual (${bs(c.cuentasEstimado)}) para que “Te quedó” no te muestre de más. Cuando pagues una, anotala en Cuentas → <b>“Pagué la renovación”</b> y deja de ser estimado.${c.ganancia !== c.gananciaEstimada ? ` <small class="muted">Sin contar las cuentas te quedaría ${bs(c.ganancia)}.</small>` : ""}</div>` : ""}
       </section>
       ${mg ? marginsCard(mg) : ""}
       <section class="card">
@@ -443,7 +447,13 @@ const V = {
   },
 
   async inicio() {
-    const [list, st] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/stats").catch(() => ({}))]);
+    const [all, pend, fin] = await Promise.all([api("GET", "/api/admin/assignments"),
+      api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0),
+      isOwner() ? api("GET", "/api/admin/finance?months=1").catch(() => null) : Promise.resolve(null)]);
+    // Para cobros cuenta solo lo tuyo: a los clientes de tus revendedores les cobra el revendedor.
+    const viaRes = (a) => !!a.resellerId && a.resellerId !== a.customerId;
+    const list = all.filter((a) => !viaRes(a));
+    const deRev = all.filter(viaRes);
     const now = new Date();
     const dayStart = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
     const today = dayStart(now);
@@ -457,10 +467,10 @@ const V = {
     const sinPago = list.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado");
     // Mi semana: minutos estimados por día (como la hoja TIEMPO_LIBRE del Excel: 3 min por recordatorio, +1 si vence pronto, 5 por vencido).
     // "Mi semana": cuántas cuentas vencen cada día. El ánimo del día sale de esa cantidad.
-    const amountOf = (a) => a.control?.price ?? a.productPrice ?? 0;
+    const amountOf = (a) => a.control?.price ?? a.effectivePrice ?? a.productPrice ?? 0;
     const week = Array.from({ length: 7 }, (_, i) => {
       const t = today + i * DAY;
-      const dayl = list.filter((a) => dayStart(a.customerExpiresAt) === t);
+      const dayl = all.filter((a) => dayStart(a.customerExpiresAt) === t);
       const n = dayl.length, amount = dayl.reduce((s, a) => s + amountOf(a), 0);
       const load = n + (i === 0 ? vencidos.length + espera.length : 0);
       const lvl = load === 0 ? ["Libre", "free", "😌"] : load <= 2 ? ["Tranquilo", "calm", "🙂"] : load <= 5 ? ["Movido", "busy", "😅"] : ["Cargado", "hard", "🥵"];
@@ -476,30 +486,37 @@ const V = {
       <form class="inline" id="askForm" style="flex-wrap:wrap"><input name="q" maxlength="600" required placeholder="Ej.: ¿quién vence esta semana?" aria-label="Tu pregunta" style="flex:1 1 220px"><button class="pbtn dark" type="submit">Preguntar</button></form>
       <div id="askOut" class="dailytext" aria-live="polite"></div><small class="muted">Responde con tus datos de hoy. Solo lee: no cambia nada.</small></section>` : "";
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
+    // "Tu mes": cuánto entró, lo que te cuestan las cuentas (estimado) y lo que te quedó, con las 3 apps que más te dejan.
+    const c = fin?.current;
+    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
+      <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
+      ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
+      ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
     return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
-        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
+        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
-        ${alert(hoy.length, "Vencen hoy", "today", "control:today")}
-        ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold" : "control:bad")}
-        ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn")}
-        ${alert(st.pendingReview ?? 0, "Pagos por revisar", "pay", "aprobacion")}
-        ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay")}</section>
+        ${alert(hoy.length, "Vencen hoy", "today", "control:today:mios")}
+        ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold:mios" : "control:bad:mios")}
+        ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
+        ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
+        ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
+      ${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
-        ${tile("control:cobrar", "💰", "Cobrar", "Vencidos y de hoy")}
+        ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
         ${tile("clientes", "👥", "Clientes", "Revendedores y clientes")}
         ${tile("control:dia", "📅", "Por día", "Quién vence cada día")}
-        ${tile("cuentas", "🔑", "Cuentas", "Correos, perfiles y proveedor")}
+        ${canReview() ? tile("cuentas", "🔑", "Cuentas", "Correos, perfiles y proveedor") : tile("fallas", "🛠️", "Fallas", "Lo que reportaron")}
         ${tile("whatsapp", "📝", "Mensajes", "Avisos de WhatsApp")}
         ${tile("aprobacion", "✅", "Aprobar pagos", "Comprobantes por QR")}
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
-        ${tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña")}</section>
+        ${canReview() ? tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña") : tile("renovar", "🔄", "Renovar", "Renovar servicios")}</section>
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
           <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
-          <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b> vence${w.n > 1 ? "n" : ""}` : "Libre"}</span>${w.amount ? `<small class="hd-amt">${bs(w.amount)}</small>` : ""}</button>`).join("")}</div>
-        <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> por cobrar` : ""}.</p></section>`;
+          <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b><span class="hd-w"> vence${w.n > 1 ? "n" : ""}</span>` : "Libre"}</span>${w.amount ? `<small class="hd-amt">${bs(w.amount)}</small>` : ""}</button>`).join("")}</div>
+        <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> si todos renuevan (con el precio que te pagan)` : ""}.</p></section>`;
   },
 
   async control() {
@@ -510,18 +527,26 @@ const V = {
     const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
     const rows = list.map((a, i) => {
       const d = daysLeft(a.customerExpiresAt);
-      const price = a.control.price ?? a.productPrice, cost = a.control.cost ?? 0;
-      return { ...a, n: i + 1, d, est: estado(d, a.holdOpen), day: DAYS[new Date(a.customerExpiresAt).getDay()], price, cost, gain: price - cost, pay: a.control.payStatus ?? "pagado", kind: a.customerKind === "reseller" ? "rev" : "fin" };
+      // Precio: lo que de verdad te pagan (acordado ?? lista del revendedor ?? precio del producto).
+      // Costo: el que pusiste a mano o, si no, lo que te cuesta ese perfil (cuenta ÷ perfiles).
+      const price = a.control.price ?? a.effectivePrice ?? a.productPrice, cost = canReview() ? a.control.cost ?? a.estCost ?? 0 : 0;
+      // viaRes: el cliente es de un revendedor (le avisás al revendedor, no al cliente).
+      const viaRes = !!a.resellerId && a.resellerId !== a.customerId;
+      // kind "fin": les cobrás vos (tus clientes y tus revendedores); "rev": clientes de tus revendedores.
+      return { ...a, n: i + 1, d, est: estado(d, a.holdOpen), day: DAYS[new Date(a.customerExpiresAt).getDay()], price, cost, gain: price - cost, pay: a.control.payStatus ?? "pagado", kind: viaRes ? "rev" : "fin", viaRes, rname: a.resellerName || "" };
     });
     const products = [...new Set(rows.map((r) => r.product))];
     const q = (T.cq ?? "").toLowerCase();
+    // Buscar por número como venga (+591 681-18288, 681 18288): se comparan los últimos 8 dígitos.
+    const qd = q.replace(/\D/g, "").length >= 6 ? q.replace(/\D/g, "").slice(-8) : "";
     const sameDay = (t, u) => new Date(t).toDateString() === new Date(u).toDateString();
     const view0 = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay || (T.cpay === "debe" && r.pay !== "pagado")) && (!T.ck || T.ck === "todos" || r.kind === T.ck)
-      && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.control.note ?? ""}`.toLowerCase().includes(q)));
+      && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.rname} ${r.control.note ?? ""}`.toLowerCase().includes(q) || (qd && (r.customerPhone || "").replace(/\D/g, "").includes(qd))));
     // Como en Excel: filtro por columna, rango de fechas, ordenar tocando el título y agrupar con subtotal.
-    const COLS = [["n", "N°"], ["customerName", "Cliente"], ["kind", "Tipo"], ["customerPhone", "WhatsApp"], ["product", "Plataforma"], ["email", "Correo"], ["profile", "Perfil"], ["startsAt", "Inicio"], ["customerExpiresAt", "Vencimiento"], ["day", "Día vence"], ["price", "Precio Bs"], ["cost", "Costo Bs"], ["gain", "Ganancia Bs"], ["pay", "Estado pago"], ["est", "Estado"], ["d", "Días"], ["seller", "Revendedor"], ["note", "Nota"]];
+    // Atención (seller) no ve costos ni ganancia: son del dueño.
+    const COLS = [["n", "N°"], ["customerName", "Cliente"], ["kind", "Tipo"], ["customerPhone", "WhatsApp"], ["product", "Plataforma"], ["email", "Correo"], ["profile", "Perfil"], ["startsAt", "Inicio"], ["customerExpiresAt", "Vencimiento"], ["day", "Día vence"], ["price", "Te pagan Bs"], ["cost", "Costo Bs"], ["gain", "Ganancia Bs"], ["pay", "Estado pago"], ["est", "Estado"], ["d", "Días"], ["seller", "Revendedor"], ["note", "Nota"]].filter(([k]) => canReview() || !["cost", "gain"].includes(k));
     const pname = (r) => r.product.replace(/ \(alquiler revendedores\)/, "");
-    const colText = (r, k) => String({ kind: r.kind === "rev" ? "Revendedor" : "Cliente final", product: pname(r), startsAt: fdate(r.startsAt), customerExpiresAt: fdate(r.customerExpiresAt), price: r.price / 100, cost: r.cost / 100, gain: r.gain / 100, pay: PAY[r.pay], est: r.est[0], seller: r.control.seller ?? "", note: r.control.note ?? "", customerPhone: (r.customerPhone || "").replace(/^\+591/, "") }[k] ?? r[k] ?? "");
+    const colText = (r, k) => String({ kind: r.viaRes ? `De ${r.rname}` : r.customerKind === "reseller" ? "Revendedor" : "Mío", product: pname(r), startsAt: fdate(r.startsAt), customerExpiresAt: fdate(r.customerExpiresAt), price: r.price / 100, cost: r.cost / 100, gain: r.gain / 100, pay: PAY[r.pay], est: r.est[0], seller: r.control.seller || r.rname, note: r.control.note ?? "", customerPhone: (r.customerPhone || "").replace(/^\+591/, "") }[k] ?? r[k] ?? "");
     const cfc = T.cfc ?? (T.cfc = {});
     const view = view0.filter((r) => (!T.cr1 || r.customerExpiresAt >= T.cr1) && (!T.cr2 || r.customerExpiresAt < T.cr2 + 86400000)
       && Object.entries(cfc).every(([k, v]) => !v || colText(r, k).toLowerCase().includes(v.toLowerCase())));
@@ -529,7 +554,7 @@ const V = {
     const NUM = ["n", "startsAt", "customerExpiresAt", "price", "cost", "gain", "d"];
     const [sk, sd] = (T.csort ?? "").split(":");
     const sval = (r, k) => (NUM.includes(k) ? r[k] : k === "day" ? WD.indexOf(r.day) : colText(r, k).toLowerCase());
-    const GROUPS = { cliente: ["Cliente", (r) => r.customerName || "(sin nombre)"], revendedor: ["Revendedor", (r) => r.control.seller || "(sin revendedor)"], app: ["Plataforma", pname], tipo: ["Tipo", (r) => (r.kind === "rev" ? "🏪 Revendedores" : "👤 Clientes finales")], dia: ["Día que vence", (r) => r.day] };
+    const GROUPS = { cliente: ["Cliente", (r) => r.customerName || "(sin nombre)"], revendedor: ["Revendedor", (r) => r.control.seller || r.rname || "(míos, sin revendedor)"], app: ["Plataforma", pname], tipo: ["Tipo", (r) => (r.kind === "rev" ? "🏪 Clientes de tus revendedores" : "💰 Les cobrás vos")], dia: ["Día que vence", (r) => r.day] };
     const grp = GROUPS[T.cgroup]?.[1];
     view.sort((a, b) => {
       const g = grp ? grp(a).localeCompare(grp(b), "es") : 0;
@@ -544,22 +569,30 @@ const V = {
     const anyFilter = (T.cf && T.cf !== "todos") || T.cq || T.cday || T.cprod || T.cpay || (T.ck && T.ck !== "todos") || T.cfrom || T.cr1 || T.cr2 || Object.values(cfc).some(Boolean);
     const dIn = (t) => (t ? `${new Date(t).getFullYear()}-${String(new Date(t).getMonth() + 1).padStart(2, "0")}-${String(new Date(t).getDate()).padStart(2, "0")}` : "");
     P.controlView = view;
-    const xl = (T.cv ?? "excel") === "excel";
-    const kb = (r) => r.kind === "rev" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`;
+    // En el celular arranca en Tarjetas (la tabla de 18 columnas no entra).
+    const xl = (T.cv ?? (innerWidth < 700 ? "cards" : "excel")) === "excel";
+    const first = (n) => (n || "").split(" ")[0];
+    const kb = (r) => r.viaRes ? `<span class="kb kb-rev" title="Cliente de ${esc(r.rname)}: le avisás a tu revendedor">🏪 de ${esc(first(r.rname))}</span>` : r.customerKind === "reseller" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Mío</span>`;
     const sum = (f) => view.reduce((t, r) => t + f(r), 0);
     const cnt = (k) => rows.filter((r) => r.est[1] === k).length;
     const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
     const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${bs(r.price)}. ¿Deseas renovar?`;
+    // Cliente de un revendedor: el aviso va al revendedor (él le cobra a su cliente a su precio).
+    const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} (${pname(r)} · ${r.profile}) ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Si renueva, a vos te sale ${bs(r.price)}. ¿Lo renovás?`;
+    const cobrarBtn = (r, title = "") => r.viaRes
+      ? (r.resellerPhone ? `<a class="pbtn sm" href="${waLink(r.resellerPhone, resMsg(r))}" target="_blank" rel="noopener" title="Es cliente de ${esc(r.rname)}: le avisás a tu revendedor">📣 Avisar a ${esc(first(r.rname))}</a>` : `<span class="pp pp-warn">${esc(first(r.rname))} sin WhatsApp</span>`)
+      : r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>` : "";
+    const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
     const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
     const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
     return `<section class="card ctl-top">
-        <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Por cobrar (precio)</small><b>${bs(sum((r) => r.price))}</b></div><div><small>Costo</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="up">${bs(sum((r) => r.gain))}</b></div><div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
+        <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Te pagan</small><b>${bs(sum((r) => r.price))}</b></div>${canReview() ? `<div><small>Costo de esos perfiles (estim.)</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="${sum((r) => r.gain) < 0 ? "down" : "up"}">${bs(sum((r) => r.gain))}</b></div>` : ""}<div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
-        ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
+        ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length && canReview() ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${chips.map(([k, t]) => `<button type="button" role="tab" data-tab="cf:${k}" aria-selected="${(T.cf ?? "todos") === k}">${t}</button>`).join("")}</div>
-        <div class="ctl-kindrow"><div class="tabs ctl-chips" role="tablist" aria-label="Tipo de cliente">${[["todos", `👥 Clientes y revendedores (${rows.length})`], ["fin", `👤 Clientes finales (${rows.filter((r) => r.kind === "fin").length})`], ["rev", `🏪 Revendedores (${rows.filter((r) => r.kind === "rev").length})`]].map(([k, t]) => `<button type="button" role="tab" class="kc-${k}" data-tab="ck:${k}" aria-selected="${(T.ck ?? "todos") === k}">${t}</button>`).join("")}</div>
+        <div class="ctl-kindrow"><div class="tabs ctl-chips" role="tablist" aria-label="Tipo de cliente">${[["todos", `👥 Todos (${rows.length})`], ["fin", `💰 Les cobrás vos (${rows.filter((r) => r.kind === "fin").length})`], ["rev", `🏪 De tus revendedores (${rows.filter((r) => r.kind === "rev").length})`]].map(([k, t]) => `<button type="button" role="tab" class="kc-${k}" data-tab="ck:${k}" aria-selected="${(T.ck ?? "todos") === k}">${t}</button>`).join("")}</div>
           <div class="ctl-viewsw" role="group" aria-label="Cómo ver la lista"><button type="button" data-tab="cv:excel" aria-pressed="${xl}">📋 Tabla (Excel)</button><button type="button" data-tab="cv:cards" aria-pressed="${!xl}">🗂️ Tarjetas</button></div></div>
         <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, correo o WhatsApp" value="${esc(T.cq ?? "")}" aria-label="Buscar">
           <select id="cday" aria-label="Día que vence">${opt("", "Día: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `${d[0].toUpperCase() + d.slice(1)} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
@@ -590,11 +623,12 @@ const V = {
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
         <div class="crow mono">${esc(r.email)}</div>
         <div class="crow"><span>Vence <b>${fdate(r.customerExpiresAt)}</b> (${r.day})</span><span>Inicio ${fdate(r.startsAt)}</span></div>
-        <div class="crow"><label>Precio <input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal"></label>
+        <div class="crow"><label>Te paga <input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal"></label>
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
-          ${r.customerPhone ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
+          ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
-        <footer>${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener">💰 Cobrar</a>` : ""}
+        <footer>${cobrarBtn(r)}
+          ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(Math.max(r.customerExpiresAt, Date.now()))}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details>
@@ -605,11 +639,11 @@ const V = {
         <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
         <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button>
         <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
-        <label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label></div>
+        ${isOwner() ? `<label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label>` : ""}</div>
       <section class="card ctl-card${xl ? " xl" : ""}">${hid.length ? `<style>${hid.map((k) => `table.ctl [data-col="${k}"]{display:none}`).join("")}</style>` : ""}${view.length || anyFilter ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
         <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th>${COLS.map(([k, l]) => `<th data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}><button type="button" class="thsort" data-csort="${k}" title="Ordenar por ${l}">${l}<span>${sk === k ? (sd === "desc" ? "▼" : "▲") : "↕"}</span></button><input class="cfin" data-cfcol="${k}" value="${esc(cfc[k] ?? "")}" placeholder="🔍 filtrar" aria-label="Filtrar ${l}"></th>`).join("")}<th>Acciones</th></tr></thead><tbody>
         ${view.map((r, i) => {
-          const g = grp?.(r), gHead = grp && (i === 0 || grp(view[i - 1]) !== g) ? (() => { const gs = view.filter((x) => grp(x) === g); return `<tr class="ctl-grp"><td colspan="40"><b>${esc(g)}</b> · ${gs.length} fila(s) · cobrás <b>${bs(gs.reduce((t, x) => t + x.price, 0))}</b> · ganancia <b>${bs(gs.reduce((t, x) => t + x.gain, 0))}</b>${gs.some((x) => x.d < 0) ? ` · <span class="down">${gs.filter((x) => x.d < 0).length} vencido(s)</span>` : ""}</td></tr>`; })() : "";
+          const g = grp?.(r), gHead = grp && (i === 0 || grp(view[i - 1]) !== g) ? (() => { const gs = view.filter((x) => grp(x) === g); return `<tr class="ctl-grp"><td colspan="40"><b>${esc(g)}</b> · ${gs.length} fila(s) · te pagan <b>${bs(gs.reduce((t, x) => t + x.price, 0))}</b>${canReview() ? ` · ganancia <b>${bs(gs.reduce((t, x) => t + x.gain, 0))}</b>` : ""}${gs.some((x) => x.d < 0) ? ` · <span class="down">${gs.filter((x) => x.d < 0).length} vencido(s)</span>` : ""}</td></tr>`; })() : "";
           return `${gHead}<tr class="rv-${r.est[1]} k-${r.kind}">
           <td><label class="selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar"></label></td><td data-col="n" class="mono">${r.n}</td><td data-col="customerName" class="ccli"><b>${esc(r.customerName)}</b></td><td data-col="kind">${kb(r)}</td>
           <td data-col="customerPhone"><input class="ctl-in mid mono" data-cphone="${esc(r.customerId)}" value="${esc((r.customerPhone || "").replace(/^\+591/, ""))}" placeholder="Sin WhatsApp" inputmode="tel" aria-label="WhatsApp de ${esc(r.customerName)}"></td>
@@ -618,13 +652,14 @@ const V = {
           <td data-col="startsAt">${fdate(r.startsAt)}</td>
           <td data-col="customerExpiresAt"><input type="date" class="ctl-in date" data-cexp="${esc(r.id)}" value="${dIn(r.customerExpiresAt)}" aria-label="Vencimiento"></td><td data-col="day">${r.day}</td>
           <td data-col="price"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
-          <td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"></td>
-          <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>
+          ${canReview() ? `<td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"${r.control.cost === undefined ? ` title="Estimado: lo que te cuesta la cuenta ÷ sus perfiles"` : ""}></td>
+          <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>` : ""}
           <td data-col="pay"><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
           <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td data-col="d" class="mono"><b>${r.d}</b></td>
-          <td data-col="seller"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor"></td>
+          <td data-col="seller">${r.rname && !r.control.seller ? `<span class="kb kb-rev">🏪 ${esc(r.rname)}</span>` : `<input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor">`}</td>
           <td data-col="note"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
-          <td class="ctl-act">${r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener" title="Mandar recordatorio de cobro">💰 Cobrar</a>` : ""}
+          <td class="ctl-act">${cobrarBtn(r, "Mandar recordatorio de cobro")}
+            ${dlvBtn(r)}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
             <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
             ${canReview() ? transferForm(r) : ""}</td></tr>`;
@@ -782,9 +817,10 @@ const V = {
     const slotState = (s) => { if (s.status === "available") return "free"; if (s.status === "assigned") { const dl = slotDL(s); return dl !== null && dl < 0 ? "exp" : dl !== null && dl <= 3 ? "soon" : "busy"; } if (s.status === "reserved") return "res"; return "mute"; };
     const vivosOf = (a) => a.slots.filter((s) => s.status !== "retired");
     const af = P.tab.accf ?? "todas";
+    const prov7 = (a) => a.status !== "retired" && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * 86400000;
     const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter(fn).length, 0);
-    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Por vencer", cnt((s) => slotState(s) === "soon")], ["vencidas", "Vencidas", cnt((s) => slotState(s) === "exp")]];
-    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")); };
+    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Cliente vence (3 días)", cnt((s) => slotState(s) === "soon")], ["vencidas", "Cliente vencido", cnt((s) => slotState(s) === "exp")], ["cuarentena", "En cuarentena", cnt((s) => s.status === "quarantined")], ["prov7", "📅 Proveedor ≤ 7 días", accs.filter(prov7).length]];
+    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")) || (af === "cuarentena" && sv.some((s) => s.status === "quarantined")) || (af === "prov7" && prov7(a)); };
     const aq = (P.tab.accq ?? "").trim().toLowerCase();
     const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
     const shownAccs = accs.filter(matchF).filter(matchQ);
@@ -879,7 +915,10 @@ const V = {
     const rev = groups.find((g) => g.id === "revendedor");
     const edit = products.find((p) => p.id === P.tab.editProduct);
     const f = edit ?? { name: "", category: "", description: "", kind: "profile", durationDays: 30, price: 0, color: "#3984ff", published: true };
-    return `<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
+    // Aviso arriba: productos que tus revendedores pagan a precio público porque no tienen precio de revendedor.
+    const sinRev = products.filter((p) => (p.published || p.resellersOnly) && rev?.prices[p.id] === undefined);
+    const revNote = sinRev.length ? `<section class="card warncard"><b>🏷️ ${sinRev.length} producto(s) sin precio de revendedor:</b> ${sinRev.slice(0, 6).map((p) => esc(p.name)).join(", ")}${sinRev.length > 6 ? "…" : ""}. Tus revendedores los pagan al precio público. Ponelos uno por uno (Editar → “Precio revendedor”) o todos juntos acá abajo.</section>` : "";
+    return `${revNote}${isOwner() ? bulkResForm() : ""}<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
       <label>Nombre<input name="name" required maxlength="60" value="${esc(f.name)}"></label><label>Categoría<input name="category" maxlength="40" value="${esc(f.category ?? "")}" placeholder="Streaming, IA, Educación…"></label>
       <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"], ["iptv", "IPTV (TV en vivo)"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
       <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (${currencySym()})<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
@@ -938,7 +977,9 @@ const V = {
   async proveedores() {
     const [list, report] = await Promise.all([api("GET", "/api/admin/suppliers"), canReview() ? api("GET", "/api/admin/suppliers-report") : Promise.resolve([])]);
     return `<section class="card"><h2>Nuevo proveedor</h2><form class="form" id="supForm"><label>Nombre<input name="name" required></label><label>Contacto (opcional)<input name="contact"></label><button class="pbtn dark" type="submit">${icon("plus")}Agregar</button></form></section>
-      <section class="card"><h2>Proveedores</h2>${table(["Proveedor", "Cuentas", "Vendidos", "Cuarentena", "Costo", "Ingreso", "Margen", "Por vencer (7 d)", ""], list.map((s) => {
+      <section class="card"><h2>Proveedores <small>costo, ingreso y margen de los últimos 30 días</small></h2>
+      <p class="muted" style="margin:0 0 10px">Ingreso: ventas y renovaciones de los últimos 30 días hechas con perfiles de ese proveedor (los combos se reparten por app). Costo: un mes de sus cuentas. Así los dos son del mismo período.</p>
+      ${table(["Proveedor", "Cuentas", "Vendidos", "Cuarentena", "Costo (30 d)", "Ingreso (30 d)", "Margen (30 d)", "Por vencer (7 d)", ""], list.map((s) => {
         const r = report.find((x) => x.supplierId === s.id);
         return `<tr><td>${esc(s.name)}<br><small class="muted">${esc(s.contact ?? "")}</small></td><td>${r?.activeAccounts ?? "—"}</td><td>${r?.assigned ?? "—"}</td><td>${r?.quarantined ?? "—"}</td>
           <td>${r ? bs(r.cost) : "—"}</td><td>${r ? bs(r.revenue) : "—"}</td><td class="${r && r.margin < 0 ? "down" : "up"}">${r ? bs(r.margin) : "—"}</td>
@@ -994,7 +1035,7 @@ const V = {
             <label>🏷️ Etiqueta<select name="tag">${opt("", "Sin etiqueta", !c.tag)}${Object.entries(CTAGS).map(([k, v]) => opt(k, v[0], c.tag === k)).join("")}</select></label>
             <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
-            <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
+            <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}" data-name="${esc(c.name)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
           </form></details>`; }).join("");
       })()}</section>`;
   },
@@ -1173,7 +1214,25 @@ const V = {
         ${byAcc.length ? byAcc.map(([k, l]) => `<div class="racc"><div class="racc-h"><b>${esc(k.split("|")[0])}</b> <span class="mono">${esc(k.split("|")[1])}</span> <small class="muted">${l.length} perfil(es)</small></div>
           ${l.map((x) => `<div class="racc-r"><span><b>${esc(x.profile)}</b>${x.client ? ` · ${esc(x.client)}` : ` · <small class="muted">para él</small>`}</span><span>${x.holdOpen ? "" : fdate(x.expiresAt)} ${st(x)}</span><span>${bs(x.price || 0)}${x.pay !== "pagado" ? ` ${pill(x.pay === "no_pago" ? "No pagó" : "Pendiente", "bad")}` : ""}</span></div>`).join("")}</div>`).join("") : `<div class="emptybox">Todavía no tiene perfiles${app ? ` de ${esc(app)}` : ""}.</div>`}</section>`;
     })();
-    return `${ficha}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    const sentCard = sent ? `<section class="card ok-card" id="rsent"><h2>✅ Listo: ${esc(sent.name)}</h2>${sent.pin && !sent.code ? `<p style="margin:0">Su PIN nuevo es <b class="bigpin">${esc(sent.pin)}</b>. El anterior ya no sirve: mandáselo ahora.</p>` : ""}
+      <div class="linkbar"><span class="muted">${sent.code ? "PIN" : "Su página"}</span><b>${esc(sent.code ? sent.page.replace("PIN: ", "") : sent.page)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.page)}">${icon("copy")}Copiar</button></div>
+      ${sent.pin && !sent.code ? `<div class="linkbar"><span class="muted">Entra con su número y PIN</span><b>${esc(sent.phone)} · PIN ${esc(sent.pin)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.pin)}">${icon("copy")}Copiar PIN</button></div>` : ""}
+      <div class="linkbar"><span class="muted">${sent.code ? "Link de códigos" : "Dónde entra"}</span><b>${esc(sent.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.url)}">${icon("copy")}Copiar</button></div>
+      <div class="inline"><a class="pbtn green" href="${waLink(sent.phone, sent.msg)}" target="_blank" rel="noopener">${icon("wa")}Mandarle todo por WhatsApp</a><button class="pbtn" type="button" data-tab="rlink:">Cerrar</button></div></section>` : "";
+    // Precio de revendedor para todos: arriba y a la vista (antes estaba al fondo de la página).
+    const bulk = isOwner() ? bulkResForm() : "";
+    const DAYMS = 86400000, now = Date.now();
+    const dormido = (r) => r.createdAt < now - 14 * DAYMS && (!r.lastOrderAt || r.lastOrderAt < now - 14 * DAYMS);
+    const rf = T.rf ?? "todos";
+    const shown2 = shown.filter((r) => rf === "todos" || (rf === "activos" && !dormido(r)) || (rf === "dormidos" && dormido(r)))
+      .sort((a, b) => b.spent30 - a.spent30 || (b.lastOrderAt ?? 0) - (a.lastOrderAt ?? 0));
+    const topCard = (r) => T.rtop !== r.id ? "" : `<form class="rtopf" data-rtopf="${esc(r.id)}" data-name="${esc(r.name)}" data-bal="${r.balance}" autocomplete="off">
+          <b>💰 Cargar saldo a ${esc(r.name)}</b>
+          <label>Monto (${currencySym()}) <small class="muted">en negativo para descontar</small><input name="amount" inputmode="decimal" required placeholder="Ej.: 100" data-rtopamt="1"></label>
+          <label>Motivo<input name="reason" maxlength="120" value="Recarga de saldo (panel)" required></label>
+          <div class="rtopprev" aria-live="polite">Saldo de ${esc(r.name.split(" ")[0])}: <b>${bs(r.balance)}</b> → <b>…</b></div>
+          <div class="inline"><button class="pbtn dark" type="submit" disabled>Escribí el monto</button><button class="pbtn" type="button" data-tab="rtop:">Cancelar</button></div></form>`;
+    return `${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}</section>
       ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
@@ -1194,21 +1253,22 @@ const V = {
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" checked> Acepta recibir avisos por WhatsApp</label>
         <button class="pbtn dark" type="submit">${icon("plus")}Crear revendedor</button>
       </form></section>
-    ${sent ? `<section class="card ok-card"><h2>✅ Listo: ${esc(sent.name)}</h2>
-      <div class="linkbar"><span class="muted">${sent.code ? "PIN" : "Su página"}</span><b>${esc(sent.code ? sent.page.replace("PIN: ", "") : sent.page)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.page)}">${icon("copy")}Copiar</button></div>
-      ${sent.pin && !sent.code ? `<div class="linkbar"><span class="muted">Entra con su número y PIN</span><b>${esc(sent.phone)} · PIN ${esc(sent.pin)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.pin)}">${icon("copy")}Copiar PIN</button></div>` : ""}
-      <div class="linkbar"><span class="muted">${sent.code ? "Link de códigos" : "Dónde entra"}</span><b>${esc(sent.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(sent.url)}">${icon("copy")}Copiar</button></div>
-      <div class="inline"><a class="pbtn green" href="${waLink(sent.phone, sent.msg)}" target="_blank" rel="noopener">${icon("wa")}Mandarle todo por WhatsApp</a><button class="pbtn" type="button" data-tab="rlink:">Cerrar</button></div></section>` : ""}
+
     <section class="card"><h2>Tus revendedores <small>${list.length}</small><input class="rsearch" id="rq" placeholder="Buscar" value="${esc(T.rq ?? "")}" style="margin-left:auto;max-width:220px"></h2>
-      ${shown.length ? `<div class="rgrid">${shown.map((r) => `<div class="rcard">
+      <div class="tabs ctl-chips" role="tablist" aria-label="Actividad">${[["todos", `Todos (${list.length})`], ["activos", `Activos (${list.filter((r) => !dormido(r)).length})`], ["dormidos", `💤 Sin comprar +14 días (${list.filter(dormido).length})`]].map(([k, t]) => `<button type="button" role="tab" data-tab="rf:${k}" aria-selected="${rf === k}">${t}</button>`).join("")}</div>
+      <p class="muted" style="margin:0">Ordenados por lo que te compraron en los últimos 30 días.</p>
+      ${shown2.length ? `<div class="rgrid">${shown2.map((r) => `<div class="rcard${dormido(r) ? " rsleep" : ""}">
         <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
         ${r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
-        <div class="rstats"><div><span>Saldo</span><b>${bs(r.balance)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
+        <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${bs(r.balance)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
+        <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
+        ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
+        ${topCard(r)}
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
-          <button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}">${icon("wa")}Nuevo PIN y acceso</button>
+          ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
-          ${r.pageAllowed
+          ${!canReview() ? "" : r.pageAllowed
             ? `<button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
                <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
                <button class="pbtn sm" type="button" data-rpage="${esc(r.id)}" data-on="">Quitar página</button>`
@@ -1216,7 +1276,7 @@ const V = {
           <button class="pbtn sm dark" type="button" data-rficha="${esc(r.id)}">📋 Ficha</button>
           <button class="pbtn sm" type="button" data-rcode="${esc(r.id)}">🔗 Link de códigos${r.codeLink ? " ✓" : ""}</button>
           ${isOwner() ? `<button class="pbtn sm" type="button" data-rtop="${esc(r.id)}">${icon("coins")}Cargar saldo</button>` : ""}
-        </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con esa búsqueda." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
+        </div></div>`).join("")}</div>` : `<div class="emptybox">${list.length ? "No hay revendedores con ese filtro." : "Todavía no tenés revendedores. Creá el primero arriba."}</div>`}
       <p class="muted" style="margin:0">Ellos entran a ${esc(set.platformName || "GaboHub")} con su <b>número y PIN</b> y ven: Precios para comprar con saldo o QR, Mis cuentas, Mis clientes y Mi página para ponerle logo, colores y sus precios. Los precios de revendedor los ponés en Productos → “Precio revendedor” o con “Solo revendedores”.</p></section>
     ${isOwner() ? `<section class="card"><h2>${icon("gear")}Ajustes de revendedores</h2>
       <form class="form" id="resCfg">
@@ -1228,12 +1288,7 @@ const V = {
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, su página sigue publicada los días de gracia y después se apaga sola. Apenas recarga, se cobra y se prende sola.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
-      <form class="form" id="bulkRes" style="border-top:1px solid var(--line);padding-top:14px">
-        <h3 style="grid-column:1/-1;margin:0;font-size:15px">⚡ Precio revendedor para todos los productos de una vez</h3>
-        <label>Descuento sobre tu precio público (%)<input name="pct" inputmode="numeric" value="20"></label>
-        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="overwrite"> Cambiar también los que ya tienen precio de revendedor</label>
-        <p class="muted" style="grid-column:1/-1;margin:0">Ejemplo con 20%: un producto de Bs 35 queda en Bs 28 para tus revendedores (redondeado a Bs enteros). Después podés ajustar uno por uno en Productos.</p>
-        <button class="pbtn dark" type="submit">Aplicar a todos</button></form></section>` : ""}`;
+</section>` : ""}`;
   },
 
   async codigos() {
@@ -1281,10 +1336,16 @@ const V = {
       api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => []),
     ]);
     const maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
-    const rows = list.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
+    // Filtros simples: plata, accesos y precios.
+    const AUDF = { plata: /^(ledger|wallet|order|renewal|expense|assignment\.refund|fiado|account\.renew_paid)/, accesos: /(login|pin|staff\.|2fa|credentials|secrets|password|assistant)/, precios: /^(price_group|product|coupon|reseller\.prices|settings\.min_margin|reseller\.coupon)/ };
+    const af = AUDF[P.tab.audf] ? P.tab.audf : "";
+    const shownA = list.filter((a) => !af || AUDF[af].test(a.action));
+    const rows = shownA.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
       <div class="audtxt"><b>${esc(t.who)}</b>${t.role ? ` <span class="muted">(${esc(t.role)})</span>` : ""} ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div>
       <div class="audmeta"><small class="muted">${fdt(a.at)}</small><details class="audtech"><summary>Ver detalle técnico</summary><code>${esc(a.action)} · ${esc(a.entityId)}${a.data && Object.keys(a.data).length ? " · " + esc(JSON.stringify(a.data)) : ""}</code></details></div></div>`; }).join("");
-    return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>${rows || `<div class="emptybox">Todavía no hay movimientos.</div>`}</section>`;
+    return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>
+      <div class="tabs ctl-chips" role="tablist" aria-label="Filtrar">${[["", "Todo"], ["plata", "💰 Plata"], ["accesos", "🔑 Accesos"], ["precios", "🏷️ Precios"]].map(([k, t]) => `<button type="button" role="tab" data-tab="audf:${k}" aria-selected="${af === k}">${t}${k ? ` (${list.filter((a) => AUDF[k].test(a.action)).length})` : ""}</button>`).join("")}</div>
+      ${rows || `<div class="emptybox">No hay movimientos con ese filtro.</div>`}</section>`;
   },
 
   async configuracion() {
@@ -1327,7 +1388,11 @@ const AUD_VERB = {
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
   "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "ai.selftest": "corrió la prueba de la oficina virtual", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
-  "customer.login_pin": "le dio un PIN de acceso a {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
+  "customer.login_pin": "le dio un PIN de acceso {x}",
+  "ledger.purchase": "usó saldo {x} en una compra", "ledger.renewal": "usó saldo {x} en una renovación", "ledger.adjustment": "ajustó el saldo {x}", "ledger.topup": "acreditó una recarga en el saldo {x}",
+  "ledger.refund": "devolvió plata al saldo {x}", "ledger.referral": "acreditó el premio por referido en el saldo {x}", "ledger.shop_rent": "cobró el alquiler de la página del saldo {x}",
+  "reseller.page_enable": "le habilitó la página premium {x}", "reseller.page_disable": "le quitó la página {x}", "reseller.control": "editó el control de {x}",
+  "supplier.delete": "borró el proveedor {x}", "ticket.create": "reportó una falla en {x}", "ticket.status": "cambió el estado de una falla en {x}", "wallet.adjust": "ajustó el saldo {x}", "customer.login_pin_self": "cambió su PIN", "customer.register_email": "se registró con su correo",
   "customer.self_register": "se registró", "customer.set_email": "cambió el correo de {x}", "customer.update": "editó {x}",
   "expense.add": "anotó un gasto", "expense.remove": "borró un gasto", "export": "exportó un Excel", "faq.update": "editó las preguntas frecuentes",
   "import.customers": "importó clientes desde Excel", "mailbox.remove": "desconectó un correo",
@@ -1361,7 +1426,7 @@ function auditText(a, maps) {
   const many = id === "*" || String(id).includes(",");
   const obj = many ? "varios" : ({
     order: () => `el pedido ${audNum(id)}`, assignment: () => `el alquiler ${audNum(id)}`, account: () => `la cuenta ${audNum(id)}`, slot: () => `el perfil ${audNum(id)}`,
-    customer: () => maps.cust[id] ? `al cliente ${maps.cust[id].name}` : `al cliente ${audNum(id)}`, product: () => maps.prod[id] ? `"${maps.prod[id].name}"` : `"${id}"`,
+    customer: () => a.action.startsWith("ledger.") ? `de ${maps.cust[id]?.name ?? audNum(id)}` : maps.cust[id] ? `al cliente ${maps.cust[id].name}` : `al cliente ${audNum(id)}`, product: () => maps.prod[id] ? `"${maps.prod[id].name}"` : `"${id}"`,
     coupon: () => (a.data?.code ? `"${a.data.code}"` : ""),
     staff: () => maps.staff[id]?.name ?? `un usuario`, supplier: () => `"${id}"`, price_group: () => `"${id}"`, reseller_app: () => `${audNum(id)}`,
   }[a.entity] ?? (() => ""))();
@@ -1626,14 +1691,25 @@ async function selfTestBox(a) {
 }
 
 /* ---------------- Ganancia por producto ---------------- */
+/** "⚡ Precio revendedor para todos": se muestra arriba en Revendedores y en Productos. */
+function bulkResForm() {
+  return `<section class="card bulkres"><details${P.tab.bulkOpen ? " open" : ""}><summary><h2 style="margin:0">⚡ Precio revendedor para todos <small>de una vez, con un % de descuento</small></h2></summary>
+      <form class="form" id="bulkRes" style="margin-top:10px">
+        <label>Descuento sobre tu precio público (%)<input name="pct" inputmode="numeric" value="20"></label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="overwrite"> Cambiar también los que ya tienen precio de revendedor</label>
+        <p class="muted" style="grid-column:1/-1;margin:0">Ejemplo con 20%: un producto de Bs 35 queda en Bs 28 para tus revendedores (redondeado a Bs enteros). Antes de aplicar te mostramos si alguno queda por debajo de lo que te cuesta. Después podés ajustar uno por uno en Productos.</p>
+        <button class="pbtn dark" type="submit">Revisar y aplicar</button></form></details></section>`;
+}
+
 function marginsCard(mg) {
   const ST = { ok: ["✅", "pp-ok"], low: ["⚠️ poco", "pp-warn"], loss: ["🔴 perdés", "pp-bad"] };
   const cell = (r) => !r ? `<span class="muted">—</span>` : `<b>${bs(r.gain)}</b> <small class="muted">(${r.pct}%)</small> <span class="pp ${ST[r.state][1]}">${ST[r.state][0]}</span>`;
-  const rows = mg.products.filter((p) => p.public || p.reseller).map((p) => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc({ full_account: "Cuenta completa", profile: "Perfil", invite: "Invitación", iptv: "IPTV" }[p.kind] ?? p.kind)}</small></td>
+  const worst = (p) => Math.min(p.public?.pct ?? 999, p.reseller?.pct ?? 999);
+  const rows = mg.products.filter((p) => p.public || p.reseller).sort((a, b) => worst(a) - worst(b)).map((p) => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc({ full_account: "Cuenta completa", profile: "Perfil", invite: "Invitación", iptv: "IPTV" }[p.kind] ?? p.kind)}</small></td>
     <td class="num">${p.unitCost === null ? "—" : bs(p.unitCost)}</td><td class="num">${p.public ? bs(p.public.price) : "—"}</td><td>${cell(p.public)}</td><td>${cell(p.reseller)}</td></tr>`);
   const sinCosto = mg.products.filter((p) => p.unitCost === null && p.accounts > 0).length;
   return `<section class="card"><h2>${icon("coins")}¿Cuánto ganás por venta? <small>precio menos lo que te cuesta</small></h2>
-    <p class="muted" style="margin:0 0 10px">El costo sale de lo que pagás por cada cuenta (dividido entre sus perfiles), por mes. Lo que menos te deja aparece primero.</p>
+    <p class="muted" style="margin:0 0 10px">El costo sale de lo que pagás por cada cuenta (dividido entre sus perfiles), por mes. Lo que menos te deja (a cliente final o a revendedor) aparece primero.</p>
     ${table(["Producto", "Te cuesta", "Precio", "Ganás (cliente final)", "Ganás (revendedor)"], rows, "Cargá el costo de tus cuentas para ver tu ganancia.")}
     ${sinCosto ? `<p class="muted" style="margin:8px 0 0">${sinCosto} producto(s) tienen cuentas sin costo cargado: editá la cuenta y poné cuánto pagás.</p>` : ""}
     <form class="inline" id="minMarginForm" style="margin-top:10px;flex-wrap:wrap"><label>Avisarme si gano menos del (%)<input name="pct" type="number" min="0" max="90" step="1" inputmode="numeric" value="${mg.minMarginPct}" style="width:90px"></label><button class="pbtn sm" type="submit">Guardar</button></form></section>`;
@@ -2008,6 +2084,13 @@ function deliveryMessage(list) {
   return `¡Hola ${first}! 👋 Acá tenés tus accesos:\n\n${blocks}\n\nCualquier cosa me escribís. ¡Gracias! 🙌`;
 }
 
+/** Respuesta lista para "no me entra": los datos actualizados + 3 pasos simples. */
+function noEntraMessage(list) {
+  const x = list[0], first = x.customerFirst || "";
+  const datos = list.map((y) => [`📺 ${y.product}`, `📧 Correo: ${y.email}`, `🔑 Contraseña: ${y.password || "(te la paso aparte)"}`, `👤 Perfil: ${y.profile}`, ...(y.pin ? [`🔢 PIN: ${y.pin}`] : [])].join("\n")).join("\n\n");
+  return `¡Hola ${first}! 👋 Probemos así:\n\n1️⃣ Cerrá sesión en el televisor o en el celular.\n2️⃣ Entrá de nuevo con estos datos:\n\n${datos}\n\n3️⃣ Elegí tu perfil${x.pin ? " y poné el PIN" : ""}.\n\nSi sigue sin entrar, mandame una foto del error y lo vemos al toque 🙏`;
+}
+
 /** Tarjeta "listo para enviar": muestra los accesos y un botón grande para mandarlos por WhatsApp. */
 function showDeliveries(list) {
   list = (list || []).filter(Boolean);
@@ -2030,6 +2113,7 @@ function showDeliveries(list) {
       ${list.map(cred).join("")}
       ${list.some((x) => x.passwordPending) ? `<p class="muted" style="margin:0">⚠️ Falta la contraseña de una cuenta: cargala en “Carga de Cuentas” y volvé a enviar.</p>` : ""}
       ${phone ? `<a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>` : `<p class="muted" style="margin:0">Este cliente no tiene WhatsApp cargado. Copiá los datos y mandáselos por donde puedas.</p>`}
+      ${phone ? `<a class="pbtn big" href="${waLink(phone, noEntraMessage(list))}" target="_blank" rel="noopener">🙋 Respuesta para “no me entra”</a>` : ""}
       <button class="pbtn big" type="button" data-dlvcopy>📋 Copiar todo</button></div>`;
   el.addEventListener("click", (ev) => { if (ev.target === el) el.remove(); });
   document.body.appendChild(el);
@@ -2128,6 +2212,7 @@ document.addEventListener("click", async (ev) => {
       if (f === "cobrar") P.tab.cf = "cobrar";
       if (f === "nopay") P.tab.cpay = "debe";
       if (f === "fecha") P.tab.cfrom = Number(x);
+      if (x === "mios") P.tab.ck = "fin"; // desde Inicio: solo lo que cobrás vos
     }
     return go(v);
   }
@@ -2141,7 +2226,7 @@ document.addEventListener("click", async (ev) => {
     if (d.cbulk === "clear") { $$(".csel").forEach((c) => (c.checked = false)); return updateCtlBar(); }
     if (!ids.length) return toast("Marcá al menos una");
     if (d.cbulk === "renew") {
-      return act(() => api("POST", "/api/admin/assignments/renew-many", { ids, paymentMethod: "cash", batchKey: newKey(), allowBeyondSupplier: $("#cbBeyond").checked }), (r) => {
+      return act(() => api("POST", "/api/admin/assignments/renew-many", { ids, paymentMethod: "cash", batchKey: newKey(), allowBeyondSupplier: !!$("#cbBeyond")?.checked }), (r) => {
         const bad = r.filter((x) => !x.ok);
         return bad.length ? `${r.length - bad.length} renovadas; ${bad.length} no: ${bad[0].error}` : `✅ ${r.length} renovadas`;
       });
@@ -2175,9 +2260,9 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.ctlcsv) {
-    const H = ["N°", "Cliente", "Tipo", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Precio Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
+    const H = ["N°", "Cliente", "Tipo", "WhatsApp", "Plataforma", "Correo", "Perfil", "Inicio", "Vencimiento", "Día vence", "Te pagan Bs", "Costo Bs", "Ganancia Bs", "Estado pago", "Estado", "Días restantes", "Revendedor", "Nota"];
     const PAYT = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
-    const lines = [H, ...(P.controlView ?? []).map((r) => [r.n, r.customerName, r.kind === "rev" ? "Revendedor" : "Cliente final", r.customerPhone, r.product.replace(/ \(alquiler revendedores\)/, ""), r.email, r.profile, fdate(r.startsAt), fdate(r.customerExpiresAt), r.day, r.price / 100, r.cost / 100, r.gain / 100, PAYT[r.pay], r.est[0], r.d, r.control.seller ?? "", r.control.note ?? ""])];
+    const lines = [H, ...(P.controlView ?? []).map((r) => [r.n, r.customerName, r.viaRes ? `De ${r.rname}` : r.customerKind === "reseller" ? "Revendedor" : "Mío", r.customerPhone, r.product.replace(/ \(alquiler revendedores\)/, ""), r.email, r.profile, fdate(r.startsAt), fdate(r.customerExpiresAt), r.day, r.price / 100, r.cost / 100, r.gain / 100, PAYT[r.pay], r.est[0], r.d, r.control.seller || r.rname || "", r.control.note ?? ""].map((v, i) => (canReview() || (i !== 11 && i !== 12) ? v : "")))];
     const csv = "\ufeff" + lines.map((l) => l.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `control-alquileres-${new Date().toISOString().slice(0, 10)}.csv` });
     a.click(); URL.revokeObjectURL(a.href); return;
@@ -2241,8 +2326,10 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.rsend) {
+    // Generar un PIN nuevo deja afuera al revendedor hasta que le llegue: se pide confirmación.
+    if (!confirm(`¿Generar un PIN nuevo para ${d.name || "este revendedor"}?\n\nEl PIN que tiene ahora deja de funcionar al toque y le vas a tener que mandar el nuevo.`)) return;
     const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rsend);
-    try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); await render(); scrollTo(0, 0); } catch (e) { toast(e.message); }
+    try { P.tab.rlink = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); P.tab.rficha = ""; await render(); scrollTo(0, 0); $("#rsent")?.scrollIntoView({ block: "start" }); toast(`✅ PIN nuevo de ${r.name}: ${P.tab.rlink.pin}`); } catch (e) { toast(e.message); }
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
@@ -2269,10 +2356,11 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.rtop) {
-    const v = prompt(`¿Cuánto saldo le cargás? (${currencySym()}, negativo para descontar)`);
-    if (!v) return;
-    try { await api("POST", `/api/admin/customers/${d.rtop}/adjust`, { amount: toCents(v), reason: "Recarga de saldo (panel)" }); toast("Saldo actualizado"); } catch (e) { toast(e.message); }
-    return render();
+    // Abre el mini formulario en la tarjeta (monto + motivo, con el saldo antes → después).
+    P.tab.rtop = d.rtop; await render();
+    const f = document.querySelector(`[data-rtopf="${CSS.escape(d.rtop)}"]`);
+    f?.scrollIntoView({ block: "center" }); f?.amount.focus();
+    return;
   }
   if (d.mbtest) {
     const f = $("#mbForm");
@@ -2328,6 +2416,7 @@ document.addEventListener("click", async (ev) => {
   if (d.ledger !== undefined) { P.tab.ledger = d.ledger || null; await render(); return scrollTo(0, 0); }
   if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Copiado"); } catch { toast("Copialo a mano"); } return; }
   if (d.link) {
+    if (!confirm(`¿Generar un PIN nuevo para ${d.name || "este cliente"}?\n\nEl PIN que tiene ahora deja de funcionar al toque.`)) return;
     const r = await act(() => api("POST", `/api/admin/customers/${d.link}/login-pin`, {}));
     if (r) {
       const c = (await api("GET", "/api/admin/customers")).find((x) => x.id === d.link);
@@ -2445,6 +2534,20 @@ document.addEventListener("click", async (ev) => {
     const s = (await api("GET", "/api/admin/suppliers")).find((x) => x.id === d.supactive);
     return act(() => api("POST", "/api/admin/suppliers", { ...s, active: d.on === "1" }), "Proveedor actualizado");
   }
+});
+
+/* Cargar saldo: muestra el saldo antes → después y deja el botón con el texto exacto de lo que va a hacer. */
+document.addEventListener("input", (ev) => {
+  const f = ev.target.closest?.("form[data-rtopf]");
+  if (!f || ev.target.name !== "amount") return;
+  const v = toCents(ev.target.value || "0"), bal = Number(f.dataset.bal), name = f.dataset.name.split(" ")[0];
+  const prev = f.querySelector(".rtopprev"), btn = f.querySelector('button[type="submit"]');
+  const ok = Number.isFinite(v) && v !== 0;
+  prev.className = `rtopprev ${ok && v < 0 ? "neg" : ""}`;
+  prev.innerHTML = `Saldo de ${esc(name)}: <b>${bs(bal)}</b> → <b>${ok ? bs(bal + v) : "…"}</b>${ok && v < 0 ? ` <span class="pp pp-bad">Descuento de ${bs(-v)}</span>` : ""}`;
+  btn.disabled = !ok;
+  btn.className = `pbtn ${ok && v < 0 ? "danger" : "dark"}`;
+  btn.textContent = !ok ? "Escribí el monto" : v < 0 ? `Confirmar: descontarle ${bs(-v)} a ${name}` : `Confirmar: cargarle ${bs(v)} a ${name}`;
 });
 
 /** Manda el estilo del formulario a las vistas previas (sin guardar). */
@@ -2934,17 +3037,26 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "bulkRes") {
       const pct = Number(f.pct.value);
       if (!(pct >= 0 && pct < 100)) { toast("Descuento entre 0 y 99 %"); return; }
-      const [products, groups] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/price-groups")]);
+      const [products, groups, mg] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/price-groups"), api("GET", "/api/admin/finance/margins").catch(() => null)]);
       const rev = groups.find((g) => g.id === "revendedor") ?? { id: "revendedor", name: "Revendedor", prices: {} };
+      const costOf = Object.fromEntries((mg?.products ?? []).filter((m) => m.unitCost !== null).map((m) => [m.productId, m.unitCost]));
       let n = 0;
+      const below = [];
       for (const p of products) {
         if (p.resellersOnly || (!f.overwrite.checked && rev.prices[p.id] !== undefined)) continue;
         rev.prices[p.id] = Math.max(100, Math.round((p.price * (100 - pct)) / 100 / 100) * 100);
+        if (costOf[p.id] !== undefined && rev.prices[p.id] < costOf[p.id]) below.push(`• ${p.name}: quedaría en ${bs(rev.prices[p.id])} y te cuesta ${bs(costOf[p.id])}`);
         n++;
       }
       if (!n) { toast("No había productos para cambiar"); return; }
-      if (!confirm(`¿Poner precio de revendedor a ${n} producto(s) con ${pct}% de descuento?`)) return;
+      const warn = below.length ? `\n\n🔴 OJO: con ${pct}% perdés plata en ${below.length} producto(s):\n${below.join("\n")}\n\nSi seguís, después subilos uno por uno en Productos.` : "\n\n✅ Ninguno queda por debajo de lo que te cuesta.";
+      if (!confirm(`¿Poner precio de revendedor a ${n} producto(s) con ${pct}% de descuento?${warn}`)) return;
       await act(() => api("POST", "/api/admin/price-groups", rev), `Listo: ${n} producto(s) con precio de revendedor`);
+    } else if (f.dataset.rtopf) {
+      const v = toCents(f.amount.value || "0"), name = f.dataset.name, bal = Number(f.dataset.bal);
+      if (!Number.isFinite(v) || v === 0) { toast("Escribí un monto distinto de 0"); return; }
+      if (v < 0 && !confirm(`¿Descontarle ${bs(-v)} a ${name}?\nSu saldo queda en ${bs(bal + v)}.`)) return;
+      await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${bs(bal)} → ${bs(bal + v)}`);
     } else if (f.id === "resCfg") {
       await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {

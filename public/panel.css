@@ -1003,3 +1003,30 @@ table.ctl tfoot td.ccli{z-index:3}
 
 /* Fallas reportadas */
 .tkt{border-left:4px solid var(--bad)} .tkt-revisando{border-left-color:var(--warn)} .tkt-solucionado{border-left-color:var(--ok);opacity:.85}
+
+/* ---- Pulido del dueño: números claros y acciones con confirmación ---- */
+.hm-day .hd-count{line-height:1.25;overflow-wrap:anywhere}
+@media (max-width:520px){.hm-day .hd-count .hd-w{display:none}.hm-day .hd-count b{font-size:15px}}
+.finkpis.four{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.finkpi.est{border-left-style:dashed;border-left-color:#e8590c}
+.finkpi.est b{color:var(--warn)}
+.finwarn{margin-top:12px;background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.45}
+.warncard{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent);font-size:14px;line-height:1.45}
+.tumes{display:grid;gap:10px}
+.tumes-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.tumes-h h2{margin:0}
+.tumes-k{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tumes-k>div{background:var(--soft);border-radius:12px;padding:10px;display:grid;gap:2px;min-width:0}
+.tumes-k small{font-size:12px;color:var(--muted);line-height:1.2}
+.tumes-k b{font-size:clamp(15px,4.2vw,24px);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tumes-k .up b{color:var(--ok)}.tumes-k .down b{color:var(--bad)}
+.tumes-top{margin:0;padding-left:22px;display:grid;gap:4px;font-size:14px}
+.tumes-top li span{margin-left:6px;color:var(--muted)}
+.rtopf{display:grid;gap:8px;border:2px solid var(--blue);border-radius:12px;padding:12px;background:var(--soft)}
+.rtopf label{display:grid;gap:4px;font-size:14px}
+.rtopprev{font-size:15px;padding:8px 10px;border-radius:10px;background:var(--card);border:1px solid var(--line)}
+.rtopprev.neg{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.rtopprev.neg b{color:var(--bad)}
+.bigpin{font-size:26px;letter-spacing:.12em;font-variant-numeric:tabular-nums;background:var(--card);padding:2px 10px;border-radius:8px;border:1px dashed var(--ok)}
+.rcard.rsleep{border-style:dashed}
+.bulkres summary{cursor:pointer;list-style:none}.bulkres summary::-webkit-details-marker{display:none}
+.bulkres summary h2::after{content:" ▾";color:var(--muted)}
