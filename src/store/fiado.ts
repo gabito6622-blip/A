@@ -11,6 +11,7 @@ import type { Actor, Assignment, Cents, FiadoEntry, Id, RentalControl } from "./
 import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
 
 const DAY = 86_400_000;
 const all = (e: Engine) => (e.s.fiado ??= []);
@@ -34,9 +35,11 @@ function setCtl(a: Assignment, b: Book, payStatus: RentalControl["payStatus"]) {
   else a.control = { ...(a.control ?? {}), payStatus };
 }
 
-function amountOf(v: unknown): Cents {
-  const n = Math.round(Number(v));
-  if (!Number.isInteger(n) || n <= 0 || n > 10_000_000) throw new DomainError("VALIDATION", "El monto tiene que ser mayor a 0");
+/** Monto de un movimiento. La libreta de un revendedor de otro país va en su moneda (₲ sin decimales). */
+function amountOf(e: Engine, b: Book, v: unknown): Cents {
+  const c = b.creditor ? e.s.customers[b.creditor] : undefined;
+  const n = c && isForeign(e, c) ? normAmount(Number(v), currencyOf(e, c)) : Math.round(Number(v));
+  if (!Number.isInteger(n) || n <= 0 || n > maxAmount(e, c)) throw new DomainError("VALIDATION", "El monto tiene que ser mayor a 0");
   return n;
 }
 const noteOf = (v: unknown) => {
@@ -77,7 +80,7 @@ function syncControl(e: Engine, b: Book, customerId: Id) {
 
 export function addCharge(e: Engine, actor: Actor, input: { customerId: Id; amount: unknown; note?: unknown; dueAt?: unknown; assignmentId?: Id }): FiadoEntry {
   const b = bookOf(e, actor);
-  const amount = amountOf(input.amount), note = noteOf(input.note);
+  const amount = amountOf(e, b, input.amount), note = noteOf(input.note);
   const dueAt = input.dueAt === undefined || input.dueAt === null || input.dueAt === "" ? undefined : Number(input.dueAt);
   if (dueAt !== undefined && !Number.isFinite(dueAt)) throw new DomainError("VALIDATION", "Fecha de cobro inválida");
   return e.tx(() => {
@@ -98,7 +101,7 @@ export function addCharge(e: Engine, actor: Actor, input: { customerId: Id; amou
 
 export function addPayment(e: Engine, actor: Actor, input: { customerId: Id; amount: unknown; note?: unknown }): { entry: FiadoEntry; owed: Cents } {
   const b = bookOf(e, actor);
-  const amount = amountOf(input.amount), note = noteOf(input.note);
+  const amount = amountOf(e, b, input.amount), note = noteOf(input.note);
   return e.tx(() => {
     customerOf(e, b, input.customerId);
     const entry: FiadoEntry = { id: e.id("fia"), customerId: input.customerId, kind: "pago", amount, note, at: e.now(), by: actor.id, ...(b.creditor ? { creditorId: b.creditor } : {}) };
@@ -133,7 +136,7 @@ function unpaidRentals(e: Engine, b: Book, customerId?: Id) {
     && (!b.creditor || a.customerId !== b.creditor) && ctl(a, b)?.payStatus && ctl(a, b)!.payStatus !== "pagado" && !linked.has(a.id));
 }
 function rentalPrice(e: Engine, b: Book, a: Assignment): Cents {
-  if (b.creditor) return a.rcontrol?.price ?? e.s.customers[b.creditor]?.resellerPrices?.[a.productId] ?? 0;
+  if (b.creditor) return a.rcontrol?.price ?? listPriceMine(e, e.s.customers[b.creditor], a.productId) ?? 0;
   return a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
 }
 
@@ -157,6 +160,17 @@ export function chargeUnpaidRentals(e: Engine, actor: Actor, customerId: Id): { 
   });
 }
 
+/** Hasta 3 apps distintas que el cliente tiene activas: id y nombre del producto (sin datos de la cuenta). */
+function appsOf(e: Engine, customerId: Id): { productId: Id; product: string }[] {
+  const out = new Map<Id, string>();
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.customerId !== customerId || a.status !== "active" || out.has(a.productId)) continue;
+    out.set(a.productId, (e.s.products[a.productId]?.name ?? "").replace(/ \(alquiler revendedores\)/, ""));
+    if (out.size >= 3) break;
+  }
+  return [...out].map(([productId, product]) => ({ productId, product }));
+}
+
 /** Resumen para la pantalla Fiado: quién debe, cuánto, desde cuándo y cuándo se cobra. */
 export function overview(e: Engine, actor: Actor) {
   const b = bookOf(e, actor, false);
@@ -172,6 +186,8 @@ export function overview(e: Engine, actor: Actor) {
       customerId: id, name: c?.name ?? "?", phone: c?.phone ?? "", kind: c?.kind ?? "customer",
       owed, credit, openCharges: open.length, oldestAt: open[0]?.at, nextDue, overdue: !!nextDue && nextDue < now,
       unlinked: { count: pend.length, amount: pend.reduce((t, a) => t + rentalPrice(e, b, a), 0) },
+      // Las apps que tiene activas (para mostrar sus logos): solo de este cliente, que es del mismo dueño de la libreta.
+      apps: appsOf(e, id),
     };
   }).filter((r) => r.owed > 0 || r.unlinked.count || r.credit > 0)
     .sort((a, b2) => Number(b2.overdue) - Number(a.overdue) || b2.owed - a.owed);

@@ -28,6 +28,7 @@ import { overview as resellerOverview } from "../store/resellerStats.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
+import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -270,7 +271,7 @@ export function createApp(cfg: AppConfig): App {
     const st = store.engine.s.settings;
     return {
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
-      usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, note: st.usdt.note ?? "" } : null,
+      usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
@@ -515,7 +516,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -547,6 +548,8 @@ export function createApp(cfg: AppConfig): App {
   };
   route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => store.subs.publicView(c.params.token)));
   route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
+  registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON }); // país/moneda y cuentas propias
+  route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
@@ -674,7 +677,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) });
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr", c.body?.usdtAmount);
       autoReview(o.id);
       return o;
     } catch (e) {
@@ -748,6 +751,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/assignments/:id/test", "staff", (c) => store.orders.markTest(A(c), c.params.id, c.body?.reason));
   route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
@@ -1648,7 +1652,7 @@ export function createApp(cfg: AppConfig): App {
   // USDT manual: configuración cruda (para el panel; la dirección es pública pero la mostramos solo al staff).
   route("GET", "/api/admin/usdt", "staff", () => {
     const u = store.engine.s.settings.usdt;
-    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, note: u?.note ?? "" };
+    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, rateAt: u?.rateAt ?? null, note: u?.note ?? "" };
   });
 
   // ── Binance Pay: configuración del dueño ──
@@ -1751,7 +1755,7 @@ export function createApp(cfg: AppConfig): App {
   /* ---------- Vista previa al compartir (WhatsApp, Facebook, Telegram) ----------
      Las páginas públicas llevan título, descripción e imagen propios en el <head>, y la imagen
      se dibuja en el servidor con el nombre y los colores de cada tienda. */
-  type OgInfo = { title: string; description: string; siteName: string; img: string; noSize?: boolean; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
+  type OgInfo = { title: string; description: string; siteName: string; img: string; noSize?: boolean; icon?: string; shop?: string; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
   const oneLine = (s: unknown, max = 200) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   function ogInfo(pathname: string): OgInfo | null {
     const st = store.engine.s.settings;
@@ -1759,11 +1763,19 @@ export function createApp(cfg: AppConfig): App {
     const slug = pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase();
     if (slug) {
       try {
-        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string; seoTitle?: string; seoDescription?: string };
+        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string; seoTitle?: string; seoDescription?: string; hasBanner?: boolean; hasLogo?: boolean };
         const title = oneLine(sh.seoTitle || sh.title || slug, 70);
         const description = oneLine(sh.seoDescription || sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${sh.title || slug}.`);
-        return { title, description, siteName: title, img: `/og/r/${slug}.png`, card: { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor } };
-      } catch { return null; }
+        // Con portada propia, la vista previa es su portada; si no, una tarjeta con su nombre en sus colores.
+        // Con logo, la pestaña del navegador muestra su logo.
+        const icon = sh.hasLogo ? `/api/shops/${slug}/logo` : undefined;
+        const card = { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor };
+        if (sh.hasBanner) return { title, description, siteName: title, img: `/api/shops/${slug}/banner`, noSize: true, icon, card, shop: slug };
+        return { title, description, siteName: title, img: `/og/r/${slug}.png`, icon, card, shop: slug };
+      } catch {
+        // No existe, está bloqueada, suspendida o sin publicar: vista previa genérica, sin nada de esa página.
+        return hubOg(st, platform);
+      }
     }
     if (/^\/tienda(\/|$)/.test(pathname)) {
       const title = oneLine(st.seoTitle || st.storeName || "Tienda", 70);
@@ -1771,12 +1783,13 @@ export function createApp(cfg: AppConfig): App {
       if (st.bannerFileRef) return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/api/settings/banner", noSize: true, card: { title, subtitle: "", accent: st.accentColor, background: st.backgroundColor } };
       return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
     }
-    if (pathname === "/" || /^\/(hub|revendedores|tiendas)\/?$/.test(pathname)) {
-      const title = oneLine(platform, 60);
-      return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
-        img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
-    }
+    if (pathname === "/" || /^\/(hub|revendedores|tiendas)\/?$/.test(pathname)) return hubOg(st, platform);
     return null;
+  }
+  function hubOg(st: typeof store.engine.s.settings, platform: string): OgInfo {
+    const title = oneLine(platform, 60);
+    return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
+      img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
   }
   /** Origen absoluto para las etiquetas (WhatsApp exige URLs completas). */
   function originOf(req: IncomingMessage) {
@@ -1808,7 +1821,7 @@ export function createApp(cfg: AppConfig): App {
     const m = pathname.match(/^\/og\/(tienda|hub|r\/([a-z0-9-]{3,30}))\.png$/i);
     if (!m || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const info = ogInfo(m[2] ? `/r/${m[2].toLowerCase()}` : m[1] === "tienda" ? "/tienda/" : "/");
-    if (!info) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
+    if (!info || (m[2] && info.shop !== m[2].toLowerCase())) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
     const key = JSON.stringify(info.card);
     let img = ogCache.get(key);
     if (!img) {
@@ -1828,11 +1841,13 @@ export function createApp(cfg: AppConfig): App {
     if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
     const origin = originOf(req);
     const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
-    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return shellHtml.html
+    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    let html = shellHtml.html
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
+    if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    return html;
   }
 
   /** A dónde mandar a quien entra por el dominio propio. null = servir normal. */

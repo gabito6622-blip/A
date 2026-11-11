@@ -2,6 +2,7 @@
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
+import { resellerCountryRow } from "/country.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -437,7 +438,7 @@ const V = {
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
-        <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
+        <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.usdtQuote ? `<br><small class="muted">≈ ${esc(String(o.usdtQuote.usdt).replace(".", ","))} USDT a Bs ${esc(String(o.usdtQuote.rate).replace(".", ","))}</small>` : ""}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
           ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. Revisalo bien antes de aprobar.</small></div>` : ""}
@@ -511,7 +512,7 @@ const V = {
         ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
         ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
         ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
-      ${invCard}${await winbackHomeCard()}${tuMes}
+      ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -643,6 +644,7 @@ const V = {
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
+          ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real: se libera el perfil y sale de tus números">🧪 Era una prueba</button>` : ""}
           ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
@@ -1308,10 +1310,11 @@ const V = {
         <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
         ${r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
         <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${bs(r.balance)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
+        ${canReview() ? resellerCountryRow(r) : ""}
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
-        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
+        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
@@ -1798,6 +1801,18 @@ async function payMethodsCard() {
     </form></section>`;
 }
 
+/* Dólar flexible: la tasa del USDT cambia seguido. Tarjeta en Inicio para cambiarla en un toque; avisa si tiene más de 24 h. */
+async function rateCard() {
+  if (!canReview()) return "";
+  const u = await api("GET", "/api/admin/usdt").catch(() => null);
+  if (!u?.enabled || !(u.rate > 0)) return "";
+  const age = u.rateAt ? Date.now() - u.rateAt : Infinity, old = age > 24 * 3600_000;
+  const when = !u.rateAt ? "sin fecha" : age < 3600_000 ? "hace menos de 1 hora" : age < 48 * 3600_000 ? `hace ${Math.floor(age / 3600_000)} h` : `el ${fdate(u.rateAt)}`;
+  return `<section class="card hm-rate ${old ? "hm-rate-old" : ""}"><h2>💱 Tasa del USDT ${old ? pill("Revisala", "warn") : ""}</h2>
+    <p class="muted" style="margin:0">1 USDT = <b>Bs ${String(u.rate).replace(".", ",")}</b> · actualizada ${when}. Con el dólar flexible, cambiala cuando se mueva: lo que ya pidieron no cambia.</p>
+    <form class="inline" id="rateForm" style="flex-wrap:wrap"><input id="rateNew" name="rate" aria-label="Nueva tasa: cuántos Bs vale 1 USDT" inputmode="decimal" required placeholder="Ej.: ${String(u.rate).replace(".", ",")}" style="flex:1 1 120px"><button class="pbtn dark" type="submit">Actualizar tasa</button></form></section>`;
+}
+
 async function usdtCard() {
   const u = await api("GET", "/api/admin/usdt").catch(() => null);
   if (!u) return "";
@@ -1806,7 +1821,7 @@ async function usdtCard() {
     <p class="muted" style="margin:0">La forma simple, sin cuenta de empresa: el cliente ve tu <b>dirección USDT</b> (o tu Binance Pay ID) y el monto, te manda el pago y sube el comprobante. Vos lo aprobás como un pago por QR. Ideal mientras Binance Pay automático no esté habilitado.</p>
     <form class="form" id="usdtForm">
       <label>Red<input name="network" placeholder="Ej.: TRC20" value="${esc(u.network || "")}" list="usdtNets"><datalist id="usdtNets"><option>TRC20</option><option>BEP20</option><option>ERC20</option><option>Polygon</option></datalist></label>
-      <label>Tasa: ¿cuántos Bs vale 1 USDT?<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${u.rate || ""}"></label>
+      <label>Tasa: ¿cuántos Bs vale 1 USDT?${u.rateAt ? ` <small class="muted">(actualizada ${fdt(u.rateAt)})</small>` : ""}<input name="rate" inputmode="decimal" placeholder="Ej.: 13" value="${u.rate || ""}"></label>
       <label style="grid-column:1/-1">Dirección de tu billetera USDT<input name="address" autocomplete="off" placeholder="Ej.: T... (la dirección de esa red)" value="${esc(u.address || "")}"></label>
       <label style="grid-column:1/-1">Binance Pay ID <small class="muted">(opcional, pago Binance-a-Binance)</small><input name="payId" inputmode="numeric" placeholder="Ej.: 123456789" value="${esc(u.payId || "")}"></label>
       <label style="grid-column:1/-1">Nota para el cliente <small class="muted">(opcional)</small><input name="note" maxlength="300" placeholder="Ej.: Mandá solo por TRC20. Avisame por WhatsApp con el hash." value="${esc(u.note || "")}"></label>
@@ -2572,6 +2587,10 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.paid) return act(() => api("POST", `/api/admin/assignments/${d.paid}/control`, { payStatus: "pagado" }), "💵 Marcado como cobrado");
+  if (d.wastest) {
+    if (!confirm(`¿La venta de ${el.dataset.name || "este cliente"} era una prueba?\n\nSe cierra el servicio (y los otros de esa misma venta), el perfil vuelve a estar libre y la venta sale de tus números. No se le avisa a nadie.`)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);
+  }
   if (d.refund) {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
@@ -2966,8 +2985,13 @@ document.addEventListener("submit", async (ev) => {
       const prev = P.tab.pmEdit; P.tab.pmEdit = null;
       const ok = await act(() => api("POST", "/api/admin/paymethods", body), (m) => `💳 ${m.name} guardado`);
       if (!ok) P.tab.pmEdit = prev;
+    } else if (f.id === "rateForm") {
+      const rate = Number(String(f.rate.value).trim().replace(",", "."));
+      if (!(rate > 0 && rate <= 1000)) return toast("Poné cuántos Bs vale 1 USDT (ej. 9,85)");
+      const u = await api("GET", "/api/admin/usdt");
+      await act(() => api("POST", "/api/admin/settings", { usdt: { enabled: u.enabled, address: u.address, network: u.network, payId: u.payId, note: u.note, rate } }), `💱 Tasa actualizada: 1 USDT = Bs ${String(rate).replace(".", ",")}`);
     } else if (f.id === "usdtForm") {
-      const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim(), note: f.note.value.trim() };
+      const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim().replace(",", "."), note: f.note.value.trim() };
       await act(() => api("POST", "/api/admin/settings", { usdt }), "Cobro en USDT guardado");
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);

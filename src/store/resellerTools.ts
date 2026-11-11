@@ -8,6 +8,7 @@ import { DomainError } from "./errors.js";
 import { priceFor, visibleTo } from "./catalog.js";
 import { renewableNow } from "./orders.js";
 import { addPayment, chargeUnpaidRentals, history } from "./fiado.js";
+import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
 
 function reseller(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
@@ -24,7 +25,8 @@ export function myControl(e: Engine, actor: Actor) {
       return {
         id: a.id, clientId: c.id, client: c.name, phone: c.phone ?? "", productId: a.productId, product: e.s.products[a.productId]?.name ?? "",
         email: acc?.email ?? "", profile: slot?.label ?? "", startsAt: a.startsAt, expiresAt: a.customerExpiresAt, holdOpen: !!a.holdOpen,
-        price: a.rcontrol?.price ?? me.resellerPrices?.[a.productId] ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
+        // Lo que le cobra: en SU moneda (su lista de precios en Bs se convierte con su tipo de cambio).
+        price: a.rcontrol?.price ?? listPriceMine(e, me, a.productId) ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
         cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
       };
@@ -38,8 +40,8 @@ export function setMyControl(e: Engine, actor: Actor, assignmentId: Id, patch: {
   if (patch.price !== undefined) {
     if (patch.price === null || patch.price === "") out.price = undefined;
     else {
-      const n = Math.round(Number(patch.price));
-      if (!Number.isInteger(n) || n < 0 || n > 10_000_000) throw new DomainError("VALIDATION", "Precio inválido");
+      const n = isForeign(e, me) ? normAmount(Number(patch.price), currencyOf(e, me)) : Math.round(Number(patch.price));
+      if (!Number.isInteger(n) || n < 0 || n > maxAmount(e, me)) throw new DomainError("VALIDATION", "Precio inválido");
       out.price = n;
     }
   }
@@ -82,9 +84,12 @@ const monthKey = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Am
 export function myEarnings(e: Engine, actor: Actor) {
   const me = reseller(e, actor);
   const now = e.now();
+  // Otro país: lo que cobra va en su moneda y lo que le costó en Bs. No se restan ni se mezclan:
+  // sin su precio, esa venta no suma nada a "vendiste" (antes se tomaba el costo en Bs).
+  const split = isForeign(e, me);
   type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number; unpaid: Cents };
   const months = new Map<string, Row>();
-  const apps = new Map<string, Row & { name: string }>();
+  const apps = new Map<string, Row & { productId: Id; name: string }>();
   const cur = monthKey(now);
   const mine = (o: (typeof e.s.orders)[string]) => o.payerId === me.id && o.customerId !== me.id && o.status === "fulfilled" && (o.kind === "sale" || o.kind === "renewal");
   // Último pedido de cada servicio: si hoy figura "Pendiente"/"No pagó", ese pedido todavía no se cobró.
@@ -103,14 +108,14 @@ export function myEarnings(e: Engine, actor: Actor) {
       const a = o.assignmentIds.map((id) => e.s.assignments[id]).find((x) => x && x.productId === it.productId);
       const units = o.kind === "renewal" ? 1 : it.qty;
       const periods = o.kind === "renewal" ? it.qty : (o.periods ?? 1);
-      const sell = a?.rcontrol?.price ?? me.resellerPrices?.[it.productId];
-      const revenue = sell === undefined ? it.unitPrice * it.qty : sell * units * periods;
+      const sell = a?.rcontrol?.price ?? listPriceMine(e, me, it.productId);
+      const revenue = sell === undefined ? (split ? 0 : it.unitPrice * it.qty) : sell * units * periods;
       if (sell === undefined) m.noPrice++;
       m.revenue += revenue;
       const unpaid = !!a && (a.rcontrol?.payStatus ?? "pagado") !== "pagado" && lastOf.get(a.id)?.id === o.id;
       if (unpaid) m.unpaid += revenue;
       if (k === cur) {
-        const p = apps.get(it.productId) ?? { name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
+        const p = apps.get(it.productId) ?? { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
         if (unpaid) p.unpaid += revenue;
         p.sales += units; p.cost += it.unitPrice * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
         apps.set(it.productId, p);
@@ -119,11 +124,14 @@ export function myEarnings(e: Engine, actor: Actor) {
     months.set(k, m);
   }
   const label = (k: string) => `${MES[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`;
+  const gain = (a: number, b: number) => (split ? null : a - b);
   const list = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
-    .map(([k, m]) => ({ key: k, label: label(k), ...m, collected: m.revenue - m.unpaid, profit: m.revenue - m.cost, profitCollected: m.revenue - m.unpaid - m.cost }));
-  const thisMonth = list.find((x) => x.key === cur) ?? { key: cur, label: label(cur), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: 0, profitCollected: 0 };
+    .map(([k, m]) => ({ key: k, label: label(k), ...m, collected: m.revenue - m.unpaid, profit: gain(m.revenue, m.cost), profitCollected: gain(m.revenue - m.unpaid, m.cost) }));
+  const thisMonth = list.find((x) => x.key === cur) ?? { key: cur, label: label(cur), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: gain(0, 0), profitCollected: gain(0, 0) };
   return {
     month: thisMonth, months: list,
-    byApp: [...apps.values()].map((p) => ({ ...p, profit: p.revenue - p.cost })).sort((a, b) => b.profit - a.profit),
+    byApp: [...apps.values()].map((p) => ({ ...p, profit: gain(p.revenue, p.cost) })).sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue)),
+    // Dos monedas: "vendiste/cobraste/te deben" en la suya, "te costó" en la de la tienda.
+    ...(split ? { split: { mine: currencyOf(e, me), store: { symbol: e.s.settings.currencySymbol || "Bs", decimals: 2 as const } } } : {}),
   };
 }

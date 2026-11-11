@@ -3,6 +3,8 @@
 
 import type { Look } from "./look.js";
 export type { Look } from "./look.js";
+import type { ResellerLocale } from "./country.js";
+import type { OwnStockBook } from "./ownStock.js";
 
 export type Cents = number;
 export type Id = string;
@@ -89,8 +91,10 @@ export interface StoreSettings extends Look {
     network?: string;
     /** Binance Pay ID (pago interno Binance-a-Binance). */
     payId?: string;
-    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). */
+    /** Cuántos Bs vale 1 USDT (para mostrarle al cliente cuánto mandar). Con el dólar flexible cambia seguido. */
     rate?: number;
+    /** Cuándo se cambió la tasa por última vez (para avisar si quedó vieja). */
+    rateAt?: number;
     /** Nota/instrucciones extra para el cliente. */
     note?: string;
   };
@@ -281,6 +285,8 @@ export interface Customer {
   pageAllowed?: boolean;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
+  /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
+  locale?: ResellerLocale;
 }
 
 export interface Testimonial {
@@ -381,6 +387,8 @@ export interface PaymentEvidence {
 
 export interface Order {
   id: Id;
+  /** Pago en USDT: cuánto se pidió y a qué tasa, fijado al hacer el pedido (si después cambia la tasa, este pedido no se mueve). */
+  usdtQuote?: { usdt: number; rate: number };
   /** Venta de varios meses de una vez (solo staff): cada perfil dura períodos × duración. */
   periods?: number;
   kind: OrderKind;
@@ -685,6 +693,8 @@ export interface State {
   accountAlerts: AccountAlert[];
   /** "Que vuelvan": a quién ya se le escribió para recuperar la venta y a quién no molestar (por cliente). */
   winback?: Record<Id, WinbackMark>;
+  /** "Mis cuentas propias" de cada revendedor (ownStock.ts), por id del revendedor. El dueño no las ve. */
+  ownStock?: Record<Id, OwnStockBook>;
   seq: number;
 }
 

@@ -139,6 +139,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       ...(localPay ? { localPay } : {}),
       ...(back.length ? { backorder: back } : {}),
     };
+    lockUsdt(e, order);
     e.s.orders[id] = order;
     e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}), ...(localPay ? { via: localPay.name } : {}) });
     if (input.paymentMethod === "balance") {
@@ -199,6 +200,7 @@ export function createTrial(e: Engine, actor: Actor, input: { customerId: Id; pr
       items: [{ productId: input.productId, qty: 1, unitPrice: 0 }], total: 0, status: "fulfilled",
       paymentMethod: "cash", reservedSlotIds: [slot.id], assignmentIds: [], trial: true, approvedBy: actor.id, createdAt: now, updatedAt: now,
     };
+    lockUsdt(e, order);
     e.s.orders[id] = order;
     slot.status = "assigned";
     delete slot.reservedUntil;
@@ -463,6 +465,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       status: "awaiting_payment", paymentMethod: input.paymentMethod, reservedSlotIds: [], assignmentIds: [a.id],
       renewal: { assignmentId: a.id, periods }, createdAt: now, updatedAt: now,
     };
+    lockUsdt(e, order);
     e.s.orders[order.id] = order;
     e.audit(actor, "renewal.create", "order", order.id, { assignmentId: a.id, periods, method: input.paymentMethod });
     if (input.paymentMethod === "qr") {
@@ -641,6 +644,47 @@ export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string)
     slot.status = "available";
     e.audit(actor, "slot.freed", "slot", slotId, { reason });
     return { ok: true } as const;
+  });
+}
+
+/**
+ * "🧪 Era una prueba": la venta que creó este servicio no fue real (la hizo el dueño para probar).
+ * - La venta queda como prueba (`trial`): sale de Finanzas, Dashboard, Cómo van y Que vuelvan.
+ * - Sus servicios se cierran y los perfiles vuelven a estar libres sin cuarentena (nadie los usó de verdad).
+ * - Si se pagó con saldo, el saldo vuelve. No se manda ningún aviso.
+ * Solo ventas (no renovaciones ni recargas), solo dueño o admin.
+ */
+export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason?: string) {
+  authorize(actor, "assignment.replace");
+  return e.tx(() => {
+    const a = e.get("assignments", assignmentId);
+    const o = Object.values(e.s.orders).find((x) => x.kind === "sale" && x.assignmentIds?.includes(a.id));
+    if (!o) throw new DomainError("VALIDATION", "No encontré la venta de este servicio");
+    if (o.status !== "fulfilled") throw new DomainError("INVALID_STATE", "Esa venta no está entregada");
+    if (o.trial) throw new DomainError("INVALID_STATE", "Esa venta ya está marcada como prueba");
+    const note = (reason ?? "").trim().slice(0, 120) || "era una prueba";
+    const closed: Id[] = [];
+    for (const id of o.assignmentIds) {
+      const x = e.s.assignments[id];
+      if (!x) continue;
+      x.trial = true;
+      if (x.status === "active") {
+        x.status = "revoked";
+        x.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: x.slotId, note });
+        const slot = e.s.slots[x.slotId];
+        if (slot && slot.status === "assigned") slot.status = "available";
+        closed.push(id);
+      }
+    }
+    // Las renovaciones de esos servicios también eran prueba.
+    const renewals = Object.values(e.s.orders).filter((x) => x.kind === "renewal" && x.status === "fulfilled" && !x.trial && x.renewal && o.assignmentIds.includes(x.renewal.assignmentId));
+    let refunded = 0;
+    for (const x of [o, ...renewals]) {
+      x.trial = true; x.updatedAt = e.now();
+      if (x.paymentMethod === "balance" && x.total > 0) { post(e, actor, x.payerId ?? x.customerId, x.total, "refund", x.id, "Era una prueba: vuelve el saldo"); refunded += x.total; }
+    }
+    e.audit(actor, "order.mark_test", "order", o.id, { assignments: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded, reason: note });
+    return { orderId: o.id, total: o.total + renewals.reduce((t, x) => t + x.total, 0), services: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded };
   });
 }
 
@@ -873,8 +917,25 @@ export function updateStaffAlerts(e: Engine, actor: Actor, patch: Partial<StaffA
 
 /* ---------------- Recargas de saldo ---------------- */
 
-export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
+/** Pedidos en USDT: se fija cuánto mandar y a qué tasa (el dólar flexible puede cambiar antes de que paguen). */
+export const usdtFor = (e: Engine, cents: Cents) => { const r = e.s.settings.usdt?.rate ?? 0; return r > 0 ? Math.ceil((cents / 100 / r) * 100) / 100 : 0; };
+function lockUsdt(e: Engine, o: Order) {
+  const r = e.s.settings.usdt?.rate ?? 0;
+  if (o.paymentMethod === "usdt" && r > 0 && o.total > 0) o.usdtQuote = { usdt: usdtFor(e, o.total), rate: r };
+}
+
+export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }, method: "qr" | "usdt" = "qr", usdtAmount?: number): Order {
   requireActFor(e, actor, customerId);
+  // Revendedores de afuera (Paraguay, Panamá…) recargan mandando USDT por Binance: solo si el dueño lo configuró.
+  const u = e.s.settings.usdt;
+  if (method === "usdt" && !(u?.enabled && (u.address || u.payId) && u.rate)) throw new DomainError("VALIDATION", "La tienda todavía no recibe USDT");
+  if (method !== "qr" && method !== "usdt") throw new DomainError("VALIDATION", "Elegí cómo pagaste");
+  // Si pide en USDT ("mandé 20 USDT"), los Bs salen de la tasa de HOY y quedan fijos en el pedido.
+  if (method === "usdt" && usdtAmount !== undefined && usdtAmount !== null) {
+    const n = Number(usdtAmount);
+    if (!(Number.isFinite(n) && n >= 1 && n <= 1000 && Math.round(n * 100) === n * 100)) throw new DomainError("VALIDATION", "Poné cuántos USDT mandaste (de 1 a 1000)");
+    amount = Math.round(n * u!.rate! * 100);
+  }
   if (!Number.isInteger(amount) || amount < 1000 || amount > 500_000) throw new DomainError("VALIDATION", "La recarga debe estar entre Bs 10 y Bs 5.000");
   if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el comprobante o el número de operación");
   return e.tx(() => {
@@ -883,12 +944,12 @@ export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Ce
     const o: Order = {
       id: e.id("ord"), kind: "topup", customerId, payerId: customerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : "store", items: [], total: amount, topupAmount: amount, status: "payment_review",
-      paymentMethod: "qr", evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
+      paymentMethod: method, ...(method === "usdt" ? { usdtQuote: { usdt: usdtAmount !== undefined && usdtAmount !== null ? Number(usdtAmount) : usdtFor(e, amount), rate: u!.rate! } } : {}), evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
       reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
     };
     e.s.orders[o.id] = o;
     if (!isStaff(actor)) alertPayment(e, o);
-    e.audit(actor, "topup.request", "order", o.id, { amount });
+    e.audit(actor, "topup.request", "order", o.id, { amount, method });
     return structuredClone(o);
   });
 }

@@ -6,6 +6,7 @@ import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
 import { renewableNow } from "./orders.js";
+import { dialFor, isForeign, maxAmount, normAmount, currencyOf } from "./country.js";
 
 const DAY = 86_400_000;
 const MAX_PROFILES = 10;
@@ -43,18 +44,20 @@ export function listMine(e: Engine, actor: Actor) {
     });
 }
 
-function clean(raw: Record<string, unknown>, now: number) {
+function clean(e: Engine, actor: Actor, raw: Record<string, unknown>, now: number) {
   const label = String(raw.label ?? "").trim().slice(0, 30);
   const name = String(raw.name ?? "").trim();
   if (!name || name.length > 80) throw new DomainError("VALIDATION", "Poné el nombre de tu cliente");
-  const phone = raw.phone ? phoneWithCountry(String(raw.phone)) : "";
+  const phone = raw.phone ? phoneWithCountry(String(raw.phone), dialFor(e, actor)) : "";
   if (phone && phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "WhatsApp inválido");
   const expiresAt = Number(raw.expiresAt);
   if (!Number.isFinite(expiresAt) || expiresAt < now - 365 * DAY || expiresAt > now + 400 * DAY) throw new DomainError("VALIDATION", "Fecha de vencimiento inválida");
   let price: Cents | undefined;
   if (raw.price !== undefined && raw.price !== null && raw.price !== "") {
-    price = Math.round(Number(raw.price));
-    if (!Number.isInteger(price) || price < 0 || price > 10_000_000) throw new DomainError("VALIDATION", "Precio inválido");
+    // Lo que le cobra a SU cliente va en su moneda (₲ sin decimales y con más lugar).
+    const c = actor.customerId ? e.s.customers[actor.customerId] : undefined;
+    price = isForeign(e, c) ? normAmount(Number(raw.price), currencyOf(e, c)) : Math.round(Number(raw.price));
+    if (!Number.isInteger(price) || price < 0 || price > maxAmount(e, c)) throw new DomainError("VALIDATION", "Precio inválido");
   }
   const pay = String(raw.pay ?? "pagado") as SubRental["pay"];
   if (!["pagado", "pendiente", "no_pago"].includes(pay)) throw new DomainError("VALIDATION", "Estado de pago inválido");
@@ -66,7 +69,7 @@ function clean(raw: Record<string, unknown>, now: number) {
 /** Agregar o corregir un perfil repartido. */
 export function saveSub(e: Engine, actor: Actor, assignmentId: Id, raw: Record<string, unknown>) {
   const c = me(e, actor);
-  const v = clean(raw ?? {}, e.now());
+  const v = clean(e, actor, raw ?? {}, e.now());
   return e.tx(() => {
     const a = rental(e, c.id, assignmentId);
     const list = (a.subs ??= []);
@@ -119,8 +122,10 @@ export function rentalSummary(e: Engine, actor: Actor) {
   const cost = list.reduce((t, r) => t + r.cost, 0);
   const revenue = list.reduce((t, r) => t + r.subs.reduce((u, s) => u + (s.price ?? 0), 0), 0);
   const unpaid = list.flatMap((r) => r.subs.filter((s) => s.pay !== "pagado").map((s) => ({ ...s, assignmentId: r.assignmentId, product: r.product })));
+  // Revendedor de otro país: lo que cobra (su moneda) y lo que le cuestan (Bs) no se restan.
+  const split = isForeign(e, e.s.customers[actor.customerId!]);
   return {
-    accounts: list.length, profiles: list.reduce((t, r) => t + r.subs.length, 0), cost, revenue, profit: revenue - cost,
+    accounts: list.length, profiles: list.reduce((t, r) => t + r.subs.length, 0), cost, revenue, profit: split ? null : revenue - cost, ...(split ? { split: true as const } : {}),
     unpaid, owed: unpaid.reduce((t, s) => t + (s.price ?? 0), 0),
   };
 }

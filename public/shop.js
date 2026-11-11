@@ -4,6 +4,9 @@
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
 import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
+import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
+import { ownStockView, initOwnStock } from "/ownstock.js";
+import { appMark, appsRow } from "/applogo.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
@@ -57,7 +60,7 @@ const hubPanel = () => MODE === "hub" && isReseller();
 async function loadBase() {
   if (SLUG) return loadResellerShop();
   [S.settings, S.me, S.catalog] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/me"), api("GET", "/api/catalog")]);
-  setCurrency(S.settings.currencySymbol);
+  setCurrency(S.settings.currencySymbol); setMine(S.me?.locale);
   S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
   S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner?v=${Date.now() % 1e6}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
@@ -79,7 +82,7 @@ async function loadResellerShop() {
   S.me = { loggedIn: false };
   S.catalog = sh.products;
   S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo?v=${Date.now() % 1e6}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner?v=${Date.now() % 1e6}` : null };
-  setCurrency(sh.currencySymbol);
+  setCurrency(sh.currencySymbol, sh.currencyDecimals);
   if (!sh.published) S.settings.announcement = "👀 Vista previa: tu página está apagada. Solo vos la ves. Publicala desde Mis clientes → Mi página.";
   S.cart = S.cart.filter((l) => product(l.productId));
   applyLook(S.settings);
@@ -214,6 +217,8 @@ async function refresh() {
 /* ---------------- vistas ---------------- */
 /** Logo del producto (si tiene) o su inicial. */
 const mark = (p) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+/** Logo de la app por id y nombre (también para productos de alquiler sin imagen propia). */
+const am = (id, name, cls) => appMark(S.catalog, id, name, cls);
 const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
@@ -313,12 +318,12 @@ function card(p, badge) {
   if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? "✅ Disponible · pagás con QR y te lo activamos al confirmar" : "A pedido · pagás con QR y te la entregamos al confirmar"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small></div>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small>${usdtHint(p.price)}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
   <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s === 1 ? "¡Queda 1!" : s <= 2 ? `Quedan ${s}` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
+  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${usdtHint(p.price)}${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
 }
 /* ---------------- Diseño "Lista tipo ticket": catálogo directo, filas compactas ---------------- */
@@ -447,15 +452,20 @@ function localBlock(m, toPay) {
   </div></div>`;
 }
 /** Instrucciones de pago en USDT manual: cuánto mandar, a qué dirección / Pay ID. */
-function usdtBlock(toPay) {
+// Revendedor de afuera (Paraguay, Panamá…): paga en USDT por Binance. Ve los montos también en USDT y el QR de Bolivia no se le ofrece.
+const abroad = () => !!S.settings.usdt && !!myLocale()?.country && myLocale().country !== "BO";
+const usdtOf = (cents) => (S.settings.usdt?.rate ? Math.ceil((cents / 100) / S.settings.usdt.rate * 100) / 100 : null);
+const usdtHint = (cents) => (abroad() && usdtOf(cents) !== null ? `<small class="usdt">≈ ${usdtOf(cents).toLocaleString("es-BO", { maximumFractionDigits: 2 })} USDT</small>` : "");
+function usdtBlock(toPay, fixedUsdt) {
   const u = S.settings.usdt;
   if (!u) return "";
-  const amt = Math.ceil((toPay / 100) / u.rate * 100) / 100;
+  const amt = fixedUsdt ?? Math.ceil((toPay / 100) / u.rate * 100) / 100;
   return `<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
     <b style="color:var(--s-ink);font-size:16px">Enviá ${amt} USDT</b>
     ${u.network ? `<span class="empty">Red: <b style="color:var(--s-ink)">${esc(u.network)}</b></span>` : ""}
     ${u.address ? `<div class="empty">Dirección:<br><code style="word-break:break-all;color:var(--s-ink)">${esc(u.address)}</code><br><button class="sbtn sm" type="button" data-copy="${esc(u.address)}">Copiar dirección</button></div>` : ""}
     ${u.payId ? `<span class="empty">Binance Pay ID: <b style="color:var(--s-ink)">${esc(u.payId)}</b> <button class="sbtn sm" type="button" data-copy="${esc(u.payId)}">Copiar</button></span>` : ""}
+    <span class="empty">Tasa de hoy: 1 USDT = <b style="color:var(--s-ink)">Bs ${esc(String(u.rate).replace(".", ","))}</b></span>
     ${u.note ? `<span class="empty">${esc(u.note)}</span>` : ""}
     <span class="empty">Mandá exactamente <b style="color:var(--s-ink)">${amt} USDT</b> y pegá abajo el <b>hash</b> (o número de la transacción) y una captura. Te confirmamos y activamos.</span>
   </div></div>`;
@@ -568,7 +578,7 @@ function renderInner() {
         const d = a.daysLeft;
         // Con muchos servicios (revendedores) los datos van plegados: la lista entra en pocas pantallas.
         const fold = isReseller() || services.length > 5;
-        return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
+        return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
@@ -593,8 +603,10 @@ function renderInner() {
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
-      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${[50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small></label>`).join("")}</div>
-        ${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
+      <form class="sbox sform" id="topup"><h2>Solicitar recarga</h2><div class="packs">${abroad() ? [10, 20, 50, 100].map((v, i) => `<label><input type="radio" name="pack" value="${v}" data-usdt="1" ${i === 1 ? "checked" : ""}><b>${v} USDT</b><small>≈ ${bs(Math.round(v * S.settings.usdt.rate * 100))} de saldo</small></label>`).join("")
+          : [50, 100, 200, 500].map((v, i) => `<label><input type="radio" name="pack" value="${v * 100}" ${i === 1 ? "checked" : ""}><b>Bs ${v}</b><small>de saldo</small>${usdtHint(v * 100)}</label>`).join("")}</div>
+        ${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
+        <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
@@ -607,10 +619,10 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
       let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
-      if (!canPage && !["ventas", "perfiles", "control", "debe", "ganancias", "afiches"].includes(tab)) tab = "ventas";
+      if (!canPage && !["ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
-      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "perfiles" ? rSubsView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -625,7 +637,8 @@ const sellPrice = (productId) => (S.data.prices ?? []).find((x) => x.productId =
 const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`}</span>`;
 
 /* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
-const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
+const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
+initOwnStock(() => render());
 async function loadRTab(tab) {
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
@@ -652,29 +665,30 @@ function rControlView() {
   // Mismo criterio que Inicio: de los que vencieron hace poco a los que vencen esta semana.
   const soon = rows.filter((r) => !r.holdOpen && dl(r) >= -3 && dl(r) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
   const canR = (r) => r.canRenew && r.renewableNow !== false;
-  const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${mine(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   // Filas compactas: con muchos clientes la lista entra en pocas pantallas; se abren con un toque.
   const opened = new Set(S.data.rcOpen ?? []);
   const sel = new Set(S.data.rsel ?? []), selRows = rows.filter((r) => sel.has(r.id)), selCost = selRows.reduce((t, r) => t + (r.cost || 0), 0);
   const codesMsg = (r) => `Hola ${r.client.split(" ")[0]} 👋 si tu ${r.product} te pide un código para entrar, miralo acá al toque 👇\n${S.data.codeLink?.url}${S.data.codeLink?.mode === "pin" ? "\n(Entrá con el PIN que te pasé)" : "\n(Escribí el correo de tu cuenta)"}`;
   const pill = (r) => `<span class="rcest rc-${est(r)}">${r.holdOpen ? "Esperando fecha" : dl(r) < 0 ? `Venció hace ${-dl(r)} d` : dl(r) === 0 ? "Vence hoy" : `${dl(r)} d`}</span>`;
   const rr = S.data.renewResult && Date.now() - S.data.renewResult.at < 10 * 60_000 ? S.data.renewResult : null;
-  return `${rr ? `<div class="sbox ${rr.bad.length ? "rcwarn" : "rdone"}"><b>🔄 Renovaste ${rr.ok}${rr.bad.length ? ` · no se pudo ${rr.bad.length}` : " ✅"}</b>${rr.bad.map((x) => `<small class="empty">• ${esc(x)}</small>`).join("")}<button class="sbtn sm" type="button" data-rrclose="1" style="justify-self:start">Listo</button></div>` : ""}<div class="sbox rc-top"><div class="rkpis"><div><small>Servicios</small><b>${view.length}</b></div><div><small>Cobrás</small><b>${bs(sum(view, (r) => r.price))}</b></div><div><small>Te deben</small><b class="bad">${bs(sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price))}</b></div><div><small>Vencen en 3 días</small><b>${soon.length}</b></div></div>
+  return `${rr ? `<div class="sbox ${rr.bad.length ? "rcwarn" : "rdone"}"><b>🔄 Renovaste ${rr.ok}${rr.bad.length ? ` · no se pudo ${rr.bad.length}` : " ✅"}</b>${rr.bad.map((x) => `<small class="empty">• ${esc(x)}</small>`).join("")}<button class="sbtn sm" type="button" data-rrclose="1" style="justify-self:start">Listo</button></div>` : ""}<div class="sbox rc-top"><div class="rkpis"><div><small>Servicios</small><b>${view.length}</b></div><div><small>Cobrás</small><b>${mine(sum(view, (r) => r.price))}</b></div><div><small>Te deben</small><b class="${sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price) ? "bad" : ""}">${mine(sum(view.filter((r) => r.pay !== "pagado"), (r) => r.price))}</b></div><div><small>Vencen en 3 días</small><b>${soon.length}</b></div></div>
       <input id="rcq" class="rsearch" placeholder="🔍 Buscar cliente, WhatsApp, app o nota" value="${esc(T.q)}" aria-label="Buscar en mi control">
       <div class="cats tkcats">${ESTS.map(([k, t]) => `<button type="button" data-rcf="${k}" aria-pressed="${T.f === k}">${t}</button>`).join("")}</div>
       <div class="tkbar"><span>${view.length} servicio(s)</span><label>Ordenar <select id="rcsort">${[["", "Por vencimiento"], ["cliente", "Cliente A-Z"], ["app", "App"], ["precio", "Precio"]].map(([v, t]) => `<option value="${v}" ${T.sort === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
         <button class="sbtn sm" type="button" data-rcsv="1">⬇️ Excel</button></div>
       <div class="rcrenew"><button class="sbtn sm" type="button" data-rselsoon="1">☑️ Elegir los que vencen esta semana</button>${sel.size ? `<button class="sbtn sm pri" type="button" data-rrenewsel="1">🔄 Renovar ${sel.size} · ${bs(selCost)}</button><button class="sbtn sm" type="button" data-rselclear="1">Quitar</button>` : `<small class="empty">Marcá ☐ en cada tarjeta para renovar varios juntos con tu saldo (${bs(S.me?.balance ?? 0)}).</small>`}</div></div>
     ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(seen).length}/${soon.length} avisados)</h3><p class="empty" style="margin:0">Tocá cada uno: se abre WhatsApp con el mensaje listo y queda marcado.</p>
-      <div class="rcsoon">${soon.map((r) => `<div class="rcsoon-r ${seen(r) ? "done" : ""}"><span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${pill(r)}</small></span>${r.phone ? `<button class="sbtn sm ${seen(r) ? "" : "pri"}" type="button" data-ravisar="${esc(r.id)}">${seen(r) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
-    <div class="rclist">${view.map((r) => `<article class="rcard rc-${est(r)}${sel.has(r.id) ? " picked" : ""}"><header>${canR(r) ? `<label class="rcselw"><input class="rcsel" type="checkbox" data-rsel="${esc(r.id)}" ${sel.has(r.id) ? "checked" : ""} aria-label="Elegir ${esc(r.client)} para renovar"></label>` : ""}<button type="button" class="rcopen" data-rcopen="${esc(r.id)}" aria-expanded="${opened.has(r.id)}"><span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${esc(r.profile)}${r.price !== null ? ` · ${bs(r.price)}` : ""}${r.pay !== "pagado" ? ` · <span class="bad">${PAYS[r.pay]}</span>` : ""}</small></span>${pill(r)}<i aria-hidden="true">${opened.has(r.id) ? "▴" : "▾"}</i></button></header>
+      <div class="rcsoon">${soon.map((r) => `<div class="rcsoon-r ${seen(r) ? "done" : ""}">${am(r.productId, r.product)}<span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${pill(r)}</small></span>${r.phone ? `<button class="sbtn sm ${seen(r) ? "" : "pri"}" type="button" data-ravisar="${esc(r.id)}">${seen(r) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+    <div class="rclist">${view.map((r) => `<article class="rcard rc-${est(r)}${sel.has(r.id) ? " picked" : ""}"><header>${canR(r) ? `<label class="rcselw"><input class="rcsel" type="checkbox" data-rsel="${esc(r.id)}" ${sel.has(r.id) ? "checked" : ""} aria-label="Elegir ${esc(r.client)} para renovar"></label>` : ""}<button type="button" class="rcopen" data-rcopen="${esc(r.id)}" aria-expanded="${opened.has(r.id)}">${am(r.productId, r.product)}<span><b>${esc(r.client)}</b><small>${esc(r.product)} · ${esc(r.profile)}${r.price !== null ? ` · ${mine(r.price)}` : ""}${r.pay !== "pagado" ? ` · <span class="bad">${PAYS[r.pay]}</span>` : ""}</small></span>${pill(r)}<i aria-hidden="true">${opened.has(r.id) ? "▴" : "▾"}</i></button></header>
       ${opened.has(r.id) ? `<div class="rcrow"><span>Vence <b>${fdate(r.expiresAt)}</b></span>${r.phone ? `<span class="empty">${esc(r.phone.replace(/^\+591/, ""))}</span>` : ""}</div>
-      <div class="rcrow"><label>Le cobro<input class="rcin" data-rc="${esc(r.id)}" data-f="price" inputmode="decimal" value="${r.price !== null ? r.price / 100 : ""}" placeholder="Bs"></label>
+      <div class="rcrow"><label>Le cobro<input class="rcin" data-rc="${esc(r.id)}" data-f="price" inputmode="decimal" value="${r.price !== null ? r.price / 100 : ""}" placeholder="${esc(mySym())}"></label>
         <label>Pago<select class="rcin pay-${r.pay}" data-rc="${esc(r.id)}" data-f="payStatus">${Object.entries(PAYS).map(([k, t]) => `<option value="${k}" ${r.pay === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
       <label class="rcnote">Nota<input class="rcin" data-rc="${esc(r.id)}" data-f="note" maxlength="120" value="${esc(r.note)}" placeholder="Ej.: paga los lunes"></label>
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 function rDebeView() {
+  const bs = mine; // su libreta va en SU moneda (Bs si es de Bolivia)
   const ov = S.data.rfiado ?? { rows: [], totals: {} }, det = S.data.rfdetail;
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
@@ -683,17 +697,18 @@ function rDebeView() {
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
-        <label>Monto (Bs)<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
+        <label>Monto (${esc(mySym())})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
     ${det ? `<div class="sbox"><h3 style="margin:0">📜 Movimientos · debe ${bs(det.owed)} <button class="sbtn sm" type="button" data-rfdet="">Cerrar</button></h3>${det.entries.map((x) => `<div class="line"><span>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"} <small class="empty">${esc(x.note || "")} · ${fdate(x.at)}</small></span><span><b style="color:${x.kind === "cargo" ? "var(--s-bad)" : "var(--s-ok)"}">${bs(x.amount)}</b> <button class="sbtn sm" type="button" data-rfdel="${esc(x.id)}" aria-label="Borrar movimiento">🗑️</button></span></div>`).join("") || `<p class="empty">Sin movimientos.</p>`}</div>` : ""}
-    ${(S.data.rsubs?.summary?.unpaid ?? []).length ? `<div class="sbox"><h3 style="margin:0">🧩 Perfiles sin pagar · ${bs(S.data.rsubs.summary.owed)}</h3>${S.data.rsubs.summary.unpaid.map((u) => `<div class="line"><span><b>${esc(u.name)}</b><br><small class="empty">${esc(u.product)}${u.label ? ` · ${esc(u.label)}` : ""}${u.price != null ? ` · ${bs(u.price)}` : ""}</small></span><span class="rbtns">${u.phone ? `<a class="sbtn sm" href="${waLink(u.phone, subCobrar(u, u.product))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm pri" type="button" data-subpaid="${esc(u.assignmentId)}|${esc(u.id)}">💵 Me pagó</button></span></div>`).join("")}</div>` : ""}
-    <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b><small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
+    ${(S.data.rsubs?.summary?.unpaid ?? []).length ? `<div class="sbox"><h3 style="margin:0">🧩 Perfiles sin pagar · ${bs(S.data.rsubs.summary.owed)}</h3>${S.data.rsubs.summary.unpaid.map((u) => `<div class="line">${am(S.data.rsubs.list.find((x) => x.assignmentId === u.assignmentId)?.productId, u.product)}<span class="lgrow"><b>${esc(u.name)}</b><br><small class="empty">${esc(u.product)}${u.label ? ` · ${esc(u.label)}` : ""}${u.price != null ? ` · ${bs(u.price)}` : ""}</small></span><span class="rbtns">${u.phone ? `<a class="sbtn sm" href="${waLink(u.phone, subCobrar(u, u.product))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm pri" type="button" data-subpaid="${esc(u.assignmentId)}|${esc(u.id)}">💵 Me pagó</button></span></div>`).join("")}</div>` : ""}
+    <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b>${appsRow(S.catalog, r.apps)}<small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
       ${r.unlinked.count ? `<div class="rcrow"><span class="empty">${r.unlinked.count} sin pagar en Mi control</span><button class="sbtn sm" type="button" data-rffrom="${esc(r.customerId)}">➕ Pasar</button></div>` : ""}
       <footer>${r.phone && r.owed ? `<a class="sbtn sm pri" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
-        <details class="rcmore"><summary class="sbtn sm">💵 Me pagó</summary><form class="sform" data-rfpay="${esc(r.customerId)}"><label>Monto (Bs)<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" maxlength="120" placeholder="QR, efectivo, una parte…"></label><button class="sbtn sm pri" type="submit">Guardar pago</button></form></details>
+        <details class="rcmore"><summary class="sbtn sm">💵 Me pagó</summary><form class="sform" data-rfpay="${esc(r.customerId)}"><label>Monto (${esc(mySym())})<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" maxlength="120" placeholder="QR, efectivo, una parte…"></label><button class="sbtn sm pri" type="submit">Guardar pago</button></form></details>
         <button class="sbtn sm" type="button" data-rfdet="${esc(r.customerId)}">📜 Movimientos</button></footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">Nadie te debe nada 🎉</p></div>`}</div>`;
 }
 function rEarnView() {
   const g = S.data.rearn;
+  if (g?.split) return earnSplitView(g, S.data.rsubs?.summary); // otro país: dos monedas, sin mezclar
   if (!g) return `<div class="sbox"><p class="empty" style="margin:0">No pudimos cargar tus ganancias. Probá de nuevo.</p></div>`;
   const m = g.month, max = Math.max(1, ...g.months.map((x) => Math.max(x.revenue, x.cost)));
   return `<div class="sbox"><h2 style="margin:0">📈 Mis ganancias · ${esc(m.label)}</h2>
@@ -701,7 +716,7 @@ function rEarnView() {
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
-    ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
+    ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
     <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> vendiste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
 }
 /* ---------------- Fallas, avisos al celular, app instalable y afiches ---------------- */
@@ -763,13 +778,15 @@ function todayCard() {
   const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length
     + subs.filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7 && !subSeen(s)).length;
   const owed = (fi?.totals?.owed ?? 0) + (sm?.owed ?? 0);
-  const gain = g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
+  const apps = [...(rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)),
+    ...subs.filter((x) => daysLeft(x.expiresAt) >= -3 && daysLeft(x.expiresAt) <= 7 && !subSeen(x))];
+  const gain = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
   const it = [
-    [subs.length ? "perfiles" : "control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : ""],
-    ["debe", "💸", owed ? bs(owed) : "Bs 0", owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
+    [subs.length ? "perfiles" : "control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
+    ["debe", "💸", mine(owed), owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
     ["ganancias", "📈", gain === null ? "—" : bs(gain), "ganaste este mes", "g"],
   ];
-  return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small></button>`).join("")}</div></section>`;
+  return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c, logos]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small>${logos ?? ""}</button>`).join("")}</div></section>`;
 }
 function appCard() {
   return `<div class="sbox hquick"><b>📲 Tu panel en el celular</b><div class="hqrow two">
@@ -858,10 +875,10 @@ async function renewMany(ids, el) {
 /* ---------------- Repartir perfiles de las cuentas alquiladas (cuaderno del revendedor) ---------------- */
 const ymd = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const subSeen = (s) => { try { return localStorage.getItem(`gs-sv-${s.id}-${s.expiresAt}`) === "1"; } catch { return false; } };
-const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${product}${s.label ? ` (${s.label})` : ""} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${bs(s.price)}.` : ""} ¿Lo renovamos? 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
-const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${bs(s.price)}` : ""}. ¡Gracias! 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
+const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${product}${s.label ? ` (${s.label})` : ""} ${daysLeft(s.expiresAt) < 0 ? "venció" : daysLeft(s.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(s.expiresAt)}.${s.price ? ` La renovación es ${mine(s.price)}.` : ""} ¿Lo renovamos? 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
+const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${mine(s.price)}` : ""}. ¡Gracias! 🙌${cobroLine(s)}${myStore() ? `\n— ${myStore()}` : ""}`;
 /** Perfiles de todas sus cuentas, con la cuenta a la que pertenecen. */
-const allSubs = () => (S.data.rsubs?.list ?? []).flatMap((r) => r.subs.map((s) => ({ ...s, aid: r.assignmentId, product: r.product, accExp: r.expiresAt })));
+const allSubs = () => (S.data.rsubs?.list ?? []).flatMap((r) => r.subs.map((s) => ({ ...s, aid: r.assignmentId, productId: r.productId, product: r.product, accExp: r.expiresAt })));
 /** "Pegar mi lista": entiende líneas como "Rosa 71112233 15/12 Bs15 debe" o "Perfil 2 - Juan - 72223344 - 20/12 - 15". */
 const MESES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12 };
 function parseSubLines(text, defExp) {
@@ -873,8 +890,8 @@ function parseSubLines(text, defExp) {
     let phone = "", exp = null, price = null, pay = "pagado", label = "";
     const lb = t.match(/(?:^|\s)(?:perfil|p)\s*(\d{1,2})(?=\s|$|[-,;:])/i);
     if (lb) { label = `Perfil ${lb[1]}`; t = t.replace(lb[0], " "); }
-    const ph = t.match(/(?:\+?\s*591[\s-]*)?([67](?:[\s-]?\d){7})(?!\d)/);
-    if (ph) { phone = "+591" + ph[1].replace(/\D/g, ""); t = t.replace(ph[0], " "); }
+    const ph = findPhone(t) ?? t.match(/(?:\+?\s*591[\s-]*)?([67](?:[\s-]?\d){7})(?!\d)/);
+    if (ph) { phone = ph.phone ?? "+591" + ph[1].replace(/\D/g, ""); t = t.replace(ph[0], " "); }
     const dm = t.match(/(\d{1,2})([\/.-])(\d{1,2})(?:\2(\d{2,4}))?(?!\d)/);
     const dn = !dm && t.match(/(\d{1,2})\s+(?:de\s+)?(ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)[a-zñ]*\.?/i);
     if (dm || dn) {
@@ -888,8 +905,8 @@ function parseSubLines(text, defExp) {
     if (word("no\\s*pag[oó]|no\\s*pago").test(t)) { pay = "no_pago"; t = t.replace(word("no\\s*pag[oó]|no\\s*pago"), " "); }
     else if (word("debe|pendiente|fiado|falta").test(t)) { pay = "pendiente"; t = t.replace(word("debe|pendiente|fiado|falta"), " "); }
     t = t.replace(new RegExp(word("pag[oó]|pagado|ok|listo").source, "giu"), " ").replace(/✅/g, " ");
-    const pr = t.match(/bs\.?\s*(\d{1,4}(?:[.,]\d{1,2})?)|(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:bs|bob)(?![a-z])/i) || t.match(/(?:^|[\s-])(\d{1,3})(?=[\s-]|$)/);
-    if (pr) { price = Math.round(parseFloat((pr[1] || pr[2]).replace(",", ".")) * 100); t = t.replace(pr[0], " "); }
+    const pr = findPrice(t) ?? (t.match(/bs\.?\s*(\d{1,4}(?:[.,]\d{1,2})?)|(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:bs|bob)(?![a-z])/i) || t.match(/(?:^|[\s-])(\d{1,3})(?=[\s-]|$)/));
+    if (pr) { price = pr.cents ?? Math.round(parseFloat((pr[1] || pr[2]).replace(",", ".")) * 100); t = t.replace(pr[0], " "); }
     const name = t.replace(/[^\p{L}\s'.]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 80);
     return { raw, name, phone, label, expiresAt: exp ?? defExp, price, pay, sinFecha: exp === null, ok: !!name };
   });
@@ -901,7 +918,7 @@ function pasteBox(r) {
     <small class="empty">Copiala de tu WhatsApp o cuaderno, como la tengas. Ej.: <code>Rosa 71112233 15/12 Bs15 debe</code> · <code>Perfil 2 Juan 72223344 20/12 15</code>. Hasta 10 por cuenta.</small>
     <textarea id="pasteTxt" rows="5" placeholder="Rosa 71112233 15/12 Bs15&#10;Juan 72223344 20/12 15 debe">${esc(P2.text ?? "")}</textarea>
     <div class="rbtns"><button class="sbtn sm" type="button" data-pastecheck="1">👀 Revisar</button><button class="sbtn sm" type="button" data-paste="">Cancelar</button></div>
-    ${rows.length ? `<div class="pasteprev">${rows.map((x) => `<div class="${x.ok ? "" : "bad"}"><b>${x.ok ? esc(x.name) : "⚠️ Sin nombre"}</b><small>${esc(x.label || "Perfil nuevo")} · ${x.phone ? esc(x.phone.replace(/^\+591/, "")) : "sin WhatsApp"} · vence ${fdate(x.expiresAt)}${x.sinFecha ? " (la de tu alquiler)" : ""}${x.price != null ? ` · ${bs(x.price)}` : ""} · ${PAY[x.pay]}</small><small class="empty">“${esc(x.raw)}”</small></div>`).join("")}</div>
+    ${rows.length ? `<div class="pasteprev">${rows.map((x) => `<div class="${x.ok ? "" : "bad"}"><b>${x.ok ? esc(x.name) : "⚠️ Sin nombre"}</b><small>${esc(x.label || "Perfil nuevo")} · ${x.phone ? esc(x.phone.replace(/^\+591/, "")) : "sin WhatsApp"} · vence ${fdate(x.expiresAt)}${x.sinFecha ? " (la de tu alquiler)" : ""}${x.price != null ? ` · ${mine(x.price)}` : ""} · ${PAY[x.pay]}</small><small class="empty">“${esc(x.raw)}”</small></div>`).join("")}</div>
       <button class="sbtn pri" type="button" data-pastesave="1" ${rows.some((x) => x.ok) ? "" : "disabled"}>✅ Guardar ${rows.filter((x) => x.ok).length} perfil(es)</button>` : ""}</div>`;
 }
 function rSubsView() {
@@ -913,25 +930,25 @@ function rSubsView() {
   const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
   const open = S.data.subOpen ?? "";
   const subForm = (aid, s) => `<form class="sform subform" data-subform="${esc(aid)}" ${s ? `data-sub="${esc(s.id)}"` : ""}>
-      <div class="rcrow"><label>Cliente<input name="name" maxlength="80" required value="${esc(s?.name ?? "")}" placeholder="Ej.: Rosa Pérez"></label><label>WhatsApp<input name="phone" inputmode="tel" value="${esc(s?.phone ?? "+591 ")}"></label></div>
+      <div class="rcrow"><label>Cliente<input name="name" maxlength="80" required value="${esc(s?.name ?? "")}" placeholder="Ej.: Rosa Pérez"></label><label>WhatsApp<input name="phone" inputmode="tel" value="${esc(s?.phone ?? myPhoneDefault())}" placeholder="${esc(myPhoneHint())}"></label></div>
       <div class="rcrow"><label>Perfil<input name="label" maxlength="30" value="${esc(s?.label ?? "")}" placeholder="Perfil 1"></label><label>Le vence<input type="date" name="exp" required value="${ymd(s?.expiresAt ?? Date.now() + 30 * 86_400_000)}"></label></div>
-      <div class="rcrow"><label>Le cobro (Bs)<input name="price" inputmode="decimal" value="${s?.price != null ? s.price / 100 : ""}" placeholder="Ej.: 15"></label><label>Pago<select name="pay">${Object.entries(PAY).map(([k, t]) => `<option value="${k}" ${(s?.pay ?? "pagado") === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+      <div class="rcrow"><label>Le cobro (${esc(mySym())})<input name="price" inputmode="decimal" value="${s?.price != null ? s.price / 100 : ""}" placeholder="Ej.: 15"></label><label>Pago<select name="pay">${Object.entries(PAY).map(([k, t]) => `<option value="${k}" ${(s?.pay ?? "pagado") === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
       <label class="rcnote">Nota<input name="note" maxlength="120" value="${esc(s?.note ?? "")}" placeholder="Ej.: paga los lunes"></label>
       <div class="rbtns"><button class="sbtn sm pri" type="submit">${s ? "Guardar" : "➕ Agregar perfil"}</button>${s ? `<button class="sbtn sm" type="button" data-subrenew="${esc(aid)}|${esc(s.id)}">🔄 Renovó +30 días</button><button class="sbtn sm" type="button" data-subdel="${esc(aid)}|${esc(s.id)}">🗑️ Quitar</button>` : ""}</div></form>`;
   return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
-      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${bs(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${bs(sm.owed)}</b></div></div>
+      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${mine(sm.owed)}</b></div></div>
       <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p></div>
     ${(() => { const due = d.list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7); if (!due.length) return "";
       const tot = due.reduce((t, r) => t + r.cost, 0);
       return `<div class="sbox rcwarn"><h3 style="margin:0">🔄 Tus cuentas que vencen esta semana</h3><p class="empty" style="margin:0">${due.map((r) => `${esc(r.product)} (${fdate(r.expiresAt)})`).join(" · ")}</p>
         <div class="rbtns"><button class="sbtn pri" type="button" data-rentrenewall="1">🔄 Renovar las ${due.length} · ${bs(tot)}</button><small class="empty">Tu saldo: ${bs(S.me?.balance ?? 0)}</small></div></div>`; })()}
     ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(subSeen).length}/${soon.length})</h3>
-      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}"><span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
     <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
-      return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header><div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
+      return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header>${am(r.productId, r.product, "")}<div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
         <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
-        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${bs(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
+        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
           ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
         <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
         <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
@@ -948,14 +965,14 @@ function resellerView() {
   const remind = (a) => {
     const c = byId[a.customerId];
     const price = sellPrice(a.productId);
-    return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${bs(price)}.` : ""} ¿Lo renovamos? 🙌`);
+    return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${sellText(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
-  const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
+  const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
     <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda</span>` : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
   const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
-  const listText = prices.filter((p) => p.sell !== null).map((p) => `• ${p.name}: ${bs(p.sell)} (${p.durationDays} días)`).join("\n");
+  const listText = prices.filter((p) => p.sell !== null).map((p) => `• ${p.name}: ${sellText(p.sell)} (${p.durationDays} días)`).join("\n");
 
   return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Mi panel de revendedor</h2><p>Vendé y renová para tus clientes con tu saldo, a precio de revendedor. Todo queda a tu nombre.</p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
     <div class="rkpis"><div><span>Mi saldo</span><b>${bs(S.me.balance)}</b></div><div><span>Clientes</span><b>${clients.length}</b></div><div><span>Servicios activos</span><b>${svc.length}</b></div><div class="${soon.length ? "warn" : ""}"><span>Vencen en 7 días</span><b>${soon.length}</b></div></div>
@@ -965,7 +982,7 @@ function resellerView() {
 
     <form class="sbox sform" id="resSell"><h2>Vender a un cliente</h2>
       <label>Cliente<select name="client" required><option value="">Elegí un cliente…</option>${clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new">➕ Cliente nuevo</option></select></label>
-      <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" value="+591 " placeholder="+591 7…"></label></div>
+      <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" value="${esc(myPhoneDefault())}" placeholder="${esc(myPhoneHint())}"></label></div>
       <label>Producto<select name="product" required><option value="">Elegí un producto…</option>${S.catalog.map((p) => `<option value="${esc(p.id)}" ${p.available ? "" : "disabled"}>${esc(p.name)} · ${bs(p.price)}${p.available ? "" : " · agotado"}</option>`).join("")}</select></label>
       <label>Cantidad<select name="qty">${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></label>
       <fieldset class="rpaid"><legend>¿Te pagó?</legend><label class="chk"><input type="radio" name="paid" value="si" checked> Sí, ya me pagó</label><label class="chk"><input type="radio" name="paid" value="no"> Me paga después (queda en “Quién me debe”)</label></fieldset>
@@ -1001,7 +1018,7 @@ function resellerView() {
       <div class="rbtns"><button class="sbtn pri" type="submit">Guardar precios</button>
       ${listText ? `<button class="sbtn" type="button" data-copy="${esc(`*Lista de precios*\n${listText}`)}">Copiar lista</button><a class="sbtn" href="https://wa.me/?text=${encodeURIComponent(`*Lista de precios*\n${listText}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a>` : ""}</div></form>
 
-    <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required maxlength="80"></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`;
+    <form class="sbox sform" id="newCustomer"><h2>Agregar cliente</h2><label>Nombre<input name="name" required maxlength="80"></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="${esc(myPhoneHint())}"></label><label class="chk"><input type="checkbox" name="consent"> El cliente aceptó recibir avisos por WhatsApp</label><button class="sbtn pri" type="submit">Agregar</button></form>`;
 }
 
 /* ---------- Página para atraer revendedores (/revendedores) ---------- */
@@ -1057,7 +1074,7 @@ function referralCard(r) {
   const waMsg = encodeURIComponent(`¡Volvete revendedor conmigo! Registrate acá y empezá a vender: ${link}`);
   return `<section class="sbox refbox"><h2>🎁 Referí y ganá</h2>
     <p class="empty" style="margin:0">${premio}</p>
-    <div class="reflink"><input id="refLink" value="${esc(link)}" readonly data-selectall="1"><button class="sbtn pri" type="button" data-copy="${esc(link)}">Copiar link</button></div>
+    <div class="reflink"><input id="refLink" value="${esc(link)}" readonly data-selectall="1" aria-label="Tu link para invitar revendedores"><button class="sbtn pri" type="button" data-copy="${esc(link)}">Copiar link</button></div>
     <div class="hrow"><a class="sbtn" href="https://wa.me/?text=${waMsg}" target="_blank" rel="noopener noreferrer">Compartir por WhatsApp</a></div>
     <div class="refstat"><div><b>${r.count}</b><small>referidos</small></div><div><b>${bs(r.earned)}</b><small>ganado</small></div></div>
     ${list}</section>`;
@@ -1098,7 +1115,7 @@ function resellerHome() {
   return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${isReseller() ? todayCard() : ""}
     ${setupR}
-    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc} cuenta(s) vencida(s)</b>` : ""}${week ? `<b>🟡 ${week} vence(n) esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
+    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc === 1 ? "1 cuenta vencida" : `${venc} cuentas vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
     ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}</div></div>` : ""}
@@ -1653,7 +1670,7 @@ function renderCartInner(msg = "") {
   const canBalance = S.me.balance >= net && !cartBackorder();
   const pmx = S.data.payMethods ?? { qr: true, methods: [] };
   const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || S.settings.binance;
-  const firstPm = canBalance ? "balance" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
+  const firstPm = canBalance ? "balance" : abroad() ? "usdt" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
   $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
     ${cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
@@ -1662,7 +1679,7 @@ function renderCartInner(msg = "") {
     ${isReseller() ? `<label>Para quién es<select name="customerId"><option value="">Para mí</option>${(S.data.customers ?? []).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>` : ""}
     <div class="pay"><label><input type="radio" name="pm" value="balance" ${canBalance ? "checked" : "disabled"}><span>Pagar con saldo<small>Tenés ${bs(S.me.balance)}. ${canBalance ? "Entrega al instante." : cartBackorder() ? "Hay productos a pedido: pagalos con QR." : "No alcanza para este pedido."}</small></span></label>
     ${pmx.methods.map((m) => `<label><input type="radio" name="pm" value="local:${esc(m.id)}" ${firstPm === `local:${m.id}` ? "checked" : ""}><span>${esc(m.name)}${m.country ? ` (${esc(m.country)})` : ""}<small>Pagás y subís el comprobante. Lo revisamos en 10–30 minutos.</small></span></label>`).join("")}
-    ${pmx.qr ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
+    ${pmx.qr && !abroad() ? `<label><input type="radio" name="pm" value="qr" ${firstPm === "qr" ? "checked" : ""}><span>QR + comprobante<small>Lo revisamos en 10–30 minutos en horario de atención. Fuera de horario, a primera hora.</small></span></label>` : ""}
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
@@ -2177,6 +2194,17 @@ document.addEventListener("click", async (ev) => {
 document.addEventListener("focusin", (ev) => { if (ev.target?.dataset?.selectall) ev.target.select(); });
 document.addEventListener("change", async (ev) => {
   const t = ev.target;
+  // Recarga: QR de Bolivia o USDT; el monto en USDT sigue al paquete elegido.
+  if ((t.name === "tm" || t.name === "pack") && t.form?.id === "topup") {
+    const usdt = t.form.tm?.value === "usdt" || (!t.form.tm && abroad());
+    const q = $("#tmQr"), u = $("#tmUsdt");
+    if (q) q.hidden = usdt;
+    const pk = t.form.querySelector('input[name="pack"]:checked');
+    if (u) { u.hidden = !usdt; u.innerHTML = pk?.dataset.usdt ? usdtBlock(0, +pk.value) : usdtBlock(+pk.value); }
+    const l = $("#tmRefLbl"); if (l) l.textContent = usdt ? "Hash o número de la transacción" : "Número de operación";
+    if (t.form.ref) t.form.ref.placeholder = usdt ? "Pegá el hash de Binance" : "Ej.: 123456789";
+    return;
+  }
   if (t.name === "pm") {
     const proof = t.value === "qr" || t.value === "usdt" || t.value.startsWith("local:");
     const pp = $("#proofPart"); if (pp) pp.hidden = !proof;
@@ -2335,7 +2363,9 @@ document.addEventListener("submit", async (ev) => {
       render();
     } else if (f.id === "topup") {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
-      await api("POST", "/api/me/topups", { amount: +f.pack.value, contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
+      const pk = f.querySelector('input[name="pack"]:checked'), inUsdt = !!pk?.dataset.usdt;
+      const method = inUsdt || f.tm?.value === "usdt" ? "usdt" : "qr";
+      await api("POST", "/api/me/topups", { ...(inUsdt ? { amount: 0, usdtAmount: +pk.value } : { amount: +pk.value }), contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method });
       toast("Recarga enviada: la acreditamos al verificar el pago");
     } else if (f.id === "resSell") {
       let customerId = f.client.value;

@@ -4,6 +4,7 @@ import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Su
 import type { Engine } from "./engine.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { dialFor } from "./country.js";
 
 const money = (n: number, what: string) => {
   if (!Number.isInteger(n) || n < 0) throw new DomainError("VALIDATION", `${what} debe ser un entero >= 0 (centavos)`);
@@ -108,7 +109,10 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     if (rate !== 0 && !(rate > 0 && rate <= 1000)) throw new DomainError("VALIDATION", "Poné cuántos Bs vale 1 USDT (ej. 13)");
     if (enabled && !address && !payId) throw new DomainError("VALIDATION", "Para aceptar USDT cargá una dirección o un Pay ID");
     if (enabled && !(rate > 0)) throw new DomainError("VALIDATION", "Para aceptar USDT poné la tasa Bs→USDT");
-    patch.usdt = { enabled, address: address || undefined, network: network || undefined, payId: payId || undefined, rate: Math.round(rate * 100) / 100, note: note || undefined };
+    const r = Math.round(rate * 100) / 100, prev = e.s.settings.usdt;
+    // Dólar flexible: se anota cuándo cambió la tasa, para avisar si quedó vieja.
+    const rateAt = r > 0 && r !== prev?.rate ? e.now() : prev?.rateAt;
+    patch.usdt = { enabled, address: address || undefined, network: network || undefined, payId: payId || undefined, rate: r, ...(rateAt ? { rateAt } : {}), note: note || undefined };
   }
   if (patch.platformName !== undefined && (!String(patch.platformName).trim() || String(patch.platformName).length > 40)) throw new DomainError("VALIDATION", "Nombre de la plataforma: de 1 a 40 letras");
   if (patch.shopRent !== undefined) {
@@ -166,21 +170,49 @@ export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> 
 /** Teléfono normalizado: solo dígitos y un "+" inicial opcional. */
 export const normalizePhone = (p: string) => String(p ?? "").replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
 /**
- * Teléfono como lo escribe la gente en Bolivia ("70099111", "591 70099111") → "+59170099111",
- * para que el link de WhatsApp funcione y no se repitan clientes. Otros países quedan como estaban.
+ * Teléfono como lo escribe la gente → con código de país, para que el link de WhatsApp funcione y no
+ * se repitan clientes. `dial` es el código del país de quien lo carga (sin "+"):
+ *  - Bolivia (por defecto): "70099111", "591 70099111" → "+59170099111"; lo demás queda como estaba.
+ *  - Otro país (p. ej. Paraguay, 595): "0981 123 456", "981-123-456", "595981123456" → "+595981123456".
+ * Un número que ya empieza con "+" no se toca (salvo el 0 de más: "+595 0981…" → "+595981…").
  */
-export function phoneWithCountry(p: string): string {
+export function phoneWithCountry(p: string, dial = "591"): string {
   const n = normalizePhone(p), d = n.replace(/\D/g, "");
-  if (!n.startsWith("+") && /^[67]\d{7}$/.test(d)) return `+591${d}`;
-  if (!n.startsWith("+") && /^591[67]\d{7}$/.test(d)) return `+${d}`;
-  return n;
+  if (dial === "591") {
+    if (!n.startsWith("+") && /^[67]\d{7}$/.test(d)) return `+591${d}`;
+    if (!n.startsWith("+") && /^591[67]\d{7}$/.test(d)) return `+${d}`;
+    return n;
+  }
+  if (n.startsWith("+")) return d.startsWith(`${dial}0`) && d.length > dial.length + 8 ? `+${dial}${d.slice(dial.length + 1)}` : n;
+  if (!d) return n;
+  if (d.startsWith("00") && d.length > 10) return `+${d.slice(2)}`;
+  if (d.startsWith(dial) && d.length - dial.length >= 8) return `+${d}`;
+  const local = d.replace(/^0+/, "");
+  return local.length >= 6 && local.length <= 11 ? `+${dial}${local}` : n;
 }
-/** ¿Ya hay otro cliente con este número? Compara por los últimos 8 dígitos (con o sin +591). */
+
+/** Clave para comparar números: con código de país (completo) o, si no lo tiene, solo los dígitos. */
+function phoneKey(p: string): { full: boolean; d: string } {
+  const n = phoneWithCountry(p);
+  return n.startsWith("+") ? { full: true, d: n.replace(/\D/g, "") } : { full: false, d: n.replace(/\D/g, "").replace(/^0+/, "") };
+}
+/**
+ * ¿Son el mismo número? Si los dos tienen código de país, tienen que ser iguales completos (así un
+ * boliviano +591 71234567 y un paraguayo +595 971234567 nunca se confunden, aunque terminen igual).
+ * Si a alguno le falta el código (datos viejos), se compara por los últimos 8 dígitos, como antes.
+ */
+export function samePhone(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const x = phoneKey(a), y = phoneKey(b);
+  if (x.d.length < 7 || y.d.length < 7) return false;
+  if (x.full && y.full) return x.d === y.d;
+  return x.d.length >= 8 && y.d.length >= 8 && x.d.slice(-8) === y.d.slice(-8);
+}
+/** ¿Ya hay otro cliente con este número? (ver `samePhone`). */
 export function phoneTaken(e: Engine, phone: string, exceptId?: Id): boolean {
-  const d = phone.replace(/\D/g, "");
-  if (d.length < 7) return false;
-  const tail = d.slice(-8);
-  return Object.values(e.s.customers).some((x) => x.id !== exceptId && !!x.phone && (x.phone === phone || (d.length >= 8 && x.phone.replace(/\D/g, "").slice(-8) === tail)));
+  if (phone.replace(/\D/g, "").length < 7) return false;
+  return Object.values(e.s.customers).some((x) => x.id !== exceptId && !!x.phone && samePhone(x.phone, phone));
 }
 
 export function findCustomerByPhone(e: Engine, phone: string) {
@@ -188,9 +220,7 @@ export function findCustomerByPhone(e: Engine, phone: string) {
   let c = Object.values(e.s.customers).find((x) => x.phone === n);
   if (!c) {
     // Tolerante: "70012345", "59170012345" y "+591 70012345" son el mismo número (si no hay dudas).
-    const d = n.replace(/\D/g, "");
-    const tail = d.slice(-8);
-    const m = d.length >= 8 ? Object.values(e.s.customers).filter((x) => x.phone && x.phone.replace(/\D/g, "").slice(-8) === tail) : [];
+    const m = n.replace(/\D/g, "").length >= 8 ? Object.values(e.s.customers).filter((x) => x.phone && samePhone(x.phone, n)) : [];
     if (m.length === 1) c = m[0];
   }
   return c ? structuredClone(c) : undefined;
@@ -270,7 +300,8 @@ export function ensureResellerGroup(e: Engine, id: Id): void {
 }
 
 export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allowNoPhone?: boolean }): Customer {
-  const phone = phoneWithCountry(c.phone);
+  // El revendedor de otro país carga a sus clientes con SU código (Paraguay: 0981… → +595981…).
+  const phone = phoneWithCountry(c.phone, dialFor(e, actor));
   if (!c.name?.trim()) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   if (!(c.allowNoPhone && !phone) && phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   let resellerId: Id | undefined;

@@ -12,6 +12,8 @@ import { cleanLook } from "./look.js";
 import { balance, post } from "./wallet.js";
 import { DAY } from "./time.js";
 import { normalizePhone } from "./catalog.js";
+import { localeOf, localeView, money, toMine } from "./country.js";
+import { ownCounts, pageCards, pagePrice as ownPagePrice } from "./ownStock.js";
 
 export const DEFAULT_RENT: ShopRent = { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 };
 const rentCfg = (e: Engine): ShopRent => e.s.settings.shopRent ?? DEFAULT_RENT;
@@ -210,7 +212,7 @@ function defaults(e: Engine, c: Customer): ResellerShop {
     accentColor: "#7c5cff", accent2Color: "#00d4ff", backgroundColor: "#0b0b14", bgStyle: "glow", cardStyle: "glass",
     fontFamily: "poppins", headingFont: "poppins", corners: "round",
     heroTitle: "Tus plataformas favoritas,", heroHighlight: "al mejor precio.", heroText: "Netflix, Spotify, Disney+ y más. Pedí por WhatsApp y te lo activo al toque.",
-    heroChip: "✦ Entrega inmediata", heroTicks: "Atención rápida, Garantía, Precios en Bs",
+    heroChip: "✦ Entrega inmediata", heroTicks: `Atención rápida, Garantía, Precios en ${localeOf(e, c).symbol}`,
   };
 }
 
@@ -263,6 +265,8 @@ export function resellersOverview(e: Engine, actor: Actor) {
       spent30: buys[c.id]?.spent30 ?? 0, lastOrderAt: buys[c.id]?.last ?? null,
       codeLink: !!c.codeLink, services: mine.length, referrals: refCount[c.id] ?? 0, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
       pageAllowed: pageAllowed(e, c),
+      // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
+      locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
@@ -423,26 +427,31 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   const stock: Record<Id, number> = {};
   for (const sl of Object.values(e.s.slots)) if (sl.status === "available") stock[sl.productId] = (stock[sl.productId] ?? 0) + 1;
   const show = s.products?.length ? new Set(s.products) : null;
+  // Precios en la moneda del revendedor: lo que cargó en Bs se convierte con SU tipo de cambio.
+  // Si es de otro país y no puso tipo de cambio, los productos de la tienda no salen (no se muestran Bs).
+  const mine = (bs: Cents | undefined) => toMine(e, c, bs);
   const products = Object.values(e.s.products)
-    .filter((p) => p.published && c!.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id)))
-    .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: c!.resellerPrices![p.id], available: Math.min(stock[p.id] ?? 0, 20) }));
+    .filter((p) => p.published && mine(c!.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)))
+    .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: mine(c!.resellerPrices![p.id])!, available: Math.min(stock[p.id] ?? 0, 20) }));
   const look: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
-  const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined)).map((cb) => ({
+  const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
     id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
-    hasImage: false, kind: "combo" as const, durationDays: 30, price: cb.price, available: 99, items: cb.productIds.map(nameOf),
+    hasImage: false, kind: "combo" as const, durationDays: 30, price: mine(cb.price)!, available: 99, items: cb.productIds.map(nameOf),
   }));
+  const loc = localeOf(e, c);
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
     hasQr: !!s.qrFileRef, payNote: s.payNote ?? "",
     hasCoupons: !!e.s.settings.resellerCoupons && (s.coupons ?? []).some((x) => x.active && (!x.expiresAt || x.expiresAt > e.now())),
-    currencySymbol: e.s.settings.currencySymbol || "Bs",
+    currencySymbol: loc.symbol, currencyDecimals: loc.decimals,
     // Si la tienda marcó "todo Disponible", la página del revendedor también deja agregar al carrito.
     alwaysAvailable: !!e.s.settings.alwaysAvailable,
-    comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => v > 0) ? s.comboDiscounts : null,
-    ...look, products: [...comboCards, ...products],
+    comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => (mine(v) ?? 0) > 0) ? s.comboDiscounts.map((v) => mine(v) ?? 0) : null,
+    // Sus productos propios marcados "en mi página" (ya están en su moneda).
+    ...look, products: [...comboCards, ...products, ...pageCards(e, c)],
   };
 }
 
@@ -594,25 +603,29 @@ export function quoteShopCoupon(e: Engine, slug: string, rawCode: unknown, items
   const lines = items.map((it) => {
     const id = String((it as { productId?: unknown })?.productId ?? ""), qty = Number((it as { qty?: unknown })?.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
-    const own = id.startsWith("rc_") ? combos.find((cb) => `rc_${cb.id}` === id)?.price : undefined;
-    const price = own ?? (e.s.products[id]?.published ? prices[id] : undefined);
+    // Todo en la moneda de su página (igual que publicShop): combos y lista convertidos, propios tal cual.
+    const price = id.startsWith("rc_") ? toMine(e, c, combos.find((cb) => `rc_${cb.id}` === id)?.price)
+      : id.startsWith("op_") ? ownPagePrice(e, c, id)
+      : e.s.products[id]?.published ? toMine(e, c, prices[id]) : undefined;
     if (price === undefined) throw new DomainError("NOT_FOUND", "Uno de los productos ya no está en esta página");
     return { productId: id, qty, price };
   });
   const gross = lines.reduce((s, l) => s + l.price * l.qty, 0);
   // Armá tu combo de su página: apps sueltas distintas (no combos ni productos solo para revendedores).
-  const d = c.shop!.comboDiscounts;
-  const n = new Set(lines.filter((l) => { const p = e.s.products[l.productId]; return p && p.kind !== "combo" && !p.resellersOnly; }).map((l) => l.productId)).size;
+  const d = c.shop!.comboDiscounts?.map((v) => toMine(e, c, v) ?? 0);
+  const n = new Set(lines.filter((l) => { const p = e.s.products[l.productId]; return (p && p.kind !== "combo" && !p.resellersOnly) || l.productId.startsWith("op_"); }).map((l) => l.productId)).size;
   const discount = d && d.some((v) => v > 0) ? Math.min(gross, n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0) : 0;
   const net = gross - discount;
   const code = normCode(rawCode);
   const cp = e.s.settings.resellerCoupons ? (c.shop!.coupons ?? []).find((x) => x.code === code && x.active) : undefined;
   if (!cp) throw new DomainError("VALIDATION", "Ese cupón no existe o ya no está activo");
   if (cp.expiresAt && cp.expiresAt < e.now()) throw new DomainError("VALIDATION", "Ese cupón ya venció");
-  if (cp.minTotal && gross < cp.minTotal) throw new DomainError("VALIDATION", `Este cupón pide una compra mínima de ${(cp.minTotal / 100).toFixed(2)}`);
+  // Montos del cupón (cargados en Bs como su lista) en la moneda de su página.
+  const minTotal = cp.minTotal ? toMine(e, c, cp.minTotal) ?? cp.minTotal : 0, fixed = cp.type === "fixed" ? toMine(e, c, cp.value) ?? 0 : 0;
+  if (minTotal && gross < minTotal) throw new DomainError("VALIDATION", `Este cupón pide una compra mínima de ${money(minTotal, localeOf(e, c)).replace(/^\S+ /, "")}`);
   const base = cp.productIds?.length ? Math.min(net, lines.filter((l) => cp.productIds!.includes(l.productId)).reduce((s, l) => s + l.price * l.qty, 0)) : net;
   if (base <= 0) throw new DomainError("VALIDATION", "Ese cupón no aplica a estos productos");
-  const amount = Math.max(0, Math.min(cp.type === "percent" ? Math.round((base * cp.value) / 100) : Math.min(cp.value, base), net - 100));
+  const amount = Math.max(0, Math.min(cp.type === "percent" ? Math.round((base * cp.value) / 100) : Math.min(fixed, base), net - 100));
   if (amount <= 0) throw new DomainError("VALIDATION", "Con este monto el cupón no descuenta nada");
   return { code: cp.code, amount, gross, discount, total: net - amount };
 }
