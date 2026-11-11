@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — Flujo TV para los de afuera
+- **Revendedores:** con "solo lo de revendedores" ven también los productos que tienen precio en su propia lista. Así Paraguay y Panamá ven Flujo TV a US$ 2,50. La lista general "Revendedor" no abre productos nuevos y la tienda normal no cambia.
+- **Datos (tienda real):** Flujo TV US$ 2,50 en la lista "Panamá y Paraguay (US$)"; "panama" y "EXTRANJERO" pasados a Panamá 🇵🇦 (+507, US$).
+
 ## 2026-11-11 · #35 Cargar sus cuentas, seguridad y plata, renovar con su revendedor, revendedor de afuera completo
 - **Dueño · "📋 Cargar sus cuentas":** en la ficha de cada revendedor pegás la lista de correos que ya le vendiste (con fecha y precio, opcionales), ves cómo queda con ✅/⚠️ y guardás todo de una. No cobra, no avisa, no duplica y no dice de quién es una cuenta ajena.
 - **Seguridad:** el cliente de un revendedor ya no ve lo que pagó su revendedor (Mis pedidos, Mis cuentas, bot, avisos). Al renovar, tampoco recibe tus datos internos del Control.
