@@ -18,7 +18,7 @@ import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { USD, isUsd } from "./usd.js";
 
-export type CountryCode = "BO" | "PY" | "AR" | "PE" | "CL" | "XX";
+export type CountryCode = "BO" | "PY" | "PA" | "AR" | "PE" | "CL" | "XX";
 
 /** País y moneda de un revendedor. Sin esto, es de Bolivia (como siempre). */
 export interface ResellerLocale {
@@ -37,6 +37,8 @@ export interface ResellerLocale {
 export const COUNTRIES: Record<Exclude<CountryCode, "XX">, { name: string; flag: string; dial: string; symbol: string; decimals: 0 | 2 }> = {
   BO: { name: "Bolivia", flag: "🇧🇴", dial: "591", symbol: "Bs", decimals: 2 },
   PY: { name: "Paraguay", flag: "🇵🇾", dial: "595", symbol: "₲", decimals: 0 },
+  // Panamá usa el dólar: con la lista en dólares no hay nada que convertir (US$ = su moneda de compra).
+  PA: { name: "Panamá", flag: "🇵🇦", dial: "507", symbol: "US$", decimals: 2 },
   AR: { name: "Argentina", flag: "🇦🇷", dial: "54", symbol: "$", decimals: 2 },
   PE: { name: "Perú", flag: "🇵🇪", dial: "51", symbol: "S/", decimals: 2 },
   CL: { name: "Chile", flag: "🇨🇱", dial: "56", symbol: "$", decimals: 0 },
@@ -131,21 +133,33 @@ export function localeView(e: Engine, c: Customer) {
   return { ...l, name: l.country === "XX" ? "Otro país" : COUNTRIES[l.country].name, flag: l.country === "XX" ? "🌎" : COUNTRIES[l.country].flag, foreign: isForeign(e, c), store: buyCurrency(e, c) };
 }
 
+/**
+ * Tipo de cambio escrito por el revendedor: "7300", "7.300" (en Paraguay los miles van con punto: es
+ * 7300, no 7,3) o "6,96". Un punto seguido de grupos de 3 cifras exactas se toma como separador de miles.
+ */
+export function parseRate(v: unknown): number {
+  if (typeof v === "number") return v;
+  const t = String(v ?? "").trim().replace(/\s/g, "");
+  return Number((/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t) ? t.replace(/\./g, "") : t).replace(",", "."));
+}
+
 function clean(raw: Record<string, unknown>, prev: ResellerLocale | undefined): ResellerLocale {
   const country = String(raw.country ?? prev?.country ?? "BO").toUpperCase() as CountryCode;
-  if (!["BO", "PY", "AR", "PE", "CL", "XX"].includes(country)) throw new DomainError("VALIDATION", "Elegí un país de la lista u “Otro”");
+  if (!["BO", "PY", "PA", "AR", "PE", "CL", "XX"].includes(country)) throw new DomainError("VALIDATION", "Elegí un país de la lista u “Otro”");
   const base = country === "XX" ? undefined : COUNTRIES[country];
   const changedCountry = prev?.country !== country;
   // Al cambiar de país se toman los valores del país; lo que mande a mano los pisa.
   const pick = <T>(k: string, fallback: T): unknown => (raw[k] !== undefined && raw[k] !== "" && raw[k] !== null ? raw[k] : !changedCountry && prev ? (prev as unknown as Record<string, unknown>)[k] ?? fallback : fallback);
   const dial = String(pick("dial", base?.dial ?? "")).replace(/\D/g, "");
   if (!/^[1-9]\d{0,3}$/.test(dial)) throw new DomainError("VALIDATION", "Código de país: de 1 a 4 números, sin el +");
-  const symbol = String(pick("symbol", base?.symbol ?? "")).trim();
+  let symbol = String(pick("symbol", base?.symbol ?? "")).trim();
+  // En Panamá "$", "USD" o "U$S" son el mismo dólar: se guarda "US$" (así no se le pide tipo de cambio 1 = 1).
+  if (country === "PA" && /^(\$|usd|u\$s?|us\$)$/i.test(symbol)) symbol = "US$";
   if (!symbol || symbol.length > 4 || /[\d<>"'&]/.test(symbol)) throw new DomainError("VALIDATION", "Símbolo de la moneda: de 1 a 4 letras (ej.: ₲, $, S/)");
   const decimals = Number(pick("decimals", base?.decimals ?? 2));
   if (decimals !== 0 && decimals !== 2) throw new DomainError("VALIDATION", "Decimales: 0 o 2");
   const out: ResellerLocale = { country, dial, symbol, decimals };
-  const r = raw.rate === undefined ? (changedCountry ? undefined : prev?.rate) : raw.rate === null || raw.rate === "" ? undefined : Number(String(raw.rate).replace(",", "."));
+  const r = raw.rate === undefined ? (changedCountry ? undefined : prev?.rate) : raw.rate === null || raw.rate === "" ? undefined : parseRate(raw.rate);
   if (r !== undefined) {
     if (!Number.isFinite(r) || r <= 0 || r > 1_000_000) throw new DomainError("VALIDATION", "Tipo de cambio: un número mayor a 0 (ej.: 1 Bs = 1050, o 1 US$ = 7300)");
     out.rate = Math.round(r * 10_000) / 10_000;

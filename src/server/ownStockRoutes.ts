@@ -4,6 +4,7 @@
 // salvo fijar el país desde la ficha del revendedor (sin ver nada de sus cuentas propias).
 import type { Actor, GabrielStore } from "../store/index.js";
 import { DomainError } from "../store/index.js";
+import { mySoon } from "../store/ownAlerts.js";
 
 type Who = "public" | "customer" | "staff";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,6 +37,8 @@ export function registerOwnStockRoutes(d: OwnStockDeps): void {
 
   /* ---- Mis cuentas propias ---- */
   route("GET", "/api/me/own", "customer", (c) => store.own.view(me(c)));
+  // Lo que vence en 3 días (para "Tu día" del Inicio): sin contraseñas ni teléfonos.
+  route("GET", "/api/me/own/soon", "customer", (c) => mySoon(store.engine, me(c)));
   route("POST", "/api/me/own/products", "customer", (c) => store.own.saveProduct(me(c), c.body ?? {}));
   route("POST", "/api/me/own/products/:id/delete", "customer", (c) => {
     const r = store.own.deleteProduct(me(c), c.params.id);

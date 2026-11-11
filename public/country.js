@@ -8,6 +8,7 @@ import { bs, esc, currencySym } from "/common.js";
 export const COUNTRIES = [
   ["BO", "🇧🇴 Bolivia", "591", "Bs", 2],
   ["PY", "🇵🇾 Paraguay", "595", "₲", 0],
+  ["PA", "🇵🇦 Panamá", "507", "US$", 2],
   ["AR", "🇦🇷 Argentina", "54", "$", 2],
   ["PE", "🇵🇪 Perú", "51", "S/", 2],
   ["CL", "🇨🇱 Chile", "56", "$", 0],
@@ -89,7 +90,8 @@ export function earnSplitView(g, sm) {
       <p class="empty" style="margin:0">Lo que cobrás va en <b>${esc(MY?.symbol ?? "")}</b> y lo que le pagás a la tienda va en <b>${esc(currencySym())}</b>. Son dos monedas: se muestran por separado, sin mezclarlas.</p>
       <div class="rkpis"><div><small>Vendiste por</small><b>${mine(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${mine(m.collected)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${mine(m.unpaid)}</b></div><div><small>Le pagaste a la tienda</small><b>${store(m.cost)}</b></div></div>
       <p class="empty" style="margin:0">Te costó ${store(m.cost)}${rate}.</p>
-      ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio en ${esc(MY?.symbol ?? "")}: no suman en “Vendiste por”. Poné lo que le cobrás en “Mi control”${MY?.rate ? "" : " o tu tipo de cambio en “📦 Mis cuentas propias”"}.</p>` : ""}</div>
+      ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio en ${esc(MY?.symbol ?? "")}: no suman en “Vendiste por”. Poné lo que le cobrás en “Mi control”${MY?.rate ? "" : " o tu tipo de cambio en Inicio → “🌎 Mi país y moneda”"}.</p>` : ""}
+      ${MY?.rate ? `<p class="empty" style="margin:0">≈ Ganaste unos <b>${esc(money(m.collected - Math.round(m.cost * MY.rate), MY))}</b>: lo que ya cobraste menos lo que le pagaste a la tienda, pasado con tu tipo de cambio.</p>` : `<p class="empty" style="margin:0">💱 Para ver cuánto ganaste en ${esc(MY?.symbol ?? "")}, poné tu tipo de cambio en Inicio → “🌎 Mi país y moneda”.</p>`}</div>
     ${sm?.accounts ? `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${store(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${mine(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div></div></div>` : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line"><span><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · te costó ${store(p.cost)}${p.unpaid ? ` · te deben ${mine(p.unpaid)}` : ""}</small></span><b>${mine(p.revenue)}</b></div>`).join("")}</div>` : ""}
     <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="line"><span>${esc(x.label)}</span><span><b>${mine(x.revenue)}</b> <small class="empty">· costó ${store(x.cost)}</small></span></div>`).join("") : `<p class="empty" style="margin:0">Todavía no hay ventas.</p>`}</div>`;

@@ -3,7 +3,8 @@
 // cupo. Todo en SU moneda. Solo lo ve él: el dueño de la tienda no ve nada de esto.
 // shop.js solo agrega la pestaña y llama a ownStockView(); la lógica y los eventos están acá.
 import { api, esc, fdate, daysLeft, toCents, toast, waLink, fileToBase64 } from "/common.js";
-import { COUNTRIES, money, setMine, myLocale, myPhoneHint } from "/country.js";
+import { money, myLocale, myPhoneHint } from "/country.js";
+import { countryForm, formOpen, onLocaleSaved } from "/afuera.js";
 
 // Estilos propios de la pestaña (archivo aparte: no se toca shop.css).
 if (typeof document !== "undefined" && !document.querySelector('link[href="/ownstock.css"]')) {
@@ -14,6 +15,8 @@ const OS = { data: null, customers: [], loading: false, err: "", open: {}, paste
 let RENDER = () => {};
 /** shop.js le pasa su render() para redibujar después de cada cambio. */
 export function initOwnStock(render) { RENDER = render; }
+// Si cambia su moneda (desde acá o desde el Inicio), sus montos se vuelven a leer en la moneda nueva.
+onLocaleSaved(() => (OS.data ? loadOwnStock() : null));
 
 const KINDS = { full: "Cuenta completa", profiles: "Perfiles (varios cupos)", line: "Línea / IPTV (usuario y contraseña)" };
 const cur = () => OS.data?.currency ?? { symbol: "Bs", decimals: 2 };
@@ -34,20 +37,10 @@ export async function loadOwnStock() {
 }
 
 /* ---------------- vistas ---------------- */
+/** "🌎 Mi país y moneda": el mismo formulario que el Inicio (afuera.js). */
 function countryCard() {
-  const l = myLocale() ?? { country: "BO", dial: "591", symbol: "Bs", decimals: 2, flag: "🇧🇴", name: "Bolivia", foreign: false, store: { symbol: "Bs" } };
-  const store = l.store?.symbol ?? "Bs";
-  return `<details class="sbox os-country" ${OS.open.country ? "open" : ""}><summary><b>🌎 Mi país y moneda</b> <small class="empty">${esc(l.flag ?? "")} ${esc(l.name ?? "")} · ${esc(l.symbol)} · +${esc(l.dial)}</small></summary>
-    <form class="sform os-grid" data-osf="locale">
-      <label>País<select name="country">${COUNTRIES.map(([k, t]) => `<option value="${k}" ${l.country === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
-      <label>Código de teléfono (sin +)<input name="dial" inputmode="numeric" maxlength="4" value="${esc(l.dial)}" required></label>
-      <label>Símbolo de tu moneda<input name="symbol" maxlength="4" value="${esc(l.symbol)}" required></label>
-      <label>Decimales<select name="decimals"><option value="2" ${l.decimals === 2 ? "selected" : ""}>Con centavos (12,50)</option><option value="0" ${l.decimals === 0 ? "selected" : ""}>Sin centavos (35.000)</option></select></label>
-      <label class="os-wide">Tipo de cambio: 1 ${esc(store)} = <input name="rate" inputmode="decimal" value="${l.rate ?? ""}" placeholder="${store === "US$" ? "Ej.: 7300" : "Ej.: 1050"}" aria-describedby="osRateHelp"> ${esc(l.symbol)}</label>
-      <p class="empty os-wide" id="osRateHelp" style="margin:0">Con tu tipo de cambio, tu página muestra los productos de la tienda en ${esc(l.symbol)} (redondeados). Sin tipo de cambio, esos productos no salen en tu página. Lo que le comprás a la tienda sigue en ${esc(store)}.</p>
-      <p class="empty os-wide" style="margin:0">Tus clientes nuevos se cargan con +${esc(l.dial)}. Si cambiás de moneda, los montos que ya anotaste no se convierten solos.</p>
-      ${errBox("locale")}
-      <button class="sbtn pri os-wide" type="submit">Guardar mi país</button></form></details>`;
+  const l = myLocale() ?? { country: "BO", dial: "591", symbol: "Bs", flag: "🇧🇴", name: "Bolivia" };
+  return `<details class="sbox os-country" ${formOpen("own") ? "open" : ""}><summary><b>🌎 Mi país y moneda</b> <small class="empty">${esc(l.flag ?? "")} ${esc(l.name ?? "")} · ${esc(l.symbol)} · +${esc(l.dial)}${l.foreign && l.rate ? ` · 1 ${esc(l.store?.symbol ?? "Bs")} = ${esc(l.symbol)} ${esc(String(l.rate).replace(".", ","))}` : ""}</small></summary>${countryForm("own")}</details>`;
 }
 
 function accessText(s) {
@@ -221,14 +214,6 @@ if (typeof document !== "undefined") {
     const btn = f.querySelector('[type="submit"]');
     if (btn) btn.disabled = true;
     try {
-      if (k === "locale") {
-        delete OS.msg.locale;
-        try {
-          const l = await api("PUT", "/api/me/locale", { country: f.country.value, dial: f.dial.value, symbol: f.symbol.value, decimals: Number(f.decimals.value), rate: f.rate.value.trim() || null });
-          setMine(l); OS.open.country = false; toast("🌎 Guardado"); await loadOwnStock();
-        } catch (e) { OS.msg.locale = e.message; OS.open.country = true; }
-        return RENDER();
-      }
       if (k === "product") {
         const key = "product:" + (f.dataset.id ?? "new");
         let body;
@@ -278,11 +263,6 @@ if (typeof document !== "undefined") {
       try { b64 = await fileToBase64(t.files[0]); } catch (e) { OS.msg["logo:" + id] = e.message; return RENDER(); }
       OS.logoV++;
       return act(() => api("POST", `/api/me/own/products/${id}/logo`, { contentBase64: b64 }), "🖼️ Logo guardado", "logo:" + id);
-    }
-    // Al elegir otro país se completan su código y su moneda.
-    if (t?.name === "country" && t.form?.dataset?.osf === "locale") {
-      const c = COUNTRIES.find(([k]) => k === t.value);
-      if (c && c[0] !== "XX") { t.form.dial.value = c[2]; t.form.symbol.value = c[3]; t.form.decimals.value = String(c[4]); }
     }
   }, true);
 
