@@ -803,9 +803,11 @@ export function createApp(cfg: AppConfig): App {
     const st = store.engine.s, r = st.customers[c.params.id];
     if (!r || r.kind !== "reseller") throw new HttpError(404, "NOT_FOUND", "No es un revendedor");
     // Mismo precio que Dashboard, Control e Inicio: admin.effectivePrice (lo que te paga el revendedor).
+    // Revendedor en dólares: sus montos van en US$ (lo que te paga en su moneda), nunca Bs mezclados.
+    const inUsd = store.usd.currency(r.id).code === "USD";
     const rows = store.admin.assignments(A(c)).filter((a) => a.customerId === r.id || st.customers[a.customerId]?.resellerId === r.id).map((a) => ({
       id: a.id, client: a.customerId === r.id ? "" : a.customerName ?? "", clientPhone: a.customerId === r.id ? "" : a.customerPhone, product: a.product ?? "", email: a.email, profile: a.profile,
-      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.effectivePrice, pay: a.control?.payStatus ?? "pagado",
+      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: inUsd ? ((a as { payUsd?: number | null }).payUsd ?? null) : a.effectivePrice, pay: a.control?.payStatus ?? "pagado",
     }));
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), currency: store.usd.currency(r.id).code, owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };

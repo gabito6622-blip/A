@@ -188,7 +188,7 @@ describe("Cargar sus cuentas (núcleo)", () => {
     assert.equal(row.status, "ya_suya");
   });
 
-  test("revendedor en lista en dólares: carga igual, no toca su saldo y el precio queda como nota en US$", () => {
+  test("revendedor en lista en dólares: carga igual, no toca su saldo y el precio va a «Te paga US$» (priceUsd)", () => {
     const { s, py } = setup();
     s.wallet.adjust(owner, py.id, 1500, "saldo US$ de prueba");
     const st = s.engine.s;
@@ -201,7 +201,7 @@ describe("Cargar sus cuentas (núcleo)", () => {
     assert.equal(r.added, 2);
     const a = st.assignments[r.assignmentIds[0]];
     assert.equal(a.control.price, undefined, "no mezcla US$ con Bs en el precio del Control");
-    assert.match(a.control.note, /US\$ 10\.00/);
+    assert.equal(a.control.priceUsd, 1000, "el acordado queda en US$ en su campo del Control");
     assert.equal(s.wallet.balance(py.id), bal0);
     assert.equal(st.ledger.length, ledger0);
     assert.equal(JSON.stringify(st.outbox), outbox0);

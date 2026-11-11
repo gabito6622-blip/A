@@ -183,8 +183,8 @@ export function apply(e: Engine, actor: Actor, customerId: Id, text: unknown) {
       if (p.slot.status !== "available") { Object.assign(p.row, { ok: false, status: "de_otro", reason: "Es de otro cliente" }); continue; }
       const control: RentalControl = {};
       if (p.row.price !== undefined) {
-        // En la lista en dólares el Control lee el precio fijo de su lista; el acordado queda como nota (sin mezclar monedas).
-        if (usd) control.note = `Precio acordado: US$ ${(p.row.price / 100).toFixed(2)}`;
+        // Revendedor en dólares: el acordado va a "Te paga US$" (priceUsd); en Bs, al precio del Control.
+        if (usd) control.priceUsd = p.row.price;
         else control.price = p.row.price;
       }
       const a = assignWithoutCharge(e, actor, { customerId: r.id, productId: p.product.id, slot: p.slot, expiresAt: p.row.expiresAt!, control, note: `cargado en lote (línea ${p.row.line})` });
