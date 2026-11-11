@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — Lista de precios en dólares (Panamá y Paraguay)
+- **Revendedores en la lista en dólares:** ven precios y saldo en US$ (Disney + ESPN US$ 7, Disney sin ESPN US$ 3,50, Prime US$ 3, HBO US$ 2), pagan con saldo o USDT (1 USDT = US$ 1) y recargan con USDT (20 USDT → US$ 20). No pierden ni ganan si se mueve el dólar en Bolivia.
+- **Dueño:** sigue viendo todo en Bs, con la tasa de cada pedido. Al aprobar ve "US$ 20 (≈ Bs 234)". El dashboard separa el saldo a favor en dólares. Las listas tienen moneda; no se cambia a alguien de una lista en Bs a una en US$ si tiene saldo o pagos por revisar.
+- **Arreglo de seguridad:** renovar eligiendo un medio sin pago (local, USDT, Binance) ya no renueva gratis al instante.
+
 ## Sin publicar — Tasa del dólar del Banco Central
 - **Dueño:** "🏦 Tomarla del Banco Central todos los días" en la tarjeta "💱 Tasa del USDT" de Inicio. Lee el tipo de cambio oficial del Banco Central de Bolivia (hoy Bs 11,71 del 11/11) cada 3 h y lo usa cuando hay fecha nueva. Si la cambiás a mano, se respeta hasta la próxima publicación. Si la página falla, no se toca nada y lo ves en Inicio.
 

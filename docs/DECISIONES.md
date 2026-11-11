@@ -13,6 +13,13 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - El dueño ve solo cantidades; ni contraseñas ni clientes. Los clientes nuevos de cuentas propias no se crean como clientes de la tienda.
 - **IPTV:** los datos para el cliente (servidor, app, pantallas, instrucciones) van en el producto y salen en "Mandar acceso". La prueba gratis dura de 1 a 72 h, no cuenta como venta ni deuda, y al renovarse toma el precio del producto.
 
+## 2026-11-11 · Lista en dólares con saldo en dólares
+- **Saldo en US$** (el dueño no eligió; se fue con la opción recomendada): el revendedor no gana ni pierde si se mueve la tasa. Cada movimiento lleva `cur: "USD"`.
+- **Cada pedido guarda** lo cobrado en US$ (`order.usd`) y `order.total` en Bs = US$ × tasa del momento. Así Finanzas, Dashboard, Cómo van y Que vuelvan siguen en Bs sin cambios. `effectivePrice` convierte con la tasa de hoy.
+- **Sin tasa,** el cliente en dólares no compra ni recarga. Tampoco se cambia de lista a otra moneda con saldo o pagos por revisar. Sin cupones ni "Armá tu combo" en dólares.
+- **Alquiler de página y premio por referido** se convierten con la tasa de hoy: el cobro se redondea hacia arriba y el premio hacia abajo.
+- **Detectado y arreglado:** `/api/me/renew` con "local", "usdt" o "binance" renovaba al instante sin cobrar. Ahora USDT queda esperando el comprobante y los demás se rechazan.
+
 ## 2026-11-11 · Tasa del dólar: Banco Central de Bolivia (fuente elegida por el dueño)
 - **Fuente:** el tipo de cambio oficial de la portada del BCB. Se lee la tarjeta del dólar (`is-tc-oficial`: `<time datetime>` + `bcb-tco-num`), solo hasta su `</article>`, para no tomar el número del oro. Rango válido: Bs 5 a 50.
 - **Cuándo:** cada 3 h. Solo se aplica cuando el BCB publica una fecha nueva, así un cambio a mano del mismo día no se pisa. "Traer ahora" fuerza la lectura.

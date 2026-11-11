@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Lista en dólares + tasa del Banco Central (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar el equipo y la tasa del BCB | **383 → 400 / 400 ✅** |
+| Lista en dólares | `test/lista-dolares.test.mjs` (15): precios en US$, recarga USDT → US$, compra con saldo US$ 20 → 13, total en Bs con la tasa, la tasa cambia y el saldo no, renovaciones, devolución y "Era una prueba" en US$, ajuste del dueño, dashboard sin mezclar monedas, cambio de lista con saldo rechazado, sin tasa rechazado, permisos, navegador | ✅ |
+| Tasa del BCB | `test/tasa-bcb.test.mjs` (2) con una copia de la página; además la página real de hoy da 11,71 (11/11/2026) y se leyó en vivo desde el panel de prueba | ✅ |
+| Al integrar | sin choques. Corregido: productos a pedido decían "pagás con QR" a revendedores de afuera | ✅ |
+| Celular | revendedor de Panamá en la lista US$ a 360 px: ve US$ 7 y recarga 20 USDT → US$ 20, sin QR, 0 desbordes, 0 errores | ✅ |
+
+
 ## Tanda 11/11/2026 · Otro país, cuentas propias, IPTV, USDT y revendedores cómodos (2 equipos + integración)
 | Qué | Cómo | Resultado |
 |---|---|---|
