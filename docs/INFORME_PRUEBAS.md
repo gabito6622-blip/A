@@ -8,6 +8,10 @@
 | Arreglo en la tienda real | respaldo previo → 1 perfil de prueba (cola de avisos 33 → 33) → todos | 54 renombrados, 28 retirados, 21 notas guardadas, 0 problemas |
 | Verificación después | lectura del panel con la llave del asistente | 123 cuentas de alquiler con 1 perfil "Cuenta completa"; servicios activos 91 → 91; cola de avisos 33 → 33 |
 
+| Invitar desde Inicio | `test/invitar-inicio.test.mjs` con navegador (Playwright): tarjeta con el número correcto, botón arma la fila, PIN, link de WhatsApp al número correcto, avanza sola, Anterior conserva el PIN, a quien no tocaste no se le genera PIN, Atención no la ve, 0 errores. WhatsApp bloqueado en la prueba | ✅ (en la CI se salta: no tiene navegador) |
+| Revisión en celular | 360 y 390 px, claro y oscuro, datos de ejemplo | sin desborde ni errores |
+| Total | `npm test` | **315 / 315 ✅** |
+
 **No se probó:** que los revendedores vean el nombre nuevo en su celular (se verificó por la API, no con su sesión).
 
 # Informe de pruebas — Pulido GaboHub (11/11/2026)

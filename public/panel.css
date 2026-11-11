@@ -1041,3 +1041,4 @@ table.ctl tfoot td.ccli{z-index:3}
 .cobra{border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
 .cobsum{display:grid;gap:4px}
 .cobpre{white-space:pre-wrap;font:inherit;font-size:13px;background:var(--soft);border-radius:10px;padding:10px;margin:0;max-height:220px;overflow:auto}
+.hm-invite{display:grid;gap:10px;border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.hm-invite h2{margin:0}.hm-invite .pbtn{justify-self:start;min-height:44px}

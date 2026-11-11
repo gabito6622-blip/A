@@ -3,6 +3,9 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — Invitar revendedores desde Inicio
+- **Dueño:** en Inicio aparece "📲 N revendedores todavía sin acceso" con un solo botón, "▶ Invitarlos ahora", que abre la fila de invitaciones ya armada. En la fila, al tocar "Abrir WhatsApp" pasa sola al siguiente, y hay "◀ Anterior" para volver (el PIN generado se conserva). Atención no ve la tarjeta.
+
 ## 2026-11-11 · #30 Cuentas de alquiler: todas "Cuenta completa"
 - **Dueño:** las 123 cuentas de alquiler (Disney con y sin ESPN, Prime, HBO) quedaron con **un solo perfil llamado "Cuenta completa"**. Se renombraron 54 perfiles ("pack", "Pack 15", "Perfil 1", "ENLAZAR"…) y se retiraron 28 perfiles libres que sobraban, que inflaban el stock. Las 21 notas viejas del Excel quedaron guardadas en Control como "Excel: …".
 - **Revendedores:** no reciben ningún aviso por esto: renombrar el perfil de una cuenta completa ya no manda "cambió tu acceso", porque el acceso no cambia. Cambiar el PIN sí sigue avisando.

@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Invitar revendedores: el dueño lo hace con un botón, no Claude
+- **Qué:** el dueño pidió dejarlo "para hacerlo yo con un botón". La invitación queda en Inicio. Cada WhatsApp lo abre y lo manda el dueño (wa.me), nunca un envío automático.
+- **Por qué no un solo toque por persona:** generar el PIN necesita esperar al servidor, y el celular bloquea abrir WhatsApp después de esa espera. Por eso son 2 toques (Generar PIN, Abrir WhatsApp), y la fila avanza sola.
+- **Los 6 servicios de perfil:** los 5 de Disney comparten una sola cuenta de 7 perfiles y el de Prime es una venta de la tienda (10/11). No se pasan a cuenta completa: harían falta 5 cuentas distintas que no existen. Queda en BACKLOG B4.
+
 ## 2026-11-11 · Los alquileres son siempre cuenta completa (1 perfil, nombre fijo)
 - **Qué:** cada cuenta de alquiler tiene un solo perfil, "Cuenta completa". Los perfiles libres de más se retiran (no se borran: quedan fuera de la venta) y las etiquetas viejas del Excel pasan a la nota del Control como "Excel: <etiqueta>".
 - **Por qué:** el dueño lo pidió: todas son cuentas completas. Los nombres "pack"/"Perfil N" confundían y los 28 perfiles libres de más mostraban stock que no existe.
