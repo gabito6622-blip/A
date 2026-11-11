@@ -38,8 +38,9 @@ Todo sale de una copia **local** de la tienda con datos **ficticios** (nunca de 
 - `capturas.cjs`: saca las 7 pantallas del celular (390 px ×3) y avisa si algo se ve a medio armar
   («Agotado», «A pedido», «todavía no cargó…»). Cambia «http://localhost:8090» por «gabohub» en lo que se ve.
 
-Pendiente en la app (no es del video): los combos propios del revendedor y la fila de apps de su tienda se muestran
-con la letra inicial, no con los íconos de los productos.
+Arreglado en la app para este video: los combos sin imagen (también los propios del revendedor) muestran los íconos
+de sus apps, y la franja de apps usa la imagen de cada producto en vez de la letra inicial.
+Para recapturar una sola pantalla: `ONLY=tienda node promo/gabohub/capturas.cjs`.
 
 ## Voz
 

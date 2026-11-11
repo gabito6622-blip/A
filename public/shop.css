@@ -591,6 +591,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .bstrip:hover .btrack{animation-play-state:paused}
 .bchip{display:inline-flex;align-items:center;gap:9px;background:var(--s-card);border:1px solid var(--s-line);border-radius:999px;padding:8px 15px 8px 8px;font-weight:700;font-size:14px;color:var(--s-ink)}
 .bchip i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-weight:900;color:#fff;background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 55%,#000));box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent)}
+.bchip i.im{background:none;box-shadow:none;overflow:hidden}.bchip i.im img{width:100%;height:100%;object-fit:contain}
+/* Combo sin imagen: los íconos de sus apps juntos (2 en fila, 3 o 4 en grilla) */
+.lt.ltgrid{display:grid;grid-template-columns:auto auto;gap:6px;padding:8px;width:auto;height:auto;box-sizing:border-box;background:rgba(9,14,29,.45);border:1px solid rgba(255,255,255,.18)}
+.lt.ltgrid :is(img,i){width:44px;height:44px;object-fit:cover;border-radius:28%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:16px;color:#fff}
+.lt.ltgrid:is(.n3,.n4) :is(img,i){width:34px;height:34px;font-size:13px}
+.tklogo .lt.ltgrid{width:52px;height:52px;padding:4px;gap:3px;grid-template-columns:1fr 1fr;align-content:center}
+.tklogo .lt.ltgrid :is(img,i){width:100%;height:auto;aspect-ratio:1;font-size:10px}
 @keyframes gsMarquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .trustband{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--s-blue) 16%,var(--s-card)),var(--s-card));border:1px solid var(--s-line);border-radius:18px;padding:16px}
 .trustband>div{display:grid;justify-items:center;text-align:center;gap:2px}

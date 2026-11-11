@@ -47,7 +47,9 @@ const clean = () => {
   await ar.addInitScript((id) => { try { localStorage.setItem("gs-guide-" + id, "1"); } catch {} }, arId);
   const ctx = { ar, pub: await mk() };
 
+  const only = process.env.ONLY ? process.env.ONLY.split(",") : null;   // ONLY=tienda,combos → solo esas
   for (const [id, who, url, tab, from, h, full] of SHOTS) {
+    if (only && !only.includes(id)) continue;
     const page = await ctx[who].newPage();
     await page.goto(B + url);
     await page.waitForTimeout(1500);

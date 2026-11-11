@@ -458,6 +458,9 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
     assert.equal(combo.name, "Full Combo");
     assert.equal(combo.price, 6000);
     assert.deepEqual(combo.items, ["Netflix perfil", "Gemini Pro"]);
+    // sus apps viajan solo para dibujar el ícono (no como comboParts: no entra al armador de combos)
+    assert.deepEqual(combo.iconParts, ["netflix", "gemini"]);
+    assert.equal(combo.comboParts, undefined);
     // no deja un combo con una app sin precio
     assert.throws(() => s.shops.update(as(carla), { combos: [{ name: "X", productIds: ["netflix", "oculto"], price: 5000 }] }), err("VALIDATION"));
     // ni con una sola app ni sin precio

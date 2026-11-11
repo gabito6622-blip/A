@@ -419,6 +419,8 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined)).map((cb) => ({
     id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
     hasImage: false, kind: "combo" as const, durationDays: 30, price: cb.price, available: 99, items: cb.productIds.map(nameOf),
+    // Solo para dibujar el ícono con las apps del combo (no es comboParts: no entra al armador ni al asesor de combos).
+    iconParts: cb.productIds,
   }));
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,

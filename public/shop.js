@@ -200,7 +200,10 @@ async function refresh() {
 
 /* ---------------- vistas ---------------- */
 /** Logo del producto (si tiene) o su inicial. */
-const mark = (p) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+/** Apps de un combo para dibujar su ícono (las del dueño o las del combo propio del revendedor). */
+const iconApps = (p) => (p?.kind === "combo" ? (p.comboParts ?? p.iconParts ?? []).map((id) => product(id)).filter(Boolean) : []);
+const appGrid = (apps) => `<span class="lt ltgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="/api/products/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
+const mark = (p) => (!p.hasImage && iconApps(p).length >= 2 ? appGrid(iconApps(p)) : p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
 const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
@@ -227,7 +230,7 @@ function reviewsSection() {
 function brandStrip() {
   const items = (S.catalog ?? []).filter((p) => p.name && p.kind !== "combo");
   if (items.length < 3) return "";
-  const chip = (p) => `<span class="bchip" style="--c:${esc(p.color || "#3984ff")}"><i>${esc((p.name[0] || "?").toUpperCase())}</i>${esc(p.name)}</span>`;
+  const chip = (p) => `<span class="bchip" style="--c:${esc(p.color || "#3984ff")}">${p.hasImage ? `<i class="im"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt="" loading="lazy"></i>` : `<i>${esc((p.name[0] || "?").toUpperCase())}</i>`}${esc(p.name)}</span>`;
   const row = items.map(chip).join("");
   return `<div class="bstrip" aria-hidden="true"><div class="btrack">${row}${row}</div></div>`;
 }
