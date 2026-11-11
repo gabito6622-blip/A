@@ -223,3 +223,28 @@ Responde solo `{ok}` (200 o 503). El detalle lo ve únicamente la plataforma.
 - El servidor no decodifica imágenes, porque no agregamos dependencias nativas.
 - El visor genera la miniatura desde la imagen que ya cargó (sin otra descarga auditada del original).
 - La generación en lote de Configuración sí abre cada original, y cada apertura queda auditada como vista.
+
+### D-52 · Mensajes desde una cola, fuera de la transacción (B-070)
+- Con proveedor real, encolar solo deja el mensaje en `queued`.
+- El despachador lo toma con `FOR UPDATE SKIP LOCKED` (dos procesos nunca toman el mismo), lo marca `sending`, confirma y envía sin transacción abierta.
+- Errores transitorios (429, 5xx, red): hasta 5 intentos con espera de 1, 2, 4 y 8 minutos. Errores definitivos: `failed`.
+- Un `sending` de más de 10 minutos pasa a `failed` («estado incierto») y no se reenvía: preferimos no duplicar.
+- La clínica se recorre con una función `SECURITY DEFINER` que solo devuelve ids.
+
+### D-53 · Respuestas atendidas como eventos (B-070)
+- `inbound_message_events` es de solo inserción (atendida o reabierta); el estado es el último evento.
+- Recepción ve solo sus sucursales; las respuestas sin sucursal, solo quien ve todas.
+
+### D-54 · Subida por partes propia (B-101)
+- Con la misma firma SigV4 y sin SDK.
+- Partes de 64 MB leídas del disco de a una.
+- `If-None-Match` al completar.
+- `AbortMultipartUpload` ante cualquier error.
+
+### D-55 · «Cobrado» con empresas y tope anual neto de traslados (B-097)
+- **Cobrado:** suma pagos de pacientes y pagos de empresas confirmados en el mes.
+  - Lo de la empresa se atribuye a la sucursal de cada cargo asignado; el resto, a la del pago.
+  - No hay doble conteo, porque la porción de la empresa nunca está en el saldo del paciente.
+- **Tope anual:** lo usado es la porción de la empresa en el año menos lo trasladado al paciente.
+  - La base (trigger) y la estimación del presupuesto usan la misma regla.
+- **Gastos fijos compartidos:** el reparto es una plantilla editable; cada borrador mensual copia el reparto exacto.

@@ -2,6 +2,25 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.8.0] — 2026-11-11
+
+Los últimos pendientes que dependían solo de nosotros. Migraciones 0029 y 0030.
+
+### Agregado
+- **Mensajes reales seguros (B-070):**
+  - con WhatsApp configurado, los mensajes salen desde una cola, después de guardar la operación, nunca dentro de ella: si algo falla a mitad de camino, no sale un mensaje sin registro;
+  - errores pasajeros (WhatsApp ocupado, sin conexión) se reintentan solos con espera creciente;
+  - un envío interrumpido no se repite para no duplicarlo: queda como fallido para reintentarlo a mano.
+- **Bandeja «Respuestas» para recepción:**
+  - lo que los pacientes contestan por WhatsApp, solo de las sucursales de cada persona y con contador en el menú;
+  - se marca «atendida» con una nota, o se vuelve a pendiente;
+  - las «BAJA» siguen procesándose solas.
+- **Respaldos grandes (B-101):** subida por partes a la nube para respaldos de cualquier tamaño (antes, hasta 4,5 GB), sin cargar todo el archivo en memoria y sin dejar partes sueltas si algo falla.
+- **Rentabilidad (B-097):**
+  - «Cobrado» incluye lo que pagan las empresas de convenio, en la sucursal de cada tratamiento que cubren;
+  - lo que se traslada al paciente libera el tope anual del convenio;
+  - gastos fijos mensuales repartidos entre sucursales, con el borrador de cada mes repartido al centavo.
+
 ## [0.7.1] — 2026-11-11
 
 Cierra B-096, lo último que dependía solo de nosotros. Migración 0028.

@@ -101,6 +101,7 @@ Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y
 - `NODE_ENV=production`;
 - `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY` (distintas; `openssl rand -hex 32`);
 - `BACKUP_PASSPHRASE`, y `SMTP_URL` para el desbloqueo por correo y las alertas;
+- `WHATSAPP_TOKEN` y `WHATSAPP_PHONE_ID` (opcionales): activan el envío real por WhatsApp desde la cola de mensajes;
 - opcionales: `ANTHROPIC_API_KEY` para el chat del asistente, `SESSION_TTL_HOURS`.
 
 Las migraciones se aplican al arrancar. **No se desplegó nada todavía.**

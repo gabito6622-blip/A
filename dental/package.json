@@ -1,6 +1,6 @@
 {
   "name": "dentalia",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "description": "Plataforma odontológica multiempresa y multisucursal (SaaS) — clínica piloto en Bolivia.",
   "type": "module",

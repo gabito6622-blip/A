@@ -50,7 +50,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 ## Nuevos pendientes detectados en v0.4
 | ID | Prioridad | Ítem |
 |---|---|---|
-| B-070 | P1 | Mensajes: enviar al proveedor desde una cola fuera de la transacción de la clínica; bandeja de respuestas (no «BAJA») para recepción |
+| B-070 | ✅ v0.8 | Mensajes: enviar al proveedor desde una cola fuera de la transacción de la clínica; bandeja de respuestas (no «BAJA») para recepción |
 | B-071 | P1 | Revisión legal y clínica de las plantillas de recetas y certificados y de las posologías sugeridas |
 | B-072 | P2 | Inventario: informe de consumo real frente al estándar, exportar a Excel, anular una transferencia en tránsito, reponer materiales al anular un cargo |
 | B-073 | P2 | Laboratorio: anular un pago, costo de un reenvío, adjuntos reales, costo de laboratorio en la rentabilidad por sucursal |
@@ -79,13 +79,13 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-094 | ✅ v0.7 | Claves separadas para cifrar los 2 pasos y para firmar enlaces (rotación independiente) |
 | B-095 | ✅ v0.7 | Embudo de presupuestos: limitar la lista de vencidos (hoy ~2 s con 100 000 pacientes); exportación de pacientes en streaming (~4,7 s) |
 | B-096 | ✅ v0.7.1 | Miniaturas para los archivos subidos antes de v0.6; botón «Marcar revisada» en plantillas de consentimiento; logo de la clínica |
-| B-097 | P2 | Rentabilidad: «Cobrado» con los pagos de empresas; liberar el tope anual del convenio al trasladar al paciente; gastos fijos compartidos |
+| B-097 | ✅ v0.8 | Rentabilidad: «Cobrado» con los pagos de empresas; liberar el tope anual del convenio al trasladar al paciente; gastos fijos compartidos |
 
 ## Nuevos pendientes detectados en v0.7
 | ID | Prioridad | Ítem |
 |---|---|---|
-| B-100 | P0 | ⚠ Producción (requiere autorización): `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
-| B-101 | P1 | Subida por partes para respaldos de más de 4,5 GB |
+| B-100 | P0 | ⚠ Producción (requiere autorización): `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_ID` arrancan el despachador de mensajes; `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
+| B-101 | ✅ v0.8 | Subida por partes para respaldos de más de 4,5 GB |
 | B-102 | P2 | Métricas compartidas entre réplicas (hoy por instancia, se pierden al reiniciar) |
 | B-103 | P2 | Simulacro de restauración en un servidor separado del de producción |
 | B-104 | P2 | Exportación de pacientes: el total sigue en ~4 s con 100 000 (CPU de compresión) aunque empieza a bajar enseguida; la memoria sube ~180 MB durante la descarga |
