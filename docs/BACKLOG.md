@@ -98,8 +98,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 ## Estudio de mercado (11/11/2026)
 | # | Pendiente | Prioridad | Estado |
 |---|---|---|---|
-| M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ sin publicar |
-| M2 | El cliente ve su código solo | P1 | ✅ sin publicar (el dueño lo prende) |
+| M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ publicado (#37) |
+| M2 | El cliente ve su código solo | P1 | ✅ publicado (#37), apagado hasta que el dueño lo prenda |
 | M3 | Probar los avisos en un Android y un iPhone reales con la tienda publicada | P1 | ⏳ |
 | M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
 | M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |

@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## Tanda 11/11/2026 · Avisos solos + códigos solos (sin publicar)
+## Tanda 11/11/2026 · Avisos solos + códigos solos (publicado en #37)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` después de integrar los 2 equipos | **435 → 456 / 456 ✅** (~26 s) |
@@ -8,6 +8,7 @@
 | Códigos solos | `test/codigos-solos.test.mjs` (9). Cubre la cuenta correcta; nada de más de 30 min ni de antes de entrar; interruptores del dueño y del revendedor; link revocado o borrado → 404; la respuesta no trae correo, contraseña ni cuerpo del mail; auditoría solo con ids; 429; cuentas propias. Navegador a 360 px | ✅ |
 | Al integrar | Choques de imports en 5 archivos (se conservaron los dos lados). La lista cerrada de `/api/cobro` quedó con `alerts` y `codes` en las 3 pruebas que la comprueban | ✅ |
 | Revisión en celular | `revision-celular.cjs` con `seed-reseller-demo` a 360/390/768, claro y oscuro: 0 desbordes y 0 textos cortados. Los botones y textos chicos que marca están en pantallas que esta tanda no tocó. Los equipos revisaron sus pantallas nuevas a 360/390 sin desborde ni errores | ✅ |
+| **Después de publicar (#37), tienda real** | Servicios 85 → 85; cola de mensajes 33 → 33; USDT y tasa 11,71 sin cambios; conteo de avisos responde (0 enviados hoy, encendido); `/api/cobro/<link falso>/codes` → 404; tienda, /hub, /c/ y panel (Inicio, Que vuelvan, Cómo van, Revendedores, Control) a 390 px: 0 desbordes y 0 errores. `/r/streaming-gabo` dice "no existe o no está publicada" porque esa página no está publicada (ya era así; #37 no la tocó) | ✅ |
 | No probado | Recibir un aviso real en un Android o un iPhone (el navegador de prueba no se suscribe a Google ni a Apple); el lector IMAP real con códigos de verdad; la revisión de accesibilidad con axe, que no pudo correr (falta `axe-core` en el entorno) | ⚠️ |
 
 ## Tanda 11/11/2026 · Cargar sus cuentas + seguridad y plata + renovar con su revendedor (sin publicar)
