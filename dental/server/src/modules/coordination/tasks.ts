@@ -50,7 +50,7 @@ interface TaskRow {
   takenBy: string | null; takenByName: string | null; takenAt: Date | null;
   doneBy: string | null; doneByName: string | null; doneAt: Date | null;
   cancelledByName: string | null; cancelledAt: Date | null; cancelReason: string | null;
-  createdBy: string; createdByName: string; createdAt: Date; updatedAt: Date; commentCount: number; overdue: boolean;
+  createdBy: string | null; createdByName: string | null; createdAt: Date; updatedAt: Date; commentCount: number; sourceSurveyId: string | null; overdue: boolean;
 }
 
 /** Columnas de la tarea. El nombre del paciente solo se consulta si el rol puede ver pacientes. */
@@ -64,13 +64,13 @@ export function taskColumns(auth: AuthCtx) {
     t.status, t.source, t.taken_by AS "takenBy", tu.full_name AS "takenByName", t.taken_at AS "takenAt",
     t.done_by AS "doneBy", du.full_name AS "doneByName", t.done_at AS "doneAt",
     xu.full_name AS "cancelledByName", t.cancelled_at AS "cancelledAt", t.cancel_reason AS "cancelReason",
-    t.created_by AS "createdBy", cu.full_name AS "createdByName", t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+    t.created_by AS "createdBy", COALESCE(cu.full_name, 'Encuesta de satisfacción') AS "createdByName", t.source_survey_id AS "sourceSurveyId", t.created_at AS "createdAt", t.updated_at AS "updatedAt",
     (SELECT count(*) FROM staff_task_comments k WHERE k.task_id = t.id)::int AS "commentCount",
     (t.status IN ('open','taken') AND t.due_at IS NOT NULL AND t.due_at < now()) AS overdue`;
 }
 export const TASK_FROM = `FROM staff_tasks t JOIN branches b ON b.id = t.branch_id
   LEFT JOIN users au ON au.id = t.assignee_user_id LEFT JOIN users tu ON tu.id = t.taken_by
-  LEFT JOIN users du ON du.id = t.done_by LEFT JOIN users xu ON xu.id = t.cancelled_by JOIN users cu ON cu.id = t.created_by`;
+  LEFT JOIN users du ON du.id = t.done_by LEFT JOIN users xu ON xu.id = t.cancelled_by LEFT JOIN users cu ON cu.id = t.created_by`;
 /** Orden: vencidas primero, luego prioridad alta, luego por vencimiento. */
 export const TASK_ORDER = `ORDER BY (t.status IN ('open','taken')) DESC, (t.status IN ('open','taken') AND t.due_at < now()) DESC,
   (t.priority = 'high') DESC, t.due_at NULLS LAST, t.created_at DESC`;
@@ -325,6 +325,13 @@ export function taskRoutes(route: Route) {
       } else {
         if (!ab.canDone) throw forbidden("Esta tarea está asignada a otra persona o a otro rol");
         await c.query("UPDATE staff_tasks SET status = 'done', done_by = $2, done_at = now(), updated_at = now() WHERE id = $1", [params.id, auth.userId]);
+        // Tarea creada por un detractor: completarla también registra el seguimiento de la encuesta.
+        if (t.sourceSurveyId) {
+          await c.query(
+            `UPDATE satisfaction_surveys SET followup_done_at = now(), followup_by = $2, followup_note = $3
+              WHERE id = $1 AND followup_done_at IS NULL`,
+            [t.sourceSurveyId, auth.userId, body.note?.trim() || "Seguimiento hecho desde la tarea"]);
+        }
       }
       if (body.note) await c.query("INSERT INTO staff_task_comments (clinic_id, task_id, body, author_id) VALUES ($1,$2,$3,$4)", [auth.clinicId, params.id, body.note, auth.userId]);
       const verb = action === "take" ? "taken" : action === "release" ? "released" : "done";

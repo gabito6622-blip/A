@@ -122,6 +122,7 @@ export function surveyRoutes(route: Route, cfg: Config) {
         const detractor = body.score <= DETRACTOR_MAX;
         await audit(c, actor, detractor ? "survey.detractor" : "survey.answered", "survey", row.id,
           { score: body.score, withComment: !!comment, patientId: r.rows[0]!.patient_id }, r.rows[0]!.branch_id);
+        if (detractor) await createDetractorTask(c, v.clinicId, row.id, r.rows[0]!.branch_id, r.rows[0]!.patient_id, body.score);
         return { ok: true, state: "answered", detractor };
       });
     },
@@ -206,8 +207,35 @@ export function surveyRoutes(route: Route, cfg: Config) {
       requireBranch(auth, s.branch_id);
       if (s.followup_done_at) throw conflict("El seguimiento ya quedó registrado", "already_done");
       await c.query("UPDATE satisfaction_surveys SET followup_done_at = now(), followup_by = $2, followup_note = $3 WHERE id = $1", [params.id, auth.userId, body.note]);
+      // Si había una tarea de seguimiento abierta, queda hecha.
+      await c.query(
+        `UPDATE staff_tasks SET status = 'done', done_by = $2, done_at = now(), updated_at = now()
+          WHERE source_survey_id = $1 AND status IN ('open','taken')`, [params.id, auth.userId]);
       await audit(c, auth, "survey.followup", "survey", params.id, { note: body.note }, s.branch_id);
       return { ok: true };
     },
   });
+}
+
+/**
+ * Un detractor (0 a 6) crea una tarea de seguimiento para gerencia de la sucursal: administración si existe en la
+ * clínica, si no, propietario. Vence al día siguiente. Sin el comentario del paciente (puede traer datos de salud):
+ * se lee en el panel de satisfacción. Idempotente por encuesta (índice único).
+ */
+export async function createDetractorTask(c: Client, clinicId: string, surveyId: string, branchId: string, patientId: string, score: number) {
+  const role = (await c.query<{ role: string }>(
+    `SELECT role FROM memberships WHERE clinic_id = $1 AND active AND role IN ('admin','owner')
+        AND (all_branches OR $2::uuid = ANY(branch_ids))
+      ORDER BY (role = 'admin') DESC LIMIT 1`, [clinicId, branchId])).rows[0]?.role;
+  if (!role) return null;
+  const id = (await c.query<{ id: string }>(
+    `INSERT INTO staff_tasks (clinic_id, branch_id, title, detail, assignee_role, due_at, priority, patient_id, source, source_survey_id, created_by)
+     VALUES ($1, $2, $3, $4, $5, now() + interval '1 day', 'high', $6, 'survey', $7, NULL)
+     ON CONFLICT (clinic_id, source_survey_id) WHERE source_survey_id IS NOT NULL DO NOTHING RETURNING id`,
+    [clinicId, branchId, `Llamar a un paciente insatisfecho (encuesta: ${score}/10)`,
+      "El paciente respondió la encuesta de satisfacción con una nota baja. Llámalo para escuchar su experiencia y registra lo conversado al completar la tarea (queda como seguimiento de la encuesta).",
+      role, patientId, surveyId])).rows[0]?.id ?? null;
+  if (id) await audit(c, { clinicId, userId: null as unknown as string, ip: undefined as unknown as string }, "task.created", "task", id,
+    { assigneeRole: role, priority: "high", patientId, source: "survey" }, branchId);
+  return id;
 }

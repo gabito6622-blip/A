@@ -197,6 +197,57 @@ describe("encuesta de satisfacción", () => {
   });
 });
 
+describe("detractor → tarea de seguimiento para gerencia", () => {
+  async function answer(score: number, comment?: string) {
+    const p = await createPatient(owner, { firstName: "Rosa", lastName: `Tarea ${score} ${randomUUID().slice(0, 4)}` });
+    const a = await appt(p, new Date(Date.now() - 5 * 3_600_000), "completed");
+    const l = await owner.post(`/api/appointments/${a}/survey-link`);
+    const token = l.body.url.split("/e/")[1];
+    expect((await pub("POST", `/api/public/encuesta/${token}`, { score, comment })).status).toBe(200);
+    const sid = (await env.db.adminPool.query<{ id: string }>("SELECT id FROM satisfaction_surveys WHERE appointment_id = $1", [a])).rows[0]!.id;
+    const task = (await env.db.adminPool.query("SELECT * FROM staff_tasks WHERE source_survey_id = $1", [sid])).rows[0];
+    return { patient: p, sid, task };
+  }
+
+  it("una nota de 0 a 6 crea una tarea de prioridad alta para gerencia, ligada al paciente y sin el comentario", async () => {
+    const { patient, task } = await answer(3, "Me dolió mucho la muela");
+    expect(task).toMatchObject({ source: "survey", priority: "high", status: "open", assignee_role: "owner", patient_id: patient, created_by: null });
+    expect(task.title).toMatch(/3\/10/);
+    expect(`${task.title} ${task.detail}`).not.toMatch(/muela|dolió/);
+    const d = await owner.get(`/api/tasks/${task.id}`);
+    expect(d.status, JSON.stringify(d.body)).toBe(200);
+    expect(JSON.stringify(d.body)).toContain("Encuesta de satisfacción");
+  });
+
+  it("una nota de 7 a 10 no crea tarea", async () => {
+    expect((await answer(7)).task).toBeUndefined();
+    expect((await answer(10)).task).toBeUndefined();
+  });
+
+  it("completar la tarea registra el seguimiento de la encuesta, y el seguimiento cierra la tarea", async () => {
+    const a = await answer(2);
+    const done = await owner.post(`/api/tasks/${a.task.id}/done`, { note: "Llamamos y reprogramamos una revisión" });
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    const s1 = (await env.db.adminPool.query("SELECT followup_done_at, followup_note FROM satisfaction_surveys WHERE id = $1", [a.sid])).rows[0];
+    expect(s1.followup_done_at).not.toBeNull();
+    expect(s1.followup_note).toBe("Llamamos y reprogramamos una revisión");
+
+    const b = await answer(5);
+    expect((await owner.post(`/api/surveys/${b.sid}/followup`, { note: "Pedimos disculpas por la espera" })).status).toBe(200);
+    const t = (await env.db.adminPool.query("SELECT status, done_by FROM staff_tasks WHERE id = $1", [b.task.id])).rows[0];
+    expect(t.status).toBe("done");
+    expect(t.done_by).not.toBeNull();
+  });
+
+  it("la base impide cambiar el origen de la tarea y otra clínica no la ve", async () => {
+    const a = await answer(1);
+    await expect(env.db.adminPool.query("UPDATE staff_tasks SET source_survey_id = NULL, source = 'manual' WHERE id = $1", [a.task.id])).rejects.toThrow(/no se modifica/);
+    await expect(env.db.adminPool.query(
+      "INSERT INTO staff_tasks (clinic_id, branch_id, title, assignee_role, source) VALUES ($1,$2,'Sin autor','owner','manual')", [K.clinicId, B()])).rejects.toThrow(/staff_tasks_creator/);
+    expect((await owner2.get(`/api/tasks/${a.task.id}`)).status).toBe(404);
+  });
+});
+
 describe("llegada con QR", () => {
   let token: string, pointId: string;
   const birth = "1991-07-15";

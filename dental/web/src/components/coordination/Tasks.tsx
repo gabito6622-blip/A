@@ -62,6 +62,7 @@ export function TaskItem({ t, onOpen, onChanged, showBranch }: { t: Task; onOpen
         {t.overdue && <span className="badge danger"><AlertTriangle size={12} aria-hidden /> Vencida</span>}
         {t.priority === "high" && <span className="badge warn">Prioridad alta</span>}
         {t.source === "call" && <span className="badge">Por una llamada</span>}
+        {t.source === "survey" && <span className="badge warn">Por una encuesta</span>}
       </div>
       <div className="co-actions">
         {t.canTake && <button className="btn" onClick={() => act(t, "take")}><Hand size={15} />Tomar</button>}
