@@ -56,7 +56,28 @@ export function report(e: Engine, actor: Actor, n = 6) {
   for (const m of months) m.ganancia = m.ingresos - m.gastos;
   const curKey = mk(base);
   const curExpenses = (e.s.expenses ?? []).filter((x) => mk(new Date(x.at)) === curKey).sort((a, b) => b.at - a.at);
-  return { months, current: months[months.length - 1], expenses: structuredClone(curExpenses) };
+  const est = accountsEstimate(e);
+  const cur = months[months.length - 1];
+  const current = { ...cur, cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ingresos - cur.gastos - est.amount };
+  return { months, current, expenses: structuredClone(curExpenses) };
+}
+
+/**
+ * Costo ESTIMADO de las cuentas de este mes que todavía no anotaste como gasto: cada cuenta viva
+ * este mes (activa o en cuarentena, que no venció antes del día 1) cuesta su costo mensual. Si ya
+ * anotaste un gasto de esa cuenta este mes ("Ya la pagué" / "Pagué la renovación"), no se cuenta.
+ */
+export function accountsEstimate(e: Engine): { amount: Cents; count: number } {
+  const now = e.now();
+  const start = new Date(now); start.setDate(1); start.setHours(0, 0, 0, 0);
+  const curKey = mk(start);
+  const paid = new Set((e.s.expenses ?? []).filter((x) => x.accountId && mk(new Date(x.at)) === curKey).map((x) => x.accountId));
+  let amount = 0, count = 0;
+  for (const a of Object.values(e.s.accounts)) {
+    if (a.status === "retired" || !(a.cost > 0) || a.supplierExpiresAt < start.getTime() || a.createdAt > now || paid.has(a.id)) continue;
+    amount += a.cost; count++;
+  }
+  return { amount, count };
 }
 
 /** Suma `months` meses calendario a una fecha (mismo día; si no existe, el último del mes). */
@@ -116,6 +137,11 @@ export function recordAccountCost(e: Engine, actor: Actor, accountId: Id) {
  */
 export function productMargins(e: Engine, actor: Actor) {
   authorize(actor, "catalog.manage");
+  return marginsData(e);
+}
+
+/** Igual que productMargins() pero sin permisos (lo usan los avisos del dueño). */
+export function marginsData(e: Engine) {
   const minPct = e.s.settings.minMarginPct ?? 15;
   const rev = e.s.priceGroups.revendedor?.prices ?? {};
   const out = [];

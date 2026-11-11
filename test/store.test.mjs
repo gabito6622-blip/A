@@ -657,12 +657,18 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
   test("reporte de proveedor: costo, ingreso atribuido, margen y cuentas por vencer", () => {
     const { s, clock, maria } = setup();
     s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
-    clock.t += 35 * DAY;
+    clock.t += 5 * DAY;
+    // Ingreso y costo del mismo período (últimos 30 días).
+    const [andes5] = s.stats.suppliers(admin);
+    assert.equal(andes5.revenue, 3500);
+    assert.equal(andes5.cost, 8100);
+    assert.equal(andes5.margin, 3500 - 8100);
+    clock.t += 30 * DAY;
     const [andes] = s.stats.suppliers(admin);
     assert.equal(andes.accounts, 3);
     assert.equal(andes.cost, 8100);
-    assert.equal(andes.revenue, 3500);
-    assert.equal(andes.margin, 3500 - 8100);
+    assert.equal(andes.revenue, 0, "la venta de hace 35 días ya no entra en el período");
+    assert.equal(andes.margin, -8100);
     assert.deepEqual(andes.expiringIn7Days.map((a) => a.email), ["nf02@gabostore.lat"]);
   });
 

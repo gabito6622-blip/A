@@ -2,9 +2,15 @@
 import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
-import { authorize } from "./auth.js";
+import { authorize, can, isStaff } from "./auth.js";
+import { DomainError } from "./errors.js";
 import { stockByProduct } from "./inventory.js";
 import { balance } from "./wallet.js";
+import { effectivePrice } from "./admin.js";
+import { marginsData } from "./finance.js";
+
+/** Día "AAAA-MM-DD" con la hora local del servidor (Bolivia: TZ=America/La_Paz), no UTC. */
+export const localDayKey = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 /**
  * Centro de notificaciones del dueño: junta en un solo lugar lo que necesita su
@@ -13,9 +19,14 @@ import { balance } from "./wallet.js";
  * Se calcula de los datos actuales (no guarda estado leído/no leído).
  */
 export function notifications(e: Engine, actor: Actor) {
-  authorize(actor, "catalog.manage");
-  return notificationItems(e);
+  if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
+  const all = notificationItems(e);
+  if (can(actor, "catalog.manage")) return all;
+  // Atención (seller): solo lo que puede resolver (fallas, pagos, vencidos y por vencer, reubicar).
+  const items = all.items.filter((x) => SELLER_NOTIS.has(x.kind));
+  return { total: items.reduce((n, x) => n + x.count, 0), items };
 }
+const SELLER_NOTIS = new Set(["falla", "payment", "overdue", "due", "reloc"]);
 
 /** Igual que notifications() pero sin permisos: lo usan las tareas internas (avisos del dueño). */
 export function notificationItems(e: Engine) {
@@ -63,7 +74,36 @@ export function notificationItems(e: Engine) {
   const due3 = active.filter((a) => { const d = (a.customerExpiresAt - now) / DAY; return d >= 0 && d <= 3; }).length;
   add("due", "⏰", due3 === 1 ? "1 servicio vence en 3 días" : `${due3} servicios vencen en 3 días`, due3, "control", "warn");
 
+  // Precio de revendedor: si falta, el revendedor paga el precio público sin que nadie se entere.
+  const custs = Object.values(e.s.customers);
+  const resellers = custs.filter((c) => c.kind === "reseller");
+  if (resellers.length) {
+    const rev = e.s.priceGroups.revendedor?.prices ?? {};
+    const sinPrecio = Object.values(e.s.products).filter((p) => (p.published || p.resellersOnly) && rev[p.id] === undefined);
+    add("resellerPrice", "🏷️", sinPrecio.length === 1 ? `1 producto sin precio de revendedor (${sinPrecio[0].name}): paga el precio público` : `${sinPrecio.length} productos sin precio de revendedor: pagan el precio público`, sinPrecio.length, "productos", "warn");
+    const loss = marginsData(e).products.filter((p) => p.reseller?.state === "loss");
+    add("resellerLoss", "🔴", loss.length === 1 ? `Perdés plata con ${loss[0].name} (revendedor): ${fmtMoney(e, loss[0].reseller!.gain)} por venta` : `Perdés plata en ${loss.length} productos a precio de revendedor: ${loss.slice(0, 3).map((p) => p.name).join(", ")}${loss.length > 3 ? "…" : ""}`, loss.length, "productos", "bad");
+    // Revendedores dormidos: hace más de 14 días que no te compran (y llevan más de 14 días con vos).
+    const last = lastPurchaseByPayer(e);
+    const dormidos = resellers.filter((c) => c.createdAt < now - DORMANT_DAYS * DAY && (last[c.id] ?? 0) < now - DORMANT_DAYS * DAY);
+    add("resellerSleep", "💤", dormidos.length === 1 ? `${dormidos[0].name} no te compra hace más de ${DORMANT_DAYS} días` : `${dormidos.length} revendedores sin comprar hace más de ${DORMANT_DAYS} días`, dormidos.length, "revendedores", "info");
+  }
+
   return { total: out.reduce((n, x) => n + x.count, 0), items: out };
+}
+
+export const DORMANT_DAYS = 14;
+const fmtMoney = (e: Engine, c: number) => `${c < 0 ? "-" : ""}${e.s.settings.currencySymbol || "Bs"} ${Math.abs(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
+
+/** Última compra pagada (venta o renovación) de cada cliente que paga (revendedor o cliente). */
+export function lastPurchaseByPayer(e: Engine): Record<Id, number> {
+  const out: Record<Id, number> = {};
+  for (const o of Object.values(e.s.orders)) {
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial) continue;
+    const pid = o.payerId ?? o.customerId;
+    if ((out[pid] ?? 0) < o.updatedAt) out[pid] = o.updatedAt;
+  }
+  return out;
 }
 
 export function summary(e: Engine, actor: Actor, range: { from: number; to: number }) {
@@ -78,7 +118,7 @@ export function summary(e: Engine, actor: Actor, range: { from: number; to: numb
       b.units += it.qty;
       b.revenue += it.qty * it.unitPrice;
     }
-    const d = new Date(o.updatedAt).toISOString().slice(0, 10);
+    const d = localDayKey(o.updatedAt);
     byDay[d] = (byDay[d] ?? 0) + o.total;
   }
   // Ingreso de caja: lo que entró de verdad (QR/efectivo + recargas). Lo pagado con saldo ya entró como recarga.
@@ -92,7 +132,8 @@ export function summary(e: Engine, actor: Actor, range: { from: number; to: numb
     byDay,
     pendingReview: Object.values(e.s.orders).filter((o) => o.status === "payment_review").length,
     stock: stockByProduct(e),
-    expiringIn7Days: Object.values(e.s.assignments).filter((a) => a.status === "active" && a.customerExpiresAt - e.now() <= 7 * DAY).length,
+    // Mismo criterio en todas las pantallas: vencen en los próximos 7 días (los ya vencidos van aparte).
+    expiringIn7Days: Object.values(e.s.assignments).filter((a) => a.status === "active" && a.customerExpiresAt >= e.now() && a.customerExpiresAt - e.now() <= 7 * DAY).length,
     /** Saldo que la tienda le debe a sus clientes (pasivo). */
     balancesOwed: customerIds.reduce((s, id) => s + balance(e, id), 0),
   };
@@ -108,7 +149,7 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const sales = (a: number, b: number) => done.filter((o) => o.kind !== "topup" && !o.trial && o.updatedAt >= a && o.updatedAt < b);
   const cur = sales(from, now + 1), prev = sales(prevFrom, from);
   const sum = (l: { total: number }[]) => l.reduce((s, o) => s + o.total, 0);
-  const dayKey = (t: number) => new Date(t).toISOString().slice(0, 10);
+  const dayKey = localDayKey;
   const nDays = Math.round(span / DAY);
   const series = Array.from({ length: nDays }, (_, i) => ({ day: dayKey(from + (i + 1) * DAY), sales: 0, renewals: 0, topups: 0 }));
   const idx = new Map(series.map((d, i) => [d.day, i]));
@@ -125,7 +166,8 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
     b.revenue += it.qty * it.unitPrice; b.units += it.qty;
   }
   const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
-  const priceOf = (a: (typeof active)[number]) => a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
+  // Lo que de verdad te pagan: precio acordado ?? lista de quien paga (revendedor) ?? precio del producto.
+  const priceOf = (a: (typeof active)[number]) => effectivePrice(e, a);
   const activeByProduct: Record<Id, { name: string; count: number; color: string }> = {};
   for (const a of active) {
     const p = e.s.products[a.productId];
@@ -135,7 +177,7 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const resellers = custs.filter((c) => c.kind === "reseller").map((c) => {
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     const spent = sum(cur.filter((o) => o.payerId === c.id));
-    return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), due7: mine.filter((a) => a.customerExpiresAt - now <= 7 * DAY).length };
+    return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), due7: mine.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length };
   }).sort((a, b) => b.monthly - a.monthly || b.services - a.services).slice(0, 8);
   const upcoming = Array.from({ length: 14 }, (_, i) => {
     const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
@@ -185,28 +227,48 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   };
 }
 
+/**
+ * Proveedores: ingreso y costo del MISMO período (últimos 30 días).
+ * Ingreso = ventas y renovaciones cobradas en esos 30 días cuyos perfiles son de cuentas del proveedor.
+ * El total de cada pedido se reparte entre sus perfiles según el precio de cada app (así los combos
+ * y los cupones también se cuentan, y la suma de todos los proveedores da el ingreso del período).
+ * Costo = costo mensual de las cuentas que estuvieron vivas en esos 30 días.
+ */
+export const SUPPLIER_PERIOD_DAYS = 30;
+export function supplierRevenueByAccount(e: Engine, from: number, to: number): Record<Id, number> {
+  const out: Record<Id, number> = {};
+  for (const o of Object.values(e.s.orders)) {
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || o.channel === "import" || o.updatedAt < from || o.updatedAt > to) continue;
+    const asg = (o.assignmentIds ?? []).map((id) => e.s.assignments[id]).filter(Boolean);
+    if (!asg.length || !o.total) continue;
+    const w = asg.map((a) => Math.max(1, e.s.products[a.productId]?.price ?? 1));
+    const wt = w.reduce((s, x) => s + x, 0);
+    asg.forEach((a, i) => {
+      const accId = e.s.slots[a.slotId]?.accountId;
+      if (accId) out[accId] = (out[accId] ?? 0) + (o.total * w[i]) / wt;
+    });
+  }
+  return out;
+}
+
 export function supplierReport(e: Engine, actor: Actor) {
   authorize(actor, "supplier.manage");
+  const now = e.now(), from = now - SUPPLIER_PERIOD_DAYS * DAY;
+  const revByAcc = supplierRevenueByAccount(e, from, now);
   return Object.values(e.s.suppliers).map((sup) => {
     const accs = Object.values(e.s.accounts).filter((a) => a.supplierId === sup.id);
     const accIds = new Set(accs.map((a) => a.id));
     const slots = Object.values(e.s.slots).filter((s) => accIds.has(s.accountId));
-    const slotIds = new Set(slots.map((s) => s.id));
-    // Ingreso atribuido: precio de cada asignación (venta) hecha sobre perfiles de este proveedor.
-    let revenue = 0;
-    for (const a of Object.values(e.s.assignments)) {
-      if (!a.history.some((h) => slotIds.has(h.slotId))) continue;
-      const o = e.s.orders[a.orderId];
-      revenue += o?.items.find((i) => i.productId === a.productId)?.unitPrice ?? 0;
-    }
-    const cost = accs.reduce((s, a) => s + a.cost, 0);
+    const revenue = Math.round(accs.reduce((s, a) => s + (revByAcc[a.id] ?? 0), 0));
+    // Costo del período: un mes de cada cuenta que estuvo viva en estos 30 días.
+    const cost = accs.filter((a) => a.status !== "retired" && a.supplierExpiresAt >= from && a.createdAt <= now).reduce((s, a) => s + a.cost, 0);
     return {
-      supplierId: sup.id, name: sup.name, active: sup.active,
+      supplierId: sup.id, name: sup.name, active: sup.active, periodDays: SUPPLIER_PERIOD_DAYS,
       accounts: accs.length, activeAccounts: accs.filter((a) => a.status === "active").length,
       slots: slots.length, assigned: slots.filter((s) => s.status === "assigned").length,
       quarantined: slots.filter((s) => s.status === "quarantined").length,
       cost, revenue, margin: revenue - cost,
-      expiringIn7Days: accs.filter((a) => a.status === "active" && a.supplierExpiresAt - e.now() <= 7 * DAY).map((a) => ({ accountId: a.id, email: a.email, expiresAt: a.supplierExpiresAt })),
+      expiringIn7Days: accs.filter((a) => a.status === "active" && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * DAY).map((a) => ({ accountId: a.id, email: a.email, expiresAt: a.supplierExpiresAt })),
     };
   });
 }

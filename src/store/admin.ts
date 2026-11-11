@@ -1,6 +1,6 @@
 // Usuarios del panel y listados para el staff.
 // El hash de contraseña lo calcula el servidor (scrypt); el núcleo solo lo guarda y nunca lo devuelve.
-import type { Account, Actor, Id, OrderStatus, StaffUser } from "./types.js";
+import type { Account, Actor, Assignment, Cents, Customer, Id, OrderStatus, StaffUser } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -65,6 +65,44 @@ export function listStaff(e: Engine, actor: Actor): PublicStaff[] {
   return Object.values(e.s.staff).map(pub);
 }
 
+/**
+ * Quién le paga a la tienda por un servicio: si el cliente es de un revendedor, paga el
+ * revendedor (con su lista de precios); si no, el propio cliente.
+ */
+export function payerOf(e: Engine, customerId: Id): Customer | undefined {
+  const c = e.s.customers[customerId];
+  const r = c?.resellerId ? e.s.customers[c.resellerId] : undefined;
+  return r ?? c;
+}
+
+/** Revendedor dueño del servicio: el propio cliente si es revendedor, o el revendedor de su cliente. */
+export function resellerOf(e: Engine, customerId: Id): Customer | undefined {
+  const c = e.s.customers[customerId];
+  if (!c) return undefined;
+  if (c.resellerId && e.s.customers[c.resellerId]) return e.s.customers[c.resellerId];
+  return c.kind === "reseller" ? c : undefined;
+}
+
+/**
+ * Lo que de verdad te pagan por un servicio en cada período: el precio acordado en Control,
+ * si no el de la lista de quien paga (revendedor) y si no el precio del producto.
+ * Es el mismo criterio que la Ficha del revendedor y que la renovación.
+ */
+export function effectivePrice(e: Engine, a: Pick<Assignment, "customerId" | "productId" | "control">): Cents {
+  if (a.control?.price !== undefined && a.control?.price !== null) return a.control.price;
+  const payer = payerOf(e, a.customerId);
+  const gid = payer?.priceGroupId ?? (payer?.kind === "reseller" ? "revendedor" : undefined);
+  return (gid ? e.s.priceGroups[gid]?.prices[a.productId] : undefined) ?? e.s.products[a.productId]?.price ?? 0;
+}
+
+/** Costo estimado de un perfil por período del producto: costo mensual de la cuenta ÷ perfiles vivos. */
+export function unitCostOf(e: Engine, accountId: Id, productId: Id, slotCount?: number): Cents {
+  const acc = e.s.accounts[accountId];
+  if (!acc || !(acc.cost > 0)) return 0;
+  const n = slotCount ?? (Object.values(e.s.slots).filter((s) => s.accountId === accountId && s.status !== "retired").length || 1);
+  return Math.round(((acc.cost / n) * (e.s.products[productId]?.durationDays || 30)) / 30);
+}
+
 export function listOrders(e: Engine, actor: Actor, f: { status?: OrderStatus; customerId?: Id; limit?: number } = {}) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
   return Object.values(e.s.orders)
@@ -85,7 +123,7 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
     .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle))
     .map((c) => {
       const mine = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
-      const priceOf = (a: typeof mine[number]) => a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
+      const priceOf = (a: typeof mine[number]) => effectivePrice(e, a);
       const owed = mine.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado").reduce((s, a) => s + priceOf(a), 0);
       const renewals = Object.values(e.s.assignments).filter((a) => a.customerId === c.id).reduce((n, a) => n + (a.history?.filter((h) => h.event === "renewed").length ?? 0), 0);
       const spent = Object.values(e.s.orders).filter((o) => o.customerId === c.id && o.status === "fulfilled" && o.kind !== "topup").reduce((s, o) => s + o.total, 0);
@@ -101,6 +139,8 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
 /** Servicios asignados (sin contraseñas) para Renovar, Recordatorios y Cuentas. */
 export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; productId?: Id; expiringWithinDays?: number } = {}) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
+  const slotsPerAcc: Record<Id, number> = {};
+  for (const s of Object.values(e.s.slots)) if (s.status !== "retired") slotsPerAcc[s.accountId] = (slotsPerAcc[s.accountId] ?? 0) + 1;
   return Object.values(e.s.assignments)
     .filter((a) => a.status === "active")
     .filter((a) => (!f.customerId || a.customerId === f.customerId) && (!f.productId || a.productId === f.productId))
@@ -109,6 +149,7 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
     .map((a) => {
       const slot = e.s.slots[a.slotId];
       const acc = e.s.accounts[slot.accountId];
+      const rev = resellerOf(e, a.customerId);
       return {
         id: a.id, customerId: a.customerId, customerName: e.s.customers[a.customerId]?.name, productId: a.productId,
         product: e.s.products[a.productId]?.name, email: acc.email, profile: slot.label, slotId: a.slotId,
@@ -116,7 +157,10 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         passwordPending: !acc.password, customerPhone: e.s.customers[a.customerId]?.phone ?? "",
         startsAt: a.control?.startedAt ?? a.startsAt, control: a.control ?? {}, productPrice: e.s.products[a.productId]?.price ?? 0, durationDays: e.s.products[a.productId]?.durationDays ?? 30,
         // El costo y las notas internas de la cuenta son del dueño/admin: Atención (seller) no los ve.
-        ...(actor.role === "seller" ? {} : { accountCost: acc.cost, accountNotes: acc.notes ?? "" }), customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
+        ...(actor.role === "seller" ? {} : { accountCost: acc.cost, accountNotes: acc.notes ?? "", estCost: unitCostOf(e, acc.id, a.productId, slotsPerAcc[acc.id]) }), customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
+        // Lo que de verdad te pagan (precio de quien paga) y de qué revendedor es el cliente.
+        effectivePrice: effectivePrice(e, a),
+        resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
       };
     });
 }
