@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — "🧪 Era una prueba"
+- **Dueño y admin:** en el Control, junto a "↩️ Devolver", el botón "🧪 Era una prueba". La venta (y sus renovaciones) sale de tus números, los perfiles vuelven libres sin cuarentena, el saldo vuelve si se pagó con saldo y no se avisa a nadie.
+- **Arreglo:** Finanzas ya no cuenta como "Entró" las ventas marcadas como prueba.
+
 ## 2026-11-11 · #32 Cómo van cuenta lo que cobrás en el Control
 - **Dueño:** "Te pagaron" en Cómo van ahora suma los alquileres que marcás 💵 cobrado en el Control, no solo las compras por GaboHub. Cada marca guarda fecha y monto; si te equivocás y la volvés a "pendiente", se borra. Las marcas que ya tenías cuentan en el día que empezó ese mes de alquiler. Lo que ya tiene pedido no se cuenta dos veces. Ya no aparecen porcentajes gigantes cuando el mes anterior fue casi cero.
 

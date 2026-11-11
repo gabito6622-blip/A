@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · "Era una prueba" en vez de liberar o devolver
+- **Qué:** marcar la venta como `trial` (igual que las pruebas gratis) y cerrar sus servicios, con el perfil `available` (sin cuarentena, porque nadie lo usó de verdad). Se marca la venta entera, aunque se toque desde un solo servicio, y también sus renovaciones. Si se pagó con saldo, vuelve como "refund".
+- **Por qué no "Liberar perfil" ni "Devolver":** liberar deja la venta contando como plata que entró; devolver acredita saldo aunque se haya pagado en efectivo.
+- **Quién:** dueño y admin (`assignment.replace`). Atención no puede.
+- **Primer uso:** las 5 ventas de prueba de la tienda real (6 servicios, Bs 100), cuando se publique.
+
 ## 2026-11-11 · Cómo van cuenta los cobros del Control
 - **Qué:** "lo que te pagó" = pedidos entregados + cobros marcados "pagado" en el Control. Cada marca nueva guarda `control.paidLog` (fecha, inicio del período, monto a su precio). Las marcas viejas, sin fecha, cuentan una vez en el inicio del período actual (vencimiento − duración).
 - **Sin duplicar:** si el servicio tiene un pedido que cuenta a menos de 20 días del cobro marcado (o del inicio de su período), la marca no suma. Un período se anota una sola vez; volver a "pendiente" borra ese cobro.

@@ -10,7 +10,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B1 | Qué compran y a cuánto los revendedores | P1 | ✅ solo alquileres: Disney 69/34, Prime 20, HBO 15 |
 | B2 | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
-| B4 | 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
+| B4 | ✅ el dueño confirmó que eran pruebas: se marcan con "🧪 Era una prueba" al publicar · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
 | B7 | Que vuelvan: ¿respetar el permiso de WhatsApp del cliente (`whatsappConsent`)? Hoy no filtra porque lo manda una persona a mano, como la fila de cobro | P2 | 🧑 |
 
