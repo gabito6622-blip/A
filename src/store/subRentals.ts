@@ -4,7 +4,7 @@
 import type { Actor, Assignment, Cents, Id, SubRental } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
+import { phoneWithCountry, renewPriceFor, visibleTo } from "./catalog.js";
 import { renewableNow } from "./orders.js";
 import { dialFor, isForeign, maxAmount, normAmount, currencyOf } from "./country.js";
 
@@ -37,7 +37,7 @@ export function listMine(e: Engine, actor: Actor) {
       return {
         assignmentId: a.id, productId: a.productId, product: (e.s.products[a.productId]?.name ?? "").replace(/ \(alquiler revendedores\)/, ""),
         email: acc?.email ?? "", expiresAt: a.customerExpiresAt, holdOpen: !!a.holdOpen,
-        cost: a.control?.price ?? priceFor(e, c.id, a.productId),
+        cost: renewPriceFor(e, c.id, a),
         canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], c.id), renewableNow: renewableNow(e, a),
         subs: (a.subs ?? []).slice().sort((x, y) => x.expiresAt - y.expiresAt).map(view),
       };

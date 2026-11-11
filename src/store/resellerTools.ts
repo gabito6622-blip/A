@@ -5,10 +5,11 @@
 import type { Actor, Cents, Id, RentalControl } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { priceFor, visibleTo } from "./catalog.js";
+import { renewPriceFor, visibleTo } from "./catalog.js";
 import { renewableNow } from "./orders.js";
 import { addPayment, chargeUnpaidRentals, history } from "./fiado.js";
-import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
+import { buyCurrency, currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
+import { orderCurrency, paidTotal, paidUnit, walletCurrency } from "./usd.js";
 
 function reseller(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
@@ -28,7 +29,7 @@ export function myControl(e: Engine, actor: Actor) {
         // Lo que le cobra: en SU moneda (su lista de precios en Bs se convierte con su tipo de cambio).
         price: a.rcontrol?.price ?? listPriceMine(e, me, a.productId) ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
-        cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
+        cost: renewPriceFor(e, me.id, a), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
       };
     });
 }
@@ -90,8 +91,10 @@ export function myEarnings(e: Engine, actor: Actor) {
   type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number; unpaid: Cents };
   const months = new Map<string, Row>();
   const apps = new Map<string, Row & { productId: Id; name: string }>();
-  const cur = monthKey(now);
-  const mine = (o: (typeof e.s.orders)[string]) => o.payerId === me.id && o.customerId !== me.id && o.status === "fulfilled" && (o.kind === "sale" || o.kind === "renewal");
+  const curMonth = monthKey(now);
+  // Lo que le costó va en su moneda de compra (Bs o US$): los pedidos que pagó en la otra moneda (antes de cambiar de lista) no se mezclan.
+  const cur = walletCurrency(e, me);
+  const mine = (o: (typeof e.s.orders)[string]) => o.payerId === me.id && o.customerId !== me.id && o.status === "fulfilled" && (o.kind === "sale" || o.kind === "renewal") && orderCurrency(o) === cur;
   // Último pedido de cada servicio: si hoy figura "Pendiente"/"No pagó", ese pedido todavía no se cobró.
   const lastOf = new Map<Id, { id: Id; at: number }>();
   for (const o of Object.values(e.s.orders)) if (mine(o)) for (const aid of o.assignmentIds) {
@@ -103,21 +106,21 @@ export function myEarnings(e: Engine, actor: Actor) {
     if (now - o.updatedAt > 370 * 86_400_000) continue;
     const k = monthKey(o.updatedAt);
     const m = months.get(k) ?? { sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
-    m.sales++; m.cost += o.total;
+    m.sales++; m.cost += paidTotal(o);
     for (const it of o.items) {
       const a = o.assignmentIds.map((id) => e.s.assignments[id]).find((x) => x && x.productId === it.productId);
       const units = o.kind === "renewal" ? 1 : it.qty;
       const periods = o.kind === "renewal" ? it.qty : (o.periods ?? 1);
       const sell = a?.rcontrol?.price ?? listPriceMine(e, me, it.productId);
-      const revenue = sell === undefined ? (split ? 0 : it.unitPrice * it.qty) : sell * units * periods;
+      const revenue = sell === undefined ? (split ? 0 : paidUnit(it) * it.qty) : sell * units * periods;
       if (sell === undefined) m.noPrice++;
       m.revenue += revenue;
       const unpaid = !!a && (a.rcontrol?.payStatus ?? "pagado") !== "pagado" && lastOf.get(a.id)?.id === o.id;
       if (unpaid) m.unpaid += revenue;
-      if (k === cur) {
+      if (k === curMonth) {
         const p = apps.get(it.productId) ?? { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
         if (unpaid) p.unpaid += revenue;
-        p.sales += units; p.cost += it.unitPrice * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
+        p.sales += units; p.cost += paidUnit(it) * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
         apps.set(it.productId, p);
       }
     }
@@ -127,11 +130,11 @@ export function myEarnings(e: Engine, actor: Actor) {
   const gain = (a: number, b: number) => (split ? null : a - b);
   const list = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
     .map(([k, m]) => ({ key: k, label: label(k), ...m, collected: m.revenue - m.unpaid, profit: gain(m.revenue, m.cost), profitCollected: gain(m.revenue - m.unpaid, m.cost) }));
-  const thisMonth = list.find((x) => x.key === cur) ?? { key: cur, label: label(cur), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: gain(0, 0), profitCollected: gain(0, 0) };
+  const thisMonth = list.find((x) => x.key === curMonth) ?? { key: curMonth, label: label(curMonth), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: gain(0, 0), profitCollected: gain(0, 0) };
   return {
     month: thisMonth, months: list,
     byApp: [...apps.values()].map((p) => ({ ...p, profit: gain(p.revenue, p.cost) })).sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue)),
     // Dos monedas: "vendiste/cobraste/te deben" en la suya, "te costó" en la de la tienda.
-    ...(split ? { split: { mine: currencyOf(e, me), store: { symbol: e.s.settings.currencySymbol || "Bs", decimals: 2 as const } } } : {}),
+    ...(split ? { split: { mine: currencyOf(e, me), store: buyCurrency(e, me) } } : {}),
   };
 }

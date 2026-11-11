@@ -3,6 +3,7 @@ import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote
 import { comoVanView } from "/panel-comovan.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
+import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint } from "/usd.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -198,7 +199,7 @@ const V = {
         ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
         ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
         ${kpi("Lo que te pagan por mes", bs(k.monthlyRecurring), `${k.activeServices} servicios · con el precio de quien paga`)}
-        ${kpi("Recargas de saldo", bs(k.topups), `saldo a favor: ${bs(k.balancesOwed)}`)}
+        ${kpi("Recargas de saldo", bs(k.topups), owedText(k))}
         ${kpi("Vencidos / sin renovar", k.overdue, `${k.due7} vencen en 7 días`, k.overdue ? "bad" : "", "control")}
         ${kpi("Pagos por revisar", k.pendingReview, k.unpaid ? `${k.unpaid} alquileres sin pagar` : "todo al día", k.pendingReview ? "warn" : "", "aprobacion")}
         ${kpi("Clientes", k.customers, `${k.resellers} revendedores · +${k.newCustomers} nuevos`)}
@@ -219,7 +220,7 @@ const V = {
         <section class="card"><h2>Últimos movimientos</h2><div class="recent">${d.recent.length ? d.recent.map((o) => `<div><div><b>${esc(o.customer || "—")}</b><small>${esc(o.product)} · ${fdt(o.at)}</small></div><div>${tag(o.kind)}<b>${bs(o.total)}</b>${o.status !== "fulfilled" ? orderPill(o.status) : ""}</div></div>`).join("") : `<div class="emptybox">Sin movimientos.</div>`}</div></section>
       </div>
       <section class="card"><h2>${icon("users")}Tus mejores revendedores</h2>${table(["Revendedor", "Servicios", "Te paga por mes", `Compró (${dd} d)`, "Saldo", "Vencen 7 d"],
-        d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${bs(r.balance)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>
+        d.resellers.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${r.services}</td><td>${bs(r.monthly)}</td><td>${bs(r.spent)}</td><td>${wal(r.balance, r.currency)}</td><td>${r.due7 ? `<span class="pp pp-warn">${r.due7}</span>` : "0"}</td></tr>`), "Todavía no tenés revendedores.")}</section>
       <section class="card helpcard"><div class="inline" style="justify-content:space-between"><div><b>📖 ¿Dudas con alguna pantalla?</b><br><small class="muted">La guía de qué sirve cada parte está en su propio lugar.</small></div><button class="pbtn sm" type="button" data-go="ayuda">Abrir la Guía ${icon("arrow")}</button></div></section>`;
   },
   async ayuda() {
@@ -438,7 +439,7 @@ const V = {
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
-        <td>${bs(o.total)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.usdtQuote ? `<br><small class="muted">≈ ${esc(String(o.usdtQuote.usdt).replace(".", ","))} USDT a Bs ${esc(String(o.usdtQuote.rate).replace(".", ","))}</small>` : ""}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
+        <td>${orderTotal(o)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.usdtQuote ? `<br><small class="muted">${o.usd !== undefined ? "" : "≈ "}${esc(String(o.usdtQuote.usdt).replace(".", ","))} USDT a Bs ${esc(String(o.usdtQuote.rate).replace(".", ","))}</small>` : ""}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
           ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. Revisalo bien antes de aprobar.</small></div>` : ""}
@@ -958,16 +959,17 @@ const V = {
       ${(() => {
         const lists = groups.filter((g) => g.id !== "final" && g.id !== "revendedor");
         const nonCombo = products.filter((p) => p.kind !== "combo");
-        const row = (g, p) => `<label class="plrow"><span>${esc(p.name)}</span><input name="pp-${esc(p.id)}" inputmode="decimal" value="${g.prices[p.id] != null ? g.prices[p.id] / 100 : ""}" placeholder="base ${p.price / 100}"></label>`;
+        const row = (g, p) => `<label class="plrow"><span>${esc(p.name)}</span><input name="pp-${esc(p.id)}" inputmode="decimal" value="${g.prices[p.id] != null ? g.prices[p.id] / 100 : ""}" placeholder="${g.currency === "USD" ? "US$" : `base ${p.price / 100}`}" aria-label="Precio de ${esc(p.name)} en ${g.currency === "USD" ? "US$" : "Bs"}"></label>`;
         return `<section class="card"><h2>🌎 Listas de precios <small>· distintos precios por país o tipo de cliente</small></h2>
           <p class="muted" style="margin:0">Creá una lista (ej.: Panamá, Paraguay), poné el precio de cada producto y asignásela al cliente en <b>Clientes</b>. Precio vacío = usa el precio base del producto.</p>
-          ${lists.map((g) => `<details class="pricelist"><summary><b>${esc(g.name)}</b> · ${Object.keys(g.prices).length} precios</summary>
+          ${lists.map((g) => `<details class="pricelist"><summary><b>${esc(g.name)}</b>${usdChip(g.currency)} · ${Object.keys(g.prices).length} precios</summary>
             <form class="form" data-pricelist="${esc(g.id)}" style="margin-top:8px">
-              <label>Nombre de la lista<input name="name" value="${esc(g.name)}" maxlength="40" required></label>
+              <label>Nombre de la lista<input name="name" value="${esc(g.name)}" maxlength="40" required></label>${currencySelect(g.currency)}
+              ${g.currency === "USD" ? `<p class="muted" style="margin:0;grid-column:1/-1">💵 Precios en <b>dólares</b>. Sus clientes ven todo en US$, tienen el saldo en US$ y pagan con saldo o USDT (1 USDT = US$ 1). Producto sin precio: no lo ven.</p>` : ""}
               <div class="pltable">${nonCombo.map((p) => row(g, p)).join("")}</div>
               <button class="pbtn dark" type="submit" style="justify-self:start">Guardar lista</button>
             </form></details>`).join("") || `<p class="muted" style="margin:0">Todavía no tenés listas. Creá la primera abajo 👇</p>`}
-          <form class="inline" id="newListForm" style="margin-top:10px"><input name="name" placeholder="Nueva lista (ej.: Panamá)" maxlength="40" required><button class="pbtn dark" type="submit">${icon("plus")}Crear lista</button></form></section>`;
+          <form class="inline" id="newListForm" style="margin-top:10px"><input name="name" placeholder="Nueva lista (ej.: Panamá)" aria-label="Nombre de la lista nueva" maxlength="40" required><select name="currency" aria-label="Moneda de la lista nueva"><option value="BOB">En Bs</option><option value="USD">En US$ (dólares)</option></select><button class="pbtn dark" type="submit">${icon("plus")}Crear lista</button></form></section>`;
       })()}
       <section class="card"><h2>Productos <small>· ${products.length} · tocá una tarjeta para editar</small></h2>
       ${products.length ? `<div class="prodgrid">${products.map((p) => {
@@ -1014,8 +1016,8 @@ const V = {
         <div class="linkbar"><span class="muted">Con su número y PIN</span><b>${esc(link.phone)} · PIN ${esc(link.pin)}</b><button class="pbtn sm" type="button" data-copy="${esc(link.pin)}">${icon("copy")}Copiar PIN</button></div>
         <div class="inline"><a class="pbtn green" href="${waLink(link.phone, `Hola ${link.name.split(" ")[0]} 👋 para entrar a ${P.settings.storeName} y ver tus servicios:\n👉 ${link.url}\n📱 Tu número: ${link.phone}\n🔑 Tu PIN: ${link.pin}\n(Guardalo; lo podés cambiar adentro.)`)}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a><button class="pbtn" type="button" data-tab="link:">Cerrar</button></div>
         <p class="muted" style="margin:0">El PIN no vence. Si lo pierde, tocá de nuevo el botón y se genera uno nuevo (el anterior deja de servir).</p></section>` : ""}
-      ${ledger ? `<section class="card"><h2>Saldo de ${esc(lc?.name)} · ${bs(lc?.balance ?? 0)} <button class="pbtn sm" type="button" data-ledger="">Cerrar</button></h2>${table(["Fecha", "Tipo", "Referencia", "Monto", "Saldo"], ledger.slice().reverse().map((m) => `<tr><td>${fdt(m.at)}</td><td>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de página", referral: "Premio por referido" }[m.type] ?? m.type)}</td><td>${esc(m.ref)}${m.note ? `<br><small class="muted">${esc(m.note)}</small>` : ""}</td><td class="${m.amount < 0 ? "down" : "up"}">${bs(m.amount)}</td><td>${bs(m.balanceAfter)}</td></tr>`), "Sin movimientos.")}
-        ${isOwner() ? `<form class="inline" id="adjForm" data-id="${esc(P.tab.ledger)}"><input name="amount" inputmode="decimal" placeholder="Monto Bs (negativo para descontar)" required><input name="reason" placeholder="Motivo" required><button class="pbtn dark sm" type="submit">Ajustar saldo</button></form>` : ""}</section>` : ""}
+      ${ledger ? `<section class="card"><h2>Saldo de ${esc(lc?.name)} · ${wal(lc?.balance ?? 0, lc?.currency)} <button class="pbtn sm" type="button" data-ledger="">Cerrar</button></h2>${table(["Fecha", "Tipo", "Referencia", "Monto", "Saldo"], ledger.slice().reverse().map((m) => `<tr><td>${fdt(m.at)}</td><td>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de página", referral: "Premio por referido" }[m.type] ?? m.type)}</td><td>${esc(m.ref)}${m.note ? `<br><small class="muted">${esc(m.note)}</small>` : ""}</td><td class="${m.amount < 0 ? "down" : "up"}">${wal(m.amount, m.cur)}</td><td>${wal(m.balanceAfter, m.cur)}</td></tr>`), "Sin movimientos.")}
+        ${isOwner() ? `<form class="inline" id="adjForm" data-id="${esc(P.tab.ledger)}"><input name="amount" inputmode="decimal" placeholder="Monto ${lc?.currency === "USD" ? "US$" : "Bs"} (negativo para descontar)" aria-label="Monto en ${lc?.currency === "USD" ? "dólares (US$)" : "Bs"}" required><input name="reason" placeholder="Motivo" required><button class="pbtn dark sm" type="submit">Ajustar saldo</button></form>` : ""}</section>` : ""}
       <section class="card"><h2>Nuevo cliente</h2><form class="form" id="cusForm"><label>Nombre<input name="name" required></label><label>WhatsApp<input name="phone" required inputmode="tel" placeholder="+591 7…"></label><label>Email (opcional)<input name="email" type="email"></label>
         <label>Tipo<select name="kind">${opt("customer", "Cliente")}${canReview() ? opt("reseller", "Revendedor") : ""}</select></label><label class="chk"><input type="checkbox" name="consent"> Aceptó recibir avisos por WhatsApp</label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       ${(() => {
@@ -1038,12 +1040,12 @@ const V = {
         if (!list.length) return `<p class="muted">${q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes."}</p>`;
         if (!shown.length) return `<p class="muted">Ningún cliente en este filtro. 👌</p>`;
         return shown.map((c) => { const dl = c.nextExpiry ? daysLeft(c.nextExpiry) : null; const since = Math.max(0, Math.round((Date.now() - c.createdAt) / 86400000));
-          return `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${tagChip(c.tag)}${c.tag ? " " : ""}${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${(c.owed ?? 0) > 0 ? `<span class="pp pp-bad">debe ${bs(c.owed)}</span> ` : ""}${c.activeServices} serv.${dl !== null ? ` · ${dl < 0 ? `<span class="pp pp-bad">venció</span>` : dl <= 7 ? `<span class="pp pp-warn">${dl}d</span>` : `vence ${dl}d`}` : ""}</span></summary>
-          <div class="clistats">${[["Servicios", c.activeServices], ["Gastó", bs(c.spent ?? 0)], ["Te debe", (c.owed ?? 0) > 0 ? `<b style="color:var(--bad)">${bs(c.owed)}</b>` : bs(0)], ["Saldo a favor", bs(c.balance)], ["Renovó", `${c.renewals ?? 0}×`], ["Próximo vence", c.nextExpiry ? fdate(c.nextExpiry) : "—"], ["Cliente desde", `${since} d`]].map(([t, v]) => `<div><small>${t}</small><b>${v}</b></div>`).join("")}</div>
-          <form class="form" data-editcusform data-id="${esc(c.id)}">
+          return `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${tagChip(c.tag)}${c.tag ? " " : ""}${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${usdChip(c.currency)}${(c.owed ?? 0) > 0 ? `<span class="pp pp-bad">debe ${bs(c.owed)}</span> ` : ""}${c.activeServices} serv.${dl !== null ? ` · ${dl < 0 ? `<span class="pp pp-bad">venció</span>` : dl <= 7 ? `<span class="pp pp-warn">${dl}d</span>` : `vence ${dl}d`}` : ""}</span></summary>
+          <div class="clistats">${[["Servicios", c.activeServices], ["Gastó", bs(c.spent ?? 0)], ["Te debe", (c.owed ?? 0) > 0 ? `<b style="color:var(--bad)">${bs(c.owed)}</b>` : bs(0)], ["Saldo a favor", wal(c.balance, c.currency)], ["Renovó", `${c.renewals ?? 0}×`], ["Próximo vence", c.nextExpiry ? fdate(c.nextExpiry) : "—"], ["Cliente desde", `${since} d`]].map(([t, v]) => `<div><small>${t}</small><b>${v}</b></div>`).join("")}</div>
+          <form class="form" data-editcusform data-id="${esc(c.id)}" data-kind0="${esc(c.kind)}" data-usdlists="${esc(priceLists.filter((g) => g.currency === "USD").map((g) => g.id).join(","))}">
             <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
             ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
-            ${canReview() && c.kind !== "reseller" && priceLists.length ? `<label>💲 Lista de precios<select name="priceList">${opt("final", "Base (precio normal)", !c.priceGroupId || c.priceGroupId === "final")}${priceLists.map((g) => opt(g.id, g.name, c.priceGroupId === g.id)).join("")}</select></label>` : ""}
+            ${canReview() && priceLists.length ? `<label>💲 Lista de precios<select name="priceList">${c.kind === "reseller" ? opt("revendedor", "Revendedor (Bs)", !c.priceGroupId || c.priceGroupId === "revendedor") : opt("final", "Base (precio normal)", !c.priceGroupId || c.priceGroupId === "final")}${priceLists.map((g) => opt(g.id, `${g.name}${g.currency === "USD" ? " · US$" : ""}`, c.priceGroupId === g.id)).join("")}</select></label>${listHint(c, priceGroups)}` : ""}
             <label>🏷️ Etiqueta<select name="tag">${opt("", "Sin etiqueta", !c.tag)}${Object.entries(CTAGS).map(([k, v]) => opt(k, v[0], c.tag === k)).join("")}</select></label>
             <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
@@ -1217,7 +1219,7 @@ const V = {
       const msg = `Hola ${fs.name.split(" ")[0]} 👋 tu resumen${app ? ` de *${app}*` : ""}:\n\n` + byAcc.map(([k, l]) => `*${k.split("|")[0]}* · ${k.split("|")[1]}\n` + l.map((x) => `• ${x.profile}${x.client ? ` – ${x.client}` : ""} – ${x.holdOpen ? "esperando fecha" : `vence ${fdate(x.expiresAt)}`} – ${bs(x.price || 0)}${PAYT[x.pay] ?? ""}`).join("\n")).join("\n\n")
         + `\n\nTotal: ${rows.length} perfil(es) · ${bs(total)}${semana ? `\nVencen esta semana: ${semana}` : ""}${venc ? `\nYa vencidos: ${venc}` : ""}${fs.owed ? `\n💸 Me debés: ${bs(fs.owed)}` : ""}${fs.codeLink ? `\n\n🔗 Códigos de tus cuentas: ${fs.codeLink}` : ""}`;
       return `<section class="card rficha"><h2>📋 Ficha de ${esc(fs.name)} <button class="pbtn sm" type="button" data-rficha="">Cerrar</button></h2>
-        <div class="ctl-kpis"><div><small>Perfiles</small><b>${rows.length}</b></div><div><small>Vencen en 7 días</small><b>${semana}</b></div><div><small>Vencidos</small><b class="${venc ? "down" : ""}">${venc}</b></div><div><small>Te debe (fiado)</small><b class="${fs.owed ? "down" : ""}">${bs(fs.owed)}</b></div><div><small>Su saldo</small><b>${bs(fs.balance)}</b></div></div>
+        <div class="ctl-kpis"><div><small>Perfiles</small><b>${rows.length}</b></div><div><small>Vencen en 7 días</small><b>${semana}</b></div><div><small>Vencidos</small><b class="${venc ? "down" : ""}">${venc}</b></div><div><small>Te debe (fiado)</small><b class="${fs.owed ? "down" : ""}">${bs(fs.owed)}</b></div><div><small>Su saldo</small><b>${wal(fs.balance, fs.currency)}</b></div></div>
         ${apps.length > 1 ? `<div class="tabs ctl-chips" role="tablist">${["", ...apps].map((a) => `<button type="button" role="tab" data-tab="rfp:${esc(a)}" aria-selected="${app === a}">${a ? esc(a) : `Todas (${fs.rows.length})`}</button>`).join("")}</div>` : ""}
         <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
           <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
@@ -1238,11 +1240,11 @@ const V = {
     const rf = T.rf ?? "todos";
     const shown2 = shown.filter((r) => rf === "todos" || (rf === "activos" && !dormido(r)) || (rf === "dormidos" && dormido(r)))
       .sort((a, b) => b.spent30 - a.spent30 || (b.lastOrderAt ?? 0) - (a.lastOrderAt ?? 0));
-    const topCard = (r) => T.rtop !== r.id ? "" : `<form class="rtopf" data-rtopf="${esc(r.id)}" data-name="${esc(r.name)}" data-bal="${r.balance}" autocomplete="off">
+    const topCard = (r) => T.rtop !== r.id ? "" : `<form class="rtopf" data-rtopf="${esc(r.id)}" data-name="${esc(r.name)}" data-bal="${r.balance}" data-cur="${esc(r.currency ?? "")}" autocomplete="off">
           <b>💰 Cargar saldo a ${esc(r.name)}</b>
-          <label>Monto (${currencySym()}) <small class="muted">en negativo para descontar</small><input name="amount" inputmode="decimal" required placeholder="Ej.: 100" data-rtopamt="1"></label>
+          <label>Monto (${r.currency === "USD" ? "US$" : currencySym()}) <small class="muted">en negativo para descontar</small><input name="amount" inputmode="decimal" required placeholder="Ej.: 100" data-rtopamt="1"></label>
           <label>Motivo<input name="reason" maxlength="120" value="Recarga de saldo (panel)" required></label>
-          <div class="rtopprev" aria-live="polite">Saldo de ${esc(r.name.split(" ")[0])}: <b>${bs(r.balance)}</b> → <b>…</b></div>
+          <div class="rtopprev" aria-live="polite">Saldo de ${esc(r.name.split(" ")[0])}: <b>${wal(r.balance, r.currency)}</b> → <b>…</b></div>
           <div class="inline"><button class="pbtn dark" type="submit" disabled>Escribí el monto</button><button class="pbtn" type="button" data-tab="rtop:">Cancelar</button></div></form>`;
     // Invitar a todos: una fila guiada. Primero los que nunca entraron; a los que ya entraron no se les cambia el PIN.
     const inv = (T.inv ??= { on: false, all: false, i: 0, done: {} });
@@ -1309,7 +1311,7 @@ const V = {
       ${shown2.length ? `<div class="rgrid">${shown2.map((r) => `<div class="rcard${dormido(r) ? " rsleep" : ""}">
         <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
         ${r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
-        <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${bs(r.balance)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
+        <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${wal(r.balance, r.currency)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
         ${canReview() ? resellerCountryRow(r) : ""}
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
@@ -2602,11 +2604,11 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.wastest) {
     if (!confirm(`¿La venta de ${el.dataset.name || "este cliente"} era una prueba?\n\nSe cierra el servicio (y los otros de esa misma venta), el perfil vuelve a estar libre y la venta sale de tus números. No se le avisa a nadie.`)) return;
-    return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);
+    return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refundedUsd ? ` · ${usd(r.refundedUsd)} vuelven a su saldo en dólares` : r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);
   }
   if (d.refund) {
     if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
-    return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${bs(r.amount)} al saldo (${r.remaining} días que faltaban)`);
+    return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${wal(r.amount, r.currency)} al saldo (${r.remaining} días que faltaban)`);
   }
   if (d.pmedit !== undefined) { P.tab.pmEdit = d.pmedit || null; return render(); }
   if (d.pmqrdel) return act(() => api("POST", `/api/admin/paymethods/${d.pmqrdel}/qr`, { remove: true }), "QR quitado");
@@ -2674,9 +2676,9 @@ document.addEventListener("input", (ev) => {
   if (!f || ev.target.name !== "amount") return;
   const v = toCents(ev.target.value || "0"), bal = Number(f.dataset.bal), name = f.dataset.name.split(" ")[0];
   const prev = f.querySelector(".rtopprev"), btn = f.querySelector('button[type="submit"]');
-  const ok = Number.isFinite(v) && v !== 0;
+  const ok = Number.isFinite(v) && v !== 0, m = (c) => wal(c, f.dataset.cur);
   prev.className = `rtopprev ${ok && v < 0 ? "neg" : ""}`;
-  prev.innerHTML = `Saldo de ${esc(name)}: <b>${bs(bal)}</b> → <b>${ok ? bs(bal + v) : "…"}</b>${ok && v < 0 ? ` <span class="pp pp-bad">Descuento de ${bs(-v)}</span>` : ""}`;
+  prev.innerHTML = `Saldo de ${esc(name)}: <b>${m(bal)}</b> → <b>${ok ? m(bal + v) : "…"}</b>${ok && v < 0 ? ` <span class="pp pp-bad">Descuento de ${m(-v)}</span>` : ""}`;
   btn.disabled = !ok;
   btn.className = `pbtn ${ok && v < 0 ? "danger" : "dark"}`;
   btn.textContent = !ok ? "Escribí el monto" : v < 0 ? `Confirmar: descontarle ${bs(-v)} a ${name}` : `Confirmar: cargarle ${bs(v)} a ${name}`;
@@ -3043,7 +3045,14 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "editCusForm" || f.dataset.editcusform !== undefined) {
       const body = { name: f.name.value, phone: f.phone.value, email: f.email.value, notes: f.notes.value };
       if (f.tag) body.tag = f.tag.value;
-      if (f.kind) { body.kind = f.kind.value; body.priceGroupId = f.kind.value === "reseller" ? "revendedor" : (f.priceList?.value || "final"); }
+      // La lista elegida (también para revendedores: p. ej. la lista en dólares). Si cambia el tipo, la base de ese tipo.
+      if (f.kind) {
+        body.kind = f.kind.value;
+        const pl = f.priceList?.value, base = f.kind.value === "reseller" ? "revendedor" : "final";
+        // Al cambiar de tipo vuelve a la lista base de ese tipo, salvo una lista en dólares (cambiarla movería la moneda de su saldo).
+        const keep = pl && pl !== "final" && pl !== "revendedor" && (f.kind.value === f.dataset.kind0 || (f.dataset.usdlists || "").split(",").includes(pl));
+        body.priceGroupId = keep ? pl : base;
+      }
       await api("POST", `/api/admin/customers/${f.dataset.id}`, body);
       await api("POST", `/api/admin/customers/${f.dataset.id}/consent`, { whatsapp: f.consent.checked });
       P.tab.editCus = null;
@@ -3072,11 +3081,12 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "newListForm") {
       const name = f.name.value.trim();
       const base = name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "lista";
-      await act(() => api("POST", "/api/admin/price-groups", { id: "lp-" + base, name, prices: {} }), `Lista "${name}" creada`);
+      const currency = f.currency?.value === "USD" ? "USD" : "BOB";
+      await act(() => api("POST", "/api/admin/price-groups", { id: "lp-" + base, name, prices: {}, currency }), `Lista "${name}" creada${currency === "USD" ? " en dólares" : ""}`);
     } else if (f.dataset.pricelist) {
       const prices = {};
       for (const inp of f.querySelectorAll('input[name^="pp-"]')) { const v = inp.value.trim(); if (v !== "") { const c = toCents(v); if (Number.isFinite(c) && c >= 0) prices[inp.name.slice(3)] = c; } }
-      await act(() => api("POST", "/api/admin/price-groups", { id: f.dataset.pricelist, name: f.name.value.trim(), prices }), "Lista de precios guardada");
+      await act(() => api("POST", "/api/admin/price-groups", { id: f.dataset.pricelist, name: f.name.value.trim(), prices, ...(f.currency ? { currency: f.currency.value } : {}) }), "Lista de precios guardada");
     } else if (f.id === "iptvForm") {
       const mode = f.mode.value;
       const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
@@ -3190,10 +3200,10 @@ document.addEventListener("submit", async (ev) => {
       if (!confirm(`¿Poner precio de revendedor a ${n} producto(s) con ${pct}% de descuento?${warn}`)) return;
       await act(() => api("POST", "/api/admin/price-groups", rev), `Listo: ${n} producto(s) con precio de revendedor`);
     } else if (f.dataset.rtopf) {
-      const v = toCents(f.amount.value || "0"), name = f.dataset.name, bal = Number(f.dataset.bal);
+      const v = toCents(f.amount.value || "0"), name = f.dataset.name, bal = Number(f.dataset.bal), m = (c) => wal(c, f.dataset.cur);
       if (!Number.isFinite(v) || v === 0) { toast("Escribí un monto distinto de 0"); return; }
-      if (v < 0 && !confirm(`¿Descontarle ${bs(-v)} a ${name}?\nSu saldo queda en ${bs(bal + v)}.`)) return;
-      await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${bs(bal)} → ${bs(bal + v)}`);
+      if (v < 0 && !confirm(`¿Descontarle ${m(-v)} a ${name}?\nSu saldo queda en ${m(bal + v)}.`)) return;
+      await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${m(bal)} → ${m(bal + v)}`);
     } else if (f.id === "resCfg") {
       await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {

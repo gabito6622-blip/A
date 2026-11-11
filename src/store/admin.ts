@@ -4,6 +4,7 @@ import type { Account, Actor, Assignment, Cents, Customer, Id, OrderStatus, Staf
 import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { isUsd, rateNow, usdToBs } from "./usd.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -89,6 +90,12 @@ export function resellerOf(e: Engine, customerId: Id): Customer | undefined {
  * Es el mismo criterio que la Ficha del revendedor y que la renovación.
  */
 export function effectivePrice(e: Engine, a: Pick<Assignment, "customerId" | "productId" | "control">): Cents {
+  // Quien paga está en la lista en dólares: te paga su precio fijo en US$ (así renueva); acá va en Bs con la tasa de hoy.
+  const who = payerOf(e, a.customerId) ?? e.s.customers[a.customerId];
+  if (who && isUsd(e, who)) {
+    const usd = e.s.priceGroups[who.priceGroupId]?.prices[a.productId], r = rateNow(e);
+    if (usd !== undefined && r) return usdToBs(usd, r);
+  }
   if (a.control?.price !== undefined && a.control?.price !== null) return a.control.price;
   const payer = payerOf(e, a.customerId);
   const gid = payer?.priceGroupId ?? (payer?.kind === "reseller" ? "revendedor" : undefined);
@@ -134,6 +141,8 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
       return {
         ...structuredClone(c),
         balance: e.s.ledger.reduce((s, l) => (l.customerId === c.id ? s + l.amount : s), 0),
+        // Moneda de su saldo: "USD" = lista en dólares (el panel lo muestra "US$ 13,00"). Gastó y Te debe, en Bs.
+        currency: isUsd(e, c) ? "USD" as const : "BOB" as const,
         activeServices: mine.length, owed, spent, renewals, nextExpiry,
       };
     });

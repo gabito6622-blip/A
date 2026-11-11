@@ -27,6 +27,7 @@ import * as watch from "./watch.js";
 import * as winback from "./winback.js";
 import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
+import * as usd from "./usd.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -70,6 +71,14 @@ export function createStore(opts: EngineOptions = {}) {
       selfRegister: bind(e, catalog.selfRegister),
       registerWithEmail: bind(e, catalog.registerWithEmail),
       canActFor: bind(e, catalog.canActFor),
+      renewPriceFor: bind(e, catalog.renewPriceFor),
+    },
+    /** Lista en dólares (usd.ts): moneda de compra/saldo de un cliente y conversión con la tasa. */
+    usd: {
+      currency: (customerId: Id) => usd.currencyView(e, e.s.customers[customerId]),
+      isUsd: (customerId: Id) => usd.isUsd(e, customerId),
+      rate: () => usd.rateNow(e),
+      toBs: (usdCents: Cents, rate: number) => usd.usdToBs(usdCents, rate),
     },
     inventory: {
       addAccount: bind(e, inventory.addAccount),

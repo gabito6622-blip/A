@@ -10,10 +10,13 @@
 //  - Nunca se suma plata de dos monedas en una misma cifra: si una pantalla junta las dos, van dos
 //    totales separados.
 // Los montos se guardan igual que siempre: enteros ×100 (₲ 35.000 = 3500000).
+// Revendedor en la lista en dólares (usd.ts): su "moneda de la tienda" (lo que compra, su saldo, su
+// lista de precios) es US$, y su tipo de cambio se lee "1 US$ = N de su moneda" (ej.: 1 US$ = 7.300 ₲).
 import type { Actor, Cents, Customer, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { USD, isUsd } from "./usd.js";
 
 export type CountryCode = "BO" | "PY" | "AR" | "PE" | "CL" | "XX";
 
@@ -26,7 +29,7 @@ export interface ResellerLocale {
   symbol: string;
   /** Decimales de su moneda: 2 (Bs, S/, $ argentino) o 0 (₲, $ chileno). */
   decimals: 0 | 2;
-  /** Tipo de cambio que pone él: 1 Bs = `rate` de su moneda. Sirve para mostrar en su página los productos de la tienda. */
+  /** Tipo de cambio que pone él: 1 [su moneda de compra: Bs, o US$ si está en la lista en dólares] = `rate` de su moneda. Sirve para mostrar en su página los productos de la tienda. */
   rate?: number;
 }
 
@@ -44,15 +47,21 @@ export interface Currency { symbol: string; decimals: 0 | 2 }
 /** Moneda de la tienda (la de todo lo que se le compra a Gabriel). */
 export const storeCurrency = (e: Engine): Currency => ({ symbol: e.s.settings.currencySymbol || "Bs", decimals: 2 });
 
-/** País y moneda del revendedor (Bolivia con la moneda de la tienda si nunca lo cambió). */
+/**
+ * Su moneda de compra: en la que le compra a la tienda y tiene el saldo. Bs (la de la tienda) o, si
+ * está en la lista en dólares, US$. No confundir con SU moneda (la de sus clientes, `localeOf`).
+ */
+export const buyCurrency = (e: Engine, c: Customer | undefined): Currency => (isUsd(e, c) ? { symbol: USD.symbol, decimals: 2 } : storeCurrency(e));
+
+/** País y moneda del revendedor (Bolivia con su moneda de compra si nunca lo cambió). */
 export function localeOf(e: Engine, c: Customer | undefined): ResellerLocale {
   if (c?.locale) return c.locale;
-  return { country: "BO", dial: "591", symbol: storeCurrency(e).symbol, decimals: 2 };
+  return { country: "BO", dial: "591", symbol: buyCurrency(e, c).symbol, decimals: 2 };
 }
 
-/** ¿Su moneda es distinta de la de la tienda? Entonces sus montos nunca se suman con los de la tienda. */
+/** ¿Su moneda es distinta de su moneda de compra? Entonces sus montos nunca se suman con los de la tienda. */
 export function isForeign(e: Engine, c: Customer | undefined): boolean {
-  const l = localeOf(e, c), s = storeCurrency(e);
+  const l = localeOf(e, c), s = buyCurrency(e, c);
   return l.symbol !== s.symbol || l.decimals !== s.decimals;
 }
 
@@ -119,7 +128,7 @@ export function dialFor(e: Engine, actor: Actor | undefined): string {
 /** Lo que ve el propio revendedor (y el dueño en su ficha). */
 export function localeView(e: Engine, c: Customer) {
   const l = localeOf(e, c);
-  return { ...l, name: l.country === "XX" ? "Otro país" : COUNTRIES[l.country].name, flag: l.country === "XX" ? "🌎" : COUNTRIES[l.country].flag, foreign: isForeign(e, c), store: storeCurrency(e) };
+  return { ...l, name: l.country === "XX" ? "Otro país" : COUNTRIES[l.country].name, flag: l.country === "XX" ? "🌎" : COUNTRIES[l.country].flag, foreign: isForeign(e, c), store: buyCurrency(e, c) };
 }
 
 function clean(raw: Record<string, unknown>, prev: ResellerLocale | undefined): ResellerLocale {
@@ -138,7 +147,7 @@ function clean(raw: Record<string, unknown>, prev: ResellerLocale | undefined): 
   const out: ResellerLocale = { country, dial, symbol, decimals };
   const r = raw.rate === undefined ? (changedCountry ? undefined : prev?.rate) : raw.rate === null || raw.rate === "" ? undefined : Number(String(raw.rate).replace(",", "."));
   if (r !== undefined) {
-    if (!Number.isFinite(r) || r <= 0 || r > 1_000_000) throw new DomainError("VALIDATION", "Tipo de cambio: un número mayor a 0 (ej.: 1 Bs = 1050)");
+    if (!Number.isFinite(r) || r <= 0 || r > 1_000_000) throw new DomainError("VALIDATION", "Tipo de cambio: un número mayor a 0 (ej.: 1 Bs = 1050, o 1 US$ = 7300)");
     out.rate = Math.round(r * 10_000) / 10_000;
   }
   return out;
@@ -149,7 +158,7 @@ function apply(e: Engine, actor: Actor, c: Customer, raw: Record<string, unknown
   return e.tx(() => {
     const cur = e.s.customers[c.id];
     // Bolivia con la moneda de la tienda y sin tipo de cambio = lo de siempre: no se guarda nada.
-    const plain = next.country === "BO" && next.dial === "591" && next.symbol === storeCurrency(e).symbol && next.decimals === 2 && next.rate === undefined;
+    const plain = next.country === "BO" && next.dial === "591" && next.symbol === buyCurrency(e, cur).symbol && next.decimals === 2 && next.rate === undefined;
     if (plain) delete cur.locale; else cur.locale = next;
     e.audit(actor, "reseller.locale", "customer", cur.id, { country: next.country, symbol: next.symbol, decimals: next.decimals, rate: next.rate ?? null });
     return localeView(e, cur);
