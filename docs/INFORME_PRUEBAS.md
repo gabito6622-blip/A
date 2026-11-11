@@ -8,6 +8,8 @@
 | Seguridad y plata | `test/seguridad-plata.test.mjs` (12): todas las rutas `/api/me*` leídas del código y recorridas como cliente final en Bs y en US$; 16 intentos cruzados entre revendedores; precio en US$; monedas | ✅ (11 de 12 fallaban con el código anterior) |
 | Ficha en US$ | `test/ficha-usd.test.mjs` | ✅ |
 | Renovar con su revendedor | `test/renovar-con-revendedor.test.mjs` (2) + navegador: la clienta de Ariana ve "Renovar con Ariana Streaming" y "Ver su página", sin precio, 0 errores | ✅ |
+| Afuera completo | `test/afuera-completo.test.mjs` (9): "7.300", Panamá, avisos a 3 días, aislamiento de cuentas propias, aviso diario con push falso (1 por día), Argentina en wa.me, navegador a 360 px para Paraguay, Panamá y Bolivia | ✅ (434/434 integrado) |
+| Final integrado | Paraguay en la lista US$ a 360 px ve el aviso del tipo de cambio, sin desborde; panel del dueño sin desborde; tarjeta de la tasa en Inicio; 0 errores | ✅ |
 | Al integrar | 1 choque de imports en `panel.js` (se conservaron los dos). Cruces arreglados: ficha en Bs para revendedor en US$; precio en US$ como nota | ✅ |
 
 

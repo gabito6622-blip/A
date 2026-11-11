@@ -7,6 +7,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Dueño · "📋 Cargar sus cuentas":** en la ficha de cada revendedor pegás la lista de correos que ya le vendiste (con fecha y precio, opcionales), ves cómo queda con ✅/⚠️ y guardás todo de una. No cobra, no avisa, no duplica y no dice de quién es una cuenta ajena.
 - **Seguridad:** el cliente de un revendedor ya no ve lo que pagó su revendedor (Mis pedidos, Mis cuentas, bot, avisos). Al renovar, tampoco recibe tus datos internos del Control.
 - **Renovar con su revendedor:** el cliente de un revendedor ve "Renovar con <revendedor>" (su WhatsApp) y su página; ya no ve tu precio de tienda ni puede renovar directo.
+- **Revendedor de afuera:** tarjeta "🌎 Mi país, moneda y tipo de cambio" en su Inicio, con aviso si le falta el tipo de cambio y un ejemplo en vivo ("Disney + ESPN te cuesta US$ 7 ≈ ₲ 51.100"). Avisos de sus cuentas propias en "Tu día" y en el aviso diario al celular (uno por día). Afiches en su moneda. Panamá en la lista de países (US$). "7.300" se lee como 7300. Celulares de Argentina con el 9 en WhatsApp.
 - **Dólares:** "Te paga US$" en el Control para quienes pagan en dólares. Bot, Excel, asistente de IA, "Que vuelvan" y la ficha del revendedor hablan en US$ a quien paga en dólares.
 
 ## 2026-11-11 · #34 Lista de precios en dólares (Panamá y Paraguay)
