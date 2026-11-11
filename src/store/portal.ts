@@ -10,6 +10,7 @@ import { isUsd } from "./usd.js";
 import { balance } from "./wallet.js";
 import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
+import { resellerContact } from "./myReseller.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
@@ -41,6 +42,8 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
           renewableNow: renewableNow(e, a),
           renewPrice: renewPriceFor(e, actor.customerId!, a),
+          // Su propio servicio y tiene revendedor: renueva con él (no ve el precio de la tienda).
+          ...(a.customerId === actor.customerId && resellerContact(e, a.customerId) ? { viaReseller: resellerContact(e, a.customerId), renewPrice: null } : {}),
         };
       });
     if (out.length) e.audit(actor, "credentials.view", "assignment", out.map((o) => o.assignmentId).join(","));

@@ -20,6 +20,7 @@ import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
+import { resellerOf } from "./myReseller.js";
 import { bsToUsd, isUsd, paidTotal, refundToWallet, requireRate, usdToBs } from "./usd.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
@@ -497,6 +498,9 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
     else {
       requireActFor(e, actor, a.customerId);
+      // El cliente de un revendedor renueva con su revendedor (el revendedor sí puede renovarle desde su panel).
+      const via = actor.customerId === a.customerId ? resellerOf(e, a.customerId) : undefined;
+      if (via) throw new DomainError("FORBIDDEN", `Este servicio lo renueva tu revendedor: escribile a ${via.shop?.title || via.name}`);
       const prod = e.s.products[a.productId];
       if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }

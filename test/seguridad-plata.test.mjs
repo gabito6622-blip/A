@@ -94,7 +94,7 @@ describe("B16: precio acordado en US$ en el Control", () => {
 });
 
 describe("B15: el cliente final no ve el costo de su revendedor (núcleo)", () => {
-  test("Mis pedidos sin montos de lo que pagó su revendedor; renovar por su cuenta cobra SU precio, no el acordado", () => {
+  test("Mis pedidos sin montos de lo que pagó su revendedor; para renovar lo mandamos a su revendedor (no ve ningún precio)", () => {
     const { s, ana, cA, as } = core();
     const o = s.orders.create(as(ana), { customerId: cA.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
     const aid = o.assignmentIds[0];
@@ -103,11 +103,10 @@ describe("B15: el cliente final no ve el costo de su revendedor (núcleo)", () =
     const orders = s.portal.orders(me);
     assert.deepEqual(orders.map((x) => [x.total, x.paidBy, x.method]), [[null, "reseller", undefined]]);
     const svc = s.portal.services(me)[0];
-    assert.equal(svc.renewPrice, 3500, "ve su precio de tienda, no el acordado con Ana");
-    // Si renueva él mismo, paga su precio (no el costo de Ana).
-    const r = s.orders.renew(me, aid, { paymentMethod: "qr" });
-    assert.equal(r.order.total, 3500);
-    assert.equal(s.portal.orders(me).find((x) => x.id === r.order.id).total, 3500, "lo que pagó él sí lo ve");
+    // Decisión del dueño (11/11): el cliente de un revendedor renueva con su revendedor. No ve ni el costo ni el precio de la tienda.
+    assert.equal(svc.renewPrice, null, "no ve ningún precio");
+    assert.match(svc.viaReseller.name, /^Ana/);
+    assert.throws(() => s.orders.renew(me, aid, { paymentMethod: "qr" }), (e) => e.code === "FORBIDDEN" && /Ana/.test(e.message));
     // Ana sigue viendo todo lo suyo.
     assert.equal(s.portal.orders(as(ana)).find((x) => x.id === o.id).total, COST_BS);
     assert.equal(s.portal.services(as(ana)).find((x) => x.assignmentId === aid).renewPrice, AGREED_BS);
@@ -268,12 +267,9 @@ test("por la API: el cliente final de un revendedor (Bs y US$) no ve el costo en
       assert.ok(orders.length && orders.every((o) => o.total === null && o.paidBy === "reseller"), JSON.stringify(orders));
       // No toca el pedido de su revendedor.
       if (other === cA) {
-        // Si renueva por su cuenta: paga su precio de tienda y la respuesta no trae el Control del dueño
-        // (precio acordado con Ana = costo de Ana, costo de la cuenta, notas internas).
+        // Decisión del dueño: no renueva directo, lo mandamos a su revendedor. El rechazo tampoco filtra montos.
         const rn = await C("POST", "/api/me/renew", { assignmentId: oA.assignmentIds[0], paymentMethod: "qr" });
-        assert.equal(rn.status, 200, rn.text);
-        assert.equal(rn.body.order.total, 3500);
-        assert.equal(rn.body.assignment.control, undefined);
+        assert.equal(rn.status, 403, rn.text);
         assert.doesNotMatch(rn.text, leakRe);
         assert.equal((await C("POST", `/api/orders/${oQ.id}/cancel`)).status, 403);
         assert.equal((await C("POST", `/api/orders/${oQ.id}/evidence`, { contentBase64: PNG.toString("base64"), declaredReference: "1" })).status, 403);
