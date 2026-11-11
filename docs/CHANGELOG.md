@@ -3,7 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Repartir perfiles (rama `repartir-perfiles`)
+## Sin publicar — Invitar a todos y Pegar mi lista (rama `sorpresa`)
+- **Dueño:** "📲 Invitar a tus revendedores": fila guiada que genera el PIN y deja listo el WhatsApp de cada uno (con el link a /hub y cómo usar Repartir perfiles). Por defecto solo a quienes no tienen PIN; a los que ya lo tienen no se les cambia. El panel ahora sabe quién tiene PIN y cuándo entró por última vez.
+- **Revendedor:** "📋 Pegar mi lista" en cada cuenta alquilada: pega su lista de WhatsApp o cuaderno (nombre, perfil, número con o sin +591, fecha "15/12" o "3 de enero", precio "Bs15"/"15bs", "debe"/"no pagó") y la revisa antes de guardar. Pegar la misma lista dos veces no duplica.
+
+## 2026-11-11 · #27 Repartir perfiles
 - **Revendedor:** nueva pestaña "🧩 Repartir perfiles": en cada cuenta completa que alquila anota quién está en cada perfil (nombre, WhatsApp, vencimiento, precio, si pagó), avisa por WhatsApp, renueva +30 días y ve si le cubre lo que le cuesta la cuenta. Se suma a Avisar, Quién me debe, Mis ganancias, Tu día y al aviso diario al celular.
 - **Privacidad:** el dueño no ve estos datos (ni en pantallas ni en respuestas de la API).
 

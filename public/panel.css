@@ -1030,3 +1030,9 @@ table.ctl tfoot td.ccli{z-index:3}
 .rcard.rsleep{border-style:dashed}
 .bulkres summary{cursor:pointer;list-style:none}.bulkres summary::-webkit-details-marker{display:none}
 .bulkres summary h2::after{content:" ▾";color:var(--muted)}
+
+/* Invitar a todos los revendedores */
+.invite{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.invstep{display:grid;gap:10px}
+.invstep>div:first-child{display:grid;gap:2px}
+.invstep b{font-size:20px}

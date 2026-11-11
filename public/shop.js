@@ -861,6 +861,48 @@ const subAvisar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 tu ${produc
 const subCobrar = (s, product) => `Hola ${s.name.split(" ")[0]} 👋 te recuerdo el pago de tu ${product}${s.label ? ` (${s.label})` : ""}${s.price ? `: ${bs(s.price)}` : ""}. ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
 /** Perfiles de todas sus cuentas, con la cuenta a la que pertenecen. */
 const allSubs = () => (S.data.rsubs?.list ?? []).flatMap((r) => r.subs.map((s) => ({ ...s, aid: r.assignmentId, product: r.product, accExp: r.expiresAt })));
+/** "Pegar mi lista": entiende líneas como "Rosa 71112233 15/12 Bs15 debe" o "Perfil 2 - Juan - 72223344 - 20/12 - 15". */
+const MESES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12 };
+function parseSubLines(text, defExp) {
+  const now = new Date();
+  // Palabras sueltas (con tildes): \b no sirve con "ó", por eso se usan espacios como borde.
+  const word = (re) => new RegExp(`(^|\\s)(${re})(?=\\s|$)`, "iu");
+  return String(text ?? "").split(/\r?\n/).map((raw) => raw.trim()).filter(Boolean).slice(0, 10).map((raw) => {
+    let t = ` ${raw.replace(/[–—]/g, "-")} `;
+    let phone = "", exp = null, price = null, pay = "pagado", label = "";
+    const lb = t.match(/(?:^|\s)(?:perfil|p)\s*(\d{1,2})(?=\s|$|[-,;:])/i);
+    if (lb) { label = `Perfil ${lb[1]}`; t = t.replace(lb[0], " "); }
+    const ph = t.match(/(?:\+?\s*591[\s-]*)?([67](?:[\s-]?\d){7})(?!\d)/);
+    if (ph) { phone = "+591" + ph[1].replace(/\D/g, ""); t = t.replace(ph[0], " "); }
+    const dm = t.match(/(\d{1,2})([\/.-])(\d{1,2})(?:\2(\d{2,4}))?(?!\d)/);
+    const dn = !dm && t.match(/(\d{1,2})\s+(?:de\s+)?(ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)[a-zñ]*\.?/i);
+    if (dm || dn) {
+      const day = +(dm ? dm[1] : dn[1]), mon = dm ? +dm[3] : MESES[dn[2].toLowerCase()];
+      let yr = dm?.[4] ? +dm[4] : now.getFullYear(); if (yr < 100) yr += 2000;
+      let d = new Date(yr, mon - 1, day, 23, 59);
+      if (!dm?.[4] && d.getTime() < now.getTime() - 60 * 86_400_000) d = new Date(yr + 1, mon - 1, day, 23, 59);
+      if (day >= 1 && day <= 31 && mon >= 1 && mon <= 12) exp = d.getTime();
+      t = t.replace((dm || dn)[0], " ");
+    }
+    if (word("no\\s*pag[oó]|no\\s*pago").test(t)) { pay = "no_pago"; t = t.replace(word("no\\s*pag[oó]|no\\s*pago"), " "); }
+    else if (word("debe|pendiente|fiado|falta").test(t)) { pay = "pendiente"; t = t.replace(word("debe|pendiente|fiado|falta"), " "); }
+    t = t.replace(new RegExp(word("pag[oó]|pagado|ok|listo").source, "giu"), " ").replace(/✅/g, " ");
+    const pr = t.match(/bs\.?\s*(\d{1,4}(?:[.,]\d{1,2})?)|(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:bs|bob)(?![a-z])/i) || t.match(/(?:^|[\s-])(\d{1,3})(?=[\s-]|$)/);
+    if (pr) { price = Math.round(parseFloat((pr[1] || pr[2]).replace(",", ".")) * 100); t = t.replace(pr[0], " "); }
+    const name = t.replace(/[^\p{L}\s'.]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    return { raw, name, phone, label, expiresAt: exp ?? defExp, price, pay, sinFecha: exp === null, ok: !!name };
+  });
+}
+function pasteBox(r) {
+  const P2 = S.data.paste, rows = P2.rows ?? [];
+  const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
+  return `<div class="pastebox"><b>📋 Pegá tu lista (una persona por línea)</b>
+    <small class="empty">Copiala de tu WhatsApp o cuaderno, como la tengas. Ej.: <code>Rosa 71112233 15/12 Bs15 debe</code> · <code>Perfil 2 Juan 72223344 20/12 15</code>. Hasta 10 por cuenta.</small>
+    <textarea id="pasteTxt" rows="5" placeholder="Rosa 71112233 15/12 Bs15&#10;Juan 72223344 20/12 15 debe">${esc(P2.text ?? "")}</textarea>
+    <div class="rbtns"><button class="sbtn sm" type="button" data-pastecheck="1">👀 Revisar</button><button class="sbtn sm" type="button" data-paste="">Cancelar</button></div>
+    ${rows.length ? `<div class="pasteprev">${rows.map((x) => `<div class="${x.ok ? "" : "bad"}"><b>${x.ok ? esc(x.name) : "⚠️ Sin nombre"}</b><small>${esc(x.label || "Perfil nuevo")} · ${x.phone ? esc(x.phone.replace(/^\+591/, "")) : "sin WhatsApp"} · vence ${fdate(x.expiresAt)}${x.sinFecha ? " (la de tu alquiler)" : ""}${x.price != null ? ` · ${bs(x.price)}` : ""} · ${PAY[x.pay]}</small><small class="empty">“${esc(x.raw)}”</small></div>`).join("")}</div>
+      <button class="sbtn pri" type="button" data-pastesave="1" ${rows.some((x) => x.ok) ? "" : "disabled"}>✅ Guardar ${rows.filter((x) => x.ok).length} perfil(es)</button>` : ""}</div>`;
+}
 function rSubsView() {
   const d = S.data.rsubs;
   if (!d) return `<div class="sbox"><p class="empty" style="margin:0">Cargando…</p></div>`;
@@ -885,7 +927,9 @@ function rSubsView() {
         ${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
         <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${bs(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
           ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
-        <details class="subadd" ${r.subs.length ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details></article>`; }).join("")}</div>`;
+        <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
+        <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
+        ${S.data.paste?.aid === r.assignmentId ? pasteBox(r) : ""}</article>`; }).join("")}</div>`;
 }
 function resellerView() {
   const clients = S.data.customers ?? [];
@@ -1870,6 +1914,30 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.rselclear) { S.data.rsel = []; return render(); }
   if (d.rrclose) { S.data.renewResult = null; return render(); }
+  if (d.paste !== undefined) { S.data.paste = d.paste ? { aid: d.paste, text: "", rows: [] } : null; render(); $("#pasteTxt")?.focus(); return; }
+  if (d.pastecheck) {
+    const acc = (S.data.rsubs?.list ?? []).find((r) => r.assignmentId === S.data.paste?.aid);
+    S.data.paste.text = $("#pasteTxt")?.value ?? "";
+    S.data.paste.rows = parseSubLines(S.data.paste.text, acc?.expiresAt ?? Date.now() + 30 * 86_400_000);
+    if (!S.data.paste.rows.length) toast("Pegá al menos una línea");
+    return render();
+  }
+  if (d.pastesave) {
+    const P2 = S.data.paste, ok = (P2?.rows ?? []).filter((x) => x.ok);
+    el.disabled = true;
+    let n = 0; const bad = [];
+    const have = (S.data.rsubs?.list ?? []).find((r) => r.assignmentId === P2.aid)?.subs ?? [];
+    for (const x of ok) {
+      // Si ya estaba anotado con ese nombre, se actualiza (pegar la misma lista dos veces no duplica).
+      const prev = have.find((h) => h.name.trim().toLowerCase() === x.name.trim().toLowerCase());
+      try { await api("POST", `/api/me/subs/${P2.aid}`, { ...(prev ? { id: prev.id } : {}), name: x.name, phone: x.phone, label: x.label, expiresAt: x.expiresAt, price: x.price, pay: x.pay }); n++; }
+      catch (e) { bad.push(`${x.name}: ${e.message}`); }
+    }
+    S.data.paste = null;
+    S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
+    toast(bad.length ? `Guardé ${n}. No se pudo: ${bad.join(" · ")}` : `✅ ${n} perfil(es) guardados`);
+    return render();
+  }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
   if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {
     const [aid, sid] = String(d.subavisar || d.subrenew || d.subdel || d.subpaid).split("|");

@@ -202,6 +202,8 @@ export function createApp(cfg: AppConfig): App {
     const token = newToken();
     const ttl = kind === "staff" ? STAFF_SESSION_MS : CUSTOMER_SESSION_MS;
     db.putSession({ tokenHash: sha256(token), kind, subjectId, createdAt: now(), expiresAt: now() + ttl });
+    // Último ingreso de clientes y revendedores: así el dueño sabe a quién le falta entrar.
+    if (kind === "customer") db.setSecret(`lastlogin:${subjectId}`, String(now()), now());
     const attrs = [`${COOKIE}=${token}`, "Path=/", "HttpOnly", "SameSite=Strict", `Max-Age=${Math.floor(ttl / 1000)}`];
     if (cfg.secureCookies) attrs.push("Secure");
     res.setHeader("Set-Cookie", attrs.join("; "));
@@ -788,7 +790,8 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;
-    return { list: store.shops.resellers(A(c)), apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
+    const list = store.shops.resellers(A(c)).map((r) => ({ ...r, hasPin: !!db.getSecret(`loginpin:${r.id}`), lastLoginAt: Number(db.getSecret(`lastlogin:${r.id}`) ?? 0) || null }));
+    return { list, apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
   });
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
     const r = store.shops.approve(A(c), c.params.id);

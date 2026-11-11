@@ -1232,7 +1232,23 @@ const V = {
           <label>Motivo<input name="reason" maxlength="120" value="Recarga de saldo (panel)" required></label>
           <div class="rtopprev" aria-live="polite">Saldo de ${esc(r.name.split(" ")[0])}: <b>${bs(r.balance)}</b> → <b>…</b></div>
           <div class="inline"><button class="pbtn dark" type="submit" disabled>Escribí el monto</button><button class="pbtn" type="button" data-tab="rtop:">Cancelar</button></div></form>`;
-    return `${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    // Invitar a todos: una fila guiada. Primero los que nunca entraron; a los que ya entraron no se les cambia el PIN.
+    const inv = (T.inv ??= { on: false, all: false, i: 0, done: {} });
+    // Por defecto solo a quienes todavía no tienen PIN: a los que ya lo tienen no se les cambia (puede que ya lo usen).
+    const never = list.filter((r) => !r.hasPin), entered = list.filter((r) => r.hasPin);
+    // La fila se arma al tocar "Empezar" y no cambia mientras avanzás (al darle PIN, nadie se "sale" de la fila).
+    const queue = inv.on && inv.ids ? inv.ids.map((id) => list.find((r) => r.id === id)).filter(Boolean) : (inv.all ? list : never);
+    const cur = queue[inv.i];
+    const invMsg = (k) => `${k.msg}\n\n🧩 *Nuevo:* en *Clientes → Repartir perfiles* anotás a quién le diste cada perfil de tus cuentas. Te avisa cuándo vence cada uno y cuánto te deben.`;
+    const inviteCard = canReview() ? `<section class="card invite"><h2>📲 Invitar a tus revendedores <small>${never.length} sin acceso todavía · ${entered.length} ya tienen PIN</small></h2>
+      ${!inv.on ? `<p class="muted" style="margin:0">Te armo una fila: por cada revendedor generás su PIN y le mandás el acceso por WhatsApp con un toque, y pasás al siguiente. A los que ya tienen PIN no se les cambia.</p>
+        <div class="inline" style="flex-wrap:wrap"><button class="pbtn dark" type="button" data-inv="start" ${queue.length ? "" : "disabled"}>▶ Empezar (${never.length})</button><button class="pbtn sm" type="button" data-inv="all">${inv.all ? "☑️" : "⬜"} Incluir a los que ya tienen PIN (les cambia el PIN)</button></div>`
+      : cur ? `<div class="invstep"><div><small class="muted">${inv.i + 1} de ${queue.length}</small><b>${esc(cur.name)}</b><span class="muted">${esc(cur.phone)} · ${cur.lastLoginAt ? `entró el ${fdate(cur.lastLoginAt)}` : cur.hasPin ? "tiene PIN" : "sin acceso todavía"} · ${cur.services} servicio(s)</span></div>
+          ${inv.done[cur.id] ? `<a class="pbtn green" href="${waLink(cur.phone, invMsg(inv.done[cur.id]))}" target="_blank" rel="noopener" data-invsent="${esc(cur.id)}">${icon("wa")}Abrir WhatsApp (PIN ${esc(inv.done[cur.id].pin)})</a>`
+            : `<button class="pbtn dark" type="button" data-inv="pin" data-id="${esc(cur.id)}">🔑 Generar PIN de ${esc(cur.name.split(" ")[0])}</button>`}
+          <div class="inline"><button class="pbtn sm" type="button" data-inv="next">${inv.done[cur.id] ? "Siguiente ▶" : "Saltar ▶"}</button><button class="pbtn sm" type="button" data-inv="stop">Terminar</button></div></div>`
+      : `<p style="margin:0">✅ ¡Listo! Recorriste ${queue.length} revendedor(es).</p><button class="pbtn sm" type="button" data-inv="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
+    return `${inviteCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}
       <div class="inline" style="flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><span><b>🛒 Qué compran tus revendedores:</b> ${set.resellerOnlyCatalog ? "solo los productos <b>solo revendedores</b> (tus alquileres)" : "todo el catálogo + los productos solo revendedores"}</span>
@@ -2345,6 +2361,24 @@ document.addEventListener("click", async (ev) => {
     if (!q.length) return toast("No hay perfiles en cuarentena");
     if (!confirm(`¿Liberar ${q.length} perfil(es) de ${acc.email}? Vuelven a estar disponibles para vender.`)) return;
     return act(async () => { for (const x of q) await api("POST", `/api/admin/slots/${x.id}/status`, { status: "available", note: "Liberado desde Cuentas" }); return q.length; }, (n) => `✅ ${n} perfil(es) liberados`);
+  }
+  if (d.inv) {
+    const inv = (P.tab.inv ??= { on: false, all: false, i: 0, done: {} });
+    if (d.inv === "all") { inv.all = !inv.all; inv.i = 0; }
+    if (d.inv === "start") {
+      const l = (await api("GET", "/api/admin/resellers")).list;
+      inv.ids = (inv.all ? l : l.filter((r) => !r.hasPin)).map((r) => r.id);
+      inv.on = true; inv.i = 0;
+    }
+    if (d.inv === "stop") { inv.on = false; inv.i = 0; inv.ids = null; }
+    if (d.inv === "next") inv.i++;
+    if (d.inv === "pin") {
+      const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.id);
+      if (!r) return toast("No encontré a ese revendedor");
+      if ((r.hasPin || r.lastLoginAt) && !confirm(`${r.name} ya tiene PIN${r.lastLoginAt ? ` (entró el ${fdate(r.lastLoginAt)})` : ""}. ¿Le genero uno nuevo? El anterior deja de servir.`)) return;
+      try { inv.done[r.id] = await resellerKit(r.id, r.name, r.phone, r.pageAllowed ? r.shop.slug : undefined); toast(`🔑 PIN de ${r.name}: ${inv.done[r.id].pin}. Ahora tocá "Abrir WhatsApp"`); } catch (e) { return toast(e.message); }
+    }
+    return render();
   }
   if (d.togrescat !== undefined && el.dataset.togrescat) {
     const on = d.togrescat === "1";
