@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Cómo van cuenta los cobros del Control
+- **Qué:** "lo que te pagó" = pedidos entregados + cobros marcados "pagado" en el Control. Cada marca nueva guarda `control.paidLog` (fecha, inicio del período, monto a su precio). Las marcas viejas, sin fecha, cuentan una vez en el inicio del período actual (vencimiento − duración).
+- **Sin duplicar:** si el servicio tiene un pedido que cuenta a menos de 20 días del cobro marcado (o del inicio de su período), la marca no suma. Un período se anota una sola vez; volver a "pendiente" borra ese cobro.
+- **Por qué no se inventa nada:** los alquileres sin marca de pago no suman, aunque estén activos. Si no está marcado, no se sabe si se cobró.
+- **% contra el mes pasado:** solo si la base es al menos Bs 30. Con una base chiquita el % confunde.
+
 ## 2026-11-11 · Tanda "vender más" con 3 equipos en paralelo
 - **Qué se eligió:** recuperar ventas perdidas (Que vuelvan), ver la salud de los revendedores (Cómo van) y ayudar al revendedor a cobrar (Link de cobro). Son las tres palancas de plata que no dependían de cuentas ni decisiones del dueño.
 - **Que vuelvan:** usa el permiso existente `customer.manage` (dueño, admin y Atención, que manda WhatsApp a diario). Los clientes de un revendedor no aparecen: le pertenecen a él. "Escrito" oculta 7 días; "No molestar", 60. Nada se manda solo (wa.me). El tope de 7 días vale también para pedidos esperando pago.
