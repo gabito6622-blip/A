@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.7.1
+# Informe de pruebas — v0.8
 
 - **Fecha:** 11-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,8 +8,8 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **661/661**, 47 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **67/67** |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **675/675**, 49 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **69/69** |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Guardas automáticas de seguridad | `tests/route-guard.test.ts`, `tests/db-hardening.test.ts` | ✅ todas las rutas de la API (401/403, lista de públicas) y toda la base (RLS, solo inserción, funciones revisadas) |
 | Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s; embudo de presupuestos 182 ms (v0.7); la exportación de pacientes empieza a bajar en 35 ms (total ~4 s, B-104) |
@@ -136,6 +136,17 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 | `agreements.test.ts` | 28 | Precio de convenio copiado en la línea, copago al centavo con impares, paciente + empresa = total, pago de empresa a varios cargos, no facturar más de lo pendiente, conciliación exacta y sugerida sin verificación automática, reimportación sin duplicar |
 
 End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
+
+### v0.8: mensajes desde una cola, bandeja de respuestas, respaldos grandes y rentabilidad
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `message-dispatch.test.ts` | 6 | Encolar no envía y el despachador envía después del COMMIT (con plantilla). Si la transacción se revierte, no sale nada. Reintento con espera creciente, falla definitiva con motivo y tope de intentos. Un envío interrumpido no se reenvía. Tres despachadores en paralelo no duplican. Sin proveedor, nadie toma la cola |
+| `replies.test.ts` | 3 | Cada persona ve solo sus sucursales (ni «BAJA» ni otra clínica). Atender con nota, no dos veces, reabrir; auditoría y solo inserción. Limpieza no tiene acceso |
+| `ops.test.ts` | +2 | Subida por partes idéntica al original, con cifrado del servidor y sin sobrescribir. Una parte que falla cancela la subida sin partes huérfanas |
+| `agreements-expenses-v2.test.ts` | +3 | «Cobrado» con pagos de empresas por sucursal del cargo (y lo no asignado en la del pago). El tope anual se libera al trasladar y se vuelve a consumir al revertir. Gasto fijo compartido repartido al centavo, una sola vez, sin generarlo quien no tiene todas las sucursales, y RLS |
+| e2e nuevos | 2 | Recepción atiende una respuesta y el contador baja; el gerente crea un gasto fijo compartido y genera el borrador repartido |
+
+Corregido durante la integración: la prueba del portal esperaba el envío inmediato (ahora queda en cola), y una prueba de la agenda dependía de que las 18:30 estuvieran libres según la fecha (ahora pide un horario libre).
 
 ### v0.7.1: logo, revisión de plantillas y miniaturas antiguas (B-096)
 | Archivo | Pruebas | Qué verifica |

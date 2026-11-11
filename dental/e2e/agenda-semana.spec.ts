@@ -162,9 +162,17 @@ test("historial del paciente: línea de tiempo con filtros y sin datos clínicos
   await login(page, "propietaria@demo.local");
   const c = await ctx(page);
   const pid = await c.patient("Historial E2E");
-  let day = laPaz(new Date(Date.now() + 4 * 86_400_000));
-  while ([0, 6].includes(weekday(day))) day = laPaz(new Date(Date.parse(day + "T12:00:00Z") + 86_400_000));
-  await c.book(pid, day, "18:30");
+  // Un día hábil con un horario libre de la Dra. Vargas (la semilla y otras pruebas ocupan horarios según la fecha).
+  let day = "", time = "";
+  for (let k = 4; k <= 20 && !time; k++) {
+    const d = laPaz(new Date(Date.now() + k * 86_400_000));
+    if ([0, 6].includes(weekday(d))) continue;
+    const av = await (await page.request.get(`/api/availability?date=${d}&branchId=${c.lpz}&dentistId=${c.vargas}&durationMin=30`)).json();
+    const slots: string[] = (av[0]?.slots ?? []).map(hm);
+    if (slots.length) { day = d; time = slots.includes("18:30") ? "18:30" : slots[slots.length - 1]!; }
+  }
+  expect(time).not.toBe("");
+  await c.book(pid, day, time);
   const pay = await page.request.post("/api/payments", { headers: c.headers, data: { branchId: c.lpz, patientId: pid, amountCents: 12000, method: "transfer", bankReference: `E2E-${Date.now()}`, idempotencyKey: `e2e-tl-${pid}` } });
   expect(pay.ok(), await pay.text()).toBeTruthy();
 
@@ -173,7 +181,7 @@ test("historial del paciente: línea de tiempo con filtros y sin datos clínicos
   await expect(hist).toBeVisible();
   await expect(hist.getByText("Horas de La Paz")).toBeVisible();
   await expect(hist.getByText("Cita agendada")).toBeVisible();
-  await expect(hist.getByText(new RegExp(`Para el .* 18:30`))).toBeVisible();
+  await expect(hist.getByText(new RegExp(`Para el .* ${time}`))).toBeVisible();
   await expect(hist.getByText("Pago recibido · Transferencia")).toBeVisible();
   // La propietaria no es profesional: no hay filtros ni datos clínicos.
   await expect(hist.getByRole("button", { name: "Notas clínicas" })).toHaveCount(0);

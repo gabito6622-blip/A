@@ -560,15 +560,18 @@ describe("servicio de mensajes", () => {
     expect(logs.join(" ")).not.toMatch(/123456|71234567/);
   });
 
-  it("fuera de producción nunca usa un proveedor aunque exista; en producción con proveedor marca enviado", async () => {
+  it("fuera de producción nunca usa un proveedor aunque exista; en producción con proveedor queda en cola (B-070) y avisa al despachador", async () => {
     const sent: string[] = [];
     const provider = { name: "prueba", send: async (x: { body: string }) => { sent.push(x.body); return { providerMessageId: "p1" }; } };
     const fake = { query: async () => ({ rows: [{ id: "m1" }] }) } as any;
     const dev = createMessenger({ isProduction: false }, { provider });
     expect((await dev.enqueue(fake, { clinicId: "c", channel: "sms", recipient: "+591", template: "a.b", purpose: "transactional", body: "hola" })).status).toBe("simulated");
     expect(sent).toEqual([]);
-    const prod = createMessenger({ isProduction: true }, { provider });
-    expect((await prod.enqueue(fake, { clinicId: "c", channel: "sms", recipient: "+591", template: "a.b", purpose: "transactional", body: "hola" })).status).toBe("sent");
-    expect(sent).toEqual(["hola"]);
+    let kicked = 0;
+    const prod = createMessenger({ isProduction: true }, { provider, onQueued: () => { kicked++; } });
+    expect((await prod.enqueue(fake, { clinicId: "c", channel: "sms", recipient: "+591", template: "a.b", purpose: "transactional", body: "hola" })).status).toBe("queued");
+    // Nunca se envía dentro de la transacción: lo hace el despachador después del COMMIT.
+    expect(sent).toEqual([]);
+    expect(kicked).toBe(1);
   });
 });
