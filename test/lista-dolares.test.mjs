@@ -416,7 +416,7 @@ test("en el navegador: revendedor en dólares a 360 y 390 px ve US$, recarga en 
       await p.goto(t.base + "/hub#precios"); await p.waitForTimeout(700);
       const grid = await p.locator(".pgrid").innerText();
       assert.match(grid, /US\$ 7/); assert.match(grid, /US\$ 3,5/); assert.match(grid, /US\$ 2/);
-      assert.doesNotMatch(grid, /Bs|USDT|Netflix/, "sin Bs, sin conversión y sin productos fuera de su lista");
+      assert.doesNotMatch(grid, /Bs|≈|Netflix/, "sin Bs, sin conversión y sin productos fuera de su lista");
       assert.ok(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)));
       if (shots) await p.screenshot({ path: join(shots, `usd-precios-${width}.png`), fullPage: true });
       await c.close();

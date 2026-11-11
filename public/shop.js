@@ -319,7 +319,7 @@ function card(p, badge) {
   const rib = badge ? `<span class="prib">${esc(badge)}</span>` : (s && s <= 2 ? `<span class="prib hot">🔥 Últimas</span>` : "");
   if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
   <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? "✅ Disponible · pagás con QR y te lo activamos al confirmar" : "A pedido · pagás con QR y te la entregamos al confirmar"}</span>
+  <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? `✅ Disponible · pagás con ${abroad() ? "USDT" : "QR"} y te lo activamos al confirmar` : `A pedido · pagás con ${abroad() ? "USDT" : "QR"} y te la entregamos al confirmar`}</span>
   <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small>${usdtHint(p.price)}</div>
   <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
   return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
