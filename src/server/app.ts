@@ -534,6 +534,18 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
   route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
   route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => store.subs.remove(c.actor!, c.params.id, c.params.sub));
+  // Link de cobro de un perfil repartido (/c/<token>): lo arma el revendedor, lo abre su cliente sin cuenta.
+  const cobroUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/c/${token}`;
+  route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
+  route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => store.subs.revokeLink(c.actor!, c.params.id, c.params.sub));
+  // Contra el barrido de tokens: cada link que no sirve cuenta por IP; pasado el límite, 429 a todo por un rato.
+  const cobroMissLimiter = new RateLimiter(20, 15 * 60_000, now);
+  const cobro = <T>(c: Ctx, fn: () => T): T => {
+    if (cobroMissLimiter.blocked(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
+    try { return fn(); } catch (e) { if (e instanceof DomainError && e.code === "NOT_FOUND") cobroMissLimiter.take(c.ip); throw e; }
+  };
+  route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => store.subs.publicView(c.params.token)));
+  route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
@@ -1771,7 +1783,7 @@ export function createApp(cfg: AppConfig): App {
     let body: string, type: string;
     if (pathname === "/robots.txt") {
       type = "text/plain; charset=utf-8";
-      body = `User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api/\nDisallow: /codigos\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ""}`;
+      body = `User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api/\nDisallow: /codigos\nDisallow: /c/\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ""}`;
     } else {
       type = "application/xml; charset=utf-8";
       let shops: string[] = [];
@@ -1837,6 +1849,7 @@ export function createApp(cfg: AppConfig): App {
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file) && existsSync(file + ".html")) file += ".html"; // /panel → panel.html
     if (/^\/codigos\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "codigos.html");
+    if (/^\/c\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) file = join(root, "cobro.html");
     if (/^\/recuperar\/?$/.test(pathname)) file = join(root, "recuperar.html");
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;

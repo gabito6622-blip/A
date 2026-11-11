@@ -10,19 +10,20 @@ import { renewableNow } from "./orders.js";
 const DAY = 86_400_000;
 const MAX_PROFILES = 10;
 
-function me(e: Engine, actor: Actor) {
+export function me(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
   return e.get("customers", actor.customerId);
 }
 /** Una cuenta completa alquilada a nombre del revendedor. */
-function rental(e: Engine, meId: Id, assignmentId: Id): Assignment {
+export function rental(e: Engine, meId: Id, assignmentId: Id): Assignment {
   const a = e.s.assignments[assignmentId];
   if (!a || a.customerId !== meId) throw new DomainError("FORBIDDEN", "Esa cuenta no es tuya");
   if (a.status !== "active") throw new DomainError("VALIDATION", "Esa cuenta ya no está activa");
   if (e.s.products[a.productId]?.kind !== "full_account") throw new DomainError("VALIDATION", "Solo se reparten cuentas completas");
   return a;
 }
-const view = (s: SubRental) => ({ ...s });
+// El link de cobro sale solo como su token (sin quién ni cuándo lo creó).
+const view = ({ link, ...s }: SubRental) => ({ ...s, ...(link ? { linkToken: link.token } : {}) });
 
 /** Sus cuentas completas alquiladas, cada una con sus perfiles repartidos. */
 export function listMine(e: Engine, actor: Actor) {
@@ -106,8 +107,8 @@ export function removeSub(e: Engine, actor: Actor, assignmentId: Id, subId: Id) 
     const a = rental(e, c.id, assignmentId);
     const i = (a.subs ?? []).findIndex((x) => x.id === subId);
     if (i === -1) throw new DomainError("NOT_FOUND", "Ese perfil no existe");
-    a.subs!.splice(i, 1);
-    e.audit(actor, "reseller.sub_remove", "assignment", a.id, { sub: subId });
+    const [gone] = a.subs!.splice(i, 1); // si tenía link de cobro, deja de servir con el perfil
+    e.audit(actor, "reseller.sub_remove", "assignment", a.id, { sub: subId, ...(gone.link ? { linkOff: true } : {}) });
     return { ok: true as const };
   });
 }

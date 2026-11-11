@@ -486,6 +486,8 @@ export interface SubRental {
   pay: "pagado" | "pendiente" | "no_pago";
   note?: string;
   createdAt: number;
+  /** Link de cobro para SU cliente (/c/<token>): lo crea y lo cambia solo el revendedor (subLinks.ts). */
+  link?: { token: string; by: Id; at: number };
 }
 
 export interface FiadoEntry {
