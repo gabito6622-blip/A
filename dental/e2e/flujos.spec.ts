@@ -31,10 +31,21 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   await login(page, "recepcion.lpz@demo.local");
   await expect(page.getByText("Cobrado (confirmado)")).toHaveCount(0); // sin datos financieros
   await page.click('a:has-text("Agenda")');
-  // ir al próximo lunes (día hábil con horario de mañana)
-  const monday = new Date();
-  monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7));
-  const iso = monday.toLocaleDateString("en-CA");
+  // Un día hábil con un horario libre de la Dra. Vargas, pedido a la agenda (la semilla demo cambia con la fecha).
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const lpz = me.branches.find((b: { code: string }) => b.code === "LPZ").id;
+  const staff = await (await page.request.get("/api/staff?professionals=1")).json();
+  const vargas = staff.find((s: { fullName: string }) => s.fullName === "Dra. Elena Vargas").userId;
+  const hhmm = (s: string) => new Date(s).toLocaleTimeString("en-GB", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" });
+  let iso = "", slot = "";
+  for (let k = 1; k <= 14 && !slot; k++) {
+    const d = new Date(Date.now() + k * 86_400_000).toLocaleDateString("en-CA", { timeZone: "America/La_Paz" });
+    if ([0, 6].includes(new Date(d + "T12:00:00Z").getUTCDay())) continue;
+    const av = await (await page.request.get(`/api/availability?date=${d}&branchId=${lpz}&dentistId=${vargas}&durationMin=60`)).json();
+    const free = ((av[0]?.slots ?? []) as string[]).map(hhmm).filter((t) => t >= "09:00" && t <= "17:00" && Number(t.slice(3)) % 15 === 0);
+    if (free.length) { iso = d; slot = free[0]!; }
+  }
+  expect(slot, "ningún horario libre de la Dra. Vargas en dos semanas").not.toBe("");
   await page.fill('input[aria-label="Fecha"]', iso);
   await page.getByRole("button", { name: "Nueva cita" }).click();
   await page.getByRole("button", { name: "Paciente nuevo" }).click();
@@ -50,7 +61,7 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   await appt.getByRole("button", { name: "Agendar" }).click();
   // 07:00 está fuera del horario → error visible, nada se guarda
   await expect(appt.getByRole("alert")).toContainText("Fuera del horario");
-  await appt.getByLabel("Hora").fill("12:00");
+  await appt.getByLabel("Hora").fill(slot);
   await appt.getByRole("button", { name: "Agendar" }).click();
   await expect(page.getByText("Cita agendada")).toBeVisible();
   await expect(page.locator(".appt", { hasText: "Prueba E2E Automática" })).toBeVisible();
@@ -61,7 +72,7 @@ test("recepción registra un paciente nuevo y le agenda una cita; el mismo horar
   await appt2.getByPlaceholder("Buscar por nombre, CI, teléfono o N° de ficha").fill("Mamani");
   await appt2.locator(".card button").first().click();
   await appt2.getByLabel("Profesional").selectOption({ label: "Dra. Elena Vargas" });
-  await appt2.getByLabel("Hora").fill("12:00");
+  await appt2.getByLabel("Hora").fill(slot);
   await appt2.getByRole("button", { name: "Agendar" }).click();
   await expect(appt2.getByRole("alert")).toContainText(/ya tiene una cita|ocupado|otra cita/);
 });
