@@ -12,6 +12,8 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
+import { effectivePrice } from "./admin.js";
+import { isUsd } from "./usd.js";
 
 const DAY = 86_400_000;
 const all = (e: Engine) => (e.s.fiado ??= []);
@@ -137,6 +139,9 @@ function unpaidRentals(e: Engine, b: Book, customerId?: Id) {
 }
 function rentalPrice(e: Engine, b: Book, a: Assignment): Cents {
   if (b.creditor) return a.rcontrol?.price ?? listPriceMine(e, e.s.customers[b.creditor], a.productId) ?? 0;
+  // Libreta del dueño (en Bs). Si el cliente paga en dólares, lo que te debe es su precio en US$ a la tasa de hoy.
+  const who = e.s.customers[a.customerId], payer = who?.resellerId ? e.s.customers[who.resellerId] : who;
+  if (payer && isUsd(e, payer)) return effectivePrice(e, a);
   return a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
 }
 

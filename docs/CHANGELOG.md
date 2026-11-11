@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-11 · #34 Lista de precios en dólares (Panamá y Paraguay)
+- **Revendedores en la lista en dólares:** ven precios y saldo en US$ (Disney + ESPN US$ 7, Disney sin ESPN US$ 3,50, Prime US$ 3, HBO US$ 2), pagan con saldo o USDT (1 USDT = US$ 1) y recargan con USDT (20 USDT → US$ 20). No pierden ni ganan si se mueve el dólar en Bolivia.
+- **Dueño:** sigue viendo todo en Bs, con la tasa de cada pedido. Al aprobar ve "US$ 20 (≈ Bs 234)". El dashboard separa el saldo a favor en dólares. Las listas tienen moneda; no se cambia a alguien de una lista en Bs a una en US$ si tiene saldo o pagos por revisar.
+- **Arreglo de seguridad:** renovar eligiendo un medio sin pago (local, USDT, Binance) ya no renueva gratis al instante.
+
+## 2026-11-11 · #34 Tasa del dólar del Banco Central
+- **Dueño:** "🏦 Tomarla del Banco Central todos los días" en la tarjeta "💱 Tasa del USDT" de Inicio. Lee el tipo de cambio oficial del Banco Central de Bolivia (hoy Bs 11,71 del 11/11) cada 3 h y lo usa cuando hay fecha nueva. Si la cambiás a mano, se respeta hasta la próxima publicación. Si la página falla, no se toca nada y lo ves en Inicio.
+
 ## 2026-11-11 · #33 Revendedores de otro país, IPTV, USDT y revendedores cómodos
 - **Revendedor de otro país (primer caso: Paraguay):** elige su país y todo se adapta: sus clientes con +595 (`0981…` → `+595981…`), sus precios a clientes en ₲ sin decimales (₲ 35.000) en el cuaderno, Mi control, Quién me debe, link de cobro y su página (con su tipo de cambio). Lo que le compra a la tienda sigue en Bs. Nunca se suman dos monedas en una cifra.
 - **📦 Mis cuentas propias (todos los revendedores):** cargan sus propias cuentas (Flujo TV u otras), con contraseñas cifradas, las reparten a sus clientes, renuevan, liberan, marcan pagado, mandan el acceso por WhatsApp y el link de cobro. Para IPTV: servidor, app, pantallas e instrucciones en el mensaje, y **🎁 prueba gratis de 24 h** que pasa a venta al renovarla. El dueño solo ve cuántas tienen.

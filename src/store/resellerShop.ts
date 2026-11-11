@@ -13,6 +13,7 @@ import { balance, post } from "./wallet.js";
 import { DAY } from "./time.js";
 import { normalizePhone } from "./catalog.js";
 import { localeOf, localeView, money, toMine } from "./country.js";
+import { bsToUsd, isUsd, rateNow } from "./usd.js";
 import { ownCounts, pageCards, pagePrice as ownPagePrice } from "./ownStock.js";
 
 export const DEFAULT_RENT: ShopRent = { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 };
@@ -26,7 +27,10 @@ const spent30 = (e: Engine, id: Id) => Object.values(e.s.orders)
 export function rentInfo(e: Engine, c: Customer) {
   const r = rentCfg(e);
   if (!r.enabled) return { enabled: false as const };
-  return { enabled: true as const, price: r.price, freeIfSpent: r.freeIfSpent, graceDays: r.graceDays, paidUntil: c.shop?.paidUntil, suspended: !!c.shop?.suspended, spent30: spent30(e, c.id) };
+  // Revendedor en dólares: los montos del alquiler (que el dueño pone en Bs) se le muestran en US$ con la tasa de hoy.
+  const rt = isUsd(e, c) ? rateNow(e) : 0;
+  const cv = (bs: Cents, dir: "up" | "down") => (rt ? bsToUsd(bs, rt, dir) : bs);
+  return { enabled: true as const, price: cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: c.shop?.paidUntil, suspended: !!c.shop?.suspended, spent30: cv(spent30(e, c.id), "down"), ...(rt ? { currency: "USD" as const } : {}) };
 }
 
 /** Cobra un mes de alquiler (o lo da gratis por compras). Debe correr dentro de tx. */
@@ -39,8 +43,11 @@ function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "
     e.audit(actor, "reseller.shop_rent_free", "customer", c.id, { until: s.paidUntil });
     return "free";
   }
-  if (r.price === 0 || balance(e, c.id) >= r.price) {
-    if (r.price > 0) post(e, actor, c.id, -r.price, "shop_rent", s.slug, "Alquiler de tu página (30 días)");
+  // En dólares se descuenta el equivalente en US$ con la tasa de hoy, redondeado hacia arriba (sin tasa no se cobra).
+  let need = r.price;
+  if (need > 0 && isUsd(e, c)) { const rt = rateNow(e); if (!rt) return "no_balance"; need = bsToUsd(r.price, rt, "up"); }
+  if (need === 0 || balance(e, c.id) >= need) {
+    if (need > 0) post(e, actor, c.id, -need, "shop_rent", s.slug, "Alquiler de tu página (30 días)");
     s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
     delete s.suspended;
     return "charged";
@@ -138,7 +145,8 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
     let c = Object.values(e.s.customers).find((x) => x.phone === a.phone);
     const wasReseller = c?.kind === "reseller";
-    if (c) { c.kind = "reseller"; c.priceGroupId = "revendedor"; }
+    // Un cliente en dólares sigue en su lista: cambiarla movería la moneda de su saldo.
+    if (c) { c.kind = "reseller"; if (!isUsd(e, c)) c.priceGroupId = "revendedor"; }
     else {
       c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true, createdAt: e.now() } as Customer;
       e.s.customers[c.id] = c;
@@ -152,10 +160,13 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
     const ref = a.ref && e.s.customers[a.ref]?.kind === "reseller" && a.ref !== c.id ? a.ref : undefined;
     if (!wasReseller && ref && !c.referredBy) {
       c.referredBy = ref;
-      if (bonus > 0) {
-        post(e, actor, ref, bonus, "referral", c.id, `Premio por traer a ${c.name}`);
-        e.audit(actor, "reseller.referral_paid", "customer", ref, { referred: c.id, amount: bonus });
-      }
+      // Si quien lo trajo tiene el saldo en dólares, el premio (en Bs) se le acredita en US$ con la tasa de hoy.
+      const rt = isUsd(e, ref) ? rateNow(e) : 0;
+      const amount = bonus > 0 && isUsd(e, ref) ? (rt ? bsToUsd(bonus, rt, "down") : 0) : bonus;
+      if (amount > 0) {
+        post(e, actor, ref, amount, "referral", c.id, `Premio por traer a ${c.name}`);
+        e.audit(actor, "reseller.referral_paid", "customer", ref, { referred: c.id, amount, ...(rt ? { currency: "USD", bonusBs: bonus, rate: rt } : {}) });
+      } else if (bonus > 0) e.audit(actor, "reseller.referral_skipped", "customer", ref, { referred: c.id, reason: "sin tasa del dólar" });
     }
     return { customerId: c.id, name: c.name, phone: c.phone };
   });
@@ -261,6 +272,8 @@ export function resellersOverview(e: Engine, actor: Actor) {
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
+      // Moneda de su saldo y de lo que compra ("USD" = lista en dólares); el resto de los montos del dueño va en Bs.
+      currency: isUsd(e, c) ? "USD" as const : "BOB" as const, priceGroupId: c.priceGroupId,
       // Actividad: lo que te compró en 30 días y su última compra (para ver quién se durmió).
       spent30: buys[c.id]?.spent30 ?? 0, lastOrderAt: buys[c.id]?.last ?? null,
       codeLink: !!c.codeLink, services: mine.length, referrals: refCount[c.id] ?? 0, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
@@ -510,15 +523,18 @@ export function programInfo(e: Engine) {
 /** Lo que ve un revendedor en "Referí y ganá": su código, cuánto paga el premio y a quién trajo. */
 export function myReferrals(e: Engine, actor: Actor) {
   const c = me(e, actor);
-  const bonus = e.s.settings.referralBonus ?? 0;
+  const bonusBs = e.s.settings.referralBonus ?? 0;
+  // En dólares: el premio se le muestra (y se le acredita) en US$ con la tasa de hoy.
+  const usd = isUsd(e, c), rt = usd ? rateNow(e) : 0;
+  const bonus = usd ? (rt ? bsToUsd(bonusBs, rt, "down") : 0) : bonusBs;
   const people = Object.values(e.s.customers)
     .filter((x) => x.referredBy === c.id)
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((x) => ({ name: x.name, at: x.createdAt }));
   const earned = e.s.ledger
-    .filter((l) => l.customerId === c.id && l.type === "referral")
+    .filter((l) => l.customerId === c.id && l.type === "referral" && (l.cur === "USD") === usd)
     .reduce((t, l) => t + l.amount, 0);
-  return { code: c.id, bonus, enabled: bonus > 0, count: people.length, earned, people };
+  return { code: c.id, bonus, enabled: bonusBs > 0, count: people.length, earned, people, ...(usd ? { currency: "USD" as const } : {}) };
 }
 
 /* ---------------- Cupones del revendedor (para su página) ---------------- */

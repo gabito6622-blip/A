@@ -5,6 +5,7 @@ import type { Actor, Id, LocalPayMethod } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { isUsd } from "./usd.js";
 
 const txt = (v: unknown, max: number) => String(v ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, max);
 
@@ -81,12 +82,14 @@ export function listPayMethods(e: Engine, actor: Actor): LocalPayMethod[] {
 
 /** Los métodos que ve este cliente: activos y de su lista de precios (sin listas = todos). */
 export function methodsFor(e: Engine, customerId: Id | undefined): LocalPayMethod[] {
+  // Cliente en dólares: paga con su saldo en US$ o con USDT; ningún cobro en moneda local.
+  if (customerId && isUsd(e, customerId)) return [];
   const g = customerId ? e.s.customers[customerId]?.priceGroupId : undefined;
   return (e.s.settings.payMethods ?? []).filter((m) => m.enabled && (!m.priceGroupIds.length || (!!g && m.priceGroupIds.includes(g))));
 }
 
 /** El QR de Bolivia se esconde si alguno de sus métodos lo reemplaza (ej.: clientes de Panamá pagan con Yappy). */
-export const qrAllowedFor = (e: Engine, customerId: Id | undefined) => !methodsFor(e, customerId).some((m) => m.replacesQr);
+export const qrAllowedFor = (e: Engine, customerId: Id | undefined) => !(customerId && isUsd(e, customerId)) && !methodsFor(e, customerId).some((m) => m.replacesQr);
 
 /** Lo que ve el cliente en la tienda. */
 export function myPayMethods(e: Engine, actor: Actor) {
@@ -94,6 +97,8 @@ export function myPayMethods(e: Engine, actor: Actor) {
   return {
     // Sin QR cargado no se ofrece "pagar con QR": el cliente quedaría mandando un comprobante de algo que no pudo pagar.
     qr: qrAllowedFor(e, id) && !!e.s.settings.qrFileRef,
+    // "Solo saldo y USDT": el cliente está en la lista en dólares.
+    ...(id && isUsd(e, id) ? { usdOnly: true as const } : {}),
     methods: methodsFor(e, id).map((m) => ({ id: m.id, name: m.name, country: m.country ?? "", account: m.account, holder: m.holder ?? "", instructions: m.instructions ?? "", hasQr: !!m.qrFileRef })),
   };
 }

@@ -20,8 +20,27 @@ import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
+import { bsToUsd, isUsd, paidTotal, refundToWallet, requireRate, usdToBs } from "./usd.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
+const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
+/** Monto de un pedido para los avisos: en US$ si se cobró en dólares (con su equivalente en Bs para el dueño). */
+const fmtOrder = (o: Order, staff = false) => (o.usd !== undefined ? `${fmtUsd(o.usd)}${staff ? ` (≈ ${fmt(o.total)})` : ""}` : fmt(o.total));
+
+/**
+ * Cliente en dólares: solo paga con su saldo (US$) o con USDT (y el staff puede anotar efectivo).
+ * Sin tasa del dólar no compra. Devuelve la tasa con la que se fija el pedido.
+ */
+function usdCheckout(e: Engine, actor: Actor, method: PaymentMethod): number {
+  const rate = requireRate(e);
+  const ok = method === "balance" || method === "usdt" || (isStaff(actor) && method === "cash");
+  if (!ok) throw new DomainError("VALIDATION", "Con precios en dólares pagás con tu saldo o con USDT");
+  if (method === "usdt") {
+    const u = e.s.settings.usdt;
+    if (!(u?.enabled && (u.address || u.payId))) throw new DomainError("VALIDATION", "La tienda todavía no recibe USDT");
+  }
+  return rate;
+}
 /** Fecha de Bolivia dd/mm/aaaa para los mensajes (con toISOString salía el día siguiente). */
 const fdate = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t));
 
@@ -83,6 +102,10 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
   const periods = periodsOf(actor, input.periods);
   return e.tx(() => e.idempotent(key, () => {
     const payerId = payerFor(e, actor, input.customerId);
+    // Quien paga está en la lista en dólares: precios, saldo y cobro en US$ (usd.ts).
+    const usdPay = isUsd(e, payerId);
+    const rate = usdPay ? usdCheckout(e, actor, input.paymentMethod) : 0;
+    if (usdPay && input.couponCode) throw new DomainError("VALIDATION", "Los cupones son en Bs: no se usan con precios en dólares");
     // Cobro por país: el método tiene que ser uno de los que ve quien paga.
     let localPay: Order["localPay"];
     if (input.paymentMethod === "local") {
@@ -96,7 +119,9 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const items: OrderItem[] = input.items.map((it) => {
       const p = e.get("products", it.productId);
       if (!isStaff(actor) && !visibleTo(e, p, payerId)) throw new DomainError("NOT_FOUND", "Producto no disponible");
-      return { productId: it.productId, qty: it.qty, unitPrice: priceFor(e, payerId, it.productId) * periods };
+      const unit = priceFor(e, payerId, it.productId) * periods;
+      // En dólares: `usd` es lo cobrado (US$) y `unitPrice` su equivalente en Bs con la tasa de este pedido.
+      return usdPay ? { productId: it.productId, qty: it.qty, unitPrice: usdToBs(unit, rate), usd: unit } : { productId: it.productId, qty: it.qty, unitPrice: unit };
     });
     // Productos para revendedores sin stock: se pueden pedir pagando con QR y se entregan al aprobar.
     const back: { productId: Id; qty: number }[] = [];
@@ -128,11 +153,13 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     const now = e.now();
     const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
     const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
-    const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
+    const discount = usdPay ? 0 : Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
     const cup = input.couponCode ? couponFor(e, input.couponCode, payerId, items, gross - discount) : null;
+    const usd = usdPay ? items.reduce((s, it) => s + it.usd! * it.qty, 0) : undefined;
     const order: Order = {
       id, kind: "sale", customerId: input.customerId, payerId, createdBy: actor.id, channel,
-      ...(periods > 1 ? { periods } : {}), items, total: gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
+      ...(periods > 1 ? { periods } : {}), items, total: usd !== undefined ? usdToBs(usd, rate) : gross - discount - (cup?.amount ?? 0), status: "awaiting_payment",
+      ...(usd !== undefined ? { usd, usdtQuote: { usdt: usd / 100, rate } } : {}),
       paymentMethod: input.paymentMethod, reservedSlotIds: reserved.map((s) => s.id), assignmentIds: [], createdAt: now, updatedAt: now,
       ...(discount ? { discount } : {}),
       ...(cup ? { coupon: { id: cup.coupon.id, code: cup.coupon.code, amount: cup.amount } } : {}),
@@ -141,15 +168,15 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     };
     lockUsdt(e, order);
     e.s.orders[id] = order;
-    e.audit(actor, "order.create", "order", id, { total: order.total, method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}), ...(localPay ? { via: localPay.name } : {}) });
+    e.audit(actor, "order.create", "order", id, { total: order.total, ...(usd !== undefined ? { usd, rate } : {}), method: order.paymentMethod, slots: reserved.length, ...(cup ? { coupon: cup.coupon.code, couponAmount: cup.amount } : {}), ...(localPay ? { via: localPay.name } : {}) });
     if (input.paymentMethod === "balance") {
-      post(e, actor, payerId, -order.total, "purchase", id);
+      post(e, actor, payerId, -paidTotal(order), "purchase", id);
       fulfill(e, actor, order);
     } else if (input.paymentMethod === "cash") {
       order.approvedBy = actor.id;
       fulfill(e, actor, order);
     } else {
-      queue(e, order.customerId, "order_received", { name: e.s.customers[order.customerId].name, order: id, total: fmt(order.total) });
+      queue(e, order.customerId, "order_received", { name: e.s.customers[order.customerId].name, order: id, total: fmtOrder(order) });
     }
     return structuredClone(order);
   }));
@@ -166,6 +193,8 @@ export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; ite
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 20) throw new DomainError("VALIDATION", "El pedido necesita entre 1 y 20 ítems");
   const payerId = payerFor(e, actor, input.customerId);
   const periods = periodsOf(actor, input.periods);
+  // En dólares: todo en centavos de dólar, sin descuentos ni cupones (son en Bs).
+  const usdPay = isUsd(e, payerId);
   const items = input.items.map((it) => {
     const qty = Number(it.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
@@ -175,6 +204,9 @@ export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; ite
   });
   const channel = input.channel ?? (isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store");
   const gross = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+  if (usdPay) {
+    return { gross, discount: 0, coupon: null, couponError: input.couponCode ? "Los cupones son en Bs: no se usan con precios en dólares" : null, total: gross, currency: "USD" as const };
+  }
   const discount = Math.min(comboDiscount(e, payerId, items.map((it) => it.productId), channel), gross);
   let coupon: { code: string; amount: Cents } | null = null, couponError: string | null = null;
   if (input.couponCode) {
@@ -241,8 +273,14 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
     r.prevExpiresAt = e.s.assignments[r.assignmentId]?.customerExpiresAt;
     extend(e, actor, r.assignmentId, r.periods, false);
   } else {
-    post(e, actor, order.customerId, order.topupAmount!, "topup", order.id);
-    queue(e, order.customerId, "topup_approved", { amount: fmt(order.topupAmount!), balance: fmt(balance(e, order.customerId)) });
+    // Recarga en dólares: se acreditan los US$ que mandó (20 USDT → US$ 20), no los Bs.
+    if (order.usd !== undefined) {
+      post(e, actor, order.customerId, order.usd, "topup", order.id);
+      queue(e, order.customerId, "topup_approved", { amount: fmtUsd(order.usd), balance: fmtUsd(balance(e, order.customerId)) });
+    } else {
+      post(e, actor, order.customerId, order.topupAmount!, "topup", order.id);
+      queue(e, order.customerId, "topup_approved", { amount: fmt(order.topupAmount!), balance: fmt(balance(e, order.customerId)) });
+    }
   }
   order.status = "fulfilled";
   order.updatedAt = now;
@@ -251,7 +289,7 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
 
 function alertPayment(e: Engine, o: Order): void {
   if (!staffAlertSettings(e).payments) return;
-  queueStaff(e, "staff_payment_review", { order: o.id, name: e.s.customers[o.customerId]?.name ?? "cliente", total: fmt(o.total) });
+  queueStaff(e, "staff_payment_review", { order: o.id, name: e.s.customers[o.customerId]?.name ?? "cliente", total: fmtOrder(o, true) });
 }
 
 export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
@@ -455,27 +493,34 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }
     const payerId = payerFor(e, actor, a.customerId);
-    // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese.
-    const unit = a.control?.price ?? priceFor(e, payerId, a.productId);
+    // Solo estos métodos: uno con comprobante queda esperando el pago; nunca se renueva gratis.
+    if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
+    const usdPay = isUsd(e, payerId);
+    const rate = usdPay ? usdCheckout(e, actor, input.paymentMethod) : 0;
+    // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese. En dólares manda
+    // el precio fijo de su lista en US$ (el precio acordado del Control está en Bs).
+    const unit = usdPay ? priceFor(e, payerId, a.productId) : a.control?.price ?? priceFor(e, payerId, a.productId);
     const now = e.now();
     const order: Order = {
       id: e.id("ord"), kind: "renewal", customerId: a.customerId, payerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store",
-      items: [{ productId: a.productId, qty: periods, unitPrice: unit }], total: unit * periods,
+      items: [usdPay ? { productId: a.productId, qty: periods, unitPrice: usdToBs(unit, rate), usd: unit } : { productId: a.productId, qty: periods, unitPrice: unit }],
+      total: usdPay ? usdToBs(unit * periods, rate) : unit * periods,
+      ...(usdPay ? { usd: unit * periods, usdtQuote: { usdt: (unit * periods) / 100, rate } } : {}),
       status: "awaiting_payment", paymentMethod: input.paymentMethod, reservedSlotIds: [], assignmentIds: [a.id],
       renewal: { assignmentId: a.id, periods }, createdAt: now, updatedAt: now,
     };
     lockUsdt(e, order);
     e.s.orders[order.id] = order;
-    e.audit(actor, "renewal.create", "order", order.id, { assignmentId: a.id, periods, method: input.paymentMethod });
-    if (input.paymentMethod === "qr") {
+    e.audit(actor, "renewal.create", "order", order.id, { assignmentId: a.id, periods, method: input.paymentMethod, ...(usdPay ? { usd: order.usd, rate } : {}) });
+    if (input.paymentMethod === "qr" || input.paymentMethod === "usdt") {
       // Se valida ya contra el proveedor para no cobrar algo que no se puede entregar.
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
       const next = Math.max(a.customerExpiresAt, now) + e.s.products[a.productId].durationDays * periods * DAY;
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
-      queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmt(order.total) });
+      queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmtOrder(order) });
     } else {
-      if (input.paymentMethod === "balance") post(e, actor, payerId, -order.total, "renewal", order.id);
+      if (input.paymentMethod === "balance") post(e, actor, payerId, -paidTotal(order), "renewal", order.id);
       order.renewal!.prevExpiresAt = a.customerExpiresAt;
       extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
       order.status = "fulfilled";
@@ -678,13 +723,19 @@ export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason
     }
     // Las renovaciones de esos servicios también eran prueba.
     const renewals = Object.values(e.s.orders).filter((x) => x.kind === "renewal" && x.status === "fulfilled" && !x.trial && x.renewal && o.assignmentIds.includes(x.renewal.assignmentId));
-    let refunded = 0;
+    let refunded = 0, refundedUsd = 0;
     for (const x of [o, ...renewals]) {
       x.trial = true; x.updatedAt = e.now();
-      if (x.paymentMethod === "balance" && x.total > 0) { post(e, actor, x.payerId ?? x.customerId, x.total, "refund", x.id, "Era una prueba: vuelve el saldo"); refunded += x.total; }
+      if (x.paymentMethod === "balance" && x.total > 0) {
+        // Vuelve lo que pagó, en la moneda de su saldo (en dólares: los mismos US$ que se le cobraron).
+        const payer = x.payerId ?? x.customerId, back = refundToWallet(e, payer, x);
+        post(e, actor, payer, back, "refund", x.id, "Era una prueba: vuelve el saldo");
+        refunded += x.total;
+        if (isUsd(e, payer)) refundedUsd += back;
+      }
     }
-    e.audit(actor, "order.mark_test", "order", o.id, { assignments: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded, reason: note });
-    return { orderId: o.id, total: o.total + renewals.reduce((t, x) => t + x.total, 0), services: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded };
+    e.audit(actor, "order.mark_test", "order", o.id, { assignments: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded, ...(refundedUsd ? { refundedUsd } : {}), reason: note });
+    return { orderId: o.id, total: o.total + renewals.reduce((t, x) => t + x.total, 0), services: o.assignmentIds.length, closed: closed.length, renewals: renewals.length, refunded, ...(refundedUsd ? { refundedUsd } : {}) };
   });
 }
 
@@ -697,16 +748,19 @@ export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, inpu
     const prod = e.get("products", a.productId);
     const total = Math.max(1, prod.durationDays);
     const remaining = Math.max(0, Math.ceil((a.customerExpiresAt - e.now()) / DAY));
-    const suggested = Math.round(prod.price * Math.min(remaining, total) / total);
+    // Saldo en dólares: la devolución va en US$ sobre su precio en dólares (sin precio en su lista: el precio en Bs a la tasa de hoy).
+    const usdW = isUsd(e, a.customerId);
+    const base = usdW ? e.s.priceGroups[e.s.customers[a.customerId].priceGroupId]?.prices[prod.id] ?? bsToUsd(prod.price, requireRate(e), "down") : prod.price;
+    const suggested = Math.round(base * Math.min(remaining, total) / total);
     const amount = input.amount !== undefined ? Number(input.amount) : suggested;
-    if (!Number.isInteger(amount) || amount < 0 || amount > prod.price) throw new DomainError("VALIDATION", "Monto de devolución inválido");
+    if (!Number.isInteger(amount) || amount < 0 || amount > base) throw new DomainError("VALIDATION", "Monto de devolución inválido");
     if (amount > 0) post(e, actor, a.customerId, amount, "refund", a.id, (input.reason || "").trim() || `Devolución de ${prod.name}`);
     a.status = "revoked";
-    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${(amount / 100).toFixed(2)}` });
+    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
     const slot = e.s.slots[a.slotId];
     if (slot && slot.status === "assigned") slot.status = "available";
-    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining });
-    return { amount, remaining, suggested, balance: balance(e, a.customerId) };
+    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(usdW ? { currency: "USD" } : {}) });
+    return { amount, remaining, suggested, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
   });
 }
 
@@ -921,11 +975,14 @@ export function updateStaffAlerts(e: Engine, actor: Actor, patch: Partial<StaffA
 export const usdtFor = (e: Engine, cents: Cents) => { const r = e.s.settings.usdt?.rate ?? 0; return r > 0 ? Math.ceil((cents / 100 / r) * 100) / 100 : 0; };
 function lockUsdt(e: Engine, o: Order) {
   const r = e.s.settings.usdt?.rate ?? 0;
-  if (o.paymentMethod === "usdt" && r > 0 && o.total > 0) o.usdtQuote = { usdt: usdtFor(e, o.total), rate: r };
+  // Un pedido en dólares ya trae su cotización exacta (1 USDT = 1 US$).
+  if (o.paymentMethod === "usdt" && r > 0 && o.total > 0 && o.usd === undefined) o.usdtQuote = { usdt: usdtFor(e, o.total), rate: r };
 }
 
 export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }, method: "qr" | "usdt" = "qr", usdtAmount?: number): Order {
   requireActFor(e, actor, customerId);
+  // Saldo en dólares: recarga solo con USDT, y se acreditan los US$ que mandó.
+  if (isUsd(e, customerId)) return requestUsdTopup(e, actor, customerId, ev, method, usdtAmount ?? (Number.isFinite(Number(amount)) && Number(amount) > 0 ? Number(amount) / 100 : undefined));
   // Revendedores de afuera (Paraguay, Panamá…) recargan mandando USDT por Binance: solo si el dueño lo configuró.
   const u = e.s.settings.usdt;
   if (method === "usdt" && !(u?.enabled && (u.address || u.payId) && u.rate)) throw new DomainError("VALIDATION", "La tienda todavía no recibe USDT");
@@ -954,3 +1011,33 @@ export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Ce
   });
 }
 
+
+/**
+ * Recarga de un cliente en dólares: solo con USDT. Lo que manda (10/20/50/100 USDT) es lo que se le
+ * acredita en US$ (`order.usd`); `order.total` queda en Bs con la tasa de hoy para los números del dueño.
+ */
+function requestUsdTopup(e: Engine, actor: Actor, customerId: Id, ev: { fileRef: string; declaredReference: string; hash?: string }, method: string, usdtAmount: number | undefined): Order {
+  const rate = requireRate(e);
+  if (method !== "usdt") throw new DomainError("VALIDATION", "Con saldo en dólares recargás con USDT");
+  const u = e.s.settings.usdt;
+  if (!(u?.enabled && (u.address || u.payId))) throw new DomainError("VALIDATION", "La tienda todavía no recibe USDT");
+  const n = Number(usdtAmount);
+  if (!(Number.isFinite(n) && n >= 1 && n <= 1000 && Math.round(n * 100) === n * 100)) throw new DomainError("VALIDATION", "Poné cuántos USDT mandaste (de 1 a 1000)");
+  if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el comprobante o el número de operación");
+  const usd = Math.round(n * 100);
+  return e.tx(() => {
+    const now = e.now(), total = usdToBs(usd, rate);
+    const dup = ev.hash ? Object.values(e.s.orders).find((x) => x.evidence?.hash === ev.hash) : undefined;
+    const o: Order = {
+      id: e.id("ord"), kind: "topup", customerId, payerId: customerId, createdBy: actor.id,
+      channel: isStaff(actor) ? "panel" : "store", items: [], total, topupAmount: total, usd, status: "payment_review",
+      paymentMethod: "usdt", usdtQuote: { usdt: n, rate },
+      evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
+      reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
+    };
+    e.s.orders[o.id] = o;
+    if (!isStaff(actor)) alertPayment(e, o);
+    e.audit(actor, "topup.request", "order", o.id, { amount: total, usd, rate, method: "usdt" });
+    return structuredClone(o);
+  });
+}
