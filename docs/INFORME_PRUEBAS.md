@@ -13,6 +13,13 @@
 | Al integrar | 4 choques en `shop.js`, `app.ts` y `subLinks.ts` (logos de un equipo + moneda del otro en la misma línea): se conservaron los dos lados | 382/382 |
 | Celular | Barrida del equipo: 166 → 0 problemas en las pantallas del revendedor; Paraguay a 360/390 claro y oscuro sin desborde; panel del dueño (Inicio, Control, Revendedores, Cómo van, Que vuelvan) sin desborde. Arreglado al integrar: botones de Control a 44 px y etiqueta a 12 px | ✅ (queda el deslizador del asesor de la tienda, que ya estaba) |
 
+**Después de publicar (#33), tienda real:**
+- "Era una prueba" se usó primero en 1 servicio (la cola de avisos siguió en 33) y después en los otros 4 pedidos: 6 servicios cerrados, Bs 100 fuera de los números.
+- Servicios activos 91 → 85 (los 85 alquileres). La cuenta Disney de 7 perfiles y la Prime de 5 quedaron todas libres.
+- Cómo van, este mes: Bs 241 → Bs 207.
+- Recorrido de la tienda, /hub, /c/ inválido y el panel (Inicio, Que vuelvan, Cómo van, Revendedores, Control) a 390 px: 0 desbordes, 0 errores.
+- Vista previa de una /r/ no publicada: genérica ("Streaming hub").
+
 **No se probó:** celular real, WhatsApp mostrando la vista previa (solo las etiquetas en el HTML), un pago real en USDT, `revision-accesibilidad.cjs` completo (el equipo lo corrió con axe en sus pantallas).
 
 
