@@ -130,7 +130,7 @@ export function listApps(e: Engine, actor: Actor) {
 
 /** Aprueba: crea el revendedor (o pasa a revendedor al cliente que ya existía) y devuelve su id. */
 export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; name: string; phone: string } {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   return e.tx(() => {
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
@@ -160,7 +160,7 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
 }
 
 export function rejectApp(e: Engine, actor: Actor, id: Id) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   e.tx(() => {
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
@@ -189,7 +189,7 @@ export function pageAllowed(e: Engine, c: Customer): boolean {
 
 /** El dueño prende o apaga el plan "página propia" de un revendedor. Al apagarlo, su página deja de verse. */
 export function setResellerPage(e: Engine, actor: Actor, customerId: Id, allowed: boolean) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   return e.tx(() => {
     const c = e.get("customers", customerId);
     if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
@@ -231,7 +231,7 @@ export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unkn
 
 /** El dueño (o su equipo) arma la página de un revendedor: dirección, nombre, WhatsApp y si está publicada. */
 export function setupShopFor(e: Engine, actor: Actor, customerId: Id, patch: Record<string, unknown>) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   const c = e.get("customers", customerId);
   if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
   if (c.pageAllowed !== true) c.pageAllowed = true; // el dueño le está armando/habilitando la página

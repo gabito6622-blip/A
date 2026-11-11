@@ -119,8 +119,11 @@ export function listOrders(e: Engine, actor: Actor, f: { status?: OrderStatus; c
 export function listCustomers(e: Engine, actor: Actor, q = "") {
   authorize(actor, "customer.manage");
   const needle = q.trim().toLowerCase();
+  // Un número se busca como venga (+591 681-18288, 681 18288): se comparan los últimos 8 dígitos.
+  const digits = needle.replace(/\D/g, "");
+  const tail = digits.length >= 6 ? digits.slice(-8) : "";
   return Object.values(e.s.customers)
-    .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle))
+    .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle) || (!!tail && c.phone.replace(/\D/g, "").includes(tail)))
     .map((c) => {
       const mine = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
       const priceOf = (a: typeof mine[number]) => effectivePrice(e, a);

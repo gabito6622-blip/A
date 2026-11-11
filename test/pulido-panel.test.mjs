@@ -241,3 +241,80 @@ describe("Pulido panel · avisos de precio de revendedor y revendedores dormidos
     assert.throws(() => s.stats.notifications({ id: "c", role: "customer", customerId: "x" }), err("FORBIDDEN"));
   });
 });
+
+describe("Pulido panel · permisos de Atención (seller)", () => {
+  let app, dir, base, owner, lucia, st, ari, rich, carla, asg;
+  const call = (ck) => async (method, path, body) => {
+    const r = await fetch(base + path, { method, headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), cookie: ck }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const t = await r.text(); let j; try { j = JSON.parse(t); } catch { j = t; } return { status: r.status, json: j };
+  };
+  const login = async (username, password) => (await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) })).headers.get("set-cookie").split(";")[0];
+
+  test("preparación", async () => {
+    dir = mkdtempSync(join(tmpdir(), "gs-ppanel-seller-"));
+    app = createApp({ dataDir: dir, jobs: false, log: () => {} });
+    app.bootstrapOwner("gabriel", "Gabriel", "clave-del-dueño-123");
+    st = app.store; const sys = { id: "t", role: "owner" };
+    st.catalog.upsertProduct(sys, { id: "nf", name: "Netflix", kind: "profile", durationDays: 30, price: 3500, published: true });
+    st.catalog.upsertSupplier(sys, { id: "andes", name: "Andes", active: true });
+    st.inventory.addAccount(sys, { productId: "nf", supplierId: "andes", email: "nf1@x.lat", password: "Clave-Larga#1", supplierExpiresAt: Date.now() + 40 * DAY, cost: 4000, profiles: [{ label: "P1" }, { label: "P2" }] });
+    ari = st.catalog.createCustomer(sys, { name: "Ariana", phone: "+59171234567", kind: "reseller", priceGroupId: "revendedor" });
+    rich = st.catalog.createCustomer(sys, { name: "Con saldo", phone: "+59170000077" });
+    st.wallet.adjust(sys, rich.id, 5000, "x");
+    carla = st.catalog.createCustomer(sys, { name: "Carla", phone: "+59170011223" });
+    asg = st.orders.create(sys, { customerId: carla.id, items: [{ productId: "nf", qty: 1 }], paymentMethod: "cash" }).assignmentIds[0];
+    st.shops.apply({ name: "Pepe", phone: "+59171112222" });
+    st.shops.apply({ name: "Rita", phone: "+59171113333" });
+    base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
+    owner = call(await login("gabriel", "clave-del-dueño-123"));
+    assert.equal((await owner("POST", "/api/admin/staff", { username: "lucia", name: "Lucía", role: "seller", password: "clave-de-lucia-1" })).status, 200);
+    lucia = call(await login("lucia", "clave-de-lucia-1"));
+  });
+
+  test("Atención no aprueba ni rechaza revendedores ni les da página premium; el dueño sí", async () => {
+    const apps = (await owner("GET", "/api/admin/resellers")).json.apps;
+    const pepe = apps.find((a) => a.name === "Pepe"), rita = apps.find((a) => a.name === "Rita");
+    assert.equal((await lucia("POST", `/api/admin/reseller-apps/${pepe.id}/approve`, {})).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/reseller-apps/${rita.id}/reject`, {})).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/customers/${ari.id}/reseller-page`, { allowed: true })).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/customers/${ari.id}/shop`, { enabled: true })).status, 403);
+    assert.equal((await owner("POST", `/api/admin/reseller-apps/${pepe.id}/approve`, {})).status, 200);
+    assert.equal((await owner("POST", `/api/admin/reseller-apps/${rita.id}/reject`, {})).status, 200);
+    assert.equal((await owner("POST", `/api/admin/customers/${ari.id}/reseller-page`, { allowed: true })).status, 200);
+  });
+
+  test("Atención no cambia el PIN ni da enlace de entrada a revendedores o clientes con saldo; a un cliente común sí", async () => {
+    assert.equal((await lucia("POST", `/api/admin/customers/${ari.id}/login-pin`, {})).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/customers/${rich.id}/login-pin`, {})).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/customers/${ari.id}/login-link`, {})).status, 403);
+    assert.equal((await lucia("POST", `/api/admin/customers/${carla.id}/login-pin`, {})).status, 200);
+    assert.equal((await owner("POST", `/api/admin/customers/${ari.id}/login-pin`, {})).status, 200);
+  });
+
+  test("Atención no alarga fechas a mano (eso es Renovar); puede corregir hacia atrás. El dueño sin límite", async () => {
+    const a = st.engine.s.assignments[asg], cur = a.customerExpiresAt;
+    const far = Date.UTC(2030, 0, 1);
+    const r1 = await lucia("POST", `/api/admin/assignments/${asg}/expiry`, { expiresAt: far });
+    assert.equal(r1.status, 403);
+    assert.match(r1.json.message, /Renovar/);
+    assert.equal(st.engine.s.assignments[asg].customerExpiresAt, cur, "no cambió");
+    assert.equal((await lucia("POST", `/api/admin/assignments/${asg}/expiry`, { expiresAt: cur - 2 * DAY })).status, 200);
+    assert.equal((await owner("POST", `/api/admin/assignments/${asg}/expiry`, { expiresAt: far })).status, 200);
+  });
+
+  test("Atención ve sus avisos y puede reenviar accesos; busca clientes por número como venga", async () => {
+    const n = await lucia("GET", "/api/admin/notifications");
+    assert.equal(n.status, 200);
+    const d = await lucia("GET", `/api/admin/assignments/${asg}/delivery`);
+    assert.equal(d.status, 200);
+    assert.ok(d.json.password);
+    for (const q of ["+591 700 11223", "700-11223", "70011223"]) {
+      const r = await lucia("GET", `/api/admin/customers?q=${encodeURIComponent(q)}`);
+      assert.deepEqual(r.json.map((c) => c.name), ["Carla"], q);
+    }
+    const ai = await lucia("GET", "/api/admin/ai");
+    assert.equal(ai.json.daily, null, "el reporte del día es solo del dueño");
+  });
+
+  test("cierre", async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
+});

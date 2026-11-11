@@ -11,18 +11,18 @@ const CTAGS = { vip: ["⭐ VIP", "vip"], moroso: ["⚠️ Moroso", "moroso"], nu
 const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}">${CTAGS[t][0]}</span>` : "";
 
 const MENU = [
-  ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "home", "Dashboard"],
+  ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
   ["finanzas", "coins", "Finanzas", "owner"],
-  ["fiado", "coins", "Fiado (lo que te deben)"],
+  ["fiado", "flag", "Fiado (lo que te deben)"],
   ["notificaciones", "bell", "Notificaciones"],
   ["fallas", "help", "Fallas reportadas"],
-  ["reubicar", "renew", "Reubicar"],
+  ["reubicar", "renew", "Reubicar", "review"],
   ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
-  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]]],
-  ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
-  ["apariencia", "sun", "Apariencia de la tienda"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
+  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]], "review"],
+  ["revendedores", "userplus", "Revendedores"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
+  ["apariencia", "sun", "Apariencia de la tienda", "review"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["home", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["coins", "Fiado"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -217,7 +217,7 @@ const V = {
       <section class="card helpcard"><div class="inline" style="justify-content:space-between"><div><b>📖 ¿Dudas con alguna pantalla?</b><br><small class="muted">La guía de qué sirve cada parte está en su propio lugar.</small></div><button class="pbtn sm" type="button" data-go="ayuda">Abrir la Guía ${icon("arrow")}</button></div></section>`;
   },
   async ayuda() {
-    const [set, products, accounts] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/products"), api("GET", "/api/admin/accounts")]);
+    const [set, products, accounts] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/admin/products").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([])]);
     const pasos = [
       ["Creá tus productos", products.length > 0, "productos", "Crear producto"],
       ["Cargá tus cuentas (tu stock)", accounts.length > 0, "carga", "Cargar cuenta"],
@@ -322,7 +322,7 @@ const V = {
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>`;
   },
   async vender() {
-    const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), api("GET", "/api/admin/accounts").catch(() => [])]);
+    const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), (canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([]))]);
     P.tab.sellAccts = accounts;
     P.tab.custMap = Object.fromEntries(customers.map((c) => [`${c.name} · ${c.phone}`.trim(), c.id]));
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
@@ -631,14 +631,14 @@ const V = {
           ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
-          <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(Math.max(r.customerExpiresAt, Date.now()))}" aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form></details>
+          <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
           ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
         <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
         <button class="pbtn sm" type="button" data-cbulk="clear" aria-label="Quitar selección">✕</button>
-        <span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>
+        ${canReview() ? `<span class="inline"><input type="date" id="cbDate" aria-label="Fecha para las seleccionadas"><button class="pbtn sm" type="button" data-cbulk="date">📅 Poner fecha</button></span>` : ""}
         ${isOwner() ? `<label class="chk"><input type="checkbox" id="cbBeyond"> renovar aunque pase la fecha del proveedor</label>` : ""}</div>
       <section class="card ctl-card${xl ? " xl" : ""}">${hid.length ? `<style>${hid.map((k) => `table.ctl [data-col="${k}"]{display:none}`).join("")}</style>` : ""}${view.length || anyFilter ? `<div class="scroll ctl-scroll"><table class="ctl"><thead><tr>
         <th><input type="checkbox" id="cselAllT" aria-label="Seleccionar todo"></th>${COLS.map(([k, l]) => `<th data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}><button type="button" class="thsort" data-csort="${k}" title="Ordenar por ${l}">${l}<span>${sk === k ? (sd === "desc" ? "▼" : "▲") : "↕"}</span></button><input class="cfin" data-cfcol="${k}" value="${esc(cfc[k] ?? "")}" placeholder="🔍 filtrar" aria-label="Filtrar ${l}"></th>`).join("")}<th>Acciones</th></tr></thead><tbody>
@@ -650,7 +650,7 @@ const V = {
           <td data-col="product">${esc(pname(r))}</td><td data-col="email" class="mono">${esc(r.email)}</td>
           <td data-col="profile">${canReview() && r.slotId ? `<input class="ctl-in mid" data-cslot="${esc(r.slotId)}" value="${esc(r.profile)}" aria-label="Perfil">` : esc(r.profile)}</td>
           <td data-col="startsAt">${fdate(r.startsAt)}</td>
-          <td data-col="customerExpiresAt"><input type="date" class="ctl-in date" data-cexp="${esc(r.id)}" value="${dIn(r.customerExpiresAt)}" aria-label="Vencimiento"></td><td data-col="day">${r.day}</td>
+          <td data-col="customerExpiresAt"><input type="date" class="ctl-in date" data-cexp="${esc(r.id)}" value="${dIn(r.customerExpiresAt)}"${canReview() ? "" : ` max="${dIn(r.customerExpiresAt)}"`} aria-label="Vencimiento"></td><td data-col="day">${r.day}</td>
           <td data-col="price"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
           ${canReview() ? `<td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"${r.control.cost === undefined ? ` title="Estimado: lo que te cuesta la cuenta ÷ sus perfiles"` : ""}></td>
           <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>` : ""}
@@ -682,7 +682,7 @@ const V = {
         ${t.email ? `<p class="muted" style="margin:0">Cuenta: <code>${esc(t.email)}</code></p>` : ""}
         <form class="form" data-tkt="${esc(t.id)}"><label style="grid-column:1/-1">Respuesta para quien reportó (opcional)<input name="reply" maxlength="300" value="${esc(t.reply)}" placeholder="Ej.: te pasamos a otra cuenta, revisá tus datos en Mis cuentas"></label>
           <div class="inline" style="grid-column:1/-1;flex-wrap:wrap">${Object.keys(ST).map((s) => `<button class="pbtn ${t.status === s ? "dark" : ""}" type="submit" name="st" value="${s}">${ST[s][0]}</button>`).join("")}
-          ${t.reporterPhone ? `<a class="pbtn" href="${waLink(t.reporterPhone, msg(t))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}<button class="pbtn" type="button" data-go="reubicar">🔀 Reubicar</button></div></form></section>`).join("") || `<section class="card"><p class="muted" style="margin:0">No hay fallas reportadas 🎉</p></section>`}`;
+          ${t.reporterPhone ? `<a class="pbtn" href="${waLink(t.reporterPhone, msg(t))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}${t.assignmentId ? `<button class="pbtn" type="button" data-deliver="${esc(t.assignmentId)}">📲 Reenviar accesos</button>` : ""}${canReview() ? `<button class="pbtn" type="button" data-go="reubicar">🔀 Reubicar</button>` : ""}</div></form></section>`).join("") || `<section class="card"><p class="muted" style="margin:0">No hay fallas reportadas 🎉</p></section>`}`;
   },
   async fiado() {
     const T = P.tab;
@@ -731,7 +731,7 @@ const V = {
         return `<tr><td><label class="selbox"><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></label></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
           <td>${fdate(a.customerExpiresAt)} ${d <= 3 ? pill(d < 0 ? "Vencido" : `${d} d`, d < 0 ? "bad" : "warn") : ""}${a.holdOpen ? `<br>${pill("Esperando fecha", "mute")}` : ""}</td><td>${fdate(a.supplierExpiresAt)}</td>
           <td><button class="pbtn sm dark" type="button" data-renew="${esc(a.id)}">+1 período</button>
-          <details class="more" ${a.holdOpen ? "open" : ""}><summary>Cambiar fecha</summary><form class="inline" data-expiry="${esc(a.id)}" style="margin-top:6px"><input type="date" name="date" required value="${dateInput(Math.max(a.customerExpiresAt, Date.now()))}" aria-label="Nueva fecha de vencimiento"><button class="pbtn sm" type="submit">Guardar</button></form></details>
+          <details class="more" ${a.holdOpen ? "open" : ""}><summary>Cambiar fecha</summary><form class="inline" data-expiry="${esc(a.id)}" style="margin-top:6px"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(a.customerExpiresAt, Date.now()) : a.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(a.customerExpiresAt)}"`} aria-label="Nueva fecha de vencimiento"><button class="pbtn sm" type="submit">Guardar</button></form></details>
           ${canReview() ? `<details class="more"><summary>Reemplazar</summary><form class="inline" data-replace="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo (p. ej. perfil bloqueado)" required><label class="chk"><input type="checkbox" name="other"> otra cuenta</label><button class="pbtn sm" type="submit">Reemplazar</button></form></details>
           <details class="more"><summary>Transferir</summary><form class="inline" data-transfer="${esc(a.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== a.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Transferir</button></form></details>` : ""}</td></tr>`;
       }), "No hay servicios activos.")}
@@ -752,7 +752,7 @@ const V = {
         ${canReview() ? `<button class="pbtn dark" type="submit">Guardar</button>` : ""}</div></form>
       <p class="muted" style="margin:0">Los avisos salen por WhatsApp si el bot está conectado; si no, quedan en <b>WhatsApp → Avisos</b> para mandarlos con un toque.</p></section>`;
     return auto + `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
-      <button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Preparar avisos para estos</button></div>
+      ${canReview() ? `<button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Preparar avisos para estos</button>` : ""}</div>
       ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
       <p class="muted" style="margin:0">“Preparar” deja un mensaje por cliente en <b>WhatsApp</b> (máximo uno por día). Desde ahí los mandás.</p></section>`;
   },
@@ -1035,7 +1035,7 @@ const V = {
             <label>🏷️ Etiqueta<select name="tag">${opt("", "Sin etiqueta", !c.tag)}${Object.entries(CTAGS).map(([k, v]) => opt(k, v[0], c.tag === k)).join("")}</select></label>
             <label style="grid-column:1/-1">Notas internas (el cliente no las ve)<input name="notes" maxlength="500" value="${esc(c.notes ?? "")}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos por WhatsApp</label>
-            <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button><button class="pbtn" type="button" data-link="${esc(c.id)}" data-name="${esc(c.name)}">🔑 PIN de acceso</button><button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
+            <div class="rbtns" style="grid-column:1/-1"><button class="pbtn dark" type="submit">${icon("edit")}Guardar</button>${canReview() || (c.kind !== "reseller" && !(c.balance > 0)) ? `<button class="pbtn" type="button" data-link="${esc(c.id)}" data-name="${esc(c.name)}">🔑 PIN de acceso</button>` : ""}<button class="pbtn" type="button" data-ledger="${esc(c.id)}">${icon("coins")}Saldo</button><a class="pbtn" href="https://wa.me/${esc(c.phone.replace(/\D/g, ""))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>
           </form></details>`; }).join("");
       })()}</section>`;
   },
@@ -1238,8 +1238,8 @@ const V = {
       ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
       <div class="rgrid">${pending.map((a) => `<div class="rcard"><div class="rtop"><span class="ravatar">${esc(a.name[0] ?? "?")}</span><div><b>${esc(a.name)}</b><small class="muted">${esc(a.phone)} · ${fdt(a.createdAt)}</small></div></div>
         ${a.note ? `<p class="muted" style="margin:0">“${esc(a.note)}”</p>` : ""}${a.existingCustomer ? `<small class="muted">Ya es tu cliente: se pasa a revendedor.</small>` : ""}
-        <div class="inline"><button class="pbtn sm green" type="button" data-appok="${esc(a.id)}">✅ Aprobar y mandar acceso</button><a class="pbtn sm" href="${waLink(a.phone, `Hola ${a.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a><button class="pbtn sm" type="button" data-appno="${esc(a.id)}">Rechazar</button></div></div>`).join("")}</div></section>` : ""}
-    <section class="card"><h2>${icon("userplus")}Nuevo revendedor <small>entra a su panel en ${esc(set.platformName || "GaboHub")}; la página se la activás cuando quieras</small></h2>
+        <div class="inline">${canReview() ? `<button class="pbtn sm green" type="button" data-appok="${esc(a.id)}">✅ Aprobar y mandar acceso</button>` : `<small class="muted">La aprueba el dueño o un admin.</small>`}<a class="pbtn sm" href="${waLink(a.phone, `Hola ${a.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a>${canReview() ? `<button class="pbtn sm" type="button" data-appno="${esc(a.id)}">Rechazar</button>` : ""}</div></div>`).join("")}</div></section>` : ""}
+    ${canReview() ? `<section class="card"><h2>${icon("userplus")}Nuevo revendedor <small>entra a su panel en ${esc(set.platformName || "GaboHub")}; la página se la activás cuando quieras</small></h2>
       <form class="form" id="resForm">
         <label>Nombre<input name="name" required maxlength="80" placeholder="Ej.: Ari Streaming" data-slugsrc="1"></label>
         <label>WhatsApp (con código de país)<input name="phone" required inputmode="tel" placeholder="59170000000"></label>
@@ -1252,7 +1252,7 @@ const V = {
         </div>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" checked> Acepta recibir avisos por WhatsApp</label>
         <button class="pbtn dark" type="submit">${icon("plus")}Crear revendedor</button>
-      </form></section>
+      </form></section>` : ""}
 
     <section class="card"><h2>Tus revendedores <small>${list.length}</small><input class="rsearch" id="rq" placeholder="Buscar" value="${esc(T.rq ?? "")}" style="margin-left:auto;max-width:220px"></h2>
       <div class="tabs ctl-chips" role="tablist" aria-label="Actividad">${[["todos", `Todos (${list.length})`], ["activos", `Activos (${list.filter((r) => !dormido(r)).length})`], ["dormidos", `💤 Sin comprar +14 días (${list.filter(dormido).length})`]].map(([k, t]) => `<button type="button" role="tab" data-tab="rf:${k}" aria-selected="${rf === k}">${t}</button>`).join("")}</div>
@@ -1950,12 +1950,16 @@ async function render() {
   showPending(pend);
   refreshNotifCount();
   const inG = ["cuentas", "carga", "productos", "cupones"].includes(P.view);
-  $("#menu").innerHTML = MENU.filter((m) => !m[3] || m[3] === "owner" && isOwner() || Array.isArray(m[3])).map(([k, i, t, sub]) => Array.isArray(sub)
+  // Atención (seller) no ve en el menú las pantallas que no puede usar (antes le daban error).
+  const roleOk = (r) => !r || Array.isArray(r) || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
+  $("#menu").innerHTML = MENU.filter((m) => roleOk(m[3]) && roleOk(m[4])).map(([k, i, t, sub]) => Array.isArray(sub)
     ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
     : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(i)}${t}${k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : ""}</button>`).join("");
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
   const bnavFor = ["cuentas", "carga", "productos", "cupones"].includes(P.view) ? "cuentas" : P.view;
+  const bCuentas = $('#pbnav button[data-go="cuentas"]');
+  if (bCuentas && P.me && !canReview()) { bCuentas.dataset.go = "fallas"; bCuentas.querySelector("span").textContent = "Fallas"; bCuentas.querySelector("use")?.setAttribute("href", "/icons.svg#i-help"); }
   $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", b.dataset.go === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {

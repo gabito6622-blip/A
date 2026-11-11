@@ -59,7 +59,7 @@ export function report(e: Engine, actor: Actor, n = 6) {
   const est = accountsEstimate(e);
   const cur = months[months.length - 1];
   const current = { ...cur, cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ingresos - cur.gastos - est.amount };
-  return { months, current, expenses: structuredClone(curExpenses) };
+  return { months, current, topApps: topAppsOfMonth(e, curKey), expenses: structuredClone(curExpenses) };
 }
 
 /**
@@ -78,6 +78,31 @@ export function accountsEstimate(e: Engine): { amount: Cents; count: number } {
     amount += a.cost; count++;
   }
   return { amount, count };
+}
+
+/**
+ * Las apps que más te dejaron este mes: lo que entró por cada una menos lo que te cuestan
+ * esos perfiles (estimado con el costo de las cuentas). Un combo suma el costo de sus apps.
+ */
+function topAppsOfMonth(e: Engine, curKey: string) {
+  const unit: Record<Id, number> = {};
+  for (const m of marginsData(e).products) if (m.unitCost !== null) unit[m.productId] = m.unitCost;
+  const costOf = (pid: Id): number => {
+    const p = e.s.products[pid];
+    if (p?.kind === "combo") return (p.comboProductIds ?? []).reduce((t, id) => t + (unit[id] ?? 0), 0);
+    return unit[pid] ?? 0;
+  };
+  const by: Record<Id, { productId: Id; name: string; ingresos: number; units: number; costo: number; gana: number }> = {};
+  for (const o of Object.values(e.s.orders)) {
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || mk(new Date(o.updatedAt)) !== curKey) continue;
+    const sub = o.items.reduce((t, it) => t + it.qty * it.unitPrice, 0) || 1;
+    for (const it of o.items) {
+      const b = (by[it.productId] ??= { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, ingresos: 0, units: 0, costo: 0, gana: 0 });
+      const rev = Math.round((o.total * it.qty * it.unitPrice) / sub); // reparte cupones/descuentos
+      b.ingresos += rev; b.units += it.qty; b.costo += costOf(it.productId) * it.qty;
+    }
+  }
+  return Object.values(by).map((b) => ({ ...b, gana: b.ingresos - b.costo })).sort((a, b) => b.gana - a.gana).slice(0, 3);
 }
 
 /** Suma `months` meses calendario a una fecha (mismo día; si no existe, el último del mes). */

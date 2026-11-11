@@ -1169,7 +1169,9 @@ describe("17. Importar vencidos y clientes sin WhatsApp", () => {
     assert.equal(s.orders.closeExpired(system, 2), 0, "no lo cierra");
     assert.throws(() => s.orders.setExpiry({ id: "c", role: "customer", customerId: "x" }, id, T0 + 30 * DAY), err("FORBIDDEN"));
     assert.throws(() => s.orders.setExpiry(seller, id, NaN), err("VALIDATION"));
-    const a = s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR");
+    // Atención (seller) no alarga fechas a mano (sin cobro anotado): eso lo hace Renovar, o el dueño/admin.
+    assert.throws(() => s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR"), err("FORBIDDEN"));
+    const a = s.orders.setExpiry(admin, id, clock.t + 20 * DAY, "pagó por QR");
     assert.equal(a.holdOpen, undefined);
     assert.equal(a.history.at(-1).event, "date_changed");
     clock.t += 23 * DAY;

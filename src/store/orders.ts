@@ -688,6 +688,13 @@ export function setCustomerExpiry(e: Engine, actor: Actor, assignmentId: Id, exp
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
     if (a.status !== "active") throw new DomainError("INVALID_STATE", "Ese servicio ya no está activo");
+    // Atención (seller) solo corrige hacia atrás: no puede alargar lo que el cliente pagó (eso es
+    // Renovar, que deja anotado el cobro) ni pasar la fecha del proveedor. Dueño y admin, sin límite.
+    if (actor.role === "seller") {
+      const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId];
+      if (expiresAt > a.customerExpiresAt) throw new DomainError("FORBIDDEN", "Para alargar la fecha usá Renovar (así queda anotado el cobro) o pedíselo al dueño");
+      if (acc && expiresAt > acc.supplierExpiresAt) throw new DomainError("FORBIDDEN", "No podés poner una fecha después del vencimiento con el proveedor");
+    }
     const before = a.customerExpiresAt;
     a.customerExpiresAt = expiresAt;
     delete a.holdOpen;
