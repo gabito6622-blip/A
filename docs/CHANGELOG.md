@@ -3,7 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Pulido 2 (rama `pulido-2`)
+## Sin publicar — Repartir perfiles (rama `repartir-perfiles`)
+- **Revendedor:** nueva pestaña "🧩 Repartir perfiles": en cada cuenta completa que alquila anota quién está en cada perfil (nombre, WhatsApp, vencimiento, precio, si pagó), avisa por WhatsApp, renueva +30 días y ve si le cubre lo que le cuesta la cuenta. Se suma a Avisar, Quién me debe, Mis ganancias, Tu día y al aviso diario al celular.
+- **Privacidad:** el dueño no ve estos datos (ni en pantallas ni en respuestas de la API).
+
+## 2026-11-11 · #26 Pulido 2
 - **Revendedor:** Mis cuentas con correo y contraseña plegados (la lista entra en pocas pantallas); en Mi página la vista previa ya no tapa lo que editás (botón "👀 Ver cómo queda") y se puede **deshacer** una plantilla o combinación.
 - **Dueño:** botón "✅ Liberar N en cuarentena" en cada cuenta.
 

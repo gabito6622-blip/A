@@ -16,6 +16,7 @@ import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
+import * as subs from "./subRentals.js";
 import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
@@ -249,6 +250,13 @@ export function createStore(opts: EngineOptions = {}) {
       list: bind(e, tickets.list),
       setStatus: bind(e, tickets.setStatus),
       kinds: tickets.TICKET_KINDS,
+    },
+    subs: {
+      list: bind(e, subs.listMine),
+      save: bind(e, subs.saveSub),
+      renew: bind(e, subs.renewSub),
+      remove: bind(e, subs.removeSub),
+      summary: bind(e, subs.rentalSummary),
     },
     rtools: {
       control: bind(e, rtools.myControl),

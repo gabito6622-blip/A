@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Repartir perfiles: el cuaderno del revendedor
+- **Qué:** los revendedores alquilan cuentas completas (86 alquileres reales) y reparten perfiles por fuera; casi no cargan clientes uno por uno (1 servicio). Se agrega, por cuenta alquilada, la lista de perfiles repartidos (cliente, WhatsApp, vence, precio, pago, nota). Alimenta Avisar, Quién me debe, Ganancias, Tu día y el aviso diario.
+- **Privacidad:** son datos del revendedor. El dueño no los ve: las respuestas de la API al equipo se limpian (`pubAssignment` quita `subs` y `rcontrol`).
+- **Descartado:** convertir cada perfil en un "cliente" del sistema (duplicaba clientes y mezclaba el fiado).
+
 ## 2026-11-11 · Los revendedores compran solo alquileres de cuentas completas
 - **Qué:** con el ajuste "solo lo de revendedores", el revendedor ve y compra únicamente los productos "solo revendedores": Disney + ESPN (Bs 69), Disney sin ESPN (Bs 34), Prime Video (Bs 20) y HBO Max (Bs 15), todos alquiler mensual de cuenta completa.
 - **Por qué:** es lo único que el dueño les vende; el resto del catálogo los confundía y generaba avisos de "falta precio de revendedor" sin sentido.

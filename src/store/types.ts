@@ -448,6 +448,8 @@ export interface Assignment {
   control?: RentalControl;
   /** Control del revendedor sobre el servicio de SU cliente (su precio, si le pagó, su nota). */
   rcontrol?: RentalControl;
+  /** Perfiles que el revendedor reparte de esta cuenta completa alquilada (su cuaderno; el dueño no los ve). */
+  subs?: SubRental[];
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
 }
@@ -470,6 +472,20 @@ export interface Ticket {
   reply?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Un perfil de una cuenta alquilada que el revendedor le pasa a SU cliente. */
+export interface SubRental {
+  id: Id;
+  /** "Perfil 1", "Mamá", etc. */
+  label: string;
+  name: string;
+  phone: string;
+  expiresAt: number;
+  price?: Cents;
+  pay: "pagado" | "pendiente" | "no_pago";
+  note?: string;
+  createdAt: number;
 }
 
 export interface FiadoEntry {
