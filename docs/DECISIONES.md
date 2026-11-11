@@ -13,6 +13,12 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - El dueño ve solo cantidades; ni contraseñas ni clientes. Los clientes nuevos de cuentas propias no se crean como clientes de la tienda.
 - **IPTV:** los datos para el cliente (servidor, app, pantallas, instrucciones) van en el producto y salen en "Mandar acceso". La prueba gratis dura de 1 a 72 h, no cuenta como venta ni deuda, y al renovarse toma el precio del producto.
 
+## 2026-11-11 · Tasa del dólar: Banco Central de Bolivia (fuente elegida por el dueño)
+- **Fuente:** el tipo de cambio oficial de la portada del BCB. Se lee la tarjeta del dólar (`is-tc-oficial`: `<time datetime>` + `bcb-tco-num`), solo hasta su `</article>`, para no tomar el número del oro. Rango válido: Bs 5 a 50.
+- **Cuándo:** cada 3 h. Solo se aplica cuando el BCB publica una fecha nueva, así un cambio a mano del mismo día no se pisa. "Traer ahora" fuerza la lectura.
+- **Si falla:** no se toca la tasa (mejor vieja con aviso que equivocada). El error queda en el secreto `bcb:rate` y se muestra en Inicio.
+- **Sin dependencias ni claves:** `fetch` simple con un User-Agent genérico.
+
 ## 2026-11-11 · Dólar flexible: tasa a mano, fijada por pedido
 - **Qué:** el dueño actualiza la tasa (Inicio, un toque); se guarda `rateAt` y se avisa si tiene más de 24 h. Cada pedido o recarga en USDT guarda `usdtQuote` (USDT y tasa) al crearse; aprobar acredita lo pedido, aunque la tasa haya cambiado.
 - **Recarga en USDT:** el revendedor de afuera elige USDT y el servidor calcula los Bs (no confía en el monto del navegador).

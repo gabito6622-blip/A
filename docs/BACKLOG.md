@@ -12,9 +12,9 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
 | B4 | ✅ marcados como prueba en la tienda real (#33): 6 servicios, Bs 100 · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
-| B10 | ¿Tasa del USDT automática? Hace falta que el dueño elija la fuente (Binance no da una tasa oficial en Bs) | P3 | 🧑 |
+| B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), sin publicar |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
-| B12 | Datos de revendedores para invitarlos: "paraguay" tiene un dígito de más (+595 9929463666); sin WhatsApp: panama, EXTRANJERO, aneliz, Dani strem, ANDROID; JOSUE ORIAS incompleto (776115438). ¿De qué país es EXTRANJERO? | P1 | 🧑 |
+| B12 | Datos de revendedores para invitarlos: "paraguay" ✅ corregido a +595 992 946 366 (captura del dueño); Panamá: +507 6554-3461 (cuentaspremiumpty) y +507 6045-0712 (Resell Panama), falta saber cuál es "panama" y cuál "EXTRANJERO"; sin WhatsApp: panama, EXTRANJERO, aneliz, Dani strem, ANDROID; JOSUE ORIAS incompleto (776115438). ¿De qué país es EXTRANJERO? | P1 | 🧑 |
 | B8 | Configurar USDT en tu tienda (Binance Pay ID y tasa Bs→USDT) para que Paraguay y Panamá recarguen | P1 | 🧑 |
 | B9 | Revendedores de otro país: ¿se les cobra algo extra? | P3 | 🧑 |
 | B7 | Que vuelvan: ¿respetar el permiso de WhatsApp del cliente (`whatsappConsent`)? Hoy no filtra porque lo manda una persona a mano, como la fila de cobro | P2 | 🧑 |
