@@ -99,7 +99,7 @@ function footer() {
     st.facebook && [`https://facebook.com/${encodeURIComponent(st.facebook)}`, "Facebook"],
   ].filter(Boolean);
   $("#footWa").innerHTML = links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`).join(" · ")
-    + (MODE === "store" ? ` · <a href="/">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "")
+    + (MODE === "store" ? ` · <a href="/hub">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? ` · <a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "")
     + (MODE === "rshop" ? "" : ` · <a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a>`)
     + ` · <a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`;
   softwareNotice();
@@ -510,7 +510,7 @@ function renderInner() {
       ${SLUG ? "" : reviewsSection()}
       ${faqSection()}
       ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
-      ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
+      ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/hub">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
       ${L === "minimal" ? "" : `<section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
         ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
           : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]])
@@ -591,7 +591,7 @@ function renderInner() {
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
-  const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
+  const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/hub#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
   if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour")) setTimeout(() => { if (S.view === "inicio" && !guideSeen()) startTour(); }, 700);
 }
@@ -1128,7 +1128,7 @@ function programView() {
       <div class="pscroll">deslizá</div></section>
 
     <section class="psec"><div class="peyebrow">Por dentro</div><div class="psplit"><h2>Todo tu negocio<br>en una sola pantalla</h2><p>Saldo, clientes, vencimientos y ventas del día, en la compu o en el celular. Así se ve tu panel de revendedor.</p></div>
-      <div class="pshot">${browser(location.host + "/#clientes", `<div class="mk"><div class="mk-side">${["Vender", "Mis clientes", "Por vencer", "Mi página", "Mis precios", "Saldo"].map((t, i) => `<span class="${i === 1 ? "on" : ""}">${t}</span>`).join("")}</div>
+      <div class="pshot">${browser(location.host + "/hub#clientes", `<div class="mk"><div class="mk-side">${["Vender", "Mis clientes", "Por vencer", "Mi página", "Mis precios", "Saldo"].map((t, i) => `<span class="${i === 1 ? "on" : ""}">${t}</span>`).join("")}</div>
           <div class="mk-main"><b class="mk-t">Mi panel de revendedor</b><div class="mk-kpi">${[["Mi saldo", "Bs 420"], ["Clientes", "38"], ["Activos", "52"], ["Vencen en 7 días", "6"]].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join("")}</div>
           ${[["Ana P.", ex, "Vence en 2 d", "w"], ["Luis C.", sample[1]?.name ?? "Spotify", "Vence en 5 d", "w"], ["María Q.", sample[2]?.name ?? "Disney+", "Vence en 21 d", "o"], ["Jorge R.", ex, "Vence en 28 d", "o"]].map(([n, pr, d, k]) => `<div class="mk-row"><span>${esc(n)}</span><span>${esc(pr)}</span><em class="${k}">${d}</em><i>Renovar</i></div>`).join("")}</div></div>`)}
         <div aria-hidden="true" class="fcard f1"><small>GANANCIA · ESTE MES</small><b>Bs 1.240 <em>+22%</em></b>${spark([3, 4, 3.5, 5, 4.8, 6.5, 6, 8], "var(--s-ok)")}</div>
@@ -1143,7 +1143,7 @@ function programView() {
       <div class="prow"><div class="pvis">${browser(location.host + "/r/tu-tienda", `<div class="phones pmini">${mocks.map((t) => phoneMock(t, sample)).join("")}</div>`)}</div>
         <div class="ptxt"><span class="pnum">01</span><h3>Tu tienda con tu marca</h3><p>Elegís un estilo, subís tu logo y portada, ponés tus precios y compartís tu link. Tus clientes arman el pedido y te llega a tu WhatsApp.</p>
           ${checks([`${THEMES.length} estilos listos para arrancar`, "Logo, portada, colores y letras", "Tus precios, no los nuestros", "Pedidos directo a tu WhatsApp", "Link propio: /r/tu-tienda", "Perfecta en el celular"])}</div></div>
-      <div class="prow rev"><div class="pvis">${browser(location.host + "/#clientes", `<div class="mkdone"><b>✅ Venta lista: mandale estos datos a Ana</b><pre>*${esc(ex)}*\nCorreo: cliente01@correo.com\nContraseña: ••••••••\nPerfil: Perfil 3\nVence: 07/12/2026</pre><div><i>Copiar datos</i><i class="g">Mandar por WhatsApp</i></div></div>`)}</div>
+      <div class="prow rev"><div class="pvis">${browser(location.host + "/hub#clientes", `<div class="mkdone"><b>✅ Venta lista: mandale estos datos a Ana</b><pre>*${esc(ex)}*\nCorreo: cliente01@correo.com\nContraseña: ••••••••\nPerfil: Perfil 3\nVence: 07/12/2026</pre><div><i>Copiar datos</i><i class="g">Mandar por WhatsApp</i></div></div>`)}</div>
         <div class="ptxt"><span class="pnum">02</span><h3>Panel de revendedor</h3><p>Vendés con tu saldo y la cuenta sale al instante. Tus clientes, sus servicios, notas y renovaciones, todo ordenado.</p>
           ${checks(["Venta y entrega en segundos", "Copiar o mandar datos por WhatsApp", "Renovar con un toque", "Clientes por vencer en 7 días", "Notas privadas por cliente", "Lista de precios con tu ganancia"])}</div></div>
       <div class="prow"><div class="pvis">${browser("WhatsApp", `<div class="mkchat"><span class="in">8</span><span class="out"><b>👥 Clientes por vencer (7 días)</b><br>• Ana P.: ${esc(ex)} · vence en 2 días<br>• Luis C.: ${esc(sample[1]?.name ?? "Spotify")} · vence en 5 días<br><br>Renovalos con tu saldo desde <b>Mis clientes</b> 🔗</span><span class="in">gracias!</span><span class="out">¡De nada! 🙌 Si necesitás algo más, escribí <b>menu</b>.</span></div>`)}</div>

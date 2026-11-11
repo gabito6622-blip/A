@@ -10,7 +10,7 @@ self.addEventListener("push", (ev) => {
     const [adm, me] = await Promise.all([get("/api/admin/push/latest"), get("/api/me/push/latest")]);
     let m = { title: "Tenés avisos", body: "Tocá para verlos.", url: "/" , at: 0 };
     if (adm) m = { title: adm.title, body: adm.body, url: `/panel.html#${encodeURIComponent(adm.go || "notificaciones")}`, at: adm.at || 0 };
-    if (me && (me.at || 0) > m.at) m = { title: me.title, body: me.body, url: me.url || "/", at: me.at };
+    if (me && (me.at || 0) > m.at) m = { title: me.title, body: me.body, url: me.url || "/hub", at: me.at };
     if (!adm && !me) m.url = "/";
     const panel = m.url.startsWith("/panel");
     await self.registration.showNotification(m.title, {

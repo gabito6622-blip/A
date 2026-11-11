@@ -370,7 +370,7 @@ export function createApp(cfg: AppConfig): App {
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id));
-    return { pin, phone: cust.phone, loginUrl: `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/` };
+    return { pin, phone: cust.phone, loginUrl: `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/hub` };
   });
   route("POST", "/api/me/login-pin", "customer", (c) => {
     const id = c.actor!.customerId!;
@@ -527,7 +527,7 @@ export function createApp(cfg: AppConfig): App {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
       const t = r.ticket, st = { recibido: "📥 Recibimos tu reporte", revisando: "🔧 Estamos revisando", solucionado: "✅ Falla solucionada" }[t.status];
-      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url: "/#fallas" }).catch(() => {});
+      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url: "/hub#fallas" }).catch(() => {});
     }
     return r.ticket;
   });
@@ -1184,7 +1184,7 @@ export function createApp(cfg: AppConfig): App {
     const token = newToken();
     db.putSession({ tokenHash: sha256(token), kind: "link", subjectId: customerId, createdAt: now(), expiresAt: now() + LINK_MS });
     const kind = store.engine.s.customers[customerId]?.kind;
-    return `${base}${kind === "reseller" ? "/" : "/tienda/"}#acceso=${token}`;
+    return `${base}${kind === "reseller" ? "/hub" : "/tienda/"}#acceso=${token}`;
   }
 
   const waSecret = (k: "token" | "appSecret") => db.getSecret(k === "token" ? "wa_token" : "wa_app_secret");
@@ -1542,13 +1542,13 @@ export function createApp(cfg: AppConfig): App {
   });
   route("POST", "/api/me/push/test", "customer", async (c) => {
     if (!pushOn()) throw new HttpError(409, "PUSH_OFF", "Los avisos al celular todavía no están prendidos en la tienda");
-    const r = await customerPush(c.actor!.customerId!, { title: "✅ Avisos activados", body: "Te vamos a avisar cuando tus clientes vencen, si te falta saldo y cuando se soluciona una falla.", url: "/#inicio" });
+    const r = await customerPush(c.actor!.customerId!, { title: "✅ Avisos activados", body: "Te vamos a avisar cuando tus clientes vencen, si te falta saldo y cuando se soluciona una falla.", url: "/hub#inicio" });
     if (!r.sent) throw new HttpError(409, "PUSH_NONE", "Primero activá los avisos en este celular");
     return r;
   });
   route("GET", "/api/me/push/latest", "customer", (c) => {
     const m = cpushLatest.get(c.actor!.customerId!);
-    return m && now() - m.at < 6 * 3_600_000 ? m : { title: "Tenés avisos", body: "Tocá para verlos.", url: "/#inicio", at: 0 };
+    return m && now() - m.at < 6 * 3_600_000 ? m : { title: "Tenés avisos", body: "Tocá para verlos.", url: "/hub#inicio", at: 0 };
   });
 
   // ── Telegram: avisos del dueño ──
@@ -1731,7 +1731,7 @@ export function createApp(cfg: AppConfig): App {
       if (st.bannerFileRef) return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/api/settings/banner", noSize: true, card: { title, subtitle: "", accent: st.accentColor, background: st.backgroundColor } };
       return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
     }
-    if (pathname === "/" || /^\/(revendedores|tiendas)\/?$/.test(pathname)) {
+    if (pathname === "/" || /^\/(hub|revendedores|tiendas)\/?$/.test(pathname)) {
       const title = oneLine(platform, 60);
       return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
         img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
@@ -1756,7 +1756,7 @@ export function createApp(cfg: AppConfig): App {
       type = "application/xml; charset=utf-8";
       let shops: string[] = [];
       try { shops = (store.shops.program() as { shops: { slug: string }[] }).shops.map((x) => `/r/${x.slug}`); } catch { /* sin páginas */ }
-      const urls = ["/tienda/", "/", "/revendedores", "/tiendas", ...shops];
+      const urls = ["/tienda/", "/hub", "/revendedores", "/tiendas", ...shops];
       body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${origin}${u}</loc></url>`).join("\n")}\n</urlset>\n`;
     }
     res.writeHead(200, { "Content-Type": type, "Cache-Control": "public, max-age=3600" });
@@ -1793,6 +1793,18 @@ export function createApp(cfg: AppConfig): App {
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
+  }
+
+  /** A dónde mandar a quien entra por el dominio propio. null = servir normal. */
+  function domainRedirect(rawHost: string, pathname: string, search: string): { code: number; to: string } | null {
+    if (!cfg.publicOrigin?.startsWith("https://")) return null;
+    let main: string;
+    try { main = new URL(cfg.publicOrigin).hostname.toLowerCase(); } catch { return null; }
+    if (main.endsWith(".up.railway.app") || main === "localhost") return null;
+    const host = rawHost.toLowerCase().replace(/:\d+$/, "");
+    if (host === `www.${main}`) return { code: 301, to: `https://${main}${pathname}${search}` };
+    if (host === main && pathname === "/") return { code: 302, to: `/tienda/${search}` };
+    return null;
   }
 
   function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
@@ -1841,6 +1853,10 @@ export function createApp(cfg: AppConfig): App {
     const ip = fwd || (req.socket.remoteAddress ?? "?");
     try {
       if (!url.pathname.startsWith("/api/")) {
+        // Dominio propio (GS_PUBLIC_ORIGIN): www → dominio principal, y la portada del dominio es la tienda.
+        // GaboHub (revendedores) queda en /hub. El link de Railway sigue igual que siempre.
+        const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
+        if (go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
         if (!serveSeoFiles(req, res, url.pathname) && !serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
@@ -2078,7 +2094,7 @@ export function createApp(cfg: AppConfig): App {
       await customerPush(cid, {
         title: soon.length === 1 ? "📅 1 cliente tuyo vence mañana" : `📅 ${soon.length} clientes tuyos vencen mañana`,
         body: `${names}${soon.length > 3 ? "…" : ""}${need > bal ? ` · ⚠️ Te falta saldo para renovarlos (tenés ${(bal / 100).toFixed(0)}, necesitás ${(need / 100).toFixed(0)})` : " · Avisales desde Mi control"}`.slice(0, 180),
-        url: "/#clientes",
+        url: "/hub#clientes",
       }).catch(() => {});
     }
   }

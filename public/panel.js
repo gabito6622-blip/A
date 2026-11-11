@@ -47,11 +47,11 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   const pin = pinIn ?? (await api("POST", `/api/admin/customers/${id}/login-pin`, {})).pin;
   const plat = P.settings?.platformName || "GaboHub";
   const page = slug ? `${location.origin}/r/${slug}` : "";
-  const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
+  const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/hub\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
     : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
-  return { name, phone, url: `${location.origin}/`, page: page || "Solo panel (sin página)", msg, pin };
+  return { name, phone, url: `${location.origin}/hub`, page: page || "Solo panel (sin página)", msg, pin };
 }
 
 /** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
@@ -60,7 +60,7 @@ function guideMsg(name, plat, origin, slug, pageAllowed) {
   const page = pageAllowed && slug ? `${origin}/r/${slug}` : "";
   return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
     + `*1) Cómo entrar*\n`
-    + `• Entrá a: ${origin}/\n`
+    + `• Entrá a: ${origin}/hub\n`
     + `• Poné tu *número* y tu *PIN* (o tu correo y contraseña si te la diste).\n\n`
     + `*2) Qué vas a ver*\n`
     + `• 💲 *Precios*: comprás cuentas con tu saldo o por QR. Apenas pagás, te llega la cuenta.\n`
@@ -254,7 +254,7 @@ const V = {
       <div class="glist">${G.map(([n, de, go]) => `<div class="gitem"><div><b>${esc(n)}</b><br><small class="muted">${esc(de)}</small></div><button class="pbtn sm" type="button" data-go="${go}">Ir ${icon("arrow")}</button></div>`).join("")}</div></section>
       <section class="card"><h2>👁️ Ver tu tienda como la ve el cliente</h2>
       <p class="muted" style="margin:0 0 10px">Abrí tu tienda en otra pestaña y mirala igual que un cliente, sin tocar nada.</p>
-      <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
+      <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/hub" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
     const [d, mg] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null)]);
