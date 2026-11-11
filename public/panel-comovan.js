@@ -51,7 +51,8 @@ export async function comoVanView(T) {
     <div class="cv-kpis">
       <div class="cv-kpi"><small>Te pagaron este mes</small><b>${bs(t.thisMonth)}</b>
         <span>${t.prevMonthToDate || t.thisMonth ? `${delta(t.change, t.changePct)} <span class="muted">vs el mes pasado a esta altura</span>` : `<span class="muted">Todavía sin pagos</span>`}</span>
-        <span class="muted">Mes pasado completo: ${bs(t.prevMonth)}</span></div>
+        <span class="muted">Mes pasado completo: ${bs(t.prevMonth)}</span>
+        ${t.fromControl30 ? `<span class="muted">Incluye ${bs(t.fromControl30)} que marcaste 💵 cobrado en el Control (30 días)</span>` : ""}</div>
       <div class="cv-kpi"><small>Vence en 7 días</small><b>${bs(t.due7.amount)}</b>
         <span class="muted">${t.due7.count} alquiler(es) a su precio</span>
         <span class="muted">En 30 días, si renuevan todo: <b>${bs(t.projection30.amount)}</b></span></div>
@@ -91,6 +92,6 @@ export async function comoVanView(T) {
     ${chips}
     ${shown.length ? `<ul class="cv-list">${shown.map(row).join("")}</ul>` : `<div class="emptybox">${d.list.length ? "Ninguno en este estado." : "Todavía no tenés revendedores."}</div>`}
     <details class="cv-rules"><summary>¿Cómo se calcula?</summary>
-      <p class="muted">Lo que te pagaron son sus compras y renovaciones entregadas (sin recargas de saldo, para no contarlas dos veces). <b>Creciendo</b>: en 30 días te pagó ${d.rules.growPct} % más que en los 30 anteriores (y al menos ${bs(d.rules.minChange)}). <b>Bajando</b>: ${d.rules.dropPct} % menos, o se le cayeron más alquileres de los que renovó. <b>Dormido</b>: sin compras ni alquileres activos en 30 días. <b>Nuevo</b>: lo creaste hace menos de ${d.rules.newDays} días. Lo que tus revendedores anotan de sus clientes no se ve acá.</p></details>
+      <p class="muted">Lo que te pagaron son sus compras y renovaciones entregadas (sin recargas de saldo, para no contarlas dos veces) <b>más los alquileres que marcás 💵 cobrado en el Control</b>. Los cobros que ya habías marcado antes cuentan en el día que empezó ese mes de alquiler. Si ese mes ya tiene un pedido de renovación, la marca no se suma de nuevo. <b>Creciendo</b>: en 30 días te pagó ${d.rules.growPct} % más que en los 30 anteriores (y al menos ${bs(d.rules.minChange)}). <b>Bajando</b>: ${d.rules.dropPct} % menos, o se le cayeron más alquileres de los que renovó. <b>Dormido</b>: sin compras ni alquileres activos en 30 días. <b>Nuevo</b>: lo creaste hace menos de ${d.rules.newDays} días. Lo que tus revendedores anotan de sus clientes no se ve acá.</p></details>
   </section>`;
 }

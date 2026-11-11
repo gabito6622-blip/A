@@ -3,13 +3,16 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Vender más y revendedores que cobran mejor (3 equipos)
+## 2026-11-11 · #32 Cómo van cuenta lo que cobrás en el Control
+- **Dueño:** "Te pagaron" en Cómo van ahora suma los alquileres que marcás 💵 cobrado en el Control, no solo las compras por GaboHub. Cada marca guarda fecha y monto; si te equivocás y la volvés a "pendiente", se borra. Las marcas que ya tenías cuentan en el día que empezó ese mes de alquiler. Lo que ya tiene pedido no se cuenta dos veces. Ya no aparecen porcentajes gigantes cuando el mes anterior fue casi cero.
+
+## 2026-11-11 · #31 Vender más y revendedores que cobran mejor (3 equipos)
 - **Dueño y Atención · "💸 Que vuelvan":** junta a quienes dejaron un pedido sin pagar (últimos 7 días) y a quienes se les venció un servicio hace 1 a 30 días sin renovar, con el monto de hoy y un WhatsApp listo. Fila guiada (Abrir WhatsApp → pasa al siguiente, Saltar, Anterior, 🚫 No molestar) y la cuenta de cuántos volvieron a comprar. Tarjeta en Inicio. Los clientes de tus revendedores no salen (les escribe su revendedor). A quien le escribiste no vuelve a aparecer por 7 días.
 - **Dueño y admin · "📈 Cómo van tus revendedores":** lo que te pagaron este mes contra el mes pasado a la misma altura, lo que vence en 7 días, cuánto pesan tus 3 primeros, y por cada revendedor su estado (🌱 nuevo, creciendo, estable, bajando, dormido), alquileres activos, renovaciones a tiempo o tarde, alquileres caídos y un WhatsApp sugerido. Atención no lo ve.
 - **Revendedor · "🔗 Link de cobro":** en Repartir perfiles, cada cliente suyo puede tener un link propio: una página con su perfil, cuándo vence, cuánto debe, el QR del revendedor y un botón "Ya pagué" que le escribe al revendedor. Se copia, se manda por WhatsApp o se cambia; los recordatorios lo incluyen. La página no muestra correos, contraseñas, costos ni otros clientes.
 - **Seguridad:** al transferir un alquiler de un revendedor a otro, el nuevo dueño ya no hereda los clientes que anotó el anterior.
 
-## Sin publicar — Invitar revendedores desde Inicio
+## 2026-11-11 · #31 Invitar revendedores desde Inicio
 - **Dueño:** en Inicio aparece "📲 N revendedores todavía sin acceso" con un solo botón, "▶ Invitarlos ahora", que abre la fila de invitaciones ya armada. En la fila, al tocar "Abrir WhatsApp" pasa sola al siguiente, y hay "◀ Anterior" para volver (el PIN generado se conserva). Atención no ve la tarjeta.
 
 ## 2026-11-11 · #30 Cuentas de alquiler: todas "Cuenta completa"

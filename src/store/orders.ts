@@ -19,6 +19,7 @@ import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
+import { effectivePrice } from "./admin.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 /** Fecha de Bolivia dd/mm/aaaa para los mensajes (con toISOString salía el día siguiente). */
@@ -686,10 +687,20 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     const c: RentalControl = { ...(a.control ?? {}) };
     if (price !== undefined) { if (price === null) delete c.price; else c.price = price; }
     if (cost !== undefined) { if (cost === null) delete c.cost; else c.cost = cost; }
+    const wasPaid = c.payStatus === "pagado";
     if (patch.payStatus !== undefined) c.payStatus = patch.payStatus;
     if (patch.note !== undefined) { const t = String(patch.note).trim(); if (t) c.note = t; else delete c.note; }
     if (patch.seller !== undefined) { const t = String(patch.seller).trim(); if (t) c.seller = t; else delete c.seller; }
     if (patch.startedAt !== undefined) c.startedAt = patch.startedAt;
+    // Al pasar a "pagado" queda anotado el cobro (fecha, período y monto) para los números de "Cómo van".
+    // Un período se cuenta una sola vez; si lo volvés a "pendiente" (te equivocaste), se borra ese cobro.
+    const from = a.customerExpiresAt - (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+    if (c.payStatus === "pagado" && !wasPaid && !(c.paidLog ?? []).some((p) => p.from === from)) {
+      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }) }].slice(-24);
+    } else if (wasPaid && c.payStatus !== "pagado" && c.paidLog?.length) {
+      c.paidLog = c.paidLog.filter((p) => p.from !== from);
+      if (!c.paidLog.length) delete c.paidLog;
+    }
     a.control = c;
     e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(",") });
     return structuredClone(c);

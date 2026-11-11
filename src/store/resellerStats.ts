@@ -8,6 +8,14 @@
 // contaría dos o tres veces. Con un solo pedido por renovación, se cuenta una sola vez, pague con
 // saldo, QR o efectivo.
 //
+// MÁS LOS COBROS DEL CONTROL: muchos alquileres se cobran por fuera (efectivo, QR al dueño) y se
+// marcan "💵 cobrado" en el Control, sin pedido. Esos cuentan también:
+//  - desde ahora cada marca guarda fecha, período y monto (`control.paidLog`);
+//  - las marcas viejas (sin anotación) cuentan una vez, en el día que empezó ese período
+//    (vencimiento − duración), con el precio del Control.
+// Para no contar dos veces el mismo mes: si ese servicio tiene un pedido que cuenta a menos de
+// DEDUPE_DAYS días del cobro marcado, la marca no suma (ya está el pedido).
+//
 // PRIVACIDAD (docs/DECISIONES.md): el dueño no ve lo que el revendedor anota de SUS clientes
 // (`assignment.subs`, `assignment.rcontrol`). Acá no se leen ni se devuelven; tampoco nombres,
 // teléfonos o correos de los clientes del revendedor, ni datos de las cuentas. Solo totales.
@@ -33,6 +41,8 @@ export const DROP_PCT = 20;
 export const MIN_CHANGE: Cents = 3000;
 /** Bajando también si se le cayeron al menos 2 alquileres y más de los que renovó. */
 export const DROPPED_MIN = 2;
+/** Un cobro del Control a menos de estos días de un pedido del mismo servicio es el mismo pago. */
+export const DEDUPE_DAYS = 20;
 /** Concentración: cuánto pesan los 3 que más te pagan. */
 export const TOP_N = 3;
 /** Bolivia es UTC−4 todo el año (sin horario de verano): el mes empieza a las 04:00 UTC del día 1. */
@@ -47,7 +57,8 @@ export function boMonthStart(t: number, add = 0): number {
 }
 
 const shortName = (n: string) => n.replace(/\s*\(alquiler revendedores\)\s*$/i, "");
-const pct = (cur: number, base: number) => (base > 0 ? Math.round(((cur - base) / base) * 100) : null);
+// Con una base chiquita el % no dice nada (de Bs 5 a Bs 100 sería +1900 %): ahí no se muestra.
+const pct = (cur: number, base: number) => (base >= MIN_CHANGE ? Math.round(((cur - base) / base) * 100) : null);
 
 /**
  * Regla del estado (en orden; gana la primera que se cumple):
@@ -123,30 +134,58 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
     renewalsOnTime: number; renewalsLate: number; dropped: number; droppedAmount: Cents;
     due7: { count: number; amount: Cents }; due30: { count: number; amount: Cents };
     active: Record<Id, number>; activeCount: number; lastOrderAt: number | null;
+    fromControl30: Cents;
   };
   const rows = new Map<Id, Row>(resellers.map((c) => [c.id, {
     id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt,
     thisMonth: 0, prevMonth: 0, prevMonthToDate: 0, paid30: 0, prev30: 0,
     renewalsOnTime: 0, renewalsLate: 0, dropped: 0, droppedAmount: 0,
     due7: { count: 0, amount: 0 }, due30: { count: 0, amount: 0 }, active: {}, activeCount: 0, lastOrderAt: null,
+    fromControl30: 0,
   }]));
+  const addPaid = (r: Row, t: number, amount: Cents) => {
+    if (t >= m0) r.thisMonth += amount;
+    else if (t >= m1) { r.prevMonth += amount; if (t < prevToDateEnd) r.prevMonthToDate += amount; }
+    if (t > w30) r.paid30 += amount;
+    else if (t > w60) r.prev30 += amount;
+  };
 
   // 1) Lo que pagó: un pedido entregado = un pago (ver arriba por qué no el saldo).
   const renewalsByAsg = new Map<Id, Order[]>();
+  /** Cuándo se pagó cada servicio con un pedido (para no contar además su marca del Control). */
+  const orderTimes = new Map<Id, number[]>();
   for (const o of Object.values(s.orders)) {
     if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || o.channel === "import") continue;
+    for (const id of o.renewal ? [o.renewal.assignmentId] : o.assignmentIds ?? []) orderTimes.set(id, [...(orderTimes.get(id) ?? []), o.updatedAt]);
     const r = rows.get(o.payerId ?? o.customerId);
     if (!r || o.updatedAt > now) continue;
     const t = o.updatedAt;
-    if (t >= m0) r.thisMonth += o.total;
-    else if (t >= m1) { r.prevMonth += o.total; if (t < prevToDateEnd) r.prevMonthToDate += o.total; }
-    if (t > w30) r.paid30 += o.total;
-    else if (t > w60) r.prev30 += o.total;
+    addPaid(r, t, o.total);
     if (t > (r.lastOrderAt ?? 0)) r.lastOrderAt = t;
     if (o.kind === "renewal" && o.renewal) {
       const l = renewalsByAsg.get(o.renewal.assignmentId) ?? [];
       l.push(o);
       renewalsByAsg.set(o.renewal.assignmentId, l);
+    }
+  }
+  // 1b) Cobros marcados en el Control (sin pedido). Ver arriba la regla para no duplicar.
+  for (const a of Object.values(s.assignments)) {
+    const c = a.control;
+    if (!c || a.trial) continue;
+    const rid = ownerOf(a.customerId);
+    if (!rid) continue;
+    const r = rows.get(rid)!;
+    const dur = (s.products[a.productId]?.durationDays ?? 30) * DAY;
+    const marks = c.paidLog?.length ? c.paidLog
+      : c.payStatus === "pagado" ? [{ at: Math.min(a.customerExpiresAt - dur, now), from: a.customerExpiresAt - dur, amount: effectivePrice(e, a) }] : [];
+    const near = orderTimes.get(a.id) ?? [];
+    for (const m of marks) {
+      // La fecha del cobro: cuando lo marcaste; en las marcas viejas, cuando empezó el período.
+      const t = c.paidLog?.length ? m.at : Math.min(m.from, now);
+      if (t > now || !(m.amount > 0)) continue;
+      if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
+      addPaid(r, t, m.amount);
+      if (t > w30) r.fromControl30 += m.amount;
     }
   }
   // 2) Renovaciones de los últimos 30 días: a tiempo o tarde.
@@ -197,6 +236,8 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       renewalsOnTime: r.renewalsOnTime, renewalsLate: r.renewalsLate,
       dropped: r.dropped, droppedAmount: r.droppedAmount,
       due7: r.due7, lastOrderAt: r.lastOrderAt,
+      /** De lo pagado en 30 días, cuánto viene de cobros marcados en el Control. */
+      fromControl30: r.fromControl30,
     };
   }).sort((x, y) => y.paid30 - x.paid30 || y.thisMonth - x.thisMonth || x.name.localeCompare(y.name));
 
@@ -212,11 +253,12 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
     at: now,
     monthStart: m0,
     prevMonthStart: m1,
-    rules: { windowDays: WINDOW_DAYS, newDays: NEW_DAYS, dueDays: DUE_DAYS, projectionDays: PROJECTION_DAYS, growPct: GROW_PCT, dropPct: DROP_PCT, minChange: MIN_CHANGE, droppedMin: DROPPED_MIN, topN: TOP_N },
+    rules: { dedupeDays: DEDUPE_DAYS, windowDays: WINDOW_DAYS, newDays: NEW_DAYS, dueDays: DUE_DAYS, projectionDays: PROJECTION_DAYS, growPct: GROW_PCT, dropPct: DROP_PCT, minChange: MIN_CHANGE, droppedMin: DROPPED_MIN, topN: TOP_N },
     totals: {
       thisMonth, prevMonth: sum((r) => r.prevMonth), prevMonthToDate,
       change: thisMonth - prevMonthToDate, changePct: pct(thisMonth, prevMonthToDate),
       paid30: total30,
+      fromControl30: sum((r) => r.fromControl30),
       due7: { count: sum((r) => r.due7.count), amount: sum((r) => r.due7.amount) },
       projection30: { count: sum((r) => r.due30.count), amount: sum((r) => r.due30.amount) },
       dropped: { count: sum((r) => r.dropped), amount: sum((r) => r.droppedAmount) },

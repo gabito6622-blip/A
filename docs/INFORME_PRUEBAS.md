@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Cómo van cuenta los cobros del Control
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **347 / 347 ✅** (1 nueva) |
+| Cobros del Control | `test/como-van.test.mjs` "cuenta lo marcado 💵 cobrado…": marca vieja en el inicio del período; marca nueva con fecha y monto; volver a pendiente la borra; mismo período una vez; con pedido no duplica; marca de octubre va al mes pasado; sin % gigante | ✅ |
+| El revendedor no ve los cobros anotados | revisión de código: sus pantallas (`portal.ts`, `resellerTools.ts`) solo leen `control.price` | ✅ |
+| Celular | `revision-celular.cjs` Cómo van a 360 y 390, claro y oscuro | 0 desbordes; únicos avisos en el asesor de la tienda (ya estaban) |
+| Estimado con los datos reales (copia de solo lectura) | 27 alquileres marcados pagado | ~Bs 207 este mes (3) y ~Bs 1.537 en meses anteriores; los 57 sin marca no suman |
+
+
 ## Tanda 11/11/2026 · Vender más (3 equipos en paralelo)
 | Qué | Cómo | Resultado |
 |---|---|---|
@@ -10,6 +20,8 @@
 | Transferir no pasa el cuaderno | prueba en `link-cobro`: **falla sin el arreglo, pasa con él** | ✅ |
 | Revisión en celular (integrado) | `revision-celular.cjs`, dueño: Inicio, Que vuelvan, Cómo van y Revendedores a 360/390/768, claro y oscuro; Atención: Inicio, Que vuelvan, Revendedores | Pantallas nuevas: **0 desbordes, 0 botones chicos, 0 textos chicos**. Revendedores: avisos que ya estaban (BACKLOG V11) |
 | Por rol (integrado) | Playwright con datos de ejemplo: admin ve Cómo van y Que vuelvan; Atención no ve Cómo van; revendedora crea su link y la página /c/… se ve a 360/390 claro y oscuro; cliente final en la tienda | 0 errores de consola, 0 desbordes |
+
+**Después de publicar (#31), en la tienda real y solo leyendo:** servicios 91 → 91, cuentas 125 → 125, revendedores 22 (16 sin PIN), cola de avisos 33 → 33. Tienda, /hub, link de cobro inválido (muestra "Este link ya no sirve") y panel (Inicio, Que vuelvan, Cómo van, Revendedores, Control) a 390 px: 0 desbordes, 0 errores. Las respuestas de Que vuelvan y Cómo van no traen `subs`, `rcontrol`, contraseñas ni costos de cuentas.
 
 **No se probó:** celular real (guardar el QR manteniendo apretado, que abra WhatsApp), un QR bancario real, `revision-accesibilidad.cjs` (falta axe-core), datos reales de producción.
 
