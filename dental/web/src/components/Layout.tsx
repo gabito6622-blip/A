@@ -2,8 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { FlaskConical, PhoneCall, ListTodo, ScrollText, Scale, Handshake, Landmark, Menu, X, HeartHandshake } from "lucide-react";
+import { FlaskConical, PhoneCall, ListTodo, ScrollText, Scale, Handshake, Landmark, Menu, X, HeartHandshake, FileUp, LifeBuoy } from "lucide-react";
 import { TaskCount, TaskDot } from "./coordination/TaskCount";
+import { HelpButton } from "./onboarding/HelpButton";
 
 export const Logo = () => (
   <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M20 14c-6 0-10 5-10 12 0 9 5 14 7 23 1 5 3 8 6 8 4 0 4-5 5-10 1-4 2-6 4-6s3 2 4 6c1 5 1 10 5 10 3 0 5-3 6-8 2-9 7-14 7-23 0-7-4-12-10-12-5 0-7 2-12 2s-7-2-12-2z" fill="#5eead4" /></svg>
@@ -45,6 +46,8 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
         { group: "manage", to: "/mensajes", label: "Mensajes", icon: MessagesSquare, show: can("clinic.manage") },
         { group: "manage", to: "/actividad", label: "Actividad", icon: ScrollText, show: can("audit.read") },
         { group: "settings", to: "/configuracion", label: "Configuración", icon: Settings, show: can("clinic.manage") || can("staff.manage") || can("audit.read") },
+        { group: "settings", to: "/importar", label: "Importar datos", icon: FileUp, show: can("patients.import") },
+        { group: "settings", to: "/ayuda", label: "Ayuda", icon: LifeBuoy, show: true },
         { group: "settings", to: "/plataforma", label: "Plataforma SaaS", icon: Building2, show: !!me?.user.isPlatformAdmin },
       ].filter((i) => i.show);
   const sections = GROUPS.map((g) => ({ ...g, items: items.filter((i) => i.group === g.id) })).filter((g) => g.items.length);
@@ -88,6 +91,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
           )}
           {!platformOnly && me && me.branches.length === 1 && <span className="badge brand">{me.branches[0]!.name}</span>}
           <div className="grow" />
+          {!platformOnly && <HelpButton />}
           {!platformOnly && <Link to="/cuenta" className="btn btn-ghost btn-sm" title="Mi cuenta: contraseña y verificación en dos pasos"><UserCog size={16} /><span className="hide-mobile">{me?.user.email}</span></Link>}
           <button className="btn btn-ghost btn-sm" onClick={logout} title="Cerrar sesión"><LogOut size={16} /><span className="hide-mobile">Salir</span></button>
         </header>

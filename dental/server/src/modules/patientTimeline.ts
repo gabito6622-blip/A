@@ -138,6 +138,12 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
       FROM patient_agreements pa JOIN agreements ag ON ag.id = pa.agreement_id LEFT JOIN users u ON u.id = pa.created_by
      WHERE pa.patient_id = $1
     UNION ALL
+    SELECT ob.created_at, 'ob:' || ob.id, CASE WHEN ob.voids_id IS NULL THEN 'opening.balance' ELSE 'opening.balance.void' END, 'payments',
+           jsonb_build_object('cutoff', ob.cutoff_date, 'notes', ob.notes, 'reason', ob.void_reason, 'debt', ob.amount_cents > 0),
+           u.full_name, b.name, NULL::timestamptz, ob.amount_cents
+      FROM opening_balances ob JOIN users u ON u.id = ob.created_by LEFT JOIN branches b ON b.id = ob.branch_id
+     WHERE ob.patient_id = $1
+    UNION ALL
     SELECT ir.created_at, 'ir:' || ir.id, 'invoice.requested', 'payments',
            jsonb_build_object('number', ir.number, 'billTo', ir.bill_to, 'buyer', ir.buyer_name, 'status', ir.status),
            u.full_name, b.name, NULL::timestamptz, ir.total_cents
@@ -272,6 +278,10 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
         title: `Afiliado al convenio ${x.agreement}`,
         detail: [`N° de afiliado ${x.memberNumber}`, `desde ${String(x.validFrom).split("-").reverse().join("/")}`, x.validTo ? `hasta ${String(x.validTo).split("-").reverse().join("/")}` : null, x.endReason ? `baja: ${x.endReason}` : null].filter(Boolean).join(" · "),
       };
+    case "opening.balance":
+      return { title: x.debt ? "Saldo inicial del sistema anterior: deuda" : "Saldo inicial del sistema anterior: a favor del paciente", detail: [x.cutoff ? `Al ${DateTime.fromISO(String(x.cutoff)).toFormat("dd/MM/yyyy")}` : null, x.notes].filter(Boolean).join(" · ") || null };
+    case "opening.balance.void":
+      return { title: "Anulación del saldo inicial", detail: x.reason ?? null };
     case "invoice.requested":
       return { title: `Marcado como pendiente de facturar (N° ${x.number})`, detail: `A nombre de ${x.buyer}${x.status === "cancelled" ? " · anulado" : ""} · aún no es una factura fiscal` };
     case "document":

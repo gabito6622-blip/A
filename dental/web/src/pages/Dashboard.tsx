@@ -8,6 +8,7 @@ import { HomeCards } from "../components/coordination/HomeCards";
 import { Empty, Field, Loading, StatusBadge } from "../components/ui";
 import { TimeClockCard } from "../components/management/TimeClock";
 import { PeriodCompare } from "../components/management/PeriodCompare";
+import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklist";
 
 function monthRange(offset: number) {
   const today = localDate();
@@ -63,6 +64,7 @@ export function DashboardPage() {
         )}
       </div>
 
+      <OnboardingChecklist />
       <HomeCards />
       <TimeClockCard />
 
