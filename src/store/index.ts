@@ -24,6 +24,7 @@ import * as chats from "./chats.js";
 import * as coupons from "./coupons.js";
 import * as payMethods from "./payMethods.js";
 import * as watch from "./watch.js";
+import * as winback from "./winback.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -262,6 +263,10 @@ export function createStore(opts: EngineOptions = {}) {
       revokeLink: bind(e, subLinks.revokeSubLink),
       publicView: (token: unknown) => subLinks.publicView(e, token),
       publicQr: (token: unknown) => subLinks.publicQr(e, token),
+    },
+    winback: {
+      list: bind(e, winback.list),
+      mark: bind(e, winback.mark),
     },
     rtools: {
       control: bind(e, rtools.myControl),
