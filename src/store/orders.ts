@@ -537,10 +537,14 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
     const to = e.get("customers", toCustomerId);
     if (to.id === a.customerId) throw new DomainError("VALIDATION", "El servicio ya es de ese cliente");
     const from = e.s.customers[a.customerId];
+    // El cuaderno del revendedor (a quién le dio cada perfil) y su control son del dueño anterior:
+    // no viajan con la cuenta, así el nuevo dueño nunca ve los clientes de otro revendedor.
+    const dropped = a.subs?.length ?? 0;
+    delete a.subs; delete a.rcontrol;
     a.customerId = to.id;
     a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
     queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
-    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason });
+    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason, ...(dropped ? { subsDropped: dropped } : {}) });
     return pubAssignment(a);
   });
 }

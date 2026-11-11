@@ -71,6 +71,11 @@ describe("link de cobro (núcleo)", () => {
     const otro = s.catalog.createCustomer(owner, { name: "Otro Rev", phone: "+59172222299", kind: "reseller" });
     s.orders.transfer(owner, aid, otro.id, "prueba");
     assert.throws(() => s.subs.publicView(token), (e) => e instanceof DomainError && e.code === "NOT_FOUND" && e.message === GONE);
+    // …y el nuevo dueño no hereda el cuaderno del anterior: nunca ve los clientes de otro revendedor.
+    const otroMe = { id: "u_" + otro.id, role: "reseller", customerId: otro.id };
+    assert.equal(s.engine.s.assignments[aid].subs, undefined);
+    assert.equal(s.engine.s.assignments[aid].rcontrol, undefined);
+    assert.ok(!JSON.stringify(s.subs.list(otroMe)).includes("Ana"), "el nuevo dueño no ve a Ana");
   });
 });
 
