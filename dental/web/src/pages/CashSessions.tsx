@@ -8,6 +8,7 @@ import { api, qs } from "../lib/api";
 import { addDays, bs, fmtDateTime, fmtTime, localDate, parseBs } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, useToast } from "../components/ui";
 import "./cash-fees.css";
+import { ExportLink } from "../components/management/shared";
 
 const DENOMS: { cents: number; label: string; kind: "bill" | "coin" }[] = [
   { cents: 20000, label: "Bs 200", kind: "bill" }, { cents: 10000, label: "Bs 100", kind: "bill" }, { cents: 5000, label: "Bs 50", kind: "bill" },
@@ -249,6 +250,7 @@ export function CashSessionsHistory() {
         <div className="row">
           <Field label="Desde"><input className="input" type="date" value={range.from} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="Hasta"><input className="input" type="date" value={range.to} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} /></Field>
+          <ExportLink small href={`/api/cash-sessions.xlsx${qs({ branchId, from: range.from, to: range.to })}`} />
         </div>
       </div>
       {!list.data ? <Loading /> : list.data.length === 0 ? <Empty>No hay cajas en estas fechas.</Empty> : (

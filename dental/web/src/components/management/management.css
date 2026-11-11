@@ -1,0 +1,56 @@
+/* Gestión: rentabilidad, gastos y fichaje. */
+.mg-only-mobile { display: none; }
+.mg-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.mg-toolbar .field { min-width: 150px; }
+.mg-month { display: flex; align-items: center; gap: 6px; }
+.mg-month .btn { min-height: 40px; min-width: 40px; }
+.mg-month b { min-width: 140px; text-align: center; font-weight: 620; }
+.mg-export { min-height: 40px; }
+
+.mg-matrix th:first-child, .mg-matrix td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; min-width: 190px; max-width: 240px; }
+.mg-matrix tr.mg-total td { font-weight: 700; background: var(--surface-2); }
+.mg-matrix tr.mg-explain td { background: var(--info-soft); color: #1e3a8a; font-size: 13px; white-space: normal; }
+.mg-concept { display: flex; align-items: center; gap: 6px; }
+.mg-info { border: none; background: transparent; color: var(--accent); cursor: pointer; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; flex: none; }
+.mg-info:hover { background: var(--info-soft); }
+.mg-info:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); }
+.mg-partial { color: var(--warn); font-weight: 700; margin-left: 2px; cursor: help; }
+.mg-matrix td, .mg-matrix th { padding-left: 10px; padding-right: 10px; }
+.mg-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mg-line > :first-child { flex: 1; min-width: 0; }
+.mg-line > .num { flex: none; }
+.mg-kpi-value { white-space: nowrap; }
+.mg-nodata { color: var(--muted); font-style: italic; font-size: 12.5px; white-space: nowrap; }
+.mg-neg { color: var(--danger); }
+.mg-pos { color: var(--ok); }
+.mg-var { font-size: 12px; font-weight: 600; }
+.mg-explain-box { background: var(--info-soft); color: #1e3a8a; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+
+/* Botón grande de fichaje en Inicio */
+.mg-punch { width: 100%; min-height: 58px; font-size: 17px; font-weight: 650; border-radius: 12px; justify-content: center; }
+.mg-clock { display: grid; gap: 12px; }
+.mg-clock-state { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.mg-clock-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--line-2); flex: none; }
+.mg-clock-dot.on { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+
+.mg-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); min-height: 52px; }
+.mg-switch:last-child { border-bottom: none; }
+.mg-cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+/* En el celular las tablas pasan a tarjetas apiladas */
+@media (max-width: 860px) {
+  .mg-only-mobile { display: block; }
+  .mg-only-desktop { display: none !important; }
+  .mg-cards thead { display: none; }
+  .mg-cards, .mg-cards tbody, .mg-cards tfoot, .mg-cards tr, .mg-cards td { display: block; width: auto; }
+  .mg-cards tr { border: 1px solid var(--line); border-radius: 10px; margin: 10px 12px; padding: 6px 2px; background: var(--surface); }
+  .mg-cards tfoot tr { background: var(--surface-2); }
+  .mg-cards td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 10px; border: none !important; text-align: right; white-space: normal; }
+  .mg-cards td::before { content: attr(data-label); font-weight: 600; color: var(--muted); font-size: 12.5px; text-align: left; flex: none; max-width: 50%; }
+  .mg-cards td.mg-head { font-weight: 650; text-align: left; justify-content: flex-start; font-size: 15px; }
+  .mg-cards td.mg-head::before { content: none; }
+  .mg-cards td.mg-empty-cell { display: none; }
+  .mg-cards td .row { justify-content: flex-end; }
+  .mg-toolbar > * { flex: 1 1 140px; }
+  .mg-kpi-value { font-size: 18px !important; }
+}

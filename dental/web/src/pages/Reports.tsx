@@ -40,6 +40,11 @@ export function ReportsPage() {
       <div className="card card-pad row">
         <b>Exportar:</b>
         {fin && <a className="btn btn-sm" href={`/api/reports/payments.xlsx${qs(range)}`}><Download size={15} />Pagos (Excel)</a>}
+        {(op || fin) && <a className="btn btn-sm" href={`${op ? "/api/reports/dashboard.xlsx" : "/api/reports/finance-dashboard.xlsx"}${qs(range)}`}><Download size={15} />Panel por sucursal (Excel)</a>}
+        {fin && <a className="btn btn-sm" href={`/api/reports/production-by-dentist.xlsx${qs(range)}`}><Download size={15} />Producción por profesional (Excel)</a>}
+        {fin && <a className="btn btn-sm" href="/api/reports/receivables.xlsx"><Download size={15} />Cuentas por cobrar (Excel)</a>}
+        {op && <a className="btn btn-sm" href="/api/reports/patients-without-next-appointment.xlsx"><Download size={15} />Pacientes sin próxima cita (Excel)</a>}
+        {fin && <a className="btn btn-sm" href="/gestion">Rentabilidad y gastos →</a>}
         {can("patients.export") && <a className="btn btn-sm" href="/api/patients/export.xlsx"><Download size={15} />Pacientes (Excel)</a>}
         {!fin && !can("patients.export") && <span className="muted small">Tu rol no tiene exportaciones disponibles.</span>}
         <span className="muted small">Cada exportación queda registrada en la auditoría.</span>

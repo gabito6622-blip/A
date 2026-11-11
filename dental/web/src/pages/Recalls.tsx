@@ -9,6 +9,7 @@ import { fmtDate, fmtDateTime, localDate } from "../lib/format";
 import { Empty, Field, Loading, useToast } from "../components/ui";
 import { AttemptDialog, DismissDialog, PRIORITY, RecallStatusBadge, TAP, channelLabel, monthLabel, outcomeLabel } from "../components/Recalls";
 import { NewAppointmentDialog, type NewApptPrefill } from "./Agenda";
+import { ExportLink } from "../components/management/shared";
 
 const STATUS_FILTERS = [
   { id: "active", label: "Por contactar (pendientes y a revisar)" }, { id: "pending", label: "Pendientes" }, { id: "review", label: "Revisar" },
@@ -63,6 +64,7 @@ export function RecallsPage() {
           <span style={{ fontWeight: 620, minWidth: 140, textAlign: "center" }}>{monthLabel(month)}</span>
           <button className="btn btn-icon" style={TAP} onClick={() => set("mes", shiftMonth(month, 1))} aria-label="Mes siguiente">›</button>
           {month !== localDate().slice(0, 7) && <button className="btn" style={TAP} onClick={() => set("mes", null)}>Este mes</button>}
+          <ExportLink href={url.replace("/api/recalls?", "/api/recalls.xlsx?")} />
         </div>
       </div>
 
