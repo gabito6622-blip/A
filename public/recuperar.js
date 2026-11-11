@@ -11,11 +11,11 @@ async function api(method, path, body) {
 }
 
 function fail(msg) {
-  $("#app").innerHTML = `<div class="card"><h1>Enlace no válido</h1><p class="muted">${esc(msg)}</p><a class="btn" href="/">Ir a la tienda</a></div>`;
+  $("#app").innerHTML = `<div class="card"><h1>Enlace no válido</h1><p class="muted">${esc(msg)}</p><a class="btn" href="/tienda/">Ir a la tienda</a></div>`;
 }
 
 function done(email) {
-  $("#app").innerHTML = `<div class="card"><h1>¡Listo! 🎉</h1><div class="ok">Ya cambiaste tu contraseña${email ? ` de <b>${esc(email)}</b>` : ""}.</div><p class="muted">Ya entraste. Volvé a la tienda para comprar y ver tus cuentas.</p><a class="btn" href="/">Entrar a la tienda</a></div>`;
+  $("#app").innerHTML = `<div class="card"><h1>¡Listo! 🎉</h1><div class="ok">Ya cambiaste tu contraseña${email ? ` de <b>${esc(email)}</b>` : ""}.</div><p class="muted">Ya entraste. Volvé a la tienda para comprar y ver tus cuentas.</p><a class="btn" href="/tienda/">Entrar a la tienda</a></div>`;
 }
 
 function form(info) {

@@ -2,7 +2,7 @@
   "name": "GaboHub · Mi panel",
   "short_name": "GaboHub",
   "description": "Tu panel de revendedor: clientes, control, cobros y avisos.",
-  "start_url": "/#inicio",
+  "start_url": "/hub#inicio",
   "scope": "/",
   "display": "standalone",
   "background_color": "#090e1d",
