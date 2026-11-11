@@ -1034,3 +1034,12 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .subadd>summary::-webkit-details-marker{display:none}
 .subadd[open]>summary{margin-bottom:8px}
 .rcinline{margin:0}
+
+/* Pegar mi lista */
+.pastebox{display:grid;gap:8px;border:1px dashed var(--s-line);border-radius:14px;padding:12px}
+.pastebox textarea{width:100%;min-height:110px;font:inherit}
+.pastebox code{font-size:12px;background:var(--s-card2);padding:1px 6px;border-radius:6px}
+.pasteprev{display:grid;gap:6px}
+.pasteprev>div{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--s-card2)}
+.pasteprev>div.bad{outline:1px solid var(--s-bad)}
+.pasteprev small{color:var(--s-muted)}
