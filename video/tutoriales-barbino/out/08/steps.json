@@ -1,0 +1,181 @@
+{
+ "id": "08",
+ "title": "Tus clientes",
+ "number": 8,
+ "learn": [
+  "Buscar y ordenar tu lista",
+  "La ficha de cada cliente",
+  "Importar desde Excel o el celular",
+  "Traer de vuelta a los que no vienen",
+  "Sellos de fidelidad y reseñas"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Tus clientes",
+   "text": "Hola, ¿qué tal? Hoy vemos tus clientes. En «Más», «Clientes», tenés a todos los que alguna vez reservaron. No tenés que cargarlos: cada vez que alguien reserva por tu página, queda registrado solo.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Grupos y búsqueda",
+   "text": "Arriba los ves por grupo: nuevos, frecuentes, los que hace rato no vienen. Y en el buscador ponés un nombre o un número de WhatsApp y lo encontrás al toque.",
+   "hl": {
+    "x": 29,
+    "y": 392.375,
+    "w": 332,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Etiquetas",
+   "text": "Las etiquetas te sirven para separar a tu gente. Por ejemplo, tocás «VIP» y te quedan solo esos clientes. Vos elegís las etiquetas: VIP, niño, barba, lo que quieras.",
+   "hl": {
+    "x": 100.859375,
+    "y": 544.375,
+    "w": 49.078125,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Nuevo cliente",
+   "text": "¿Y el cliente que no reservó por la página? Tocás «Nuevo cliente» y ponés su nombre y su WhatsApp. Si ese número ya estaba, no se crea otro: te lleva a la ficha que ya existe.",
+   "hl": {
+    "x": 37,
+    "y": 396.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Notas privadas",
+   "text": "Abajo anotás cómo le gusta el corte, que lo ve todo el equipo. Y las observaciones internas, que son privadas: solo las ven el dueño y el gerente. Si aceptó recibir promociones, marcás la casilla.",
+   "hl": {
+    "x": 37,
+    "y": 400.375,
+    "w": 316,
+    "h": 82
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "La ficha",
+   "text": "Así se ve la ficha de un cliente. Cuántas veces vino, cuándo fue la última, cada cuántos días suele venir y su próxima reserva. Abajo está todo su historial: turnos, servicios y compras.",
+   "hl": null,
+   "long": 1500
+  },
+  {
+   "img": "step07.png",
+   "title": "Importar",
+   "text": "Una pregunta que siempre me hacen: ya tengo mis clientes en el celular, ¿los tengo que cargar uno por uno? No. Tocás «Importar» y traés tu lista de Excel, o los contactos que exportás del celular.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "Revisar antes",
+   "text": "Antes de guardar, Barbiño te muestra cuántos son nuevos, cuántos ya estaban y qué filas tienen problemas, por ejemplo un número mal escrito. Los que ya estaban no se tocan, así que nada se duplica.",
+   "hl": {
+    "x": 49,
+    "y": 414.3125,
+    "w": 128,
+    "h": 16
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Ya les toca",
+   "text": "Ahora, «Ya les toca». Acá aparecen los clientes que ya deberían haber vuelto según su ritmo y no tienen reserva. Te dice hace cuánto vino, cada cuánto suele venir y con quién se cortó.",
+   "hl": null,
+   "long": 1300
+  },
+  {
+   "img": "step10.png",
+   "title": "Invitar por WhatsApp",
+   "text": "Tocás «Invitar por WhatsApp» y se abre tu WhatsApp con el mensaje escrito y el enlace para reservar. Solo lo revisás y lo mandás.",
+   "hl": {
+    "x": 33,
+    "y": 426.375,
+    "w": 194.109375,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "¿Promos a todos?",
+   "text": "¿Le puedo mandar promos a todos? No: solo a los que aceptaron. Mirá, Mateo no aceptó promociones, entonces en su ficha te avisa que le escribas solo por sus reservas, y en «Ya les toca» no aparece el botón de invitar.",
+   "hl": {
+    "x": 37,
+    "y": 166.34375,
+    "w": 316,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Tarjeta de sellos",
+   "text": "Vamos a la tarjeta de fidelidad, en «Ajustes», «Fidelidad». La activás, ponés cuántas visitas hacen falta, lo más común son diez, y el premio, por ejemplo un corte gratis. Cada visita atendida suma un sello sola.",
+   "hl": {
+    "x": 89,
+    "y": 226.375,
+    "w": 264,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "Canjear el premio",
+   "text": "En la ficha del cliente ves su tarjeta. Cuando la completa, aparece «Entregar premio». Lo tocás al darle su corte gratis, y la tarjeta vuelve a empezar.",
+   "hl": {
+    "x": 36,
+    "y": 400.34375,
+    "w": 161.484375,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Pedir reseña",
+   "text": "Las reseñas. Abrís un turno que ya atendiste y tocás «Pedir reseña por WhatsApp». Le llega un enlace privado y el cliente opina en diez segundos, sin crear ninguna cuenta.",
+   "hl": {
+    "x": 37,
+    "y": 399.609375,
+    "w": 234.3125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Tus reseñas",
+   "text": "En «Reseñas» ves tu promedio de estrellas, cuántas tenés de cada una y cómo le va a cada barbero. Y abajo, lo que escribió cada cliente. Si alguna no te gusta, la podés ocultar de tu página.",
+   "hl": null,
+   "long": 1500
+  },
+  {
+   "img": "step16.png",
+   "title": "Reseñas en Google",
+   "text": "¿Y Google? En «Ajustes», «Página pública», pegás el enlace de reseñas de tu perfil de Google. Así, al que te pone cuatro o cinco estrellas, Barbiño le ofrece dejarla también en Google. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": {
+    "x": 37,
+    "y": 401.3125,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  }
+ ]
+}

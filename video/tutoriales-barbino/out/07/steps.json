@@ -1,0 +1,194 @@
+{
+ "id": "07",
+ "title": "Tu equipo y sus pagos",
+ "number": 7,
+ "learn": [
+  "Invitar a tu equipo",
+  "Qué ve cada rol",
+  "El PIN de gerencia",
+  "Comisión o alquiler de silla",
+  "El recibo de pago del barbero"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Tu equipo",
+   "text": "Hola, ¿cómo estás? Hoy vemos tu equipo y cómo les pagás. En «Más», «Equipo», das acceso al panel a las personas que trabajan con vos. Cada una entra con su propia cuenta, nunca con la tuya.",
+   "hl": {
+    "x": 37,
+    "y": 306.3125,
+    "w": 316,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Qué ve cada uno",
+   "text": "Hay cuatro roles. El dueño ve todo. El gerente maneja agenda, caja, catálogo, equipo e inventario. Recepción ve la agenda completa, los clientes, la caja y los anticipos. Y el barbero ve solo su agenda, sus clientes y sus ventas.",
+   "hl": {
+    "x": 37,
+    "y": 689.3125,
+    "w": 316,
+    "h": 16
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Invitar",
+   "text": "Para invitar, ponés su correo, elegís el rol y tocás «Invitar». Como es algo delicado, te pide tu PIN de gerencia.",
+   "hl": {
+    "x": 50,
+    "y": 510.3125,
+    "w": 184.703125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Mandale el enlace",
+   "text": "Listo: te da un enlace de un solo uso, que vence en siete días. Se lo mandás por WhatsApp, la persona crea su cuenta y entra con el rol que elegiste. Si se va del local, le quitás el acceso desde acá.",
+   "hl": {
+    "x": 54,
+    "y": 264.3125,
+    "w": 282,
+    "h": 60
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "PIN de gerencia",
+   "text": "Ahora, el PIN de gerencia. Cada dueño y cada gerente tiene el suyo, de cuatro números. Protege lo delicado: precios, equipo, ajustes, inventario y anular ventas. Lo ponés una vez y queda abierto diez minutos, solo en ese celular.",
+   "hl": {
+    "x": 16,
+    "y": 97.5,
+    "w": 358,
+    "h": 34
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Si alguien prueba",
+   "text": "¿Y si alguien prueba números al azar? Después de cinco intentos fallidos, el PIN se bloquea quince minutos, y queda registrado. Acá también podés cambiar tu PIN cuando quieras, con la contraseña de tu cuenta.",
+   "hl": {
+    "x": 37,
+    "y": 493.3125,
+    "w": 316,
+    "h": 48
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Ganancias",
+   "text": "En «Ganancias y comisiones» ves lo que cobró cada barbero, su comisión y sus propinas, por hoy, la semana o el mes. ¿El barbero ve lo que ganan los demás? No: cada barbero ve solo lo suyo. Al equipo completo lo ven el dueño y el gerente.",
+   "hl": {
+    "x": 70.5,
+    "y": 332.375,
+    "w": 107.75,
+    "h": 32
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "La comisión",
+   "text": "Cada barbero tiene su porcentaje. Tocás «cambiar», ponés cuánto se lleva de sus servicios y guardás. Los productos no comisionan, y la propina es entera para el barbero.",
+   "hl": {
+    "x": 37,
+    "y": 538,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "¿Alquila la silla?",
+   "text": "¿Y si un barbero alquila la silla en vez de ir a comisión? Elegís «Alquila la silla», ponés cuánto paga y cada cuánto: por día, por semana o por mes. Lo que cobra por sus servicios es todo suyo.",
+   "hl": {
+    "x": 197,
+    "y": 631,
+    "w": 152,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Pagos del alquiler",
+   "text": "Desde ahí ves si está al día o cuánto debe. Cuando te paga, tocás «Registrar un pago», con el monto y cómo pagó. Si es en efectivo, puede entrar directo a la caja del día.",
+   "hl": {
+    "x": 50,
+    "y": 402,
+    "w": 290,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Recibo de pago",
+   "text": "Tocás «Ver recibo de pago». Elegís el barbero y el período: esta semana, la pasada, este mes o las fechas que quieras. Te arma el recibo con sus clientes, su comisión, sus propinas y los adelantos que le diste.",
+   "hl": {
+    "x": 16,
+    "y": 399.3125,
+    "w": 107.75,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Multas y bonos",
+   "text": "Abajo cargás multas o bonos: elegís cuál, ponés el motivo y el monto, y se suma o se resta en el recibo. Cada uno queda registrado con quién lo cargó.",
+   "hl": {
+    "x": 37,
+    "y": 595.3125,
+    "w": 123.859375,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "Total a pagar",
+   "text": "Y así queda: lo que ganó, más propinas, menos el adelanto y la multa. Abajo está el total a pagar, con lugar para las dos firmas.",
+   "hl": {
+    "x": 60,
+    "y": 410.3125,
+    "w": 97.0625,
+    "h": 24
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Por WhatsApp",
+   "text": "Arriba tocás «Mandar por WhatsApp» y se abre tu WhatsApp con el recibo ya escrito, listo para enviárselo. O tocás «Imprimir» si preferís dárselo en papel.",
+   "hl": {
+    "x": 153.109375,
+    "y": 281.3125,
+    "w": 220.890625,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "¿Quién anuló?",
+   "text": "Última pregunta: ¿se puede saber quién anuló una venta? Sí. En la venta anulada dice cuándo, quién la anuló y por qué. Y en cada turno, el historial muestra quién hizo cada cambio. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": {
+    "x": 59,
+    "y": 318.4375,
+    "w": 298,
+    "h": 40
+   },
+   "long": null
+  }
+ ]
+}

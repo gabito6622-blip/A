@@ -1,0 +1,176 @@
+{
+ "id": "09",
+ "title": "WhatsApp y avisos",
+ "number": 9,
+ "learn": [
+  "Mandar recordatorios con un toque",
+  "Configurar tu número y tus mensajes",
+  "Llenar los huecos libres",
+  "Avisos y resumen del día",
+  "Barbiño como app en el celular"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "La bandeja",
+   "text": "Hola, ¿qué tal? Hoy vemos WhatsApp y los avisos. En «Más», «WhatsApp», está tu bandeja del día: los recordatorios de turnos ya escritos, listos para mandar. Arriba ves cuántos hay para ahora, para más tarde y cuántos ya resolviste.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Abrir en WhatsApp",
+   "text": "Cada mensaje ya viene armado con el nombre del cliente, el servicio, el barbero, el día, la hora y tu dirección. Si querés, cambiás algo. Tocás «Abrir en WhatsApp» y se abre tu WhatsApp con el texto escrito.",
+   "hl": {
+    "x": 37,
+    "y": 540.125,
+    "w": 316,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Marcar como enviado",
+   "text": "Lo mandás desde tu teléfono y volvés: tocás «Marcar como enviado» y sale de la lista. Así sabés a quién ya le escribiste, aunque lo haya mandado otro del equipo.",
+   "hl": {
+    "x": 37,
+    "y": 400.125,
+    "w": 316,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Historial",
+   "text": "¿Los mensajes se mandan solos? En el modo normal, no: Barbiño te los prepara y vos los mandás desde tu WhatsApp. En «Historial» queda anotado cada mensaje: quién lo abrió, cuándo y qué decía.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Tu número",
+   "text": "En «Configuración» cargás el WhatsApp de tu local, con el código de país. ¿Necesito WhatsApp Business? No: sirve tu número normal o el de Business. Ese número lo ven tus clientes en tu página.",
+   "hl": {
+    "x": 37,
+    "y": 552.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Recordatorios",
+   "text": "Más abajo elegís cuándo aparece cada recordatorio en la bandeja: por ejemplo, uno veinticuatro horas antes y otro dos horas antes. Y si querés que te avise cuando alguien cancela o cambia de horario.",
+   "hl": {
+    "x": 37,
+    "y": 401.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Plantillas",
+   "text": "Y en «Plantillas» escribís los mensajes con tu estilo. Las palabras entre llaves, como cliente o fecha, se completan solas en cada reserva. Abajo ves cómo le va a llegar.",
+   "hl": {
+    "x": 37,
+    "y": 430.375,
+    "w": 316,
+    "h": 226.75
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "¿Cuesta algo?",
+   "text": "¿Cuesta algo? Mandarlos vos desde tu WhatsApp es gratis. Si querés que salgan solos, existe la conexión oficial de WhatsApp, que es opcional: Meta cobra unos centavos de dólar por mensaje y pide un chip aparte. Esa la configuramos juntos.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Lista de espera",
+   "text": "Ahora, los huecos libres. Cuando un cliente no encuentra horario en tu página, se puede anotar en la lista de espera: deja su nombre, su WhatsApp y a qué hora le sirve.",
+   "hl": {
+    "x": 37,
+    "y": 645.5,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Huecos libres",
+   "text": "En «Huecos libres» ves quién está esperando cada día y qué horarios le quedan libres. Si alguien cancela, tocás «Avisar por WhatsApp» y le llega el mensaje con el enlace para reservar.",
+   "hl": {
+    "x": 37,
+    "y": 665.875,
+    "w": 185.375,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Último momento",
+   "text": "Y abajo está la oferta de último momento: un mensaje con los lugares que te quedan hoy. Tocás «Compartir en WhatsApp» y lo subís a tus estados o a tus grupos.",
+   "hl": {
+    "x": 37,
+    "y": 666.875,
+    "w": 212.859375,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "La campanita",
+   "text": "Arriba, en la campanita, están los avisos del panel.",
+   "hl": {
+    "x": 290,
+    "y": 10,
+    "w": 36,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "Avisos",
+   "text": "Acá ves lo nuevo de la semana: las reservas que entraron por tu página, los comprobantes de anticipo para revisar, las reseñas y quién se anotó para esperar un lugar.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Avisos al celular",
+   "text": "Tocás un aviso y vas directo a lo que pasó. Y en la pantalla de Avisos, con «Activar avisos», también te llega al celular apenas entra una reserva o un comprobante, aunque tengas el panel cerrado. Se activa en cada teléfono; en iPhone, primero instalás la app.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Resumen del día",
+   "text": "Al final del día, en el inicio tenés el resumen: lo cobrado, los atendidos, quién faltó y cuánto hizo cada barbero. Con «Mandar el resumen por WhatsApp» se lo mandás a tu socio o a tu grupo.",
+   "hl": {
+    "x": 37,
+    "y": 402.3125,
+    "w": 274.203125,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "Instalar la app",
+   "text": "Y un truco: abrí el panel en el celular, tocá el menú del navegador y elegí «Agregar a la pantalla de inicio». Te queda un ícono con el nombre de tu barbería, como una app. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": null,
+   "long": null
+  }
+ ]
+}

@@ -1,0 +1,120 @@
+{
+ "id": "01",
+ "title": "Qué es Barbiño y cómo empiezo",
+ "number": 1,
+ "learn": [
+  "Qué es Barbiño",
+  "Cómo registrar tu barbería",
+  "Los primeros pasos",
+  "Preguntas frecuentes"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Qué es Barbiño",
+   "text": "Hola, ¿qué tal? Te cuento qué es Barbiño. Es un sistema para manejar tu barbería desde el celular: la agenda, las reservas, la caja, tus clientes, tu equipo y WhatsApp, todo en un solo lugar. No tenés que instalar nada: funciona desde el navegador, en el celular o en la compu.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Probar gratis",
+   "text": "Para empezar, tocás «Probar gratis». Tenés catorce días para usar todo, sin poner ninguna tarjeta, y nada se cobra solo.",
+   "hl": {
+    "x": 254.984375,
+    "y": 12,
+    "w": 119.015625,
+    "h": 40
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Datos de tu barbería",
+   "text": "Primero ponés el nombre de tu barbería, el nombre corto que va a tener tu página de reservas, por ejemplo «el corte», y tu ciudad.",
+   "hl": {
+    "x": 41,
+    "y": 307.75,
+    "w": 308,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Plan y país",
+   "text": "Elegís con qué plan querés probar. Tranquilo, después lo podés cambiar, y durante la prueba tenés todo habilitado. Si estás en Bolivia, la moneda y la hora ya vienen listas.",
+   "hl": {
+    "x": 41,
+    "y": 585.75,
+    "w": 308,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Tu cuenta",
+   "text": "Después van tus datos: tu nombre, tu correo y una contraseña de al menos diez caracteres. Aceptás las condiciones y tocás «Crear mi barbería».",
+   "hl": {
+    "x": 41,
+    "y": 643.75,
+    "w": 145.28125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Tu panel",
+   "text": "¡Y listo! Ya estás adentro de tu panel. Esta es la pantalla de inicio, donde vas a ver el resumen de tu día.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Puesta en marcha",
+   "text": "Acá abajo aparece «Puesta en marcha», con los pasos que te faltan para dejar todo listo: cargar tus servicios, tus barberos, los horarios, el anticipo y la apariencia de tu página. Los vemos uno por uno en el próximo tutorial.",
+   "hl": {
+    "x": 16,
+    "y": 408.3125,
+    "w": 149.078125,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "El menú",
+   "text": "Abajo tenés el menú: Inicio, Agenda, el botón grande para reservar, la Caja, y en «Más» está todo lo demás.",
+   "hl": {
+    "x": 310.40625,
+    "y": 788,
+    "w": 71.59375,
+    "h": 48
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "¿El cliente baja una app?",
+   "text": "Una pregunta que siempre me hacen: ¿el cliente tiene que bajar una aplicación? No. Tu cliente abre tu página desde un enlace o escaneando un QR, y reserva sin crear ninguna cuenta. Así se ve la página de una barbería.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Planes",
+   "text": "Otra pregunta: ¿cuánto cuesta? Hay un plan gratis para el barbero que trabaja solo, y planes para equipos más grandes, con más funciones. Si pagás el año completo, tenés descuento. Y si te atrasás con el pago, nunca se pierden tus datos.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "¿Están seguros mis datos?",
+   "text": "¿Y si se me rompe el celular? No pasa nada: tus datos no están en el teléfono, están guardados en el servidor. Entrás desde otro celular y sigue todo igual. Y ninguna otra barbería puede ver a tus clientes: cada una está separada. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": null,
+   "long": null
+  }
+ ]
+}

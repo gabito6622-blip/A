@@ -1,0 +1,225 @@
+{
+ "id": "02",
+ "title": "Configurá tu barbería",
+ "number": 2,
+ "learn": [
+  "Servicios, precios y fotos",
+  "Barberos y horarios",
+  "Feriados y vacaciones",
+  "Tu PIN de gerencia",
+  "Tu página y sus colores"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Configurá tu barbería",
+   "text": "Hola, ¿cómo va? Hoy dejamos tu barbería lista: servicios, barberos, horarios, tu PIN de gerencia, tu página y los colores. En el inicio, «Puesta en marcha» te marca lo que todavía te falta.",
+   "hl": {
+    "x": 16,
+    "y": 448.3125,
+    "w": 149.078125,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Tu PIN de gerencia",
+   "text": "Lo primero: tu PIN de gerencia, cuatro números que solo sabés vos. Protege lo delicado: precios, tu equipo, los ajustes, anular ventas y el inventario. Lo ponés dos veces, tu contraseña, y tocás «Crear PIN».",
+   "hl": {
+    "x": 37,
+    "y": 667.3125,
+    "w": 118.71875,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Abrir con el PIN",
+   "text": "Cuando vas a cambiar algo de eso, ponés tu PIN y queda abierto diez minutos, solo en ese celular. Si alguien lo erra cinco veces, se bloquea un rato. Y cada cambio queda registrado con tu nombre.",
+   "hl": {
+    "x": 37,
+    "y": 393.3125,
+    "w": 239.78125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Tus servicios",
+   "text": "Ahora, tus servicios. En «Más», «Servicios», ves cada uno con su precio y cuánto dura. Para sumar uno nuevo, tocás «Nuevo servicio».",
+   "hl": {
+    "x": 16,
+    "y": 281.3125,
+    "w": 358,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "Precio y duración",
+   "text": "Ponés el nombre, el precio en bolivianos y cuánto dura: ese tiempo se aparta en la agenda. Si después necesitás unos minutos para limpiar, los ponés en «Preparación», y el cliente no los ve.",
+   "hl": {
+    "x": 37,
+    "y": 402.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Fotos del servicio",
+   "text": "Abajo subís fotos de tus trabajos. La primera es la portada, y es lo que ve tu cliente cuando elige. Tocás «Crear servicio» y listo.",
+   "hl": {
+    "x": 206.265625,
+    "y": 667.375,
+    "w": 146.734375,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Pausar un servicio",
+   "text": "¿Y si querés dejar de ofrecer un servicio sin borrarlo? Tocás «Desactivar». Deja de aparecer para reservar, pero guarda todo su historial, y lo reactivás cuando quieras.",
+   "hl": {
+    "x": 242.40625,
+    "y": 523.3125,
+    "w": 118.59375,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "Tu equipo",
+   "text": "Vamos con tu equipo. En «Barberos» están los que atienden, y cuántos podés tener depende de tu plan. Para sumar a alguien, tocás «Agregar barbero».",
+   "hl": {
+    "x": 16,
+    "y": 259.375,
+    "w": 358,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "Foto y especialidad",
+   "text": "Subís su foto, ponés el nombre y la especialidad: elegís una de la lista o escribís la tuya. Eso sale en tu página, así el cliente sabe con quién se atiende.",
+   "hl": {
+    "x": 37,
+    "y": 594.375,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Horario del local",
+   "text": "Ahora los horarios. En «Horarios y descansos» va primero el horario general: marcás qué días abrís, a qué hora abrís y cerrás, y si hay descanso al mediodía.",
+   "hl": {
+    "x": 34,
+    "y": 418.3125,
+    "w": 322,
+    "h": 238.375
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "¿Trabaja otros días?",
+   "text": "¿Y si un barbero trabaja otros días? Abajo lo elegís y le armás su horario propio. Por ejemplo, Mateo no viene los lunes: lo desmarcás y tocás «Crear horario propio». Los demás siguen con el general.",
+   "hl": {
+    "x": 34,
+    "y": 517.5625,
+    "w": 322,
+    "h": 85
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "¿Y un feriado?",
+   "text": "¿Y si cerrás un feriado? En «Nuevo descanso o bloqueo» elegís «Feriado», todo el local, día completo y la fecha. Ese día nadie puede reservar. Para las vacaciones de un barbero es igual, eligiéndolo a él.",
+   "hl": {
+    "x": 33,
+    "y": 270.5625,
+    "w": 324,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "Próximos bloqueos",
+   "text": "Abajo te queda la lista de bloqueos que vienen. Si cambiás de idea, lo borrás con el tachito y ese día vuelve a estar disponible.",
+   "hl": {
+    "x": 17,
+    "y": 640.9375,
+    "w": 356,
+    "h": 90
+   },
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "Tu página",
+   "text": "Ahora tu página. En Ajustes, «Página pública», ponés una frase de presentación, unas líneas sobre tu barbería, la dirección, el enlace del mapa si lo tenés, y tu Instagram.",
+   "hl": {
+    "x": 37,
+    "y": 46.3125,
+    "w": 316,
+    "h": 42
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Secciones",
+   "text": "Más abajo elegís qué secciones se ven y en qué orden. Por ejemplo, poner los trabajos primero si tu fuerte son las fotos. Lo que no tiene contenido no se muestra.",
+   "hl": {
+    "x": 37,
+    "y": 188.3125,
+    "w": 316,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "Estilos listos",
+   "text": "En «Apariencia» está lo lindo. Hay estilos listos, como «Negro y oro» o «Poste clásico»: con un toque cambian los colores, las letras y el modo claro u oscuro.",
+   "hl": {
+    "x": 37,
+    "y": 388.5625,
+    "w": 316,
+    "h": 66
+   },
+   "long": null
+  },
+  {
+   "img": "step17.png",
+   "title": "Logo, colores y letras",
+   "text": "Después ajustás lo que quieras: subís tu logo y una portada, elegís el color principal y la tipografía de los títulos. Tocás «Guardar apariencia» y se aplica en tu página.",
+   "hl": {
+    "x": 145,
+    "y": 416.3125,
+    "w": 119.734375,
+    "h": 36
+   },
+   "long": null
+  },
+  {
+   "img": "step18.png",
+   "title": "¡Lista!",
+   "text": "Y así queda tu página, con tu logo y tus colores. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": null,
+   "long": null
+  }
+ ]
+}

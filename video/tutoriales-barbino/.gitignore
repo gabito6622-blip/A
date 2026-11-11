@@ -1,0 +1,5 @@
+vo/*.wav
+bmusic.wav
+out/*/silent.mp4
+out/*/video.html
+out/*/timeline.json

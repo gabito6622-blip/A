@@ -1,0 +1,208 @@
+{
+ "id": "05",
+ "title": "La agenda del día a día",
+ "number": 5,
+ "learn": [
+  "El resumen de tu día",
+  "Anotar una reserva",
+  "Atender al que llega sin turno",
+  "Llegó, no vino y reprogramar",
+  "Turno fijo y cartel «Ya llegué»"
+ ],
+ "steps": [
+  {
+   "img": "step01.png",
+   "title": "Tu día",
+   "text": "Hola, ¿cómo andás? Hoy vemos lo que vas a usar todos los días: la agenda. Cuando entrás al panel, el Inicio te muestra el resumen de hoy: cuántos turnos tenés, cuántos ya atendiste y cuánto vas a hacer en el día.",
+   "hl": {
+    "x": 16,
+    "y": 395,
+    "w": 358,
+    "h": 268.8125
+   },
+   "long": null
+  },
+  {
+   "img": "step02.png",
+   "title": "Lo que viene",
+   "text": "Más abajo está «Lo que viene hoy»: el próximo cliente, a qué hora, con qué barbero y qué servicio. Así sabés de un vistazo quién se sienta en la silla.",
+   "hl": {
+    "x": 16,
+    "y": 687.8125,
+    "w": 139.34375,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step03.png",
+   "title": "Agenda del día",
+   "text": "En «Agenda» ves todos los turnos del día en orden, con el estado de cada uno: confirmada, atendida, no vino. Con las flechitas pasás al día siguiente, y con «Hoy» volvés.",
+   "hl": {
+    "x": 154.5,
+    "y": 300.4375,
+    "w": 45.328125,
+    "h": 32
+   },
+   "long": null
+  },
+  {
+   "img": "step04.png",
+   "title": "Semana y barbero",
+   "text": "Tocando «Semana» ves la semana entera. Y arriba elegís un barbero, por ejemplo Kevin, para ver solo sus turnos. Con «Todos» volvés a ver a todo el equipo.",
+   "hl": {
+    "x": 88.90625,
+    "y": 349.4375,
+    "w": 85.84375,
+    "h": 34
+   },
+   "long": null
+  },
+  {
+   "img": "step05.png",
+   "title": "¿Te escriben?",
+   "text": "¿Un cliente te escribe por WhatsApp o te llama para pedir turno? Lo anotás vos. Tocás el botón «Reservar» del menú de abajo.",
+   "hl": {
+    "x": 159.203125,
+    "y": 767.5,
+    "w": 71.59375,
+    "h": 68.5
+   },
+   "long": null
+  },
+  {
+   "img": "step06.png",
+   "title": "Servicio y horario",
+   "text": "Elegís el servicio, el barbero y la fecha, y te aparecen solo los horarios libres. Tocás el que te pidió el cliente.",
+   "hl": {
+    "x": 37,
+    "y": 627.375,
+    "w": 100,
+    "h": 38
+   },
+   "long": null
+  },
+  {
+   "img": "step07.png",
+   "title": "Datos del cliente",
+   "text": "Ponés su nombre y su WhatsApp, y tocás «Crear reserva confirmada». La reserva que cargás vos queda confirmada al toque y sin anticipo.",
+   "hl": {
+    "x": 131.171875,
+    "y": 667.375,
+    "w": 221.828125,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step08.png",
+   "title": "La ficha del turno",
+   "text": "Esta es la ficha del turno. Arriba tenés «Cobrar» para pasarlo a la caja y «Reprogramar» por si el cliente te pide otro horario. Más abajo, el detalle, el precio y el WhatsApp del cliente.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step09.png",
+   "title": "¿Se pisan turnos?",
+   "text": "¿Y se pueden pisar dos turnos? No. Ese horario de Kevin ya no aparece como libre, y si alguien intenta tomarlo, el sistema le avisa que está ocupado. Ni desde el panel ni desde tu página se puede reservar dos veces lo mismo.",
+   "hl": {
+    "x": 59,
+    "y": 699.375,
+    "w": 241.09375,
+    "h": 20
+   },
+   "long": null
+  },
+  {
+   "img": "step10.png",
+   "title": "Turno fijo",
+   "text": "¿Tenés un cliente que viene siempre el mismo día? En la ficha está «Turno fijo»: elegís cuatro, ocho o doce semanas y tocás «Repetir cada semana». Se agenda solo, con el mismo barbero, servicio y hora.",
+   "hl": {
+    "x": 37,
+    "y": 399.609375,
+    "w": 196.25,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step11.png",
+   "title": "Reprogramar",
+   "text": "Si el cliente te pide cambiar el horario, tocás «Reprogramar», elegís el nuevo día y hora entre los libres, y confirmás el cambio. No hace falta cancelar y volver a crear.",
+   "hl": {
+    "x": 37,
+    "y": 256.375,
+    "w": 123.28125,
+    "h": 28
+   },
+   "long": null
+  },
+  {
+   "img": "step12.png",
+   "title": "Cartel «Ya llegué»",
+   "text": "En Ajustes, «Cartel con QR», tenés el cartel «Ya llegué» para la puerta. Lo imprimís y lo pegás en la entrada.",
+   "hl": {
+    "x": 132.3125,
+    "y": 262.375,
+    "w": 153.296875,
+    "h": 32
+   },
+   "long": null
+  },
+  {
+   "img": "step13.png",
+   "title": "El cliente avisa",
+   "text": "Cuando el cliente llega, escanea el QR con su celular, pone su número y toca «Ya llegué». En su turno queda marcado que llegó, y si tu barbero tiene los avisos activados, le llega un aviso al celular.",
+   "hl": null,
+   "long": null
+  },
+  {
+   "img": "step14.png",
+   "title": "¿Se atrasa o no viene?",
+   "text": "¿Y si el cliente se atrasa o no viene? Cuando llega, tocás «Llegó». Al terminar, «Atendida». Y si no aparece, tocás «No vino»: queda en su historial, y si querés, en Ajustes le podés pedir anticipo al que falta seguido cuando reserve por tu página.",
+   "hl": {
+    "x": 37,
+    "y": 399.609375,
+    "w": 107.625,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step15.png",
+   "title": "Cancelar",
+   "text": "Si el cliente te avisa que no viene, en su ficha tocás «Cancelar reserva», con el motivo si querés. El horario queda libre al toque para otro cliente.",
+   "hl": {
+    "x": 37,
+    "y": 399.609375,
+    "w": 169.109375,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step16.png",
+   "title": "Atender ahora",
+   "text": "¿Y el que entra sin reserva? Tocás «Atender ahora». Elegís quién lo atiende, acá Diego, que justo quedó libre, y el servicio. El nombre y el WhatsApp son opcionales. Tocás «Empezar turno» y queda en la agenda desde ya.",
+   "hl": {
+    "x": 37,
+    "y": 725.375,
+    "w": 152.296875,
+    "h": 44
+   },
+   "long": null
+  },
+  {
+   "img": "step17.png",
+   "title": "Cobrar y listo",
+   "text": "Y cuando termina, tocás «Cobrar» y lo pasás a la caja; eso lo vemos en el próximo tutorial. Así de fácil manejás tu día. Cualquier duda, me escribís por WhatsApp. ¡Nos vemos en el próximo tutorial!",
+   "hl": {
+    "x": 232.234375,
+    "y": 203.4375,
+    "w": 141.765625,
+    "h": 44
+   },
+   "long": null
+  }
+ ]
+}

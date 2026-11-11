@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Bebas+Neue&display=block" rel="stylesheet">
+<style>
+:root{--ink:#0e0f12;--paper:#f6f4ef;--red:#c8472a;--red2:#ff6a3d;--blue:#1d3a6e;--gold:#d4a24c;--gold2:#f3c771;--mute:#a9a49a;--green:#25d366}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--ink);font-family:Poppins,sans-serif;color:var(--paper)}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:radial-gradient(1100px 900px at 0% 0%,#3a1a12 0%,transparent 60%),radial-gradient(1000px 900px at 100% 100%,#14264a 0%,transparent 60%),var(--ink)}
+.pole{position:absolute;inset:-400px;background:repeating-linear-gradient(-24deg,rgba(200,71,42,.06) 0 60px,transparent 60px 120px,rgba(29,58,110,.07) 120px 160px,transparent 160px 260px)}
+.mark{position:relative;display:inline-flex;align-items:center;justify-content:center;width:240px;height:240px;border-radius:72px;background:#121418;overflow:hidden;box-shadow:0 0 0 3px rgba(255,255,255,.1),0 30px 90px rgba(200,71,42,.4)}
+.mark .a1{position:absolute;right:-25%;top:0;height:100%;width:60%;transform:skewX(-24deg);background:var(--red);opacity:.92}
+.mark .a2{position:absolute;right:-2%;top:0;height:100%;width:14%;transform:skewX(-24deg);background:var(--blue)}
+.mark b{position:relative;font:700 150px Poppins;color:var(--paper);margin-top:-14px}
+.mark.sm{width:62px;height:62px;border-radius:19px;box-shadow:none}.mark.sm b{font-size:38px;margin-top:-4px}
+#head{position:absolute;left:60px;right:60px;top:56px;display:flex;align-items:center;gap:18px;font:700 30px Poppins;color:#efe9dd}
+#head .chip{padding:8px 20px;border-radius:99px;background:rgba(212,162,76,.14);border:2px solid rgba(212,162,76,.5);color:#f3d79b;font-size:26px;white-space:nowrap}
+#head .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mute);font-size:28px}
+#steptop{position:absolute;left:60px;right:60px;top:150px;height:250px}
+.st{position:absolute;inset:0}
+.st .k{font:800 28px Poppins;letter-spacing:3px;color:var(--red2)}
+.st h2{font-family:"Bebas Neue";font-weight:400;font-size:112px;line-height:.9;text-transform:uppercase;margin-top:10px}
+.phone{position:absolute;left:250px;top:430px;width:580px;height:1270px;border-radius:80px;background:#050505;padding:18px;box-shadow:0 0 0 4px #33302b,0 50px 120px rgba(0,0,0,.7),0 0 120px rgba(212,162,76,.16)}
+.scr{position:relative;width:100%;height:100%;border-radius:64px;overflow:hidden;background:#0b0b0d}
+.scr .sb{position:absolute;left:0;right:0;top:0;height:58px;background:#0b0b0d;z-index:6;font:700 22px Inter,sans-serif;color:#fff;padding:20px 0 0 54px}
+.scr .sb:after{content:"▂▄▆  ▮";position:absolute;right:48px;top:20px;font-size:18px;letter-spacing:2px}
+.notch{position:absolute;top:30px;left:50%;width:150px;height:38px;margin-left:-75px;background:#000;border-radius:30px;z-index:7}
+.shot{position:absolute;left:0;top:58px;width:100%;opacity:0}
+.hl{position:absolute;border:6px solid var(--gold2);border-radius:20px;box-shadow:0 0 0 2400px rgba(0,0,0,.42),0 0 40px rgba(243,199,113,.8);opacity:0;z-index:5}
+.finger{position:absolute;font-size:96px;opacity:0;z-index:5;filter:drop-shadow(0 8px 14px rgba(0,0,0,.6))}
+#cap{position:absolute;left:50px;right:50px;bottom:48px;text-align:center;z-index:50}
+#cap span{display:inline;font-size:41px;line-height:1.48;font-weight:700;background:rgba(8,8,10,.88);padding:6px 18px;border-radius:14px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.card{position:absolute;inset:0;opacity:0;display:flex;flex-direction:column;align-items:center;text-align:center;z-index:30}
+.card h1{font-family:"Bebas Neue";font-weight:400;font-size:150px;line-height:.9;text-transform:uppercase;padding:0 60px}
+.learn{margin-top:60px;display:flex;flex-direction:column;gap:22px;align-items:stretch;width:820px}
+.learn div{display:flex;align-items:center;gap:22px;padding:24px 34px;border-radius:28px;background:rgba(24,24,28,.94);border:2px solid rgba(255,255,255,.1);font-size:38px;font-weight:700;text-align:left}
+.learn div i{font-style:normal;flex:none;width:58px;height:58px;border-radius:18px;background:var(--gold);color:#2a1a00;display:flex;align-items:center;justify-content:center;font-weight:900}
+.wa{display:inline-flex;align-items:center;gap:20px;padding:30px 54px;border-radius:99px;background:var(--green);color:#03250f;font-size:46px;font-weight:900}
+#prog{position:absolute;left:0;top:0;height:8px;background:linear-gradient(90deg,var(--red2),var(--gold2));z-index:60}
+</style></head>
+<body><div id="stage">
+<div class="pole" id="pole"></div>
+<div id="prog"></div>
+<div id="main">
+  <div id="head"><span class="mark sm"><span class="a1"></span><span class="a2"></span><b>b</b></span><span class="chip" id="chip"></span><span class="tt" id="tt"></span></div>
+  <div id="steptop"></div>
+  <div class="phone"><div class="notch"></div><div class="scr" id="scr"><div class="sb">9:41</div><div class="hl" id="hl"></div><div class="finger" id="finger">👆</div></div></div>
+</div>
+<div class="card" id="intro" style="justify-content:center">
+  <div class="mark"><span class="a1"></span><span class="a2"></span><b>b</b></div>
+  <div style="margin-top:44px;font:800 40px Poppins;letter-spacing:6px;color:var(--red2)" id="inum"></div>
+  <h1 id="ititle" style="margin-top:14px"></h1>
+  <div class="learn" id="ilearn"></div>
+</div>
+<div class="card" id="outro" style="justify-content:center">
+  <div class="mark"><span class="a1"></span><span class="a2"></span><b>b</b></div>
+  <div style="font:800 130px Poppins;letter-spacing:-4px;margin-top:40px">Barbiño</div>
+  <div style="font-size:44px;font-weight:700;color:#efe9dd;margin-top:10px">¿Te quedó alguna duda?</div>
+  <div style="margin-top:50px"><div class="wa"><svg width="58" height="58" viewBox="0 0 24 24" fill="#03250f"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.5-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3Z"/></svg>Escribinos por WhatsApp</div></div>
+  <div id="onext" style="margin-top:70px;font-size:36px;color:var(--mute);font-weight:700"></div>
+</div>
+<div id="cap"><span></span></div>
+</div>
+<script>
+const DATA = __DATA__;
+const cl=(x)=>Math.max(0,Math.min(1,x)), ease=(p)=>1-Math.pow(1-p,3);
+const back=(p)=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(p-1,3)+c1*Math.pow(p-1,2)};
+const K = 544/390;
+document.getElementById("chip").textContent = "Tutorial " + DATA.n;
+document.getElementById("tt").textContent = DATA.title;
+document.getElementById("inum").textContent = "TUTORIAL " + DATA.n;
+document.getElementById("ititle").textContent = DATA.title;
+document.getElementById("ilearn").innerHTML = DATA.learn.map((l,i)=>`<div><i>${i+1}</i>${l}</div>`).join("");
+document.getElementById("onext").innerHTML = DATA.next ? `Próximo: <b style="color:#f3c771">Tutorial ${DATA.n+1} · ${DATA.next}</b>` : "¡Fin de la serie!";
+const steps = DATA.segs.filter(s=>s.kind==="step");
+const scr = document.getElementById("scr"), top_ = document.getElementById("steptop");
+for (const s of steps){
+  s.imgEl = Object.assign(document.createElement("img"),{className:"shot",src:DATA.img+s.img});
+  scr.insertBefore(s.imgEl, document.getElementById("hl"));
+  s.topEl = document.createElement("div"); s.topEl.className="st";
+  s.topEl.innerHTML = `<div class="k">PASO ${s.i+1} DE ${steps.length}</div><h2>${s.title}</h2>`;
+  top_.appendChild(s.topEl);
+}
+const intro = DATA.segs[0], outro = DATA.segs[DATA.segs.length-1];
+function render(t){
+  document.getElementById("pole").style.transform=`translateX(${-(t*12)%260}px)`;
+  document.getElementById("prog").style.width = (100*t/DATA.end)+"%";
+  // intro / outro
+  const iE=document.getElementById("intro"), oE=document.getElementById("outro"), mE=document.getElementById("main");
+  const iOp = cl(t/0.3)*cl((intro.end-t)/0.4);
+  iE.style.opacity = iOp; iE.style.display = iOp>0?"flex":"none";
+  [...iE.querySelectorAll(".learn div")].forEach((d,k)=>{const p=ease(cl((t-1.0-k*0.35)/0.5)); d.style.opacity=p; d.style.transform=`translateX(${(1-p)*-80}px)`;});
+  iE.querySelector(".mark").style.transform=`scale(${0.6+0.4*back(cl(t/0.6))})`;
+  const oOp = cl((t-outro.start)/0.4);
+  oE.style.opacity=oOp; oE.style.display=oOp>0?"flex":"none";
+  oE.querySelector(".mark").style.transform=`scale(${0.6+0.4*back(cl((t-outro.start)/0.6))})`;
+  mE.style.opacity = cl((t-intro.end+0.4)/0.4)*cl((outro.start+0.4-t)/0.4);
+  // pasos
+  const hl=document.getElementById("hl"), fg=document.getElementById("finger");
+  let cur=null;
+  for (const s of steps){
+    const vis = t>=s.start && t<s.end;
+    const op = cl((t-s.start)/0.35)*cl((s.end-t)/0.35);
+    s.imgEl.style.opacity = vis ? op : 0;
+    s.topEl.style.opacity = vis ? op : 0;
+    s.topEl.style.transform = `translateY(${(1-ease(cl((t-s.start)/0.5)))*40}px)`;
+    if (vis && s.long){
+      const h = 544*s.imgEl.naturalHeight/s.imgEl.naturalWidth, maxS=Math.max(0,h-1176);
+      const p=cl((t-s.vo-0.6)/Math.max(1,s.dur-1.2)); const q=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+      s.imgEl.style.transform=`translateY(${-maxS*q}px)`;
+    }
+    if (t>=s.start && t<s.end-0.35) cur=s;
+  }
+  if (cur && cur.hl && t>cur.vo+0.25){
+    const lt=t-cur.vo-0.25, p=back(cl(lt/0.45)), h=cur.hl, pad=12;
+    const x=h.x*K-pad, y=58+h.y*K-pad, w=h.w*K+2*pad, hh=h.h*K+2*pad;
+    const fade=cl((cur.end-0.35-t)/0.3);
+    Object.assign(hl.style,{left:x+"px",top:y+"px",width:w+"px",height:hh+"px",opacity:cl(lt/0.3)*fade,transform:`scale(${1.25-0.25*p+Math.sin(lt*5)*0.015})`});
+    const fx = Math.min(544-90, Math.max(0, x+w/2-30)), below = y+hh+100 < 1234;
+    Object.assign(fg.style,{left:fx+"px",top:(below? y+hh-10 : y-100)+"px",opacity:cl((lt-0.3)/0.3)*fade,transform:`${below?"":"rotate(180deg) "}translateY(${Math.sin(lt*4)*10}px)`});
+  } else { hl.style.opacity=0; fg.style.opacity=0; }
+  // subtítulos
+  const sp=document.querySelector("#cap span"); let txt="";
+  if (t>=intro.vo-0.1 && t<intro.vo+intro.dur+0.3) txt=intro.text;
+  if (cur && t>=cur.vo-0.1 && t<cur.vo+cur.dur+0.3){ for (const c of cur.subs) if (t-cur.vo>=c.t-0.05) txt=c.text; }
+  if (sp.dataset.t!==txt){ sp.dataset.t=txt; sp.textContent=txt; }
+  document.getElementById("cap").style.opacity = txt?1:0;
+}
+window.render=render; window.END=DATA.end;
+render(0);
+</script>
+</body></html>
