@@ -2,7 +2,7 @@
 // quien la consulta. Cada paso enlaza a la pantalla donde se hace.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { BookOpen, Search } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Empty, Tabs } from "../components/ui";
 import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklist";
@@ -51,9 +51,12 @@ export function HelpPage() {
           <h1>Ayuda</h1>
           <p className="sub">Guías cortas para el día a día, según tu rol. Cada paso tiene un enlace a la pantalla donde se hace.</p>
         </div>
-        <div className="hp-search">
-          <Search size={17} aria-hidden="true" />
-          <input className="input" type="search" placeholder="Buscar: cobrar, receta, caja, esterilización…" aria-label="Buscar en la ayuda" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="hp-head-actions">
+          <Link className="btn btn-primary hp-manual" to="/ayuda/manual"><BookOpen size={16} aria-hidden="true" />Manual de mi puesto</Link>
+          <div className="hp-search">
+            <Search size={17} aria-hidden="true" />
+            <input className="input" type="search" placeholder="Buscar: cobrar, receta, caja, esterilización…" aria-label="Buscar en la ayuda" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
         </div>
       </div>
       {!results && (
