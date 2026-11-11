@@ -72,14 +72,25 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 ## Nuevos pendientes detectados en v0.6
 | ID | Prioridad | Ítem |
 |---|---|---|
-| B-090 | P1 | ⚠ Bloqueo por intentos: no revelar que el correo existe y evitar que un tercero bloquee cuentas ajenas (p. ej. bloqueo por IP + cuenta y desbloqueo por correo) |
-| B-091 | P1 | Tabla `users`: quitar al rol de la app la lectura del hash de contraseña fuera del inicio de sesión (función dedicada) |
-| B-092 | P2 | `/api/docs` solo con sesión de plataforma en producción; `/api/messages` filtrado por sucursal |
-| B-093 | P2 | Respuesta «BAJA» de WhatsApp asociada por número completo y clínica del mensaje original, no por los últimos 8 dígitos |
-| B-094 | P2 | Claves separadas para cifrar los 2 pasos y para firmar enlaces (rotación independiente) |
-| B-095 | P2 | Embudo de presupuestos: limitar la lista de vencidos (hoy ~2 s con 100 000 pacientes); exportación de pacientes en streaming (~4,7 s) |
+| B-090 | ✅ v0.7 | Bloqueo por intentos: no revelar que el correo existe y evitar que un tercero bloquee cuentas ajenas (p. ej. bloqueo por IP + cuenta y desbloqueo por correo) |
+| B-091 | ✅ v0.7 | Tabla `users`: quitar al rol de la app la lectura del hash de contraseña fuera del inicio de sesión (función dedicada) |
+| B-092 | ✅ v0.7 | `/api/docs` solo con sesión de plataforma en producción; `/api/messages` filtrado por sucursal |
+| B-093 | ✅ v0.7 | Respuesta «BAJA» de WhatsApp asociada por número completo y clínica del mensaje original, no por los últimos 8 dígitos |
+| B-094 | ✅ v0.7 | Claves separadas para cifrar los 2 pasos y para firmar enlaces (rotación independiente) |
+| B-095 | ✅ v0.7 | Embudo de presupuestos: limitar la lista de vencidos (hoy ~2 s con 100 000 pacientes); exportación de pacientes en streaming (~4,7 s) |
 | B-096 | P2 | Miniaturas para los archivos subidos antes de v0.6; botón «Marcar revisada» en plantillas de consentimiento; logo de la clínica |
 | B-097 | P2 | Rentabilidad: «Cobrado» con los pagos de empresas; liberar el tope anual del convenio al trasladar al paciente; gastos fijos compartidos |
+
+## Nuevos pendientes detectados en v0.7
+| ID | Prioridad | Ítem |
+|---|---|---|
+| B-100 | P0 | ⚠ Producción (requiere autorización): `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
+| B-101 | P1 | Subida por partes para respaldos de más de 4,5 GB |
+| B-102 | P2 | Métricas compartidas entre réplicas (hoy por instancia, se pierden al reiniciar) |
+| B-103 | P2 | Simulacro de restauración en un servidor separado del de producción |
+| B-104 | P2 | Exportación de pacientes: el total sigue en ~4 s con 100 000 (CPU de compresión) aunque empieza a bajar enseguida; la memoria sube ~180 MB durante la descarga |
+| B-105 | P3 | «Primeros pasos» marca «Prestaciones» como listo con una sola prestación propia (con aviso de cuántas siguen con el precio de ejemplo): decidir la regla con la clínica |
+| B-106 | ✅ v0.7 | Tabla de Personal y comparación por sucursal a 1440 px: revisado con la semilla demo, sin desborde (no se reprodujo) |
 
 ## P1
 

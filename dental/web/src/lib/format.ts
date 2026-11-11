@@ -50,3 +50,13 @@ export const parseBs = (s: string) => {
 };
 /** Centavos → texto para un campo editable ("60,00"), que parseBs vuelve a leer igual. */
 export const toBsInput = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
+
+/** Porcentaje como en el resto de la app: coma decimal y espacio antes de «%» (p. ej. «26,5 %»). */
+export const pct = (n: number | null | undefined, digits = 1) =>
+  n == null ? "—" : `${n.toLocaleString("es-BO", { maximumFractionDigits: digits })} %`;
+
+/** Fecha sin hora («2026-11-01» → «01/11/2026»), sin pasar por la zona horaria. */
+export const fmtDay = (ymd: string | null | undefined) => {
+  const m = ymd ? /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd) : null;
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
+};

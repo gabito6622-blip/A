@@ -76,7 +76,9 @@ Cada clínica es una empresa independiente dentro del mismo esquema. El aislamie
   - solo el propietario asigna administradores y propietarios.
 - **Verificación en dos pasos (v0.2):**
   - TOTP (RFC 6238) compatible con cualquier app autenticadora;
-  - el secreto se cifra con AES-256-GCM y una clave de entorno (`DENTAL_SECRET_KEY`), así que un respaldo de la base por sí solo no permite generar códigos;
+  - el secreto se cifra con AES-256-GCM y una clave de entorno propia (`DENTAL_MFA_KEY` desde v0.7, con rotación por `DENTAL_MFA_KEY_PREVIOUS`; los enlaces se firman con otra clave, `DENTAL_LINK_KEY`), así que un respaldo de la base por sí solo no permite generar códigos;
+  - el rol de la aplicación no puede leer el hash de la contraseña ni estos secretos (privilegios por columna; el ingreso usa funciones mínimas de la base, v0.7);
+  - el ingreso fallido responde siempre lo mismo y el bloqueo es por cuenta + origen, con límite global por cuenta y desbloqueo por correo (v0.7);
   - tras la contraseña, la sesión queda en `mfa_pending` (1 h, sin acceso a datos) hasta ingresar el código; 5 errores anulan la sesión;
   - 10 códigos de recuperación hasheados, de un solo uso;
   - la política por rol se guarda en `clinics.settings.mfaRequiredRoles`: el servidor bloquea toda la API, salvo la activación, hasta que la persona active los 2 pasos.
@@ -199,7 +201,9 @@ Principios aplicados en `server/src/modules/assistant.ts`:
 | Copias de seguridad | `scripts/backup.sh`: `pg_dump` en formato custom, cifrado AES-256 opcional (`BACKUP_PASSPHRASE`) y SHA-256. `scripts/restore.sh` restaura **en una base vacía**. Las herramientas `pg_dump`/`pg_restore` deben ser de la misma versión mayor que el servidor de destino o más nuevas, y conviene restaurar en la misma versión mayor de PostgreSQL. La prueba `tests/backup.test.ts` comprueba que la restauración conserva los datos y que RLS sigue activo |
 | Secretos | Solo variables de entorno (`.env.example`). Nada en el código ni en el repositorio |
 | Seguridad HTTP | Helmet + CSP estricta (`script-src 'self'`, `frame-ancestors 'none'`), `Cache-Control: no-store` en la API y límite global de solicitudes |
-| Salud | `GET /api/health` (comprueba la base de datos). El Dockerfile y Railway lo usan como *healthcheck* |
+| Respaldo programado y simulacro (v0.7) | `backup:run`: el volcado y los conteos salen de una misma instantánea; cifrado compatible con openssl; manifiesto; retención 7/4/12. `backup:verify`: simulacro en `dental_restore_*` con 8 verificaciones. Los dos quedan registrados en `backup_runs` |
+| Salud | `GET /api/health` (vida; lo usan el Dockerfile y Railway) y `GET /api/ready` (base, migraciones y almacenamiento; solo responde `{ok}`) |
+| Monitoreo y alertas (v0.7) | Métricas en memoria por patrón de ruta (cantidad, 5xx, p50/p95, solicitudes lentas de más de 1 s sin datos personales) y panel «Estado del sistema» para la plataforma. Alertas por correo y webhook guardadas en `ops_alerts`, sin repetirse |
 | Escalabilidad | Servidor sin estado (las sesiones viven en PostgreSQL), así que escala horizontalmente. Índices por `(clinic_id, …)` en todas las consultas calientes. Más adelante: réplicas de lectura para reportes y particionado de `audit_log` por fecha |
 
 ## 10. Archivos clínicos (planificado)

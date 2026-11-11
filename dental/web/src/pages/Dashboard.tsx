@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
-import { addDays, bs, fmtTime, localDate } from "../lib/format";
+import { addDays, bs, fmtDay, fmtTime, localDate, pct } from "../lib/format";
 import { qs } from "../lib/api";
 import { HomeCards } from "../components/coordination/HomeCards";
 import { Empty, Field, Loading, StatusBadge } from "../components/ui";
@@ -99,7 +99,7 @@ export function DashboardPage() {
             {d.financial && <div className="card kpi"><div className="label">Cobrado (confirmado)</div><div className="value">{bs(d.totals.collectedCents)}</div><div className="foot">{bs(d.totals.pendingVerificationCents)} por verificar</div></div>}
             {d.financial && <div className="card kpi"><div className="label">Producción</div><div className="value">{bs(d.totals.productionCents)}</div><div className="foot">Tratamientos realizados</div></div>}
             {d.finance && <div className="card kpi"><div className="label">Cuentas por cobrar</div><div className="value">{bs(d.finance.receivableCents)}</div><div className="foot">{d.finance.patientsWithDebt} pacientes con saldo</div></div>}
-            {d.finance && <div className="card kpi"><div className="label">Presupuestos abiertos</div><div className="value">{d.finance.openBudgets}</div><div className="foot">{bs(d.finance.openBudgetsCents)} · conversión {d.finance.budgetConversionPct ?? "—"}%</div></div>}
+            {d.finance && <div className="card kpi"><div className="label">Presupuestos abiertos</div><div className="value">{d.finance.openBudgets}</div><div className="foot">{bs(d.finance.openBudgetsCents)} · conversión {pct(d.finance.budgetConversionPct)}</div></div>}
             <div className="card kpi"><div className="label">Citas del período</div><div className="value">{d.totals.appointments}</div><div className="foot">{d.totals.completed} atendidas · {d.totals.noShow} no asistieron</div></div>
             <div className="card kpi"><div className="label">Pacientes nuevos</div><div className="value">{d.totals.newPatients}</div><div className="foot">Registrados en el período</div></div>
           </div>
@@ -107,7 +107,7 @@ export function DashboardPage() {
           <PeriodCompare from={range.from} to={range.to} />
 
           <div className="card">
-            <div className="card-head"><h2>Comparativo por sucursal</h2><span className="muted small">{d.range.from} a {d.range.to}</span></div>
+            <div className="card-head"><h2>Comparativo por sucursal</h2><span className="muted small">{fmtDay(d.range.from)} a {fmtDay(d.range.to)}</span></div>
             <div className="table-wrap">
               <table className="table">
                 <thead><tr><th>Sucursal</th>{d.financial && <><th className="num">Cobrado</th><th className="num">Producción</th><th className="num">Por verificar</th></>}<th className="num">Citas</th><th className="num">Atendidas</th><th className="num">Inasistencia</th><th className="num">Ocupación</th></tr></thead>
@@ -117,8 +117,8 @@ export function DashboardPage() {
                       <td><b>{b.branchName}</b></td>
                       {d.financial && <><td className="num">{bs(b.collectedCents)}</td><td className="num">{bs(b.productionCents)}</td><td className="num">{b.pendingVerificationCents ? <span className="badge warn">{bs(b.pendingVerificationCents)}</span> : "—"}</td></>}
                       <td className="num">{b.appointments}</td><td className="num">{b.completed}</td>
-                      <td className="num">{b.noShowRate == null ? "—" : `${b.noShowRate}%`}</td>
-                      <td className="num">{b.occupancyPct == null ? "—" : `${b.occupancyPct}%`}</td>
+                      <td className="num">{pct(b.noShowRate)}</td>
+                      <td className="num">{pct(b.occupancyPct)}</td>
                     </tr>
                   ))}
                 </tbody>

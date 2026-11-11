@@ -4,7 +4,7 @@ import { Check, Copy, FilePlus2, Hand, History, Link2, MessageCircle, PhoneCall,
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
-import { bs, fmtDate, fmtDateTime, parseBs, toBsInput } from "../lib/format";
+import { bs, fmtDate, fmtDateTime, parseBs, pct, toBsInput } from "../lib/format";
 import { Dialog, Empty, Field, Loading, StatusBadge, useToast } from "./ui";
 import { ExportLink } from "./management/shared";
 
@@ -347,7 +347,7 @@ export function BudgetFunnel({ branchId, onOpen }: { branchId: string | null; on
         {" "}La conversión de arriba se calcula siempre sobre los últimos {d.periodDays} días.
       </p>
       <div className="grid grid-4">
-        <div className="card kpi"><div className="label">Conversión ({d.periodDays} días)</div><div className="value">{d.conversion.conversionPct == null ? "—" : `${d.conversion.conversionPct} %`}</div><div className="foot">{d.conversion.accepted} de {d.conversion.presented} presentados</div></div>
+        <div className="card kpi"><div className="label">Conversión ({d.periodDays} días)</div><div className="value">{pct(d.conversion.conversionPct)}</div><div className="foot">{d.conversion.accepted} de {d.conversion.presented} presentados</div></div>
         <div className="card kpi"><div className="label">Aceptado</div><div className="value">{bs(d.conversion.acceptedCents)}</div><div className="foot">de {bs(d.conversion.presentedCents)} presentados</div></div>
         <div className="card kpi"><div className="label">Esperando respuesta</div><div className="value">{d.counts.presentedNoResponse}</div><div className="foot">{d.followUpDue} con seguimiento pendiente</div></div>
         <div className="card kpi"><div className="label">Aceptados en línea</div><div className="value">{d.conversion.acceptedOnline}</div><div className="foot">{d.conversion.rejected} rechazados</div></div>

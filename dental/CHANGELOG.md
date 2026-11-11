@@ -2,6 +2,58 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.7.0] — 2026-11-11
+
+Lo que faltaba de nuestro lado antes del piloto: seguridad decidida, informes rápidos, copias de seguridad que se prueban solas y manuales para capacitar al personal. Migraciones 0025 y 0027. Sin despliegue: todo probado en local.
+
+### Seguridad (B-090 a B-094)
+- **Ingreso fallido:** misma respuesta y mismo tiempo exista o no el correo, esté bloqueado o deshabilitado.
+- **Bloqueo por cuenta + origen:** 5 fallos desde una red bloquean solo esa red 15 minutos; un tercero ya no puede dejar fuera a la persona.
+- **Ataques distribuidos:** 50 fallos en una hora bloquean la cuenta y le llega por correo un enlace de desbloqueo (firmado, de un solo uso, vence en 1 hora).
+- **Desbloqueo por gerencia:** Configuración › Personal muestra «Ingreso bloqueado» y el botón «Desbloquear» (auditado).
+- **Secretos fuera del alcance de la app:** el rol de la aplicación ya no puede leer el hash de la contraseña ni los secretos de los 2 pasos; el ingreso los verifica con funciones mínimas de la base.
+- **Documentación de la API:** en producción, solo para la plataforma (al resto, 404).
+- **Mensajes por sucursal:** la bandeja de mensajes y las respuestas recibidas se filtran por sucursal.
+- **«BAJA» de WhatsApp:** se asocia por el número completo (con código de país) y la clínica que escribió a ese número, ya no por los últimos 8 dígitos.
+- **Claves separadas con rotación:** `DENTAL_MFA_KEY` (2 pasos) y `DENTAL_LINK_KEY` (enlaces), cada una con `*_PREVIOUS` para cambiarla sin cortar a nadie; obligatorias y distintas en producción.
+
+### Operación diaria
+- **Respaldo programado** `npm run backup:run`:
+  - cifrado obligatorio en producción, con los archivos clínicos incluidos;
+  - se guarda en S3 bajo su propio prefijo o en una carpeta local;
+  - retención 7 diarios / 4 semanales / 12 mensuales.
+- **Simulacro de restauración** `npm run backup:verify`:
+  - restaura el último respaldo en una base temporal;
+  - comprueba integridad, clave, migraciones, conteos por tabla, saldos, RLS y archivos;
+  - borra la base temporal al terminar.
+- **Monitoreo:** `/api/ready`, métricas por ruta (sin datos personales) y panel «Estado del sistema» para la plataforma.
+- **Alertas** por correo y webhook, sin repetirse:
+  - respaldo viejo o fallido;
+  - simulacro viejo o fallido;
+  - pico de errores;
+  - servicio no listo.
+
+### Informes rápidos (B-095)
+- **Seguimiento de presupuestos:**
+  - las bandejas muestran por defecto los últimos 90 días (selector 30/90/180/todo), con aviso en pantalla;
+  - tope de 100 por bandeja con «Ver más»;
+  - p95 de 2 038 ms a 182 ms con 100 000 pacientes.
+- **Exportación de pacientes a Excel por flujo:** empieza a bajar en 35 ms (antes había que esperar el archivo completo); misma protección contra fórmulas.
+
+### Capacitación
+- **Manuales por puesto:** recepción, caja, odontólogo, asistente, limpieza, contabilidad, gerencia y dueña, más la guía del portal para pacientes y familias, cada uno con su hoja de una página para imprimir.
+- **Pasos comprobados:** cada paso se verificó en un navegador real con datos ficticios.
+- **Dentro de la app:** Ayuda › «Manual de mi puesto».
+
+### Corregido
+- «Pacientes nuevos» del Inicio contaba toda la clínica aunque la persona viera solo su sucursal.
+- Porcentajes y fechas con el mismo formato en todas las pantallas («26,5 %», «01/11/2026»).
+- La caja muestra el recuadro «Tarjeta» cuando hubo cobros con tarjeta.
+- El panel lateral (por ejemplo «Cita» en la Agenda) se anuncia con su nombre a los lectores de pantalla.
+- La guía «Liquidar honorarios» ya no le pide a contabilidad un botón que no tiene.
+- En el celular, la primera columna de las tablas en tarjetas ya no pega la etiqueta al valor.
+- Una prueba que fallaba por azar cuando el nombre de prueba de la clínica contenía «36».
+
 ## [0.6.0] — 2026-11-11
 
 Preparación del piloto: que la clínica pueda arrancar sola, traer sus datos y operar con seguridad y velocidad a escala. Cuatro equipos en paralelo (migraciones 0021–0024) más la integración.

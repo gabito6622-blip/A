@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PackageCheck, Pencil, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/hooks";
-import { bs, fmtDate, fmtDateTime, localDate, parseBs, toBsInput } from "../../lib/format";
+import { bs, fmtDate, fmtDateTime, localDate, parseBs, pct, toBsInput } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { Dialog, Empty, Loading, StatusBadge, useAsk, useToast } from "../ui";
 import type { InvItem } from "./Dialogs";
@@ -318,8 +318,8 @@ export function SuppliersTab() {
               <td><b>{s.name}</b>{!s.active && <span className="badge" style={{ marginLeft: 6 }}>Inactivo</span>}<span className="inv-sub">{[s.phone, s.email].filter(Boolean).join(" · ")}</span></td>
               <td className="hide-mobile">{s.contactName ?? "—"}{s.paymentTerms && <span className="inv-sub">{s.paymentTerms}</span>}</td>
               <td className="num hide-mobile">{s.orders}</td>
-              <td className="num">{s.onTimePct == null ? "—" : `${s.onTimePct} %`}</td>
-              <td className="num">{s.rejectedPct == null ? "—" : `${s.rejectedPct} %`}</td>
+              <td className="num">{pct(s.onTimePct)}</td>
+              <td className="num">{pct(s.rejectedPct)}</td>
               <td className="num">{can("inventory.manage") && <button className="btn btn-sm" onClick={() => setEdit(s)}><Pencil size={14} />Editar</button>}</td>
             </tr>))}
           </tbody></table></div>

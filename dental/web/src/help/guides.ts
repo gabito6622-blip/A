@@ -233,10 +233,11 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "honorarios", title: "Liquidar honorarios", roles: ["accountant", "owner"], screens: ["/honorarios"],
-    summary: "Liquidación por profesional y período; al cerrarla ya no cambia.",
+    summary: "Liquidación por profesional y período; contabilidad la prepara y gerencia o la dueña la cierra. Al cerrarla ya no cambia.",
     steps: [
       { text: "Abre «Honorarios», pestaña «Liquidaciones».", to: "/honorarios", link: "Ir a Honorarios" },
-      { text: "Pulsa «Preparar borradores del período», revisa cada uno y pulsa «Cerrar liquidación»." },
+      { text: "Pulsa «Preparar borradores del período» y revisa cada uno." },
+      { text: "Gerencia o la dueña abre el borrador revisado y pulsa «Cerrar liquidación» (contabilidad no ve ese botón)." },
     ],
   },
 

@@ -148,5 +148,64 @@ La deuda o el saldo a favor que trae el paciente del sistema anterior se registr
 ### D-36 · Almacenamiento S3 sin SDK
 La firma SigV4 se implementó en ~150 líneas propias, probadas con los vectores oficiales de AWS y contra un servidor S3 falso local. Evita una dependencia grande y sirve igual para R2, B2, AWS y MinIO. Con S3, el respaldo de archivos lo da el versionado del bucket.
 
-### D-37 · Decisiones de seguridad pendientes (hallazgos de la auditoría interna) ⚠
+### D-37 · Decisiones de seguridad pendientes (hallazgos de la auditoría interna) — resueltas en v0.7 (D-38 a D-43)
 Quedan registradas en BACKLOG (B-090 a B-095) porque requieren una decisión de producto: el bloqueo por intentos revela que el correo existe y permite bloquear cuentas ajenas; la tabla `users` (con el hash de la contraseña) es legible por el rol de la app sin RLS; `/api/docs` es público en producción; `/api/messages` no filtra por sucursal; una respuesta «BAJA» se asocia por los últimos 8 dígitos del celular; una sola clave cifra los 2 pasos y firma los enlaces. No sustituye a una prueba de penetración externa (B-026).
+
+### D-38 · Bloqueo por cuenta + origen y respuesta única (cierra B-090)
+Aprobado por la dueña (v0.7).
+- 5 fallos desde una IP (en IPv6, su /64) bloquean solo esa combinación por 15 minutos.
+- 50 fallos por hora desde cualquier red bloquean la cuenta 1 hora y envían un enlace de desbloqueo de un solo uso.
+- Mientras hay bloqueo, la contraseña no se verifica ni cuenta como intento, y la respuesta es idéntica a la de una clave incorrecta o un correo inexistente: igual código, texto y costo (un scrypt).
+- Gerencia puede desbloquear; queda auditado.
+- Riesgo residual: un atacante con muchas IPs puede provocar el bloqueo global (1 hora), mitigado por el enlace por correo.
+
+### D-39 · La app no lee secretos de `users` (cierra B-091)
+- Privilegios por columna: `dental_app` no lee `password_hash`, `mfa_secret_enc`, `mfa_pending_secret_enc` ni `mfa_recovery_codes.code_hash`.
+- Cuatro funciones `SECURITY DEFINER` mínimas:
+  - `auth_password_salt`: entrega solo la sal y los parámetros;
+  - `auth_password_matches`: compara y devuelve sí/no;
+  - `auth_my_mfa_secret`: solo el secreto del usuario de la sesión;
+  - `auth_use_recovery_code`: solo del usuario de la sesión.
+- Una prueba lo verifica en el catálogo.
+
+### D-40 · Documentación de la API solo para la plataforma en producción (cierra B-092)
+- En producción, `/api/docs` responde 404 a quien no sea administrador de plataforma con sesión completa.
+- Fuera de producción sigue pública porque la usan las pruebas de permisos.
+- La bandeja de mensajes y las respuestas recibidas se filtran por sucursal. Los mensajes sin sucursal solo los ve quien tiene acceso a todas.
+
+### D-41 · «BAJA» por número completo (cierra B-093)
+- `phone_e164()` normaliza el número: 8 dígitos que empiezan con 6 o 7 se toman como de Bolivia (+591), y se respetan `+` y `00`.
+- La baja se asocia a la clínica del último WhatsApp enviado a ese número exacto, y solo a sus pacientes con ese número.
+- Un número sin envíos previos no da de baja a nadie.
+
+### D-42 · Claves separadas con rotación (cierra B-094)
+- `DENTAL_MFA_KEY` cifra los 2 pasos y `DENTAL_LINK_KEY` firma todos los enlaces y códigos, cada uso con su propia subclave o prefijo.
+- `*_PREVIOUS` solo verifica o descifra. Un secreto TOTP descifrado con la anterior se vuelve a cifrar con la nueva al usarse.
+- En producción son obligatorias y distintas.
+- En desarrollo se derivan con HKDF de `DENTAL_SECRET_KEY`, que queda como «anterior» para no romper lo existente.
+
+### D-43 · Seguimiento de presupuestos por período (cierra B-095)
+- Las bandejas muestran por defecto los presupuestos que entraron a su estado en los últimos 90 días; se puede elegir 30, 180 días o todo.
+- Cada bandeja trae como máximo 100 y el total va aparte, con «Ver más».
+- La conversión no cambia: sigue sobre `days`.
+- La consulta materializa primero los presupuestos del período. Antes, el planificador recorría los 100 000 pacientes.
+
+### D-44 · Excel grande por flujo
+- `streamXlsx()` escribe directo en la respuesta, con lectura por lotes con keyset y la misma `sanitizeValue()` que `xlsxBuffer()`.
+- La prueba de seguridad ahora también impide usar el escritor por flujo de exceljs fuera de `xlsxSafe.ts`.
+
+### D-45 · Conteos y volcado del respaldo de la misma instantánea
+El simulacro puede exigir conteos exactos por tabla aunque la base reciba escrituras durante el respaldo.
+
+### D-46 · Cifrado del respaldo en Node, compatible con openssl
+El volcado en claro nunca toca el disco y `restore.sh` sigue sirviendo.
+
+### D-47 · Tablas de operación globales y sin privilegios para la app
+`backup_runs` y `ops_alerts` no tienen `clinic_id` ni datos de pacientes. Solo las usan la CLI, el monitor y `/api/platform`.
+
+### D-48 · `/api/ready` público pero mudo
+Responde solo `{ok}` (200 o 503). El detalle lo ve únicamente la plataforma.
+
+### D-49 · Alertas por episodio, sin repetirse
+- La deduplicación se guarda en la base, con un respaldo en memoria para cuando la base no responde.
+- Las alertas no llevan datos de pacientes.

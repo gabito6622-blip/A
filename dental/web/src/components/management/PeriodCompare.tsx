@@ -1,6 +1,6 @@
 import { useApi } from "../../lib/hooks";
 import { qs } from "../../lib/api";
-import { bs, fmtDate } from "../../lib/format";
+import { bs, fmtDate, pct } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { Loading } from "../ui";
 import { ExportLink, Variation } from "./shared";
@@ -40,8 +40,8 @@ export function PeriodCompare({ from, to }: { from: string; to: string }) {
                   </>}
                   <td className="num" data-label="Citas">{b.current.appointments} <span className="muted small">(antes {b.previous.appointments})</span></td>
                   <td className="num" data-label="Var. citas"><Variation pct={b.variation.appointmentsPct} /></td>
-                  <td className="num" data-label="Ocupación">{b.current.occupancyPct == null ? "—" : `${b.current.occupancyPct}%`} <Variation pct={b.variation.occupancyPp} suffix="pp" /></td>
-                  <td className="num" data-label="Inasistencia">{b.current.noShowRate == null ? "—" : `${b.current.noShowRate}%`} <Variation pct={b.variation.noShowRatePp == null ? null : -b.variation.noShowRatePp} suffix="pp" /></td>
+                  <td className="num" data-label="Ocupación">{pct(b.current.occupancyPct)} <Variation pct={b.variation.occupancyPp} suffix="pp" /></td>
+                  <td className="num" data-label="Inasistencia">{pct(b.current.noShowRate)} <Variation pct={b.variation.noShowRatePp == null ? null : -b.variation.noShowRatePp} suffix="pp" /></td>
                 </tr>
               ))}
             </tbody>

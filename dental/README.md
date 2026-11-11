@@ -73,6 +73,8 @@ Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y
 | `npm run migrate` | Aplica las migraciones pendientes |
 | `npm run backup -- ./backups` | Respaldo `pg_dump`, cifrado si se define `BACKUP_PASSPHRASE` |
 | `TARGET_DATABASE_URL=… npm run restore -- archivo` | Restaura en una base vacía |
+| `npm run backup:run` | Respaldo cifrado (obligatorio en producción) a S3 o `BACKUP_DIR`, con archivos clínicos y retención 7/4/12 |
+| `npm run backup:verify` | Restaura el último respaldo en una base temporal `dental_restore_*`, lo verifica y la borra |
 
 ## Mantenimiento y carga
 
@@ -81,12 +83,24 @@ Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y
 | `npm run files:sweep` | Lista archivos sin registro y registros sin archivo (no borra nada). Con `-- --apply` borra solo huérfanos con más de 24 h |
 | `PERF_DATABASE_URL=…/dental_perf npm run perf:seed` | Llena una base de carga (el nombre debe contener «perf») con 100 000 pacientes y ~5 años de citas (~2,5 min) |
 | `npm run perf:bench` | Mide p50/p95 de las rutas críticas sobre esa base |
+| `PERF_DATABASE_URL=… npx tsx scripts/perf-export.ts /api/patients/export.xlsx` | Primer byte, tiempo total y memoria de una descarga grande |
+
+## Respaldos y alertas en producción (requiere autorización)
+
+- **Respaldo diario:** un servicio de cron con la misma imagen y variables corre `node server/dist/cli/backup.js run` todos los días a las 03:15 de La Paz (`15 7 * * *` UTC).
+- **Simulacro semanal:** el mismo servicio corre `node server/dist/cli/backup.js verify` los domingos (`45 8 * * 0` UTC).
+- **Monitor externo:** debe consultar `GET /api/ready`.
+- **Alertas:** llegan a los administradores de plataforma y a `ALERT_EMAILS`. Para probarlas, usa «Estado del sistema» › «Enviar alerta de prueba».
+- **Variables:** ver `.env.example`, secciones de respaldo, monitor y alertas.
+- **Pendiente para producción (B-100):** la imagen todavía no trae `pg_dump`.
 
 ## Despliegue (requiere autorización)
 
 `Dockerfile` y `railway.json` están listos para un servicio de Railway con directorio raíz `dental` y una base PostgreSQL. Variables:
 - `DATABASE_URL`;
 - `NODE_ENV=production`;
+- `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY` (distintas; `openssl rand -hex 32`);
+- `BACKUP_PASSPHRASE`, y `SMTP_URL` para el desbloqueo por correo y las alertas;
 - opcionales: `ANTHROPIC_API_KEY` para el chat del asistente, `SESSION_TTL_HOURS`.
 
 Las migraciones se aplican al arrancar. **No se desplegó nada todavía.**
@@ -94,3 +108,5 @@ Las migraciones se aplican al arrancar. **No se desplegó nada todavía.**
 ## Documentación
 
 `INVESTIGACION_COMPETIDORES.md` · `RESEARCH.md` · `ARCHITECTURE.md` · `DECISIONS.md` · `ROADMAP.md` · `BACKLOG.md` · `TEST_REPORT.md` · `CHANGELOG.md`
+
+`docs/manuales/`: manuales por puesto y guía del portal del paciente, cada uno con su hoja de una página. Dentro de la app: Ayuda › «Manual de mi puesto». Las capturas se regeneran con `npm run build:web && node scripts/manual-shots.cjs`; después hay que volver a compilar la web.

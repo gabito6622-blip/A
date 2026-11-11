@@ -74,7 +74,14 @@ export async function dashboardData(c: Client, auth: AuthCtx, fromISO?: string, 
     };
   });
   const sum = (k: keyof (typeof rows)[number]) => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
-  const newPatients = (await c.query<{ n: number }>("SELECT count(*)::int AS n FROM patients WHERE created_at >= $1 AND created_at < $2", [range.from, range.to])).rows[0]!.n;
+  // Pacientes nuevos de las sucursales que ve la persona: por su sucursal habitual o, si no la tiene,
+  // por haber tenido una cita en esas sucursales (antes contaba los de toda la clínica).
+  const newPatients = (await c.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM patients p
+      WHERE p.created_at >= $1 AND p.created_at < $2
+        AND ($3::uuid[] IS NULL OR p.preferred_branch_id = ANY($3)
+             OR (p.preferred_branch_id IS NULL AND EXISTS (SELECT 1 FROM appointments a WHERE a.patient_id = p.id AND a.branch_id = ANY($3))))`,
+    params)).rows[0]!.n;
   let finance = null;
   if (financial) {
     const rec = (await c.query<{ receivable: number; patients: number }>(

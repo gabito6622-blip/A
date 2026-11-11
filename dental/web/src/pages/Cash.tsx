@@ -46,6 +46,8 @@ export function CashPage() {
       <div className="grid grid-4">
         <div className="card kpi"><div className="label">Cobrado confirmado del día</div><div className="value">{bs(totalConfirmed)}</div></div>
         {["Efectivo", "Transferencia", "QR"].map((m) => <div key={m} className="card kpi"><div className="label">{m}</div><div className="value">{bs(confirmed[m] ?? 0)}</div></div>)}
+        {/* Tarjeta: solo si hubo cobros con tarjeta ese día (así el total siempre se explica por los recuadros). */}
+        {(confirmed["Tarjeta"] ?? 0) > 0 && <div className="card kpi"><div className="label">Tarjeta</div><div className="value">{bs(confirmed["Tarjeta"]!)}</div></div>}
       </div>
 
       <MyCashPanel onChanged={reload} />

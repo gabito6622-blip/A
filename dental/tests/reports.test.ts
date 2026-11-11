@@ -32,6 +32,15 @@ beforeAll(async () => {
 afterAll(async () => teardown(env));
 
 describe("panel y reportes", () => {
+  it("«Pacientes nuevos» cuenta solo las sucursales que ve la persona", async () => {
+    const before = (await rec.get("/api/reports/dashboard")).body.totals.newPatients;
+    const ownerBefore = (await owner.get("/api/reports/dashboard")).body.totals.newPatients;
+    await createPatient(owner, { preferredBranchId: K.branches[1] }); // otra sucursal
+    await createPatient(owner, { preferredBranchId: K.branches[0] }); // la de recepción
+    expect((await rec.get("/api/reports/dashboard")).body.totals.newPatients).toBe(before + 1);
+    expect((await owner.get("/api/reports/dashboard")).body.totals.newPatients).toBe(ownerBefore + 2);
+  });
+
   it("el panel del propietario cuadra exactamente con los movimientos", async () => {
     const r = (await owner.get("/api/reports/dashboard")).body;
     const b1 = r.branches.find((x: any) => x.branchId === K.branches[0]);

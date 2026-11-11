@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 // ---------- Avisos ----------
@@ -46,11 +46,12 @@ export function Drawer({ title, onClose, children, footer }: { title: ReactNode;
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
+  const titleId = useId();
   return (
     <>
       <div className="overlay" style={{ background: "rgba(11,42,60,.25)" }} onMouseDown={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true">
-        <div className="dialog-head"><h2>{title}</h2><button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Cerrar"><X size={18} /></button></div>
+      <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="dialog-head"><h2 id={titleId}>{title}</h2><button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Cerrar"><X size={18} /></button></div>
         <div className="drawer-body">{children}</div>
         {footer && <div className="dialog-foot">{footer}</div>}
       </aside>
