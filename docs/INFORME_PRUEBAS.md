@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Mi oficina (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **456 → 463 / 463 ✅** (~31 s) |
+| Mi oficina | `test/oficina.test.mjs` (7), con Claude y Meta falsos. Cubre: los 6 en su puesto; permisos (dueño y admin sí, vendedor 403, cliente no, gasto solo el dueño); el comprobante revisado se anota con el primer nombre, sin apellido, contraseña, correo ni número de operación; WhatsApp respondido y pase a una persona; la alarma de Vico se apaga al ver el aviso; Coco se despierta con un código que nunca se muestra; no va en el estado ni en la exportación; tope de 80; navegador a 360 px en claro y oscuro | ✅ |
+| Revisión visual | Datos de ejemplo a 360, 390 y 1280 px: 0 desbordes, botones de 44 px, letra de 12 px o más, 0 errores. Video corto grabado para el dueño | ✅ |
+| No probado | Con los asistentes reales de la tienda publicada (se ve después de publicar). Revisión con axe (falta `axe-core` en este entorno) | ⚠️ |
+
 ## Tanda 11/11/2026 · Avisos solos + códigos solos (publicado en #37)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -2,6 +2,16 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Mi oficina en 2D (pixel art propio)
+- **Por qué 2D y no 3D:** carga rápido y gasta poca batería en celulares sencillos. El 3D no agrega nada útil. Los dibujos son propios, hechos con cuadraditos en SVG, sin imágenes de terceros.
+- **Solo muestra:** no hace trabajo nuevo ni gasta Claude.
+- **De dónde sale lo que muestra:**
+  - Comprobantes y WhatsApp no dejaban rastro con fecha. Ahora anotan lo que hacen en `office_feed`, que va con los secretos: no está en el estado ni en las exportaciones. Se guardan como mucho 80 anotaciones de 7 días.
+  - Lo del vigilante, los códigos, el reporte y el cartero se lee de lo que ya estaba guardado.
+- **Qué nunca muestran los textos:** apellidos, correos de cuentas, contraseñas, códigos ni números de operación.
+- **Quién la ve:** el dueño y los admin. Lo gastado en Claude lo ve solo el dueño. Atención (vendedor) no la ve.
+- **La alarma de Vico** suena solo mientras no viste el aviso en Notificaciones.
+
 ## 2026-11-11 · Estudio de mercado: avisos y códigos solos
 - **Por qué estos dos primero:** los 8 revendedores que respondieron eligieron "alertas automáticas de renovaciones". "Pérdida de clientes por vencimientos" y "Consulta y entrega de códigos" fueron los problemas más marcados (4 de 8 cada uno).
 - **Avisos por Web Push y no por WhatsApp automático:** Web Push es gratis y no necesita la API de Meta. El celular pide el texto del aviso después de recibirlo. En `/c/` lo pide con su suscripción, porque ahí no hay sesión. Las suscripciones por link se guardan con los secretos (fuera del estado, de las exportaciones y del panel) y se borran cuando el link deja de servir. Los revendedores no reciben este aviso porque ya tienen el suyo.

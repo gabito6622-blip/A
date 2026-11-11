@@ -3,6 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-11 · Sin publicar · 🏢 Mi oficina
+- **Dueño y admin:** nueva pantalla «🏢 Mi oficina» en el menú. Muestra a los asistentes dibujados en 2D, cada uno en su escritorio:
+  - con IA: Rocío (comprobantes), Wali (WhatsApp), Dani (asistente del dueño) y Vico (vigilante);
+  - gratis, sin IA: Coco (códigos) y Tito (avisos de vencimiento).
+- **Qué hace cada personaje:** teclea si trabajó hace poco, duerme si está apagado y prende su alarma si encontró algo grave sin ver. El globito dice lo que hizo de verdad.
+- **Más en la pantalla:**
+  - la ventana muestra el cielo de La Paz según la hora;
+  - un reloj;
+  - «Lo que pasó hoy»;
+  - lo gastado en Claude este mes (solo el dueño).
+- **Tocar un personaje:** muestra qué hizo esta semana y permite prenderlo o apagarlo (solo el dueño). La pantalla se actualiza sola cada 20 s.
+
 ## 2026-11-11 · #37 Lo que pidieron los revendedores en el estudio de mercado
 - **🔔 Avisarme antes de que venza:** los clientes finales, con cuenta o por su link de cobro `/c/…`, reciben solos en el celular un aviso 3 días antes, 1 día antes y el día que vence. Es gratis y no usa WhatsApp. Al cliente de un revendedor el aviso le dice "Renová con <revendedor>" y no muestra el precio de la tienda. El revendedor ve cuáles de sus clientes tienen los avisos y su mensaje de cobro invita a activarlos. El dueño ve cuántos salieron hoy (Notificaciones).
 - **📩 Ver mi código de acceso:** en su link de cobro, el cliente de un revendedor ve solo el código que llegó al correo de su cuenta en los últimos 30 minutos. Funciona si la tienda y el revendedor lo permiten (los dos vienen apagados). El revendedor lo prende con un interruptor por cuenta en Repartir perfiles y en Mis cuentas propias, y ve un contador "Tus clientes vieron N códigos solos este mes". El dueño lo prende en el Panel de códigos. En Mis cuentas, "Ver códigos" muestra ahí mismo los de cada servicio.
