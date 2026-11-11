@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — Revendedores de otro país, IPTV, USDT y revendedores cómodos
+- **Revendedor de otro país (primer caso: Paraguay):** elige su país y todo se adapta: sus clientes con +595 (`0981…` → `+595981…`), sus precios a clientes en ₲ sin decimales (₲ 35.000) en el cuaderno, Mi control, Quién me debe, link de cobro y su página (con su tipo de cambio). Lo que le compra a la tienda sigue en Bs. Nunca se suman dos monedas en una cifra.
+- **📦 Mis cuentas propias (todos los revendedores):** cargan sus propias cuentas (Flujo TV u otras), con contraseñas cifradas, las reparten a sus clientes, renuevan, liberan, marcan pagado, mandan el acceso por WhatsApp y el link de cobro. Para IPTV: servidor, app, pantallas e instrucciones en el mensaje, y **🎁 prueba gratis de 24 h** que pasa a venta al renovarla. El dueño solo ve cuántas tienen.
+- **Pagan en USDT por Binance:** "Recargar saldo" acepta USDT (si la tienda lo configuró). Los revendedores de afuera ven USDT primero, cada precio también en USDT y no ven el QR de Bolivia.
+- **Revendedores cómodos:** logos de las apps en Tu día, Mis cuentas, Repartir perfiles, Mi control, Quién me debe, Mis ganancias y el link de cobro. Vista previa al compartir completa (páginas apagadas → genérica; link de cobro siempre genérico, sin datos del cliente). Barrida a 360 px: 166 problemas → 0. La tarjeta de cada revendedor en el panel ya no se sale.
+
 ## Sin publicar — "🧪 Era una prueba"
 - **Dueño y admin:** en el Control, junto a "↩️ Devolver", el botón "🧪 Era una prueba". La venta (y sus renovaciones) sale de tus números, los perfiles vuelven libres sin cuarentena, el saldo vuelve si se pagó con saldo y no se avisa a nadie.
 - **Arreglo:** Finanzas ya no cuenta como "Entró" las ventas marcadas como prueba.

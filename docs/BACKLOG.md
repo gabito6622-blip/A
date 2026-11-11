@@ -12,6 +12,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
 | B4 | ✅ el dueño confirmó que eran pruebas: se marcan con "🧪 Era una prueba" al publicar · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
+| B8 | Configurar USDT en tu tienda (Binance Pay ID y tasa Bs→USDT) para que Paraguay y Panamá recarguen | P1 | 🧑 |
+| B9 | Revendedores de otro país: ¿se les cobra algo extra? | P3 | 🧑 |
 | B7 | Que vuelvan: ¿respetar el permiso de WhatsApp del cliente (`whatsappConsent`)? Hoy no filtra porque lo manda una persona a mano, como la fila de cobro | P2 | 🧑 |
 
 ## Tanda "vender más" (equipos)
@@ -28,7 +30,13 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | V9 | 🔒 | Que el log de errores no guarde la ruta `/api/cobro/<token>` | P3 | ⏳ |
 | V10 | 👔 | Que vuelvan: sumar pruebas gratis vencidas sin compra; "volvieron" solo del producto ofrecido | P3 | ⏳ |
 | V12 | 👔 | Cómo van: los cobros de alquiler que marcás como "pagado" en el Control (y lo importado del Excel) no son pedidos, así que no suman en "te pagaron". Hoy en la tienda real da Bs 34 este mes. Contarlos sin duplicar las renovaciones con pedido | P1 | ✅ prueba `como-van` (#32) |
-| V11 | 👔 | Revendedores a 360 px: tarjetas de la lista se salen 15 px, link de la página cortado (ya estaba) | P3 | ⏳ |
+| V11 | 👔 | Revendedores a 360 px: tarjetas de la lista se salen 15 px, link de la página cortado (ya estaba) | P3 | ✅ equipo revendedores cómodos |
+| W1 | 🏪 | Cuentas propias: avisos de vencimiento en "Tu día" y en el aviso diario al celular | P2 | ⏳ |
+| W2 | 🏪 | Afiches en la moneda del revendedor de afuera | P3 | ⏳ |
+| W3 | 🏪 | Celulares de Argentina: el "9" después de +54 en wa.me | P3 | ⏳ |
+| W4 | 🏪 | Vista previa de `/r/` con el logo del revendedor encima | P3 | ⏳ |
+| W5 | 🛒 | Montos negativos: "Bs -5" debería decir "-Bs 5" | P3 | ⏳ |
+| W6 | 🛒 | Revisar la regla de 44 px en la tienda del cliente y en `/r/` (estilos generales tocados en la barrida) | P3 | ⏳ |
 | B5 | Alquileres como cuenta completa (1 perfil "Cuenta completa") | P2 | ✅ 123 cuentas, sin avisos |
 
 ## Auditoría del pulido

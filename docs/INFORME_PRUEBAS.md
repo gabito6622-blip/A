@@ -1,5 +1,20 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Otro país, cuentas propias, IPTV, USDT y revendedores cómodos (2 equipos + integración)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` antes de lanzar y después de integrar | **347 → 382 / 382 ✅** (0 saltadas) |
+| Otro país | `test/otro-pais.test.mjs` (11): teléfonos +595 en todas sus formas, Bolivia igual que antes, ₲ sin decimales, ninguna cifra con dos monedas, `/r/` con y sin tipo de cambio, `/c/` en ₲ | ✅ |
+| Cuentas propias | `test/cuentas-propias.test.mjs` (9): lista pegada con vista previa, sin doble asignación, renovar/liberar/pagado, contraseñas cifradas en el archivo de la base, permisos por HTTP, el dueño/admin/vendedor no ven nada (rutas `/api/admin/*`, Excel, auditoría), IPTV y prueba de 24 h | ✅ |
+| USDT | `test/usdt-afuera.test.mjs`: recarga USDT solo si está configurado, se acredita en Bs; en el navegador Paraguay ve USDT primero, montos en USDT, sin QR; Bolivia igual que antes | ✅ |
+| Vista previa y logos | `test/vista-previa.test.mjs` (8) + `test/revendedor-pantallas.test.mjs` (navegador): etiquetas por ruta, `/r/` no publicada genérica, `/c/` sin datos, escape, sin caché cruzada, logos en las pantallas | ✅ |
+| Era una prueba | `test/era-prueba.test.mjs` (4) | ✅ |
+| Al integrar | 4 choques en `shop.js`, `app.ts` y `subLinks.ts` (logos de un equipo + moneda del otro en la misma línea): se conservaron los dos lados | 382/382 |
+| Celular | Barrida del equipo: 166 → 0 problemas en las pantallas del revendedor; Paraguay a 360/390 claro y oscuro sin desborde; panel del dueño (Inicio, Control, Revendedores, Cómo van, Que vuelvan) sin desborde. Arreglado al integrar: botones de Control a 44 px y etiqueta a 12 px | ✅ (queda el deslizador del asesor de la tienda, que ya estaba) |
+
+**No se probó:** celular real, WhatsApp mostrando la vista previa (solo las etiquetas en el HTML), un pago real en USDT, `revision-accesibilidad.cjs` completo (el equipo lo corrió con axe en sus pantallas).
+
+
 ## Tanda 11/11/2026 · Cómo van cuenta los cobros del Control
 | Qué | Cómo | Resultado |
 |---|---|---|

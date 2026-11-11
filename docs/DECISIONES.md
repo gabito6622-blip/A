@@ -2,6 +2,21 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Revendedores de otro país: qué va en su moneda
+- **En Bs (moneda de la tienda):** saldo, compras y alquileres a la tienda, costos, y la lista de precios que arma para su página (al lado de su costo en Bs).
+- **En su moneda:** lo que les cobra a sus clientes (cuaderno, Mi control, Quién me debe), el link de cobro, sus cuentas propias y lo que ve el público en `/r/<slug>`, donde lo de la tienda se convierte con su tipo de cambio, redondeado hacia arriba. Sin tipo de cambio, los productos de la tienda no salen en su página.
+- **Nunca se mezclan monedas en una cifra.** Si una pantalla tiene las dos, muestra dos totales separados.
+- **Teléfonos:** dos números con código de país tienen que coincidir completos. Los viejos sin código se comparan por los últimos 8 dígitos, como antes.
+
+## 2026-11-11 · Cuentas propias del revendedor
+- Se guardan aparte (`state.ownStock[revendedor]`), con permiso propio (`reseller.own_stock`). Las contraseñas se cifran con `GS_DATA_KEY` igual que las cuentas de la tienda (`own: true` en `db.ts`). Las cuentas de la tienda siguen guardándose igual que antes.
+- El dueño ve solo cantidades; ni contraseñas ni clientes. Los clientes nuevos de cuentas propias no se crean como clientes de la tienda.
+- **IPTV:** los datos para el cliente (servidor, app, pantallas, instrucciones) van en el producto y salen en "Mandar acceso". La prueba gratis dura de 1 a 72 h, no cuenta como venta ni deuda, y al renovarse toma el precio del producto.
+
+## 2026-11-11 · Pago en USDT para revendedores de afuera
+- "Afuera" = su país no es Bolivia. Si la tienda acepta USDT (Pay ID o dirección + tasa), ven USDT primero y no ven el QR de Bolivia. La recarga se pide en Bs y se muestra cuánto es en USDT con la tasa de la tienda; se acredita en Bs al aprobar.
+- Sin USDT configurado, nada cambia (siguen con QR o el medio de su país).
+
 ## 2026-11-11 · "Era una prueba" en vez de liberar o devolver
 - **Qué:** marcar la venta como `trial` (igual que las pruebas gratis) y cerrar sus servicios, con el perfil `available` (sin cuarentena, porque nadie lo usó de verdad). Se marca la venta entera, aunque se toque desde un solo servicio, y también sus renovaciones. Si se pagó con saldo, vuelve como "refund".
 - **Por qué no "Liberar perfil" ni "Devolver":** liberar deja la venta contando como plata que entró; devolver acredita saldo aunque se haya pagado en efectivo.
