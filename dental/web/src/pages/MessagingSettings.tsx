@@ -33,6 +33,7 @@ export function whenText(trigger: string, minutes: number) {
     case "appointment_reminder": return `${amount} antes de la cita`;
     case "after_visit": return minutes ? `${amount} después de la visita` : "Al terminar la visita";
     case "recall_due": return minutes ? `${amount} antes de la fecha del control` : "El día del control";
+    case "satisfaction_survey": return minutes ? `Encuesta ${amount} después de la cita atendida` : "Encuesta al terminar la cita";
     default: return `${amount} después de presentar el presupuesto`;
   }
 }
@@ -192,7 +193,7 @@ function RuleDialog({ settings, rule, templates, onClose, onSaved }: { settings:
           <Field label="Cuándo se envía" span2 hint={rule ? "El momento de envío no se cambia en una regla existente." : undefined}>
             <select className="input" value={f.trigger} disabled={!!rule} onChange={(e) => {
               const t = e.target.value;
-              const d = t === "appointment_reminder" ? { value: "24", unit: "h" as const } : t === "after_visit" ? { value: "1", unit: "d" as const } : t === "appointment_created" ? { value: "0", unit: "h" as const } : { value: "7", unit: "d" as const };
+              const d = t === "appointment_reminder" ? { value: "24", unit: "h" as const } : t === "after_visit" ? { value: "1", unit: "d" as const } : t === "satisfaction_survey" ? { value: "2", unit: "h" as const } : t === "appointment_created" ? { value: "0", unit: "h" as const } : { value: "7", unit: "d" as const };
               setF({ ...f, trigger: t, ...d });
             }}>
               {settings.triggers.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}

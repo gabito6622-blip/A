@@ -19,18 +19,21 @@ import { clinicZone, STATUS_LABELS } from "./agenda.js";
 import { CONDITIONS } from "./clinical.js";
 import { BUDGET_LABELS, METHOD_LABELS } from "./billing.js";
 
-export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages"] as const;
+export const TIMELINE_CATEGORIES = ["appointments", "notes", "odontogram", "budgets", "payments", "documents", "recalls", "messages", "feedback"] as const;
 export type TimelineCategory = (typeof TIMELINE_CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   appointments: "Citas", notes: "Notas clínicas", odontogram: "Odontograma", budgets: "Presupuestos",
   payments: "Cargos y pagos", documents: "Documentos firmados", recalls: "Controles y contactos", messages: "Mensajes",
+  feedback: "Encuestas de satisfacción",
 };
 
 /** Permiso que habilita cada fuente. */
 const CATEGORY_PERM: Record<TimelineCategory, Permission> = {
   appointments: "agenda.read", notes: "clinical.read", odontogram: "clinical.read", budgets: "budgets.read",
   payments: "payments.read", documents: "patients.read", recalls: "agenda.read", messages: "patients.read",
+  // Los comentarios de la encuesta los lee propietario y administración (como el panel de satisfacción).
+  feedback: "clinic.manage",
 };
 
 export function allowedCategories(auth: Pick<AuthCtx, "permissions">): TimelineCategory[] {
@@ -158,6 +161,12 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            NULL::text, b.name, NULL::timestamptz, NULL::bigint
       FROM outbound_messages m LEFT JOIN branches b ON b.id = m.branch_id
      WHERE m.patient_id = $1`,
+  feedback: () => `
+    SELECT s.answered_at, 'sv:' || s.id, 'survey.answered', 'feedback',
+           jsonb_build_object('score', s.score, 'comment', left(s.comment, 240), 'followup', s.followup_note),
+           NULL::text, b.name, a.starts_at, NULL::bigint
+      FROM satisfaction_surveys s JOIN branches b ON b.id = s.branch_id JOIN appointments a ON a.id = s.appointment_id
+     WHERE s.patient_id = $1 AND s.answered_at IS NOT NULL`,
 };
 
 const NOTE_KINDS: Record<string, string> = { evolution: "Evolución", diagnosis: "Diagnóstico", prescription: "Receta", referral: "Derivación", consent: "Consentimiento", other: "Nota" };
@@ -237,6 +246,11 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
       return {
         title: `Mensaje por ${CHANNEL_LABELS[x.channel] ?? x.channel} (${MSG_STATUS[x.status] ?? x.status})`,
         detail: x.purpose === "otp" ? "Código de verificación (contenido oculto)" : x.body ?? null,
+      };
+    case "survey.answered":
+      return {
+        title: `Respondió la encuesta de satisfacción: ${x.score}/10${x.score <= 6 ? " (detractor)" : x.score >= 9 ? " (promotor)" : ""}`,
+        detail: [`Visita del ${f(r.appt_at)}`, x.comment ? `«${x.comment}»` : null, x.followup ? `Seguimiento: ${x.followup}` : null].filter(Boolean).join(" · "),
       };
     default:
       return { title: r.kind, detail: null };

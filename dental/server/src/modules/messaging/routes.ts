@@ -30,6 +30,7 @@ const OFFSET_RANGES: Record<Trigger, [number, number, string]> = {
   after_visit: [0, 90 * 1440, "El mensaje después de la visita va entre 0 y 90 días después"],
   recall_due: [0, 60 * 1440, "El aviso de control va entre 0 y 60 días antes de la fecha del control"],
   budget_unanswered: [1440, 90 * 1440, "El seguimiento del presupuesto va entre 1 y 90 días después de presentarlo"],
+  satisfaction_survey: [0, 7 * 1440, "La encuesta va entre 0 y 7 días después de la cita atendida"],
 };
 
 function validationError(errors: { path: string; message: string }[]): never {
@@ -195,6 +196,10 @@ export function messagingStaffRoutes(route: Route, cfg: Config, messenger: Messe
       if (!t.active) errors.push({ path: "templateId", message: "Esa plantilla está desactivada" });
       if (["appointment_created", "appointment_reminder"].includes(b.trigger) && t.purpose !== "reminders") {
         errors.push({ path: "templateId", message: "Los avisos de cita deben usar una plantilla de «Recordatorios» (no de marketing)" });
+      }
+      if (b.trigger === "satisfaction_survey") {
+        if (t.purpose !== "reminders") errors.push({ path: "templateId", message: "La encuesta debe usar una plantilla de «Recordatorios» (no de marketing)" });
+        if (!/\{\s*enlace_encuesta\s*\}/.test(t.body)) errors.push({ path: "templateId", message: "La plantilla de la encuesta debe incluir {enlace_encuesta}" });
       }
       for (const e of validateTemplate(t.body, { purpose: t.purpose, trigger: b.trigger }).errors) errors.push({ path: "templateId", message: e.message });
     }

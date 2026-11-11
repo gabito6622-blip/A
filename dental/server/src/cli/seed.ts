@@ -19,6 +19,7 @@ import { seedAgendaPlusDemo } from "../modules/agendaPlusDemo.js";
 import { seedMessagingDemo } from "../modules/messaging/seed.js";
 import { seedDocumentsDemo } from "../modules/documents-seed.js";
 import { seedInventoryDemo } from "../modules/inventory/seed.js";
+import { seedExperienceDemo } from "../modules/experience/seed.js";
 
 const cfg = loadConfig();
 if (cfg.isProduction && process.env.SEED_ALLOW !== "1") {
@@ -226,6 +227,7 @@ try {
   await seedMessagingDemo(q, clinicId);
   await seedDocumentsDemo(db, clinicId, cfg.publicUrl);
   await seedInventoryDemo(db.adminPool, clinicId);
+  await seedExperienceDemo(db.adminPool, clinicId, cfg.secretKey);
   console.log(`Clínica demo creada: 5 sucursales, ${dentists.length} odontólogos, 90 pacientes ficticios, ${created} citas, ${budgetNo} presupuestos.`);
   console.log(`Usuarios (contraseña "${PASSWORD}"): propietaria@demo.local, gerente@demo.local, contabilidad@demo.local, recepcion.lpz@demo.local, dr.mendoza@demo.local, limpieza.lpz@demo.local, superadmin@demo.local`);
 } finally {

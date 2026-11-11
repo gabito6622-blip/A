@@ -26,6 +26,7 @@ import { LabPage } from "./pages/Lab";
 import { ConfirmAppointmentPage } from "./pages/ConfirmAppointment";
 import { VerifyPage } from "./pages/Verify";
 import { InventoryPage } from "./pages/Inventory";
+import { ExperiencePage, PublicCheckinPage, PublicSurveyPage } from "./pages/experience-routes";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -36,6 +37,7 @@ export function App() {
   if (window.location.pathname.startsWith("/p/presupuesto/")) return <PublicBudgetPage />;
   if (window.location.pathname.startsWith("/c/")) return <ConfirmAppointmentPage />;
   if (/^\/verificar(\/|$)/.test(window.location.pathname)) return <VerifyPage />;
+  if (/^\/(e|llegada)\//.test(window.location.pathname)) return window.location.pathname.startsWith("/e/") ? <PublicSurveyPage /> : <PublicCheckinPage />;
   if (/^\/(reservar|mi-cuenta)\//.test(pathname)) return <Suspense fallback={<Loading rows={4} />}><PortalApp /></Suspense>;
   if (loading) return <Loading rows={6} />;
   if (!me) return <LoginPage />;
@@ -67,6 +69,7 @@ export function App() {
         <Route path="/mensajes" element={<MessagesPage />} />
         <Route path="/laboratorio/*" element={<LabPage />} />
         <Route path="/inventario" element={<InventoryPage />} />
+        <Route path="/experiencia" element={<ExperiencePage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

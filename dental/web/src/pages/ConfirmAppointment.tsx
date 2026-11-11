@@ -2,7 +2,7 @@
 // de WhatsApp). Muestra fecha, hora y sucursal; «Confirmo» confirma la cita una sola vez y
 // «Necesito reprogramar» lleva al portal del paciente o al WhatsApp de la sucursal.
 import { useEffect, useState } from "react";
-import { CalendarCheck, CalendarClock, MapPin, MessageCircle, Phone } from "lucide-react";
+import { CalendarCheck, CalendarClock, DoorOpen, MapPin, MessageCircle, Phone } from "lucide-react";
 import "./public-budget.css";
 
 async function call(method: "GET" | "POST", token: string, body?: unknown) {
@@ -92,6 +92,9 @@ export function ConfirmAppointmentPage() {
                 <a className="btn btn-block" href={`tel:${String(contact?.phone ?? view.branch.phone).replace(/[^\d+]/g, "")}`}><Phone size={20} />Llamar a la sucursal</a>
               )}
               <a className="btn btn-block" href={view.branch.mapUrl} target="_blank" rel="noopener noreferrer"><MapPin size={20} />Cómo llegar</a>
+              {["valid", "used", "expired"].includes(view.state) && (
+                <a className="btn btn-block" href={`/llegada/r/${token}`}><DoorOpen size={20} />Ya estoy en la sucursal: avisar mi llegada</a>
+              )}
             </div>
           </div>
         )}

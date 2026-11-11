@@ -22,6 +22,7 @@ import { renderTemplate, usedVariables, type Purpose, type Trigger, type Variabl
 import { DEFAULT_QUIET, MIN_LEAD_MINUTES, fmtLocal, hhmm, isQuiet, localDay, nextAllowed, nextDayStart, planSendAt, type QuietHours } from "./timing.js";
 import { whatsappProviderFromEnv } from "./whatsapp.js";
 import { confirmTokenHash, signConfirmToken } from "./tokens.js";
+import { issueSurvey } from "../experience/surveys.js";
 
 export interface MessagingSettings { quiet: QuietHours; maxPerDay: number }
 export const DEFAULT_MAX_PER_DAY = 2;
@@ -56,7 +57,7 @@ export async function loadMessagingSettings(c: Client, clinicId: string): Promis
   return r ? { quiet: { start: hhmm(r.quiet_start), end: hhmm(r.quiet_end) }, maxPerDay: r.max_per_patient_day } : { quiet: { ...DEFAULT_QUIET }, maxPerDay: DEFAULT_MAX_PER_DAY };
 }
 
-const PRIORITY: Record<Trigger, number> = { appointment_created: 1, appointment_reminder: 2, after_visit: 3, recall_due: 4, budget_unanswered: 5 };
+const PRIORITY: Record<Trigger, number> = { appointment_created: 1, appointment_reminder: 2, after_visit: 3, recall_due: 4, budget_unanswered: 5, satisfaction_survey: 6 };
 const APPT_TRIGGERS: Trigger[] = ["appointment_created", "appointment_reminder"];
 
 /**
@@ -199,6 +200,21 @@ async function candidates(c: Client, rule: RuleRow, now: Date, zone: string): Pr
       return rows.map((a) => ({
         branchId: a.branch_id, patientId: a.patient_id, appointmentId: a.id, anchor: a.completed_at,
         key: `${rule.id}:visita:${a.id}`, due: a.completed_at.getTime() + off,
+      }));
+    }
+    case "satisfaction_survey": {
+      // Encuesta (módulo experiencia): citas atendidas sin encuesta respondida.
+      const rows = (await c.query<{ id: string; branch_id: string; patient_id: string; completed_at: Date }>(
+        `SELECT a.id, a.branch_id, a.patient_id, a.completed_at FROM appointments a
+          WHERE a.status = 'completed' AND a.completed_at IS NOT NULL AND a.completed_at >= $3
+            AND a.completed_at + make_interval(mins => $4) <= $1::timestamptz + interval '${PLAN_HORIZON}'
+            AND a.completed_at > $1::timestamptz - interval '30 days'
+            AND ($2::uuid IS NULL OR a.branch_id = $2)
+            AND NOT EXISTS (SELECT 1 FROM satisfaction_surveys s WHERE s.appointment_id = a.id AND s.answered_at IS NOT NULL)`,
+        [now, rule.branch_id, since, rule.offset_minutes])).rows;
+      return rows.map((a) => ({
+        branchId: a.branch_id, patientId: a.patient_id, appointmentId: a.id, anchor: a.completed_at,
+        key: `${rule.id}:encuesta:${a.id}`, due: a.completed_at.getTime() + off,
       }));
     }
     case "recall_due": {
@@ -379,6 +395,11 @@ async function dispatch(c: Client, x: DispatchCtx) {
         `INSERT INTO message_confirm_tokens (id, clinic_id, appointment_id, job_id, token_hash, starts_at, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$6)`,
         [tokenId, x.clinicId, j.appointment_id, j.id, confirmTokenHash(token), appt.starts_at]);
       vars.enlace_confirmar = `${base}/c/${token}`;
+    }
+    if (used.includes("enlace_encuesta")) {
+      const s = j.appointment_id ? await issueSurvey(c, x.deps.cfg, { clinicId: x.clinicId, appointmentId: j.appointment_id, source: "auto", jobId: j.id }) : null;
+      if (!s) { await finish(j, "skipped", "La encuesta de esta visita ya fue respondida o la cita no está atendida"); continue; }
+      vars.enlace_encuesta = s.url;
     }
     const body = renderTemplate(tv.body, vars, j.purpose);
     const msg = await x.deps.messenger.enqueue(c, {

@@ -486,12 +486,16 @@ export function budgetV2Routes(route: Route, cfg: Config) {
       const l = await openLink(c, params.token);
       if (!l) return fail(reply, 404, INVALID);
       if (l.locked_at) return fail(reply, 423, LOCKED);
-      const p = (await c.query<{ phone: string | null; guardian_phone: string | null; birth_date: string | null }>(
-        "SELECT p.phone, p.guardian_phone, p.birth_date::text AS birth_date FROM budgets b JOIN patients p ON p.id = b.patient_id WHERE b.id = $1", [l.budget_id])).rows[0]!;
+      // R2-39: el tutor legal declarado también puede verificar con su celular (y aceptar como tutor).
+      const p = (await c.query<{ phone: string | null; guardian_phone: string | null; birth_date: string | null; tutor_phones: string[] }>(
+        `SELECT p.phone, p.guardian_phone, p.birth_date::text AS birth_date,
+                ARRAY(SELECT g.phone FROM patient_relationships r JOIN patients g ON g.id = r.person_a
+                       WHERE r.person_b = p.id AND r.legal_guardian AND r.ended_at IS NULL AND g.phone IS NOT NULL) AS tutor_phones
+           FROM budgets b JOIN patients p ON p.id = b.patient_id WHERE b.id = $1`, [l.budget_id])).rows[0]!;
       const eq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
       const last4 = (x: string | null) => String(x ?? "").replace(/\D/g, "").slice(-4);
       const ok = body.method === "phone"
-        ? [p.phone, p.guardian_phone].some((x) => last4(x).length === 4 && eq(last4(x), body.phoneLast4))
+        ? [p.phone, p.guardian_phone, ...p.tutor_phones].some((x) => last4(x).length === 4 && eq(last4(x), body.phoneLast4))
         : !!p.birth_date && eq(p.birth_date, body.birthDate);
       const uaHash = sha256hex(String(req.headers["user-agent"] ?? ""));
       if (!ok) {
