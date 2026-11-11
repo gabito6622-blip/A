@@ -142,7 +142,14 @@ const SOURCES: Record<TimelineCategory, (o: { informed: boolean }) => string> = 
            jsonb_build_object('number', ir.number, 'billTo', ir.bill_to, 'buyer', ir.buyer_name, 'status', ir.status),
            u.full_name, b.name, NULL::timestamptz, ir.total_cents
       FROM invoice_requests ir JOIN users u ON u.id = ir.created_by JOIN branches b ON b.id = ir.branch_id
-     WHERE ir.patient_id = $1`,
+     WHERE ir.patient_id = $1
+    UNION ALL
+    SELECT t.created_at, 'pt:' || t.id, 'agreement.transfer', 'payments',
+           jsonb_build_object('agreement', ag.name, 'cause', t.cause, 'reason', t.reason, 'service', COALESCE(bi.description, ch.description)),
+           u.full_name, b.name, NULL::timestamptz, t.amount_cents
+      FROM payer_transfers t JOIN agreements ag ON ag.id = t.agreement_id JOIN charges ch ON ch.id = t.charge_id
+      LEFT JOIN budget_items bi ON bi.id = ch.budget_item_id JOIN users u ON u.id = t.created_by JOIN branches b ON b.id = t.branch_id
+     WHERE t.patient_id = $1`,
   documents: ({ informed }) => `
     SELECT d.signed_at, 'sd:' || d.id, 'document', 'documents',
            jsonb_build_object('documentId', d.id, 'docKind', d.kind, 'title', d.title, 'decision', d.decision, 'method', d.method, 'signer', d.signer_name),
@@ -272,6 +279,10 @@ export function describe(r: Pick<Row, "kind" | "ref" | "appt_at">, zone: string)
         title: `Afiliado al convenio ${x.agreement}`,
         detail: [`N° de afiliado ${x.memberNumber}`, `desde ${String(x.validFrom).split("-").reverse().join("/")}`, x.validTo ? `hasta ${String(x.validTo).split("-").reverse().join("/")}` : null, x.endReason ? `baja: ${x.endReason}` : null].filter(Boolean).join(" · "),
       };
+    case "agreement.transfer":
+      return x.cause === "reversal"
+        ? { title: `Se devolvió a ${x.agreement} una porción trasladada`, detail: [x.service, x.reason].filter(Boolean).join(" · ") }
+        : { title: `${x.agreement} no pagó su parte: pasó al saldo del paciente`, detail: [x.service, x.cause === "rejected" ? "la empresa la rechazó" : "vencida sin pago", x.reason].filter(Boolean).join(" · ") };
     case "invoice.requested":
       return { title: `Marcado como pendiente de facturar (N° ${x.number})`, detail: `A nombre de ${x.buyer}${x.status === "cancelled" ? " · anulado" : ""} · aún no es una factura fiscal` };
     case "document":

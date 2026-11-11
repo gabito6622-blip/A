@@ -33,6 +33,8 @@ const zAgreement = z.object({
   companySharePercent: zPercent.default(0),
   companyCapCents: zMoney.refine((v) => v > 0, "El tope debe ser mayor a cero").nullish().transform((v) => v ?? null),
   paymentTermsDays: z.number().int().min(0).max(180).default(30),
+  // Días desde el tratamiento a partir de los cuales gerencia puede trasladar al paciente la porción impaga (B-082).
+  patientTransferDays: z.number().int("Días en número entero").min(0, "Entre 0 y 730 días").max(730, "Entre 0 y 730 días").default(60),
   notes: zOptText(1000),
   active: z.boolean().default(true),
   rules: z.array(zRule).max(200).default([]),
@@ -44,7 +46,7 @@ const zAgreement = z.object({
 const COLS = `a.id, a.name, a.kind, a.tax_id AS "taxId", a.billing_name AS "billingName", a.contact_name AS "contactName", a.contact_phone AS "contactPhone",
   a.contact_email AS "contactEmail", a.valid_from AS "validFrom", a.valid_to AS "validTo", a.default_discount_percent AS "defaultDiscountPercent",
   a.company_share_percent AS "companySharePercent", a.company_cap_cents AS "companyCapCents", a.payment_terms_days AS "paymentTermsDays",
-  a.notes, a.active, a.created_at AS "createdAt", a.updated_at AS "updatedAt"`;
+  a.patient_transfer_days AS "patientTransferDays", a.notes, a.active, a.created_at AS "createdAt", a.updated_at AS "updatedAt"`;
 
 async function loadAgreement(c: Client, id: string) {
   const a = (await c.query(`SELECT ${COLS} FROM agreements a WHERE a.id = $1`, [id])).rows[0];
@@ -107,6 +109,7 @@ export function agreementCrudRoutes(route: Route) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
         [auth.clinicId, body.name, body.kind, body.taxId, body.billingName, body.contactName, body.contactPhone, body.contactEmail, body.validFrom, body.validTo,
           body.defaultDiscountPercent, body.companySharePercent, body.companyCapCents, body.paymentTermsDays, body.notes, body.active, auth.userId])).rows[0]!.id;
+      await c.query("UPDATE agreements SET patient_transfer_days = $2 WHERE id = $1", [id, body.patientTransferDays]);
       await saveRules(c, auth.clinicId!, id, body.rules);
       await audit(c, auth, "agreement.created", "agreement", id, { name: body.name, rules: body.rules.length, companySharePercent: body.companySharePercent, companyCapCents: body.companyCapCents });
       return loadAgreement(c, id);
@@ -126,6 +129,7 @@ export function agreementCrudRoutes(route: Route) {
           WHERE id = $1`,
         [params.id, body.name, body.kind, body.taxId, body.billingName, body.contactName, body.contactPhone, body.contactEmail, body.validFrom, body.validTo,
           body.defaultDiscountPercent, body.companySharePercent, body.companyCapCents, body.paymentTermsDays, body.notes, body.active]);
+      await c.query("UPDATE agreements SET patient_transfer_days = $2 WHERE id = $1", [params.id, body.patientTransferDays]);
       await saveRules(c, auth.clinicId!, params.id, body.rules);
       await audit(c, auth, "agreement.updated", "agreement", params.id, { before: { ...before, rules: beforeRules }, after: body });
       return loadAgreement(c, params.id);

@@ -12,7 +12,7 @@ import { ExportLink } from "../components/management/shared";
 
 const d = (iso: string) => fmtDate(iso + "T12:00:00Z");
 const period = (s: { periodStart: string; periodEnd: string }) => `${d(s.periodStart)} – ${d(s.periodEnd)}`;
-const KIND: Record<string, string> = { production: "Tratamiento", collected: "Cobro", adjustment: "Ajuste" };
+const KIND: Record<string, string> = { production: "Tratamiento", collected: "Cobro", collected_payer: "Cobro de empresa", adjustment: "Ajuste" };
 const BASE_SHORT: Record<string, string> = { production: "Producción", collected: "Cobrado" };
 
 function previousMonth() {

@@ -35,7 +35,7 @@ export const LINE_SOURCES: Record<Line | "marginCents" | "cashMarginCents", stri
   materialsCents: "Consumos de inventario del mes en la sucursal, valorizados al costo del lote registrado en cada salida, o al costo actual del lote si la salida no lo guardó (módulo Inventario: consumo estándar por tratamiento y consumos manuales). «Sin datos» si la sucursal no usa el inventario.",
   feesCents: "Honorarios de las liquidaciones CERRADAS cuyo período cae dentro del mes, por la sucursal de cada línea (módulo Honorarios). «Sin datos» si no hay liquidaciones cerradas del mes.",
   pettyCashCents: "Egresos de caja con concepto «gasto menor» registrados en las cajas de la sucursal en el mes. «Sin datos» si la sucursal no abrió cajas en el mes. No registres el mismo gasto también en Gastos.",
-  expensesCents: "Gastos confirmados y no anulados con fecha del mes (pestaña Gastos: alquiler, sueldos, servicios, etc.). «Sin datos» si no hay ningún gasto confirmado del mes.",
+  expensesCents: "Gastos confirmados y no anulados con fecha del mes (pestaña Gastos: alquiler, sueldos, servicios, etc.). Un gasto compartido entre sucursales cuenta en cada una por su parte del reparto. «Sin datos» si no hay ningún gasto confirmado del mes.",
   marginCents: "Producción − laboratorio − materiales − honorarios − gastos menores − gastos. Si falta alguna fuente, el margen es parcial y se indica cuál falta.",
   cashMarginCents: "Igual que el margen, pero partiendo de lo cobrado en lugar de la producción.",
 };
@@ -98,14 +98,16 @@ async function computeMonth(c: Client, auth: AuthCtx, range: MonthRange, branchI
   const petty = byBranch((await c.query(
     `SELECT s.branch_id, sum(m.amount_cents) AS v FROM cash_movements m JOIN cash_sessions s ON s.id = m.session_id
       WHERE m.kind = 'out' AND m.category = 'petty_expense' AND m.created_at >= $1 AND m.created_at < $2 AND s.branch_id = ANY($3) GROUP BY s.branch_id`, p)).rows);
-  // Gastos
+  // Gastos (un gasto compartido cuenta en cada sucursal por su parte del reparto, exacta al centavo: B-083)
+  const EXP_PARTS = `(SELECT e.id, e.status, e.category, e.expense_date, COALESCE(s.branch_id, e.branch_id) AS branch_id, COALESCE(s.amount_cents, e.amount_cents) AS amount_cents
+                        FROM expenses e LEFT JOIN expense_shares s ON s.expense_id = e.id
+                       WHERE NOT EXISTS (SELECT 1 FROM expense_voids x WHERE x.expense_id = e.id)) e`;
   const expRows = (await c.query<{ branch_id: string; category: string; v: number; n: number }>(
-    `SELECT e.branch_id, e.category, sum(e.amount_cents) AS v, count(*)::int AS n FROM expenses e
-      WHERE e.status = 'confirmed' AND NOT EXISTS (SELECT 1 FROM expense_voids x WHERE x.expense_id = e.id)
-        AND e.expense_date >= $1::date AND e.expense_date < $2::date AND e.branch_id = ANY($3)
+    `SELECT e.branch_id, e.category, sum(e.amount_cents) AS v, count(*)::int AS n FROM ${EXP_PARTS}
+      WHERE e.status = 'confirmed' AND e.expense_date >= $1::date AND e.expense_date < $2::date AND e.branch_id = ANY($3)
       GROUP BY e.branch_id, e.category`, [range.fromDate, range.toDateExclusive, branchIds])).rows;
   const drafts = byBranch((await c.query(
-    `SELECT e.branch_id, count(*) AS v FROM expenses e WHERE e.status = 'draft' AND NOT EXISTS (SELECT 1 FROM expense_voids x WHERE x.expense_id = e.id)
+    `SELECT e.branch_id, count(*) AS v FROM ${EXP_PARTS} WHERE e.status = 'draft'
         AND e.expense_date >= $1::date AND e.expense_date < $2::date AND e.branch_id = ANY($3) GROUP BY e.branch_id`,
     [range.fromDate, range.toDateExclusive, branchIds])).rows);
 

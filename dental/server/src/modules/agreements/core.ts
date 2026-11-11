@@ -107,7 +107,9 @@ export async function budgetItemShares(c: Client, budgetId: string): Promise<Ite
   const rows = (await c.query(
     `SELECT i.id, i.net_cents, i.status, i.agreement_id, a.name AS agreement_name, i.list_unit_price_cents, i.agreement_note, i.company_share_percent,
             i.company_cap_cents, b.patient_id,
-            COALESCE(x.charged, 0) AS charged, COALESCE(x.tp, 0) AS tp,
+            COALESCE(x.charged, 0) AS charged,
+            -- Porción de la empresa ya cargada, menos lo trasladado al paciente (B-082): eso lo paga el paciente.
+            COALESCE(x.tp, 0) - COALESCE((SELECT sum(t.amount_cents) FROM payer_transfers t JOIN charges o ON o.id = t.charge_id WHERE o.budget_item_id = i.id), 0) AS tp,
             EXISTS (SELECT 1 FROM patient_agreements pa JOIN agreements ag ON ag.id = pa.agreement_id
                      WHERE pa.id = i.patient_agreement_id AND ag.active AND $2::date BETWEEN pa.valid_from AND COALESCE(pa.valid_to, 'infinity'::date)
                        AND $2::date BETWEEN ag.valid_from AND COALESCE(ag.valid_to, 'infinity'::date)) AS valid_now

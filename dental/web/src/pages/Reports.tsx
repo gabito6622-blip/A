@@ -7,6 +7,7 @@ import { qs } from "../lib/api";
 import { bs, fmtDate, localDate } from "../lib/format";
 import { Empty, Field, Loading } from "../components/ui";
 import { VisitQualitySection } from "../components/VisitQuality";
+import { ReceivablesAging } from "../components/agreements/PayerTransfers";
 
 function currentMonth() {
   const today = localDate();
@@ -124,6 +125,7 @@ export function ReportsPage() {
           </div>
         )}
       </div>
+      {fin && <ReceivablesAging />}
       {op && <VisitQualitySection range={range} />}
       {!fin && !op && <Empty>Tu rol no tiene reportes disponibles.</Empty>}
     </div>

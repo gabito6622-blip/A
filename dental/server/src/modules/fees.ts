@@ -9,7 +9,9 @@
 //    el costo de las órdenes de laboratorio vinculadas a su ítem de presupuesto (no canceladas ni en borrador,
 //    con costo). Si el ítem tiene varias sesiones, el costo se descuenta una sola vez, en orden, sin superar
 //    la base de cada línea. Sin órdenes vinculadas con costo, se usa el monto fijo por unidad.
-//  * Base "cobrado": cada pago se reparte entre las categorías del presupuesto en proporción a sus
+//  * Base "cobrado" (B-082: también los pagos de empresas aplicados a los cargos de los presupuestos del
+//    profesional, una línea exacta por aplicación pago × cargo, sin doble conteo con lo del paciente):
+//    cada pago del paciente se reparte entre las categorías del presupuesto en proporción a sus
 //    importes (método del mayor resto, sin perder centavos). Los pagos SIN presupuesto no se atribuyen
 //    a ningún profesional: se informan aparte como "cobros sin presupuesto" para que administración decida.
 //  * Período: borrador (cálculo en vivo) → cerrado (copia inmutable línea por línea).
@@ -31,8 +33,8 @@ import { resolveRange } from "./reports.js";
 export interface FeeRule { category: string | null; mode: "percent" | "fixed"; percentBp: number | null; fixedCents: number | null; deductCents: number; deductActualLab?: boolean }
 export type FeeBase = "production" | "collected";
 
-export const BASE_LABELS: Record<FeeBase, string> = { production: "Producción (tratamientos realizados)", collected: "Cobrado (pagos confirmados)" };
-const KIND_LABELS: Record<string, string> = { production: "Tratamiento", collected: "Cobro", adjustment: "Ajuste" };
+export const BASE_LABELS: Record<FeeBase, string> = { production: "Producción (tratamientos realizados)", collected: "Cobrado (pagos confirmados del paciente y de empresas en convenio)" };
+const KIND_LABELS: Record<string, string> = { production: "Tratamiento", collected: "Cobro", collected_payer: "Cobro de empresa", adjustment: "Ajuste" };
 
 /** Honorario de una línea (centavos, redondeo al centavo más cercano).
  *  `actualLabCents`: costo real de laboratorio a descontar (reemplaza al monto fijo por unidad). */
@@ -74,9 +76,11 @@ async function loadConfig(c: Client, dentistId: string): Promise<{ base: FeeBase
 }
 
 export interface Line {
-  kind: "production" | "collected" | "adjustment";
+  kind: "production" | "collected" | "collected_payer" | "adjustment";
   branchId: string; branchName?: string; patientId: string | null; patientName?: string | null;
   chargeId: string | null; paymentId: string | null; adjustsLineId: string | null;
+  /** Aplicación de un pago de empresa (convenio) a un cargo: base «cobrado» (B-082). */
+  payerAllocationId?: string | null;
   occurredAt: Date | string; description: string; category: string | null; quantity: number;
   baseCents: number; deductCents: number; mode: "percent" | "fixed" | null; percentBp: number | null; fixedCents: number | null; feeCents: number;
   /** Parte del descuento que es costo real de laboratorio (null = monto fijo por unidad o sin descuento). */
@@ -148,19 +152,46 @@ export async function computeLines(c: Client, clinicId: string, s: SettlementRow
         });
       });
     }
+    // Pagos de empresas (convenios) confirmados, aplicados a cargos de presupuestos del profesional (B-082).
+    // Cada aplicación (pago × cargo) es dinero distinto de lo que pagó el paciente: lo del paciente es su parte
+    // (pagos arriba) y lo de la empresa es la porción del convenio, así que no hay doble conteo. La aplicación ya
+    // está en centavos exactos por cargo y cada cargo tiene una sola categoría: la base suma el pago al centavo.
+    const payer = (await c.query(
+      `SELECT x.id, x.amount_cents, ch.id AS charge_id, ch.branch_id, br.name AS branch_name, ch.patient_id, pt.first_name || ' ' || pt.last_name AS patient_name,
+              COALESCE(pp.verified_at, pp.received_at) AS at, pp.number, a.name AS agreement_name, pr.category, COALESCE(bi.description, ch.description) AS service
+         FROM payer_payment_allocations x JOIN payer_payments pp ON pp.id = x.payment_id JOIN agreements a ON a.id = pp.agreement_id
+         JOIN charges ch ON ch.id = x.charge_id JOIN branches br ON br.id = ch.branch_id JOIN patients pt ON pt.id = ch.patient_id
+         LEFT JOIN budget_items bi ON bi.id = ch.budget_item_id LEFT JOIN budgets b ON b.id = bi.budget_id LEFT JOIN procedures pr ON pr.id = bi.procedure_id
+        WHERE COALESCE(b.dentist_id, ch.dentist_id) = $1 AND pp.status = 'confirmed'
+          AND COALESCE(pp.verified_at, pp.received_at) >= $2 AND COALESCE(pp.verified_at, pp.received_at) < $3
+          AND NOT EXISTS (SELECT 1 FROM fee_settlement_lines l WHERE l.payer_allocation_id = x.id AND l.kind = 'collected_payer')
+        ORDER BY at, pp.number, ch.created_at, x.id`, [s.dentist_id, from, to])).rows;
+    for (const p of payer) {
+      const amt = Number(p.amount_cents);
+      const rule = pickRule(cfg.rules, p.category ?? null);
+      const f = rule ? feeFor(amt, 1, { ...rule, deductCents: 0 }) : { feeCents: 0, deductCents: 0 };
+      lines.push({
+        kind: "collected_payer", branchId: p.branch_id, branchName: p.branch_name, patientId: p.patient_id, patientName: p.patient_name,
+        chargeId: p.charge_id, paymentId: null, adjustsLineId: null, payerAllocationId: p.id, occurredAt: p.at,
+        description: `Pago N° ${p.number} de ${p.agreement_name} · ${p.service}`,
+        category: p.category ?? null, quantity: 1, baseCents: amt, deductCents: 0, ...ruleCols(rule), feeCents: f.feeCents,
+      });
+    }
   }
 
   // Ajustes: líneas de liquidaciones cerradas ANTERIORES cuyo cargo o pago se anuló después; aún sin ajustar.
   const adj = (await c.query(
     `SELECT l.id, l.kind, l.branch_id, br.name AS branch_name, l.patient_id, pt.first_name || ' ' || pt.last_name AS patient_name, l.description, l.category,
             l.quantity, l.base_cents, l.fee_cents, s.period_start, s.period_end,
-            COALESCE((SELECT v.created_at FROM charges v WHERE v.voids_charge_id = l.charge_id), now()) AS voided_at
+            COALESCE(CASE WHEN l.kind = 'production' THEN (SELECT v.created_at FROM charges v WHERE v.voids_charge_id = l.charge_id) END, now()) AS voided_at
        FROM fee_settlement_lines l JOIN fee_settlements s ON s.id = l.settlement_id JOIN branches br ON br.id = l.branch_id
        LEFT JOIN patients pt ON pt.id = l.patient_id
-      WHERE s.dentist_id = $1 AND s.status = 'closed' AND s.period_end < $2::date AND l.kind IN ('production','collected') AND l.fee_cents <> 0
+      WHERE s.dentist_id = $1 AND s.status = 'closed' AND s.period_end < $2::date AND l.kind IN ('production','collected','collected_payer') AND l.fee_cents <> 0
         AND NOT EXISTS (SELECT 1 FROM fee_settlement_lines a WHERE a.adjusts_line_id = l.id)
         AND ((l.kind = 'production' AND EXISTS (SELECT 1 FROM charges v WHERE v.voids_charge_id = l.charge_id))
-          OR (l.kind = 'collected' AND EXISTS (SELECT 1 FROM payments p WHERE p.id = l.payment_id AND p.status = 'voided')))
+          OR (l.kind = 'collected' AND EXISTS (SELECT 1 FROM payments p WHERE p.id = l.payment_id AND p.status = 'voided'))
+          OR (l.kind = 'collected_payer' AND EXISTS (SELECT 1 FROM payer_payment_allocations x JOIN payer_payments pp ON pp.id = x.payment_id
+                                                      WHERE x.id = l.payer_allocation_id AND pp.status = 'voided')))
       ORDER BY s.period_start, l.occurred_at`, [s.dentist_id, s.period_start])).rows;
   for (const a of adj) {
     const fmt = (d: string) => DateTime.fromISO(d).toFormat("dd/MM/yyyy");
@@ -216,7 +247,7 @@ export async function settlementDetail(c: Client, clinicId: string, id: string) 
       `SELECT l.id, l.kind, l.branch_id AS "branchId", br.name AS "branchName", l.patient_id AS "patientId", pt.first_name || ' ' || pt.last_name AS "patientName",
               l.charge_id AS "chargeId", l.payment_id AS "paymentId", l.adjusts_line_id AS "adjustsLineId", l.occurred_at AS "occurredAt", l.description,
               l.category, l.quantity, l.base_cents AS "baseCents", l.deduct_cents AS "deductCents", l.mode, l.percent_bp AS "percentBp",
-              l.fixed_cents AS "fixedCents", l.fee_cents AS "feeCents", l.lab_actual_cents AS "labActualCents"
+              l.fixed_cents AS "fixedCents", l.fee_cents AS "feeCents", l.lab_actual_cents AS "labActualCents", l.payer_allocation_id AS "payerAllocationId"
          FROM fee_settlement_lines l JOIN branches br ON br.id = l.branch_id LEFT JOIN patients pt ON pt.id = l.patient_id
         WHERE l.settlement_id = $1 ORDER BY (l.kind = 'adjustment'), l.occurred_at, l.id`, [id])).rows;
     return { ...h, baseLabel: BASE_LABELS[h.base as FeeBase], lines, unassigned: null };
@@ -243,12 +274,12 @@ export async function closeSettlement(c: Client, auth: Pick<AuthCtx, "userId" | 
   if (lines.length) {
     await c.query(
       `INSERT INTO fee_settlement_lines (clinic_id, settlement_id, kind, branch_id, patient_id, charge_id, payment_id, adjusts_line_id, occurred_at, description,
-                                         category, quantity, base_cents, deduct_cents, mode, percent_bp, fixed_cents, fee_cents, lab_actual_cents)
+                                         category, quantity, base_cents, deduct_cents, mode, percent_bp, fixed_cents, fee_cents, lab_actual_cents, payer_allocation_id)
        SELECT $1, $2, x.kind, x."branchId", x."patientId", x."chargeId", x."paymentId", x."adjustsLineId", x."occurredAt", x.description,
-              x.category, x.quantity, x."baseCents", x."deductCents", x.mode, x."percentBp", x."fixedCents", x."feeCents", x."labActualCents"
+              x.category, x.quantity, x."baseCents", x."deductCents", x.mode, x."percentBp", x."fixedCents", x."feeCents", x."labActualCents", x."payerAllocationId"
          FROM jsonb_to_recordset($3::jsonb) AS x(kind text, "branchId" uuid, "patientId" uuid, "chargeId" uuid, "paymentId" uuid, "adjustsLineId" uuid,
               "occurredAt" timestamptz, description text, category text, quantity int, "baseCents" bigint, "deductCents" bigint, mode text,
-              "percentBp" int, "fixedCents" bigint, "feeCents" bigint, "labActualCents" bigint)`,
+              "percentBp" int, "fixedCents" bigint, "feeCents" bigint, "labActualCents" bigint, "payerAllocationId" uuid)`,
       [auth.clinicId, id, JSON.stringify(lines.map(({ branchName: _b, patientName: _p, ...l }) => l))],
     );
   }
