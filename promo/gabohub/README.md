@@ -72,7 +72,7 @@ node render.cjs frames          # o --stills 11,27 para revisar segundos sueltos
 ffmpeg -y -framerate 30 -i frames/f%05d.png -i audio/mezcla.wav \
   -c:v libx264 -preset slow -b:v 5200k -maxrate 7000k -bufsize 10000k -pix_fmt yuv420p -profile:v high -movflags +faststart \
   -c:a aac -b:a 192k -shortest gabohub-revendedores.mp4
-ffmpeg -y -ss 7 -i gabohub-revendedores.mp4 -frames:v 1 -q:v 3 portada.jpg
+# portada: el segundo 8,2 de promo.html sin subtítulo (captura con Playwright, ver historial de la rama)
 ```
 
 `promo.html` es la animación (abrila con `?play` para verla en el navegador; con audio no, el sonido va en el MP4).
