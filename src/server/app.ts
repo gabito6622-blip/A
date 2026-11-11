@@ -656,7 +656,7 @@ export function createApp(cfg: AppConfig): App {
     if (!binanceOn()) throw new HttpError(409, "BINANCE_OFF", "Los pagos con Binance no están disponibles ahora");
     const o = store.engine.s.orders[c.params.id];
     if (!o) throw new HttpError(404, "NOT_FOUND", "Pedido no encontrado");
-    if (!store.catalog.canActFor(c.actor!, o.customerId)) throw new HttpError(403, "FORBIDDEN", "Ese pedido no es tuyo");
+    if (!store.catalog.canActFor(c.actor!, o.payerId ?? o.customerId)) throw new HttpError(403, "FORBIDDEN", "Ese pedido no es tuyo");
     if (o.paymentMethod !== "binance") throw new HttpError(400, "VALIDATION", "Ese pedido no se paga con Binance");
     if (o.status !== "awaiting_payment") throw new HttpError(409, "INVALID_STATE", "Ese pedido ya no espera pago");
     const client = binanceClient()!;
@@ -853,7 +853,7 @@ export function createApp(cfg: AppConfig): App {
   }));
   route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
-    price: c.body?.price, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
+    price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
   route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey }));
@@ -2295,7 +2295,8 @@ export function createApp(cfg: AppConfig): App {
   function customerContext(customerId: string): string {
     const st = store.engine.s, c = st.customers[customerId];
     if (!c) return "";
-    const sym = st.settings.currencySymbol || "Bs";
+    // Saldo en la moneda de su saldo (US$ si está en la lista en dólares).
+    const sym = store.usd.currency(c.id).symbol;
     const t = now();
     const riskAcc = new Set((st.accountAlerts ?? []).filter((x) => !x.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(x.kind)).map((x) => x.accountId));
     const svcs = Object.values(st.assignments).filter((a) => a.customerId === customerId && a.status === "active").map((a) => {
@@ -2335,7 +2336,8 @@ export function createApp(cfg: AppConfig): App {
     const resellers = Object.values(st.customers).filter((c) => c.kind === "reseller").slice(0, 50).map((c) => {
       const last = Object.values(st.orders).filter((o) => o.payerId === c.id && o.status === "fulfilled" && o.kind !== "topup").sort((a, b) => b.updatedAt - a.updatedAt)[0];
       const clients = Object.values(st.customers).filter((x) => x.resellerId === c.id).length;
-      return `- ${c.name}: saldo ${money(store.wallet.balance(c.id))}, ${clients} cliente(s), última compra ${last ? fd(last.updatedAt) : "nunca"}`;
+      const bal = store.wallet.balance(c.id), usdW = store.usd.isUsd(c.id);
+      return `- ${c.name}: saldo ${usdW ? `US$ ${(bal / 100).toFixed(2)}` : money(bal)}, ${clients} cliente(s), última compra ${last ? fd(last.updatedAt) : "nunca"}`;
     });
     const pend = Object.values(st.orders).filter((o) => o.status === "payment_review").slice(0, 20).map((o) => `- ${o.id}: ${cname(o.customerId)}, ${money(o.total)}${o.evidence?.duplicateOf ? " (¡comprobante repetido!)" : ""}`);
     const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);

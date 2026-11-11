@@ -13,7 +13,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY, MINUTE } from "./time.js";
-import { effectivePrice } from "./admin.js";
+import { effectivePrice, payUsdOf } from "./admin.js";
 
 export type WinbackOutcome = "escrito" | "no_molestar";
 
@@ -35,8 +35,10 @@ export interface WinbackThing {
   /** Cuándo pasó (creación del pedido o vencimiento del servicio) y hace cuántos días. */
   at: number;
   days: number;
-  /** Lo que pagaría hoy (su precio efectivo). */
+  /** Lo que pagaría hoy (su precio efectivo), en Bs para los totales del dueño. */
   amount: Cents;
+  /** Cliente en dólares: lo que paga de verdad, en US$ (centavos de dólar). El mensaje dice este. */
+  usd?: Cents;
   orderId?: Id;
   orderStatus?: OrderStatus;
   assignmentId?: Id;
@@ -66,10 +68,11 @@ const ORDER_WHAT: Partial<Record<OrderStatus, string>> = {
 const daysAgo = (now: number, t: number) => Math.max(0, Math.floor((now - t) / DAY));
 const ddmm = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
 
-function money(e: Engine, c: Cents): string {
-  const sym = e.s.settings.currencySymbol || "Bs";
+function money(e: Engine, c: Cents, sym = e.s.settings.currencySymbol || "Bs"): string {
   return `${sym} ${c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2).replace(".", ",")}`;
 }
+/** El precio que le decimos al cliente: en US$ si paga en dólares (nunca su equivalente en Bs). */
+const priceText = (e: Engine, t: WinbackThing) => (t.usd !== undefined ? money(e, t.usd, "US$") : money(e, t.amount));
 
 /** "Netflix", "Netflix y Disney", "Netflix, Disney y Max". */
 function joinNames(names: string[]): string {
@@ -97,6 +100,12 @@ function priceToday(e: Engine, customerId: Id, productId: Id): Cents {
   return effectivePrice(e, { customerId, productId });
 }
 
+/** Precio en US$ si el cliente paga en dólares (para el mensaje). */
+function usdOf(e: Engine, a: Pick<Assignment, "customerId" | "productId" | "control">, qty: number): { usd?: Cents } {
+  const u = payUsdOf(e, a);
+  return u === undefined ? {} : { usd: u * qty };
+}
+
 const productOf = (o: Order) => new Set(o.items.map((i) => i.productId));
 const counts = (o: Order) => o.kind !== "topup" && !o.trial && o.channel !== "import";
 
@@ -111,10 +120,10 @@ function message(e: Engine, c: Customer, things: WinbackThing[]): string {
   }
   if (ven.length === 1) {
     const t = ven[0];
-    lines.push(`Tu ${t.product} venció el ${ddmm(t.at)}. ¿Querés renovar tu ${t.product}? Sigue a ${money(e, t.amount)}. Cuando me digas, te lo dejo listo.`);
+    lines.push(`Tu ${t.product} venció el ${ddmm(t.at)}. ¿Querés renovar tu ${t.product}? Sigue a ${priceText(e, t)}. Cuando me digas, te lo dejo listo.`);
   } else if (ven.length > 1) {
     lines.push(`Tus servicios de ${joinNames(ven.map((t) => t.product))} vencieron hace unos días. ¿Querés renovarlos? Siguen a:`);
-    for (const t of ven) lines.push(`• ${t.product}: ${money(e, t.amount)}`);
+    for (const t of ven) lines.push(`• ${t.product}: ${priceText(e, t)}`);
     lines.push("Cuando me digas, te los dejo listos.");
   }
   lines.push("¡Gracias! 🙌");
@@ -156,6 +165,7 @@ function collect(e: Engine): Map<Id, WinbackThing[]> {
       add(o.customerId, {
         kind: "pedido", productId: pid, product: p.name, what: ORDER_WHAT[o.status] ?? "Pedido sin terminar",
         at: o.createdAt, days: daysAgo(now, o.createdAt), amount: priceToday(e, o.customerId, pid) * qty, orderId: o.id, orderStatus: o.status,
+        ...usdOf(e, { customerId: o.customerId, productId: pid }, qty),
       });
     }
   }
@@ -183,6 +193,7 @@ function collect(e: Engine): Map<Id, WinbackThing[]> {
     add(a.customerId, {
       kind: "vencido", productId: a.productId, product: p.name, what: "Se le venció",
       at: a.customerExpiresAt, days: daysAgo(now, a.customerExpiresAt), amount: effectivePrice(e, a), assignmentId: a.id,
+      ...usdOf(e, a, 1),
     });
   }
   return byCustomer;

@@ -8,7 +8,7 @@ const fd = (t: number | null | undefined) => (t ? new Date(t).toLocaleDateString
 const fdt = (t: number) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const STATUS: Record<string, string> = { awaiting_payment: "Esperando pago", payment_review: "En revisión", fulfilled: "Entregado", rejected: "Rechazado", expired: "Vencido", cancelled: "Cancelado" };
 const KIND: Record<string, string> = { sale: "Venta", renewal: "Renovación", topup: "Recarga" };
-const METHOD: Record<string, string> = { qr: "QR", balance: "Saldo", cash: "Efectivo" };
+const METHOD: Record<string, string> = { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT" };
 
 export type ExportKind = "clientes" | "ventas" | "servicios" | "cuentas" | "movimientos" | "todo";
 export const EXPORT_KINDS: ExportKind[] = ["clientes", "ventas", "servicios", "cuentas", "movimientos", "todo"];
@@ -16,9 +16,10 @@ export const EXPORT_KINDS: ExportKind[] = ["clientes", "ventas", "servicios", "c
 function clientes(s: GabrielStore, a: Actor): Sheet {
   const list = s.admin.customers(a, "");
   return {
-    name: "Clientes", widths: [26, 18, 26, 12, 10, 10, 10, 34, 12],
-    rows: [["Nombre", "WhatsApp", "Email", "Tipo", "Saldo (Bs)", "Servicios activos", "Acepta avisos", "Notas", "Alta"],
-      ...list.map((c): Cell[] => [c.name, c.phone, c.email ?? "", c.kind === "reseller" ? "Revendedor" : "Cliente", bsNum(c.balance), c.activeServices, c.whatsappConsent ? "Sí" : "No", c.notes ?? "", fd(c.createdAt)])],
+    // El saldo va en la moneda de cada cliente (Bs o US$ si está en la lista en dólares): nunca se suman como si fueran Bs.
+    name: "Clientes", widths: [26, 18, 26, 12, 10, 8, 10, 10, 34, 12],
+    rows: [["Nombre", "WhatsApp", "Email", "Tipo", "Saldo", "Moneda del saldo", "Servicios activos", "Acepta avisos", "Notas", "Alta"],
+      ...list.map((c): Cell[] => [c.name, c.phone, c.email ?? "", c.kind === "reseller" ? "Revendedor" : "Cliente", bsNum(c.balance), c.currency === "USD" ? "US$" : "Bs", c.activeServices, c.whatsappConsent ? "Sí" : "No", c.notes ?? "", fd(c.createdAt)])],
   };
 }
 
@@ -26,11 +27,12 @@ function ventas(s: GabrielStore, a: Actor): Sheet {
   authorize(a, "stats.view");
   const list = s.admin.orders(a, { limit: 100_000 });
   return {
-    name: "Ventas", widths: [17, 12, 24, 12, 34, 10, 10, 14, 18, 18],
-    rows: [["Fecha", "Pedido", "Cliente", "Tipo", "Detalle", "Total (Bs)", "Pago", "Estado", "N.º operación", "Referencia banco"],
+    // "Total (Bs)" siempre en Bs (un pedido en dólares, con la tasa de ese día); lo cobrado en US$ va aparte.
+    name: "Ventas", widths: [17, 12, 24, 12, 34, 10, 10, 14, 18, 18, 12],
+    rows: [["Fecha", "Pedido", "Cliente", "Tipo", "Detalle", "Total (Bs)", "Pago", "Estado", "N.º operación", "Referencia banco", "Cobrado en US$"],
       ...list.map((o): Cell[] => [fdt(o.createdAt), o.id, o.customerName, KIND[o.kind] ?? o.kind,
         o.kind === "topup" ? "Recarga de saldo" : o.items.map((i) => `${i.qty} × ${i.productName}`).join(", "),
-        bsNum(o.total), METHOD[o.paymentMethod] ?? o.paymentMethod, STATUS[o.status] ?? o.status, o.evidence?.declaredReference ?? "", o.confirmedReference ?? ""])],
+        bsNum(o.total), METHOD[o.paymentMethod] ?? o.paymentMethod, STATUS[o.status] ?? o.status, o.evidence?.declaredReference ?? "", o.confirmedReference ?? "", o.usd !== undefined ? bsNum(o.usd) : ""])],
   };
 }
 
@@ -61,12 +63,13 @@ function cuentas(s: GabrielStore, a: Actor, withSecrets: boolean): Sheet {
 function movimientos(s: GabrielStore, a: Actor): Sheet {
   authorize(a, "stats.view");
   const names = new Map(Object.values(s.engine.s.customers).map((c) => [c.id, c.name]));
-  const T: Record<string, string> = { topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste" };
-  const rows: Cell[][] = [["Fecha", "Cliente", "Tipo", "Monto (Bs)", "Saldo después (Bs)", "Referencia", "Nota"]];
+  const T: Record<string, string> = { topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de página", referral: "Premio por referido" };
+  // Cada movimiento en la moneda del saldo de ese cliente (los de la lista en dólares van en US$).
+  const rows: Cell[][] = [["Fecha", "Cliente", "Tipo", "Monto", "Saldo después", "Moneda", "Referencia", "Nota"]];
   for (const id of names.keys()) {
-    for (const m of s.wallet.history(a, id)) rows.push([fdt(m.at), names.get(id) ?? id, T[m.type] ?? m.type, bsNum(m.amount), bsNum(m.balanceAfter), m.ref, m.note ?? ""]);
+    for (const m of s.wallet.history(a, id)) rows.push([fdt(m.at), names.get(id) ?? id, T[m.type] ?? m.type, bsNum(m.amount), bsNum(m.balanceAfter), m.cur === "USD" ? "US$" : "Bs", m.ref, m.note ?? ""]);
   }
-  return { name: "Movimientos de saldo", widths: [17, 24, 12, 12, 16, 14, 30], rows };
+  return { name: "Movimientos de saldo", widths: [17, 24, 12, 12, 16, 8, 14, 30], rows };
 }
 
 /** Arma el Excel pedido. "todo" incluye las hojas que el rol puede ver. */

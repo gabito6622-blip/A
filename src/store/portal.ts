@@ -53,8 +53,16 @@ export function myOrders(e: Engine, actor: Actor) {
   return Object.values(e.s.orders)
     .filter((o) => ids.includes(o.customerId) || o.payerId === actor.customerId)
     .sort((a, b) => b.createdAt - a.createdAt)
-    // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
-    .map((o) => ({ id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) }));
+    .map((o) => {
+      // Lo pagó otro (el revendedor, para su cliente): el cliente final no ve cuánto ni cómo pagó su
+      // revendedor (es su costo). Solo que existe, su estado y que lo pagó su revendedor.
+      const payer = o.payerId ?? o.customerId;
+      if (payer !== actor.customerId && !canActFor(e, actor, payer)) {
+        return { id: o.id, kind: o.kind, status: o.status, total: null, paidBy: "reseller" as const, customerId: o.customerId, createdAt: o.createdAt };
+      }
+      // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
+      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
+    });
 }
 
 export function myBalance(e: Engine, actor: Actor) {
