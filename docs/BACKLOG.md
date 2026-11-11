@@ -16,8 +16,11 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |
 | B14 | Lista "Panamá y Paraguay (US$)" creada en la tienda real y paraguay, panama y EXTRANJERO pasados a ella (saldo US$ 0, 85 servicios intactos, cola 33) | P1 | ✅ #34 |
-| B15 | Que el cliente final de un revendedor no vea en "Mis pedidos" lo que pagó el revendedor (su costo). Ya pasaba antes | P2 | ⏳ |
-| B16 | Precio acordado en US$ en Control para clientes en dólares | P3 | ⏳ |
+| B15 | Que el cliente final de un revendedor no vea en "Mis pedidos" lo que pagó el revendedor (su costo) | P2 | ✅ equipo seguridad y plata |
+| B16 | Precio acordado en US$ en Control para clientes en dólares | P3 | ✅ "Te paga US$" |
+| B17 | El cliente de un revendedor renueva con su revendedor | P2 | ✅ decisión del dueño |
+| B18 | Al cargar un cliente, que no se sepa si ese teléfono ya es cliente de otro revendedor ("Ya existe un cliente con ese teléfono") | P3 | ⏳ |
+| B19 | "Apps más vendidas" de Finanzas cuenta unidades cargadas en lote/importadas | P3 | ⏳ |
 | B12 | Datos de revendedores para invitarlos: "paraguay" ✅ corregido a +595 992 946 366 (captura del dueño); Panamá: +507 6554-3461 (cuentaspremiumpty) y +507 6045-0712 (Resell Panama), falta saber cuál es "panama" y cuál "EXTRANJERO"; sin WhatsApp: panama, EXTRANJERO, aneliz, Dani strem, ANDROID; JOSUE ORIAS incompleto (776115438). ¿De qué país es EXTRANJERO? | P1 | 🧑 |
 | B8 | USDT activado en la tienda real con el Binance Pay ID del dueño y la tasa del BCB (11,71). Lo ven todos los clientes como opción "USDT (manual)"; los de afuera, primero | P1 | ✅ |
 | B9 | Revendedores de otro país: ¿se les cobra algo extra? | P3 | 🧑 |

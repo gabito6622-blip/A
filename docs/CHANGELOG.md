@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## Sin publicar — Cargar sus cuentas, seguridad y plata, renovar con su revendedor
+- **Dueño · "📋 Cargar sus cuentas":** en la ficha de cada revendedor pegás la lista de correos que ya le vendiste (con fecha y precio, opcionales), ves cómo queda con ✅/⚠️ y guardás todo de una. No cobra, no avisa, no duplica y no dice de quién es una cuenta ajena.
+- **Seguridad:** el cliente de un revendedor ya no ve lo que pagó su revendedor (Mis pedidos, Mis cuentas, bot, avisos). Al renovar, tampoco recibe tus datos internos del Control.
+- **Renovar con su revendedor:** el cliente de un revendedor ve "Renovar con <revendedor>" (su WhatsApp) y su página; ya no ve tu precio de tienda ni puede renovar directo.
+- **Dólares:** "Te paga US$" en el Control para quienes pagan en dólares. Bot, Excel, asistente de IA, "Que vuelvan" y la ficha del revendedor hablan en US$ a quien paga en dólares.
+
 ## 2026-11-11 · #34 Lista de precios en dólares (Panamá y Paraguay)
 - **Revendedores en la lista en dólares:** ven precios y saldo en US$ (Disney + ESPN US$ 7, Disney sin ESPN US$ 3,50, Prime US$ 3, HBO US$ 2), pagan con saldo o USDT (1 USDT = US$ 1) y recargan con USDT (20 USDT → US$ 20). No pierden ni ganan si se mueve el dólar en Bolivia.
 - **Dueño:** sigue viendo todo en Bs, con la tasa de cada pedido. Al aprobar ve "US$ 20 (≈ Bs 234)". El dashboard separa el saldo a favor en dólares. Las listas tienen moneda; no se cambia a alguien de una lista en Bs a una en US$ si tiene saldo o pagos por revisar.

@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Cargar sus cuentas + seguridad y plata + renovar con su revendedor (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar 2 equipos y los arreglos | **400 → 425 / 425 ✅** |
+| Cargar sus cuentas | `test/cargar-vendidas.test.mjs` (10): vista previa con todos los casos, no cobra ni avisa, no duplica, no dice de quién es una cuenta ajena, revendedor en dólares → "Te paga US$", permisos, navegador a 360 px | ✅ |
+| Seguridad y plata | `test/seguridad-plata.test.mjs` (12): todas las rutas `/api/me*` leídas del código y recorridas como cliente final en Bs y en US$; 16 intentos cruzados entre revendedores; precio en US$; monedas | ✅ (11 de 12 fallaban con el código anterior) |
+| Ficha en US$ | `test/ficha-usd.test.mjs` | ✅ |
+| Renovar con su revendedor | `test/renovar-con-revendedor.test.mjs` (2) + navegador: la clienta de Ariana ve "Renovar con Ariana Streaming" y "Ver su página", sin precio, 0 errores | ✅ |
+| Al integrar | 1 choque de imports en `panel.js` (se conservaron los dos). Cruces arreglados: ficha en Bs para revendedor en US$; precio en US$ como nota | ✅ |
+
+
 ## Tanda 11/11/2026 · Lista en dólares + tasa del Banco Central (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
