@@ -1208,10 +1208,11 @@ describe("19. Control de alquileres", () => {
     const { s, maria, as } = setup();
     const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
     const id = o.assignmentIds[0];
-    const c = s.orders.setControl(seller, id, { price: 6900, cost: 2000, payStatus: "pendiente", seller: " ARIT ", note: "paga viernes", startedAt: T0 - 30 * DAY });
+    assert.throws(() => s.orders.setControl(seller, id, { cost: 2000 }), err("FORBIDDEN"), "Atención no carga costos");
+    const c = s.orders.setControl(owner, id, { price: 6900, cost: 2000, payStatus: "pendiente", seller: " ARIT ", note: "paga viernes", startedAt: T0 - 30 * DAY });
     assert.deepEqual(c, { price: 6900, cost: 2000, payStatus: "pendiente", seller: "ARIT", note: "paga viernes", startedAt: T0 - 30 * DAY });
     assert.equal(s.admin.assignments(admin).find((a) => a.id === id).control.price, 6900);
-    assert.deepEqual(s.orders.setControl(seller, id, { cost: null, note: "" }), { price: 6900, payStatus: "pendiente", seller: "ARIT", startedAt: T0 - 30 * DAY });
+    assert.deepEqual(s.orders.setControl(owner, id, { cost: null, note: "" }), { price: 6900, payStatus: "pendiente", seller: "ARIT", startedAt: T0 - 30 * DAY });
     assert.throws(() => s.orders.setControl(as(maria), id, { price: 1 }), err("FORBIDDEN"));
     assert.throws(() => s.orders.setControl(seller, id, { price: -5 }), err("VALIDATION"));
     assert.throws(() => s.orders.setControl(seller, id, { payStatus: "quizas" }), err("VALIDATION"));

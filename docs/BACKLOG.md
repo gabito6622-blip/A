@@ -42,4 +42,14 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | R11 | 🏪 | Vista previa de Mi página tapa lo que editás; deshacer plantilla | P3 | ⏳ |
 | R12 | 🏪 | Movimientos de saldo con códigos (ord_…) en vez de qué y para quién | P3 | ✅ prueba `store` ("Netflix perfil para Rodrigo Paz") |
 | R13 | 🏪 | "Tu día" en Inicio (por avisar · te deben · ganaste) | P2 | ✅ idea wow |
-| D1–D15, A1–A15 | 👔🎧 | Números del panel, permisos de Atención, PIN/saldo con confirmación | P1–P3 | 🔧 equipo del panel (ver INFORME_PRUEBAS) |
+| D1–D9 | 👔 | Números del panel, Finanzas, Proveedores, Control de revendedores, PIN/saldo, precio de revendedor | P1 | ✅ `pulido-panel.test.mjs` + navegador |
+| D10 | 👔 | Cuentas: filtros de cuarentena y proveedor ≤7 días | P2 | ✅ · botón "liberar cuarentena de esta cuenta" ⏳ |
+| D11 | 👔 | Revendedores activos / dormidos | P2 | ✅ |
+| D12 | 👔 | Menú del celular: reordenar, "Nuevo producto" plegable | P3 | ⏳ (íconos distintos ✅) |
+| D13–D15 | 👔 | Auditoría en palabras, "Tu mes" en Inicio, detalles | P3 | ✅ |
+| D16 | 👔 | "Lo que te paga vs lo que cobra" cada revendedor | P3 | ⏳ idea wow |
+| A1 | 🎧 | "No me entra": Reenviar accesos | P1 | ✅ |
+| A2 | 🎧 | Fechas libres / aprobar revendedores / PIN a revendedores | P1 | ✅ `pulido-panel.test.mjs` |
+| A3 | 🎧 | Costo editable por Atención | P2 | ✅ 403 en servidor (`pulido-seguridad`) |
+| A4 | 🎧 | Fallas y avisos para Atención; buscar por número con +591 | P2 | ✅ |
+| A5 | 🎧 | Cola de avisos de WhatsApp para Atención; Reubicar para Atención | P2 | ⏳ (botones ocultos por ahora) |

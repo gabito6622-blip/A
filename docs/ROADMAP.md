@@ -2,8 +2,8 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Ahora — Pulido GaboHub (noviembre 2026)
-- Auditoría desde 4 miradas + seguridad, arreglos de lo que más frustra o hace perder ventas.
+## Ahora — Pulido GaboHub (noviembre 2026) · ✅ listo, esperando tu OK para publicar
+- Auditoría desde 4 miradas + seguridad (75 hallazgos), arreglados los de mayor impacto con 309 pruebas en verde.
 - Documentos vivos: este roadmap, BACKLOG, DECISIONES, CHANGELOG e INFORME_PRUEBAS.
 
 ## Siguiente — Lanzar el dominio propio

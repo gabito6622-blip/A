@@ -661,6 +661,8 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     if (!Number.isInteger(n) || n < 0 || n > 10_000_000) throw new DomainError("VALIDATION", `${what} inválido`);
     return n;
   };
+  // El costo es dato del dueño: Atención (seller) no lo ve ni lo cambia.
+  if (patch.cost !== undefined && actor.role === "seller") throw new DomainError("FORBIDDEN", "El costo lo carga el dueño o un admin");
   const price = money(patch.price, "Precio"), cost = money(patch.cost, "Costo");
   if (patch.payStatus !== undefined && !["pagado", "pendiente", "no_pago"].includes(patch.payStatus)) throw new DomainError("VALIDATION", "Estado de pago inválido");
   if (patch.note !== undefined && String(patch.note).length > 300) throw new DomainError("VALIDATION", "Nota: máximo 300 letras");

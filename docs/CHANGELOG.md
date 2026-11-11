@@ -3,8 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — pulido GaboHub (rama `pulido-gabohub`)
-- (en curso; ver docs/INFORME_PRUEBAS.md)
+## Sin publicar — Pulido GaboHub (rama `pulido-fix`) · ver docs/INFORME_PRUEBAS.md
+- **Seguridad:** cerrado el ingreso a cuentas ajenas por correo; correos únicos; Atención sin costos ni proveedores, sin alargar fechas gratis ni aprobar revendedores.
+- **Dueño:** números reales en Dashboard/Control/Inicio (precio que paga el revendedor), Finanzas con costo de cuentas estimado, Proveedores en 30 días, "Tu mes" en Inicio, avisos de precio de revendedor y de pérdida, revendedores dormidos, PIN y saldo con confirmación, auditoría en palabras.
+- **Atención:** "📲 Reenviar accesos" y respuesta lista para "no me entra", búsqueda por número con espacios/+591, sin pantallas que fallan por permisos.
+- **Revendedor:** "Tu día", +591 automático, Mi control en filas compactas con candado cuando la tienda debe renovar, fiado sincronizado, ganancias "vendiste/cobraste", vender fiado, combos ordenados, afiche sin agotados, movimientos de saldo legibles, barra con Clientes.
+- **Cliente:** Atrás dentro de la tienda, pago solo con métodos que existen, "Tu pedido en vivo", copiar datos, acceso con número y PIN, asesor sin agotados, tienda 3,4× más liviana (gzip).
 
 ## 2026-11-10 · #23 Dominio propio
 - **Todos:** gabostore.lat muestra la tienda; GaboHub en /hub; www → dominio principal; links de acceso, guías y avisos apuntan a /hub.

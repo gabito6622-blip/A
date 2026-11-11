@@ -69,5 +69,8 @@ describe("Pulido · seguridad", () => {
     assert.equal(sel[0].accountNotes, undefined);
     assert.deepEqual((await lucia("GET", "/api/admin/suppliers")).json, [], "Atención no ve proveedores");
     assert.equal((await s.owner("GET", "/api/admin/suppliers")).json.length, 1);
+    const aid = own[0].id;
+    assert.equal((await lucia("POST", `/api/admin/assignments/${aid}/control`, { cost: 1 })).status, 403, "Atención no cambia el costo");
+    assert.equal((await lucia("POST", `/api/admin/assignments/${aid}/control`, { note: "pagará el lunes" })).status, 200, "pero sí anota");
   });
 });
