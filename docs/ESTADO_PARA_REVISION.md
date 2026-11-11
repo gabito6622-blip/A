@@ -1,5 +1,12 @@
 # Gabriel Store: estado actual para revisión
 
+> ⚠️ **Documento histórico (primera revisión, con 60 pruebas).** Desde entonces se sumó mucho. Para lo que hay hoy mirá:
+> - `docs/CHANGELOG.md`: qué cambió, versión por versión (#24 a #30 y lo sin publicar);
+> - `docs/ROADMAP.md` y `docs/BACKLOG.md`: qué sigue;
+> - `CLAUDE.md`: el mapa del repositorio (hoy hay 315 pruebas).
+>
+> Varias cosas de la sección 3 ("lo que todavía NO tiene") ya existen: Excel, transferir perfil, notas, editar cliente, gráficos, directorio de tiendas, publicación con HTTPS, lector de códigos y WhatsApp oficial (este último apagado hasta tener la cuenta de Meta).
+
 **Fecha:** noviembre de 2026
 **Código:** https://github.com/gabito6622-blip/a/tree/ccr-a0b95638-dpfc8j (repositorio público)
 **Qué es:** una tienda de suscripciones digitales para Bolivia (precios en Bs), con un panel para el vendedor. Funciona **de verdad**: tiene servidor, base de datos, inicio de sesión y pagos por QR con comprobante que se verifican a mano. Todavía no está publicada en internet.
