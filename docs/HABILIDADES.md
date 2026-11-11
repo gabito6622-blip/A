@@ -20,6 +20,7 @@ Si editás una, copiá el cambio a la otra.
 | `gabostore-ux-premium` | Pantallas celular primero, con las reglas de la casa (44 px, 12 px, dd/mm, voseo) | gabino-ux-premium |
 | `gabostore-aislamiento` | Separación entre dueño, staff, revendedores y clientes | gabino-saas-aislamiento |
 | `gabostore-whatsapp` | wa.me, bot oficial de Meta y avisos, sin conexiones no oficiales | gabino-whatsapp |
+| `gabostore-equipos` | Trabajo grande repartido en equipos de Claude en paralelo (cada uno en su copia aislada), con integración, pruebas completas y revisión en celular; sirve también para Dentalia | método usado en Dentalia v0.4–v0.7 |
 
 ## Qué cambió respecto de Gabiño
 
@@ -30,6 +31,10 @@ Si editás una, copiá el cambio a la otra.
 - **UX:** suma las reglas que se aplicaron en la revisión de celular y la revisión de accesibilidad.
 - **Aislamiento:** en vez de Postgres RLS por barbería, permisos por rol (`src/store/auth.ts`) y páginas `/r/<slug>` que nunca muestran costos.
 - **WhatsApp:** acá ya existen `wa.me` y la API oficial; la habilidad cuida que no se agreguen conectores por QR no oficiales.
+
+## Instrucciones generales
+
+`CLAUDE.md` (raíz) tiene las reglas del dueño y cómo se trabaja; Claude lo lee solo al empezar cada sesión. `dental/CLAUDE.md` agrega lo propio de Dentalia. Los encargos comunes de los equipos están en `docs/equipos/ENCARGO_COMUN.md` (tienda) y `dental/docs/equipos/ENCARGO_COMUN_DENTALIA.md`.
 
 ## Uso
 

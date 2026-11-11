@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.6
+# Informe de pruebas — v0.7
 
 - **Fecha:** 11-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,11 +8,11 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **604/604**, 42 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **54/54** |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **656/656**, 46 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **66/66** |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Guardas automáticas de seguridad | `tests/route-guard.test.ts`, `tests/db-hardening.test.ts` | ✅ todas las rutas de la API (401/403, lista de públicas) y toda la base (RLS, solo inserción, funciones revisadas) |
-| Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s (salvo embudo de presupuestos y exportación de pacientes, B-095) |
+| Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s; embudo de presupuestos 182 ms (v0.7); la exportación de pacientes empieza a bajar en 35 ms (total ~4 s, B-104) |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
 | Revisión visual | Playwright, 22 capturas (escritorio 1440 px y celular 390 px), 8 pantallas por rol | ✅ sin errores de consola, salvo el 401 esperado al cargar sin sesión |
@@ -137,6 +137,22 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 
 End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
 
+### v0.7: seguridad decidida, operación diaria, informes rápidos y manuales
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `security-v07.test.ts` | 12 | Misma respuesta para correo inexistente, clave incorrecta, cuenta deshabilitada o bloqueada; un atacante desde otra red (IPv4 e IPv6 /64) no deja fuera a la persona; límite global con enlace de desbloqueo (manipulado, de otra clave, vencido, de un solo uso); desbloqueo por gerencia (permisos y otra clínica); cambio de clave sin leer el hash; `/api/docs` 404 en producción salvo plataforma; bandeja de mensajes por sucursal; «BAJA» por número completo con dos clínicas que comparten los últimos 8 dígitos; `phone_e164`; claves separadas, rotación de enlaces y re-cifrado del secreto de 2 pasos |
+| `db-hardening.test.ts` | +1 | `dental_app` no puede leer `password_hash` ni los secretos de 2 pasos; funciones `SECURITY DEFINER` nuevas revisadas; tablas globales nuevas justificadas |
+| `ops.test.ts`, `ops-backup.test.ts` | 30 | Respaldo y simulacro de punta a punta (respaldo dañado, clave equivocada, S3 falso, compatibilidad con `restore.sh`), retención con fechas simuladas, `/api/ready`, métricas, permisos, alertas sin repetirse y webhook local |
+| `manuales.test.ts` | 7 | Cada manual existe para su rol, enlaces e imágenes válidos, sin HTML peligroso al convertir |
+| `budgets-v2.test.ts`, `patients.test.ts`, `reports.test.ts` | +3 | Período y tope del embudo (la conversión no cambia); exportación por lotes sin perder ni repetir pacientes; «Pacientes nuevos» por sucursal |
+| e2e nuevos | 12 | Bloqueo y desbloqueo desde Personal; estado del sistema con el último respaldo; manual de cada rol; período del seguimiento de presupuestos |
+
+### Carga v0.7 (p95 en ms, 100 000 pacientes)
+| Ruta | v0.6 | v0.7 |
+|---|---:|---:|
+| Embudo de presupuestos | 2 038 | 182 |
+| Exportar pacientes a Excel: primer byte / total | ~4 744 / 4 744 | 35 / ~4 000 |
+
 ### v0.6: puesta en marcha, archivos, convenios, seguridad y carga
 | Archivo | Pruebas | Qué verifica |
 |---|---|---|
@@ -221,7 +237,8 @@ Agenda del día y de la semana, disponibilidad, ficha y «mi día» ya estaban p
 
 ## Lo que NO está probado todavía (riesgo conocido)
 
-- **Carga y rendimiento.** Probado solo con la demo (90 pacientes, ~1100 citas). Pendiente una prueba con 100 000 pacientes y 5 años de citas.
+- **Respaldos en producción.** `backup:run` y `backup:verify` probados en local con bases chicas y con la demo; la imagen todavía no trae `pg_dump` y no hay cron configurado (B-100).
+- **Desbloqueo por correo real.** El enlace se probó con un buzón en memoria; falta SMTP.
 - **Correo real.** El envío por SMTP no se probó contra un servidor; las pruebas usan un buzón en memoria.
 - **Impresión de documentos.** Los PDF del servidor sí están probados (se lee su texto), pero la ventana de impresión del navegador no.
 - **WhatsApp real.** El adaptador de Cloud API y el webhook están probados con firmas y respuestas simuladas; no se envió ningún mensaje real (no hay cuenta de la clínica).
