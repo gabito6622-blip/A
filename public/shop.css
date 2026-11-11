@@ -1046,3 +1046,35 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 /* Link de cobro de un perfil repartido (sublinks.js) */
 .sublink{display:grid;gap:8px;border:1px dashed var(--s-line);border-radius:14px;padding:12px;min-width:0}
 .sublink .linkrow code{display:block;font-size:12px;background:var(--s-card2);padding:6px 8px;border-radius:8px;overflow-wrap:anywhere;word-break:break-all}
+/* Logos de las apps en las pantallas del revendedor (applogo.js) y arreglos de la barrida a 360 px */
+.mini.xxs{width:20px;height:20px;min-width:20px;border-radius:6px;font-size:12px;padding:2px}
+.mini.xs.mimg{padding:3px}
+.mini.mimg.xxs{padding:2px}
+.appsrow{display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap}
+.tday-i .appsrow{margin-top:4px}
+.tday-i .appsrow span{font-size:12px}
+.rcard header>.mini{flex:none}
+.rcsoon-r>.mini{flex:none}
+.rcsoon-r>span{flex:1}
+.rcsoon-r .sbtn{flex:none;white-space:nowrap}
+.line>.mini{flex:none}
+.line>.lgrow{flex:1 1 150px;min-width:0}
+.line:has(>.lgrow){flex-wrap:wrap}
+/* "Me pagó" cerrado va al lado de "Cobrar"; abierto ocupa todo el ancho. */
+.rcmore:not([open]){flex-basis:auto}
+/* Táctiles de 44 px: casillas con su texto, desplegables y el logo de arriba. */
+.chk{min-height:44px;align-items:center!important}
+.chk input{margin-top:0;width:20px!important;height:20px;flex:none}
+.sbox details>summary:not(.sbtn){padding:11px 0}
+.cats button{min-height:44px}
+.slogo{min-height:44px}
+.rcin,.tkbar select,#rcsort{min-height:44px}
+.packs small{font-size:12px}
+.sform>.sbtn{max-width:100%;white-space:normal}
+.ropts span{display:inline-flex;align-items:center;min-height:44px}
+input[type=color]{min-width:44px;min-height:44px}
+.rcopen>.mini{flex:none}
+.sform :is(input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=hidden]),select),.rcin{min-height:44px}
+.reflink input{min-height:44px}
+.rcin{background:var(--s-bg);color:var(--s-ink);border:1px solid var(--s-line);border-radius:12px}
+.shop[data-light="1"] .spill.sp-ok{color:#06603f}

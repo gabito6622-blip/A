@@ -1089,3 +1089,7 @@ table.ctl tfoot td.ccli{z-index:3}
 .wb-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .wb-item{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px;min-width:0;overflow-wrap:anywhere}
 .wb-item .pbtn{justify-self:start;min-height:44px}
+/* Revendedores a 360 px (BACKLOG V11): el estado baja de renglón antes que salirse, y el link se lee entero. */
+.rtop>div{flex:1 1 150px}
+.linkbar.sm a{white-space:normal;overflow-wrap:anywhere;text-overflow:clip;min-height:44px;display:flex;align-items:center}
+.rstats{grid-template-columns:repeat(3,minmax(0,1fr))}.rstats span{overflow-wrap:anywhere}
