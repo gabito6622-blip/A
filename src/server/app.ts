@@ -30,6 +30,7 @@ import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
+import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -157,6 +158,8 @@ export interface App {
   pollMail(only?: string): Promise<{ checked: number; found: number; errors: number }>;
   /** Revisa si hay avisos nuevos y los manda al celular (lo corre el reloj cada minuto). */
   checkPushAlerts(): Promise<void>;
+  /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
+  checkResellerPush(): Promise<void>;
   /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
   checkDailyReport(): Promise<void>;
   /** Vigilante de cuentas: revisa un correo de una cuenta (lo usa la lectura de correos; expuesto para pruebas). */
@@ -2217,17 +2220,19 @@ export function createApp(cfg: AppConfig): App {
       // Perfiles que reparte de sus cuentas alquiladas (su cuaderno) que vencen en 2 días.
       const subsSoon = Object.values(s.assignments).filter((a) => a.customerId === cid && a.status === "active")
         .flatMap((a) => (a.subs ?? []).filter((x) => x.expiresAt > t && x.expiresAt - t <= 2 * DAYMS));
+      // Cuentas propias (W1): van en el mismo aviso del día; si no hay otro, en uno propio.
+      const own = ownSoonFor(store.engine, cid);
       if (!soon.length && subsSoon.length) {
-        await customerPush(cid, { title: subsSoon.length === 1 ? "📅 1 perfil tuyo vence mañana" : `📅 ${subsSoon.length} perfiles tuyos vencen mañana`, body: `${subsSoon.slice(0, 3).map((x) => x.name.split(" ")[0]).join(", ")}${subsSoon.length > 3 ? "…" : ""} · Avisales desde Repartir perfiles`.slice(0, 180), url: "/hub#clientes" }).catch(() => {});
+        await customerPush(cid, { title: subsSoon.length === 1 ? "📅 1 perfil tuyo vence mañana" : `📅 ${subsSoon.length} perfiles tuyos vencen mañana`, body: withOwnSuffix(`${subsSoon.slice(0, 3).map((x) => x.name.split(" ")[0]).join(", ")}${subsSoon.length > 3 ? "…" : ""} · Avisales desde Repartir perfiles`, own), url: "/hub#clientes" }).catch(() => {});
         continue;
       }
-      if (!soon.length) continue;
+      if (!soon.length) { const o = ownPushText(own); if (o) await customerPush(cid, { ...o, url: "/hub#clientes" }).catch(() => {}); continue; }
       const need = soon.reduce((n, a) => n + store.catalog.renewPriceFor(cid, a), 0);
       const bal = store.wallet.balance(cid);
       const names = soon.slice(0, 3).map((a) => s.customers[a.customerId]?.name.split(" ")[0]).join(", ");
       await customerPush(cid, {
         title: soon.length === 1 ? "📅 1 cliente tuyo vence mañana" : `📅 ${soon.length} clientes tuyos vencen mañana`,
-        body: `${names}${soon.length > 3 ? "…" : ""}${need > bal ? ` · ⚠️ Te falta saldo para renovarlos (tenés ${(bal / 100).toFixed(0)}, necesitás ${(need / 100).toFixed(0)})` : " · Avisales desde Mi control"}`.slice(0, 180),
+        body: withOwnSuffix(`${names}${soon.length > 3 ? "…" : ""}${need > bal ? ` · ⚠️ Te falta saldo para renovarlos (tenés ${(bal / 100).toFixed(0)}, necesitás ${(need / 100).toFixed(0)})` : " · Avisales desde Mi control"}`, own),
         url: "/hub#clientes",
       }).catch(() => {});
     }
@@ -2462,7 +2467,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

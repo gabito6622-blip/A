@@ -69,7 +69,19 @@ export function fileToBase64(file) {
   });
 }
 
-export const waLink = (phoneDigits, text) => `https://wa.me/${String(phoneDigits).replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
+/**
+ * Número para wa.me. Argentina: los celulares llevan un "9" después del 54 (+54 9 11 1234 5678); si se
+ * guardó sin él (+54 11 1234 5678) o con el "0" y el "15" de la llamada local (+54 011 15 1234 5678), se
+ * arregla acá, al armar el link (lo guardado no se toca). Los demás países quedan igual.
+ */
+export function waDigits(phone) {
+  const d = String(phone ?? "").replace(/\D/g, "");
+  if (!d.startsWith("54") || d.startsWith("549")) return d;
+  let r = d.slice(2).replace(/^0/, "");
+  if (r.length === 12 && r.startsWith("1115")) r = "11" + r.slice(4); // Buenos Aires: 11 15 xxxx xxxx
+  return r.length === 10 ? `549${r}` : d;
+}
+export const waLink = (phoneDigits, text) => `https://wa.me/${waDigits(phoneDigits)}?text=${encodeURIComponent(text)}`;
 
 // "Logo" por servicio: monograma con el color de la marca (no es el logo oficial).
 const BRANDS = [
