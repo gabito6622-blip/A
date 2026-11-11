@@ -657,12 +657,18 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
   test("reporte de proveedor: costo, ingreso atribuido, margen y cuentas por vencer", () => {
     const { s, clock, maria } = setup();
     s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
-    clock.t += 35 * DAY;
+    clock.t += 5 * DAY;
+    // Ingreso y costo del mismo período (últimos 30 días).
+    const [andes5] = s.stats.suppliers(admin);
+    assert.equal(andes5.revenue, 3500);
+    assert.equal(andes5.cost, 8100);
+    assert.equal(andes5.margin, 3500 - 8100);
+    clock.t += 30 * DAY;
     const [andes] = s.stats.suppliers(admin);
     assert.equal(andes.accounts, 3);
     assert.equal(andes.cost, 8100);
-    assert.equal(andes.revenue, 3500);
-    assert.equal(andes.margin, 3500 - 8100);
+    assert.equal(andes.revenue, 0, "la venta de hace 35 días ya no entra en el período");
+    assert.equal(andes.margin, -8100);
     assert.deepEqual(andes.expiringIn7Days.map((a) => a.email), ["nf02@gabostore.lat"]);
   });
 
@@ -1163,7 +1169,9 @@ describe("17. Importar vencidos y clientes sin WhatsApp", () => {
     assert.equal(s.orders.closeExpired(system, 2), 0, "no lo cierra");
     assert.throws(() => s.orders.setExpiry({ id: "c", role: "customer", customerId: "x" }, id, T0 + 30 * DAY), err("FORBIDDEN"));
     assert.throws(() => s.orders.setExpiry(seller, id, NaN), err("VALIDATION"));
-    const a = s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR");
+    // Atención (seller) no alarga fechas a mano (sin cobro anotado): eso lo hace Renovar, o el dueño/admin.
+    assert.throws(() => s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR"), err("FORBIDDEN"));
+    const a = s.orders.setExpiry(admin, id, clock.t + 20 * DAY, "pagó por QR");
     assert.equal(a.holdOpen, undefined);
     assert.equal(a.history.at(-1).event, "date_changed");
     clock.t += 23 * DAY;

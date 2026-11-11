@@ -8,6 +8,7 @@ export type Permission =
   | "inventory.view_secrets"
   | "supplier.manage"
   | "customer.manage"
+  | "reseller.manage"
   | "customer.create_own"
   | "order.create_any"
   | "order.create_self"
@@ -29,6 +30,8 @@ const MATRIX: Record<Permission, Role[]> = {
   "inventory.view_secrets": ["owner", "admin"],
   "supplier.manage": ["owner", "admin"],
   "customer.manage": ["owner", "admin", "seller"],
+  // Aprobar revendedores, darles la página premium o armarla: solo dueño o admin (Atención no).
+  "reseller.manage": ["owner", "admin"],
   "customer.create_own": ["reseller"],
   "order.create_any": ["owner", "admin", "seller"],
   "order.create_self": ["customer", "reseller"],

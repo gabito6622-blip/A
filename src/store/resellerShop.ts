@@ -130,7 +130,7 @@ export function listApps(e: Engine, actor: Actor) {
 
 /** Aprueba: crea el revendedor (o pasa a revendedor al cliente que ya existía) y devuelve su id. */
 export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; name: string; phone: string } {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   return e.tx(() => {
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
@@ -160,7 +160,7 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
 }
 
 export function rejectApp(e: Engine, actor: Actor, id: Id) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   e.tx(() => {
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
@@ -189,7 +189,7 @@ export function pageAllowed(e: Engine, c: Customer): boolean {
 
 /** El dueño prende o apaga el plan "página propia" de un revendedor. Al apagarlo, su página deja de verse. */
 export function setResellerPage(e: Engine, actor: Actor, customerId: Id, allowed: boolean) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   return e.tx(() => {
     const c = e.get("customers", customerId);
     if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
@@ -231,7 +231,7 @@ export function updateMyShop(e: Engine, actor: Actor, patch: Record<string, unkn
 
 /** El dueño (o su equipo) arma la página de un revendedor: dirección, nombre, WhatsApp y si está publicada. */
 export function setupShopFor(e: Engine, actor: Actor, customerId: Id, patch: Record<string, unknown>) {
-  authorize(actor, "customer.manage");
+  authorize(actor, "reseller.manage");
   const c = e.get("customers", customerId);
   if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
   if (c.pageAllowed !== true) c.pageAllowed = true; // el dueño le está armando/habilitando la página
@@ -247,11 +247,20 @@ export function resellersOverview(e: Engine, actor: Actor) {
   const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
   const refCount: Record<Id, number> = {};
   for (const x of Object.values(e.s.customers)) if (x.referredBy) refCount[x.referredBy] = (refCount[x.referredBy] ?? 0) + 1;
+  const now = e.now(), buys: Record<Id, { spent30: number; last: number }> = {};
+  for (const o of Object.values(e.s.orders)) {
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial) continue;
+    const b = (buys[o.payerId ?? o.customerId] ??= { spent30: 0, last: 0 });
+    if (o.updatedAt >= now - 30 * 86_400_000) b.spent30 += o.total;
+    if (o.updatedAt > b.last) b.last = o.updatedAt;
+  }
   return Object.values(e.s.customers).filter((c) => c.kind === "reseller").map((c) => {
     const s = c.shop ?? defaults(e, c);
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
     return {
       id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt, balance: balance(e, c.id),
+      // Actividad: lo que te compró en 30 días y su última compra (para ver quién se durmió).
+      spent30: buys[c.id]?.spent30 ?? 0, lastOrderAt: buys[c.id]?.last ?? null,
       codeLink: !!c.codeLink, services: mine.length, referrals: refCount[c.id] ?? 0, clients: Object.values(e.s.customers).filter((x) => x.resellerId === c.id).length,
       pageAllowed: pageAllowed(e, c),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },

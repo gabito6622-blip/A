@@ -364,10 +364,15 @@ export function createApp(cfg: AppConfig): App {
     startSession(c.res, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
+  // Atención (seller) no entrega llaves de cuentas con plata: ni a revendedores ni a quien tiene saldo.
+  const sellerKeyGuard = (actor: Actor, cust: { id: string; kind: string }) => {
+    if (actor.role === "seller" && (cust.kind === "reseller" || store.wallet.balance(cust.id) > 0)) throw new HttpError(403, "FORBIDDEN", "El acceso de un revendedor o de un cliente con saldo lo da el dueño o un admin");
+  };
   route("POST", "/api/admin/customers/:id/login-pin", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    sellerKeyGuard(A(c), cust);
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id));
@@ -768,10 +773,10 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/resellers/:id/sheet", "staff", (c) => {
     const st = store.engine.s, r = st.customers[c.params.id];
     if (!r || r.kind !== "reseller") throw new HttpError(404, "NOT_FOUND", "No es un revendedor");
-    const grp = st.priceGroups[r.priceGroupId ?? "revendedor"]?.prices ?? {};
+    // Mismo precio que Dashboard, Control e Inicio: admin.effectivePrice (lo que te paga el revendedor).
     const rows = store.admin.assignments(A(c)).filter((a) => a.customerId === r.id || st.customers[a.customerId]?.resellerId === r.id).map((a) => ({
       id: a.id, client: a.customerId === r.id ? "" : a.customerName ?? "", clientPhone: a.customerId === r.id ? "" : a.customerPhone, product: a.product ?? "", email: a.email, profile: a.profile,
-      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.control?.price ?? grp[a.productId] ?? a.productPrice, pay: a.control?.payStatus ?? "pagado",
+      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.effectivePrice, pay: a.control?.payStatus ?? "pagado",
     }));
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
@@ -799,6 +804,7 @@ export function createApp(cfg: AppConfig): App {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    sellerKeyGuard(A(c), cust);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_link", "customer", cust.id));
     return { url: makeLoginLink(cust.id, cfg.publicOrigin ?? `http://${c.req.headers.host}`), expiresAt: now() + LINK_MS };
   });
@@ -1417,9 +1423,10 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/account-alerts/:id/seen", "staff", (c) => store.watch.seen(A(c), c.params.id));
 
   // ── Agentes con Claude ──
-  route("GET", "/api/admin/ai", "staff", () => {
+  route("GET", "/api/admin/ai", "staff", (ctx) => {
     const c = agents.cfg();
-    return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: aiDaily() };
+    // El reporte del día (con plata del negocio) es solo del dueño.
+    return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: A(ctx).role === "owner" ? aiDaily() : null };
   });
   route("POST", "/api/admin/ai", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");
