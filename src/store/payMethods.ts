@@ -92,7 +92,8 @@ export const qrAllowedFor = (e: Engine, customerId: Id | undefined) => !methodsF
 export function myPayMethods(e: Engine, actor: Actor) {
   const id = actor.customerId;
   return {
-    qr: qrAllowedFor(e, id),
+    // Sin QR cargado no se ofrece "pagar con QR": el cliente quedaría mandando un comprobante de algo que no pudo pagar.
+    qr: qrAllowedFor(e, id) && !!e.s.settings.qrFileRef,
     methods: methodsFor(e, id).map((m) => ({ id: m.id, name: m.name, country: m.country ?? "", account: m.account, holder: m.holder ?? "", instructions: m.instructions ?? "", hasQr: !!m.qrFileRef })),
   };
 }

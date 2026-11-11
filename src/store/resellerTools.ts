@@ -6,6 +6,7 @@ import type { Actor, Cents, Id, RentalControl } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { priceFor, visibleTo } from "./catalog.js";
+import { renewableNow } from "./orders.js";
 
 function reseller(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
@@ -24,7 +25,7 @@ export function myControl(e: Engine, actor: Actor) {
         email: acc?.email ?? "", profile: slot?.label ?? "", startsAt: a.startsAt, expiresAt: a.customerExpiresAt, holdOpen: !!a.holdOpen,
         price: a.rcontrol?.price ?? me.resellerPrices?.[a.productId] ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
-        cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id),
+        cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
       };
     });
 }

@@ -115,7 +115,8 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         customerExpiresAt: a.customerExpiresAt, supplierExpiresAt: acc.supplierExpiresAt, lastReminderAt: a.lastReminderAt ?? null, holdOpen: !!a.holdOpen,
         passwordPending: !acc.password, customerPhone: e.s.customers[a.customerId]?.phone ?? "",
         startsAt: a.control?.startedAt ?? a.startsAt, control: a.control ?? {}, productPrice: e.s.products[a.productId]?.price ?? 0, durationDays: e.s.products[a.productId]?.durationDays ?? 30,
-        accountCost: acc.cost, accountNotes: acc.notes ?? "", customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
+        // El costo y las notas internas de la cuenta son del dueño/admin: Atención (seller) no los ve.
+        ...(actor.role === "seller" ? {} : { accountCost: acc.cost, accountNotes: acc.notes ?? "" }), customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
       };
     });
 }

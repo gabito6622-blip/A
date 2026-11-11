@@ -6,6 +6,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { gzipSync } from "node:zlib";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
@@ -406,9 +407,11 @@ export function createApp(cfg: AppConfig): App {
     const password = String(c.body?.password ?? "");
     if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
     if (password.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
-    const existing = custByEmail(email);
-    if (existing && db.getSecret(`custpw:${existing.id}`)) throw new DomainError("VALIDATION", "Ya tenes una cuenta con ese correo. Inicia sesion.");
-    const cust = existing ?? store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
+    // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
+    // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
+    // que manda el enlace a ese correo y así prueba que es suyo.
+    if (custByEmail(email)) throw new DomainError("VALIDATION", "Ya hay una cuenta con ese correo. Entrá con tu número y PIN, o tocá \"Olvidé mi contraseña\" para crear una clave.");
+    const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
     db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
     startSession(c.res, "customer", cust.id);
     sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
@@ -684,7 +687,8 @@ export function createApp(cfg: AppConfig): App {
   }, MAX_UPLOAD_JSON);
   route("GET", "/api/admin/price-groups", "staff", () => Object.values(snap().priceGroups));
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
-  route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
+  // Proveedores: solo dueño/admin. A Atención (seller) le devolvemos la lista vacía para que sus pantallas no se rompan.
+  route("GET", "/api/admin/suppliers", "staff", (c) => (A(c).role === "seller" ? [] : Object.values(snap().suppliers)));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
   // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
   route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
@@ -1807,6 +1811,8 @@ export function createApp(cfg: AppConfig): App {
     return null;
   }
 
+  const TEXTY = new Set([".js", ".css", ".html", ".svg", ".json", ".webmanifest", ".txt"]);
+  const gzCache = new Map<string, Buffer>();
   function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
@@ -1826,11 +1832,30 @@ export function createApp(cfg: AppConfig): App {
         return true;
       }
     }
-    res.writeHead(200, {
-      "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
-      // HTML, JS, CSS y manifiesto se revalidan siempre: así cada actualización se ve al instante.
-      "Cache-Control": [".html", ".js", ".css", ".webmanifest"].includes(extname(file)) ? "no-cache" : "public, max-age=3600",
-    });
+    const ext = extname(file), st = statSync(file);
+    // ETag: si el celular ya tiene la misma versión, responde 304 sin volver a mandar el archivo.
+    // Con "no-cache" igual se revalida siempre, así cada actualización se ve al instante.
+    const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+    const headers: Record<string, string> = {
+      "Content-Type": MIME[ext] ?? "application/octet-stream",
+      "Cache-Control": [".html", ".js", ".css", ".webmanifest"].includes(ext) ? "no-cache" : "public, max-age=3600",
+      ETag: etag, Vary: "Accept-Encoding",
+    };
+    if (String(req.headers["if-none-match"] ?? "") === etag) { res.writeHead(304, headers); res.end(); return true; }
+    // Texto comprimido (gzip): shop.js baja de ~220 KB a ~60 KB en datos móviles.
+    if (TEXTY.has(ext) && st.size > 1024 && /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
+      const key = `${file}|${st.mtimeMs}`;
+      let gz = gzCache.get(key);
+      if (!gz) {
+        gz = gzipSync(readFileSync(file), { level: 9 });
+        if (gzCache.size >= 40) gzCache.delete(gzCache.keys().next().value!);
+        gzCache.set(key, gz);
+      }
+      res.writeHead(200, { ...headers, "Content-Encoding": "gzip", "Content-Length": String(gz.length) });
+      res.end(req.method === "HEAD" ? undefined : gz);
+      return true;
+    }
+    res.writeHead(200, { ...headers, "Content-Length": String(st.size) });
     if (req.method === "HEAD") res.end();
     else createReadStream(file).pipe(res);
     return true;

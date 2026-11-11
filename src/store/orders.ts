@@ -398,6 +398,13 @@ export function expireReservations(e: Engine, actor: Actor): number {
 
 /* ---------------- Renovaciones ---------------- */
 
+/** ¿Se puede renovar ya este servicio (1 período) sin pasarse del vencimiento con el proveedor? */
+export function renewableNow(e: Engine, a: Assignment): boolean {
+  const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
+  if (!prod || !acc || a.status !== "active") return false;
+  return Math.max(a.customerExpiresAt, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
+}
+
 function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");

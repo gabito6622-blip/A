@@ -7,6 +7,7 @@ import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { canActFor, normalizePhone, priceFor, visibleTo } from "./catalog.js";
 import { balance } from "./wallet.js";
+import { renewableNow } from "./orders.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
@@ -35,6 +36,8 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           access: { email: acc.email, password: acc.password || "Pedila por WhatsApp", profile: slot.label, pin: slot.pin ?? null, passwordPending: !acc.password, ...(acc.iptv ? { iptv: acc.iptv } : {}) },
           guide: e.s.products[a.productId].guide ?? null,
           canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
+          // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
+          renewableNow: renewableNow(e, a),
           renewPrice: a.control?.price ?? priceFor(e, actor.customerId!, a.productId),
         };
       });

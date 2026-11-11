@@ -267,12 +267,15 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
   }
   return e.tx(() => {
     if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    const email = c.email ? String(c.email).trim().toLowerCase() : undefined;
+    // Un correo es de una sola persona: si no, alguien podría "adueñarse" del correo de otro.
+    if (email && Object.values(e.s.customers).some((x) => (x.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ese correo ya lo usa otra cuenta");
     const groupId = c.priceGroupId ?? "final";
     ensureResellerGroup(e, groupId);
     if (!e.s.priceGroups[groupId]) throw new DomainError("NOT_FOUND", `Grupo de precios ${groupId} no existe`);
     const id = e.id("cus");
     const cust: Customer = {
-      id, name: c.name.trim(), phone, email: c.email, kind: c.kind ?? "customer", resellerId,
+      id, name: c.name.trim(), phone, email, kind: c.kind ?? "customer", resellerId,
       priceGroupId: groupId, whatsappConsent: c.whatsappConsent ?? false, createdAt: e.now(),
     };
     e.s.customers[id] = cust;
