@@ -1248,7 +1248,26 @@ const V = {
             : `<button class="pbtn dark" type="button" data-inv="pin" data-id="${esc(cur.id)}">🔑 Generar PIN de ${esc(cur.name.split(" ")[0])}</button>`}
           <div class="inline"><button class="pbtn sm" type="button" data-inv="next">${inv.done[cur.id] ? "Siguiente ▶" : "Saltar ▶"}</button><button class="pbtn sm" type="button" data-inv="stop">Terminar</button></div></div>`
       : `<p style="margin:0">✅ ¡Listo! Recorriste ${queue.length} revendedor(es).</p><button class="pbtn sm" type="button" data-inv="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
-    return `${inviteCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    // Cobrar alquileres en fila: por revendedor, lo que le vence en 7 días (o ya venció), en un solo WhatsApp.
+    const due = canReview() ? await api("GET", "/api/admin/assignments?days=7").catch(() => []) : [];
+    const byRes = new Map();
+    for (const a of due.filter((x) => x.customerKind === "reseller" && !x.holdOpen)) {
+      const g = byRes.get(a.customerId) ?? { id: a.customerId, name: a.customerName ?? "?", phone: a.customerPhone, items: [] };
+      g.items.push(a); byRes.set(a.customerId, g);
+    }
+    const groups = [...byRes.values()].map((g) => ({ ...g, total: g.items.reduce((t, a) => t + (a.effectivePrice ?? 0), 0) })).sort((x, y) => y.total - x.total);
+    const cob = (T.cob ??= { on: false, i: 0, sent: {} });
+    const cg = groups[cob.i];
+    const cobMsg = (g) => `Hola ${g.name.split(" ")[0]} 👋 te paso tus alquileres que vencen esta semana:\n${g.items.sort((x, y) => x.customerExpiresAt - y.customerExpiresAt).map((a) => `• ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.email}) — ${daysLeft(a.customerExpiresAt) < 0 ? "venció" : "vence"} el ${fdate(a.customerExpiresAt)} — ${bs(a.effectivePrice ?? 0)}`).join("\n")}\n*Total: ${bs(g.total)}*\n\nRenovalos desde tu panel con tu saldo o por QR 👉 ${location.origin}/hub (Clientes → Repartir perfiles → Renovar). ¡Gracias! 🙌`;
+    const cobCard = groups.length ? `<section class="card cobra"><h2>💰 Cobrar alquileres de la semana <small>${groups.length} revendedor(es) · ${bs(groups.reduce((t, g) => t + g.total, 0))}</small></h2>
+      ${!cob.on ? `<div class="cobsum">${groups.slice(0, 6).map((g) => `<span><b>${esc(g.name)}</b> ${g.items.length} cuenta(s) · ${bs(g.total)}${cob.sent[g.id] ? " ✅" : ""}</span>`).join("")}${groups.length > 6 ? `<span class="muted">y ${groups.length - 6} más…</span>` : ""}</div>
+        <button class="pbtn dark" type="button" data-cob="start" style="justify-self:start">▶ Avisarles uno por uno</button>`
+      : cg ? `<div class="invstep"><div><small class="muted">${cob.i + 1} de ${groups.length}</small><b>${esc(cg.name)}</b><span class="muted">${cg.items.length} cuenta(s) · <b>${bs(cg.total)}</b></span></div>
+          <pre class="cobpre">${esc(cobMsg(cg))}</pre>
+          ${cg.phone ? `<a class="pbtn green" href="${waLink(cg.phone, cobMsg(cg))}" target="_blank" rel="noopener" data-cobsent="${esc(cg.id)}">${icon("wa")}Mandar por WhatsApp${cob.sent[cg.id] ? " ✅" : ""}</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
+          <div class="inline"><button class="pbtn sm" type="button" data-cob="next">Siguiente ▶</button><button class="pbtn sm" type="button" data-cob="stop">Terminar</button></div></div>`
+      : `<p style="margin:0">✅ ¡Listo! Les avisaste a ${Object.keys(cob.sent).length} de ${groups.length}.</p><button class="pbtn sm" type="button" data-cob="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
+    return `${cobCard}${inviteCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}
       <div class="inline" style="flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><span><b>🛒 Qué compran tus revendedores:</b> ${set.resellerOnlyCatalog ? "solo los productos <b>solo revendedores</b> (tus alquileres)" : "todo el catálogo + los productos solo revendedores"}</span>
@@ -2198,6 +2217,11 @@ async function act(fn, okMsg) {
   }
 }
 
+// Links de WhatsApp de la fila de cobro: al tocarlos queda marcado "✅ avisado".
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[data-cobsent]");
+  if (a) { (P.tab.cob ??= { on: true, i: 0, sent: {} }).sent[a.dataset.cobsent] = true; setTimeout(render, 300); }
+});
 document.addEventListener("click", async (ev) => {
   const el = ev.target.closest("button");
   if (!el) return;
@@ -2361,6 +2385,13 @@ document.addEventListener("click", async (ev) => {
     if (!q.length) return toast("No hay perfiles en cuarentena");
     if (!confirm(`¿Liberar ${q.length} perfil(es) de ${acc.email}? Vuelven a estar disponibles para vender.`)) return;
     return act(async () => { for (const x of q) await api("POST", `/api/admin/slots/${x.id}/status`, { status: "available", note: "Liberado desde Cuentas" }); return q.length; }, (n) => `✅ ${n} perfil(es) liberados`);
+  }
+  if (d.cob) {
+    const cob = (P.tab.cob ??= { on: false, i: 0, sent: {} });
+    if (d.cob === "start") { cob.on = true; cob.i = 0; }
+    if (d.cob === "next") cob.i++;
+    if (d.cob === "stop") { cob.on = false; cob.i = 0; }
+    return render();
   }
   if (d.inv) {
     const inv = (P.tab.inv ??= { on: false, all: false, i: 0, done: {} });

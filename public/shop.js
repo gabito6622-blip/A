@@ -920,10 +920,15 @@ function rSubsView() {
   return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
       <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${bs(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${bs(sm.owed)}</b></div></div>
       <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p></div>
+    ${(() => { const due = d.list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7); if (!due.length) return "";
+      const tot = due.reduce((t, r) => t + r.cost, 0);
+      return `<div class="sbox rcwarn"><h3 style="margin:0">🔄 Tus cuentas que vencen esta semana</h3><p class="empty" style="margin:0">${due.map((r) => `${esc(r.product)} (${fdate(r.expiresAt)})`).join(" · ")}</p>
+        <div class="rbtns"><button class="sbtn pri" type="button" data-rentrenewall="1">🔄 Renovar las ${due.length} · ${bs(tot)}</button><small class="empty">Tu saldo: ${bs(S.me?.balance ?? 0)}</small></div></div>`; })()}
     ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(subSeen).length}/${soon.length})</h3>
       <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}"><span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
     <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
       return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header><div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
+        <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
         <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${bs(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
           ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
@@ -1937,6 +1942,23 @@ document.addEventListener("click", async (ev) => {
     S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
     toast(bad.length ? `Guardé ${n}. No se pudo: ${bad.join(" · ")}` : `✅ ${n} perfil(es) guardados`);
     return render();
+  }
+  if (d.rentrenew || d.rentrenewall) {
+    const list = S.data.rsubs?.list ?? [];
+    const rows = d.rentrenew ? list.filter((r) => r.assignmentId === d.rentrenew) : list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7);
+    const total = rows.reduce((t, r) => t + r.cost, 0);
+    if (!rows.length) return;
+    if (total > (S.me?.balance ?? 0)) { toast(`Te falta saldo: necesitás ${bs(total)} y tenés ${bs(S.me?.balance ?? 0)}. Recargá o pagá por QR.`); return setView("recargas"); }
+    if (!confirm(rows.length === 1 ? `¿Renovar ${rows[0].product} (${rows[0].email}) por ${bs(total)} con tu saldo?` : `¿Renovar ${rows.length} cuentas por ${bs(total)} con tu saldo?`)) return;
+    el.disabled = true;
+    let ok = 0; const bad = [];
+    for (const r of rows) {
+      try { await api("POST", "/api/me/renew", { assignmentId: r.assignmentId, paymentMethod: "balance", idempotencyKey: newKey() }); ok++; }
+      catch (e) { bad.push(`${r.product}: ${e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "la renueva la tienda" : e.message}`); }
+    }
+    await refresh();
+    toast(bad.length ? `🔄 Renovaste ${ok} · no se pudo: ${bad.join(" · ")}` : `🔄 ¡Listo! ${ok} cuenta(s) renovada(s) por 30 días`);
+    return;
   }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
   if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {

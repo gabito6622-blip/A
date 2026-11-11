@@ -4,7 +4,8 @@
 import type { Actor, Assignment, Cents, Id, SubRental } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { phoneWithCountry, priceFor } from "./catalog.js";
+import { phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
+import { renewableNow } from "./orders.js";
 
 const DAY = 86_400_000;
 const MAX_PROFILES = 10;
@@ -35,6 +36,7 @@ export function listMine(e: Engine, actor: Actor) {
         assignmentId: a.id, productId: a.productId, product: (e.s.products[a.productId]?.name ?? "").replace(/ \(alquiler revendedores\)/, ""),
         email: acc?.email ?? "", expiresAt: a.customerExpiresAt, holdOpen: !!a.holdOpen,
         cost: a.control?.price ?? priceFor(e, c.id, a.productId),
+        canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], c.id), renewableNow: renewableNow(e, a),
         subs: (a.subs ?? []).slice().sort((x, y) => x.expiresAt - y.expiresAt).map(view),
       };
     });
