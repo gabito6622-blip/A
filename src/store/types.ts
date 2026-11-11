@@ -108,6 +108,8 @@ export interface StoreSettings extends Look {
   bannerFileRef?: string;
   /** La tienda muestra "Disponible" aunque no haya cuentas cargadas (el dueño las consigue con sus proveedores). */
   alwaysAvailable?: boolean;
+  /** Los revendedores solo ven y compran los productos "solo revendedores" (p. ej. alquiler de cuentas completas). */
+  resellerOnlyCatalog?: boolean;
   /** Opiniones reales de revendedores, cargadas por la tienda (con su permiso). */
   testimonials?: Testimonial[];
   /** Preguntas frecuentes de la tienda (editables). Vacío = se usan las de por defecto. */

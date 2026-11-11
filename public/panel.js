@@ -1234,7 +1234,9 @@ const V = {
           <div class="inline"><button class="pbtn dark" type="submit" disabled>Escribí el monto</button><button class="pbtn" type="button" data-tab="rtop:">Cancelar</button></div></form>`;
     return `${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
-      ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}</section>
+      ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}
+      <div class="inline" style="flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><span><b>🛒 Qué compran tus revendedores:</b> ${set.resellerOnlyCatalog ? "solo los productos <b>solo revendedores</b> (tus alquileres)" : "todo el catálogo + los productos solo revendedores"}</span>
+        ${isOwner() ? `<button class="pbtn sm ${set.resellerOnlyCatalog ? "" : "dark"}" type="button" data-togrescat="${set.resellerOnlyCatalog ? "0" : "1"}">${set.resellerOnlyCatalog ? "Mostrarles todo el catálogo" : "Mostrarles solo lo de revendedores"}</button>` : ""}</div></section>
       ${pending.length ? `<section class="card ok-card" style="border-color:var(--warn)"><h2>📨 Solicitudes nuevas <small>${pending.length} quieren ser revendedores</small></h2>
       <div class="rgrid">${pending.map((a) => `<div class="rcard"><div class="rtop"><span class="ravatar">${esc(a.name[0] ?? "?")}</span><div><b>${esc(a.name)}</b><small class="muted">${esc(a.phone)} · ${fdt(a.createdAt)}</small></div></div>
         ${a.note ? `<p class="muted" style="margin:0">“${esc(a.note)}”</p>` : ""}${a.existingCustomer ? `<small class="muted">Ya es tu cliente: se pasa a revendedor.</small>` : ""}
@@ -2337,6 +2339,11 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
+  if (d.togrescat !== undefined && el.dataset.togrescat) {
+    const on = d.togrescat === "1";
+    try { await api("POST", "/api/admin/settings", { resellerOnlyCatalog: on }); toast(on ? "✅ Tus revendedores ahora ven solo lo de revendedores" : "Tus revendedores ven todo el catálogo"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.togshops !== undefined && el.dataset.togshops) {
     const on = d.togshops === "1";
     try { await api("POST", "/api/admin/settings", { resellerShops: on }); toast(on ? "✅ Páginas de revendedores activadas" : "Páginas de revendedores apagadas"); } catch (e) { toast(e.message); }

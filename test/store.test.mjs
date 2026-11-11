@@ -1452,3 +1452,17 @@ describe("Pulido: Mi control, libreta y ganancias siempre de acuerdo", () => {
     assert.equal(last.label, "Netflix perfil para Rodrigo Paz");
   });
 });
+
+describe("Revendedores: solo lo de revendedores", () => {
+  test("con el ajuste prendido, el revendedor ve y compra solo los productos para revendedores; el cliente final no cambia", () => {
+    const { s, carla, maria, as } = setup();
+    s.catalog.upsertProduct(owner, { id: "prime-alq", name: "Prime Video cuenta completa (alquiler revendedores)", kind: "full_account", durationDays: 30, price: 2000, published: true, resellersOnly: true });
+    const ver = (who) => s.catalog.publicCatalog(who.id).map((p) => p.id);
+    assert.ok(ver(carla).includes("netflix"), "sin el ajuste ve todo");
+    s.catalog.updateSettings(owner, { resellerOnlyCatalog: true });
+    assert.deepEqual(ver(carla), ["prime-alq"], "con el ajuste ve solo lo de revendedores");
+    assert.ok(ver(maria).includes("netflix") && !ver(maria).includes("prime-alq"), "el cliente final sigue igual");
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    assert.throws(() => s.orders.create(as(carla), { customerId: carla.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }));
+  });
+});
