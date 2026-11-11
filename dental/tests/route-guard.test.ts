@@ -19,6 +19,8 @@ const agents = new Map<Role, Agent>();
 const PUBLIC_ROUTES = new Set([
   // Ingreso y recuperación de contraseña (límite por IP, respuesta genérica)
   "POST /api/auth/login", "POST /api/auth/forgot", "POST /api/auth/reset",
+  // Desbloqueo con el enlace recibido por correo (firmado, de un solo uso, con vencimiento y límite por IP)
+  "POST /api/auth/unlock",
   // Presupuesto por enlace (token de 256 bits + verificación + bloqueo tras 5 intentos)
   "POST /api/public/budget-links/{token}/verify", "POST /api/public/budget-links/{token}/view",
   "POST /api/public/budget-links/{token}/accept", "POST /api/public/budget-links/{token}/reject",
@@ -102,7 +104,7 @@ describe("inventario de rutas (OpenAPI)", () => {
     const pub = ops.filter((o) => o.access === "public").map(key);
     expect(pub.filter((k) => !PUBLIC_ROUTES.has(k)), "ruta pública no declarada").toEqual([]);
     expect([...PUBLIC_ROUTES].filter((k) => !pub.includes(k)), "lista desactualizada").toEqual([]);
-    for (const k of pub) expect(k).toMatch(/^(GET|POST) \/api\/(public\/|webhooks\/|auth\/(login|forgot|reset)$|ready$)/);
+    for (const k of pub) expect(k).toMatch(/^(GET|POST) \/api\/(public\/|webhooks\/|auth\/(login|forgot|reset|unlock)$|ready$)/);
     // Y al revés: nada bajo /api/public exige sesión del personal ni queda fuera de la lista.
     const underPublic = ops.filter((o) => o.path.startsWith("/api/public/") && o.access !== "public").map(key);
     expect(underPublic).toEqual([]);

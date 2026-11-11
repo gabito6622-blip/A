@@ -55,10 +55,10 @@ describe("NPS (unidad)", () => {
     expect(computeNps([6])).toMatchObject({ nps: -100 });
   });
   it("los tokens firmados no sirven para otro propósito ni alterados", () => {
-    const t = signToken(cfg.secretKey, "encuesta", K.clinicId, randomUUID());
-    expect(verifyToken(cfg.secretKey, "encuesta", t)?.clinicId).toBe(K.clinicId);
-    expect(verifyToken(cfg.secretKey, "llegada", t)).toBeNull();
-    expect(verifyToken(cfg.secretKey, "encuesta", t.slice(0, -2) + "AA")).toBeNull();
+    const t = signToken(cfg.keys.link, "encuesta", K.clinicId, randomUUID());
+    expect(verifyToken(cfg.keys.link, "encuesta", t)?.clinicId).toBe(K.clinicId);
+    expect(verifyToken(cfg.keys.link, "llegada", t)).toBeNull();
+    expect(verifyToken(cfg.keys.link, "encuesta", t.slice(0, -2) + "AA")).toBeNull();
   });
 });
 
@@ -100,7 +100,7 @@ describe("encuesta de satisfacción", () => {
     expect((await rec.post(`/api/appointments/${apptId}/survey-link`)).body.error.code).toBe("survey_answered");
     // Token alterado o de otro tipo
     expect((await pub("GET", `/api/public/encuesta/${token.slice(0, -3)}abc`)).status).toBe(404);
-    expect((await pub("GET", `/api/public/encuesta/${signToken(cfg.secretKey, "llegada", K.clinicId, randomUUID())}`)).status).toBe(404);
+    expect((await pub("GET", `/api/public/encuesta/${signToken(cfg.keys.link, "llegada", K.clinicId, randomUUID())}`)).status).toBe(404);
   });
 
   it("vence a los 14 días", async () => {
@@ -338,7 +338,7 @@ describe("llegada con QR", () => {
     const p = await createPatient(owner, {});
     const a = await appt(p, new Date(Date.now() + 15 * 60_000));
     const tokenId = randomUUID();
-    const t = signConfirmToken(cfg.secretKey, K.clinicId, tokenId);
+    const t = signConfirmToken(cfg.keys.link, K.clinicId, tokenId);
     const starts = (await env.db.adminPool.query("SELECT starts_at FROM appointments WHERE id = $1", [a])).rows[0].starts_at;
     await env.db.adminPool.query("INSERT INTO message_confirm_tokens (id, clinic_id, appointment_id, token_hash, starts_at, expires_at) VALUES ($1,$2,$3,$4,$5,$5)",
       [tokenId, K.clinicId, a, confirmTokenHash(t), starts]);
@@ -375,7 +375,7 @@ describe("llegada con QR", () => {
     expect((await pub("GET", `/api/public/llegada/${token}`)).status).toBe(404);
     expect((await pub("GET", `/api/public/llegada/${r.body.url.split("/llegada/")[1]}`)).status).toBe(200);
     // Un token de llegada firmado con el id de otra clínica no encuentra nada
-    const fake = signToken(cfg.secretKey, "llegada", K2.clinicId, r.body.id);
+    const fake = signToken(cfg.keys.link, "llegada", K2.clinicId, r.body.id);
     expect((await pub("GET", `/api/public/llegada/${fake}`)).status).toBe(404);
     expect((await owner2.get("/api/checkin/points")).body.every((x: any) => x.pointId === null)).toBe(true);
     for (const t of ["checkin_points", "checkin_attempts"]) {

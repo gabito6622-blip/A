@@ -1,6 +1,7 @@
 // Configuración leída de variables de entorno. Nunca se escriben secretos en el código.
 import { loadFilesConfig, type StorageDriver } from "./lib/filestore.js";
 import type { S3Config } from "./lib/filestore-s3.js";
+import { hkdf32, type KeyRing } from "./lib/keys.js";
 export interface Config {
   databaseUrl: string;
   port: number;
@@ -22,8 +23,12 @@ export interface Config {
   s3: S3Config | null;
   /** Desactiva el límite de intentos de login (solo pruebas automatizadas). */
   disableRateLimit: boolean;
-  /** Clave de 32 bytes (hex o base64) para cifrar secretos de la verificación en dos pasos. */
-  secretKey: Buffer;
+  /**
+   * Claves separadas por uso (B-094), cada una con rotación (vigente + anterior):
+   *  * mfa: cifra el secreto de la verificación en dos pasos (DENTAL_MFA_KEY);
+   *  * link: firma enlaces y códigos (archivos, desbloqueo, confirmación, encuestas, QR, portal) (DENTAL_LINK_KEY).
+   */
+  keys: { mfa: KeyRing; link: KeyRing };
   /** URL pública de la aplicación (enlaces en correos). */
   publicUrl: string;
   /** smtp(s)://usuario:clave@host:puerto — sin esto los correos solo se registran en desarrollo. */
@@ -31,15 +36,48 @@ export interface Config {
   mailFrom: string;
 }
 
-function parseKey(raw: string | undefined, isProduction: boolean): Buffer {
-  if (raw) {
-    const k = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
-    if (k.length !== 32) throw new Error("DENTAL_SECRET_KEY debe tener 32 bytes (64 caracteres hex o base64)");
-    return k;
+/** Clave de 32 bytes en hex (64 caracteres) o base64; null si no está definida. */
+export function parseKey(name: string, raw: string | undefined): Buffer | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const v = raw.trim();
+  const k = /^[0-9a-f]{64}$/i.test(v) ? Buffer.from(v, "hex") : /^[A-Za-z0-9+/_-]+={0,2}$/.test(v) ? Buffer.from(v, "base64") : Buffer.alloc(0);
+  if (k.length !== 32) throw new Error(`${name} debe tener 32 bytes (64 caracteres hex o base64). Genérala con: openssl rand -hex 32`);
+  return k;
+}
+
+/** Clave fija conocida, SOLO para desarrollo y pruebas (nunca en producción). */
+const DEV_BASE_KEY = Buffer.alloc(32, 7);
+
+/**
+ * Lee las claves por uso y su rotación.
+ *  * Producción: DENTAL_MFA_KEY y DENTAL_LINK_KEY obligatorias y distintas (error claro al arrancar).
+ *  * Fuera de producción: si faltan, se derivan con HKDF de DENTAL_SECRET_KEY (o de la clave fija de
+ *    desarrollo) y la clave base queda como «anterior», para que los secretos y enlaces ya creados
+ *    en los entornos existentes sigan funcionando.
+ *  * *_PREVIOUS: clave anterior, solo para verificar o descifrar durante la rotación.
+ */
+export function loadKeys(env: NodeJS.ProcessEnv, isProduction: boolean): { mfa: KeyRing; link: KeyRing } {
+  const mfa = parseKey("DENTAL_MFA_KEY", env.DENTAL_MFA_KEY);
+  const link = parseKey("DENTAL_LINK_KEY", env.DENTAL_LINK_KEY);
+  const mfaPrev = parseKey("DENTAL_MFA_KEY_PREVIOUS", env.DENTAL_MFA_KEY_PREVIOUS);
+  const linkPrev = parseKey("DENTAL_LINK_KEY_PREVIOUS", env.DENTAL_LINK_KEY_PREVIOUS);
+  if (isProduction) {
+    const missing = [!mfa && "DENTAL_MFA_KEY", !link && "DENTAL_LINK_KEY"].filter(Boolean);
+    if (missing.length) {
+      throw new Error(
+        `Falta ${missing.join(" y ")} (obligatorias en producción, 32 bytes: openssl rand -hex 32). ` +
+        "Si venías usando DENTAL_SECRET_KEY, genera dos claves nuevas y pon el valor anterior en DENTAL_MFA_KEY_PREVIOUS y DENTAL_LINK_KEY_PREVIOUS.",
+      );
+    }
+    if (mfa!.equals(link!)) throw new Error("DENTAL_MFA_KEY y DENTAL_LINK_KEY deben ser distintas: una cifra los 2 pasos y la otra firma los enlaces.");
+    return { mfa: { current: mfa!, previous: mfaPrev }, link: { current: link!, previous: linkPrev } };
   }
-  if (isProduction) throw new Error("DENTAL_SECRET_KEY es obligatorio en producción");
-  // Solo desarrollo y pruebas: clave fija conocida. Nunca usar en producción.
-  return Buffer.alloc(32, 7);
+  const base = parseKey("DENTAL_SECRET_KEY", env.DENTAL_SECRET_KEY) ?? DEV_BASE_KEY;
+  const ring = (cur: Buffer | null, prev: Buffer | null, info: string): KeyRing =>
+    cur ? { current: cur, previous: prev } : { current: hkdf32(base, info), previous: prev ?? base };
+  const out = { mfa: ring(mfa, mfaPrev, "dentalia:mfa:v1"), link: ring(link, linkPrev, "dentalia:link:v1") };
+  if (out.mfa.current.equals(out.link.current)) throw new Error("DENTAL_MFA_KEY y DENTAL_LINK_KEY deben ser distintas.");
+  return out;
 }
 
 /** TRUST_PROXY = número de saltos de proxy confiables (0 = ninguno). En producción, 1 por defecto. */
@@ -74,7 +112,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     filesDir: env.DENTAL_FILES_DIR ?? "./data/files",
     ...loadFilesConfig(env, isProduction),
     disableRateLimit: env.DENTAL_DISABLE_RATE_LIMIT === "1" && !isProduction,
-    secretKey: parseKey(env.DENTAL_SECRET_KEY, isProduction),
+    keys: loadKeys(env, isProduction),
     publicUrl: (env.PUBLIC_URL ?? `http://localhost:${env.PORT ?? 3100}`).replace(/\/$/, ""),
     smtpUrl: env.SMTP_URL ?? null,
     mailFrom: env.MAIL_FROM ?? "Dentalia <no-responder@localhost>",

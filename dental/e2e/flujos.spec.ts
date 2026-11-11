@@ -16,7 +16,7 @@ test("credenciales incorrectas muestran un error genérico", async ({ page }) =>
   await page.fill("#email", "propietaria@demo.local");
   await page.fill("#pw", "incorrecta");
   await page.click('button:has-text("Ingresar")');
-  await expect(page.getByRole("alert")).toHaveText("Correo o contraseña incorrectos");
+  await expect(page.getByRole("alert")).toHaveText(/^Correo o contraseña incorrectos\./);
 });
 
 test("propietaria ve el comparativo de sus 5 sucursales", async ({ page }) => {

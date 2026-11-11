@@ -26,16 +26,24 @@ describe("autenticación", () => {
     expect(me.headers["cache-control"]).toBe("no-store");
   });
 
-  it("bloquea la cuenta tras 5 intentos fallidos y lo deja auditado", async () => {
+  it("tras 5 intentos fallidos bloquea esa cuenta desde ese origen, con la misma respuesta, y lo deja auditado", async () => {
     const u = await addUser(env.db, clinic.clinicId, "receptionist", { branchIds: [clinic.branches[0]!] });
+    const from = (remoteAddress: string, password: string) =>
+      env.app.inject({ method: "POST", url: "/api/auth/login", remoteAddress, payload: { email: u.email, password } });
+    let first: string | null = null;
     for (let i = 0; i < 5; i++) {
-      const r = await env.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: u.email, password: "mala" } });
+      const r = await from("192.0.2.10", "mala");
       expect(r.statusCode).toBe(401);
+      first ??= r.body;
     }
-    const locked = await env.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: u.email, password: PASSWORD } });
-    expect(locked.statusCode).toBe(429);
+    // Bloqueado desde ese origen: aun con la contraseña correcta, la MISMA respuesta que una clave incorrecta.
+    const locked = await from("192.0.2.10", PASSWORD);
+    expect(locked.statusCode).toBe(401);
+    expect(locked.body).toBe(first);
+    // Desde otra red la persona sigue entrando.
+    expect((await from("198.51.100.20", PASSWORD)).statusCode).toBe(200);
     const audit = await env.db.adminPool.query("SELECT action FROM audit_log WHERE user_id = $1 ORDER BY id", [u.id]);
-    expect(audit.rows.map((r) => r.action)).toContain("auth.locked");
+    expect(audit.rows.map((r) => r.action)).toEqual(expect.arrayContaining(["auth.locked", "auth.login_blocked"]));
   });
 
   it("exige el token CSRF en operaciones que modifican datos", async () => {

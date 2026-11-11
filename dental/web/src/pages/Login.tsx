@@ -161,3 +161,34 @@ export function ClinicSelectPage() {
     </div>
   );
 }
+
+/** /desbloquear?token=… — enlace que llega por correo tras muchos intentos fallidos desde distintas redes (B-090). */
+export function UnlockAccountPage() {
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await api.post<{ message: string }>("/api/auth/unlock", { token });
+      setMsg({ ok: true, text: r.message });
+    } catch (err) { setMsg({ ok: false, text: (err as Error).message }); }
+    setBusy(false);
+  };
+  return (
+    <Shell>
+      <form className="login-card stack" onSubmit={submit}>
+        <h1>Desbloquear mi cuenta</h1>
+        <p className="muted">Bloqueamos el ingreso a tu cuenta porque hubo muchos intentos fallidos. Si fuiste tú, desbloquéala aquí. Si no fuiste tú, después cambia tu contraseña y avisa al administrador de tu clínica.</p>
+        {msg && <div className={`alert ${msg.ok ? "ok" : "danger"}`} role="alert">{msg.text}</div>}
+        {msg?.ok ? <a className="btn btn-primary" href="/">Ir al ingreso</a> : (
+          <>
+            <button className="btn btn-primary" disabled={!token || busy}>Desbloquear</button>
+            {!token && <p className="muted small">El enlace no es válido. Revisa que lo hayas copiado completo.</p>}
+          </>
+        )}
+      </form>
+    </Shell>
+  );
+}

@@ -8,6 +8,7 @@ import type { Route } from "../lib/http.js";
 import { zDate, zId, zIdParams, zMoney, zOptText } from "../lib/http.js";
 import { AppError, badRequest, conflict, notFound } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
+import { verifyWithAny } from "../lib/keys.js";
 import type { Client } from "../lib/db.js";
 import { allowedBranches, requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { performSession, recalcBudget, zGlobalDiscount } from "./budgets-v2-core.js";
@@ -75,18 +76,17 @@ async function presentIfDraft(c: Client, auth: AuthCtx, b: { id: string; status:
 }
 
 export function budgetV2Routes(route: Route, cfg: Config) {
-  const grant = (linkId: string, exp: number) =>
-    createHmac("sha256", cfg.secretKey).update(`budget-link:${linkId}:${exp}`).digest("base64url");
+  // Firmado con DENTAL_LINK_KEY (vigente); se acepta también la anterior durante la rotación.
+  const grant = (key: Buffer, linkId: string, exp: number) => createHmac("sha256", key).update(`budget-link:${linkId}:${exp}`).digest();
   const issueGrant = (linkId: string) => {
     const exp = Date.now() + GRANT_MINUTES * 60_000;
-    return `${exp}.${grant(linkId, exp)}`;
+    return `${exp}.${grant(cfg.keys.link.current, linkId, exp).toString("base64url")}`;
   };
   const checkGrant = (linkId: string, g: string) => {
     const [expS, sig] = g.split(".");
     const exp = Number(expS);
     if (!sig || !Number.isFinite(exp) || exp < Date.now()) return false;
-    const a = Buffer.from(sig), b = Buffer.from(grant(linkId, exp));
-    return a.length === b.length && timingSafeEqual(a, b);
+    return verifyWithAny(cfg.keys.link, (k) => Buffer.from(grant(k, linkId, exp).toString("base64url")), Buffer.from(sig));
   };
   const linkUrl = (token: string) => `${cfg.publicUrl}/p/presupuesto/${token}`;
 

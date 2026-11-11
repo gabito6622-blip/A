@@ -183,20 +183,21 @@ export function portalAdminRoutes(route: Route, cfg: Config, messenger: Messenge
 
   // ---------------- Bandeja de mensajes ----------------
   route({
-    method: "GET", url: "/api/messages", summary: "Bandeja de mensajes salientes (fuera de producción: simulados, incluye los códigos de un solo uso)", tags: ["mensajes"], perm: "clinic.manage",
+    method: "GET", url: "/api/messages", summary: "Bandeja de mensajes salientes de las sucursales permitidas (fuera de producción: simulados, incluye los códigos de un solo uso)", tags: ["mensajes"], perm: "clinic.manage",
     query: z.object({
       status: z.enum(["queued", "simulated", "sent", "failed"]).optional(),
       channel: z.enum(["whatsapp", "sms", "email"]).optional(),
       limit: z.coerce.number().int().min(1).max(500).default(100),
     }),
-    handler: async ({ c, query }) => {
+    handler: async ({ c, auth, query }) => {
+      // B-092: solo las sucursales permitidas; los mensajes sin sucursal, solo quien tiene acceso a todas.
       const r = await c.query(
         `SELECT m.id, m.channel, m.recipient, m.template, m.purpose, m.body, m.status, m.error, m.created_at AS "createdAt", m.sent_at AS "sentAt",
                 m.related_entity AS "relatedEntity", m.related_id AS "relatedId", p.first_name || ' ' || p.last_name AS "patientName", b.name AS "branchName"
            FROM outbound_messages m LEFT JOIN patients p ON p.id = m.patient_id LEFT JOIN branches b ON b.id = m.branch_id
-          WHERE ($1::text IS NULL OR m.status = $1) AND ($2::text IS NULL OR m.channel = $2)
+          WHERE ($1::text IS NULL OR m.status = $1) AND ($2::text IS NULL OR m.channel = $2) AND ($4::uuid[] IS NULL OR m.branch_id = ANY($4))
           ORDER BY m.created_at DESC LIMIT $3`,
-        [query.status ?? null, query.channel ?? null, query.limit]);
+        [query.status ?? null, query.channel ?? null, query.limit, allowedBranches(auth)]);
       return { mode: messenger.mode, items: r.rows.map((m) => ({ ...m, statusLabel: MESSAGE_STATUS_LABELS[m.status as MessageStatus] })) };
     },
   });

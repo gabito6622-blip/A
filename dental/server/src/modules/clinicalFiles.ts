@@ -89,7 +89,7 @@ export function clinicalFileRoutes(route: Route, cfg: Config, app: FastifyInstan
   // El cuerpo puede traer al final la miniatura: el límite del original se vuelve a revisar aparte.
   registerBinaryParser(app, maxBytes + THUMB_MAX_BYTES, maxBytes);
 
-  const sign = (auth: AuthCtx, fileId: string, p: LinkPurpose) => signFileToken(cfg.secretKey, { f: fileId, c: auth.clinicId!, u: auth.userId, p });
+  const sign = (auth: AuthCtx, fileId: string, p: LinkPurpose) => signFileToken(cfg.keys.link, { f: fileId, c: auth.clinicId!, u: auth.userId, p });
   /** Cada archivo se lee con el controlador con el que se guardó (disco o S3). */
   const reader = (driver: string) => storeFor(driver, store, cfg);
 
@@ -232,7 +232,7 @@ export function clinicalFileRoutes(route: Route, cfg: Config, app: FastifyInstan
     tags: ["archivos clínicos"], perm: "patients.read", params: zIdParams,
     query: z.object({ t: z.string().min(1, "Falta el enlace").max(1000) }),
     handler: async ({ c, auth, params, query, reply }) => {
-      const v = verifyFileToken(cfg.secretKey, query.t);
+      const v = verifyFileToken(cfg.keys.link, query.t);
       if (!v.ok) {
         throw v.reason === "expired"
           ? new AppError(403, "link_expired", "El enlace venció (dura 5 minutos). Vuelve a abrir el archivo desde la ficha.")
@@ -265,7 +265,7 @@ export function clinicalFileRoutes(route: Route, cfg: Config, app: FastifyInstan
     tags: ["archivos clínicos"], perm: "patients.read", params: zIdParams,
     query: z.object({ t: z.string().min(1, "Falta el enlace").max(1000) }),
     handler: async ({ c, auth, params, query, reply }) => {
-      const v = verifyFileToken(cfg.secretKey, query.t);
+      const v = verifyFileToken(cfg.keys.link, query.t);
       if (!v.ok) {
         throw v.reason === "expired"
           ? new AppError(403, "link_expired", "El enlace venció (dura 5 minutos). Vuelve a abrir la ficha.")

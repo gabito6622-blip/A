@@ -39,8 +39,8 @@ const RATE_WINDOW_MIN = 15;
 
 export type CheckinState = "arrived" | "already" | "early" | "late" | "not_found" | "blocked";
 
-export const checkinUrl = (cfg: Pick<Config, "publicUrl" | "secretKey">, clinicId: string, pointId: string) =>
-  `${cfg.publicUrl}/llegada/${signToken(cfg.secretKey, "llegada", clinicId, pointId)}`;
+export const checkinUrl = (cfg: Pick<Config, "publicUrl" | "keys">, clinicId: string, pointId: string) =>
+  `${cfg.publicUrl}/llegada/${signToken(cfg.keys.link, "llegada", clinicId, pointId)}`;
 
 /** Estado de una cita respecto de la ventana de llegada (función pura). */
 export function windowState(startsAt: Date, now: number = Date.now()): "early" | "open" | "late" {
@@ -115,7 +115,7 @@ export function checkinRoutes(route: Route, cfg: Config) {
   type DbT = Parameters<Parameters<Route>[0]["handler"]>[0]["db"];
 
   function withPoint<T>(db: DbT, token: string, fn: (c: Client, p: { clinicId: string; pointId: string; branchId: string; branchName: string; clinicName: string; zone: string }) => Promise<T>) {
-    const v = verifyToken(cfg.secretKey, "llegada", token);
+    const v = verifyToken(cfg.keys.link, "llegada", token);
     if (!v) throw notFound("Código QR");
     return withTenant(db.appPool, { clinicId: v.clinicId, userId: null }, async (c) => {
       const p = (await c.query<{ branch_id: string; branch: string; clinic: string; timezone: string; clinic_status: string }>(
@@ -175,7 +175,7 @@ export function checkinRoutes(route: Route, cfg: Config) {
 
   // ---------------- Desde el enlace del recordatorio (/c/:token) ----------------
   function withReminder<T>(db: DbT, token: string, fn: (c: Client, x: { clinicId: string; appt: ApptRow; zone: string; branchName: string; clinicName: string }) => Promise<T>, lock = false) {
-    const v = verifyConfirmToken(cfg.secretKey, token);
+    const v = verifyConfirmToken(cfg.keys.link, token);
     if (!v) throw notFound("Enlace");
     return withTenant(db.appPool, { clinicId: v.clinicId, userId: null }, async (c) => {
       const r = (await c.query<ApptRow & { token_starts_at: Date; timezone: string; branch: string; clinic: string; clinic_status: string }>(

@@ -8,13 +8,14 @@
 //    ver con patients.read y subir o archivar con patients.write. Así recepción digitaliza papeles
 //    sin acceder a radiografías ni fotos clínicas.
 //
-// Enlaces de corta duración: token HMAC-SHA256 (clave derivada de DENTAL_SECRET_KEY) que fija el
+// Enlaces de corta duración: token HMAC-SHA256 (subclave derivada de DENTAL_LINK_KEY) que fija el
 // archivo, la clínica, la persona, el propósito (ver o descargar) y el vencimiento (5 minutos).
 // Además se exige la sesión de ESA persona en ESA clínica y se vuelve a comprobar el permiso al
 // descargar: un enlace copiado no sirve a otra persona, a otra clínica ni después de 5 minutos.
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AppError } from "../lib/errors.js";
+import { ringOf, verifyWithAny, type Keys } from "../lib/keys.js";
 import type { AuthCtx } from "../lib/rbac.js";
 
 export const FILE_KINDS = ["xray_periapical", "xray_panoramic", "photo_intraoral", "photo_extraoral", "scanned_document", "other"] as const;
@@ -110,19 +111,20 @@ export interface FileToken { f: string; c: string; u: string; p: LinkPurpose; e:
 const tokenKey = (secret: Buffer) => createHmac("sha256", secret).update("dentalia:clinical-files:link:v1").digest();
 const b64 = (b: Buffer | string) => Buffer.from(b).toString("base64url");
 
-export function signFileToken(secret: Buffer, t: Omit<FileToken, "e">, nowMs = Date.now()): { token: string; expiresAt: string } {
+/** Firma con la clave vigente del anillo (o con la clave suelta). */
+export function signFileToken(secret: Keys, t: Omit<FileToken, "e">, nowMs = Date.now()): { token: string; expiresAt: string } {
   const e = Math.floor(nowMs / 1000) + LINK_TTL_SECONDS;
   const payload = b64(JSON.stringify({ ...t, e }));
-  const mac = createHmac("sha256", tokenKey(secret)).update(payload).digest();
+  const mac = createHmac("sha256", tokenKey(ringOf(secret).current)).update(payload).digest();
   return { token: `${payload}.${b64(mac)}`, expiresAt: new Date(e * 1000).toISOString() };
 }
 
-export function verifyFileToken(secret: Buffer, token: string, nowMs = Date.now()): { ok: true; t: FileToken } | { ok: false; reason: "invalid" | "expired" } {
+/** Verifica con la clave vigente o con la anterior (rotación de DENTAL_LINK_KEY). */
+export function verifyFileToken(secret: Keys, token: string, nowMs = Date.now()): { ok: true; t: FileToken } | { ok: false; reason: "invalid" | "expired" } {
   const [payload, mac, extra] = token.split(".");
   if (!payload || !mac || extra !== undefined) return { ok: false, reason: "invalid" };
-  const want = createHmac("sha256", tokenKey(secret)).update(payload).digest();
   const got = Buffer.from(mac, "base64url");
-  if (got.length !== want.length || !timingSafeEqual(got, want)) return { ok: false, reason: "invalid" };
+  if (!verifyWithAny(secret, (k) => createHmac("sha256", tokenKey(k)).update(payload).digest(), got)) return { ok: false, reason: "invalid" };
   let t: FileToken;
   try { t = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); } catch { return { ok: false, reason: "invalid" }; }
   if (!t || typeof t.f !== "string" || typeof t.c !== "string" || typeof t.u !== "string" || typeof t.e !== "number" || (t.p !== "view" && t.p !== "download" && t.p !== "thumb")) {

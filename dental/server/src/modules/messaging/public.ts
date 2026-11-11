@@ -70,7 +70,7 @@ export function messagingPublicRoutes(route: Route, cfg: Config, messenger: Mess
   }
 
   function withLink<T>(db: Parameters<Parameters<Route>[0]["handler"]>[0]["db"], token: string, fn: (c: Client, v: { clinicId: string; tokenId: string }) => Promise<T>) {
-    const v = verifyConfirmToken(cfg.secretKey, token);
+    const v = verifyConfirmToken(cfg.keys.link, token);
     if (!v) throw notFound("Enlace");
     return withTenant(db.appPool, { clinicId: v.clinicId, userId: null }, (c) => fn(c, v));
   }
@@ -186,20 +186,23 @@ export function messagingPublicRoutes(route: Route, cfg: Config, messenger: Mess
         });
       }
       for (const msg of inbound) {
-        const last8 = msg.from.replace(/\D/g, "").slice(-8);
-        if (last8.length < 7) continue;
+        // B-093: por el número completo (E.164) y la clínica del último WhatsApp enviado a ESE número.
         const ctx = (await db.appPool.query<{ clinic_id: string; patient_id: string; purpose: string; branch_id: string | null }>(
-          "SELECT * FROM messaging_last_outbound_to($1)", [last8])).rows[0];
-        if (!ctx) continue; // número que no recibió mensajes de ninguna clínica: se ignora
+          "SELECT * FROM messaging_last_outbound_to_number($1)", [msg.from])).rows[0];
+        if (!ctx) {
+          // Número que no recibió mensajes de ninguna clínica: no se da de baja a nadie (solo queda en el registro).
+          req.log.info({ providerMessageId: msg.providerMessageId }, "respuesta de WhatsApp de un número sin envíos previos: ignorada");
+          continue;
+        }
         const res = await withTenant(db.appPool, { clinicId: ctx.clinic_id, userId: null }, async (c) => {
           const optOut = isOptOut(msg.text);
           const ins = await c.query(
-            `INSERT INTO inbound_messages (clinic_id, patient_id, sender, body, kind, provider_message_id) VALUES ($1,$2,$3,$4,$5,$6)
+            `INSERT INTO inbound_messages (clinic_id, patient_id, sender, body, kind, provider_message_id, branch_id) VALUES ($1,$2,$3,$4,$5,$6,$7)
              ON CONFLICT (clinic_id, provider_message_id) DO NOTHING`,
-            [ctx.clinic_id, ctx.patient_id, msg.from.slice(0, 40), msg.text, optOut ? "opt_out" : "other", msg.providerMessageId]);
+            [ctx.clinic_id, ctx.patient_id, msg.from.slice(0, 40), msg.text, optOut ? "opt_out" : "other", msg.providerMessageId, ctx.branch_id]);
           if (!ins.rowCount) return { received: 0, optOut: 0 };
           if (!optOut) return { received: 1, optOut: 0 };
-          return { received: 1, optOut: await handleOptOut(c, { clinicId: ctx.clinic_id, userId: null, ip: req.ip }, last8, ctx) };
+          return { received: 1, optOut: await handleOptOut(c, { clinicId: ctx.clinic_id, userId: null, ip: req.ip }, msg.from, ctx) };
         });
         received += res.received; optOuts += res.optOut;
       }
@@ -207,13 +210,13 @@ export function messagingPublicRoutes(route: Route, cfg: Config, messenger: Mess
     },
   });
 
-  /** «BAJA»: revoca la finalidad del último mensaje (o ambas) para todos los pacientes con ese celular. */
-  async function handleOptOut(c: Client, actor: Actor, last8: string, ctx: { purpose: string; branch_id: string | null }) {
+  /** «BAJA»: revoca la finalidad del último mensaje (o ambas) para los pacientes de ESTA clínica con ese número completo (E.164). */
+  async function handleOptOut(c: Client, actor: Actor, from: string, ctx: { purpose: string; branch_id: string | null }) {
     const kinds = ctx.purpose === "marketing" ? (["marketing"] as const) : ctx.purpose === "reminders" ? (["reminders"] as const) : (["reminders", "marketing"] as const);
     const pats = (await c.query<{ id: string; preferred_branch_id: string | null; phone: string | null; guardian_phone: string | null }>(
       `SELECT id, preferred_branch_id, phone, guardian_phone FROM patients
-        WHERE archived_at IS NULL AND (right(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), 8) = $1 OR right(regexp_replace(coalesce(guardian_phone, ''), '\\D', '', 'g'), 8) = $1)`,
-      [last8])).rows;
+        WHERE archived_at IS NULL AND phone_e164($1) IS NOT NULL AND (phone_e164(phone) = phone_e164($1) OR phone_e164(guardian_phone) = phone_e164($1))`,
+      [from])).rows;
     let n = 0;
     let replyTo: string | null = null;
     for (const p of pats) {

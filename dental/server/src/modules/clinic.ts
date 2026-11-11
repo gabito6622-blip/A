@@ -10,6 +10,7 @@ import { ROLES, ROLE_LABELS, allowedBranches, type Role } from "../lib/rbac.js";
 /** Acciones de auditoría cuyo detalle es clínico (solo lo ve quien tiene clinical.read). */
 export const CLINICAL_AUDIT_PREFIXES = ["odontogram", "clinical_note", "medical_history", "perio", "prescription", "certificate", "referral", "clinical_file", "clinical_document"];
 import type { Client } from "../lib/db.js";
+import { clearAllLocks } from "./loginGuard.js";
 
 const zTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida (HH:MM)");
 const zHours = z.record(z.string().regex(/^[1-7]$/), z.array(z.tuple([zTime, zTime])).max(4));
@@ -236,7 +237,8 @@ export function clinicRoutes(route: Route) {
       const n = (await c.query<{ n: number }>("SELECT user_clinic_count($1) AS n", [params.id])).rows[0]!.n;
       if (n > 1) throw new AppError(409, "multi_clinic_user", "Esta persona también trabaja en otra clínica: debe usar 'Olvidé mi contraseña' desde su correo");
       const temporaryPassword = `Tmp-${randomBytes(6).toString("base64url")}7`;
-      await c.query("UPDATE users SET password_hash = $2, must_change_password = true, failed_logins = 0, locked_until = NULL WHERE id = $1", [params.id, await hashPassword(temporaryPassword)]);
+      await c.query("UPDATE users SET password_hash = $2, must_change_password = true WHERE id = $1", [params.id, await hashPassword(temporaryPassword)]);
+      await clearAllLocks(c, params.id);
       await c.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [params.id]);
       await audit(c, auth, "staff.password_reset", "user", params.id);
       return { temporaryPassword };

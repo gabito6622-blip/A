@@ -47,6 +47,8 @@ import { agreementRoutes } from "./modules/agreements/index.js";
 import { experienceRoutes } from "./modules/experience/index.js";
 import { onboardingRoutes } from "./modules/onboarding/index.js";
 import { opsRoutes } from "./modules/ops/index.js";
+import { loginGuardRoutes } from "./modules/loginGuard.js";
+import { docsAccess } from "./lib/docsAccess.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
@@ -91,7 +93,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
       components: { securitySchemes: { sessionCookie: { type: "apiKey", in: "cookie", name: SESSION_COOKIE } } },
     },
   });
-  await app.register(swaggerUi, { routePrefix: "/api/docs", staticCSP: false });
+  await app.register(swaggerUi, { routePrefix: "/api/docs", staticCSP: false, ...docsAccess(cfg, db) });
 
   app.decorateRequest("auth", null);
   app.addHook("onRequest", async (req) => {
@@ -159,6 +161,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   experienceRoutes(route, cfg);
   onboardingRoutes(route);
   opsRoutes(route, cfg, app, db, mailer);
+  loginGuardRoutes(route, cfg);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

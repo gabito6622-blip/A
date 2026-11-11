@@ -34,7 +34,7 @@ const PLAN_HORIZON = "3 days";
 const RECALL_SEND_HOUR = 10;
 
 export interface SchedulerDeps {
-  cfg: Pick<Config, "publicUrl" | "secretKey" | "isProduction">;
+  cfg: Pick<Config, "publicUrl" | "keys" | "isProduction">;
   messenger: Messenger;
 }
 export interface RunSummary { clinics: number; planned: number; cancelled: number; sent: number; skipped: number; deferred: number }
@@ -390,7 +390,7 @@ async function dispatch(c: Client, x: DispatchCtx) {
     const used = usedVariables(tv.body);
     if (used.includes("enlace_confirmar") && j.appointment_id && appt) {
       const tokenId = randomUUID();
-      const token = signConfirmToken(x.deps.cfg.secretKey, x.clinicId, tokenId);
+      const token = signConfirmToken(x.deps.cfg.keys.link, x.clinicId, tokenId);
       await c.query(
         `INSERT INTO message_confirm_tokens (id, clinic_id, appointment_id, job_id, token_hash, starts_at, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$6)`,
         [tokenId, x.clinicId, j.appointment_id, j.id, confirmTokenHash(token), appt.starts_at]);

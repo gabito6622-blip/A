@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { Layout } from "./components/Layout";
-import { LoginPage, ClinicSelectPage, MfaVerifyPage, ResetPasswordPage } from "./pages/Login";
+import { LoginPage, ClinicSelectPage, MfaVerifyPage, ResetPasswordPage, UnlockAccountPage } from "./pages/Login";
 import { AccountPage, SecurityGatePage } from "./pages/Account";
 import { WaitingRoomPage } from "./pages/WaitingRoom";
 import { BiosafetyPage } from "./pages/Biosafety";
@@ -41,6 +41,7 @@ export function App() {
   const { me, loading } = useAuth();
   const { pathname } = useLocation();
   if (window.location.pathname === "/restablecer") return <ResetPasswordPage />;
+  if (window.location.pathname === "/desbloquear") return <UnlockAccountPage />;
   if (window.location.pathname.startsWith("/p/presupuesto/")) return <PublicBudgetPage />;
   if (window.location.pathname.startsWith("/c/")) return <ConfirmAppointmentPage />;
   if (/^\/verificar(\/|$)/.test(window.location.pathname)) return <VerifyPage />;
