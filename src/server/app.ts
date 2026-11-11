@@ -24,6 +24,7 @@ import { generateVapidKeys, sendPush, validSubscription, vapidKeyObject, type Pu
 import { AGENT_KINDS, AI_MODELS, Agents, AiError, defaultAiCfg, type AgentKind, type AiCfg, type ReceiptCheck } from "./agents.js";
 import { runBank, type BankResult } from "./agent-bank.js";
 import { localHour } from "../store/orders.js";
+import { overview as resellerOverview } from "../store/resellerStats.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
@@ -799,6 +800,11 @@ export function createApp(cfg: AppConfig): App {
     }));
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
+  });
+  // 📈 Cómo van tus revendedores (solo dueño y admin: son montos del negocio).
+  route("GET", "/api/admin/resellers/overview", "staff", (c) => {
+    const r = resellerOverview(store.engine, A(c), now());
+    return { ...r, list: r.list.map((x) => ({ ...x, lastLoginAt: Number(db.getSecret(`lastlogin:${x.id}`) ?? 0) || null })) };
   });
   route("GET", "/api/admin/resellers", "staff", (c) => {
     const st = store.engine.s.settings;

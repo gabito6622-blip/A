@@ -400,7 +400,8 @@ export interface Order {
   approvedBy?: Id;
   reservedSlotIds: Id[];
   assignmentIds: Id[];
-  renewal?: { assignmentId: Id; periods: number };
+  /** prevExpiresAt: vencimiento antes de renovar (para saber si renovó a tiempo o tarde). */
+  renewal?: { assignmentId: Id; periods: number; prevExpiresAt?: number };
   topupAmount?: Cents;
   /** "A pedido": ítems sin stock al comprar (solo revendedores, pagando con QR). Se entregan al aprobar el pago. */
   backorder?: { productId: Id; qty: number }[];

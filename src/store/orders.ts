@@ -235,6 +235,7 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
     queue(e, order.customerId, "order_confirmed", { order: order.id });
   } else if (order.kind === "renewal") {
     const r = order.renewal!;
+    r.prevExpiresAt = e.s.assignments[r.assignmentId]?.customerExpiresAt;
     extend(e, actor, r.assignmentId, r.periods, false);
   } else {
     post(e, actor, order.customerId, order.topupAmount!, "topup", order.id);
@@ -471,6 +472,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmt(order.total) });
     } else {
       if (input.paymentMethod === "balance") post(e, actor, payerId, -order.total, "renewal", order.id);
+      order.renewal!.prevExpiresAt = a.customerExpiresAt;
       extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
