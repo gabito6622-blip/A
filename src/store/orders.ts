@@ -13,7 +13,7 @@ import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, priceFor, visibleTo } from "./catalog.js";
+import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
@@ -176,7 +176,8 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
       order.approvedBy = actor.id;
       fulfill(e, actor, order);
     } else {
-      queue(e, order.customerId, "order_received", { name: e.s.customers[order.customerId].name, order: id, total: fmtOrder(order) });
+      // El aviso con el monto va a quien paga: el cliente final de un revendedor nunca ve lo que pagó su revendedor.
+      queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: id, total: fmtOrder(order) });
     }
     return structuredClone(order);
   }));
@@ -295,7 +296,8 @@ function alertPayment(e: Engine, o: Order): void {
 export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileRef: string; declaredReference: string; hash?: string }): Order {
   return e.tx(() => {
     const o = e.get("orders", orderId);
-    requireActFor(e, actor, o.customerId);
+    // El comprobante lo manda quien paga (el revendedor, si el pedido es para un cliente suyo).
+    requireActFor(e, actor, o.payerId ?? o.customerId);
     if (o.paymentMethod !== "qr" && o.paymentMethod !== "usdt" && o.paymentMethod !== "local") throw new DomainError("INVALID_STATE", "Este pedido no se paga con comprobante");
     if (o.status !== "awaiting_payment" && o.status !== "payment_review") throw new DomainError("INVALID_STATE", `No se puede adjuntar comprobante en estado ${o.status}`);
     if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el archivo o el número de operación");
@@ -399,7 +401,7 @@ export function rejectPayment(e: Engine, actor: Actor, orderId: Id, reason: stri
     releaseSlots(e, o.reservedSlotIds);
     o.status = "rejected";
     o.updatedAt = e.now();
-    queue(e, o.customerId, "payment_rejected", { order: o.id });
+    queue(e, o.payerId ?? o.customerId, "payment_rejected", { order: o.id });
     e.audit(actor, "payment.reject", "order", o.id, { reason });
     return structuredClone(o);
   });
@@ -408,7 +410,8 @@ export function rejectPayment(e: Engine, actor: Actor, orderId: Id, reason: stri
 export function cancelOrder(e: Engine, actor: Actor, orderId: Id): Order {
   return e.tx(() => {
     const o = e.get("orders", orderId);
-    requireActFor(e, actor, o.customerId);
+    // Cancela quien paga: el cliente final no le cancela el pedido a su revendedor.
+    requireActFor(e, actor, o.payerId ?? o.customerId);
     if (o.status !== "awaiting_payment") throw new DomainError("INVALID_STATE", "Solo se cancelan pedidos sin pago enviado");
     releaseSlots(e, o.reservedSlotIds);
     o.status = "cancelled";
@@ -440,10 +443,15 @@ export function expireReservations(e: Engine, actor: Actor): number {
 
 /* ---------------- Renovaciones ---------------- */
 
-/** El servicio tal como lo devuelve la API: sin el cuaderno del revendedor (sus perfiles y sus precios). */
-export function pubAssignment(a: Assignment): Assignment {
+/**
+ * El servicio tal como lo devuelve la API: sin el cuaderno del revendedor (sus perfiles y sus precios).
+ * A un cliente o revendedor tampoco le va el Control del dueño: ahí está el precio acordado con el
+ * revendedor (su costo), el costo de la cuenta y las notas internas.
+ */
+export function pubAssignment(a: Assignment, staff = true): Assignment {
   const c = structuredClone(a);
   delete c.subs; delete c.rcontrol;
+  if (!staff) delete c.control;
   return c;
 }
 
@@ -497,9 +505,12 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
     const usdPay = isUsd(e, payerId);
     const rate = usdPay ? usdCheckout(e, actor, input.paymentMethod) : 0;
-    // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese. En dólares manda
-    // el precio fijo de su lista en US$ (el precio acordado del Control está en Bs).
-    const unit = usdPay ? priceFor(e, payerId, a.productId) : a.control?.price ?? priceFor(e, payerId, a.productId);
+    // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese: en Bs `price`, en
+    // dólares `priceUsd` (si no hay, el de su lista en US$). El acordado es el de quien lo acordó (el
+    // revendedor de ese cliente, o el propio cliente): si el cliente final de un revendedor renueva
+    // por su cuenta, paga su propio precio, nunca el costo de su revendedor.
+    const agreed = isStaff(actor) || payerId === agreedPayerOf(e, a.customerId) ? a.control : undefined;
+    const unit = usdPay ? agreed?.priceUsd ?? priceFor(e, payerId, a.productId) : agreed?.price ?? priceFor(e, payerId, a.productId);
     const now = e.now();
     const order: Order = {
       id: e.id("ord"), kind: "renewal", customerId: a.customerId, payerId, createdBy: actor.id,
@@ -518,7 +529,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
       const next = Math.max(a.customerExpiresAt, now) + e.s.products[a.productId].durationDays * periods * DAY;
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
-      queue(e, a.customerId, "order_received", { name: e.s.customers[a.customerId].name, order: order.id, total: fmtOrder(order) });
+      queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: order.id, total: fmtOrder(order) });
     } else {
       if (input.paymentMethod === "balance") post(e, actor, payerId, -paidTotal(order), "renewal", order.id);
       order.renewal!.prevExpiresAt = a.customerExpiresAt;
@@ -526,7 +537,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
     }
-    return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id]) };
+    return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id], isStaff(actor)) };
   }));
 }
 
@@ -775,7 +786,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
   };
   // El costo es dato del dueño: Atención (seller) no lo ve ni lo cambia.
   if (patch.cost !== undefined && actor.role === "seller") throw new DomainError("FORBIDDEN", "El costo lo carga el dueño o un admin");
-  const price = money(patch.price, "Precio"), cost = money(patch.cost, "Costo");
+  const price = money(patch.price, "Precio"), cost = money(patch.cost, "Costo"), priceUsd = money(patch.priceUsd, "Precio en US$");
   if (patch.payStatus !== undefined && !["pagado", "pendiente", "no_pago"].includes(patch.payStatus)) throw new DomainError("VALIDATION", "Estado de pago inválido");
   if (patch.note !== undefined && String(patch.note).length > 300) throw new DomainError("VALIDATION", "Nota: máximo 300 letras");
   if (patch.seller !== undefined && String(patch.seller).length > 60) throw new DomainError("VALIDATION", "Revendedor: máximo 60 letras");
@@ -783,6 +794,9 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
     const c: RentalControl = { ...(a.control ?? {}) };
+    // Precio acordado en US$: solo si quien paga este servicio está en la lista en dólares (si no, va en Bs).
+    if (priceUsd !== undefined && priceUsd !== null && !isUsd(e, agreedPayerOf(e, a.customerId))) throw new DomainError("VALIDATION", "Este cliente paga en Bs: anotá el precio en Bs");
+    if (priceUsd !== undefined) { if (priceUsd === null) delete c.priceUsd; else c.priceUsd = priceUsd; }
     if (price !== undefined) { if (price === null) delete c.price; else c.price = price; }
     if (cost !== undefined) { if (cost === null) delete c.cost; else c.cost = cost; }
     const wasPaid = c.payStatus === "pagado";

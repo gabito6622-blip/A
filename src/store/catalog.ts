@@ -178,12 +178,24 @@ export function priceFor(e: Engine, customerId: Id, productId: Id): Cents {
 }
 
 /**
- * Lo que le cuesta a quien paga renovar un servicio (mismo criterio que orders.renew): en Bs, el precio
- * acordado del Control o el de su lista; en dólares, el de su lista en US$ (0 si no tiene precio: no lo renueva).
+ * Con quién está acordado el precio del Control de un servicio: el revendedor si el cliente es de un
+ * revendedor; si no, el propio cliente. El precio acordado es SU precio (para un revendedor, su costo).
  */
-export function renewPriceFor(e: Engine, payerId: Id, a: { productId: Id; control?: { price?: Cents } }): Cents {
-  if (isUsd(e, payerId)) return e.s.priceGroups[e.s.customers[payerId].priceGroupId]?.prices[a.productId] ?? 0;
-  return a.control?.price ?? priceFor(e, payerId, a.productId);
+export function agreedPayerOf(e: Engine, customerId: Id): Id {
+  const c = e.s.customers[customerId];
+  return c?.resellerId && e.s.customers[c.resellerId] ? c.resellerId : customerId;
+}
+
+/**
+ * Lo que le cuesta a quien paga renovar un servicio (mismo criterio que orders.renew): en Bs, el precio
+ * acordado del Control o el de su lista; en dólares, el acordado en US$ o el de su lista en US$ (0 si no
+ * tiene precio: no lo renueva). El precio acordado vale solo para quien lo acordó: el cliente final de un
+ * revendedor nunca ve ni paga el precio acordado con su revendedor (es el costo del revendedor).
+ */
+export function renewPriceFor(e: Engine, payerId: Id, a: { customerId?: Id; productId: Id; control?: { price?: Cents; priceUsd?: Cents } }): Cents {
+  const agreed = !a.customerId || agreedPayerOf(e, a.customerId) === payerId ? a.control : undefined;
+  if (isUsd(e, payerId)) return agreed?.priceUsd ?? e.s.priceGroups[e.s.customers[payerId].priceGroupId]?.prices[a.productId] ?? 0;
+  return agreed?.price ?? priceFor(e, payerId, a.productId);
 }
 
 export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> & { id?: Id }): Supplier {

@@ -90,16 +90,24 @@ export function resellerOf(e: Engine, customerId: Id): Customer | undefined {
  * Es el mismo criterio que la Ficha del revendedor y que la renovación.
  */
 export function effectivePrice(e: Engine, a: Pick<Assignment, "customerId" | "productId" | "control">): Cents {
-  // Quien paga está en la lista en dólares: te paga su precio fijo en US$ (así renueva); acá va en Bs con la tasa de hoy.
-  const who = payerOf(e, a.customerId) ?? e.s.customers[a.customerId];
-  if (who && isUsd(e, who)) {
-    const usd = e.s.priceGroups[who.priceGroupId]?.prices[a.productId], r = rateNow(e);
-    if (usd !== undefined && r) return usdToBs(usd, r);
-  }
+  // Quien paga está en la lista en dólares: te paga en US$ (el acordado en el Control o el de su lista,
+  // igual que al renovar); acá va en Bs con la tasa de hoy.
+  const usd = payUsdOf(e, a), r = rateNow(e);
+  if (usd !== undefined && r) return usdToBs(usd, r);
   if (a.control?.price !== undefined && a.control?.price !== null) return a.control.price;
   const payer = payerOf(e, a.customerId);
   const gid = payer?.priceGroupId ?? (payer?.kind === "reseller" ? "revendedor" : undefined);
   return (gid ? e.s.priceGroups[gid]?.prices[a.productId] : undefined) ?? e.s.products[a.productId]?.price ?? 0;
+}
+
+/**
+ * Si quien paga un servicio está en la lista en dólares: lo que te paga por período en US$ (centavos de
+ * dólar), el acordado en el Control (`priceUsd`) o el de su lista. `undefined` si paga en Bs o no tiene precio.
+ */
+export function payUsdOf(e: Engine, a: Pick<Assignment, "customerId" | "productId" | "control">): Cents | undefined {
+  const who = payerOf(e, a.customerId) ?? e.s.customers[a.customerId];
+  if (!who || !isUsd(e, who)) return undefined;
+  return a.control?.priceUsd ?? e.s.priceGroups[who.priceGroupId]?.prices[a.productId];
 }
 
 /** Costo estimado de un perfil por período del producto: costo mensual de la cuenta ÷ perfiles vivos. */
@@ -172,6 +180,8 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         ...(actor.role === "seller" ? {} : { accountCost: acc.cost, accountNotes: acc.notes ?? "", estCost: unitCostOf(e, acc.id, a.productId, slotsPerAcc[acc.id]) }), customerKind: e.s.customers[a.customerId]?.kind ?? "customer",
         // Lo que de verdad te pagan (precio de quien paga) y de qué revendedor es el cliente.
         effectivePrice: effectivePrice(e, a),
+        // Quien paga está en la lista en dólares: el Control muestra y anota su precio en US$.
+        ...(isUsd(e, payerOf(e, a.customerId)) ? { payCurrency: "USD" as const, payUsd: payUsdOf(e, a) ?? null } : {}),
         resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
       };
     });

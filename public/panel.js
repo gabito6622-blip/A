@@ -3,7 +3,7 @@ import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote
 import { comoVanView } from "/panel-comovan.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
-import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint } from "/usd.js";
+import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -474,7 +474,7 @@ const V = {
     const sinPago = list.filter((a) => a.control?.payStatus && a.control.payStatus !== "pagado");
     // Mi semana: minutos estimados por día (como la hoja TIEMPO_LIBRE del Excel: 3 min por recordatorio, +1 si vence pronto, 5 por vencido).
     // "Mi semana": cuántas cuentas vencen cada día. El ánimo del día sale de esa cantidad.
-    const amountOf = (a) => a.control?.price ?? a.effectivePrice ?? a.productPrice ?? 0;
+    const amountOf = (a) => (payIsUsd(a) ? a.effectivePrice : a.control?.price ?? a.effectivePrice) ?? a.productPrice ?? 0;
     const week = Array.from({ length: 7 }, (_, i) => {
       const t = today + i * DAY;
       const dayl = all.filter((a) => dayStart(a.customerExpiresAt) === t);
@@ -541,7 +541,8 @@ const V = {
       const d = daysLeft(a.customerExpiresAt);
       // Precio: lo que de verdad te pagan (acordado ?? lista del revendedor ?? precio del producto).
       // Costo: el que pusiste a mano o, si no, lo que te cuesta ese perfil (cuenta ÷ perfiles).
-      const price = a.control.price ?? a.effectivePrice ?? a.productPrice, cost = canReview() ? a.control.cost ?? a.estCost ?? 0 : 0;
+      // Quien paga en dólares: su precio va en US$ (payUsd) y acá, para sumar, en Bs con la tasa de hoy.
+      const price = (payIsUsd(a) ? a.effectivePrice : a.control.price ?? a.effectivePrice) ?? a.productPrice, cost = canReview() ? a.control.cost ?? a.estCost ?? 0 : 0;
       // viaRes: el cliente es de un revendedor (le avisás al revendedor, no al cliente).
       const viaRes = !!a.resellerId && a.resellerId !== a.customerId;
       // kind "fin": les cobrás vos (tus clientes y tus revendedores); "rev": clientes de tus revendedores.
@@ -588,9 +589,9 @@ const V = {
     const sum = (f) => view.reduce((t, r) => t + f(r), 0);
     const cnt = (k) => rows.filter((r) => r.est[1] === k).length;
     const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
-    const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${bs(r.price)}. ¿Deseas renovar?`;
+    const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${payText(r, r.price)}. ¿Deseas renovar?`;
     // Cliente de un revendedor: el aviso va al revendedor (él le cobra a su cliente a su precio).
-    const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} (${pname(r)} · ${r.profile}) ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Si renueva, a vos te sale ${bs(r.price)}. ¿Lo renovás?`;
+    const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} (${pname(r)} · ${r.profile}) ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Si renueva, a vos te sale ${payText(r, r.price)}. ¿Lo renovás?`;
     const cobrarBtn = (r, title = "") => r.viaRes
       ? (r.resellerPhone ? `<a class="pbtn sm" href="${waLink(r.resellerPhone, resMsg(r))}" target="_blank" rel="noopener" title="Es cliente de ${esc(r.rname)}: le avisás a tu revendedor">📣 Avisar a ${esc(first(r.rname))}</a>` : `<span class="pp pp-warn">${esc(first(r.rname))} sin WhatsApp</span>`)
       : r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>` : "";
@@ -635,7 +636,7 @@ const V = {
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
         <div class="crow mono">${esc(r.email)}</div>
         <div class="crow"><span>Vence <b>${fdate(r.customerExpiresAt)}</b> (${r.day})</span><span>Inicio ${fdate(r.startsAt)}</span></div>
-        <div class="crow"><label>Te paga <input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal"></label>
+        <div class="crow">${((pf) => `<label>Te paga${pf.cur ? ` ${pf.cur}` : ""} <input class="ctl-in" data-ctl="${esc(r.id)}" data-f="${pf.f}" value="${pf.v}" inputmode="decimal"${pf.hint}></label>`)(payField(r, r.price))}
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
           ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
@@ -664,7 +665,7 @@ const V = {
           <td data-col="profile">${canReview() && r.slotId ? `<input class="ctl-in mid" data-cslot="${esc(r.slotId)}" value="${esc(r.profile)}" aria-label="Perfil">` : esc(r.profile)}</td>
           <td data-col="startsAt">${fdate(r.startsAt)}</td>
           <td data-col="customerExpiresAt"><input type="date" class="ctl-in date" data-cexp="${esc(r.id)}" value="${dIn(r.customerExpiresAt)}"${canReview() ? "" : ` max="${dIn(r.customerExpiresAt)}"`} aria-label="Vencimiento"></td><td data-col="day">${r.day}</td>
-          <td data-col="price"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="price" value="${(r.price / 100).toString()}" inputmode="decimal" aria-label="Precio"></td>
+          <td data-col="price">${((pf) => `${pf.cur ? `<small class="muted">${pf.cur}</small> ` : ""}<input class="ctl-in" data-ctl="${esc(r.id)}" data-f="${pf.f}" value="${pf.v}" inputmode="decimal" aria-label="Precio${pf.cur ? ` en ${pf.cur}` : ""}"${pf.hint}>`)(payField(r, r.price))}</td>
           ${canReview() ? `<td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"${r.control.cost === undefined ? ` title="Estimado: lo que te cuesta la cuenta ÷ sus perfiles"` : ""}></td>
           <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>` : ""}
           <td data-col="pay"><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
@@ -1269,10 +1270,11 @@ const V = {
       const g = byRes.get(a.customerId) ?? { id: a.customerId, name: a.customerName ?? "?", phone: a.customerPhone, items: [] };
       g.items.push(a); byRes.set(a.customerId, g);
     }
-    const groups = [...byRes.values()].map((g) => ({ ...g, total: g.items.reduce((t, a) => t + (a.effectivePrice ?? 0), 0) })).sort((x, y) => y.total - x.total);
+    // total en Bs (para ordenar y sumar); al revendedor en dólares se le escribe en US$ (lo que de verdad paga).
+    const groups = [...byRes.values()].map((g) => ({ ...g, total: g.items.reduce((t, a) => t + (a.effectivePrice ?? 0), 0), usdTotal: g.items.every(payIsUsd) ? g.items.reduce((t, a) => t + (a.payUsd ?? 0), 0) : null })).sort((x, y) => y.total - x.total);
     const cob = (T.cob ??= { on: false, i: 0, sent: {} });
     const cg = groups[cob.i];
-    const cobMsg = (g) => `Hola ${g.name.split(" ")[0]} 👋 te paso tus alquileres que vencen esta semana:\n${g.items.sort((x, y) => x.customerExpiresAt - y.customerExpiresAt).map((a) => `• ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.email}) — ${daysLeft(a.customerExpiresAt) < 0 ? "venció" : "vence"} el ${fdate(a.customerExpiresAt)} — ${bs(a.effectivePrice ?? 0)}`).join("\n")}\n*Total: ${bs(g.total)}*\n\nRenovalos desde tu panel con tu saldo o por QR 👉 ${location.origin}/hub (Clientes → Repartir perfiles → Renovar). ¡Gracias! 🙌`;
+    const cobMsg = (g) => `Hola ${g.name.split(" ")[0]} 👋 te paso tus alquileres que vencen esta semana:\n${g.items.sort((x, y) => x.customerExpiresAt - y.customerExpiresAt).map((a) => `• ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.email}) — ${daysLeft(a.customerExpiresAt) < 0 ? "venció" : "vence"} el ${fdate(a.customerExpiresAt)} — ${payText(a, a.effectivePrice ?? 0)}`).join("\n")}\n*Total: ${g.usdTotal !== null ? usd(g.usdTotal) : bs(g.total)}*\n\nRenovalos desde tu panel con tu saldo o por QR 👉 ${location.origin}/hub (Clientes → Repartir perfiles → Renovar). ¡Gracias! 🙌`;
     const cobCard = groups.length ? `<section class="card cobra"><h2>💰 Cobrar alquileres de la semana <small>${groups.length} revendedor(es) · ${bs(groups.reduce((t, g) => t + g.total, 0))}</small></h2>
       ${!cob.on ? `<div class="cobsum">${groups.slice(0, 6).map((g) => `<span><b>${esc(g.name)}</b> ${g.items.length} cuenta(s) · ${bs(g.total)}${cob.sent[g.id] ? " ✅" : ""}</span>`).join("")}${groups.length > 6 ? `<span class="muted">y ${groups.length - 6} más…</span>` : ""}</div>
         <button class="pbtn dark" type="button" data-cob="start" style="justify-self:start">▶ Avisarles uno por uno</button>`
@@ -2773,7 +2775,7 @@ document.addEventListener("change", async (ev) => {
   if (t.dataset?.ctl) {
     const f = t.dataset.f;
     let v = t.value.trim();
-    if (f === "price" || f === "cost") { v = v === "" ? null : toCents(v); if (v !== null && Number.isNaN(v)) return toast("Solo números"); }
+    if (f === "price" || f === "cost" || f === "priceUsd") { v = v === "" ? null : toCents(v); if (v !== null && Number.isNaN(v)) return toast("Solo números"); }
     try { await api("POST", `/api/admin/assignments/${t.dataset.ctl}/control`, { [f]: v }); toast("Guardado"); if (f !== "note" && f !== "seller") render(); }
     catch (e) { toast(e.message); }
     return;

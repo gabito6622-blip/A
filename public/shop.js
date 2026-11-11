@@ -424,7 +424,8 @@ const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
 function pendingOrders() {
-  const list = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review");
+  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él).
+  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review"));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
   const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
@@ -598,7 +599,7 @@ function renderInner() {
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}<button class="sbtn sm" type="button" data-s="codigos">Ver códigos</button><button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
-      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
+      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><small class="empty">${STATUS_TEXT[o.status]}</small></span></div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
@@ -1095,7 +1096,7 @@ function resellerHome() {
   if (S.data.wiz) return wizardView();
   const sh = S.data.shop, sv = S.data.services ?? [], me = S.me;
   const venc = sv.filter((a) => a.daysLeft < 0).length, week = sv.filter((a) => a.daysLeft >= 0 && a.daysLeft <= 7).length;
-  const pend = (S.data.orders ?? []).filter((o) => o.status === "awaiting_payment" || o.status === "payment_review").length;
+  const pend = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review")).length;
   const rent = sh?.rent;
   const canPage = !!me.pageAllowed;
   const tiles = [

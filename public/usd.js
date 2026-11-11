@@ -30,3 +30,16 @@ export const listHint = (c, groups) => {
   return `<small class="muted" style="grid-column:1/-1">💱 Su saldo está en <b>${cur === "USD" ? "dólares (US$)" : "Bs"}</b>. Pasarlo a una lista en otra moneda cambia la moneda de su saldo: solo se puede con saldo en 0 y sin pagos por revisar.</small>`;
 };
 
+
+/**
+ * Control del dueño: el servicio lo paga alguien en la lista en dólares (`payCurrency: "USD"` de
+ * /api/admin/assignments). Su precio acordado se anota y se le muestra en US$ (`payUsd`); los totales
+ * del dueño siguen en Bs (`effectivePrice`, con la tasa de hoy).
+ */
+export const payIsUsd = (a) => a?.payCurrency === "USD";
+/** Lo que te paga, en la moneda en que te paga ("US$ 7,00" o "Bs 35"). */
+export const payText = (a, bsCents) => (payIsUsd(a) && a.payUsd !== null && a.payUsd !== undefined ? usd(a.payUsd) : bs(bsCents));
+/** Campo "Te paga" del Control: en US$ (`priceUsd`) para quien paga en dólares; si no, en Bs (`price`). */
+export const payField = (a, bsCents) => (payIsUsd(a)
+  ? { f: "priceUsd", v: a.payUsd === null || a.payUsd === undefined ? "" : String(a.payUsd / 100), cur: "US$", hint: ` title="Paga en dólares: anotá su precio en US$. Los totales van en Bs con la tasa de hoy (≈ ${bs(bsCents)})."` }
+  : { f: "price", v: String(bsCents / 100), cur: "", hint: "" });

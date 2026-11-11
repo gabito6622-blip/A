@@ -8,7 +8,7 @@ const W = { on: false, i: 0, queue: [], sent: {}, muted: {}, data: null };
 
 const agoText = (d) => (d <= 0 ? "hoy" : d === 1 ? "ayer" : `hace ${d} días`);
 const kindPill = (k) => `<span class="pp ${k === "revendedor" ? "pp-warn" : "pp-mute"}">${k === "revendedor" ? "Revendedor" : "Cliente"}</span>`;
-const thingLine = (t) => `<li><b>${esc(t.product)}</b> · ${esc(t.what)} · ${agoText(t.days)} · <b>${bs(t.amount).replace(" ", "\u00a0")}</b></li>`;
+const thingLine = (t) => `<li><b>${esc(t.product)}</b> · ${esc(t.what)} · ${agoText(t.days)} · <b>${bs(t.amount).replace(" ", "\u00a0")}</b>${t.usd !== undefined ? ` <small class="muted">(paga US$\u00a0${(t.usd / 100).toFixed(2)})</small>` : ""}</li>`;
 
 async function load() {
   W.data = await api("GET", "/api/admin/winback");
