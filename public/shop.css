@@ -998,3 +998,14 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
   .rtabs::-webkit-scrollbar{display:none}
   .rtabs button{flex:0 0 auto;white-space:nowrap;padding:10px 14px;min-height:44px}
 }
+
+/* Mi control en filas compactas que se abren con un toque */
+.rcard header{align-items:center}
+.rcselw{display:grid;place-items:center;min-width:44px;min-height:44px;margin:-8px 0 -8px -8px;cursor:pointer}
+.rcopen{flex:1;display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;border:0;background:none;color:inherit;text-align:left;padding:0;font:inherit;cursor:pointer}
+.rcopen>span{display:grid;gap:2px;min-width:0;flex:1}
+.rcopen small{color:var(--s-muted);overflow-wrap:anywhere}
+.rcopen small .bad{color:var(--s-bad);font-weight:700}
+.rcopen i{font-style:normal;color:var(--s-muted)}
+.rcard:not(:has(.rcrow)){gap:0;padding:8px 14px}
+.rcopen .rcest{flex:none}

@@ -28,7 +28,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | C9 | 🛒 | En celular el primer precio aparece lejos (diseño clásico) | P2 | ⏳ (la tienda real usa "ticket", que ya muestra precios arriba) |
 | C10 | 🛒 | Descripción del producto oculta en celular (diseño clásico) | P3 | ⏳ |
 | C11 | 🛒 | 310 KB por visita sin comprimir | P2 | ✅ gzip + ETag (227→66 KB) |
-| C12 | 🛒 | "Tu pedido en vivo" (barra Recibido → Entregado) | P3 | ⏳ idea wow |
+| C12 | 🛒 | "Tu pedido en vivo" (Pedido → Revisando pago → Entregado, con hora estimada) | P3 | ✅ idea wow, navegador |
 | R1 | 🏪 | Teléfono sin +591 → WhatsApp roto y clientes duplicados | P1 | ✅ prueba `store` + navegador |
 | R2 | 🏪 | Ganancias contaban lo que no te pagaron | P1 | ✅ prueba `store` |
 | R3 | 🏪 | Quién me debe en Bs 0 mientras Mi control decía que te deben | P1 | ✅ prueba `store` |
@@ -38,7 +38,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | R7 | 🏪 | Afiche con combos agotados y sin los combos propios | P2 | ✅ |
 | R8 | 🏪 | Barra de abajo sin Clientes; pestañas en 4 filas | P2 | ✅ |
 | R9 | 🏪 | Vender fiado; datos tapados tras vender; confirmación | P2 | ✅ navegador |
-| R10 | 🏪 | Mi control y Mis cuentas muy largos con muchos clientes (filas plegables) | P2 | ⏳ |
+| R10 | 🏪 | Mi control muy largo con muchos clientes | P2 | ✅ filas que se abren con un toque (16.283 → 5.529 px con 41 servicios) · Mis cuentas del revendedor sigue largo ⏳ |
 | R11 | 🏪 | Vista previa de Mi página tapa lo que editás; deshacer plantilla | P3 | ⏳ |
 | R12 | 🏪 | Movimientos de saldo con códigos (ord_…) en vez de qué y para quién | P3 | ✅ prueba `store` ("Netflix perfil para Rodrigo Paz") |
 | R13 | 🏪 | "Tu día" en Inicio (por avisar · te deben · ganaste) | P2 | ✅ idea wow |
