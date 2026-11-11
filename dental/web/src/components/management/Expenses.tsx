@@ -132,6 +132,12 @@ function RecurringDialog({ initial, onClose, onSaved }: { initial: any | null; o
     amount: initial?.amountCents ? toBsInput(initial.amountCents) : "", supplier: initial?.supplier ?? "", dayOfMonth: String(initial?.dayOfMonth ?? 5),
     startsMonth: initial?.startsMonth ?? thisMonth(), active: initial?.active ?? true,
   }));
+  // Gasto fijo compartido entre sucursales (B-097): cada borrador mensual se reparte igual.
+  const branches = me?.branches ?? [];
+  const [shared, setShared] = useState<boolean>(!!initial?.shares?.length);
+  const [shares, setShares] = useState<ShareRow[]>(() => initial?.shares?.length
+    ? initial.shares.map((x: any) => ({ branchId: x.branchId, percent: String(x.percentBp / 100).replace(".", ",") }))
+    : branches.slice(0, 2).map((b) => ({ branchId: b.id, percent: "50" })));
   const [errs, setErrs] = useState<FieldErrors>({});
   const [msg, setMsg] = useState<string | null>(null);
   const set = (k: keyof typeof f, v: string | boolean) => setF({ ...f, [k]: v });
@@ -142,9 +148,11 @@ function RecurringDialog({ initial, onClose, onSaved }: { initial: any | null; o
     if (f.description.trim().length < 3) local.description = "Describe el gasto (mínimo 3 caracteres)";
     const day = Number(f.dayOfMonth);
     if (!Number.isInteger(day) || day < 1 || day > 28) local.dayOfMonth = "Día entre 1 y 28";
+    if (shared) { const se = sharesError(shares); if (se) local.shares = se; }
     setErrs(local); setMsg(null);
     if (Object.keys(local).length) return;
-    const body = { category: f.category, description: f.description.trim(), amountCents: cents, supplier: f.supplier.trim() || null, dayOfMonth: day };
+    const body = { category: f.category, description: f.description.trim(), amountCents: cents, supplier: f.supplier.trim() || null, dayOfMonth: day,
+      shares: shared ? sharesBody(shares) : [] };
     try {
       if (editing) await api.put(`/api/expenses/recurring/${initial.id}`, { ...body, active: f.active });
       else await api.post("/api/expenses/recurring", { ...body, branchId: f.branchId, startsMonth: f.startsMonth });
@@ -157,13 +165,17 @@ function RecurringDialog({ initial, onClose, onSaved }: { initial: any | null; o
     </>}>
       <form className="form-grid" onSubmit={(e) => { e.preventDefault(); save(); }} noValidate>
         {msg && <div className="alert danger span-2" role="alert">{msg}</div>}
-        {!editing && <Field label="Sucursal"><select className="input" value={f.branchId} onChange={(e) => set("branchId", e.target.value)}>{me?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>}
+        {!editing && !shared && <Field label="Sucursal"><select className="input" value={f.branchId} onChange={(e) => set("branchId", e.target.value)}>{me?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>}
         <Field label="Categoría"><select className="input" value={f.category} onChange={(e) => set("category", e.target.value)}>{CATEGORY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
         <FieldE label="Descripción" span2 id="rerr-desc" err={errs.description}><input className="input" value={f.description} maxLength={200} onChange={(e) => set("description", e.target.value)} aria-invalid={!!errs.description} aria-describedby={errs.description ? "rerr-desc" : undefined} /></FieldE>
         <FieldE label="Monto mensual (Bs)" id="rerr-amount" err={errs.amountCents}><input className="input" inputMode="decimal" value={f.amount} onChange={(e) => set("amount", e.target.value)} aria-invalid={!!errs.amountCents} aria-describedby={errs.amountCents ? "rerr-amount" : undefined} /></FieldE>
         <FieldE label="Día del mes" hint="Fecha del borrador (1 a 28)" id="rerr-day" err={errs.dayOfMonth}><input className="input" inputMode="numeric" value={f.dayOfMonth} onChange={(e) => set("dayOfMonth", e.target.value)} aria-invalid={!!errs.dayOfMonth} aria-describedby={errs.dayOfMonth ? "rerr-day" : undefined} /></FieldE>
         {!editing && <Field label="Desde el mes"><input className="input" type="month" value={f.startsMonth} onChange={(e) => e.target.value && set("startsMonth", e.target.value)} /></Field>}
         <Field label="Proveedor (opcional)"><input className="input" value={f.supplier} maxLength={120} onChange={(e) => set("supplier", e.target.value)} /></Field>
+        {branches.length > 1 && (
+          <label className="check span-2"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />Gasto fijo compartido entre sucursales (repartir por porcentaje)</label>
+        )}
+        {shared && <SharesEditor rows={shares} onChange={setShares} amountCents={Number.isFinite(parseBs(f.amount)) ? parseBs(f.amount) : 0} error={errs.shares} />}
         {editing && <label className="check span-2"><input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} />Activo (genera un borrador cada mes)</label>}
         <p className="muted small span-2" style={{ margin: 0 }}>Cada mes se genera un borrador con este monto para confirmarlo cuando se pague (o ajustar el monto antes). Nunca se genera dos veces el mismo mes.</p>
       </form>
@@ -281,7 +293,9 @@ export function ExpensesTab() {
               <tbody>{rec.data.map((t) => (
                 <tr key={t.id}>
                   <td className="mg-head">{t.description}</td>
-                  <td data-label="Sucursal">{t.branchName}</td>
+                  <td data-label="Sucursal">{t.shares?.length
+                    ? <span>Compartido<span className="mg-split">{t.shares.map((sh: any) => `${sh.branchName} ${String(sh.percentBp / 100).replace(".", ",")} %`).join(" · ")}</span></span>
+                    : t.branchName}</td>
                   <td data-label="Categoría">{t.categoryLabel}</td>
                   <td data-label="Día">{t.dayOfMonth}</td>
                   <td data-label="Monto" className="num">{bs(t.amountCents)}</td>

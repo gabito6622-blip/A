@@ -148,9 +148,14 @@ export async function budgetItemShares(c: Client, budgetId: string): Promise<Ite
 /** Parte de la empresa ya cargada al paciente en el año calendario actual (zona de la clínica). */
 export async function companyUsedThisYear(c: Client, patientId: string, agreementId: string): Promise<number> {
   return Number((await c.query<{ v: number }>(
-    `SELECT COALESCE(sum(third_party_cents), 0)::bigint AS v FROM charges
-      WHERE patient_id = $1 AND payer_agreement_id = $2
-        AND date_part('year', created_at AT TIME ZONE (SELECT timezone FROM clinics WHERE id = app_clinic_id())) = date_part('year', $3::date)`,
+    // Lo trasladado al paciente ya no lo paga la empresa: libera el tope (B-097, igual que charges_third_party de 0030).
+    `WITH z AS (SELECT timezone AS tz FROM clinics WHERE id = app_clinic_id())
+     SELECT (COALESCE((SELECT sum(ch.third_party_cents) FROM charges ch, z
+                        WHERE ch.patient_id = $1 AND ch.payer_agreement_id = $2
+                          AND date_part('year', ch.created_at AT TIME ZONE z.tz) = date_part('year', $3::date)), 0)
+           - COALESCE((SELECT sum(t.amount_cents) FROM payer_transfers t JOIN charges c2 ON c2.id = t.charge_id, z
+                        WHERE t.patient_id = $1 AND t.agreement_id = $2
+                          AND date_part('year', c2.created_at AT TIME ZONE z.tz) = date_part('year', $3::date)), 0))::bigint AS v`,
     [patientId, agreementId, await clinicToday(c)])).rows[0]!.v);
 }
 

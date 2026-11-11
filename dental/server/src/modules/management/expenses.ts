@@ -10,7 +10,7 @@ import { AppError, badRequest, conflict, notFound } from "../../lib/errors.js";
 import { allowedBranches, canAccessBranch, requireBranch, type AuthCtx } from "../../lib/rbac.js";
 import { CATEGORIES, CATEGORY_LABELS, localToday, monthRange, zMonth } from "./common.js";
 import { addSheet, bsCell, newWorkbook, sendXlsx } from "./xlsx.js";
-import { mainShareIndex, parseShares, requireShareBranches, saveShares, scopeOf, zShares } from "./shares.js";
+import { mainShareIndex, parseShares, requireShareBranches, saveShares, scopeOf, zShares, type Share } from "./shares.js";
 
 const zAmount = z.number().int("Monto en centavos (entero)").min(1, "El monto debe ser mayor que cero").max(100_000_000_000, "Monto demasiado alto");
 const zCategory = z.enum(CATEGORIES, { message: "Elige una categoría" });
@@ -146,6 +146,14 @@ function checkDateForConfirm(date: string, today: string) {
 }
 
 /** Genera los borradores de los recurrentes del mes. Idempotente: nunca duplica (índice único por recurrente y mes). */
+/** Reparto de un gasto fijo (B-097). Es una plantilla: se reemplaza al editar; lo generado no cambia. */
+async function replaceRecurringShares(c: Client, clinicId: string, recurringId: string, shares: Share[] | null) {
+  await c.query("DELETE FROM expense_recurring_shares WHERE recurring_id = $1", [recurringId]);
+  for (const sh of shares ?? []) {
+    await c.query("INSERT INTO expense_recurring_shares (clinic_id, recurring_id, branch_id, percent_bp) VALUES ($1,$2,$3,$4)", [clinicId, recurringId, sh.branchId, sh.bp]);
+  }
+}
+
 export async function generateRecurring(c: Client, auth: AuthCtx, month: string, branchId?: string | null) {
   const allowed = allowedBranches(auth);
   const r = await c.query<{ id: string; branch_id: string }>(
@@ -155,10 +163,18 @@ export async function generateRecurring(c: Client, auth: AuthCtx, month: string,
        FROM expense_recurring r
       WHERE r.active AND r.starts_month <= $1::date AND (r.ends_month IS NULL OR r.ends_month >= $1::date)
         AND ($3::uuid IS NULL OR r.branch_id = $3) AND ($4::uuid[] IS NULL OR r.branch_id = ANY($4))
+        -- Un gasto fijo compartido solo lo genera quien tiene acceso a TODAS sus sucursales.
+        AND ($4::uuid[] IS NULL OR NOT EXISTS (SELECT 1 FROM expense_recurring_shares s WHERE s.recurring_id = r.id AND NOT s.branch_id = ANY($4)))
      ON CONFLICT (recurring_id, period_month) WHERE recurring_id IS NOT NULL DO NOTHING
-     RETURNING id, branch_id`,
+     RETURNING id, branch_id, recurring_id, amount_cents`,
     [`${month}-01`, auth.userId, branchId ?? null, allowed]);
-  for (const x of r.rows) await audit(c, auth, "expense.generated", "expense", x.id, { month }, x.branch_id);
+  for (const x of r.rows as unknown as { id: string; branch_id: string; recurring_id: string; amount_cents: string }[]) {
+    // Gasto fijo compartido (B-097): el borrador del mes lleva el mismo reparto, exacto al centavo.
+    const rs = (await c.query<{ branch_id: string; percent_bp: number }>(
+      "SELECT branch_id, percent_bp FROM expense_recurring_shares WHERE recurring_id = $1 ORDER BY percent_bp DESC, branch_id", [x.recurring_id])).rows;
+    if (rs.length) await saveShares(c, auth.clinicId!, x.id, Number(x.amount_cents), rs.map((s) => ({ branchId: s.branch_id, bp: Number(s.percent_bp) })));
+    await audit(c, auth, "expense.generated", "expense", x.id, { month, shared: rs.length > 0 }, x.branch_id);
+  }
   return r.rowCount ?? 0;
 }
 
@@ -268,8 +284,11 @@ export function expenseRoutes(route: Route) {
     branchId: zId, category: zCategory, description: zDescription, amountCents: zAmount, supplier: zOptText(120),
     dayOfMonth: z.number().int().min(1, "Día entre 1 y 28").max(28, "Día entre 1 y 28 (así existe en todos los meses)").default(1),
     startsMonth: zMonth,
+    shares: zShares,
   });
   const RECURRING_COLS = `r.id, r.branch_id AS "branchId", b.name AS "branchName", r.category, r.description, r.amount_cents AS "amountCents", r.supplier,
+    COALESCE((SELECT json_agg(json_build_object('branchId', s.branch_id, 'branchName', sb.name, 'percentBp', s.percent_bp) ORDER BY s.percent_bp DESC, sb.name)
+                FROM expense_recurring_shares s JOIN branches sb ON sb.id = s.branch_id WHERE s.recurring_id = r.id), '[]'::json) AS shares,
     r.day_of_month AS "dayOfMonth", to_char(r.starts_month, 'YYYY-MM') AS "startsMonth", to_char(r.ends_month, 'YYYY-MM') AS "endsMonth", r.active,
     (SELECT to_char(max(e.period_month), 'YYYY-MM') FROM expenses e WHERE e.recurring_id = r.id) AS "lastGenerated"`;
 
@@ -290,12 +309,14 @@ export function expenseRoutes(route: Route) {
     method: "POST", url: "/api/expenses/recurring", summary: "Crear un gasto fijo mensual", tags: ["gestión"],
     perm: "reports.financial", body: zRecurring,
     handler: async ({ c, auth, body }) => {
-      requireBranch(auth, body.branchId);
+      const { branchId, shares } = resolveShares(auth, body);
       const id = (await c.query<{ id: string }>(
         `INSERT INTO expense_recurring (clinic_id, branch_id, category, description, amount_cents, supplier, day_of_month, starts_month, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [auth.clinicId, body.branchId, body.category, body.description, body.amountCents, body.supplier, body.dayOfMonth, `${body.startsMonth}-01`, auth.userId])).rows[0]!.id;
-      await audit(c, auth, "expense_recurring.created", "expense_recurring", id, { category: body.category, amountCents: body.amountCents }, body.branchId);
+        [auth.clinicId, branchId, body.category, body.description, body.amountCents, body.supplier, body.dayOfMonth, `${body.startsMonth}-01`, auth.userId])).rows[0]!.id;
+      await replaceRecurringShares(c, auth.clinicId!, id, shares);
+      await audit(c, auth, "expense_recurring.created", "expense_recurring", id,
+        { category: body.category, amountCents: body.amountCents, shares: shares?.map((x) => ({ branchId: x.branchId, percentBp: x.bp })) ?? null }, branchId);
       return { id };
     },
   });
@@ -306,11 +327,20 @@ export function expenseRoutes(route: Route) {
     body: z.object({
       category: zCategory, description: zDescription, amountCents: zAmount, supplier: zOptText(120),
       dayOfMonth: z.number().int().min(1, "Día entre 1 y 28").max(28, "Día entre 1 y 28"), active: z.boolean(), endsMonth: zMonth.nullish(),
+      /** Reparto entre sucursales (B-097). Ausente: no cambia; [] o null: deja de estar compartido. */
+      shares: zShares.optional(),
     }),
     handler: async ({ c, auth, params, body }) => {
       const r = (await c.query<{ branch_id: string; starts: string }>("SELECT branch_id, to_char(starts_month, 'YYYY-MM') AS starts FROM expense_recurring WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
       if (!r) throw notFound("Gasto fijo");
       requireBranch(auth, r.branch_id);
+      const current = (await c.query<{ branch_id: string }>("SELECT branch_id FROM expense_recurring_shares WHERE recurring_id = $1", [params.id])).rows.map((x) => x.branch_id);
+      if (current.length) requireShareBranches(auth, current);
+      if (body.shares !== undefined) {
+        const next = resolveShares(auth, { branchId: r.branch_id, shares: body.shares });
+        await replaceRecurringShares(c, auth.clinicId!, params.id, next.shares);
+        if (next.branchId !== r.branch_id) await c.query("UPDATE expense_recurring SET branch_id = $2 WHERE id = $1", [params.id, next.branchId]);
+      }
       if (body.endsMonth && body.endsMonth < r.starts) throw new AppError(400, "validation", "El último mes no puede ser anterior al primero", [{ path: "endsMonth", message: "Anterior al primer mes" }]);
       await c.query(
         `UPDATE expense_recurring SET category = $2, description = $3, amount_cents = $4, supplier = $5, day_of_month = $6, active = $7, ends_month = $8, updated_at = now() WHERE id = $1`,

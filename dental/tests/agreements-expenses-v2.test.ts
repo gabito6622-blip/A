@@ -75,15 +75,15 @@ async function enroll(a: Agent, patientId: string, agreementId: string) {
  * Tratamiento realizado con la copia del convenio en la línea (como al presupuestar) y su cargo con la fecha
  * indicada (datos históricos). La porción de la empresa la calcula el trigger de la base.
  */
-async function companyCharge(t: TestClinic, o: { patient: string; agreementId: string; paId: string; share: number; amount: number; at?: Date; dentist?: string; branch?: string; code?: string; budget?: string }) {
+async function companyCharge(t: TestClinic, o: { patient: string; agreementId: string; paId: string; share: number; amount: number; at?: Date; dentist?: string; branch?: string; code?: string; budget?: string; cap?: number }) {
   const dentist = o.dentist ?? t.ownerId;
   const budget = o.budget ?? (await q(`INSERT INTO budgets (clinic_id, number, branch_id, patient_id, dentist_id, status) VALUES ($1,$2,$3,$4,$5,'accepted') RETURNING id`,
     [t.clinicId, ++seq, o.branch ?? t.branches[0], o.patient, dentist])).rows[0].id as string;
   const pid = await procedureId(env.db, t.clinicId, o.code ?? "OPE-01");
   const item = (await q(`INSERT INTO budget_items (clinic_id, budget_id, procedure_id, description, unit_price_cents, status, performed_by, performed_at,
-                           agreement_id, patient_agreement_id, list_unit_price_cents, company_share_percent)
-     VALUES ($1,$2,$3,'Tratamiento de prueba',$4,'done',$5,$6,$7,$8,$4,$9) RETURNING id`,
-    [t.clinicId, budget, pid, o.amount, dentist, o.at ?? new Date(), o.agreementId, o.paId, o.share])).rows[0].id;
+                           agreement_id, patient_agreement_id, list_unit_price_cents, company_share_percent, company_cap_cents)
+     VALUES ($1,$2,$3,'Tratamiento de prueba',$4,'done',$5,$6,$7,$8,$4,$9,$10) RETURNING id`,
+    [t.clinicId, budget, pid, o.amount, dentist, o.at ?? new Date(), o.agreementId, o.paId, o.share, o.cap ?? null])).rows[0].id;
   const ch = (await q(`INSERT INTO charges (clinic_id, branch_id, patient_id, budget_item_id, dentist_id, description, amount_cents, created_by, created_at)
      VALUES ($1,$2,$3,$4,$5,'Tratamiento de prueba',$6,$5,COALESCE($7, now())) RETURNING id, third_party_cents`,
     [t.clinicId, o.branch ?? t.branches[0], o.patient, item, dentist, o.amount, o.at ?? null])).rows[0];
@@ -636,6 +636,89 @@ describe("comprobante adjunto del gasto", () => {
     const r = await fetchRaw(acct, `/api/expense-attachments/${attId}/content?t=${encodeURIComponent(clinical.token)}`);
     expect(r.status).toBe(403);
     expect((await fetchRaw(acct, `/api/expense-attachments/${attId}/content?t=abc.def`)).status).toBe(403);
+  });
+});
+
+describe("rentabilidad v2 (B-097)", () => {
+  const prevMonth = () => DateTime.now().setZone(ZONE).minus({ months: 1 }).toFormat("yyyy-MM");
+  const collected = async (month: string) => {
+    const d = (await owner.get(`/api/management/profitability?month=${month}`)).body;
+    return Object.fromEntries(d.branches.map((b: any) => [b.branchId, b.collectedCents ?? 0])) as Record<string, number>;
+  };
+
+  it("«Cobrado» suma lo que pagan las empresas, en la sucursal de cada cargo y sin contar dos veces", async () => {
+    const month = prevMonth();
+    const at = DateTime.now().setZone(ZONE).minus({ months: 1 }).startOf("month").set({ day: 20, hour: 12 }).toJSDate();
+    const before = await collected(month);
+    const ag = await newAgreement(owner);
+    const patient = await createPatient(owner, { firstName: "Cobrado" });
+    const pa = await enroll(owner, patient, ag.id);
+    const c0 = await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, amount: 10000, at, branch: B0() });
+    const c1 = await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, amount: 20001, at, branch: B1() });
+    // La empresa paga 25 000: 7 000 al cargo de la sucursal 1, 14 001 al de la sucursal 2 y 3 999 sin asignar (sucursal del pago: 2).
+    const pay = (await q(`INSERT INTO payer_payments (clinic_id, number, agreement_id, branch_id, amount_cents, method, status, bank_reference, idempotency_key, received_by, received_at, verified_by, verified_at)
+       VALUES ($1,$2,$3,$4,25000,'transfer','confirmed',$5,$6,$7,$8,$9,$8) RETURNING id`,
+      [K.clinicId, ++seq, ag.id, B1(), `B097-${seq}`, randomUUID(), K.ownerId, at, dentId])).rows[0].id;
+    await q("INSERT INTO payer_payment_allocations (clinic_id, payment_id, charge_id, amount_cents) VALUES ($1,$2,$3,$4),($1,$2,$5,$6)",
+      [K.clinicId, pay, c0.id, c0.company, c1.id, c1.company]);
+    // Un pago de empresa sin confirmar no cuenta.
+    await q(`INSERT INTO payer_payments (clinic_id, number, agreement_id, branch_id, amount_cents, method, status, bank_reference, idempotency_key, received_by, received_at)
+       VALUES ($1,$2,$3,$4,999,'transfer','pending_verification',$5,$6,$7,$8)`, [K.clinicId, ++seq, ag.id, B0(), `B097P-${seq}`, randomUUID(), K.ownerId, at]);
+    const after = await collected(month);
+    expect(c0.company).toBe(7000);
+    expect(c1.company).toBe(14001);
+    expect(after[B0()]! - before[B0()]!).toBe(7000);
+    expect(after[B1()]! - before[B1()]!).toBe(14001 + 3999);
+  });
+
+  it("lo trasladado al paciente libera el tope anual del convenio (y la reversión lo vuelve a consumir)", async () => {
+    const ag = await newAgreement(owner, { companyCapCents: 10000 });
+    const patient = await createPatient(owner, { firstName: "Tope" });
+    const pa = await enroll(owner, patient, ag.id);
+    const old = await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, cap: 10000, amount: 20000, at: daysAgo(40) });
+    expect(old.company).toBe(10000); // 70 % de 20 000 = 14 000, limitado por el tope de 10 000
+    // Tope agotado: un cargo nuevo no lleva porción de la empresa.
+    expect((await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, cap: 10000, amount: 1000 })).company).toBe(0);
+    // La empresa rechaza la porción vieja: se traslada al paciente y libera el tope.
+    const t = await admin.post(`/api/payer-charges/${old.id}/transfer`, { cause: "rejected", reason: "La empresa rechazó la cobertura" });
+    expect(t.status, JSON.stringify(t.body)).toBe(200);
+    expect((await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, cap: 10000, amount: 5000 })).company).toBe(3500);
+    // Lo que queda del tope: 10 000 - 3 500 = 6 500 (no 0).
+    expect((await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, cap: 10000, amount: 20000 })).company).toBe(6500);
+    // Revertido el traslado, el tope vuelve a estar consumido de más: un cargo nuevo no lleva porción.
+    const rv = await admin.post(`/api/payer-transfers/${t.body.id}/reverse`, { reason: "Error de carga: la empresa sí paga" });
+    expect(rv.status, JSON.stringify(rv.body)).toBe(200);
+    expect((await companyCharge(K, { patient, agreementId: ag.id, paId: pa, share: 70, cap: 10000, amount: 1000 })).company).toBe(0);
+  });
+
+  it("gasto fijo compartido: cada borrador del mes sale repartido al centavo, una sola vez", async () => {
+    const month = todayIso().slice(0, 7);
+    const bad = await admin.post("/api/expenses/recurring", { branchId: B0(), category: "rent", description: "Alquiler compartido", amountCents: 300001, dayOfMonth: 1, startsMonth: month,
+      shares: [{ branchId: B0(), percent: 70 }, { branchId: B1(), percent: 20 }] });
+    expect(bad.status).toBe(400);
+    const r = await admin.post("/api/expenses/recurring", { branchId: B0(), category: "rent", description: "Alquiler compartido", amountCents: 300001, dayOfMonth: 1, startsMonth: month,
+      shares: [{ branchId: B0(), percent: 33.33 }, { branchId: B1(), percent: 66.67 }] });
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const list = (await admin.get("/api/expenses/recurring")).body.find((x: any) => x.id === r.body.id);
+    expect(list.branchId).toBe(B1()); // principal = mayor porcentaje
+    expect(list.shares.map((x: any) => x.percentBp)).toEqual([6667, 3333]);
+    // Quien no tiene todas las sucursales no lo genera.
+    expect((await limitedAdmin.post("/api/expenses/recurring/generate", { month })).status).toBe(200);
+    expect((await q("SELECT count(*)::int AS n FROM expenses WHERE recurring_id = $1", [r.body.id])).rows[0].n).toBe(0);
+    expect((await admin.post("/api/expenses/recurring/generate", { month })).status).toBe(200);
+    expect((await admin.post("/api/expenses/recurring/generate", { month })).status).toBe(200);
+    const exp = (await q("SELECT id, amount_cents FROM expenses WHERE recurring_id = $1", [r.body.id])).rows;
+    expect(exp).toHaveLength(1);
+    const sh = (await q("SELECT branch_id, percent_bp, amount_cents FROM expense_shares WHERE expense_id = $1 ORDER BY percent_bp DESC", [exp[0].id])).rows;
+    expect(sh.map((x: any) => [x.branch_id, x.percent_bp, Number(x.amount_cents)])).toEqual([[B1(), 6667, 200011], [B0(), 3333, 99990]]);
+    // Deja de estar compartido al editarlo (lo ya generado no cambia).
+    const up = await admin.put(`/api/expenses/recurring/${r.body.id}`, { category: "rent", description: "Alquiler compartido", amountCents: 300001, dayOfMonth: 1, active: true, shares: [] });
+    expect(up.status, JSON.stringify(up.body)).toBe(200);
+    expect((await admin.get("/api/expenses/recurring")).body.find((x: any) => x.id === r.body.id).shares).toEqual([]);
+    expect((await q("SELECT count(*)::int AS n FROM expense_shares WHERE expense_id = $1", [exp[0].id])).rows[0].n).toBe(2);
+    // Otra clínica no ve el reparto (RLS).
+    const n = await withTenant(env.db.appPool, { clinicId: O.clinicId, userId: null }, async (c) => (await c.query("SELECT count(*)::int AS n FROM expense_recurring_shares")).rows[0].n);
+    expect(n).toBe(0);
   });
 });
 

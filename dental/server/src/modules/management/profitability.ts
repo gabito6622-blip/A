@@ -30,7 +30,7 @@ export const LINE_LABELS: Record<Line, string> = {
 /** De dónde sale cada número (se muestra en la pantalla y en la exportación). */
 export const LINE_SOURCES: Record<Line | "marginCents" | "cashMarginCents", string> = {
   productionCents: "Suma de los tratamientos realizados en el mes en la sucursal (cargos de la cuenta del paciente), menos las anulaciones del mes. Es el mismo número del Panel.",
-  collectedCents: "Pagos confirmados en el mes (efectivo al recibirlo; transferencia, QR y tarjeta al verificarse en el banco). Los pendientes de verificación no cuentan. Igual que «Resultado por sucursal» en Honorarios.",
+  collectedCents: "Pagos confirmados en el mes, de pacientes y de empresas de convenio (efectivo al recibirlo; transferencia, QR y tarjeta al verificarse en el banco). Lo que paga una empresa cuenta en la sucursal de cada cargo que cubre. Los pendientes de verificación no cuentan.",
   labCents: "Costo de las órdenes de laboratorio recibidas en el mes en la sucursal (módulo Laboratorio). «Sin datos» si la clínica no registró laboratorios.",
   materialsCents: "Consumos de inventario del mes en la sucursal, valorizados al costo del lote registrado en cada salida, o al costo actual del lote si la salida no lo guardó (módulo Inventario: consumo estándar por tratamiento y consumos manuales). «Sin datos» si la sucursal no usa el inventario.",
   feesCents: "Honorarios de las liquidaciones CERRADAS cuyo período cae dentro del mes, por la sucursal de cada línea (módulo Honorarios). «Sin datos» si no hay liquidaciones cerradas del mes.",
@@ -65,9 +65,21 @@ async function computeMonth(c: Client, auth: AuthCtx, range: MonthRange, branchI
   const p = [range.from, range.to, branchIds];
   const production = byBranch((await c.query(
     `SELECT branch_id, sum(amount_cents) AS v FROM charges WHERE created_at >= $1 AND created_at < $2 AND branch_id = ANY($3) GROUP BY branch_id`, p)).rows);
+  // Cobrado = pagos de pacientes + pagos de empresas de convenio (B-097), confirmados en el mes. Lo de
+  // una empresa se atribuye a la sucursal de cada cargo que paga (asignación); lo que no se asignó
+  // a cargos, a la sucursal donde se registró el pago. Sin doble conteo: un pago de empresa no es un
+  // pago del paciente (la porción de la empresa nunca entra al saldo del paciente).
   const collected = byBranch((await c.query(
-    `SELECT branch_id, sum(amount_cents) AS v FROM payments WHERE status = 'confirmed' AND COALESCE(verified_at, received_at) >= $1
-        AND COALESCE(verified_at, received_at) < $2 AND branch_id = ANY($3) GROUP BY branch_id`, p)).rows);
+    `WITH pp AS (SELECT id, branch_id, amount_cents FROM payer_payments
+                  WHERE status = 'confirmed' AND COALESCE(verified_at, received_at) >= $1 AND COALESCE(verified_at, received_at) < $2),
+          payer AS (
+            SELECT ch.branch_id, sum(a.amount_cents) AS v FROM payer_payment_allocations a JOIN pp ON pp.id = a.payment_id JOIN charges ch ON ch.id = a.charge_id GROUP BY ch.branch_id
+            UNION ALL
+            SELECT pp.branch_id, pp.amount_cents - COALESCE((SELECT sum(a.amount_cents) FROM payer_payment_allocations a WHERE a.payment_id = pp.id), 0) FROM pp),
+          patient AS (
+            SELECT branch_id, sum(amount_cents) AS v FROM payments WHERE status = 'confirmed' AND COALESCE(verified_at, received_at) >= $1
+               AND COALESCE(verified_at, received_at) < $2 GROUP BY branch_id)
+     SELECT branch_id, sum(v) AS v FROM (SELECT * FROM patient UNION ALL SELECT * FROM payer) x WHERE branch_id = ANY($3) GROUP BY branch_id`, p)).rows);
   // Laboratorio
   const hasLabs = !!(await c.query("SELECT 1 FROM labs LIMIT 1")).rowCount;
   const lab = byBranch((await c.query(
