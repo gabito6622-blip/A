@@ -6,6 +6,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { gzipSync } from "node:zlib";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
@@ -363,10 +364,15 @@ export function createApp(cfg: AppConfig): App {
     startSession(c.res, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
+  // Atención (seller) no entrega llaves de cuentas con plata: ni a revendedores ni a quien tiene saldo.
+  const sellerKeyGuard = (actor: Actor, cust: { id: string; kind: string }) => {
+    if (actor.role === "seller" && (cust.kind === "reseller" || store.wallet.balance(cust.id) > 0)) throw new HttpError(403, "FORBIDDEN", "El acceso de un revendedor o de un cliente con saldo lo da el dueño o un admin");
+  };
   route("POST", "/api/admin/customers/:id/login-pin", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    sellerKeyGuard(A(c), cust);
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id));
@@ -406,9 +412,11 @@ export function createApp(cfg: AppConfig): App {
     const password = String(c.body?.password ?? "");
     if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
     if (password.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
-    const existing = custByEmail(email);
-    if (existing && db.getSecret(`custpw:${existing.id}`)) throw new DomainError("VALIDATION", "Ya tenes una cuenta con ese correo. Inicia sesion.");
-    const cust = existing ?? store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
+    // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
+    // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
+    // que manda el enlace a ese correo y así prueba que es suyo.
+    if (custByEmail(email)) throw new DomainError("VALIDATION", "Ya hay una cuenta con ese correo. Entrá con tu número y PIN, o tocá \"Olvidé mi contraseña\" para crear una clave.");
+    const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
     db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
     startSession(c.res, "customer", cust.id);
     sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
@@ -504,7 +512,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -684,7 +692,8 @@ export function createApp(cfg: AppConfig): App {
   }, MAX_UPLOAD_JSON);
   route("GET", "/api/admin/price-groups", "staff", () => Object.values(snap().priceGroups));
   route("POST", "/api/admin/price-groups", "staff", (c) => store.catalog.upsertPriceGroup(A(c), c.body));
-  route("GET", "/api/admin/suppliers", "staff", () => Object.values(snap().suppliers));
+  // Proveedores: solo dueño/admin. A Atención (seller) le devolvemos la lista vacía para que sus pantallas no se rompan.
+  route("GET", "/api/admin/suppliers", "staff", (c) => (A(c).role === "seller" ? [] : Object.values(snap().suppliers)));
   route("POST", "/api/admin/suppliers", "staff", (c) => store.catalog.upsertSupplier(A(c), c.body));
   // Fiado: lo que te deben (cargos y pagos por cliente, pagos parciales y fecha de cobro).
   route("GET", "/api/admin/fiado", "staff", (c) => store.fiado.overview(A(c)));
@@ -764,10 +773,10 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/resellers/:id/sheet", "staff", (c) => {
     const st = store.engine.s, r = st.customers[c.params.id];
     if (!r || r.kind !== "reseller") throw new HttpError(404, "NOT_FOUND", "No es un revendedor");
-    const grp = st.priceGroups[r.priceGroupId ?? "revendedor"]?.prices ?? {};
+    // Mismo precio que Dashboard, Control e Inicio: admin.effectivePrice (lo que te paga el revendedor).
     const rows = store.admin.assignments(A(c)).filter((a) => a.customerId === r.id || st.customers[a.customerId]?.resellerId === r.id).map((a) => ({
       id: a.id, client: a.customerId === r.id ? "" : a.customerName ?? "", clientPhone: a.customerId === r.id ? "" : a.customerPhone, product: a.product ?? "", email: a.email, profile: a.profile,
-      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.control?.price ?? grp[a.productId] ?? a.productPrice, pay: a.control?.payStatus ?? "pagado",
+      expiresAt: a.customerExpiresAt, holdOpen: a.holdOpen, price: a.effectivePrice, pay: a.control?.payStatus ?? "pagado",
     }));
     const cl = r.codeLink;
     return { id: r.id, name: r.name, phone: r.phone, balance: store.wallet.balance(r.id), owed: store.fiado.owedBy(r.id), codeLink: cl ? codeLinkUrl(cl.token, c) : null, rows };
@@ -795,6 +804,7 @@ export function createApp(cfg: AppConfig): App {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
     const cust = store.engine.s.customers[c.params.id];
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    sellerKeyGuard(A(c), cust);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_link", "customer", cust.id));
     return { url: makeLoginLink(cust.id, cfg.publicOrigin ?? `http://${c.req.headers.host}`), expiresAt: now() + LINK_MS };
   });
@@ -1413,9 +1423,10 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/account-alerts/:id/seen", "staff", (c) => store.watch.seen(A(c), c.params.id));
 
   // ── Agentes con Claude ──
-  route("GET", "/api/admin/ai", "staff", () => {
+  route("GET", "/api/admin/ai", "staff", (ctx) => {
     const c = agents.cfg();
-    return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: aiDaily() };
+    // El reporte del día (con plata del negocio) es solo del dueño.
+    return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: A(ctx).role === "owner" ? aiDaily() : null };
   });
   route("POST", "/api/admin/ai", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");
@@ -1807,6 +1818,8 @@ export function createApp(cfg: AppConfig): App {
     return null;
   }
 
+  const TEXTY = new Set([".js", ".css", ".html", ".svg", ".json", ".webmanifest", ".txt"]);
+  const gzCache = new Map<string, Buffer>();
   function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
@@ -1826,11 +1839,30 @@ export function createApp(cfg: AppConfig): App {
         return true;
       }
     }
-    res.writeHead(200, {
-      "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
-      // HTML, JS, CSS y manifiesto se revalidan siempre: así cada actualización se ve al instante.
-      "Cache-Control": [".html", ".js", ".css", ".webmanifest"].includes(extname(file)) ? "no-cache" : "public, max-age=3600",
-    });
+    const ext = extname(file), st = statSync(file);
+    // ETag: si el celular ya tiene la misma versión, responde 304 sin volver a mandar el archivo.
+    // Con "no-cache" igual se revalida siempre, así cada actualización se ve al instante.
+    const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+    const headers: Record<string, string> = {
+      "Content-Type": MIME[ext] ?? "application/octet-stream",
+      "Cache-Control": [".html", ".js", ".css", ".webmanifest"].includes(ext) ? "no-cache" : "public, max-age=3600",
+      ETag: etag, Vary: "Accept-Encoding",
+    };
+    if (String(req.headers["if-none-match"] ?? "") === etag) { res.writeHead(304, headers); res.end(); return true; }
+    // Texto comprimido (gzip): shop.js baja de ~220 KB a ~60 KB en datos móviles.
+    if (TEXTY.has(ext) && st.size > 1024 && /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
+      const key = `${file}|${st.mtimeMs}`;
+      let gz = gzCache.get(key);
+      if (!gz) {
+        gz = gzipSync(readFileSync(file), { level: 9 });
+        if (gzCache.size >= 40) gzCache.delete(gzCache.keys().next().value!);
+        gzCache.set(key, gz);
+      }
+      res.writeHead(200, { ...headers, "Content-Encoding": "gzip", "Content-Length": String(gz.length) });
+      res.end(req.method === "HEAD" ? undefined : gz);
+      return true;
+    }
+    res.writeHead(200, { ...headers, "Content-Length": String(st.size) });
     if (req.method === "HEAD") res.end();
     else createReadStream(file).pipe(res);
     return true;

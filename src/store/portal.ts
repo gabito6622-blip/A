@@ -5,8 +5,9 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, normalizePhone, priceFor, visibleTo } from "./catalog.js";
+import { canActFor, phoneTaken, phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
 import { balance } from "./wallet.js";
+import { renewableNow } from "./orders.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
@@ -35,6 +36,8 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           access: { email: acc.email, password: acc.password || "Pedila por WhatsApp", profile: slot.label, pin: slot.pin ?? null, passwordPending: !acc.password, ...(acc.iptv ? { iptv: acc.iptv } : {}) },
           guide: e.s.products[a.productId].guide ?? null,
           canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
+          // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
+          renewableNow: renewableNow(e, a),
           renewPrice: a.control?.price ?? priceFor(e, actor.customerId!, a.productId),
         };
       });
@@ -80,10 +83,10 @@ export function updateMyClient(e: Engine, actor: Actor, customerId: Id, patch: {
     if (!c || c.resellerId !== actor.customerId) throw new DomainError("FORBIDDEN", "Ese cliente no es tuyo");
     const changed: string[] = [];
     if (patch.phone !== undefined) {
-      const phone = normalizePhone(String(patch.phone));
+      const phone = phoneWithCountry(String(patch.phone));
       if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");
       if (phone !== c.phone) {
-        if (Object.values(e.s.customers).some((x) => x.id !== c.id && x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+        if (phoneTaken(e, phone, c.id)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
         c.phone = phone; changed.push("phone");
       }
     }

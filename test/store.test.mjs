@@ -657,12 +657,18 @@ describe("7. Estadísticas, auditoría y proveedores", () => {
   test("reporte de proveedor: costo, ingreso atribuido, margen y cuentas por vencer", () => {
     const { s, clock, maria } = setup();
     s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
-    clock.t += 35 * DAY;
+    clock.t += 5 * DAY;
+    // Ingreso y costo del mismo período (últimos 30 días).
+    const [andes5] = s.stats.suppliers(admin);
+    assert.equal(andes5.revenue, 3500);
+    assert.equal(andes5.cost, 8100);
+    assert.equal(andes5.margin, 3500 - 8100);
+    clock.t += 30 * DAY;
     const [andes] = s.stats.suppliers(admin);
     assert.equal(andes.accounts, 3);
     assert.equal(andes.cost, 8100);
-    assert.equal(andes.revenue, 3500);
-    assert.equal(andes.margin, 3500 - 8100);
+    assert.equal(andes.revenue, 0, "la venta de hace 35 días ya no entra en el período");
+    assert.equal(andes.margin, -8100);
     assert.deepEqual(andes.expiringIn7Days.map((a) => a.email), ["nf02@gabostore.lat"]);
   });
 
@@ -1163,7 +1169,9 @@ describe("17. Importar vencidos y clientes sin WhatsApp", () => {
     assert.equal(s.orders.closeExpired(system, 2), 0, "no lo cierra");
     assert.throws(() => s.orders.setExpiry({ id: "c", role: "customer", customerId: "x" }, id, T0 + 30 * DAY), err("FORBIDDEN"));
     assert.throws(() => s.orders.setExpiry(seller, id, NaN), err("VALIDATION"));
-    const a = s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR");
+    // Atención (seller) no alarga fechas a mano (sin cobro anotado): eso lo hace Renovar, o el dueño/admin.
+    assert.throws(() => s.orders.setExpiry(seller, id, clock.t + 20 * DAY, "pagó por QR"), err("FORBIDDEN"));
+    const a = s.orders.setExpiry(admin, id, clock.t + 20 * DAY, "pagó por QR");
     assert.equal(a.holdOpen, undefined);
     assert.equal(a.history.at(-1).event, "date_changed");
     clock.t += 23 * DAY;
@@ -1200,10 +1208,11 @@ describe("19. Control de alquileres", () => {
     const { s, maria, as } = setup();
     const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
     const id = o.assignmentIds[0];
-    const c = s.orders.setControl(seller, id, { price: 6900, cost: 2000, payStatus: "pendiente", seller: " ARIT ", note: "paga viernes", startedAt: T0 - 30 * DAY });
+    assert.throws(() => s.orders.setControl(seller, id, { cost: 2000 }), err("FORBIDDEN"), "Atención no carga costos");
+    const c = s.orders.setControl(owner, id, { price: 6900, cost: 2000, payStatus: "pendiente", seller: " ARIT ", note: "paga viernes", startedAt: T0 - 30 * DAY });
     assert.deepEqual(c, { price: 6900, cost: 2000, payStatus: "pendiente", seller: "ARIT", note: "paga viernes", startedAt: T0 - 30 * DAY });
     assert.equal(s.admin.assignments(admin).find((a) => a.id === id).control.price, 6900);
-    assert.deepEqual(s.orders.setControl(seller, id, { cost: null, note: "" }), { price: 6900, payStatus: "pendiente", seller: "ARIT", startedAt: T0 - 30 * DAY });
+    assert.deepEqual(s.orders.setControl(owner, id, { cost: null, note: "" }), { price: 6900, payStatus: "pendiente", seller: "ARIT", startedAt: T0 - 30 * DAY });
     assert.throws(() => s.orders.setControl(as(maria), id, { price: 1 }), err("FORBIDDEN"));
     assert.throws(() => s.orders.setControl(seller, id, { price: -5 }), err("VALIDATION"));
     assert.throws(() => s.orders.setControl(seller, id, { payStatus: "quizas" }), err("VALIDATION"));
@@ -1360,7 +1369,8 @@ describe("Herramientas del revendedor: su control, su fiado y sus ganancias", ()
     assert.throws(() => s.rtools.control(as(maria)), err("FORBIDDEN"), "un cliente común no tiene control");
     // Anota que no le pagó y lo pasa a SU fiado
     s.rtools.setControl(as(carla), rows[0].id, { payStatus: "pendiente", price: 4500 });
-    assert.deepEqual(s.fiado.fromControl(as(carla), cli.id), { added: 1, amount: 4500 });
+    // Se anota solo en su libreta (no hace falta "Pasarlos acá")
+    assert.deepEqual(s.fiado.fromControl(as(carla), cli.id), { added: 0, amount: 0 });
     assert.equal(s.fiado.overview(as(carla)).totals.owed, 4500);
     assert.equal(s.fiado.overview(owner).totals.owed, 0, "el dueño no ve lo que le deben a Carla");
     assert.throws(() => s.fiado.charge(as(carla), { customerId: maria.id, amount: 100 }), err("FORBIDDEN"), "no anota fiado a clientes ajenos");
@@ -1409,5 +1419,36 @@ describe("Fallas y renovar varios: revendedor y dueño", () => {
     assert.deepEqual([pub.hasQr, pub.payNote, pub.qrFileRef], [true, "Banco Unión · Carla", undefined]);
     assert.equal(s.shops.image("carla-tv", "qr"), "qr-carla.png");
     assert.throws(() => s.shops.update(as(carla), { payNote: "x".repeat(161) }), err("VALIDATION"));
+  });
+});
+
+describe("Pulido: Mi control, libreta y ganancias siempre de acuerdo", () => {
+  test("No pagó → la libreta lo anota y Ganancias lo separa; Pagado → se salda solo", () => {
+    const { s, carla, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Rodrigo", phone: "71112222" });
+    assert.equal(cli.phone, "+59171112222", "el número sin +591 se guarda con código de país");
+    assert.throws(() => s.catalog.createCustomer(as(carla), { name: "Rodrigo bis", phone: "+591 7111 2222" }), err("VALIDATION"), "no se repite el cliente");
+    s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    const row = s.rtools.control(as(carla))[0];
+    let g = s.rtools.earnings(as(carla)).month;
+    assert.deepEqual([g.revenue, g.unpaid, g.collected], [4000, 0, 4000]);
+    s.rtools.setControl(as(carla), row.id, { payStatus: "no_pago" });
+    assert.equal(s.fiado.overview(as(carla)).totals.owed, 4000, "Quién me debe ya lo muestra");
+    g = s.rtools.earnings(as(carla)).month;
+    assert.deepEqual([g.revenue, g.unpaid, g.collected, g.profitCollected], [4000, 4000, 0, -2500], "vendiste 40, cobraste 0");
+    s.rtools.setControl(as(carla), row.id, { payStatus: "pagado" });
+    assert.equal(s.fiado.overview(as(carla)).totals.owed, 0, "marcar Pagado salda la libreta");
+    assert.equal(s.rtools.earnings(as(carla)).month.collected, 4000);
+  });
+  test("los movimientos de saldo dicen qué fue y para quién", () => {
+    const { s, carla, as } = setup();
+    s.wallet.adjust(owner, carla.id, 10000, "recarga");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
+    const cli = s.catalog.createCustomer(as(carla), { name: "Rodrigo Paz", phone: "71113333" });
+    s.orders.create(as(carla), { customerId: cli.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" });
+    const last = s.wallet.history(as(carla), carla.id).at(-1);
+    assert.equal(last.label, "Netflix perfil para Rodrigo Paz");
   });
 });

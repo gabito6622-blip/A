@@ -165,6 +165,23 @@ export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> 
 
 /** Teléfono normalizado: solo dígitos y un "+" inicial opcional. */
 export const normalizePhone = (p: string) => String(p ?? "").replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+/**
+ * Teléfono como lo escribe la gente en Bolivia ("70099111", "591 70099111") → "+59170099111",
+ * para que el link de WhatsApp funcione y no se repitan clientes. Otros países quedan como estaban.
+ */
+export function phoneWithCountry(p: string): string {
+  const n = normalizePhone(p), d = n.replace(/\D/g, "");
+  if (!n.startsWith("+") && /^[67]\d{7}$/.test(d)) return `+591${d}`;
+  if (!n.startsWith("+") && /^591[67]\d{7}$/.test(d)) return `+${d}`;
+  return n;
+}
+/** ¿Ya hay otro cliente con este número? Compara por los últimos 8 dígitos (con o sin +591). */
+export function phoneTaken(e: Engine, phone: string, exceptId?: Id): boolean {
+  const d = phone.replace(/\D/g, "");
+  if (d.length < 7) return false;
+  const tail = d.slice(-8);
+  return Object.values(e.s.customers).some((x) => x.id !== exceptId && !!x.phone && (x.phone === phone || (d.length >= 8 && x.phone.replace(/\D/g, "").slice(-8) === tail)));
+}
 
 export function findCustomerByPhone(e: Engine, phone: string) {
   const n = normalizePhone(phone);
@@ -253,7 +270,7 @@ export function ensureResellerGroup(e: Engine, id: Id): void {
 }
 
 export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allowNoPhone?: boolean }): Customer {
-  const phone = normalizePhone(c.phone);
+  const phone = phoneWithCountry(c.phone);
   if (!c.name?.trim()) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   if (!(c.allowNoPhone && !phone) && phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Nombre y teléfono son obligatorios");
   let resellerId: Id | undefined;
@@ -266,13 +283,16 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
     resellerId = actor.customerId;
   }
   return e.tx(() => {
-    if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    if (phone && phoneTaken(e, phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    const email = c.email ? String(c.email).trim().toLowerCase() : undefined;
+    // Un correo es de una sola persona: si no, alguien podría "adueñarse" del correo de otro.
+    if (email && Object.values(e.s.customers).some((x) => (x.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ese correo ya lo usa otra cuenta");
     const groupId = c.priceGroupId ?? "final";
     ensureResellerGroup(e, groupId);
     if (!e.s.priceGroups[groupId]) throw new DomainError("NOT_FOUND", `Grupo de precios ${groupId} no existe`);
     const id = e.id("cus");
     const cust: Customer = {
-      id, name: c.name.trim(), phone, email: c.email, kind: c.kind ?? "customer", resellerId,
+      id, name: c.name.trim(), phone, email, kind: c.kind ?? "customer", resellerId,
       priceGroupId: groupId, whatsappConsent: c.whatsappConsent ?? false, createdAt: e.now(),
     };
     e.s.customers[id] = cust;

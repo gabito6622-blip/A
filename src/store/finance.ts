@@ -56,7 +56,53 @@ export function report(e: Engine, actor: Actor, n = 6) {
   for (const m of months) m.ganancia = m.ingresos - m.gastos;
   const curKey = mk(base);
   const curExpenses = (e.s.expenses ?? []).filter((x) => mk(new Date(x.at)) === curKey).sort((a, b) => b.at - a.at);
-  return { months, current: months[months.length - 1], expenses: structuredClone(curExpenses) };
+  const est = accountsEstimate(e);
+  const cur = months[months.length - 1];
+  const current = { ...cur, cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ingresos - cur.gastos - est.amount };
+  return { months, current, topApps: topAppsOfMonth(e, curKey), expenses: structuredClone(curExpenses) };
+}
+
+/**
+ * Costo ESTIMADO de las cuentas de este mes que todavía no anotaste como gasto: cada cuenta viva
+ * este mes (activa o en cuarentena, que no venció antes del día 1) cuesta su costo mensual. Si ya
+ * anotaste un gasto de esa cuenta este mes ("Ya la pagué" / "Pagué la renovación"), no se cuenta.
+ */
+export function accountsEstimate(e: Engine): { amount: Cents; count: number } {
+  const now = e.now();
+  const start = new Date(now); start.setDate(1); start.setHours(0, 0, 0, 0);
+  const curKey = mk(start);
+  const paid = new Set((e.s.expenses ?? []).filter((x) => x.accountId && mk(new Date(x.at)) === curKey).map((x) => x.accountId));
+  let amount = 0, count = 0;
+  for (const a of Object.values(e.s.accounts)) {
+    if (a.status === "retired" || !(a.cost > 0) || a.supplierExpiresAt < start.getTime() || a.createdAt > now || paid.has(a.id)) continue;
+    amount += a.cost; count++;
+  }
+  return { amount, count };
+}
+
+/**
+ * Las apps que más te dejaron este mes: lo que entró por cada una menos lo que te cuestan
+ * esos perfiles (estimado con el costo de las cuentas). Un combo suma el costo de sus apps.
+ */
+function topAppsOfMonth(e: Engine, curKey: string) {
+  const unit: Record<Id, number> = {};
+  for (const m of marginsData(e).products) if (m.unitCost !== null) unit[m.productId] = m.unitCost;
+  const costOf = (pid: Id): number => {
+    const p = e.s.products[pid];
+    if (p?.kind === "combo") return (p.comboProductIds ?? []).reduce((t, id) => t + (unit[id] ?? 0), 0);
+    return unit[pid] ?? 0;
+  };
+  const by: Record<Id, { productId: Id; name: string; ingresos: number; units: number; costo: number; gana: number }> = {};
+  for (const o of Object.values(e.s.orders)) {
+    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || mk(new Date(o.updatedAt)) !== curKey) continue;
+    const sub = o.items.reduce((t, it) => t + it.qty * it.unitPrice, 0) || 1;
+    for (const it of o.items) {
+      const b = (by[it.productId] ??= { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, ingresos: 0, units: 0, costo: 0, gana: 0 });
+      const rev = Math.round((o.total * it.qty * it.unitPrice) / sub); // reparte cupones/descuentos
+      b.ingresos += rev; b.units += it.qty; b.costo += costOf(it.productId) * it.qty;
+    }
+  }
+  return Object.values(by).map((b) => ({ ...b, gana: b.ingresos - b.costo })).sort((a, b) => b.gana - a.gana).slice(0, 3);
 }
 
 /** Suma `months` meses calendario a una fecha (mismo día; si no existe, el último del mes). */
@@ -116,6 +162,11 @@ export function recordAccountCost(e: Engine, actor: Actor, accountId: Id) {
  */
 export function productMargins(e: Engine, actor: Actor) {
   authorize(actor, "catalog.manage");
+  return marginsData(e);
+}
+
+/** Igual que productMargins() pero sin permisos (lo usan los avisos del dueño). */
+export function marginsData(e: Engine) {
   const minPct = e.s.settings.minMarginPct ?? 15;
   const rev = e.s.priceGroups.revendedor?.prices ?? {};
   const out = [];

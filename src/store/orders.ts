@@ -398,6 +398,13 @@ export function expireReservations(e: Engine, actor: Actor): number {
 
 /* ---------------- Renovaciones ---------------- */
 
+/** ¿Se puede renovar ya este servicio (1 período) sin pasarse del vencimiento con el proveedor? */
+export function renewableNow(e: Engine, a: Assignment): boolean {
+  const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
+  if (!prod || !acc || a.status !== "active") return false;
+  return Math.max(a.customerExpiresAt, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
+}
+
 function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
@@ -654,6 +661,8 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     if (!Number.isInteger(n) || n < 0 || n > 10_000_000) throw new DomainError("VALIDATION", `${what} inválido`);
     return n;
   };
+  // El costo es dato del dueño: Atención (seller) no lo ve ni lo cambia.
+  if (patch.cost !== undefined && actor.role === "seller") throw new DomainError("FORBIDDEN", "El costo lo carga el dueño o un admin");
   const price = money(patch.price, "Precio"), cost = money(patch.cost, "Costo");
   if (patch.payStatus !== undefined && !["pagado", "pendiente", "no_pago"].includes(patch.payStatus)) throw new DomainError("VALIDATION", "Estado de pago inválido");
   if (patch.note !== undefined && String(patch.note).length > 300) throw new DomainError("VALIDATION", "Nota: máximo 300 letras");
@@ -681,6 +690,13 @@ export function setCustomerExpiry(e: Engine, actor: Actor, assignmentId: Id, exp
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
     if (a.status !== "active") throw new DomainError("INVALID_STATE", "Ese servicio ya no está activo");
+    // Atención (seller) solo corrige hacia atrás: no puede alargar lo que el cliente pagó (eso es
+    // Renovar, que deja anotado el cobro) ni pasar la fecha del proveedor. Dueño y admin, sin límite.
+    if (actor.role === "seller") {
+      const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId];
+      if (expiresAt > a.customerExpiresAt) throw new DomainError("FORBIDDEN", "Para alargar la fecha usá Renovar (así queda anotado el cobro) o pedíselo al dueño");
+      if (acc && expiresAt > acc.supplierExpiresAt) throw new DomainError("FORBIDDEN", "No podés poner una fecha después del vencimiento con el proveedor");
+    }
     const before = a.customerExpiresAt;
     a.customerExpiresAt = expiresAt;
     delete a.holdOpen;

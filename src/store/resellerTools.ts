@@ -6,6 +6,8 @@ import type { Actor, Cents, Id, RentalControl } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { priceFor, visibleTo } from "./catalog.js";
+import { renewableNow } from "./orders.js";
+import { addPayment, chargeUnpaidRentals, history } from "./fiado.js";
 
 function reseller(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
@@ -24,7 +26,7 @@ export function myControl(e: Engine, actor: Actor) {
         email: acc?.email ?? "", profile: slot?.label ?? "", startsAt: a.startsAt, expiresAt: a.customerExpiresAt, holdOpen: !!a.holdOpen,
         price: a.rcontrol?.price ?? me.resellerPrices?.[a.productId] ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
-        cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id),
+        cost: a.control?.price ?? priceFor(e, me.id, a.productId), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
       };
     });
 }
@@ -50,15 +52,24 @@ export function setMyControl(e: Engine, actor: Actor, assignmentId: Id, patch: {
     if (t.length > 120) throw new DomainError("VALIDATION", "La nota va hasta 120 letras");
     out.note = t || undefined;
   }
-  return e.tx(() => {
+  const res = e.tx(() => {
     const a = e.get("assignments", assignmentId);
     if (e.s.customers[a.customerId]?.resellerId !== me.id) throw new DomainError("FORBIDDEN", "Ese servicio no es de un cliente tuyo");
     const next = { ...(a.rcontrol ?? {}), ...out };
     for (const k of Object.keys(next) as (keyof RentalControl)[]) if (next[k] === undefined) delete next[k];
     a.rcontrol = next;
     e.audit(actor, "reseller.control", "assignment", a.id, { fields: Object.keys(patch).join(",") });
-    return { ok: true as const };
+    return { ok: true as const, customerId: a.customerId };
   });
+  // "Quién me debe" queda al día solo: si no te pagó, se anota en tu libreta; si después marcás
+  // "Pagado", se anota el pago de lo que faltaba. Así Mi control y la libreta nunca dicen cosas distintas.
+  if (out.payStatus && out.payStatus !== "pagado") chargeUnpaidRentals(e, actor, res.customerId);
+  if (out.payStatus === "pagado") {
+    const ch = history(e, actor, res.customerId).entries.find((x) => x.kind === "cargo" && x.assignmentId === assignmentId);
+    const left = ch ? ch.amount - (ch.covered ?? 0) : 0;
+    if (left > 0) addPayment(e, actor, { customerId: res.customerId, amount: left, note: "Marcado como pagado en Mi control" });
+  }
+  return { ok: true as const };
 }
 
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -71,15 +82,22 @@ const monthKey = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Am
 export function myEarnings(e: Engine, actor: Actor) {
   const me = reseller(e, actor);
   const now = e.now();
-  type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number };
+  type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number; unpaid: Cents };
   const months = new Map<string, Row>();
   const apps = new Map<string, Row & { name: string }>();
   const cur = monthKey(now);
+  const mine = (o: (typeof e.s.orders)[string]) => o.payerId === me.id && o.customerId !== me.id && o.status === "fulfilled" && (o.kind === "sale" || o.kind === "renewal");
+  // Último pedido de cada servicio: si hoy figura "Pendiente"/"No pagó", ese pedido todavía no se cobró.
+  const lastOf = new Map<Id, { id: Id; at: number }>();
+  for (const o of Object.values(e.s.orders)) if (mine(o)) for (const aid of o.assignmentIds) {
+    const cur2 = lastOf.get(aid);
+    if (!cur2 || o.updatedAt >= cur2.at) lastOf.set(aid, { id: o.id, at: o.updatedAt });
+  }
   for (const o of Object.values(e.s.orders)) {
-    if (o.payerId !== me.id || o.customerId === me.id || o.status !== "fulfilled" || (o.kind !== "sale" && o.kind !== "renewal")) continue;
+    if (!mine(o)) continue;
     if (now - o.updatedAt > 370 * 86_400_000) continue;
     const k = monthKey(o.updatedAt);
-    const m = months.get(k) ?? { sales: 0, cost: 0, revenue: 0, noPrice: 0 };
+    const m = months.get(k) ?? { sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
     m.sales++; m.cost += o.total;
     for (const it of o.items) {
       const a = o.assignmentIds.map((id) => e.s.assignments[id]).find((x) => x && x.productId === it.productId);
@@ -89,8 +107,11 @@ export function myEarnings(e: Engine, actor: Actor) {
       const revenue = sell === undefined ? it.unitPrice * it.qty : sell * units * periods;
       if (sell === undefined) m.noPrice++;
       m.revenue += revenue;
+      const unpaid = !!a && (a.rcontrol?.payStatus ?? "pagado") !== "pagado" && lastOf.get(a.id)?.id === o.id;
+      if (unpaid) m.unpaid += revenue;
       if (k === cur) {
-        const p = apps.get(it.productId) ?? { name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0 };
+        const p = apps.get(it.productId) ?? { name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
+        if (unpaid) p.unpaid += revenue;
         p.sales += units; p.cost += it.unitPrice * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
         apps.set(it.productId, p);
       }
@@ -99,8 +120,8 @@ export function myEarnings(e: Engine, actor: Actor) {
   }
   const label = (k: string) => `${MES[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`;
   const list = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
-    .map(([k, m]) => ({ key: k, label: label(k), ...m, profit: m.revenue - m.cost }));
-  const thisMonth = list.find((x) => x.key === cur) ?? { key: cur, label: label(cur), sales: 0, cost: 0, revenue: 0, noPrice: 0, profit: 0 };
+    .map(([k, m]) => ({ key: k, label: label(k), ...m, collected: m.revenue - m.unpaid, profit: m.revenue - m.cost, profitCollected: m.revenue - m.unpaid - m.cost }));
+  const thisMonth = list.find((x) => x.key === cur) ?? { key: cur, label: label(cur), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: 0, profitCollected: 0 };
   return {
     month: thisMonth, months: list,
     byApp: [...apps.values()].map((p) => ({ ...p, profit: p.revenue - p.cost })).sort((a, b) => b.profit - a.profit),

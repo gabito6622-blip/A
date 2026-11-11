@@ -971,3 +971,41 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .rqrpay{display:grid;gap:8px;justify-items:center;text-align:center;border:1px solid var(--s-line);border-radius:16px;padding:12px;background:var(--s-card2)}
 .rqrpay img{width:min(100%,240px);aspect-ratio:1;object-fit:contain;background:#fff;border-radius:12px;padding:8px}
 .rqrpay .sbtn{width:100%}
+
+/* Pulido GaboHub */
+.rlock{font-size:13px;color:var(--s-muted);display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.rlock a{color:var(--s-blue-text,var(--s-blue));font-weight:700}
+.cpy{border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;margin-left:6px;min-height:32px}
+.rgain{display:grid;gap:2px;padding:10px 12px;border-radius:14px;background:var(--s-card2)}
+.rgain span{font-size:13px;color:var(--s-muted)} .rgain b{font-size:24px} .rgain small{color:var(--s-muted)}
+.rpaid{border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;display:grid;gap:6px;margin:0}
+.rpaid legend{font-weight:700;padding:0 4px}
+.rcombos{display:grid}
+.rcombo{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--s-line)}
+.rcombo>div{display:grid;gap:2px;min-width:0} .rcombo small{display:block;overflow-wrap:anywhere} .rcprice{font-weight:800}
+.qty button{min-width:44px;min-height:44px}
+.x{min-width:44px;min-height:44px}
+.tday{display:grid;gap:10px;padding:14px;border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--s-blue) 18%,var(--s-card)),var(--s-card));border:1px solid color-mix(in srgb,var(--s-blue) 30%,var(--s-line))}
+.tday-r{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tday-i{display:grid;gap:2px;justify-items:start;text-align:left;padding:10px;border-radius:14px;border:1px solid var(--s-line);background:var(--s-card);color:var(--s-ink);min-width:0}
+.tday-i span{font-size:20px} .tday-i b{font-size:17px;overflow-wrap:anywhere} .tday-i small{font-size:12px;color:var(--s-muted)}
+.tday-i.w b{color:var(--s-warn)} .tday-i.b b{color:var(--s-bad)} .tday-i.g b{color:var(--s-ok)}
+@media (max-width:380px){.tday-i b{font-size:15px}}
+.rgain b.ok{color:var(--s-ok)} .rgain b.bad{color:var(--s-bad)}
+/* Pestañas del revendedor en una sola fila deslizable (antes ocupaban 4 filas en el celular) */
+@media (max-width:640px){
+  .rtabs{display:flex!important;flex-wrap:nowrap;overflow-x:auto;gap:6px;scrollbar-width:none;padding:6px}
+  .rtabs::-webkit-scrollbar{display:none}
+  .rtabs button{flex:0 0 auto;white-space:nowrap;padding:10px 14px;min-height:44px}
+}
+
+/* Mi control en filas compactas que se abren con un toque */
+.rcard header{align-items:center}
+.rcselw{display:grid;place-items:center;min-width:44px;min-height:44px;margin:-8px 0 -8px -8px;cursor:pointer}
+.rcopen{flex:1;display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;border:0;background:none;color:inherit;text-align:left;padding:0;font:inherit;cursor:pointer}
+.rcopen>span{display:grid;gap:2px;min-width:0;flex:1}
+.rcopen small{color:var(--s-muted);overflow-wrap:anywhere}
+.rcopen small .bad{color:var(--s-bad);font-weight:700}
+.rcopen i{font-style:normal;color:var(--s-muted)}
+.rcard:not(:has(.rcrow)){gap:0;padding:8px 14px}
+.rcopen .rcest{flex:none}
