@@ -79,9 +79,11 @@ export function notificationItems(e: Engine) {
   const resellers = custs.filter((c) => c.kind === "reseller");
   if (resellers.length) {
     const rev = e.s.priceGroups.revendedor?.prices ?? {};
-    const sinPrecio = Object.values(e.s.products).filter((p) => (p.published || p.resellersOnly) && rev[p.id] === undefined);
+    // Si los revendedores solo compran lo de revendedores, solo importa el precio de esos productos.
+    const forRes = (p: { published: boolean; resellersOnly?: boolean }) => (e.s.settings.resellerOnlyCatalog ? !!p.resellersOnly && p.published : p.published || !!p.resellersOnly);
+    const sinPrecio = Object.values(e.s.products).filter((p) => forRes(p) && rev[p.id] === undefined);
     add("resellerPrice", "🏷️", sinPrecio.length === 1 ? `1 producto sin precio de revendedor (${sinPrecio[0].name}): paga el precio público` : `${sinPrecio.length} productos sin precio de revendedor: pagan el precio público`, sinPrecio.length, "productos", "warn");
-    const loss = marginsData(e).products.filter((p) => p.reseller?.state === "loss");
+    const loss = marginsData(e).products.filter((p) => p.reseller?.state === "loss" && (!e.s.settings.resellerOnlyCatalog || !!e.s.products[p.productId]?.resellersOnly));
     add("resellerLoss", "🔴", loss.length === 1 ? `Perdés plata con ${loss[0].name} (revendedor): ${fmtMoney(e, loss[0].reseller!.gain)} por venta` : `Perdés plata en ${loss.length} productos a precio de revendedor: ${loss.slice(0, 3).map((p) => p.name).join(", ")}${loss.length > 3 ? "…" : ""}`, loss.length, "productos", "bad");
     // Revendedores dormidos: hace más de 14 días que no te compran (y llevan más de 14 días con vos).
     const last = lastPurchaseByPayer(e);

@@ -273,7 +273,7 @@ export function createApp(cfg: AppConfig): App {
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
       fontFamily: st.fontFamily || "inter", corners: st.corners || "round", headingFont: st.headingFont || st.fontFamily || "inter", layout: st.layout || "clasico", storeHours: st.storeHours ?? "",
-      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, alwaysAvailable: !!st.alwaysAvailable, resellerProgramPrices: st.resellerProgramPrices !== false,
+      accent2Color: st.accent2Color || "", bgStyle: st.bgStyle || "glow", cardStyle: st.cardStyle || "solid", resellerShops: st.resellerShops !== false, alwaysAvailable: !!st.alwaysAvailable, resellerOnlyCatalog: !!st.resellerOnlyCatalog, resellerProgramPrices: st.resellerProgramPrices !== false,
       heroChip: st.heroChip ?? "✦ Tu tienda digital en Bolivia", heroTicks: st.heroTicks ?? "Precios en bolivianos, Entrega en tu cuenta, Soporte y renovaciones",
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "", seoTitle: st.seoTitle ?? "", seoDescription: st.seoDescription ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
@@ -922,6 +922,7 @@ export function createApp(cfg: AppConfig): App {
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
     if (typeof b.resellerProgramPrices === "boolean") pick.resellerProgramPrices = b.resellerProgramPrices;
     if (typeof b.alwaysAvailable === "boolean") pick.alwaysAvailable = b.alwaysAvailable;
+    if (typeof b.resellerOnlyCatalog === "boolean") pick.resellerOnlyCatalog = b.resellerOnlyCatalog;
     if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
     return store.catalog.updateSettings(A(c), pick);
   });

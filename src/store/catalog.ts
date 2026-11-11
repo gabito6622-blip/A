@@ -126,7 +126,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));
@@ -389,8 +389,11 @@ export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
 /** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
 export function visibleTo(e: Engine, p: { published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
   if (!p.published) return false;
+  const isReseller = !!customerId && e.s.customers[customerId]?.kind === "reseller";
+  // "Solo lo de revendedores": el revendedor compra únicamente los productos marcados para revendedores.
+  if (isReseller && e.s.settings.resellerOnlyCatalog) return !!p.resellersOnly;
   if (!p.resellersOnly) return true;
-  return !!customerId && e.s.customers[customerId]?.kind === "reseller";
+  return isReseller;
 }
 
 export function publicCatalog(e: Engine, customerId?: Id) {
