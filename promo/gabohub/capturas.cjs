@@ -1,7 +1,8 @@
 // Saca las capturas del video de GaboHub (celular 390 px, x3) desde una copia LOCAL con datos ficticios.
-// 1) node scripts/seed-reseller-demo.mjs <carpeta>   (revendedora de prueba «Ariana Streaming»)
+// 1) node promo/gabohub/seed-video.mjs <carpeta>     (revendedora de prueba «Ariana Streaming», sin azar)
 // 2) GS_DATA_DIR=<carpeta> PORT=8090 node dist/server/main.js
-// 3) node promo/gabohub/capturas.cjs            → promo/gabohub/assets/
+// 3) node promo/gabohub/vestir-tienda.cjs           (logos, portadas, QR de ejemplo e íconos de productos)
+// 4) node promo/gabohub/capturas.cjs                → promo/gabohub/assets/
 // Por cada escena guarda: <id>-top.jpg (barra de arriba), <id>-body.jpg (contenido) y <id>-nav.png (barra de abajo);
 // o <id>-full.jpg si la pantalla no tiene esas barras. Reemplaza "http://localhost:8090" por "gabohub" en lo que se ve.
 const { chromium } = require("playwright");
@@ -12,19 +13,13 @@ const PHONE = process.env.AR_PHONE || "+59171234567", PIN = "2468";
 
 // id, contexto (ar = revendedora, pub = visitante), dirección, pestaña, desde qué texto arranca, alto en px css
 const SHOTS = [
-  ["precios", "ar", "/#precios", null, null, 1500],
-  ["cuentas", "ar", "/#cuentas", null, null, 1300],
-  ["saldo", "ar", "/#recargas", null, null, 1300],
-  ["panel", "ar", "/#clientes", null, null, 1300],
-  ["vencen", "ar", "/#clientes", null, "Por vencer", 1400],
-  ["renovar", "ar", "/#cuentas", null, "Servicios activos", 1500],
-  ["inicio", "ar", "/#inicio", null, null, 1300],
-  ["tienda", "pub", "/r/ariana-streaming", null, null, 2600, true],
-  ["estilos", "ar", "/#clientes", "pagina", "Elegí un estilo", 1600],
-  ["combos", "ar", "/#clientes", "combos", null, 1500],
-  ["directorio", "pub", "/#tiendas", null, null, 1000],
-  ["referidos", "ar", "/#inicio", null, "Referí y ganá", 1100],
-  ["codigos", "ar", "/#codigos", null, null, 1100],
+  ["precios", "ar", "/#precios", null, null, 1800],
+  ["cuentas", "ar", "/#cuentas", null, null, 1600],
+  ["panel", "ar", "/#clientes", null, null, 1600],
+  ["vencen", "ar", "/#clientes", null, "Por vencer", 1700],
+  ["tienda", "pub", "/r/ariana-streaming", null, null, 3400, true],
+  ["combos", "ar", "/#clientes", "combos", null, 1800],
+  ["referidos", "ar", "/#inicio", null, "Referí y ganá", 1200],
 ];
 
 const clean = () => {
@@ -33,12 +28,9 @@ const clean = () => {
   for (let n; (n = w.nextNode());) if (n.nodeValue.includes("localhost")) n.nodeValue = fix(n.nodeValue);
   for (const i of document.querySelectorAll("input,textarea")) if (i.value.includes("localhost")) i.value = fix(i.value);
   for (const t of document.querySelectorAll(".toast,#tour")) t.remove();
-  // En la demo los combos salen sin stock y la tienda no tiene QR cargado: eso no va en el video.
-  for (const s of document.querySelectorAll("#sout .stock")) if (s.textContent.trim() === "Agotado") s.closest("article")?.remove();
-  for (const n of document.querySelectorAll("#sout *")) if (n.children.length === 0 && n.textContent.includes("todavía no cargó su QR")) {
-    let box = n; while (box.parentElement && box.parentElement.textContent.trim() === n.textContent.trim()) box = box.parentElement;
-    box.remove();
-  }
+  // Control: la tienda tiene que estar completa (seed-video + vestir-tienda). Si algo quedó a medio armar, se avisa.
+  const bad = [...document.querySelectorAll("#sout *")].filter((n) => n.children.length === 0 && /Agotado|A pedido|todavía no cargó|\(demo\)|proveedor\.lat/.test(n.textContent));
+  return bad.map((n) => n.textContent.trim().slice(0, 60));
 };
 
 (async () => {
@@ -47,11 +39,12 @@ const clean = () => {
   const owner = await mk();
   const login = await owner.request.post(B + "/api/auth/staff/login", { data: { username: "gabriel", password: "demo-gabriel-2026" }, headers: { origin: B } });
   if (!login.ok()) throw new Error("login dueño: " + login.status());
-  await owner.request.post(B + "/api/admin/customers/cus_00401/login-pin", { data: { pin: PIN }, headers: { origin: B } });
+  const arId = (await (await owner.request.get(B + "/api/admin/customers?q=Ariana")).json()).find((c) => c.kind === "reseller").id;
+  await owner.request.post(B + `/api/admin/customers/${arId}/login-pin`, { data: { pin: PIN }, headers: { origin: B } });
   const ar = await mk();
   const r = await ar.request.post(B + "/api/auth/customer/pin", { data: { phone: PHONE, pin: PIN }, headers: { origin: B } });
   if (!r.ok()) throw new Error("login revendedora: " + r.status());
-  await ar.addInitScript(() => { try { localStorage.setItem("gs-guide-cus_00401", "1"); } catch {} });
+  await ar.addInitScript((id) => { try { localStorage.setItem("gs-guide-" + id, "1"); } catch {} }, arId);
   const ctx = { ar, pub: await mk() };
 
   for (const [id, who, url, tab, from, h, full] of SHOTS) {
@@ -59,7 +52,8 @@ const clean = () => {
     await page.goto(B + url);
     await page.waitForTimeout(1500);
     if (tab) { await page.click(`[data-rtab=${tab}]`); await page.waitForTimeout(1200); }
-    await page.evaluate(clean);
+    const bad = await page.evaluate(clean);
+    if (bad.length) console.warn(`OJO, ${id} se ve a medio armar:`, bad);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(200);
     if (full) {

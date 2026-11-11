@@ -1,10 +1,11 @@
 """Música original para el promo de GaboHub (sintetizada desde cero, sin samples ni copyright).
 
 125 BPM, Do mayor (C - G - Am - F), más luminosa que la de Barbiño. Las secciones coinciden con las escenas del video:
-  0.00 - 3.84   gancho      (pulso + pad filtrado)
-  3.84 - 7.68   logo        (impacto, arpegio, redoble que sube)
-  7.68 - 34.56  drop        (beat completo; whoosh en cada cambio de función)
- 34.56 - 40.32  cierre      (impacto, pad abierto, final)
+  0.00 - 5.76   gancho      (pulso + pad filtrado)
+  5.76 - 9.60   logo        (impacto, arpegio, redoble que sube)
+  9.60 - 40.32  drop        (beat completo; whoosh en cada cambio de función, cada 2 compases)
+ 40.32 - 46.08  cierre      (impacto, pad abierto, final)
+La voz va encima (mezcla.sh baja la música cuando habla).
 Uso: python3 music.py salida.wav
 """
 import sys
@@ -16,7 +17,7 @@ SR = 44100
 BPM = 125
 BEAT = 60 / BPM          # 0.48 s
 BAR = BEAT * 4           # 1.92 s
-TOTAL = 40.32 + 1.2      # un poco de cola para la reverb
+TOTAL = 46.08 + 1.2      # un poco de cola para la reverb
 N = int(TOTAL * SR)
 rng = np.random.default_rng(11)
 
@@ -216,8 +217,8 @@ def arp_bar(t0, ci, gain=1.0, oct_=12):
 
 
 # ---------------------------------------------------------------- arreglo
-# Gancho (2 compases): pulso de bombo, pad cerrado
-for b in range(2):
+# Gancho (3 compases): pulso de bombo, pad cerrado
+for b in range(3):
     t0 = b * BAR
     pad_bar(t0, b, 300, 900, gain=0.9)
     bass_bar(t0, b, "long", gain=0.7)
@@ -225,34 +226,34 @@ for b in range(2):
         kick(t0 + q * BEAT, gain=0.55 if q else 0.8)
     for q in range(8):
         hat(t0 + q * BEAT / 2 + BEAT / 2 * (q % 2 == 0), gain=0.5)
-clap(1 * BAR + 3 * BEAT, 0.6)
-riser(2 * BAR, 1.2, 0.7)
+clap(2 * BAR + 3 * BEAT, 0.6)
+riser(3 * BAR, 1.2, 0.7)
 
 # Logo (2 compases): impacto + arpegio + redoble que acelera
-impact(2 * BAR)
-for b in range(2, 4):
+impact(3 * BAR)
+for b in range(3, 5):
     t0 = b * BAR
-    pad_bar(t0, b, 800 if b == 2 else 1200, 1600 if b == 2 else 4000, gain=1.0)
-    arp_bar(t0, b, gain=0.8 + 0.3 * (b - 2))
+    pad_bar(t0, b, 800 if b == 3 else 1200, 1600 if b == 3 else 4000, gain=1.0)
+    arp_bar(t0, b, gain=0.8 + 0.3 * (b - 3))
     bass_bar(t0, b, "long", gain=0.8)
 # redoble: negras, corcheas, semicorcheas, fusas
-t = 3 * BAR
+t = 4 * BAR
 for div, beats in ((2, 1), (4, 1), (8, 1), (16, 1)):
     for i in range(div * beats):
-        frac = (t - 3 * BAR) / BAR
+        frac = (t - 4 * BAR) / BAR
         snare(t, 0.25 + 0.6 * frac)
         t += BEAT / div
-riser(4 * BAR, 1.9, 1.0)
+riser(5 * BAR, 1.9, 1.0)
 
-# Drop (14 compases): 12 funciones + 2 de montaje rápido
-DROP0 = 4 * BAR
-for b in range(14):
+# Drop (16 compases): 7 funciones de 2 compases + 2 de montaje rápido
+DROP0 = 5 * BAR
+for b in range(16):
     t0 = DROP0 + b * BAR
     ci = b
-    montage = b >= 12
+    montage = b >= 14
     pad_bar(t0, ci, 2500, 3000, gain=0.75)
     bass_bar(t0, ci, "drop")
-    arp_bar(t0, ci, gain=0.9 if not montage else 1.1, oct_=12 if b % 4 < 2 else 24)
+    arp_bar(t0, ci, gain=0.7 if not montage else 1.0, oct_=12 if b % 4 < 2 else 24)
     for q in range(4):
         kick(t0 + q * BEAT)
         hat(t0 + q * BEAT + BEAT / 2, 1.0, open_=True, pan=0.25)
@@ -261,13 +262,13 @@ for b in range(14):
         hat(t0 + q * BEAT / div, 0.55 if q % 2 else 0.35, pan=-0.3)
     clap(t0 + BEAT, 0.9)
     clap(t0 + 3 * BEAT, 0.9)
-    if b < 12:
-        whoosh(t0 + BAR, 0.8, pan=(-0.5 if b % 2 else 0.5))
+    if b < 14 and b % 2 == 1:
+        whoosh(t0 + BAR, 0.8, pan=(-0.5 if b % 4 == 1 else 0.5))
 impact(DROP0, 0.8)
-riser(DROP0 + 14 * BAR, 1.9, 0.9)
+riser(DROP0 + 16 * BAR, 1.9, 0.9)
 
 # Cierre (3 compases): impacto, pad abierto, acorde final
-OUT0 = DROP0 + 14 * BAR
+OUT0 = DROP0 + 16 * BAR
 impact(OUT0, 1.0)
 for b in range(3):
     t0 = OUT0 + b * BAR
@@ -307,7 +308,7 @@ mixR = R + padR + arpR + bassd
 
 # fade final
 fade = np.ones(N)
-f0, f1 = int(40.32 * SR) - int(1.6 * SR), N
+f0, f1 = int(46.08 * SR) - int(1.6 * SR), N
 fade[f0:f1] = np.linspace(1, 0, f1 - f0) ** 1.5
 mixL *= fade
 mixR *= fade

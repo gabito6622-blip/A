@@ -69,6 +69,12 @@
     background: repeating-linear-gradient(90deg, var(--red) 0 120px, var(--paper) 120px 240px, var(--violet) 240px 360px, var(--blue) 360px 480px);
     box-shadow: 0 0 80px rgba(0,0,0,.6); }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  /* subtítulos de la voz (por encima de la zona que tapa TikTok abajo) */
+  #cap { position: absolute; left: 70px; right: 70px; top: 1590px; text-align: center; z-index: 20; }
+  #cap span.box { display: inline-block; padding: 18px 30px 20px; border-radius: 22px; background: rgba(8, 12, 24, .82); box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    font-size: 52px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; color: rgba(246,244,239,.55); }
+  #cap b { font-weight: 800; color: #f6f4ef; }
+  #cap b.now { color: #6ea8ff; }
 </style>
 </head>
 <body>
@@ -81,13 +87,16 @@
   </div>
   <div id="wipe"></div>
   <div id="flash"></div>
+  <div id="cap"></div>
   <canvas id="grain" width="1080" height="1920"></canvas>
   <div id="vignette"></div>
 </div>
+<script src="captions.js"></script>
 <script>
 // ------------------------------------------------------------------ tiempo y música
 const BPM = 125, BEAT = 60 / BPM, BAR = BEAT * 4;
-const T_LOGO = 2 * BAR, T_FEAT = 4 * BAR, N_FEAT = 12, T_MONT = T_FEAT + N_FEAT * BAR, T_OUT = T_MONT + 2 * BAR, DURATION = T_OUT + 3 * BAR; // 40.32 s
+const FB = 2 * BAR;   // cada función dura 2 compases (le da tiempo a la voz)
+const T_LOGO = 3 * BAR, T_FEAT = 5 * BAR, N_FEAT = 7, T_MONT = T_FEAT + N_FEAT * FB, T_OUT = T_MONT + 2 * BAR, DURATION = T_OUT + 3 * BAR; // 46.08 s
 window.DURATION = DURATION;
 
 // ------------------------------------------------------------------ utilidades
@@ -140,7 +149,9 @@ function scene(start, end, node, update) { scenes.appendChild(node); registry.pu
     return { c, x, y, r, x2: c.querySelector(".x") };
   });
   const h1w = [...s.querySelectorAll("#h1 .w")], h2w = [...s.querySelectorAll("#h2 .w")];
-  scene(0, T_LOGO, s, (lt) => {
+  const K = 1.25;   // el gancho dura 3 compases: todo va 1,25 veces más lento que en el de Barbiño
+  scene(0, T_LOGO, s, (lr) => {
+    const lt = lr / K;
     // título 1 (palabras en negras)
     const out1 = P(lt, BAR - .1, .2);
     h1w.forEach((w, i) => {
@@ -155,13 +166,13 @@ function scene(start, end, node, update) { scenes.appendChild(node); registry.pu
       set(w.firstChild, { transform: `translateY(${(1 - p) * 110}%)` });
       const hl = w.querySelector(".hl"); if (hl) set(hl, { transform: `scaleX(${oCubic(P(lt, BAR + 1.55, .25))})` });
     });
-    const zoom = iCubic(P(lt, 2 * BAR - .45, .45));
+    const zoom = iCubic(P(lr, T_LOGO - .45, .45));
     set($("#h2", s), { opacity: lt > BAR ? 1 : 0, transform: `scale(${1 + zoom * 1.4})`, transformOrigin: "40% 50%", filter: `blur(${zoom * 14}px)` });
     // tarjetas del caos: entran, se tachan, se van
     cards.forEach((k, i) => {
       const pin = spring(P(lt, BEAT * 2 + i * BEAT * .5, .5));
       const strike = oCubic(P(lt, BAR + i * BEAT * .5, .22));
-      const gone = iCubic(P(lt, BAR + 2.2 + i * .05, .3));
+      const gone = iCubic(P(lt, BAR + 1.45 + i * .05, .3));
       const shake = Math.sin(lt * 70 + i) * 6 * P(lt, BAR + i * BEAT * .5, .05) * (1 - P(lt, BAR + i * BEAT * .5 + .12, .1));
       set(k.c, {
         opacity: clamp(pin * 3) * (1 - gone),
@@ -214,18 +225,13 @@ function scene(start, end, node, update) { scenes.appendChild(node); registry.pu
 
 // ------------------------------------------------------------------ 3. funciones
 const FEATS = [  // scroll: cuánto baja la captura (px de la imagen de 1170 de ancho)
-  { k: "Precios de mayorista", t: "Comprá a *precio de revendedor*", src: "precios", chip: "🏷️ Netflix Bs 25 · público Bs 35", scroll: 1500 },
-  { k: "Entrega al instante", t: "La cuenta te llega *al toque*", src: "cuentas", chip: "⚡ Sin esperar a nadie", scroll: 1200 },
-  { k: "Saldo", t: "Tu saldo, *siempre a mano*", src: "saldo", chip: "💰 Recargá y comprá al instante", scroll: 700 },
-  { k: "Tu panel", t: "Tu negocio, *en un solo panel*", src: "panel", chip: "👥 28 clientes · 39 servicios", scroll: 1000 },
-  { k: "Vencimientos", t: "Nadie se te vence *sin aviso*", src: "vencen", chip: "⏰ 10 vencen esta semana", scroll: 1400 },
-  { k: "Renovar", t: "Renová en *un toque*", src: "renovar", chip: "🔄 Renovar con saldo", scroll: 1600 },
-  { k: "Inicio", t: "Tu día, *de un vistazo*", src: "inicio", chip: "🔔 1 vencida · 10 esta semana", scroll: 900 },
-  { k: "Tu tienda", t: "Tu tienda, *con tu marca*", src: "tienda", full: true, chip: "🎨 Tu logo y tus colores", scroll: 2600 },
-  { k: "Estilos", t: "Elegí un estilo *en segundos*", src: "estilos", chip: "✨ 17 estilos listos", scroll: 1000 },
-  { k: "Combos", t: "Armá *tus propios* combos", src: "combos", chip: "🎁 Dúo Series · Bs 65", scroll: 1500 },
-  { k: "Directorio", t: "Que te encuentren *más clientes*", src: "directorio", chip: "🔎 Directorio de tiendas", scroll: 250 },
-  { k: "Referidos", t: "Traé revendedores y *ganá saldo*", src: "referidos", chip: "🎁 Bs 20 por cada uno", scroll: 900 },
+  { k: "Precios de mayorista", t: "Comprá a *precio de revendedor*", src: "precios", chip: "🏷️ Netflix Bs 25 · público Bs 35", scroll: 2700 },
+  { k: "Entrega al instante", t: "La cuenta te llega *al toque*", src: "cuentas", chip: "⚡ Sin esperar a nadie", scroll: 1500 },
+  { k: "Tus clientes", t: "Sabé quién vence *esta semana*", src: "panel", chip: "⏰ 16 vencen en 7 días", scroll: 420 },
+  { k: "Renovar", t: "Renová *en un toque*", src: "vencen", chip: "💬 Aviso listo por WhatsApp", scroll: 1500 },
+  { k: "Tu tienda", t: "Tu tienda, *con tu marca*", src: "tienda", full: true, chip: "🎨 Tu logo y tus colores", scroll: 1450 },
+  { k: "Combos", t: "Armá *tus propios* combos", src: "combos", chip: "🎁 Dúo Series · Bs 65", scroll: 2300 },
+  { k: "Referidos", t: "Traé revendedores y *ganá saldo*", src: "referidos", chip: "🎁 Bs 20 por cada uno", scroll: 500 },
 ];
 const SC = 584 / 1170; // escala de la captura dentro de la pantalla
 const progress = el(`<div id="progress">${FEATS.map(() => "<i><b></b></i>").join("")}</div>`);
@@ -237,7 +243,7 @@ featChrome.append(progress, brandBar);
 const bars = [...progress.querySelectorAll("b")];
 
 FEATS.forEach((f, i) => {
-  const start = T_FEAT + i * BAR, dir = i % 2 ? -1 : 1;
+  const start = T_FEAT + i * FB, dir = i % 2 ? -1 : 1;
   const imgs = f.full
     ? `<div class="abs" style="left:0;right:0;top:62px;bottom:0;overflow:hidden"><img class="body" src="assets/${f.src}-full.jpg" style="top:0"></div>`
     : `<img class="top" src="assets/${f.src}-top.jpg" style="top:62px;z-index:2"><div class="bw abs" style="left:0;right:0;top:${62 + Math.round(231 * SC)}px;bottom:0;overflow:hidden"><img class="body" src="assets/${f.src}-body.jpg" style="top:0"></div><img class="nav" src="assets/${f.src}-nav.png" style="bottom:0;z-index:3">`;
@@ -249,15 +255,15 @@ FEATS.forEach((f, i) => {
   </section>`);
   const words = [...s.querySelectorAll(".w")], hls = [...s.querySelectorAll(".hl")];
   const phone = $(".phone", s), body = $(".body", s), chip = $(".chip", s), kick = $(".kicker", s);
-  scene(start, start + BAR, s, (lt) => {
+  scene(start, start + FB, s, (lt) => {
     const e = oExpo(P(lt, 0, .5));
-    const x = iCubic(P(lt, BAR - .16, .16));
+    const x = iCubic(P(lt, FB - .16, .16));
     const sway = Math.sin((lt + i) * 2.2) * 1.2;
     set(phone, {
       transform: `translate(${dir * 760 * (1 - e) - dir * 1100 * x}px, ${140 * (1 - e)}px) rotate(${dir * (4 * (1 - e) - 3) + sway}deg)`,
       filter: (1 - e) > .02 || x > .02 ? `blur(${(1 - e) * 10 + x * 16}px)` : "none",
     });
-    const sp = ioCubic(P(lt, .55, 1.25));
+    const sp = ioCubic(P(lt, .6, FB - 1.3));
     set(body, { transform: `translateY(${-sp * f.scroll * SC}px)` });
     words.forEach((w, j) => {
       const p = oExpo(P(lt, .04 + j * .045, .4));
@@ -268,15 +274,15 @@ FEATS.forEach((f, i) => {
     set(kick, { opacity: k, transform: `translateX(${(1 - k) * -40}px)` });
     const c = oBack(P(lt, .62, .4), 2.4);
     set(chip, { opacity: clamp(c * 3), transform: `scale(${c}) rotate(${dir * -3}deg) translateX(${-dir * 1000 * x}px)` });
-    const outT = P(lt, BAR - .14, .14);
+    const outT = P(lt, FB - .14, .14);
     set(s.querySelector(".title"), { opacity: 1 - outT, transform: `translateX(${-dir * 300 * iCubic(outT)}px)` });
     set(kick, { opacity: k * (1 - outT) });
   });
 });
 scenes.appendChild(featChrome);
 registry.push({ start: T_FEAT, end: T_MONT, el: featChrome, update: (lt) => {
-  const fi = Math.floor(lt / BAR);
-  bars.forEach((b, i) => set(b, { transform: `scaleX(${i < fi ? 1 : i > fi ? 0 : (lt - fi * BAR) / BAR})` }));
+  const fi = Math.floor(lt / FB);
+  bars.forEach((b, i) => set(b, { transform: `scaleX(${i < fi ? 1 : i > fi ? 0 : (lt - fi * FB) / FB})` }));
   const e = oCubic(P(lt, 0, .4));
   set(featChrome, { opacity: e });
 } });
@@ -306,7 +312,7 @@ registry.push({ start: T_FEAT, end: T_MONT, el: featChrome, update: (lt) => {
     }
     const p = oExpo(clamp(wl / .16));
     set(box, { color: fg, transform: `scale(${1.35 - .35 * p}) rotate(${(i % 2 ? 2 : -2) * (1 - p)}deg)`, opacity: clamp(p * 2) });
-    const n = Math.round(lerp(12, 28, clamp(lt / (2 * BAR - .3))));
+    const n = Math.round(lerp(8, 23, clamp(lt / (2 * BAR - .3))));
     set($("#mCount", s), { color: fg });
     $("#mCount", s).textContent = `+${n} funciones`;
   });
@@ -384,6 +390,18 @@ function seek(t) {
   // destello blanco
   let fl = 0; for (const c of CUTS) { const d = t - c; if (d >= 0 && d < .3) fl = Math.max(fl, .55 * (1 - d / .3)); }
   $("#flash").style.opacity = fl;
+  // subtítulos: la frase activa, con las palabras ya dichas en blanco y la actual en azul
+  const cap = (window.CAPS || []).find((c) => t >= c.a && t < c.b), capEl = $("#cap");
+  const key = cap ? cap.a + ":" + cap.words.filter((w) => w[1] <= t).length : "";
+  if (capEl.dataset.k !== key) {
+    capEl.dataset.k = key;
+    if (!cap) capEl.innerHTML = "";
+    else {
+      const said = cap.words.filter((w) => w[1] <= t).length;
+      capEl.innerHTML = `<span class="box">${cap.words.map((w, i) => i < said ? `<b class="${i === said - 1 ? "now" : ""}">${w[0]}</b>` : w[0]).join(" ")}</span>`;
+    }
+  }
+  if (cap) { const p = oExpo(P(t, cap.a, .18)); set(capEl, { opacity: p, transform: `translateY(${(1 - p) * 20}px)` }); }
   $("#vignette").style.opacity = t >= T_MONT && t < T_OUT ? .35 : 1;
   drawGrain(Math.round(t * 30));
 }
