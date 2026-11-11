@@ -18,10 +18,15 @@ async function patientWithAppointmentNow(req: APIRequestContext, csrf: string, b
   const phone = `7${Math.floor(1000000 + Math.random() * 8999999)}`;
   const p = await (await req.post("/api/patients", { headers, data: { firstName: "Llegada", lastName: `E2E ${tag}`, documentType: "SIN", birthDate, phone, allowDuplicate: true } })).json();
   const staff = await (await req.get("/api/staff?professionals=1")).json();
-  const start = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString();
-  for (const d of staff) {
-    const r = await req.post("/api/appointments", { headers, data: { branchId: lpz, dentistId: d.userId, patientId: p.id, startsAt: start, durationMin: 20, allowOutsideSchedule: true, source: "walk_in" } });
-    if (r.ok()) return { patientId: p.id, name: `Llegada E2E ${tag}`, phone, appointmentId: (await r.json()).id, lpz };
+  // La semilla demo llena la agenda según la hora del día: si a esta hora no hay nadie libre, se prueba
+  // unos minutos antes o después (la llegada sigue dentro de la ventana de la cita).
+  const now = Math.floor(Date.now() / 60_000) * 60_000;
+  for (const offsetMin of [0, -10, 10, -20, 20]) {
+    const start = new Date(now + offsetMin * 60_000).toISOString();
+    for (const d of staff) {
+      const r = await req.post("/api/appointments", { headers, data: { branchId: lpz, dentistId: d.userId, patientId: p.id, startsAt: start, durationMin: 20, allowOutsideSchedule: true, source: "walk_in" } });
+      if (r.ok()) return { patientId: p.id, name: `Llegada E2E ${tag}`, phone, appointmentId: (await r.json()).id, lpz };
+    }
   }
   throw new Error("No hubo un profesional libre para la cita de prueba");
 }
