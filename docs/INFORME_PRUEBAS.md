@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Vender más (3 equipos en paralelo)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` antes de lanzar y después de integrar los 3 equipos + el arreglo de transferencia | **315 → 346 / 346 ✅** (31 nuevas, 0 saltadas) |
+| Que vuelvan | `test/winback.test.mjs` (15: cada caso que entra y no entra, 7/60 días con reloj, métrica, permisos por HTTP, sin costos ni correos) + `winback-panel.test.mjs` (navegador) | ✅ |
+| Cómo van | `test/como-van.test.mjs` (7: borde de mes en hora de Bolivia, sin doble conteo, cada estado, permisos, JSON sin datos de clientes del revendedor) | ✅ |
+| Link de cobro | `test/link-cobro.test.mjs` (8: camino feliz, aislamiento entre revendedores, 60+ respuestas del panel y 6 Excel sin el cuaderno ni tokens, revocar/borrar/renovar, límite por IP, navegador) | ✅ |
+| Transferir no pasa el cuaderno | prueba en `link-cobro`: **falla sin el arreglo, pasa con él** | ✅ |
+| Revisión en celular (integrado) | `revision-celular.cjs`, dueño: Inicio, Que vuelvan, Cómo van y Revendedores a 360/390/768, claro y oscuro; Atención: Inicio, Que vuelvan, Revendedores | Pantallas nuevas: **0 desbordes, 0 botones chicos, 0 textos chicos**. Revendedores: avisos que ya estaban (BACKLOG V11) |
+| Por rol (integrado) | Playwright con datos de ejemplo: admin ve Cómo van y Que vuelvan; Atención no ve Cómo van; revendedora crea su link y la página /c/… se ve a 360/390 claro y oscuro; cliente final en la tienda | 0 errores de consola, 0 desbordes |
+
+**No se probó:** celular real (guardar el QR manteniendo apretado, que abra WhatsApp), un QR bancario real, `revision-accesibilidad.cjs` (falta axe-core), datos reales de producción.
+
 ## Tanda 11/11/2026 · Cobro de alquileres (#29) y cuentas completas (#30)
 | Qué | Cómo | Resultado |
 |---|---|---|
