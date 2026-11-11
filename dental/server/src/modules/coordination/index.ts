@@ -5,8 +5,10 @@ import { taskRoutes } from "./tasks.js";
 import { callRoutes } from "./calls.js";
 import { activityRoutes } from "./activity.js";
 import { homeRoutes } from "./home.js";
+import { taskCountRoutes } from "./taskCount.js";
 
 export function coordinationRoutes(route: Route) {
+  taskCountRoutes(route);
   taskRoutes(route);
   callRoutes(route);
   activityRoutes(route);

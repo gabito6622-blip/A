@@ -19,6 +19,7 @@ import { StatusIcon } from "../components/agenda/StatusIcon";
 import { SeriesActions } from "../components/agenda/SeriesActions";
 import { PatientContactActions } from "../components/coordination/Calls";
 import { RepeatFields, SeriesReview, defaultRule, initialChoices, previewSeries, ruleErrors, saveSeries, type Choice, type RepeatRule, type SeriesPreview } from "../components/agenda/Recurrence";
+import { SurveyLinkActions } from "../components/SurveyLinkActions";
 
 const START = 7 * 60, END = 21 * 60, STEP = 15, PX = 18;
 const ROWS = (END - START) / STEP;
@@ -557,6 +558,7 @@ export function AppointmentDrawer({ id, onClose, onChanged, onCompleted }: { id:
                   <button className="btn btn-danger" disabled={!cancelReason.trim()} onClick={() => setStatus("cancelled", cancelReason)}>Confirmar cancelación</button>
                 </div>
               )}
+              {d.status === "completed" && <div className="row"><SurveyLinkActions appointmentId={d.id} patientName={d.patientName} /></div>}
               {d.seriesId && <span className="muted small">Los botones de arriba cambian solo esta cita.</span>}
               {resched && (
                 <div className="card card-pad stack">

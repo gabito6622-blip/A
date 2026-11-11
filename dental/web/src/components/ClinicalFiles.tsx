@@ -1,14 +1,18 @@
 // Imágenes y archivos del paciente (B-012): galería por fecha y tipo, filtro por pieza, visor a
 // pantalla completa con zoom y desplazamiento, comparación lado a lado (antes/después), subida
 // desde la cámara del celular o arrastrando en el escritorio, con barra de progreso.
+// Miniaturas (B-081): al subir una imagen el navegador genera su miniatura (lib/thumbnail.ts) y la
+// manda en la misma subida. La galería solo carga miniaturas; el original se pide (y queda en la
+// auditoría) únicamente al abrirlo en el visor. Un archivo antiguo sin miniatura muestra un marcador.
 // El servidor decide qué ve cada rol (recepción: solo documentos escaneados) y valida el tipo por
 // la firma de bytes; aquí solo se adelantan los avisos para no esperar la subida.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as RPointerEvent } from "react";
-import { Archive, ArchiveRestore, Camera, ChevronLeft, ChevronRight, Columns2, FileDown, FileText, Images, RotateCcw, Upload, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Archive, ArchiveRestore, Camera, ChevronLeft, ChevronRight, Columns2, FileDown, FileText, ImageIcon, Images, RotateCcw, Upload, X, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { fmtDateTime, localDate } from "../lib/format";
+import { makeThumbnail } from "../lib/thumbnail";
 import { Dialog, Empty, Field, Loading, useAsk, useToast } from "./ui";
 import { downloadPdf } from "./ClinicalDocuments";
 import "./clinical-files.css";
@@ -16,7 +20,7 @@ import "./clinical-files.css";
 export interface ClinicalFile {
   id: string; kind: string; kindLabel: string; teeth: number[]; takenOn: string; description: string | null; originalName: string | null;
   mimeType: string; typeLabel: string; isImage: boolean; sizeBytes: number; sha256: string; branchName: string; uploadedBy: string; createdAt: string;
-  archived: { at: string; reason: string; by: string } | null; viewUrl: string | null; canArchive: boolean;
+  archived: { at: string; reason: string; by: string } | null; viewUrl: string | null; thumbUrl: string | null; canArchive: boolean;
 }
 interface ListResponse {
   items: ClinicalFile[]; archivedCount: number; maxBytes: number; maxLabel: string;
@@ -62,7 +66,7 @@ export function parseTeeth(s: string): { teeth: number[]; error: string | null }
   return { teeth, error: null };
 }
 
-function xhrUpload(url: string, file: File, meta: object, csrf: string, onProgress: (p: number) => void): Promise<{ ok: boolean; body: any }> {
+function xhrUpload(url: string, file: Blob, meta: object, csrf: string, onProgress: (p: number) => void): Promise<{ ok: boolean; body: any }> {
   return new Promise((resolve) => {
     const x = new XMLHttpRequest();
     x.open("POST", url);
@@ -110,7 +114,7 @@ export function ClinicalFilesPanel({ patientId, tooth, onToothChange }: { patien
   const teethWithFiles = useMemo(() => [...new Set(items.flatMap((f) => f.teeth))].sort((a, b) => a - b), [items]);
   const setTooth = (t: number | null) => { setToothSel(t); onToothChange?.(t); };
 
-  // Los enlaces de vista duran 5 minutos: si una miniatura falla, se recarga el listado (como mucho cada 20 s).
+  // Los enlaces de miniatura duran 5 minutos: si una falla, se recarga el listado (como mucho cada 20 s).
   const onThumbError = useCallback(() => {
     if (Date.now() - lastReload.current < 20_000) return;
     lastReload.current = Date.now();
@@ -202,7 +206,9 @@ export function ClinicalFilesPanel({ patientId, tooth, onToothChange }: { patien
                             aria-label={`${f.kindLabel}${f.teeth.length ? `, pieza ${f.teeth.join(", ")}` : ""}, ${shortDate(f.takenOn)}${compareMode ? (sel ? " (elegida)" : "") : ""}`}
                             onClick={() => (compareMode ? togglePick(f) : setViewer(filtered.indexOf(f)))}>
                             <span className="cf-thumb">
-                              {f.isImage && f.viewUrl ? <img src={f.viewUrl} alt="" loading="lazy" decoding="async" onError={onThumbError} /> : <FileText size={34} aria-hidden="true" />}
+                              {f.isImage && f.thumbUrl ? <img src={f.thumbUrl} alt="" loading="lazy" decoding="async" onError={onThumbError} />
+                                : f.isImage ? <span className="cf-nothumb"><ImageIcon size={30} aria-hidden="true" /><span className="small">Sin vista previa</span></span>
+                                : <FileText size={34} aria-hidden="true" />}
                               {sel && <span className="cf-pick-mark" aria-hidden="true">{picked.indexOf(f.id) + 1}</span>}
                             </span>
                             <span className="cf-meta">
@@ -281,9 +287,11 @@ function UploadDialog({ patientId, files, info, defaultTooth, onClose, onDone }:
       const idx = rows.indexOf(r);
       const set = (patch: Partial<Row>) => setRows((rs) => rs.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
       set({ status: "uploading", progress: 0, error: null });
-      const res = await xhrUpload(`/api/patients/${patientId}/clinical-files`, r.file,
-        { branchId: branch, kind, takenOn, teeth: teeth.teeth, description: description.trim() || null, fileName: r.file.name }, me?.csrfToken ?? "",
-        (p) => set({ progress: p }));
+      // Miniatura para la galería (solo imágenes); sin ella el archivo se sube igual.
+      const thumb = r.type === "JPG" || r.type === "PNG" || r.type === "WebP" ? await makeThumbnail(r.file) : null;
+      const res = await xhrUpload(`/api/patients/${patientId}/clinical-files`, thumb ? new Blob([r.file, thumb]) : r.file,
+        { branchId: branch, kind, takenOn, teeth: teeth.teeth, description: description.trim() || null, fileName: r.file.name, thumbBytes: thumb?.size ?? null },
+        me?.csrfToken ?? "", (p) => set({ progress: p }));
       if (res.ok) { ok++; set({ status: "done", progress: 100 }); } else set({ status: "error", error: res.body?.error?.message ?? "No se pudo subir el archivo" });
     }
     setBusy(false);

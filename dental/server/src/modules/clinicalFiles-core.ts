@@ -83,18 +83,18 @@ export const tooLarge = (max: number) => new AppError(413, "file_too_large", `El
  * Lee el cuerpo application/octet-stream con un límite propio (mensaje en español). Rechaza antes
  * de leer si no hay sesión o si Content-Length ya excede el límite, para no acumular bytes ajenos.
  */
-export function registerBinaryParser(app: FastifyInstance, max: number) {
+export function registerBinaryParser(app: FastifyInstance, max: number, shownMax = max) {
   if (app.hasContentTypeParser("application/octet-stream")) return;
   app.addContentTypeParser("application/octet-stream", async (req: FastifyRequest, payload: NodeJS.ReadableStream) => {
     if (!req.auth) throw new AppError(401, "unauthenticated", "Inicia sesión para continuar");
     const declared = Number(req.headers["content-length"]);
-    if (Number.isFinite(declared) && declared > max) throw tooLarge(max);
+    if (Number.isFinite(declared) && declared > max) throw tooLarge(shownMax);
     const chunks: Buffer[] = [];
     let n = 0;
     for await (const chunk of payload as AsyncIterable<Buffer | string>) {
       const b = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
       n += b.length;
-      if (n > max) throw tooLarge(max);
+      if (n > max) throw tooLarge(shownMax);
       chunks.push(b);
     }
     return Buffer.concat(chunks, n);
@@ -103,7 +103,8 @@ export function registerBinaryParser(app: FastifyInstance, max: number) {
 
 // ---------------- Enlaces firmados ----------------
 export const LINK_TTL_SECONDS = 300;
-export type LinkPurpose = "view" | "download";
+/** view: original en el visor; download: adjunto; thumb: miniatura de la galería (sin auditar). */
+export type LinkPurpose = "view" | "download" | "thumb";
 export interface FileToken { f: string; c: string; u: string; p: LinkPurpose; e: number }
 
 const tokenKey = (secret: Buffer) => createHmac("sha256", secret).update("dentalia:clinical-files:link:v1").digest();
@@ -124,7 +125,7 @@ export function verifyFileToken(secret: Buffer, token: string, nowMs = Date.now(
   if (got.length !== want.length || !timingSafeEqual(got, want)) return { ok: false, reason: "invalid" };
   let t: FileToken;
   try { t = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); } catch { return { ok: false, reason: "invalid" }; }
-  if (!t || typeof t.f !== "string" || typeof t.c !== "string" || typeof t.u !== "string" || typeof t.e !== "number" || (t.p !== "view" && t.p !== "download")) {
+  if (!t || typeof t.f !== "string" || typeof t.c !== "string" || typeof t.u !== "string" || typeof t.e !== "number" || (t.p !== "view" && t.p !== "download" && t.p !== "thumb")) {
     return { ok: false, reason: "invalid" };
   }
   if (Math.floor(nowMs / 1000) >= t.e) return { ok: false, reason: "expired" };
@@ -132,3 +133,11 @@ export function verifyFileToken(secret: Buffer, token: string, nowMs = Date.now(
 }
 
 export const contentUrl = (id: string, token: string) => `/api/clinical-files/${id}/content?t=${encodeURIComponent(token)}`;
+export const thumbUrl = (id: string, token: string) => `/api/clinical-files/${id}/thumb?t=${encodeURIComponent(token)}`;
+
+// ---------------- Miniaturas (B-081) ----------------
+/** Tamaño máximo de una miniatura (la del navegador pesa ~10-40 KB). */
+export const THUMB_MAX_BYTES = 100 * 1024;
+/** Lado máximo de una miniatura (el navegador la genera a 320 px). */
+export const THUMB_MAX_SIDE = 400;
+export const THUMB_MIME = ["image/jpeg", "image/webp", "image/png"] as const;

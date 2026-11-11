@@ -21,6 +21,7 @@ import { audit } from "../../lib/audit.js";
 import { allowedBranches, requireBranch } from "../../lib/rbac.js";
 import { clinicZone } from "../agenda.js";
 import { signToken, tokenHash, verifyToken } from "./tokens.js";
+import { surveyShare } from "./surveyShare.js";
 
 const TAGS = ["encuestas"];
 export const SURVEY_DAYS = 14;
@@ -140,7 +141,8 @@ export function surveyRoutes(route: Route, cfg: Config) {
       const s = await issueSurvey(c, cfg, { clinicId: auth.clinicId!, appointmentId: params.id, source: "manual", userId: auth.userId });
       if (!s) throw conflict("El paciente ya respondió la encuesta de esta visita", "survey_answered");
       await audit(c, auth, "survey.link_issued", "survey", s.id, { appointmentId: params.id }, a.branch_id);
-      return { url: s.url, expiresAt: s.expiresAt };
+      // B-084: enlace wa.me listo para enviarlo a mano, solo con consentimiento para recordatorios.
+      return { url: s.url, expiresAt: s.expiresAt, ...(await surveyShare(c, params.id, s.url)) };
     },
   });
 

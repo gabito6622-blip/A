@@ -9,6 +9,7 @@ import { Empty, Loading, StatusBadge, useAsk, useToast } from "../components/ui"
 import { NextControlDialog } from "../components/Recalls";
 import { UnclosedAppointments } from "../components/VisitQuality";
 import { AppointmentDrawer } from "./Agenda";
+import { SurveyLinkActions } from "../components/SurveyLinkActions";
 
 interface Appt {
   id: string; status: string; statusLabel: string; startsAt: string; endsAt: string; patientId: string; patientName: string;
@@ -127,6 +128,9 @@ export function WaitingRoomPage() {
                               <button type="button" className="btn btn-sm btn-ghost" disabled={busy === a.id} onClick={() => move(a, "cancelled")}>Cancelar</button>
                             )}
                           </div>
+                        )}
+                        {writable && a.status === "completed" && (
+                          <div className="row" style={{ marginTop: 10, gap: 6 }}><SurveyLinkActions appointmentId={a.id} patientName={a.patientName} compact /></div>
                         )}
                       </article>
                     );

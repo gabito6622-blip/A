@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { BarChart3, CalendarDays, FileText, LayoutDashboard, LogOut, Settings, Sparkles, Users, Wallet, Building2, Armchair, UserCog, ShieldPlus, HandCoins, MessagesSquare, Package } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { FlaskConical, PhoneCall, ListTodo, ScrollText, Scale, Handshake, Landmark, Menu, X, HeartHandshake } from "lucide-react";
+import { TaskCount, TaskDot } from "./coordination/TaskCount";
 
 export const Logo = () => (
   <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M20 14c-6 0-10 5-10 12 0 9 5 14 7 23 1 5 3 8 6 8 4 0 4-5 5-10 1-4 2-6 4-6s3 2 4 6c1 5 1 10 5 10 3 0 5-3 6-8 2-9 7-14 7-23 0-7-4-12-10-12-5 0-7 2-12 2s-7-2-12-2z" fill="#5eead4" /></svg>
@@ -67,7 +68,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
             <div className="nav-group" key={g.id} role="group" aria-label={g.label}>
               {sections.length > 1 && g.label && <div className="nav-title" aria-hidden>{g.label}</div>}
               {g.items.map((i) => (
-                <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={18} />{i.label}</NavLink>
+                <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={18} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
               ))}
             </div>
           ))}
@@ -94,11 +95,11 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
       </div>
       <nav className="bottom-nav" aria-label="Navegación móvil">
         {quick.map((i) => (
-          <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}</NavLink>
+          <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
         ))}
         {items.length > quick.length && (
           <button type="button" className={inMore ? "active" : ""} aria-expanded={moreOpen} aria-controls="menu-completo" onClick={() => setMoreOpen(true)}>
-            <Menu size={20} />Más
+            <Menu size={20} />Más{items.some((i) => i.to === "/tareas") && !quick.some((i) => i.to === "/tareas") && <TaskDot />}
           </button>
         )}
       </nav>
@@ -116,7 +117,7 @@ export function Layout({ children, platformOnly }: { children: ReactNode; platfo
                   {g.label && <div className="more-title">{g.label}</div>}
                   <div className="more-grid">
                     {g.items.map((i) => (
-                      <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}</NavLink>
+                      <NavLink key={i.to} to={i.to} end={i.to === "/"}><i.icon size={20} />{i.label}{i.to === "/tareas" && <TaskCount />}</NavLink>
                     ))}
                   </div>
                 </div>
