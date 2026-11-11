@@ -7,6 +7,7 @@ import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { canActFor, phoneTaken, phoneWithCountry, priceFor, visibleTo } from "./catalog.js";
 import { balance } from "./wallet.js";
+import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
@@ -83,7 +84,7 @@ export function updateMyClient(e: Engine, actor: Actor, customerId: Id, patch: {
     if (!c || c.resellerId !== actor.customerId) throw new DomainError("FORBIDDEN", "Ese cliente no es tuyo");
     const changed: string[] = [];
     if (patch.phone !== undefined) {
-      const phone = phoneWithCountry(String(patch.phone));
+      const phone = phoneWithCountry(String(patch.phone), dialFor(e, actor));
       if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");
       if (phone !== c.phone) {
         if (phoneTaken(e, phone, c.id)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");

@@ -25,6 +25,8 @@ import * as coupons from "./coupons.js";
 import * as payMethods from "./payMethods.js";
 import * as watch from "./watch.js";
 import * as winback from "./winback.js";
+import * as country from "./country.js";
+import * as ownStock from "./ownStock.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -35,7 +37,9 @@ export type { WhatsAppTransport } from "./notify.js";
 export type { PublicStaff } from "./admin.js";
 export type { ServiceRow, ServiceResult } from "./importer.js";
 export { render as renderTemplate } from "./notify.js";
-export { normalizePhone } from "./catalog.js";
+export { normalizePhone, phoneWithCountry, samePhone } from "./catalog.js";
+export { COUNTRIES, money, convertFromStore, type ResellerLocale } from "./country.js";
+export type { OwnStockBook, OwnProduct, OwnAccount, OwnSale } from "./ownStock.js";
 export { TEMPLATES, templateParamOrder, metaTemplateBody } from "./notify.js";
 export { WINDOW_MS } from "./chats.js";
 
@@ -267,6 +271,32 @@ export function createStore(opts: EngineOptions = {}) {
     winback: {
       list: bind(e, winback.list),
       mark: bind(e, winback.mark),
+    },
+    /** País y moneda del revendedor (country.ts). */
+    locale: {
+      mine: bind(e, country.myLocale),
+      setMine: bind(e, country.setMyLocale),
+      setFor: bind(e, country.setLocaleFor),
+      of: (customerId: Id) => country.localeView(e, e.get("customers", customerId)),
+    },
+    /** "Mis cuentas propias" del revendedor (ownStock.ts). */
+    own: {
+      view: bind(e, ownStock.view),
+      saveProduct: bind(e, ownStock.saveProduct),
+      deleteProduct: bind(e, ownStock.deleteProduct),
+      setLogo: bind(e, ownStock.setProductLogo),
+      logo: bind(e, ownStock.productLogo),
+      preview: bind(e, ownStock.previewAccounts),
+      addBulk: bind(e, ownStock.addAccountsBulk),
+      saveAccount: bind(e, ownStock.saveAccount),
+      deleteAccount: bind(e, ownStock.deleteAccount),
+      assign: bind(e, ownStock.assign),
+      updateSale: bind(e, ownStock.updateSale),
+      renew: bind(e, ownStock.renew),
+      release: bind(e, ownStock.release),
+      link: bind(e, ownStock.link),
+      revokeLink: bind(e, ownStock.revokeLink),
+      counts: (customerId: Id) => ownStock.ownCounts(e, customerId),
     },
     rtools: {
       control: bind(e, rtools.myControl),

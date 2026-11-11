@@ -7,6 +7,8 @@ import type { Actor, Assignment, Id, SubRental } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { me, rental } from "./subRentals.js";
+import { linkQr as ownLinkQr, linkView as ownLinkView } from "./ownStock.js";
+import { localeOf } from "./country.js";
 
 /** Mismo texto para todo lo que no sirve (no existe, cambiado, borrado): no dice cuál fue el motivo. */
 export const LINK_GONE = "Este link ya no sirve. Pedile uno nuevo a quien te vendió.";
@@ -102,6 +104,9 @@ const usableQr = (e: Engine, customerId: Id) => {
 
 /** Lo que ve el cliente del revendedor. Solo estos campos (lista cerrada). */
 export function publicView(e: Engine, token: unknown) {
+  // El mismo /c/<token> sirve para los clientes de "Mis cuentas propias" (misma lista cerrada de campos).
+  const own = ownLinkView(e, token);
+  if (own) return own;
   const { a, s } = resolve(e, token);
   const c = e.s.customers[a.customerId];
   const seller = (c.shop?.title || c.name || "").trim();
@@ -115,12 +120,15 @@ export function publicView(e: Engine, token: unknown) {
     seller,
     sellerWhatsapp: String(c.shop?.whatsapp || c.phone || "").replace(/\D/g, ""),
     hasQr: !!usableQr(e, c.id),
-    currency: e.s.settings.currencySymbol || "Bs",
+    // Lo que le cobra a su cliente va en la moneda del revendedor (Bs si es de Bolivia).
+    currency: localeOf(e, c).symbol,
   };
 }
 
 /** Archivo del QR del revendedor de ese link (aunque su página pública esté apagada), o undefined. */
 export function publicQr(e: Engine, token: unknown): string | undefined {
+  const own = ownLinkQr(e, token);
+  if (own !== null) return own;
   const { a } = resolve(e, token);
   return usableQr(e, a.customerId);
 }

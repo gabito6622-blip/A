@@ -20,12 +20,17 @@ export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 /** Símbolo de moneda (configurable por la tienda; por defecto "Bs"). */
-let CUR_SYM = "Bs";
-/** La tienda y el panel lo fijan al cargar la configuración (ej.: "US$", "$", "₲"). */
-export const setCurrency = (sym) => { const s = String(sym ?? "").trim(); if (s) CUR_SYM = s.slice(0, 6); };
+let CUR_SYM = "Bs", CUR_DEC = 2;
+/**
+ * La tienda y el panel lo fijan al cargar la configuración (ej.: "US$", "$", "₲"). La página de un
+ * revendedor de otro país pasa también los decimales de su moneda (0 para ₲: "₲ 35.000").
+ */
+export const setCurrency = (sym, decimals) => { const s = String(sym ?? "").trim(); if (s) CUR_SYM = s.slice(0, 6); CUR_DEC = decimals === 0 ? 0 : 2; };
 export const currencySym = () => CUR_SYM;
-/** Centavos → "Bs 25" / "US$ 25,50" según el símbolo configurado. */
-export const bs = (cents) => `${CUR_SYM} ` + (cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
+/** Centavos → "Bs 25" / "US$ 25,50" según el símbolo configurado (sin decimales: miles con punto). */
+export const bs = (cents) => CUR_DEC === 0
+  ? `${CUR_SYM} ${cents < 0 ? "-" : ""}${String(Math.round(Math.abs(cents) / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`
+  : `${CUR_SYM} ` + (cents / 100).toLocaleString("es-BO", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
 /** "25", "25,50", "1.000" o "1.000,50" → centavos (el punto de los miles no cuenta). */
 export const toCents = (v) => {
   let s = String(v ?? "").trim().replace(/^bs\.?\s*/i, "").replace(/\s/g, "");
