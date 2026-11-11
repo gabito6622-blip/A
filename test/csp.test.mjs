@@ -24,7 +24,7 @@ describe("seguridad del navegador (CSP)", () => {
   });
 
   test("las páginas y la API mandan la CSP y los demás encabezados", async () => {
-    for (const path of ["/panel.html", "/tienda/", "/", "/api/health"]) {
+    for (const path of ["/panel.html", "/tienda/", "/", "/api/health", "/c/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "/api/cobro/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"]) {
       const r = await fetch(base + path);
       const csp = r.headers.get("content-security-policy") ?? "";
       assert.ok(csp.includes("script-src 'self'"), `${path}: sin script-src 'self'`);

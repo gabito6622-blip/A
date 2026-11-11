@@ -17,6 +17,7 @@ import * as finance from "./finance.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as subs from "./subRentals.js";
+import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
 import * as chats from "./chats.js";
@@ -257,6 +258,10 @@ export function createStore(opts: EngineOptions = {}) {
       renew: bind(e, subs.renewSub),
       remove: bind(e, subs.removeSub),
       summary: bind(e, subs.rentalSummary),
+      link: bind(e, subLinks.subLink),
+      revokeLink: bind(e, subLinks.revokeSubLink),
+      publicView: (token: unknown) => subLinks.publicView(e, token),
+      publicQr: (token: unknown) => subLinks.publicQr(e, token),
     },
     rtools: {
       control: bind(e, rtools.myControl),
