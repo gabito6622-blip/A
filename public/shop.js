@@ -561,10 +561,12 @@ function renderInner() {
         return okF && (!q || `${a.access.email} ${a.access.profile} ${a.customerName} ${a.product}`.toLowerCase().includes(q));
       }).map((a) => {
         const d = a.daysLeft;
+        // Con muchos servicios (revendedores) los datos van plegados: la lista entra en pocas pantallas.
+        const fold = isReseller() || services.length > 5;
         return `<div class="svc"><div class="top"><div class="who">${miniMark(product(a.productId) ?? { name: a.product })}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
-        <dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
-        ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}
+        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.renewableNow === false
           ? `<span class="rlock">🔒 Se renueva cuando la tienda renueve esta cuenta.${S.settings.whatsapp ? ` <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar a la tienda</a>` : ""}</span>`
           : a.canRenew === false
@@ -1242,7 +1244,10 @@ function shopEditor() {
   const fontSel = (name, cur) => `<select name="${name}">${FONT_LIST.map(([id, n, d]) => `<option value="${id}" ${id === cur ? "selected" : ""}>${n || "Sistema"} · ${d}</option>`).join("")}</select>`;
   const tplOn = (sh, t) => sh.layout === t.look.layout && (sh.backgroundColor || "").toLowerCase() === t.look.backgroundColor.toLowerCase() && sh.heroTitle === t.look.heroTitle;
   const color = (name, label, cur) => `<label class="rcolor">${label}<span><input type="color" name="${name}" value="${esc(cur || "#7c5cff")}"><code>${esc(cur || "")}</code></span></label>`;
+  const u = S.data.shopUndo;
   return `<div class="sec-h"><div><span class="chip">Tu marca</span><h2>Mi página</h2><p>Armá tu propia tienda con tu logo, tus colores y tus precios. Tus clientes te piden directo por WhatsApp.</p></div></div>
+    ${u ? `<div class="sbox rundo"><span>✨ Aplicaste <b>${esc(u.name)}</b>. ¿No te gustó?</span><button class="sbtn sm" type="button" data-shopundo="1">↩️ Deshacer</button><button class="sbtn sm" type="button" data-shopundo="ok">Me gusta</button></div>` : ""}
+    <button class="rpvfab" type="button" data-pvgo="1">👀 Ver cómo queda</button>
     ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
     <div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
       <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
@@ -1914,12 +1919,20 @@ document.addEventListener("click", async (ev) => {
     try { S.data.shop = await api("PUT", "/api/me/shop", { combos: combos.map((c) => ({ id: c.id, name: c.name, productIds: c.productIds, price: c.price })) }); toast("Combo borrado"); } catch (e) { toast(e.message); }
     return render();
   }
+  if (d.pvgo) { $(".rpreview")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (d.shopundo) {
+    const u = S.data.shopUndo; S.data.shopUndo = null;
+    if (d.shopundo === "ok" || !u) return render();
+    try { S.data.shop = await api("PUT", "/api/me/shop", u.prev); toast("↩️ Volviste a como estaba"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.pv) { S.data.pv = d.pv; $(".pvwrap").dataset.mode = d.pv; return; }
   if (d.tpl) {
     const t = PAGE_TEMPLATES.find((x) => x.id === d.tpl);
     if (!t || !confirm(`¿Usar la página "${t.name}"? Se cambian los colores, las letras, la forma de mostrar y los textos de la portada. Tu nombre, logo, WhatsApp y precios quedan igual.`)) return;
     el.disabled = true;
-    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); toast(`Página “${t.name}” aplicada: mirala con “Abrir”`); render(); }
+    const prev = Object.fromEntries(Object.keys(t.look).map((k) => [k, S.data.shop?.[k] ?? ""]));
+    try { S.data.shop = await api("PUT", "/api/me/shop", t.look); S.data.shopUndo = { prev, name: `la página “${t.name}”` }; toast(`Página “${t.name}” aplicada: mirala con “Abrir”`); render(); }
     catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
@@ -1929,7 +1942,8 @@ document.addEventListener("click", async (ev) => {
     const txt = (t) => ({ heroTitle: t.look.heroTitle, heroHighlight: t.look.heroHighlight, heroText: t.look.heroText, heroChip: t.look.heroChip });
     const body = d.mixl ? { layout: d.mixl } : d.mixt ? txt(PAGE_TEMPLATES.find((x) => x.id === d.mixt)) : { ...pick(THEMES).look, layout: pick(LAYOUT_LIST)[0], ...txt(pick(PAGE_TEMPLATES)) };
     el.disabled = true; S.data.mixOpen = true;
-    try { S.data.shop = await api("PUT", "/api/me/shop", body); toast(d.mixrand ? "🎲 Combinación nueva aplicada: mirala con “Abrir”" : "Listo, aplicado"); render(); }
+    const prev = Object.fromEntries(Object.keys(body).map((k) => [k, S.data.shop?.[k] ?? ""]));
+    try { S.data.shop = await api("PUT", "/api/me/shop", body); S.data.shopUndo = { prev, name: d.mixrand ? "una combinación al azar" : "un cambio" }; toast(d.mixrand ? "🎲 Combinación nueva aplicada: mirala con “Abrir”" : "Listo, aplicado"); render(); }
     catch (e) { el.disabled = false; toast(e.message); }
     return;
   }

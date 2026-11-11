@@ -1009,3 +1009,18 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 .rcopen i{font-style:normal;color:var(--s-muted)}
 .rcard:not(:has(.rcrow)){gap:0;padding:8px 14px}
 .rcopen .rcest{flex:none}
+
+/* Mis cuentas: datos plegados cuando hay muchos servicios */
+.credbox{border:1px solid var(--s-line);border-radius:12px;padding:0 12px}
+.credbox>summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center;list-style:none}
+.credbox>summary::-webkit-details-marker{display:none}
+.credbox[open]{padding-bottom:10px}
+
+/* Mi página en el celular: la vista previa ya no tapa lo que editás; se abre con un botón */
+.rpvfab{display:none}
+@media (max-width:640px){
+  .rpreview{position:static!important;margin:0}
+  .rpvfab{display:inline-flex;position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;border:0;border-radius:999px;padding:12px 16px;font-weight:800;background:var(--s-btn-a,var(--s-blue));color:var(--s-on-blue,#fff);box-shadow:0 10px 30px rgba(0,0,0,.35);min-height:44px}
+}
+.rundo{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rundo>span{flex:1 1 200px}

@@ -838,7 +838,7 @@ const V = {
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
-        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     }).join("");
     return `${alertsCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
@@ -2339,6 +2339,13 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
+  if (d.unquar) {
+    const acc = (await api("GET", "/api/admin/accounts")).find((x) => x.id === d.unquar);
+    const q = (acc?.slots ?? []).filter((x) => x.status === "quarantined");
+    if (!q.length) return toast("No hay perfiles en cuarentena");
+    if (!confirm(`¿Liberar ${q.length} perfil(es) de ${acc.email}? Vuelven a estar disponibles para vender.`)) return;
+    return act(async () => { for (const x of q) await api("POST", `/api/admin/slots/${x.id}/status`, { status: "available", note: "Liberado desde Cuentas" }); return q.length; }, (n) => `✅ ${n} perfil(es) liberados`);
+  }
   if (d.togrescat !== undefined && el.dataset.togrescat) {
     const on = d.togrescat === "1";
     try { await api("POST", "/api/admin/settings", { resellerOnlyCatalog: on }); toast(on ? "✅ Tus revendedores ahora ven solo lo de revendedores" : "Tus revendedores ven todo el catálogo"); } catch (e) { toast(e.message); }

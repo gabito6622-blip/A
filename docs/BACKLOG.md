@@ -7,7 +7,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
 |---|---|---|---|
-| B1 | Descuento de revendedor (hoy pagan precio público) | P1 | 🧑 |
+| B1 | Qué compran y a cuánto los revendedores | P1 | ✅ solo alquileres: Disney 69/34, Prime 20, HBO 15 |
 | B2 | Precios Netflix 3m → Bs 110 y Dúo Netflix+HBO → Bs 50 | P2 | 🧑 |
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
 
@@ -38,12 +38,12 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | R7 | 🏪 | Afiche con combos agotados y sin los combos propios | P2 | ✅ |
 | R8 | 🏪 | Barra de abajo sin Clientes; pestañas en 4 filas | P2 | ✅ |
 | R9 | 🏪 | Vender fiado; datos tapados tras vender; confirmación | P2 | ✅ navegador |
-| R10 | 🏪 | Mi control muy largo con muchos clientes | P2 | ✅ filas que se abren con un toque (16.283 → 5.529 px con 41 servicios) · Mis cuentas del revendedor sigue largo ⏳ |
-| R11 | 🏪 | Vista previa de Mi página tapa lo que editás; deshacer plantilla | P3 | ⏳ |
+| R10 | 🏪 | Mi control muy largo con muchos clientes | P2 | ✅ filas que se abren con un toque (16.283 → 5.529 px con 41 servicios) · Mis cuentas del revendedor: datos plegados ✅ (pulido 2) |
+| R11 | 🏪 | Vista previa de Mi página tapa lo que editás; deshacer plantilla | P3 | ✅ pulido 2 |
 | R12 | 🏪 | Movimientos de saldo con códigos (ord_…) en vez de qué y para quién | P3 | ✅ prueba `store` ("Netflix perfil para Rodrigo Paz") |
 | R13 | 🏪 | "Tu día" en Inicio (por avisar · te deben · ganaste) | P2 | ✅ idea wow |
 | D1–D9 | 👔 | Números del panel, Finanzas, Proveedores, Control de revendedores, PIN/saldo, precio de revendedor | P1 | ✅ `pulido-panel.test.mjs` + navegador |
-| D10 | 👔 | Cuentas: filtros de cuarentena y proveedor ≤7 días | P2 | ✅ · botón "liberar cuarentena de esta cuenta" ⏳ |
+| D10 | 👔 | Cuentas: filtros de cuarentena y proveedor ≤7 días + liberar cuarentena por cuenta | P2 | ✅ (pulido 2) |
 | D11 | 👔 | Revendedores activos / dormidos | P2 | ✅ |
 | D12 | 👔 | Menú del celular: reordenar, "Nuevo producto" plegable | P3 | ⏳ (íconos distintos ✅) |
 | D13–D15 | 👔 | Auditoría en palabras, "Tu mes" en Inicio, detalles | P3 | ✅ |
