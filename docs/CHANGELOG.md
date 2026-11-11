@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## Sin publicar — Cómo van cuenta lo que cobrás en el Control
+## 2026-11-11 · #32 Cómo van cuenta lo que cobrás en el Control
 - **Dueño:** "Te pagaron" en Cómo van ahora suma los alquileres que marcás 💵 cobrado en el Control, no solo las compras por GaboHub. Cada marca guarda fecha y monto; si te equivocás y la volvés a "pendiente", se borra. Las marcas que ya tenías cuentan en el día que empezó ese mes de alquiler. Lo que ya tiene pedido no se cuenta dos veces. Ya no aparecen porcentajes gigantes cuando el mes anterior fue casi cero.
 
 ## 2026-11-11 · #31 Vender más y revendedores que cobran mejor (3 equipos)

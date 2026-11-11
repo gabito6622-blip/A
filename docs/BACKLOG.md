@@ -27,7 +27,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | V8 | 🏪 | Link de cobro: mostrar los datos de pago escritos del revendedor (banco, a nombre de…) | P3 | ⏳ |
 | V9 | 🔒 | Que el log de errores no guarde la ruta `/api/cobro/<token>` | P3 | ⏳ |
 | V10 | 👔 | Que vuelvan: sumar pruebas gratis vencidas sin compra; "volvieron" solo del producto ofrecido | P3 | ⏳ |
-| V12 | 👔 | Cómo van: los cobros de alquiler que marcás como "pagado" en el Control (y lo importado del Excel) no son pedidos, así que no suman en "te pagaron". Hoy en la tienda real da Bs 34 este mes. Contarlos sin duplicar las renovaciones con pedido | P1 | ✅ prueba `como-van` (sin publicar) |
+| V12 | 👔 | Cómo van: los cobros de alquiler que marcás como "pagado" en el Control (y lo importado del Excel) no son pedidos, así que no suman en "te pagaron". Hoy en la tienda real da Bs 34 este mes. Contarlos sin duplicar las renovaciones con pedido | P1 | ✅ prueba `como-van` (#32) |
 | V11 | 👔 | Revendedores a 360 px: tarjetas de la lista se salen 15 px, link de la página cortado (ya estaba) | P3 | ⏳ |
 | B5 | Alquileres como cuenta completa (1 perfil "Cuenta completa") | P2 | ✅ 123 cuentas, sin avisos |
 

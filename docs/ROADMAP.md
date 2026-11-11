@@ -6,7 +6,7 @@ Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 - Que vuelvan, Cómo van tus revendedores, Link de cobro e invitar revendedores desde Inicio. 346 pruebas en verde.
 - Primera tanda con el método de equipos (`CLAUDE.md`, `docs/equipos/`).
 
-## Siguiente en plata — Que "Cómo van" cuente los cobros del Control (BACKLOG V12)
+## Hecho — "Cómo van" cuenta los cobros del Control · ✅ publicado (#32)
 
 ## Hecho — Pulido GaboHub y herramientas de revendedores (noviembre 2026) · ✅ publicado (#24 a #30)
 - Auditoría desde 4 miradas + seguridad, arreglos publicados en #24.
