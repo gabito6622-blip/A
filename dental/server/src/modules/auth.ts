@@ -6,15 +6,14 @@ import type { Route } from "../lib/http.js";
 import type { Client } from "../lib/db.js";
 import type { Mailer } from "../lib/mailer.js";
 import { AppError, badRequest } from "../lib/errors.js";
-import { hashPassword, verifyPassword, dummyVerify, passwordProblem } from "../lib/password.js";
+import { hashPassword, hashWithSalt, dummyVerify, passwordProblem } from "../lib/password.js";
 import { SESSION_COOKIE, hashToken, newToken } from "../lib/session.js";
 import { audit } from "../lib/audit.js";
 import { ROLE_LABELS, type Role } from "../lib/rbac.js";
-import { open, seal } from "../lib/secretbox.js";
+import { openWith, sealWith } from "../lib/keys.js";
+import { clearAllLocks, clearSourceFailures, lockState, LOGIN_FAILED, loginSource, recordLoginFailure } from "./loginGuard.js";
 import { newTotpSecret, otpauthUri, verifyTotp } from "../lib/totp.js";
 
-const MAX_FAILED = 5;
-const LOCK_MINUTES = 15;
 const MAX_MFA_FAILED = 5;
 const RESET_MINUTES = 30;
 
@@ -37,6 +36,36 @@ async function storeRecoveryCodes(c: Client, userId: string): Promise<string[]> 
   return codes;
 }
 
+/**
+ * ¿`pw` es la contraseña de la persona? Sin leer el hash (B-091): la base entrega solo los
+ * parámetros y la sal, la app calcula el hash y la base lo compara. Si no hay sal (cuenta
+ * deshabilitada o formato desconocido) se gasta el mismo tiempo y se responde que no.
+ */
+async function passwordMatches(c: Client, userId: string, pw: string): Promise<boolean> {
+  const salt = (await c.query<{ s: string | null }>("SELECT auth_password_salt($1) AS s", [userId])).rows[0]?.s;
+  const candidate = salt ? await hashWithSalt(pw, salt) : null;
+  if (!candidate) {
+    await dummyVerify(pw);
+    return false;
+  }
+  return (await c.query<{ ok: boolean }>("SELECT auth_password_matches($1, $2) AS ok", [userId, candidate])).rows[0]!.ok;
+}
+
+/** Secreto TOTP (vigente o pendiente) de la persona de la sesión, descifrado con DENTAL_MFA_KEY o la anterior. */
+async function myMfaSecret(c: Client, cfg: Config, pending: boolean): Promise<{ secret: string; rotated: boolean } | null> {
+  const enc = (await c.query<{ s: string | null }>("SELECT auth_my_mfa_secret($1) AS s", [pending])).rows[0]?.s;
+  if (!enc) return null;
+  const r = openWith(cfg.keys.mfa, enc);
+  return { secret: r.plain, rotated: r.rotated };
+}
+
+/** Rotación (B-094): un secreto descifrado con la clave anterior se vuelve a cifrar con la vigente. */
+async function rewrapIfRotated(c: Client, cfg: Config, actor: { userId: string; ip: string }, s: { secret: string; rotated: boolean }) {
+  if (!s.rotated) return;
+  await c.query("UPDATE users SET mfa_secret_enc = $2 WHERE id = $1", [actor.userId, sealWith(cfg.keys.mfa, s.secret)]);
+  await audit(c, { userId: actor.userId, clinicId: null, ip: actor.ip }, "auth.mfa_secret_rekeyed", "user", actor.userId);
+}
+
 export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
   const cookieOpts = {
     path: "/",
@@ -55,33 +84,32 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     limit: cfg.disableRateLimit ? undefined : { max: 10, timeWindow: "1 minute" },
     body: z.object({ email: z.string().trim().toLowerCase().max(200), password: z.string().max(200) }),
     handler: async ({ body, req, reply, c }) => {
-      const r = await c.query<{ id: string; password_hash: string; failed_logins: number; locked_until: Date | null; disabled_at: Date | null; mfa_enabled_at: Date | null }>(
-        "SELECT id, password_hash, failed_logins, locked_until, disabled_at, mfa_enabled_at FROM users WHERE email = $1",
-        [body.email],
-      );
-      const u = r.rows[0];
-      const generic = new AppError(401, "invalid_credentials", "Correo o contraseña incorrectos");
+      // B-090: toda falla responde EXACTAMENTE lo mismo (LOGIN_FAILED, 401) y cuesta lo mismo (un scrypt).
+      const fail = () => {
+        reply.code(401);
+        return LOGIN_FAILED;
+      };
+      const u = (await c.query<{ id: string; email: string; full_name: string; disabled_at: Date | null; mfa_enabled_at: Date | null }>(
+        "SELECT id, email, full_name, disabled_at, mfa_enabled_at FROM users WHERE email = $1", [body.email])).rows[0];
       if (!u || u.disabled_at) {
         await dummyVerify(body.password);
-        throw generic;
+        return fail();
       }
-      if (u.locked_until && new Date(u.locked_until) > new Date()) {
-        throw new AppError(429, "locked", "Cuenta bloqueada temporalmente por intentos fallidos. Intenta en unos minutos.");
+      const source = loginSource(req.ip);
+      const locked = await lockState(c, u.id, source);
+      if (locked.source || locked.account) {
+        // Bloqueado: no se verifica la contraseña ni cuenta como intento (un tercero no puede
+        // alargar el bloqueo ni probar contraseñas). No se lanza excepción: la auditoría debe quedar.
+        await dummyVerify(body.password);
+        await audit(c, { userId: u.id, clinicId: null, ip: req.ip }, "auth.login_blocked", "user", u.id, { scope: locked.account ? "cuenta" : "origen" });
+        return fail();
       }
-      const ok = await verifyPassword(body.password, u.password_hash);
-      if (!ok) {
-        // No se lanza excepción: el contador y la auditoría deben quedar guardados (un throw haría ROLLBACK).
-        const failed = u.failed_logins + 1;
-        const lock = failed >= MAX_FAILED;
-        await c.query(
-          `UPDATE users SET failed_logins = $2, locked_until = CASE WHEN $3 THEN now() + make_interval(mins => $4) ELSE NULL END WHERE id = $1`,
-          [u.id, lock ? 0 : failed, lock, LOCK_MINUTES],
-        );
-        await audit(c, { userId: u.id, clinicId: null, ip: req.ip }, lock ? "auth.locked" : "auth.login_failed", "user", u.id);
-        reply.code(401);
-        return { error: { code: generic.code, message: generic.message } };
+      if (!(await passwordMatches(c, u.id, body.password))) {
+        // Sin excepción: el contador y la auditoría deben quedar guardados (un throw haría ROLLBACK).
+        await recordLoginFailure(c, { cfg, mailer }, { id: u.id, email: u.email, fullName: u.full_name }, source, req.ip);
+        return fail();
       }
-      await c.query("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1", [u.id]);
+      await clearSourceFailures(c, u.id, source);
       await c.query("SELECT set_config('app.user_id', $1, true)", [u.id]);
       const ms = await c.query<{ clinic_id: string }>(
         "SELECT m.clinic_id FROM memberships m JOIN clinics cl ON cl.id = m.clinic_id WHERE m.user_id = $1 AND m.active AND cl.status IN ('trial','active') ORDER BY m.created_at",
@@ -113,14 +141,15 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     body: z.object({ code: z.string().trim().max(20).optional(), recoveryCode: z.string().trim().max(20).optional() }),
     handler: async ({ body, auth, reply, c }) => {
       if (!auth.mfaPending) return { ok: true };
-      const u = (await c.query<{ mfa_secret_enc: string | null; clinic_id: string | null }>(
-        "SELECT u.mfa_secret_enc, s.clinic_id FROM users u JOIN sessions s ON s.user_id = u.id WHERE s.id = $1", [auth.sessionId])).rows[0]!;
+      const u = (await c.query<{ clinic_id: string | null }>("SELECT s.clinic_id FROM sessions s WHERE s.id = $1", [auth.sessionId])).rows[0]!;
+      const mfa = await myMfaSecret(c, cfg, false);
       let ok = false;
       let usedRecovery = false;
-      if (body.code && u.mfa_secret_enc) ok = verifyTotp(open(cfg.secretKey, u.mfa_secret_enc), body.code);
-      else if (body.recoveryCode) {
-        const r = await c.query("UPDATE mfa_recovery_codes SET used_at = now() WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL", [auth.userId, sha256(normRecovery(body.recoveryCode))]);
-        ok = r.rowCount === 1;
+      if (body.code && mfa) {
+        ok = verifyTotp(mfa.secret, body.code);
+        if (ok) await rewrapIfRotated(c, cfg, auth, mfa);
+      } else if (body.recoveryCode) {
+        ok = (await c.query<{ ok: boolean }>("SELECT auth_use_recovery_code($1) AS ok", [sha256(normRecovery(body.recoveryCode))])).rows[0]!.ok;
         usedRecovery = ok;
       }
       if (!ok) {
@@ -231,8 +260,7 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     restricted: "setup",
     body: z.object({ currentPassword: z.string().max(200), newPassword: z.string().max(200) }),
     handler: async ({ body, auth, c }) => {
-      const u = (await c.query<{ password_hash: string }>("SELECT password_hash FROM users WHERE id = $1", [auth.userId])).rows[0]!;
-      if (!(await verifyPassword(body.currentPassword, u.password_hash))) throw badRequest("La contraseña actual no es correcta");
+      if (!(await passwordMatches(c, auth.userId, body.currentPassword))) throw badRequest("La contraseña actual no es correcta");
       const problem = passwordProblem(body.newPassword);
       if (problem) throw badRequest(problem);
       if (body.newPassword === body.currentPassword) throw badRequest("La nueva contraseña debe ser distinta");
@@ -253,11 +281,11 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     restricted: "setup",
     body: z.object({ password: z.string().max(200) }),
     handler: async ({ body, auth, c }) => {
-      const u = (await c.query<{ password_hash: string; mfa_enabled_at: Date | null }>("SELECT password_hash, mfa_enabled_at FROM users WHERE id = $1", [auth.userId])).rows[0]!;
-      if (!(await verifyPassword(body.password, u.password_hash))) throw badRequest("La contraseña no es correcta");
+      const u = (await c.query<{ mfa_enabled_at: Date | null }>("SELECT mfa_enabled_at FROM users WHERE id = $1", [auth.userId])).rows[0]!;
+      if (!(await passwordMatches(c, auth.userId, body.password))) throw badRequest("La contraseña no es correcta");
       if (u.mfa_enabled_at) throw new AppError(409, "mfa_already_enabled", "La verificación en dos pasos ya está activa");
       const secret = newTotpSecret();
-      await c.query("UPDATE users SET mfa_pending_secret_enc = $2 WHERE id = $1", [auth.userId, seal(cfg.secretKey, secret)]);
+      await c.query("UPDATE users SET mfa_pending_secret_enc = $2 WHERE id = $1", [auth.userId, sealWith(cfg.keys.mfa, secret)]);
       const uri = otpauthUri(secret, auth.email);
       const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, width: 200 });
       return { secret, uri, qrSvg };
@@ -273,10 +301,12 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     restricted: "setup",
     body: z.object({ code: z.string().trim().regex(/^\d{6}$/, "El código tiene 6 dígitos") }),
     handler: async ({ body, auth, c }) => {
-      const u = (await c.query<{ mfa_pending_secret_enc: string | null }>("SELECT mfa_pending_secret_enc FROM users WHERE id = $1", [auth.userId])).rows[0]!;
-      if (!u.mfa_pending_secret_enc) throw badRequest("Primero inicia la activación");
-      if (!verifyTotp(open(cfg.secretKey, u.mfa_pending_secret_enc), body.code)) throw badRequest("Código incorrecto. Revisa la hora del celular.");
-      await c.query("UPDATE users SET mfa_secret_enc = mfa_pending_secret_enc, mfa_pending_secret_enc = NULL, mfa_enabled_at = now() WHERE id = $1", [auth.userId]);
+      const pending = await myMfaSecret(c, cfg, true);
+      if (!pending) throw badRequest("Primero inicia la activación");
+      if (!verifyTotp(pending.secret, body.code)) throw badRequest("Código incorrecto. Revisa la hora del celular.");
+      // Se guarda cifrado con la clave vigente (aunque el pendiente se hubiera cifrado con la anterior).
+      await c.query("UPDATE users SET mfa_secret_enc = $2, mfa_pending_secret_enc = NULL, mfa_enabled_at = now() WHERE id = $1",
+        [auth.userId, sealWith(cfg.keys.mfa, pending.secret)]);
       const codes = await storeRecoveryCodes(c, auth.userId);
       // Las demás sesiones abiertas se cierran: deberán ingresar con el segundo paso.
       await c.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL", [auth.userId, auth.sessionId]);
@@ -293,9 +323,9 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     access: "session",
     body: z.object({ password: z.string().max(200), code: z.string().trim().max(10) }),
     handler: async ({ body, auth, c }) => {
-      const u = (await c.query<{ password_hash: string; mfa_secret_enc: string | null }>("SELECT password_hash, mfa_secret_enc FROM users WHERE id = $1", [auth.userId])).rows[0]!;
-      if (!u.mfa_secret_enc) throw badRequest("La verificación en dos pasos no está activa");
-      if (!(await verifyPassword(body.password, u.password_hash)) || !verifyTotp(open(cfg.secretKey, u.mfa_secret_enc), body.code)) {
+      const mfa = await myMfaSecret(c, cfg, false);
+      if (!mfa) throw badRequest("La verificación en dos pasos no está activa");
+      if (!(await passwordMatches(c, auth.userId, body.password)) || !verifyTotp(mfa.secret, body.code)) {
         throw badRequest("Contraseña o código incorrectos");
       }
       await c.query("UPDATE users SET mfa_secret_enc = NULL, mfa_enabled_at = NULL WHERE id = $1", [auth.userId]);
@@ -313,8 +343,9 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
     access: "session",
     body: z.object({ code: z.string().trim().regex(/^\d{6}$/) }),
     handler: async ({ body, auth, c }) => {
-      const u = (await c.query<{ mfa_secret_enc: string | null }>("SELECT mfa_secret_enc FROM users WHERE id = $1", [auth.userId])).rows[0]!;
-      if (!u.mfa_secret_enc || !verifyTotp(open(cfg.secretKey, u.mfa_secret_enc), body.code)) throw badRequest("Código incorrecto");
+      const mfa = await myMfaSecret(c, cfg, false);
+      if (!mfa || !verifyTotp(mfa.secret, body.code)) throw badRequest("Código incorrecto");
+      await rewrapIfRotated(c, cfg, auth, mfa);
       const codes = await storeRecoveryCodes(c, auth.userId);
       await audit(c, auth, "auth.mfa_recovery_regenerated", "user", auth.userId);
       return { recoveryCodes: codes };
@@ -366,9 +397,10 @@ export function authRoutes(route: Route, cfg: Config, mailer: Mailer) {
       if (problem) throw badRequest(problem);
       await c.query("UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL", [r.user_id]);
       await c.query(
-        "UPDATE users SET password_hash = $2, password_changed_at = now(), must_change_password = false, failed_logins = 0, locked_until = NULL WHERE id = $1",
+        "UPDATE users SET password_hash = $2, password_changed_at = now(), must_change_password = false WHERE id = $1",
         [r.user_id, await hashPassword(body.newPassword)],
       );
+      await clearAllLocks(c, r.user_id); // quien recupera su correo recupera también el ingreso
       await c.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [r.user_id]);
       await audit(c, { userId: r.user_id, clinicId: null, ip: req.ip }, "auth.password_reset", "user", r.user_id);
       return { ok: true };

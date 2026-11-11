@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { KeyRound, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { KeyRound, LockOpen, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
@@ -322,6 +322,20 @@ function StaffTab() {
   const toast = useToast();
   const ask = useAsk();
   const s = useApi<any[]>("/api/staff");
+  const locks = useApi<{ userId: string; sourceLockedUntil: string | null; accountLockedUntil: string | null }[]>("/api/staff/locks");
+  const lockOf = (id: string) => locks.data?.find((l) => l.userId === id);
+  const [unlocking, setUnlocking] = useState<string | null>(null);
+  const unlock = async (p: any) => {
+    if (!(await ask({ title: "Desbloquear ingreso", message: `${p.fullName} tiene el ingreso bloqueado por intentos fallidos. ¿Desbloquear ahora? Hazlo solo si confirmaste con la persona que fue ella (por ejemplo, en persona o por teléfono).`, confirmLabel: "Desbloquear" }))) return;
+    setUnlocking(p.userId);
+    try {
+      await api.post(`/api/staff/${p.userId}/unlock`);
+      toast(`${p.fullName} ya puede ingresar`);
+      locks.reload();
+    } catch (e: any) {
+      toast(e.message, true);
+    } finally { setUnlocking(null); }
+  };
   const [resetting, setResetting] = useState<string | null>(null);
   const resetPassword = async (p: any) => {
     if (!(await ask({ title: "Restablecer contraseña", message: `¿Generar una contraseña temporal para ${p.fullName}? Su contraseña actual dejará de funcionar y se cerrarán sus sesiones abiertas.`, confirmLabel: "Generar contraseña temporal" }))) return;
@@ -371,9 +385,13 @@ function StaffTab() {
                     <td className="hide-mobile small">{p.allBranches || p.role === "owner" ? "Todas" : p.branchIds.map(branchName).join(", ") || "—"}</td>
                     <td className="hide-mobile num">{p.commissionPct != null ? `${p.commissionPct}%` : "—"}</td>
                     <td className="hide-mobile">{p.mfaEnabled ? <span className="badge ok"><ShieldCheck size={13} />Activa</span> : <span className="muted">—</span>}</td>
-                    <td>{p.active ? <span className="badge ok">Activo</span> : <span className="badge danger">Inactivo</span>}</td>
+                    <td>
+                      {p.active ? <span className="badge ok">Activo</span> : <span className="badge danger">Inactivo</span>}
+                      {lockOf(p.userId) && <>{" "}<span className="badge warn" title={lockOf(p.userId)!.accountLockedUntil ? "Bloqueado desde todas las redes por muchos intentos fallidos" : "Bloqueado desde una red por intentos fallidos"}>Ingreso bloqueado</span></>}
+                    </td>
                     <td className="num nowrap">{p.userId !== me?.user.id && (
                       <>
+                        {lockOf(p.userId) && <><button className="btn btn-sm btn-primary" disabled={unlocking === p.userId} onClick={() => unlock(p)}><LockOpen size={14} />Desbloquear</button>{" "}</>}
                         <button className="btn btn-sm" onClick={() => setEdit(p)}><Pencil size={14} />Editar</button>{" "}
                         <button className="btn btn-sm" disabled={resetting === p.userId} onClick={() => resetPassword(p)} title="Genera una contraseña temporal que deberá cambiar al ingresar"><RotateCcw size={14} />Restablecer contraseña</button>
                       </>

@@ -133,7 +133,7 @@ describe("subida con miniatura", () => {
 
   it("enlaces por propósito: la miniatura no abre el original ni al revés; vencidos y de otra persona no sirven", async () => {
     const me = (await dentist.get("/api/auth/me")).body.user.id;
-    const key = loadConfig().secretKey;
+    const key = loadConfig().keys.link;
     const tt = signFileToken(key, { f: id, c: K.clinicId, u: me, p: "thumb" }).token;
     const asContent = await raw(dentist, `/api/clinical-files/${id}/content?t=${encodeURIComponent(tt)}`);
     expect(asContent.status).toBe(403);
@@ -214,7 +214,7 @@ describe("permisos y aislamiento", () => {
     const di = items.find((i) => i.id === doc);
     expect((await raw(rec, di.thumbUrl)).status).toBe(200);
     const me = (await rec.get("/api/auth/me")).body.user.id;
-    const forged = signFileToken(loadConfig().secretKey, { f: xray, c: K.clinicId, u: me, p: "thumb" }).token;
+    const forged = signFileToken(loadConfig().keys.link, { f: xray, c: K.clinicId, u: me, p: "thumb" }).token;
     const r = await raw(rec, thumbUrl(xray, forged));
     expect(r.status).toBe(403);
     expect(r.json().error.message).toMatch(/No tienes permiso/);
@@ -224,7 +224,7 @@ describe("permisos y aislamiento", () => {
     const url = (await dentist.get(`/api/patients/${patient}/clinical-files`)).body.items.find((i: any) => i.id === xray).thumbUrl;
     expect((await raw(otherDentist, url)).status).toBe(403);
     const me2 = (await otherDentist.get("/api/auth/me")).body.user.id;
-    const forged = signFileToken(loadConfig().secretKey, { f: xray, c: K2.clinicId, u: me2, p: "thumb" }).token;
+    const forged = signFileToken(loadConfig().keys.link, { f: xray, c: K2.clinicId, u: me2, p: "thumb" }).token;
     expect((await raw(otherDentist, thumbUrl(xray, forged))).status).toBe(404); // RLS: el archivo no existe para K2
     const seen = await withTenant(env.db.appPool, { clinicId: K2.clinicId, userId: null }, async (c) => (await c.query("SELECT count(*)::int AS n FROM clinical_file_thumbs")).rows[0].n);
     expect(seen).toBe(0);

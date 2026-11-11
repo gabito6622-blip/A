@@ -361,9 +361,10 @@ export function messagingStaffRoutes(route: Route, cfg: Config, messenger: Messe
   });
 
   route({
-    method: "GET", url: "/api/messaging/inbound", summary: "Respuestas recibidas de los pacientes (bajas y otras)", tags: TAGS, perm: "clinic.manage",
-    handler: async ({ c }) => (await c.query(
+    method: "GET", url: "/api/messaging/inbound", summary: "Respuestas recibidas de los pacientes (bajas y otras), de las sucursales permitidas", tags: TAGS, perm: "clinic.manage",
+    handler: async ({ c, auth }) => (await c.query(
       `SELECT i.id, i.kind, i.body, i.sender, i.created_at AS "createdAt", p.first_name || ' ' || p.last_name AS "patientName"
-         FROM inbound_messages i LEFT JOIN patients p ON p.id = i.patient_id ORDER BY i.created_at DESC LIMIT 50`)).rows,
+         FROM inbound_messages i LEFT JOIN patients p ON p.id = i.patient_id
+        WHERE ($1::uuid[] IS NULL OR i.branch_id = ANY($1)) ORDER BY i.created_at DESC LIMIT 50`, [allowedBranches(auth)])).rows,
   });
 }

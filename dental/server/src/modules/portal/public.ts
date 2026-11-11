@@ -1,7 +1,7 @@
 // API pública de la reserva online y del portal del paciente: /api/public/c/:slug/…
 // Sin sesión del personal. La clínica se resuelve por slug (solo si la reserva está activa) y
 // cada solicitud corre con RLS fijado a esa clínica. Toda acción queda en la auditoría.
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { Config } from "../../config.js";
@@ -9,6 +9,7 @@ import type { Client } from "../../lib/db.js";
 import type { Route } from "../../lib/http.js";
 import { zDate, zId } from "../../lib/http.js";
 import { AppError, notFound } from "../../lib/errors.js";
+import { verifyWithAny } from "../../lib/keys.js";
 import { normalize, normalizePhone, money } from "../../lib/text.js";
 import type { AuthCtx } from "../../lib/rbac.js";
 import type { Messenger } from "../../lib/messaging.js";
@@ -246,7 +247,7 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
       await c.query(
         `INSERT INTO portal_otps (id, clinic_id, purpose, patient_id, phone, code_hash, expires_at, ip)
          VALUES ($1,$2,'existing',$3,$4,$5, now() + make_interval(mins => $6), $7)`,
-        [id, ctx.clinicId, deliver ? match!.id : null, deliver ? match!.phone : null, deliver ? otpHash(cfg.secretKey, id, code) : randomBytes(32), OTP_MINUTES, ctx.ip]);
+        [id, ctx.clinicId, deliver ? match!.id : null, deliver ? match!.phone : null, deliver ? otpHash(cfg.keys.link.current, id, code) : randomBytes(32), OTP_MINUTES, ctx.ip]);
       if (deliver) {
         await send(c, ctx, { to: match!.phone!, template: "portal.otp", otp: true, patientId: match!.id, relatedEntity: "portal_otp", relatedId: id,
           body: `${code} es tu código para ${ctx.clinicName}. Vence en ${OTP_MINUTES} minutos. No lo compartas con nadie.` });
@@ -298,7 +299,7 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
       await c.query(
         `INSERT INTO portal_otps (id, clinic_id, purpose, phone, signup, code_hash, expires_at, ip)
          VALUES ($1,$2,'signup',$3,$4,$5, now() + make_interval(mins => $6), $7)`,
-        [id, ctx.clinicId, body.phone, JSON.stringify(signup), otpHash(cfg.secretKey, id, code), OTP_MINUTES, ctx.ip]);
+        [id, ctx.clinicId, body.phone, JSON.stringify(signup), otpHash(cfg.keys.link.current, id, code), OTP_MINUTES, ctx.ip]);
       await send(c, ctx, { to: body.phone, template: "portal.otp", otp: true, relatedEntity: "portal_otp", relatedId: id, branchId: body.branchId ?? null,
         body: `${code} es tu código para ${ctx.clinicName}. Vence en ${OTP_MINUTES} minutos. No lo compartas con nadie.` });
       await paudit(c, ctx, "portal.otp_requested", "portal_otp", id, { purpose: "signup" });
@@ -355,8 +356,8 @@ export function portalPublicRoutes(route: Route, cfg: Config, messenger: Messeng
         [body.challengeId])).rows[0];
       if (!o || o.expired || o.consumed_at) return softError(reply, 400, "otp_invalid", "El código ya venció o ya se usó. Pide uno nuevo.");
       if (o.attempts >= OTP_MAX_ATTEMPTS) return softError(reply, 400, "otp_locked", "Demasiados intentos con este código. Pide uno nuevo.");
-      const expected = otpHash(cfg.secretKey, o.id, body.code);
-      const ok = !!o.phone && o.code_hash.length === expected.length && timingSafeEqual(o.code_hash, expected);
+      // Clave vigente o anterior (rotación de DENTAL_LINK_KEY): un código pedido justo antes de rotar sigue sirviendo.
+      const ok = !!o.phone && verifyWithAny(cfg.keys.link, (k) => otpHash(k, o.id, body.code), o.code_hash);
       if (!ok) {
         const left = OTP_MAX_ATTEMPTS - o.attempts - 1;
         await c.query("UPDATE portal_otps SET attempts = attempts + 1 WHERE id = $1", [o.id]);

@@ -92,7 +92,7 @@ describe("firma de bytes (unidad)", () => {
     expect(sniffType(Buffer.from("MZ\x90\x00 programa"))).toBeNull();
   });
   it("token: firma, vencimiento y manipulación", () => {
-    const key = loadConfig().secretKey;
+    const key = loadConfig().keys.link;
     const s = signFileToken(key, { f: "a", c: "b", u: "c", p: "view" });
     expect(verifyFileToken(key, s.token).ok).toBe(true);
     expect(verifyFileToken(key, s.token, Date.now() + 301_000)).toEqual({ ok: false, reason: "expired" });
@@ -262,7 +262,7 @@ describe("permisos por rol", () => {
     const dentLink = (await dentist.get(`/api/clinical-files/${xray}/link?purpose=view`)).body.url;
     expect((await fetchRaw(rec, dentLink)).status).toBe(403);
     // con un enlace propio pero de un archivo clínico (firmado a mano) tampoco
-    const forged = signFileToken(loadConfig().secretKey, { f: xray, c: K.clinicId, u: (await rec.get("/api/auth/me")).body.user.id, p: "view" });
+    const forged = signFileToken(loadConfig().keys.link, { f: xray, c: K.clinicId, u: (await rec.get("/api/auth/me")).body.user.id, p: "view" });
     expect((await fetchRaw(rec, contentUrl(xray, forged.token))).status).toBe(403);
     // su documento sí lo ve
     const own = (await rec.get(`/api/clinical-files/${scan}/link?purpose=view`)).body.url;
@@ -320,7 +320,7 @@ describe("enlaces firmados", () => {
 
   it("un enlace vencido o manipulado no sirve", async () => {
     const me = (await dentist.get("/api/auth/me")).body.user.id;
-    const old = signFileToken(loadConfig().secretKey, { f: id, c: K.clinicId, u: me, p: "view" }, Date.now() - 6 * 60_000);
+    const old = signFileToken(loadConfig().keys.link, { f: id, c: K.clinicId, u: me, p: "view" }, Date.now() - 6 * 60_000);
     const r = await fetchRaw(dentist, contentUrl(id, old.token));
     expect(r.status).toBe(403);
     expect(r.json().error.code).toBe("link_expired");

@@ -38,14 +38,14 @@ export function computeNps(scores: number[]): NpsStats {
   return { answered, promoters, detractors, passives: answered - promoters - detractors, nps: answered ? Math.round(((promoters - detractors) * 100) / answered) : null };
 }
 
-export const surveyUrl = (cfg: Pick<Config, "publicUrl" | "secretKey">, clinicId: string, id: string) => `${cfg.publicUrl}/e/${signToken(cfg.secretKey, "encuesta", clinicId, id)}`;
+export const surveyUrl = (cfg: Pick<Config, "publicUrl" | "keys">, clinicId: string, id: string) => `${cfg.publicUrl}/e/${signToken(cfg.keys.link, "encuesta", clinicId, id)}`;
 
 /**
  * Emite (o renueva el vencimiento de) el enlace de la encuesta de una cita atendida.
  * Devuelve null si la cita no está atendida o la encuesta ya fue respondida (un solo uso).
  */
 export async function issueSurvey(
-  c: Client, cfg: Pick<Config, "publicUrl" | "secretKey">,
+  c: Client, cfg: Pick<Config, "publicUrl" | "keys">,
   x: { clinicId: string; appointmentId: string; source: "auto" | "manual"; jobId?: string | null; userId?: string | null },
 ): Promise<{ id: string; url: string; expiresAt: Date } | null> {
   const a = (await c.query<{ status: string; patient_id: string; branch_id: string; dentist_id: string }>(
@@ -60,7 +60,7 @@ export async function issueSurvey(
     return { id: ex.id, url: surveyUrl(cfg, x.clinicId, ex.id), expiresAt };
   }
   const id = randomUUID();
-  const token = signToken(cfg.secretKey, "encuesta", x.clinicId, id);
+  const token = signToken(cfg.keys.link, "encuesta", x.clinicId, id);
   await c.query(
     `INSERT INTO satisfaction_surveys (id, clinic_id, appointment_id, patient_id, branch_id, dentist_id, token_hash, source, job_id, created_by, expires_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
@@ -89,7 +89,7 @@ export function surveyRoutes(route: Route, cfg: Config) {
   }
 
   function withSurvey<T>(db: Parameters<Parameters<Route>[0]["handler"]>[0]["db"], token: string, fn: (c: Client, v: { clinicId: string; id: string }) => Promise<T>) {
-    const v = verifyToken(cfg.secretKey, "encuesta", token);
+    const v = verifyToken(cfg.keys.link, "encuesta", token);
     if (!v) throw notFound("Encuesta");
     return withTenant(db.appPool, { clinicId: v.clinicId, userId: null }, (c) => fn(c, v));
   }

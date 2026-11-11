@@ -40,8 +40,20 @@ const INSERT_ONLY = [
 
 /** Funciones SECURITY DEFINER revisadas: cada una solo resuelve la clínica o un agregado mínimo. */
 const DEFINER_REVIEWED = [
-  "budget_link_clinic", "inv_apply_movement", "messaging_active_clinics", "messaging_last_outbound_to",
+  "budget_link_clinic", "inv_apply_movement", "messaging_active_clinics",
   "messaging_message_by_provider_id", "patient_search_ids", "pdf_document_clinic", "portal_clinic_by_slug", "user_clinic_count",
+  // v0.7 (B-093): clínica del último WhatsApp enviado a ESE número completo (E.164), nunca por los últimos 8 dígitos.
+  "messaging_last_outbound_to_number",
+  // v0.7 (B-091): la app nunca lee el hash ni los secretos de users.
+  "auth_password_salt",      // parámetros y sal del hash (sin el resultado) de una cuenta habilitada
+  "auth_password_matches",   // compara el hash calculado por la app con el guardado; devuelve solo sí/no
+  "auth_my_mfa_secret",      // secreto TOTP cifrado SOLO del usuario de la sesión (app.user_id)
+  "auth_use_recovery_code",  // marca usado un código de recuperación SOLO del usuario de la sesión
+];
+
+/** Columnas secretas que dental_app no puede leer (B-091). */
+const SECRET_COLUMNS: [string, string][] = [
+  ["users", "password_hash"], ["users", "mfa_secret_enc"], ["users", "mfa_pending_secret_enc"], ["mfa_recovery_codes", "code_hash"],
 ];
 
 describe("Row Level Security en todas las tablas con clinic_id", () => {
@@ -86,7 +98,23 @@ describe("Row Level Security en todas las tablas con clinic_id", () => {
     const globals = await q<{ t: string }>(
       `SELECT c.relname AS t FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind IN ('r','p') AND NOT c.relrowsecurity ORDER BY 1`);
-    expect(globals.map((g) => g.t)).toEqual(["mfa_recovery_codes", "password_resets", "plans", "schema_migrations", "sessions", "users"]);
+    // login_throttle / login_account_guard (v0.7, B-090): contadores de intentos por cuenta y origen, sin datos de pacientes.
+    const expected = ["login_account_guard", "login_throttle", "mfa_recovery_codes", "password_resets", "plans", "schema_migrations", "sessions", "users"];
+    // Tablas de operación de la plataforma (Equipo V, 0027), si ya están integradas.
+    const ops = globals.map((g) => g.t).filter((t) => ["backup_runs", "ops_alerts"].includes(t));
+    expect(globals.map((g) => g.t)).toEqual([...expected, ...ops].sort());
+  });
+
+  it("dental_app no puede leer el hash de la contraseña ni los secretos de los 2 pasos (B-091)", async () => {
+    for (const [t, col] of SECRET_COLUMNS) {
+      const r = (await q("SELECT has_column_privilege('dental_app', $1, $2, 'SELECT') AS sel", [t, col]))[0];
+      expect(r.sel, `${t}.${col} legible por dental_app`).toBe(false);
+    }
+    const c = await env.db.appPool.connect();
+    try {
+      await expect(c.query("SELECT password_hash FROM users LIMIT 1")).rejects.toThrow(/permission denied/);
+      await expect(c.query("SELECT * FROM users LIMIT 1")).rejects.toThrow(/permission denied/);
+    } finally { c.release(); }
   });
 });
 

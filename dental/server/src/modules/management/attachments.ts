@@ -19,6 +19,7 @@ import { AppError, badRequest, conflict, notFound } from "../../lib/errors.js";
 import { audit } from "../../lib/audit.js";
 import type { Client } from "../../lib/db.js";
 import type { AuthCtx } from "../../lib/rbac.js";
+import { deriveRing } from "../../lib/keys.js";
 import { EXTENSION, isImage, LocalFileStore, newStorageKey, sniffType, type DetectedType, type FileStore } from "../../lib/filestore.js";
 import { cleanOriginalName, fmtMb, maxUploadBytes, MIME_LABELS, registerBinaryParser, signFileToken, tooLarge, verifyFileToken, type LinkPurpose } from "../clinicalFiles-core.js";
 import { loadExpense } from "./expenses.js";
@@ -46,7 +47,7 @@ export function expenseAttachmentRoutes(route: Route, cfg: Config, app: FastifyI
   const maxBytes = maxUploadBytes();
   registerBinaryParser(app, maxBytes);
   // Clave propia: un enlace de un archivo clínico no abre un comprobante (ni al revés).
-  const secret = createHmac("sha256", cfg.secretKey).update("dentalia:expense-receipts:v1").digest();
+  const secret = deriveRing(cfg.keys.link, (k) => createHmac("sha256", k).update("dentalia:expense-receipts:v1").digest());
   const sign = (auth: AuthCtx, id: string, p: LinkPurpose) => signFileToken(secret, { f: id, c: auth.clinicId!, u: auth.userId, p });
 
   const present = (auth: AuthCtx, a: AttRow) => {

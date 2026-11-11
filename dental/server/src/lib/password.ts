@@ -34,7 +34,25 @@ export function passwordProblem(pw: string): string | null {
   return null;
 }
 
-// Hash de una contraseña inexistente para igualar tiempos cuando el usuario no existe.
+/**
+ * Calcula el hash de `pw` con los parámetros y la sal de `prefix` ("scrypt$N$r$p$sal"), en el mismo
+ * formato que hashPassword. Así la app compara contra el hash guardado SIN leerlo (B-091: la base
+ * solo entrega la sal con auth_password_salt y compara con auth_password_matches).
+ * Devuelve null si el prefijo no tiene un formato o parámetros válidos.
+ */
+export async function hashWithSalt(pw: string, prefix: string): Promise<string | null> {
+  const parts = prefix.split("$");
+  if (parts.length !== 5 || parts[0] !== "scrypt") return null;
+  const [, n, r, p, s] = parts;
+  const N = Number(n), Rr = Number(r), Pp = Number(p);
+  // Límites defensivos: N potencia de 2 hasta 2^20, r ≤ 32, p ≤ 4.
+  if (!Number.isInteger(N) || N < 2 || N > 1 << 20 || (N & (N - 1)) !== 0 || !Number.isInteger(Rr) || Rr < 1 || Rr > 32 || !Number.isInteger(Pp) || Pp < 1 || Pp > 4) return null;
+  const key = await scrypt(pw, Buffer.from(s!, "base64"), N, Rr, Pp);
+  return `${prefix}$${key.toString("base64")}`;
+}
+
+// Hash de una contraseña inexistente para igualar tiempos cuando el usuario no existe o no se
+// puede verificar (cuenta bloqueada): cuesta lo mismo que una verificación real.
 let dummy: string | null = null;
 export async function dummyVerify(pw: string): Promise<void> {
   dummy ??= await hashPassword("contraseña-inexistente-123");

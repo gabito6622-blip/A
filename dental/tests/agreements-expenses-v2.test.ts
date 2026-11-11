@@ -632,7 +632,7 @@ describe("comprobante adjunto del gasto", () => {
     expect((await fetchRaw(otherOwner, link.url)).status).toBe(403); // otra clínica
     const cfg = loadConfig();
     const me = (await env.app.inject({ method: "GET", url: "/api/auth/me", headers: { cookie: acct.cookie } })).json();
-    const clinical = signFileToken(cfg.secretKey, { f: attId, c: K.clinicId, u: me.user.id, p: "download" });
+    const clinical = signFileToken(cfg.keys.link, { f: attId, c: K.clinicId, u: me.user.id, p: "download" });
     const r = await fetchRaw(acct, `/api/expense-attachments/${attId}/content?t=${encodeURIComponent(clinical.token)}`);
     expect(r.status).toBe(403);
     expect((await fetchRaw(acct, `/api/expense-attachments/${attId}/content?t=abc.def`)).status).toBe(403);

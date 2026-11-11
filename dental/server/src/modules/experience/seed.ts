@@ -6,8 +6,9 @@ import { DateTime } from "luxon";
 import type pg from "pg";
 import { normalize } from "../../lib/text.js";
 import { signToken, tokenHash, sha256hex } from "./tokens.js";
+import type { Keys } from "../../lib/keys.js";
 
-export async function seedExperienceDemo(pool: pg.Pool, clinicId: string, secretKey: Buffer) {
+export async function seedExperienceDemo(pool: pg.Pool, clinicId: string, secretKey: Keys) {
   const q = (sql: string, p: unknown[] = []) => pool.query(sql, p);
   const branches = (await q("SELECT id, code FROM branches WHERE clinic_id = $1 ORDER BY code", [clinicId])).rows as { id: string; code: string }[];
   const B = Object.fromEntries(branches.map((b) => [b.code, b.id]));
