@@ -120,3 +120,18 @@ Cada aviso tiene una `dedupe_key` única (regla + cita + momento), así el progr
 
 ### D-27 · Citas recurrentes: revisión antes de guardar
 La serie se calcula y se revisa completa (conflictos y hueco libre sugerido por cada cita) antes de guardar, y se guarda en una sola transacción. Máximo 52 citas para evitar series sin fin. «Solo esta / esta y las siguientes» siguen el modelo conocido de los calendarios.
+
+### D-28 · Archivos clínicos fuera de la base, con enlaces atados a la persona
+Los archivos se guardan en un almacenamiento privado (disco con volumen persistente; S3 compatible más adelante) y la base guarda metadatos y SHA-256. Cada entrega usa un enlace HMAC de 5 minutos atado al archivo, la clínica y la persona, que además exige su sesión: un enlace filtrado no sirve a otro. El tipo se decide por la firma de bytes, nunca por la extensión. ⚠ En Railway hay que montar un volumen en `/data`; sin él, los archivos se pierden al redeplegar.
+
+### D-29 · Rentabilidad: «sin datos» antes que cero
+Si falta una fuente (gastos sin confirmar, honorarios sin liquidar, sucursal sin inventario), el margen se marca como parcial y se dice qué falta. Suponer cero haría ver una sucursal más rentable de lo que es.
+
+### D-30 · Saldo del paciente sin la porción del convenio
+La parte que paga la empresa la calcula un trigger al registrar el cargo (con su tope anual) y queda en las cuentas por cobrar de la empresa; `patient_money` sigue siendo la única fuente del saldo y solo cuenta la parte del paciente. Está probado que paciente + empresa = total. ⚠ Qué datos de salud ve el empleador en el estado de cuenta requiere revisión legal.
+
+### D-31 · La app instalable no guarda datos de pacientes
+El service worker solo guarda la cáscara de la aplicación (HTML, JS, CSS, íconos). Las respuestas de `/api/` nunca se guardan en el dispositivo: un celular perdido no expone pacientes. La contraparte es que sin conexión no se puede trabajar; se muestra un aviso claro.
+
+### D-32 · Las tareas creadas por el sistema no tienen autor
+Una tarea creada por una encuesta (detractor) no la crea una persona: `created_by` queda vacío solo con origen `survey` (CHECK). Así el diario no atribuye a nadie algo que no hizo.

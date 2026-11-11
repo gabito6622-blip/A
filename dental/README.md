@@ -22,6 +22,12 @@ Software de gestión para clínicas odontológicas, pensado para una red de 5 su
 - Recetas, certificados y documentos PDF con huella y verificación pública.
 - Mensajes automáticos (simulados fuera de producción) con confirmación por enlace.
 - Vista semanal, tipos de cita, citas recurrentes e historial del paciente.
+- Radiografías y fotos en la ficha, con visor y comparación antes/después.
+- Gestión: rentabilidad por sucursal y sillón, gastos, fichaje e informes en Excel.
+- Tareas internas, registro de llamadas, diario de actividad y avisos en el Inicio.
+- Familias, segmentos y campañas con consentimiento, encuestas de satisfacción y llegada con QR.
+- Convenios con empresas, pagador tercero y conciliación bancaria por extracto.
+- App instalable en el celular (PWA), sin guardar datos de pacientes en el dispositivo.
 - Asistente con herramientas.
 - Superadministrador SaaS.
 

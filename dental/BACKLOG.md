@@ -34,7 +34,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-048 | ✅ v0.4 (pendiente: cuenta real de WhatsApp) | **WhatsApp con modo de pruebas obligatorio** y reglas sin duplicados al reprogramar (WA-01 a WA-06, amplía B-010) | Fuera de producción no sale ningún mensaje real; una reprogramación anula los avisos pendientes |
 | B-049 | ✅ v0.4 | **Tipos de cita** con color y duración, y **línea de tiempo del paciente** (R2-18, R2-19) | Todas las operaciones aparecen en la línea de tiempo con la hora local |
 | B-050 | ✅ v0.4 | **Guardas del asistente** (R2-20) | El servidor rechaza propuestas con IDs inexistentes; prueba |
-| B-051 | P2 | Citas recurrentes, check-in con QR, laboratorio, tareas internas, segmentos, relaciones familiares, recetas que se congelan al emitir, exportar todos los informes (R2-30 a R2-44) | Según cada requisito del anexo H |
+| B-051 | ✅ v0.4–v0.5 (falta: tarjetas proactivas con bloqueos levantados) | Citas recurrentes, check-in con QR, laboratorio, tareas internas, segmentos, relaciones familiares, recetas que se congelan al emitir, exportar todos los informes (R2-30 a R2-44) | Según cada requisito del anexo H |
 
 ## Nuevos pendientes detectados en v0.3
 | ID | Prioridad | Ítem |
@@ -44,7 +44,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-062 | ✅ v0.4 | Inventario por sucursal con la invariante lotes = stock (B-047) |
 | B-063 | ✅ v0.4 | Laboratorio protésico; costos reales en la liquidación de honorarios |
 | B-064 | ✅ v0.4 | PDF generados en el servidor con hash (presupuesto aceptado, consentimientos, recetas) |
-| B-065 | P2 | "Citas pasadas sin cerrar" también en el Inicio; exportar los controles a Excel; indicador "no contactar" |
+| B-065 | ✅ v0.5 (Inicio) | "Citas pasadas sin cerrar" también en el Inicio; exportar los controles a Excel; indicador "no contactar" |
 | B-066 | P2 | Orden de sondaje del periodontograma configurable por clínica (hoy se guarda en el navegador) |
 
 ## Nuevos pendientes detectados en v0.4
@@ -56,7 +56,18 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-073 | P2 | Laboratorio: anular un pago, costo de un reenvío, adjuntos reales, costo de laboratorio en la rentabilidad por sucursal |
 | B-074 | P2 | Agenda: cambiar la duración arrastrando el borde; prueba automática del arrastre táctil; «Deshacer» sin sumar una reprogramación |
 | B-075 | P2 | Recetas: aviso de interacciones con la medicación actual; plantillas de certificados editables por clínica |
-| B-076 | P3 | Laboratorio e inventario en el celular: tablas como tarjetas en lugar de desplazamiento horizontal dentro de la tarjeta |
+| B-076 | ✅ v0.5 | Laboratorio e inventario en el celular: tablas como tarjetas en lugar de desplazamiento horizontal dentro de la tarjeta |
+
+## Nuevos pendientes detectados en v0.5
+| ID | Prioridad | Ítem |
+|---|---|---|
+| B-080 | P1 | ⚠ Revisión legal: datos de salud en el estado de cuenta que recibe la empresa del convenio |
+| B-081 | P1 | Volumen persistente para archivos clínicos en el despliegue; controlador S3 compatible; miniaturas generadas en el servidor; barrido de archivos huérfanos |
+| B-082 | P2 | Convenios: pasar al paciente la porción impaga de la empresa; pagos de empresa en efectivo; empresas en Reportes y en cuentas por cobrar generales; honorarios «por cobro» con pagos de empresas |
+| B-083 | P2 | Gastos compartidos entre sucursales con reparto por porcentaje y comprobante adjunto real |
+| B-084 | P2 | Botón en pantalla para generar el enlace de encuesta a mano; aviso de llamada entrante (fase 2 de R2-42); contador de tareas en el menú |
+| B-085 | P2 | Protección contra inyección de fórmulas en `payments.xlsx` (exportación antigua) |
+| B-086 | P3 | Semilla demo: producción atribuida a sillones (hoy mucha queda «sin sillón identificado») |
 
 ## P1
 
@@ -64,21 +75,21 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 |---|---|---|
 | B-010 | WhatsApp Cloud API (plantillas, botones, entregas, baja) | Confirmar desde WhatsApp actualiza la cita; sin consentimiento no se envía; pruebas con un simulador |
 | B-011 | Periodontograma | 6 sitios por pieza; instantáneas inmutables; comparación entre fechas |
-| B-012 | Archivos clínicos privados | URL firmadas de 5 min; la descarga queda auditada; límite de tamaño y tipo |
+| B-012 | ✅ v0.5 Archivos clínicos privados | URL firmadas de 5 min; la descarga queda auditada; límite de tamaño y tipo |
 | B-013 | Inventario por sucursal | Stock por lote y vencimiento; consumo al realizar un tratamiento; alertas; transferencias con doble registro |
 | B-014 | Liquidación de honorarios por período | Cierre inmutable; base producción o cobro; exportación Excel |
 | B-015 | Sala de espera (✅ v0.2) y vista semanal de la agenda (pendiente) | Cambios de estado con arrastre y teclado; prueba e2e |
 | B-016 | Recetas e informes PDF | Plantilla con matrícula; registrado como nota clínica |
-| B-017 | Panel: rango libre de fechas y comparación con el período anterior | Variación en % por sucursal |
+| B-017 | ✅ v0.5 Panel: rango libre de fechas y comparación con el período anterior | Variación en % por sucursal |
 | B-018 | Correos transaccionales (citas, recuperación) | Proveedor configurable; sin datos clínicos |
-| B-019 | Paginación con cursor en auditoría y pagos | Más de 10 000 filas sin degradación |
+| B-019 | ✅ v0.5 (diario de actividad) Paginación con cursor en auditoría y pagos | Más de 10 000 filas sin degradación |
 
 ## P2
 
 | ID | Ítem | Criterio |
 |---|---|---|
 | B-020 | Facturación SIAT con un proveedor autorizado | Emitir, anular y contingencia; pruebas en el ambiente piloto del SIN; decisión legal previa |
-| B-021 | Conciliación bancaria por extracto | Emparejar referencia y monto; las diferencias quedan para revisión |
+| B-021 | ✅ v0.5 Conciliación bancaria por extracto | Emparejar referencia y monto; las diferencias quedan para revisión |
 | B-022 | Portal del paciente y reserva online | Disponibilidad real, captcha o límite de solicitudes, confirmación por WhatsApp |
 | B-023 | Laboratorios protésicos | Órdenes con estado, fechas y costo vinculadas al presupuesto |
 | B-024 | Compras y proveedores | Orden de compra → recepción → stock |
@@ -92,7 +103,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 |---|---|
 | B-030 | Dictado de evoluciones con IA (aprobación obligatoria del profesional) |
 | B-031 | Modo sin conexión |
-| B-032 | PWA instalable |
+| B-032 | ✅ v0.5 PWA instalable |
 | B-033 | Analítica de retención y rentabilidad por sillón |
 | B-034 | Interoperabilidad FHIR / Historia Clínica Única |
 

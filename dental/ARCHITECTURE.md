@@ -153,6 +153,11 @@ erDiagram
 | `lab`, `labPayables` | Órdenes de laboratorio con estados validados por trigger, eventos inmutables, cuentas por pagar y costo real para honorarios |
 | `documents*`, `lib/pdf.ts` | Recetas, certificados, derivaciones y PDF (presupuesto, consentimiento, recibo) con huella SHA-256; el primer PDF se guarda y se sirve siempre igual |
 | `messaging/*` | Reglas, plantillas versionadas, programador idempotente, tokens de confirmación, adaptador de WhatsApp Cloud API y webhook |
+| `clinicalFiles*`, `lib/filestore.ts` | Imágenes y archivos clínicos: interfaz `FileStore` (disco local; S3 previsto), verificación por firma de bytes, SHA-256, enlaces HMAC de 5 min atados a la persona, auditoría de cada entrega |
+| `management/*` | Gastos, gastos fijos recurrentes, fichaje, rentabilidad por sucursal y sillón, comparación de períodos y exportaciones a Excel |
+| `coordination/*` | Tareas internas, llamadas, diario de actividad sobre la auditoría (cursor) y tarjetas proactivas del Inicio |
+| `experience/*` | Familias, etiquetas, segmentos y campañas, encuestas NPS (un detractor crea una tarea), llegada con QR |
+| `agreements/*` | Convenios, afiliaciones, porción del tercero calculada por trigger, cuentas por cobrar por empresa, pendiente de facturar y conciliación bancaria |
 | `appointmentTypes`, `agendaSeries`, `agendaViews`, `patientTimeline` | Tipos de cita, series recurrentes (`lib/recurrence.ts`), vista semanal e historial del paciente según permisos |
 
 **Patrón de ruta** (`lib/http.ts`): cada endpoint declara acceso, permiso y esquemas zod (para validar y para OpenAPI). El helper aplica autenticación, CSRF y permisos y abre la transacción con contexto. Así ningún endpoint puede "olvidar" el aislamiento.
@@ -209,6 +214,7 @@ Radiografías, fotografías y consentimientos firmados irán en almacenamiento d
 | `/restablecer` | Token de un solo uso (SHA-256 guardado), 30 min |
 | `/p/presupuesto/:token` | Token por presupuesto, que vence y se puede revocar; verificación con los 4 últimos dígitos del celular o la fecha de nacimiento; bloqueo tras 5 intentos; nada visible antes de verificar |
 | `/verificar/:código` | Solo responde si el documento existe, está íntegro y vigente; no muestra datos del paciente |
+| `/e/:token` (encuesta), `/llegada/:token` (QR de llegada) | Tokens firmados por propósito; sin datos clínicos ni nombres; un solo uso o idempotentes; límite de intentos |
 | `/c/:token` | Token de un solo uso por cita para confirmar o pedir reprogramar; vence con la cita |
 | `/api/webhooks/whatsapp` | Firma HMAC de Meta (`WHATSAPP_APP_SECRET`); solo registra estados de entrega y respuestas «BAJA» |
 | `/reservar/:slug`, `/mi-cuenta/:slug` | Solo si la clínica habilitó la reserva (función `portal_clinic_by_slug`); código de 6 dígitos (10 min, 5 intentos); sesión del paciente `psid` separada; límites por IP y documento; respuestas idénticas exista o no el paciente |

@@ -2,6 +2,51 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.5.0] — 2026-11-11
+
+Revisión de lo que todavía faltaba frente a la competencia ("lo que todo software dental tiene"). Cinco equipos más en paralelo (migraciones 0015–0019), más el trabajo del integrador (migración 0020, app instalable y menú).
+
+### Agregado
+- **Imágenes y archivos clínicos (B-012):**
+  - pestaña en la ficha para radiografías periapicales y panorámicas, fotos intra y extraorales y documentos escaneados;
+  - galería con filtros por tipo y pieza, visor con zoom, comparación lado a lado (antes/después), subida desde la cámara del celular o arrastrando;
+  - el tipo se verifica por la firma del archivo (JPEG, PNG, WebP, PDF; DICOM solo descarga), sin duplicados por paciente (SHA-256);
+  - enlaces firmados de 5 minutos atados a la persona y a su sesión; cada apertura queda auditada; archivar pide motivo y no borra;
+  - recepción solo maneja documentos escaneados; desde el odontograma se llega a las imágenes de cada pieza;
+  - los respaldos incluyen la carpeta de archivos (`DENTAL_FILES_DIR`).
+- **Gestión del dueño y del gerente (R2-41, R2-43, B-017, B-033):**
+  - rentabilidad mensual por sucursal y por sillón: producción, cobrado, laboratorio real, materiales, honorarios liquidados y gastos; cada número explica su fuente y muestra «sin datos» en lugar de suponer cero;
+  - gastos por sucursal y categoría; los fijos mensuales se generan como borrador para confirmar, sin duplicar; anular pide motivo;
+  - fichaje del personal desde el celular, sin ubicación; las marcas no se editan y gerencia corrige con motivo; informe mensual de horas;
+  - el Panel suma un rango libre y la comparación con el período anterior; todos los informes se exportan a Excel con los mismos filtros y totales.
+- **Coordinación del equipo (R2-36, R2-37, R2-42, R2-44, B-019, B-065):**
+  - tareas internas asignadas a una persona o a un rol, con vencimiento, prioridad y vínculo a un paciente o cita; limpieza también las usa sin ver datos de pacientes;
+  - botón «Llamar» y registro de llamadas desde la ficha y la cita;
+  - diario de actividad en frases claras, sin datos clínicos, con filtros, Excel y paginación por cursor;
+  - tarjetas en el Inicio: hueco liberado con candidatos (la persona confirma), citas pasadas sin cerrar, tareas vencidas y trabajos de laboratorio listos sin cita.
+- **Experiencia del paciente y su familia (R2-31, R2-38, R2-39):**
+  - relaciones familiares con tutor legal, tarjeta «Familia» con saldos y próximas citas, agendar a hermanos seguidos, aviso de duplicados que reconoce al familiar declarado; el tutor ve a sus menores en el portal;
+  - etiquetas y segmentos guardados; campañas manuales sin datos clínicos solo para quien aceptó promociones (vista previa de excluidos, confirmación del número exacto, tope, 7 días entre campañas, horario de silencio, simulado fuera de producción);
+  - encuesta de satisfacción (NPS) de un solo uso con panel por sucursal y profesional; **un detractor crea una tarea de seguimiento para gerencia**, y completarla registra el seguimiento;
+  - llegada con QR en recepción (ventana −60/+30 min, idempotente, con límite de intentos y sin datos personales).
+- **Convenios y conciliación (R2-32, B-021):**
+  - convenios con empresas, colegios y asociaciones: precios especiales o % por categoría y parte que paga la empresa (% con tope anual por paciente);
+  - cada cargo separa la parte del paciente y la de la empresa; el saldo del paciente ya no incluye la de la empresa;
+  - estado de cuenta por empresa (pantalla, Excel y PDF verificable) y pagos de la empresa aplicados a varios cargos con verificación dual;
+  - «Pendiente de facturar» por línea o sesión, a nombre del paciente, la empresa u otra persona (no es una factura fiscal);
+  - conciliación bancaria con extracto Excel o CSV: emparejamiento exacto y sugerido, siempre confirmado por una persona, sin duplicar al reimportar.
+- **App instalable (B-032):** manifiesto, íconos y service worker que nunca guarda datos de la API; tarjeta «Aplicación en este dispositivo» en Mi cuenta; aviso cuando se pierde la conexión.
+- **Menú por secciones** (Día a día, Pacientes, Dinero, Clínica, Gestión, Ajustes) con desplazamiento, y botón **«Más»** en el celular con el menú completo.
+- **Tablas como tarjetas en el celular** (clase `cards-sm`) en laboratorio e inventario (B-076).
+
+### Corregido
+- En el celular no había forma de llegar a las pantallas que no estaban en la barra inferior (Tareas, Laboratorio, Gestión, Configuración…).
+- Con más de 20 opciones, el menú lateral cortaba las últimas en pantallas bajas.
+- Los datos de ejemplo tenían muy poca producción frente a gastos realistas: la rentabilidad de la demo daba −600 %. Ahora la semilla genera unos dos meses de actividad.
+
+### Permisos nuevos
+- `tasks.use` (todos los roles) y `timeclock.punch` (todos los roles; además cada persona debe tener el fichaje activado).
+
 ## [0.4.0] — 2026-11-10
 
 Cinco equipos más en paralelo (ramas aisladas, migraciones 0010–0014), integrados uno por uno con todas las pruebas en verde después de cada fusión.

@@ -183,12 +183,17 @@ try {
 
   // Presupuestos, tratamientos realizados y pagos
   let budgetNo = 0, receipt = 0;
-  for (let i = 0; i < 45; i++) {
+  // Volumen de una clínica de 5 sucursales: ~2 meses de presupuestos, para que la producción, la rentabilidad
+  // y la comparación con el mes anterior se vean creíbles en la demo. Los últimos 45 caen en los últimos 28 días.
+  const BUDGETS = 420;
+  for (let i = 0; i < BUDGETS; i++) {
     const patient = pick(patients);
     const dent = pick(dentistIds);
     const branch = B[dent.br[0]!]!;
-    const status = pick(["presented", "accepted", "accepted", "completed", "rejected", "draft"]);
-    const created_at = today.minus({ days: Math.floor(rnd() * 28) }).plus({ hours: 10 });
+    const recent = i >= BUDGETS - 45;
+    const status = recent ? pick(["presented", "accepted", "accepted", "completed", "rejected", "draft"])
+      : pick(["accepted", "completed", "completed", "completed", "rejected"]);
+    const created_at = today.minus({ days: recent ? Math.floor(rnd() * 28) : 3 + Math.floor(rnd() * 58) }).plus({ hours: 10 });
     const budgetId = (await q(`INSERT INTO budgets (clinic_id, number, branch_id, patient_id, dentist_id, status, installments, created_at, presented_at, decided_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9) RETURNING id`,
       [clinicId, ++budgetNo, branch.id, patient, dent.id, status, pick([1, 1, 3, 6]), created_at.toJSDate(), ["accepted", "completed", "rejected"].includes(status) ? created_at.plus({ days: 2 }).toJSDate() : null])).rows[0].id;

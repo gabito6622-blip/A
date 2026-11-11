@@ -21,9 +21,9 @@ const GROUPS = [
 export function Layout({ children, platformOnly }: { children: ReactNode; platformOnly?: boolean }) {
   const { me, can, logout, branchId, setBranchId } = useAuth();
   const items = platformOnly
-    ? [{ group: "day", to: "/", label: "Plataforma", icon: Building2, show: true }]
+    ? [{ group: "settings", to: "/", label: "Plataforma", icon: Building2, show: true }]
     : [
-        { to: "/", label: "Inicio", icon: LayoutDashboard, show: can("agenda.read") || can("reports.operational") || can("reports.financial") || can("patients.read") },
+        { group: "day", to: "/", label: "Inicio", icon: LayoutDashboard, show: can("agenda.read") || can("reports.operational") || can("reports.financial") || can("patients.read") },
         { group: "day", to: "/agenda", label: "Agenda", icon: CalendarDays, show: can("agenda.read") },
         { group: "day", to: "/sala-espera", label: "Sala de espera", icon: Armchair, show: can("agenda.read") },
         { group: "day", to: "/controles", label: "Controles", icon: PhoneCall, show: can("agenda.read") },

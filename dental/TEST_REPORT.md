@@ -1,6 +1,6 @@
-# Informe de pruebas — v0.4
+# Informe de pruebas — v0.5
 
-- **Fecha:** 10-nov-2026.
+- **Fecha:** 11-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
 
 ## Resumen
@@ -8,8 +8,8 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **368/368**, 27 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **28/28** (más 1 omitida a propósito en el proyecto de escritorio) |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **485/485**, 33 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **44/44** (más 1 que se omite sola cuando no hay citas por llegar en la sucursal a esa hora) |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Dependencias de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades (`uuid` forzado a ≥11.1.1 para `exceljs`) |
 | Cabeceras de seguridad | `curl -I` al servidor compilado | ✅ CSP `script-src 'self'`, `frame-ancestors 'none'`, HSTS, `nosniff`, `no-referrer`, `Cache-Control: no-store` en la API |
@@ -124,6 +124,17 @@ Todas incluyen pruebas de **aislamiento entre clínicas** para sus tablas nuevas
 
 End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.spec.ts`, `documentos.spec.ts`, `mensajes-automaticos.spec.ts` (aviso simulado → `/c/:token` → cita confirmada) y `agenda-semana.spec.ts` (3: serie con conflicto, arrastre con conflicto y Deshacer, historial con filtros).
 
+### Módulos de v0.5 (escritos por cada equipo y re-ejecutados juntos tras cada fusión)
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `clinical-files.test.ts` | 20 | Rechazo por firma aunque la extensión mienta, límite de tamaño, duplicado por hash, enlace vencido o de otra persona o clínica, auditoría de cada entrega, recepción solo con documentos escaneados, aislamiento por API y RLS |
+| `management.test.ts` | 22 | Rentabilidad por sucursal y por sillón al centavo, «sin datos» en vez de cero, gastos fijos sin duplicar, anulación con motivo, fichaje no editable, recepción y odontólogo sin acceso, exportaciones con los mismos totales que la pantalla |
+| `coordination.test.ts` | 14 | Ciclo de vida y permisos de tareas, limpieza sin datos del paciente, llamadas en el historial, diario sin datos clínicos, cursor estable con 10 500 filas de auditoría, tarjetas por rol y sucursal |
+| `family-segments.test.ts`, `feedback-checkin.test.ts` | 32 | Relaciones bidireccionales, campañas que excluyen a quien no consintió o se dio de baja, NPS correcto, token de encuesta de un solo uso sin datos clínicos, **detractor → tarea para gerencia** (sin el comentario; cerrar uno cierra el otro), llegada con QR fuera de ventana, idempotencia y límites |
+| `agreements.test.ts` | 28 | Precio de convenio copiado en la línea, copago al centavo con impares, paciente + empresa = total, pago de empresa a varios cargos, no facturar más de lo pendiente, conciliación exacta y sugerida sin verificación automática, reimportación sin duplicar |
+
+End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
+
 ### Seguridad y consentimientos (v0.2, `tests/security.test.ts` con 15 pruebas, más 4 end-to-end)
 - **TOTP:** cumple los vectores oficiales del RFC 6238 (T=59 s → 287082; T=1111111109 → 081804) y tolera ±30 s. Se rechazan los códigos viejos.
 - **Cifrado AES-256-GCM:** con otra clave o con datos alterados, falla.
@@ -171,6 +182,9 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 | (v0.2) El texto de ayuda de un campo formaba parte de su nombre accesible ("Nueva contraseña Mínimo 10…") | La ayuda queda fuera de la etiqueta |
 | (v0.2) La plantilla de recordatorios no nombraba al paciente | Las plantillas comienzan con "Yo, {paciente}" |
 | (v0.2, CI) El `pg_dump` del servidor de CI era más nuevo que PostgreSQL 16 y la restauración fallaba | CI con PostgreSQL 17 y requisito de versión documentado |
+| (v0.5) En el celular no había forma de llegar a pantallas fuera de la barra inferior; con 22 opciones el menú lateral cortaba las últimas (lo detectó una e2e que no encontraba «Configuración») | Menú por secciones con desplazamiento y botón «Más» en el celular, con prueba |
+| (v0.5) La demo mostraba una rentabilidad de −600 % (gastos realistas frente a muy poca producción de ejemplo) | La semilla genera unos dos meses de actividad |
+| (v0.5) Encuestas y tareas se hicieron en paralelo y el detractor solo quedaba como aviso | Migración 0020: el detractor crea una tarea de seguimiento para gerencia |
 | (v0.4) Dos pruebas e2e fallaban según el día: la semilla demo ocupaba el horario que usaban | La semilla deja libre 12:00–14:30 y la prueba de arrastre busca un día con huecos libres |
 | (v0.4) Equipo D detectó que «60.00» se interpretaba como 6000 Bs | Corregido el analizador de montos, con prueba |
 | El pool del superadmin forzaba el rol de la app y no veía datos | El rol se fija solo en el pool de la app, como parámetro de conexión |
@@ -182,6 +196,8 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 - **Impresión de documentos.** Los PDF del servidor sí están probados (se lee su texto), pero la ventana de impresión del navegador no.
 - **WhatsApp real.** El adaptador de Cloud API y el webhook están probados con firmas y respuestas simuladas; no se envió ningún mensaje real (no hay cuenta de la clínica).
 - **Arrastre táctil** en la agenda: implementado, sin prueba automática.
+- **Archivos clínicos en Railway:** sin un volumen persistente montado en `/data`, se perderían al redeplegar. No se probó en un despliegue real.
+- **Conciliación con extractos reales:** probada con un extracto de ejemplo (`docs/extracto-ejemplo.csv`); cada banco boliviano tiene su formato y habrá que mapear las columnas con un extracto real anonimizado.
 - **Asistente con IA real.** No hay clave en este entorno, así que el flujo del chat con el modelo no se ejecutó. Sí están probadas las herramientas, los permisos y la degradación sin clave.
 - **Pantallas de Configuración, Reportes, Asistente y Plataforma.** Están compiladas y revisadas visualmente, pero sin e2e propios. Su API sí está probada.
 - **Navegadores** distintos de Chromium (Safari iOS, Firefox).
