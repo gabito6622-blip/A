@@ -34,6 +34,7 @@ import { ReconciliationPage } from "./pages/Reconciliation";
 import { ExperiencePage, PublicCheckinPage, PublicSurveyPage } from "./pages/experience-routes";
 import { ImportPage } from "./pages/Import";
 import { HelpPage } from "./pages/Help";
+import { ManualPage } from "./pages/Manual";
 
 const PortalApp = lazy(() => import("./portal/PortalApp"));
 
@@ -84,6 +85,7 @@ export function App() {
         <Route path="/experiencia" element={<ExperiencePage />} />
         <Route path="/importar" element={<ImportPage />} />
         <Route path="/ayuda" element={<HelpPage />} />
+        <Route path="/ayuda/manual/*" element={<ManualPage />} />
         {me.user.isPlatformAdmin && <Route path="/plataforma" element={<PlatformPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

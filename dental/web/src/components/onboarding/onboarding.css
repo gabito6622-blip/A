@@ -51,7 +51,10 @@
 .hp-search { position: relative; max-width: 420px; width: 100%; }
 .hp-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
 .hp-search input { padding-left: 36px; min-height: 40px; }
+.hp-head-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1 1 420px; justify-content: flex-end; }
+.hp-manual { min-height: 40px; flex: none; }
 .hp-help-btn { min-width: 40px; min-height: 40px; font-weight: 700; }
 @media (max-width: 640px) {
   .hp-guides { grid-template-columns: 1fr; }
+  .hp-manual { width: 100%; justify-content: center; }
 }
