@@ -191,5 +191,5 @@ export function createExpiryPush(d: ExpiryPushDeps) {
     return { day: s.day, sent: s.sent, customers: s.customers, links: s.links, failed: s.failed, on: d.pushOn() };
   });
 
-  return { check, purge, hasAlerts: (token: string) => TOKEN_RE.test(token) && hasAlerts(token) };
+  return { check, purge, stats, hasAlerts: (token: string) => TOKEN_RE.test(token) && hasAlerts(token) };
 }

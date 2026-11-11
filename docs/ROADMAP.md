@@ -2,7 +2,10 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Ahora — Lo que pidieron en el estudio de mercado · 🔧 sin publicar
+## Ahora — 🏢 Mi oficina · 🔧 sin publicar
+- Los asistentes dibujados en 2D, trabajando con datos reales. 463 pruebas en verde.
+
+## Hecho — Lo que pidieron en el estudio de mercado · ✅ publicado (#37)
 - Hecho: avisos de vencimiento solos al celular del cliente final y "Ver mi código de acceso". 456 pruebas en verde.
 - Sigue: probar los avisos en celulares reales y después que el bot entregue y responda solo (M4, necesita la API de WhatsApp de Meta).
 

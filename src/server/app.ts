@@ -32,6 +32,7 @@ import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { createExpiryPush } from "./expiryPush.js";
+import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
@@ -1309,6 +1310,8 @@ export function createApp(cfg: AppConfig): App {
         const r = await agents.whatsappReply({ storeContext: storeContext(cust?.id), customerContext: cust ? customerContext(cust.id) : undefined, history, message: m.text, customerName: cust?.name ?? m.name });
         a.replies = [r.reply];
         if (r.handoff) a.human = true;
+        const who = firstName(cust?.name ?? m.name);
+        office.note("whatsapp", r.handoff ? `${who} necesita hablar con vos: le dije que ya le escribís.` : `Le respondí a ${who} por WhatsApp.`, r.handoff ? "warn" : "ok");
         // Lo que pidió el agente lo arma el sistema con datos reales (códigos, link de acceso, cómo pagar…): la IA nunca los escribe.
         const KEY: Record<string, string> = { codes: "5", login_link: "4", renew: "renovar", pay_info: "3", prices: "2" };
         if (r.action !== "none" && !r.handoff) {
@@ -2285,6 +2288,9 @@ export function createApp(cfg: AppConfig): App {
       expectedTotal: o.paymentMethod === "usdt" ? null : o.total, currencySymbol: store.engine.s.settings.currencySymbol || "Bs",
     });
     db.setSecret(`ai_receipt:${orderId}`, JSON.stringify(check), now());
+    const V = { parece_ok: ["✅ parece correcto", "ok"], revisar: ["👀 revisalo bien antes de aprobar", "warn"], no_coincide: ["⛔ no coincide con el pedido", "bad"] } as const;
+    const [vt, tone] = V[check.verdict] ?? V.revisar;
+    office.note("receipts", `Revisé el comprobante de ${firstName(store.engine.s.customers[o.customerId]?.name)}: ${vt}.`, tone);
     return check;
   }
   /** Al subir un comprobante, si el agente está prendido, lo revisa en segundo plano. */
@@ -2373,6 +2379,11 @@ export function createApp(cfg: AppConfig): App {
     ].join("\n\n").slice(0, 40_000);
   }
   const aiDaily = (): { text: string; at: number; day: string } | null => { try { return JSON.parse(db.getSecret("ai_daily") ?? "null"); } catch { return null; } };
+  // 🏢 Mi oficina: muestra lo que hacen los asistentes (office.ts). Solo lee y anota; no hace trabajo nuevo.
+  const office = createOffice({ route, store, db, now, hasKey: () => agents.hasKey, aiOn: (k) => agents.isOn(k), aiDaily, pushOn: () => pushOn(),
+    aiMonth: () => { const c = agents.cfg(); return { spentUsd: c.spentUsd, monthlyLimitUsd: c.monthlyLimitUsd, calls: c.calls, model: c.model, modelLabel: AI_MODELS[c.model]?.label ?? c.model }; },
+    mailOn: () => Object.values(store.engine.s.mailboxes).some((b) => !!passOf(b.id)), expiryStats: () => expiry.stats(),
+    forbidden: (msg) => { throw new HttpError(403, "FORBIDDEN", msg); } });
   const laDay = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(t));
   /** Datos del día (los calcula el sistema; la IA solo los redacta). */
   function dailyFacts(): string {

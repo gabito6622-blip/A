@@ -98,11 +98,13 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 ## Estudio de mercado (11/11/2026)
 | # | Pendiente | Prioridad | Estado |
 |---|---|---|---|
-| M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ sin publicar |
-| M2 | El cliente ve su código solo | P1 | ✅ sin publicar (el dueño lo prende) |
+| M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ publicado (#37) |
+| M2 | El cliente ve su código solo | P1 | ✅ publicado (#37), apagado hasta que el dueño lo prenda |
 | M3 | Probar los avisos en un Android y un iPhone reales con la tienda publicada | P1 | ⏳ |
 | M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
 | M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
 | M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🧑 |
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
+| M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ sin publicar |
+| M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |
