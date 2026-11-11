@@ -3,7 +3,8 @@ import { KeyRound, Plus, ShieldOff } from "lucide-react";
 import { useApi } from "../lib/hooks";
 import { api } from "../lib/api";
 import { bs, fmtDate, fmtDateTime, parseBs } from "../lib/format";
-import { Dialog, Empty, Field, Loading, useAsk, useToast } from "../components/ui";
+import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
+import { SystemStatusPanel } from "./SystemStatus";
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   trial: { label: "Prueba", tone: "info" },
@@ -19,6 +20,8 @@ export function PlatformPage() {
   const [creating, setCreating] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [tab, setTab] = useState<"clinics" | "status">(() => { try { return sessionStorage.getItem("platform-tab") === "status" ? "status" : "clinics"; } catch { return "clinics"; } });
+  const pickTab = (t: "clinics" | "status") => { setTab(t); try { sessionStorage.setItem("platform-tab", t); } catch { /* sin almacenamiento */ } };
   const patch = async (id: string, body: Record<string, unknown>) => {
     try { await api.patch(`/api/platform/clinics/${id}`, body); toast("Clínica actualizada"); clinics.reload(); }
     catch (e: any) { toast(e.message, true); }
@@ -26,12 +29,16 @@ export function PlatformPage() {
   return (
     <div className="stack" style={{ gap: 18 }}>
       <div className="page-head">
-        <div><h1>Plataforma SaaS</h1><p className="sub">Clínicas, planes y suscripciones</p></div>
-        <div className="row">
-          <button className="btn" onClick={() => setCreatingPlan(true)}><Plus size={16} />Nuevo plan</button>
-          <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Nueva clínica</button>
-        </div>
+        <div><h1>Plataforma SaaS</h1><p className="sub">{tab === "status" ? "Respaldos, disponibilidad, errores y alertas del servicio" : "Clínicas, planes y suscripciones"}</p></div>
+        {tab === "clinics" && (
+          <div className="row">
+            <button className="btn" onClick={() => setCreatingPlan(true)}><Plus size={16} />Nuevo plan</button>
+            <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Nueva clínica</button>
+          </div>
+        )}
       </div>
+      <Tabs value={tab} onChange={pickTab} items={[{ id: "clinics", label: "Clínicas y planes" }, { id: "status", label: "Estado del sistema" }]} />
+      {tab === "status" ? <SystemStatusPanel /> : <>
       <div className="alert info small">Este panel muestra solo métricas agregadas (conteos). Por diseño no da acceso a datos de pacientes ni a información clínica de las clínicas.</div>
       {created && (
         <div className="alert warn stack-sm" role="alert">
@@ -99,6 +106,7 @@ export function PlatformPage() {
       </div>
 
       <ResetMfaTool />
+      </>}
 
       {creating && (
         <CreateClinicDialog plans={plans.data ?? []} onClose={() => setCreating(false)}

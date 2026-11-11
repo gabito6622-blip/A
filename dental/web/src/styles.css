@@ -321,7 +321,7 @@ table.table { width: 100%; border-collapse: collapse; }
   table.cards-sm td > span, table.cards-sm td > div { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
   table.cards-sm .badge { white-space: normal; text-align: left; }
   table.cards-sm td:first-child { display: block; text-align: left; padding-bottom: 6px; }
-  table.cards-sm td:first-child::before { content: none; }
+  table.cards-sm td:first-child::before, table.cards-sm td:first-child[data-label]::before { content: none; }
   table.cards-sm td:first-child > * { max-width: none; }
   table.cards-sm td[data-label]::before { content: attr(data-label); flex: 0 0 38%; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
   table.cards-sm td[data-label=""]::before { content: none; }

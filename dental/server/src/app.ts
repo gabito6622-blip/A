@@ -46,6 +46,7 @@ import { expenseAttachmentRoutes } from "./modules/management/attachments.js";
 import { agreementRoutes } from "./modules/agreements/index.js";
 import { experienceRoutes } from "./modules/experience/index.js";
 import { onboardingRoutes } from "./modules/onboarding/index.js";
+import { opsRoutes } from "./modules/ops/index.js";
 
 export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const mailer = opts.mailer ?? createMailer(cfg);
@@ -157,6 +158,7 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean; ma
   agreementRoutes(route, cfg);
   experienceRoutes(route, cfg);
   onboardingRoutes(route);
+  opsRoutes(route, cfg, app, db, mailer);
 
   if (cfg.staticDir && existsSync(cfg.staticDir)) {
     await app.register(fastifyStatic, { root: resolve(cfg.staticDir), wildcard: false });

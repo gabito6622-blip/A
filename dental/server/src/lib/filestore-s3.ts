@@ -44,8 +44,12 @@ const xmlText = (xml: string, tag: string) => {
 const decodeXml = (s: string) =>
   s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&amp;/g, "&");
 
-export class S3FileStore implements FileStore {
-  readonly driver = "s3" as const;
+/**
+ * Cliente S3 genérico (PutObject, GetObject, DeleteObject y ListObjectsV2 con prefijo) firmado con
+ * SigV4. Lo usan los archivos clínicos (S3FileStore, claves validadas) y los respaldos
+ * (modules/ops, bajo su propio prefijo o bucket).
+ */
+export class S3ObjectClient {
   private readonly base: URL;
 
   constructor(readonly cfg: S3Config, private readonly fetchImpl: typeof fetch = fetch, private readonly now: () => Date = () => new Date()) {
@@ -66,7 +70,7 @@ export class S3FileStore implements FileStore {
     return { url, path };
   }
 
-  private async send(op: string, method: string, key: string | null, opts: { body?: Buffer; query?: [string, string][]; headers?: Record<string, string> } = {}) {
+  async send(op: string, method: string, key: string | null, opts: { body?: Buffer; query?: [string, string][]; headers?: Record<string, string> } = {}) {
     const { url, path } = this.target(key, opts.query);
     const payloadHash = opts.body ? payloadSha256(opts.body) : EMPTY_SHA256;
     const date = amzDate(this.now());
@@ -86,45 +90,43 @@ export class S3FileStore implements FileStore {
     return res;
   }
 
-  private async fail(op: string, res: Response): Promise<never> {
+  async fail(op: string, res: Response): Promise<never> {
     const text = await res.text().catch(() => "");
     throw new S3Error(res.status, xmlText(text, "Code") ?? "Unknown", op);
   }
 
-  async put(key: string, data: Buffer): Promise<void> {
-    assertStorageKey(key);
-    const headers: Record<string, string> = { "content-type": "application/octet-stream" };
+  /** Sube un objeto. Con `ifNoneMatch` nunca sobrescribe (412 → error «ya existe»). */
+  async putObject(key: string, data: Buffer, opts: { ifNoneMatch?: boolean; contentType?: string } = {}): Promise<void> {
+    const headers: Record<string, string> = { "content-type": opts.contentType ?? "application/octet-stream" };
     if (this.cfg.sse) headers["x-amz-server-side-encryption"] = this.cfg.sse;
-    if (this.cfg.conditionalPut) headers["if-none-match"] = "*";
+    if (opts.ifNoneMatch && this.cfg.conditionalPut) headers["if-none-match"] = "*";
     const res = await this.send("subir", "PUT", key, { body: data, headers });
     if (res.status === 412) { await res.body?.cancel(); throw new Error("La clave de almacenamiento ya existe"); }
     if (!res.ok) await this.fail("subir", res);
     await res.body?.cancel();
   }
 
-  async open(key: string): Promise<{ stream: Readable; size: number }> {
-    assertStorageKey(key);
+  /** GetObject en streaming; null si no existe (404). */
+  async getObject(key: string): Promise<{ stream: Readable; size: number } | null> {
     const res = await this.send("leer", "GET", key);
-    if (res.status === 404) {
-      await res.body?.cancel();
-      throw new AppError(410, "file_missing", "El archivo ya no está en el almacenamiento. Avisa a administración para restaurarlo desde el respaldo.");
-    }
+    if (res.status === 404) { await res.body?.cancel(); return null; }
     if (!res.ok || !res.body) await this.fail("leer", res);
     const size = Number(res.headers.get("content-length"));
     return { stream: Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>), size: Number.isFinite(size) ? size : 0 };
   }
 
-  async remove(key: string): Promise<void> {
-    assertStorageKey(key);
+  async deleteObject(key: string): Promise<void> {
     const res = await this.send("borrar", "DELETE", key);
     await res.body?.cancel();
     if (!res.ok && res.status !== 404) throw new S3Error(res.status, "DeleteFailed", "borrar");
   }
 
-  async *list(): AsyncIterable<StoredObject> {
+  /** ListObjectsV2 paginado, opcionalmente solo bajo `prefix`. */
+  async *listObjects(prefix?: string): AsyncIterable<StoredObject> {
     let token: string | null = null;
     for (let page = 0; page < 100_000; page++) {
       const query: [string, string][] = [["list-type", "2"], ["max-keys", "1000"]];
+      if (prefix) query.push(["prefix", prefix]);
       if (token) query.push(["continuation-token", token]);
       const res = await this.send("listar", "GET", null, { query });
       if (!res.ok) await this.fail("listar", res);
@@ -137,5 +139,35 @@ export class S3FileStore implements FileStore {
       token = xmlText(xml, "IsTruncated") === "true" ? xmlText(xml, "NextContinuationToken") : null;
       if (!token) return;
     }
+  }
+}
+
+export class S3FileStore implements FileStore {
+  readonly driver = "s3" as const;
+  private readonly client: S3ObjectClient;
+
+  constructor(readonly cfg: S3Config, fetchImpl: typeof fetch = fetch, now: () => Date = () => new Date()) {
+    this.client = new S3ObjectClient(cfg, fetchImpl, now);
+  }
+
+  async put(key: string, data: Buffer): Promise<void> {
+    assertStorageKey(key);
+    await this.client.putObject(key, data, { ifNoneMatch: true });
+  }
+
+  async open(key: string): Promise<{ stream: Readable; size: number }> {
+    assertStorageKey(key);
+    const o = await this.client.getObject(key);
+    if (!o) throw new AppError(410, "file_missing", "El archivo ya no está en el almacenamiento. Avisa a administración para restaurarlo desde el respaldo.");
+    return o;
+  }
+
+  async remove(key: string): Promise<void> {
+    assertStorageKey(key);
+    await this.client.deleteObject(key);
+  }
+
+  list(): AsyncIterable<StoredObject> {
+    return this.client.listObjects();
   }
 }
