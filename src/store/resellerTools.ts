@@ -89,7 +89,7 @@ export function myEarnings(e: Engine, actor: Actor) {
   const split = isForeign(e, me);
   type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number; unpaid: Cents };
   const months = new Map<string, Row>();
-  const apps = new Map<string, Row & { name: string }>();
+  const apps = new Map<string, Row & { productId: Id; name: string }>();
   const cur = monthKey(now);
   const mine = (o: (typeof e.s.orders)[string]) => o.payerId === me.id && o.customerId !== me.id && o.status === "fulfilled" && (o.kind === "sale" || o.kind === "renewal");
   // Último pedido de cada servicio: si hoy figura "Pendiente"/"No pagó", ese pedido todavía no se cobró.
@@ -115,7 +115,7 @@ export function myEarnings(e: Engine, actor: Actor) {
       const unpaid = !!a && (a.rcontrol?.payStatus ?? "pagado") !== "pagado" && lastOf.get(a.id)?.id === o.id;
       if (unpaid) m.unpaid += revenue;
       if (k === cur) {
-        const p = apps.get(it.productId) ?? { name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
+        const p = apps.get(it.productId) ?? { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
         if (unpaid) p.unpaid += revenue;
         p.sales += units; p.cost += it.unitPrice * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
         apps.set(it.productId, p);

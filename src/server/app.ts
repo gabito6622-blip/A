@@ -549,6 +549,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => store.subs.publicView(c.params.token)));
   route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
   registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON }); // país/moneda y cuentas propias
+  route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
@@ -1754,7 +1755,7 @@ export function createApp(cfg: AppConfig): App {
   /* ---------- Vista previa al compartir (WhatsApp, Facebook, Telegram) ----------
      Las páginas públicas llevan título, descripción e imagen propios en el <head>, y la imagen
      se dibuja en el servidor con el nombre y los colores de cada tienda. */
-  type OgInfo = { title: string; description: string; siteName: string; img: string; noSize?: boolean; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
+  type OgInfo = { title: string; description: string; siteName: string; img: string; noSize?: boolean; icon?: string; shop?: string; card: { title: string; subtitle?: string; accent?: string; background?: string; brand?: string } };
   const oneLine = (s: unknown, max = 200) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   function ogInfo(pathname: string): OgInfo | null {
     const st = store.engine.s.settings;
@@ -1762,11 +1763,19 @@ export function createApp(cfg: AppConfig): App {
     const slug = pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase();
     if (slug) {
       try {
-        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string; seoTitle?: string; seoDescription?: string };
+        const sh = store.shops.public(slug) as { title?: string; heroText?: string; heroChip?: string; accentColor?: string; backgroundColor?: string; seoTitle?: string; seoDescription?: string; hasBanner?: boolean; hasLogo?: boolean };
         const title = oneLine(sh.seoTitle || sh.title || slug, 70);
         const description = oneLine(sh.seoDescription || sh.heroText || sh.heroChip || `Suscripciones digitales con entrega rápida. Pedí por WhatsApp a ${sh.title || slug}.`);
-        return { title, description, siteName: title, img: `/og/r/${slug}.png`, card: { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor } };
-      } catch { return null; }
+        // Con portada propia, la vista previa es su portada; si no, una tarjeta con su nombre en sus colores.
+        // Con logo, la pestaña del navegador muestra su logo.
+        const icon = sh.hasLogo ? `/api/shops/${slug}/logo` : undefined;
+        const card = { title, subtitle: oneLine(sh.heroChip || "Suscripciones digitales", 60), accent: sh.accentColor, background: sh.backgroundColor };
+        if (sh.hasBanner) return { title, description, siteName: title, img: `/api/shops/${slug}/banner`, noSize: true, icon, card, shop: slug };
+        return { title, description, siteName: title, img: `/og/r/${slug}.png`, icon, card, shop: slug };
+      } catch {
+        // No existe, está bloqueada, suspendida o sin publicar: vista previa genérica, sin nada de esa página.
+        return hubOg(st, platform);
+      }
     }
     if (/^\/tienda(\/|$)/.test(pathname)) {
       const title = oneLine(st.seoTitle || st.storeName || "Tienda", 70);
@@ -1774,12 +1783,13 @@ export function createApp(cfg: AppConfig): App {
       if (st.bannerFileRef) return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/api/settings/banner", noSize: true, card: { title, subtitle: "", accent: st.accentColor, background: st.backgroundColor } };
       return { title, description, siteName: oneLine(st.storeName || "Tienda", 60), img: "/og/tienda.png", card: { title, subtitle: oneLine(st.heroChip || "Suscripciones digitales", 60), accent: st.accentColor, background: st.backgroundColor } };
     }
-    if (pathname === "/" || /^\/(hub|revendedores|tiendas)\/?$/.test(pathname)) {
-      const title = oneLine(platform, 60);
-      return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
-        img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
-    }
+    if (pathname === "/" || /^\/(hub|revendedores|tiendas)\/?$/.test(pathname)) return hubOg(st, platform);
     return null;
+  }
+  function hubOg(st: typeof store.engine.s.settings, platform: string): OgInfo {
+    const title = oneLine(platform, 60);
+    return { title, description: "Plataforma para revendedores de streaming: tu propia página, precios de revendedor y entrega automática.", siteName: title,
+      img: "/og/hub.png", card: { title, subtitle: "Plataforma para revendedores", accent: st.accentColor, background: st.backgroundColor } };
   }
   /** Origen absoluto para las etiquetas (WhatsApp exige URLs completas). */
   function originOf(req: IncomingMessage) {
@@ -1811,7 +1821,7 @@ export function createApp(cfg: AppConfig): App {
     const m = pathname.match(/^\/og\/(tienda|hub|r\/([a-z0-9-]{3,30}))\.png$/i);
     if (!m || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const info = ogInfo(m[2] ? `/r/${m[2].toLowerCase()}` : m[1] === "tienda" ? "/tienda/" : "/");
-    if (!info) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
+    if (!info || (m[2] && info.shop !== m[2].toLowerCase())) { send(res, 404, { error: "NOT_FOUND", message: "No encontrado" }); return true; }
     const key = JSON.stringify(info.card);
     let img = ogCache.get(key);
     if (!img) {
@@ -1831,11 +1841,13 @@ export function createApp(cfg: AppConfig): App {
     if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
     const origin = originOf(req);
     const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
-    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return shellHtml.html
+    const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    let html = shellHtml.html
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
+    if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    return html;
   }
 
   /** A dónde mandar a quien entra por el dominio propio. null = servir normal. */

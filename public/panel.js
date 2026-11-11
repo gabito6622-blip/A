@@ -1314,7 +1314,7 @@ const V = {
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
-        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o)}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
+        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>

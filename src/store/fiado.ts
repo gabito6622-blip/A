@@ -160,6 +160,17 @@ export function chargeUnpaidRentals(e: Engine, actor: Actor, customerId: Id): { 
   });
 }
 
+/** Hasta 3 apps distintas que el cliente tiene activas: id y nombre del producto (sin datos de la cuenta). */
+function appsOf(e: Engine, customerId: Id): { productId: Id; product: string }[] {
+  const out = new Map<Id, string>();
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.customerId !== customerId || a.status !== "active" || out.has(a.productId)) continue;
+    out.set(a.productId, (e.s.products[a.productId]?.name ?? "").replace(/ \(alquiler revendedores\)/, ""));
+    if (out.size >= 3) break;
+  }
+  return [...out].map(([productId, product]) => ({ productId, product }));
+}
+
 /** Resumen para la pantalla Fiado: quién debe, cuánto, desde cuándo y cuándo se cobra. */
 export function overview(e: Engine, actor: Actor) {
   const b = bookOf(e, actor, false);
@@ -175,6 +186,8 @@ export function overview(e: Engine, actor: Actor) {
       customerId: id, name: c?.name ?? "?", phone: c?.phone ?? "", kind: c?.kind ?? "customer",
       owed, credit, openCharges: open.length, oldestAt: open[0]?.at, nextDue, overdue: !!nextDue && nextDue < now,
       unlinked: { count: pend.length, amount: pend.reduce((t, a) => t + rentalPrice(e, b, a), 0) },
+      // Las apps que tiene activas (para mostrar sus logos): solo de este cliente, que es del mismo dueño de la libreta.
+      apps: appsOf(e, id),
     };
   }).filter((r) => r.owed > 0 || r.unlinked.count || r.credit > 0)
     .sort((a, b2) => Number(b2.overdue) - Number(a.overdue) || b2.owed - a.owed);

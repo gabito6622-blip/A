@@ -19,7 +19,10 @@ p{margin:0}
 .center{text-align:center}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:10px;min-width:0}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
-.prod{font-size:20px;font-weight:800;overflow-wrap:anywhere}
+.prod{font-size:20px;font-weight:800;overflow-wrap:anywhere;min-width:0}
+.prodw{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 160px}
+.plogo{width:44px;height:44px;flex:none;border-radius:12px;object-fit:contain;background:#fff;border:1px solid var(--line);padding:4px}
+.pini{display:grid;place-items:center;padding:0;background:var(--acc);color:var(--card);border:0;font-weight:900;font-size:20px}
 .pill{display:inline-block;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
 .p-ok{background:var(--ok-bg);color:var(--ok)}
 .p-warn{background:var(--warn-bg);color:var(--warn)}
