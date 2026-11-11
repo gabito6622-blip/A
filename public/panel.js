@@ -1,6 +1,7 @@
 // Panel del vendedor conectado al servidor.
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
+import { officeView, officeMount } from "/oficina.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
@@ -17,7 +18,7 @@ const CTAGS = { vip: ["⭐ VIP", "vip"], moroso: ["⚠️ Moroso", "moroso"], nu
 const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}">${CTAGS[t][0]}</span>` : "";
 
 const MENU = [
-  ["inicio", "home", "Inicio"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
+  ["inicio", "home", "Inicio"], ["oficina", "monitor", "🏢 Mi oficina", "review"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
   ["finanzas", "coins", "Finanzas", "owner"],
   ["fiado", "flag", "Fiado (lo que te deben)"],
   ["quevuelvan", "coins", "💸 Que vuelvan"],
@@ -29,7 +30,7 @@ const MENU = [
   ["revendedores", "userplus", "Revendedores"], ["comovan", "users", "📈 Cómo van", "review"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
   ["apariencia", "sun", "Apariencia de la tienda", "review"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
 ];
-const TITLE = { inicio: ["home", "Inicio"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -100,6 +101,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
 /* ---------------- vistas ---------------- */
 const V = {
   comovan: () => comoVanView(P.tab),
+  oficina: () => officeView(),
   quevuelvan: () => winbackView(),
   async dashboard() {
     const dd = Number(P.tab.dd ?? 30);
@@ -1702,6 +1704,7 @@ async function aiCard() {
   const anyOn = AI_AGENTS.some(([k]) => a.enabled[k]);
   return `<section class="card"><h2>🤖 Oficina virtual <small>agentes con Claude</small> ${!a.hasKey ? pill("Falta la clave", "mute") : anyOn ? pill("Trabajando", "ok") : pill("Apagados", "warn")}</h2>
     <p class="muted" style="margin:0">Cada agente hace una sola tarea. Ninguno aprueba pagos, entrega cuentas ni toca plata: eso lo hacés vos.</p>
+    <button type="button" class="pbtn" data-go="oficina" style="justify-self:start">🏢 Verlos trabajar en Mi oficina</button>
     ${a.hasKey && a.lastError ? `<p class="perr" style="margin:0">Último error: ${esc(a.lastError)}</p>` : ""}
     ${!a.hasKey ? `<details class="tg-help" open><summary>¿Cómo se prende? (una sola vez)</summary><ol style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
       <li>Entrá a <b>console.anthropic.com</b>, creá una cuenta y cargá crédito (se paga aparte de tu suscripción de Claude).</li>
@@ -2048,6 +2051,7 @@ async function render() {
     if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
     if (P.view === "apariencia") previewLook();
     if (P.view === "configuracion") pushStatus();
+    if (P.view === "oficina") officeMount(() => P.view === "oficina");
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
