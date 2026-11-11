@@ -28,6 +28,7 @@ import * as winback from "./winback.js";
 import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
 import * as usd from "./usd.js";
+import * as bulkAssign from "./bulkAssign.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -308,6 +309,11 @@ export function createStore(opts: EngineOptions = {}) {
       link: bind(e, ownStock.link),
       revokeLink: bind(e, ownStock.revokeLink),
       counts: (customerId: Id) => ownStock.ownCounts(e, customerId),
+    },
+    /** "📋 Cargar sus cuentas": anotar en lote lo ya vendido a un revendedor, sin cobrar (bulkAssign.ts). */
+    bulk: {
+      preview: bind(e, bulkAssign.preview),
+      apply: bind(e, bulkAssign.apply),
     },
     rtools: {
       control: bind(e, rtools.myControl),

@@ -7,7 +7,7 @@
 // - En modo vista previa se procesa todo igual y al final se deshace: la vista previa
 //   muestra exactamente lo que va a pasar.
 // - No se mandan avisos de WhatsApp y no cuenta como venta en las estadísticas.
-import type { Actor, Assignment, Cents, Id, Order } from "./types.js";
+import type { Actor, Assignment, Cents, Id, Order, RentalControl, Slot } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
 import { authorize } from "./auth.js";
@@ -171,26 +171,36 @@ function importOne(e: Engine, actor: Actor, r: ServiceRow, res: ServiceResult): 
   if (r.customerExpiresAt < now) res.warnings.push("Ya está vencido: queda abierto hasta que le pongas fecha o lo renueves");
   if (r.customerExpiresAt > account.supplierExpiresAt) res.warnings.push("El cliente vence después que la cuenta con el proveedor");
 
-  // Servicio asignado, con un pedido de registro de Bs 0 (no cuenta como venta).
-  const order: Order = {
-    id: e.id("ord"), kind: "sale", customerId: customer.id, payerId: customer.id, createdBy: actor.id, channel: "import",
-    items: [{ productId: product.id, qty: 1, unitPrice: 0 }], total: 0, status: "fulfilled", paymentMethod: "cash",
-    reservedSlotIds: [slot.id], assignmentIds: [], createdAt: now, updatedAt: now,
-  };
-  slot.status = "assigned";
-  slot.reservedByOrder = order.id;
-  const a: Assignment = {
-    id: e.id("asg"), slotId: slot.id, productId: product.id, customerId: customer.id, orderId: order.id,
-    startsAt: now, customerExpiresAt: r.customerExpiresAt, status: "active", ...(r.customerExpiresAt < now ? { holdOpen: true } : {}),
-    history: [{ at: now, by: actor.id, event: "assigned", slotId: slot.id, note: `importado (fila ${r.row})` }],
-  };
   const control = { ...(r.price !== undefined ? { price: r.price } : {}), ...(r.seller ? { seller: r.seller.slice(0, 60) } : {}), ...(r.note ? { note: r.note.slice(0, 200) } : {}) };
-  if (Object.keys(control).length) a.control = control;
+  assignWithoutCharge(e, actor, { customerId: customer.id, productId: product.id, slot, expiresAt: r.customerExpiresAt, control, note: `importado (fila ${r.row})` });
+  res.account = account.email;
+  res.profile = slot.label;
+}
+
+/**
+ * Deja asignado un perfil a un cliente SIN cobrar: un pedido de registro de Bs 0 con canal "import"
+ * (no cuenta como venta ni como plata que entró) y su servicio con la fecha dada. No manda avisos.
+ * Lo usan la importación del Excel y "Cargar sus cuentas" (bulkAssign.ts). Corre dentro de la transacción de quien llama.
+ */
+export function assignWithoutCharge(e: Engine, actor: Actor, p: { customerId: Id; productId: Id; slot: Slot; expiresAt: number; control?: RentalControl; note: string }): Assignment {
+  const now = e.now();
+  const order: Order = {
+    id: e.id("ord"), kind: "sale", customerId: p.customerId, payerId: p.customerId, createdBy: actor.id, channel: "import",
+    items: [{ productId: p.productId, qty: 1, unitPrice: 0 }], total: 0, status: "fulfilled", paymentMethod: "cash",
+    reservedSlotIds: [p.slot.id], assignmentIds: [], createdAt: now, updatedAt: now,
+  };
+  p.slot.status = "assigned";
+  p.slot.reservedByOrder = order.id;
+  const a: Assignment = {
+    id: e.id("asg"), slotId: p.slot.id, productId: p.productId, customerId: p.customerId, orderId: order.id,
+    startsAt: now, customerExpiresAt: p.expiresAt, status: "active", ...(p.expiresAt < now ? { holdOpen: true } : {}),
+    history: [{ at: now, by: actor.id, event: "assigned", slotId: p.slot.id, note: p.note }],
+  };
+  if (p.control && Object.keys(p.control).length) a.control = p.control;
   order.assignmentIds.push(a.id);
   e.s.orders[order.id] = order;
   e.s.assignments[a.id] = a;
-  res.account = account.email;
-  res.profile = slot.label;
+  return a;
 }
 
 export type { Id };
