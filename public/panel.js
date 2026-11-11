@@ -1805,11 +1805,18 @@ async function payMethodsCard() {
 async function rateCard() {
   if (!canReview()) return "";
   const u = await api("GET", "/api/admin/usdt").catch(() => null);
-  if (!u?.enabled || !(u.rate > 0)) return "";
-  const age = u.rateAt ? Date.now() - u.rateAt : Infinity, old = age > 24 * 3600_000;
+  if (!u) return "";
+  const b = u.bcb ?? { auto: false };
+  const bcbBtns = `<div class="inline" style="flex-wrap:wrap">${b.auto ? `<button class="pbtn sm" type="button" data-bcb="now">🔄 Traer ahora</button><button class="pbtn sm" type="button" data-bcb="off">Apagar automático</button>` : `<button class="pbtn sm dark" type="button" data-bcb="on">🏦 Tomarla del Banco Central todos los días</button>`}</div>`;
+  if (!(u.rate > 0)) return `<section class="card hm-rate"><h2>💱 Tasa del dólar</h2><p class="muted" style="margin:0">Todavía no tiene tasa. Tomá la del Banco Central de Bolivia (tipo de cambio oficial) y se actualiza sola cada día.</p>${b.error ? `<p class="bad" style="margin:0">⚠️ ${esc(b.error)}</p>` : ""}${bcbBtns}</section>`;
+  const age = u.rateAt ? Date.now() - u.rateAt : Infinity, old = age > (b.auto ? 4 * 24 : 24) * 3600_000 || !!b.error;
   const when = !u.rateAt ? "sin fecha" : age < 3600_000 ? "hace menos de 1 hora" : age < 48 * 3600_000 ? `hace ${Math.floor(age / 3600_000)} h` : `el ${fdate(u.rateAt)}`;
-  return `<section class="card hm-rate ${old ? "hm-rate-old" : ""}"><h2>💱 Tasa del USDT ${old ? pill("Revisala", "warn") : ""}</h2>
-    <p class="muted" style="margin:0">1 USDT = <b>Bs ${String(u.rate).replace(".", ",")}</b> · actualizada ${when}. Con el dólar flexible, cambiala cuando se mueva: lo que ya pidieron no cambia.</p>
+  const fromBcb = b.auto && b.rate === u.rate;
+  const bcbDay = b.date ? b.date.split("-").reverse().slice(0, 2).join("/") : "";
+  return `<section class="card hm-rate ${old ? "hm-rate-old" : ""}"><h2>💱 Tasa del USDT ${old ? pill("Revisala", "warn") : b.auto ? pill("Automática", "ok") : ""}</h2>
+    <p class="muted" style="margin:0">1 USDT = <b>Bs ${String(u.rate).replace(".", ",")}</b> · ${fromBcb ? `Banco Central de Bolivia, tipo de cambio oficial del ${bcbDay}` : `actualizada ${when}${b.auto ? " (a mano; el Banco Central la cambia cuando publique la nueva)" : ""}`}. Lo que ya pidieron no cambia.</p>
+    ${b.error ? `<p class="bad" style="margin:0">⚠️ No pude leer el Banco Central: ${esc(b.error)}. Se queda la tasa de arriba.</p>` : ""}
+    ${bcbBtns}
     <form class="inline" id="rateForm" style="flex-wrap:wrap"><input id="rateNew" name="rate" aria-label="Nueva tasa: cuántos Bs vale 1 USDT" inputmode="decimal" required placeholder="Ej.: ${String(u.rate).replace(".", ",")}" style="flex:1 1 120px"><button class="pbtn dark" type="submit">Actualizar tasa</button></form></section>`;
 }
 
@@ -2587,6 +2594,12 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.paid) return act(() => api("POST", `/api/admin/assignments/${d.paid}/control`, { payStatus: "pagado" }), "💵 Marcado como cobrado");
+  if (d.bcb) {
+    if (d.bcb === "off") return act(() => api("POST", "/api/admin/usdt/bcb", { auto: false }), "Tasa automática apagada: la cambiás vos");
+    const r = await act(() => api("POST", d.bcb === "on" ? "/api/admin/usdt/bcb" : "/api/admin/usdt/bcb/now", { auto: true }), null);
+    if (r) toast(r.bcb?.error ? `⚠️ ${r.bcb.error}` : `🏦 Banco Central: 1 US$ = Bs ${String(r.rate).replace(".", ",")}`);
+    return render();
+  }
   if (d.wastest) {
     if (!confirm(`¿La venta de ${el.dataset.name || "este cliente"} era una prueba?\n\nSe cierra el servicio (y los otros de esa misma venta), el perfil vuelve a estar libre y la venta sale de tus números. No se le avisa a nadie.`)) return;
     return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);

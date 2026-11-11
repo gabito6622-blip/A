@@ -2,6 +2,7 @@
 // Sin frameworks: node:http. Cada ruta declara quién puede llamarla; el núcleo vuelve a
 // validar permisos (defensa en dos capas).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { fetchBcbRate } from "./bcbRate.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
@@ -145,6 +146,8 @@ function sniff(buf: Buffer): { ext: string; mime: string } | null {
 }
 
 export interface App {
+  /** Lee la tasa oficial del Banco Central (dólar flexible); `force` la trae aunque no toque. */
+  checkBcbRate(force?: boolean): Promise<{ rate: number; date: string; applied: boolean } | null>;
   server: Server;
   store: GabrielStore;
   db: Db;
@@ -1652,7 +1655,49 @@ export function createApp(cfg: AppConfig): App {
   // USDT manual: configuración cruda (para el panel; la dirección es pública pero la mostramos solo al staff).
   route("GET", "/api/admin/usdt", "staff", () => {
     const u = store.engine.s.settings.usdt;
-    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, rateAt: u?.rateAt ?? null, note: u?.note ?? "" };
+    return { enabled: !!u?.enabled, address: u?.address ?? "", network: u?.network ?? "", payId: u?.payId ?? "", rate: u?.rate ?? 0, rateAt: u?.rateAt ?? null, note: u?.note ?? "", bcb: bcbCfg() };
+  });
+
+  // ── Tasa del dólar del Banco Central de Bolivia (dólar flexible) ──
+  // Con "automático", cada 3 h se lee la tasa oficial del BCB; si publicó una fecha nueva, pasa a ser la tasa del USDT.
+  // Si el dueño la cambia a mano, queda hasta que el BCB publique la del día siguiente. Si falla, no se toca nada.
+  const bcbAdmin = (c: Ctx) => { if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin cambian la tasa"); };
+  type BcbCfg = { auto: boolean; lastTry?: number; lastOk?: number; date?: string; rate?: number; error?: string };
+  const bcbCfg = (): BcbCfg => { try { return JSON.parse(db.getSecret("bcb:rate") ?? "") as BcbCfg; } catch { return { auto: false }; } };
+  const saveBcb = (x: BcbCfg) => db.setSecret("bcb:rate", JSON.stringify(x), now());
+  async function checkBcbRate(force = false) {
+    const c = bcbCfg();
+    if (!force && (!c.auto || (c.lastTry && now() - c.lastTry < 3 * 3_600_000))) return null;
+    try {
+      const r = await fetchBcbRate(cfg.fetchImpl ?? fetch);
+      const next: BcbCfg = { ...bcbCfg(), lastTry: now(), lastOk: now(), date: r.date, rate: r.rate };
+      delete next.error;
+      const u = store.engine.s.settings.usdt;
+      // Solo cuando el BCB publica una fecha nueva (o la primera vez): así no pisa un cambio a mano del mismo día.
+      const changed = r.date !== c.date || force;
+      if (changed && u?.rate !== r.rate) {
+        const sys: Actor = { id: "system:bcb", role: "owner" };
+        store.catalog.updateSettings(sys, { usdt: { enabled: !!u?.enabled, address: u?.address, network: u?.network, payId: u?.payId, note: u?.note, rate: r.rate } as never });
+      }
+      saveBcb(next);
+      return { rate: r.rate, date: r.date, applied: changed };
+    } catch (e) {
+      saveBcb({ ...bcbCfg(), lastTry: now(), error: (e as Error).message });
+      throw e;
+    }
+  }
+  route("POST", "/api/admin/usdt/bcb", "staff", async (c) => {
+    bcbAdmin(c);
+    const auto = !!c.body?.auto;
+    saveBcb({ ...bcbCfg(), auto });
+    if (!auto) return { bcb: bcbCfg() };
+    try { await checkBcbRate(true); } catch { /* el error queda guardado y se muestra */ }
+    return { bcb: bcbCfg(), rate: store.engine.s.settings.usdt?.rate ?? 0 };
+  });
+  route("POST", "/api/admin/usdt/bcb/now", "staff", async (c) => {
+    bcbAdmin(c);
+    try { await checkBcbRate(true); } catch { /* idem */ }
+    return { bcb: bcbCfg(), rate: store.engine.s.settings.usdt?.rate ?? 0 };
   });
 
   // ── Binance Pay: configuración del dueño ──
@@ -2403,12 +2448,13 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
     }, 60_000));
     timers.forEach((t) => t.unref());
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkPushAlerts, checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;
