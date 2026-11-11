@@ -19,7 +19,8 @@ const owner = { id: "u_owner", role: "owner" };
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const err = (code, re) => (e) => e instanceof DomainError && e.code === code && (!re || re.test(e.message));
 const asR = (c) => ({ id: "web:" + c.id, role: "reseller", customerId: c.id });
-const PUBLIC_KEYS = ["currency", "expiresAt", "hasQr", "label", "name", "pay", "price", "product", "seller", "sellerWhatsapp"];
+// `alerts`: el booleano de los avisos automáticos (test/avisos-solos.test.mjs).
+const PUBLIC_KEYS = ["alerts", "codes", "currency", "expiresAt", "hasQr", "label", "name", "pay", "price", "product", "seller", "sellerWhatsapp"];
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }

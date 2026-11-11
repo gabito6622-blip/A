@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## Tanda 11/11/2026 · Avisos solos + códigos solos (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar los 2 equipos | **435 → 456 / 456 ✅** (~26 s) |
+| Avisos solos | `test/avisos-solos.test.mjs` (12), con reloj controlado y push falso. Cubre 3 días, 1 día y el mismo día; uno por día sin repetir; agrupado; cliente de revendedor sin precio; link `/c/`: alta, baja y borrado al revocar, al borrar el perfil o al liberar el cupo; 410/404 borran; aislamiento; nada en el panel ni en las exportaciones. Navegador a 360 px | ✅ |
+| Códigos solos | `test/codigos-solos.test.mjs` (9). Cubre la cuenta correcta; nada de más de 30 min ni de antes de entrar; interruptores del dueño y del revendedor; link revocado o borrado → 404; la respuesta no trae correo, contraseña ni cuerpo del mail; auditoría solo con ids; 429; cuentas propias. Navegador a 360 px | ✅ |
+| Al integrar | Choques de imports en 5 archivos (se conservaron los dos lados). La lista cerrada de `/api/cobro` quedó con `alerts` y `codes` en las 3 pruebas que la comprueban | ✅ |
+| Revisión en celular | `revision-celular.cjs` con `seed-reseller-demo` a 360/390/768, claro y oscuro: 0 desbordes y 0 textos cortados. Los botones y textos chicos que marca están en pantallas que esta tanda no tocó. Los equipos revisaron sus pantallas nuevas a 360/390 sin desborde ni errores | ✅ |
+| No probado | Recibir un aviso real en un Android o un iPhone (el navegador de prueba no se suscribe a Google ni a Apple); el lector IMAP real con códigos de verdad; la revisión de accesibilidad con axe, que no pudo correr (falta `axe-core` en el entorno) | ⚠️ |
+
 ## Tanda 11/11/2026 · Cargar sus cuentas + seguridad y plata + renovar con su revendedor (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

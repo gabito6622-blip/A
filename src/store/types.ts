@@ -5,6 +5,7 @@ import type { Look } from "./look.js";
 export type { Look } from "./look.js";
 import type { ResellerLocale } from "./country.js";
 import type { OwnStockBook } from "./ownStock.js";
+import type { SelfCodesState } from "./codigosSolos.js";
 
 export type Cents = number;
 export type Id = string;
@@ -709,6 +710,8 @@ export interface State {
   winback?: Record<Id, WinbackMark>;
   /** "Mis cuentas propias" de cada revendedor (ownStock.ts), por id del revendedor. El dueño no las ve. */
   ownStock?: Record<Id, OwnStockBook>;
+  /** "📩 Ver mi código de acceso" (codigosSolos.ts): permiso del dueño, interruptores y contador. Sin tokens. */
+  selfCodes?: SelfCodesState;
   seq: number;
 }
 

@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-11 · Estudio de mercado: avisos y códigos solos
+- **Por qué estos dos primero:** los 8 revendedores que respondieron eligieron "alertas automáticas de renovaciones". "Pérdida de clientes por vencimientos" y "Consulta y entrega de códigos" fueron los problemas más marcados (4 de 8 cada uno).
+- **Avisos por Web Push y no por WhatsApp automático:** Web Push es gratis y no necesita la API de Meta. El celular pide el texto del aviso después de recibirlo. En `/c/` lo pide con su suscripción, porque ahí no hay sesión. Las suscripciones por link se guardan con los secretos (fuera del estado, de las exportaciones y del panel) y se borran cuando el link deja de servir. Los revendedores no reciben este aviso porque ya tienen el suyo.
+- **Códigos solos:** hacen falta tres permisos a la vez: el del dueño, el del revendedor y un link vivo. Los perfiles de una misma cuenta comparten los códigos, porque es el mismo correo. Nadie ve códigos que llegaron antes de que entrara al perfil. La auditoría guarda solo ids, nunca el token, el correo ni el código.
+- **Cuentas propias del revendedor:** el código se muestra solo si el correo no es de una cuenta de la tienda, si ningún otro revendedor lo tiene cargado y si el lector ya recibió algún código para ese correo.
+
 ## 2026-11-11 · Revendedores de otro país: qué va en su moneda
 - **En Bs (moneda de la tienda):** saldo, compras y alquileres a la tienda, costos, y la lista de precios que arma para su página (al lado de su costo en Bs).
 - **En su moneda:** lo que les cobra a sus clientes (cuaderno, Mi control, Quién me debe), el link de cobro, sus cuentas propias y lo que ve el público en `/r/<slug>`, donde lo de la tienda se convierte con su tipo de cambio, redondeado hacia arriba. Sin tipo de cambio, los productos de la tienda no salen en su página.

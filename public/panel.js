@@ -5,6 +5,7 @@ import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
+import { selfCodesCard } from "/panel-codigos-solos.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
@@ -321,10 +322,11 @@ const V = {
       </div>`).join("")}</div>` : `<div class="emptybox">🎉 Ninguna cuenta caída con clientes. Todo está en cuentas sanas.</div>`}</section>`;
   },
   async notificaciones() {
-    const d = await api("GET", "/api/admin/notifications");
+    const [d, ex] = await Promise.all([api("GET", "/api/admin/notifications"), api("GET", "/api/admin/expiry-alerts").catch(() => null)]);
     const sevcls = { bad: "bad", warn: "warn", info: "ok" };
     return `<section class="card"><h2>${icon("bell")}Notificaciones <small>lo que necesita tu atención ahora</small></h2>
       <p class="muted" style="margin:0 0 12px">Todo junto en un solo lugar: pagos por revisar, solicitudes, cuentas caídas y vencimientos. Tocá una para ir a resolverla.</p>
+      ${ex?.on ? `<p class="muted" id="expiryCount" style="margin:0 0 12px">🔔 <b>Avisos automáticos de hoy: ${ex.sent} enviado${ex.sent === 1 ? "" : "s"}</b> a clientes finales (${ex.customers} con cuenta · ${ex.links} por link de cobro).</p>` : ""}
       ${d.items.length ? `<div class="notis">${d.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>`;
@@ -1349,7 +1351,7 @@ const V = {
 
   async codigos() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
-    const [boxes, codes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes")]);
+    const [boxes, codes, selfCodes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes"), selfCodesCard(render)]);
     const T = P.tab;
     const ed = T.mbEdit === "new" ? { kind: T.mbKind ?? "gmail" } : boxes.find((b) => b.id === T.mbEdit);
     const kind = ed ? (T.mbKind ?? ed.kind ?? "gmail") : "gmail";
@@ -1381,7 +1383,7 @@ const V = {
       ${boxes.length ? table(["Correo", "Tipo", "Estado", "Última lectura", "Códigos", ""], boxes.map((b) => `<tr><td><b>${esc(b.name || b.address)}</b>${b.name ? `<br><small class="muted">${esc(b.address)}</small>` : ""}${b.lastError ? `<br><small style="color:var(--bad)">${esc(b.lastError)}</small>` : ""}</td><td>${b.kind === "imap" ? esc(b.host) : "Gmail"}</td><td>${st(b)}</td><td>${ago(b.lastCheckAt)}</td><td>${b.codesFound ?? 0}</td>
         <td><div class="inline"><button class="pbtn sm" type="button" data-mbcheck="${esc(b.id)}">${icon("renew")}Leer ahora</button><button class="pbtn sm" type="button" data-tab="mbEdit:${esc(b.id)}">${icon("edit")}</button><button class="pbtn sm" type="button" data-mbdel="${esc(b.id)}" aria-label="Quitar">${icon("trash")}</button></div></td></tr>`))
         : `<div class="emptybox">Todavía no conectaste ningún correo.<br><br><button class="pbtn dark" type="button" data-tab="mbEdit:new">${icon("plus")}Conectar un correo</button></div>`}</section>
-    <section class="card"><h2>Últimos códigos que llegaron <small>los clientes ven solo los de sus cuentas</small></h2>
+    ${selfCodes}<section class="card"><h2>Últimos códigos que llegaron <small>los clientes ven solo los de sus cuentas</small></h2>
       ${table(["Hora", "Cuenta", "Tipo", "Código"], codes.map((c) => `<tr><td>${fdt(c.receivedAt)}</td><td>${esc(c.to || "—")}<br><small class="muted">${c.matched ? esc(c.product) : "⚠ no coincide con ninguna cuenta cargada"}</small></td><td><span class="pp pp-${{login:"ok",hogar:"mute",temporal:"warn",verificacion:"ok"}[c.kind] || "mute"}">${KLABEL_P[c.kind] || "Código"}</span><br><small class="muted">${esc(c.subject)}</small></td><td><b style="font-size:16px;letter-spacing:.08em">${esc(c.code || "")}</b>${c.link ? ` <a href="${esc(c.link)}" target="_blank" rel="noopener">enlace</a>` : ""}</td></tr>`), "Todavía no llegó ningún código.")}</section>`;
   },
 
@@ -1442,7 +1444,7 @@ const AUD_VERB = {
   "assignment.refund": "devolvió el dinero de {x}", "assignment.release": "liberó {x}", "assignment.replace": "reemplazó el perfil de {x}",
   "assignment.set_expiry": "cambió la fecha de {x}", "assignment.transfer": "pasó a otro cliente {x}",
   "backup.create": "hizo un respaldo", "backup.download": "descargó un respaldo", "backup.offsite_config": "configuró la copia en Gmail",
-  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "ai.selftest": "corrió la prueba de la oficina virtual", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso",
+  "binance.config": "configuró Binance Pay", "coupon.create": "creó el cupón {x}", "coupon.update": "editó el cupón {x}", "coupon.delete": "borró el cupón {x}", "push.subscribe": "activó los avisos en un celular", "reseller.coupons_allowed": "cambió el permiso de cupones para revendedores", "account.renew_paid": "anotó el pago de la renovación de {x}", "settings.min_margin": "cambió el margen mínimo", "ai.config": "cambió la configuración de los agentes", "ai.selftest": "corrió la prueba de la oficina virtual", "account.alert": "recibió un aviso de riesgo de {x}", "account.alert_seen": "marcó como visto un aviso de {x}", "order.evidence_duplicate": "subió un comprobante repetido en {x}", "reseller.coupon_create": "creó un cupón para su página", "reseller.coupon_update": "editó un cupón de su página", "reseller.coupon_delete": "borró un cupón de su página", "push.config": "cambió los avisos al celular", "paymethod.create": "agregó un método de cobro", "paymethod.update": "editó un método de cobro", "paymethod.delete": "borró un método de cobro", "paymethod.qr": "cambió el QR de un método de cobro", "credentials.view": "vio sus datos de acceso", "codes.self_view": "vio su código de acceso desde su link", "reseller.self_codes": "cambió si sus clientes ven su código solos", "own.self_codes": "cambió si sus clientes ven su código solos (cuenta propia)", "settings.self_codes": "cambió si los clientes de revendedores ven sus códigos",
   "customer.bulk_kind": "cambió el tipo de varios clientes", "customer.create": "creó {x}", "customer.login_link": "generó el link de acceso de {x}",
   "customer.login_pin": "le dio un PIN de acceso {x}",
   "ledger.purchase": "usó saldo {x} en una compra", "ledger.renewal": "usó saldo {x} en una renovación", "ledger.adjustment": "ajustó el saldo {x}", "ledger.topup": "acreditó una recarga en el saldo {x}",

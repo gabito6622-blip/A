@@ -23,6 +23,8 @@ export interface OwnStockDeps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cobroUrl: (token: string, c: any) => string;
   maxUpload: number;
+  /** Después de liberar un cupo o cambiar su link: borra los avisos atados a links que ya no sirven. */
+  onLinkGone?: () => void;
 }
 
 export function registerOwnStockRoutes(d: OwnStockDeps): void {
@@ -68,8 +70,8 @@ export function registerOwnStockRoutes(d: OwnStockDeps): void {
   route("POST", "/api/me/own/sales", "customer", (c) => store.own.assign(me(c), c.body ?? {}));
   route("POST", "/api/me/own/sales/:id", "customer", (c) => store.own.updateSale(me(c), c.params.id, c.body ?? {}));
   route("POST", "/api/me/own/sales/:id/renew", "customer", (c) => store.own.renew(me(c), c.params.id, c.body?.paid !== false));
-  route("POST", "/api/me/own/sales/:id/release", "customer", (c) => store.own.release(me(c), c.params.id));
+  route("POST", "/api/me/own/sales/:id/release", "customer", (c) => { const r = store.own.release(me(c), c.params.id); d.onLinkGone?.(); return r; });
   // Link de cobro: el mismo /c/<token> y /api/cobro/<token> que el cuaderno de perfiles.
   route("POST", "/api/me/own/sales/:id/link", "customer", (c) => { const r = store.own.link(me(c), c.params.id); return { ...r, url: d.cobroUrl(r.token, c) }; });
-  route("POST", "/api/me/own/sales/:id/link/revoke", "customer", (c) => store.own.revokeLink(me(c), c.params.id));
+  route("POST", "/api/me/own/sales/:id/link/revoke", "customer", (c) => { const r = store.own.revokeLink(me(c), c.params.id); d.onLinkGone?.(); return r; });
 }
