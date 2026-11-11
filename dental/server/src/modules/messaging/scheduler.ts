@@ -10,6 +10,7 @@
 //      (lib/messaging.ts), que fuera de producción solo SIMULA.
 // Todo lo que se omite queda registrado con su motivo (y en la auditoría).
 import { DateTime } from "luxon";
+import { kickDispatch } from "../../lib/messageDispatch.js";
 import { randomUUID } from "node:crypto";
 import { loadConfig, type Config } from "../../config.js";
 import type { Client, Db } from "../../lib/db.js";
@@ -42,7 +43,7 @@ type Actor = { clinicId: string; userId: string | null; ip: string | null };
 
 /** Bandeja de mensajes con el proveedor real solo si corresponde (producción + credenciales). */
 export function messagingMessenger(cfg: Pick<Config, "isProduction">): Messenger {
-  return createMessenger(cfg, { provider: whatsappProviderFromEnv() });
+  return createMessenger(cfg, { provider: whatsappProviderFromEnv(), onQueued: kickDispatch });
 }
 
 let defaultDeps: SchedulerDeps | null = null;

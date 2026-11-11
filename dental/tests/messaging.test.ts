@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DateTime } from "luxon";
 import { withTenant } from "../server/src/lib/db.js";
 import { createMessenger, type MessageProvider } from "../server/src/lib/messaging.js";
+import { dispatchOnce } from "../server/src/lib/messageDispatch.js";
 import { runSchedulerOnce } from "../server/src/modules/messaging/index.js";
 import { metaVersion, renderTemplate, validateTemplate } from "../server/src/modules/messaging/templates.js";
 import { isQuiet, nextAllowed, planSendAt } from "../server/src/modules/messaging/timing.js";
@@ -404,6 +405,8 @@ describe("programador", () => {
     await rule(s, {});
     const failing: MessageProvider = { name: "falla", send: async () => { throw new Error("Número no tiene WhatsApp"); } };
     await run(s, minus(T, { hours: 23 }), { messenger: createMessenger({ isProduction: true }, { provider: failing, log: () => {} }) });
+    expect((await outbox(s.k.clinicId))[0].status).toBe("queued"); // B-070: se envía fuera de la transacción
+    await dispatchOnce(env.db, failing);
     const [m] = await outbox(s.k.clinicId);
     expect(m).toMatchObject({ status: "failed", error: "Número no tiene WhatsApp" });
     const d = await s.owner.get("/api/messaging/deliveries?status=failed");
@@ -538,6 +541,7 @@ describe("baja del paciente", () => {
     let n = 0;
     const provider: MessageProvider = { name: "falso", send: async () => ({ providerMessageId: `wamid.T${++n}.${s.k.clinicId}` }) };
     await run(s, minus(T, { hours: 23 }), { messenger: createMessenger({ isProduction: true }, { provider, log: () => {} }) });
+    await dispatchOnce(env.db, provider);
     const [m] = await outbox(s.k.clinicId);
     expect(m.status).toBe("sent");
     const hook = (payload: unknown, sig?: string | null) => {

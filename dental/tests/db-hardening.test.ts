@@ -38,6 +38,8 @@ const INSERT_ONLY = [
   "clinical_file_thumbs", "expense_attachments", "import_batches", "import_records", "opening_balances", "payer_transfers",
   // v0.7.1 (B-096)
   "clinic_logos", "consent_template_reviews",
+  // v0.8 (B-070)
+  "inbound_message_events",
 ];
 
 /** Funciones SECURITY DEFINER revisadas: cada una solo resuelve la clínica o un agregado mínimo. */
@@ -46,6 +48,8 @@ const DEFINER_REVIEWED = [
   "messaging_message_by_provider_id", "patient_search_ids", "pdf_document_clinic", "portal_clinic_by_slug", "user_clinic_count",
   // v0.7 (B-093): clínica del último WhatsApp enviado a ESE número completo (E.164), nunca por los últimos 8 dígitos.
   "messaging_last_outbound_to_number",
+  // v0.8 (B-070): clínicas con mensajes en cola para un proveedor (solo identificadores, para el despachador).
+  "messaging_clinics_with_outbox",
   // v0.7 (B-091): la app nunca lee el hash ni los secretos de users.
   "auth_password_salt",      // parámetros y sal del hash (sin el resultado) de una cuenta habilitada
   "auth_password_matches",   // compara el hash calculado por la app con el guardado; devuelve solo sí/no

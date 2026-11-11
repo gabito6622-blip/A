@@ -9,6 +9,9 @@ import type { MessageProvider, ProviderTemplate } from "../../lib/messaging.js";
 export const GRAPH_BASE = "https://graph.facebook.com";
 export const GRAPH_VERSION = "v21.0";
 
+/** Error transitorio: el despachador lo reintenta con espera creciente. */
+const retryable = (msg: string) => Object.assign(new Error(msg), { retryable: true });
+
 type FetchFn = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
 
 export interface WhatsAppOptions {
@@ -55,16 +58,24 @@ export class WhatsAppCloudProvider implements MessageProvider {
   async send(m: { channel: string; recipient: string; template: string; body: string; providerTemplate?: ProviderTemplate | null }) {
     if (m.channel !== "whatsapp") throw new Error(`Canal ${m.channel} no disponible en WhatsApp Cloud API`);
     const url = `${this.opts.baseUrl ?? GRAPH_BASE}/${this.opts.apiVersion ?? GRAPH_VERSION}/${encodeURIComponent(this.opts.phoneId)}/messages`;
-    const res = await this.fetchFn(url, {
-      method: "POST",
-      headers: { authorization: `Bearer ${this.opts.token}`, "content-type": "application/json" },
-      body: JSON.stringify(this.buildPayload(m)),
-      signal: AbortSignal.timeout(this.opts.timeoutMs ?? 10_000),
-    });
+    let res: Awaited<ReturnType<FetchFn>>;
+    try {
+      res = await this.fetchFn(url, {
+        method: "POST",
+        headers: { authorization: `Bearer ${this.opts.token}`, "content-type": "application/json" },
+        body: JSON.stringify(this.buildPayload(m)),
+        signal: AbortSignal.timeout(this.opts.timeoutMs ?? 10_000),
+      });
+    } catch (e) {
+      // Sin respuesta (red caída o tiempo agotado): se reintenta más tarde (B-070).
+      throw retryable(`No se pudo conectar con WhatsApp: ${(e as Error).message ?? e}`.slice(0, 300));
+    }
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       const err = data?.error;
-      throw new Error(`WhatsApp rechazó el mensaje (${res.status}${err?.code ? `, código ${err.code}` : ""}): ${err?.message ?? "sin detalle"}`.slice(0, 300));
+      const msg = `WhatsApp rechazó el mensaje (${res.status}${err?.code ? `, código ${err.code}` : ""}): ${err?.message ?? "sin detalle"}`.slice(0, 300);
+      // Límite de envíos (429) o falla del lado de Meta (5xx): transitorio. El resto (número inválido, plantilla) no.
+      throw res.status === 429 || res.status >= 500 ? retryable(msg) : new Error(msg);
     }
     const id = data?.messages?.[0]?.id;
     if (!id) throw new Error("WhatsApp no devolvió el identificador del mensaje");

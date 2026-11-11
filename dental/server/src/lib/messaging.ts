@@ -15,7 +15,7 @@ import type { Client } from "./db.js";
 
 export type Channel = "whatsapp" | "sms" | "email";
 export type Purpose = "transactional" | "otp" | "reminders" | "marketing";
-export type MessageStatus = "queued" | "simulated" | "sent" | "delivered" | "read" | "failed";
+export type MessageStatus = "queued" | "sending" | "simulated" | "sent" | "delivered" | "read" | "failed";
 
 /** Plantilla aprobada por el proveedor (p. ej. Meta) y sus parámetros en orden. */
 export interface ProviderTemplate { name: string; language: string; params: string[] }
@@ -61,7 +61,7 @@ export function redactSecrets(body: string): string {
 
 export function createMessenger(
   cfg: Pick<Config, "isProduction">,
-  opts: { provider?: MessageProvider | null; log?: (msg: string) => void } = {},
+  opts: { provider?: MessageProvider | null; log?: (msg: string) => void; onQueued?: () => void } = {},
 ): Messenger {
   const log = opts.log ?? ((m: string) => console.log(m));
   const provider = cfg.isProduction ? opts.provider ?? null : null;
@@ -70,10 +70,11 @@ export function createMessenger(
   async function insert(c: Client, m: OutboundMessage, status: MessageStatus) {
     const stored = m.sensitive && cfg.isProduction ? redactSecrets(m.body) : m.body;
     const r = await c.query<{ id: string }>(
-      `INSERT INTO outbound_messages (clinic_id, branch_id, patient_id, channel, recipient, template, purpose, body, status, provider, related_entity, related_id, dedupe_key, retry_of)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+      `INSERT INTO outbound_messages (clinic_id, branch_id, patient_id, channel, recipient, template, purpose, body, status, provider, related_entity, related_id, dedupe_key, retry_of, provider_template)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
       [m.clinicId, m.branchId ?? null, m.patientId ?? null, m.channel, m.recipient, m.template, m.purpose, stored, status,
-        provider?.name ?? null, m.relatedEntity ?? null, m.relatedId ?? null, m.dedupeKey ?? null, m.retryOf ?? null],
+        provider?.name ?? null, m.relatedEntity ?? null, m.relatedId ?? null, m.dedupeKey ?? null, m.retryOf ?? null,
+        m.providerTemplate ? JSON.stringify(m.providerTemplate) : null],
     );
     return r.rows[0]!.id;
   }
@@ -90,19 +91,16 @@ export function createMessenger(
         log(`[mensajes] Proveedor no configurado: mensaje ${id} (${m.channel}, ${m.template}) queda en cola sin enviarse.`);
         return { id, status: "queued" };
       }
+      // B-070: NO se envía dentro de la transacción de la clínica (si se revirtiera después, el
+      // mensaje habría salido sin registro). Queda en cola y lo envía el despachador
+      // (lib/messageDispatch.ts) después del COMMIT; el aviso lo hace salir en segundos.
       const id = await insert(c, m, "queued");
-      try {
-        const res = await provider!.send({ channel: m.channel, recipient: m.recipient, template: m.template, body: m.body, providerTemplate: m.providerTemplate ?? null });
-        await c.query("UPDATE outbound_messages SET status = 'sent', provider_message_id = $2, sent_at = now() WHERE id = $1", [id, res.providerMessageId]);
-        return { id, status: "sent" };
-      } catch (e) {
-        await c.query("UPDATE outbound_messages SET status = 'failed', error = $2 WHERE id = $1", [id, String((e as Error).message ?? e).slice(0, 300)]);
-        return { id, status: "failed" };
-      }
+      opts.onQueued?.();
+      return { id, status: "queued" };
     },
   };
 }
 
 export const MESSAGE_STATUS_LABELS: Record<MessageStatus, string> = {
-  queued: "En cola (sin enviar)", simulated: "Simulado (no enviado)", sent: "Enviado", delivered: "Entregado", read: "Leído", failed: "Falló",
+  queued: "En cola (sin enviar)", sending: "Enviando", simulated: "Simulado (no enviado)", sent: "Enviado", delivered: "Entregado", read: "Leído", failed: "Falló",
 };
