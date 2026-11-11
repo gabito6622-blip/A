@@ -8,6 +8,7 @@
 | El revendedor no ve los cobros anotados | revisión de código: sus pantallas (`portal.ts`, `resellerTools.ts`) solo leen `control.price` | ✅ |
 | Celular | `revision-celular.cjs` Cómo van a 360 y 390, claro y oscuro | 0 desbordes; únicos avisos en el asesor de la tienda (ya estaban) |
 | Estimado con los datos reales (copia de solo lectura) | 27 alquileres marcados pagado | ~Bs 207 este mes (3) y ~Bs 1.537 en meses anteriores; los 57 sin marca no suman |
+| **Después de publicar (#32), tienda real, solo lectura** | Cómo van por API y recorrido del panel a 390 px | Te pagaron este mes **Bs 34 → Bs 241**; mes pasado **Bs 0 → Bs 1.424** (menos que el estimado: no se duplicaron los que ya tenían pedido); Bs 948 de 30 días vienen del Control. Servicios 91 → 91, cola de avisos 33 → 33. Sin `paidLog`, `subs` ni contraseñas en la respuesta. 0 desbordes, 0 errores |
 
 
 ## Tanda 11/11/2026 · Vender más (3 equipos en paralelo)
