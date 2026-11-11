@@ -2,7 +2,7 @@
 // proveedor real. Verifica la firma SigV4 de cada solicitud con la clave secreta conocida (rechaza
 // con 403 SignatureDoesNotMatch como AWS), el SHA-256 del cuerpo declarado y la fecha; implementa
 // PutObject (con If-None-Match y cifrado del lado del servidor), GetObject, DeleteObject y
-// ListObjectsV2 con paginación.
+// ListObjectsV2 con prefijo y paginación.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createHash } from "node:crypto";
@@ -69,7 +69,8 @@ export async function startFakeS3(opts: { bucket?: string; accessKeyId?: string;
     const key = path.slice(prefix.length + 1);
     if (req.method === "GET" && !key) {
       if (u.searchParams.get("list-type") !== "2") return err(res, 400, "InvalidArgument");
-      const all = [...s3.objects.keys()].sort();
+      const pfx = u.searchParams.get("prefix") ?? "";
+      const all = [...s3.objects.keys()].filter((k) => k.startsWith(pfx)).sort();
       const start = u.searchParams.get("continuation-token") ? Number(Buffer.from(u.searchParams.get("continuation-token")!, "base64url").toString()) : 0;
       const page = all.slice(start, start + s3.pageSize);
       const next = start + s3.pageSize < all.length ? Buffer.from(String(start + s3.pageSize)).toString("base64url") : null;

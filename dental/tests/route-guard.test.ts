@@ -30,6 +30,8 @@ const PUBLIC_ROUTES = new Set([
   "GET /api/public/encuesta/{token}", "POST /api/public/encuesta/{token}",
   // Confirmación de cita (token HMAC de un solo uso)
   "GET /api/public/confirmar/{token}", "POST /api/public/confirmar/{token}",
+  // Disponibilidad para el monitoreo externo (solo responde {ok}: sin datos internos ni de pacientes)
+  "GET /api/ready",
   // Webhook de WhatsApp (firma HMAC de Meta)
   "GET /api/webhooks/whatsapp", "POST /api/webhooks/whatsapp",
   // Reserva online y portal del paciente (slug habilitado + código de un solo uso + sesión psid)
@@ -100,7 +102,7 @@ describe("inventario de rutas (OpenAPI)", () => {
     const pub = ops.filter((o) => o.access === "public").map(key);
     expect(pub.filter((k) => !PUBLIC_ROUTES.has(k)), "ruta pública no declarada").toEqual([]);
     expect([...PUBLIC_ROUTES].filter((k) => !pub.includes(k)), "lista desactualizada").toEqual([]);
-    for (const k of pub) expect(k).toMatch(/^(GET|POST) \/api\/(public\/|webhooks\/|auth\/(login|forgot|reset)$)/);
+    for (const k of pub) expect(k).toMatch(/^(GET|POST) \/api\/(public\/|webhooks\/|auth\/(login|forgot|reset)$|ready$)/);
     // Y al revés: nada bajo /api/public exige sesión del personal ni queda fuera de la lista.
     const underPublic = ops.filter((o) => o.path.startsWith("/api/public/") && o.access !== "public").map(key);
     expect(underPublic).toEqual([]);

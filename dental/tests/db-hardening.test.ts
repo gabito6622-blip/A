@@ -82,11 +82,23 @@ describe("Row Level Security en todas las tablas con clinic_id", () => {
     expect(lax).toEqual([]);
   });
 
-  it("las tablas globales sin clinic_id son solo las de identidad y sesión (sin datos de pacientes)", async () => {
+  it("las tablas globales sin clinic_id son solo las de identidad, sesión y operación de la plataforma (sin datos de pacientes)", async () => {
     const globals = await q<{ t: string }>(
       `SELECT c.relname AS t FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind IN ('r','p') AND NOT c.relrowsecurity ORDER BY 1`);
-    expect(globals.map((g) => g.t)).toEqual(["mfa_recovery_codes", "password_resets", "plans", "schema_migrations", "sessions", "users"]);
+    expect(globals.map((g) => g.t)).toEqual([
+      // v0.7 (Equipo V): registro de respaldos/simulacros y episodios de alerta. Describen el servicio, no a una
+      // clínica (sin clinic_id ni datos de pacientes); solo los usa el rol dueño (CLI, monitor y /api/platform).
+      "backup_runs",
+      "mfa_recovery_codes",
+      "ops_alerts", // v0.7 (Equipo V), ver backup_runs
+      "password_resets", "plans", "schema_migrations", "sessions", "users",
+    ]);
+    // Las tablas de operación no dan ningún privilegio a la app (mínimo privilegio).
+    for (const t of ["backup_runs", "ops_alerts"]) {
+      const r = (await q("SELECT has_table_privilege('dental_app', $1, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS any", [t]))[0];
+      expect(r.any, t).toBe(false);
+    }
   });
 });
 

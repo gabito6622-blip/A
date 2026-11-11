@@ -4,7 +4,13 @@
 set -euo pipefail
 : "${TARGET_DATABASE_URL:?Define TARGET_DATABASE_URL (base vacía de destino)}"
 FILE="${1:?Indica el archivo de respaldo}"
-if [[ -f "$FILE.sha256" ]]; then sha256sum -c "$FILE.sha256" >/dev/null; fi
+# Huella: se compara solo el valor (el .sha256 puede nombrar el archivo con otra ruta, p. ej. los de
+# `npm run backup:run`, que guardan solo el nombre, o los descargados de S3 a otra carpeta).
+if [[ -f "$FILE.sha256" ]]; then
+  EXPECTED="$(cut -d' ' -f1 "$FILE.sha256")"
+  ACTUAL="$(sha256sum "$FILE" | cut -d' ' -f1)"
+  if [[ "$EXPECTED" != "$ACTUAL" ]]; then echo "La huella SHA-256 no coincide: el respaldo está dañado o fue modificado" >&2; exit 1; fi
+fi
 SRC="$FILE"
 if [[ "$FILE" == *.enc ]]; then
   : "${BACKUP_PASSPHRASE:?El archivo está cifrado: define BACKUP_PASSPHRASE}"

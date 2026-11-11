@@ -22,6 +22,8 @@
     "files:sweep": "tsx server/src/cli/filesSweep.ts",
     "backup": "bash scripts/backup.sh",
     "restore": "bash scripts/restore.sh",
+    "backup:run": "tsx server/src/cli/backup.ts run",
+    "backup:verify": "tsx server/src/cli/backup.ts verify",
     "perf:seed": "tsx scripts/perf-seed.ts",
     "perf:bench": "tsx scripts/perf-bench.ts"
   },
