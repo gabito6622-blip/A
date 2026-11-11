@@ -10,8 +10,8 @@ import type { AuthCtx } from "../lib/rbac.js";
 import { recordConsentFlag } from "./consents.js";
 import { patientMoney } from "./budgets-v2-core.js";
 import { createRelationship, prefillGuardian, zFamilyLink } from "./experience/family.js";
-import { PassThrough } from "node:stream";
-import { safeCell } from "../lib/xlsxSafe.js";
+import type { FastifyReply } from "fastify";
+import { streamXlsx } from "../lib/xlsxSafe.js";
 
 export const PATIENT_COLUMNS = `p.id, p.record_number AS "recordNumber", p.first_name AS "firstName", p.last_name AS "lastName",
   p.document_type AS "documentType", p.document_number AS "documentNumber", p.document_issued AS "documentIssued",
@@ -372,36 +372,45 @@ export function patientRoutes(route: Route) {
 
   // ---------------- Exportación ----------------
   route({
-    method: "GET", url: "/api/patients/export.xlsx", summary: "Exportar padrón de pacientes (Excel)", tags: ["pacientes"], perm: "patients.export", raw: true,
+    method: "GET", url: "/api/patients/export.xlsx", summary: "Exportar padrón de pacientes (Excel, por flujo: el archivo empieza a bajar enseguida)", tags: ["pacientes"], perm: "patients.export", raw: true,
     handler: async ({ c, auth, reply }) => {
-      const r = await c.query(
-        `SELECT p.record_number, p.first_name, p.last_name, p.document_number, p.document_issued, p.birth_date, p.sex, p.phone, p.email, p.city, p.consent_reminders
-           FROM patients p WHERE p.archived_at IS NULL ORDER BY p.record_number`);
-      // Escritura en flujo (100 000 filas: ~7,7 s → ~4,4 s medido con scripts/perf-bench.ts). Cada celda de
-      // texto pasa por safeCell() (inyección de fórmulas), igual que lo hace xlsxBuffer() en las demás.
-      const out = new PassThrough();
-      const chunks: Buffer[] = [];
-      out.on("data", (ch: Buffer) => chunks.push(ch));
-      const wb = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: out, useStyles: true, useSharedStrings: false });
-      const ws = wb.addWorksheet("Pacientes");
-      ws.columns = [
-        { header: "Ficha", width: 8 }, { header: "Nombre", width: 20 }, { header: "Apellido", width: 22 }, { header: "Documento", width: 14 },
-        { header: "Expedido", width: 9 }, { header: "Fecha de nacimiento", width: 14 }, { header: "Sexo", width: 6 }, { header: "Teléfono", width: 15 },
-        { header: "Correo", width: 26 }, { header: "Ciudad", width: 14 }, { header: "Acepta recordatorios", width: 12 },
-      ];
-      ws.getRow(1).font = { bold: true };
-      for (const p of r.rows) {
-        ws.addRow([p.record_number, safeCell(p.first_name), safeCell(p.last_name), safeCell(p.document_number), safeCell(p.document_issued), p.birth_date,
-          p.sex, safeCell(p.phone), safeCell(p.email), safeCell(p.city), p.consent_reminders ? "Sí" : "No"]).commit();
-      }
-      await audit(c, auth, "patient.exported", "patient", null, { count: r.rowCount });
-      ws.commit();
-      await wb.commit();
-      const buf = Buffer.concat(chunks);
-      reply
-        .header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        .header("content-disposition", `attachment; filename="pacientes-${new Date().toISOString().slice(0, 10)}.xlsx"`)
-        .send(Buffer.from(buf));
+      const r = await exportPatientsXlsx(c, reply);
+      await audit(c, auth, "patient.exported", "patient", null, r.aborted ? { count: r.count, aborted: true } : { count: r.count });
     },
   });
 }
+
+export const PATIENT_EXPORT_COLUMNS = [
+  { header: "Ficha", width: 8 }, { header: "Nombre", width: 20 }, { header: "Apellido", width: 22 }, { header: "Documento", width: 14 },
+  { header: "Expedido", width: 9 }, { header: "Fecha de nacimiento", width: 14 }, { header: "Sexo", width: 6 }, { header: "Teléfono", width: 15 },
+  { header: "Correo", width: 26 }, { header: "Ciudad", width: 14 }, { header: "Acepta recordatorios", width: 12 },
+];
+export const PATIENT_EXPORT_SQL = `SELECT p.record_number, p.first_name, p.last_name, p.document_number, p.document_issued, p.birth_date, p.sex, p.phone, p.email, p.city, p.consent_reminders
+   FROM patients p WHERE p.archived_at IS NULL AND p.record_number > $1 ORDER BY p.record_number LIMIT $2`;
+export const patientExportRow = (p: any) => [p.record_number, p.first_name, p.last_name, p.document_number, p.document_issued, p.birth_date,
+  p.sex, p.phone, p.email, p.city, p.consent_reminders ? "Sí" : "No"];
+
+/**
+ * Padrón de pacientes por flujo (B-095): lee la base por lotes con keyset (ficha > última leída; nunca
+ * OFFSET, que recorre de nuevo lo ya leído) y escribe cada lote en el Excel que ya está bajando. Las
+ * celdas pasan por la protección de fórmulas de xlsxSafe. Memoria acotada: un lote a la vez.
+ */
+export async function exportPatientsXlsx(c: Client, reply: FastifyReply, batch = EXPORT_BATCH): Promise<{ count: number; aborted: boolean }> {
+  let count = 0;
+  const r = await streamXlsx(reply, `pacientes-${new Date().toISOString().slice(0, 10)}.xlsx`, async (x) => {
+    const ws = x.sheet("Pacientes", PATIENT_EXPORT_COLUMNS);
+    let last = 0;
+    for (;;) {
+      const rows = (await c.query(PATIENT_EXPORT_SQL, [last, batch])).rows;
+      for (const p of rows) ws.add(patientExportRow(p));
+      count += rows.length;
+      if (rows.length < batch || x.aborted) break;
+      last = rows[rows.length - 1]!.record_number;
+      await x.drain();
+      if (x.aborted) break;
+    }
+    ws.end();
+  });
+  return { count, aborted: r.aborted };
+}
+export const EXPORT_BATCH = 2000;

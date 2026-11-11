@@ -346,27 +346,41 @@ export function budgetV2Routes(route: Route, cfg: Config) {
 
   route({
     method: "GET", url: "/api/budget-funnel", summary: "Embudo de presupuestos: bandejas con días en el estado, seguimiento a 7 y 14 días y conversión", tags: ["presupuestos"],
-    perm: "budgets.read", query: z.object({ branchId: zId.optional(), days: z.coerce.number().int().min(7).max(365).default(90) }),
+    perm: "budgets.read",
+    query: z.object({
+      branchId: zId.optional(), days: z.coerce.number().int().min(7).max(365).default(90),
+      // B-095: las bandejas muestran por defecto los presupuestos que entraron a su estado en los últimos 90 días
+      // (con 100 000 pacientes, «todo» recorre años de vencidos). «all» = sin límite de fecha.
+      listDays: z.enum(["30", "90", "180", "all"]).default("90"),
+      limit: z.coerce.number().int().min(1).max(2000).default(100),
+    }),
     handler: async ({ c, auth, query }) => {
       if (query.branchId) requireBranch(auth, query.branchId);
+      const listDays = query.listDays === "all" ? null : Number(query.listDays);
       const zone = (await c.query<{ timezone: string }>("SELECT timezone FROM clinics WHERE id = $1", [auth.clinicId])).rows[0]!.timezone;
       const vDays = await validityDays(c, auth.clinicId!);
       const rows = (await c.query(
-        `SELECT b.id, b.number, b.version, b.status, b.patient_id AS "patientId", p.first_name || ' ' || p.last_name AS "patientName", p.phone,
+        // B-095: primero los presupuestos del período (MATERIALIZED) y luego, por cada uno, paciente y
+        // agregados por índice. Sin esto el planificador recorría los 100 000 pacientes con un hash.
+        `WITH bb AS MATERIALIZED (
+           SELECT b.* FROM budgets b
+            WHERE b.status IN ('presented','accepted') AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1)) AND ($2::uuid IS NULL OR b.branch_id = $2)
+              AND ($5::int IS NULL OR COALESCE(b.decided_at, b.presented_at) >= now() - make_interval(days => $5)))
+         SELECT b.id, b.number, b.version, b.status, b.patient_id AS "patientId", p.first_name || ' ' || p.last_name AS "patientName", p.phone,
                 br.name AS "branchName", u.full_name AS "dentistName", b.presented_at AS "presentedAt", b.decided_at AS "decidedAt",
                 COALESCE(b.valid_until, (b.presented_at AT TIME ZONE $3)::date + $4::int)::text AS "validDate",
                 COALESCE((SELECT sum(net_cents) FROM budget_items i WHERE i.budget_id = b.id AND i.status <> 'cancelled'),0) AS "totalCents",
                 (SELECT min(a.starts_at) FROM appointments a WHERE a.patient_id = b.patient_id AND a.starts_at > now() AND a.status IN ('scheduled','confirmed')) AS "nextAppointment",
                 GREATEST((SELECT max(i.performed_at) FROM budget_items i WHERE i.budget_id = b.id),
                          (SELECT max(s.performed_at) FROM budget_item_sessions s JOIN budget_items i ON i.id = s.budget_item_id WHERE i.budget_id = b.id)) AS "lastPerformedAt",
-                EXISTS (SELECT 1 FROM charges ch JOIN budget_items i ON i.id = ch.budget_item_id WHERE i.budget_id = b.id) AS started,
+                EXISTS (SELECT 1 FROM budget_items i WHERE i.budget_id = b.id AND EXISTS (SELECT 1 FROM charges ch WHERE ch.budget_item_id = i.id)) AS started,
                 (SELECT min(e.created_at) FROM budget_events e WHERE e.budget_id = b.id AND e.kind = 'viewed') AS "firstViewedAt",
                 (SELECT max(e.created_at) FROM budget_events e WHERE e.budget_id = b.id AND e.kind = 'follow_up') AS "lastFollowUpAt",
                 (SELECT count(*)::int FROM budget_events e WHERE e.budget_id = b.id AND e.kind = 'follow_up') AS "followUps"
-           FROM budgets b JOIN patients p ON p.id = b.patient_id JOIN branches br ON br.id = b.branch_id JOIN users u ON u.id = b.dentist_id
-          WHERE b.status IN ('presented','accepted') AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1)) AND ($2::uuid IS NULL OR b.branch_id = $2)
+           FROM bb b CROSS JOIN LATERAL (SELECT x.first_name, x.last_name, x.phone FROM patients x WHERE x.id = b.patient_id) p
+           JOIN branches br ON br.id = b.branch_id JOIN users u ON u.id = b.dentist_id
           ORDER BY b.presented_at NULLS LAST`,
-        [allowedBranches(auth), query.branchId ?? null, zone, vDays])).rows;
+        [allowedBranches(auth), query.branchId ?? null, zone, vDays, listDays])).rows;
       const now = Date.now();
       const today = DateTime.now().setZone(zone).startOf("day");
       const daysSince = (d: Date | null) => (d ? Math.max(0, Math.floor((now - +new Date(d)) / 86_400_000)) : 0);
@@ -398,12 +412,15 @@ export function budgetV2Routes(route: Route, cfg: Config) {
           WHERE b.status IN ('presented','accepted','completed','rejected') AND b.presented_at >= now() - make_interval(days => $3)
             AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1)) AND ($2::uuid IS NULL OR b.branch_id = $2)`,
         [allowedBranches(auth), query.branchId ?? null, query.days])).rows[0]!;
+      const all = { presentedNoResponse, acceptedNoAppointment, inProgressNoNext, expired };
+      const counts = Object.fromEntries(Object.entries(all).map(([k, v]) => [k, v.length])) as Record<keyof typeof all, number>;
+      const followUpDue = presentedNoResponse.filter((x) => x.followUpDue).length;
+      // Cada bandeja se devuelve ordenada (más días primero) y cortada en «limit»; los totales van en counts.
+      const buckets = Object.fromEntries(Object.entries(all).map(([k, v]) => [k, sortDays(v).slice(0, query.limit)])) as typeof all;
       return {
-        validityDays: vDays, periodDays: query.days,
-        buckets: {
-          presentedNoResponse: sortDays(presentedNoResponse), acceptedNoAppointment: sortDays(acceptedNoAppointment),
-          inProgressNoNext: sortDays(inProgressNoNext), expired: sortDays(expired),
-        },
+        validityDays: vDays, periodDays: query.days, listDays: query.listDays, limit: query.limit, counts, followUpDue,
+        truncated: Object.values(counts).some((n) => n > query.limit),
+        buckets,
         conversion: { ...conv, presentedCents: Number(conv.presentedCents), acceptedCents: Number(conv.acceptedCents), conversionPct: conv.presented ? Math.round((conv.accepted / conv.presented) * 1000) / 10 : null },
       };
     },

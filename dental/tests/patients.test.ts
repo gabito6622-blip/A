@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
+import Fastify from "fastify";
+import { withTenant } from "../server/src/lib/db.js";
+import { exportPatientsXlsx } from "../server/src/modules/patients.js";
 import { addUser, createClinic, login, setupEnv, teardown, type Agent, type Env, type TestClinic } from "./helpers.js";
 
 let env: Env;
@@ -82,5 +85,31 @@ describe("pacientes", () => {
     expect(names.some((v) => v.startsWith("="))).toBe(false);
     const rec = await login(env.app, (await addUser(env.db, K.clinicId, "receptionist", { branchIds: [K.branches[0]!] })).email);
     expect((await rec.get("/api/patients/export.xlsx")).status).toBe(403);
+  });
+
+  it("la exportación por flujo (B-095) lee por lotes y no pierde ni repite pacientes", async () => {
+    for (let i = 0; i < 5; i++) await owner.post("/api/patients", { firstName: `Lote${i}`, lastName: "Flujo", documentType: "SIN" });
+    const expected = (await env.db.adminPool.query(
+      "SELECT record_number FROM patients WHERE clinic_id = $1 AND archived_at IS NULL ORDER BY record_number", [K.clinicId])).rows.map((r) => r.record_number);
+    expect(expected.length).toBeGreaterThanOrEqual(5);
+    // Lotes de 2: obliga a varias vueltas del keyset (ficha > última leída).
+    const app = Fastify();
+    let result: { count: number; aborted: boolean } | null = null;
+    app.get("/x", async (_req, reply) => {
+      result = await withTenant(env.db.appPool, { clinicId: K.clinicId, userId: null }, (c) => exportPatientsXlsx(c, reply, 2));
+      return reply;
+    });
+    const r = await app.inject({ method: "GET", url: "/x" });
+    await app.close();
+    expect(r.statusCode).toBe(200);
+    expect(r.headers["content-type"]).toMatch(/spreadsheetml/);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(r.rawPayload as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    expect(ws.getRow(1).getCell(1).value).toBe("Ficha");
+    const fichas: number[] = [];
+    ws.eachRow((row, n) => { if (n > 1) fichas.push(Number(row.getCell(1).value)); });
+    expect(fichas).toEqual(expected);
+    expect(result).toEqual({ count: expected.length, aborted: false });
   });
 });
