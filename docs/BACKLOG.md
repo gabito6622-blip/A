@@ -15,7 +15,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), #34 |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |
-| B14 | Al publicar: crear la lista "Panamá y Paraguay (US$)" y pasar a paraguay, panama y EXTRANJERO (con saldo en 0) | P1 | 🔧 |
+| B14 | Lista "Panamá y Paraguay (US$)" creada en la tienda real y paraguay, panama y EXTRANJERO pasados a ella (saldo US$ 0, 85 servicios intactos, cola 33) | P1 | ✅ #34 |
 | B15 | Que el cliente final de un revendedor no vea en "Mis pedidos" lo que pagó el revendedor (su costo). Ya pasaba antes | P2 | ⏳ |
 | B16 | Precio acordado en US$ en Control para clientes en dólares | P3 | ⏳ |
 | B12 | Datos de revendedores para invitarlos: "paraguay" ✅ corregido a +595 992 946 366 (captura del dueño); Panamá: +507 6554-3461 (cuentaspremiumpty) y +507 6045-0712 (Resell Panama), falta saber cuál es "panama" y cuál "EXTRANJERO"; sin WhatsApp: panama, EXTRANJERO, aneliz, Dani strem, ANDROID; JOSUE ORIAS incompleto (776115438). ¿De qué país es EXTRANJERO? | P1 | 🧑 |
