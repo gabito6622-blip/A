@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ARIt
+- **ARIt · Aracely Sarabia Rojas** (mismo número): nota «✅ muy buena revendedora, siempre paga; a veces paga 3 o 4 por adelantado. Avisarle 3 días antes y 1 día antes».
+- La secretaria (avisos de mediodía y tarde) aplica esa regla y le agrupa las cuentas en un solo mensaje.
+- Sus 16 cuentas: falta que el dueño diga pagos y precio (3 vencieron el 11/11). Una (opajg12+dd10) tiene una contraseña escrita en la nota del Control: se ofreció pasarla al campo protegido.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
 - **5 cuentas por vencer marcadas pagadas** (nu1 13/11, c16 16/11, dis02 19/11, nu2 19/11, d2025j.g 20/11), a su precio de siempre. liz y pam ya estaban pagadas.
