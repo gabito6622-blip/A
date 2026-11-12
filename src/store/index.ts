@@ -146,6 +146,8 @@ export function createStore(opts: EngineOptions = {}) {
       setupFor: bind(e, rshop.setupShopFor),
       chargeRents: bind(e, rshop.chargeShopRents),
       payRent: bind(e, rshop.payMyShopRent),
+      /** Suscripción GaboHub sin pagar: Mi control, Quién me debe y Mis ganancias quedan pausadas (ver resellerShop). */
+      hubLocked: (customerId: string) => rshop.hubLocked(e, customerId),
       apply: (input: { name: unknown; phone: unknown; note?: unknown; ref?: unknown }) => rshop.applyReseller(e, input),
       apps: bind(e, rshop.listApps),
       approve: bind(e, rshop.approveApp),

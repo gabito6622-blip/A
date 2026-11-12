@@ -23,19 +23,40 @@ const spent30 = (e: Engine, id: Id) => Object.values(e.s.orders)
   .filter((o) => o.payerId === id && o.status === "fulfilled" && o.kind !== "topup" && o.channel !== "import" && e.now() - o.updatedAt <= 30 * DAY)
   .reduce((t, o) => t + o.total, 0);
 
-/** Estado del alquiler de la página para mostrarle al revendedor. */
+/* Suscripción GaboHub (12/11/2026): con scope "all" pagan TODOS los revendedores. El estado (pagado hasta / pausado)
+   va en su página si la tiene, o en `hubBill` si no. Pausado: se apaga su página (si tiene) y se esconden Mi control,
+   Quién me debe y Mis ganancias; comprar, sus cuentas, códigos, recargar, vender y anotar fiados NUNCA se bloquean. */
+const billRead = (c: Customer) => c.shop ?? c.hubBill ?? {};
+const billWrite = (c: Customer) => c.shop ?? (c.hubBill ??= {});
+const allPay = (e: Engine) => rentCfg(e).scope === "all";
+/** ¿Tiene las herramientas pausadas por no pagar la suscripción? (Solo cuenta si el cobro está prendido para todos.) */
+export function hubLocked(e: Engine, customerId: Id): boolean {
+  const c = e.s.customers[customerId], r = rentCfg(e);
+  return !!c && c.kind === "reseller" && r.enabled && r.scope === "all" && !!billRead(c).suspended;
+}
+/** Lo que se le cobra por mes, en SU moneda: US$ fijos si el dueño los puso, si no los Bs pasados con la tasa de hoy. */
+function rentPrice(e: Engine, c: Customer): Cents | null {
+  const r = rentCfg(e);
+  if (!isUsd(e, c)) return r.price;
+  if (r.priceUsd !== undefined) return r.priceUsd;
+  const rt = rateNow(e);
+  return rt ? bsToUsd(r.price, rt, "up") : null;
+}
+
+/** Estado del alquiler de la página (o de la suscripción GaboHub) para mostrarle al revendedor. */
 export function rentInfo(e: Engine, c: Customer) {
   const r = rentCfg(e);
   if (!r.enabled) return { enabled: false as const };
   // Revendedor en dólares: los montos del alquiler (que el dueño pone en Bs) se le muestran en US$ con la tasa de hoy.
   const rt = isUsd(e, c) ? rateNow(e) : 0;
   const cv = (bs: Cents, dir: "up" | "down") => (rt ? bsToUsd(bs, rt, dir) : bs);
-  return { enabled: true as const, price: cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: c.shop?.paidUntil, suspended: !!c.shop?.suspended, spent30: cv(spent30(e, c.id), "down"), ...(rt ? { currency: "USD" as const } : {}) };
+  const b = billRead(c);
+  return { enabled: true as const, price: rentPrice(e, c) ?? cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: b.paidUntil, suspended: !!b.suspended, spent30: cv(spent30(e, c.id), "down"), ...(isUsd(e, c) ? { currency: "USD" as const } : {}), hub: allPay(e), locked: hubLocked(e, c.id) };
 }
 
 /** Cobra un mes de alquiler (o lo da gratis por compras). Debe correr dentro de tx. */
 function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "no_balance" {
-  const r = rentCfg(e), s = c.shop!;
+  const r = rentCfg(e), s = billWrite(c);
   const from = Math.max(s.paidUntil ?? e.now(), e.now() - 30 * DAY);
   if (r.freeIfSpent > 0 && spent30(e, c.id) >= r.freeIfSpent) {
     s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
@@ -43,11 +64,11 @@ function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "
     e.audit(actor, "reseller.shop_rent_free", "customer", c.id, { until: s.paidUntil });
     return "free";
   }
-  // En dólares se descuenta el equivalente en US$ con la tasa de hoy, redondeado hacia arriba (sin tasa no se cobra).
-  let need = r.price;
-  if (need > 0 && isUsd(e, c)) { const rt = rateNow(e); if (!rt) return "no_balance"; need = bsToUsd(r.price, rt, "up"); }
+  // En dólares: los US$ fijos del dueño, o el equivalente con la tasa de hoy redondeado hacia arriba (sin tasa no se cobra).
+  const need = rentPrice(e, c);
+  if (need === null) return "no_balance";
   if (need === 0 || balance(e, c.id) >= need) {
-    if (need > 0) post(e, actor, c.id, -need, "shop_rent", s.slug, "Alquiler de tu página (30 días)");
+    if (need > 0) post(e, actor, c.id, -need, "shop_rent", c.shop?.slug ?? "gabohub", allPay(e) ? "Suscripción GaboHub (30 días)" : "Alquiler de tu página (30 días)");
     s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
     delete s.suspended;
     return "charged";
@@ -63,14 +84,16 @@ export function chargeShopRents(e: Engine, actor: Actor) {
   const r = rentCfg(e);
   const now = e.now();
   const shopsOn = e.s.settings.resellerShops !== false;
-  const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked && pageAllowed(e, c));
-  // Con las páginas apagadas para todos no se cobra a nadie (no tendría sentido: nadie ve su página).
-  const due = r.enabled && shopsOn ? shops.filter((c) => (c.shop!.paidUntil ?? 0) <= now) : r.enabled ? [] : shops.filter((c) => c.shop!.suspended);
+  const all = r.scope === "all";
+  // Suscripción para todos: cada revendedor. Solo página: los que tienen su página publicada.
+  const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && (all || (c.shop?.enabled && !c.shop.blocked && pageAllowed(e, c))));
+  // Con las páginas apagadas para todos no se cobra el alquiler de página (nadie la ve); la suscripción sí.
+  const due = r.enabled && (all || shopsOn) ? shops.filter((c) => (billRead(c).paidUntil ?? 0) <= now) : r.enabled ? [] : shops.filter((c) => billRead(c).suspended);
   const out = { charged: 0, free: 0, suspended: 0, started: 0 };
   if (!due.length) return out;
   e.tx(() => {
     for (const c of due) {
-      const s = c.shop!;
+      const s = billWrite(c);
       if (!r.enabled) { delete s.suspended; continue; }
       if (s.paidUntil === undefined) {
         // Primera vez: se cobra ya si puede; si no, vence hoy y corren los días de gracia.
@@ -96,14 +119,15 @@ export function chargeShopRents(e: Engine, actor: Actor) {
 export function payMyShopRent(e: Engine, actor: Actor) {
   const c = me(e, actor);
   if (!rentCfg(e).enabled) throw new DomainError("VALIDATION", "Tu página no tiene alquiler");
-  if (!c.shop) throw new DomainError("VALIDATION", "Primero armá tu página");
-  const until = c.shop.paidUntil;
-  if (until !== undefined && !c.shop.suspended && until - e.now() > 5 * DAY) {
-    throw new DomainError("VALIDATION", `Tu página ya está pagada hasta el ${new Date(until).toLocaleDateString("es-BO", { timeZone: "America/La_Paz" })}`);
+  if (!c.shop && !allPay(e)) throw new DomainError("VALIDATION", "Primero armá tu página");
+  const b = billRead(c), until = b.paidUntil;
+  if (until !== undefined && !b.suspended && until - e.now() > 5 * DAY) {
+    throw new DomainError("VALIDATION", `${allPay(e) ? "Tu suscripción" : "Tu página"} ya está pagada hasta el ${new Date(until).toLocaleDateString("es-BO", { timeZone: "America/La_Paz" })}`);
   }
   return e.tx(() => {
     const res = renewRent(e, actor, c);
-    if (res === "no_balance") throw new DomainError("INSUFFICIENT_BALANCE", `Te falta saldo: el mes cuesta ${(rentCfg(e).price / 100).toFixed(0)} Bs`);
+    const p = rentPrice(e, c);
+    if (res === "no_balance") throw new DomainError("INSUFFICIENT_BALANCE", p === null ? "Todavía no hay tasa del dólar para cobrarte: avisale a la tienda" : `Te falta saldo: el mes cuesta ${(p / 100).toFixed(isUsd(e, c) ? 2 : 0)} ${isUsd(e, c) ? "US$" : "Bs"}`);
     return rentInfo(e, c);
   });
 }
@@ -219,6 +243,7 @@ function defaults(e: Engine, c: Customer): ResellerShop {
   let slug = base;
   for (let i = 2; Object.values(e.s.customers).some((x) => x.id !== c.id && x.shop?.slug === slug); i++) slug = `${base.slice(0, 26)}-${i}`;
   return {
+    ...(c.hubBill?.paidUntil !== undefined ? { paidUntil: c.hubBill.paidUntil } : {}), ...(c.hubBill?.suspended ? { suspended: true } : {}),
     slug, enabled: false, title: c.name, whatsapp: c.phone.replace(/\D/g, ""),
     accentColor: "#7c5cff", accent2Color: "#00d4ff", backgroundColor: "#0b0b14", bgStyle: "glow", cardStyle: "glass",
     fontFamily: "poppins", headingFont: "poppins", corners: "round",
@@ -280,7 +305,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
       pageAllowed: pageAllowed(e, c),
       // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
       locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
-      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!c.shop?.suspended, paidUntil: c.shop?.paidUntil },
+      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil },
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -341,6 +366,7 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
     const cur = c.shop ?? defaults(e, c);
     if (p.enabled && e.s.settings.resellerShops === false) throw new DomainError("FORBIDDEN", "La tienda no tiene habilitadas las páginas de revendedores");
     c.shop = { ...cur, ...look, ...p };
+    delete c.hubBill; // lo pagado de la suscripción ya pasó a su página (defaults)
     e.audit(actor, "reseller.shop_update", "customer", c.id, { fields: [...Object.keys(look), ...Object.keys(p)].join(","), slug: c.shop.slug });
   });
 }
@@ -353,6 +379,7 @@ export function setMyShopImage(e: Engine, actor: Actor, kind: "logo" | "banner" 
     const key = kind === "logo" ? "logoFileRef" : kind === "qr" ? "qrFileRef" : "bannerFileRef";
     const old = cur[key];
     c.shop = { ...cur, [key]: fileRef ?? undefined };
+    delete c.hubBill;
     if (!fileRef) delete c.shop[key];
     e.audit(actor, `reseller.shop_${kind}`, "customer", c.id, { removed: !fileRef });
     return old;

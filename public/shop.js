@@ -672,6 +672,7 @@ function renderInner() {
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
+      if (S.data.shop?.rent?.locked && HUB_LOCKED_TABS.includes(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard()}`;
       return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
@@ -771,6 +772,9 @@ function rControlBase() {
       <label class="rcnote">Nota<input class="rcin" data-rc="${esc(r.id)}" data-f="note" maxlength="120" value="${esc(r.note)}" placeholder="Ej.: paga los lunes"></label>
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
+/** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
+const HUB_LOCKED_TABS = ["control", "debe", "ganancias", "afiches"];
+const hubLockCard = () => { const r = S.data.shop?.rent; return `<div class="sbox hublock"><h2 style="margin:0">🔒 Pausado: tu suscripción de GaboHub venció</h2><p class="empty" style="margin:0">Son ${bs(r?.price ?? 0)} por mes. Pagala y vuelven Mi control, Quién me debe, Mis ganancias y Afiches al instante. Comprar, tus cuentas, los códigos y vender siguen funcionando.</p><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(r?.price ?? 0)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
 function rDebeView() {
   const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
   // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
@@ -1304,7 +1308,16 @@ function resellerHome() {
     ["clientes", "👥", "Mis clientes", "Ventas y vencimientos"],
   ];
   let rentBox = "";
-  if (rent?.enabled && sh?.saved) {
+  if (rent?.enabled && rent.hub) {
+    // Suscripción GaboHub (la pagan todos): aviso propio. Pausado = sin Mi control, Quién me debe ni Ganancias; lo demás sigue.
+    const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
+    const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
+    const pay = `<button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(rent.price)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button>`;
+    if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu suscripción de GaboHub venció</b><span>Son ${bs(rent.price)} por mes. Se pausaron Mi control, Quién me debe, Mis ganancias y Afiches${sh?.saved ? ", y tu página" : ""}. Comprar, tus cuentas, los códigos y vender siguen funcionando. Recargá y tocá Pagar: se activa al instante.</span><div class="hrow">${pay}</div></div>`;
+    else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu suscripción de GaboHub vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se pause." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
+    else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
+    else rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub es ${bs(rent.price)} por mes y se cobra sola de tu saldo. ${freeTxt}</p>`;
+  } else if (rent?.enabled && sh?.saved) {
     const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
     const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
     if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu página está apagada por falta de pago</b><span>El alquiler es ${bs(rent.price)} por mes. Recargá saldo y tocá Pagar: se prende al instante.</span><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(rent.price)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`;
@@ -2225,7 +2238,7 @@ document.addEventListener("click", async (ev) => {
   if (d.rcopen) { const o2 = new Set(S.data.rcOpen ?? []); o2.has(d.rcopen) ? o2.delete(d.rcopen) : o2.add(d.rcopen); S.data.rcOpen = [...o2]; return render(); }
   if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
-  if (d.rentpay) { try { await api("POST", "/api/me/shop/pay", {}); toast("¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
+  if (d.rentpay) { try { const hub = !!S.data.shop?.rent?.hub; await api("POST", "/api/me/shop/pay", {}); toast(hub ? "¡Pagado! Tu GaboHub está activo" : "¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
   if (d.allthemes) { S.allThemes = true; return render(); }
   if (d.apply) return openApply();

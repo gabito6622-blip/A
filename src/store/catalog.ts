@@ -119,9 +119,12 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   if (patch.shopRent !== undefined) {
     const r = patch.shopRent as unknown as Record<string, unknown>;
     const ok = r && typeof r === "object" && Number.isInteger(r.price) && (r.price as number) >= 0 && (r.price as number) <= 1_000_000
-      && Number.isInteger(r.freeIfSpent) && (r.freeIfSpent as number) >= 0 && Number.isInteger(r.graceDays) && (r.graceDays as number) >= 0 && (r.graceDays as number) <= 30;
-    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras y días de gracia)");
-    patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number };
+      && Number.isInteger(r.freeIfSpent) && (r.freeIfSpent as number) >= 0 && Number.isInteger(r.graceDays) && (r.graceDays as number) >= 0 && (r.graceDays as number) <= 30
+      && (r.scope === undefined || r.scope === "page" || r.scope === "all")
+      && (r.priceUsd === undefined || r.priceUsd === null || (Number.isInteger(r.priceUsd) && (r.priceUsd as number) >= 0 && (r.priceUsd as number) <= 100_000));
+    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras, días de gracia, quién paga o precio en dólares)");
+    patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number,
+      ...(r.scope === "all" ? { scope: "all" as const } : {}), ...(Number.isInteger(r.priceUsd) ? { priceUsd: r.priceUsd as number } : {}) };
   }
   if (patch.resellerMarginPct !== undefined && !(Number.isInteger(patch.resellerMarginPct) && patch.resellerMarginPct >= 0 && patch.resellerMarginPct <= 300)) throw new DomainError("VALIDATION", "Ganancia sugerida: de 0 a 300 %");
   if (patch.referralBonus !== undefined && !(Number.isInteger(patch.referralBonus) && patch.referralBonus >= 0 && patch.referralBonus <= 1_000_000)) throw new DomainError("VALIDATION", "Premio por referido: de Bs 0 a Bs 10.000");
