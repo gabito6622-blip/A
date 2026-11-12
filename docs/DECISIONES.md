@@ -2,6 +2,16 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Cuentas pagadas en dólares
+- **Qué se guarda:** el costo en US$ por mes, en la cuenta. Cada pago guarda los US$, la tasa y los Bs. Finanzas sigue sumando en Bs, que es la plata que de verdad sale.
+- **Qué tasa se usa:** la del Banco Central del día, que la tienda ya trae sola, pero siempre se puede cambiar: los bancos cobran la tarjeta con su propia tasa.
+- **«Próximos cobros»:** sale del día de cobro de cada cuenta. Los Bs que muestra son aproximados (con la tasa de hoy).
+
+## 2026-11-12 · El dueño no tiene proveedor de Disney
+- **Qué se cambió:** las fechas de «vence con el proveedor» de Disney venían de la importación y no significaban nada. Se cambiaron por «sin vencimiento»: la misma fecha lejana (+100 años) que el sistema ya usa para una cuenta cargada sin fecha.
+- **Qué quedó afuera:** las 16 cuentas con fecha vencida y un perfil libre. Cambiarlas volvería a poner a la venta esos perfiles, y eso lo decide el dueño.
+- **Cómo se hizo:** respaldo de lo tocado (id, producto, proveedor y fecha de cada cuenta, sin contraseñas), prueba con 1 cuenta, después 107 más. Antes y después se verificó que clientes, perfiles y fechas de clientes siguieran iguales.
+
 ## 2026-11-12 · Ver antes de confirmar: mismas cuentas que el servidor
 - **Qué se calcula en el panel:** la fecha nueva al renovar y el perfil del «Automático», con las mismas reglas del servidor (`extend` y `reserveSlots`). Una prueba compara lo mostrado con lo que el servidor hace. Si un día cambia una regla del servidor, esa prueba avisa.
 - **Lo que no cambia:** el servidor sigue decidiendo y frenando, como siempre. Renovar pide una confirmación más, con la fecha nueva, como ya hacía el Control.

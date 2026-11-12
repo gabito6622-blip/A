@@ -3,7 +3,27 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-bandejas`) · Pestañas de Avisos y de Plata (etapa 6)
+## 2026-11-12 · Sin publicar (rama `panel-tarjeta`) · 💳 Cuentas pagadas en dólares con tarjeta
+- **Editar cuenta:** campo nuevo «Se cobra en dólares» (US$ por mes, opcional), para las que pagás con tarjeta de crédito.
+- **«💳 Pagué la renovación»:** si la cuenta se cobra en dólares, te propone los Bs = dólares × tasa del Banco Central de hoy. Si tu banco cobró otra tasa, la cambiás. Queda anotado cuánto en dólares, con qué tasa y cuánto en Bs, y tu ganancia real en Finanzas usa esos Bs.
+- **Finanzas:** «💳 Próximos cobros de tu tarjeta» de los próximos 30 días, día por día, con cuántas cuentas, cuántos US$ y cuántos Bs aproximados.
+- **Las cuentas sin dólares funcionan igual que antes.**
+
+## 2026-11-12 · Sin publicar (rama `panel-caidas`) · 🧹 Cuentas caídas sin clientes
+- **Inventario → Cuentas:** si hay cuentas vencidas sin nadie adentro, aparece una tarjeta con su lista, todas marcadas. Destildás las que todavía funcionan y tocás «Retirar las seleccionadas». Te pide confirmar.
+- **Es la misma acción de «Cuenta caída» de cada cuenta:** no se borran, dejan de venderse y quedan en el historial. Nunca aparece una cuenta con clientes.
+- **Segundo botón, «✅ Funcionan: dejarlas como propias»:** las marcadas quedan en Propias y sin vencimiento (autopay), y sus perfiles libres vuelven a la venta. Es lo mismo que «Editar» de cada cuenta.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas de Disney sin «proveedor»
+- **Qué:** las cuentas de Disney estaban bajo un «Proveedor Disney» que se creó al importar la planilla, con fechas de vencimiento de proveedor que no existen: el dueño no tiene proveedor de Disney. Por eso el sistema frenaba la renovación de 81 de 82 clientes.
+- **Hecho:**
+  - 108 cuentas quedaron sin vencimiento de proveedor, como las demás cuentas propias;
+  - «Proveedor Disney» pasó a «Propias» (125 cuentas movidas con el botón del panel);
+  - ahora ningún cliente queda frenado al renovar.
+- **Sin cambios:** clientes, perfiles, fechas de los clientes, ventas, contraseñas y Finanzas.
+- **Pendiente:** 16 cuentas con fecha ya vencida y un perfil libre quedaron como estaban. Si se les quita la fecha, esos 16 perfiles vuelven a estar a la venta (B22).
+
+## 2026-11-12 · #43 Pestañas de Avisos y de Plata (etapa 6)
 - **«⏰ Avisos y vencimientos»:** arriba de Recordatorios, Que vuelvan y WhatsApp → Avisos hay pestañas para ir de una a otra, más «🔴 Vencidos», que abre el Control filtrado.
 - **«💰 Plata»:** arriba de Finanzas, Fiado y el Dashboard hay pestañas Caja del mes, Fiado, Reportes y Pagos por revisar.
 - **Cada pestaña respeta el permiso de su pantalla:** Atención ve solo Fiado y Pagos por revisar. Ninguna pantalla cambia por dentro.

@@ -135,6 +135,8 @@ export interface AccountPatch {
   supplierId?: Id;
   supplierExpiresAt?: number;
   cost?: Cents;
+  /** Costo por mes en centavos de US$ (0 = no se cobra en dólares). */
+  costUsd?: number;
   notes?: string;
 }
 
@@ -152,6 +154,7 @@ export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: Acc
   if (patch.email !== undefined && !/^[^@\s]+@[^@\s]+$/.test(patch.email.trim())) throw new DomainError("VALIDATION", "Email de cuenta inválido");
   if (patch.password !== undefined && !patch.password) throw new DomainError("VALIDATION", "La contraseña no puede quedar vacía");
   if (patch.cost !== undefined && (!Number.isInteger(patch.cost) || patch.cost < 0)) throw new DomainError("VALIDATION", "Costo inválido");
+  if (patch.costUsd !== undefined && (!Number.isInteger(patch.costUsd) || patch.costUsd < 0 || patch.costUsd > 100_000)) throw new DomainError("VALIDATION", "Costo en dólares inválido (hasta US$ 1000)");
   if (patch.supplierExpiresAt !== undefined && !(Number.isFinite(patch.supplierExpiresAt) && patch.supplierExpiresAt > 0)) throw new DomainError("VALIDATION", "Fecha de vencimiento inválida");
   if ((patch.notes?.length ?? 0) > 500) throw new DomainError("VALIDATION", "Notas: máximo 500 letras");
   return e.tx(() => {
@@ -169,6 +172,7 @@ export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: Acc
     }
     if (patch.supplierExpiresAt !== undefined && patch.supplierExpiresAt !== acc.supplierExpiresAt) { acc.supplierExpiresAt = patch.supplierExpiresAt; changed.push("supplierExpiresAt"); }
     if (patch.cost !== undefined && patch.cost !== acc.cost) { acc.cost = patch.cost; changed.push("cost"); }
+    if (patch.costUsd !== undefined && patch.costUsd !== (acc.costUsd ?? 0)) { if (patch.costUsd) acc.costUsd = patch.costUsd; else delete acc.costUsd; changed.push("costUsd"); }
     if (patch.notes !== undefined && patch.notes !== (acc.notes ?? "")) { acc.notes = patch.notes.trim(); changed.push("notes"); }
     let notified = 0;
     if (credsChanged) {

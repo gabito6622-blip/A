@@ -1,6 +1,31 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (rama `panel-bandejas`, sin publicar)
+## 12/11/2026 · Cuentas pagadas en dólares con tarjeta (rama `panel-tarjeta`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **473 → 475 / 475 ✅** |
+| Datos | `test/tarjeta.test.mjs`. Cubre: costo en US$ (hasta US$ 1000, no negativo); el pago guarda US$, tasa y Bs; dólares sin tasa → no; 2 meses mantiene el costo por mes; sin dólares funciona como antes; se puede quitar el costo en dólares | ✅ |
+| Navegador a 360 px | Editar «15,49» → 1549. «Pagué la renovación» propone 15,49 × 11,71 = 181,39; con 2 meses 30,98 → 362,78; con tasa 12 → 371,76; el gasto queda anotado así. Finanzas muestra el cobro de los próximos 30 días (US$ 10,00 ≈ Bs 117,10) o avisa que no hay; sin desborde | ✅ |
+| Foto antes / después | 30 pantallas idénticas (con los datos de ejemplo ninguna cuenta se cobra en dólares) | ✅ |
+| No probado | Tus cuentas reales; la tasa de tu banco (por eso se puede cambiar a mano) | ⚠️ |
+
+## 12/11/2026 · Cuentas caídas sin clientes (rama `panel-caidas`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **472 → 473 / 473 ✅** |
+| Cuentas caídas | `test/cuentas-caidas.test.mjs`, con navegador a 360 px. Con 5 cuentas: lista solo las 3 vencidas sin clientes (no la que tiene un cliente ni la que está al día); si se destilda 1 y se confirma, retira solo las otras 2; «Dejarlas como propias» deja la que quedaba en Propias, sin vencimiento y otra vez a la venta (+1 en stock); ningún cliente cambia; botones de 44 px sin desborde | ✅ |
+| Foto antes / después | 30 pantallas idénticas (con los datos de ejemplo no hay cuentas caídas, así que la tarjeta no aparece) | ✅ |
+| Contexto | La sesión no pudo retirar las 16 cuentas con la llave del asistente (las acciones que no se pueden deshacer necesitan permiso). Por eso el dueño pidió el botón para hacerlo él | ℹ️ |
+
+## 12/11/2026 · Cambio de datos reales: cuentas de Disney sin proveedor (con OK del dueño)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo | Antes de tocar: id, producto, proveedor, fecha y perfiles libres de las 124 cuentas de Disney (sin contraseñas), guardado fuera del repositorio y entregado al dueño | ✅ |
+| Prueba con 1 cuenta | Fecha nueva guardada; su cliente pasa a poder renovarse; la fecha del cliente y los perfiles de la cuenta no cambian | ✅ |
+| Las otras 107 | 107 de 107 sin fallas. En las 125 cuentas, los perfiles quedaron iguales; los 82 servicios conservan su fecha; las 16 cuentas dejadas para decidir siguen igual; clientes frenados por el proveedor: 81 → 0 | ✅ |
+| «Proveedor Disney» → «Propias» | Botón del panel: 125 cuentas movidas. Servicios 82, cuentas 125, clientes 27, pedidos 92 y cola 75: iguales antes y después | ✅ |
+
+## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (publicado en #43)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **471 → 472 / 472 ✅** |
@@ -8,7 +33,8 @@
 | Arreglo | Las pestañas se ven en dos filas: en una sola, dos quedaban escondidas en el celular | ✅ |
 | Prueba vieja más firme | La del buscador fallaba a veces: miraba también el «Reemplazar» de la ficha | ✅ |
 | Foto antes / después | 25 pantallas idénticas. Las 5 con pestañas tienen 4 botones más (las pestañas) y nada menos | ✅ |
-| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+| **Después de publicar (#43), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75. Con la llave del asistente (rol admin) a 390 px: Recordatorios y Que vuelvan con 4 pestañas, Fiado y Reportes con 3 (Caja del mes es solo del dueño); las pestañas navegan; sin desborde; 0 errores | ✅ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (publicado en #42)
 | Qué | Cómo | Resultado |
