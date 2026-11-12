@@ -2,8 +2,9 @@
 .app{--bg:#eef1f6;--side:#ffffff;--card:#ffffff;--soft:#f3f5f9;--line:#e2e6ee;--ink:#1f2633;--muted:#4f5a6b;--dark:#2b2f38;--dark-ink:#ffffff;
   --ok:#0a7040;--ok-soft:#d8f5e5;--warn:#9a5b00;--warn-soft:#fff1d6;--bad:#c92a2a;--bad-soft:#ffe3e3;--blue:var(--p-blue);--blue-text:var(--p-blue);
   background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-panel);min-height:100%;display:grid;grid-template-columns:300px minmax(0,1fr);color-scheme:light}
-.app.dark{--bg:#0f141d;--side:#141a25;--card:#18202d;--soft:#1f2836;--line:#2a3445;--ink:#e6ebf2;--muted:#98a3b5;--dark:#e6ebf2;--dark-ink:#11161f;
-  --ok:#4ad68c;--ok-soft:#163626;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:#4263eb;--blue-text:#8da2fb;color-scheme:dark}
+/* Oscuro Premium 2.0: los colores salen de tema.css (--gs-*), los mismos de la oficina y GaboHub. */
+.app.dark{--bg:var(--gs-bg,#070b16);--side:var(--gs-bg2,#0d1428);--card:var(--gs-panel,#111a33);--soft:var(--gs-panel2,#162040);--line:var(--gs-line,#223058);--ink:var(--gs-ink,#e6ecff);--muted:var(--gs-muted,#8ea0c9);--dark:#e6ecff;--dark-ink:#0b1020;
+  --ok:#4ad68c;--ok-soft:#133a2a;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:var(--gs-blue,#2f6bff);--blue-text:#8db0ff;color-scheme:dark}
 .app :focus-visible{outline-color:var(--blue)}
 .side{background:var(--side);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow:auto;padding:18px 14px 20px;display:flex;flex-direction:column;gap:12px}
 .plogo{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:17px;padding-bottom:12px;border-bottom:1px solid var(--line)}

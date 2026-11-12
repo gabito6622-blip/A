@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 3 «Panel rápido y oscuro» (rama `premium-2.0`, sin publicar)
+- **Inicio en una sola llamada:** `GET /api/admin/inicio` trae junto lo que antes se pedía en 6 llamadas encadenadas (alquileres, pagos por revisar, finanzas del mes, agentes, revendedores sin PIN y notificaciones). Cada parte es idéntica a su endpoint suelto; si una falla, va en `null` y lo demás se muestra igual. El admin no recibe finanzas; un cliente no entra. La pantalla pasó de 12 pedidos a 7 (los otros son la sesión, la configuración, la campanita y dos tarjetas).
+- **Filtrar sin volver a pedir:** `common.js` guarda por 20 s las lecturas grandes del panel (`/api/admin/assignments`, `customers`, `products`, `price-groups`, `stock`, `suppliers`, `inicio`). Cambiar de pestaña o filtro en el Control (y en Clientes, Reubicar, etc.) vuelve a dibujar sin ir al servidor. Cualquier guardado (POST) vacía la caché, y al cambiar de pantalla también: lo que se guarda se ve al instante.
+- **Oscuro por defecto (Premium):** el panel arranca en oscuro con los colores de `tema.css` (`--gs-*`, los mismos de la oficina). Quien ya había elegido claro o sistema lo conserva (queda guardado en el aparato) y el botón Claro/Oscuro/Sistema sigue igual. `html[data-gs-theme]` acompaña el tema para que las piezas comunes se pinten igual.
+- **GaboHub:** sin cambios en esta etapa; su aspecto lo define el dueño en Apariencia (fondo oscuro por defecto). Un interruptor claro/oscuro personal para revendedores queda anotado en el BACKLOG.
+- **Prueba nueva `test/panel-rapido.test.mjs`** (2 pruebas: API y navegador).
+
 ## 2026-11-12 · Premium 2.0 · Etapa 2 «Números que coinciden» (rama `premium-2.0`, sin publicar)
 - **Una sola fuente de ingresos (`src/store/income.ts`):** Inicio, Finanzas, el resumen (`/api/admin/stats`) y «Cómo van» calculan «lo que entró» con la misma regla: pedidos entregados (ventas y renovaciones) **más los cobros marcados 💵 en el Control** (sin pedido), sin recargas, sin pruebas gratis, sin lo importado de un Excel y sin contar dos veces el mismo mes. Antes Inicio y Finanzas no contaban los cobros del Control (la mayoría de los alquileres de Disney), y Finanzas sí contaba lo importado.
 - **Se ve de dónde viene:** Inicio dice «Bs X marcados 💵 en el Control» bajo Ingresos y el gráfico por día tiene una barra violeta «Cobros del Control»; Finanzas lo dice en «Entró» (`delControl` por mes); el resumen trae `fromControl`.

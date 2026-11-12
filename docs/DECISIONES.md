@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 3: rápido sin cambiar lo que se ve
+- **Un endpoint para Inicio, no un rediseño:** la pantalla queda igual; solo cambia cómo trae los datos (una llamada en vez de seis). Si una parte falla, viene en `null` y la pantalla sigue (antes, un `.catch` por llamada hacía lo mismo).
+- **Caché de 20 s, solo listas del panel, se vacía al guardar y al cambiar de pantalla:** la demora que sentía el dueño era filtrar el Control (cada pestaña volvía a bajar todos los alquileres). Con esa regla, nunca ve un dato viejo después de guardar, y al entrar a una pantalla siempre lee de nuevo. Descartado: caché larga o compartida con la tienda (los primeros intentos rompieron dos pruebas de la tienda y de Mis clientes).
+- **Oscuro por defecto, claro opcional, sin mover el interruptor:** la misión pide oscuros elegantes; el dueño y su equipo que ya eligieron claro lo conservan porque la preferencia vive en su aparato. La paleta oscura se toma de `tema.css` para que panel, oficina y futuras pantallas sean iguales.
+- **GaboHub se queda con el aspecto que define el dueño:** su página ya arranca oscura (fondo `#090e1d`) y un interruptor personal por revendedor tocaría Apariencia y las páginas `/r/<slug>`; va al BACKLOG con prioridad baja.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 2: un solo «lo que entró»
 - **Los cobros del Control cuentan en todas las pantallas:** el negocio real del dueño (alquileres de Disney a revendedores) se cobra casi siempre por fuera y se marca 💵 en el Control. «Cómo van» ya los contaba; Inicio y Finanzas no, y por eso nunca coincidían. Ahora los tres leen `incomeEvents()` (src/store/income.ts) con la misma regla de no duplicar (un pedido a menos de 20 días de la marca = el mismo pago).
 - **Lo importado no es ingreso:** cargar lo que ya estaba vendido (Excel, «cargar vendidas») no es plata que entró ese día. Finanzas lo contaba (en Bs 0 casi siempre, pero contaba); se alineó con Inicio.

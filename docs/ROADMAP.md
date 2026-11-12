@@ -7,7 +7,8 @@ Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: 
 - ✅ Etapa 0 · Base segura: tema común, fuentes sin bloquear, Tito estable, letra mínima (487 pruebas).
 - ✅ Etapa 1 · Plata segura: comprobante repetido frenado, referencias normalizadas, monto verificado e idempotencia en recargas, bandeja de Binance, consentimiento con origen, «enviado a mano» con permiso (496 pruebas).
 - ✅ Etapa 2 · Números que coinciden: una sola fuente de ingresos (con los cobros del Control) en Inicio, Finanzas, resumen y Cómo van; costo en US$ en la ganancia; meses y días en hora de Bolivia; Fiado con ≈ US$ (500 pruebas).
-- ⏳ Etapa 3 · Panel rápido y oscuro por defecto (claro opcional): Inicio en una sola llamada, Control sin recargar por filtro, tema en panel y GaboHub.
+- ✅ Etapa 3 · Panel rápido y oscuro por defecto (claro opcional): Inicio en una sola llamada (12 → 7 pedidos), Control sin recargar por filtro (caché de 20 s), paleta oscura de tema.css (502 pruebas). GaboHub: interruptor personal al BACKLOG.
+- ⏳ Etapa 4 · Inventario inteligente (sigue).
 - Etapa 4 · Inventario inteligente: correos normalizados y sin dobles, vista «Cortes» por fecha, cambio de clave guiado, semáforo de riesgo.
 - Etapa 5 · Tienda premium: catálogo y pago más claros, estados de pedido, recarga guiada.
 - Etapa 6 · GaboHub alquilable: prueba de 15 días y dos planes (números a confirmar por el dueño).

@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 3 «Panel rápido y oscuro»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| `/api/admin/inicio` = alquileres, pagos por revisar, finanzas, agentes, revendedores sin PIN y notificaciones de los endpoints sueltos; admin sin finanzas ni reporte diario; cliente 401/403; sin sesión 401 | `test/panel-rapido.test.mjs` (servidor en puerto efímero, datos ficticios) | OK |
+| Navegador a 390 px: Inicio hace 1 llamada a `/api/admin/inicio` y ninguna a assignments/ai/resellers/finance; 7 pedidos en total (antes 12) | misma prueba, Playwright contando pedidos `/api/*` | OK |
+| Tema: arranca oscuro, `--bg` del panel = `#070b16` (tema.css), elegir Claro se guarda y sobrevive a recargar | misma prueba | OK |
+| Control: la lista se pide 1 vez; cambiar de pestaña 2 veces no vuelve a pedirla; tras guardar una nota (POST) se vuelve a pedir | misma prueba | OK (encontró que un POST a `/api/admin/assignments/:id/control` contaba como lectura en mi regex: corregido en la prueba) |
+| Nada se rompió en las pantallas con navegador: panel-ordenado, pulido-panel, secretaria, hub-navegacion, oficina, como-van, winback, base-segura, guiado, hub-clientes-unidos | `node --test` de esos archivos | OK (guiado y hub-clientes fallaron con la primera versión de la caché, que también guardaba `/api/settings` y sobrevivía al cambio de pantalla; se acotó a las listas del panel y se vacía al cambiar de pantalla) |
+| Revisión visual del oscuro a 360 px (Inicio, Control, Dashboard): sin desborde; contraste de textos medido | capturas con datos de ejemplo (fuera del repo) + medición en la página | Inicio y Control sin textos bajo 4,5:1. Dashboard: «30 días» y «Ver primeros pasos» dan 4,49:1 (borde), y las letras de los avatares de colores («N», «G») 2,5–3,7:1: queda anotado para la pasada visual de la etapa 5 |
+| Tanda completa | `npm test` | **501/502** en ~62 s: la que falló fue `hub-clientes-unidos` (Mis clientes), que ya era intermitente bajo carga; corrida sola 3 veces seguidas: 3/3 OK |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 2 «Números que coinciden»
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -1,7 +1,23 @@
 // Utilidades compartidas por la tienda y el panel.
 
 /** Llama a la API. Lanza un Error con `.code` y `.status` si la respuesta no es OK. */
+// Caché corto de lecturas pesadas (Premium 2.0, etapa 3): filtrar, ordenar o cambiar de pestaña en el panel vuelve a
+// dibujar la pantalla, y antes cada vez pedía de nuevo toda la lista al servidor. Ahora la misma lectura se reutiliza
+// durante CACHE_MS; cualquier escritura (POST) la vacía, así lo que se guarda se ve al instante.
+const GET_CACHE = new Map();
+export const CACHE_MS = 20_000;
+const CACHEABLE = /^\/api\/admin\/(assignments|customers|products|price-groups|stock|suppliers|inicio)(\?|$)/;
+export function apiCacheClear() { GET_CACHE.clear(); }
 export async function api(method, path, body) {
+  if (method !== "GET") { GET_CACHE.clear(); return apiRaw(method, path, body); }
+  if (!CACHEABLE.test(path)) return apiRaw(method, path, body);
+  const hit = GET_CACHE.get(path);
+  if (hit && hit.t > Date.now() - CACHE_MS) return structuredClone(await hit.p);
+  const p = apiRaw(method, path, body);
+  GET_CACHE.set(path, { t: Date.now(), p });
+  try { return structuredClone(await p); } catch (e) { GET_CACHE.delete(path); throw e; }
+}
+async function apiRaw(method, path, body) {
   const r = await fetch(path, {
     method,
     credentials: "same-origin",

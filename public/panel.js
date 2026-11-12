@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
@@ -12,8 +12,9 @@ import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 
-const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
-try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
+// Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
+const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
+try { P.theme = localStorage.getItem("gs-panel-theme") || "dark"; } catch { /* sin almacenamiento */ }
 
 const isOwner = () => P.me?.role === "owner";
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
@@ -112,7 +113,8 @@ const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, ad
 function applyTheme() {
   const dark = P.theme === "dark" || (P.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   $("#app").classList.toggle("dark", dark);
-  document.body.style.background = dark ? "#0f141d" : "#eef1f6";
+  document.documentElement.dataset.gsTheme = dark ? "dark" : "light"; // tema.css: mismos colores que la oficina y GaboHub
+  document.body.style.background = dark ? "#070b16" : "#eef1f6";
   $$("[data-th]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.th === P.theme));
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
@@ -507,9 +509,9 @@ const V = {
   },
 
   async inicio() {
-    const [all, pend, fin] = await Promise.all([api("GET", "/api/admin/assignments"),
-      api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0),
-      isOwner() ? api("GET", "/api/admin/finance?months=1").catch(() => null) : Promise.resolve(null)]);
+    // Una sola llamada (antes eran 6 encadenadas: ~1,5 s en celular con datos reales).
+    const ini = await api("GET", "/api/admin/inicio");
+    const all = ini.assignments ?? [], pend = ini.pendingReview ?? 0, fin = ini.finance;
     // Para cobros cuenta solo lo tuyo: a los clientes de tus revendedores les cobra el revendedor.
     const viaRes = (a) => !!a.resellerId && a.resellerId !== a.customerId;
     const list = all.filter((a) => !viaRes(a));
@@ -540,9 +542,9 @@ const V = {
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
-    const aiInfo = canReview() ? await api("GET", "/api/admin/ai").catch(() => null) : null;
+    const aiInfo = ini.ai;
     // Revendedores que todavía no tienen PIN: un botón en Inicio arranca la fila de invitaciones.
-    const sinPin = canReview() ? ((await api("GET", "/api/admin/resellers").catch(() => null))?.list ?? []).filter((r) => !r.hasPin).length : 0;
+    const sinPin = ini.sinPin ?? 0;
     const invCard = sinPin ? `<section class="card hm-invite"><h2>📲 ${sinPin} revendedor${sinPin === 1 ? "" : "es"} todavía sin acceso</h2>
       <p class="muted" style="margin:0">Por cada uno: tocás <b>Generar PIN</b> y después <b>Abrir WhatsApp</b> para mandarle su acceso. La fila pasa sola al siguiente.</p>
       <button class="pbtn dark" type="button" data-hgo="revendedores:invitar">▶ Invitarlos ahora</button></section>` : "";
@@ -558,7 +560,7 @@ const V = {
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
     // 📋 Lo pendiente, todo junto (lo mismo que Notificaciones): cada renglón lleva a resolverlo.
-    const notif = await api("GET", "/api/admin/notifications").catch(() => null);
+    const notif = ini.notifications;
     const sevcls = { bad: "bad", warn: "warn", info: "ok" };
     const pendCard = notif ? `<section class="card hm-pend"><h2>📋 Lo que tenés pendiente <small>· tocá para ir a resolverlo</small></h2>
       ${notif.items.length ? `<div class="notis">${notif.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
@@ -2190,6 +2192,7 @@ async function render() {
   }
 }
 function go(v) {
+  apiCacheClear(); // al cambiar de pantalla se vuelve a leer todo; la caché solo sirve para filtrar dentro de la misma
   P.view = TITLE[v] ? v : "inicio";
   P.menuQ = ""; const mf = $("#menuFind"); if (mf) mf.value = "";
   history.replaceState(null, "", "#" + P.view);

@@ -4,6 +4,8 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
+
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
 |---|---|---|---|

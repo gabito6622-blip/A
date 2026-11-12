@@ -1541,6 +1541,21 @@ export function createApp(cfg: AppConfig): App {
     // El reporte del día (con plata del negocio) es solo del dueño.
     return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: A(ctx).role === "owner" ? aiDaily() : null };
   });
+  // Inicio del panel en UNA llamada (Premium 2.0, etapa 3): antes eran 6 pedidos encadenados (assignments, pagos por
+  // revisar, finanzas, agentes, revendedores sin PIN y notificaciones). Cada parte es la misma que su endpoint suelto;
+  // si una falla, va en null y el resto se muestra igual.
+  route("GET", "/api/admin/inicio", "staff", (ctx) => {
+    const a = A(ctx), review = a.role === "owner" || a.role === "admin";
+    const t = <T,>(f: () => T): T | null => { try { return f(); } catch { return null; } };
+    return {
+      assignments: store.admin.assignments(a, {}),
+      pendingReview: t(() => store.admin.orders(a, { status: "payment_review" as never }).length) ?? 0,
+      finance: a.role === "owner" ? t(() => store.finance.report(a, 1)) : null,
+      ai: review ? t(() => ({ hasKey: agents.hasKey, keyShape: agents.keyShape, ...agents.cfg(), daily: a.role === "owner" ? aiDaily() : null })) : null,
+      sinPin: review ? t(() => store.shops.resellers(a).filter((r) => !db.getSecret(`loginpin:${r.id}`)).length) ?? 0 : 0,
+      notifications: t(() => store.stats.notifications(a)),
+    };
+  });
   route("POST", "/api/admin/ai", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");
     const b = c.body ?? {}, cur = agents.cfg();
