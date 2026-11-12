@@ -30,7 +30,8 @@ export function clinicRoutes(route: Route) {
     handler: async ({ c, auth }) => {
       const r = await c.query(
         `SELECT cl.id, cl.name, cl.legal_name AS "legalName", cl.tax_id AS "taxId", cl.timezone, cl.currency, cl.locale, cl.status,
-                cl.settings, COALESCE(cl.settings->'mfaRequiredRoles', '[]'::jsonb) AS "mfaRequiredRoles", p.name AS "planName", p.max_branches AS "maxBranches", p.max_users AS "maxUsers"
+                cl.settings, COALESCE(cl.settings->'mfaRequiredRoles', '[]'::jsonb) AS "mfaRequiredRoles",
+                COALESCE(cl.settings->>'perioOrder', 'standard') AS "perioOrder", p.name AS "planName", p.max_branches AS "maxBranches", p.max_users AS "maxUsers"
            FROM clinics cl LEFT JOIN plans p ON p.id = cl.plan_id WHERE cl.id = $1`,
         [auth.clinicId],
       );
@@ -46,11 +47,16 @@ export function clinicRoutes(route: Route) {
       taxId: zOptText(30).optional(),
       timezone: z.string().max(60).optional(),
       mfaRequiredRoles: z.array(z.enum(ROLES)).max(6).optional(),
+      // B-066: orden de sondaje del periodontograma para toda la clínica.
+      perioOrder: z.enum(["standard", "quadrant", "buccal_first"]).optional(),
     }),
     handler: async ({ c, auth, body }) => {
       if (body.mfaRequiredRoles && auth.membership!.role !== "owner") throw forbidden("Solo el propietario cambia la política de verificación en dos pasos");
       if (body.mfaRequiredRoles) {
         await c.query("UPDATE clinics SET settings = jsonb_set(settings, '{mfaRequiredRoles}', $2::jsonb) WHERE id = $1", [auth.clinicId, JSON.stringify(body.mfaRequiredRoles)]);
+      }
+      if (body.perioOrder) {
+        await c.query("UPDATE clinics SET settings = jsonb_set(settings, '{perioOrder}', to_jsonb($2::text)) WHERE id = $1", [auth.clinicId, body.perioOrder]);
       }
       if (body.timezone && !Intl.supportedValuesOf("timeZone").includes(body.timezone)) throw badRequest("Zona horaria inválida");
       await c.query(

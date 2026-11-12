@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
 import { CheckCircle2, CloudOff, Loader2, Lock, PenLine, Undo2 } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import { fmtDateTime, fmtTime } from "../../lib/format";
 import { Dialog, Field, useToast } from "../ui";
 import {
@@ -86,10 +87,9 @@ const setSite = (d: PerioData, tooth: number, site: Site, patch: Partial<SiteDat
 const signed = (v: number) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : "0");
 const FLAG_LABEL = { bop: "Sangrado", sup: "Supuración", pl: "Placa" } as const;
 
-const ORDER_KEY = "perio.order";
-const loadOrder = (): OrderPreset => {
-  try { const v = localStorage.getItem(ORDER_KEY); return ORDER_PRESETS.some((p) => p.id === v) ? (v as OrderPreset) : "standard"; } catch { return "standard"; }
-};
+// B-066: el orden de sondaje es de la clínica (Configuración → guardado en el servidor). Cambiarlo
+// aquí vale solo para esta exploración; gerencia puede dejarlo como orden de toda la clínica.
+const isPreset = (v: unknown): v is OrderPreset => ORDER_PRESETS.some((p) => p.id === v);
 
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 
@@ -106,7 +106,26 @@ export function PerioEditor({ exam, canWrite, onClosed, onAmend, onDiscarded }: 
   const toast = useToast();
   const readOnly = exam.status !== "draft" || !canWrite;
   const [data, setData] = useState<PerioData>(exam.data);
-  const [preset, setPreset] = useState<OrderPreset>(loadOrder);
+  const { can } = useAuth();
+  const [preset, setPreset] = useState<OrderPreset>("standard");
+  const [clinicOrder, setClinicOrder] = useState<OrderPreset | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.get<{ perioOrder?: string }>("/api/clinic").then((c) => {
+      if (!alive) return;
+      const v = isPreset(c?.perioOrder) ? c.perioOrder : "standard";
+      setClinicOrder(v);
+      setPreset((p) => (p === "standard" ? v : p));
+    }).catch(() => setClinicOrder("standard"));
+    return () => { alive = false; };
+  }, []);
+  const saveClinicOrder = async () => {
+    try {
+      await api.patch("/api/clinic", { perioOrder: preset });
+      setClinicOrder(preset);
+      toast("Orden de sondaje guardado para toda la clínica");
+    } catch (e) { toast((e as Error).message, true); }
+  };
   const seq = useMemo(() => probingSequence(preset, data.primary), [preset, data.primary]);
   const firstCursor = useMemo(() => {
     const s = seq.find((x) => !exam.data.teeth[String(x.tooth)]?.missing);
@@ -437,11 +456,14 @@ export function PerioEditor({ exam, canWrite, onClosed, onAmend, onDiscarded }: 
         </div>
         <div className="perio-bar">
           <Field label="Orden de sondaje">
-            <select className="input" value={preset} onChange={(e) => { const v = e.target.value as OrderPreset; setPreset(v); try { localStorage.setItem(ORDER_KEY, v); } catch { /* sin almacenamiento */ } gridRef.current?.focus(); }}>
+            <select className="input" value={preset} onChange={(e) => { const v = e.target.value as OrderPreset; setPreset(v); gridRef.current?.focus(); }}>
               {ORDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
             </select>
           </Field>
           <span data-testid="perio-order">Recorrido: <b>{orderDescription(preset).join(" · ")}</b></span>
+          {clinicOrder && preset !== clinicOrder && (can("clinic.manage")
+            ? <button className="btn btn-sm" type="button" onClick={saveClinicOrder} data-testid="perio-order-save">Usar este orden en toda la clínica</button>
+            : <span className="muted small">Solo para esta exploración (el orden de la clínica es «{ORDER_PRESETS.find((p) => p.id === clinicOrder)?.label}»).</span>)}
         </div>
         <div className="perio-bar" aria-live="polite">
           <span data-testid="perio-active">Activo: <b>{ci.tooth}{ci.site ? ` · ${faceLabel(ci.tooth, row.face!)} · ${siteLabel(ci.tooth, ci.site)}` : ""} · {KIND_LABEL[row.kind]}</b></span>

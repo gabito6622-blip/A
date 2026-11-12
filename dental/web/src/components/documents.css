@@ -5,6 +5,8 @@
 .rx-line-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .rx-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .rx-allergy { display: flex; gap: 8px; align-items: flex-start; }
+.rx-interaction ul { margin: 4px 0 0; padding-left: 18px; }
+.rx-interaction li { margin: 2px 0; }
 .rx-ack { border: 1.5px solid #f5c8b5; background: var(--danger-soft); border-radius: 10px; padding: 10px 12px; }
 .rx-ack .check { align-items: flex-start; font-weight: 600; color: #9a3412; }
 .field-error { color: var(--danger); font-size: 12.5px; font-weight: 560; }
@@ -27,3 +29,9 @@ textarea.doc-body-preview { min-height: 180px; font-size: 14px; line-height: 1.5
 .vf-dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; }
 .vf-dl dt { color: var(--muted); }
 .vf-dl dd { margin: 0; font-weight: 560; overflow-wrap: anywhere; }
+/* Configuración → Certificados (B-075) */
+.cert-tpl-body { min-height: 220px; font-size: 14px; line-height: 1.5; }
+.cert-tpl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cert-tpl-chips .btn { min-height: 44px; }
+.cert-tpl-pre { white-space: pre-wrap; font: inherit; font-size: 13px; margin: 6px 0 0; }
+.cert-tpl-version { padding: 12px; }

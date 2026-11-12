@@ -16,6 +16,7 @@ import { audit } from "../lib/audit.js";
 import { nextCounter, type Client } from "../lib/db.js";
 import { requireBranch, type AuthCtx } from "../lib/rbac.js";
 import { allergyWarnings } from "../lib/allergies.js";
+import { interactionWarnings, type InteractionHistory } from "../lib/interactions.js";
 import { formatVerifyCode, normalizeVerifyCode, snapshotHash } from "../lib/pdf.js";
 import { budgetSnapshot, consentSnapshot, findPdf, letterheadData, patientSnap, receiptSnapshot, sendPdf, storePdf, verifyRow, type PdfRow } from "./documents-core.js";
 import type { ClinicalSnapshot, RxLine } from "./documents-pdf.js";
@@ -64,6 +65,29 @@ export const CERT_TEMPLATES: Record<"attendance" | "rest" | "treatment" | "refer
   },
 };
 type TemplateId = keyof typeof CERT_TEMPLATES;
+const TEMPLATE_IDS = ["attendance", "rest", "treatment", "referral"] as const;
+
+/** Marcadores que se completan solos al emitir (además de los campos de cada plantilla). */
+const COMMON_PLACEHOLDERS = ["paciente", "documento", "edad", "clinica", "sucursal", "profesional", "matricula", "fecha"];
+const DERIVED: Partial<Record<TemplateId, string[]>> = { attendance: ["horario"], rest: ["restTo"] };
+export const placeholdersOf = (t: TemplateId) => [...COMMON_PLACEHOLDERS, ...CERT_TEMPLATES[t].fields.map((f) => f.key), ...(DERIVED[t] ?? [])];
+export function unknownPlaceholders(t: TemplateId, body: string) {
+  const ok = new Set(placeholdersOf(t));
+  return [...new Set((body.match(/\{[^{}\s]{1,40}\}/g) ?? []).filter((m) => !ok.has(m.slice(1, -1))))];
+}
+
+/** Texto vigente de cada plantilla en la clínica: la última versión guardada o el texto base. */
+async function effectiveTemplates(c: Client) {
+  const rows = (await c.query<{ template: TemplateId; version: number; title: string; body: string; is_default: boolean; created_at: Date }>(
+    `SELECT DISTINCT ON (template) template, version, title, body, is_default, created_at FROM certificate_template_versions ORDER BY template, version DESC`)).rows;
+  return (Object.entries(CERT_TEMPLATES) as [TemplateId, (typeof CERT_TEMPLATES)[TemplateId]][]).map(([id, t]) => {
+    const v = rows.find((r) => r.template === id);
+    return {
+      id, ...t, title: v?.title ?? t.title, body: v?.body ?? t.body, version: v?.version ?? 0, customized: !!v && !v.is_default,
+      updatedAt: v?.created_at ?? null, placeholders: placeholdersOf(id), baseTitle: t.title, baseBody: t.body,
+    };
+  });
+}
 
 const KIND_PREFIX: Record<string, string> = { prescription: "R", certificate: "C", referral: "D" };
 const docNumber = (kind: string, n: number) => `${KIND_PREFIX[kind]}-${String(n).padStart(6, "0")}`;
@@ -73,9 +97,12 @@ async function issuerInfo(c: Client, auth: AuthCtx) {
   return { name: auth.fullName, license: r?.license?.trim() || null };
 }
 
-async function latestAllergies(c: Client, patientId: string) {
-  const mh = (await c.query<{ data: { allergies?: string | null }; recorded_at: Date }>(
+async function latestHistory(c: Client, patientId: string) {
+  return (await c.query<{ data: InteractionHistory & { allergies?: string | null }; recorded_at: Date }>(
     "SELECT data, recorded_at FROM medical_histories WHERE patient_id = $1 ORDER BY recorded_at DESC LIMIT 1", [patientId])).rows[0];
+}
+async function latestAllergies(c: Client, patientId: string) {
+  const mh = await latestHistory(c, patientId);
   return { hasHistory: !!mh, allergies: mh?.data?.allergies?.trim() || null, recordedAt: mh?.recorded_at ?? null };
 }
 
@@ -217,8 +244,48 @@ export function documentRoutes(route: Route, cfg: Config) {
   // Recetas, certificados y derivaciones
   // =====================================================================
   route({
-    method: "GET", url: "/api/certificate-templates", summary: "Plantillas de certificados y derivaciones con sus marcadores ({paciente}, {documento}…)", tags: ["documentos"], perm: "clinical.read",
-    handler: async () => Object.entries(CERT_TEMPLATES).map(([id, t]) => ({ id, ...t })),
+    method: "GET", url: "/api/certificate-templates", summary: "Plantillas de certificados y derivaciones de la clínica (texto vigente, versión y marcadores disponibles)", tags: ["documentos"], perm: "clinical.read",
+    handler: async ({ c }) => effectiveTemplates(c),
+  });
+
+  route({
+    method: "GET", url: "/api/certificate-templates/:template/versions", summary: "Historial de versiones del texto de una plantilla de certificado", tags: ["documentos"], perm: "clinic.manage",
+    params: z.object({ template: z.enum(TEMPLATE_IDS) }),
+    handler: async ({ c, params }) => (await c.query(
+      `SELECT v.version, v.title, v.body, v.is_default AS "isDefault", v.note, v.created_at AS "createdAt", u.full_name AS "byName"
+         FROM certificate_template_versions v JOIN users u ON u.id = v.created_by WHERE v.template = $1 ORDER BY v.version DESC LIMIT 100`, [params.template])).rows,
+  });
+
+  route({
+    method: "POST", url: "/api/certificate-templates/:template/versions", summary: "Guardar una versión nueva del título y el texto de una plantilla (o volver al texto original)", tags: ["documentos"], perm: "clinic.manage",
+    params: z.object({ template: z.enum(TEMPLATE_IDS) }),
+    body: z.object({
+      restoreDefault: z.boolean().default(false),
+      title: z.string().trim().min(3, "Escribe el título").max(120).optional(),
+      body: z.string().trim().min(20, "El texto es muy corto").max(5000, "El texto es muy largo").optional(),
+      note: zOptText(300),
+    }),
+    handler: async ({ c, auth, params, body }) => {
+      const base = CERT_TEMPLATES[params.template];
+      const title = body.restoreDefault ? base.title : body.title;
+      const text = body.restoreDefault ? base.body : body.body;
+      if (!title || !text) throw badRequest("Escribe el título y el texto, o elige volver al texto original");
+      const bad = unknownPlaceholders(params.template, text);
+      if (bad.length) throw badRequest(`Marcadores que no existen en esta plantilla: ${bad.join(", ")}`, [{ path: "body", message: `Usa solo: ${placeholdersOf(params.template).map((x) => `{${x}}`).join(" ")}` }]);
+      if (!text.includes("{paciente}")) throw badRequest("El texto debe incluir {paciente}", [{ path: "body", message: "Falta {paciente}" }]);
+      const missing = base.fields.filter((f) => f.required && !text.includes(`{${f.key}}`) && !(f.key === "restFrom" && text.includes("{restTo}")));
+      if (missing.length) throw badRequest(`El texto debe usar los datos obligatorios: ${missing.map((f) => `{${f.key}} (${f.label})`).join(", ")}`, [{ path: "body", message: "Faltan datos obligatorios" }]);
+      await c.query("SELECT pg_advisory_xact_lock(hashtext('cert-tpl:' || $1 || ':' || $2))", [auth.clinicId, params.template]);
+      const cur = (await c.query<{ version: number; title: string; body: string }>(
+        "SELECT version, title, body FROM certificate_template_versions WHERE template = $1 ORDER BY version DESC LIMIT 1", [params.template])).rows[0];
+      if ((cur ? cur.title === title && cur.body === text : title === base.title && text === base.body)) throw conflict("No hay cambios respecto del texto vigente", "no_changes");
+      const version = (cur?.version ?? 0) + 1;
+      await c.query(
+        "INSERT INTO certificate_template_versions (clinic_id, template, version, title, body, is_default, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+        [auth.clinicId, params.template, version, title, text, title === base.title && text === base.body, body.note, auth.userId]);
+      await audit(c, auth, "certificate_template.versioned", "certificate_template", null, { template: params.template, version, restoreDefault: body.restoreDefault });
+      return { version };
+    },
   });
 
   route({
@@ -236,9 +303,12 @@ export function documentRoutes(route: Route, cfg: Config) {
     perm: "clinical.read", params: zIdParams,
     body: z.object({ lines: z.array(z.object({ medicationId: zId.nullish().transform((v) => v ?? null), drug: z.string().trim().max(160) })).max(10) }),
     handler: async ({ c, params, body }) => {
-      const { allergies } = await latestAllergies(c, params.id);
+      if (!(await c.query("SELECT 1 FROM patients WHERE id = $1", [params.id])).rowCount) throw notFound("Paciente");
+      const mh = await latestHistory(c, params.id);
+      const allergies = mh?.data?.allergies?.trim() || null;
       const valid = body.lines.map((l) => ({ ...l, drug: l.drug || "—", presentation: null, dose: "-", frequency: "-", duration: "-", instructions: null }));
-      return { allergies, warnings: allergyWarnings(allergies, await linesWithTags(c, valid)) };
+      const tagged = await linesWithTags(c, valid);
+      return { allergies, currentMedications: mh?.data?.medications?.trim() || null, warnings: allergyWarnings(allergies, tagged), interactions: interactionWarnings(mh?.data, tagged) };
     },
   });
 
@@ -279,8 +349,12 @@ export function documentRoutes(route: Route, cfg: Config) {
       reissueOfId: zId.nullish().transform((v) => v ?? null),
     }),
     handler: async ({ c, auth, params, body }) => {
-      const { allergies } = await latestAllergies(c, params.id);
-      const warnings = allergyWarnings(allergies, await linesWithTags(c, body.lines));
+      const mh = await latestHistory(c, params.id);
+      const allergies = mh?.data?.allergies?.trim() || null;
+      const tagged = await linesWithTags(c, body.lines);
+      const warnings = allergyWarnings(allergies, tagged);
+      // B-075: las interacciones solo AVISAN (no bloquean); quedan anotadas en la historia.
+      const interactions = interactionWarnings(mh?.data, tagged);
       if (warnings.length && !body.acknowledgeAllergy) {
         throw new AppError(409, "allergy_ack_required",
           `Posible alergia: ${warnings.map((w) => `${w.drug} (declaró «${w.allergy}»)`).join(", ")}. Revisa y marca «Revisé la alergia» para emitir igualmente.`, { warnings });
@@ -288,12 +362,14 @@ export function documentRoutes(route: Route, cfg: Config) {
       const lines: RxLine[] = body.lines.map((l) => ({ drug: l.drug, presentation: l.presentation, dose: l.dose, frequency: l.frequency, duration: l.duration, instructions: l.instructions }));
       const summary = lines.map((l) => `${l.drug}${l.presentation ? ` ${l.presentation}` : ""}`).join(", ");
       const noteBody = lines.map((l, i) => `${i + 1}. ${l.drug}${l.presentation ? ` (${l.presentation})` : ""}: ${l.dose}, ${l.frequency}, ${l.duration}.`).join(" ")
-        + (warnings.length ? ` Aviso de alergia revisado por el profesional (${warnings.map((w) => w.allergy).join(", ")}).` : "");
-      return issueClinicalDocument(c, auth, cfg.publicUrl, {
+        + (warnings.length ? ` Aviso de alergia revisado por el profesional (${warnings.map((w) => w.allergy).join(", ")}).` : "")
+        + (interactions.length ? ` Aviso de interacción mostrado al emitir: ${interactions.map((w) => `${w.drug} con ${w.with} (${w.text})`).join("; ")}.` : "");
+      const issued = await issueClinicalDocument(c, auth, cfg.publicUrl, {
         patientId: params.id, branchId: body.branchId, kind: "prescription", template: null, title: "Receta", summary,
         content: { lines, indications: body.indications, allergies }, warnings, ack: warnings.length > 0 && body.acknowledgeAllergy,
         reissueOfId: body.reissueOfId, noteKind: "prescription", noteBody,
       });
+      return { ...issued, interactions };
     },
   });
 
@@ -303,13 +379,13 @@ export function documentRoutes(route: Route, cfg: Config) {
     perm: "clinical.write", params: zIdParams,
     body: z.object({
       branchId: zId,
-      template: z.enum(["attendance", "rest", "treatment", "referral"]),
+      template: z.enum(TEMPLATE_IDS),
       fields: z.record(z.string().max(40), zFieldVal).default({}),
       body: z.string().trim().min(20, "El texto es muy corto").max(5000, "El texto es muy largo"),
       reissueOfId: zId.nullish().transform((v) => v ?? null),
     }),
     handler: async ({ c, auth, params, body }) => {
-      const t = CERT_TEMPLATES[body.template];
+      const t = (await effectiveTemplates(c)).find((x) => x.id === body.template)!;
       const fields: Record<string, string | number | null> = {};
       for (const f of t.fields) {
         const v = body.fields[f.key];
@@ -331,7 +407,7 @@ export function documentRoutes(route: Route, cfg: Config) {
             : `${fields.status} tratamiento: ${fields.treatment}`;
       return issueClinicalDocument(c, auth, cfg.publicUrl, {
         patientId: params.id, branchId: body.branchId, kind: t.kind, template: body.template, title: t.title, summary,
-        content: { body: body.body, fields }, warnings: [], ack: false, reissueOfId: body.reissueOfId,
+        content: { body: body.body, fields, templateVersion: t.version }, warnings: [], ack: false, reissueOfId: body.reissueOfId,
         noteKind: t.kind === "referral" ? "referral" : "other", noteBody: summary,
       });
     },

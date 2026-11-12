@@ -146,6 +146,7 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
     : [emptyLine()]);
   const [indications, setIndications] = useState<string>(prev?.indications ?? "");
   const [warnings, setWarnings] = useState<{ line: number; drug: string; allergy: string }[]>([]);
+  const [interactions, setInteractions] = useState<{ line: number; drug: string; with: string; text: string }[]>([]);
   const [ack, setAck] = useState(false);
   const [lineErr, setLineErr] = useState<Record<number, Record<string, string>>>({});
   const [ackErr, setAckErr] = useState(false);
@@ -166,7 +167,7 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
     const n = ++seq.current;
     const t = setTimeout(async () => {
       const body = { lines: lines.map((l) => ({ medicationId: l.medicationId, drug: l.drug.trim() })) };
-      try { const r = await api.post(`/api/patients/${patient.id}/allergy-check`, body); if (n === seq.current) setWarnings(r.warnings); } catch { /* el servidor vuelve a validar al emitir */ }
+      try { const r = await api.post(`/api/patients/${patient.id}/allergy-check`, body); if (n === seq.current) { setWarnings(r.warnings); setInteractions(r.interactions ?? []); } } catch { /* el servidor vuelve a validar al emitir */ }
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,6 +241,7 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
           <datalist id="rx-meds">{(meds.data ?? []).map((m) => <option key={m.id} value={medLabel(m)} />)}</datalist>
           {lines.map((l, k) => {
             const w = warnings.find((x) => x.line === k + 1);
+            const ix = interactions.filter((x) => x.line === k + 1);
             const e = lineErr[k] ?? {};
             return (
               <section key={k} className={`rx-line ${w ? "has-warning" : ""}`} aria-label={`Medicamento ${k + 1}`}>
@@ -252,6 +254,12 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
                 </Field>
                 {e.drug && <span className="field-error">{e.drug}</span>}
                 {w && <div className="alert danger small" role="alert"><b>Posible alergia:</b> el paciente declaró «{w.allergy}». Revisa antes de emitir.</div>}
+                {ix.length > 0 && (
+                  <div className="alert warn small rx-interaction" role="status">
+                    <b>Posible interacción (aviso orientativo):</b>
+                    <ul>{ix.map((x, i) => <li key={i}>Con {x.with}: {x.text}.</li>)}</ul>
+                  </div>
+                )}
                 <div className="rx-grid">
                   <div className="stack-sm"><Field label="Dosis"><input className="input" value={l.dose} aria-invalid={!!e.dose} onChange={(ev) => setLine(k, { dose: ev.target.value })} placeholder="1 cápsula" /></Field>{e.dose && <span className="field-error">{e.dose}</span>}</div>
                   <div className="stack-sm"><Field label="Frecuencia"><input className="input" value={l.frequency} aria-invalid={!!e.frequency} onChange={(ev) => setLine(k, { frequency: ev.target.value })} placeholder="Cada 8 horas" /></Field>{e.frequency && <span className="field-error">{e.frequency}</span>}</div>
@@ -263,6 +271,7 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
           })}
           {lines.length < 10 && <button className="btn doc-btn" style={{ alignSelf: "flex-start" }} onClick={() => setLines([...lines, emptyLine()])}><Plus size={15} />Agregar medicamento</button>}
           <Field label="Indicaciones generales (opcional)"><textarea className="input" value={indications} onChange={(e) => setIndications(e.target.value)} placeholder="Dieta blanda, frío local las primeras 24 horas…" /></Field>
+          {interactions.length > 0 && <p className="muted small rx-interaction-note">Los avisos de interacción salen de una lista corta de casos frecuentes en odontología y de lo anotado en los antecedentes: no son completos ni reemplazan tu criterio. No impiden emitir; quedan anotados en la historia.</p>}
           {warnings.length > 0 && (
             <div className="rx-ack">
               <label className="check"><input type="checkbox" checked={ack} onChange={(e) => { setAck(e.target.checked); setAckErr(false); }} aria-invalid={ackErr} />

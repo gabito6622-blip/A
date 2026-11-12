@@ -13,8 +13,9 @@ import { PortalSettingsTab } from "./PortalSettings";
 import { AppointmentTypesSettings } from "../components/agenda/AppointmentTypesSettings";
 import { MessagingSettingsTab } from "./MessagingSettings";
 import { MedicationsTab } from "../components/Medications";
+import { CertificateTemplatesTab } from "../components/CertificateTemplates";
 
-type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "medications" | "consents" | "portal" | "messaging" | "security" | "audit";
+type Tab = "clinic" | "branches" | "staff" | "schedules" | "procedures" | "appointmentTypes" | "medications" | "certificates" | "consents" | "portal" | "messaging" | "security" | "audit";
 
 export const ROLE_OPTIONS: { id: string; label: string }[] = [
   { id: "owner", label: "Propietario" },
@@ -61,6 +62,7 @@ export function SettingsPage() {
     { id: "procedures", label: "Prestaciones", hidden: !can("clinic.manage") },
     { id: "appointmentTypes", label: "Tipos de cita", hidden: !can("clinic.manage") },
     { id: "medications", label: "Medicamentos", hidden: !can("clinic.manage") },
+    { id: "certificates", label: "Certificados", hidden: !can("clinic.manage") },
     { id: "consents", label: "Consentimientos", hidden: !can("clinic.manage") },
     { id: "portal", label: "Reserva online", hidden: !can("clinic.manage") },
     { id: "messaging", label: "Mensajes automáticos", hidden: !can("clinic.manage") },
@@ -90,6 +92,7 @@ export function SettingsPage() {
       {tab === "procedures" && <ProceduresTab />}
       {tab === "appointmentTypes" && <AppointmentTypesSettings />}
       {tab === "medications" && <MedicationsTab />}
+      {tab === "certificates" && <CertificateTemplatesTab />}
       {tab === "consents" && <ConsentsTab />}
       {tab === "portal" && <PortalSettingsTab />}
       {tab === "messaging" && <MessagingSettingsTab />}

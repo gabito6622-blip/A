@@ -18,6 +18,8 @@ export interface ClinicalSnapshot extends Base {
   allergies?: string | null;
   body?: string;
   fields?: Record<string, string | number | null>;
+  /** Versión del texto de la plantilla de la clínica (0 = texto base del sistema). */
+  templateVersion?: number;
   reissueOf?: string | null;
 }
 export interface BudgetSnapshot extends Base {

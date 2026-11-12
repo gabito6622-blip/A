@@ -183,6 +183,29 @@ try {
     }
   }
 
+  // B-086: cada tratamiento realizado tiene su cita atendida con consultorio ese día (como en la clínica
+  // real), para que la producción por sillón no quede en «sin sillón identificado». Se prueba en varios
+  // horarios y consultorios hasta encontrar uno libre; si no hay, el tratamiento queda sin sillón.
+  const visits = new Set<string>();
+  async function attachVisit(patient: string, dentistId: string, branch: { id: string; chairs: string[] }, at: DateTime, procId: string) {
+    if (at.toMillis() > Date.now() - 3_600_000) return;
+    const key = `${patient}|${branch.id}|${at.toISODate()}`;
+    if (visits.has(key)) return;
+    for (const hh of ["12:00", "13:00", "18:30", "19:15", "07:15", "20:00"]) {
+      const start = DateTime.fromISO(`${at.toISODate()}T${hh}`, { zone: ZONE });
+      if (start.plus({ minutes: 40 }).toMillis() > Date.now()) continue; // nunca una cita «atendida» en el futuro
+      for (const chair of branch.chairs) {
+        try {
+          await q(`INSERT INTO appointments (clinic_id, branch_id, chair_id, dentist_id, patient_id, procedure_id, starts_at, ends_at, status)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed')`,
+            [clinicId, branch.id, chair, dentistId, patient, procId, start.toJSDate(), start.plus({ minutes: 40 }).toJSDate()]);
+          visits.add(key);
+          return;
+        } catch { /* ocupado: se prueba otro consultorio u horario */ }
+      }
+    }
+  }
+
   // Presupuestos, tratamientos realizados y pagos
   let budgetNo = 0, receipt = 0;
   // Volumen de una clínica de 5 sucursales: ~2 meses de presupuestos, para que la producción, la rentabilidad
@@ -214,6 +237,7 @@ try {
         await q(`INSERT INTO charges (clinic_id, branch_id, patient_id, budget_item_id, dentist_id, description, amount_cents, created_by, created_at)
                  SELECT $1,$2,$3,$4,$5,description,$6,$5,$7 FROM budget_items WHERE id = $4`,
           [clinicId, branch.id, patient, item, dent.id, pr.price_cents, created_at.plus({ days: 3 }).toJSDate()]);
+        await attachVisit(patient, dent.id, branch, created_at.plus({ days: 3 }), pr.id);
       }
     }
     if (["accepted", "completed"].includes(status)) {
