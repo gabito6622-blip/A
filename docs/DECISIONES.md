@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Buscador: el servidor decide qué ve cada rol
+- **Cómo busca:** lo hace el servidor (`/api/admin/search`), con el mismo permiso que la pantalla de donde sale cada cosa (Clientes, Control, Cuentas, Aprobar pagos). Así Atención no ve cuentas ni pedidos.
+- **Qué devuelve:** nombre, teléfono, producto, perfil y fechas, lo justo para reconocer el resultado. Nunca contraseñas, PIN ni costos.
+- **Cómo se abre cada resultado:** en su pantalla de siempre, ya filtrada. El buscador de Inicio abre este buscador, y «Ver todo en el Control» conserva lo que hacía antes, así no se pierde nada.
+
 ## 2026-11-12 · Sofi no se publica
 - **Qué:** el dueño ya no necesita una secretaria a la que darle órdenes. Como nunca se publicó, se sacó de la rama con un revert, sin borrar el historial: el commit 2154083 la tiene completa por si algún día se quiere de vuelta.
 - **Qué se conserva:** todo lo que vino después, incluido el menú en 6 áreas y los pendientes en Inicio.

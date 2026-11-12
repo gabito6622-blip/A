@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Buscador del panel, etapa 3 (rama `panel-buscador`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **464 → 469 / 469 ✅** |
+| Buscador | `test/buscador.test.mjs` (5): sin tildes, por teléfono, por correo de cuenta, por referencia del banco y por número de pedido; buscar por la contraseña no encuentra nada y ningún resultado trae contraseña, PIN ni costo; Atención sin cuentas ni pedidos; cliente y sin sesión → no; menos de 2 letras no busca; navegador a 360 px en claro y oscuro (botón arriba, tecla /, Esc, resultado → ficha abierta, Inicio → «Ver todo en el Control») | ✅ |
+| Foto antes / después | Mismo guion y mismos datos: 28 pantallas idénticas; Inicio y Mi oficina tienen 1 botón menos cada una, por Sofi (sacada por decisión del dueño) | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
 ## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (publicado en #39)
 | Qué | Cómo | Resultado |
 |---|---|---|
