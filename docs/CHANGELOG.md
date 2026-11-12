@@ -5,6 +5,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · paraguay
 - **paraguay** (+595 99 294 6366, lista «Panamá y Paraguay (US$)»): nota «Paga US$ 7 por cuenta Disney, en USDT». El panel ya muestra sus cuentas en Bs con la tasa del Banco Central del día (hoy 11,70 → Bs 81,90). Tiene 8 cuentas activas; de las caídas no hay registro (el Excel solo traía las activas).
+- **paraguay al día hasta el 16 y 19/11:** opajg12+br (16/11) ya figuraba pagada; netscz101+18epg y netscz101+d10 (19/11) marcadas pagadas (US$ 7 c/u, orden del dueño). Las 5 vencidas (02/11 al 10/11) esperan respuesta del dueño.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ARIt
 - **ARIt · Aracely Sarabia Rojas** (mismo número): nota «✅ muy buena revendedora, siempre paga; a veces paga 3 o 4 por adelantado. Avisarle 3 días antes y 1 día antes».
