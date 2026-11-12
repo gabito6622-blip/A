@@ -38,7 +38,7 @@ test("suscripción para todos: Bs 49 / US$ 5, días de gracia, pausa y vuelve al
   try {
     // Apagada (como queda en la tienda real hasta que el dueño la prenda): no cobra a nadie ni pausa nada.
     s.catalog.updateSettings(owner, { shopRent: cfg({ enabled: false }) });
-    assert.deepEqual(s.shops.chargeRents(system), { charged: 0, free: 0, suspended: 0, started: 0 });
+    assert.deepEqual(s.shops.chargeRents(system), { charged: 0, free: 0, suspended: 0, started: 0, trials: 0 });
     assert.equal(s.shops.hubLocked(bo.c.id), false);
     // Validación: "quién paga" solo page/all; US$ fijos de 0 a 1000.
     assert.throws(() => s.catalog.updateSettings(owner, { shopRent: cfg({ scope: "todos" }) }), /inválido/);

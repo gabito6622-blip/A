@@ -300,7 +300,9 @@ export interface Customer {
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
-  hubBill?: { paidUntil?: number; suspended?: boolean };
+  hubBill?: { paidUntil?: number; suspended?: boolean; trial?: boolean };
+  /** Plan de GaboHub (Premium 2.0): "full" (todo) o "basic" (sin las herramientas premium). Sin definir = full. */
+  hubPlan?: "basic" | "full";
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }
@@ -350,6 +352,8 @@ export interface ResellerShop extends Look {
   paidUntil?: number;
   /** Apagada por falta de pago del alquiler (se prende sola al pagar). */
   suspended?: boolean;
+  /** Premium 2.0: está en los días de prueba gratis (todavía no pagó). */
+  trial?: boolean;
   /** Combos propios del revendedor (con su precio). */
   combos?: ResellerCombo[];
   /** Cupones propios para su página (solo si el dueño lo permite). */
@@ -576,6 +580,12 @@ export interface ShopRent {
   scope?: "page" | "all";
   /** Precio fijo en centavos de US$ para revendedores en dólares (sin definir: el precio en Bs pasado con la tasa de hoy). */
   priceUsd?: Cents;
+  /** Premium 2.0: días de prueba gratis antes del primer cobro (0 = sin prueba). */
+  trialDays?: number;
+  /** Premium 2.0: precio del plan Básico (sin Mi control, Quién me debe, Mis ganancias ni Afiches). Sin definir = un solo plan. */
+  basicPrice?: Cents;
+  /** Plan Básico en US$ fijos (como `priceUsd`). */
+  basicPriceUsd?: Cents;
 }
 
 /** Pedido de alta de alguien que quiere ser revendedor (formulario público). */

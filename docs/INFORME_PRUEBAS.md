@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 6 «GaboHub alquilable»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Prueba de 15 días: al prender el cobro los 2 revendedores arrancan en prueba sin descuento; día 10 nada; día 16 se cobra Bs 49 al que tiene saldo y sale de la prueba; quien ya pagó no vuelve a tener prueba | `test/gabohub-planes.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Planes: Básico más caro que el Completo → inválido; prueba de 91 días → inválido; sin precio Básico no se puede elegir Básico; otro revendedor no cambia tu plan; plan «oro» → inválido; Básico cobra Bs 25 y deja las herramientas premium pausadas (`lockReason: plan`); en US$ cobra US$ 3 fijos; volver al Completo destraba ya y el mes siguiente cobra Bs 49; auditoría solo de los cambios que entraron | misma prueba | OK |
+| API: `/api/me/shop` trae plan/prueba/precios; con Básico `/api/me/control` → 402 `HUB_PLAN`; sus pedidos siguen 200; el dueño cambia el plan por `/api/admin/resellers/:id/plan`; un revendedor no puede usar esa ruta (403) | misma prueba, servidor en puerto efímero | OK |
+| La suscripción de antes no cambió (Bs 49 / US$ 5, gracia, pausa y vuelta al pagar): solo se sumó `trials: 0` al conteo | `test/suscripcion-gabohub.test.mjs` | OK |
+| Menú del panel y navegación del hub sin cambios | `panel-ordenado`, `hub-navegacion` | OK |
+| Revisión visual a 360 px: Inicio del revendedor («Tu suscripción… plan Completo · Tenés 15 días de prueba gratis» y botón «Pasar al Básico») y Ajustes del dueño con los 3 campos nuevos | capturas con datos de ejemplo (fuera del repo) | OK (el botón de plan iba dentro del texto: se pasó a su propia fila) |
+| Tanda completa | `npm test` | **514/514** en ~65 s |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 5 «Tienda premium»
 | Qué | Cómo | Resultado |
 |---|---|---|

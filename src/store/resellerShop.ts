@@ -29,18 +29,29 @@ const spent30 = (e: Engine, id: Id) => Object.values(e.s.orders)
 const billRead = (c: Customer) => c.shop ?? c.hubBill ?? {};
 const billWrite = (c: Customer) => c.shop ?? (c.hubBill ??= {});
 const allPay = (e: Engine) => rentCfg(e).scope === "all";
-/** ¿Tiene las herramientas pausadas por no pagar la suscripción? (Solo cuenta si el cobro está prendido para todos.) */
-export function hubLocked(e: Engine, customerId: Id): boolean {
+/** Plan de GaboHub del revendedor (Premium 2.0): "basic" solo si el dueño definió un precio Básico y el revendedor lo eligió. */
+export type HubPlan = "basic" | "full";
+export const planOf = (e: Engine, c: Customer): HubPlan => (c.hubPlan === "basic" && rentCfg(e).basicPrice !== undefined ? "basic" : "full");
+/**
+ * Por qué están pausadas las herramientas premium (Mi control, Quién me debe, Mis ganancias, Afiches), si lo están:
+ * "suspended" = no pagó la suscripción; "plan" = tiene el plan Básico. Solo cuenta si el cobro está prendido para todos.
+ */
+export function hubLockReason(e: Engine, customerId: Id): "suspended" | "plan" | null {
   const c = e.s.customers[customerId], r = rentCfg(e);
-  return !!c && c.kind === "reseller" && r.enabled && r.scope === "all" && !!billRead(c).suspended;
+  if (!c || c.kind !== "reseller" || !r.enabled || r.scope !== "all") return null;
+  if (billRead(c).suspended) return "suspended";
+  return planOf(e, c) === "basic" ? "plan" : null;
 }
-/** Lo que se le cobra por mes, en SU moneda: US$ fijos si el dueño los puso, si no los Bs pasados con la tasa de hoy. */
-function rentPrice(e: Engine, c: Customer): Cents | null {
+export function hubLocked(e: Engine, customerId: Id): boolean { return hubLockReason(e, customerId) !== null; }
+/** Lo que se le cobra por mes según su plan, en SU moneda: US$ fijos si el dueño los puso, si no los Bs pasados con la tasa de hoy. */
+function rentPrice(e: Engine, c: Customer, plan: HubPlan = planOf(e, c)): Cents | null {
   const r = rentCfg(e);
-  if (!isUsd(e, c)) return r.price;
-  if (r.priceUsd !== undefined) return r.priceUsd;
+  const bs = plan === "basic" ? (r.basicPrice ?? r.price) : r.price;
+  const usd = plan === "basic" ? (r.basicPriceUsd ?? r.priceUsd) : r.priceUsd;
+  if (!isUsd(e, c)) return bs;
+  if (usd !== undefined) return usd;
   const rt = rateNow(e);
-  return rt ? bsToUsd(r.price, rt, "up") : null;
+  return rt ? bsToUsd(bs, rt, "up") : null;
 }
 
 /** Estado del alquiler de la página (o de la suscripción GaboHub) para mostrarle al revendedor. */
@@ -51,7 +62,10 @@ export function rentInfo(e: Engine, c: Customer) {
   const rt = isUsd(e, c) ? rateNow(e) : 0;
   const cv = (bs: Cents, dir: "up" | "down") => (rt ? bsToUsd(bs, rt, dir) : bs);
   const b = billRead(c);
-  return { enabled: true as const, price: rentPrice(e, c) ?? cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: b.paidUntil, suspended: !!b.suspended, spent30: cv(spent30(e, c.id), "down"), ...(isUsd(e, c) ? { currency: "USD" as const } : {}), hub: allPay(e), locked: hubLocked(e, c.id) };
+  return { enabled: true as const, price: rentPrice(e, c) ?? cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: b.paidUntil, suspended: !!b.suspended, spent30: cv(spent30(e, c.id), "down"),
+    // Premium 2.0: plan, precios de los dos planes (si hay Básico), prueba gratis y por qué está pausado.
+    plan: planOf(e, c), plans: r.basicPrice !== undefined ? { basic: rentPrice(e, c, "basic") ?? cv(r.basicPrice, "up"), full: rentPrice(e, c, "full") ?? cv(r.price, "up") } : null,
+    trial: !!b.trial, trialDays: r.trialDays ?? 0, lockReason: hubLockReason(e, c.id), ...(isUsd(e, c) ? { currency: "USD" as const } : {}), hub: allPay(e), locked: hubLocked(e, c.id) };
 }
 
 /** Cobra un mes de alquiler (o lo da gratis por compras). Debe correr dentro de tx. */
@@ -60,7 +74,7 @@ function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "
   const from = Math.max(s.paidUntil ?? e.now(), e.now() - 30 * DAY);
   if (r.freeIfSpent > 0 && spent30(e, c.id) >= r.freeIfSpent) {
     s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
-    delete s.suspended;
+    delete s.suspended; delete s.trial;
     e.audit(actor, "reseller.shop_rent_free", "customer", c.id, { until: s.paidUntil });
     return "free";
   }
@@ -70,7 +84,7 @@ function renewRent(e: Engine, actor: Actor, c: Customer): "free" | "charged" | "
   if (need === 0 || balance(e, c.id) >= need) {
     if (need > 0) post(e, actor, c.id, -need, "shop_rent", c.shop?.slug ?? "gabohub", allPay(e) ? "Suscripción GaboHub (30 días)" : "Alquiler de tu página (30 días)");
     s.paidUntil = Math.max(from, e.now()) + 30 * DAY;
-    delete s.suspended;
+    delete s.suspended; delete s.trial;
     return "charged";
   }
   return "no_balance";
@@ -89,15 +103,23 @@ export function chargeShopRents(e: Engine, actor: Actor) {
   const shops = Object.values(e.s.customers).filter((c) => c.kind === "reseller" && (all || (c.shop?.enabled && !c.shop.blocked && pageAllowed(e, c))));
   // Con las páginas apagadas para todos no se cobra el alquiler de página (nadie la ve); la suscripción sí.
   const due = r.enabled && (all || shopsOn) ? shops.filter((c) => (billRead(c).paidUntil ?? 0) <= now) : r.enabled ? [] : shops.filter((c) => billRead(c).suspended);
-  const out = { charged: 0, free: 0, suspended: 0, started: 0 };
+  const out = { charged: 0, free: 0, suspended: 0, started: 0, trials: 0 };
   if (!due.length) return out;
   e.tx(() => {
     for (const c of due) {
       const s = billWrite(c);
       if (!r.enabled) { delete s.suspended; continue; }
       if (s.paidUntil === undefined) {
-        // Primera vez: se cobra ya si puede; si no, vence hoy y corren los días de gracia.
         out.started++;
+        // Premium 2.0: con días de prueba, el primer período es gratis (no se descuenta nada); el cobro arranca al terminar.
+        if ((r.trialDays ?? 0) > 0) {
+          s.paidUntil = now + r.trialDays! * DAY;
+          s.trial = true;
+          e.audit(actor, "reseller.hub_trial", "customer", c.id, { until: s.paidUntil, days: r.trialDays });
+          out.trials++;
+          continue;
+        }
+        // Primera vez sin prueba: se cobra ya si puede; si no, vence hoy y corren los días de gracia.
         const first = renewRent(e, actor, c);
         if (first === "no_balance") s.paidUntil = now;
         continue;
@@ -225,6 +247,22 @@ export function pageAllowed(e: Engine, c: Customer): boolean {
 }
 
 /** El dueño prende o apaga el plan "página propia" de un revendedor. Al apagarlo, su página deja de verse. */
+/** Cambia el plan de GaboHub: el dueño/admin para cualquier revendedor; el revendedor, el suyo. Sin prorrateo: rige desde el próximo cobro. */
+export function setHubPlan(e: Engine, actor: Actor, customerId: Id, plan: unknown) {
+  if (plan !== "basic" && plan !== "full") throw new DomainError("VALIDATION", "Plan inválido: basic o full");
+  if (actor.role === "reseller") { if (actor.customerId !== customerId) throw new DomainError("FORBIDDEN", "Solo podés cambiar tu plan"); }
+  else authorize(actor, "reseller.manage");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
+    if (plan === "basic" && rentCfg(e).basicPrice === undefined) throw new DomainError("VALIDATION", "Todavía no hay plan Básico: el dueño tiene que ponerle precio en Revendedores → Ajustes");
+    const before = planOf(e, c);
+    c.hubPlan = plan;
+    e.audit(actor, "reseller.hub_plan", "customer", c.id, { from: before, to: plan });
+    return rentInfo(e, c);
+  });
+}
+
 export function setResellerPage(e: Engine, actor: Actor, customerId: Id, allowed: boolean) {
   authorize(actor, "reseller.manage");
   return e.tx(() => {
@@ -305,7 +343,8 @@ export function resellersOverview(e: Engine, actor: Actor) {
       pageAllowed: pageAllowed(e, c),
       // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
       locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
-      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil },
+      shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil, trial: !!billRead(c).trial },
+      plan: planOf(e, c),
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }

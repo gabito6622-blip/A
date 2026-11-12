@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 6 «GaboHub alquilable» (rama `premium-2.0`, sin publicar; el cobro sigue APAGADO)
+- **Prueba gratis de N días** (`shopRent.trialDays`, 0 a 90; sugerido 15): cuando el dueño prende el cobro, cada revendedor que nunca pagó arranca con esos días gratis (no se le descuenta nada); el primer cobro es al terminar. En su Inicio ve «🎁 Prueba gratis de GaboHub hasta el dd/mm». Auditoría `reseller.hub_trial`.
+- **Dos planes:** Completo (todo) y Básico (`shopRent.basicPrice` / `basicPriceUsd`; sin precio Básico = un solo plan). El Básico incluye comprar, sus cuentas, códigos, recargar y vender; **no** incluye Mi control, Quién me debe, Mis ganancias ni Afiches (el servidor responde `402 HUB_PLAN` y la pantalla ofrece «Pasar al Completo»). El revendedor cambia su plan desde su Inicio (`POST /api/me/hub/plan`); el dueño, desde la tarjeta del revendedor (`POST /api/admin/resellers/:id/plan`). Sin prorrateo: el precio nuevo rige desde el próximo cobro; pasar al Completo destraba al instante. Auditoría `reseller.hub_plan`.
+- **Ajustes de revendedores:** campos nuevos «Días de prueba gratis», «Plan Básico por mes» y «Plan Básico en dólares». Validación: prueba de 0 a 90 días; el Básico no puede costar más que el Completo.
+- **`/api/me/shop`:** `rent` trae `plan`, `plans {basic, full}`, `trial`, `trialDays`, `lockReason` ("suspended" | "plan" | null). `chargeRents` devuelve además `trials`.
+- **Nada se cobra solo mientras el cobro esté apagado** (como está hoy en la tienda real). Los números finales (Bs 49 / US$ 5 del Completo, precio del Básico, días de prueba) los decide el dueño.
+- **Prueba nueva `test/gabohub-planes.test.mjs`** (3 pruebas).
+
 ## 2026-11-12 · Premium 2.0 · Etapa 5 «Tienda premium» (rama `premium-2.0`, sin publicar)
 - **Pedido rechazado con motivo:** al rechazar un pago, el motivo queda en el pedido (`rejectReason`) y el cliente lo ve en «Mis cuentas → Historial de pedidos» («❌ Motivo: … Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp»). El cliente final de un revendedor no ve el motivo del pago que hizo su revendedor (sigue viendo solo el estado).
 - **Historial con estados de color:** Entregado (verde), En revisión (ámbar), Rechazado (rojo), lo demás gris. Los pedidos pendientes ya tenían sus pasos («Pedido → Revisando pago → Entregado») y la hora estimada.

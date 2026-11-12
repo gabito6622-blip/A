@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 6: planes sin tocar lo que ya cobra
+- **La prueba gratis es para quien nunca pagó, no solo para los nuevos:** cuando el dueño prenda el cobro, sus revendedores de hoy (ARIt, rodbol, Paraguay…) arrancan con 15 días gratis en vez de un descuento sorpresa. Es la forma menos agresiva de empezar a cobrar; si el dueño prefiere cobrar desde el día uno, pone 0 días.
+- **El Básico se define por lo que NO incluye:** las mismas cuatro herramientas que ya se pausan por falta de pago (Mi control, Quién me debe, Mis ganancias, Afiches). Así no hay que inventar permisos nuevos: se reutiliza el candado que existe, con otro mensaje y otro botón.
+- **Sin prorrateo:** cambiar de plan a mitad de mes no devuelve ni cobra diferencia; rige desde el próximo cobro (pasar al Completo destraba ya). Más simple de explicar y nadie pierde plata por un error de dedo.
+- **Precios en manos del dueño:** no se fijó el precio del Básico ni los días de prueba en el código; quedan en Ajustes y el cobro sigue apagado hasta que él lo prenda.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 5: la tienda explica, los colores los elige el dueño
 - **El motivo del rechazo se le dice al cliente:** antes solo quedaba en la auditoría y el cliente preguntaba por WhatsApp. Se muestra tal cual lo escribe el dueño (es él quien lo redacta), recortado a 200 letras.
 - **No se cambian los colores de la tienda solos:** la misión pide azul eléctrico/cian, pero el dueño ya tiene Apariencia con sus colores. Se agrega el estilo «Premium 2.0» como opción y se deja la decisión en Apariencia. Descartado: cambiar el valor por defecto (habría cambiado la tienda al publicar sin que nadie lo pidiera).

@@ -545,8 +545,11 @@ export function createApp(cfg: AppConfig): App {
   // Suscripción GaboHub vencida (y cobro prendido para todos): se pausan estas pantallas. Vender, anotar fiados,
   // comprar, cuentas, códigos y recargar NUNCA se bloquean (las rutas que escriben siguen abiertas).
   const hubGuard = (c: { actor?: Actor }) => {
-    if (c.actor?.customerId && store.shops.hubLocked(c.actor.customerId)) throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
+    const why = c.actor?.customerId ? store.shops.hubLockReason(c.actor.customerId) : null;
+    if (why === "suspended") throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
+    if (why === "plan") throw new HttpError(402, "HUB_PLAN", "Esta herramienta es del plan Completo de GaboHub: pasate desde tu Inicio y se activa al instante");
   };
+  route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
@@ -870,6 +873,7 @@ export function createApp(cfg: AppConfig): App {
     return store.shops.apply({ name: c.body?.name, phone: c.body?.phone, note: c.body?.note, ref: c.body?.ref });
   });
   route("POST", "/api/me/shop/pay", "customer", (c) => store.shops.payRent(c.actor!));
+  route("POST", "/api/admin/resellers/:id/plan", "staff", (c) => store.shops.setPlan(A(c), c.params.id, c.body?.plan));
   route("POST", "/api/admin/customers/:id/shop", "staff", (c) => store.shops.setupFor(A(c), c.params.id, c.body ?? {}));
   route("POST", "/api/admin/customers/:id/login-link", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");

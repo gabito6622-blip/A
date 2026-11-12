@@ -774,7 +774,9 @@ function rControlBase() {
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
 const HUB_LOCKED_TABS = ["control", "debe", "ganancias", "afiches"];
-const hubLockCard = () => { const r = S.data.shop?.rent; return `<div class="sbox hublock"><h2 style="margin:0">🔒 Pausado: tu suscripción de GaboHub venció</h2><p class="empty" style="margin:0">Son ${bs(r?.price ?? 0)} por mes. Pagala y vuelven Mi control, Quién me debe, Mis ganancias y Afiches al instante. Comprar, tus cuentas, los códigos y vender siguen funcionando.</p><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(r?.price ?? 0)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
+const hubLockCard = () => { const r = S.data.shop?.rent;
+  if (r?.lockReason === "plan") return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan Completo</h2><p class="empty" style="margin:0">Tu plan Básico (${bs(r.plans?.basic ?? r.price)} por mes) incluye comprar, tus cuentas, los códigos, recargar y vender. El Completo (${bs(r.plans?.full ?? r.price)} por mes) suma Mi control, Quién me debe, Mis ganancias y Afiches. El cambio rige desde tu próximo cobro.</p><div class="hrow"><button class="sbtn pri" type="button" data-hubplan="full">Pasar al Completo</button></div></div>`;
+  return `<div class="sbox hublock"><h2 style="margin:0">🔒 Pausado: tu suscripción de GaboHub venció</h2><p class="empty" style="margin:0">Son ${bs(r?.price ?? 0)} por mes. Pagala y vuelven Mi control, Quién me debe, Mis ganancias y Afiches al instante. Comprar, tus cuentas, los códigos y vender siguen funcionando.</p><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(r?.price ?? 0)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
 function rDebeView() {
   const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
   // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
@@ -1313,10 +1315,15 @@ function resellerHome() {
     const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
     const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
     const pay = `<button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(rent.price)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button>`;
-    if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu suscripción de GaboHub venció</b><span>Son ${bs(rent.price)} por mes. Se pausaron Mi control, Quién me debe, Mis ganancias y Afiches${sh?.saved ? ", y tu página" : ""}. Comprar, tus cuentas, los códigos y vender siguen funcionando. Recargá y tocá Pagar: se activa al instante.</span><div class="hrow">${pay}</div></div>`;
+    const planTxt = rent.plans ? ` · plan ${rent.plan === "basic" ? "Básico" : "Completo"}` : "";
+    // Cambio de plan en su propia fila (no dentro del texto): Completo ↔ Básico, sin prorrateo.
+    const planBtn = rent.plans ? `<div class="hrow" style="margin-top:6px">${rent.plan === "basic" ? `<button class="sbtn sm pri" type="button" data-hubplan="full">Pasar al Completo (${bs(rent.plans.full)}/mes)</button>` : `<button class="sbtn sm" type="button" data-hubplan="basic">Pasar al Básico (${bs(rent.plans.basic)}/mes)</button>`}</div>` : "";
+    if (rent.trial && rent.paidUntil && !rent.suspended) rentBox = `<div class="hbox warn"><b>🎁 Prueba gratis de GaboHub hasta el ${fdate(rent.paidUntil)}</b><span>Después son ${bs(rent.price)} por mes y se cobran solos de tu saldo${planTxt}.</span></div>`;
+    else if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu suscripción de GaboHub venció</b><span>Son ${bs(rent.price)} por mes. Se pausaron Mi control, Quién me debe, Mis ganancias y Afiches${sh?.saved ? ", y tu página" : ""}. Comprar, tus cuentas, los códigos y vender siguen funcionando. Recargá y tocá Pagar: se activa al instante.</span><div class="hrow">${pay}</div></div>`;
     else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu suscripción de GaboHub vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se pause." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
-    else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub está pagada hasta el ${fdate(rent.paidUntil)}. ${freeTxt}</p>`;
-    else rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub es ${bs(rent.price)} por mes y se cobra sola de tu saldo. ${freeTxt}</p>`;
+    else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub está pagada hasta el ${fdate(rent.paidUntil)}${planTxt}. ${freeTxt}</p>`;
+    else rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub es ${bs(rent.price)} por mes y se cobra sola de tu saldo${planTxt}. ${rent.trialDays ? `Tenés ${rent.trialDays} días de prueba gratis. ` : ""}${freeTxt}</p>`;
+    if (!rent.suspended) rentBox += planBtn;
   } else if (rent?.enabled && sh?.saved) {
     const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
     const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
@@ -2238,6 +2245,7 @@ document.addEventListener("click", async (ev) => {
   if (d.rcopen) { const o2 = new Set(S.data.rcOpen ?? []); o2.has(d.rcopen) ? o2.delete(d.rcopen) : o2.add(d.rcopen); S.data.rcOpen = [...o2]; return render(); }
   if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
+  if (d.hubplan) { try { await api("POST", "/api/me/hub/plan", { plan: d.hubplan }); toast(d.hubplan === "full" ? "Plan Completo activo: ya tenés todas las herramientas" : "Plan Básico: rige desde tu próximo cobro"); await refresh(); } catch (e) { toast(e.message); } return true; }
   if (d.rentpay) { try { const hub = !!S.data.shop?.rent?.hub; await api("POST", "/api/me/shop/pay", {}); toast(hub ? "¡Pagado! Tu GaboHub está activo" : "¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
   if (d.allthemes) { S.allThemes = true; return render(); }

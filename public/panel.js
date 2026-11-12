@@ -1443,6 +1443,7 @@ const V = {
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
+        ${rent?.scope === "all" && rent.basicPrice !== undefined ? `<label class="chk rplan">Plan GaboHub <select data-hubplan="${esc(r.id)}" aria-label="Plan de ${esc(r.name)}"><option value="full" ${r.plan !== "basic" ? "selected" : ""}>Completo · ${bs(rent.price)}</option><option value="basic" ${r.plan === "basic" ? "selected" : ""}>Básico · ${bs(rent.basicPrice)}</option></select>${r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}</label>` : r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
@@ -1467,6 +1468,9 @@ const V = {
         <label>Precio fijo en dólares (US$, vacío = el de ${currencySym()} con la tasa del día)<input name="priceUsd" inputmode="decimal" value="${rent.priceUsd !== undefined ? rent.priceUsd / 100 : ""}" placeholder="Ej.: 5"></label>
         <label>Gratis si ese mes te compran (${currencySym()}, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
+        <label>🎁 Días de prueba gratis (0 = sin prueba)<input name="trialDays" inputmode="numeric" value="${rent.trialDays ?? 0}"><small class="muted">Al prender el cobro, cada revendedor arranca con estos días gratis; el primer cobro es al terminar.</small></label>
+        <label>Plan Básico por mes (${currencySym()}, vacío = un solo plan)<input name="basicPrice" inputmode="decimal" value="${rent.basicPrice !== undefined ? rent.basicPrice / 100 : ""}" placeholder="Ej.: 25"><small class="muted">Básico = comprar, cuentas, códigos, recargar y vender. El Completo suma Mi control, Quién me debe, Mis ganancias y Afiches.</small></label>
+        <label>Plan Básico en dólares (US$, vacío = con la tasa del día)<input name="basicPriceUsd" inputmode="decimal" value="${rent.basicPriceUsd !== undefined ? rent.basicPriceUsd / 100 : ""}" placeholder="Ej.: 3"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, sigue todo igual los días de gracia. Después se apaga su página (si tiene) y, si pagan todos, se pausan Mi control, Quién me debe, Mis ganancias y Afiches. Comprar, sus cuentas, los códigos y vender nunca se bloquean. Apenas recarga y paga, vuelve todo solo.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
 </section>` : ""}`;
@@ -1562,6 +1566,8 @@ const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
 const AUD_VERB = {
   "account.password_rotated": "cambió la clave de la cuenta",
+  "reseller.hub_trial": "empezó su prueba gratis de GaboHub",
+  "reseller.hub_plan": "cambió el plan de GaboHub",
   "account.add": "cargó {x}", "account.retire": "retiró {x}", "account.update": "editó {x}",
   "alerts.settings": "cambió los avisos para el dueño", "alerts.supplier_expiry": "recibió el aviso de vencimiento con el proveedor de {x}",
   "assignment.control": "actualizó el control de {x}", "assignment.deliver": "abrió los datos de entrega de {x}", "assignment.expire": "cerró por vencido {x}",
@@ -2409,6 +2415,11 @@ function sellSummary() {
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
+document.addEventListener("change", async (ev) => {
+  const sel = ev.target.closest?.("[data-hubplan]");
+  if (!sel) return;
+  await act(() => api("POST", `/api/admin/resellers/${sel.dataset.hubplan}/plan`, { plan: sel.value }), sel.value === "basic" ? "Plan Básico: rige desde su próximo cobro" : "Plan Completo: rige desde su próximo cobro");
+});
 
 async function act(fn, okMsg) {
   try {
@@ -3429,7 +3440,7 @@ document.addEventListener("submit", async (ev) => {
       if (v < 0 && !confirm(`¿Descontarle ${m(-v)} a ${name}?\nSu saldo queda en ${m(bal + v)}.`)) return;
       await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${m(bal)} → ${m(bal + v)}`);
     } else if (f.id === "resCfg") {
-      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0), scope: f.scope.value, ...(f.priceUsd.value.trim() ? { priceUsd: toCents(f.priceUsd.value) } : {}) } }), "Ajustes guardados");
+      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0), scope: f.scope.value, trialDays: Math.round(Number(f.trialDays.value) || 0), ...(f.basicPrice.value.trim() ? { basicPrice: toCents(f.basicPrice.value) } : {}), ...(f.basicPriceUsd.value.trim() ? { basicPriceUsd: toCents(f.basicPriceUsd.value) } : {}), ...(f.priceUsd.value.trim() ? { priceUsd: toCents(f.priceUsd.value) } : {}) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {

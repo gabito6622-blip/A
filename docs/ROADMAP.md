@@ -10,8 +10,8 @@ Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: 
 - ✅ Etapa 3 · Panel rápido y oscuro por defecto (claro opcional): Inicio en una sola llamada (12 → 7 pedidos), Control sin recargar por filtro (caché de 20 s), paleta oscura de tema.css (502 pruebas). GaboHub: interruptor personal al BACKLOG.
 - ✅ Etapa 4 · Inventario inteligente: correos sin dobles y con aviso de tipeo, semáforo de riesgo con motivos, pantalla «Cortes», «Cambié la clave» con fecha/auditoría/aviso, secretaria con «Claves por cambiar» (507 pruebas).
 - ✅ Etapa 5 · Tienda premium: motivo del rechazo visible, historial con estados de color, recarga en 3 pasos, «Copiar» de 44 px, estilo «Premium 2.0» elegible, contraste del dashboard.
-- ⏳ Etapa 6 · GaboHub alquilable (sigue).
-- Etapa 6 · GaboHub alquilable: prueba de 15 días y dos planes (números a confirmar por el dueño).
+- ✅ Etapa 6 · GaboHub alquilable: prueba gratis configurable (sugerido 15 días) y dos planes (Completo / Básico) sobre la suscripción existente; el cobro sigue apagado y los precios los decide el dueño.
+- ⏳ Etapa 7 · Mi Oficina 2.0 (sigue).
 - Etapa 7 · Mi Oficina 2.0 (Propuesta 1 nocturna + línea de tiempo): Rocío, Wali, Dani, Vico, Coco y Tito con eventos reales.
 - Etapa 8 · Automatización y soporte: tickets con estados, recordatorios, plantillas.
 - Etapa 9 · Finanzas pro: cierre de mes, exportación, comparativas.
