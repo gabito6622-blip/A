@@ -4,7 +4,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas cortadas
-- **n2025gt+18dp y netscz108+sem:** el dueño las cortó en Disney (rodbol no las renovó). En el panel: alquiler cerrado (queda en el historial) y perfil libre. Falta cargar la clave nueva que va a pasar el dueño.
+- **n2025gt+18dp y netscz108+sem:** el dueño las cortó en Disney (rodbol no las renovó). En el panel: alquiler cerrado (queda en el historial) y perfil libre. Clave nueva cargada en las 2 (la pasó el dueño; no se escribe acá). Libres de verdad: confirmado por el dueño; Disney Premium + ESPN, cuenta completa.
 - **Ojo (dicho por el dueño):** las demás cuentas que el panel muestra «libres» no están confirmadas; hay que revisarlas una por una.
 - Alquileres activos: 82 → 80. Nada más cambió; no salió ningún aviso.
 
