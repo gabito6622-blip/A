@@ -21,19 +21,25 @@ def run(changes, extra=None):
     d = openpyxl.load_workbook(p, data_only=True)
     def nv(n):
         sh, c = R['_names'][n]; return d[sh][c].value
-    g = lambda sh, key, col: d[sh][f'{col}{R[key]}'].value
-    qs = ['C'] + [L(3+q) for q in range(1, 21)]
+    G = R['_reg']
+    def cv(key, kind, i):
+        e = G[key]; return d[e['sheet']][e[kind][i-1]].value
+    def yv(key, y):
+        e = G[key]
+        if e['y']: return cv(key, 'y', y)
+        return sum(cv(key, 'q', q) for q in range(4*y-3, 4*y+1))
+    def allq(key, a0=True):
+        e = G[key]; vals = [cv(key, 'q', q) for q in range(1, 21)]
+        if a0 and e['a0']: vals = [d[e['sheet']][e['a0']].value] + vals
+        return vals
     m = dict(van=nv('EV_VAN'), tir=nv('EV_TIR'), pri=nv('EV_PRI'), trma=nv('TRMA'),
-             u1=g('Estado de resultado', 'ER.u', 'Y'), u5=g('Estado de resultado', 'ER.u', 'AC'),
-             fact1=g('Estado de resultado', 'ER.fact', 'Y'), vn1=g('Estado de resultado', 'ER.vn', 'Y'), cv1=g('Estado de resultado', 'ER.cv', 'Y'),
-             df1=g('Carga impositiva', 'IMP.df', 'Y'), prod1=g('Inventario', 'INV.prod', 'Y'), comp1=g('Compras', 'COM.pago', 'Y'),
-             un1=g('Estado de resultado', 'ER.un', 'Y'), un5=g('Estado de resultado', 'ER.un', 'AC'), ebit1=g('Estado de resultado', 'ER.ebit', 'Y'),
-             sue1=g('MANO DE OBRA', 'PER.tot', 'Y'), invtot=nv('INVERSION_TOTAL'),
-             cajamin=min(g('Flujo de caja', 'FC.sfin', c) for c in qs),
-             balabs=sum(abs(g('Balance general', 'BAL.chk', c)) for c in qs),
+             u1=yv('ER.u', 1), u5=yv('ER.u', 5), fact1=yv('CI.fact', 1), vn1=yv('ER.vn', 1), cv1=yv('ER.cv', 1),
+             df1=yv('CI.df', 1), prod1=yv('INV.prod', 1), comp1=yv('COM.pago', 1),
+             un1=yv('ER.un', 1), un5=yv('ER.un', 5), ebit1=yv('ER.ebit', 1),
+             sue1=yv('PER.tot', 1), invtot=nv('INVERSION_TOTAL'),
+             cajamin=min(allq('FC.sfin')), balabs=sum(abs(x) for x in allq('BAL.chk')),
              ctrl_ok=nv('CTRL_OK'), ctrl_tot=nv('CTRL_TOT'), errors=st['total_errors'],
-             capok=min(g('Capacidad Inst.', 'CAP.ok', L(3+q)) for q in range(1, 21)),
-             util5=g('Capacidad Inst.', 'CAP.util', 'AC'), acep=nv('ACEPTACION'))
+             capok=min(allq('CAP.ok')), util5=yv('CAP.util', 5), acep=nv('ACEPTACION'), van_bs=nv('EV_VAN_BS'))
     c = d['Controles']; m['revisar'] = [c[f'B{r}'].value for r in range(6, 30) if c[f'D{r}'].value == 'REVISAR']
     os.remove(p)
     return m
@@ -77,7 +83,7 @@ for lbl, nm, equiv in [('Precio de venta', 'M_PRECIO', 'PVP 2027 = Bs {:.0f}'), 
         if f1 == f0: break
         x2 = x1 - f1*(x1-x0)/(f1-f0)
         m = run({nm: x2}); x0, f0, x1, f1 = x1, f1, x2, m['van']
-        if abs(f1) < 500: break
+        if abs(f1) < 40: break
     if nm == 'M_PRECIO': eq = equiv.format(420*x1)
     elif nm == 'M_DEMANDA': eq = equiv.format(base['u1']*x1)
     elif nm == 'M_CVAR': eq = equiv.format(88.6036*x1)
@@ -139,7 +145,7 @@ def survey(wb):
     s = wb['Muestra y encuesta']; s['B25'] = 100; s['B26'] = 120; s['B27'] = 80; s['B28'] = 60; s['B29'] = 40
 mE = run({}, survey)
 T_('Encuesta (datos de prueba, no guardados): con 400 respuestas la aceptación pasa a la medida (55%)', abs(mE['acep'] - 0.55) < 1e-9, f"aceptación {mE['acep']}")
-snap = {'fecha': '11/11/2026', 'sens_cols': cols5, 'sens': sens, 'criticos': crit,
+snap = {'fecha': '12/11/2026', 'sens_cols': cols5, 'sens': sens, 'criticos': crit,
         'estres': [{k: v for k, v in e.items() if k not in ('m',)} for e in estres],
         'casos': [{'caso': nm, 'van': scen[nm]['van'], 'tir': scen[nm]['tir'], 'pri': scen[nm]['pri'] if isinstance(scen[nm]['pri'], (int, float)) else str(scen[nm]['pri']), 'ventas1': scen[nm]['u1'], 'un5': scen[nm]['un5'], 'cajamin': scen[nm]['cajamin'], 'balance': 'Sí' if scen[nm]['balabs'] < 1 else 'NO'} for nm in ['Pesimista', 'Base', 'Optimista']] +
                  [{'caso': e['caso'], 'van': e['van'], 'tir': e['tir'], 'pri': '', 'ventas1': e['m']['u1'], 'un5': e['m']['un5'], 'cajamin': e['cajamin'], 'balance': e['balance']} for e in estres[2:9]]}

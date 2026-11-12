@@ -190,3 +190,37 @@ def table(ws, r0, c0, headers, rows, kinds=None, fmts=None, wrapcols=()):
             c = put(ws, f'{L(c0+j)}{r0+1+i}', v, k, fm)
             if j in wrapcols: c.alignment = WRAP
     return r0 + len(rows)
+
+# ---------------- Registro de series (para referencias entre hojas con distinto diseño) ----------------
+class Reg(dict):
+    misses = set()
+    def __missing__(self, k):
+        Reg.misses.add(k)
+        return {'sheet': 'Supuestos', 'q': (lambda q: 'A1'), 'y': (lambda y: 'A1'), 'a0': 'A1'}
+REG = Reg()
+def reg(key, sheet, q=None, y=None, a0=None):
+    REG[key] = {'sheet': sheet, 'q': q, 'y': y, 'a0': a0}
+def Q(key, q):
+    e = REG[key]; return f"'{e['sheet']}'!{e['q'](q)}"
+def Y(key, y):
+    e = REG[key]; return f"'{e['sheet']}'!{e['y'](y)}"
+def A0(key):
+    e = REG[key]
+    return f"'{e['sheet']}'!{e['a0']}" if e.get('a0') else '0'
+def QR(key, q1, q2):
+    """rango de trimestres (misma fila) si la serie es una fila continua"""
+    e = REG[key]; return f"'{e['sheet']}'!{e['q'](q1)}:{e['q'](q2)}"
+def qk(q): return (q - 1) % 4 + 1
+def grid(r0, col0=3):
+    """tabla años x trimestres: fila r0 = 2027, columnas C..F (col0..col0+3)"""
+    return lambda q: f"{L(col0 + qk(q) - 1)}{r0 + year_of(q) - 1}"
+QL = ['1ER', '2DO', '3ER', '4TO']
+def year_quarter_hdr(ws, r, c0, years=range(1, 6), merge=True, labels=None):
+    """encabezado tipo Ñapefit: fila r con AÑO, fila r+1 con 1ER..4TO, columnas desde c0 (índice)"""
+    for y in years:
+        a = c0 + 4 * (y - 1)
+        put(ws, f'{L(a)}{r}', 2026 + y, 'hdr')
+        for k in range(4):
+            put(ws, f'{L(a+k)}{r+1}', (labels or QL)[k], 'hdr')
+            if k: ws[f'{L(a+k)}{r}'].fill = FILL_HDR; ws[f'{L(a+k)}{r}'].border = BORDER
+        if merge: ws.merge_cells(f'{L(a)}{r}:{L(a+3)}{r}')

@@ -1,7 +1,7 @@
 # Informe de viabilidad
 
 **Proyecto:** fábrica del Filtro de agua 2.0 (nombre provisional "AQUATIERRA 2.0") en Santa Cruz de la Sierra, Bolivia.
-**Archivo:** `MODELO_EMPRESARIAL_MAESTRO.xlsx`, escenario base, versión del 12/11/2026. Estados financieros en bolivianos; lo importado se carga en dólares con un tipo de cambio de Bs 12,06 que se puede cambiar.
+**Archivo:** `MODELO_EMPRESARIAL_MAESTRO.xlsx`, escenario base, versión del 12/11/2026. En el Excel los estados financieros están en dólares, como en Ñapefit. En este informe las cifras se dan en bolivianos para leerlas más fácil: para pasarlas a dólares se divide por 12,06, el tipo de cambio que se puede cambiar en la hoja Supuestos.
 
 ## Resultado
 

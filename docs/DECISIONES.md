@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Excel del proyecto académico: clon de Ñapefit en $us
+- **Qué:** las 20 primeras hojas copian las filas, columnas y colores de Ñapefit, y los estados financieros quedan en dólares, como en Ñapefit. Los datos que se cotizan en Bolivia (sueldos, alquiler, materiales, precio) se cargan en Bs y se pasan a $us con la celda del tipo de cambio.
+- **Por qué:** el dueño pidió un clon fiel del Excel de Ñapefit. Se eligió $us porque así lo hace Ñapefit (respuesta del dueño).
+- **Cómo:** los cálculos que Ñapefit no tenía (detalle del flujo económico, valorización de inventarios, controles) van debajo de las tablas originales, para no correr sus posiciones. Las hojas nuevas quedan al final.
+- **Descartado:** dejar los estados en Bs con columnas en $us (se veía distinto a Ñapefit).
+
 ## 2026-11-11 · Proyecto académico en carpeta propia
 - **Qué:** el modelo empresarial pedido (Excel + 4 informes) vive en `proyectos/modelo-empresarial-filtro-ceramico/`, separado de `src/`, `public/` y `test/`.
 - **Por qué:** es un trabajo universitario sin relación con la tienda; mantenerlo aparte evita mezclarlo con el código que se publica y con la CI de la tienda.

@@ -81,7 +81,7 @@ def build_supuestos(B):
     p('COSTO_CAPAC_NUEVO', 'Capacitación por cada operario nuevo', 1500, 'Bs/persona', SUP, 'Inducción técnica en prensado, cocción y pruebas.', 'Cotizar curso', FMT_BS)
     sec('6. PERSONAL Y CARGAS SOCIALES')
     p('SMN', 'Salario mínimo nacional 2026', 3300, 'Bs/mes', ORIG, 'Valor usado en Ñapefit (hoja MANO DE OBRA, tabla de incremento salarial).', 'Decreto supremo de incremento salarial vigente', FMT_BS)
-    p('INC_SAL', 'Incremento salarial anual', "='MANO DE OBRA'!$C$13", '% anual', ORIG, 'Promedio de incrementos del SMN 2022-2026 (método de Ñapefit). Es mayor que la inflación: supuesto prudente.', 'Decretos de incremento salarial', FMT_PCT)
+    p('INC_SAL', 'Incremento salarial anual', "='MANO DE OBRA'!$D$19", '% anual', ORIG, 'Promedio de incrementos del SMN 2022-2026 (método de Ñapefit). Es mayor que la inflación: supuesto prudente.', 'Decretos de incremento salarial', FMT_PCT)
     p('TASA_CNS', 'Aporte patronal Caja Nacional de Salud', 0.10, '%', NORM, 'Igual en ambos originales.', 'Normativa de seguridad social', FMT_PCT2)
     p('TASA_RIESGO', 'Riesgo profesional (patronal)', 0.0171, '%', NORM, 'Igual en ambos originales.', 'Gestora Pública', FMT_PCT2)
     p('TASA_SOLIDARIO', 'Aporte patronal solidario', 0.035, '%', ORIG, 'Ñapefit usa 3,5% y Hypotolab 3%. Se adopta el mayor (prudente).', 'Confirmar tasa vigente con la Gestora Pública', FMT_PCT2)
@@ -105,7 +105,7 @@ def build_supuestos(B):
     p('METODO_VR', 'Valor residual: 1 = contable (Ñapefit), 2 = perpetuidad (Hypotolab)', 1, 'código', ORIG, 'Por prudencia el método contable es el principal.', '—', FMT_INT)
     p('G_PERP', 'Crecimiento a perpetuidad (solo método 2)', 0.0, '%', ORIG, 'Hypotolab usó g = 0.', '—', FMT_PCT)
     p('METODO_CT', 'Capital de trabajo: 1 = período de desfase (Sapag), 2 = déficit acumulado del arranque (2027) + caja mínima', 2, 'código', SUP, 'Se usa el método 2 porque se verifica con el flujo de caja real del modelo; el desfase (método 1) dejaba ~Bs 160.000 ociosos en caja durante 5 años. El método 1 se informa como alternativa prudente.', 'Comparar ambos en Inversión y en Sensibilidad', FMT_INT)
-    p('CAJA_MINIMA', 'Caja mínima: un mes de sueldos y gastos fijos de 2027 (colchón para desfases dentro del trimestre)', "=ROUND(('MANO DE OBRA'!$D$"+str(ROW['PER.tot'])+"+'Otros gastos'!$D$"+str(ROW['GAS.pago'])+")/3,-3)", 'Bs', SUP, 'El modelo es trimestral y no ve los pagos de mitad de trimestre; se reserva un mes de costos fijos en efectivo.', 'Flujo mensual del primer año', FMT_BS)
+    p('CAJA_MINIMA', 'Caja mínima: un mes de sueldos y gastos fijos de 2027, redondeado a miles de Bs y pasado a $us', "=ROUND(("+Q('PER.tot', 1)+"+"+Q('GAS.pago', 1)+")*TIPO_CAMBIO/3,-3)/TIPO_CAMBIO", '$us', SUP, 'El modelo es trimestral y no ve los pagos de mitad de trimestre; se reserva un mes de costos fijos en efectivo.', 'Flujo mensual del primer año', FMT_BS2)
     p('DIAS_INV_MP', 'Días de inventario de materiales', 30, 'días', SUP, 'Coherente con STOCK_MP (≈1 mes).', '—', FMT_INT)
     p('DIAS_PROCESO', 'Días de proceso (secado + cocción + pruebas)', 12, 'días', EST, 'Secado de 7-10 días + cocción + prueba de caudal.', 'Lote piloto', FMT_INT)
     p('DIAS_INV_PT', 'Días de inventario de producto terminado', 20, 'días', SUP, 'Coherente con SS_PT.', '—', FMT_INT)
@@ -135,7 +135,8 @@ def build_supuestos(B):
     r += 1
     for nm, d, f, fm in [('PART_INICIAL', 'Participación inicial del escenario activo', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', FMT_PCT),
                          ('NOMBRE_ESCENARIO', 'Escenario activo', '=CHOOSE(ESCENARIO,"Pesimista","Base","Optimista")', None),
-                         ('SUMA_EST', 'Control: la estacionalidad debe sumar 100%', '=EST_T1+EST_T2+EST_T3+EST_T4', FMT_PCT)]:
+                         ('SUMA_EST', 'Control: la estacionalidad debe sumar 100%', '=EST_T1+EST_T2+EST_T3+EST_T4', FMT_PCT),
+                         ('TASA_CARGAS', 'Cargas patronales y provisiones sobre el sueldo', '=TASA_CNS+TASA_RIESGO+TASA_SOLIDARIO+TASA_PROVIVIENDA+TASA_AGUINALDO+TASA_INDEMNIZACION', FMT_PCT2)]:
         put(ws, f'A{r}', d, 'label', bold=True, border=True); put(ws, f'B{r}', f, 'calc', fm)
         B.name(nm, 'Supuestos', f'B{r}'); r += 1
     ws.freeze_panes = 'B6'

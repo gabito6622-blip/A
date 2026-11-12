@@ -32,7 +32,7 @@ def build_muestra(B):
                  'No se realizó trabajo de campo: las celdas de respuestas están vacías a propósito. No se inventan encuestas.', tab='70AD47')
     widths(ws, {'A': 50, 'B': 16, 'C': 16, 'D': 16, 'E': 50})
     put(ws, 'A5', 'A. TAMAÑO DE MUESTRA (población finita)', 'sec')
-    put(ws, 'A6', 'Población (N): hogares objetivo 2027', 'label'); put(ws, 'B6', "='Demanda'!C13", 'link', FMT_U)
+    put(ws, 'A6', 'Población (N): hogares objetivo 2027', 'label'); put(ws, 'B6', f"={Y('DEM.hobj', 1)}", 'link', FMT_U)
     put(ws, 'A7', 'Nivel de confianza', 'label'); put(ws, 'B7', 0.95, 'input', FMT_PCT)
     put(ws, 'A8', 'Valor Z', 'label'); put(ws, 'B8', '=NORMSINV(1-(1-B7)/2)', 'calc', '0.00')
     put(ws, 'A9', 'Proporción esperada (p)', 'label'); put(ws, 'B9', 0.5, 'input', FMT_PCT)
@@ -205,9 +205,9 @@ def build_producto(B):
             ('Litros por año', f'=B{r}*365', FMT_U),
             ('Botellones de 20 L por año', f'=B{r+1}/20', FMT_BS2),
             ('Gasto anual en botellones (Bs)', f'=B{r+2}*PRECIO_BOTELLON', FMT_BS),
-            ('Costo anual del kit (PVP x compras por año)', f"='Precio'!C{ROW['PRE.pvp']}*CONSUMO_Q", FMT_BS),
+            ('Costo anual del kit (PVP x compras por año)', '=PVP*M_PRECIO*CONSUMO_Q', FMT_BS),
             ('Ahorro anual estimado del hogar (Bs)', f'=B{r+3}-B{r+4}', FMT_BS),
-            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,'Precio'!C{ROW['PRE.pvp']}/(B{r+3}/12),0)", FMT_BS2),
+            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,PVP*M_PRECIO/(B{r+3}/12),0)", FMT_BS2),
             ('Litros por día desde los que el filtro conviene más que el botellón', f"=B{r+4}/(PRECIO_BOTELLON/20*365)", FMT_BS2)]
     for lbl, f, fm in rows:
         put(ws, f'A{r}', lbl, 'label'); put(ws, f'B{r}', f, 'link' if '!' in f else 'calc', fm); r += 1

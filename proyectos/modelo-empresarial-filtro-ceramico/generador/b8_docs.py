@@ -432,8 +432,8 @@ def build_leyenda(B):
             ('Juego de Negocios', 'SIMULADOR EMPRESARIAL (decisiones por período), DECISIONES Y ESCENARIOS (comparador) y CONTROL DE PERIODOS (plan vs. real).'),
             ('Controles', 'La hoja Controles debe mostrar todo en OK. Si algo dice REVISAR, el tablero lo indica.'),
             ('Flujo del modelo', 'Santa Cruz y Zona urbana → Demanda → Pronostico → Inventario (producción) → Compras y MANO DE OBRA → costos → Estado de resultado → Carga impositiva → Flujo de caja → Balance general → Rentabilidad → Dashboard.'),
-            ('Moneda', 'Los estados financieros están en Bs. Lo importado se carga en $us y se convierte con el tipo de cambio de Supuestos; varias hojas muestran también la columna en $us.'),
-            ('Tipo de cambio', 'Está en Supuestos. Si se cambia (por ejemplo a 12), se recalcula todo lo que está en dólares: máquinas importadas, laboratorio, computadoras, plata coloidal, grifo y las columnas en $us.')]
+            ('Moneda', 'Como en Ñapefit, los estados financieros están en $us. Los precios del mercado local (sueldos, alquiler, materiales, precio de venta) se cargan en Bs y se pasan a $us con el tipo de cambio. El VAN también se muestra en Bs.'),
+            ('Tipo de cambio', 'Está en Supuestos (celda TIPO DE CAMBIO). Si se cambia, por ejemplo a 12, todo el libro se recalcula: lo comprado en dólares cambia en Bs y lo pagado en Bs cambia en dólares.')]
     for i, (a, b) in enumerate(rows):
         put(ws, f'A{10+i}', a, 'label', bold=True); put(ws, f'B{10+i}', b, 'label', wrap=True); ws.row_dimensions[10+i].height = 30
     return ws

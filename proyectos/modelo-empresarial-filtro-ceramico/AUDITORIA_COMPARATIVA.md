@@ -105,7 +105,7 @@ Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y
 - **Operarios según la producción** (antes la planilla era fija).
 - **IUE anual** pagado en abril del año siguiente; **prima anual** solo si hay utilidades; **saldo a favor de IVA** que se arrastra.
 - **Capital de trabajo** por período de desfase (Sapag), con el método del déficit acumulado como alternativa (`METODO_CT`).
-- **TRMA convertida a Bs** con la ecuación de Fisher (los flujos están en Bs nominales).
+- **TRMA ajustada por inflación** con la ecuación de Fisher: los precios y costos suben con la inflación de Bolivia y se pasan a $us con un tipo de cambio fijo.
 
 ## 5. Elementos nuevos
 

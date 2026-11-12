@@ -1,6 +1,6 @@
 # Guía para la defensa
 
-Explica cada hoja de `MODELO_EMPRESARIAL_MAESTRO.xlsx`: qué calcula, de dónde salen los datos y cómo responder lo que pregunte el licenciado. Las cifras son del **escenario base, versión del 12/11/2026 (Filtro 2.0)**.
+Explica cada hoja de `MODELO_EMPRESARIAL_MAESTRO.xlsx`: qué calcula, de dónde salen los datos y cómo responder lo que pregunte el licenciado. Las cifras son del **escenario base, versión del 12/11/2026 (Filtro 2.0, clon de Ñapefit en $us)**.
 
 ## 0. La idea en una frase
 
@@ -8,7 +8,7 @@ Se tomó la metodología de Ñapefit e Hypotolab (población → demanda → pro
 
 ## 1. Cómo está organizado el Excel
 
-Las **20 primeras hojas copian el formato de Ñapefit**: mismos nombres, orden y estilo. Después vienen las hojas nuevas.
+Las **20 primeras hojas son un clon de Ñapefit**: mismos nombres, mismo orden, mismas filas y columnas para cada tabla (por ejemplo, en Rentabilidad los índices empiezan en B32 y el PRI en B41, igual que en Ñapefit) y los mismos colores. Se comparó celda por celda: 9 de cada 10 títulos están en la misma celda que en Ñapefit; el resto cambia porque el producto tiene otras máquinas, materiales y cargos. Después vienen las hojas nuevas.
 
 | Bloque | Hojas | Para qué sirve |
 |---|---|---|
@@ -27,16 +27,20 @@ Las **20 primeras hojas copian el formato de Ñapefit**: mismos nombres, orden y
 ## 2. Dólares y tipo de cambio
 
 - **Lo que se compra en dólares está en dólares**, como en Ñapefit: prensa, molino, amasadora, tamizadora, equipo de laboratorio, computadoras, impresora, plata coloidal y grifo.
-- Hay **una sola celda de tipo de cambio** (Supuestos, primera sección). Si se cambia, por ejemplo a 12, se recalcula todo: el costo de las máquinas en Bs, la depreciación, la inversión, el préstamo, el costo por kit, los estados financieros, el VAN y las columnas en $us.
-- Los estados financieros están en Bs. Varias hojas muestran también la columna en $us: MP, Maqu. y equip., MANO DE OBRA, Otros gastos, Inversión, Pronostico, Demanda y Rentabilidad.
+- **Los estados financieros están en $us, como en Ñapefit:** Estado de resultado, Carga impositiva, Flujo de caja, Rentabilidad, Balance general, Inversión y las planillas.
+- Lo que se paga en Bolivia (sueldos, alquiler, arcilla, balde, precio de venta) se carga en Bs, porque así se cotiza, y se pasa a $us con el tipo de cambio.
+- Hay **una sola celda de tipo de cambio** (Supuestos, primera sección). Si se cambia, por ejemplo a 12, se recalcula todo el libro.
+- El VAN se muestra en $us y también en Bs (Rentabilidad, "Otros indicadores").
 - **Prueba hecha:**
 
-| Tipo de cambio | Activos fijos | VAN |
-|---|---|---|
-| 9 | Bs 178.470 | Bs 396.285 |
-| 12 | Bs 212.460 | Bs 330.673 |
-| 12,06 (base) | Bs 213.140 | Bs 329.361 |
-| 15 | Bs 246.450 | Bs 265.048 |
+| Tipo de cambio | Activos fijos | VAN en $us | VAN en Bs |
+|---|---|---|---|
+| 9 | $us 19.830 | 44.032 | 396.285 |
+| 12 | $us 17.705 | 27.556 | 330.673 |
+| 12,06 (base) | $us 17.673 | 27.310 | 329.361 |
+| 15 | $us 16.430 | 17.670 | 265.048 |
+
+Si sube el dólar, lo que se paga en Bs vale menos dólares (por eso bajan los activos en $us), pero las máquinas importadas cuestan más Bs y el VAN baja.
 
 - *¿Por qué 12,06?* El BCB dejó el tipo fijo de 6,96 el 29/06/2026. 12,06 es el dato del 04/11/2026 (fuente secundaria); hay que verificarlo en la página del BCB el día de la defensa.
 
@@ -99,20 +103,20 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
 
 ### Compras
 - Compras = necesidad + stock final (1 mes) − stock inicial.
-- Detalle en kilos, mililitros y unidades, y en Bs.
+- Detalle en kilos, mililitros y unidades, y en $us (mismas filas que Ñapefit: cantidades en la fila 27, dólares en la 42 y programa de compras en la 55).
 
 ### Maqu. y equip.
-- Activos por **Bs 213.140** ($us 17.673): parte en Bs (horno local, estanterías, muebles) y parte en $us (máquinas importadas, laboratorio, computadoras).
+- Activos por **$us 17.673** (Bs 213.140): parte se cotiza en Bs (horno local, estanterías, muebles) y parte en $us (máquinas importadas, laboratorio, computadoras).
 - Depreciación sobre el precio sin IVA: maquinaria 12,5%, computación y herramientas 25%, muebles 10%.
 - En 2031 se reponen computadoras y herramientas.
 
 ### MANO DE OBRA
 - Gerente, jefe de producción, ejecutivo comercial y operarios. Los operarios dependen de la producción: 2 en 2027-28, 3 desde 2029.
-- Hay una **planilla mensual por año**, como en Ñapefit: sueldo, bono, total ganado, Gestora, líquido pagable, aportes patronales, aguinaldo, indemnización, total mensual y anual (Bs y $us).
+- Hay una **planilla mensual por año**, como en Ñapefit: sueldo, bono, total ganado, Gestora, líquido pagable, aportes patronales, aguinaldo, indemnización, total mensual y anual en $us (y el anual también en Bs).
 - Debajo, la planilla trimestral que va a los estados. Una fila de control comprueba que las dos coincidan (diferencia 0).
 
 ### Otros gastos
-- Gastos mensuales por área, en Bs y $us.
+- Gastos mensuales por área: se cargan en Bs y se pasan a $us.
 - 2.0 agrega Bs 300/mes para el registro de clientes y los avisos de cambio por WhatsApp.
 
 ### Precio
@@ -138,15 +142,17 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
 | Capital de trabajo | 101.690 | 8.432 |
 | **Total** | **475.701** | **39.445** |
 
-- Préstamo: Bs 106.570 (50% de los activos). Aporte de socios: Bs 369.131.
-- **Capital de trabajo:** se usa el déficit de caja del arranque (Bs 46.690) más un mes de costos fijos (Bs 55.000). El otro método (desfase, 80 días) daría Bs 223.965 y dejaría dinero parado en caja.
+- Préstamo: $us 8.837 (Bs 106.570; 50% de los activos). Aporte de socios: $us 30.608 (Bs 369.131).
+- **Capital de trabajo:** se usa el déficit de caja del arranque ($us 3.871) más un mes de costos fijos ($us 4.561, que son Bs 55.000). El otro método (desfase, 80 días) daría Bs 223.965 y dejaría dinero parado en caja.
 
 ### Estado de resultado
-| Bs | 2027 | 2028 | 2029 | 2030 | 2031 |
+| $us | 2027 | 2028 | 2029 | 2030 | 2031 |
 |---|---|---|---|---|---|
-| Ventas netas | 1.117.600 | 1.323.806 | 1.772.587 | 2.249.617 | 2.842.335 |
-| Utilidad operativa | 38.083 | 110.846 | 211.771 | 456.311 | 805.771 |
-| Utilidad neta | 20.368 | 77.784 | 156.662 | 342.233 | 604.329 |
+| Ventas netas | 92.670 | 109.768 | 146.981 | 186.535 | 235.683 |
+| Utilidad operativa | 3.158 | 9.191 | 17.560 | 37.837 | 66.814 |
+| Utilidad neta | 1.689 | 6.450 | 12.990 | 28.378 | 50.110 |
+
+En bolivianos (× 12,06), la utilidad neta va de Bs 20.368 en 2027 a Bs 604.329 en 2031.
 
 ### Carga impositiva
 - IVA 13%: débito − crédito, y el saldo a favor pasa al trimestre siguiente.
@@ -156,29 +162,32 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
 
 ### Flujo de caja
 - Cobros y pagos reales, préstamo y aporte.
-- La caja más baja es **Bs 55.000** (inicio de 2027) y nunca baja de ese colchón.
+- Mismas filas que Ñapefit: salidas de la 7 a la 18, inversión en la 23, financiamiento en la 28 y el resumen anual desde la 37.
+- La caja más baja es **$us 4.561** (Bs 55.000, inicio de 2027) y nunca baja de ese colchón.
 
 ### TRMA
 1. Costo de capital en dólares = 4,45% + 0,9 × (13,81% − 4,45%) + riesgo país 4,15% = **17,02%**.
-2. Como los flujos están en Bs con inflación, se pasa a Bs: (1,1702 × 1,06 / 1,025) − 1 = **21,02%**.
+2. Los precios y costos suben con la inflación de Bolivia y se pasan a $us con un tipo de cambio fijo, así que se agrega la diferencia de inflación: (1,1702 × 1,06 / 1,025) − 1 = **21,02%**.
 
 ### Rentabilidad
+Mismas celdas que Ñapefit: flujo en la fila 5, valor residual en las filas 8 a 17, flujo neto en la 24, índices en B32, PRI en B41 y punto de equilibrio en B63. De dónde sale cada número del flujo está debajo, desde la fila 100.
+
 | Indicador | Valor |
 |---|---|
-| VAN (TRMA 21,02%) | **Bs 329.361** ($us 27.310) |
+| VAN (TRMA 21,02%) | **$us 27.310** (Bs 329.361) |
 | TIR | **40,26%** |
 | Beneficio/costo | 1,69 |
 | Recupera la inversión | 3 años, 1 mes y 12 días |
 | Recuperación descontada | 4,03 años |
-| VAN y TIR del inversionista (con préstamo) | Bs 351.685 y 44,5% |
-| Punto de equilibrio 2027 | 3.412 kits (margen de seguridad 5,2%) |
-| Punto de equilibrio 2031 | 4.135 kits (margen de seguridad 43%) |
+| VAN y TIR del inversionista (con préstamo) | $us 29.161 (Bs 351.685) y 44,5% |
+| Punto de equilibrio 2027 | 3.412 filtros (margen de seguridad 5,2%) |
+| Punto de equilibrio 2031 | 4.135 filtros (margen de seguridad 43%) |
 
 ## 4. Hojas nuevas (resumen)
 
 - **Supuestos:** todos los datos que se pueden cambiar, con su fuente y cómo validarlos. Incluye el tipo de cambio y los multiplicadores para pruebas de estrés (1 = normal).
 - **Balance general:** cuadra en los 21 cierres.
-- **Financiamiento:** préstamo a 3 años, 11,5% anual, cuota trimestral de Bs 10.627.
+- **Financiamiento:** préstamo a 3 años, 11,5% anual, cuota trimestral de $us 881 (Bs 10.627).
 - **Sensibilidad:** cómo cambia el VAN si cambian el precio, las ventas, los costos o la tasa.
 - **SIMULADOR EMPRESARIAL, DECISIONES Y ESCENARIOS, CONTROL DE PERIODOS:** para el Juego de Negocios. No copian el simulador del docente; se ajustan cuando tengamos su manual.
 - **Controles:** 19 de 19 en OK.
@@ -194,8 +203,8 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
    - clientes registrados que vuelven a comprar.
 
    La técnica básica es libre; lo difícil de copiar es lo que se construye alrededor.
-3. **¿Es rentable?** Sí en el escenario base (VAN Bs 329.361; TIR 40,3% > 21,0%). Pero depende del precio: el filtro 2.0 vendido a Bs 390 tendría VAN de solo Bs 55.396. El escenario pesimista da VAN negativo.
-4. **¿Qué pasa si sube el dólar?** Se cambia la celda del tipo de cambio y todo se recalcula: con 15 Bs/$us el VAN baja a Bs 265.048, pero sigue positivo.
+3. **¿Es rentable?** Sí en el escenario base (VAN $us 27.310, que son Bs 329.361; TIR 40,3% > 21,0%). Pero depende del precio: el filtro 2.0 vendido a Bs 390 tendría VAN de solo $us 4.593 (Bs 55.396). El escenario pesimista da VAN negativo.
+4. **¿Qué pasa si sube el dólar?** Se cambia la celda del tipo de cambio y todo se recalcula: con 15 Bs/$us el VAN baja a $us 17.670 (Bs 265.048), pero sigue positivo.
 5. **¿De dónde sale el precio?** De una investigación de escritorio con precios reales:
    - botellón Villa Santa Bs 18 (2026);
    - estudio de la AEMP: Bs 11,70 a 13,00 en Santa Cruz (2011-2017);
