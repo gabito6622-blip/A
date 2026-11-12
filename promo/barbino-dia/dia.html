@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Un día en Barbería Imperio · Barbiño</title>
+<!--
+  Video vertical (1080x1920) sin voz: un día en una barbería de ejemplo contado con un reloj, notificaciones
+  y las pantallas reales de Barbiño. Animación determinista: window.seek(t) dibuja el cuadro del segundo t.
+  render.cjs la captura cuadro a cuadro; ?play la reproduce en el navegador.
+-->
+<style>
+  @font-face { font-family: "Playfair"; src: url(fonts/PlayfairDisplay.woff2) format("woff2"); font-weight: 400 900; font-style: normal; font-display: block; }
+  @font-face { font-family: "Playfair"; src: url(fonts/PlayfairDisplay-Italic.woff2) format("woff2"); font-weight: 400 900; font-style: italic; font-display: block; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0b0a08; }
+  body { font-family: "Inter Display", "Inter", "Noto Color Emoji", sans-serif; color: #f4ecdd; -webkit-font-smoothing: antialiased; }
+  :root { --ink: #0b0a08; --cream: #f4ecdd; --gold: #d9ad5b; --gold2: #f3cf86; --mute: rgba(244,236,221,.62); --red: #c8472a; --blue: #24467f; }
+  .abs { position: absolute; }
+  .serif { font-family: "Playfair", serif; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; font-weight: 400; font-style: normal; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--ink); }
+  #glow { position: absolute; width: 1700px; height: 1700px; border-radius: 50%; background: radial-gradient(circle, rgba(217,173,91,.20), rgba(217,173,91,0) 60%); }
+  #glow2 { position: absolute; width: 1400px; height: 1400px; border-radius: 50%; background: radial-gradient(circle, rgba(200,71,42,.12), rgba(200,71,42,0) 60%); }
+  #lines { position: absolute; inset: -100px; opacity: .05; background: repeating-linear-gradient(90deg, var(--gold) 0 1px, transparent 1px 90px); }
+  #grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; pointer-events: none; z-index: 90; }
+  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 45%, rgba(0,0,0,.6) 100%); pointer-events: none; z-index: 89; }
+
+  /* poste de barbería (borde izquierdo) */
+  #pole { position: absolute; left: 18px; top: 120px; width: 30px; height: 1680px; border-radius: 15px; overflow: hidden; z-index: 40;
+    box-shadow: 0 0 0 3px rgba(217,173,91,.55), 0 0 40px rgba(217,173,91,.18); }
+  #pole i { position: absolute; left: 0; right: 0; top: -200px; height: 2200px;
+    background: repeating-linear-gradient(-35deg, var(--red) 0 34px, var(--cream) 34px 68px, var(--blue) 68px 102px, var(--cream) 102px 136px); }
+  #pole b { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(255,255,255,.25) 40%, rgba(0,0,0,.4)); }
+
+  /* reloj */
+  #clock { position: absolute; z-index: 50; font-family: "Playfair", serif; font-weight: 900; color: var(--gold2); letter-spacing: -.01em; white-space: nowrap;
+    text-shadow: 0 0 40px rgba(243,207,134,.25); transform-origin: 0 0; }
+  #clock span { display: inline-block; width: .6em; text-align: center; }
+  #clock span.c { width: .3em; }
+  #clockLbl { position: absolute; z-index: 50; font-size: 28px; font-weight: 800; letter-spacing: .3em; color: var(--mute); text-transform: uppercase; }
+  #dayline { position: absolute; left: 90px; right: 90px; top: 372px; height: 4px; border-radius: 2px; background: rgba(244,236,221,.12); z-index: 50; }
+  #dayline b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+  #dayline i { position: absolute; top: -9px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--gold2); box-shadow: 0 0 20px var(--gold2); }
+
+  .scene { position: absolute; inset: 0; display: none; }
+  .half { position: absolute; inset: 0; }
+  .title { position: absolute; left: 90px; right: 80px; top: 410px; font-family: "Playfair", serif; font-weight: 800; font-size: 84px; line-height: 1.02; letter-spacing: -.015em; }
+  .title em { font-style: italic; font-weight: 900; color: var(--gold2); }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+  .w > span { display: inline-block; }
+
+  .phone { position: absolute; width: 620px; height: 1300px; border-radius: 86px; padding: 18px;
+    background: linear-gradient(145deg, #4a4032, #17140f 30%, #0c0b09 60%, #3a3226);
+    box-shadow: 0 60px 120px rgba(0,0,0,.7), 0 0 0 2px rgba(217,173,91,.35), 0 0 140px rgba(217,173,91,.16); }
+  .screen { position: relative; width: 584px; height: 1264px; border-radius: 70px; overflow: hidden; background: #0f0e0c; }
+  .screen img { position: absolute; left: 0; top: 0; width: 584px; display: block; }
+  .island { position: absolute; left: 50%; top: 14px; width: 150px; height: 40px; margin-left: -75px; border-radius: 30px; background: #000; z-index: 5; }
+  .glare { position: absolute; inset: 0; border-radius: 70px; background: linear-gradient(115deg, rgba(255,255,255,.09), rgba(255,255,255,0) 30%); z-index: 6; pointer-events: none; }
+
+  .toast { position: absolute; left: 90px; right: 90px; top: 640px; z-index: 20; display: flex; gap: 26px; align-items: center; padding: 26px 30px; border-radius: 40px;
+    background: rgba(30,27,22,.92); border: 2px solid rgba(244,236,221,.12); box-shadow: 0 30px 70px rgba(0,0,0,.55); }
+  .toast .ic { flex: none; width: 92px; height: 92px; }
+  .toast .tx { min-width: 0; }
+  .toast .app { font-size: 25px; font-weight: 700; letter-spacing: .12em; color: var(--mute); text-transform: uppercase; }
+  .toast .tt { font-size: 40px; font-weight: 800; color: var(--cream); margin-top: 4px; white-space: nowrap; }
+  .toast .st { font-size: 31px; font-weight: 600; color: var(--mute); margin-top: 2px; white-space: nowrap; }
+
+  /* marca Barbiño */
+  .mark { position: relative; overflow: hidden; background: #121418; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,.1) inset; }
+  .mark .s1 { position: absolute; right: -25%; top: 0; height: 100%; width: 60%; transform: skewX(-24deg); background: var(--red); opacity: .92; }
+  .mark .s2 { position: absolute; right: -2%; top: 0; height: 100%; width: 14%; transform: skewX(-24deg); background: var(--blue); }
+  .mark b { position: relative; font-weight: 800; line-height: 1; color: var(--cream); }
+
+  #slash { position: absolute; left: -200px; top: 960px; width: 1480px; height: 6px; z-index: 60; display: none; transform-origin: 0 50%;
+    background: linear-gradient(90deg, rgba(243,207,134,0), var(--gold2) 20%, #fff 50%, var(--gold2) 80%, rgba(243,207,134,0)); box-shadow: 0 0 30px var(--gold2); }
+  .pill { display: inline-block; padding: 20px 34px; border-radius: 999px; font-size: 38px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="glow"></div><div id="glow2"></div><div id="lines"></div>
+  <div id="scenes"></div>
+  <div id="pole"><i></i><b></b></div>
+  <div id="clock"></div>
+  <div id="clockLbl"></div>
+  <div id="dayline"><b></b><i></i></div>
+  <div id="slash"></div>
+  <canvas id="grain" width="1080" height="1920"></canvas>
+  <div id="vignette"></div>
+</div>
+<script>
+// ------------------------------------------------------------------ tiempo (104 BPM, igual que music.py)
+const BPM = 104, BEAT = 60 / BPM, BAR = 4 * BEAT, SB = 2 * BAR;   // cada momento del día dura 2 compases
+const T_DAY = 2 * BAR;
+const MOMENTS = [
+  { at: "08:00", t: "El día ya está *armado.*", img: "panel", toast: ["57 turnos para hoy", "Bs 2.510 previstos en caja"] },
+  { at: "08:05", t: "Mientras dormías, *reservaron solos.*", img: "avisos", toast: ["Reserva nueva de Adrián", "Corte + barba · desde tu página"] },
+  { at: "10:15", t: "El anticipo llega *por QR.*", img: "comprobante", img2: "confirmada", toast: ["Comprobante de Carla", "Anticipo de Bs 13 para revisar"], toast2: ["Anticipo verificado ✓", "El turno de Carla quedó confirmado"] },
+  { at: "12:00", t: "Cuatro sillas, *cero turnos pisados.*", img: "agenda", toast: ["Agenda de hoy", "Kevin · Diego · Luis · Bruno"] },
+  { at: "15:25", t: "«Ya llegué», *desde la puerta.*", img: "llegue", toast: ["Ramiro llegó", "Le avisamos a Kevin · turno 15:30"] },
+  { at: "20:30", t: "Cerrás la caja *en un minuto.*", img: "caja", toast: ["Cierre de caja", "Contás el efectivo y Barbiño compara"] },
+  { at: "21:00", t: "Y tus clientes *te recomiendan.*", img: "resenas", toast: ["★ 4.8 de promedio", "40 reseñas en tu página"] },
+  { at: "21:30", t: "Cerraste. Tu página *sigue reservando.*", img: "pagina", scroll: 1, toast: ["Reservan de día o de noche", "Sin llamarte ni escribirte"] },
+];
+const T_LOGO = T_DAY + MOMENTS.length * SB, DURATION = T_LOGO + 2 * BAR + 0.6;   // 46,8 s
+window.DURATION = DURATION;
+const SPLIT = 0.42;   // lo que dura el «tijeretazo» al salir de una escena
+
+// ------------------------------------------------------------------ utilidades
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const oCubic = (p) => 1 - Math.pow(1 - p, 3), iCubic = (p) => p * p * p;
+const ioCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const oExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const oBack = (p, s = 1.7) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+const spring = (p) => (p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(11 * p));
+const el = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; };
+const set = (e, css) => Object.assign(e.style, css);
+const setAll = (list, css) => list.forEach((e) => set(e, css));
+const emo = (s) => s.replace(/(\p{Extended_Pictographic}️?)/gu, '<span class="emoji">$1</span>');
+const markHTML = (size) => `<div class="mark" style="width:${size}px;height:${size}px;border-radius:${size * .3}px"><i class="s1"></i><i class="s2"></i><b style="font-size:${size * .58}px;margin-top:${-size * .04}px">b</b></div>`;
+const titleHTML = (text) => { let on = false; return text.split(" ").map((w) => { const o = w.startsWith("*"), c = w.endsWith("*"); const em = on || o; on = (on || o) && !c; w = w.replace(/\*/g, ""); return `<span class="w"><span>${em ? `<em>${w}</em>` : w}</span></span>`; }).join(" "); };
+const mins = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`;
+
+const scenes = $("#scenes");
+const registry = [];   // { start, end, el, halves, update(lt) }
+// línea del corte (diagonal) y sus dos mitades
+const CUT = { y0: 1180, y1: 760 };   // la línea va de (0, y0) a (1080, y1)
+const clipA = `polygon(0 0, 1080px 0, 1080px ${CUT.y1}px, 0 ${CUT.y0}px)`;
+const clipB = `polygon(0 ${CUT.y0}px, 1080px ${CUT.y1}px, 1080px 1920px, 0 1920px)`;
+const perp = (() => { const dx = 1080, dy = CUT.y1 - CUT.y0, n = Math.hypot(dx, dy); return [-dy / n, dx / n]; })();   // perpendicular a la línea
+
+/** Escena «cortable»: el contenido va dos veces (una mitad de cada lado del corte). */
+function scene(start, end, inner, update, z) {
+  const s = el(`<section class="scene" style="z-index:${z}"><div class="half" style="clip-path:${clipA}">${inner}</div><div class="half" style="clip-path:${clipB}">${inner}</div></section>`);
+  scenes.appendChild(s);
+  registry.push({ start, end, el: s, halves: $$(".half", s), update });
+}
+
+// ------------------------------------------------------------------ intro
+{
+  const inner = `
+    <div class="abs serif" id="iA" style="left:0;right:0;top:860px;text-align:center;font-size:58px;font-style:italic;font-weight:700;color:var(--mute)">Un día en</div>
+    <div class="abs serif" id="iB" style="left:0;right:0;top:930px;text-align:center;font-size:118px;font-weight:900;line-height:1;letter-spacing:-.02em">Barbería <em style="color:var(--gold2)">Imperio</em></div>
+    <div class="abs" id="iC" style="left:0;right:0;top:1100px;text-align:center;font-size:34px;font-weight:700;letter-spacing:.32em;color:var(--gold)">CON BARBIÑO</div>
+    <div class="abs" id="iD" style="left:0;right:0;top:1700px;text-align:center;font-size:26px;font-weight:600;color:rgba(244,236,221,.4)">Barbería de ejemplo · datos ficticios</div>`;
+  scene(0, T_DAY, inner, (lt, s) => {
+    const a = oExpo(P(lt, 2.2, .6)), b = oExpo(P(lt, 2.45, .7)), c = oExpo(P(lt, 2.9, .5));
+    setAll($$("#iA", s), { opacity: a, transform: `translateY(${(1 - a) * 30}px)` });
+    setAll($$("#iB", s), { opacity: b, transform: `translateY(${(1 - b) * 50}px) scale(${.94 + .06 * b})` });
+    setAll($$("#iC", s), { opacity: c, letterSpacing: `${.32 + (1 - c) * .3}em` });
+    setAll($$("#iD", s), { opacity: c * .9 });
+  }, 100);
+}
+
+// ------------------------------------------------------------------ momentos del día
+const SCREEN_H = 1264;
+MOMENTS.forEach((m, i) => {
+  const start = T_DAY + i * SB, dir = i % 2 ? -1 : 1;
+  const imgs = `<img class="im1" src="assets/${m.img}.jpg">${m.img2 ? `<img class="im2" src="assets/${m.img2}.jpg" style="opacity:0">` : ""}`;
+  const toast = (tt, id) => `<div class="toast ${id}"><div class="ic">${markHTML(92)}</div><div class="tx"><div class="app">Barbiño · ahora</div><div class="tt">${emo(tt[0])}</div><div class="st">${emo(tt[1])}</div></div></div>`;
+  const inner = `
+    <div class="title">${titleHTML(m.t)}</div>
+    <div class="phone" style="left:${dir > 0 ? 250 : 210}px;top:820px"><div class="screen">${imgs}<i class="glare"></i></div></div>
+    ${toast(m.toast, "t1")}${m.toast2 ? toast(m.toast2, "t2") : ""}`;
+  scene(start, start + SB, inner, (lt, s) => {
+    // título palabra por palabra
+    $$(".half", s).forEach((h) => $$(".w > span", h).forEach((w, j) => { const p = oExpo(P(lt, .08 + j * .06, .45)); set(w, { transform: `translateY(${(1 - p) * 110}%)` }); }));
+    // celular: entra desde abajo y se balancea apenas
+    const e = oExpo(P(lt, .05, .7));
+    setAll($$(".phone", s), { transform: `translateY(${(1 - e) * 700}px) rotate(${dir * (1 - e) * 8 + dir * -1.5 + Math.sin((lt + i) * 1.6) * .8}deg)` });
+    // pantalla larga: baja despacio
+    if (m.scroll) {
+      const img = $(".im1", s), h = img.naturalHeight ? img.naturalHeight * 584 / img.naturalWidth : SCREEN_H;
+      const sp = ioCubic(P(lt, 1.0, SB - 1.6));
+      setAll($$(".im1", s), { transform: `translateY(${-sp * Math.max(0, h - SCREEN_H) * .85}px)` });
+    }
+    // segunda pantalla (anticipo aprobado)
+    if (m.img2) { const x = ioCubic(P(lt, SB * .55, .45)); setAll($$(".im2", s), { opacity: x }); }
+    // notificación: baja desde arriba con rebote
+    // notificación: aparece con un saltito (sin pasar por encima del título)
+    const t1in = spring(P(lt, .55, .8)), t1out = m.toast2 ? iCubic(P(lt, SB * .55 - .2, .3)) : 0;
+    setAll($$(".t1", s), { opacity: clamp(P(lt, .55, .2)) * (1 - t1out), transform: `translateY(${(1 - t1in) * -50 - t1out * 30}px) scale(${(.88 + .12 * t1in) * (1 - t1out * .05)})` });
+    if (m.toast2) { const t2 = spring(P(lt, SB * .55, .8)); setAll($$(".t2", s), { opacity: clamp(P(lt, SB * .55, .2)), transform: `translateY(${(1 - t2) * -50}px) scale(${.88 + .12 * t2})` }); }
+  }, 100 - i - 1);
+});
+
+// ------------------------------------------------------------------ logo final
+{
+  const inner = `
+    <div class="abs" id="lM" style="left:415px;top:520px">${markHTML(250)}</div>
+    <div class="abs" id="lW" style="left:0;right:0;top:820px;text-align:center;font-size:180px;font-weight:900;letter-spacing:-.05em">Barbiño</div>
+    <div class="abs serif" id="lT" style="left:0;right:0;top:1050px;text-align:center;font-size:62px;font-weight:700;line-height:1.15">Tu barbería, <em style="color:var(--gold2)">al día</em><br>desde el celular.</div>
+    <div class="abs" id="lP" style="left:0;right:0;top:1290px;display:flex;justify-content:center;gap:20px">
+      <span class="pill" style="background:var(--gold2);color:#1a1408">14 días gratis</span>
+      <span class="pill" style="background:rgba(244,236,221,.08);border:2px solid rgba(244,236,221,.25)">Sin tarjeta</span>
+    </div>
+    <div class="abs" id="lD" style="left:0;right:0;top:1700px;text-align:center;font-size:26px;font-weight:600;color:rgba(244,236,221,.4)">Barbería Imperio es una barbería de ejemplo · datos ficticios</div>`;
+  scene(T_LOGO, DURATION + 1, inner, (lt, s) => {
+    const pm = spring(P(lt, .05, .9));
+    setAll($$("#lM", s), { transform: `scale(${pm}) rotate(${(1 - pm) * -25}deg)` });
+    const w = oExpo(P(lt, .3, .6));
+    setAll($$("#lW", s), { opacity: w, transform: `translateY(${(1 - w) * 60}px)`, letterSpacing: `${-.05 + (1 - w) * .15}em` });
+    const t = oExpo(P(lt, .8, .6));
+    setAll($$("#lT", s), { opacity: t, transform: `translateY(${(1 - t) * 30}px)` });
+    $$("#lP", s).forEach((p) => [...p.children].forEach((c, k) => { const q = oBack(P(lt, 1.3 + k * .15, .45), 2); set(c, { opacity: clamp(q * 2), transform: `scale(${q})` }); }));
+    setAll($$("#lD", s), { opacity: oExpo(P(lt, 1.8, .6)) });
+  }, 10);
+}
+
+// ------------------------------------------------------------------ reloj, poste, fondo y cortes
+const clockEl = $("#clock"), lbl = $("#clockLbl"), day = $("#dayline");
+const DAY0 = mins("08:00"), DAY1 = mins("21:30");
+function clockAt(t) {
+  if (t < 2.0) return mins("07:59");
+  if (t < T_DAY) return DAY0;
+  const i = Math.min(MOMENTS.length - 1, Math.floor((t - T_DAY) / SB)), lt = t - T_DAY - i * SB;
+  const prev = i ? mins(MOMENTS[i - 1].at) : DAY0, cur = mins(MOMENTS[i].at);
+  return lerp(prev, cur, ioCubic(P(lt, 0, .7)));
+}
+function drawClock(t) {
+  const m = clockAt(t), txt = hhmm(m);
+  const key = txt;
+  if (clockEl.dataset.k !== key) { clockEl.dataset.k = key; clockEl.innerHTML = [...txt].map((c) => `<span${c === ":" ? ' class="c"' : ""}>${c}</span>`).join(""); }
+  // intro: grande y al centro; después, arriba a la izquierda
+  const mv = ioCubic(P(t, T_DAY - .7, .7));
+  const big = { x: 540, y: 520, s: 230 }, small = { x: 90, y: 200, s: 132 };
+  const size = lerp(big.s, small.s, mv);
+  const w = size * 2.7;   // ancho aproximado de «00:00»
+  const x = lerp(big.x - w / 2, small.x, mv), y = lerp(big.y, small.y, mv);
+  const pop = t > 2.0 && t < 2.6 ? 1 + .06 * Math.sin(P(t, 2.0, .6) * Math.PI) : 1;
+  const out = oCubic(P(t, T_LOGO - .3, .5));
+  set(clockEl, { left: `${x}px`, top: `${y - size * .5}px`, fontSize: `${size}px`, opacity: clamp(P(t, .2, .5)) * (1 - out), transform: `scale(${pop})` });
+  set(lbl, { left: `${small.x + w + 40}px`, top: `${small.y - 2}px`, opacity: mv * (1 - out) });
+  lbl.textContent = "Barbería Imperio";
+  set(day, { opacity: mv * (1 - out) });
+  const p = clamp((m - DAY0) / (DAY1 - DAY0));
+  set($("b", day), { width: `${p * 100}%` }); set($("i", day), { left: `${p * 100}%` });
+}
+
+const grain = $("#grain"), g = grain.getContext("2d"), tiles = [];
+for (let k = 0; k < 6; k++) {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), d = x.createImageData(256, 256); let sd = 777 + k * 31;
+  for (let i = 0; i < d.data.length; i += 4) { sd = (sd * 16807) % 2147483647; const v = sd % 256; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); tiles.push(c);
+}
+const CUTS = MOMENTS.map((_, i) => T_DAY + (i + 1) * SB).concat([T_DAY]);   // cada fin de escena (y el paso de la intro al día)
+
+function seek(t) {
+  for (const r of registry) {
+    const on = t >= r.start && t < r.end + SPLIT;
+    r.el.style.display = on ? "block" : "none";
+    if (!on) continue;
+    r.update(Math.min(t, r.end) - r.start, r.el);
+    // tijeretazo: al terminar, las dos mitades se separan siguiendo el corte
+    const sp = iCubic(P(t, r.end, SPLIT));
+    const [px, py] = perp, d = sp * 900;
+    set(r.halves[0], { transform: `translate(${-px * d}px, ${-py * d}px) rotate(${-sp * 4}deg)`, opacity: 1 - sp * .8 });
+    set(r.halves[1], { transform: `translate(${px * d}px, ${py * d}px) rotate(${sp * 4}deg)`, opacity: 1 - sp * .8 });
+  }
+  // la línea dorada del corte aparece justo antes de cada cambio
+  const sl = $("#slash"); let sv = -1;
+  for (const c of CUTS) if (t >= c - .2 && t < c + .3) sv = t - c;
+  if (sv > -1) {
+    const ang = Math.atan2(CUT.y1 - CUT.y0, 1080) * 180 / Math.PI;
+    set(sl, { display: "block", top: `${CUT.y0 - 3}px`, left: "0px", width: `${Math.hypot(1080, CUT.y1 - CUT.y0) + 40}px`,
+      transform: `rotate(${ang}deg) scaleX(${oCubic(clamp((sv + .2) / .2))})`, opacity: 1 - clamp(sv / .3) });
+  } else sl.style.display = "none";
+  // fondo vivo, poste que gira, reloj
+  set($("#glow"), { left: `${-300 + Math.sin(t * .3) * 160}px`, top: `${-500 + Math.cos(t * .25) * 140}px` });
+  set($("#glow2"), { left: `${200 + Math.cos(t * .22) * 160}px`, top: `${1000 + Math.sin(t * .27) * 160}px` });
+  set($("#pole i"), { transform: `translateY(${-(t * 120) % 165.8}px)` });   // 165,8 = período vertical de las franjas
+  set($("#pole"), { opacity: clamp(P(t, .3, .8)) });
+  drawClock(t);
+  g.fillStyle = g.createPattern(tiles[Math.round(t * 30) % 6], "repeat");
+  g.save(); g.translate((Math.round(t * 30) * 37) % 256, (Math.round(t * 30) * 91) % 256); g.fillRect(-256, -256, 1600, 2400); g.restore();
+}
+window.seek = seek;
+
+window.READY = (async () => {
+  await document.fonts.load('900 100px "Playfair"'); await document.fonts.load('italic 900 100px "Playfair"'); await document.fonts.load('800 100px "Playfair"');
+  await document.fonts.load('900 100px "Inter Display"'); await document.fonts.load('100px "Noto Color Emoji"');
+  await document.fonts.ready;
+  await Promise.all([...document.images].map((i) => i.decode().catch(() => console.warn("img", i.src))));
+  seek(0);
+  return true;
+})();
+if (location.search.includes("play")) window.READY.then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); }; loop(); });
+</script>
+</body>
+</html>
