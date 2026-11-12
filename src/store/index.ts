@@ -28,6 +28,7 @@ import * as winback from "./winback.js";
 import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
 import * as usd from "./usd.js";
+import * as secretary from "./secretary.js";
 import * as bulkAssign from "./bulkAssign.js";
 
 export * from "./types.js";
@@ -224,6 +225,7 @@ export function createStore(opts: EngineOptions = {}) {
       suppliers: bind(e, stats.supplierReport),
       audit: bind(e, stats.auditLog),
       notifications: bind(e, stats.notifications),
+      secretary: bind(e, secretary.secretaryReport),
       feed: () => stats.notificationItems(e),
     },
     watch: {

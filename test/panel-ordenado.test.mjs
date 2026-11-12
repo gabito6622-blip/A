@@ -18,6 +18,9 @@ const BEFORE = {
   admin: "inicio oficina vender control renovar dashboard fiado quevuelvan notificaciones fallas reubicar aprobacion recordatorios cuentas carga productos cupones revendedores comovan proveedores clientes excel whatsapp apariencia configuracion ayuda",
   seller: "inicio vender control renovar fiado quevuelvan notificaciones fallas aprobacion recordatorios revendedores clientes excel whatsapp configuracion ayuda",
 };
+// Pantallas NUEVAS agregadas después de la foto (se suman; ninguna reemplaza a otra).
+// 12/11/2026: "Mi secretaria" (todo lo pendiente en una pantalla) para el dueño y el admin.
+const ADDED = { owner: "secretaria", admin: "secretaria", seller: "" };
 const USERS = { owner: ["gabriel", "clave-del-dueño-123"], admin: ["ada", "clave-de-ada-123"], seller: ["lucia", "clave-de-lucia-123"] };
 
 test("menú en 6 áreas: cada rol conserva exactamente sus pantallas, todas abren, buscador, barra de abajo y pendientes en Inicio", { skip: !chromium, timeout: 240_000 }, async () => {
@@ -46,7 +49,7 @@ test("menú en 6 áreas: cada rol conserva exactamente sus pantallas, todas abre
       await p.waitForSelector("#menu button[data-go]");
       // 1) Mismas pantallas que antes, ni una más ni una menos.
       const now = await p.evaluate(() => [...new Set([...document.querySelectorAll("#menu [data-go]")].map((x) => x.dataset.go))].sort());
-      assert.deepEqual(now, BEFORE[role].split(" ").sort(), `${role}: el menú tiene que tener las mismas pantallas que antes`);
+      assert.deepEqual(now, [...BEFORE[role].split(" "), ...ADDED[role].split(" ").filter(Boolean)].sort(), `${role}: el menú tiene que tener las mismas pantallas que antes (más las nuevas)`);
       // 2) Cada una abre sin error, por su dirección de siempre (#clave).
       for (const k of now) {
         await p.evaluate((k) => { location.hash = k; document.querySelector(`#menu [data-go="${k}"]`).click(); }, k);

@@ -14,6 +14,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
 | B21 | WhatsApp oficial con su mismo número (coexistencia por QR): ¿hacerse Tech Provider de Meta, usar un proveedor oficial o un número aparte para el bot? Al conectar, pausar el bot cuando el dueño responde desde el celular | P1 | 🧑 |
 | B22 | 16 cuentas de Disney caídas (vencidas, sin clientes): el dueño decidió retirarlas él | P2 | 🔧 botones publicados (#44, #45); falta que el dueño las retire o las deje como propias |
+| B26 | Revisar una por una las cuentas de Disney que el panel muestra «libres»: el dueño dice que no están confirmadas (puede que alguien las tenga) | P1 | 🧑 con el dueño |
 | B25 | Cuentas propias del revendedor sin costo anotado: Mis ganancias muestra lo que cobra, no la ganancia. Agregar «cuánto te cuesta» (por cuenta o por producto) para mostrar ganancia real | P3 | idea, sin empezar |
 | B24 | «Revendedor Demo (prueba)» creado en la tienda real (12/11, con OK del dueño) para que vea el panel de revendedor: número inventado +591 70000099, sin clientes, saldo 0; con página propia activada (sin armar) para que pruebe el asistente de 3 pasos. Sacarlo cuando el dueño diga | P3 | 🧑 |
 | B23 | Cuentas autopagables con tarjeta (Netflix y otras): cobran US$ 9 por mes cada una. Hoy no hay ninguna de Netflix cargada en el panel (12/11: 111 + 12 de Disney de alquiler, 1 de Disney+ y 1 de Prime). El dueño va a pasar la lista, separada en: clientes finales, revendedores y otros clientes. Al cargarlas, poner «Se cobra en dólares» = 9 | P1 | 🧑 esperando la lista |
@@ -109,7 +110,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
 | M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
-| M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🔧 decidido el 12/11: Bs 49 o US$ 5 fijos, lo pagan TODOS los revendedores, sin «gratis si compra», cobro apagado hasta que el dueño lo prenda. Falta programarlo (hoy solo cobra a los de página propia) |
+| M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🔧 decidido el 12/11: Bs 49 o US$ 5 fijos, lo pagan TODOS los revendedores, sin «gratis si compra» · ✅ publicado (#49) y configurado, APAGADO: lo prende el dueño |
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
 | M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |

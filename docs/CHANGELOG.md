@@ -3,7 +3,145 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `hub-etapa5`) · GaboHub etapa 5: suscripción para todos los revendedores
+## 2026-11-12 · Panel: botón «Mi secretaria» (sin publicar todavía)
+- **Nuevo en Inicio:** botón grande «🗂️ Mi secretaria · ¿qué hay pendiente?» (y en el menú, área Inicio). Abre una pantalla con todo lo pendiente: cobrar (nota «EN COBRO»), cortar («POR CORTAR»), vencidas sin anotar, quién debe, a quién avisar (vencen en 3 días, con la regla de la ficha de cada revendedor), cuentas por desenlazar, libres de verdad (y las que el sistema no puede vender por la fecha del proveedor), apartadas y lo que pasó en las últimas 24 horas (solo el dueño).
+- **Mensaje listo:** cada revendedor trae un botón que abre WhatsApp con el texto armado (cuentas, fechas y total). Lo manda el dueño; la pantalla no envía nada ni cambia datos.
+- Archivos: `src/store/secretary.ts`, `GET /api/admin/secretaria`, `public/secretaria.js`, estilos `.sec-*` en `public/panel.css`.
+
+## 2026-11-12 · Revisión de cuentas libres (con OK del dueño)
+- **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1, netgb117+fe11, netscz107+fg, netscz108+4d, netscz108+cap, netscz108+d24, netscz108+e29, netscz108+sad, netscz108+tube, netscz108+zz1, opajg12+com14, opajg12+ma189, opajg12+mu3 y prijg002 (figuraban libres o en cuarentena). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
+- **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».
+- **n2025gt+18dp:** revisada por el dueño: libre, con clave nueva (no se escribe acá). Se quitó la marca vieja «pagar proveedor».
+- **netgb117+cd:** verificada por el dueño: libre, con clave nueva (no se escribe acá). Ojo: en el panel la fecha del proveedor figura vencida (07/07/2026); falta que el dueño diga la fecha nueva.
+- **netscz107+7es:** libre confirmada por el dueño, con clave nueva (no se escribe acá). netgb117+vox2 (perfiles de la tienda) queda como está, por pedido del dueño.
+- **n2025gt+ps1** (sin ESPN): la usa el dueño para sus perfiles de clientes finales. Se apartó (cuarentena) para que no se alquile; nota «👤 LA USA EL DUEÑO · NO ALQUILAR». Pendiente: cambiar la clave.
+- **n2025jg+nov y n2025jg+nov3** (sin ESPN): igual que ps1, las usa el dueño para sus perfiles de clientes finales. Apartadas (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar clave y expulsar dispositivos para liberarlas.
+- **netscz108+jon** (con ESPN): la usa el dueño para sus perfiles con ESPN. Apartada (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar la clave.
+- **netscz108+va y netscz.101** (la .101 era de vallejos): sirven, pero el dueño debe cambiar la clave; siguen en cuarentena con esa nota. (La .101 se había dado de baja por error y el dueño lo corrigió: volvió a cuarentena.)
+- **netscz108+va:** el dueño le cambió la clave (no se escribe acá): libre confirmada, sale de cuarentena y se puede vender.
+- **Resultado de la revisión de libres:** quedan 15 cupos libres (7 perfiles de netgb117+vox2 + star, sem, 18dp, 7es, cd, 10m, pasa, kd3) y 6 apartados (ps1, nov, nov3, jon, va, netscz.101). Ya no hay libres sin confirmar.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
+- **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
+- **next · gabito6619+21dp:** pagada, vence 28/11, Bs 66.
+- **Daniel Choque · n2025gt+dch:** cliente final; ya figuraba bien: pagada hasta el 02/03/2027 (sin cambios).
+- **Con esto quedan revisadas todas las cuentas Disney alquiladas.**
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · JOSUE ORIAS, aneliz y panama
+- **JOSUE ORIAS · netgb118+25** (Disney+ sin ESPN): vencía 27/10; renovada hasta el 27/11/2026, pagada Bs 40. Su teléfono en el panel tiene 9 dígitos (776115438): falta confirmarlo.
+- **aneliz · gabito6619+uwb:** no pagó (venció 06/11). Nota «✂️ POR CORTAR»; entra en el recordatorio de las 19:30. Al cortarla, el dueño pasa la clave nueva y se libera. Ficha actualizada: «aneliz · Aneliz Contreras», +591 71009060.
+- **panama · netgb117+op:** renovó por US$ 7; vence 11/12/2026, pagada (precio fijado en US$ 7).
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MZA
+- **MZA · Marco Antonio Zurita** (mismo número): nota «Paga Bs 35 por cuenta Disney».
+- **n2025jg+nov2** (Disney+ sin ESPN, vence 24/11) y **primeairm1+3** (con ESPN, vence 27/11): pagadas a Bs 35 c/u (primeairm1+3 figuraba Bs 30).
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · EXTRANJERO
+- **EXTRANJERO** (+507 6554 3461, lista en US$): nota «Paga US$ 3 por cuenta Disney+ (sin ESPN)».
+- **n2025gt+nm, gabiti6615+nova y netgb10+nov:** pagó US$ 9 el 04/11 por las 3. Vencían el 02/11; ahora vencen el 03/12 (1 día de regalo), pagadas a US$ 3 c/u (antes US$ 3,50 de su lista). En nov se quitó la vieja marca «Excel: CORTAR» porque renovó.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · piza
+- **piza** (+591 67327507): tuvo 5 cuentas Disney (9dp pasó a rodbol y netscz108+2 a Aracely hoy).
+- **gabito6619+kd3:** vencida desde el 27/10; el dueño la cortó con clave nueva (no se escribe acá). Liberada con nota «LIBRE oficialmente … DESENLAZAR del correo de piza» (la secretaria diaria lo recuerda).
+- **netscz108+nes** (vence 12/11): «🔔 EN COBRO»; el dueño ya le escribió. Si no confirma, se corta. Entra en el recordatorio de las 19:30.
+- **n2022nb+rt:** se cayó del todo (sin membresía, dicho por el dueño). Se le quitó a piza (vencida desde el 30/08) y se dio de baja (cupo «dado de baja», nota «⛔ SE CAYÓ: SIN MEMBRESÍA · NO VENDER»). No se borró nada.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MAUMAU
+- **MAUMAU:** número nuevo +591 65001393 (antes +591 76221571; queda anotado en su ficha). Nota: «Paga Bs 69 por cuenta Disney».
+- **gabito6619+g10:** pagada a Bs 69 (antes Bs 60), vence 27/11/2026. En el Excel figuraba con vendedor «PIZA».
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · canaviry
+- **gabito6626+pasa:** vencida desde el 24/10 sin pagar; el dueño la cortó con clave nueva (no se escribe acá). Liberada: nota «LIBRE oficialmente … DESENLAZAR del correo de canaviry» (la secretaria diaria lo recuerda).
+- **netgb117+cm3:** pagada a Bs 65 (antes figuraba Bs 69 sin pago); vence 19/11/2026. canaviry queda al día.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · paraguay
+- **paraguay** (+595 99 294 6366, lista «Panamá y Paraguay (US$)»): nota «Paga US$ 7 por cuenta Disney, en USDT». El panel ya muestra sus cuentas en Bs con la tasa del Banco Central del día (hoy 11,70 → Bs 81,90). Tiene 8 cuentas activas; de las caídas no hay registro (el Excel solo traía las activas).
+- **paraguay al día hasta el 16 y 19/11:** opajg12+br (16/11) ya figuraba pagada; netscz101+18epg y netscz101+d10 (19/11) marcadas pagadas (US$ 7 c/u, orden del dueño). Las 5 vencidas (02/11 al 10/11) esperan respuesta del dueño.
+- **netgb117+sa:** renovó; vence 11/12/2026, pagada US$ 7.
+- **rolljos11+8:** no la renovó (venció 10/11): nota «✂️ POR CORTAR». Al cortarla el dueño pasa la clave nueva y se libera.
+- **netgb117+prem, opajg12+x13 y netscz101+pg:** renovaron con 1 día de regalo: vencen 03/12, 05/12 y 07/12/2026; pagadas US$ 7 c/u. paraguay queda con 7 cuentas pagadas y 1 por cortar.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ARIt
+- **ARIt · Aracely Sarabia Rojas** (mismo número): nota «✅ muy buena revendedora, siempre paga; a veces paga 3 o 4 por adelantado. Avisarle 3 días antes y 1 día antes».
+- La secretaria (avisos de mediodía y tarde) aplica esa regla y le agrupa las cuentas en un solo mensaje.
+- Sus 16 cuentas: falta que el dueño diga pagos y precio (3 vencieron el 11/11).
+- **Caídas del mes pasado:** gabito6626+r19 (16/10) → reemplazada por n2025nt+tv89 (ya era de ella); netscz107+e26 (07/10, vencía 05/11) → reemplazada por netscz107+1, que estaba en cuarentena: sacada y anotada a Aracely; vence el 05/12, pagada Bs 66 (confirmado por el dueño). r19 y e26 figuran «libres»: falta que el dueño diga si están muertas o sirven. Una (opajg12+dd10) tiene una contraseña escrita en la nota del Control: se ofreció pasarla al campo protegido.
+- **Diciembre pagado por adelantado:** el 07/11 pagó Bs 330 por 5 cuentas a Bs 66 c/u: netscz107+1 (05/12), netscz108+tm y netscz108+ob29 (07/12), netscz107+der3 y n2025nt+tv89 (08/12). Antes figuraban a Bs 69 (tm, ob29, der3) y Bs 65 sin pago (tv89); ahora las 5 quedan pagadas a Bs 66 con nota del pago conjunto.
+- **n2025gt+f3 se cayó el 31/10:** el dueño le dio netscz108+2 en su lugar. netscz108+2 figuraba de piza (vencida 25/10, sin pagar): se pasó a Aracely, vence el 16/11 como la f3, Bs 69, pago pendiente. La f3 se liberó y quedó con la nota «⛔ SE CAYÓ el 31/10 · NO VENDER».
+- **Bajas confirmadas por el dueño (12/11):** gabito6626+r19, netscz107+e26 y n2025gt+f3 (las 3 caídas de Aracely). Su cupo pasó a «dado de baja» (ya no figuran libres ni se pueden vender) y cada cuenta tiene la nota de cuándo se cayó y por cuál se reemplazó. No se borró nada: se puede volver atrás desde el panel.
+- **Todo pagado salvo las vencidas (orden del dueño, 12/11):** ama, splus, bron15, netscz108+2 (16/11), rd3, disla (21/11), dj10, 5 y dd10 (28/11) marcadas pagadas con su precio de siempre (65, 66 o 69). Con las 5 de diciembre, quedan 14 pagadas.
+- **jm2, mig y sp (vencieron 11/11):** «🔔 EN COBRO»; el dueño ya le avisó y cobró. Si no paga hoy, las corta esta noche. jm2 pasó de «pagado» (del mes pasado, sin registro de cobro) a «pendiente». Recordatorio de la secretaria hoy 19:30.
+- **Los 9 revendedores revisados quedan pagados (orden del dueño, 12/11):** se marcaron pagadas las que faltaban: gabito6626+mana de Daniel (19/11, Bs 69), netgb117+pg19 de Robin (15/11, Bs 70) y n2025nt+za de Raúl (15/11, Bs 65). Siguen sin pagar solo las de cobro: las 3 de rodbol que debe (Bs 198, vencen 04/12), sus 3 «EN COBRO» y las 3 «EN COBRO» de Aracely.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
+- **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
+- **5 cuentas por vencer marcadas pagadas** (nu1 13/11, c16 16/11, dis02 19/11, nu2 19/11, d2025j.g 20/11), a su precio de siempre. liz y pam ya estaban pagadas.
+- **gabito6626+d27:** renovó, pagó Bs 69, vence 06/12/2026.
+- **netscz108+10m:** vencida el 19/10 y no cortada a tiempo; el dueño la cortó: alquiler de oby cerrado, cuenta LIBRE oficialmente, clave nueva (no se escribe acá). Nota: «antes de darla, DESENLAZARLA del correo de oby». (Se conservó la nota vieja del Excel, que se había reemplazado por error y se restauró enseguida.) Alquileres activos 81 → 80.
+- **Aviso diario (la «secretaria»)**: ahora también recuerda las cuentas a desenlazar y lista las libres confirmadas.
+- **oby · Ovidio Nina Huaycho** (nombre completo).
+- **opajg12+nee:** estaba en cuarentena (alquiler cerrado solo al vencer, sin anotar la renovación). Es de oby: sacada de cuarentena y cargada a él con «Cargar sus cuentas» (sin cobro como venta, sin avisos), desde 09/10, renovó 09/11, vence 09/12/2026, pagada a Bs 69 (precio de revendedor del panel; el dueño no dijo otro). Alquileres activos 80 → 81.
+- **oby paga Bs 69 por cada cuenta** (dicho por el dueño): c16, nu2 y d2025j.g pasaron a Bs 69 (cobro reanotado con ese monto). Nota en su ficha: «avisarle 1 a 2 días antes».
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Yuvinka Avila Orias
+- **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
+- **netgb117+m2:** figuraba a oby; es de Yuvinka. Pasada a ella, vence 09/12/2026, pagada a Bs 70, clave nueva (no se escribe acá).
+- **netgb117+cob1:** pagada a Bs 70; vence 06/12/2026 (el dueño la corrigió del 09/12 al 06/12).
+- **rolljos11:** estaba «EN COBRO»; pagó Bs 65 (el dueño corrigió: no 69), vence 12/12/2026 (nota de cobro quitada).
+- **rolljos11+2:** pagada a Bs 65, vence 25/11/2026 (confirmado por el dueño). Yuvinka queda con sus 4 cuentas pagadas.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
+- **Jhon Maykol Vidaurre** (antes «JHON VIDAURRE», mismo número).
+- **gabito6626+x91** (vence 15/11): pagada a Bs 63 (lo que pagó la última vez); renueva a Bs 63; nota «📅 avisarle el 13/11». En la cuenta: «enlazada al Gmail del revendedor: cable365b@gmail.com» (se conservó «LLENA»).
+- **Aviso diario de la «secretaria»** en esta conversación, pedido por el dueño: **todos los días a las 12:24 (mediodía) y a las 17:54** (≈ 6 de la tarde; el de la tarde empieza hoy 12/11): vencen en 0–2 días, en cobro, por cortar, vencidos sin pagar, cuentas a desenlazar y libres confirmadas. Los avisos sueltos (12/11 20:00, 13/11 y 14/11 9:10) quedaron pausados porque los cubre el diario. Solo arma los mensajes; no envía nada. El dueño también puede preguntar «¿qué hay pendiente?» cuando quiera.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Raúl Parrilla
+- **Raúl Parrilla** (antes «Raul PARRILLA», mismo número): nota «✅ buen cliente, paga bien».
+- **gabito6619+dr** (vence 24/11): pagada a Bs 68; clave actualizada (no se escribe acá).
+- **n2025nt+za** (vence 15/11): nota «📅 avisarle el 14/11»; clave actualizada.
+- Avisos «datos actualizados» para Raúl: no enviados (sin permiso).
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Por cortar
+- **netscz.101@gmail.com** (Disney Premium + ESPN): nota «⛔ POR CORTAR» en la cuenta. En el panel no está alquilada a nadie (su perfil quedó en cuarentena cuando venció) y no se pudo ver quién la tenía: la tenía **vallejos** (dicho por el dueño). En la ficha de vallejos: nota «⛔ NO VENDERLE por ahora: no paga y no va a renovar» (no se borró ni se bloqueó; sigue su historial).
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Dani strem
+- **Dani strem:** ahora «Dani strem · Daniel Quispe Quispe», con su número +591 62505099 (no tenía).
+- **gabito6626+rclad:** estaba «EN COBRO»; pagó Bs 69, vence 12/12/2026 (nota de cobro quitada).
+- **netgb117+efp** (vence 14/11): pagada a Bs 69.
+- **gabito6626+mana:** vence 19/11, confirmado por el dueño; sin cambios.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · robin sardan
+- **robin sardan:** ahora «robin sardan · Sardana Carballo Robin» (mismo número).
+- **netgb117+pg19:** se extendió al 15/12 como pagada, pero el dueño corrigió: sigue hasta el 15/11 (el pago de Bs 70 era de otra cuenta). Fecha original restaurada y cobro borrado. Antes no tenía estado de pago; el panel no permite volver a «sin estado», así que quedó «pendiente» hasta que el dueño diga si ese período está pago.
+- **n2025gt+2dis:** el pago de Bs 70 del 11/11 era de esta: del 12/11 al 12/12/2026, pagada a Bs 70.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas cortadas
+- **n2025gt+18dp y netscz108+sem:** el dueño las cortó en Disney (rodbol no las renovó). En el panel: alquiler cerrado (queda en el historial) y perfil libre. Clave nueva cargada en las 2 (la pasó el dueño; no se escribe acá). Libres de verdad: confirmado por el dueño; Disney Premium + ESPN, cuenta completa.
+- **Ojo (dicho por el dueño):** las demás cuentas que el panel muestra «libres» no están confirmadas; hay que revisarlas una por una.
+- Alquileres activos: 82 → 80. Nada más cambió; no salió ningún aviso.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: canaviry
+- **canaviry:** ahora «canaviry · Lizbeth Alejandra Canaviri Santa» (mismo número).
+- **netscz108+dy39:** figuraba a rodbol; el dueño se la dio a canaviry. Pasada a ella, del 10/11 al 10/12/2026, Bs 70 pagada, contraseña nueva cargada (no se escribe acá).
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: cabezas
+- **cabezas:** ahora «cabezas · Ronnye Alberto Cabezas Mendoza» (mismo número).
+- **netscz108+oby:** figuraba a rodbol; el dueño se la vendió a cabezas. Pasada a él, del 11/11 al 11/12/2026, contraseña nueva cargada (no se escribe acá). Bs 65, pagada.
+- **cabezas · netscz108+r10:** pagó; vence 05/12/2026, Bs 65 (estaba vencida desde el 03/11).
+- **cabezas · netscz108+cit:** pagó el período actual; vence 28/11, Bs 69. opajg12+ob2 (vence 13/11) ya figuraba pagada del mes pasado. opajg12+p29d (vence 12/11): «🔔 EN COBRO», el dueño ya le escribió; pasó de «pagado» (del mes pasado, sin registro de cobro) a «pendiente». Entra en el recordatorio de las 19:30.
+- Avisos: los nuevos quedaron «no enviado (sin permiso)»; no salió ningún mensaje.
+
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: rodbol
+- **rodbol:** ahora se llama «rodbol · Sandi Perasso Rodrigo Diego» (apodo + nombre completo).
+- **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago a Bs 66 c/u (precio de ese día, dicho por el dueño): Bs 198 en total. Queda anotado en el historial de cada una.
+- **2 cuentas que eran de rodbol** (gabito6619+2np, que figuraba a oby, y gabito6619+9dp, que figuraba a piza): pasadas a rodbol, del 30/10 al 30/11/2026, pagadas a Bs 66 c/u (Bs 132). Contraseña nueva cargada (dada por el dueño, no se escribe acá) y correo corregido «@gmail.cm» → «@gmail.com».
+- **opajg12+7ped y opajg12+k7z** figuraban a oby: pasadas a rodbol (el dueño confirmó que son de él), sin cambiar fecha ni precio.
+- **gabito6626+md1, opajg12+7ped y opajg12+k7z** (vencidas el 10/11): nota «EN COBRO desde 12/11» en el Control; si no responde hasta la noche, el dueño las corta. Fechas y pagos sin tocar.
+- **n2025gt+18dp, netscz108+sem, netscz108+oby y netscz108+dy39:** NO son de rodbol, el dueño ya se las dio a otros revendedores (falta decir a quién). Se les quitó la nota «en cobro» puesta por error; quedaron como estaban.
+- **3 cuentas hasta el 28/11** (opajg12+gar, opajg12+cm6, netgb117+voxg): confirmadas por el dueño y pagadas: Bs 66 las 2 con ESPN y Bs 35 la sin ESPN (cobro del período anotado con ese monto).
+- **Sin cambios:** los otros alquileres. La cola sumó 4 avisos para rodbol (cuenta pasada / datos actualizados) que NO se enviaron: él no aceptó avisos automáticos.
+
+## 2026-11-12 · #49 GaboHub etapa 5: suscripción para todos los revendedores
 - **Revendedores → Ajustes:** «¿Quién paga?» (solo con página propia, como antes, o todos) y «Precio fijo en dólares» para los de afuera.
 - **Se cobra sola del saldo cada 30 días.** Sin saldo: sigue todo los días de gracia; después se pausan Mi control, Quién me debe, Mis ganancias y Afiches (y su página, si tiene). Comprar, sus cuentas, los códigos, recargar y vender nunca se bloquean. Paga desde el Inicio y vuelve todo al instante.
 - **El cobro sigue apagado** hasta que el dueño lo prenda.

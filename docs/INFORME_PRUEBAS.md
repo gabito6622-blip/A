@@ -1,6 +1,35 @@
 # Informe de pruebas
 
-## 12/11/2026 · GaboHub etapa 5: suscripción (rama `hub-etapa5`)
+## 12/11/2026 · Botón «Mi secretaria» en el panel
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Separa cobrar, cortar, vencidas sin anotar, deudas, avisos (≤3 días), desenlazar, libres listas, libres con proveedor vencido y apartadas | `test/secretaria.test.mjs` (datos ficticios, núcleo) | OK |
+| Solo lee; el dueño ve «lo que pasó», el admin no, un revendedor no entra | misma prueba | OK |
+| Botón en Inicio ≥ 44 px, pantalla a 360 px sin desborde, letra ≥ 12 px, «Mensaje listo» con cuentas y total, sin mensaje en «Cortar», «lo que pasó» plegado | misma prueba, Playwright a 360 px (WhatsApp bloqueado) | OK |
+| El menú no pierde ninguna pantalla (se suma «Mi secretaria» para dueño y admin) | `test/panel-ordenado.test.mjs` | OK |
+| Tanda completa | `npm test` | **484/484** en ~47 s (una corrida previa tuvo 1 falla intermitente en `hub-clientes-unidos`, que pasó sola y en la corrida completa siguiente) |
+| Revisión visual | captura a 360 px de Inicio y de la pantalla, con datos de ejemplo (fuera del repo) | Se ve clara; sin cortes |
+
+## 12/11/2026 · Ponerse al día con Disney: rodbol (datos reales, con OK del dueño)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo | Sus 11 alquileres y su ficha, guardados antes de tocar (fuera del repo) | ✅ |
+| Nombre | Solo cambió el nombre; teléfono, saldo y sus 11 cuentas iguales | ✅ |
+| 3 cuentas | Primero una sola (gabito6626+8ene), revisada; después las otras 2. Las 3: vencen 04/12, pago pendiente; precio a Bs 66 (primero una, después las otras 2): Bs 198 | ✅ |
+| Nada más | Los otros 79 alquileres idénticos; cola de avisos 75 (no salió ningún mensaje) | ✅ |
+| 2 cuentas pasadas a rodbol | Respaldo sin contraseñas; primero 2np y revisada, después 9dp. Las 2: de rodbol, 30/10 → 30/11, pagadas, Bs 66; contraseña confirmada con la vista de contraseñas (sin mostrarla); correo de 9dp corregido. Otros 80 alquileres iguales | ✅ |
+| Avisos | 4 avisos nuevos para rodbol quedaron «no enviado (sin permiso)» | ✅ |
+| Corrección | La primera comparación de contraseña de 2np se hizo con la contraseña oculta (no era válida); se rehízo con la vista de contraseñas | ⚠️ → ✅ |
+
+## 12/11/2026 · Después de publicar #49 (suscripción GaboHub)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Cobro | Sigue igual que antes: apagado, Bs 30, «gratis si compra Bs 200», 3 días de gracia, solo con página. Saldos y estado de los 23 revendedores, iguales | ✅ |
+| Páginas | /tienda/ y /hub sin errores; panel del dueño → Cuentas con 125 tarjetas y 0 errores | ✅ |
+| Configuración con OK del dueño | Respaldo de la anterior guardado; quedó Bs 49, US$ 5, sin «gratis si compra», 3 días de gracia, para todos y APAGADA. Los demás ajustes, los saldos y el estado de los 23 revendedores, iguales; cola 75 (no salió ningún mensaje) | ✅ |
+
+## 12/11/2026 · GaboHub etapa 5: suscripción (publicado en #49)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Cobro | `test/suscripcion-gabohub.test.mjs`: apagada no cobra; prendida para todos cobra Bs 49 al de solo panel, US$ 5 fijos al de dólares y arranca la gracia al que no tiene saldo; a los 3 días se pausa; paga y vuelve; no se cobra dos veces el mismo mes; apagar limpia las pausas; si arma su página, lo pagado pasa a la página; «solo con página» no toca a los de solo panel | ✅ |

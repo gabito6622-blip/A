@@ -1176,3 +1176,20 @@ table.ctl tfoot td.ccli{z-index:3}
 /* El cambio de vista solo aplica a las tarjetas (celular); en la compu se ve la tabla de siempre. */
 .acc-viewbtn{display:none}
 @media (max-width:900px){.acc-viewbtn{display:inline-flex}}
+
+/* Mi secretaria: todo lo pendiente en una pantalla (celular primero). */
+.sec-cta{width:100%;min-height:52px;font-size:16px;justify-content:center;text-align:center;margin-bottom:4px}
+.sec-hero h2 small{display:block;font-size:13px;font-weight:500;margin-top:2px}
+.sec-sum{margin:0;padding-left:20px;display:grid;gap:4px;font-size:15px}
+.sec-card{display:grid;gap:10px}
+.sec-group{display:grid;gap:6px;padding:12px;border:1px solid var(--line,#dfe3ea);border-radius:14px}
+.sec-gh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;align-items:baseline}
+.sec-gh b{font-size:16px;overflow-wrap:anywhere}.sec-tot{font-size:14px;font-weight:600}
+.sec-rule{font-size:13px;overflow-wrap:anywhere}
+.sec-items{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.sec-items li{display:grid;gap:1px;padding:6px 0;border-top:1px dashed var(--line,#dfe3ea)}
+.sec-items li:first-child{border-top:0}
+.sec-mail{font-weight:600;font-size:14px;overflow-wrap:anywhere}.sec-meta{font-size:13px;color:var(--muted,#5b6577);overflow-wrap:anywhere}
+.sec-actions .pbtn{min-height:44px}
+.sec-act{display:grid;gap:6px}
+.sec-more > summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}
