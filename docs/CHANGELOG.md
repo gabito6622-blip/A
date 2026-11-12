@@ -9,6 +9,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - Sus 16 cuentas: falta que el dueño diga pagos y precio (3 vencieron el 11/11).
 - **Caídas del mes pasado:** gabito6626+r19 (16/10) → reemplazada por n2025nt+tv89 (ya era de ella); netscz107+e26 (07/10, vencía 05/11) → reemplazada por netscz107+1, que estaba en cuarentena: sacada y anotada a Aracely; vence el 05/12, pagada Bs 66 (confirmado por el dueño). r19 y e26 figuran «libres»: falta que el dueño diga si están muertas o sirven. Una (opajg12+dd10) tiene una contraseña escrita en la nota del Control: se ofreció pasarla al campo protegido.
 - **Diciembre pagado por adelantado:** el 07/11 pagó Bs 330 por 5 cuentas a Bs 66 c/u: netscz107+1 (05/12), netscz108+tm y netscz108+ob29 (07/12), netscz107+der3 y n2025nt+tv89 (08/12). Antes figuraban a Bs 69 (tm, ob29, der3) y Bs 65 sin pago (tv89); ahora las 5 quedan pagadas a Bs 66 con nota del pago conjunto.
+- **n2025gt+f3 se cayó el 31/10:** el dueño le dio netscz108+2 en su lugar. netscz108+2 figuraba de piza (vencida 25/10, sin pagar): se pasó a Aracely, vence el 16/11 como la f3, Bs 69, pago pendiente. La f3 se liberó y quedó con la nota «⛔ SE CAYÓ el 31/10 · NO VENDER».
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
