@@ -3,6 +3,7 @@ import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote
 import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
+import { loadFicha } from "/ficha.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
@@ -1070,8 +1071,9 @@ const V = {
         if (!list.length) return `<p class="muted">${q ? "Nadie coincide con la búsqueda." : "Todavía no hay clientes."}</p>`;
         if (!shown.length) return `<p class="muted">Ningún cliente en este filtro. 👌</p>`;
         return shown.map((c) => { const dl = c.nextExpiry ? daysLeft(c.nextExpiry) : null; const since = Math.max(0, Math.round((Date.now() - c.createdAt) / 86400000));
-          return `<details class="rcli"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${tagChip(c.tag)}${c.tag ? " " : ""}${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${usdChip(c.currency)}${(c.owed ?? 0) > 0 ? `<span class="pp pp-bad">debe ${bs(c.owed)}</span> ` : ""}${c.activeServices} serv.${dl !== null ? ` · ${dl < 0 ? `<span class="pp pp-bad">venció</span>` : dl <= 7 ? `<span class="pp pp-warn">${dl}d</span>` : `vence ${dl}d`}` : ""}</span></summary>
+          return `<details class="rcli" data-cid="${esc(c.id)}" data-name="${esc(c.name)}" data-phone="${esc(c.phone)}"${P.tab.editCus === c.id ? " open" : ""}><summary><span><b>${esc(c.name)}</b><br><small class="muted">${esc(c.phone)}${c.notes ? " · 📝 " + esc(c.notes) : ""}</small></span><span class="rsum">${tagChip(c.tag)}${c.tag ? " " : ""}${c.kind === "reseller" ? pill("Rev", "warn") + " " : ""}${usdChip(c.currency)}${(c.owed ?? 0) > 0 ? `<span class="pp pp-bad">debe ${bs(c.owed)}</span> ` : ""}${c.activeServices} serv.${dl !== null ? ` · ${dl < 0 ? `<span class="pp pp-bad">venció</span>` : dl <= 7 ? `<span class="pp pp-warn">${dl}d</span>` : `vence ${dl}d`}` : ""}</span></summary>
           <div class="clistats">${[["Servicios", c.activeServices], ["Gastó", bs(c.spent ?? 0)], ["Te debe", (c.owed ?? 0) > 0 ? `<b style="color:var(--bad)">${bs(c.owed)}</b>` : bs(0)], ["Saldo a favor", wal(c.balance, c.currency)], ["Renovó", `${c.renewals ?? 0}×`], ["Próximo vence", c.nextExpiry ? fdate(c.nextExpiry) : "—"], ["Cliente desde", `${since} d`]].map(([t, v]) => `<div><small>${t}</small><b>${v}</b></div>`).join("")}</div>
+          <div data-fxslot="${esc(c.id)}"></div>
           <form class="form" data-editcusform data-id="${esc(c.id)}" data-kind0="${esc(c.kind)}" data-usdlists="${esc(priceLists.filter((g) => g.currency === "USD").map((g) => g.id).join(","))}">
             <label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label><label>Email<input name="email" type="email" value="${esc(c.email ?? "")}"></label>
             ${canReview() ? `<label>Tipo<select name="kind">${opt("customer", "Cliente", c.kind === "customer")}${opt("reseller", "Revendedor", c.kind === "reseller")}</select></label>` : ""}
@@ -2093,6 +2095,7 @@ async function render() {
     if (P.view === "apariencia") previewLook();
     if (P.view === "configuracion") pushStatus();
     if (P.view === "oficina") officeMount(() => P.view === "oficina");
+    if (P.view === "clientes") $$("details.rcli[open]").forEach(fichaOpen);
   } catch (e) {
     if (e.status === 401) return showLogin();
     $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
@@ -3299,6 +3302,15 @@ document.addEventListener("submit", async (ev) => {
 });
 
 $("#burger").onclick = () => $("#app").classList.add("open");
+// 👤 Ficha 360° (ficha.js): al abrir un cliente se cargan sus servicios, pedidos y fallas con sus acciones.
+function fichaOpen(d) {
+  loadFicha(d.querySelector("[data-fxslot]"), { id: d.dataset.cid, name: d.dataset.name, phone: d.dataset.phone, canReview: canReview() });
+}
+document.addEventListener("toggle", (ev) => {
+  const d = ev.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.classList.contains("rcli") || !d.dataset.cid) return;
+  if (d.open) { P.tab.editCus = d.dataset.cid; fichaOpen(d); } else if (P.tab.editCus === d.dataset.cid) P.tab.editCus = undefined;
+}, true);
 // 🔎 Buscador (buscador.js): cada resultado abre la pantalla de siempre, ya filtrada.
 initSearch((kind, id, q) => {
   if (kind === "customer" || (kind === "reseller" && !canReview())) { P.tab.q = q; P.tab.editCus = id; return go("clientes"); }
