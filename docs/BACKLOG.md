@@ -112,4 +112,4 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M11 | Sofi: medir qué tan bien entiende con Claude real y textos dictados | P2 | ⏳ |
 | M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ⏳ |
 | M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ⏳ |
-| M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | P1 | 🧑 falta una captura del correo |
+| M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | — | ⏸️ en pausa: el dueño ya no va a usar el Ganadero (12/11) |
