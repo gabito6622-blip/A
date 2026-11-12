@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 12/11/2026 · GaboHub etapa 1 (rama `hub-etapa1`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto de controles antes y después | Ariana (con página, demo de 6 meses) y un revendedor «solo panel», 390 px: 15 y 13 pantallas antes, 17 y 15 después. Dentro de cada pantalla, botones y formularios iguales; solo cambian las pestañas de navegación. La foto sale igual 2 veces seguidas | ✅ |
+| Navegación nueva | `test/hub-navegacion.test.mjs` a 360 px: barra de abajo, grupos, Vender (5 caminos), Más con todos los destinos y buscador, atajos del Inicio, «solo panel» sin Mi página. Todo de 44 px o más y sin scroll de costado | ✅ |
+| Pruebas adaptadas | `revendedor-pantallas`, `afuera-completo` y `cuentas-propias` llegaban a las pestañas por la fila completa; ahora llegan por su grupo o por Más. Lo que revisan (desborde, logos, errores) no cambió | ✅ |
+| Arreglo hallado | «Mis cupones» abierto desde Más no cargaba sus cupones: ahora se cargan igual que desde la pestaña | ✅ |
+| Pruebas automáticas | `npm test`: 477 / 477 (48 s) | ✅ |
+
 ## 12/11/2026 · Después de publicar #46
 | Qué | Cómo | Resultado |
 |---|---|---|

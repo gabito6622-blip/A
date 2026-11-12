@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · GaboHub etapa 1: navegación como el panel del dueño
+- **Qué:** barra de abajo Inicio · Clientes · Vender · Inventario · Más; las 10 pestañas de «Mis clientes» en 3 grupos; pantallas nuevas Vender y Más.
+- **Por qué así:** el dueño quiere que el revendedor se sienta en su propio panel. El problema principal era que casi todo (la página, los combos, las cuentas propias) estaba en una fila de pestañas que había que correr de costado.
+- **Códigos y Comprar salen de la barra de abajo:** siguen a un toque en el Inicio, en Más, en Vender y en la barra de arriba de la PC.
+- **Sin cambios de servidor ni de datos.**
+
 ## 2026-11-12 · Precio de GaboHub
 - **Qué decidió el dueño:** Bs 49 por mes, o US$ 5 fijos para los que pagan en dólares. Lo pagan todos los revendedores (no solo los de página propia). Sin el «gratis si compra Bs 200». El cobro queda apagado hasta que él lo prenda.
 - **Por qué US$ 5 fijos:** pasar Bs 49 con la tasa del día da otro número cada día; el dueño quiere un precio redondo en dólares.
