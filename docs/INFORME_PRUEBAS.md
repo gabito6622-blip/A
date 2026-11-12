@@ -1,13 +1,25 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (rama `panel-guiado`, sin publicar)
+## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (rama `panel-bandejas`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **471 → 472 / 472 ✅** |
+| Pestañas | `test/bandejas.test.mjs`, con navegador a 360 px. Cubre: las 4 pestañas de cada grupo; cada una lleva a su pantalla y marca la actual; «Mensajes por enviar» abre WhatsApp en Avisos; en Conversaciones, Aprobar pagos y Vender no aparecen; Atención ve solo Fiado y Pagos por revisar; botones de 44 px, sin desborde | ✅ |
+| Arreglo | Las pestañas se ven en dos filas: en una sola, dos quedaban escondidas en el celular | ✅ |
+| Prueba vieja más firme | La del buscador fallaba a veces: miraba también el «Reemplazar» de la ficha | ✅ |
+| Foto antes / después | 25 pantallas idénticas. Las 5 con pestañas tienen 4 botones más (las pestañas) y nada menos | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
+## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (publicado en #42)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **470 → 471 / 471 ✅** |
 | Lo que se ve antes = lo que pasa después | `test/guiado.test.mjs`, con navegador a 360 px. Cubre: el «Automático» de Vender nombra el mismo perfil que después entrega el servidor; la fecha de «Si renovás» es la que queda después de renovar; la confirmación muestra «dd/mm → dd/mm»; el aviso del proveedor aparece antes y, si igual se intenta, el servidor frena y la fecha no cambia; «Hay 3 perfiles libres» y «No hay perfiles libres» coinciden con el stock | ✅ |
 | Pruebas viejas más firmes | `oficina` y `buscador` fallaban a veces por casualidad: buscaban «777» o «4321» en ids y fechas. Ahora miran solo los textos que se muestran | ✅ |
 | Foto antes / después | Las 30 pantallas idénticas | ✅ |
-| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+| **Después de publicar (#42), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75. Solo mirando: las fichas y Renovar muestran la vista previa, sin desborde y con 0 errores | ✅ |
+| Hallazgo | 81 de los 82 servicios muestran «se pasaría de la fecha del proveedor». Es correcto: son alquileres de Disney cuya cuenta vence con el proveedor el mismo día que el cliente o antes (40 de 81). El servidor ya frenaba esas renovaciones; ahora se ve antes. Para renovarlos: primero «Pagué la renovación» de la cuenta en Cuentas (mueve la fecha del proveedor) y después renovar al cliente | ℹ️ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Ficha 360°, etapa 4 (publicado en #41)
 | Qué | Cómo | Resultado |
