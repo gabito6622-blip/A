@@ -1,0 +1,33 @@
+/* 🗣️ "Decile qué hacer" (ordenes.js): charla con Sofi en Inicio. Celular primero: botones de 44 px,
+   letra de 12 px o más, sin desborde. Usa los colores del panel (claro y oscuro). */
+.oc-card { gap: 10px; }
+.oc-card h2 small { font-weight: 500; }
+.oc-log { display: grid; gap: 10px; max-height: min(60vh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px; min-width: 0; }
+.oc-empty { margin: 0; padding: 12px; border-radius: 12px; background: var(--soft); color: var(--ink); font-size: 14px; }
+.oc-msg { display: flex; gap: 8px; align-items: flex-end; min-width: 0; }
+.oc-yo { justify-content: flex-end; }
+.oc-av { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font-size: 17px; }
+.oc-bub { min-width: 0; max-width: min(100%, 560px); padding: 9px 12px; border-radius: 14px; display: grid; gap: 6px; overflow-wrap: anywhere; font-size: 14px; }
+.oc-sofi .oc-bub { background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.oc-yo .oc-bub { background: var(--dark); color: var(--dark-ink); border-bottom-right-radius: 4px; }
+.oc-bub time { font-size: 12px; opacity: .8; justify-self: end; }
+.oc-t { margin: 0; white-space: pre-wrap; }
+.oc-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.oc-lines li { font-size: 14px; }
+.oc-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.oc-btns .pbtn, .oc-card .pbtn, .oc-plan .pbtn { min-height: 44px; white-space: normal; text-align: left; justify-content: center; max-width: 100%; }
+.oc-plan { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card); border: 1px dashed var(--line); }
+.oc-plan > .pbtn { justify-self: start; }
+.oc-ok { margin: 0; color: var(--ok); font-weight: 700; }
+.oc-err { margin: 0; color: var(--bad); font-weight: 600; }
+.oc-note { margin: 0; font-size: 13px; color: var(--muted); }
+.oc-secret { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+.oc-secret .sel { user-select: all; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.oc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.oc-chip { min-height: 44px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--blue-text); font-family: inherit; font-weight: 600; font-size: 13px; line-height: 1.25; cursor: pointer; text-align: left; max-width: 100%; }
+.oc-chip:hover { background: var(--soft); }
+.oc-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.oc-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.oc-form textarea { width: 100%; min-height: 48px; resize: vertical; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 10px 12px; font-family: inherit; font-size: 16px; line-height: 1.4; box-sizing: border-box; }
+.oc-form .pbtn { min-height: 48px; }
+.oc-off .pbtn { justify-self: start; }

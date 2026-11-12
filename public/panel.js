@@ -2,6 +2,7 @@
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
+import { ordenesCard } from "/ordenes.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
@@ -509,7 +510,9 @@ const V = {
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
-    return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    // 🗣️ "Decile qué hacer" (ordenes.js): dueño y admin.
+    const ordenes = canReview() ? ordenesCard(aiInfo, isOwner()) : "";
+    return ordenes + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
@@ -1468,7 +1471,7 @@ const AUD_VERB = {
   "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
   "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
   "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
-  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.command": "hizo una orden con la secretaria", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
   "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
   "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
 };
@@ -1695,6 +1698,7 @@ const AI_AGENTS = [
   ["whatsapp", "💬 Atención por WhatsApp", "El único que habla con tus clientes. Responde lo que el bot de palabras clave no entiende: precios, cómo pagar, \"no me deja entrar\", \"me pide un código\", renovaciones. Los códigos, links y el QR los manda el sistema, nunca la IA. Si la cuenta tiene problemas o el cliente reclama, te lo pasa a vos. Necesita el bot de WhatsApp prendido."],
   ["receipts", "🧾 Revisor de comprobantes", "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos. (Los comprobantes repetidos se detectan siempre, sin IA.)"],
   ["daily", "🧠 Asistente del dueño", "Cada mañana (8 h) te manda el reporte del día, y en Inicio le podés preguntar lo que quieras de tu negocio: \"¿quién vence esta semana?\", \"¿cuánto vendí de Disney?\". Solo lee: nunca cambia nada."],
+  ["commands", "🗂️ Secretaria: “Decile qué hacer”", "En Inicio le das órdenes con tus palabras: \"vendele un Disney a Ana, me pagó por QR\", \"dame el código de la Netflix de Rodrigo\", \"renová a Juan\". Claude solo entiende la orden (nunca ve contraseñas, códigos ni costos). Lo que cambia algo te lo muestra antes y lo hacés vos con ✅ Hacerlo. Nunca manda mensajes sola."],
   ["watch", "🚨 Vigilante de cuentas (IA)", "Las reglas ya avisan siempre (sin IA) cuando una plataforma manda \"cambió la contraseña\", \"pago rechazado\" o \"cuenta cancelada\". Esto suma la IA para los correos raros que las reglas no reconocen (máximo 30 por día)."],
 ];
 async function aiCard() {
