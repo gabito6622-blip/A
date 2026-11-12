@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · JOSUE ORIAS, aneliz y panama
+- **JOSUE ORIAS · netgb118+25** (Disney+ sin ESPN): vencía 27/10; renovada hasta el 27/11/2026, pagada Bs 40. Su teléfono en el panel tiene 9 dígitos (776115438): falta confirmarlo.
+- **aneliz · gabito6619+uwb:** no pagó (venció 06/11). Nota «✂️ POR CORTAR»; entra en el recordatorio de las 19:30. Al cortarla, el dueño pasa la clave nueva y se libera. aneliz no tiene número en el panel.
+- **panama · netgb117+op:** renovó por US$ 7; vence 11/12/2026, pagada (precio fijado en US$ 7).
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MZA
 - **MZA · Marco Antonio Zurita** (mismo número): nota «Paga Bs 35 por cuenta Disney».
 - **n2025jg+nov2** (Disney+ sin ESPN, vence 24/11) y **primeairm1+3** (con ESPN, vence 27/11): pagadas a Bs 35 c/u (primeairm1+3 figuraba Bs 30).
