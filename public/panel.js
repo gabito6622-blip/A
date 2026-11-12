@@ -923,10 +923,12 @@ const V = {
     const grpHtml = (g) => {
       const vivos = g.l.flatMap((a) => a.slots.filter((s2) => s2.status !== "retired"));
       const libres = vivos.filter((s2) => s2.status === "available").length, ocup = vivos.filter((s2) => s2.status === "assigned").length;
-      const pronto = g.l.filter((a) => a.status === "active" && daysLeft(a.supplierExpiresAt) <= 7).length;
+      // Ya vencidas aparte: no son "por vencer" (las 16 caídas de la tienda real se contaban como "vence ≤ 7 d").
+      const vencidas = g.l.filter((a) => a.status === "active" && a.supplierExpiresAt <= Date.now()).length;
+      const pronto = g.l.filter((a) => a.status === "active" && a.supplierExpiresAt > Date.now() && daysLeft(a.supplierExpiresAt) <= 7).length;
       const open = openG.includes(g.pid) || groups.length === 1 || !!(P.tab.accq ?? "").trim();
       return `<details class="pgrp" data-pgrp="${esc(g.pid)}" ${open ? "open" : ""}><summary><span class="pgrp-h">${svbadge(g.l[0])}<span><b>${esc(pname(g.pid))}</b><small>${g.l.length} cuenta${g.l.length === 1 ? "" : "s"} · ${libres} libre${libres === 1 ? "" : "s"} · ${ocup} ocupado${ocup === 1 ? "" : "s"}</small></span></span>
-        <span class="pgrp-pills">${libres ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, "ok") : pill("Sin libres", "bad")}${pronto ? pill(`${pronto} vence${pronto === 1 ? "" : "n"} ≤ 7 d`, "warn") : ""}</span>${icon("chev", "i chev")}</summary>
+        <span class="pgrp-pills">${libres ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, "ok") : pill("Sin libres", "bad")}${vencidas ? pill(`${vencidas} vencida${vencidas === 1 ? "" : "s"}`, "bad") : ""}${pronto ? pill(`${pronto} vence${pronto === 1 ? "" : "n"} ≤ 7 d`, "warn") : ""}</span>${icon("chev", "i chev")}</summary>
         <div class="pgrp-cards">${g.l.map(cardOf).join("")}</div></details>`;
     };
     const cards = plat ? groups.map(grpHtml).join("") : shownAccs.map(cardOf).join("");
