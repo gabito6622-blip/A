@@ -1137,3 +1137,11 @@ table.ctl tfoot td.ccli{z-index:3}
 .profile b{font-size:14px;color:var(--ink)}
 .profile .role{width:auto;padding:2px 10px;font-size:12px;border-radius:999px;letter-spacing:.03em}
 .menu details .sub{border-left:2px solid var(--line);margin-left:18px;padding-left:8px}
+
+/* ===== Pestañas que unen pantallas hermanas (etapa 6): Avisos y vencimientos · Plata ===== */
+.gtabs{display:grid;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 8px}
+.gtabs-t{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.gtabs-row{display:flex;flex-wrap:wrap;gap:6px}
+.gtabs-row button{flex:none;min-height:44px;border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:999px;padding:0 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.gtabs-row button[aria-current="page"]{background:var(--dark);color:var(--dark-ink);border-color:var(--dark)}
+.gtabs-row button:focus-visible{outline:2px solid var(--blue-text);outline-offset:2px}

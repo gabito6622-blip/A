@@ -2052,6 +2052,25 @@ async function waBotHtml() {
 }
 
 /* ---------------- render ---------------- */
+/* Pestañas que unen pantallas hermanas (etapa 6, 12/11/2026). No mezclan ni cambian ninguna pantalla: solo
+   llevan de una a otra. "Avisos y vencimientos" junta Recordatorios, Que vuelvan, los vencidos del Control y los
+   mensajes por enviar de WhatsApp; "Plata" junta Finanzas, Fiado, el Dashboard y Pagos por revisar. */
+const GROUPS = {
+  avisos: { title: "⏰ Avisos y vencimientos", views: ["recordatorios", "quevuelvan"], wa: true, tabs: [["recordatorios", "⏰ Recordatorios"], ["quevuelvan", "💸 Que vuelvan"], ["hgo:control:bad", "🔴 Vencidos"], ["wa:avisos", "📤 Mensajes por enviar"]] },
+  plata: { title: "💰 Plata", views: ["finanzas", "fiado", "dashboard"], tabs: [["finanzas", "💰 Caja del mes", "owner"], ["fiado", "📒 Fiado"], ["dashboard", "📊 Reportes", "review"], ["aprobacion", "✅ Pagos por revisar"]] },
+};
+function groupTabs() {
+  const g = Object.values(GROUPS).find((x) => x.views.includes(P.view) || (x.wa && P.view === "whatsapp" && P.tab.waSec === "avisos"));
+  if (!g) return "";
+  const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
+  const btn = ([k, t]) => {
+    if (k.startsWith("hgo:")) return `<button type="button" data-hgo="${esc(k.slice(4))}">${t}</button>`;
+    if (k.startsWith("wa:")) return `<button type="button" data-wago="${esc(k.slice(3))}" aria-current="${P.view === "whatsapp" ? "page" : "false"}">${t}</button>`;
+    return `<button type="button" data-go="${k}" aria-current="${P.view === k ? "page" : "false"}">${t}</button>`;
+  };
+  return `<nav class="gtabs" aria-label="${esc(g.title)}"><span class="gtabs-t">${g.title}</span><div class="gtabs-row">${g.tabs.filter((x) => roleOk(x[2])).map(btn).join("")}</div></nav>`;
+}
+
 /** El menú: 6 áreas + Herramientas, o la lista de pantallas que coinciden con "Buscar pantalla". */
 function menuHtml(pend) {
   const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
@@ -2087,7 +2106,7 @@ async function render() {
   $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", (b.dataset.go ?? (b.dataset.more ? "more" : "")) === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {
-    $("#pout").innerHTML = await V[P.view]();
+    $("#pout").innerHTML = groupTabs() + await V[P.view]();
     $$(".msgs").forEach((m) => (m.scrollTop = m.scrollHeight));
     enhanceDates($("#pout"));
     enhanceFiles($("#pout"));
@@ -2321,6 +2340,7 @@ document.addEventListener("click", async (ev) => {
   if (d.go) return go(d.go);
   if (d.more) { $("#app").classList.add("open"); return; }
   if (d.gsopen) return openSearch();
+  if (d.wago) { P.tab.waSec = d.wago; return go("whatsapp"); }
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
