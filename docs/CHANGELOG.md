@@ -41,7 +41,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Dani strem
 - **Dani strem:** ahora «Dani strem · Daniel Quispe Quispe», con su número +591 62505099 (no tenía).
-- **gabito6626+rclad** (vence 12/11): «EN COBRO».
+- **gabito6626+rclad:** estaba «EN COBRO»; pagó Bs 69, vence 12/12/2026 (nota de cobro quitada).
 - **netgb117+efp** (vence 14/11): pagada a Bs 69.
 - **gabito6626+mana:** vence 19/11, confirmado por el dueño; sin cambios.
 
