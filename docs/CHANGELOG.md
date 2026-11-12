@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Sin publicar (rama `panel-inventario`, incluye el arreglo de abajo) · Cuentas por plataforma (etapa 7)
+- **Inventario → Cuentas, en el celular:** las cuentas se agrupan por plataforma (Canva, ChatGPT, Disney, Netflix…). Cada grupo dice cuántas cuentas, perfiles libres y ocupados tiene, y avisa «Sin libres» o «vence ≤ 7 d». Tocás el grupo y adentro están las mismas tarjetas de siempre, con los mismos botones.
+- **«📋 Vista clásica»:** un botón vuelve a la lista de antes, una cuenta tras otra. El celular recuerda la que elegiste.
+- **En la computadora no cambia nada:** sigue la tabla.
+
 ## 2026-11-12 · Sin publicar (rama `panel-caidas-fix`) · Arreglo: renglones pisados en «Cuentas caídas»
 - Con muchas cuentas de nombre largo, como las 16 de la tienda real, el texto de cada renglón se montaba sobre el de abajo. Ahora cada renglón muestra su texto completo.
 

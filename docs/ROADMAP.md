@@ -2,6 +2,10 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## Panel ordenado (M15) — etapas 1 a 6 publicadas (#39–#43)
+- Etapa 7, Cuentas por plataforma: lista en la rama `panel-inventario`, esperando «Publicá».
+- Después: revisar con el dueño si quiere más etapas.
+
 ## Descartado — 🗣️ Sofi, la secretaria (el dueño ya no la necesita, 12/11)
 - Órdenes con tus palabras y confirmación. 476 pruebas en verde.
 - Sigue: Recuperador, Almacenero y Técnico. (El Cajero con el Ganadero quedó en pausa por decisión del dueño.)

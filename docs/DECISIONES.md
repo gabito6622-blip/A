@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Cuentas por plataforma (etapa 7)
+- **Qué:** en el celular, Cuentas agrupa por plataforma por defecto. Adentro de cada grupo van las mismas tarjetas, sin tocar nada de ellas.
+- **Por qué así:** la regla del dueño es no perder ninguna función. Reusar la tarjeta tal cual garantiza que los botones sean los mismos, y la prueba lo comprueba comparando las dos vistas.
+- **Vista clásica a un toque:** por si el dueño prefiere la lista de antes. Se guarda solo en ese celular.
+- **Computadora sin cambios:** ahí la tabla ya se lee bien.
+
 ## 2026-11-12 · Cuentas pagadas en dólares
 - **Qué se guarda:** el costo en US$ por mes, en la cuenta. Cada pago guarda los US$, la tasa y los Bs. Finanzas sigue sumando en Bs, que es la plata que de verdad sale.
 - **Qué tasa se usa:** la del Banco Central del día, que la tienda ya trae sola, pero siempre se puede cambiar: los bancos cobran la tarjeta con su propia tasa.

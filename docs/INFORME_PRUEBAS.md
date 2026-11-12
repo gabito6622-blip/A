@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 12/11/2026 · Cuentas por plataforma, etapa 7 (rama `panel-inventario`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Mismos botones | `test/inventario-plataforma.test.mjs` a 360 px: toma la lista de botones y formularios de cada tarjeta en «Por plataforma» y en «Vista clásica», y las compara. Son idénticas | ✅ |
+| Contadores | Disney: 2 cuentas · 5 libres · 0 ocupados · 1 vence ≤ 7 d. Netflix: 1 cuenta · 3 libres · 1 ocupado (después de una venta) | ✅ |
+| Celular | Sin scroll de costado y los encabezados de grupo miden 44 px o más | ✅ |
+| Se recuerda | Un grupo abierto sigue abierto al redibujar; la vista elegida sigue al recargar; al buscar, el grupo con resultados se abre solo | ✅ |
+| Foto del panel (30 pantallas, datos de ejemplo) | 29 iguales; en Cuentas, 1 botón más (el de cambiar de vista) y 0 de menos; 0 errores | ✅ |
+| Pruebas automáticas | `npm test`: 476 / 476 | ✅ |
+| Revisión visual | Captura de celular con los datos de ejemplo: grupos legibles, la tarjeta de adentro igual a la de antes | ✅ |
+
 ## 12/11/2026 · Después de publicar #44 y arreglo de renglones (rama `panel-caidas-fix`)
 | Qué | Cómo | Resultado |
 |---|---|---|
