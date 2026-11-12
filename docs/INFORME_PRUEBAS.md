@@ -1,12 +1,23 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Buscador del panel, etapa 3 (rama `panel-buscador`, sin publicar)
+## Tanda 12/11/2026 · Ficha 360°, etapa 4 (rama `panel-ficha`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **469 → 470 / 470 ✅** |
+| Ficha | `test/ficha.test.mjs`, con navegador a 360 px. Cubre: servicios, pedidos y fallas del cliente; sin contraseña ni costo; pestañas; botones de 44 px sin desborde. «Pagado», «Renovar» (+30 días) y «Reemplazar» (otro perfil) cambian lo mismo que en sus pantallas y la ficha queda abierta. Atención (en oscuro) ve la ficha y Renovar, sin Reemplazar | ✅ |
+| Foto antes / después | Las 30 pantallas idénticas: mismos botones, formularios y enlaces | ✅ |
+| Revisión visual | 390 px, claro y oscuro, con datos de ejemplo: 0 desbordes, 0 errores | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
+## Tanda 12/11/2026 · Buscador del panel, etapa 3 (publicado en #40)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **464 → 469 / 469 ✅** |
 | Buscador | `test/buscador.test.mjs` (5): sin tildes, por teléfono, por correo de cuenta, por referencia del banco y por número de pedido; buscar por la contraseña no encuentra nada y ningún resultado trae contraseña, PIN ni costo; Atención sin cuentas ni pedidos; cliente y sin sesión → no; menos de 2 letras no busca; navegador a 360 px en claro y oscuro (botón arriba, tecla /, Esc, resultado → ficha abierta, Inicio → «Ver todo en el Control») | ✅ |
 | Foto antes / después | Mismo guion y mismos datos: 28 pantallas idénticas; Inicio y Mi oficina tienen 1 botón menos cada una, por Sofi (sacada por decisión del dueño) | ✅ |
-| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+| **Después de publicar (#40), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75. Búsquedas reales («disney», «gmail»): resultados sin datos sensibles. A 390 px: 6 resultados, sin desborde, el resultado abre su pantalla sin error, 0 errores | ✅ |
+| Para tener en cuenta | Un teléfono se busca con 4 números o más («591» solo no alcanza). Las cuentas se buscan por correo, no por producto | ℹ️ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (publicado en #39)
 | Qué | Cómo | Resultado |

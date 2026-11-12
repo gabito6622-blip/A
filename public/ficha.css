@@ -1,0 +1,25 @@
+/* 👤 Ficha 360° del cliente (ficha.js), dentro de la tarjeta de Clientes. Usa los colores del tema del panel. */
+.fx{display:grid;gap:10px;margin:4px 0 12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.fx-top{display:flex;flex-wrap:wrap;gap:8px}
+.fx-wa{background:#1f7a49;color:#fff;border-color:#1f7a49;text-decoration:none}
+.fx-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.fx-pane{display:grid;gap:8px}
+.fx-svc{display:grid;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.fx-svc-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fx-svc small{font-size:12.5px;overflow-wrap:anywhere}
+.fx-btns{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:4px}
+.fx-more summary{list-style:none;cursor:pointer}
+.fx-more summary::-webkit-details-marker{display:none}
+.fx-chip{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.fx-ok{background:#e3f4e8;color:#17663a}
+.fx-warn{background:#fdf1dc;color:#8a4f00}
+.fx-bad{background:#fde7e5;color:#a1251a}
+.fx-mute{background:var(--line);color:var(--muted)}
+.app.dark .fx-ok{background:#173123;color:#7fe0a3}
+.app.dark .fx-warn{background:#33270f;color:#f3c070}
+.app.dark .fx-bad{background:#3a1714;color:#ff9a90}
+.fx-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.fx-list li{display:flex;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;min-width:0}
+.fx-list li > span{min-width:0;overflow-wrap:anywhere}
+.fx-r{text-align:right;white-space:nowrap}
+.fx-note,.fx-wait{margin:0;font-size:12.5px}
