@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · robin sardan
+- **robin sardan:** ahora «robin sardan · Sardana Carballo Robin» (mismo número).
+- **netgb117+pg19:** pagó Bs 70 el 11/11; su mes se extendió del 15/11 al 15/12/2026 y quedó pagado.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas cortadas
 - **n2025gt+18dp y netscz108+sem:** el dueño las cortó en Disney (rodbol no las renovó). En el panel: alquiler cerrado (queda en el historial) y perfil libre. Clave nueva cargada en las 2 (la pasó el dueño; no se escribe acá). Libres de verdad: confirmado por el dueño; Disney Premium + ESPN, cuenta completa.
 - **Ojo (dicho por el dueño):** las demás cuentas que el panel muestra «libres» no están confirmadas; hay que revisarlas una por una.
