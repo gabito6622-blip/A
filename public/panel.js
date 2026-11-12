@@ -45,6 +45,7 @@ const MENU_WORDS = {
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
 };
 const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const TITLE = { inicio: ["home", "Inicio"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
@@ -897,7 +898,7 @@ const V = {
       <small class="muted">«Propias» = son tuyas y se pagan solas (autopay): quedan sin vencimiento y sus perfiles libres vuelven a estar a la venta.</small></section>` : "";
     const prodOf = (id) => products.find((x) => x.id === id);
     const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(pname(a.productId), p?.color); };
-    const cards = shownAccs.map((a) => {
+    const cardOf = (a) => {
       const d = daysLeft(a.supplierExpiresAt);
       const libres = a.slots.filter((s) => s.status === "available").length;
       const vivos = a.slots.filter((s) => s.status !== "retired");
@@ -911,8 +912,25 @@ const V = {
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
-    }).join("");
-    return `${alertsCard}${caidasCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
+    };
+    // Etapa 7 (12/11/2026): "Por plataforma" agrupa las MISMAS tarjetas por producto (Plataforma → Cuenta →
+    // Perfiles → Cliente). Nada de adentro cambia; "Vista clásica" las muestra como antes, una tras otra.
+    const plat = accView() === "plat";
+    const groups = [];
+    for (const a of shownAccs) { const g = groups.find((x) => x.pid === a.productId) ?? (groups.push({ pid: a.productId, l: [] }), groups.at(-1)); g.l.push(a); }
+    groups.sort((x, y) => pname(x.pid).localeCompare(pname(y.pid)));
+    const openG = P.tab.accOpen ?? [];
+    const grpHtml = (g) => {
+      const vivos = g.l.flatMap((a) => a.slots.filter((s2) => s2.status !== "retired"));
+      const libres = vivos.filter((s2) => s2.status === "available").length, ocup = vivos.filter((s2) => s2.status === "assigned").length;
+      const pronto = g.l.filter((a) => a.status === "active" && daysLeft(a.supplierExpiresAt) <= 7).length;
+      const open = openG.includes(g.pid) || groups.length === 1 || !!(P.tab.accq ?? "").trim();
+      return `<details class="pgrp" data-pgrp="${esc(g.pid)}" ${open ? "open" : ""}><summary><span class="pgrp-h">${svbadge(g.l[0])}<span><b>${esc(pname(g.pid))}</b><small>${g.l.length} cuenta${g.l.length === 1 ? "" : "s"} · ${libres} libre${libres === 1 ? "" : "s"} · ${ocup} ocupado${ocup === 1 ? "" : "s"}</small></span></span>
+        <span class="pgrp-pills">${libres ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, "ok") : pill("Sin libres", "bad")}${pronto ? pill(`${pronto} vence${pronto === 1 ? "" : "n"} ≤ 7 d`, "warn") : ""}</span>${icon("chev", "i chev")}</summary>
+        <div class="pgrp-cards">${g.l.map(cardOf).join("")}</div></details>`;
+    };
+    const cards = plat ? groups.map(grpHtml).join("") : shownAccs.map(cardOf).join("");
+    return `${alertsCard}${caidasCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><button class="pbtn sm acc-viewbtn" type="button" data-accview="${accView() === "plat" ? "clasica" : "plat"}">${accView() === "plat" ? "📋 Vista clásica" : "🗂️ Por plataforma"}</button><span class="muted">${accs.length} cuentas</span></div>
       <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
@@ -2367,6 +2385,7 @@ document.addEventListener("click", async (ev) => {
   if (d.more) { $("#app").classList.add("open"); return; }
   if (d.gsopen) return openSearch();
   if (d.wago) { P.tab.waSec = d.wago; return go("whatsapp"); }
+  if (d.accview) { try { localStorage.setItem("gs-acc-view", d.accview); } catch { /* sin almacenamiento */ } return render(); }
   if (d.caidaspropias) {
     // Mismas ediciones que "Editar" de cada cuenta: proveedor Propias y sin vencimiento (la fecha lejana que el
     // sistema ya usa para una cuenta cargada sin fecha).
@@ -3411,6 +3430,11 @@ initSearch((kind, id, q) => {
 $("#menuFind")?.addEventListener("input", (ev) => { P.menuQ = ev.target.value; $("#menu").innerHTML = menuHtml(watch.last ?? 0); });
 $("#menuFind")?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); $("#menu button[data-go]")?.click(); } });
 // Las áreas que abrís o cerrás quedan así la próxima vez.
+// Cuentas por plataforma: los grupos que abrís siguen abiertos al volver a dibujar la pantalla.
+document.addEventListener("toggle", (ev) => {
+  const g = ev.target?.dataset?.pgrp; if (!g) return;
+  const l = (P.tab.accOpen ?? []).filter((x) => x !== g); if (ev.target.open) l.push(g); P.tab.accOpen = l;
+}, true);
 $("#menu").addEventListener("toggle", (ev) => {
   const id = ev.target?.dataset?.area; if (!id) return;
   const l = menuOpenGet().filter((x) => x !== id); if (ev.target.open) l.push(id); menuOpenSet(l);
