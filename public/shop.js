@@ -5,7 +5,7 @@
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
 import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
-import { ownStockView, initOwnStock } from "/ownstock.js";
+import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
@@ -699,11 +699,42 @@ async function loadRTab(tab) {
   if (tab === "ganancias") S.data.rearn = await api("GET", "/api/me/earnings").catch(() => null);
   if (["perfiles", "debe", "ganancias"].includes(tab)) S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   if (tab === "perfiles") await loadSelfCodes();
+  // GaboHub etapa 3: Mi control, Quién me debe y Mis ganancias también muestran sus cuentas propias.
+  if (["control", "debe", "ganancias"].includes(tab)) await loadOwnStock();
+}
+/* ---- Cuentas propias dentro de Mi control, Quién me debe y Mis ganancias (mismos botones que "Mis cuentas propias") ---- */
+const ownFirst = (n) => String(n ?? "").trim().split(/\s+/)[0] ?? "";
+const ownPill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 3 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
+const ownLink = (x) => (x.linkToken ? `\nPagá acá: ${location.origin}/c/${x.linkToken}` : "");
+function ownControlBox() {
+  const d = ownData(); if (!d?.sales?.length) return "";
+  const now = Date.now(), week = now + 7 * 86_400_000;
+  const l = d.sales.filter((x) => x.expiresAt <= week && x.expiresAt >= now - 30 * 86_400_000);
+  if (!l.length) return "";
+  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 tu ${x.product} ${daysLeft(x.expiresAt) < 0 ? "venció" : daysLeft(x.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(x.expiresAt)}.${x.price ? ` La renovación es ${mine(x.price)}.` : ""} ¿Lo renovamos? 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
+  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias que vencen <span class="spill sp-mute">${l.length}</span></h3>
+    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)}${x.price != null ? ` · ${mine(x.price)}` : ""}${x.trial ? " · 🎁 prueba" : ""}</small></span>${ownPill(x.expiresAt)}<span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(x.id)}">🔄 Renovó</button></span></div>`).join("")}
+    <button class="sbtn sm" type="button" data-rtab="propias">Ver todas mis cuentas propias</button></div>`;
+}
+function ownDebeBox() {
+  const d = ownData(); if (!d?.sales?.length) return "";
+  const l = d.sales.filter((x) => x.pay !== "pagado" && !x.trial && x.price);
+  if (!l.length) return "";
+  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 te paso tu cuenta: tu ${x.product} es *${mine(x.price)}*. ¿Me podés pagar hoy? ¡Gracias! 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
+  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Ventas propias sin pagar · ${mine(l.reduce((t, x) => t + x.price, 0))}</h3>
+    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)} · ${mine(x.price)} · vence ${fdate(x.expiresAt)}</small></span><span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm" type="button" data-os="pay" data-id="${esc(x.id)}" data-pay="pagado">💵 Me pagó</button></span></div>`).join("")}</div>`;
+}
+function ownEarnBox() {
+  const d = ownData(); if (!d?.sales?.length) return "";
+  const t = d.totals;
+  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias (por mes)</h3><div class="rkpis"><div><small>Clientes</small><b>${t.clients}</b>${t.trials ? `<small>${t.trials} en prueba gratis</small>` : ""}</div><div><small>Cobrás por mes</small><b class="ok">${mine(t.monthly)}</b></div><div><small>Te deben</small><b class="${t.owed ? "bad" : ""}">${mine(t.owed)}</b></div></div>
+    <p class="empty" style="margin:0">Es lo que cobrás a tus clientes por tus cuentas propias. No se le resta lo que te cuestan esas cuentas: eso no está anotado en el panel.</p></div>`;
 }
 const myStore = () => S.data.shop?.title || S.me?.name || "";
 const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
 const seen = (r) => { try { return localStorage.getItem(`gs-av-${r.id}-${r.expiresAt}`) === "1"; } catch { return false; } };
-function rControlView() {
+function rControlView() { return rControlBase() + ownControlBox(); }
+function rControlBase() {
   const rows = S.data.rctl ?? [];
   const T = (S.data.rc ??= { q: "", f: "todos", sort: "" });
   const dl = (r) => daysLeft(r.expiresAt);
@@ -740,6 +771,12 @@ function rControlView() {
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 function rDebeView() {
+  const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
+  // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
+  const base = own || subsOwed ? rDebeBase().replace("Nadie te debe nada 🎉", "No tenés fiados anotados en tu libreta.") : rDebeBase();
+  return base + own;
+}
+function rDebeBase() {
   const bs = mine; // su libreta va en SU moneda (Bs si es de Bolivia)
   const ov = S.data.rfiado ?? { rows: [], totals: {} }, det = S.data.rfdetail;
   const clients = S.data.customers ?? [];
@@ -758,7 +795,8 @@ function rDebeView() {
         <details class="rcmore"><summary class="sbtn sm">💵 Me pagó</summary><form class="sform" data-rfpay="${esc(r.customerId)}"><label>Monto (${esc(mySym())})<input name="amount" inputmode="decimal" required value="${r.owed ? r.owed / 100 : ""}"></label><label>Nota<input name="note" maxlength="120" placeholder="QR, efectivo, una parte…"></label><button class="sbtn sm pri" type="submit">Guardar pago</button></form></details>
         <button class="sbtn sm" type="button" data-rfdet="${esc(r.customerId)}">📜 Movimientos</button></footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">Nadie te debe nada 🎉</p></div>`}</div>`;
 }
-function rEarnView() {
+function rEarnView() { return rEarnBase() + ownEarnBox(); }
+function rEarnBase() {
   const g = S.data.rearn;
   if (g?.split) return earnSplitView(g, S.data.rsubs?.summary); // otro país: dos monedas, sin mezclar
   if (!g) return `<div class="sbox"><p class="empty" style="margin:0">No pudimos cargar tus ganancias. Probá de nuevo.</p></div>`;
