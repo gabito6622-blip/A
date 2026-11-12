@@ -9,6 +9,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Vencidas sin tocar:** netscz108+10m (19/10) y gabito6626+d27 (03/11): falta que el dueño diga.
 - **oby · Ovidio Nina Huaycho** (nombre completo).
 - **opajg12+nee:** estaba en cuarentena (alquiler cerrado solo al vencer, sin anotar la renovación). Es de oby: sacada de cuarentena y cargada a él con «Cargar sus cuentas» (sin cobro como venta, sin avisos), desde 09/10, renovó 09/11, vence 09/12/2026, pagada a Bs 69 (precio de revendedor del panel; el dueño no dijo otro). Alquileres activos 80 → 81.
+- **oby paga Bs 69 por cada cuenta** (dicho por el dueño): c16, nu2 y d2025j.g pasaron a Bs 69 (cobro reanotado con ese monto). Nota en su ficha: «avisarle 1 a 2 días antes».
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Yuvinka Avila Orias
 - **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
@@ -19,7 +20,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
 - **Jhon Maykol Vidaurre** (antes «JHON VIDAURRE», mismo número).
 - **gabito6626+x91** (vence 15/11): pagada a Bs 63 (lo que pagó la última vez); renueva a Bs 63; nota «📅 avisarle el 13/11». En la cuenta: «enlazada al Gmail del revendedor: cable365b@gmail.com» (se conservó «LLENA»).
-- **Recordatorios en esta conversación** (pedidos por el dueño): 12/11 20:00 (revisar cobros: Yuvinka, rodbol, Daniel, netscz.101 por cortar), 13/11 9:10 (Jhon, Robin, Daniel + lo que siga en cobro) y 14/11 9:10 (Raúl). Solo arman los mensajes; no envían nada.
+- **Recordatorios en esta conversación** (pedidos por el dueño): 12/11 20:00 (revisar cobros: Yuvinka, rodbol, Daniel, oby nu1, netscz.101 por cortar) y **todos los días 9:10** (vencen en 0–2 días, en cobro, por cortar y vencidos sin pagar). Los sueltos del 13 y 14/11 quedaron pausados (los cubre el diario). Solo arman los mensajes; no envían nada.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Raúl Parrilla
 - **Raúl Parrilla** (antes «Raul PARRILLA», mismo número): nota «✅ buen cliente, paga bien».
