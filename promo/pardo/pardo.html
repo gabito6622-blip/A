@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pardo Barber Club · Reservá online</title>
+<!--
+  Publicidad vertical (1080x1920) de Pardo Barber Club para sus clientes: reservar el turno en 4 toques.
+  Pantallas reales de Barbiño con datos de ejemplo. Animación determinista: window.seek(t) dibuja el cuadro t.
+  render.cjs la captura cuadro a cuadro; ?play la reproduce en el navegador. Va sincronizada con music.py.
+-->
+<style>
+  @font-face { font-family: "Playfair"; src: url(../barbino-dia/fonts/PlayfairDisplay.woff2) format("woff2"); font-weight: 400 900; font-display: block; }
+  @font-face { font-family: "Playfair"; src: url(../barbino-dia/fonts/PlayfairDisplay-Italic.woff2) format("woff2"); font-weight: 400 900; font-style: italic; font-display: block; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #071a15; }
+  body { font-family: "Inter Display", "Inter", "Noto Color Emoji", sans-serif; color: #f5ecd8; -webkit-font-smoothing: antialiased; }
+  :root { --g: #1F5F4F; --g2: #0f3a30; --ink: #071a15; --gold: #C9A15A; --gold2: #e9cf94; --cream: #f5ecd8; --mute: rgba(245,236,216,.65); }
+  .abs { position: absolute; }
+  .serif { font-family: "Playfair", serif; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; font-weight: 400; font-style: normal; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(120% 80% at 30% 10%, #1d5a4a 0%, var(--g2) 45%, var(--ink) 100%); }
+  #pin { position: absolute; inset: -60px; opacity: .06; background: repeating-linear-gradient(90deg, var(--gold) 0 2px, transparent 2px 64px); }
+  #glow { position: absolute; width: 1500px; height: 1500px; border-radius: 50%; background: radial-gradient(circle, rgba(233,207,148,.16), rgba(233,207,148,0) 60%); }
+  #grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; pointer-events: none; z-index: 90; }
+  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 48%, rgba(0,0,0,.55) 100%); pointer-events: none; z-index: 89; }
+  #wipe { position: absolute; top: -200px; height: 2320px; width: 2000px; display: none; z-index: 80;
+    background: repeating-linear-gradient(90deg, var(--g) 0 110px, var(--cream) 110px 220px, var(--gold) 220px 330px, var(--cream) 330px 440px); box-shadow: 0 0 80px rgba(0,0,0,.6); }
+  .scene { position: absolute; inset: 0; display: none; }
+  .kicker { font-size: 32px; font-weight: 800; letter-spacing: .3em; color: var(--gold2); text-transform: uppercase; }
+  .title { font-family: "Playfair", serif; font-weight: 800; font-size: 96px; line-height: 1; letter-spacing: -.015em; }
+  .title em { font-style: italic; font-weight: 900; color: var(--gold2); }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .1em; margin-bottom: -.1em; }
+  .w > span { display: inline-block; }
+  .num { position: absolute; font-family: "Playfair", serif; font-weight: 900; font-style: italic; font-size: 640px; line-height: 1;
+    color: transparent; -webkit-text-stroke: 4px rgba(233,207,148,.75); text-shadow: 0 0 60px rgba(233,207,148,.15); }
+  .phone { position: absolute; width: 620px; height: 1300px; border-radius: 86px; padding: 18px;
+    background: linear-gradient(145deg, #3b4a44, #121a17 30%, #0a0f0d 60%, #2c3a34);
+    box-shadow: 0 60px 120px rgba(0,0,0,.65), 0 0 0 2px rgba(201,161,90,.4), 0 0 140px rgba(233,207,148,.14); }
+  .screen { position: relative; width: 584px; height: 1264px; border-radius: 70px; overflow: hidden; background: #0d1210; }
+  .screen img.shot { position: absolute; left: 0; top: 0; width: 584px; display: block; }
+  .glare { position: absolute; inset: 0; border-radius: 70px; background: linear-gradient(115deg, rgba(255,255,255,.08), rgba(255,255,255,0) 30%); z-index: 6; pointer-events: none; }
+  .ring { position: absolute; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; border: 6px solid var(--gold2); z-index: 7; opacity: 0; }
+  .finger { position: absolute; font-size: 130px; z-index: 8; opacity: 0; filter: drop-shadow(0 12px 18px rgba(0,0,0,.5)); }
+  .chip { position: absolute; padding: 26px 36px; border-radius: 30px; background: var(--cream); color: #10261f; font-size: 42px; font-weight: 800; white-space: nowrap;
+    box-shadow: 0 30px 60px rgba(0,0,0,.45); }
+  .chip .emoji { margin-right: 12px; }
+  /* chat del gancho */
+  .bubble { position: absolute; right: 90px; max-width: 760px; padding: 28px 38px; border-radius: 40px 40px 12px 40px; background: #2f6f5d; color: #fff; font-size: 46px; font-weight: 600;
+    box-shadow: 0 20px 40px rgba(0,0,0,.35); }
+  .seen { position: absolute; right: 100px; font-size: 30px; font-weight: 700; color: var(--mute); }
+  .typing { position: absolute; left: 90px; padding: 26px 34px; border-radius: 40px 40px 40px 12px; background: rgba(245,236,216,.12); display: flex; gap: 14px; }
+  .typing i { width: 18px; height: 18px; border-radius: 50%; background: var(--mute); }
+  .pill { display: inline-block; padding: 22px 38px; border-radius: 999px; font-size: 40px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="glow"></div><div id="pin"></div>
+  <div id="scenes"></div>
+  <div id="wipe"></div>
+  <canvas id="grain" width="1080" height="1920"></canvas>
+  <div id="vignette"></div>
+</div>
+<script src="assets/taps.js"></script>
+<script>
+// ------------------------------------------------------------------ tiempo (98 BPM, igual que music.py)
+const BPM = 98, BEAT = 60 / BPM, BAR = 4 * BEAT, SB = 2 * BAR;
+const T_LOGO = 2 * BAR, T_STEPS = 3 * BAR, T_RES = 11 * BAR, T_BARB = 13 * BAR, T_END = 15 * BAR, DURATION = 17 * BAR + .6;   // 42,2 s
+window.DURATION = DURATION;
+const TAP_AT = 1.35;   // segundo de cada paso en que el dedo toca (music.py pone un clic ahí)
+const K = 584 / 390;   // px CSS de la captura → px de la pantalla del celular
+const TAPS = window.TAPS;
+
+// ------------------------------------------------------------------ utilidades
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const oCubic = (p) => 1 - Math.pow(1 - p, 3), iCubic = (p) => p * p * p;
+const ioCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const oExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const oBack = (p, s = 1.7) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+const spring = (p) => (p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(11 * p));
+const el = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; };
+const set = (e, css) => Object.assign(e.style, css);
+const emo = (s) => s.replace(/(\p{Extended_Pictographic}️?)/gu, '<span class="emoji">$1</span>');
+const titleHTML = (text) => { let on = false; return text.split(" ").map((w) => { const o = w.startsWith("*"), c = w.replace(/[,.!]$/, "").endsWith("*"); const em = on || o; on = (on || o) && !c; w = w.replace(/\*/g, ""); return `<span class="w"><span>${em ? `<em>${w}</em>` : w}</span></span>`; }).join(" "); };
+const words = (s, lt, t0, step = .06) => [...s.querySelectorAll(".w > span")].forEach((w, j) => { const p = oExpo(P(lt, t0 + j * step, .45)); set(w, { transform: `translateY(${(1 - p) * 110}%)` }); });
+
+const scenes = $("#scenes");
+const registry = [];
+function scene(start, end, node, update) { scenes.appendChild(node); registry.push({ start, end, el: node, update }); }
+
+// ------------------------------------------------------------------ 1. gancho: el chat que queda en visto
+{
+  const s = el(`<section class="scene">
+    <div class="abs title" id="hA" style="left:90px;right:80px;top:260px">${titleHTML("¿Todavía pedís turno *por mensaje?*")}</div>
+    <div class="abs title" id="hB" style="left:90px;right:80px;top:820px;font-size:130px;text-align:center">${titleHTML("Ya no hace *falta.*")}</div>
+    <div class="bubble" id="b1" style="top:720px">${emo("Hola! 👋")}</div>
+    <div class="bubble" id="b2" style="top:860px">¿Tenés turno hoy a la tarde?</div>
+    <div class="bubble" id="b3" style="top:1000px">${emo("Para un degradado 🙏")}</div>
+    <div class="seen" id="seen" style="top:1132px">Visto ✓✓</div>
+    <div class="typing" id="typ" style="top:1220px"><i></i><i></i><i></i></div>
+  </section>`);
+  const hA = $("#hA", s), hB = $("#hB", s), bs = ["#b1", "#b2", "#b3"].map((q) => $(q, s)), times = [.55, 1.6, 2.5];
+  scene(0, T_LOGO, s, (lt) => {
+    const out = iCubic(P(lt, 3.75, .35));
+    words(hA, lt, .1); set(hA, { opacity: 1 - out, transform: `translateY(${-out * 60}px)` });
+    bs.forEach((b, i) => { const p = spring(P(lt, times[i], .6)); set(b, { opacity: clamp(p * 3) * (1 - out), transform: `translate(${(1 - out) * 0 + out * 300}px, ${(1 - p) * 40}px) scale(${.85 + .15 * p})` }); });
+    const sn = oExpo(P(lt, 3.55, .3)); set($("#seen", s), { opacity: sn * (1 - out) });
+    const ty = P(lt, 2.9, .2) * (1 - P(lt, 3.5, .15));
+    set($("#typ", s), { opacity: ty * (1 - out) });
+    [...$("#typ", s).children].forEach((d, k) => set(d, { transform: `translateY(${Math.sin(lt * 12 - k) * 6}px)` }));
+    set(hB, { opacity: lt > 3.85 ? 1 : 0 }); words(hB, lt, 3.9, .1);
+  });
+}
+
+// ------------------------------------------------------------------ 2. logo
+{
+  const s = el(`<section class="scene">
+    <img class="abs" id="lg" src="vestir/png/logo.png" style="left:340px;top:420px;width:400px">
+    <div class="abs serif" id="ln" style="left:0;right:0;top:880px;text-align:center;font-size:100px;font-weight:900;line-height:1">Pardo <em style="color:var(--gold2)">Barber Club</em></div>
+    <div class="abs" id="lt" style="left:0;right:0;top:1150px;text-align:center;font-size:52px;font-weight:700;color:var(--cream)">Ahora reservás online,<br><b style="color:var(--gold2)">en 1 minuto.</b></div>
+  </section>`);
+  scene(T_LOGO, T_STEPS, s, (lt) => {
+    const p = spring(P(lt, 0, .8)); set($("#lg", s), { transform: `scale(${p}) rotate(${(1 - p) * -20}deg)`, opacity: clamp(p * 2) });
+    const n = oExpo(P(lt, .25, .5)); set($("#ln", s), { opacity: n, transform: `translateY(${(1 - n) * 50}px)` });
+    const t = oExpo(P(lt, .6, .5)); set($("#lt", s), { opacity: t, transform: `translateY(${(1 - t) * 30}px)` });
+  });
+}
+
+// ------------------------------------------------------------------ 3. los 4 toques + reserva + barbero
+const STEPS = [
+  { k: "Paso 1 de 4", t: "Elegí tu *corte.*", img: "paso1-servicio", tap: TAPS["paso1-servicio"], chip: "✂️ Degradado · Bs 70" },
+  { k: "Paso 2 de 4", t: "Elegí tu *barbero.*", img: "paso2-barbero", tap: TAPS["paso2-barbero"], chip: "💈 Camilo · degradados y diseños" },
+  { k: "Paso 3 de 4", t: "Elegí *día y hora.*", img: "paso3-hora", tap: TAPS["paso3-hora"], chip: `📅 Viernes 13 · ${TAPS.hora}` },
+  { k: "Paso 4 de 4", t: "Dejá tu *nombre.*", img: "paso4-datos", tap: TAPS["paso4-datos"], chip: "🙌 Sin crear cuenta ni contraseña" },
+  { k: "Listo", t: "¡Turno *reservado!*", img: "reserva", scrollTo: 820, chip: "📲 Anticipo Bs 18 por QR · el resto, en el local" },
+  { k: "Tu barbero", t: "Conocé a *tu barbero.*", img: "barbero-camilo", scrollTo: 0, chip: "⭐ 4.9 · 60 reseñas" },
+];
+const PH = { x: 400, y: 560 };   // celular a la derecha; el número grande queda a la izquierda
+STEPS.forEach((m, i) => {
+  const start = T_STEPS + i * SB, isStep = !!m.tap;
+  // dónde baja la pantalla para que se vea lo que se toca
+  const sc = isStep ? Math.max(0, m.tap.y * K - 560) : m.scrollTo * K;
+  const s = el(`<section class="scene">
+    ${isStep ? `<div class="num" style="left:20px;top:420px">${i + 1}</div>` : ""}
+    <div class="abs kicker" style="left:90px;top:190px">${m.k}</div>
+    <div class="abs title" style="left:90px;right:60px;top:250px">${titleHTML(m.t)}</div>
+    <div class="phone" style="left:${PH.x}px;top:${PH.y}px"><div class="screen"><img class="shot" src="assets/${m.img}.jpg"><i class="ring"></i><span class="finger emoji">👆</span><i class="glare"></i></div></div>
+    <div class="chip" style="left:60px;top:1500px">${emo(m.chip)}</div>
+  </section>`);
+  const phone = $(".phone", s), shot = $(".shot", s), ring = $(".ring", s), finger = $(".finger", s), chip = $(".chip", s), num = $(".num", s), kick = $(".kicker", s);
+  scene(start, start + SB, s, (lt) => {
+    words(s, lt, .08);
+    const k = oCubic(P(lt, 0, .35)); set(kick, { opacity: k, transform: `translateX(${(1 - k) * -40}px)` });
+    if (num) { const n = oExpo(P(lt, .05, .7)); set(num, { opacity: n * .9, transform: `translateX(${(1 - n) * -200}px) scale(${.9 + .1 * n})` }); }
+    const e = oExpo(P(lt, .02, .6)), x = iCubic(P(lt, SB - .2, .2));
+    set(phone, { transform: `translateY(${(1 - e) * 900}px) rotate(${(1 - e) * 6 - 1.5 + Math.sin(lt * 1.5 + i) * .5}deg) translateX(${x * 900}px)` });
+    // la pantalla baja hasta lo que se va a tocar (o hasta el QR en la reserva)
+    const sp = ioCubic(P(lt, .35, isStep ? .8 : 2.2));
+    set(shot, { transform: `translateY(${-sp * sc}px)` });
+    if (isStep) {
+      const tx = m.tap.x * K, ty = m.tap.y * K - sc;
+      const fin = oExpo(P(lt, .75, .5)), press = Math.sin(P(lt, TAP_AT - .1, .25) * Math.PI);
+      set(finger, { left: `${tx - 58}px`, top: `${ty - 28}px`, opacity: fin * (1 - P(lt, TAP_AT + .9, .3)), transform: `translate(${(1 - fin) * 160}px, ${(1 - fin) * 220}px) scale(${1 - press * .15})` });
+      const r = P(lt, TAP_AT, .55); set(ring, { left: `${tx}px`, top: `${ty}px`, opacity: r > 0 && r < 1 ? 1 - r : 0, transform: `scale(${.4 + r * 1.4})` });
+    }
+    const c = oBack(P(lt, isStep ? TAP_AT + .15 : .9, .45), 2.2);
+    set(chip, { opacity: clamp(c * 3) * (1 - x), transform: `scale(${c}) rotate(-2deg) translateX(${-x * 900}px)` });
+  });
+});
+
+// ------------------------------------------------------------------ 4. cierre
+{
+  const s = el(`<section class="scene">
+    <img class="abs" id="cl" src="vestir/png/logo.png" style="left:390px;top:300px;width:300px">
+    <div class="abs serif" id="cn" style="left:0;right:0;top:650px;text-align:center;font-size:96px;font-weight:900;line-height:1">Pardo <em style="color:var(--gold2)">Barber Club</em></div>
+    <div class="abs" id="cc" style="left:0;right:0;top:870px;text-align:center"><span class="pill" style="background:var(--gold2);color:#10261f;font-size:46px;padding:30px 52px">${emo("📲 Reservá desde el link de la bio")}</span></div>
+    <div class="abs" id="ca" style="left:0;right:0;top:1060px;text-align:center;font-size:44px;font-weight:700;line-height:1.5">${emo("📍 Calle Libertad 245 · Santa Cruz")}<br>${emo("🕘 Lunes a sábado · 9:00 a 20:00")}</div>
+    <div class="abs" id="cb" style="left:0;right:0;top:1290px;text-align:center;font-size:30px;font-weight:600;color:var(--mute)">Reservas con Barbiño</div>
+  </section>`);
+  scene(T_END, DURATION + 1, s, (lt) => {
+    const p = spring(P(lt, 0, .8)); set($("#cl", s), { transform: `scale(${p})`, opacity: clamp(p * 2) });
+    const n = oExpo(P(lt, .2, .5)); set($("#cn", s), { opacity: n, transform: `translateY(${(1 - n) * 40}px)` });
+    const c = oBack(P(lt, .6, .5), 2); const pulse = 1 + .03 * Math.max(0, Math.sin((lt - 1.2) * Math.PI * 2 / BEAT / 2)) * clamp(lt - 1.2);
+    set($("#cc", s), { opacity: clamp(c * 2), transform: `scale(${c * pulse})` });
+    const a = oExpo(P(lt, 1.0, .5)); set($("#ca", s), { opacity: a, transform: `translateY(${(1 - a) * 30}px)` });
+    set($("#cb", s), { opacity: oExpo(P(lt, 1.4, .5)) });
+  });
+}
+
+// ------------------------------------------------------------------ fondo y transiciones
+const grain = $("#grain"), g = grain.getContext("2d"), tiles = [];
+for (let k = 0; k < 6; k++) {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), d = x.createImageData(256, 256); let sd = 4242 + k * 77;
+  for (let i = 0; i < d.data.length; i += 4) { sd = (sd * 16807) % 2147483647; const v = sd % 256; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); tiles.push(c);
+}
+const CUTS = [T_LOGO, T_STEPS, T_RES, T_END];
+function seek(t) {
+  for (const r of registry) { const on = t >= r.start && t < r.end; r.el.style.display = on ? "block" : "none"; if (on) r.update(t - r.start, t); }
+  const w = $("#wipe"); let wp = -1;
+  for (const c of CUTS) if (t >= c - .26 && t < c + .26) wp = (t - (c - .26)) / .52;
+  if (wp >= 0) set(w, { display: "block", transform: `translateX(${lerp(-2800, 1600, ioCubic(wp))}px) skewX(-20deg)` }); else w.style.display = "none";
+  set($("#glow"), { left: `${-300 + Math.sin(t * .3) * 180}px`, top: `${-400 + Math.cos(t * .26) * 160}px` });
+  set($("#pin"), { transform: `translateX(${(t * 12) % 64}px)` });
+  g.fillStyle = g.createPattern(tiles[Math.round(t * 30) % 6], "repeat");
+  g.save(); g.translate((Math.round(t * 30) * 37) % 256, (Math.round(t * 30) * 91) % 256); g.fillRect(-256, -256, 1600, 2400); g.restore();
+}
+window.seek = seek;
+window.READY = (async () => {
+  await document.fonts.load('900 100px "Playfair"'); await document.fonts.load('italic 900 100px "Playfair"'); await document.fonts.load('800 100px "Playfair"');
+  await document.fonts.load('800 100px "Inter Display"'); await document.fonts.load('100px "Noto Color Emoji"');
+  await document.fonts.ready;
+  await Promise.all([...document.images].map((i) => i.decode().catch(() => console.warn("img", i.src))));
+  seek(0);
+  return true;
+})();
+if (location.search.includes("play")) window.READY.then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); }; loop(); });
+</script>
+</body>
+</html>
