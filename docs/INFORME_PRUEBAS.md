@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 12/11/2026 · Ponerse al día con Disney: rodbol (datos reales, con OK del dueño)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo | Sus 11 alquileres y su ficha, guardados antes de tocar (fuera del repo) | ✅ |
+| Nombre | Solo cambió el nombre; teléfono, saldo y sus 11 cuentas iguales | ✅ |
+| 3 cuentas | Primero una sola (gabito6626+8ene), revisada; después las otras 2. Las 3: vencen 04/12, pago pendiente, Bs 65 | ✅ |
+| Nada más | Los otros 79 alquileres idénticos; cola de avisos 75 (no salió ningún mensaje) | ✅ |
+
 ## 12/11/2026 · Después de publicar #49 (suscripción GaboHub)
 | Qué | Cómo | Resultado |
 |---|---|---|

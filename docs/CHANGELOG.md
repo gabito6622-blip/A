@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: rodbol
+- **rodbol:** ahora se llama «rodbol · Sandi Perasso Rodrigo Diego» (apodo + nombre completo).
+- **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago (Bs 65 c/u, Bs 195 en total). Queda anotado en el historial de cada una.
+- **Sin cambios:** sus otras 8 cuentas, los otros 79 alquileres y la cola de avisos (75).
+
 ## 2026-11-12 · #49 GaboHub etapa 5: suscripción para todos los revendedores
 - **Revendedores → Ajustes:** «¿Quién paga?» (solo con página propia, como antes, o todos) y «Precio fijo en dólares» para los de afuera.
 - **Se cobra sola del saldo cada 30 días.** Sin saldo: sigue todo los días de gracia; después se pausan Mi control, Quién me debe, Mis ganancias y Afiches (y su página, si tiene). Comprar, sus cuentas, los códigos, recargar y vender nunca se bloquean. Paga desde el Inicio y vuelve todo al instante.
