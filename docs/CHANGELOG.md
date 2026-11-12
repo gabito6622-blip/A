@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-buscador`) · Buscador del panel (etapa 3)
+## 2026-11-12 · #40 Buscador del panel (etapa 3)
 - **Botón «🔎 Buscar» arriba,** en todas las pantallas (en la compu, también con la tecla /). Encuentra:
   - clientes y revendedores, por nombre o por los últimos números del teléfono;
   - servicios, por cliente, correo o producto;
