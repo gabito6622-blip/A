@@ -34,6 +34,7 @@
   <aside class="side" id="side">
     <div class="plogo"><i>G</i><span id="pStore" style="color:inherit;font-weight:700">Gabriel Store</span></div>
     <div class="profile"><div class="avatar"><svg class="i"><use href="/icons.svg#i-user"/></svg></div><b id="pName"></b><div class="role" id="pRole"></div></div>
+    <input class="menufind" id="menuFind" type="search" placeholder="🔎 Buscar pantalla…" aria-label="Buscar pantalla" autocomplete="off">
     <nav class="menu" id="menu" aria-label="Panel"></nav>
     <div class="themes" role="group" aria-label="Tema del panel">
       <button type="button" data-th="light"><svg class="i"><use href="/icons.svg#i-sun"/></svg>Claro</button>
@@ -56,10 +57,10 @@
   </main>
   <nav class="pbnav" id="pbnav" aria-label="Accesos rápidos">
     <button type="button" data-go="inicio"><svg class="i"><use href="/icons.svg#i-home"/></svg><span>Inicio</span></button>
-    <button type="button" data-go="control"><svg class="i"><use href="/icons.svg#i-grid"/></svg><span>Control</span></button>
-    <button type="button" data-go="vender" class="pbnav-mid"><svg class="i"><use href="/icons.svg#i-cart"/></svg><span>Vender</span></button>
-    <button type="button" data-go="cuentas"><svg class="i"><use href="/icons.svg#i-idcard"/></svg><span>Cuentas</span></button>
     <button type="button" data-go="clientes"><svg class="i"><use href="/icons.svg#i-users"/></svg><span>Clientes</span></button>
+    <button type="button" data-go="vender" class="pbnav-mid"><svg class="i"><use href="/icons.svg#i-cart"/></svg><span>Vender</span></button>
+    <button type="button" data-go="cuentas"><svg class="i"><use href="/icons.svg#i-box"/></svg><span>Inventario</span></button>
+    <button type="button" data-more="1" aria-label="Más: todo el menú"><svg class="i"><use href="/icons.svg#i-menu"/></svg><span>Más</span></button>
   </nav>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
