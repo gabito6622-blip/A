@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 12/11/2026 · Botón «Mi secretaria» en el panel
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Separa cobrar, cortar, vencidas sin anotar, deudas, avisos (≤3 días), desenlazar, libres listas, libres con proveedor vencido y apartadas | `test/secretaria.test.mjs` (datos ficticios, núcleo) | OK |
+| Solo lee; el dueño ve «lo que pasó», el admin no, un revendedor no entra | misma prueba | OK |
+| Botón en Inicio ≥ 44 px, pantalla a 360 px sin desborde, letra ≥ 12 px, «Mensaje listo» con cuentas y total, sin mensaje en «Cortar», «lo que pasó» plegado | misma prueba, Playwright a 360 px (WhatsApp bloqueado) | OK |
+| El menú no pierde ninguna pantalla (se suma «Mi secretaria» para dueño y admin) | `test/panel-ordenado.test.mjs` | OK |
+| Tanda completa | `npm test` | **484/484** en ~47 s (una corrida previa tuvo 1 falla intermitente en `hub-clientes-unidos`, que pasó sola y en la corrida completa siguiente) |
+| Revisión visual | captura a 360 px de Inicio y de la pantalla, con datos de ejemplo (fuera del repo) | Se ve clara; sin cortes |
+
 ## 12/11/2026 · Ponerse al día con Disney: rodbol (datos reales, con OK del dueño)
 | Qué | Cómo | Resultado |
 |---|---|---|

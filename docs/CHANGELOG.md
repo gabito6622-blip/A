@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Panel: botón «Mi secretaria» (sin publicar todavía)
+- **Nuevo en Inicio:** botón grande «🗂️ Mi secretaria · ¿qué hay pendiente?» (y en el menú, área Inicio). Abre una pantalla con todo lo pendiente: cobrar (nota «EN COBRO»), cortar («POR CORTAR»), vencidas sin anotar, quién debe, a quién avisar (vencen en 3 días, con la regla de la ficha de cada revendedor), cuentas por desenlazar, libres de verdad (y las que el sistema no puede vender por la fecha del proveedor), apartadas y lo que pasó en las últimas 24 horas (solo el dueño).
+- **Mensaje listo:** cada revendedor trae un botón que abre WhatsApp con el texto armado (cuentas, fechas y total). Lo manda el dueño; la pantalla no envía nada ni cambia datos.
+- Archivos: `src/store/secretary.ts`, `GET /api/admin/secretaria`, `public/secretaria.js`, estilos `.sec-*` en `public/panel.css`.
+
 ## 2026-11-12 · Revisión de cuentas libres (con OK del dueño)
 - **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1, netgb117+fe11, netscz107+fg, netscz108+4d, netscz108+cap, netscz108+d24, netscz108+e29, netscz108+sad, netscz108+tube, netscz108+zz1, opajg12+com14, opajg12+ma189, opajg12+mu3 y prijg002 (figuraban libres o en cuarentena). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
 - **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».

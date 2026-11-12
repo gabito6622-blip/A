@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · «Mi secretaria» lee las marcas de las notas, sin IA
+- **Qué:** la pantalla se arma con reglas fijas sobre los datos (notas «EN COBRO», «POR CORTAR», «DESENLAZAR», fechas y estado de pago), no con Claude. Así funciona siempre, gratis y al instante, aunque los agentes estén apagados o sin clave.
+- **Avisar:** muestra lo que vence en los próximos 3 días y la nota de la ficha de cada revendedor (su regla: «avisar 3 días antes», «1 a 2 días antes»), en vez de adivinar la regla leyendo el texto.
+- **Nada sale solo:** los mensajes son links wa.me que abre el dueño. «Lo que pasó» solo lo ve quien puede ver la Auditoría (el dueño).
+- **Descartado:** una tarjeta más en Inicio (ya está «Lo que tenés pendiente», que solo cuenta); el dueño pidió un botón que le diga todo con detalle.
+
 ## 2026-11-12 · GaboHub etapa 5: qué pasa si un revendedor no paga la suscripción
 - **Propuesta del asistente, sin respuesta explícita del dueño («vos trabajá»):** nunca se bloquea lo que le deja plata al dueño (comprar, cuentas, códigos, recargar, vender, anotar fiados). Después de los días de gracia se pausan Mi control, Quién me debe, Mis ganancias y Afiches, y su página si tiene. Es fácil de cambiar antes de prender el cobro.
 - **La pausa la controla el servidor** (402 en esas pantallas) y solo cuenta mientras el cobro esté prendido para todos: si el dueño lo apaga, nadie queda pausado.
