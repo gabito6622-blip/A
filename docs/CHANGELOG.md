@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MAUMAU
+- **MAUMAU:** número nuevo +591 65001393 (antes +591 76221571; queda anotado en su ficha). Nota: «Paga Bs 69 por cuenta Disney».
+- **gabito6619+g10:** pagada a Bs 69 (antes Bs 60), vence 27/11/2026. En el Excel figuraba con vendedor «PIZA».
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · canaviry
 - **gabito6626+pasa:** vencida desde el 24/10 sin pagar; el dueño la cortó con clave nueva (no se escribe acá). Liberada: nota «LIBRE oficialmente … DESENLAZAR del correo de canaviry» (la secretaria diaria lo recuerda).
 - **netgb117+cm3:** pagada a Bs 65 (antes figuraba Bs 69 sin pago); vence 19/11/2026. canaviry queda al día.
