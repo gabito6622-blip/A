@@ -11,7 +11,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · JOSUE ORIAS, aneliz y panama
 - **JOSUE ORIAS · netgb118+25** (Disney+ sin ESPN): vencía 27/10; renovada hasta el 27/11/2026, pagada Bs 40. Su teléfono en el panel tiene 9 dígitos (776115438): falta confirmarlo.
-- **aneliz · gabito6619+uwb:** no pagó (venció 06/11). Nota «✂️ POR CORTAR»; entra en el recordatorio de las 19:30. Al cortarla, el dueño pasa la clave nueva y se libera. aneliz no tiene número en el panel.
+- **aneliz · gabito6619+uwb:** no pagó (venció 06/11). Nota «✂️ POR CORTAR»; entra en el recordatorio de las 19:30. Al cortarla, el dueño pasa la clave nueva y se libera. Ficha actualizada: «aneliz · Aneliz Contreras», +591 71009060.
 - **panama · netgb117+op:** renovó por US$ 7; vence 11/12/2026, pagada (precio fijado en US$ 7).
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MZA
