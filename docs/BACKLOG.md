@@ -13,7 +13,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B4 | ✅ marcados como prueba en la tienda real (#33): 6 servicios, Bs 100 · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
 | B21 | WhatsApp oficial con su mismo número (coexistencia por QR): ¿hacerse Tech Provider de Meta, usar un proveedor oficial o un número aparte para el bot? Al conectar, pausar el bot cuando el dueño responde desde el celular | P1 | 🧑 |
-| B22 | 16 cuentas de Disney con fecha de proveedor ya vencida y 1 perfil libre cada una: ¿se les quita la fecha (vuelven a estar a la venta) o se ponen en cuarentena hasta revisarlas? | P2 | 🧑 |
+| B22 | 16 cuentas de Disney caídas (vencidas, sin clientes): el dueño decidió retirarlas él | P2 | 🔧 botón «🧹 Retirar» listo en `panel-caidas`; falta publicar y que el dueño las retire |
 | B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), #34 |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |

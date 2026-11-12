@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Sin publicar (rama `panel-caidas`) · 🧹 Cuentas caídas sin clientes
+- **Inventario → Cuentas:** si hay cuentas vencidas sin nadie adentro, aparece una tarjeta con su lista, todas marcadas. Destildás las que todavía funcionan y tocás «Retirar las seleccionadas». Te pide confirmar.
+- **Es la misma acción de «Cuenta caída» de cada cuenta:** no se borran, dejan de venderse y quedan en el historial. Nunca aparece una cuenta con clientes.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas de Disney sin «proveedor»
 - **Qué:** las cuentas de Disney estaban bajo un «Proveedor Disney» que se creó al importar la planilla, con fechas de vencimiento de proveedor que no existen: el dueño no tiene proveedor de Disney. Por eso el sistema frenaba la renovación de 81 de 82 clientes.
 - **Hecho:**

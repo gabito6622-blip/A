@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 12/11/2026 · Cuentas caídas sin clientes (rama `panel-caidas`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **472 → 473 / 473 ✅** |
+| Cuentas caídas | `test/cuentas-caidas.test.mjs`, con navegador a 360 px. Con 5 cuentas: lista solo las 3 vencidas sin clientes (no la que tiene un cliente ni la que está al día); si se destilda 1 y se confirma, retira solo las otras 2; ningún cliente cambia; botones de 44 px sin desborde | ✅ |
+| Foto antes / después | 30 pantallas idénticas (con los datos de ejemplo no hay cuentas caídas, así que la tarjeta no aparece) | ✅ |
+| Contexto | La sesión no pudo retirar las 16 cuentas con la llave del asistente (las acciones que no se pueden deshacer necesitan permiso). Por eso el dueño pidió el botón para hacerlo él | ℹ️ |
+
 ## 12/11/2026 · Cambio de datos reales: cuentas de Disney sin proveedor (con OK del dueño)
 | Qué | Cómo | Resultado |
 |---|---|---|
