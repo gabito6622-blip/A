@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 2 «Números que coinciden» (rama `premium-2.0`, sin publicar)
+- **Una sola fuente de ingresos (`src/store/income.ts`):** Inicio, Finanzas, el resumen (`/api/admin/stats`) y «Cómo van» calculan «lo que entró» con la misma regla: pedidos entregados (ventas y renovaciones) **más los cobros marcados 💵 en el Control** (sin pedido), sin recargas, sin pruebas gratis, sin lo importado de un Excel y sin contar dos veces el mismo mes. Antes Inicio y Finanzas no contaban los cobros del Control (la mayoría de los alquileres de Disney), y Finanzas sí contaba lo importado.
+- **Se ve de dónde viene:** Inicio dice «Bs X marcados 💵 en el Control» bajo Ingresos y el gráfico por día tiene una barra violeta «Cobros del Control»; Finanzas lo dice en «Entró» (`delControl` por mes); el resumen trae `fromControl`.
+- **Meses y días en hora de Bolivia:** los cortes de mes (Finanzas, gráfico de 12 meses, costo estimado de cuentas, gastos) y de día (gráfico por día, «vencen en 14 días», `byDay`) usan el calendario de Bolivia (UTC−4) aunque el servidor corra en otra zona horaria (`boMonthStart`, `boDayKey`… en `src/store/time.ts`).
+- **Costo en dólares en la ganancia:** una cuenta pagada en US$ con la tarjeta (`costUsd`) entra al costo estimado del mes, al margen por producto y al reporte de proveedores con la tasa de hoy (`accountCostBs`). Y ahora `costUsd` se puede anotar al cargar la cuenta (`POST /api/admin/accounts`), no solo al editarla.
+- **Fiado por moneda:** en la libreta del dueño, quien paga en dólares ve su deuda también en US$ (`currency`, `owedUsd`, `rate`, a la tasa de hoy; la libreta sigue en Bs) y el mensaje «Cobrar» dice «US$ 7,00 (Bs 70)».
+- **Prueba nueva `test/numeros-coinciden.test.mjs`** (4 pruebas); `test/pulido-panel.test.mjs` fija la fecha de Bolivia en vez de la del proceso.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 1 «Plata segura» (rama `premium-2.0`, sin publicar)
 - **Comprobante repetido:** si dos pedidos vivos traen la misma imagen, el segundo ya no se aprueba (error `DUPLICATE_EVIDENCE`, 409). Solo el dueño puede forzarlo, con un motivo de 4 letras o más, y queda en Auditoría («payment.approve_forced»). Si el otro pedido fue rechazado, la misma foto es un reintento y se aprueba normal. Un admin no puede forzar.
 - **Referencias bancarias comparadas de verdad:** «0012-345», « 12 345 » y «12.345» son el mismo pago (se ignoran espacios, guiones, puntos, barras, mayúsculas y ceros de adelante). Se guarda como la escribieron.

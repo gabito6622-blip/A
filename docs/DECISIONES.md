@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 2: un solo «lo que entró»
+- **Los cobros del Control cuentan en todas las pantallas:** el negocio real del dueño (alquileres de Disney a revendedores) se cobra casi siempre por fuera y se marca 💵 en el Control. «Cómo van» ya los contaba; Inicio y Finanzas no, y por eso nunca coincidían. Ahora los tres leen `incomeEvents()` (src/store/income.ts) con la misma regla de no duplicar (un pedido a menos de 20 días de la marca = el mismo pago).
+- **Lo importado no es ingreso:** cargar lo que ya estaba vendido (Excel, «cargar vendidas») no es plata que entró ese día. Finanzas lo contaba (en Bs 0 casi siempre, pero contaba); se alineó con Inicio.
+- **Hora de Bolivia fija, no la del servidor:** Railway puede correr en UTC; con `TZ` sin setear, una venta a las 21:00 caía al día siguiente. Bolivia no tiene horario de verano, así que se usa UTC−4 fijo (más rápido que `Intl` y sin depender de la zona del proceso).
+- **Costo en US$ a la tasa de hoy:** lo que el dueño paga con tarjeta en dólares cambia con la tasa; guardar solo los Bs del día de la carga mostraba una ganancia vieja. Se convierte al mirar, no al guardar; el Bs anotado queda como referencia.
+- **Fiado sigue en Bs:** la libreta se lleva en Bs (así nació y así están los movimientos); al que paga en dólares se le muestra el ≈ US$ a la tasa de hoy, con la tasa visible. Descartado: libretas por moneda (habría que migrar movimientos y dividir totales).
+
 ## 2026-11-12 · Premium 2.0 · Etapa 1: la plata se frena, no se adivina
 - **Comprobante repetido se bloquea, no se avisa:** antes el panel solo marcaba «repetido» y se podía aprobar igual; con dos revendedores y mucha venta eso termina en una cuenta regalada. Ahora frena y solo el dueño lo pasa, con motivo escrito. Un admin no, porque es la persona que más aprueba y el dueño quiere ver esos casos.
 - **Referencias normalizadas al comparar, no al guardar:** se guarda lo que escribió el dueño (para buscarlo igual que en el banco) y se compara sin formato. Descartado: pedirle que escriba «solo números» (más fricción en el celular).

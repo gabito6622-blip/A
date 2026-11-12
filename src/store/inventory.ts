@@ -13,6 +13,8 @@ export interface NewAccount {
   password: string;
   supplierExpiresAt?: number;
   cost: Cents;
+  /** Si la pagás en dólares con la tarjeta: cuánto por mes (centavos de US$). La ganancia la convierte con la tasa de hoy. */
+  costUsd?: number | null;
   /** Etiquetas de perfiles. Una sola entrada = cuenta completa. */
   profiles: { label: string; pin?: string }[];
   /** Solo para importar cuentas que ya existen: la clave se completa después. */
@@ -48,6 +50,8 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
   const profiles = isIptv ? [{ label: a.profiles[0]?.label?.trim() || "Línea IPTV" }] : a.profiles;
   if (!profiles.length || profiles.length > 20) throw new DomainError("VALIDATION", "Entre 1 y 20 perfiles por cuenta");
   if (!Number.isInteger(a.cost) || a.cost < 0) throw new DomainError("VALIDATION", "Costo inválido");
+  const costUsd = a.costUsd === undefined || a.costUsd === null || a.costUsd === 0 ? undefined : Number(a.costUsd);
+  if (costUsd !== undefined && (!Number.isInteger(costUsd) || costUsd < 0 || costUsd > 100_000)) throw new DomainError("VALIDATION", "Costo en dólares inválido (hasta US$ 1000)");
   return e.tx(() => {
     e.get("products", a.productId);
     // Proveedor opcional: si no se indica, se usa "Propias" (tus cuentas, sin proveedor).
@@ -61,6 +65,7 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
     const account: Account = {
       id, productId: a.productId, supplierId, email: isIptv ? a.email.trim() : a.email.toLowerCase(), password: a.password ?? "",
       supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
+      ...(costUsd ? { costUsd } : {}),
       ...(iptv ? { iptv } : {}),
       ...(a.notes?.trim() ? { notes: a.notes.trim().slice(0, 500) } : {}),
     };

@@ -155,7 +155,7 @@ const V = {
     const short = (c) => { const v = c / 100; return v >= 10000 ? (v / 1000).toFixed(0) + "k" : v >= 1000 ? (v / 1000).toFixed(1).replace(".0", "") + "k" : String(Math.round(v)); };
     // --- gráfico de ventas por día (barras apiladas) ---
     const S = d.series, mob = innerWidth < 640, W = mob ? 380 : 720, H = mob ? 200 : 220, pl = 34, pb = 24, pt = 10;
-    const tot = S.map((x) => x.sales + x.renewals + x.topups);
+    const tot = S.map((x) => x.sales + x.renewals + x.topups + (x.control || 0));
     const max = Math.max(...tot, 100);
     const step = 10 ** Math.floor(Math.log10(max / 100 / 3 || 1)) * 100;
     const nice = Math.ceil(max / 3 / step) * step || 100;
@@ -166,14 +166,14 @@ const V = {
     const bars = S.map((x, i) => {
       const x0 = pl + i * bw + bw * 0.15, w = Math.max(bw * 0.7, 1);
       let acc = 0;
-      const seg = [["sales", "c1"], ["renewals", "c2"], ["topups", "c3"]].map(([f, c]) => {
+      const seg = [["sales", "c1"], ["renewals", "c2"], ["control", "c4"], ["topups", "c3"]].map(([f, c]) => {
         if (!x[f]) return "";
         const r = `<rect x="${x0}" y="${y(acc + x[f])}" width="${w}" height="${y(acc) - y(acc + x[f])}" class="${c}"/>`;
         acc += x[f];
         return r;
       }).join("");
       const lab = (S.length - 1 - i) % lblEvery === 0 ? `<text x="${x0 + w / 2}" y="${H - 6}" class="ax" text-anchor="middle">${x.day.slice(8)}/${x.day.slice(5, 7)}</text>` : "";
-      return `<g><title>${x.day.slice(8)}/${x.day.slice(5, 7)}: ${bs(tot[i])} (ventas ${bs(x.sales)}, renovaciones ${bs(x.renewals)}, recargas ${bs(x.topups)})</title><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${seg}</g>${lab}`;
+      return `<g><title>${x.day.slice(8)}/${x.day.slice(5, 7)}: ${bs(tot[i])} (ventas ${bs(x.sales)}, renovaciones ${bs(x.renewals)}, cobros del Control ${bs(x.control || 0)}, recargas ${bs(x.topups)})</title><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${seg}</g>${lab}`;
     }).join("");
     const salesChart = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Ingresos por día">${grid}${bars}</svg>`;
     // --- vencimientos próximos 14 días ---
@@ -230,7 +230,7 @@ const V = {
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Ver como cliente</a></div></div>
       ${hechos < pasos.length ? `<section class="card setupmini"><div class="inline" style="justify-content:space-between;gap:10px"><div><b>🚀 Te faltan ${pasos.length - hechos} paso(s) para estar listo</b><br><small class="muted">Completalos desde la Guía.</small></div><button class="pbtn sm blue" type="button" data-go="ayuda">Ver primeros pasos ${icon("arrow")}</button></div><div class="pgbar" style="margin-top:8px"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div></section>` : ""}
       <div class="dkpis">
-        ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
+        ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes${k.fromControl ? ` · ${bs(k.fromControl)} marcados 💵 en el Control` : ""}`, "hero")}
         ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
         ${kpi("Lo que te pagan por mes", bs(k.monthlyRecurring), `${k.activeServices} servicios · con el precio de quien paga`)}
         ${kpi("Recargas de saldo", bs(k.topups), owedText(k))}
@@ -243,7 +243,7 @@ const V = {
       <section class="card"><div class="mctop"><div><h2 style="margin:0">Ingresos por mes <small>12 meses</small></h2><p class="muted" style="margin:2px 0 0">Total del rango: <b>${bs(mtot)}</b></p></div>
         <div class="mcstats"><div class="up"><small>▲ MEJOR MES</small><b>${esc(best.label)} · ${bs(best.revenue)}</b></div><div class="down"><small>▼ MENOR MES</small><b>${esc(worst.label)} · ${bs(worst.revenue)}</b></div></div></div>${monthChart}</section>
       <section class="card"><h2>Ingresos por día <small>pasá el dedo o el mouse por una barra</small></h2>
-        <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
+        <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c4"></i>Cobros del Control</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
       <div class="dgrid">
         <section class="card"><h2>Vencen en los próximos 14 días <small>${upCnt} servicios · ${bs(upSum)} si todos renuevan</small></h2>${upChart}
           <button class="pbtn sm" type="button" data-go="control">Ver en el control ${icon("arrow")}</button></section>
@@ -329,7 +329,7 @@ const V = {
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
         <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
-          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
+          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}</small></div>
           <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que anotaste"}</small></div>
           ${c.cuentasEstimado ? `<div class="finkpi out est"><span>🔑 Cuentas (estimado)</span><b>${bs(c.cuentasEstimado)}</b><small>${c.sinAnotar} cuenta(s) sin anotar: lo que te cuestan por mes</small></div>` : ""}
           <div class="finkpi net ${gcls(c.gananciaEstimada)}"><span>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(c.gananciaEstimada)}</b><small>${c.gananciaEstimada >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
@@ -769,11 +769,12 @@ const V = {
     const det = T.fdet ? await api("GET", `/api/admin/fiado/${T.fdet}`).catch(() => null) : null;
     const detName = ov.rows.find((r) => r.customerId === T.fdet)?.name ?? customers.find((c) => c.id === T.fdet)?.name ?? "";
     const kb = (r) => (r.kind === "reseller" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`);
-    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
+    const usd = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${r.owedUsd ? `${usd(r.owedUsd)} (${bs(r.owed)})` : bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
     const pend = ov.rows.filter((r) => r.unlinked.count);
     const card = (r) => `<article class="fcardx${r.overdue ? " late" : ""}">
         <header><div><b>${esc(r.name)}</b> ${kb(r)}<br><small class="muted">${esc(r.phone ? r.phone.replace(/^\+591/, "") : "Sin WhatsApp")}</small></div>
-          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
+          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.owedUsd ? `<small class="muted" title="A la tasa de hoy (Bs ${r.rate} por US$); la libreta se lleva en Bs">≈ ${usd(r.owedUsd)} · paga en dólares</small>` : ""}${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
         ${r.nextDue || r.oldestAt ? `<div class="frow">${r.nextDue ? `<span>${r.overdue ? "⏰ <b>Ya tenía que pagar</b>" : "📅 Cobrar"} el <b>${fdate(r.nextDue)}</b></span>` : ""}${r.oldestAt ? `<span class="muted">Debe desde ${fdate(r.oldestAt)}</span>` : ""}</div>` : ""}
         ${r.unlinked.count && canReview() ? `<div class="fpend"><span>📋 ${r.unlinked.count} alquiler(es) marcado(s) sin pagar en el Control · ${bs(r.unlinked.amount)}</span><button class="pbtn sm" type="button" data-ffrom="${esc(r.customerId)}">➕ Pasarlos al fiado</button></div>` : ""}
         <footer>${r.phone && r.owed ? `<a class="pbtn sm green" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}

@@ -1,13 +1,14 @@
 // Estadísticas, proveedores y auditoría (solo staff con permiso).
 import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
-import { DAY } from "./time.js";
+import { DAY, boDayKey, boDayStart, boMonthStart, boParts } from "./time.js";
+import { incomeBetween, incomeEvents, sumIncome } from "./income.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { stockByProduct } from "./inventory.js";
 import { balance } from "./wallet.js";
 import { effectivePrice } from "./admin.js";
-import { marginsData } from "./finance.js";
+import { accountCostBs, marginsData } from "./finance.js";
 import { isUsd, sumBalancesBs } from "./usd.js";
 
 /**
@@ -19,8 +20,8 @@ function owedSplit(e: Engine, ids: Id[]) {
   return { balancesOwed: t.bs + t.usdAsBs, balancesOwedBs: t.bs, balancesOwedUsd: t.usd, balancesOwedUsdRate: t.rate || null };
 }
 
-/** Día "AAAA-MM-DD" con la hora local del servidor (Bolivia: TZ=America/La_Paz), no UTC. */
-export const localDayKey = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+/** Día "AAAA-MM-DD" en Bolivia (antes dependía de la zona horaria del servidor). */
+export const localDayKey = boDayKey;
 
 /**
  * Centro de notificaciones del dueño: junta en un solo lugar lo que necesita su
@@ -120,26 +121,29 @@ export function lastPurchaseByPayer(e: Engine): Record<Id, number> {
 
 export function summary(e: Engine, actor: Actor, range: { from: number; to: number }) {
   authorize(actor, "stats.view");
-  const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.updatedAt >= range.from && o.updatedAt < range.to);
-  const sales = inRange.filter((o) => o.kind !== "topup" && o.channel !== "import" && !o.trial);
+  // La misma fuente que Inicio, Finanzas y Cómo van: pedidos entregados + cobros marcados en el Control.
+  const ev = incomeBetween(incomeEvents(e, Math.max(e.now(), range.to)), range.from, range.to);
   const byProduct: Record<Id, { units: number; revenue: number }> = {};
   const byDay: Record<string, number> = {};
-  for (const o of sales) {
-    for (const it of o.items) {
+  for (const x of ev) {
+    for (const it of x.items) {
       const b = (byProduct[it.productId] ??= { units: 0, revenue: 0 });
       b.units += it.qty;
-      b.revenue += it.qty * it.unitPrice;
+      b.revenue += it.amount;
     }
-    const d = localDayKey(o.updatedAt);
-    byDay[d] = (byDay[d] ?? 0) + o.total;
+    const d = localDayKey(x.at);
+    byDay[d] = (byDay[d] ?? 0) + x.amount;
   }
-  // Ingreso de caja: lo que entró de verdad (QR/efectivo + recargas). Lo pagado con saldo ya entró como recarga.
-  const cashIn = inRange.filter((o) => o.paymentMethod !== "balance").reduce((s, o) => s + o.total, 0);
+  // Ingreso de caja: lo que entró de verdad (QR/efectivo + recargas + cobros del Control). Lo pagado con saldo ya entró como recarga.
+  const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.channel !== "import" && o.updatedAt >= range.from && o.updatedAt < range.to);
+  const cashIn = inRange.filter((o) => o.paymentMethod !== "balance").reduce((s, o) => s + o.total, 0) + sumIncome(ev.filter((x) => x.source === "control"));
   const customerIds = Object.keys(e.s.customers);
   return {
-    revenue: sales.reduce((s, o) => s + o.total, 0),
+    revenue: sumIncome(ev),
+    /** De lo que entró, cuánto son cobros marcados 💵 en el Control (sin pedido). */
+    fromControl: sumIncome(ev.filter((x) => x.source === "control")),
     cashIn,
-    orders: sales.length,
+    orders: ev.filter((x) => x.source === "order").length,
     byProduct,
     byDay,
     pendingReview: Object.values(e.s.orders).filter((o) => o.status === "payment_review").length,
@@ -158,24 +162,30 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const span = Math.min(Math.max(Math.round(days) || 30, 7), 365) * DAY;
   const from = now - span, prevFrom = from - span;
   const done = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.channel !== "import");
-  const sales = (a: number, b: number) => done.filter((o) => o.kind !== "topup" && !o.trial && o.updatedAt >= a && o.updatedAt < b);
-  const cur = sales(from, now + 1), prev = sales(prevFrom, from);
-  const sum = (l: { total: number }[]) => l.reduce((s, o) => s + o.total, 0);
+  // Fuente única de ingresos (pedidos entregados + cobros marcados en el Control): la misma que Finanzas y Cómo van.
+  const all = incomeEvents(e, now);
+  const cur = incomeBetween(all, from, now + 1), prev = incomeBetween(all, prevFrom, from);
+  const sum = sumIncome;
   const dayKey = localDayKey;
   const nDays = Math.round(span / DAY);
-  const series = Array.from({ length: nDays }, (_, i) => ({ day: dayKey(from + (i + 1) * DAY), sales: 0, renewals: 0, topups: 0 }));
+  const series = Array.from({ length: nDays }, (_, i) => ({ day: dayKey(from + (i + 1) * DAY), sales: 0, renewals: 0, topups: 0, control: 0 }));
   const idx = new Map(series.map((d, i) => [d.day, i]));
   for (const o of done) {
-    if (o.updatedAt < from) continue;
+    if (o.kind !== "topup" || o.updatedAt < from) continue;
     const i = idx.get(dayKey(o.updatedAt));
+    if (i !== undefined) series[i].topups += o.total;
+  }
+  for (const x of all) {
+    if (x.at < from) continue;
+    const i = idx.get(dayKey(x.at));
     if (i === undefined) continue;
-    if (o.kind === "topup") series[i].topups += o.total; else if (o.kind === "renewal") series[i].renewals += o.total; else series[i].sales += o.total;
+    if (x.kind === "control") series[i].control += x.amount; else if (x.kind === "renewal") series[i].renewals += x.amount; else series[i].sales += x.amount;
   }
   const byProduct: Record<Id, { name: string; revenue: number; units: number; color: string }> = {};
-  for (const o of cur) for (const it of o.items) {
+  for (const x of cur) for (const it of x.items) {
     const p = e.s.products[it.productId];
     const b = (byProduct[it.productId] ??= { name: p?.name ?? it.productId, revenue: 0, units: 0, color: p?.color ?? "#3984ff" });
-    b.revenue += it.qty * it.unitPrice; b.units += it.qty;
+    b.revenue += it.amount; b.units += it.qty;
   }
   const active = Object.values(e.s.assignments).filter((a) => a.status === "active");
   // Lo que de verdad te pagan: precio acordado ?? lista de quien paga (revendedor) ?? precio del producto.
@@ -188,12 +198,11 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const custs = Object.values(e.s.customers);
   const resellers = custs.filter((c) => c.kind === "reseller").map((c) => {
     const mine = active.filter((a) => a.customerId === c.id || e.s.customers[a.customerId]?.resellerId === c.id);
-    const spent = sum(cur.filter((o) => o.payerId === c.id));
+    const spent = sum(cur.filter((x) => x.payerId === c.id));
     return { id: c.id, name: c.name, services: mine.length, monthly: mine.reduce((s, a) => s + priceOf(a), 0), spent, balance: balance(e, c.id), currency: isUsd(e, c) ? "USD" as const : "BOB" as const, due7: mine.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length };
   }).sort((a, b) => b.monthly - a.monthly || b.services - a.services).slice(0, 8);
   const upcoming = Array.from({ length: 14 }, (_, i) => {
-    const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
-    const a = d0.getTime() + i * DAY, b = a + DAY;
+    const a = boDayStart(now, i), b = boDayStart(now, i + 1);
     const l = active.filter((x) => x.customerExpiresAt >= a && x.customerExpiresAt < b);
     return { day: a, count: l.length, amount: l.reduce((s, x) => s + priceOf(x), 0) };
   });
@@ -204,25 +213,26 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   const amt = (l: typeof active) => l.reduce((s, a) => s + priceOf(a), 0);
   // Ingresos por mes (últimos 12 meses): ventas + renovaciones (sin recargas).
   const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  const base = new Date(now); base.setDate(1); base.setHours(0, 0, 0, 0);
+  // Meses calendario de Bolivia (no de la zona horaria del servidor).
   const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(base.getFullYear(), base.getMonth() - (11 - i), 1);
-    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: MES[d.getMonth()], revenue: 0 };
+    const start = boMonthStart(now, -(11 - i)), p = boParts(start);
+    return { key: `${p.y}-${p.m}`, label: MES[p.m], revenue: 0 };
   });
   const mIdx = new Map(months.map((m, i) => [m.key, i]));
-  for (const o of done) {
-    if (o.kind === "topup") continue;
-    const d = new Date(o.updatedAt);
-    const i = mIdx.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (i !== undefined) months[i].revenue += o.total;
+  for (const x of all) {
+    const p = boParts(x.at);
+    const i = mIdx.get(`${p.y}-${p.m}`);
+    if (i !== undefined) months[i].revenue += x.amount;
   }
   return {
     days: nDays,
     alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: amt(unpaidList) } },
     months,
     kpi: {
-      revenue: sum(cur), prevRevenue: sum(prev), orders: cur.length, prevOrders: prev.length,
-      renewals: cur.filter((o) => o.kind === "renewal").length, topups: sum(done.filter((o) => o.kind === "topup" && o.updatedAt >= from)),
+      revenue: sum(cur), prevRevenue: sum(prev), orders: cur.filter((x) => x.source === "order").length, prevOrders: prev.filter((x) => x.source === "order").length,
+      /** De los ingresos del período, cuánto son cobros marcados 💵 en el Control (sin pedido). */
+      fromControl: sum(cur.filter((x) => x.source === "control")),
+      renewals: cur.filter((x) => x.kind === "renewal").length, topups: done.filter((o) => o.kind === "topup" && o.updatedAt >= from).reduce((s, o) => s + o.total, 0),
       newCustomers: custs.filter((c) => c.createdAt >= from).length, customers: custs.length, resellers: custs.filter((c) => c.kind === "reseller").length,
       activeServices: active.length, monthlyRecurring: active.reduce((s, a) => s + priceOf(a), 0),
       overdue: active.filter((a) => a.customerExpiresAt < now || a.holdOpen).length, due7: active.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length,
@@ -273,7 +283,7 @@ export function supplierReport(e: Engine, actor: Actor) {
     const slots = Object.values(e.s.slots).filter((s) => accIds.has(s.accountId));
     const revenue = Math.round(accs.reduce((s, a) => s + (revByAcc[a.id] ?? 0), 0));
     // Costo del período: un mes de cada cuenta que estuvo viva en estos 30 días.
-    const cost = accs.filter((a) => a.status !== "retired" && a.supplierExpiresAt >= from && a.createdAt <= now).reduce((s, a) => s + a.cost, 0);
+    const cost = accs.filter((a) => a.status !== "retired" && a.supplierExpiresAt >= from && a.createdAt <= now).reduce((s, a) => s + accountCostBs(e, a), 0);
     return {
       supplierId: sup.id, name: sup.name, active: sup.active, periodDays: SUPPLIER_PERIOD_DAYS,
       accounts: accs.length, activeAccounts: accs.filter((a) => a.status === "active").length,

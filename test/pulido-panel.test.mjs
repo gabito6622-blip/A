@@ -192,8 +192,7 @@ describe("Pulido panel · 'Vencen en 7 días' igual en todas las pantallas", () 
     clock.t = Date.UTC(2026, 10, 12, 1, 0, 0); // 11/11 21:00 en Bolivia = 12/11 01:00 UTC
     s.orders.create(admin, { customerId: carla.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
     const d = s.stats.dashboard(owner, 7);
-    const local = new Date(clock.t);
-    const key = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
+    const key = "2026-11-11"; // en Bolivia (UTC−4) todavía es 11/11, aunque el servidor corra en UTC
     assert.equal(d.series.at(-1).day, key);
     assert.equal(d.series.at(-1).sales, 3500);
     const sum = s.stats.summary(owner, { from: clock.t - DAY, to: clock.t + 1 });

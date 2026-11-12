@@ -22,8 +22,11 @@
 import type { Actor, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
-import { DAY, HOUR, MINUTE } from "./time.js";
+import { DAY, MINUTE, boMonthStart } from "./time.js";
 import { effectivePrice } from "./admin.js";
+import { DEDUPE_DAYS, incomeEvents } from "./income.js";
+export { boMonthStart } from "./time.js";
+export { DEDUPE_DAYS } from "./income.js";
 
 /** Ventana para "últimos 30 días" (renovaciones, caídos, crecimiento). */
 export const WINDOW_DAYS = 30;
@@ -41,20 +44,10 @@ export const DROP_PCT = 20;
 export const MIN_CHANGE: Cents = 3000;
 /** Bajando también si se le cayeron al menos 2 alquileres y más de los que renovó. */
 export const DROPPED_MIN = 2;
-/** Un cobro del Control a menos de estos días de un pedido del mismo servicio es el mismo pago. */
-export const DEDUPE_DAYS = 20;
 /** Concentración: cuánto pesan los 3 que más te pagan. */
 export const TOP_N = 3;
-/** Bolivia es UTC−4 todo el año (sin horario de verano): el mes empieza a las 04:00 UTC del día 1. */
-export const BO_OFFSET = 4 * HOUR;
 
 export type ResellerTrend = "nuevo" | "creciendo" | "estable" | "bajando" | "dormido";
-
-/** Inicio (ms) del mes calendario de Bolivia que contiene `t`, corrido `add` meses. */
-export function boMonthStart(t: number, add = 0): number {
-  const d = new Date(t - BO_OFFSET);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + add, 1) + BO_OFFSET;
-}
 
 const shortName = (n: string) => n.replace(/\s*\(alquiler revendedores\)\s*$/i, "");
 // Con una base chiquita el % no dice nada (de Bs 5 a Bs 100 sería +1900 %): ahí no se muestra.
@@ -150,42 +143,21 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
     else if (t > w60) r.prev30 += amount;
   };
 
-  // 1) Lo que pagó: un pedido entregado = un pago (ver arriba por qué no el saldo).
+  // 1) Lo que pagó: la fuente única de ingresos (src/store/income.ts): pedidos entregados y cobros
+  //    marcados en el Control, sin contar dos veces el mismo mes. La misma que usan Inicio y Finanzas.
   const renewalsByAsg = new Map<Id, Order[]>();
-  /** Cuándo se pagó cada servicio con un pedido (para no contar además su marca del Control). */
-  const orderTimes = new Map<Id, number[]>();
-  for (const o of Object.values(s.orders)) {
-    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || o.channel === "import") continue;
-    for (const id of o.renewal ? [o.renewal.assignmentId] : o.assignmentIds ?? []) orderTimes.set(id, [...(orderTimes.get(id) ?? []), o.updatedAt]);
-    const r = rows.get(o.payerId ?? o.customerId);
-    if (!r || o.updatedAt > now) continue;
-    const t = o.updatedAt;
-    addPaid(r, t, o.total);
-    if (t > (r.lastOrderAt ?? 0)) r.lastOrderAt = t;
+  for (const ev of incomeEvents(e, now)) {
+    const rid = ev.source === "order" ? ev.payerId : ownerOf(ev.customerId);
+    const r = rid ? rows.get(rid) : undefined;
+    if (!r) continue;
+    addPaid(r, ev.at, ev.amount);
+    if (ev.source === "control") { if (ev.at > w30) r.fromControl30 += ev.amount; continue; }
+    const o = ev.order!;
+    if (ev.at > (r.lastOrderAt ?? 0)) r.lastOrderAt = ev.at;
     if (o.kind === "renewal" && o.renewal) {
       const l = renewalsByAsg.get(o.renewal.assignmentId) ?? [];
       l.push(o);
       renewalsByAsg.set(o.renewal.assignmentId, l);
-    }
-  }
-  // 1b) Cobros marcados en el Control (sin pedido). Ver arriba la regla para no duplicar.
-  for (const a of Object.values(s.assignments)) {
-    const c = a.control;
-    if (!c || a.trial) continue;
-    const rid = ownerOf(a.customerId);
-    if (!rid) continue;
-    const r = rows.get(rid)!;
-    const dur = (s.products[a.productId]?.durationDays ?? 30) * DAY;
-    const marks = c.paidLog?.length ? c.paidLog
-      : c.payStatus === "pagado" ? [{ at: Math.min(a.customerExpiresAt - dur, now), from: a.customerExpiresAt - dur, amount: effectivePrice(e, a) }] : [];
-    const near = orderTimes.get(a.id) ?? [];
-    for (const m of marks) {
-      // La fecha del cobro: cuando lo marcaste; en las marcas viejas, cuando empezó el período.
-      const t = c.paidLog?.length ? m.at : Math.min(m.from, now);
-      if (t > now || !(m.amount > 0)) continue;
-      if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
-      addPaid(r, t, m.amount);
-      if (t > w30) r.fromControl30 += m.amount;
     }
   }
   // 2) Renovaciones de los últimos 30 días: a tiempo o tarde.

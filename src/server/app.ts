@@ -758,7 +758,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
-    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
+    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
     // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
     if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);

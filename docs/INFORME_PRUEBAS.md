@@ -1,5 +1,17 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 2 «Números que coinciden»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Inicio, Finanzas, resumen y Cómo van dan el mismo ingreso (Bs 217 del mes): venta, venta a cliente final, renovación y un cobro del Control; la recarga (Bs 40) queda aparte; la marca sobre un alquiler con pedido cerca no suma; lo importado no suma (su marca vieja cuenta en octubre) | `test/numeros-coinciden.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Mes y día de Bolivia: venta del 31/10 23:30 La Paz cae en octubre y en el día 31 en Finanzas, gráfico de 12 meses, serie por día, `byDay` y gastos; «vencen en 14 días» arranca a las 00:00 de Bolivia | misma prueba | OK |
+| Costo en US$: cuenta a US$ 9 con tasa 12 → Bs 108 en el estimado del mes, el margen por perfil y el costo del proveedor; el costo en Bs anotado no se toca | misma prueba | OK (encontró que `costUsd` no se podía anotar al cargar la cuenta; corregido) |
+| Fiado: revendedor en US$ debe Bs 70 = US$ 7 (`owedUsd`, `rate`); con tasa 14 la libreta sigue en Bs 70 y el ≈ pasa a US$ 5; cliente en Bs sin `owedUsd`; la libreta del revendedor no cambia | misma prueba | OK |
+| Cómo van no cambió de números al pasar a la fuente única | `test/como-van.test.mjs` (12 pruebas) | OK |
+| Gráfico por día en fecha de Bolivia aunque el proceso corra en UTC | `test/pulido-panel.test.mjs` (clave fija «2026-11-11») | OK (antes la prueba calculaba la clave con la zona del proceso) |
+| Datos de ejemplo: los tres endpoints devuelven el mismo número (Bs 60, 0 del Control) | `seed-demo` + `/api/admin/dashboard`, `/api/admin/finance`, `/api/admin/stats` | OK |
+| Tanda completa | `npm test` | **500/500** en ~51 s |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 1 «Plata segura»
 | Qué | Cómo | Resultado |
 |---|---|---|
