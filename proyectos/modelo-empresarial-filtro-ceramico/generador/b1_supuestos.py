@@ -9,7 +9,7 @@ class RowMap(dict):
 ROW = RowMap()
 
 def build_supuestos(B):
-    ws = B.sheet('SUPUESTOS', 'PANEL DE SUPUESTOS Y REGISTRO DE HIPÓTESIS',
+    ws = B.sheet('Supuestos', 'PANEL DE SUPUESTOS Y REGISTRO DE HIPÓTESIS',
                  'Todas las celdas azules con fondo amarillo son editables. Cada supuesto indica su tipo, fuente y cómo validarlo.', tab='FFC000')
     widths(ws, {'A': 24, 'B': 52, 'C': 14, 'D': 16, 'E': 18, 'F': 62, 'G': 46})
     hdrs = ['Código (nombre)', 'Descripción', 'Valor', 'Unidad', 'Tipo de dato', 'Fuente / justificación', 'Cómo validarlo']
@@ -26,7 +26,7 @@ def build_supuestos(B):
     p('FECHA_TC', 'Fecha del tipo de cambio usado', '04/11/2026', 'fecha', REAL, 'Ver fila anterior', 'Actualizar junto con el tipo de cambio')
     p('TC_HISTORICO', 'Tipo de cambio fijo usado en Ñapefit y Hypotolab (solo referencia)', 6.96, 'Bs/USD', ORIG, 'Vigente 2011-28/06/2026. No se usa en cálculos.', '—', FMT_BS2)
     p('INFL_BO', 'Inflación anual esperada en Bolivia (ajuste de costos)', 0.06, '% anual', EST, 'INE: inflación acumulada ene-oct 2026 = 6,03%; interanual a sep-2026 = 5,70% (BCB). Se usa 6% como proyección.', 'Comparar con el IPC del INE y el Informe de Política Monetaria del BCB', FMT_PCT)
-    p('AJUSTE_PRECIO', 'Ajuste anual del precio de venta', '=INFL_BO', '% anual', SUP, 'Por defecto igual a la inflación (precio constante en términos reales).', 'Decisión comercial; ver hoja SENSIBILIDAD', FMT_PCT)
+    p('AJUSTE_PRECIO', 'Ajuste anual del precio de venta', '=INFL_BO', '% anual', SUP, 'Por defecto igual a la inflación (precio constante en términos reales).', 'Decisión comercial; ver hoja Sensibilidad', FMT_PCT)
     p('INFL_US', 'Inflación esperada en EE.UU. (para convertir la TRMA de USD a Bs)', 0.025, '% anual', SUP, 'Supuesto cercano a la meta de la Reserva Federal (2%).', 'Consultar expectativas de inflación de EE.UU.', FMT_PCT)
     p('TASA_IVA', 'Impuesto al Valor Agregado (incluido en el precio facturado)', 0.13, '%', NORM, 'Ley 843 (texto ordenado). Igual en ambos originales.', 'Ley 843, Título I', FMT_PCT)
     p('TASA_IT', 'Impuesto a las Transacciones (sobre ingresos brutos)', 0.03, '%', NORM, 'Ley 843, Título VI. Igual en ambos originales.', 'Ley 843', FMT_PCT)
@@ -36,7 +36,7 @@ def build_supuestos(B):
     p('HORAS_OCIO', 'Horas no productivas por turno', 1, 'h/día', ORIG, 'Ñapefit: "Horas de ocio = 1".', 'Estudio de tiempos', FMT_INT)
     sec('2. MERCADO Y DEMANDA')
     p('TAM_HOGAR', 'Tamaño medio del hogar urbano', 3.5, 'personas/hogar', SUP, 'No se encontró el dato municipal del Censo 2024 en esta sesión.', 'Tabla de hogares del Censo 2024 (INE)', FMT_BS2)
-    p('PCT_OBJETIVO', 'Hogares que compran agua embotellada o tratan el agua para beber', 0.50, '% hogares', SUP, 'Hipótesis sin encuesta. Es el principal supuesto de mercado.', 'Pregunta 1 de la encuesta (hoja MUESTRA_ENCUESTA)', FMT_PCT)
+    p('PCT_OBJETIVO', 'Hogares que compran agua embotellada o tratan el agua para beber', 0.50, '% hogares', SUP, 'Hipótesis sin encuesta. Es el principal supuesto de mercado.', 'Pregunta 1 de la encuesta (hoja Muestra y encuesta)', FMT_PCT)
     p('CONSUMO_Q', 'Compra promedio de kits por hogar y año (renovación cada 2 años)', 0.5, 'kits/hogar/año', EST, 'Vida útil del elemento cerámico 1-2 años (Akvopedia, Potters for Peace). Se asume 2 años.', 'Pruebas de durabilidad y encuesta', FMT_BS2)
     p('ACEP_SUPUESTA', 'Aceptación del producto (si no hay encuesta)', 0.60, '%', SUP, 'Ñapefit usó 83% y Hypotolab 90% sin encuesta documentada; aquí se usa 60% por prudencia.', 'Se reemplaza sola cuando se cargan ≥ n encuestas', FMT_PCT)
     p('CRECE_PART', 'Crecimiento anual relativo de la participación de mercado', 0.10, '% anual', SUP, 'Los originales hacían crecer la participación al ritmo de la población (1,42%), lo que no tiene sustento comercial. Aquí refleja maduración de marca y distribución.', 'Seguimiento de ventas reales (CONTROL DE PERIODOS)', FMT_PCT)
@@ -61,7 +61,7 @@ def build_supuestos(B):
     p('M_SALARIOS', 'Multiplicador de sueldos', 1, 'x', SUP, 'Prueba de estrés', '—', FMT_BS2)
     p('M_INVERSION', 'Multiplicador de inversión en activos', 1, 'x', SUP, 'Prueba de estrés', '—', FMT_BS2)
     sec('4. COMERCIALIZACIÓN Y PRECIO')
-    p('PVP', 'Precio de venta al público 2027, con factura (kit completo)', 390, 'Bs/kit', SUP, 'Precio de mercado elegido (ver hoja PRECIO: cubre el costo total y es menor al gasto anual en botellones).', 'Prueba de precio en la encuesta y ventas piloto', FMT_BS)
+    p('PVP', 'Precio de venta al público 2027, con factura (kit completo)', 390, 'Bs/kit', SUP, 'Precio de mercado elegido (ver hoja Precio: cubre el costo total y es menor al gasto anual en botellones).', 'Prueba de precio en la encuesta y ventas piloto', FMT_BS)
     p('MIX_DIRECTO', 'Ventas por canal directo (tienda en planta, redes, ferias)', 0.40, '% unidades', SUP, 'El resto va por ferreterías, supermercados y farmacias.', 'Contratos con distribuidores', FMT_PCT)
     p('MARGEN_CANAL', 'Margen del canal indirecto sobre el precio al público', 0.25, '% del PVP', SUP, 'Ñapefit usó 30% y Hypotolab 20% para el canal indirecto.', 'Negociación con distribuidores', FMT_PCT)
     p('DIAS_COBRO_IND', 'Plazo de cobro al canal indirecto', 30, 'días', SUP, 'Crédito habitual a distribuidores.', 'Contratos', FMT_INT)
@@ -81,7 +81,7 @@ def build_supuestos(B):
     p('COSTO_CAPAC_NUEVO', 'Capacitación por cada operario nuevo', 1500, 'Bs/persona', SUP, 'Inducción técnica en prensado, cocción y pruebas.', 'Cotizar curso', FMT_BS)
     sec('6. PERSONAL Y CARGAS SOCIALES')
     p('SMN', 'Salario mínimo nacional 2026', 3300, 'Bs/mes', ORIG, 'Valor usado en Ñapefit (hoja MANO DE OBRA, tabla de incremento salarial).', 'Decreto supremo de incremento salarial vigente', FMT_BS)
-    p('INC_SAL', 'Incremento salarial anual', "='PERSONAL'!$C$13", '% anual', ORIG, 'Promedio de incrementos del SMN 2022-2026 (método de Ñapefit). Es mayor que la inflación: supuesto prudente.', 'Decretos de incremento salarial', FMT_PCT)
+    p('INC_SAL', 'Incremento salarial anual', "='MANO DE OBRA'!$C$13", '% anual', ORIG, 'Promedio de incrementos del SMN 2022-2026 (método de Ñapefit). Es mayor que la inflación: supuesto prudente.', 'Decretos de incremento salarial', FMT_PCT)
     p('TASA_CNS', 'Aporte patronal Caja Nacional de Salud', 0.10, '%', NORM, 'Igual en ambos originales.', 'Normativa de seguridad social', FMT_PCT2)
     p('TASA_RIESGO', 'Riesgo profesional (patronal)', 0.0171, '%', NORM, 'Igual en ambos originales.', 'Gestora Pública', FMT_PCT2)
     p('TASA_SOLIDARIO', 'Aporte patronal solidario', 0.035, '%', ORIG, 'Ñapefit usa 3,5% y Hypotolab 3%. Se adopta el mayor (prudente).', 'Confirmar tasa vigente con la Gestora Pública', FMT_PCT2)
@@ -100,12 +100,12 @@ def build_supuestos(B):
     p('BETA', 'Beta del sector', 0.9, 'x', ORIG, 'Valor de Ñapefit (Hypotolab: 1,32, sector alimentos). Supuesto para productos del hogar.', 'Beta desapalancada de Damodaran para "Household Products"', FMT_BS2)
     p('RM', 'Rendimiento esperado del mercado (S&P 500)', 0.1381, '%', ORIG, 'Valor de Ñapefit (Hypotolab: 13,36%). Ver serie 2021-2026 en la hoja TRMA.', 'Serie histórica del S&P 500', FMT_PCT2)
     p('CRP', 'Riesgo país Bolivia (EMBI)', 0.0415, '%', REAL, '415 puntos básicos al 17/08/2026 (Revista Mercado). Ñapefit usó 5,79%; Hypotolab 13,75% (dato de 2025).', 'Último EMBI publicado', FMT_PCT2)
-    p('PRIMA_ADIC', 'Prima adicional por tamaño o riesgo del proyecto', 0.0, '%', SUP, 'Editable para pruebas (ver SENSIBILIDAD).', 'Criterio del evaluador', FMT_PCT2)
+    p('PRIMA_ADIC', 'Prima adicional por tamaño o riesgo del proyecto', 0.0, '%', SUP, 'Editable para pruebas (ver Sensibilidad).', 'Criterio del evaluador', FMT_PCT2)
     sec('9. EVALUACIÓN Y CAPITAL DE TRABAJO')
     p('METODO_VR', 'Valor residual: 1 = contable (Ñapefit), 2 = perpetuidad (Hypotolab)', 1, 'código', ORIG, 'Por prudencia el método contable es el principal.', '—', FMT_INT)
     p('G_PERP', 'Crecimiento a perpetuidad (solo método 2)', 0.0, '%', ORIG, 'Hypotolab usó g = 0.', '—', FMT_PCT)
-    p('METODO_CT', 'Capital de trabajo: 1 = período de desfase (Sapag), 2 = déficit acumulado del arranque (2027) + caja mínima', 2, 'código', SUP, 'Se usa el método 2 porque se verifica con el flujo de caja real del modelo; el desfase (método 1) dejaba ~Bs 160.000 ociosos en caja durante 5 años. El método 1 se informa como alternativa prudente.', 'Comparar ambos en INVERSION y en SENSIBILIDAD', FMT_INT)
-    p('CAJA_MINIMA', 'Caja mínima: un mes de sueldos y gastos fijos de 2027 (colchón para desfases dentro del trimestre)', "=ROUND(('PERSONAL'!$D$"+str(ROW['PER.tot'])+"+'GASTOS_OPERATIVOS'!$D$"+str(ROW['GAS.pago'])+")/3,-3)", 'Bs', SUP, 'El modelo es trimestral y no ve los pagos de mitad de trimestre; se reserva un mes de costos fijos en efectivo.', 'Flujo mensual del primer año', FMT_BS)
+    p('METODO_CT', 'Capital de trabajo: 1 = período de desfase (Sapag), 2 = déficit acumulado del arranque (2027) + caja mínima', 2, 'código', SUP, 'Se usa el método 2 porque se verifica con el flujo de caja real del modelo; el desfase (método 1) dejaba ~Bs 160.000 ociosos en caja durante 5 años. El método 1 se informa como alternativa prudente.', 'Comparar ambos en Inversión y en Sensibilidad', FMT_INT)
+    p('CAJA_MINIMA', 'Caja mínima: un mes de sueldos y gastos fijos de 2027 (colchón para desfases dentro del trimestre)', "=ROUND(('MANO DE OBRA'!$D$"+str(ROW['PER.tot'])+"+'Otros gastos'!$D$"+str(ROW['GAS.pago'])+")/3,-3)", 'Bs', SUP, 'El modelo es trimestral y no ve los pagos de mitad de trimestre; se reserva un mes de costos fijos en efectivo.', 'Flujo mensual del primer año', FMT_BS)
     p('DIAS_INV_MP', 'Días de inventario de materiales', 30, 'días', SUP, 'Coherente con STOCK_MP (≈1 mes).', '—', FMT_INT)
     p('DIAS_PROCESO', 'Días de proceso (secado + cocción + pruebas)', 12, 'días', EST, 'Secado de 7-10 días + cocción + prueba de caudal.', 'Lote piloto', FMT_INT)
     p('DIAS_INV_PT', 'Días de inventario de producto terminado', 20, 'días', SUP, 'Coherente con SS_PT.', '—', FMT_INT)
@@ -124,7 +124,7 @@ def build_supuestos(B):
         put(ws, f'E{r}', t, 'label')
         put(ws, f'F{r}', fu, 'label', wrap=True)
         put(ws, f'G{r}', va, 'label', wrap=True)
-        B.name(nm, 'SUPUESTOS', f'C{r}')
+        B.name(nm, 'Supuestos', f'C{r}')
         ROW['SUP.' + nm] = r
         r += 1
     # validación del escenario
@@ -138,23 +138,23 @@ def build_supuestos(B):
     put(ws, f'A{r}', 'PART_INICIAL', 'label', bold=True)
     put(ws, f'B{r}', 'Participación inicial del escenario activo (calculada)', 'label')
     put(ws, f'C{r}', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', 'calc', FMT_PCT)
-    B.name('PART_INICIAL', 'SUPUESTOS', f'C{r}')
+    B.name('PART_INICIAL', 'Supuestos', f'C{r}')
     r += 1
     put(ws, f'A{r}', 'NOMBRE_ESCENARIO', 'label', bold=True)
     put(ws, f'B{r}', 'Nombre del escenario activo', 'label')
     put(ws, f'C{r}', '=CHOOSE(ESCENARIO,"Pesimista","Base","Optimista")', 'calc')
-    B.name('NOMBRE_ESCENARIO', 'SUPUESTOS', f'C{r}')
+    B.name('NOMBRE_ESCENARIO', 'Supuestos', f'C{r}')
     r += 1
     put(ws, f'A{r}', 'SUMA_EST', 'label', bold=True)
     put(ws, f'B{r}', 'Control: la estacionalidad debe sumar 100%', 'label')
     put(ws, f'C{r}', '=EST_T1+EST_T2+EST_T3+EST_T4', 'calc', FMT_PCT)
-    B.name('SUMA_EST', 'SUPUESTOS', f'C{r}')
+    B.name('SUMA_EST', 'Supuestos', f'C{r}')
     ws.freeze_panes = 'C6'
     return ws
 
 
 def build_calendario(B):
-    ws = B.sheet('CALENDARIO', 'CALENDARIO E ÍNDICES DE PRECIOS', 'Base temporal común: año 0 (2026) + 20 trimestres (2027-2031) + 5 columnas anuales.', tab='808080')
+    ws = B.sheet('Calendario', 'CALENDARIO E ÍNDICES DE PRECIOS', 'Base temporal común: año 0 (2026) + 20 trimestres (2027-2031) + 5 columnas anuales.', tab='808080')
     hdr_time(ws)
     put(ws, 'A6', 'N° de trimestre', 'label'); put(ws, 'C6', 0, 'calc', FMT_INT)
     for q in range(1, NQ+1):
@@ -191,82 +191,76 @@ def build_calendario(B):
         put(ws, f'{c}12', f'=(1+INC_SAL)^({y}-1)', 'calc', '0.0000')
         put(ws, f'{c}13', f'=SUM({qc(4*y-3)}13:{qc(4*y)}13)', 'calc', FMT_PCT)
         put(ws, f'{c}15', f'=SUM({qc(4*y-3)}15:{qc(4*y)}15)', 'calc', FMT_INT)
-    put(ws, 'A17', 'Nota: los índices convierten valores de 2027 a cada año. Precio, costos y sueldos se ajustan con tasas separadas (ver SUPUESTOS).', 'note')
+    put(ws, 'A16', 'Etiqueta del trimestre', 'label')
+    for q in range(1, NQ+1): put(ws, f'{qc(q)}16', QLABEL[q-1], 'calc')
+    put(ws, 'A17', 'Nota: los índices convierten valores de 2027 a cada año. Precio, costos y sueldos se ajustan con tasas separadas (ver Supuestos).', 'note')
     return ws
 
 
+def _copy_block(src, dst, r0, r1, c0, c1):
+    from copy import copy
+    for r in range(r0, r1 + 1):
+        if src.row_dimensions[r].height: dst.row_dimensions[r].height = src.row_dimensions[r].height
+        for c in range(c0, c1 + 1):
+            sc = src.cell(r, c); dc = dst.cell(r, c)
+            v = sc.value
+            if isinstance(v, str) and v.startswith('='): v = None
+            dc.value = v
+            if sc.has_style:
+                dc.font = copy(sc.font); dc.fill = copy(sc.fill); dc.border = copy(sc.border)
+                dc.alignment = copy(sc.alignment); dc.number_format = sc.number_format
+    for m in src.merged_cells.ranges:
+        if m.min_row >= r0 and m.max_row <= r1 and m.min_col >= c0 and m.max_col <= c1:
+            dst.merge_cells(str(m))
+    for k, d in src.column_dimensions.items():
+        if d.width: dst.column_dimensions[k].width = d.width
+
 def build_poblacion(B, src_path):
-    ws = B.sheet('POBLACION', 'POBLACIÓN DE SANTA CRUZ (INE, CENSO 2024) Y PROYECCIÓN',
-                 'Tablas copiadas de los originales (INE Cuadros 3, 4 y 8). Las proyecciones usan la tasa del INE como celda, no como número escrito.', tab='70AD47')
-    src = openpyxl.load_workbook(src_path, data_only=True)
-    sc = src['Santa Cruz']; zu = src['Zona urbana']
-    widths(ws, {'A': 8, 'B': 10, 'C': 16, 'D': 14, 'E': 18, 'F': 22, 'G': 18})
-    for col in 'HIJKLMNOP': ws.column_dimensions[col].width = 12
-    put(ws, 'A5', 'Cuadro 3 - Departamento de Santa Cruz: población por grupo de edad (INE)', 'sec')
-    heads = ['N°', 'Nivel', 'Departamento', 'Provincia', 'Municipio', 'Área y edad', '2001 Total', '2001 H', '2001 M', '2012 Total', '2012 H', '2012 M', '2024 Total', '2024 H', '2024 M']
-    for j, h in enumerate(heads): put(ws, f'{L(2+j)}6', h, 'hdr')
-    r = 7
-    for sr in range(9, 30):
-        for j in range(15):
-            v = sc.cell(sr, 2+j).value
-            put(ws, f'{L(2+j)}{r}', v, 'label', FMT_U if isinstance(v, (int, float)) else None)
-        r += 1
-    r_dep_tot = 7  # fila de total departamental (2024 en col N)
-    r += 1
-    put(ws, f'A{r}', 'Cuadro 8 - Indicadores de crecimiento intercensal (INE)', 'sec'); r += 1
-    heads8 = ['N°', 'Nivel', 'Departamento', 'Provincia', 'Municipio', 'Área', 'Crec. abs 2001-2012', 'Crec. abs 2012-2024', 'Crec. rel 2001-2012 (%)', 'Crec. rel 2012-2024 (%)', 'Tasa anual 2001-2012 (%)', 'Tasa anual 2012-2024 (%)']
-    for j, h in enumerate(heads8): put(ws, f'{L(2+j)}{r}', h, 'hdr')
-    r += 1; r8 = r
-    for sr in range(41, 44):
-        for j in range(12):
-            v = sc.cell(sr, 2+j).value
-            put(ws, f'{L(2+j)}{r}', v, 'label', '#,##0.0000' if isinstance(v, float) else (FMT_U if isinstance(v, int) else None))
-        r += 1
-    r8_tot, r8_urb = r8, r8 + 1
-    r += 1
-    put(ws, f'A{r}', 'Cuadro 4 - Municipio de Santa Cruz de la Sierra por área y edad (INE)', 'sec'); r += 1
-    for j, h in enumerate(heads): put(ws, f'{L(2+j)}{r}', h, 'hdr')
-    r += 1; r4 = r
-    for sr in range(9, 33):
-        for j in range(15):
-            v = zu.cell(sr, 2+j).value
-            put(ws, f'{L(2+j)}{r}', v, 'label', FMT_U if isinstance(v, (int, float)) else None)
-        r += 1
-    r4_urb = r4 + 8  # fila "Urbana" del municipio
-    r += 1
-    put(ws, f'A{r}', 'CÁLCULOS DERIVADOS (fórmulas)', 'sec'); r += 1
-    calc = [
-        ('POB_DEP_2024', 'Población departamental 2024', f'=N{r_dep_tot}', FMT_U),
-        ('TASA_DEP', 'Tasa anual de crecimiento departamental 2012-2024', f'=M{r8_tot}/100', FMT_PCT2),
-        ('TASA_URB', 'Tasa anual de crecimiento urbano departamental 2012-2024', f'=M{r8_urb}/100', FMT_PCT2),
-        ('POB_URB_DEP_2024', 'Población urbana departamental 2024 = crec. absoluto 2012-24 / crec. relativo + crec. absoluto', f'=I{r8_urb}/(K{r8_urb}/100)+I{r8_urb}', FMT_U),
-        ('POB_URB_MUN_2024', 'Población urbana del municipio de Santa Cruz de la Sierra 2024', f'=N{r4_urb}', FMT_U),
-        ('POB_MUN_18_59_URB', 'Población urbana municipal de 18 a 59 años (usada por Ñapefit)', f'=SUM(N{r4_urb+4}:N{r4_urb+6})', FMT_U),
-    ]
+    src = openpyxl.load_workbook(src_path)
+    # ---------- Santa Cruz (copia fiel de los cuadros INE de Ñapefit) ----------
+    ws = B.wb.create_sheet('Santa Cruz')
+    _copy_block(src['Santa Cruz'], ws, 1, 43, 1, 16)
+    ws['A1'] = 'POBLACIÓN DEL DEPARTAMENTO DE SANTA CRUZ (INE, Censo 2024)'; ws['A1'].font = Font(name='Calibri', size=14, bold=True)
+    r = 45
+    put(ws, f'B{r}', 'CÁLCULOS PARA EL MODELO (fórmulas sobre los cuadros del INE)', 'sec'); r += 1
+    calc = [('TASA_DEP', 'Tasa anual de crecimiento departamental 2012-2024', '=M41/100', FMT_PCT2),
+            ('TASA_URB', 'Tasa anual de crecimiento urbano departamental 2012-2024', '=M42/100', FMT_PCT2),
+            ('POB_DEP_2024', 'Población departamental 2024', '=N9', FMT_U),
+            ('POB_URB_DEP_2024', 'Población urbana departamental 2024 = crec. absoluto 2012-24 / crec. relativo + crec. absoluto', '=I42/(K42/100)+I42', FMT_U)]
     for nm, d, f, fm in calc:
-        put(ws, f'A{r}', '', 'label'); put(ws, f'B{r}', nm, 'label', bold=True)
-        put(ws, f'F{r}', d, 'label')
-        ws.merge_cells(f'F{r}:L{r}')
-        put(ws, f'M{r}', f, 'calc', fm)
-        B.name(nm, 'POBLACION', f'M{r}')
-        r += 1
+        put(ws, f'B{r}', d, 'label'); ws.merge_cells(f'B{r}:I{r}')
+        put(ws, f'J{r}', f, 'calc', fm, bold=True); B.name(nm, 'Santa Cruz', f'J{r}'); r += 1
     r += 1
-    put(ws, f'A{r}', 'PROYECCIÓN 2024-2031 (P_t = P_t-1 x (1 + tasa INE))', 'sec'); r += 1
-    years = list(range(2024, 2032))
-    put(ws, f'B{r}', 'Serie', 'hdr'); ws.merge_cells(f'B{r}:F{r}')
-    for j, yv in enumerate(years): put(ws, f'{L(7+j)}{r}', str(yv), 'hdr')
+    put(ws, f'B{r}', 'PROYECCIONES (2024 - 2031): P(t) = P(t-1) x (1 + tasa del INE)', 'sec'); r += 1
+    put(ws, f'B{r}', 'Serie', 'hdr')
+    for j, yv in enumerate(range(2024, 2032)): put(ws, f'{L(3+j)}{r}', str(yv), 'hdr')
     r += 1
-    ROW['POB.year_row'] = r - 1
-    series = [('Población departamental total', 'POB_DEP_2024', 'TASA_DEP'),
-              ('Población urbana departamental', 'POB_URB_DEP_2024', 'TASA_URB'),
-              ('Población urbana municipal (Santa Cruz de la Sierra)', 'POB_URB_MUN_2024', 'TASA_URB')]
-    for k, (lbl, base, rate) in enumerate(series):
-        put(ws, f'B{r}', lbl, 'label'); ws.merge_cells(f'B{r}:F{r}')
-        put(ws, f'G{r}', f'={base}', 'calc', FMT_U)
-        for j in range(1, len(years)):
-            put(ws, f'{L(7+j)}{r}', f'={L(6+j)}{r}*(1+{rate})', 'calc', FMT_U)
-        ROW[f'POB.s{k}'] = r
-        r += 1
-    put(ws, f'B{r+1}', 'Columnas de 2027 a 2031 = J a N. Fuente: INE, Censo de Población y Vivienda 2024 (tablas incluidas en Ñapefit y Hypotolab).', 'note')
-    # columnas 2027..2031 -> J..N  (2024=G)
+    ROW['POB.c2024'] = 3
+    for k, (lbl, base, rate) in enumerate([('Total', 'POB_DEP_2024', 'TASA_DEP'), ('Urbana', 'POB_URB_DEP_2024', 'TASA_URB')]):
+        put(ws, f'B{r}', lbl, 'label', bold=True)
+        put(ws, f'C{r}', f'={base}', 'calc', FMT_U)
+        for j in range(1, 8): put(ws, f'{L(3+j)}{r}', f'={L(2+j)}{r}*(1+{rate})', 'calc', FMT_U)
+        ROW[f'POB.s{k}'] = r; r += 1
+    put(ws, f'B{r+1}', 'Corrección: Ñapefit escribía la tasa 0,01421517 en cada celda; aquí se toma de la celda del INE (M41 y M42).', 'note')
+    # ---------- Zona urbana ----------
+    ws = B.wb.create_sheet('Zona urbana')
+    _copy_block(src['Zona urbana'], ws, 1, 47, 1, 16)
+    ws['A1'] = 'POBLACIÓN DEL MUNICIPIO DE SANTA CRUZ DE LA SIERRA (INE, Censo 2024)'; ws['A1'].font = Font(name='Calibri', size=14, bold=True)
+    widths(ws, {'R': 16, 'S': 52})
+    put(ws, 'R18', 'Valor', 'hdr'); put(ws, 'S18', 'Concepto', 'hdr')
+    rows = [(19, '=SUM(N21:N23)', 'Personas del área urbana de 18 a 59 años (usada por Ñapefit)', 'POB_MUN_18_59_URB', FMT_U),
+            (20, '=N17', 'Población urbana del municipio 2024', 'POB_URB_MUN_2024', FMT_U),
+            (21, '=R20/POB_URB_DEP_2024', 'Municipio / urbano departamental = cobertura inicial', None, FMT_PCT)]
+    for rr, f, d, nm, fm in rows:
+        put(ws, f'R{rr}', f, 'calc', fm, bold=True); put(ws, f'S{rr}', d, 'label')
+        if nm: B.name(nm, 'Zona urbana', f'R{rr}')
+    r = 51
+    put(ws, f'B{r}', 'PROYECCIÓN DE LA POBLACIÓN URBANA MUNICIPAL (tasa urbana departamental del INE)', 'sec'); r += 2
+    put(ws, f'B{r}', 'Serie', 'hdr')
+    for j, yv in enumerate(range(2024, 2032)): put(ws, f'{L(3+j)}{r}', str(yv), 'hdr')
+    r += 1
+    put(ws, f'B{r}', 'Urbana', 'label', bold=True); put(ws, f'C{r}', '=POB_URB_MUN_2024', 'calc', FMT_U)
+    for j in range(1, 8): put(ws, f'{L(3+j)}{r}', f'={L(2+j)}{r}*(1+TASA_URB)', 'calc', FMT_U)
+    ROW['POB.s2'] = r
+    put(ws, f'B{r+2}', 'Corrección: en Ñapefit R20 dividía un dato municipal por la población departamental (mezclaba niveles). Fuente: INE, Censo de Población y Vivienda 2024.', 'note')
     return ws

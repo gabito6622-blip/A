@@ -5,22 +5,24 @@ from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
 
-FONT = 'Arial'
-F_IN = Font(name=FONT, size=10, color='0000FF')
-F_CALC = Font(name=FONT, size=10, color='000000')
-F_LINK = Font(name=FONT, size=10, color='008000')
-F_LBL = Font(name=FONT, size=10)
-F_LBLB = Font(name=FONT, size=10, bold=True)
-F_HDR = Font(name=FONT, size=10, bold=True, color='FFFFFF')
-F_TIT = Font(name=FONT, size=14, bold=True, color='1F4E5F')
-F_SUB = Font(name=FONT, size=10, italic=True, color='555555')
-F_SEC = Font(name=FONT, size=11, bold=True, color='1F4E5F')
+FONT = 'Calibri'
+F_IN = Font(name=FONT, size=11, color='0000FF')
+F_CALC = Font(name=FONT, size=11, color='000000')
+F_LINK = Font(name=FONT, size=11, color='008000')
+F_LBL = Font(name=FONT, size=11)
+F_LBLB = Font(name=FONT, size=11, bold=True)
+F_HDR = Font(name=FONT, size=11, bold=True, color='000000')
+F_TIT = Font(name=FONT, size=14, bold=True, color='000000')
+F_SUB = Font(name=FONT, size=11, italic=True, color='555555')
+F_SEC = Font(name=FONT, size=11, bold=True, color='FFFFFF')
 FILL_IN = PatternFill('solid', fgColor='FFF2CC')
-FILL_HDR = PatternFill('solid', fgColor='1F4E5F')
-FILL_SEC = PatternFill('solid', fgColor='DDEBF7')
+FILL_HDR = PatternFill('solid', fgColor='FFD966')
+FILL_ANUAL = PatternFill('solid', fgColor='A9D08E')
+FILL_BAR = PatternFill('solid', fgColor='BF8F00')
+FILL_SEC = PatternFill('solid', fgColor='BF8F00')
 FILL_TOT = PatternFill('solid', fgColor='EDEDED')
 FILL_KEY = PatternFill('solid', fgColor='FFFF00')
-THIN = Side(style='thin', color='BFBFBF')
+THIN = Side(style='thin', color='000000')
 BORDER = Border(top=THIN, bottom=THIN, left=THIN, right=THIN)
 WRAP = Alignment(wrap_text=True, vertical='top')
 CENTER = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -60,12 +62,10 @@ class Book:
         self.order = []
     def sheet(self, name, title, subtitle='', tab=None):
         ws = self.wb.create_sheet(name)
-        ws.sheet_view.showGridLines = False
         ws['A1'] = title; ws['A1'].font = F_TIT
         if subtitle:
             ws['A2'] = subtitle; ws['A2'].font = F_SUB
-        ws['A3'] = '◄ Volver al índice'; ws['A3'].hyperlink = "#'INDICE'!A1"; ws['A3'].font = Font(name=FONT, size=9, color='0563C1', underline='single')
-        if tab: ws.sheet_properties.tabColor = tab
+        ws['A3'] = '◄ Volver al índice'; ws['A3'].hyperlink = "#'Índice'!A1"; ws['A3'].font = Font(name=FONT, size=9, color='0563C1', underline='single')
         ws.column_dimensions['A'].width = 46
         ws.column_dimensions['B'].width = 14
         return ws
@@ -75,24 +75,35 @@ class Book:
         self.wb.defined_names[nm] = DefinedName(nm, attr_text=ref)
         self.names[nm] = (sheet, cell)
 
-def put(ws, cell, value, kind='calc', fmt=None, bold=False, fill=None, wrap=False, comment=None, align=None):
+def put(ws, cell, value, kind='calc', fmt=None, bold=False, fill=None, wrap=False, comment=None, align=None, border=False):
     c = ws[cell]
     c.value = value
     if kind == 'input':
-        c.font = Font(name=FONT, size=10, color='0000FF', bold=bold); c.fill = FILL_IN
+        c.font = Font(name=FONT, size=11, color='0000FF', bold=bold); c.fill = FILL_IN
     elif kind == 'link':
-        c.font = Font(name=FONT, size=10, color='008000', bold=bold)
+        c.font = Font(name=FONT, size=11, color='008000', bold=bold)
     elif kind == 'label':
-        c.font = Font(name=FONT, size=10, bold=bold)
+        c.font = Font(name=FONT, size=11, bold=bold)
         c.alignment = Alignment(vertical='top', wrap_text=wrap)
     elif kind == 'hdr':
-        c.font = F_HDR; c.fill = FILL_HDR; c.alignment = CENTER
+        c.font = F_HDR; c.fill = FILL_HDR; c.alignment = CENTER; c.border = BORDER
+    elif kind == 'bar':
+        c.font = F_SEC; c.fill = FILL_BAR; c.alignment = Alignment(horizontal='center', vertical='center')
     elif kind == 'sec':
         c.font = F_SEC; c.fill = FILL_SEC
+        from openpyxl.utils import column_index_from_string as CI
+        col = ''.join(ch for ch in cell if ch.isalpha()); row = int(''.join(ch for ch in cell if ch.isdigit()))
+        for k in range(1, 8):
+            nc = ws.cell(row, CI(col) + k)
+            if nc.value is None and not isinstance(nc, type(None)):
+                try: nc.fill = FILL_SEC
+                except AttributeError: pass
     elif kind == 'note':
         c.font = Font(name=FONT, size=9, italic=True, color='555555')
     else:
-        c.font = Font(name=FONT, size=10, bold=bold)
+        c.font = Font(name=FONT, size=11, bold=bold)
+    if kind in ('calc', 'link', 'input') or (kind == 'label' and border):
+        c.border = BORDER
     if fmt: c.number_format = fmt
     if fill: c.fill = fill
     if wrap: c.alignment = WRAP
@@ -108,20 +119,26 @@ def hdr_time(ws, row=4, year0=True, annual=True, first='Concepto', unit='Unidad'
     if year0:
         put(ws, f'C{row}', 'Año 0 (2026)', 'hdr')
     for q in range(1, NQ+1):
-        put(ws, f'{qc(q)}{row}', QLABEL[q-1], 'hdr')
+        put(ws, f'{qc(q)}{row}', ['1ER', '2DO', '3ER', '4TO'][(q-1) % 4], 'hdr')
         ws.column_dimensions[qc(q)].width = 12
+    if row > 1 and all(ws[f'{qc(q)}{row-1}'].value is None for q in range(1, NQ+1)):
+        for y in range(1, 6):
+            a, b = qc(4*y-3), qc(4*y)
+            put(ws, f'{a}{row-1}', f'AÑO {2026+y}', 'hdr')
+            for q in range(4*y-2, 4*y+1): ws[f'{qc(q)}{row-1}'].border = BORDER; ws[f'{qc(q)}{row-1}'].fill = FILL_HDR
+            ws.merge_cells(f'{a}{row-1}:{b}{row-1}')
     ws.column_dimensions['C'].width = 13
     ws.column_dimensions['X'].width = 3
     if annual:
         for y in range(1, 6):
-            put(ws, f'{yc(y)}{row}', f'Año {2026+y}', 'hdr')
+            put(ws, f'{yc(y)}{row}', f'TOTAL {2026+y}', 'hdr'); ws[f'{yc(y)}{row}'].fill = FILL_ANUAL
             ws.column_dimensions[yc(y)].width = 13
     ws.freeze_panes = f'C{row+1}'
 
 def qrow(ws, r, label, unit, f, fmt=FMT_BS, c0=None, annual='sum', bold=False, kind=None, fill=None, note=None):
     """f(q) -> formula string for quarter q. c0: value/formula for Año 0 column C. annual: 'sum'|'last'|'avg'|None|callable(y)"""
-    put(ws, f'A{r}', label, 'label', bold=bold, fill=fill)
-    put(ws, f'B{r}', unit, 'note')
+    put(ws, f'A{r}', label, 'label', bold=bold, fill=fill, border=True)
+    put(ws, f'B{r}', unit, 'note'); ws[f'B{r}'].border = BORDER
     if c0 is not None:
         k = kind or ('link' if is_link(c0) else 'calc')
         put(ws, f'C{r}', c0, k, fmt, bold=bold, fill=fill)
@@ -146,8 +163,8 @@ def qrow(ws, r, label, unit, f, fmt=FMT_BS, c0=None, annual='sum', bold=False, k
         put(ws, f'AE{r}', note, 'note')
 
 def arow(ws, r, label, unit, f, fmt=FMT_BS, bold=False, kind=None, cols=ac, years=range(1, 6), fill=None, note=None, notecol='I'):
-    put(ws, f'A{r}', label, 'label', bold=bold, fill=fill)
-    put(ws, f'B{r}', unit, 'note')
+    put(ws, f'A{r}', label, 'label', bold=bold, fill=fill, border=True)
+    put(ws, f'B{r}', unit, 'note'); ws[f'B{r}'].border = BORDER
     for y in years:
         v = f(y)
         k = kind or ('link' if is_link(v) else 'calc')

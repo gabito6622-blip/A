@@ -9,58 +9,58 @@ SRC = sys.argv[1]; OUT = sys.argv[2]
 SNAP = sys.argv[3] if len(sys.argv) > 3 else None
 
 ORDER = [
- ('PORTADA', 'Presentación', 'Portada con resultados clave'),
- ('INDICE', 'Presentación', 'Este índice'),
- ('LEYENDA', 'Presentación', 'Cómo usar el modelo, colores y flujo de cálculo'),
- ('DASHBOARD', 'Presentación', 'Tablero ejecutivo con indicadores y gráficos'),
- ('CONTROLES', 'Presentación', 'Alertas de consistencia (balance, inventarios, capacidad, caja, VAN)'),
- ('SUPUESTOS', 'Entradas', 'Panel de supuestos editables y registro de hipótesis (tipo, fuente, validación)'),
- ('CALENDARIO', 'Entradas', 'Trimestres, años e índices de precios, costos y sueldos'),
- ('MATRIZ_COMPARATIVA', 'Auditoría', 'Hojas de Ñapefit y Hypotolab: objetivo, fórmulas, errores, mejoras, hoja equivalente'),
- ('SELECCION_PRODUCTO', 'Investigación de mercado', 'Cinco productos no alimenticios evaluados con 14 criterios ponderados'),
- ('PRODUCTO_MERCADO', 'Investigación de mercado', 'Descripción, problema, necesidad, segmentación y ahorro para el hogar'),
- ('POBLACION', 'Investigación de mercado', 'Tablas INE (Censo 2024) y proyección (ex "Santa Cruz" y "Zona urbana")'),
- ('MUESTRA_ENCUESTA', 'Investigación de mercado', 'Tamaño de muestra, cuestionario y tabulación (sin datos inventados)'),
- ('DEMANDA', 'Investigación de mercado', 'Demanda potencial y efectiva'),
- ('COMPETENCIA', 'Investigación de mercado', 'Competidores, sustitutos y fuerzas de Porter'),
- ('PRONOSTICO', 'Comercialización', 'Tres escenarios y distribución trimestral del escenario activo'),
- ('ESTRATEGIA_COMERCIAL', 'Comercialización', 'Mezcla de marketing, canales y gastos comerciales'),
- ('PRECIO', 'Comercialización', 'Precio por canal, método de costo y margen de contribución'),
- ('PROCESO_PRODUCTIVO', 'Producción', 'Etapas, equipos, tiempos y controles de calidad'),
- ('CAPACIDAD', 'Producción', 'Capacidad por etapa, cuello de botella y utilización'),
- ('LOCALIZACION', 'Producción', 'Elección del local y cronograma de puesta en marcha (ex "Infraestructura")'),
- ('INVENTARIO_PT', 'Producción', 'Plan de producción e inventario de producto terminado'),
- ('MATERIALES', 'Producción', 'Lista de materiales, costo unitario y proveedores (ex "MP" / "Costos (MP)")'),
- ('COMPRAS', 'Producción', 'Programa de compras en juegos, kilos y Bs'),
- ('PERSONAL', 'Producción', 'Cargos, operarios según producción, cargas sociales'),
- ('GASTOS_OPERATIVOS', 'Finanzas', 'Gastos fijos por área y gasto variable de entrega'),
- ('ACTIVOS_FIJOS', 'Finanzas', 'Inversión en activos y depreciación'),
- ('INVERSION', 'Finanzas', 'Inversión fija, diferida, puesta en marcha y capital de trabajo'),
- ('FINANCIAMIENTO', 'Finanzas', 'Préstamo bancario y tabla de amortización'),
- ('IMPUESTOS', 'Finanzas', 'IVA, IT, IUE y prima'),
- ('ESTADO_RESULTADOS', 'Finanzas', 'Estado de resultados trimestral y anual'),
- ('FLUJO_CAJA', 'Finanzas', 'Flujo de caja directo'),
- ('BALANCE_GENERAL', 'Finanzas', 'Balance general con control de cuadre'),
- ('TRMA', 'Evaluación', 'Tasa de descuento (CAPM + riesgo país, en Bs)'),
- ('EVALUACION', 'Evaluación', 'Flujo de fondos, VAN, TIR, PRI, B/C, flujo del inversionista'),
- ('PUNTO_EQUILIBRIO', 'Evaluación', 'Punto de equilibrio operativo, financiero y de caja'),
- ('RATIOS', 'Evaluación', 'Indicadores financieros'),
- ('SENSIBILIDAD', 'Evaluación', 'Sensibilidad, escenarios y puntos críticos'),
- ('SIMULADOR EMPRESARIAL', 'Juego de Negocios', 'Decisiones por período y sus consecuencias'),
- ('DECISIONES Y ESCENARIOS', 'Juego de Negocios', 'Escenario activo, corridas registradas y comparador de decisiones'),
- ('CONTROL DE PERIODOS', 'Juego de Negocios', 'Plan vs. real por trimestre'),
- ('FUENTES', 'Referencias', 'Fuentes y bibliografía'),
+ ('Santa Cruz', 'Ñapefit', 'Población departamental (INE, Cuadros 3 y 8) y proyección'),
+ ('Zona urbana', 'Ñapefit', 'Población del municipio por área y edad (INE, Cuadro 4)'),
+ ('Demanda', 'Ñapefit', 'Demanda potencial y efectiva'),
+ ('Pronostico', 'Ñapefit', 'Tres escenarios y pronóstico trimestral'),
+ ('Inventario', 'Ñapefit', 'Plan de producción e inventario en unidades'),
+ ('Inv. terminado', 'Ñapefit', 'Inventario de producto terminado en unidades y Bs; costo de ventas'),
+ ('MP', 'Ñapefit', 'Materiales por kit, costo unitario y proveedores'),
+ ('Capacidad Inst.', 'Ñapefit', 'Capacidad por etapa, cuello de botella y utilización'),
+ ('Infraestructura', 'Ñapefit', 'Elección del local y puesta en marcha'),
+ ('Compras', 'Ñapefit', 'Programa de compras de materiales'),
+ ('Maqu. y equip.', 'Ñapefit', 'Activos fijos y depreciación'),
+ ('MANO DE OBRA', 'Ñapefit', 'Cargos, planillas por año, cargas sociales y planilla trimestral'),
+ ('Otros gastos', 'Ñapefit', 'Gastos operativos por área'),
+ ('Precio', 'Ñapefit', 'Precio por canal, método de costo y margen de contribución'),
+ ('Inversión', 'Ñapefit', 'Inversión fija, diferida, puesta en marcha y capital de trabajo'),
+ ('Estado de resultado', 'Ñapefit', 'Estado de resultados trimestral y anual'),
+ ('Carga impositiva', 'Ñapefit', 'IVA, IT, IUE y prima'),
+ ('Flujo de caja', 'Ñapefit', 'Flujo de caja directo'),
+ ('TRMA', 'Ñapefit', 'Tasa de descuento (CAPM + riesgo país, en Bs)'),
+ ('Rentabilidad', 'Ñapefit', 'Flujo de fondos, VAN, TIR, PRI, B/C y punto de equilibrio'),
+ ('Supuestos', 'Nuevo', 'Panel de supuestos editables y registro de hipótesis'),
+ ('Calendario', 'Nuevo', 'Trimestres e índices de precios, costos y sueldos'),
+ ('Financiamiento', 'Nuevo', 'Préstamo bancario y tabla de amortización'),
+ ('Balance general', 'Nuevo', 'Balance general con control de cuadre'),
+ ('Ratios', 'Nuevo', 'Indicadores financieros'),
+ ('Sensibilidad', 'Nuevo', 'Sensibilidad, puntos críticos y estrés'),
+ ('SIMULADOR EMPRESARIAL', 'Nuevo', 'Decisiones por período y sus consecuencias'),
+ ('DECISIONES Y ESCENARIOS', 'Nuevo', 'Escenario activo, corridas registradas y comparador de decisiones'),
+ ('CONTROL DE PERIODOS', 'Nuevo', 'Plan vs. real por trimestre'),
+ ('Dashboard', 'Nuevo', 'Tablero ejecutivo'),
+ ('Controles', 'Nuevo', 'Alertas de consistencia'),
+ ('Producto', 'Nuevo', 'Descripción del producto, problema, segmentación y ahorro'),
+ ('Selección de producto', 'Nuevo', 'Cinco productos evaluados con 14 criterios'),
+ ('Muestra y encuesta', 'Nuevo', 'Tamaño de muestra, cuestionario y tabulación'),
+ ('Competencia', 'Nuevo', 'Competidores, sustitutos y fuerzas de Porter'),
+ ('Estrategia comercial', 'Nuevo', 'Mezcla de marketing, canales y gastos comerciales'),
+ ('Proceso productivo', 'Nuevo', 'Etapas, equipos, tiempos y controles'),
+ ('Matriz comparativa', 'Nuevo', 'Auditoría de las hojas de Ñapefit y Hypotolab'),
+ ('Fuentes', 'Nuevo', 'Fuentes y bibliografía'),
+ ('Índice', 'Nuevo', 'Este índice'),
+ ('Leyenda', 'Nuevo', 'Cómo usar el modelo'),
 ]
 
 def build_precio_costo(B, ws):
     P = ROW
     r = 17
     put(ws, f'A{r}', 'B. MÉTODO DE COSTO (metodología de Ñapefit y Hypotolab, en Bs, año 2027)', 'sec'); r += 1
-    ER = lambda k: f"'ESTADO_RESULTADOS'!{yc(1)}{P['ER.'+k]}"
+    ER = lambda k: f"'Estado de resultado'!{yc(1)}{P['ER.'+k]}"
     rows = [('q', 'Unidades vendidas (Q)', f"={ER('u')}", FMT_U),
             ('mp', 'Materiales y energía (costo de ventas)', f"={ER('cv')}", FMT_BS),
-            ('mod', 'Mano de obra directa', f"='PERSONAL'!{yc(1)}{P['PER.MOD']}", FMT_BS),
-            ('moi', 'Mano de obra indirecta', f"='PERSONAL'!{yc(1)}{P['PER.MOI']}", FMT_BS),
+            ('mod', 'Mano de obra directa', f"='MANO DE OBRA'!{yc(1)}{P['PER.MOD']}", FMT_BS),
+            ('moi', 'Mano de obra indirecta', f"='MANO DE OBRA'!{yc(1)}{P['PER.MOI']}", FMT_BS),
             ('gf', 'Gastos de fabricación y depreciación', f"={ER('gfab')}+{ER('dep_fab')}", FMT_BS),
             ('ga', 'Gastos de administración y comercialización', f"={ER('tadm')}+{ER('tcom')}", FMT_BS)]
     for k, lbl, f, fm in rows:
@@ -79,12 +79,12 @@ def build_precio_costo(B, ws):
     from b2_mercado import year_hdr
     year_hdr(ws, r); r += 1
     for k, lbl, fm in [('p', 'Precio neto por kit', FMT_BS2), ('cvu', 'Costo variable por kit', FMT_BS2), ('mcu', 'Margen de contribución por kit', FMT_BS2), ('mcp', 'Razón de contribución', FMT_PCT)]:
-        arow(ws, r, lbl, '', lambda y, k=k: f"='PUNTO_EQUILIBRIO'!{ac(y)}{P['PE.'+k]}", fm); r += 1
+        arow(ws, r, lbl, '', lambda y, k=k: f"='Rentabilidad'!{ac(y)}{P['PE.'+k]}", fm); r += 1
     r += 1
     put(ws, f'A{r}', 'D. PRECIO FRENTE A LA COMPETENCIA', 'sec'); r += 1
-    put(ws, f'A{r}', 'Ahorro anual del hogar frente al botellón (Bs)', 'label'); put(ws, f'C{r}', f"='PRODUCTO_MERCADO'!B{P['PM.ahorro']}", 'link', FMT_BS); r += 1
-    put(ws, f'A{r}', 'Meses para recuperar el precio del kit', 'label'); put(ws, f'C{r}', f"='PRODUCTO_MERCADO'!B{P['PM.meses']}", 'link', FMT_BS2); r += 1
-    put(ws, f'A{r}', 'Precios de competidores: ver COMPETENCIA (pendientes de relevamiento).', 'note')
+    put(ws, f'A{r}', 'Ahorro anual del hogar frente al botellón (Bs)', 'label'); put(ws, f'C{r}', f"='Producto'!B{P['PM.ahorro']}", 'link', FMT_BS); r += 1
+    put(ws, f'A{r}', 'Meses para recuperar el precio del kit', 'label'); put(ws, f'C{r}', f"='Producto'!B{P['PM.meses']}", 'link', FMT_BS2); r += 1
+    put(ws, f'A{r}', 'Precios de competidores: ver Competencia (pendientes de relevamiento).', 'note')
     widths(ws, {'A': 66})
 
 def build_all():
@@ -103,7 +103,7 @@ def build_all():
     b7.build_simulador(B); dec = b7.build_decisiones(B); b7.build_control(B)
     b8.build_matriz(B); b8.build_seleccion(B); b8.build_competencia(B); b8.build_estrategia(B); b8.build_proceso(B); b8.build_localizacion(B)
     b8.build_fuentes(B); b8.build_controles(B); sen = b8.build_sensibilidad(B); b8.build_dashboard(B)
-    b8.build_portada(B, ORDER); b8.build_indice(B, ORDER); b8.build_leyenda(B)
+    b8.build_indice(B, ORDER); b8.build_leyenda(B)
     return B, dec, sen
 
 def write_snapshot(B, dec, sen, snap):
@@ -169,6 +169,8 @@ names = [o[0] for o in ORDER]
 assert set(names) == set(B.wb.sheetnames), (set(names) ^ set(B.wb.sheetnames))
 B.wb._sheets = [B.wb[n] for n in names]
 B.wb.active = 0
+for ws in B.wb.worksheets:
+    ws.sheet_view.tabSelected = (ws.title == 'Santa Cruz')
 B.wb.properties.title = 'Modelo empresarial maestro - Filtro cerámico'
 B.wb.properties.creator = 'Modelo académico'
 B.wb.calculation.fullCalcOnLoad = True

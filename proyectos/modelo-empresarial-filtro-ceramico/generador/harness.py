@@ -24,17 +24,17 @@ def run(changes, extra=None):
     g = lambda sh, key, col: d[sh][f'{col}{R[key]}'].value
     qs = ['C'] + [L(3+q) for q in range(1, 21)]
     m = dict(van=nv('EV_VAN'), tir=nv('EV_TIR'), pri=nv('EV_PRI'), trma=nv('TRMA'),
-             u1=g('ESTADO_RESULTADOS', 'ER.u', 'Y'), u5=g('ESTADO_RESULTADOS', 'ER.u', 'AC'),
-             fact1=g('ESTADO_RESULTADOS', 'ER.fact', 'Y'), vn1=g('ESTADO_RESULTADOS', 'ER.vn', 'Y'), cv1=g('ESTADO_RESULTADOS', 'ER.cv', 'Y'),
-             df1=g('IMPUESTOS', 'IMP.df', 'Y'), prod1=g('INVENTARIO_PT', 'INV.prod', 'Y'), comp1=g('COMPRAS', 'COM.pago', 'Y'),
-             un1=g('ESTADO_RESULTADOS', 'ER.un', 'Y'), un5=g('ESTADO_RESULTADOS', 'ER.un', 'AC'), ebit1=g('ESTADO_RESULTADOS', 'ER.ebit', 'Y'),
-             sue1=g('PERSONAL', 'PER.tot', 'Y'), invtot=nv('INVERSION_TOTAL'),
-             cajamin=min(g('FLUJO_CAJA', 'FC.sfin', c) for c in qs),
-             balabs=sum(abs(g('BALANCE_GENERAL', 'BAL.chk', c)) for c in qs),
+             u1=g('Estado de resultado', 'ER.u', 'Y'), u5=g('Estado de resultado', 'ER.u', 'AC'),
+             fact1=g('Estado de resultado', 'ER.fact', 'Y'), vn1=g('Estado de resultado', 'ER.vn', 'Y'), cv1=g('Estado de resultado', 'ER.cv', 'Y'),
+             df1=g('Carga impositiva', 'IMP.df', 'Y'), prod1=g('Inventario', 'INV.prod', 'Y'), comp1=g('Compras', 'COM.pago', 'Y'),
+             un1=g('Estado de resultado', 'ER.un', 'Y'), un5=g('Estado de resultado', 'ER.un', 'AC'), ebit1=g('Estado de resultado', 'ER.ebit', 'Y'),
+             sue1=g('MANO DE OBRA', 'PER.tot', 'Y'), invtot=nv('INVERSION_TOTAL'),
+             cajamin=min(g('Flujo de caja', 'FC.sfin', c) for c in qs),
+             balabs=sum(abs(g('Balance general', 'BAL.chk', c)) for c in qs),
              ctrl_ok=nv('CTRL_OK'), ctrl_tot=nv('CTRL_TOT'), errors=st['total_errors'],
-             capok=min(g('CAPACIDAD', 'CAP.ok', L(3+q)) for q in range(1, 21)),
-             util5=g('CAPACIDAD', 'CAP.util', 'AC'), acep=nv('ACEPTACION'))
-    c = d['CONTROLES']; m['revisar'] = [c[f'B{r}'].value for r in range(6, 30) if c[f'D{r}'].value == 'REVISAR']
+             capok=min(g('Capacidad Inst.', 'CAP.ok', L(3+q)) for q in range(1, 21)),
+             util5=g('Capacidad Inst.', 'CAP.util', 'AC'), acep=nv('ACEPTACION'))
+    c = d['Controles']; m['revisar'] = [c[f'B{r}'].value for r in range(6, 30) if c[f'D{r}'].value == 'REVISAR']
     os.remove(p)
     return m
 
@@ -86,7 +86,7 @@ for lbl, nm, equiv in [('Precio de venta', 'M_PRECIO', 'PVP 2027 = Bs {:.0f}'), 
     print('critico', lbl, x1, f1)
 # 4) Estrés combinado y pruebas de coherencia
 def setcob(wb):
-    s = wb['SUPUESTOS']
+    s = wb['Supuestos']
     for n in ['COB_2029', 'COB_2030', 'COB_2031']:
         sh, c = cell_of(n); wb[sh][c].value = '=COB_2027'
 stress = [('Pesimista', {'ESCENARIO': 1}, None), ('Optimista', {'ESCENARIO': 3}, None),
@@ -136,7 +136,7 @@ p30 = [e for e in estres if e['caso'].startswith('Precio -30%')][0]
 T_('Precio -30%: el modelo marca VAN negativo y alertas', p30['van'] < 0 and len(p30['revisar']) > 0, str(p30['revisar']))
 # Encuesta: prueba del interruptor (datos de prueba, NO se guardan en el modelo)
 def survey(wb):
-    s = wb['MUESTRA_ENCUESTA']; s['B25'] = 100; s['B26'] = 120; s['B27'] = 80; s['B28'] = 60; s['B29'] = 40
+    s = wb['Muestra y encuesta']; s['B25'] = 100; s['B26'] = 120; s['B27'] = 80; s['B28'] = 60; s['B29'] = 40
 mE = run({}, survey)
 T_('Encuesta (datos de prueba, no guardados): con 400 respuestas la aceptación pasa a la medida (55%)', abs(mE['acep'] - 0.55) < 1e-9, f"aceptación {mE['acep']}")
 snap = {'fecha': '11/11/2026', 'sens_cols': cols5, 'sens': sens, 'criticos': crit,

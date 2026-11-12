@@ -11,7 +11,7 @@ MATS = [  # nombre, unidad, consumo/kit, merma?, precio Bs con factura, factura?
 ]
 
 def build_materiales(B):
-    ws = B.sheet('MATERIALES', 'MATERIALES POR KIT (LISTA DE MATERIALES) Y COSTO UNITARIO', 'Equivale a "MP" (Ñapefit) y "Costos (MP)" (Hypotolab). Precios en Bs con factura, editables.', tab='5B9BD5')
+    ws = B.sheet('MP', 'MATERIALES POR KIT (LISTA DE MATERIALES) Y COSTO UNITARIO', 'Equivale a "MP" (Ñapefit) y "Costos (MP)" (Hypotolab). Precios en Bs con factura, editables.', tab='5B9BD5')
     widths(ws, {'A': 44, 'B': 9, 'C': 12, 'D': 10, 'E': 13, 'F': 14, 'G': 10, 'H': 14, 'I': 14, 'J': 16, 'K': 52})
     hd = ['Material', 'Unidad', 'Consumo por kit', '¿Merma? (1/0)', 'Consumo con merma', 'Precio unit. Bs (c/factura)', '¿Factura? (1/0)', 'Costo/kit c/factura', 'Costo/kit neto de IVA', 'Tipo', 'Fuente']
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}6', h, 'hdr')
@@ -29,24 +29,24 @@ def build_materiales(B):
     put(ws, f'A{r}', 'TOTAL MATERIALES INVENTARIABLES POR KIT', 'label', bold=True, fill=FILL_TOT)
     put(ws, f'H{r}', f'=SUM(H7:H{r-1})', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
     put(ws, f'I{r}', f'=SUM(I7:I{r-1})', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    B.name('MP_KIT_CF', 'MATERIALES', f'H{r}'); B.name('MP_KIT_NETO', 'MATERIALES', f'I{r}')
+    B.name('MP_KIT_CF', 'MP', f'H{r}'); B.name('MP_KIT_NETO', 'MP', f'I{r}')
     r += 2
     put(ws, f'A{r}', 'Energía de cocción (gas) por filtro (no inventariable)', 'label')
     put(ws, f'B{r}', 'Bs', 'note'); put(ws, f'C{r}', 1, 'input', FMT_BS2); put(ws, f'D{r}', 1, 'input', FMT_INT)
     put(ws, f'E{r}', f'=C{r}*(1+MERMA*D{r})', 'calc', '#,##0.000'); put(ws, f'F{r}', 6, 'input', FMT_BS2); put(ws, f'G{r}', 1, 'input', FMT_INT)
     put(ws, f'H{r}', f'=E{r}*F{r}', 'calc', FMT_BS2); put(ws, f'I{r}', f'=H{r}*(1-TASA_IVA*G{r})', 'calc', FMT_BS2)
     put(ws, f'J{r}', 'Supuesto (medir)', 'label'); put(ws, f'K{r}', 'Supuesto: medir consumo de gas por cocción en el lote piloto', 'note')
-    B.name('ENERGIA_KIT_CF', 'MATERIALES', f'H{r}'); B.name('ENERGIA_KIT_NETO', 'MATERIALES', f'I{r}')
+    B.name('ENERGIA_KIT_CF', 'MP', f'H{r}'); B.name('ENERGIA_KIT_NETO', 'MP', f'I{r}')
     r += 1
     put(ws, f'A{r}', 'COSTO VARIABLE DE PRODUCCIÓN POR KIT (2027)', 'label', bold=True, fill=FILL_TOT)
     put(ws, f'H{r}', '=MP_KIT_CF+ENERGIA_KIT_CF', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
     put(ws, f'I{r}', '=MP_KIT_NETO+ENERGIA_KIT_NETO', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    B.name('CVP_KIT_NETO', 'MATERIALES', f'I{r}')
+    B.name('CVP_KIT_NETO', 'MP', f'I{r}')
     r += 1
     put(ws, f'A{r}', 'Costo en USD (referencia, neto de IVA)', 'label'); put(ws, f'I{r}', f'=I{r-1}/TIPO_CAMBIO', 'calc', FMT_BS2)
     r += 1
     put(ws, f'A{r}', 'Kg de mezcla cerámica por filtro (arcilla + aserrín, con merma)', 'label')
-    put(ws, f'E{r}', '=E7+E8', 'calc', '#,##0.000'); B.name('KG_FILTRO', 'MATERIALES', f'E{r}')
+    put(ws, f'E{r}', '=E7+E8', 'calc', '#,##0.000'); B.name('KG_FILTRO', 'MP', f'E{r}')
     r += 2
     put(ws, f'A{r}', 'PROVEEDORES (sin nombres inventados: se completan al cotizar)', 'sec'); r += 1
     for j, h in enumerate(['Insumo', 'Tipo de proveedor', 'Criterios de selección', 'Estado']):
@@ -76,7 +76,7 @@ STAGES = [  # etapa, equipo, capacidad, unidad, tipo ('kg_h','u_h','u_dia')
 ]
 
 def build_capacidad(B):
-    ws = B.sheet('CAPACIDAD', 'CAPACIDAD INSTALADA Y UTILIZADA', 'Capacidad por etapa → cuello de botella → capacidad instalada. La utilización se mide contra el cuello de botella (corrige a Ñapefit).', tab='5B9BD5')
+    ws = B.sheet('Capacidad Inst.', 'CAPACIDAD INSTALADA Y UTILIZADA', 'Capacidad por etapa → cuello de botella → capacidad instalada. La utilización se mide contra el cuello de botella (corrige a Ñapefit).', tab='5B9BD5')
     hd = ['Etapa', 'Equipo', 'Capacidad', 'Unidad', 'Filtros/hora', 'Horas productivas/día', 'Filtros/día', 'Filtros/trimestre', 'Filtros/año']
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}6', h, 'hdr')
     widths(ws, {'A': 30, 'B': 46, 'C': 11, 'D': 13, 'E': 12, 'F': 12, 'G': 12, 'H': 14, 'I': 14})
@@ -99,7 +99,7 @@ def build_capacidad(B):
     put(ws, f'G{r}', f'=MIN(G7:G{last})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     put(ws, f'H{r}', f'=G{r}*DIAS_TRIM', 'calc', FMT_U, bold=True, fill=FILL_TOT)
     put(ws, f'I{r}', f'=H{r}*4', 'calc', FMT_U, bold=True, fill=FILL_TOT)
-    B.name('CAP_TRIM', 'CAPACIDAD', f'H{r}'); B.name('CAP_ANUAL', 'CAPACIDAD', f'I{r}')
+    B.name('CAP_TRIM', 'Capacidad Inst.', f'H{r}'); B.name('CAP_ANUAL', 'Capacidad Inst.', f'I{r}')
     ROW['CAP.inst'] = r
     r += 2
     put(ws, f'A{r}', 'Referencia: Potters for Peace indica ~50 filtros/día para una planta básica con 3-4 trabajadores. Las capacidades de cada equipo son supuestos a confirmar con fichas técnicas o cotizaciones.', 'note')
@@ -110,9 +110,9 @@ def build_capacidad(B):
     return ws, r
 
 def fill_capacidad_q(B, ws, r):
-    qrow(ws, r, 'Producción planificada', 'kits', lambda q: f"='INVENTARIO_PT'!{qc(q)}{ROW['INV.prod']}", FMT_U); rp = r; r += 1
+    qrow(ws, r, 'Producción planificada', 'kits', lambda q: f"='Inventario'!{qc(q)}{ROW['INV.prod']}", FMT_U); rp = r; r += 1
     qrow(ws, r, 'Capacidad instalada (cuello de botella)', 'kits', lambda q: '=CAP_TRIM', FMT_U); ri = r; r += 1
-    qrow(ws, r, 'Capacidad de la mano de obra (operarios x productividad x días)', 'kits', lambda q: f"='PERSONAL'!{qc(q)}{ROW['PER.ops']}*PROD_OPERARIO*DIAS_TRIM", FMT_U); rl = r; r += 1
+    qrow(ws, r, 'Capacidad de la mano de obra (operarios x productividad x días)', 'kits', lambda q: f"='MANO DE OBRA'!{qc(q)}{ROW['PER.ops']}*PROD_OPERARIO*DIAS_TRIM", FMT_U); rl = r; r += 1
     qrow(ws, r, 'Capacidad efectiva = mínimo (instalada, mano de obra)', 'kits', lambda q: f'=MIN({qc(q)}{ri},{qc(q)}{rl})', FMT_U); re_ = r; r += 1
     qrow(ws, r, 'Utilización de la capacidad instalada', '%', lambda q: f'={qc(q)}{rp}/{qc(q)}{ri}', FMT_PCT, annual=lambda y: f'={yc(y)}{rp}/{yc(y)}{ri}', bold=True); ru = r; r += 1
     qrow(ws, r, 'Holgura (capacidad efectiva - producción)', 'kits', lambda q: f'={qc(q)}{re_}-{qc(q)}{rp}', FMT_U); rh = r; r += 1
@@ -120,49 +120,60 @@ def fill_capacidad_q(B, ws, r):
     ROW['CAP.prod'] = rp; ROW['CAP.util'] = ru; ROW['CAP.inst_q'] = ri
 
 def build_inventario(B):
-    ws = B.sheet('INVENTARIO_PT', 'PLAN DE PRODUCCIÓN E INVENTARIO DE PRODUCTO TERMINADO',
-                 'Producción = ventas + stock de seguridad - inventario inicial. Valuación a costo promedio ponderado (costeo variable). Reemplaza "Inventario" e "Inv. terminado".', tab='5B9BD5')
-    hdr_time(ws)
+    ws = B.sheet('Inventario', 'INVENTARIO: PLAN DE PRODUCCIÓN (unidades)',
+                 'Producción = ventas + stock de seguridad - inventario inicial. El inventario final de un trimestre es el inicial del siguiente.', tab=None)
+    hdr_time(ws, year0=False)
     r = 6
     P = ROW
-    qrow(ws, r, 'Ventas del trimestre', 'kits', lambda q: f"='PRONOSTICO'!{qc(q)}{P['PRO.q.units']}", FMT_U); rv = r; r += 1
-    qrow(ws, r, 'Ventas del trimestre siguiente', 'kits', lambda q: f"='PRONOSTICO'!{qc(q)}{P['PRO.q.next']}", FMT_U, annual=None); rn = r; r += 1
+    qrow(ws, r, 'Ventas del trimestre', 'kits', lambda q: f"='Pronostico'!{qc(q)}{P['PRO.q.units']}", FMT_U); rv = r; r += 1
+    qrow(ws, r, 'Ventas del trimestre siguiente', 'kits', lambda q: f"='Pronostico'!{qc(q)}{P['PRO.q.next']}", FMT_U, annual=None); rn = r; r += 1
     qrow(ws, r, 'Stock de seguridad objetivo', 'kits', lambda q: f'=SS_PT*{qc(q)}{rn}', FMT_U, annual='last'); rs = r; r += 1
     ri = r
     qrow(ws, r, 'Inventario inicial', 'kits', lambda q: '=INV_INI_PT' if q == 1 else f'={qc(q-1)}{ri+3}', FMT_U, annual='first'); r += 1
     qrow(ws, r, 'Producción requerida', 'kits', lambda q: f'=MAX(0,{qc(q)}{rv}+{qc(q)}{rs}-{qc(q)}{ri})', FMT_U); r += 1
     qrow(ws, r, 'PRODUCCIÓN PLANIFICADA (redondeada)', 'kits', lambda q: f'=ROUNDUP({qc(q)}{ri+1},0)', FMT_U, bold=True); rp = r; r += 1
     qrow(ws, r, 'Inventario final', 'kits', lambda q: f'={qc(q)}{ri}+{qc(q)}{rp}-{qc(q)}{rv}', FMT_U, annual='last'); rf = r; r += 1
-    qrow(ws, r, 'Control: inventario final ≥ 0', '1 = sí', lambda q: f'=IF({qc(q)}{rf}>=-0.001,1,0)', FMT_INT, annual=lambda y: f'=MIN({qc(4*y-3)}{r}:{qc(4*y)}{r})'); P['INV.ok'] = r; r += 2
-    put(ws, f'A{r}', 'VALUACIÓN (Bs, neto de IVA)', 'sec'); r += 1
-    qrow(ws, r, 'Materiales consumidos', 'Bs', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.consumo']}", FMT_BS); rm = r; r += 1
-    qrow(ws, r, 'Energía de cocción', 'Bs', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.en_neto']}", FMT_BS); r += 1
+    qrow(ws, r, 'Control: inventario final >= 0', '1 = sí', lambda q: f'=IF({qc(q)}{rf}>=-0.001,1,0)', FMT_INT, annual=lambda y: f'=MIN({qc(4*y-3)}{r}:{qc(4*y)}{r})'); P['INV.ok'] = r; r += 2
+    put(ws, f'A{r}', 'Corrección: en Ñapefit el "inventario inicial" era igual a las ventas y el final siempre 0; Hypotolab tenía valores pegados con *1,1 solo en algunas celdas. Aquí el inventario se arrastra de un trimestre al siguiente.', 'note')
+    P.update({'INV.ventas': rv, 'INV.prod': rp, 'INV.fin': rf, 'INV.ini': ri, 'INV.ss': rs})
+    ws2 = B.sheet('Inv. terminado', 'INVENTARIO DE PRODUCTO TERMINADO (unidades y Bs)',
+                  'Valuación a costo promedio ponderado (costeo variable: materiales + energía), en Bs netos de IVA.', tab=None)
+    hdr_time(ws2, year0=False)
+    ws = ws2; r = 6
+    INV = lambda k: (lambda q: f"='Inventario'!{qc(q)}{P[k]}")
+    put(ws, f'A{r}', 'INVENTARIO PT EN CANTIDADES', 'sec'); r += 1
+    qrow(ws, r, 'Inventario inicial', 'kits', INV('INV.ini'), FMT_U, annual='first'); rii = r; r += 1
+    qrow(ws, r, 'Producción', 'kits', INV('INV.prod'), FMT_U); rpp = r; r += 1
+    qrow(ws, r, 'Ventas', 'kits', INV('INV.ventas'), FMT_U); rvv = r; r += 1
+    qrow(ws, r, 'Inventario final', 'kits', lambda q: f'={qc(q)}{rii}+{qc(q)}{rpp}-{qc(q)}{rvv}', FMT_U, annual='last'); r += 2
+    put(ws, f'A{r}', 'INVENTARIO PT EN Bs', 'sec'); r += 1
+    qrow(ws, r, 'Materiales consumidos', 'Bs', lambda q: f"='Compras'!{qc(q)}{P['COM.consumo']}", FMT_BS); rm = r; r += 1
+    qrow(ws, r, 'Energía de cocción', 'Bs', lambda q: f"='Compras'!{qc(q)}{P['COM.en_neto']}", FMT_BS); r += 1
     qrow(ws, r, 'Costo de producción del trimestre', 'Bs', lambda q: f'={qc(q)}{rm}+{qc(q)}{rm+1}', FMT_BS); rc = r; r += 1
     rib = r
     qrow(ws, r, 'Inventario inicial valorizado', 'Bs', lambda q: '=0' if q == 1 else f'={qc(q-1)}{rib+3}', FMT_BS, annual='first'); r += 1
-    qrow(ws, r, 'Costo unitario promedio ponderado', 'Bs/kit', lambda q: f'=IF({qc(q)}{ri}+{qc(q)}{rp}>0,({qc(q)}{rib}+{qc(q)}{rc})/({qc(q)}{ri}+{qc(q)}{rp}),0)', FMT_BS2, annual=None); ru = r; r += 1
-    qrow(ws, r, 'COSTO DE VENTAS', 'Bs', lambda q: f'={qc(q)}{rv}*{qc(q)}{ru}', FMT_BS, bold=True); rcv = r; r += 1
+    qrow(ws, r, 'Costo unitario promedio ponderado', 'Bs/kit', lambda q: f'=IF({qc(q)}{rii}+{qc(q)}{rpp}>0,({qc(q)}{rib}+{qc(q)}{rc})/({qc(q)}{rii}+{qc(q)}{rpp}),0)', FMT_BS2, annual=None); ru = r; r += 1
+    qrow(ws, r, 'COSTO DE VENTAS', 'Bs', lambda q: f'={qc(q)}{rvv}*{qc(q)}{ru}', FMT_BS, bold=True); rcv = r; r += 1
     qrow(ws, r, 'Inventario final valorizado', 'Bs', lambda q: f'={qc(q)}{rib}+{qc(q)}{rc}-{qc(q)}{rcv}', FMT_BS, annual='last'); rfb = r; r += 1
-    P.update({'INV.ventas': rv, 'INV.prod': rp, 'INV.fin': rf, 'INV.ini': ri, 'INV.cv': rcv, 'INV.finbs': rfb, 'INV.ss': rs})
-    put(ws, f'A{r+1}', 'Corrección: en Ñapefit el "inventario inicial" era igual a las ventas y el final siempre 0; Hypotolab tenía valores pegados con *1,1 solo en algunas celdas. Aquí el inventario se arrastra de un trimestre al siguiente.', 'note')
+    P.update({'INV.cv': rcv, 'INV.finbs': rfb})
     return ws
 
 def build_compras(B):
-    ws = B.sheet('COMPRAS', 'PROGRAMA DE COMPRAS DE MATERIALES', 'Un "juego" = materiales para un kit (incluye merma). Compras = necesidad + stock final - stock inicial. Reemplaza el programa de compras pegado como valores en Ñapefit.', tab='5B9BD5')
+    ws = B.sheet('Compras', 'PROGRAMA DE COMPRAS DE MATERIALES', 'Un "juego" = materiales para un kit (incluye merma). Compras = necesidad + stock final - stock inicial. Reemplaza el programa de compras pegado como valores en Ñapefit.', tab='5B9BD5')
     hdr_time(ws)
     P = ROW
     r = 6
-    qrow(ws, r, 'Necesidad de juegos (= producción)', 'juegos', lambda q: f"='INVENTARIO_PT'!{qc(q)}{P['INV.prod']}", FMT_U); rq = r; r += 1
-    qrow(ws, r, 'Necesidad del trimestre siguiente', 'juegos', lambda q: f'={qc(q+1)}{rq}' if q < NQ else f"='PRONOSTICO'!{qc(q)}{P['PRO.q.next']}", FMT_U, annual=None); rn = r; r += 1
+    qrow(ws, r, 'Necesidad de juegos (= producción)', 'juegos', lambda q: f"='Inventario'!{qc(q)}{P['INV.prod']}", FMT_U); rq = r; r += 1
+    qrow(ws, r, 'Necesidad del trimestre siguiente', 'juegos', lambda q: f'={qc(q+1)}{rq}' if q < NQ else f"='Pronostico'!{qc(q)}{P['PRO.q.next']}", FMT_U, annual=None); rn = r; r += 1
     qrow(ws, r, 'Stock final objetivo', 'juegos', lambda q: f'=STOCK_MP*{qc(q)}{rn}', FMT_U, annual='last'); rs = r; r += 1
     ri = r
     qrow(ws, r, 'Inventario inicial de materiales', 'juegos', lambda q: '=0' if q == 1 else f'={qc(q-1)}{ri+2}', FMT_U, annual='first'); r += 1
-    qrow(ws, r, 'COMPRAS', 'juegos', lambda q: f'=ROUNDUP(MAX(0,{qc(q)}{rq}+{qc(q)}{rs}-{qc(q)}{ri}),0)', FMT_U, bold=True); rc = r; r += 1
+    qrow(ws, r, 'Compras', 'juegos', lambda q: f'=ROUNDUP(MAX(0,{qc(q)}{rq}+{qc(q)}{rs}-{qc(q)}{ri}),0)', FMT_U, bold=True); rc = r; r += 1
     qrow(ws, r, 'Inventario final de materiales', 'juegos', lambda q: f'={qc(q)}{ri}+{qc(q)}{rc}-{qc(q)}{rq}', FMT_U, annual='last'); rf = r; r += 1
     qrow(ws, r, 'Control: inventario de materiales ≥ 0', '1 = sí', lambda q: f'=IF({qc(q)}{rf}>=-0.001,1,0)', FMT_INT, annual=lambda y: f'=MIN({qc(4*y-3)}{r}:{qc(4*y)}{r})'); P['COM.ok'] = r; r += 2
     put(ws, f'A{r}', 'COMPRAS EN Bs', 'sec'); r += 1
-    qrow(ws, r, 'Costo por juego con factura', 'Bs/juego', lambda q: f"=MP_KIT_CF*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS2, annual=None); rcc = r; r += 1
-    qrow(ws, r, 'Costo por juego neto de IVA', 'Bs/juego', lambda q: f"=MP_KIT_NETO*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS2, annual=None); rcn = r; r += 1
+    qrow(ws, r, 'Costo por juego con factura', 'Bs/juego', lambda q: f"=MP_KIT_CF*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS2, annual=None); rcc = r; r += 1
+    qrow(ws, r, 'Costo por juego neto de IVA', 'Bs/juego', lambda q: f"=MP_KIT_NETO*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS2, annual=None); rcn = r; r += 1
     qrow(ws, r, 'Compras con factura (pago)', 'Bs', lambda q: f'={qc(q)}{rc}*{qc(q)}{rcc}', FMT_BS, bold=True); rpb = r; r += 1
     qrow(ws, r, 'Compras netas de IVA (al inventario)', 'Bs', lambda q: f'={qc(q)}{rc}*{qc(q)}{rcn}', FMT_BS); rpn = r; r += 1
     qrow(ws, r, 'IVA crédito fiscal de compras', 'Bs', lambda q: f'={qc(q)}{rpb}-{qc(q)}{rpn}', FMT_BS); riva = r; r += 1
@@ -172,19 +183,19 @@ def build_compras(B):
     qrow(ws, r, 'Materiales consumidos en producción', 'Bs', lambda q: f'={qc(q)}{rq}*{qc(q)}{rpr}', FMT_BS); rcon = r; r += 1
     qrow(ws, r, 'Inventario final valorizado', 'Bs', lambda q: f'={qc(q)}{rib}+{qc(q)}{rpn}-{qc(q)}{rcon}', FMT_BS, annual='last'); rfb = r; r += 2
     put(ws, f'A{r}', 'ENERGÍA DE COCCIÓN (se compra al consumir)', 'sec'); r += 1
-    qrow(ws, r, 'Energía con factura (pago)', 'Bs', lambda q: f"='INVENTARIO_PT'!{qc(q)}{P['INV.prod']}*ENERGIA_KIT_CF*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS); ren = r; r += 1
-    qrow(ws, r, 'Energía neta de IVA (al costo de producción)', 'Bs', lambda q: f"='INVENTARIO_PT'!{qc(q)}{P['INV.prod']}*ENERGIA_KIT_NETO*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS); renn = r; r += 1
+    qrow(ws, r, 'Energía con factura (pago)', 'Bs', lambda q: f"='Inventario'!{qc(q)}{P['INV.prod']}*ENERGIA_KIT_CF*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); ren = r; r += 1
+    qrow(ws, r, 'Energía neta de IVA (al costo de producción)', 'Bs', lambda q: f"='Inventario'!{qc(q)}{P['INV.prod']}*ENERGIA_KIT_NETO*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); renn = r; r += 1
     qrow(ws, r, 'IVA crédito fiscal de energía', 'Bs', lambda q: f'={qc(q)}{ren}-{qc(q)}{renn}', FMT_BS); reni = r; r += 2
     put(ws, f'A{r}', 'DETALLE DE COMPRAS POR MATERIAL (cantidades físicas)', 'sec'); r += 1
     for i, m in enumerate(MATS):
         mr = P['MAT.first'] + i
-        qrow(ws, r, m[0], m[1], lambda q, mr=mr: f"={qc(q)}{rc}*'MATERIALES'!$E${mr}", '#,##0.0'); r += 1
+        qrow(ws, r, m[0], m[1], lambda q, mr=mr: f"={qc(q)}{rc}*'MP'!$E${mr}", '#,##0.0'); r += 1
     r += 1
     put(ws, f'A{r}', 'DETALLE DE COMPRAS POR MATERIAL (Bs con factura)', 'sec'); r += 1
     rd0 = r
     for i, m in enumerate(MATS):
         mr = P['MAT.first'] + i
-        qrow(ws, r, m[0], 'Bs', lambda q, mr=mr: f"={qc(q)}{rc}*'MATERIALES'!$H${mr}*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS); r += 1
+        qrow(ws, r, m[0], 'Bs', lambda q, mr=mr: f"={qc(q)}{rc}*'MP'!$H${mr}*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); r += 1
     qrow(ws, r, 'Total (debe coincidir con "Compras con factura")', 'Bs', lambda q: f'=SUM({qc(q)}{rd0}:{qc(q)}{r-1})', FMT_BS, bold=True); P['COM.det_tot'] = r; r += 1
     P.update({'COM.compras': rc, 'COM.pago': rpb, 'COM.neto': rpn, 'COM.iva': riva, 'COM.consumo': rcon, 'COM.finbs': rfb, 'COM.fin': rf,
               'COM.en_pago': ren, 'COM.en_neto': renn, 'COM.en_iva': reni})

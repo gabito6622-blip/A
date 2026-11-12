@@ -1,10 +1,10 @@
 from lib import *
 from b1_supuestos import ROW
 
-def CAL(q, row): return f"'CALENDARIO'!{qc(q)}{row}"
+def CAL(q, row): return f"'Calendario'!{qc(q)}{row}"
 
 def build_er(B):
-    ws = B.sheet('ESTADO_RESULTADOS', 'ESTADO DE RESULTADOS (trimestral y anual, Bs)', 'Costeo variable: el costo de ventas incluye materiales y energía; sueldos y gastos de planta son costos fijos del período.', tab='C00000')
+    ws = B.sheet('Estado de resultado', 'ESTADO DE RESULTADOS (trimestral y anual, Bs)', 'Costeo variable: el costo de ventas incluye materiales y energía; sueldos y gastos de planta son costos fijos del período.', tab='C00000')
     hdr_time(ws)
     P = ROW
     def lk(sheet, key):
@@ -18,42 +18,42 @@ def build_er(B):
     def SEC(t):
         nonlocal r
         put(ws, f'A{r}', t, 'sec'); r += 1
-    L_('u', 'Unidades vendidas', lk('INVENTARIO_PT', 'INV.ventas'), FMT_U)
-    L_('fact', 'Ventas facturadas (con IVA)', lk('PRONOSTICO', 'PRO.q.fact'))
+    L_('u', 'Unidades vendidas', lk('Inventario', 'INV.ventas'), FMT_U)
+    L_('fact', 'Ventas facturadas (con IVA)', lk('Pronostico', 'PRO.q.fact'))
     L_('df', '(-) IVA débito fiscal', lambda q: f"={qc(q)}{P['ER.fact']}*TASA_IVA")
     L_('vn', 'VENTAS NETAS', lambda q: f"={qc(q)}{P['ER.fact']}-{qc(q)}{P['ER.df']}", bold=True)
-    L_('cv', '(-) Costo de ventas (materiales y energía)', lk('INVENTARIO_PT', 'INV.cv'))
+    L_('cv', '(-) Costo de ventas (materiales y energía)', lk('Inv. terminado', 'INV.cv'))
     L_('ub', 'UTILIDAD BRUTA', lambda q: f"={qc(q)}{P['ER.vn']}-{qc(q)}{P['ER.cv']}", bold=True, fill=FILL_TOT)
     SEC('Gastos de fabricación (fijos)')
-    L_('sfab', 'Sueldos y cargas de producción (MOD + MOI)', lambda q: f"='PERSONAL'!{qc(q)}{P['PER.MOD']}+'PERSONAL'!{qc(q)}{P['PER.MOI']}")
-    L_('gfab', 'Gastos de fabricación (alquiler, energía, mantenimiento, laboratorio)', lk('GASTOS_OPERATIVOS', 'GAS.FAB.neto'))
-    L_('dep_fab', 'Depreciación de fabricación', lk('ACTIVOS_FIJOS', 'AF.dep_fab'))
+    L_('sfab', 'Sueldos y cargas de producción (MOD + MOI)', lambda q: f"='MANO DE OBRA'!{qc(q)}{P['PER.MOD']}+'MANO DE OBRA'!{qc(q)}{P['PER.MOI']}")
+    L_('gfab', 'Gastos de fabricación (alquiler, energía, mantenimiento, laboratorio)', lk('Otros gastos', 'GAS.FAB.neto'))
+    L_('dep_fab', 'Depreciación de fabricación', lk('Maqu. y equip.', 'AF.dep_fab'))
     L_('tfab', 'Total gastos de fabricación', lambda q: f"=SUM({qc(q)}{P['ER.sfab']}:{qc(q)}{P['ER.dep_fab']})", bold=True)
     SEC('Gastos de administración')
-    L_('sadm', 'Sueldos y cargas de administración', lk('PERSONAL', 'PER.ADM'))
-    L_('gadm', 'Gastos de administración', lk('GASTOS_OPERATIVOS', 'GAS.ADM.neto'))
-    L_('capac', 'Capacitación de operarios nuevos', lk('PERSONAL', 'PER.capac'))
-    L_('dep_adm', 'Depreciación de administración', lk('ACTIVOS_FIJOS', 'AF.dep_adm'))
-    L_('amort', 'Amortización de activos diferidos', lambda q: f"=IF('CALENDARIO'!{qc(q)}6<=4/TASA_AMORT,DIF_NETO*TASA_AMORT/4,0)")
+    L_('sadm', 'Sueldos y cargas de administración', lk('MANO DE OBRA', 'PER.ADM'))
+    L_('gadm', 'Gastos de administración', lk('Otros gastos', 'GAS.ADM.neto'))
+    L_('capac', 'Capacitación de operarios nuevos', lk('MANO DE OBRA', 'PER.capac'))
+    L_('dep_adm', 'Depreciación de administración', lk('Maqu. y equip.', 'AF.dep_adm'))
+    L_('amort', 'Amortización de activos diferidos', lambda q: f"=IF('Calendario'!{qc(q)}6<=4/TASA_AMORT,DIF_NETO*TASA_AMORT/4,0)")
     L_('prima', 'Prima anual (solo si hay utilidades)', lambda q: f"={qc(q)}{P['ER.prima_calc']}")
     L_('tadm', 'Total gastos de administración', lambda q: f"=SUM({qc(q)}{P['ER.sadm']}:{qc(q)}{P['ER.prima']})", bold=True)
     SEC('Gastos de comercialización')
-    L_('scom', 'Sueldos y cargas de comercialización', lk('PERSONAL', 'PER.COM'))
-    L_('gcom', 'Publicidad y logística', lk('GASTOS_OPERATIVOS', 'GAS.COM.neto'))
-    L_('ent', 'Entrega por unidad vendida', lk('GASTOS_OPERATIVOS', 'GAS.ent.neto'))
+    L_('scom', 'Sueldos y cargas de comercialización', lk('MANO DE OBRA', 'PER.COM'))
+    L_('gcom', 'Publicidad y logística', lk('Otros gastos', 'GAS.COM.neto'))
+    L_('ent', 'Entrega por unidad vendida', lk('Otros gastos', 'GAS.ent.neto'))
     L_('tcom', 'Total gastos de comercialización', lambda q: f"=SUM({qc(q)}{P['ER.scom']}:{qc(q)}{P['ER.ent']})", bold=True)
     L_('it', 'Impuesto a las Transacciones (IT)', lambda q: f"={qc(q)}{P['ER.fact']}*TASA_IT")
     L_('gop', 'TOTAL GASTOS OPERATIVOS', lambda q: f"={qc(q)}{P['ER.tfab']}+{qc(q)}{P['ER.tadm']}+{qc(q)}{P['ER.tcom']}+{qc(q)}{P['ER.it']}", bold=True)
     L_('ebit', 'UTILIDAD OPERATIVA (EBIT)', lambda q: f"={qc(q)}{P['ER.ub']}-{qc(q)}{P['ER.gop']}", bold=True, fill=FILL_TOT)
-    L_('int', '(-) Intereses del préstamo', lk('FINANCIAMIENTO', 'FIN.int'))
+    L_('int', '(-) Intereses del préstamo', lk('Financiamiento', 'FIN.int'))
     L_('uai', 'UTILIDAD ANTES DE IMPUESTOS', lambda q: f"={qc(q)}{P['ER.ebit']}-{qc(q)}{P['ER.int']}", bold=True)
-    L_('iue', '(-) IUE 25% (anual, se registra en el 4to trimestre)', lambda q: f"=IF('CALENDARIO'!{qc(q)}14=1,MAX(0,SUM({qc(4*year_of(q)-3)}{P['ER.uai']}:{qc(4*year_of(q))}{P['ER.uai']}))*TASA_IUE,0)")
+    L_('iue', '(-) IUE 25% (anual, se registra en el 4to trimestre)', lambda q: f"=IF('Calendario'!{qc(q)}14=1,MAX(0,SUM({qc(4*year_of(q)-3)}{P['ER.uai']}:{qc(4*year_of(q))}{P['ER.uai']}))*TASA_IUE,0)")
     L_('un', 'UTILIDAD NETA', lambda q: f"={qc(q)}{P['ER.uai']}-{qc(q)}{P['ER.iue']}", bold=True, fill=FILL_KEY)
     r += 1
     SEC('Cálculos auxiliares (sin referencias circulares)')
     L_('uapi', 'Utilidad antes de prima e impuestos', lambda q: f"={qc(q)}{P['ER.ub']}-{qc(q)}{P['ER.tfab']}-SUM({qc(q)}{P['ER.sadm']}:{qc(q)}{P['ER.amort']})-{qc(q)}{P['ER.tcom']}-{qc(q)}{P['ER.it']}-{qc(q)}{P['ER.int']}")
     y4 = lambda q, k: f"SUM({qc(4*year_of(q)-3)}{P[k]}:{qc(4*year_of(q))}{P[k]})"
-    L_('prima_calc', 'Prima = mín(un mes de sueldo, 25% de la utilidad) si la utilidad anual es positiva', lambda q: f"=IF('CALENDARIO'!{qc(q)}14=1,IF({y4(q,'ER.uapi')}>0,MIN('PERSONAL'!{qc(q)}{P['PER.mes']},0.25*{y4(q,'ER.uapi')}),0),0)")
+    L_('prima_calc', 'Prima = mín(un mes de sueldo, 25% de la utilidad) si la utilidad anual es positiva', lambda q: f"=IF('Calendario'!{qc(q)}14=1,IF({y4(q,'ER.uapi')}>0,MIN('MANO DE OBRA'!{qc(q)}{P['PER.mes']},0.25*{y4(q,'ER.uapi')}),0),0)")
     r += 1
     SEC('Márgenes')
     for k, lbl in [('ub', 'Margen bruto'), ('ebit', 'Margen operativo'), ('un', 'Margen neto')]:
@@ -64,20 +64,20 @@ def build_er(B):
     return ws
 
 def build_impuestos(B):
-    ws = B.sheet('IMPUESTOS', 'CARGA IMPOSITIVA: IVA, IT, IUE Y OBLIGACIONES LABORALES', 'Equivale a "Carga impositiva" / "Impuestos". Agrega el saldo a favor de IVA que se arrastra (los originales lo ignoraban).', tab='C00000')
+    ws = B.sheet('Carga impositiva', 'CARGA IMPOSITIVA: IVA, IT, IUE Y OBLIGACIONES LABORALES', 'Equivale a "Carga impositiva" / "Impuestos". Agrega el saldo a favor de IVA que se arrastra (los originales lo ignoraban).', tab='C00000')
     hdr_time(ws)
     P = ROW
     r = 6
     def Q(key, label, f, c0=None, annual='sum', bold=False):
         nonlocal r
         qrow(ws, r, label, 'Bs', f, FMT_BS, c0=c0, annual=annual, bold=bold); P['IMP.' + key] = r; r += 1
-    Q('fact', 'Ventas facturadas', lambda q: f"='ESTADO_RESULTADOS'!{qc(q)}{P['ER.fact']}")
-    Q('df', 'IVA débito fiscal (13%)', lambda q: f"='ESTADO_RESULTADOS'!{qc(q)}{P['ER.df']}", bold=True)
-    Q('cf_mp', 'IVA crédito: compras de materiales', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.iva']}")
-    Q('cf_en', 'IVA crédito: energía', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.en_iva']}")
-    Q('cf_g', 'IVA crédito: gastos fijos', lambda q: f"='GASTOS_OPERATIVOS'!{qc(q)}{P['GAS.iva']}")
-    Q('cf_e', 'IVA crédito: entrega', lambda q: f"='GASTOS_OPERATIVOS'!{qc(q)}{P['GAS.ent.iva']}")
-    Q('cf_af', 'IVA crédito: activos fijos', lambda q: f"='ACTIVOS_FIJOS'!{qc(q)}{P['AF.capex_iva']}", c0=f"='ACTIVOS_FIJOS'!C{P['AF.capex_iva']}")
+    Q('fact', 'Ventas facturadas', lambda q: f"='Estado de resultado'!{qc(q)}{P['ER.fact']}")
+    Q('df', 'IVA débito fiscal (13%)', lambda q: f"='Estado de resultado'!{qc(q)}{P['ER.df']}", bold=True)
+    Q('cf_mp', 'IVA crédito: compras de materiales', lambda q: f"='Compras'!{qc(q)}{P['COM.iva']}")
+    Q('cf_en', 'IVA crédito: energía', lambda q: f"='Compras'!{qc(q)}{P['COM.en_iva']}")
+    Q('cf_g', 'IVA crédito: gastos fijos', lambda q: f"='Otros gastos'!{qc(q)}{P['GAS.iva']}")
+    Q('cf_e', 'IVA crédito: entrega', lambda q: f"='Otros gastos'!{qc(q)}{P['GAS.ent.iva']}")
+    Q('cf_af', 'IVA crédito: activos fijos', lambda q: f"='Maqu. y equip.'!{qc(q)}{P['AF.capex_iva']}", c0=f"='Maqu. y equip.'!C{P['AF.capex_iva']}")
     Q('cf_dif', 'IVA crédito: diferidos y puesta en marcha', lambda q: '=0', c0='=DIF_IVA')
     Q('cf', 'Total IVA crédito fiscal', lambda q: f"=SUM({qc(q)}{P['IMP.cf_mp']}:{qc(q)}{P['IMP.cf_dif']})", c0=f"=SUM(C{P['IMP.cf_mp']}:C{P['IMP.cf_dif']})", bold=True)
     Q('sfi', 'Saldo a favor del período anterior', lambda q: f"={'C' if q == 1 else qc(q-1)}{r+3}", annual='first')
@@ -85,22 +85,22 @@ def build_impuestos(B):
     Q('pagar', 'IVA A PAGAR', lambda q: f"=MAX(0,{qc(q)}{P['IMP.neto']})", bold=True)
     Q('sff', 'Saldo a favor para el período siguiente', lambda q: f"=MAX(0,-{qc(q)}{P['IMP.neto']})", c0=f"=C{P['IMP.cf']}", annual='last')
     Q('it', 'IT A PAGAR (3% de ventas facturadas)', lambda q: f"={qc(q)}{P['IMP.fact']}*TASA_IT", bold=True)
-    Q('iue_dev', 'IUE devengado (anual)', lambda q: f"='ESTADO_RESULTADOS'!{qc(q)}{P['ER.iue']}")
+    Q('iue_dev', 'IUE devengado (anual)', lambda q: f"='Estado de resultado'!{qc(q)}{P['ER.iue']}")
     Q('iue_pag', 'IUE pagado (abril del año siguiente = 2do trimestre)', lambda q: f"={qc(q-2)}{P['IMP.iue_dev']}" if (q % 4 == 2 and q > 4) else '=0', bold=True)
     Q('iue_sal', 'IUE por pagar (saldo)', lambda q: f"={'C' if q == 1 else qc(q-1)}{r}+{qc(q)}{P['IMP.iue_dev']}-{qc(q)}{P['IMP.iue_pag']}", c0='=0', annual='last')
-    Q('pri_dev', 'Prima anual devengada', lambda q: f"='ESTADO_RESULTADOS'!{qc(q)}{P['ER.prima']}")
+    Q('pri_dev', 'Prima anual devengada', lambda q: f"='Estado de resultado'!{qc(q)}{P['ER.prima']}")
     Q('pri_pag', 'Prima pagada (1er trimestre del año siguiente)', lambda q: f"={qc(q-1)}{P['IMP.pri_dev']}" if (q % 4 == 1 and q > 1) else '=0')
     Q('pri_sal', 'Prima por pagar (saldo)', lambda q: f"={'C' if q == 1 else qc(q-1)}{r}+{qc(q)}{P['IMP.pri_dev']}-{qc(q)}{P['IMP.pri_pag']}", c0='=0', annual='last')
     put(ws, f'A{r+1}', 'Simplificaciones (prudentes): no se compensa el IT con el IUE pagado ni se arrastran pérdidas tributarias; IVA e IT se pagan en el mismo trimestre.', 'note')
     return ws
 
 def build_flujo(B):
-    ws = B.sheet('FLUJO_CAJA', 'FLUJO DE CAJA (método directo, trimestral y anual, Bs)', 'Cobros y pagos reales: incluye plazos de cobro, IVA, IUE diferido, préstamo y aporte de socios.', tab='C00000')
+    ws = B.sheet('Flujo de caja', 'FLUJO DE CAJA (método directo, trimestral y anual, Bs)', 'Cobros y pagos reales: incluye plazos de cobro, IVA, IUE diferido, préstamo y aporte de socios.', tab='C00000')
     hdr_time(ws)
     P = ROW
     r = 6
     f = '(DIAS_COBRO_IND/90)'
-    fact = lambda q: f"'ESTADO_RESULTADOS'!{qc(q)}{P['ER.fact']}"
+    fact = lambda q: f"'Estado de resultado'!{qc(q)}{P['ER.fact']}"
     def Q(key, label, fn, c0=None, annual='sum', bold=False, fill=None):
         nonlocal r
         qrow(ws, r, label, 'Bs', fn, FMT_BS, c0=c0, annual=annual, bold=bold, fill=fill); P['FC.' + key] = r; r += 1
@@ -110,20 +110,20 @@ def build_flujo(B):
     Q('prest', 'Desembolso del préstamo', lambda q: '=0', c0='=PRESTAMO')
     Q('tent', 'Total entradas', lambda q: f"=SUM({qc(q)}{P['FC.cobros']}:{qc(q)}{P['FC.prest']})", c0=f"=SUM(C{P['FC.cobros']}:C{P['FC.prest']})", bold=True)
     put(ws, f'A{r}', 'SALIDAS', 'sec'); r += 1
-    Q('capex', 'Inversión en activos fijos', lambda q: f"='ACTIVOS_FIJOS'!{qc(q)}{P['AF.capex']}", c0=f"='ACTIVOS_FIJOS'!C{P['AF.capex']}")
+    Q('capex', 'Inversión en activos fijos', lambda q: f"='Maqu. y equip.'!{qc(q)}{P['AF.capex']}", c0=f"='Maqu. y equip.'!C{P['AF.capex']}")
     Q('dif', 'Inversión diferida y puesta en marcha', lambda q: '=0', c0='=DIF_PAGO')
-    Q('mp', 'Compras de materiales', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.pago']}", c0='=0')
-    Q('en', 'Energía de cocción', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.en_pago']}", c0='=0')
-    Q('sue', 'Sueldos, cargas sociales y provisiones', lambda q: f"='PERSONAL'!{qc(q)}{P['PER.tot']}", c0='=0')
-    Q('cap', 'Capacitación de operarios nuevos', lambda q: f"='PERSONAL'!{qc(q)}{P['PER.capac']}", c0='=0')
-    Q('gas', 'Gastos operativos fijos', lambda q: f"='GASTOS_OPERATIVOS'!{qc(q)}{P['GAS.pago']}", c0='=0')
-    Q('ent', 'Entrega de productos', lambda q: f"='GASTOS_OPERATIVOS'!{qc(q)}{P['GAS.ent.pago']}", c0='=0')
-    Q('iva', 'IVA pagado', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.pagar']}", c0='=0')
-    Q('it', 'IT pagado', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.it']}", c0='=0')
-    Q('iue', 'IUE pagado', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.iue_pag']}", c0='=0')
-    Q('pri', 'Prima pagada', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.pri_pag']}", c0='=0')
-    Q('int', 'Intereses', lambda q: f"='FINANCIAMIENTO'!{qc(q)}{P['FIN.int']}", c0='=0')
-    Q('amo', 'Amortización del préstamo', lambda q: f"='FINANCIAMIENTO'!{qc(q)}{P['FIN.amort']}", c0='=0')
+    Q('mp', 'Compras de materiales', lambda q: f"='Compras'!{qc(q)}{P['COM.pago']}", c0='=0')
+    Q('en', 'Energía de cocción', lambda q: f"='Compras'!{qc(q)}{P['COM.en_pago']}", c0='=0')
+    Q('sue', 'Sueldos, cargas sociales y provisiones', lambda q: f"='MANO DE OBRA'!{qc(q)}{P['PER.tot']}", c0='=0')
+    Q('cap', 'Capacitación de operarios nuevos', lambda q: f"='MANO DE OBRA'!{qc(q)}{P['PER.capac']}", c0='=0')
+    Q('gas', 'Gastos operativos fijos', lambda q: f"='Otros gastos'!{qc(q)}{P['GAS.pago']}", c0='=0')
+    Q('ent', 'Entrega de productos', lambda q: f"='Otros gastos'!{qc(q)}{P['GAS.ent.pago']}", c0='=0')
+    Q('iva', 'IVA pagado', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.pagar']}", c0='=0')
+    Q('it', 'IT pagado', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.it']}", c0='=0')
+    Q('iue', 'IUE pagado', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.iue_pag']}", c0='=0')
+    Q('pri', 'Prima pagada', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.pri_pag']}", c0='=0')
+    Q('int', 'Intereses', lambda q: f"='Financiamiento'!{qc(q)}{P['FIN.int']}", c0='=0')
+    Q('amo', 'Amortización del préstamo', lambda q: f"='Financiamiento'!{qc(q)}{P['FIN.amort']}", c0='=0')
     Q('tsal', 'Total salidas', lambda q: f"=SUM({qc(q)}{P['FC.capex']}:{qc(q)}{P['FC.amo']})", c0=f"=SUM(C{P['FC.capex']}:C{P['FC.amo']})", bold=True)
     Q('neto', 'FLUJO NETO DEL PERÍODO', lambda q: f"={qc(q)}{P['FC.tent']}-{qc(q)}{P['FC.tsal']}", c0=f"=C{P['FC.tent']}-C{P['FC.tsal']}", bold=True)
     Q('sini', 'Saldo inicial de caja', lambda q: f"={'C' if q == 1 else qc(q-1)}{r+1}", c0='=0', annual='first')
@@ -146,7 +146,7 @@ def build_flujo(B):
     return ws
 
 def build_balance(B):
-    ws = B.sheet('BALANCE_GENERAL', 'BALANCE GENERAL (al cierre de cada trimestre, Bs)', 'Nuevo: ninguno de los originales tenía balance. Debe cuadrar en todos los períodos (fila de control).', tab='C00000')
+    ws = B.sheet('Balance general', 'BALANCE GENERAL (al cierre de cada trimestre, Bs)', 'Nuevo: ninguno de los originales tenía balance. Debe cuadrar en todos los períodos (fila de control).', tab='C00000')
     hdr_time(ws)
     P = ROW
     r = 6
@@ -155,26 +155,26 @@ def build_balance(B):
         nonlocal r
         qrow(ws, r, label, 'Bs', fn, FMT_BS, c0=c0, annual='last', bold=bold, fill=fill); P['BAL.' + key] = r; r += 1
     put(ws, f'A{r}', 'ACTIVO', 'sec'); r += 1
-    Q('caja', 'Caja y bancos', lambda q: f"='FLUJO_CAJA'!{qc(q)}{P['FC.sfin']}", f"='FLUJO_CAJA'!C{P['FC.sfin']}")
-    Q('cxc', 'Cuentas por cobrar (canal indirecto)', lambda q: f"='ESTADO_RESULTADOS'!{qc(q)}{P['ER.fact']}*(1-MIX_DIRECTO)*{f}", '=0')
-    Q('imp', 'Inventario de materiales', lambda q: f"='COMPRAS'!{qc(q)}{P['COM.finbs']}", '=0')
-    Q('ipt', 'Inventario de producto terminado', lambda q: f"='INVENTARIO_PT'!{qc(q)}{P['INV.finbs']}", '=0')
-    Q('iva', 'Crédito fiscal IVA (saldo a favor)', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.sff']}", f"='IMPUESTOS'!C{P['IMP.sff']}")
+    Q('caja', 'Caja y bancos', lambda q: f"='Flujo de caja'!{qc(q)}{P['FC.sfin']}", f"='Flujo de caja'!C{P['FC.sfin']}")
+    Q('cxc', 'Cuentas por cobrar (canal indirecto)', lambda q: f"='Estado de resultado'!{qc(q)}{P['ER.fact']}*(1-MIX_DIRECTO)*{f}", '=0')
+    Q('imp', 'Inventario de materiales', lambda q: f"='Compras'!{qc(q)}{P['COM.finbs']}", '=0')
+    Q('ipt', 'Inventario de producto terminado', lambda q: f"='Inv. terminado'!{qc(q)}{P['INV.finbs']}", '=0')
+    Q('iva', 'Crédito fiscal IVA (saldo a favor)', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.sff']}", f"='Carga impositiva'!C{P['IMP.sff']}")
     Q('ac', 'Total activo corriente', lambda q: f"=SUM({qc(q)}{P['BAL.caja']}:{qc(q)}{P['BAL.iva']})", f"=SUM(C{P['BAL.caja']}:C{P['BAL.iva']})", bold=True)
-    Q('afb', 'Activo fijo (costo neto de IVA)', lambda q: f"='ACTIVOS_FIJOS'!{qc(q)}{P['AF.bruto']}", f"='ACTIVOS_FIJOS'!C{P['AF.bruto']}")
-    Q('dep', '(-) Depreciación acumulada', lambda q: f"=-'ACTIVOS_FIJOS'!{qc(q)}{P['AF.acum']}", '=0')
+    Q('afb', 'Activo fijo (costo neto de IVA)', lambda q: f"='Maqu. y equip.'!{qc(q)}{P['AF.bruto']}", f"='Maqu. y equip.'!C{P['AF.bruto']}")
+    Q('dep', '(-) Depreciación acumulada', lambda q: f"=-'Maqu. y equip.'!{qc(q)}{P['AF.acum']}", '=0')
     Q('dif', 'Activo diferido', lambda q: '=DIF_NETO', '=DIF_NETO')
-    Q('amo', '(-) Amortización acumulada', lambda q: f"=-SUM('ESTADO_RESULTADOS'!$D${P['ER.amort']}:{qc(q)}{P['ER.amort']})", '=0')
+    Q('amo', '(-) Amortización acumulada', lambda q: f"=-SUM('Estado de resultado'!$D${P['ER.amort']}:{qc(q)}{P['ER.amort']})", '=0')
     Q('anc', 'Total activo no corriente', lambda q: f"=SUM({qc(q)}{P['BAL.afb']}:{qc(q)}{P['BAL.amo']})", f"=SUM(C{P['BAL.afb']}:C{P['BAL.amo']})", bold=True)
     Q('at', 'TOTAL ACTIVO', lambda q: f"={qc(q)}{P['BAL.ac']}+{qc(q)}{P['BAL.anc']}", f"=C{P['BAL.ac']}+C{P['BAL.anc']}", bold=True, fill=FILL_TOT)
     put(ws, f'A{r}', 'PASIVO', 'sec'); r += 1
-    Q('iue', 'IUE por pagar', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.iue_sal']}", f"='IMPUESTOS'!C{P['IMP.iue_sal']}")
-    Q('pri', 'Prima por pagar', lambda q: f"='IMPUESTOS'!{qc(q)}{P['IMP.pri_sal']}", f"='IMPUESTOS'!C{P['IMP.pri_sal']}")
-    Q('pre', 'Préstamo bancario', lambda q: f"='FINANCIAMIENTO'!{qc(q)}{P['FIN.saldo']}", f"='FINANCIAMIENTO'!C{P['FIN.saldo']}")
+    Q('iue', 'IUE por pagar', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.iue_sal']}", f"='Carga impositiva'!C{P['IMP.iue_sal']}")
+    Q('pri', 'Prima por pagar', lambda q: f"='Carga impositiva'!{qc(q)}{P['IMP.pri_sal']}", f"='Carga impositiva'!C{P['IMP.pri_sal']}")
+    Q('pre', 'Préstamo bancario', lambda q: f"='Financiamiento'!{qc(q)}{P['FIN.saldo']}", f"='Financiamiento'!C{P['FIN.saldo']}")
     Q('pt', 'TOTAL PASIVO', lambda q: f"=SUM({qc(q)}{P['BAL.iue']}:{qc(q)}{P['BAL.pre']})", f"=SUM(C{P['BAL.iue']}:C{P['BAL.pre']})", bold=True)
     put(ws, f'A{r}', 'PATRIMONIO', 'sec'); r += 1
     Q('cap', 'Capital social (aporte de los socios)', lambda q: '=APORTE_SOCIOS', '=APORTE_SOCIOS')
-    Q('res', 'Resultados acumulados', lambda q: f"={'C' if q == 1 else qc(q-1)}{r}+'ESTADO_RESULTADOS'!{qc(q)}{P['ER.un']}", '=0')
+    Q('res', 'Resultados acumulados', lambda q: f"={'C' if q == 1 else qc(q-1)}{r}+'Estado de resultado'!{qc(q)}{P['ER.un']}", '=0')
     Q('pat', 'TOTAL PATRIMONIO', lambda q: f"={qc(q)}{P['BAL.cap']}+{qc(q)}{P['BAL.res']}", f"=C{P['BAL.cap']}+C{P['BAL.res']}", bold=True)
     Q('pp', 'TOTAL PASIVO + PATRIMONIO', lambda q: f"={qc(q)}{P['BAL.pt']}+{qc(q)}{P['BAL.pat']}", f"=C{P['BAL.pt']}+C{P['BAL.pat']}", bold=True, fill=FILL_TOT)
     Q('chk', 'CONTROL: activo - (pasivo + patrimonio) = 0', lambda q: f"=ROUND({qc(q)}{P['BAL.at']}-{qc(q)}{P['BAL.pp']},2)", f"=ROUND(C{P['BAL.at']}-C{P['BAL.pp']},2)", bold=True, fill=FILL_KEY)

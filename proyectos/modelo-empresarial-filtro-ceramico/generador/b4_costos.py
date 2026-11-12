@@ -9,7 +9,7 @@ CARGOS = [  # cargo, área, cantidad (None = operarios variables), sueldo 2027
 ]
 
 def build_personal(B):
-    ws = B.sheet('PERSONAL', 'PERSONAL, SUELDOS Y CARGAS SOCIALES', 'Equivale a "MANO DE OBRA" (Ñapefit) y "Sueldos y salarios" (Hypotolab). La cantidad de operarios depende de la producción.', tab='5B9BD5')
+    ws = B.sheet('MANO DE OBRA', 'PERSONAL, SUELDOS Y CARGAS SOCIALES', 'Equivale a "MANO DE OBRA" (Ñapefit) y "Sueldos y salarios" (Hypotolab). La cantidad de operarios depende de la producción.', tab='5B9BD5')
     put(ws, 'A5', 'A. INCREMENTO DEL SALARIO MÍNIMO (datos de Ñapefit, método de Ñapefit)', 'sec')
     for j, h in enumerate(['Año', 'SMN (Bs)', 'Incremento anual']): put(ws, f'{L(1+j)}6', h, 'hdr')
     smn = [(2021, 2164), (2022, 2250), (2023, 2362), (2024, 2500), (2025, 2750), (2026, 3300)]
@@ -34,16 +34,49 @@ def build_personal(B):
     put(ws, f'A{r}', 'Cargas patronales (CNS + riesgo + solidario + pro vivienda)', 'label'); put(ws, f'C{r}', '=TASA_CNS+TASA_RIESGO+TASA_SOLIDARIO+TASA_PROVIVIENDA', 'calc', FMT_PCT2); rpat = r; r += 1
     put(ws, f'A{r}', 'Provisiones (aguinaldo + indemnización)', 'label'); put(ws, f'C{r}', '=TASA_AGUINALDO+TASA_INDEMNIZACION', 'calc', FMT_PCT2); rprov = r; r += 1
     put(ws, f'A{r}', 'Costo laboral total sobre el total ganado', 'label', bold=True); put(ws, f'C{r}', f'=C{rpat}+C{rprov}', 'calc', FMT_PCT2, bold=True)
-    B.name('TASA_CARGAS', 'PERSONAL', f'C{r}'); r += 2
-    put(ws, f'A{r}', 'D. PLANILLA TRIMESTRAL', 'sec'); r += 1
+    B.name('TASA_CARGAS', 'MANO DE OBRA', f'C{r}'); r += 2
+    # ---- Planillas anuales (formato Ñapefit) ----
+    put(ws, f'A{r}', 'D. PLANILLA MENSUAL POR AÑO (formato de Ñapefit)', 'sec'); r += 1
+    ROW['PER.annual_r0'] = r
+    hdA = ['Personal', 'Cantidad', 'Sueldo básico (Bs)', 'Bono de antigüedad', 'Total ganado', 'Gestora Pública (12,71%)', 'Líquido pagable', 'CNS (10%)', 'Riesgo prof. (1,71%)', 'Aporte pat. sol. (3,5%)', 'Provivienda (2%)', 'Total aportes pat.', 'Provisión aguinaldo (8,33%)', 'Previsión indemnización (8,33%)', 'Total mensual', 'Total anual']
+    ann_tot = {}
+    for y in range(1, 6):
+        put(ws, f'A{r}', f'Año {2026+y}', 'label', bold=True); r += 1
+        for j, h in enumerate(hdA): put(ws, f'{L(1+j)}{r}', h, 'hdr')
+        ws.row_dimensions[r].height = 42; r += 1
+        a0 = r
+        for (c, a, n, sal) in CARGOS:
+            cr = crow[a]
+            put(ws, f'A{r}', c, 'label')
+            qcol = qc(4*y-3)
+            put(ws, f'B{r}', f'={qcol}{{OPS}}' if n is None else f'=$C${cr}', 'calc', FMT_INT)
+            put(ws, f'C{r}', f"=$D${cr}*'Calendario'!{yc(y)}12*M_SALARIOS", 'calc', FMT_BS2)
+            put(ws, f'D{r}', f'=IF({y}>=ANIO_BONO,BONO_ANT*3*SMN*(1+INC_SAL)*\'Calendario\'!{yc(y)}12,0)', 'calc', FMT_BS2)
+            put(ws, f'E{r}', f'=B{r}*(C{r}+D{r})', 'calc', FMT_BS2)
+            put(ws, f'F{r}', f'=E{r}*TASA_GESTORA', 'calc', FMT_BS2)
+            put(ws, f'G{r}', f'=E{r}-F{r}', 'calc', FMT_BS2)
+            for col, t in zip('HIJK', ['TASA_CNS', 'TASA_RIESGO', 'TASA_SOLIDARIO', 'TASA_PROVIVIENDA']):
+                put(ws, f'{col}{r}', f'=E{r}*{t}', 'calc', FMT_BS2)
+            put(ws, f'L{r}', f'=SUM(H{r}:K{r})', 'calc', FMT_BS2)
+            put(ws, f'M{r}', f'=E{r}*TASA_AGUINALDO', 'calc', FMT_BS2)
+            put(ws, f'N{r}', f'=E{r}*TASA_INDEMNIZACION', 'calc', FMT_BS2)
+            put(ws, f'O{r}', f'=E{r}+L{r}+M{r}+N{r}', 'calc', FMT_BS2)
+            put(ws, f'P{r}', f'=O{r}*12', 'calc', FMT_BS2, bold=True)
+            r += 1
+        put(ws, f'A{r}', 'Total', 'label', bold=True)
+        for col in 'BEFGHIJKLMNOP':
+            put(ws, f'{col}{r}', f'=SUM({col}{a0}:{col}{r-1})', 'calc', FMT_BS2 if col != 'B' else FMT_INT, bold=True)
+        ann_tot[y] = r; r += 2
+    ROW['PER.ann_tot'] = ann_tot
+    put(ws, f'A{r}', 'E. PLANILLA TRIMESTRAL (alimenta los estados financieros)', 'sec'); r += 1
     hdr_time(ws, r, year0=False); ws.freeze_panes = None; r += 1
     widths(ws, {'A': 50})
-    qrow(ws, r, 'Producción planificada', 'kits', lambda q: f"='INVENTARIO_PT'!{qc(q)}{ROW['INV.prod']}", FMT_U); rp = r; r += 1
+    qrow(ws, r, 'Producción planificada', 'kits', lambda q: f"='Inventario'!{qc(q)}{ROW['INV.prod']}", FMT_U); rp = r; r += 1
     qrow(ws, r, 'Operarios requeridos en el trimestre', 'personas', lambda q: f'=MAX(MIN_OPERARIOS,ROUNDUP({qc(q)}{rp}/(PROD_OPERARIO*DIAS_TRIM),0))', FMT_INT, annual='avg'); rreq = r; r += 1
     qrow(ws, r, 'OPERARIOS CONTRATADOS (máximo del año, sin despidos estacionales)', 'personas', lambda q: f'=MAX({qc(4*year_of(q)-3)}{rreq}:{qc(4*year_of(q))}{rreq})', FMT_INT, annual='avg', bold=True); rops = r; r += 1
     qrow(ws, r, 'Operarios nuevos (contrataciones)', 'personas', lambda q: f'=MAX(0,{qc(q)}{rops}-MIN_OPERARIOS)' if q == 1 else f'=MAX(0,{qc(q)}{rops}-{qc(q-1)}{rops})', FMT_INT); rnew = r; r += 1
-    qrow(ws, r, 'Índice salarial', 'índice', lambda q: f"='CALENDARIO'!{qc(q)}12*M_SALARIOS", '0.0000', annual=None); ridx = r; r += 1
-    qrow(ws, r, 'Bono de antigüedad mensual por persona', 'Bs/mes', lambda q: f"=IF('CALENDARIO'!{qc(q)}7>=ANIO_BONO,BONO_ANT*3*SMN*(1+INC_SAL)*'CALENDARIO'!{qc(q)}12,0)", FMT_BS, annual=None); rbono = r; r += 1
+    qrow(ws, r, 'Índice salarial', 'índice', lambda q: f"='Calendario'!{qc(q)}12*M_SALARIOS", '0.0000', annual=None); ridx = r; r += 1
+    qrow(ws, r, 'Bono de antigüedad mensual por persona', 'Bs/mes', lambda q: f"=IF('Calendario'!{qc(q)}7>=ANIO_BONO,BONO_ANT*3*SMN*(1+INC_SAL)*'Calendario'!{qc(q)}12,0)", FMT_BS, annual=None); rbono = r; r += 1
     area_rows = {}
     for (c, a, n, s) in CARGOS:
         cr = crow[a]
@@ -63,10 +96,15 @@ def build_personal(B):
         qrow(ws, r, lbl, 'Bs', lambda q, a=a: f'={qc(q)}{area_rows[a]}*(1+TASA_CARGAS)', FMT_BS)
         ROW['PER.' + a] = r; r += 1
     qrow(ws, r, 'Control: suma por áreas - total', 'Bs', lambda q: f"=ROUND({qc(q)}{ROW['PER.MOD']}+{qc(q)}{ROW['PER.MOI']}+{qc(q)}{ROW['PER.ADM']}+{qc(q)}{ROW['PER.COM']}-{qc(q)}{rtot},2)", FMT_BS2); ROW['PER.chk'] = r; r += 1
-    qrow(ws, r, 'Capacitación de operarios nuevos', 'Bs', lambda q: f"={qc(q)}{rnew}*COSTO_CAPAC_NUEVO*'CALENDARIO'!{qc(q)}11", FMT_BS); ROW['PER.capac'] = r; r += 1
+    qrow(ws, r, 'Capacitación de operarios nuevos', 'Bs', lambda q: f"={qc(q)}{rnew}*COSTO_CAPAC_NUEVO*'Calendario'!{qc(q)}11", FMT_BS); ROW['PER.capac'] = r; r += 1
     qrow(ws, r, 'Información: descuento Gestora (12,71%) - lo paga el trabajador', 'Bs', lambda q: f'={qc(q)}{rtg}*TASA_GESTORA', FMT_BS); r += 1
     qrow(ws, r, 'Información: líquido pagable', 'Bs', lambda q: f'={qc(q)}{rtg}-{qc(q)}{r-1}', FMT_BS); r += 1
     qrow(ws, r, 'Un mes de sueldo de toda la planilla (base de la prima anual)', 'Bs', lambda q: f'={qc(q)}{rtg}/3', FMT_BS, annual='last'); ROW['PER.mes'] = r; r += 1
+    for row in ws.iter_rows(min_row=ROW['PER.annual_r0'], max_row=rp):
+        for c in row:
+            if isinstance(c.value, str) and '{OPS}' in c.value: c.value = c.value.replace('{OPS}', str(rops))
+    qrow(ws, r, 'Control: planilla anual (formato Ñapefit) - planilla trimestral', 'Bs', lambda q: '=0', FMT_BS2,
+         annual=lambda y: f"=ROUND($P${ROW['PER.ann_tot'][y]}-{yc(y)}{rtot},2)"); ROW['PER.annchk'] = r; r += 1
     ROW.update({'PER.prod': rp, 'PER.ops': rops, 'PER.new': rnew, 'PER.tg': rtg, 'PER.tot': rtot, 'PER.crow_MOI': crow['MOI'], 'PER.crow_MOD': crow['MOD']})
     put(ws, f'A{r+1}', 'Correcciones: Ñapefit sumaba el sueldo básico (no el total ganado) en 2027-2028 y aplicaba 11% de antigüedad en el 5to año; el bono se calcula sobre 3 SMN. Ninguno de los originales vinculaba operarios con producción.', 'note')
     return ws
@@ -87,7 +125,7 @@ GASTOS = [  # concepto, área, mensual, factura
 ]
 
 def build_gastos(B):
-    ws = B.sheet('GASTOS_OPERATIVOS', 'GASTOS OPERATIVOS', 'Equivale a "Otros gastos" de ambos originales, en Bs (sin pasar a USD) y clasificados por área.', tab='5B9BD5')
+    ws = B.sheet('Otros gastos', 'GASTOS OPERATIVOS', 'Equivale a "Otros gastos" de ambos originales, en Bs (sin pasar a USD) y clasificados por área.', tab='5B9BD5')
     for j, h in enumerate(['Concepto', 'Área', 'Monto mensual 2027 (Bs)', '¿Factura? (1/0)', 'Monto anual 2027 (Bs)']):
         put(ws, f'{L(1+j)}5', h, 'hdr')
     widths(ws, {'A': 50, 'C': 14, 'D': 12, 'E': 14})
@@ -105,7 +143,7 @@ def build_gastos(B):
     gq = []
     for gr in grow:
         put(ws, f'B{r}', f'=B{gr}', 'calc')
-        qrow(ws, r, f'=A{gr}', None, lambda q, gr=gr: f"=$C${gr}*3*'CALENDARIO'!{qc(q)}11*M_FIJOS", FMT_BS, kind='calc')
+        qrow(ws, r, f'=A{gr}', None, lambda q, gr=gr: f"=$C${gr}*3*'Calendario'!{qc(q)}11*M_FIJOS", FMT_BS, kind='calc')
         ws[f'B{r}'] = f'=B{gr}'
         gq.append(r); r += 1
     g0, g1 = gq[0], gq[-1]
@@ -123,7 +161,7 @@ def build_gastos(B):
     qrow(ws, r, 'Total gastos fijos con factura (pago)', 'Bs', lambda q: f'=SUM({qc(q)}{g0}:{qc(q)}{g1})', FMT_BS, bold=True); ROW['GAS.pago'] = r; r += 1
     qrow(ws, r, 'IVA crédito fiscal de gastos fijos', 'Bs', lambda q: f'={qc(q)}{r-1}-SUM({qc(q)}{n0}:{qc(q)}{n1})', FMT_BS); ROW['GAS.iva'] = r; r += 2
     put(ws, f'A{r}', 'GASTO VARIABLE DE ENTREGA', 'sec'); r += 1
-    qrow(ws, r, 'Entrega con factura (pago)', 'Bs', lambda q: f"='INVENTARIO_PT'!{qc(q)}{ROW['INV.ventas']}*ENTREGA_U*'CALENDARIO'!{qc(q)}11*M_CVAR", FMT_BS); ROW['GAS.ent.pago'] = r; r += 1
+    qrow(ws, r, 'Entrega con factura (pago)', 'Bs', lambda q: f"='Inventario'!{qc(q)}{ROW['INV.ventas']}*ENTREGA_U*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); ROW['GAS.ent.pago'] = r; r += 1
     qrow(ws, r, 'Entrega neta de IVA', 'Bs', lambda q: f'={qc(q)}{r-1}*(1-TASA_IVA)', FMT_BS); ROW['GAS.ent.neto'] = r; r += 1
     qrow(ws, r, 'IVA crédito de entrega', 'Bs', lambda q: f'={qc(q)}{r-2}-{qc(q)}{r-1}', FMT_BS); ROW['GAS.ent.iva'] = r; r += 1
     return ws
@@ -143,13 +181,13 @@ ACT = [  # detalle, clase, área, cant, moneda, costo unit, trimestre compra
     ('Muebles de oficina', 'Muebles y enseres', 'ADM', 1, 'Bs', 8000, 0),
     ('Computadoras', 'Equipos de computación', 'ADM', 3, 'Bs', 6500, 0),
     ('Impresora multifunción', 'Equipos de computación', 'ADM', 1, 'Bs', 2500, 0),
-    ('Reposición de computadoras (vida útil cumplida)', 'Equipos de computación', 'ADM', 3, 'Bs', '=6500*\'CALENDARIO\'!AC11', 17),
-    ('Reposición de impresora', 'Equipos de computación', 'ADM', 1, 'Bs', '=2500*\'CALENDARIO\'!AC11', 17),
-    ('Reposición de herramientas', 'Herramientas en general', 'FAB', 1, 'Bs', '=6000*\'CALENDARIO\'!AC11', 17),
+    ('Reposición de computadoras (vida útil cumplida)', 'Equipos de computación', 'ADM', 3, 'Bs', '=6500*\'Calendario\'!AC11', 17),
+    ('Reposición de impresora', 'Equipos de computación', 'ADM', 1, 'Bs', '=2500*\'Calendario\'!AC11', 17),
+    ('Reposición de herramientas', 'Herramientas en general', 'FAB', 1, 'Bs', '=6000*\'Calendario\'!AC11', 17),
 ]
 
 def build_activos(B):
-    ws = B.sheet('ACTIVOS_FIJOS', 'ACTIVOS FIJOS Y DEPRECIACIÓN', 'Equivale a "Maqu. y equip." y "Maquinaria". Montos en Bs; lo cotizado en USD se convierte con el tipo de cambio editable.', tab='5B9BD5')
+    ws = B.sheet('Maqu. y equip.', 'ACTIVOS FIJOS Y DEPRECIACIÓN', 'Equivale a "Maqu. y equip." y "Maquinaria". Montos en Bs; lo cotizado en USD se convierte con el tipo de cambio editable.', tab='5B9BD5')
     put(ws, 'A5', 'Tasas de depreciación (DS 24051, anexo; verificar)', 'sec')
     for j, h in enumerate(['Clase de activo', 'Tasa anual', 'Vida útil (años)']): put(ws, f'{L(1+j)}6', h, 'hdr')
     for i, (c, t, v) in enumerate(DEP):
@@ -176,9 +214,9 @@ def build_activos(B):
     for c in 'GHI': put(ws, f'{c}{r}', f'=SUM({c}{a0}:{c}{a1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     r += 1
     put(ws, f'A{r}', 'Inversión en activos fijos del año 0 (con factura)', 'label', bold=True)
-    put(ws, f'G{r}', f'=SUMIF(L{a0}:L{a1},0,G{a0}:G{a1})', 'calc', FMT_BS, bold=True); B.name('AF_ANIO0', 'ACTIVOS_FIJOS', f'G{r}')
-    put(ws, f'H{r}', f'=SUMIF(L{a0}:L{a1},0,H{a0}:H{a1})', 'calc', FMT_BS); B.name('AF_ANIO0_IVA', 'ACTIVOS_FIJOS', f'H{r}')
-    put(ws, f'I{r}', f'=SUMIF(L{a0}:L{a1},0,I{a0}:I{a1})', 'calc', FMT_BS); B.name('AF_ANIO0_NETO', 'ACTIVOS_FIJOS', f'I{r}')
+    put(ws, f'G{r}', f'=SUMIF(L{a0}:L{a1},0,G{a0}:G{a1})', 'calc', FMT_BS, bold=True); B.name('AF_ANIO0', 'Maqu. y equip.', f'G{r}')
+    put(ws, f'H{r}', f'=SUMIF(L{a0}:L{a1},0,H{a0}:H{a1})', 'calc', FMT_BS); B.name('AF_ANIO0_IVA', 'Maqu. y equip.', f'H{r}')
+    put(ws, f'I{r}', f'=SUMIF(L{a0}:L{a1},0,I{a0}:I{a1})', 'calc', FMT_BS); B.name('AF_ANIO0_NETO', 'Maqu. y equip.', f'I{r}')
     r += 1
     put(ws, f'A{r}', 'Precios: supuestos a cotizar (horno y prensa con diseños abiertos de Potters for Peace fabricados en talleres locales). Depreciación sobre el valor neto de IVA, igual que en los originales.', 'note')
     r += 2
@@ -212,11 +250,11 @@ DIFER = [('Constitución, licencias y registros (FUNDEMPRESA, NIT, municipio)', 
          ('Adecuación del galpón (instalación de gas, ventilación, piso)', 30000, 1)]
 
 def build_inversion(B):
-    ws = B.sheet('INVERSION', 'INVERSIÓN INICIAL Y CAPITAL DE TRABAJO', 'Inversión fija + diferida + puesta en marcha + capital de trabajo (método del período de desfase).', tab='C00000')
+    ws = B.sheet('Inversión', 'INVERSIÓN INICIAL Y CAPITAL DE TRABAJO', 'Inversión fija + diferida + puesta en marcha + capital de trabajo (método del período de desfase).', tab='C00000')
     widths(ws, {'A': 60, 'B': 14, 'C': 12, 'D': 14, 'E': 14, 'F': 40})
     for j, h in enumerate(['Concepto', 'Monto Bs (c/factura)', '¿Factura? (1/0)', 'IVA crédito', 'Valor neto']): put(ws, f'{L(1+j)}5', h, 'hdr')
     put(ws, 'A6', '1. INVERSIÓN FIJA', 'sec')
-    put(ws, 'A7', 'Activos fijos (ver ACTIVOS_FIJOS)', 'label'); put(ws, 'B7', '=AF_ANIO0', 'calc', FMT_BS); put(ws, 'C7', 1, 'calc', FMT_INT)
+    put(ws, 'A7', 'Activos fijos (ver Maqu. y equip.)', 'label'); put(ws, 'B7', '=AF_ANIO0', 'calc', FMT_BS); put(ws, 'C7', 1, 'calc', FMT_INT)
     put(ws, 'D7', '=AF_ANIO0_IVA', 'calc', FMT_BS); put(ws, 'E7', '=AF_ANIO0_NETO', 'calc', FMT_BS)
     put(ws, 'A8', '2. INVERSIÓN DIFERIDA', 'sec')
     r = 9; d0 = r
@@ -225,8 +263,8 @@ def build_inversion(B):
         put(ws, f'D{r}', f'=B{r}*TASA_IVA*C{r}', 'calc', FMT_BS); put(ws, f'E{r}', f'=B{r}-D{r}', 'calc', FMT_BS); r += 1
     put(ws, f'A{r}', '3. PUESTA EN MARCHA (gastos preoperativos, se capitalizan)', 'sec'); r += 1
     pm = [('Materiales y energía del lote piloto (LOTE_PILOTO kits)', '=LOTE_PILOTO*(MP_KIT_CF+ENERGIA_KIT_CF)', 1),
-          ('Sueldos preoperativos: 2 meses de jefe de producción y operarios mínimos', f"=2*('PERSONAL'!D{ROW['PER.crow_MOI']}+MIN_OPERARIOS*'PERSONAL'!D{ROW['PER.crow_MOD']})*(1+TASA_CARGAS)*M_SALARIOS", 0),
-          ('Alquiler de 2 meses antes de operar', f"=2*'GASTOS_OPERATIVOS'!C{ROW['GAS.alquiler']}", 1),
+          ('Sueldos preoperativos: 2 meses de jefe de producción y operarios mínimos', f"=2*('MANO DE OBRA'!D{ROW['PER.crow_MOI']}+MIN_OPERARIOS*'MANO DE OBRA'!D{ROW['PER.crow_MOD']})*(1+TASA_CARGAS)*M_SALARIOS", 0),
+          ('Alquiler de 2 meses antes de operar', f"=2*'Otros gastos'!C{ROW['GAS.alquiler']}", 1),
           ('Publicidad de lanzamiento', '=15000', 1)]
     for (c, m, f) in pm:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', m, 'link' if '!' in m else ('input' if m == '=15000' else 'calc'), FMT_BS); put(ws, f'C{r}', f, 'input', FMT_INT)
@@ -235,9 +273,9 @@ def build_inversion(B):
     put(ws, f'A{r}', 'Total diferido + puesta en marcha', 'label', bold=True, fill=FILL_TOT)
     put(ws, f'B{r}', f'=SUMIF(C{d0}:C{d1},">=0",B{d0}:B{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     put(ws, f'D{r}', f'=SUM(D{d0}:D{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT); put(ws, f'E{r}', f'=SUM(E{d0}:E{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
-    B.name('DIF_PAGO', 'INVERSION', f'B{r}'); B.name('DIF_IVA', 'INVERSION', f'D{r}'); B.name('DIF_NETO', 'INVERSION', f'E{r}')
+    B.name('DIF_PAGO', 'Inversión', f'B{r}'); B.name('DIF_IVA', 'Inversión', f'D{r}'); B.name('DIF_NETO', 'Inversión', f'E{r}')
     r += 1
-    put(ws, f'A{r}', 'Tasa de amortización de diferidos (4 años)', 'label'); put(ws, f'B{r}', 0.25, 'input', FMT_PCT); B.name('TASA_AMORT', 'INVERSION', f'B{r}')
+    put(ws, f'A{r}', 'Tasa de amortización de diferidos (4 años)', 'label'); put(ws, f'B{r}', 0.25, 'input', FMT_PCT); B.name('TASA_AMORT', 'Inversión', f'B{r}')
     put(ws, f'F{r}', 'Gastos de organización: 25% anual (verificar DS 24051).', 'note'); r += 2
     put(ws, f'A{r}', '4. CAPITAL DE TRABAJO - MÉTODO DEL PERÍODO DE DESFASE', 'sec'); r += 1
     rows = [('Días de inventario de materiales', '=DIAS_INV_MP'), ('Días de proceso', '=DIAS_PROCESO'), ('Días de inventario de producto terminado', '=DIAS_INV_PT'),
@@ -245,11 +283,11 @@ def build_inversion(B):
     c0 = r
     for (c, f) in rows:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', f, 'calc', FMT_BS2); r += 1
-    put(ws, f'A{r}', 'Período de desfase (días)', 'label', bold=True); put(ws, f'B{r}', f'=SUM(B{c0}:B{r-1})', 'calc', FMT_BS2, bold=True); B.name('DIAS_DESFASE', 'INVERSION', f'B{r}'); r += 2
+    put(ws, f'A{r}', 'Período de desfase (días)', 'label', bold=True); put(ws, f'B{r}', f'=SUM(B{c0}:B{r-1})', 'calc', FMT_BS2, bold=True); B.name('DIAS_DESFASE', 'Inversión', f'B{r}'); r += 2
     put(ws, f'A{r}', 'Año', 'hdr')
     for y in range(1, 6): put(ws, f'{L(1+y)}{r}', str(2026+y), 'hdr')
     r += 1
-    ER = lambda k, y: f"'ESTADO_RESULTADOS'!{yc(y)}{ROW['ER.'+k]}"
+    ER = lambda k, y: f"'Estado de resultado'!{yc(y)}{ROW['ER.'+k]}"
     put(ws, f'A{r}', 'Costo operativo en efectivo anual (costo de ventas + gastos sin depreciación ni amortización + IT)', 'label', wrap=True)
     for y in range(1, 6):
         put(ws, f'{L(1+y)}{r}', f"={ER('cv', y)}+{ER('gop', y)}-{ER('dep_fab', y)}-{ER('dep_adm', y)}-{ER('amort', y)}-{ER('prima', y)}", 'link', FMT_BS)
@@ -258,30 +296,30 @@ def build_inversion(B):
     for y in range(1, 6): put(ws, f'{L(1+y)}{r}', f'={L(1+y)}{rco}/360*DIAS_DESFASE', 'calc', FMT_BS, bold=True)
     rdes = r; r += 1
     put(ws, f'A{r}', 'Método 2: déficit acumulado del arranque (2027) + caja mínima, escalado por costos', 'label', wrap=True)
-    for y in range(1, 6): put(ws, f'{L(1+y)}{r}', f"=('FLUJO_CAJA'!$C${ROW['FC.deficit']}+CAJA_MINIMA)*{L(1+y)}{rco}/$B${rco}", 'link', FMT_BS)
+    for y in range(1, 6): put(ws, f'{L(1+y)}{r}', f"=('Flujo de caja'!$C${ROW['FC.deficit']}+CAJA_MINIMA)*{L(1+y)}{rco}/$B${rco}", 'link', FMT_BS)
     rdef = r; r += 1
     put(ws, f'A{r}', 'CAPITAL DE TRABAJO USADO (según METODO_CT)', 'label', bold=True, fill=FILL_KEY)
     for y in range(1, 6): put(ws, f'{L(1+y)}{r}', f'=IF(METODO_CT=1,{L(1+y)}{rdes},{L(1+y)}{rdef})', 'calc', FMT_BS, bold=True, fill=FILL_KEY)
-    ROW['INV.ct_row'] = r; B.name('CT_INICIAL', 'INVERSION', f'B{r}'); r += 2
+    ROW['INV.ct_row'] = r; B.name('CT_INICIAL', 'Inversión', f'B{r}'); r += 2
     put(ws, f'A{r}', '5. RESUMEN DE LA INVERSIÓN Y SU FINANCIAMIENTO', 'sec'); r += 1
     res = [('Inversión fija (activos fijos)', '=B7'), ('Inversión diferida y puesta en marcha', '=DIF_PAGO'), ('Capital de trabajo inicial', '=CT_INICIAL')]
     s0 = r
     for (c, f) in res:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', f, 'calc', FMT_BS); put(ws, f'C{r}', f'=B{r}/$B${s0+3}', 'calc', FMT_PCT); r += 1
     put(ws, f'A{r}', 'INVERSIÓN TOTAL', 'label', bold=True, fill=FILL_KEY); put(ws, f'B{r}', f'=SUM(B{s0}:B{r-1})', 'calc', FMT_BS, bold=True, fill=FILL_KEY); put(ws, f'C{r}', f'=B{r}/$B${s0+3}', 'calc', FMT_PCT)
-    B.name('INVERSION_TOTAL', 'INVERSION', f'B{r}'); r += 1
+    B.name('INVERSION_TOTAL', 'Inversión', f'B{r}'); r += 1
     put(ws, f'A{r}', 'Financiamiento: préstamo bancario', 'label'); put(ws, f'B{r}', '=PRESTAMO', 'calc', FMT_BS); put(ws, f'C{r}', f'=B{r}/INVERSION_TOTAL', 'calc', FMT_PCT); r += 1
     put(ws, f'A{r}', 'Financiamiento: aporte de los socios', 'label', bold=True); put(ws, f'B{r}', '=INVERSION_TOTAL-PRESTAMO', 'calc', FMT_BS, bold=True); put(ws, f'C{r}', f'=B{r}/INVERSION_TOTAL', 'calc', FMT_PCT)
-    B.name('APORTE_SOCIOS', 'INVERSION', f'B{r}'); r += 1
+    B.name('APORTE_SOCIOS', 'Inversión', f'B{r}'); r += 1
     put(ws, f'A{r}', 'Inversión total en USD (referencia)', 'label'); put(ws, f'B{r}', '=INVERSION_TOTAL/TIPO_CAMBIO', 'calc', FMT_BS); r += 2
     put(ws, f'A{r}', 'Correcciones: los originales tomaban como capital de trabajo un año entero de materiales y sueldos (Ñapefit: USD 265.669, el 87% de la inversión). Aquí se calculan dos métodos (desfase y déficit acumulado) y el flujo de caja verifica que la caja nunca quede bajo el mínimo.', 'note')
     return ws
 
 def build_financiamiento(B):
-    ws = B.sheet('FINANCIAMIENTO', 'FINANCIAMIENTO: PRÉSTAMO BANCARIO (SISTEMA FRANCÉS, CUOTA TRIMESTRAL)', 'Ninguno de los originales usó deuda; se agrega para poder analizar endeudamiento y para el simulador.', tab='C00000')
-    put(ws, 'A5', 'Monto del préstamo = % x activos fijos', 'label'); put(ws, 'C5', '=PCT_PRESTAMO*AF_ANIO0', 'calc', FMT_BS); B.name('PRESTAMO', 'FINANCIAMIENTO', 'C5')
-    put(ws, 'A6', 'Tasa trimestral (tasa anual / 4)', 'label'); put(ws, 'C6', '=TASA_PRESTAMO/4', 'calc', FMT_PCT2); B.name('TASA_TRIM', 'FINANCIAMIENTO', 'C6')
-    put(ws, 'A7', 'Cuota trimestral fija', 'label'); put(ws, 'C7', '=IF(PRESTAMO>0,PMT(TASA_TRIM,PLAZO_TRIM,-PRESTAMO),0)', 'calc', FMT_BS); B.name('CUOTA', 'FINANCIAMIENTO', 'C7')
+    ws = B.sheet('Financiamiento', 'FINANCIAMIENTO: PRÉSTAMO BANCARIO (SISTEMA FRANCÉS, CUOTA TRIMESTRAL)', 'Ninguno de los originales usó deuda; se agrega para poder analizar endeudamiento y para el simulador.', tab='C00000')
+    put(ws, 'A5', 'Monto del préstamo = % x activos fijos', 'label'); put(ws, 'C5', '=PCT_PRESTAMO*AF_ANIO0', 'calc', FMT_BS); B.name('PRESTAMO', 'Financiamiento', 'C5')
+    put(ws, 'A6', 'Tasa trimestral (tasa anual / 4)', 'label'); put(ws, 'C6', '=TASA_PRESTAMO/4', 'calc', FMT_PCT2); B.name('TASA_TRIM', 'Financiamiento', 'C6')
+    put(ws, 'A7', 'Cuota trimestral fija', 'label'); put(ws, 'C7', '=IF(PRESTAMO>0,PMT(TASA_TRIM,PLAZO_TRIM,-PRESTAMO),0)', 'calc', FMT_BS); B.name('CUOTA', 'Financiamiento', 'C7')
     hdr_time(ws, 9); ws.freeze_panes = None
     r = 10
     qrow(ws, r, 'Saldo inicial', 'Bs', lambda q: '=PRESTAMO' if q == 1 else f'={qc(q-1)}{r+4}', FMT_BS, annual='first'); rs = r; r += 1

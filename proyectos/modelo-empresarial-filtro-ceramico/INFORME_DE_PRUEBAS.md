@@ -1,21 +1,25 @@
 # Informe de pruebas
 
-Fecha: 11/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx` (41 hojas, 8.592 fórmulas).
+Fecha: 11/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx` (41 hojas, 9.152 fórmulas; las 20 primeras con el formato clonado de Ñapefit).
 
 ## Resultado
 
 | Prueba | Resultado |
 |---|---|
-| Recalcular todo el libro con LibreOffice | **0 errores** en 8.592 fórmulas |
-| Controles internos (hoja `CONTROLES`) | **19 de 19 en OK** |
+| Recalcular todo el libro con LibreOffice | **0 errores** en 9.152 fórmulas |
+| Controles internos (hoja `Controles`) | **19 de 19 en OK** |
 | Verificación independiente en Python (cifras recalculadas desde los supuestos, sin leer fórmulas) | **14 de 14 coinciden** |
 | Pruebas de coherencia y estrés (52 corridas, 173 s) | **42 de 42 superadas** |
 | Balance general | Cuadra en los 21 cierres del caso base y en los 11 casos de estrés |
 | Pruebas de la tienda (`npm test`, por regla del repositorio) | 463 de 463 superadas (33,7 s); no se tocó su código |
 
+## 0. Clonado del formato de Ñapefit (12/11/2026)
+
+Se rehizo el libro con las mismas 20 hojas, nombres, orden y estilo de Ñapefit, y las hojas nuevas al final. Se comprobó que el clon da **exactamente los mismos resultados** que la versión anterior: VAN Bs 191.167,64; TIR 32,63%; misma caja trimestre por trimestre; balance en 0 en los 21 cierres; 19 de 19 controles. La planilla anual por año (formato Ñapefit) coincide con la trimestral (diferencia 0 en los 5 años). Las 52 corridas se repitieron sobre el clon.
+
 ## 1. Cómo se probó
 
-1. **Construcción reproducible.** El Excel se genera con los scripts de `generador/` (Python + openpyxl). Todas las celdas de cálculo son fórmulas; los únicos valores escritos son supuestos (azules), datos del INE copiados de los originales y los resultados guardados de las corridas (sección B de `DECISIONES Y ESCENARIOS` y sección A en adelante de `SENSIBILIDAD`, rotulados como tales).
+1. **Construcción reproducible.** El Excel se genera con los scripts de `generador/` (Python + openpyxl). Todas las celdas de cálculo son fórmulas; los únicos valores escritos son supuestos (azules), datos del INE copiados de los originales y los resultados guardados de las corridas (sección B de `DECISIONES Y ESCENARIOS` y sección A en adelante de `Sensibilidad`, rotulados como tales).
 2. **Recálculo.** LibreOffice recalcula el libro completo y se buscan errores (`#DIV/0!`, `#REF!`, `#N/A`, `#NAME?`, `#VALUE!`).
 3. **Controles internos** (fórmulas dentro del libro): balance, inventarios, capacidad, caja, coherencia de flujos, préstamo pagado, VAN = suma de flujos descontados, utilidades acumuladas = resultados del balance, estacionalidad, compras por material y costo laboral por áreas.
 4. **Modelo sombra** (`generador/shadow.py`): recalcula en Python, desde los supuestos y sin usar las fórmulas, las unidades 2027 y 2031, las ventas netas, la planilla, la cuota e intereses del préstamo, la depreciación, el costo por kit, la TRMA, el VAN, la TIR (por bisección), el punto de equilibrio y el cuadre del IVA.
@@ -88,7 +92,7 @@ Cada fila es una corrida real del libro completo.
 | 40 | Demanda +80%: el control de capacidad lo detecta | Superada | ['La producción cabe en la capacidad en todos los trimestres'] |
 | 41 | Precio -30%: el modelo marca VAN negativo y alertas | Superada | ['Caja ≥ caja mínima en todos los cierres', 'VAN económico positivo', 'TIR mayor |
 | 42 | Encuesta (datos de prueba, no guardados): con 400 respuestas la aceptación pasa a la medida (55%) | Superada | aceptación 0.55 |
-Casos de estrés: escenario pesimista, escenario optimista, precio −10% con costo variable +10%, sin crecimiento de la participación, sin expansión metropolitana, inflación 10% con tipo de cambio 15, capital de trabajo por desfase, valor residual por perpetuidad, sin préstamo, demanda +80% y precio −30%. Los valores están en `SENSIBILIDAD` (sección D) y en `INFORME_DE_VIABILIDAD.md`.
+Casos de estrés: escenario pesimista, escenario optimista, precio −10% con costo variable +10%, sin crecimiento de la participación, sin expansión metropolitana, inflación 10% con tipo de cambio 15, capital de trabajo por desfase, valor residual por perpetuidad, sin préstamo, demanda +80% y precio −30%. Los valores están en `Sensibilidad` (sección D) y en `INFORME_DE_VIABILIDAD.md`.
 
 **Las alertas funcionan:**
 - con demanda +80%, el control de capacidad pasa a REVISAR;
@@ -105,14 +109,14 @@ Casos de estrés: escenario pesimista, escenario optimista, precio −10% con co
 
 ## 5. Lo que no se pudo probar y limitaciones
 
-- **No se abrió en Microsoft Excel**, solo en LibreOffice. Se usaron únicamente funciones compatibles con Excel 2007 o posteriores (SUM, IF, INDEX, MATCH, SUMIF, SUMPRODUCT, NPV, IRR, PMT, NORMSINV, CHOOSE, ROUNDUP, IFERROR, RANK), sin funciones nuevas ni matriciales. Al abrirlo en Excel conviene confirmar que la hoja `CONTROLES` siga mostrando 19 de 19.
+- **No se abrió en Microsoft Excel**, solo en LibreOffice. Se usaron únicamente funciones compatibles con Excel 2007 o posteriores (SUM, IF, INDEX, MATCH, SUMIF, SUMPRODUCT, NPV, IRR, PMT, NORMSINV, CHOOSE, ROUNDUP, IFERROR, RANK), sin funciones nuevas ni matriciales. Al abrirlo en Excel conviene confirmar que la hoja `Controles` siga mostrando 19 de 19.
 - **El VAN económico varía levemente con el préstamo** (Bs 191.168 con préstamo y Bs 198.490 sin préstamo). Hay dos causas: el capital de trabajo del método 2 se mide con la caja real, que incluye la cuota; y la prima anual se calcula sobre la utilidad después de intereses, como manda la ley. Es una diferencia de 3,8%, documentada.
 - **Granularidad trimestral:** no ve los desfases dentro del trimestre; por eso se reserva un mes de costos fijos como caja mínima.
 - **Simplificaciones tributarias prudentes:** no se compensa IT con IUE ni se arrastran pérdidas; IVA e IT se pagan en el mismo trimestre.
-- **Sensibilidad registrada:** los valores de `SENSIBILIDAD` y de la sección B de `DECISIONES Y ESCENARIOS` son resultados guardados de las corridas. No se recalculan solos: para reproducir un caso se cambia el supuesto indicado y se lee la sección A.
+- **Sensibilidad registrada:** los valores de `Sensibilidad` y de la sección B de `DECISIONES Y ESCENARIOS` son resultados guardados de las corridas. No se recalculan solos: para reproducir un caso se cambia el supuesto indicado y se lee la sección A.
 - **Encuesta:** el cambio automático de aceptación supuesta a medida se probó con 400 respuestas **de prueba que no se guardaron** en el modelo. El archivo entregado tiene la tabulación vacía.
 - **Simulador del docente:** sin su manual, `SIMULADOR EMPRESARIAL` usa elasticidades supuestas y no se pudo contrastar con el juego real.
-- **Datos externos:** tipo de cambio, inflación y riesgo país se consultaron el 11/11/2026 en fuentes públicas (ver `FUENTES`). Las tasas de depreciación (DS 24051), la tasa bancaria (DS 2055) y el aporte solidario provienen del conocimiento general o de los originales y están marcadas para verificar.
+- **Datos externos:** tipo de cambio, inflación y riesgo país se consultaron el 11/11/2026 en fuentes públicas (ver `Fuentes`). Las tasas de depreciación (DS 24051), la tasa bancaria (DS 2055) y el aporte solidario provienen del conocimiento general o de los originales y están marcadas para verificar.
 
 ## 6. Cómo repetir las pruebas
 

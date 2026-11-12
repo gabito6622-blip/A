@@ -20,7 +20,7 @@ def run(ch, cells=None, i=[0]):
 cases = [('Base', {}, None),
          ('PVP Bs 420 (+7,7%)', {'PVP': 420}, None),
          ('Canal directo 50% (en vez de 40%)', {'MIX_DIRECTO': 0.5}, None),
-         ('Contenedor a Bs 45 (en vez de 55)', {}, {('MATERIALES', 'F10'): 45}),
+         ('Contenedor a Bs 45 (en vez de 55)', {}, {('MP', 'F10'): 45}),
          ('Publicidad Bs 6.000/mes (en vez de 8.000)', {'PUBLICIDAD_MES': 6000}, None),
          ('Sin préstamo', {'PCT_PRESTAMO': 0}, None)]
 out = []

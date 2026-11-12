@@ -3,10 +3,10 @@ from b1_supuestos import ROW
 from b2_mercado import year_hdr
 
 def build_evaluacion(B):
-    ws = B.sheet('EVALUACION', 'EVALUACIÓN DEL PROYECTO: FLUJO DE FONDOS, VAN, TIR, PRI, B/C', 'Equivale a "Rentabilidad" de ambos originales. Flujo económico (sin deuda) y flujo del inversionista (con deuda).', tab='C00000')
+    ws = B.sheet('Rentabilidad', 'EVALUACIÓN DEL PROYECTO: FLUJO DE FONDOS, VAN, TIR, PRI, B/C', 'Equivale a "Rentabilidad" de ambos originales. Flujo económico (sin deuda) y flujo del inversionista (con deuda).', tab='C00000')
     P = ROW
     year_hdr(ws, 5, cols=ec, years=range(0, 6), label=lambda y: 'Año 0 (2026)' if y == 0 else str(2026+y))
-    ER = lambda k, y: f"'ESTADO_RESULTADOS'!{yc(y)}{P['ER.'+k]}"
+    ER = lambda k, y: f"'Estado de resultado'!{yc(y)}{P['ER.'+k]}"
     r = 6
     def A(key, label, fn, y0=None, fmt=FMT_BS, bold=False, fill=None):
         nonlocal r
@@ -25,12 +25,12 @@ def build_evaluacion(B):
     A('tax', '(-) IUE sobre la utilidad operativa', lambda y: f"=-MAX(0,{ec(y)}{P['EV.ebit']})*TASA_IUE")
     A('nopat', 'Utilidad operativa después de impuestos', lambda y: f"={ec(y)}{P['EV.ebit']}+{ec(y)}{P['EV.tax']}", bold=True)
     A('da2', '(+) Depreciación y amortización (no son salida de caja)', lambda y: f"=-{ec(y)}{P['EV.da']}")
-    A('af', '(-) Inversión en activos fijos (incluye reposiciones)', lambda y: f"=-SUM('ACTIVOS_FIJOS'!{qc(4*y-3)}{P['AF.capex']}:{qc(4*y)}{P['AF.capex']})", y0="=-AF_ANIO0")
+    A('af', '(-) Inversión en activos fijos (incluye reposiciones)', lambda y: f"=-SUM('Maqu. y equip.'!{qc(4*y-3)}{P['AF.capex']}:{qc(4*y)}{P['AF.capex']})", y0="=-AF_ANIO0")
     A('dif', '(-) Inversión diferida y puesta en marcha', lambda y: '=0', y0='=-DIF_PAGO')
-    A('ivarec', '(+) Recuperación del IVA de las inversiones (vía crédito fiscal)', lambda y: (f"=AF_ANIO0_IVA+DIF_IVA+SUM('ACTIVOS_FIJOS'!{qc(1)}{P['AF.capex_iva']}:{qc(4)}{P['AF.capex_iva']})" if y == 1 else f"=SUM('ACTIVOS_FIJOS'!{qc(4*y-3)}{P['AF.capex_iva']}:{qc(4*y)}{P['AF.capex_iva']})"), y0='=0')
-    ct = lambda y: f"'INVERSION'!{L(1+y)}{P['INV.ct_row']}"
+    A('ivarec', '(+) Recuperación del IVA de las inversiones (vía crédito fiscal)', lambda y: (f"=AF_ANIO0_IVA+DIF_IVA+SUM('Maqu. y equip.'!{qc(1)}{P['AF.capex_iva']}:{qc(4)}{P['AF.capex_iva']})" if y == 1 else f"=SUM('Maqu. y equip.'!{qc(4*y-3)}{P['AF.capex_iva']}:{qc(4*y)}{P['AF.capex_iva']})"), y0='=0')
+    ct = lambda y: f"'Inversión'!{L(1+y)}{P['INV.ct_row']}"
     A('ct', '(-) Inversión / (+) recuperación de capital de trabajo', lambda y: (f"=-({ct(y+1)}-{ct(y)})" if y < 5 else f"={ct(5)}"), y0=f"=-{ct(1)}")
-    A('vr', '(+) Valor residual', lambda y: '=0' if y < 5 else f"=IF(METODO_VR=1,'ACTIVOS_FIJOS'!{yc(5)}{P['AF.vnl']},({ec(5)}{P['EV.nopat']}+{ec(5)}{P['EV.da2']})*(1+G_PERP)/(TRMA-G_PERP))")
+    A('vr', '(+) Valor residual', lambda y: '=0' if y < 5 else f"=IF(METODO_VR=1,'Maqu. y equip.'!{yc(5)}{P['AF.vnl']},({ec(5)}{P['EV.nopat']}+{ec(5)}{P['EV.da2']})*(1+G_PERP)/(TRMA-G_PERP))")
     A('fe', 'FLUJO ECONÓMICO NETO', lambda y: f"={ec(y)}{P['EV.nopat']}+SUM({ec(y)}{P['EV.da2']}:{ec(y)}{P['EV.vr']})", y0=f"=SUM(C{P['EV.af']}:C{P['EV.ct']})", bold=True, fill=FILL_KEY)
     A('fd', 'Factor de descuento a la TRMA', lambda y: f'=1/(1+TRMA)^{y}', y0='=1', fmt='0.0000')
     A('fdesc', 'Flujo descontado', lambda y: f"={ec(y)}{P['EV.fe']}*{ec(y)}{P['EV.fd']}", y0=f"=C{P['EV.fe']}*C{P['EV.fd']}")
@@ -61,13 +61,13 @@ def build_evaluacion(B):
     pr = P['EV.PRI']
     put(ws, f"C{P['EV.PRI_TXT']}", f'=IF(ISNUMBER(C{pr}),INT(C{pr})&" años, "&INT((C{pr}-INT(C{pr}))*12)&" meses y "&ROUND(((C{pr}-INT(C{pr}))*12-INT((C{pr}-INT(C{pr}))*12))*30,0)&" días",C{pr})', 'calc')
     for nm in ['VAN', 'TIR', 'BC', 'PRI', 'PRID', 'INV0', 'REN_NETA']:
-        B.name('EV_' + nm, 'EVALUACION', f"C{P['EV.'+nm]}")
+        B.name('EV_' + nm, 'Rentabilidad', f"C{P['EV.'+nm]}")
     put(ws, f'A{r}', 'Decisión', 'label', bold=True)
     put(ws, f'C{r}', f"=IF(AND(C{P['EV.VAN']}>0,ISNUMBER(C{P['EV.TIR']})),IF(C{P['EV.TIR']}>TRMA,\"ACEPTAR: VAN > 0 y TIR > TRMA\",\"REVISAR\"),\"RECHAZAR o reformular: VAN ≤ 0\")", 'calc', bold=True)
-    P['EV.decision'] = r; B.name('EV_DECISION', 'EVALUACION', f'C{r}'); r += 2
+    P['EV.decision'] = r; B.name('EV_DECISION', 'Rentabilidad', f'C{r}'); r += 2
     put(ws, f'A{r}', 'C. FLUJO DEL INVERSIONISTA (con préstamo)', 'sec'); r += 1
     year_hdr(ws, r, cols=ec, years=range(0, 6), label=lambda y: 'Año 0' if y == 0 else str(2026+y)); r += 1
-    FIN = lambda k, y: f"SUM('FINANCIAMIENTO'!{qc(4*y-3)}{P[k]}:{qc(4*y)}{P[k]})"
+    FIN = lambda k, y: f"SUM('Financiamiento'!{qc(4*y-3)}{P[k]}:{qc(4*y)}{P[k]})"
     A('fe2', 'Flujo económico', lambda y: f"={ec(y)}{fe}", y0=f'=C{fe}')
     A('prest', '(+) Préstamo', lambda y: '=0', y0='=PRESTAMO')
     A('int', '(-) Intereses', lambda y: f"=-{FIN('FIN.int', y)}")
@@ -75,19 +75,22 @@ def build_evaluacion(B):
     A('amo', '(-) Amortización del préstamo', lambda y: f"=-{FIN('FIN.amort', y)}")
     A('fi', 'FLUJO DEL INVERSIONISTA', lambda y: f"=SUM({ec(y)}{P['EV.fe2']}:{ec(y)}{P['EV.amo']})", y0=f"=SUM(C{P['EV.fe2']}:C{P['EV.amo']})", bold=True, fill=FILL_KEY)
     fi = P['EV.fi']
-    put(ws, f'A{r}', 'VAN del inversionista a la TRMA', 'label', bold=True); put(ws, f'C{r}', f'=NPV(TRMA,D{fi}:H{fi})+C{fi}', 'calc', FMT_BS, bold=True); B.name('EV_VAN_INV', 'EVALUACION', f'C{r}'); r += 1
-    put(ws, f'A{r}', 'TIR del inversionista', 'label', bold=True); put(ws, f'C{r}', f'=IFERROR(IRR(C{fi}:H{fi}),"No existe")', 'calc', FMT_PCT2, bold=True); B.name('EV_TIR_INV', 'EVALUACION', f'C{r}'); r += 2
+    put(ws, f'A{r}', 'VAN del inversionista a la TRMA', 'label', bold=True); put(ws, f'C{r}', f'=NPV(TRMA,D{fi}:H{fi})+C{fi}', 'calc', FMT_BS, bold=True); B.name('EV_VAN_INV', 'Rentabilidad', f'C{r}'); r += 1
+    put(ws, f'A{r}', 'TIR del inversionista', 'label', bold=True); put(ws, f'C{r}', f'=IFERROR(IRR(C{fi}:H{fi}),"No existe")', 'calc', FMT_PCT2, bold=True); B.name('EV_TIR_INV', 'Rentabilidad', f'C{r}'); r += 2
     put(ws, f'A{r}', 'Correcciones: Ñapefit calculaba el PRI con signo cambiado (B46+(C33+D46)/C47 = 1,89 años, cuando correspondía 2,11) y Hypotolab escribía "3 años 4 meses" a mano cuando su fórmula daba 3,05 años. Ambos tenían el "valor residual por perpetuidad" sin fórmula completa o con g = 0 sin justificar. Aquí todo sale de fórmulas.', 'note')
     widths(ws, {'A': 62, 'B': 6})
     for y in range(0, 6): ws.column_dimensions[ec(y)].width = 15
     return ws
 
 def build_pe(B):
-    ws = B.sheet('PUNTO_EQUILIBRIO', 'PUNTO DE EQUILIBRIO', 'Hypotolab lo calculaba; Ñapefit lo dejó vacío. Aquí se calcula con precio neto y costo variable unitario por año.', tab='C00000')
+    ws = B.wb['Rentabilidad']
     P = ROW
-    year_hdr(ws, 5)
-    ER = lambda k, y: f"'ESTADO_RESULTADOS'!{yc(y)}{P['ER.'+k]}"
-    r = 6
+    r0 = ws.max_row + 3
+    put(ws, f'A{r0}', 'D. PUNTO DE EQUILIBRIO (Hypotolab lo calculaba; Ñapefit lo dejó vacío)', 'sec')
+    HR = r0 + 1
+    year_hdr(ws, HR)
+    ER = lambda k, y: f"'Estado de resultado'!{yc(y)}{P['ER.'+k]}"
+    r = HR + 1
     def A(key, label, fn, fmt=FMT_BS, bold=False, fill=None, unit='Bs'):
         nonlocal r
         arow(ws, r, label, unit, fn, fmt, bold=bold, fill=fill); P['PE.' + key] = r; r += 1
@@ -114,7 +117,7 @@ def build_pe(B):
     ch = BarChart(); ch.title = 'Ventas vs. punto de equilibrio (kits)'; ch.y_axis.title = 'kits'
     ch.add_data(Reference(ws, min_col=3, max_col=7, min_row=P['PE.u']), from_rows=True, titles_from_data=False)
     ch.add_data(Reference(ws, min_col=3, max_col=7, min_row=P['PE.peu']), from_rows=True, titles_from_data=False)
-    ch.series[0].tx = None; ch.set_categories(Reference(ws, min_col=3, max_col=7, min_row=5))
+    ch.series[0].tx = None; ch.set_categories(Reference(ws, min_col=3, max_col=7, min_row=HR))
     from openpyxl.chart.series import SeriesLabel
     ch.series[0].tx = SeriesLabel(v='Ventas'); ch.series[1].tx = SeriesLabel(v='Punto de equilibrio')
     ch.height = 8; ch.width = 18
@@ -122,21 +125,21 @@ def build_pe(B):
     return ws
 
 def build_ratios(B):
-    ws = B.sheet('RATIOS', 'INDICADORES FINANCIEROS ANUALES', 'Rentabilidad, liquidez, endeudamiento y eficiencia a partir de los estados financieros.', tab='C00000')
+    ws = B.sheet('Ratios', 'INDICADORES FINANCIEROS ANUALES', 'Rentabilidad, liquidez, endeudamiento y eficiencia a partir de los estados financieros.', tab='C00000')
     P = ROW
     year_hdr(ws, 5)
-    ER = lambda k, y: f"'ESTADO_RESULTADOS'!{yc(y)}{P['ER.'+k]}"
-    BL = lambda k, y: f"'BALANCE_GENERAL'!{yc(y)}{P['BAL.'+k]}"
+    ER = lambda k, y: f"'Estado de resultado'!{yc(y)}{P['ER.'+k]}"
+    BL = lambda k, y: f"'Balance general'!{yc(y)}{P['BAL.'+k]}"
     rows = [('Margen bruto', lambda y: f"={ER('ub', y)}/{ER('vn', y)}", FMT_PCT),
             ('Margen operativo (EBIT / ventas netas)', lambda y: f"={ER('ebit', y)}/{ER('vn', y)}", FMT_PCT),
             ('Margen neto', lambda y: f"={ER('un', y)}/{ER('vn', y)}", FMT_PCT),
             ('Rentabilidad sobre activos (ROA)', lambda y: f"={ER('un', y)}/{BL('at', y)}", FMT_PCT),
             ('Rentabilidad sobre patrimonio (ROE)', lambda y: f"={ER('un', y)}/{BL('pat', y)}", FMT_PCT),
-            ('Liquidez corriente (activo corriente / pasivo corriente)', lambda y: f"=IF(({BL('iue', y)}+{BL('pri', y)}+SUM('FINANCIAMIENTO'!{qc(min(4*y+1,20))}{P['FIN.amort']}:{qc(min(4*y+4,20))}{P['FIN.amort']})*{1 if y<5 else 0})>0,{BL('ac', y)}/({BL('iue', y)}+{BL('pri', y)}+SUM('FINANCIAMIENTO'!{qc(min(4*y+1,20))}{P['FIN.amort']}:{qc(min(4*y+4,20))}{P['FIN.amort']})*{1 if y<5 else 0}),\"sin pasivo corriente\")", FMT_X),
+            ('Liquidez corriente (activo corriente / pasivo corriente)', lambda y: f"=IF(({BL('iue', y)}+{BL('pri', y)}+SUM('Financiamiento'!{qc(min(4*y+1,20))}{P['FIN.amort']}:{qc(min(4*y+4,20))}{P['FIN.amort']})*{1 if y<5 else 0})>0,{BL('ac', y)}/({BL('iue', y)}+{BL('pri', y)}+SUM('Financiamiento'!{qc(min(4*y+1,20))}{P['FIN.amort']}:{qc(min(4*y+4,20))}{P['FIN.amort']})*{1 if y<5 else 0}),\"sin pasivo corriente\")", FMT_X),
             ('Endeudamiento (pasivo total / activo total)', lambda y: f"={BL('pt', y)}/{BL('at', y)}", FMT_PCT),
             ('Cobertura de intereses (EBIT / intereses)', lambda y: f"=IF({ER('int', y)}>0,{ER('ebit', y)}/{ER('int', y)},\"sin deuda\")", FMT_X),
             ('Rotación de inventario de producto terminado (veces)', lambda y: f"=IF({BL('ipt', y)}>0,{ER('cv', y)}/{BL('ipt', y)},0)", FMT_BS2),
-            ('Utilización de la capacidad instalada', lambda y: f"='CAPACIDAD'!{yc(y)}{P['CAP.util']}", FMT_PCT),
+            ('Utilización de la capacidad instalada', lambda y: f"='Capacidad Inst.'!{yc(y)}{P['CAP.util']}", FMT_PCT),
             ('Caja al cierre del año (Bs)', lambda y: f"={BL('caja', y)}", FMT_BS)]
     r = 6
     for lbl, fn, fm in rows:

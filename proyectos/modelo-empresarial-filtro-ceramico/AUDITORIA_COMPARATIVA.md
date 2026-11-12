@@ -5,7 +5,7 @@ Archivos auditados (entregados por el usuario):
 - **Ñapefit**: `OFICIAL OFICIAL Ñ APEFIT- INVERSIONES 3.xlsx` — 20 hojas, 2.939 fórmulas, 2 vínculos a archivos externos.
 - **Hypotolab**: `Plan financiero HIPOTAB.xlsx` — 19 hojas, 3.112 fórmulas, sin vínculos externos.
 
-Método: se leyeron todas las celdas de ambos libros dos veces (fórmulas y valores guardados), se reconstruyó la cadena de dependencias entre hojas y se revisó cada fórmula principal. La matriz completa (39 filas, una por hoja original) está dentro del Excel, en la hoja `MATRIZ_COMPARATIVA`.
+Método: se leyeron todas las celdas de ambos libros dos veces (fórmulas y valores guardados), se reconstruyó la cadena de dependencias entre hojas y se revisó cada fórmula principal. La matriz completa (39 filas, una por hoja original) está dentro del Excel, en la hoja `Matriz comparativa`.
 
 ## 1. Qué tenía cada archivo
 
@@ -37,27 +37,27 @@ Ninguno de los dos tenía: balance general, préstamo (financiamiento = 0), aná
 
 | Metodología original | Dónde está ahora |
 |---|---|
-| Población INE → demanda → aceptación × participación → ventas | `POBLACION`, `DEMANDA`, `PRONOSTICO` |
-| Tres escenarios pesimista / esperado / optimista | `PRONOSTICO` + selector `ESCENARIO` en `SUPUESTOS` |
-| Distribución trimestral de las ventas | `PRONOSTICO` (pesos en `SUPUESTOS`) |
-| Stock de seguridad ASCM 10-20% (Hypotolab) | `INVENTARIO_PT` (15%) |
-| Receta por unidad × precio = costo unitario | `MATERIALES` |
-| Compras derivadas de la producción | `COMPRAS` |
-| Capacidad por máquina en horas y unidades | `CAPACIDAD` |
-| Matriz ponderada de localización y cronograma de puesta en marcha | `LOCALIZACION` |
-| Activos con IVA separado y depreciación sobre el valor neto | `ACTIVOS_FIJOS` |
-| Planilla con CNS, riesgo profesional, aporte solidario, pro vivienda, aguinaldo, indemnización, bono de antigüedad | `PERSONAL` |
-| Incremento salarial = promedio de incrementos del SMN (Ñapefit) | `PERSONAL` → `INC_SAL` |
-| Precio por método de costo + recargo de IVA e IT + precio para canal indirecto | `PRECIO` (sección B) |
-| IVA débito − crédito, IT 3%, IUE 25% | `IMPUESTOS` |
-| Inversión fija + diferida + puesta en marcha + capital de trabajo | `INVERSION` |
-| Estado de resultados y flujo de caja directo, trimestral y anual | `ESTADO_RESULTADOS`, `FLUJO_CAJA` |
+| Población INE → demanda → aceptación × participación → ventas | `Santa Cruz y Zona urbana`, `Demanda`, `Pronostico` |
+| Tres escenarios pesimista / esperado / optimista | `Pronostico` + selector `ESCENARIO` en `Supuestos` |
+| Distribución trimestral de las ventas | `Pronostico` (pesos en `Supuestos`) |
+| Stock de seguridad ASCM 10-20% (Hypotolab) | `Inventario e Inv. terminado` (15%) |
+| Receta por unidad × precio = costo unitario | `MP` |
+| Compras derivadas de la producción | `Compras` |
+| Capacidad por máquina en horas y unidades | `Capacidad Inst.` |
+| Matriz ponderada de localización y cronograma de puesta en marcha | `Infraestructura` |
+| Activos con IVA separado y depreciación sobre el valor neto | `Maqu. y equip.` |
+| Planilla con CNS, riesgo profesional, aporte solidario, pro vivienda, aguinaldo, indemnización, bono de antigüedad | `MANO DE OBRA` |
+| Incremento salarial = promedio de incrementos del SMN (Ñapefit) | `MANO DE OBRA` → `INC_SAL` |
+| Precio por método de costo + recargo de IVA e IT + precio para canal indirecto | `Precio` (sección B) |
+| IVA débito − crédito, IT 3%, IUE 25% | `Carga impositiva` |
+| Inversión fija + diferida + puesta en marcha + capital de trabajo | `Inversión` |
+| Estado de resultados y flujo de caja directo, trimestral y anual | `Estado de resultado`, `Flujo de caja` |
 | TRMA por CAPM con riesgo país | `TRMA` |
-| VAN, TIR, PRI, valor residual contable (Ñapefit) y por perpetuidad (Hypotolab) | `EVALUACION` (selector `METODO_VR`) |
-| Punto de equilibrio (Hypotolab) | `PUNTO_EQUILIBRIO` |
-| Validación previa del producto (Hypotolab: médica) | `INVERSION`: validación en laboratorio acreditado |
+| VAN, TIR, PRI, valor residual contable (Ñapefit) y por perpetuidad (Hypotolab) | `Rentabilidad` (selector `METODO_VR`) |
+| Punto de equilibrio (Hypotolab) | `Rentabilidad` |
+| Validación previa del producto (Hypotolab: médica) | `Inversión`: validación en laboratorio acreditado |
 
-Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y se documentó la equivalencia (por ejemplo, `Inventario` + `Inv. terminado` + `Inventario envases` → `INVENTARIO_PT`).
+Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y se documentó la equivalencia (por ejemplo, `Inventario` + `Inv. terminado` + `Inventario envases` → `Inventario e Inv. terminado`).
 
 ## 3. Errores encontrados y corregidos
 
@@ -109,7 +109,7 @@ Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y
 
 ## 5. Elementos nuevos
 
-`BALANCE_GENERAL` (cuadra en los 21 cierres), `FINANCIAMIENTO` (préstamo, sistema francés), `MUESTRA_ENCUESTA` (tamaño de muestra, cuestionario y tabulación que reemplaza sola el supuesto de aceptación cuando hay datos), `COMPETENCIA`, `ESTRATEGIA_COMERCIAL`, `PROCESO_PRODUCTIVO`, `SELECCION_PRODUCTO`, `RATIOS`, `SENSIBILIDAD`, `SIMULADOR EMPRESARIAL`, `DECISIONES Y ESCENARIOS`, `CONTROL DE PERIODOS`, `DASHBOARD`, `CONTROLES`, `FUENTES`, `PORTADA`, `INDICE`, `LEYENDA`, `CALENDARIO`. Flujo del inversionista, B/C, PRI descontado, WACC de referencia.
+`Balance general` (cuadra en los 21 cierres), `Financiamiento` (préstamo, sistema francés), `Muestra y encuesta` (tamaño de muestra, cuestionario y tabulación que reemplaza sola el supuesto de aceptación cuando hay datos), `Competencia`, `Estrategia comercial`, `Proceso productivo`, `Selección de producto`, `Ratios`, `Sensibilidad`, `SIMULADOR EMPRESARIAL`, `DECISIONES Y ESCENARIOS`, `CONTROL DE PERIODOS`, `Dashboard`, `Controles`, `Fuentes`, `Índice`, `Índice`, `Leyenda`, `Calendario`. Flujo del inversionista, B/C, PRI descontado, WACC de referencia.
 
 ## 6. Lo que no se reprodujo y por qué
 

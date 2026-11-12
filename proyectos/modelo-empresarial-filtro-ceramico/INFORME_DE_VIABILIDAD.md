@@ -11,7 +11,7 @@ En el escenario base el proyecto **es viable**: VAN de **Bs 191.168** y TIR de *
 
 Kit para el hogar: elemento de cerámica porosa (arcilla + aserrín, cocido a ~860 °C) con plata coloidal, montado en un contenedor de 20 L con grifo. Filtra 1 a 3 litros por hora sin electricidad (Akvopedia; Potters for Peace).
 
-Se eligió entre cinco productos no alimenticios con una matriz de 14 criterios ponderados (hoja `SELECCION_PRODUCTO`):
+Se eligió entre cinco productos no alimenticios con una matriz de 14 criterios ponderados (hoja `Selección de producto`):
 
 | Producto | Puntaje (sobre 5) |
 |---|---|
@@ -47,7 +47,7 @@ En 2031 las ventas llegan a 7.249 kits: 7,3% de la demanda efectiva, con cobertu
 
 ## 4. Supuestos principales
 
-El registro completo está en la hoja `SUPUESTOS`, con tipo, fuente y forma de validar cada uno.
+El registro completo está en la hoja `Supuestos`, con tipo, fuente y forma de validar cada uno.
 
 | Supuesto | Valor | Tipo |
 |---|---|---|
@@ -117,7 +117,7 @@ El primer año apenas supera el equilibrio. Ese es el punto más débil del proy
 
 ## 10. Sensibilidad y riesgos
 
-Cada caso se calculó cambiando un supuesto y recalculando todo el libro (hoja `SENSIBILIDAD`).
+Cada caso se calculó cambiando un supuesto y recalculando todo el libro (hoja `Sensibilidad`).
 
 **Puntos críticos** (valor que hace VAN = 0, con lo demás constante):
 
@@ -157,7 +157,7 @@ Cada caso se calculó cambiando un supuesto y recalculando todo el libro (hoja `
 
 ## 12. Recomendaciones
 
-1. **Antes de invertir todo:** hacer la encuesta (384 hogares, hoja `MUESTRA_ENCUESTA`) y vender el lote piloto para medir aceptación y precio.
+1. **Antes de invertir todo:** hacer la encuesta (384 hogares, hoja `Muestra y encuesta`) y vender el lote piloto para medir aceptación y precio.
 2. **Cotizar el contenedor y el grifo:** bajar el contenedor de Bs 55 a Bs 45 subiría el VAN a Bs 301.477.
 3. **Impulsar el canal directo:** pasar de 40% a 50% de ventas directas subiría el VAN a Bs 298.735.
 4. **Probar el precio:** a Bs 420 el VAN sería Bs 450.784, pero solo si la encuesta (pregunta P5) muestra que los hogares lo aceptan.
@@ -168,9 +168,9 @@ Las palancas de los puntos 2 a 5 se calcularon una por una y **no se incorporaro
 
 ## Pendiente (depende del equipo o del docente)
 
-- Encuesta real y relevamiento de precios de la competencia (hoja `COMPETENCIA`).
+- Encuesta real y relevamiento de precios de la competencia (hoja `Competencia`).
 - Cotizaciones de equipos, materiales, alquiler y sueldos.
 - Confirmar el tipo de cambio, el riesgo país, la tasa bancaria, el aporte patronal solidario (3% o 3,5%) y las tasas de depreciación vigentes.
 - Disponibilidad del nombre comercial en SENAPI.
 - Manual y reportes del Juego de Negocios, para adaptar `SIMULADOR EMPRESARIAL`.
-- Nombres de los integrantes y del docente en `PORTADA`.
+- Nombres de los integrantes y del docente en `Índice`.

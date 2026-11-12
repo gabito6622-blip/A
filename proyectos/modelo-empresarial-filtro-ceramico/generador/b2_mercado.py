@@ -7,11 +7,11 @@ def year_hdr(ws, r, first='Concepto', unit='Unidad', cols=ac, years=range(1, 6),
         put(ws, f'{cols(y)}{r}', label(y), 'hdr'); ws.column_dimensions[cols(y)].width = 14
 
 def build_precio_tabla(B):
-    ws = B.sheet('PRECIO', 'FIJACIÓN TÉCNICA DEL PRECIO', 'Precio de mercado elegido, precios por canal, método de costo (de los originales) y margen de contribución.', tab='ED7D31')
+    ws = B.sheet('Precio', 'FIJACIÓN TÉCNICA DEL PRECIO', 'Precio de mercado elegido, precios por canal, método de costo (de los originales) y margen de contribución.', tab='ED7D31')
     put(ws, 'A5', 'A. PRECIO DE VENTA POR AÑO Y CANAL (Bs con factura, salvo indicación)', 'sec')
     year_hdr(ws, 6)
     rows = [
-        ('idx', 'Índice de ajuste de precio', 'índice', lambda y: f"='CALENDARIO'!{yc(y)}10", '0.0000'),
+        ('idx', 'Índice de ajuste de precio', 'índice', lambda y: f"='Calendario'!{yc(y)}10", '0.0000'),
         ('pvp', 'Precio de venta al público (PVP)', 'Bs/kit', lambda y: f'=PVP*{ac(y)}7*M_PRECIO', FMT_BS2),
         ('dir', 'Canal directo: la empresa recibe el PVP', 'Bs/kit', lambda y: f'={ac(y)}8', FMT_BS2),
         ('ind', 'Canal indirecto: la empresa recibe PVP x (1 - margen del canal)', 'Bs/kit', lambda y: f'={ac(y)}8*(1-MARGEN_CANAL)', FMT_BS2),
@@ -28,11 +28,11 @@ def build_precio_tabla(B):
     return ws
 
 def build_muestra(B):
-    ws = B.sheet('MUESTRA_ENCUESTA', 'TAMAÑO DE MUESTRA, CUESTIONARIO Y TABULACIÓN',
+    ws = B.sheet('Muestra y encuesta', 'TAMAÑO DE MUESTRA, CUESTIONARIO Y TABULACIÓN',
                  'No se realizó trabajo de campo: las celdas de respuestas están vacías a propósito. No se inventan encuestas.', tab='70AD47')
     widths(ws, {'A': 50, 'B': 16, 'C': 16, 'D': 16, 'E': 50})
     put(ws, 'A5', 'A. TAMAÑO DE MUESTRA (población finita)', 'sec')
-    put(ws, 'A6', 'Población (N): hogares objetivo 2027', 'label'); put(ws, 'B6', "='DEMANDA'!C13", 'link', FMT_U)
+    put(ws, 'A6', 'Población (N): hogares objetivo 2027', 'label'); put(ws, 'B6', "='Demanda'!C13", 'link', FMT_U)
     put(ws, 'A7', 'Nivel de confianza', 'label'); put(ws, 'B7', 0.95, 'input', FMT_PCT)
     put(ws, 'A8', 'Valor Z', 'label'); put(ws, 'B8', '=NORMSINV(1-(1-B7)/2)', 'calc', '0.00')
     put(ws, 'A9', 'Proporción esperada (p)', 'label'); put(ws, 'B9', 0.5, 'input', FMT_PCT)
@@ -40,7 +40,7 @@ def build_muestra(B):
     put(ws, 'A11', 'Error máximo admitido (e)', 'label'); put(ws, 'B11', 0.05, 'input', FMT_PCT)
     put(ws, 'A12', 'n = Z²·p·q·N / (e²·(N-1) + Z²·p·q)', 'label', bold=True)
     put(ws, 'B12', '=ROUNDUP((B8^2*B9*B10*B6)/(B11^2*(B6-1)+B8^2*B9*B10),0)', 'calc', FMT_U, bold=True)
-    B.name('N_MUESTRA', 'MUESTRA_ENCUESTA', 'B12')
+    B.name('N_MUESTRA', 'Muestra y encuesta', 'B12')
     put(ws, 'E6', 'Muestreo sugerido: estratificado por distrito municipal, proporcional a la población; entrevistas a la persona que decide las compras del hogar.', 'note')
     put(ws, 'A14', 'B. CUESTIONARIO PROPUESTO (para validar los supuestos)', 'sec')
     qs = ['P1. ¿En su hogar compran agua embotellada (botellón) o tratan el agua para beber? (valida PCT_OBJETIVO)',
@@ -66,7 +66,7 @@ def build_muestra(B):
     put(ws, 'B32', '=IF(B30>=N_MUESTRA,"SÍ: se usa la aceptación medida","NO: se usa el supuesto ACEP_SUPUESTA")', 'calc')
     put(ws, 'A33', 'ACEPTACIÓN USADA EN EL MODELO', 'label', bold=True)
     put(ws, 'B33', '=IF(B30>=N_MUESTRA,B31,ACEP_SUPUESTA)', 'calc', FMT_PCT, bold=True, fill=FILL_KEY)
-    B.name('ACEPTACION', 'MUESTRA_ENCUESTA', 'B33')
+    B.name('ACEPTACION', 'Muestra y encuesta', 'B33')
     put(ws, 'A35', 'D. TABULACIÓN DE LA PREGUNTA P5 (precio aceptable)', 'sec')
     for j, h in enumerate(['Precio (Bs)', 'Frecuencia', '% acumulado que acepta ese precio o más']):
         put(ws, f'{L(1+j)}36', h, 'hdr')
@@ -78,12 +78,12 @@ def build_muestra(B):
     return ws
 
 def build_demanda(B):
-    ws = B.sheet('DEMANDA', 'DEMANDA POTENCIAL Y EFECTIVA', 'Cadena: población → hogares → cobertura → hogares objetivo → consumo → demanda potencial → aceptación → demanda efectiva.', tab='70AD47')
+    ws = B.sheet('Demanda', 'DEMANDA POTENCIAL Y EFECTIVA', 'Cadena: población → hogares → cobertura → hogares objetivo → consumo → demanda potencial → aceptación → demanda efectiva.', tab='70AD47')
     year_hdr(ws, 5)
-    pc = lambda y: L(9+y)  # 2027..2031 en POBLACION = J..N
+    pc = lambda y: L(ROW['POB.c2024'] + 2 + y)  # 2027..2031 en 'Santa Cruz'
     rows = [
-        ('pobdep', 'Población departamental total', 'personas', lambda y: f"='POBLACION'!{pc(y)}{ROW['POB.s0']}", FMT_U),
-        ('poburb', 'Población urbana departamental', 'personas', lambda y: f"='POBLACION'!{pc(y)}{ROW['POB.s1']}", FMT_U),
+        ('pobdep', 'Población departamental total', 'personas', lambda y: f"='Santa Cruz'!{pc(y)}{ROW['POB.s0']}", FMT_U),
+        ('poburb', 'Población urbana departamental', 'personas', lambda y: f"='Santa Cruz'!{pc(y)}{ROW['POB.s1']}", FMT_U),
         ('tam', 'Tamaño medio del hogar', 'pers/hogar', lambda y: '=TAM_HOGAR', FMT_BS2),
         ('hog', 'Hogares urbanos del departamento', 'hogares', lambda y: f'={ac(y)}7/{ac(y)}8', FMT_U),
         ('cob', 'Cobertura de distribución', '%', lambda y: f'=CHOOSE({y},COB_2027,COB_2028,COB_2029,COB_2030,COB_2031)', FMT_PCT),
@@ -92,7 +92,7 @@ def build_demanda(B):
         ('hobj', 'Hogares objetivo (mercado potencial)', 'hogares', lambda y: f'={ac(y)}11*{ac(y)}12', FMT_U),
         ('q', 'Compra promedio (q)', 'kits/hogar/año', lambda y: '=CONSUMO_Q', FMT_BS2),
         ('dpot', 'DEMANDA POTENCIAL', 'kits/año', lambda y: f'={ac(y)}13*{ac(y)}14', FMT_U),
-        ('pvp', 'Precio de venta al público', 'Bs/kit', lambda y: f"='PRECIO'!{ac(y)}{ROW['PRE.pvp']}", FMT_BS2),
+        ('pvp', 'Precio de venta al público', 'Bs/kit', lambda y: f"='Precio'!{ac(y)}{ROW['PRE.pvp']}", FMT_BS2),
         ('dpotbs', 'Demanda potencial en Bs', 'Bs', lambda y: f'={ac(y)}15*{ac(y)}16', FMT_BS),
         ('dpotusd', 'Demanda potencial en USD', 'USD', lambda y: f'={ac(y)}17/TIPO_CAMBIO', FMT_BS),
         ('acep', 'Aceptación del producto', '%', lambda y: '=ACEPTACION', FMT_PCT),
@@ -107,59 +107,82 @@ def build_demanda(B):
     assert ROW['DEM.hobj'] == 13 and ROW['DEM.dpot'] == 15 and ROW['DEM.def'] == 20
     put(ws, 'A24', 'Diferencias con los originales:', 'label', bold=True)
     notas = ['• Ñapefit usaba en 2026 "D30*0,3" y "x0,2" aunque el rótulo decía 70%, y en 2027 un valor fijo del censo: la serie no era homogénea. Aquí toda la serie usa la misma fórmula.',
-             '• Hypotolab aplicaba 54% y 5% fijos sin fuente. Aquí cada porcentaje está en SUPUESTOS con su tipo y forma de validarlo.',
-             '• La demanda insatisfecha no se calcula: no hay datos de oferta local de filtros (pendiente de relevamiento en COMPETENCIA).']
+             '• Hypotolab aplicaba 54% y 5% fijos sin fuente. Aquí cada porcentaje está en Supuestos con su tipo y forma de validarlo.',
+             '• La demanda insatisfecha no se calcula: no hay datos de oferta local de filtros (pendiente de relevamiento en Competencia).']
     for i, t in enumerate(notas):
         put(ws, f'A{25+i}', t, 'note'); ws.merge_cells(f'A{25+i}:G{25+i}')
     return ws
 
 def build_pronostico(B):
-    ws = B.sheet('PRONOSTICO', 'PRONÓSTICO DE VENTAS: ESCENARIOS Y DISTRIBUCIÓN TRIMESTRAL',
-                 'Método de los originales: demanda × aceptación × participación. El escenario activo (SUPUESTOS) alimenta todo el modelo.', tab='70AD47')
-    r = 5
-    blocks = [('PES', 'ESCENARIO PESIMISTA', 'PART_PES'), ('BASE', 'ESCENARIO BASE (ESPERADO)', 'PART_BASE'), ('OPT', 'ESCENARIO OPTIMISTA', 'PART_OPT')]
-    for key, title, part in blocks:
-        put(ws, f'A{r}', title, 'sec'); r += 1
-        year_hdr(ws, r); r += 1
-        r_dem = r
-        arow(ws, r, 'Demanda potencial', 'kits', lambda y: f"='DEMANDA'!{ac(y)}{ROW['DEM.dpot']}", FMT_U); r += 1
-        arow(ws, r, 'Aceptación del producto', '%', lambda y: f"='DEMANDA'!{ac(y)}{ROW['DEM.acep']}", FMT_PCT); r += 1
-        rp = r
-        arow(ws, r, 'Participación estimada', '%', lambda y: f'={part}' if y == 1 else f'={ac(y-1)}{rp}*(1+CRECE_PART)', FMT_PCT2); r += 1
-        rv = r
-        arow(ws, r, 'Ventas proyectadas', 'kits', lambda y: f'={ac(y)}{r_dem}*{ac(y)}{r_dem+1}*{ac(y)}{rp}*M_DEMANDA', FMT_U, bold=True); r += 1
-        arow(ws, r, 'Precio al público (PVP)', 'Bs/kit', lambda y: f"='PRECIO'!{ac(y)}{ROW['PRE.pvp']}", FMT_BS2); r += 1
-        arow(ws, r, 'Ventas a precio al público', 'Bs', lambda y: f'={ac(y)}{rv}*{ac(y)}{rv+1}', FMT_BS); r += 1
-        arow(ws, r, 'Ventas a precio al público', 'USD', lambda y: f'={ac(y)}{rv+2}/TIPO_CAMBIO', FMT_BS); r += 1
-        ROW[f'PRO.{key}.units'] = rv; ROW[f'PRO.{key}.part'] = rp
+    ws = B.sheet('Pronostico', 'PRONÓSTICO DE VENTAS', 'Método de los originales: demanda x aceptación x participación. El escenario activo (Supuestos) alimenta todo el modelo.')
+    widths(ws, {'A': 30, 'B': 13, 'C': 15, 'D': 13, 'E': 14, 'F': 14, 'G': 12, 'H': 16, 'I': 10, 'J': 16})
+    def bar(r, t):
+        put(ws, f'B{r}', t, 'bar'); ws.merge_cells(f'B{r}:J{r}')
+    bar(5, 'PRONÓSTICO DE VENTAS')
+    put(ws, 'B7', 'ESCENARIOS', 'hdr'); ws.merge_cells('B7:D7')
+    for j, (t, n) in enumerate([('Pesimista', 'PART_PES'), ('Esperado', 'PART_BASE'), ('Optimista', 'PART_OPT')]):
+        put(ws, f'{L(2+j)}8', t, 'hdr'); put(ws, f'{L(2+j)}9', f'={n}', 'calc', FMT_PCT)
+    put(ws, 'F7', 'Crecimiento anual de la participación', 'hdr'); ws.merge_cells('F7:G7'); put(ws, 'H7', '=CRECE_PART', 'calc', FMT_PCT)
+    put(ws, 'F9', 'Escenario activo', 'hdr'); ws.merge_cells('F9:G9'); put(ws, 'H9', '=NOMBRE_ESCENARIO', 'calc', bold=True)
+    hd = ['Año', 'Demanda del mercado (unid)', 'Aceptación del producto', 'Participación estimada (%)', 'Ventas proyectadas (unid)', 'Precio (Bs)', 'Ventas proyectadas (Bs)', 'Tipo de cambio', 'Ventas proyectadas ($)']
+    r = 11
+    for key, title, part in [('PES', 'ESCENARIO PESIMISTA', 'PART_PES'), ('BASE', 'ESCENARIO ESPERADO (BASE)', 'PART_BASE'), ('OPT', 'ESCENARIO OPTIMISTA', 'PART_OPT')]:
+        bar(r, title); r += 1
+        for j, h in enumerate(hd): put(ws, f'{L(2+j)}{r}', h, 'hdr')
+        ws.row_dimensions[r].height = 45; r += 1
+        f0 = r
+        for y in range(1, 6):
+            put(ws, f'B{r}', str(2026+y), 'calc')
+            put(ws, f'C{r}', f"='Demanda'!{ac(y)}{ROW['DEM.dpot']}", 'link', FMT_U, bold=True)
+            put(ws, f'D{r}', f"='Demanda'!{ac(y)}{ROW['DEM.acep']}", 'link', FMT_PCT)
+            put(ws, f'E{r}', f'={part}' if y == 1 else f'=E{r-1}*(1+CRECE_PART)', 'calc', FMT_PCT2)
+            put(ws, f'F{r}', f'=C{r}*D{r}*E{r}*M_DEMANDA', 'calc', FMT_U, bold=True)
+            put(ws, f'G{r}', f"='Precio'!{ac(y)}{ROW['PRE.pvp']}", 'link', FMT_BS2)
+            put(ws, f'H{r}', f'=F{r}*G{r}', 'calc', FMT_BS2)
+            put(ws, f'I{r}', '=TIPO_CAMBIO', 'calc', FMT_BS2)
+            put(ws, f'J{r}', f'=H{r}/I{r}', 'calc', FMT_BS2)
+            r += 1
+        ROW[f'PRO.{key}.f0'] = f0
         r += 1
-    put(ws, f'A{r}', 'ESCENARIO ACTIVO (alimenta producción, costos y estados financieros)', 'sec'); r += 1
-    year_hdr(ws, r); r += 1
-    arow(ws, r, 'Escenario activo', '', lambda y: '=NOMBRE_ESCENARIO', None); r += 1
+    bar(r, 'ESCENARIO ACTIVO (alimenta producción, costos y estados financieros)'); r += 1
+    year_hdr(ws, r, first='Concepto', unit=''); r += 1
     ra = r
-    arow(ws, r, 'Ventas anuales del escenario activo', 'kits', lambda y: f"=CHOOSE(ESCENARIO,{ac(y)}{ROW['PRO.PES.units']},{ac(y)}{ROW['PRO.BASE.units']},{ac(y)}{ROW['PRO.OPT.units']})", FMT_U, bold=True); r += 1
-    arow(ws, r, 'Participación del escenario activo', '%', lambda y: f"=CHOOSE(ESCENARIO,{ac(y)}{ROW['PRO.PES.part']},{ac(y)}{ROW['PRO.BASE.part']},{ac(y)}{ROW['PRO.OPT.part']})", FMT_PCT2); r += 1
-    arow(ws, r, 'Precio promedio facturado por la empresa', 'Bs/kit', lambda y: f"='PRECIO'!{ac(y)}{ROW['PRE.prom']}", FMT_BS2); r += 1
-    arow(ws, r, 'Ventas facturadas por la empresa', 'Bs', lambda y: f'={ac(y)}{ra}*{ac(y)}{ra+2}', FMT_BS); r += 1
+    arow(ws, r, 'Ventas anuales del escenario activo (kits)', '', lambda y: f"=CHOOSE(ESCENARIO,F{ROW['PRO.PES.f0']+y-1},F{ROW['PRO.BASE.f0']+y-1},F{ROW['PRO.OPT.f0']+y-1})", FMT_U, bold=True); r += 1
+    arow(ws, r, 'Participación del escenario activo', '', lambda y: f"=CHOOSE(ESCENARIO,E{ROW['PRO.PES.f0']+y-1},E{ROW['PRO.BASE.f0']+y-1},E{ROW['PRO.OPT.f0']+y-1})", FMT_PCT2); r += 1
+    arow(ws, r, 'Precio promedio facturado por la empresa (Bs/kit)', '', lambda y: f"='Precio'!{ac(y)}{ROW['PRE.prom']}", FMT_BS2); r += 1
+    arow(ws, r, 'Ventas facturadas por la empresa (Bs)', '', lambda y: f'={ac(y)}{ra}*{ac(y)}{ra+2}', FMT_BS); r += 1
     ROW['PRO.act.units'] = ra; ROW['PRO.act.part'] = ra + 1
     r += 1
-    put(ws, f'A{r}', 'DISTRIBUCIÓN TRIMESTRAL DEL ESCENARIO ACTIVO', 'sec'); r += 1
+    bar(r, 'PRONÓSTICO DE VENTAS TRIMESTRAL (ESCENARIO ACTIVO)'); r += 2
+    for tit, src, fm in [('PROYECCIÓN DE VENTAS EN CANTIDAD (kits)', ra, FMT_U), ('PROYECCIÓN DE VENTAS FACTURADAS (Bs)', ra + 3, FMT_BS)]:
+        put(ws, f'B{r}', tit, 'hdr'); ws.merge_cells(f'B{r}:G{r}'); r += 1
+        put(ws, f'B{r}', 'AÑOS / TRIMESTRES', 'hdr'); ws.merge_cells(f'B{r}:B{r+1}')
+        for j in range(4): put(ws, f'{L(3+j)}{r}', f'=EST_T{j+1}', 'hdr', FMT_PCT)
+        put(ws, f'G{r}', '=SUM(C{0}:F{0})'.format(r), 'hdr', FMT_PCT); r += 1
+        for j, t in enumerate(['1ER', '2DO', '3ER', '4TO', 'TOTAL']): put(ws, f'{L(3+j)}{r}', t, 'hdr')
+        r += 1
+        for y in range(1, 6):
+            put(ws, f'B{r}', str(2026+y), 'calc')
+            for j in range(4): put(ws, f'{L(3+j)}{r}', f'=${ac(y)}${src}*{L(3+j)}${r-1-y}', 'calc', fm)
+            put(ws, f'G{r}', f'=SUM(C{r}:F{r})', 'calc', fm, bold=True)
+            r += 1
+        r += 1
+    put(ws, f'A{r}', 'DISTRIBUCIÓN TRIMESTRAL EN LÍNEA DE TIEMPO (alimenta Inventario y los estados financieros)', 'sec'); r += 1
     hdr_time(ws, r, year0=False); ws.freeze_panes = None
     r += 1
     rq = r
-    qrow(ws, r, 'Ventas del trimestre', 'kits', lambda q: f"=INDEX($C${ra}:$G${ra},'CALENDARIO'!{qc(q)}7)*'CALENDARIO'!{qc(q)}13", FMT_U); r += 1
+    qrow(ws, r, 'Ventas del trimestre', 'kits', lambda q: f"=INDEX($C${ra}:$G${ra},'Calendario'!{qc(q)}7)*'Calendario'!{qc(q)}13", FMT_U); r += 1
     qrow(ws, r, 'Ventas del trimestre siguiente', 'kits',
          lambda q: f'={qc(q+1)}{rq}' if q < NQ else f'=$G${ra}*($G${ra}/$F${ra})*EST_T1', FMT_U, annual=None); r += 1
-    qrow(ws, r, 'Precio promedio facturado', 'Bs/kit', lambda q: f"=INDEX($C${ra+2}:$G${ra+2},'CALENDARIO'!{qc(q)}7)", FMT_BS2, annual=None); r += 1
+    qrow(ws, r, 'Precio promedio facturado', 'Bs/kit', lambda q: f"=INDEX($C${ra+2}:$G${ra+2},'Calendario'!{qc(q)}7)", FMT_BS2, annual=None); r += 1
     qrow(ws, r, 'Ventas facturadas (con IVA)', 'Bs', lambda q: f'={qc(q)}{rq}*{qc(q)}{rq+2}', FMT_BS, bold=True); r += 1
     qrow(ws, r, 'Ventas facturadas en USD (referencia)', 'USD', lambda q: f'={qc(q)}{rq+3}/TIPO_CAMBIO', FMT_BS); r += 1
     ROW['PRO.q.units'] = rq; ROW['PRO.q.next'] = rq + 1; ROW['PRO.q.price'] = rq + 2; ROW['PRO.q.fact'] = rq + 3
-    put(ws, f'A{r+1}', 'Correcciones: Hypotolab omitía la aceptación en el escenario esperado (F18 = C18*E18); Ñapefit tenía la fila 2028 en USD con el mismo % en los 4 trimestres (C47:F47 = $C$44). Aquí todas las filas usan la misma fórmula.', 'note')
-    widths(ws, {'A': 48})
+    put(ws, f'A{r+1}', 'Correcciones: Hypotolab omitía la aceptación en el escenario esperado (F18 = C18*E18); Ñapefit tenía la fila 2028 en USD con el mismo % en los 4 trimestres (C47:F47 = $C$44) y precios escritos a mano. Aquí todas las filas usan la misma fórmula.', 'note')
     return ws
 
 def build_producto(B):
-    ws = B.sheet('PRODUCTO_MERCADO', 'DESCRIPCIÓN DEL PRODUCTO, PROBLEMA, NECESIDAD Y SEGMENTACIÓN', 'Producto seleccionado: kit purificador de agua con filtro cerámico y plata coloidal, fabricado en Santa Cruz.', tab='70AD47')
+    ws = B.sheet('Producto', 'DESCRIPCIÓN DEL PRODUCTO, PROBLEMA, NECESIDAD Y SEGMENTACIÓN', 'Producto seleccionado: kit purificador de agua con filtro cerámico y plata coloidal, fabricado en Santa Cruz.', tab='70AD47')
     widths(ws, {'A': 34, 'B': 90})
     items = [
         ('Producto', 'Kit purificador de agua para el hogar: elemento filtrante de cerámica porosa (arcilla + aserrín o cascarilla de arroz, cocido a ~860 °C) impregnado con plata coloidal, montado en un contenedor plástico de 20 L con tapa y grifo. No usa electricidad.'),
@@ -168,7 +191,7 @@ def build_producto(B):
         ('Necesidad', 'Agua segura para beber y cocinar, con bajo costo mensual, sin electricidad y fácil de mantener.'),
         ('Innovación', 'Fabricación local de una tecnología abierta y probada (diseños libres de prensa y horno de Potters for Peace), con control de calidad de laboratorio por lote, trazabilidad por número de serie y venta con repuesto. No se copia ninguna marca: el diseño de producto, empaque y marca son propios.'),
         ('Evidencia técnica (fuentes)', 'Caudal típico 1-3 L/hora (Akvopedia) o 1,5-2,5 L/hora (Potters for Peace); cocción a ~860 °C; una planta básica con 3-4 trabajadores produce ~50 filtros/día; horno de al menos 1 m³ fabricable localmente.'),
-        ('Requisito previo a la venta', 'Validación en laboratorio acreditado de la remoción de bacterias (análogo a la "validación médica" de Hypotolab). Está presupuestada en INVERSION. Sin ese resultado no se debe afirmar eficacia ni cumplimiento normativo.'),
+        ('Requisito previo a la venta', 'Validación en laboratorio acreditado de la remoción de bacterias (análogo a la "validación médica" de Hypotolab). Está presupuestada en Inversión. Sin ese resultado no se debe afirmar eficacia ni cumplimiento normativo.'),
         ('Segmento objetivo', 'Hogares urbanos del departamento de Santa Cruz que compran agua embotellada o tratan el agua (nivel socioeconómico medio y medio-bajo). Inicio: municipio de Santa Cruz de la Sierra; desde 2029, área metropolitana.'),
         ('Segmentación', 'Geográfica: urbano, Santa Cruz. Demográfica: hogares (decide quien hace las compras). Conductual: compra botellones o hierve el agua. Psicográfica: busca ahorro y salud.'),
         ('Propuesta de valor', 'Agua filtrada por menos de lo que cuesta un mes y medio de botellones; sin cargar bidones; repuesto disponible; fabricado en Santa Cruz.'),
@@ -180,14 +203,14 @@ def build_producto(B):
         ws.row_dimensions[r].height = 45
         r += 1
     r += 1
-    put(ws, f'A{r}', 'COMPARACIÓN ECONÓMICA PARA EL HOGAR (fórmulas con supuestos de SUPUESTOS)', 'sec'); r += 1
+    put(ws, f'A{r}', 'COMPARACIÓN ECONÓMICA PARA EL HOGAR (fórmulas con supuestos de Supuestos)', 'sec'); r += 1
     rows = [('Agua para beber y cocinar por día (L)', '=LITROS_DIA', FMT_BS2),
             ('Litros por año', f'=B{r}*365', FMT_U),
             ('Botellones de 20 L por año', f'=B{r+1}/20', FMT_BS2),
             ('Gasto anual en botellones (Bs)', f'=B{r+2}*PRECIO_BOTELLON', FMT_BS),
-            ('Costo anual del kit (PVP x compras por año)', f"='PRECIO'!C{ROW['PRE.pvp']}*CONSUMO_Q", FMT_BS),
+            ('Costo anual del kit (PVP x compras por año)', f"='Precio'!C{ROW['PRE.pvp']}*CONSUMO_Q", FMT_BS),
             ('Ahorro anual estimado del hogar (Bs)', f'=B{r+3}-B{r+4}', FMT_BS),
-            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,'PRECIO'!C{ROW['PRE.pvp']}/(B{r+3}/12),0)", FMT_BS2)]
+            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,'Precio'!C{ROW['PRE.pvp']}/(B{r+3}/12),0)", FMT_BS2)]
     for lbl, f, fm in rows:
         put(ws, f'A{r}', lbl, 'label'); put(ws, f'B{r}', f, 'link' if '!' in f else 'calc', fm); r += 1
     ROW['PM.ahorro'] = r - 2; ROW['PM.meses'] = r - 1
