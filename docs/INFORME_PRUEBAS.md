@@ -6,7 +6,7 @@
 | Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
 | Cobro | Sigue igual que antes: apagado, Bs 30, «gratis si compra Bs 200», 3 días de gracia, solo con página. Saldos y estado de los 23 revendedores, iguales | ✅ |
 | Páginas | /tienda/ y /hub sin errores; panel del dueño → Cuentas con 125 tarjetas y 0 errores | ✅ |
-| Pendiente con OK del dueño | Dejar Bs 49, US$ 5, sin «gratis si compra», para todos y apagado | ⏳ |
+| Configuración con OK del dueño | Respaldo de la anterior guardado; quedó Bs 49, US$ 5, sin «gratis si compra», 3 días de gracia, para todos y APAGADA. Los demás ajustes, los saldos y el estado de los 23 revendedores, iguales; cola 75 (no salió ningún mensaje) | ✅ |
 
 ## 12/11/2026 · GaboHub etapa 5: suscripción (publicado en #49)
 | Qué | Cómo | Resultado |

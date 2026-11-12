@@ -109,7 +109,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
 | M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
-| M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🔧 decidido el 12/11: Bs 49 o US$ 5 fijos, lo pagan TODOS los revendedores, sin «gratis si compra», cobro apagado hasta que el dueño lo prenda. Falta programarlo (hoy solo cobra a los de página propia) |
+| M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🔧 decidido el 12/11: Bs 49 o US$ 5 fijos, lo pagan TODOS los revendedores, sin «gratis si compra» · ✅ publicado (#49) y configurado, APAGADO: lo prende el dueño |
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
 | M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |
