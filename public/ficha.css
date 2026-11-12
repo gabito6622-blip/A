@@ -23,3 +23,7 @@
 .fx-list li > span{min-width:0;overflow-wrap:anywhere}
 .fx-r{text-align:right;white-space:nowrap}
 .fx-note,.fx-wait{margin:0;font-size:12.5px}
+.fx-prev{font-size:12.5px;color:var(--muted)}
+.fx-prev-bad{color:#a1251a;font-weight:600}
+.app.dark .fx-prev-bad{color:#ff9a90}
+.fx-hint{margin:6px 0 0;font-size:12.5px;color:var(--muted);max-width:60ch}
