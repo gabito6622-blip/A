@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `hub-etapa5`) · GaboHub etapa 5: suscripción para todos los revendedores
+## 2026-11-12 · #49 GaboHub etapa 5: suscripción para todos los revendedores
 - **Revendedores → Ajustes:** «¿Quién paga?» (solo con página propia, como antes, o todos) y «Precio fijo en dólares» para los de afuera.
 - **Se cobra sola del saldo cada 30 días.** Sin saldo: sigue todo los días de gracia; después se pausan Mi control, Quién me debe, Mis ganancias y Afiches (y su página, si tiene). Comprar, sus cuentas, los códigos, recargar y vender nunca se bloquean. Paga desde el Inicio y vuelve todo al instante.
 - **El cobro sigue apagado** hasta que el dueño lo prenda.

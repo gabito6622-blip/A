@@ -1,6 +1,14 @@
 # Informe de pruebas
 
-## 12/11/2026 · GaboHub etapa 5: suscripción (rama `hub-etapa5`)
+## 12/11/2026 · Después de publicar #49 (suscripción GaboHub)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Cobro | Sigue igual que antes: apagado, Bs 30, «gratis si compra Bs 200», 3 días de gracia, solo con página. Saldos y estado de los 23 revendedores, iguales | ✅ |
+| Páginas | /tienda/ y /hub sin errores; panel del dueño → Cuentas con 125 tarjetas y 0 errores | ✅ |
+| Pendiente con OK del dueño | Dejar Bs 49, US$ 5, sin «gratis si compra», para todos y apagado | ⏳ |
+
+## 12/11/2026 · GaboHub etapa 5: suscripción (publicado en #49)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Cobro | `test/suscripcion-gabohub.test.mjs`: apagada no cobra; prendida para todos cobra Bs 49 al de solo panel, US$ 5 fijos al de dólares y arranca la gracia al que no tiene saldo; a los 3 días se pausa; paga y vuelve; no se cobra dos veces el mismo mes; apagar limpia las pausas; si arma su página, lo pagado pasa a la página; «solo con página» no toca a los de solo panel | ✅ |
