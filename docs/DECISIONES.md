@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · WhatsApp por QR: solo el oficial («coexistencia»)
+- **Qué pidió el dueño:** un bot que se conecte por QR o por código.
+- **Qué no se hace:** los conectores no oficiales. La regla 7 de `CLAUDE.md` los prohíbe, y además WhatsApp puede bloquear el número.
+- **La opción oficial:** la «coexistencia» de Meta. Se usa el mismo número de WhatsApp Business y se conecta escaneando un QR desde la app. El bot y Wali responden por ese número, y la app del celular sigue funcionando.
+- **Por qué no va directo en el panel:** según la página de Meta «Onboard WhatsApp Business app users», ese QR solo lo puede ofrecer un Solution Partner o un Tech Provider de Meta. Serlo exige verificar la empresa y pasar la revisión de la app.
+- **Caminos posibles:** (a) que la tienda se haga Tech Provider; (b) usar un proveedor oficial que ya ofrezca coexistencia y conectar el panel; (c) un número aparte solo para el bot, con la guía que ya está en el panel. Decide el dueño (B21).
+
 ## 2026-11-11 · Mi oficina en 2D (pixel art propio)
 - **Por qué 2D y no 3D:** carga rápido y gasta poca batería en celulares sencillos. El 3D no agrega nada útil. Los dibujos son propios, hechos con cuadraditos en SVG, sin imágenes de terceros.
 - **Solo muestra:** no hace trabajo nuevo ni gasta Claude.
