@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (rama `panel-guiado`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **470 → 471 / 471 ✅** |
+| Lo que se ve antes = lo que pasa después | `test/guiado.test.mjs`, con navegador a 360 px. Cubre: el «Automático» de Vender nombra el mismo perfil que después entrega el servidor; la fecha de «Si renovás» es la que queda después de renovar; la confirmación muestra «dd/mm → dd/mm»; el aviso del proveedor aparece antes y, si igual se intenta, el servidor frena y la fecha no cambia; «Hay 3 perfiles libres» y «No hay perfiles libres» coinciden con el stock | ✅ |
+| Pruebas viejas más firmes | `oficina` y `buscador` fallaban a veces por casualidad: buscaban «777» o «4321» en ids y fechas. Ahora miran solo los textos que se muestran | ✅ |
+| Foto antes / después | Las 30 pantallas idénticas | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
 ## Tanda 12/11/2026 · Ficha 360°, etapa 4 (publicado en #41)
 | Qué | Cómo | Resultado |
 |---|---|---|
