@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: cabezas
+- **cabezas:** ahora «cabezas · Ronnye Alberto Cabezas Mendoza» (mismo número).
+- **netscz108+oby:** figuraba a rodbol; el dueño se la vendió a cabezas. Pasada a él, del 11/11 al 11/12/2026, contraseña nueva cargada (no se escribe acá). Precio y pago: falta que el dueño diga.
+- Avisos: los nuevos quedaron «no enviado (sin permiso)»; no salió ningún mensaje.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: rodbol
 - **rodbol:** ahora se llama «rodbol · Sandi Perasso Rodrigo Diego» (apodo + nombre completo).
 - **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago a Bs 66 c/u (precio de ese día, dicho por el dueño): Bs 198 en total. Queda anotado en el historial de cada una.
