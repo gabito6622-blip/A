@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Yuvinka Avila Orias
+- **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
+- **netgb117+m2:** figuraba a oby; es de Yuvinka. Pasada a ella, vence 09/12/2026, pagada a Bs 70, clave nueva (no se escribe acá).
+- **netgb117+cob1:** vence 09/12/2026, pagada a Bs 70.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
 - **Jhon Maykol Vidaurre** (antes «JHON VIDAURRE», mismo número).
 - **gabito6626+x91** (vence 15/11): pagada a Bs 63 (lo que pagó la última vez); renueva a Bs 63; nota «📅 avisarle el 13/11». En la cuenta: «enlazada al Gmail del revendedor: cable365b@gmail.com» (se conservó «LLENA»).
