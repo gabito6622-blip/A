@@ -1,6 +1,14 @@
 # Informe de pruebas
 
-## 12/11/2026 · GaboHub etapa 2 (rama `hub-etapa1`)
+## 12/11/2026 · Después de publicar #47 (GaboHub etapas 1 y 2)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Páginas | /hub, /tienda/, /panel.html y estilos responden 200; /tienda/ y /hub cargan sin errores ni scroll de costado; la barra de la tienda de clientes no cambió | ✅ |
+| Panel del dueño (solo mirando) | Cuentas: 4 grupos, 125 tarjetas, 0 errores | ✅ |
+| No revisado en la tienda real | El panel por dentro de un revendedor: desde acá la llave del asistente le gana a la sesión del revendedor. Se revisó con el mismo código en la tienda de prueba (pruebas y capturas) | ⚠️ |
+
+## 12/11/2026 · GaboHub etapa 2 (publicado en #47)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Inventario por plataforma | `test/hub-inventario.test.mjs` a 360 px: 3 apps (Disney+ completa con 2 perfiles, Flujo TV propio sin cupos, Netflix de la tienda + propio), totales 7 · 3 · 1 · 1, «Ver» a la pantalla correcta, 44 px, sin scroll de costado | ✅ |
@@ -10,7 +18,7 @@
 | Arreglo de la etapa 1 | La carga de cupones había quedado en medio de un «si… si no» existente; quedó como era, más los cupones | ✅ |
 | Pruebas automáticas | `npm test`: 478 / 478 (48 s) | ✅ |
 
-## 12/11/2026 · GaboHub etapa 1 (rama `hub-etapa1`)
+## 12/11/2026 · GaboHub etapa 1 (publicado en #47)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Foto de controles antes y después | Ariana (con página, demo de 6 meses) y un revendedor «solo panel», 390 px: 15 y 13 pantallas antes, 17 y 15 después. Dentro de cada pantalla, botones y formularios iguales; solo cambian las pestañas de navegación. La foto sale igual 2 veces seguidas | ✅ |
