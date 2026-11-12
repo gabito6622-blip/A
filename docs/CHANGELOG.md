@@ -3,12 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `hub-etapa3`) · GaboHub etapa 4: clientes en una sola lista
+## 2026-11-12 · #48 GaboHub etapa 4: clientes en una sola lista
 - **Mis clientes:** cada cliente muestra todo lo suyo: lo comprado a la tienda, sus cuentas propias y sus perfiles de cuentas completas.
 - **Clientes sueltos:** quien solo estaba en una cuenta propia o en un perfil aparece en la lista, con «➕ Guardar en mis clientes».
 - **Buscador:** también por app («netflix») y por teléfono.
 
-## 2026-11-12 · Sin publicar (rama `hub-etapa3`) · GaboHub etapa 3: el negocio cuenta las cuentas propias
+## 2026-11-12 · #48 GaboHub etapa 3: el negocio cuenta las cuentas propias
 - **Mi control:** «📦 Tus cuentas propias que vencen», con 💬 Avisar y 🔄 Renovó.
 - **Quién me debe:** «📦 Ventas propias sin pagar», con 💬 Cobrar y 💵 Me pagó. Ya no dice «Nadie te debe nada» si le deben por perfiles o por cuentas propias.
 - **Mis ganancias:** «📦 Tus cuentas propias (por mes)»: clientes, cuánto cobra por mes y cuánto le deben.
