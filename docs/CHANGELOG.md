@@ -7,6 +7,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **piza** (+591 67327507): tuvo 5 cuentas Disney (9dp pasó a rodbol y netscz108+2 a Aracely hoy).
 - **gabito6619+kd3:** vencida desde el 27/10; el dueño la cortó con clave nueva (no se escribe acá). Liberada con nota «LIBRE oficialmente … DESENLAZAR del correo de piza» (la secretaria diaria lo recuerda).
 - **netscz108+nes** (vence 12/11): «🔔 EN COBRO»; el dueño ya le escribió. Si no confirma, se corta. Entra en el recordatorio de las 19:30.
+- **n2022nb+rt:** se cayó del todo (sin membresía, dicho por el dueño). Se le quitó a piza (vencida desde el 30/08) y se dio de baja (cupo «dado de baja», nota «⛔ SE CAYÓ: SIN MEMBRESÍA · NO VENDER»). No se borró nada.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · MAUMAU
 - **MAUMAU:** número nuevo +591 65001393 (antes +591 76221571; queda anotado en su ficha). Nota: «Paga Bs 69 por cuenta Disney».
