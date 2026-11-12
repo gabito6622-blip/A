@@ -8,6 +8,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **paraguay al día hasta el 16 y 19/11:** opajg12+br (16/11) ya figuraba pagada; netscz101+18epg y netscz101+d10 (19/11) marcadas pagadas (US$ 7 c/u, orden del dueño). Las 5 vencidas (02/11 al 10/11) esperan respuesta del dueño.
 - **netgb117+sa:** renovó; vence 11/12/2026, pagada US$ 7.
 - **rolljos11+8:** no la renovó (venció 10/11): nota «✂️ POR CORTAR». Al cortarla el dueño pasa la clave nueva y se libera.
+- **netgb117+prem, opajg12+x13 y netscz101+pg:** renovaron con 1 día de regalo: vencen 03/12, 05/12 y 07/12/2026; pagadas US$ 7 c/u. paraguay queda con 7 cuentas pagadas y 1 por cortar.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ARIt
 - **ARIt · Aracely Sarabia Rojas** (mismo número): nota «✅ muy buena revendedora, siempre paga; a veces paga 3 o 4 por adelantado. Avisarle 3 días antes y 1 día antes».
