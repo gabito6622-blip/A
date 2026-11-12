@@ -5,6 +5,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · canaviry
 - **gabito6626+pasa:** vencida desde el 24/10 sin pagar; el dueño la cortó con clave nueva (no se escribe acá). Liberada: nota «LIBRE oficialmente … DESENLAZAR del correo de canaviry» (la secretaria diaria lo recuerda).
+- **netgb117+cm3:** pagada a Bs 65 (antes figuraba Bs 69 sin pago); vence 19/11/2026. canaviry queda al día.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · paraguay
 - **paraguay** (+595 99 294 6366, lista «Panamá y Paraguay (US$)»): nota «Paga US$ 7 por cuenta Disney, en USDT». El panel ya muestra sus cuentas en Bs con la tasa del Banco Central del día (hoy 11,70 → Bs 81,90). Tiene 8 cuentas activas; de las caídas no hay registro (el Excel solo traía las activas).
