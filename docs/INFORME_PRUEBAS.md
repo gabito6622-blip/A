@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Ficha 360°, etapa 4 (rama `panel-ficha`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **469 → 470 / 470 ✅** |
+| Ficha | `test/ficha.test.mjs`, con navegador a 360 px. Cubre: servicios, pedidos y fallas del cliente; sin contraseña ni costo; pestañas; botones de 44 px sin desborde. «Pagado», «Renovar» (+30 días) y «Reemplazar» (otro perfil) cambian lo mismo que en sus pantallas y la ficha queda abierta. Atención (en oscuro) ve la ficha y Renovar, sin Reemplazar | ✅ |
+| Foto antes / después | Las 30 pantallas idénticas: mismos botones, formularios y enlaces | ✅ |
+| Revisión visual | 390 px, claro y oscuro, con datos de ejemplo: 0 desbordes, 0 errores | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
 ## Tanda 12/11/2026 · Buscador del panel, etapa 3 (publicado en #40)
 | Qué | Cómo | Resultado |
 |---|---|---|
