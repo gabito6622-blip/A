@@ -14,6 +14,9 @@ export async function api(method, path, body) {
   return data;
 }
 
+// Las fuentes de Google se cargan sin frenar el primer dibujado: el HTML las trae con media="print"
+// (el navegador las baja con prioridad baja) y acá se activan. Sin JS, el texto sale con la fuente del sistema.
+if (typeof document !== "undefined") document.querySelectorAll('link[data-font]').forEach((l) => { l.media = "all"; });
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 

@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 0 «Base segura» (rama `premium-2.0`, sin publicar)
+- **Tema común `public/tema.css`:** variables de marca (azul eléctrico, cian, violeta, oscuros), estados, tipografía, 44 px mínimos, radios, movimiento moderado y modo claro. Lo cargan la tienda, el panel y las páginas sueltas. Todavía no cambia el aspecto: es la base para las etapas siguientes.
+- **Fuentes sin frenar el primer dibujado:** los `<link>` de Google Fonts vienen con `media="print"` y `common.js` los activa (sin JS en línea, compatible con la CSP). Sin JS, se ve con la fuente del sistema.
+- **Mi oficina:** Tito ya no «salta» cada 20 s. Su evento usa la hora real del último aviso (`exp_stats.lastAt`, nuevo) o las 9 de Bolivia si no hay hora guardada; antes usaba «ahora» y la oficina se redibujaba entera en cada refresco.
+- **Buscador del panel:** ya no conoce a «Sofi» (se dio de baja el 12/11); busca a los 6 de la oficina.
+- **Letra mínima de 12 px:** `.mk-kpi small`, `.mk-row em/i`, `.fcard small`, `.pay small`, `.hqrow .sbtn small` (tienda y hub) y `.thsort span` (panel) pasaron de 11 a 12 px; el aviso «Sumá otro servicio» del carrito mide 44 px.
+- **Prueba nueva `test/base-segura.test.mjs`:** tema cargado y fuentes no bloqueantes; Tito con hora estable; tienda a 360 px (portada, catálogo, carrito y pago) sin desborde, botones de 44 px y letra de 12 px o más.
+
 ## 2026-11-12 · Netflix: primera carga (con OK del dueño)
 - **Producto nuevo «Netflix completa (alquiler revendedores)»** (`netflix-alq`): cuenta completa, 30 días, Bs 120, solo revendedores, categoría Alquiler (igual que los de Disney).
 - **Revendedor nuevo «Revendedor 78230650»** (+591 78230650, lista revendedor); nombre pendiente.

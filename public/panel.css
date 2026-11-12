@@ -967,7 +967,7 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
 
 /* Control tipo Excel: ordenar tocando el título, filtro por columna, grupos y fila de totales */
 table.ctl th .thsort{all:unset;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:space-between;width:100%;font-weight:700;color:#fff}
-table.ctl th .thsort span{opacity:.75;font-size:11px}
+table.ctl th .thsort span{opacity:.75;font-size:12px}
 table.ctl th .thsort:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
 table.ctl th .cfin{display:block;width:100%;min-width:64px;box-sizing:border-box;margin-top:5px;padding:4px 6px;border-radius:6px;border:0;font:inherit;font-size:12px;font-weight:500;color:#111;background:rgba(255,255,255,.92)}
 table.ctl th{vertical-align:top}

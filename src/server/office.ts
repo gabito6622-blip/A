@@ -37,7 +37,7 @@ export interface OfficeDeps {
   aiDaily: () => { at: number; day: string } | null;
   pushOn: () => boolean;
   mailOn: () => boolean;
-  expiryStats: () => { day: string; sent: number };
+  expiryStats: () => { day: string; sent: number; lastAt?: number };
   forbidden: (msg: string) => never;
 }
 
@@ -80,7 +80,10 @@ export function createOffice(d: OfficeDeps) {
     const daily = d.aiDaily();
     if (daily && t - daily.at < KEEP_MS) out.push({ a: "daily", at: daily.at, text: "Te armé el reporte del día 📋. Está en Inicio.", tone: "ok" });
     const ex = d.expiryStats();
-    if (ex.day === laDay(t) && ex.sent > 0) out.push({ a: "cartero", at: t, text: `Hoy mandé ${ex.sent} aviso${ex.sent === 1 ? "" : "s"} de vencimiento al celular de tus clientes.`, tone: "ok" });
+    // La hora del evento es la del último aviso real (no "ahora"): si fuera "ahora", la oficina vería un evento
+    // nuevo cada 20 s, Tito saltaría todo el día y se redibujaría toda la pantalla. Sin hora guardada (avisos de
+    // antes de este cambio), se usa una fija del día: las 9 de Bolivia, cuando reparte.
+    if (ex.day === laDay(t) && ex.sent > 0) out.push({ a: "cartero", at: ex.lastAt ?? Date.parse(`${ex.day}T09:00:00-04:00`), text: `Hoy mandé ${ex.sent} aviso${ex.sent === 1 ? "" : "s"} de vencimiento al celular de tus clientes.`, tone: "ok" });
     return out;
   }
 

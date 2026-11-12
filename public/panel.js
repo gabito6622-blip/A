@@ -41,7 +41,7 @@ const MENU_WORDS = {
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
   codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
   revendedores: "revendedor pin tienda saldo", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
-  dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia sofi",
+  dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
 };

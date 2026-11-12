@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 0 «Base segura»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| tema.css cargado por tienda y panel; fuentes con `media="print"` + `data-font`; sin manejadores en línea; «Sofi» fuera del buscador | `test/base-segura.test.mjs` | OK |
+| Tito: misma hora en dos lecturas seguidas; sin hora guardada usa las 9 de Bolivia; con `lastAt` usa esa | misma prueba, `/api/admin/office` | OK |
+| Tienda a 360 px: portada, catálogo, carrito y paso de pago sin desborde, botones de 44 px, letra de 12 px o más (se excluyen adornos `.pt` y `.tkgrid`) | misma prueba, Playwright | OK (encontró y se corrigieron 3 textos de 11 px y un botón de 36 px) |
+| `avisos-solos`: las estadísticas del cartero ahora traen `lastAt` | 2 comparaciones exactas actualizadas | OK |
+| Tanda completa | `npm test` | **487/487** en ~46 s |
+
 ## 12/11/2026 · Botón «Mi secretaria» en el panel
 | Qué | Cómo | Resultado |
 |---|---|---|
