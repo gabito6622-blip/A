@@ -22,3 +22,13 @@ pantallas y todos los botones y formularios de adentro son iguales. Solo cambió
 | — | **Vender**: elegir qué vender (cuenta de la tienda, cuenta propia, perfil de cuenta completa, renovar, comprar) | `hub-navegacion` |
 | — | **Más**: todo el panel por áreas, con buscador sin tildes | `hub-navegacion` |
 | Guía de los botones, Mi país y moneda | Inicio (igual) y Más → Ayuda | `hub-navegacion` |
+
+## Etapa 2 (12/11/2026, rama `hub-etapa1`): Inventario por plataforma
+
+| Antes | Ahora | Prueba |
+|---|---|---|
+| Inventario (abajo) abría «Cuentas de la tienda» | Abre **«🗂️ Por plataforma»**: por cada app, lo comprado a la tienda, las cuentas completas que reparte y sus cuentas propias, con totales (clientes, cupos libres, vencen ≤ 7 d, vencidos) | `hub-inventario` |
+| Cuentas de la tienda, Repartir perfiles, Mis cuentas propias | Iguales, en la fila de Inventario; cada fila del resumen tiene «Ver» que lleva ahí (la tienda, ya filtrada por esa app) | `hub-inventario`, `hub-navegacion`, `cuentas-propias` |
+| Más → Inventario | Suma «🗂️ Por plataforma» primero | `hub-navegacion` |
+| Guía de los botones (10 pasos) | Suma 3 pasos en el celular: Vender, Inventario y Más | revisado a mano |
+| Separación | El resumen solo lee lo del revendedor que entró (nada de otro revendedor) | `hub-inventario` |

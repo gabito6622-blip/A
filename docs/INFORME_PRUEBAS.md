@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 12/11/2026 · GaboHub etapa 2 (rama `hub-etapa1`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Inventario por plataforma | `test/hub-inventario.test.mjs` a 360 px: 3 apps (Disney+ completa con 2 perfiles, Flujo TV propio sin cupos, Netflix de la tienda + propio), totales 7 · 3 · 1 · 1, «Ver» a la pantalla correcta, 44 px, sin scroll de costado | ✅ |
+| Hallazgo | La cuenta completa de Disney salía 2 veces (como servicio de la tienda y como cuenta completa): ahora se cuenta una sola vez | ❌ → ✅ |
+| Separación | La cuenta propia de otro revendedor nunca aparece | ✅ |
+| Foto de controles (contra la etapa 1) | Ninguna pantalla con controles de menos; solo se suman «Por plataforma» y sus «Ver» | ✅ |
+| Arreglo de la etapa 1 | La carga de cupones había quedado en medio de un «si… si no» existente; quedó como era, más los cupones | ✅ |
+| Pruebas automáticas | `npm test`: 478 / 478 (48 s) | ✅ |
+
 ## 12/11/2026 · GaboHub etapa 1 (rama `hub-etapa1`)
 | Qué | Cómo | Resultado |
 |---|---|---|

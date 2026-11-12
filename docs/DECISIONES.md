@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · GaboHub etapa 2: Inventario por plataforma
+- **Qué:** una pantalla que junta por app lo comprado a la tienda, las cuentas completas y las propias. Solo lee; para hacer algo, «Ver» lleva a la pantalla de siempre.
+- **Por qué así:** no se mueve ni se rehace ninguna función (regla del dueño), y el revendedor ve todo su stock en un lugar.
+- **Cómo se juntan las apps:** por nombre, sin tildes ni mayúsculas y sin «(alquiler revendedores)». Si el revendedor le pone otro nombre a su producto propio (por ejemplo «Netflix 4K»), sale en su propia fila.
+- **Cuentas completas:** también vienen entre sus servicios; se cuentan una sola vez, como «Cuentas completas».
+
 ## 2026-11-12 · GaboHub etapa 1: navegación como el panel del dueño
 - **Qué:** barra de abajo Inicio · Clientes · Vender · Inventario · Más; las 10 pestañas de «Mis clientes» en 3 grupos; pantallas nuevas Vender y Más.
 - **Por qué así:** el dueño quiere que el revendedor se sienta en su propio panel. El problema principal era que casi todo (la página, los combos, las cuentas propias) estaba en una fila de pestañas que había que correr de costado.
