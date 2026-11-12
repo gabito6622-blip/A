@@ -26,6 +26,9 @@ test("Cuentas por plataforma: mismos botones que la vista clásica, contadores c
     await A("POST", "/api/admin/products", { id: "nf", name: "Netflix", kind: "profile", durationDays: 30, price: 3500, published: true });
     const add = (productId, email, n, days = 60) => A("POST", "/api/admin/accounts", { productId, email, password: "Clave-Larga#1", supplierExpiresAt: Date.now() + days * DAY, cost: 2000, profiles: Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}` })) });
     await add("dis", "dis.uno@ejemplo.lat", 2); await add("dis", "dis.dos@ejemplo.lat", 3, 5); await add("nf", "nf.uno@ejemplo.lat", 4);
+    // Una cuenta ya vencida: cuenta como "vencida", no como "vence ≤ 7 d".
+    const vieja = (await add("nf", "nf.vieja@ejemplo.lat", 1)).account.id;
+    await A("POST", `/api/admin/accounts/${vieja}`, { supplierExpiresAt: Date.now() - 3 * DAY });
     const ana = await A("POST", "/api/admin/customers", { name: "Ana", phone: "+59170011223" });
     await A("POST", "/api/admin/orders", { customerId: ana.id, items: [{ productId: "nf", qty: 1 }], paymentMethod: "cash" });
 
@@ -48,7 +51,9 @@ test("Cuentas por plataforma: mismos botones que la vista clásica, contadores c
     assert.equal(await p.locator(".pgrp").count(), 2);
     const sums = await p.locator(".pgrp > summary").allInnerTexts();
     assert.match(sums[0], /Disney\+[\s\S]*2 cuentas · 5 libres · 0 ocupados[\s\S]*1 vence ≤ 7 d/);
-    assert.match(sums[1], /Netflix[\s\S]*1 cuenta · 3 libres · 1 ocupado/);
+    assert.match(sums[1], /Netflix[\s\S]*2 cuentas · 4 libres · 1 ocupado[\s\S]*1 vencida/);
+    assert.doesNotMatch(sums[1], /vence/, "una cuenta ya vencida no es «por vencer»");
+    assert.doesNotMatch(sums[0], /vencida/);
     assert.equal(await p.locator(".pgrp[open]").count(), 0, "con varios grupos, arrancan cerrados");
     const plat = await foto();
     const m = await p.evaluate(() => ({ over: document.documentElement.scrollWidth > innerWidth + 1, small: [...document.querySelectorAll(".pgrp > summary")].filter((x) => x.getBoundingClientRect().height < 44).length }));
