@@ -11,6 +11,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Diciembre pagado por adelantado:** el 07/11 pagó Bs 330 por 5 cuentas a Bs 66 c/u: netscz107+1 (05/12), netscz108+tm y netscz108+ob29 (07/12), netscz107+der3 y n2025nt+tv89 (08/12). Antes figuraban a Bs 69 (tm, ob29, der3) y Bs 65 sin pago (tv89); ahora las 5 quedan pagadas a Bs 66 con nota del pago conjunto.
 - **n2025gt+f3 se cayó el 31/10:** el dueño le dio netscz108+2 en su lugar. netscz108+2 figuraba de piza (vencida 25/10, sin pagar): se pasó a Aracely, vence el 16/11 como la f3, Bs 69, pago pendiente. La f3 se liberó y quedó con la nota «⛔ SE CAYÓ el 31/10 · NO VENDER».
 - **Bajas confirmadas por el dueño (12/11):** gabito6626+r19, netscz107+e26 y n2025gt+f3 (las 3 caídas de Aracely). Su cupo pasó a «dado de baja» (ya no figuran libres ni se pueden vender) y cada cuenta tiene la nota de cuándo se cayó y por cuál se reemplazó. No se borró nada: se puede volver atrás desde el panel.
+- **Todo pagado salvo las vencidas (orden del dueño, 12/11):** ama, splus, bron15, netscz108+2 (16/11), rd3, disla (21/11), dj10, 5 y dd10 (28/11) marcadas pagadas con su precio de siempre (65, 66 o 69). Con las 5 de diciembre, quedan 14 pagadas.
+- **jm2, mig y sp (vencieron 11/11):** «🔔 EN COBRO»; el dueño ya le avisó y cobró. Si no paga hoy, las corta esta noche. jm2 pasó de «pagado» (del mes pasado, sin registro de cobro) a «pendiente». Recordatorio de la secretaria hoy 19:30.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
