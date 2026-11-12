@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
+- **Jhon Maykol Vidaurre** (antes «JHON VIDAURRE», mismo número).
+- **gabito6626+x91** (vence 15/11): pagada a Bs 63 (lo que pagó la última vez); renueva a Bs 63; nota «📅 avisarle el 13/11». En la cuenta: «enlazada al Gmail del revendedor: cable365b@gmail.com» (se conservó «LLENA»).
+- **Recordatorios en esta conversación** (pedidos por el dueño): 13/11 9:10 (Jhon, Robin, Daniel + pendientes) y 14/11 9:10 (Raúl). Solo arman los mensajes; no envían nada.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Raúl Parrilla
 - **Raúl Parrilla** (antes «Raul PARRILLA», mismo número): nota «✅ buen cliente, paga bien».
 - **gabito6619+dr** (vence 24/11): pagada a Bs 68; clave actualizada (no se escribe acá).
