@@ -1,6 +1,6 @@
 {
   "name": "dentalia",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "Plataforma odontológica multiempresa y multisucursal (SaaS) — clínica piloto en Bolivia.",
   "type": "module",
@@ -13,6 +13,7 @@
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p server/tsconfig.json",
     "build:web": "vite build --config web/vite.config.ts",
+    "build:demo": "vite build --config web/vite.demo.config.ts",
     "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "migrate": "tsx server/src/cli/migrate.ts",
     "seed": "tsx server/src/cli/seed.ts",

@@ -21,3 +21,4 @@ dental/.env
 
 # Copias de trabajo temporales de los agentes (no van al repositorio)
 .claude/worktrees/
+dental/web/dist-demo/

@@ -73,3 +73,13 @@ Muestra ✔, ⚠ o ✘ por cada punto **sin mostrar ningún valor secreto**. Con
   - sin `DENTAL_MFA_KEY`, la verificación en dos pasos de cada persona hay que volver a activarla.
 
   Por eso se guardan fuera del servidor.
+
+## 7. Demo navegable sin servidor (página privada de Claude)
+Mientras no se publique en Railway, la interfaz real se puede mostrar con datos **grabados de la clínica ficticia**. Es de solo lectura: lo que se intenta guardar avisa «no se guardan cambios».
+1. `npm run build:demo`: la web en modo demo (rutas con `#`, sin service worker) en `web/dist-demo`.
+2. Levantar un servidor con la semilla demo en una base temporal, por ejemplo:
+   `E2E_DATABASE_URL=postgres://…/dental_e2e_visual E2E_PORT=3260 npx tsx e2e/server.ts`.
+3. Grabar los datos: `node scripts/demo-fixtures.cjs http://127.0.0.1:3260 web/dist-demo/demo-fixtures.json`. Solo GET de tres cuentas demo; el token CSRF se reemplaza por «demo».
+4. Publicar `web/dist-demo` como página privada de Claude, con una página de entrada que cargue `assets/index-*.js` y `.css`.
+
+Las cuentas de la demo y su contraseña son las de la semilla ficticia. Nunca usar este modo con una base que tenga datos reales.

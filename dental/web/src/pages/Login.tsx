@@ -25,6 +25,14 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Modo demo (página de Claude, sin servidor): cuentas ficticias de un toque.
+const DEMO = import.meta.env.MODE === "demo";
+const DEMO_ACCOUNTS = [
+  { email: "propietaria@demo.local", label: "Propietaria", hint: "gestión, caja y reportes" },
+  { email: "dr.mendoza@demo.local", label: "Odontólogo", hint: "fichas, odontograma y recetas" },
+  { email: "recepcion.lpz@demo.local", label: "Recepción", hint: "agenda y sala de espera" },
+];
+
 export function LoginPage() {
   const { refresh } = useAuth();
   const [email, setEmail] = useState("");
@@ -50,7 +58,18 @@ export function LoginPage() {
         <div className="field"><label htmlFor="email">Correo</label><input id="email" className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div className="field"><label htmlFor="pw">Contraseña</label><input id="pw" className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         <button className="btn btn-primary" disabled={busy} style={{ minHeight: 44 }}>{busy ? "Ingresando…" : "Ingresar"}</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForgot(true)}>Olvidé mi contraseña</button>
+        {!DEMO && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForgot(true)}>Olvidé mi contraseña</button>}
+        {DEMO && (
+          <div className="stack-sm" aria-label="Cuentas de la demo">
+            <p className="muted small" style={{ margin: 0 }}>Demo con datos inventados. Elegí una cuenta para entrar:</p>
+            {DEMO_ACCOUNTS.map((a) => (
+              <button key={a.email} type="button" className="btn" style={{ minHeight: 44, justifyContent: "flex-start", textAlign: "left" }}
+                onClick={() => { setEmail(a.email); setPassword("Demo2026dental"); }}>
+                <span><b>{a.label}</b> <span className="muted small">· {a.hint}</span></span>
+              </button>
+            ))}
+          </div>
+        )}
       </form>
       {forgot && <ForgotDialog initialEmail={email} onClose={() => setForgot(false)} />}
     </Shell>

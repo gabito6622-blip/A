@@ -344,3 +344,6 @@ table.table { width: 100%; border-collapse: collapse; }
 .reply-item { padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .reply-item:last-child { border-bottom: 0; }
 .reply-body { margin: 8px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Modo demo (página de Claude): aviso fijo y discreto */
+.demo-banner { position: sticky; top: 0; z-index: 60; background: #fff4e0; color: #7a4a00; font-size: 13px; text-align: center; padding: 6px 12px; border-bottom: 1px solid #f1d9a8; }

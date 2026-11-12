@@ -2,6 +2,17 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.9.2] — 2026-11-12
+
+### Agregado
+- **Demo navegable sin servidor:**
+  - la interfaz real de Dentalia en una página privada de Claude, con datos grabados de la clínica ficticia y de solo lectura (`npm run build:demo`, `scripts/demo-fixtures.cjs`, `web/src/demo/mockApi.ts`);
+  - el ingreso ofrece las tres cuentas demo con un toque;
+  - la app normal no cambia.
+
+### Pendiente
+- La publicación en Railway quedó en pausa: el espacio personal llegó al límite del plan gratis.
+
 ## [0.9.1] — 2026-11-12
 
 Pendientes que no dependían de la dueña. Migración 0033.
