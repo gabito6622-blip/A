@@ -3,6 +3,9 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Por cortar
+- **netscz.101@gmail.com** (Disney Premium + ESPN): nota «⛔ POR CORTAR» en la cuenta. En el panel no está alquilada a nadie (su perfil quedó en cuarentena cuando venció) y no se pudo ver quién la tenía: falta que el dueño diga qué revendedor es, para marcarlo «no paga, no renueva».
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Dani strem
 - **Dani strem:** ahora «Dani strem · Daniel Quispe Quispe», con su número +591 62505099 (no tenía).
 - **gabito6626+rclad** (vence 12/11): «EN COBRO».
