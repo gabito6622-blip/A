@@ -207,6 +207,7 @@ async function loadPrivate() {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
+    if ((S.data.rtab ?? "ventas") === "ventas") await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
     if (S.data.rtab === "cupones" && S.data.shop?.couponsAllowed && !S.data.rcoupons) S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
   }
@@ -700,7 +701,7 @@ async function loadRTab(tab) {
   if (["perfiles", "debe", "ganancias"].includes(tab)) S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   if (tab === "perfiles") await loadSelfCodes();
   // GaboHub etapa 3: Mi control, Quién me debe y Mis ganancias también muestran sus cuentas propias.
-  if (["control", "debe", "ganancias"].includes(tab)) await loadOwnStock();
+  if (["control", "debe", "ganancias", "ventas"].includes(tab)) await loadOwnStock();
 }
 /* ---- Cuentas propias dentro de Mi control, Quién me debe y Mis ganancias (mismos botones que "Mis cuentas propias") ---- */
 const ownFirst = (n) => String(n ?? "").trim().split(/\s+/)[0] ?? "";
@@ -714,7 +715,7 @@ function ownControlBox() {
   const txt = (x) => `Hola ${ownFirst(x.name)} 👋 tu ${x.product} ${daysLeft(x.expiresAt) < 0 ? "venció" : daysLeft(x.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(x.expiresAt)}.${x.price ? ` La renovación es ${mine(x.price)}.` : ""} ¿Lo renovamos? 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
   return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias que vencen <span class="spill sp-mute">${l.length}</span></h3>
     ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)}${x.price != null ? ` · ${mine(x.price)}` : ""}${x.trial ? " · 🎁 prueba" : ""}</small></span>${ownPill(x.expiresAt)}<span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(x.id)}">🔄 Renovó</button></span></div>`).join("")}
-    <button class="sbtn sm" type="button" data-rtab="propias">Ver todas mis cuentas propias</button></div>`;
+    <button class="sbtn sm" type="button" data-rtool="propias">Ver todas mis cuentas propias</button></div>`;
 }
 function ownDebeBox() {
   const d = ownData(); if (!d?.sales?.length) return "";
@@ -1051,8 +1052,28 @@ function resellerView() {
   const svc = (S.data.services ?? []).filter((a) => byId[a.customerId]);
   const soon = svc.filter((a) => a.daysLeft <= 7);
   const prices = S.data.prices ?? [];
-  const q = (S.data.cq ?? "").toLowerCase();
-  const shown = clients.filter((c) => `${c.name} ${c.phone}`.toLowerCase().includes(q)).sort((a, b) => (a.nextExpiry ?? Infinity) - (b.nextExpiry ?? Infinity));
+  const q = normTxt((S.data.cq ?? "").trim());
+  // GaboHub etapa 4: lo de cada cliente en sus cuentas propias y en perfiles de cuentas completas (se une por su ficha o por su WhatsApp).
+  const dig = (ph) => String(ph ?? "").replace(/\D/g, "");
+  const extras = [
+    ...(ownData()?.sales ?? []).map((x) => ({ kind: "own", name: x.name, phone: x.phone, customerId: x.customerId, product: x.product, label: x.trial ? "Cuenta propia · 🎁 prueba" : "Cuenta propia", expiresAt: x.expiresAt })),
+    ...(S.data.rsubs?.list ?? []).flatMap((a) => a.subs.map((x) => ({ kind: "perfil", name: x.name, phone: x.phone, product: a.product, label: `Perfil de cuenta completa${x.label ? ` · ${x.label}` : ""}`, expiresAt: x.expiresAt }))),
+  ];
+  const byPhone = Object.fromEntries(clients.filter((c) => dig(c.phone).length >= 7).map((c) => [dig(c.phone), c.id]));
+  const extraOf = {}, loose = new Map();
+  for (const x of extras) {
+    const cid = (x.customerId && byId[x.customerId] ? x.customerId : null) ?? byPhone[dig(x.phone)];
+    if (cid) (extraOf[cid] ??= []).push(x);
+    else { const k = dig(x.phone).length >= 7 ? dig(x.phone) : "n:" + normTxt(x.name); if (!loose.has(k)) loose.set(k, { id: null, name: x.name, phone: x.phone, extra: [] }); loose.get(k).extra.push(x); }
+  }
+  const minExp = (l) => l.reduce((m, x) => Math.min(m, x.expiresAt), Infinity);
+  // Hasta que no llega su lista de clientes no se muestran "sueltos" (si no, alguien con ficha parecería sin ficha un instante).
+  const listReady = Array.isArray(S.data.customers);
+  const rowsAll = [...clients.map((c) => ({ id: c.id, c, name: c.name, phone: c.phone, extra: extraOf[c.id] ?? [] })), ...(listReady ? loose.values() : [])]
+    .map((r) => ({ ...r, next: Math.min(r.c?.nextExpiry ?? Infinity, minExp(r.extra)), apps: [...svc.filter((a) => r.id && a.customerId === r.id).map((a) => a.product), ...r.extra.map((x) => x.product)] }));
+  const shown = rowsAll.filter((r) => !q || normTxt(`${r.name} ${r.phone} ${r.apps.join(" ")}`).includes(q) || dig(r.phone).includes(q.replace(/\D/g, "") || "~")).sort((a, b) => a.next - b.next);
+  const xRow = (x) => `<div class="svc xsvc"><div class="top"><div class="who">${am("", x.product, "")}<div><b>${esc(x.product)}</b><br><small class="empty">${x.kind === "own" ? "📦" : "🧩"} ${esc(x.label)}</small></div></div>${dayPill(daysLeft(x.expiresAt))}</div>
+    <div class="rbtns"><button class="sbtn sm" type="button" data-rtool="${x.kind === "own" ? "propias" : "perfiles"}">${x.kind === "own" ? "Ver en Mis cuentas propias" : "Ver en Repartir perfiles"}</button></div></div>`;
   const remind = (a) => {
     const c = byId[a.customerId];
     const price = sellPrice(a.productId);
@@ -1083,13 +1104,17 @@ function resellerView() {
     <div class="sbox"><h2>Por vencer <span class="spill ${soon.length ? "sp-warn" : "sp-mute"}">${soon.length}</span></h2>
       ${soon.length ? soon.map((a) => svcRow(a, true)).join("") : `<p class="empty">Ningún cliente vence en los próximos 7 días. 👌</p>`}</div>
 
-    <div class="sbox"><h2>Mis clientes <span class="spill sp-mute">${clients.length}</span></h2>
-      ${clients.length > 4 ? `<input id="cq" class="rsearch" placeholder="Buscar por nombre o teléfono" value="${esc(S.data.cq ?? "")}" aria-label="Buscar cliente">` : ""}
-      ${shown.map((c) => {
+    <div class="sbox"><h2>Mis clientes <span class="spill sp-mute">${rowsAll.length}</span></h2>
+      ${rowsAll.length > 4 ? `<input id="cq" class="rsearch" placeholder="Buscar por nombre, teléfono o app (ej.: netflix)" value="${esc(S.data.cq ?? "")}" aria-label="Buscar cliente">` : ""}
+      ${shown.map((r) => {
+        if (!r.c) return `<details class="rcli rcli-x"><summary><span><b>${esc(r.name)}</b><br><small class="empty">${esc(r.phone || "sin WhatsApp")} · no está en tu lista de clientes</small></span><span class="rsum">${r.extra.length} serv.${r.next < Infinity ? " " + dayPill(daysLeft(r.next)) : ""}</span></summary>
+          ${r.extra.map(xRow).join("")}
+          ${dig(r.phone).length >= 7 ? `<div class="rbtns"><button class="sbtn sm pri" type="button" data-addcli="1" data-name="${esc(r.name)}" data-phone="${esc(r.phone)}">➕ Guardar en mis clientes</button><a class="sbtn sm" href="${waLink(r.phone, `Hola ${r.name.split(" ")[0]} 👋`)}" target="_blank" rel="noopener">${icon("wa")}Escribirle</a></div>` : ""}</details>`;
+        const c = r.c;
         const mine = svc.filter((a) => a.customerId === c.id);
-        const d = c.nextExpiry ? daysLeft(c.nextExpiry) : null;
-        return `<details class="rcli"><summary><span><b>${esc(c.name)}</b><br><small class="empty">${esc(c.phone)}${c.note ? " · " + esc(c.note) : ""}</small></span><span class="rsum">${mine.length} serv.${d !== null ? " " + dayPill(d) : ""}</span></summary>
-          ${mine.map((a) => svcRow(a, false)).join("") || `<p class="empty">Sin servicios activos.</p>`}
+        const d = r.next < Infinity ? daysLeft(r.next) : null;
+        return `<details class="rcli"><summary><span><b>${esc(c.name)}</b><br><small class="empty">${esc(c.phone)}${c.note ? " · " + esc(c.note) : ""}</small></span><span class="rsum">${mine.length + r.extra.length} serv.${d !== null ? " " + dayPill(d) : ""}</span></summary>
+          ${mine.map((a) => svcRow(a, false)).join("") + r.extra.map(xRow).join("") || `<p class="empty">Sin servicios activos.</p>`}
           <form class="sform rform" data-client="${esc(c.id)}"><label>Nombre<input name="name" required maxlength="80" value="${esc(c.name)}"></label><label>WhatsApp<input name="phone" required inputmode="tel" value="${esc(c.phone)}"></label>
             <label style="grid-column:1/-1">Nota (solo la ves vos)<input name="note" maxlength="300" value="${esc(c.note)}" placeholder="Ej.: paga los viernes"></label>
             <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="consent" ${c.whatsappConsent ? "checked" : ""}> Acepta avisos automáticos por WhatsApp</label>
@@ -1099,7 +1124,7 @@ function resellerView() {
             ${S.data.clientLinks?.[c.id] ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.clientLinks[c.id].url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.clientLinks[c.id].url)}">Copiar</button></div>
               <a class="sbtn sm pri" href="${waLink(c.phone, `Mirá tus códigos acá 👇 Tu PIN es ${S.data.clientLinks[c.id].pin}\n${S.data.clientLinks[c.id].url}`)}" target="_blank" rel="noopener" style="justify-self:start">${icon("wa")}Enviar link + PIN</a>` : ""}
             <form class="sform" data-clientcode="${esc(c.id)}" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end"><label>PIN de 4 números<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn sm pri" type="submit">${S.data.clientLinks?.[c.id] ? "Cambiar PIN" : "Crear link con PIN"}</button></form></div></details>`;
-      }).join("") || `<p class="empty">${clients.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
+      }).join("") || `<p class="empty">${rowsAll.length ? "Ningún cliente coincide con la búsqueda." : "Todavía no cargaste clientes. Agregalos abajo o al vender."}</p>`}</div>
 
     <form class="sbox sform" id="myPrices"><h2>Mi lista de precios</h2><p class="empty" style="margin:0">Poné a cuánto le vendés cada producto a tus clientes: te calculamos tu ganancia y te armamos la lista para mandar.</p>${listNote()}
       ${prices.some((p) => p.sell === null) ? `<button class="sbtn pri" type="button" data-sugerir="1" style="justify-self:start">✨ Ponerme precios sugeridos a todo</button>` : ""}
@@ -2092,6 +2117,11 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.navgrp && !HUB_GROUPS[d.navgrp].some(([k]) => k === S.data.rtab)) S.data.rtab = HUB_GROUPS[d.navgrp][0][0];
+  if (d.addcli) {
+    try { await api("POST", "/api/me/customers", { name: d.name, phone: d.phone, whatsappConsent: false }); toast("Cliente agregado"); await refresh(); }
+    catch (e) { toast(e.message); }
+    return;
+  }
   if (d.invsee !== undefined) { S.data.mq = d.invsee; S.data.mf = "all"; return setView("cuentas"); }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;

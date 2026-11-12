@@ -1126,3 +1126,6 @@ input[type=color]{min-width:44px;min-height:44px}
 .invcta{display:grid;gap:8px}
 .invcta span{color:var(--s-muted);font-size:14px}
 @media (min-width:700px){.invtot{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* ===== GaboHub etapa 4: clientes con todo lo suyo ===== */
+.xsvc{border-style:dashed}
