@@ -1,4 +1,4 @@
-# Informe de pruebas — v0.9
+# Informe de pruebas — v0.9.1
 
 - **Fecha:** 12-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
@@ -8,8 +8,8 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **689/689**, 52 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **71/72** (1 se omite sola cuando, por la hora del día, no hay citas por llegar en esa sucursal) |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **694/695**, 54 archivos (1 se omite sola si quedan menos de 90 min del día en La Paz: necesita un hueco libre «hoy») |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **72/73** (1 se omite sola cuando, por la hora del día, no hay citas por llegar en esa sucursal) |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Guardas automáticas de seguridad | `tests/route-guard.test.ts`, `tests/db-hardening.test.ts` | ✅ todas las rutas de la API (401/403, lista de públicas) y toda la base (RLS, solo inserción, funciones revisadas) |
 | Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s; embudo de presupuestos 182 ms (v0.7); la exportación de pacientes empieza a bajar en 35 ms (total ~4 s, B-104) |
@@ -136,6 +136,14 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 | `agreements.test.ts` | 28 | Precio de convenio copiado en la línea, copago al centavo con impares, paciente + empresa = total, pago de empresa a varios cargos, no facturar más de lo pendiente, conciliación exacta y sugerida sin verificación automática, reimportación sin duplicar |
 
 End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
+
+### v0.9.1: costo de reenvío, vista previa de certificados y exportación más rápida
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `lab-extra-costs.test.ts` | 5 | El costo adicional solo al recibir un reenvío. Suma a lo que se debe, aparece en el estado de cuenta en su fecha y pasa al saldo inicial siguiente. Entra en la rentabilidad del mes y en el tope de pago. Las correcciones negativas no bajan de cero ni de lo pagado. Permisos (contabilidad 403), otra sucursal u otra clínica 404, solo inserción y auditoría |
+| `xlsx-stream.test.ts` | 1 | En el Excel por flujo, fechas, montos y textos mezclados en una columna conservan su formato; las fórmulas llegan como texto; la negrita no contagia |
+| e2e nuevos | 1 (+1 paso) | Devolver para ajuste y registrar la llegada con costo adicional; vista previa del certificado con un paciente ficticio |
+| Carga | 100 000 pacientes | Exportación de pacientes: **3,1 s → 1,5 s** (mediana de 3, `scripts/perf-export.ts`). La memoria todavía sube ~100 MB durante la descarga |
 
 ### v0.9: listo para publicar, agenda, inventario, laboratorio, recetas, periodontograma y semilla
 | Archivo | Pruebas | Qué verifica |
