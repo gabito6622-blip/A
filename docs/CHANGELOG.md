@@ -3,7 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-ordenado`) · Panel ordenado, etapas 1 y 2
+## 2026-11-12 · Sin publicar (rama `panel-buscador`) · Buscador del panel (etapa 3)
+- **Botón «🔎 Buscar» arriba,** en todas las pantallas (en la compu, también con la tecla /). Encuentra:
+  - clientes y revendedores, por nombre o por los últimos números del teléfono;
+  - servicios, por cliente, correo o producto;
+  - cuentas, por su correo;
+  - pedidos, por número o por la referencia del banco.
+
+  Ignora tildes y mayúsculas. Cada resultado abre su pantalla de siempre, ya filtrada.
+- **Inicio:** su buscador ahora abre el general; «Ver todo en el Control» hace lo mismo que antes.
+- **Cada rol encuentra solo lo que ya veía:** Atención no ve cuentas ni pedidos. Nunca muestra contraseñas, PIN ni costos.
+
+## 2026-11-12 · #39 Panel ordenado, etapas 1 y 2
 - **Menú en 6 áreas + Herramientas:** Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas y Herramientas, con «🔎 Buscar pantalla». Entra completo en la pantalla del celular; antes era una lista de 31 renglones.
 - **Barra de abajo:** Inicio, Clientes, Vender, Inventario y Más (Más abre todo el menú). Control de alquileres pasa a Ventas.
 - **Inicio:** «📋 Lo que tenés pendiente», con lo mismo que Notificaciones; los accesos rápidos suben. No se quitó nada.

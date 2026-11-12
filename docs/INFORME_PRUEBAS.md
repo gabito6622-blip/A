@@ -1,13 +1,22 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (rama `panel-ordenado`, sin publicar)
+## Tanda 12/11/2026 · Buscador del panel, etapa 3 (rama `panel-buscador`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **464 → 469 / 469 ✅** |
+| Buscador | `test/buscador.test.mjs` (5): sin tildes, por teléfono, por correo de cuenta, por referencia del banco y por número de pedido; buscar por la contraseña no encuentra nada y ningún resultado trae contraseña, PIN ni costo; Atención sin cuentas ni pedidos; cliente y sin sesión → no; menos de 2 letras no busca; navegador a 360 px en claro y oscuro (botón arriba, tecla /, Esc, resultado → ficha abierta, Inicio → «Ver todo en el Control») | ✅ |
+| Foto antes / después | Mismo guion y mismos datos: 28 pantallas idénticas; Inicio y Mi oficina tienen 1 botón menos cada una, por Sofi (sacada por decisión del dueño) | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
+## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (publicado en #39)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` (sin las 13 de Sofi, que se sacó) | **464 / 464 ✅** |
 | Ninguna pantalla perdida | `test/panel-ordenado.test.mjs`: por rol (dueño, admin, atención) compara el menú nuevo con la foto del anterior (30, 26 y 16 pantallas) y abre cada una sin error; buscador con permisos; barra de abajo; «Más»; pendientes de Inicio = Notificaciones; 360 px, 44 px, sin desborde | ✅ |
 | Foto antes / después | Mismo guion y mismos datos de ejemplo: 27 pantallas idénticas, 0 con menos botones, formularios o enlaces. Inicio tiene 1 botón más (el pendiente); Usuarios cambia porque la prueba creó 2 usuarios | ✅ |
 | Revisión visual | 390 px, claro y oscuro: menú completo en una pantalla, búsqueda e Inicio. 0 errores | ✅ |
-| No probado | Tu panel real (se ve al publicar); celular físico | ⚠️ |
+| **Después de publicar (#39), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75 (antes y después de publicar). Con la llave del asistente (rol admin) a 390 px: el menú tiene las mismas 26 pantallas que antes y todas abren sin error ni desborde; barra de abajo correcta; 5 pendientes en Inicio; 0 errores. El respaldo automático diario existe en el código, pero la llave no puede verlo | ✅ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Sofi, la secretaria (sin publicar)
 | Qué | Cómo | Resultado |

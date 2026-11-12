@@ -2,6 +2,7 @@
 import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
+import { initSearch, openSearch } from "/buscador.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
@@ -2315,6 +2316,7 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   if (d.go) return go(d.go);
   if (d.more) { $("#app").classList.add("open"); return; }
+  if (d.gsopen) return openSearch();
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
@@ -2977,8 +2979,8 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "waConfig") {
       await act(() => api("POST", "/api/admin/whatsapp/config", { enabled: f.enabled.checked, phoneNumberId: f.phoneNumberId.value.trim(), apiVersion: f.apiVersion.value.trim(), humanPauseHours: +f.humanPauseHours.value, welcome: f.welcome.value }), "Bot guardado");
     } else if (f.id === "hmSearch") {
-      Object.assign(P.tab, { cf: "todos", cday: "", cpay: "", cfrom: undefined, cq: f.q.value.trim() });
-      go("control");
+      // El buscador de Inicio abre el buscador general; "Ver todo en el Control" hace lo de antes.
+      openSearch(f.q.value.trim());
     } else if (f.dataset.expiry) {
       const [y, m, d] = f.date.value.split("-").map(Number);
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.expiry}/expiry`, { expiresAt: new Date(y, m - 1, d, 23, 59).getTime() }), `Nueva fecha: ${d}/${m}/${y}`);
@@ -3297,6 +3299,15 @@ document.addEventListener("submit", async (ev) => {
 });
 
 $("#burger").onclick = () => $("#app").classList.add("open");
+// 🔎 Buscador (buscador.js): cada resultado abre la pantalla de siempre, ya filtrada.
+initSearch((kind, id, q) => {
+  if (kind === "customer" || (kind === "reseller" && !canReview())) { P.tab.q = q; P.tab.editCus = id; return go("clientes"); }
+  if (kind === "reseller") { P.tab.rficha = id; P.tab.rfp = ""; return go("revendedores"); }
+  if (kind === "account") { P.tab.accq = q; P.tab.accf = "todas"; return go("cuentas"); }
+  if (kind === "order") { P.tab.aprob = ["payment_review", "awaiting_payment"].includes(q) ? q : "all"; return go("aprobacion"); }
+  Object.assign(P.tab, { cf: "todos", cday: "", cpay: "", cfrom: undefined, cprod: "", ck: "todos", cr1: undefined, cr2: undefined, cfc: {}, cgroup: undefined, cq: q });
+  return go("control");
+});
 // "Buscar pantalla": filtra el menú mientras escribís; Enter abre la primera.
 $("#menuFind")?.addEventListener("input", (ev) => { P.menuQ = ev.target.value; $("#menu").innerHTML = menuHtml(watch.last ?? 0); });
 $("#menuFind")?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); $("#menu button[data-go]")?.click(); } });
