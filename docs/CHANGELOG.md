@@ -9,6 +9,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **2 cuentas que eran de rodbol** (gabito6619+2np, que figuraba a oby, y gabito6619+9dp, que figuraba a piza): pasadas a rodbol, del 30/10 al 30/11/2026, pagadas a Bs 66 c/u (Bs 132). Contraseña nueva cargada (dada por el dueño, no se escribe acá) y correo corregido «@gmail.cm» → «@gmail.com».
 - **opajg12+7ped y opajg12+k7z** figuraban a oby: pasadas a rodbol (el dueño confirmó que son de él), sin cambiar fecha ni precio.
 - **gabito6626+md1, opajg12+7ped y opajg12+k7z** (vencidas el 10/11): nota «EN COBRO desde 12/11» en el Control; si no responde hasta la noche, el dueño las corta. Fechas y pagos sin tocar.
+- **n2025gt+18dp, netscz108+sem, netscz108+oby y netscz108+dy39** (vencidas 01/11 y 04/11): también «EN COBRO», cortar primero si no responde (a dy39 se le conservó su nota del Excel).
 - **3 cuentas hasta el 28/11** (opajg12+gar, opajg12+cm6, netgb117+voxg): confirmadas por el dueño y pagadas: Bs 66 las 2 con ESPN y Bs 35 la sin ESPN (cobro del período anotado con ese monto).
 - **Sin cambios:** los otros alquileres. La cola sumó 4 avisos para rodbol (cuenta pasada / datos actualizados) que NO se enviaron: él no aceptó avisos automáticos.
 
