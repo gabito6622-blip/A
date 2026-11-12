@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Raúl Parrilla
+- **Raúl Parrilla** (antes «Raul PARRILLA», mismo número): nota «✅ buen cliente, paga bien».
+- **gabito6619+dr** (vence 24/11): pagada a Bs 68; clave actualizada (no se escribe acá).
+- **n2025nt+za** (vence 15/11): nota «📅 avisarle el 14/11»; clave actualizada.
+- Avisos «datos actualizados» para Raúl: no enviados (sin permiso).
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Por cortar
 - **netscz.101@gmail.com** (Disney Premium + ESPN): nota «⛔ POR CORTAR» en la cuenta. En el panel no está alquilada a nadie (su perfil quedó en cuarentena cuando venció) y no se pudo ver quién la tenía: la tenía **vallejos** (dicho por el dueño). En la ficha de vallejos: nota «⛔ NO VENDERLE por ahora: no paga y no va a renovar» (no se borró ni se bloqueó; sigue su historial).
 
