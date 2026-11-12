@@ -243,7 +243,13 @@ describe("por la API y en el navegador", () => {
           return page;
         };
         const noOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-        const tab = async (page, name) => { await page.goto(t.base + "/hub#clientes"); await page.getByRole("tab", { name }).click(); };
+        // GaboHub etapa 1: las pestañas se ven por grupo; si no está en la fila, se abre desde "Más".
+        const tab = async (page, name) => {
+          await page.goto(t.base + "/hub#clientes"); await page.locator(".rtabs").waitFor();
+          if (await page.getByRole("tab", { name }).count()) return page.getByRole("tab", { name }).click();
+          await page.goto(t.base + "/hub#mas"); await page.locator(".hubarea-i").first().waitFor();
+          await page.locator(".hubarea-i", { hasText: name }).first().click();
+        };
 
         // Paraguay con tipo de cambio: la tarjeta, el ejemplo y "Tu día" con sus cuentas propias.
         let page = await open("py", "inicio");

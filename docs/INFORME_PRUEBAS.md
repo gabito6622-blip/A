@@ -1,6 +1,31 @@
 # Informe de pruebas
 
-## 12/11/2026 · Después de publicar #45 y arreglo de «vencidas» (rama `panel-vencidas`)
+## 12/11/2026 · GaboHub etapa 2 (rama `hub-etapa1`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Inventario por plataforma | `test/hub-inventario.test.mjs` a 360 px: 3 apps (Disney+ completa con 2 perfiles, Flujo TV propio sin cupos, Netflix de la tienda + propio), totales 7 · 3 · 1 · 1, «Ver» a la pantalla correcta, 44 px, sin scroll de costado | ✅ |
+| Hallazgo | La cuenta completa de Disney salía 2 veces (como servicio de la tienda y como cuenta completa): ahora se cuenta una sola vez | ❌ → ✅ |
+| Separación | La cuenta propia de otro revendedor nunca aparece | ✅ |
+| Foto de controles (contra la etapa 1) | Ninguna pantalla con controles de menos; solo se suman «Por plataforma» y sus «Ver» | ✅ |
+| Arreglo de la etapa 1 | La carga de cupones había quedado en medio de un «si… si no» existente; quedó como era, más los cupones | ✅ |
+| Pruebas automáticas | `npm test`: 478 / 478 (48 s) | ✅ |
+
+## 12/11/2026 · GaboHub etapa 1 (rama `hub-etapa1`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto de controles antes y después | Ariana (con página, demo de 6 meses) y un revendedor «solo panel», 390 px: 15 y 13 pantallas antes, 17 y 15 después. Dentro de cada pantalla, botones y formularios iguales; solo cambian las pestañas de navegación. La foto sale igual 2 veces seguidas | ✅ |
+| Navegación nueva | `test/hub-navegacion.test.mjs` a 360 px: barra de abajo, grupos, Vender (5 caminos), Más con todos los destinos y buscador, atajos del Inicio, «solo panel» sin Mi página. Todo de 44 px o más y sin scroll de costado | ✅ |
+| Pruebas adaptadas | `revendedor-pantallas`, `afuera-completo` y `cuentas-propias` llegaban a las pestañas por la fila completa; ahora llegan por su grupo o por Más. Lo que revisan (desborde, logos, errores) no cambió | ✅ |
+| Arreglo hallado | «Mis cupones» abierto desde Más no cargaba sus cupones: ahora se cargan igual que desde la pestaña | ✅ |
+| Pruebas automáticas | `npm test`: 477 / 477 (48 s) | ✅ |
+
+## 12/11/2026 · Después de publicar #46
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real después de #46 | Servicios 82, cola 75, clientes 27, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Cuentas en la tienda real (solo mirando) | Disney + ESPN dice «16 vencidas» y ya no «vencen ≤ 7 d»; 4 grupos, 125 tarjetas, 0 renglones pisados, sin scroll de costado, 0 errores | ✅ |
+
+## 12/11/2026 · Después de publicar #45 y arreglo de «vencidas» (publicado en #46)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Tienda real después de #45 | Servicios 82, cola 75, clientes 27, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |

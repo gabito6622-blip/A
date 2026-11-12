@@ -2,6 +2,26 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · GaboHub etapa 2: Inventario por plataforma
+- **Qué:** una pantalla que junta por app lo comprado a la tienda, las cuentas completas y las propias. Solo lee; para hacer algo, «Ver» lleva a la pantalla de siempre.
+- **Por qué así:** no se mueve ni se rehace ninguna función (regla del dueño), y el revendedor ve todo su stock en un lugar.
+- **Cómo se juntan las apps:** por nombre, sin tildes ni mayúsculas y sin «(alquiler revendedores)». Si el revendedor le pone otro nombre a su producto propio (por ejemplo «Netflix 4K»), sale en su propia fila.
+- **Cuentas completas:** también vienen entre sus servicios; se cuentan una sola vez, como «Cuentas completas».
+
+## 2026-11-12 · GaboHub etapa 1: navegación como el panel del dueño
+- **Qué:** barra de abajo Inicio · Clientes · Vender · Inventario · Más; las 10 pestañas de «Mis clientes» en 3 grupos; pantallas nuevas Vender y Más.
+- **Por qué así:** el dueño quiere que el revendedor se sienta en su propio panel. El problema principal era que casi todo (la página, los combos, las cuentas propias) estaba en una fila de pestañas que había que correr de costado.
+- **Códigos y Comprar salen de la barra de abajo:** siguen a un toque en el Inicio, en Más, en Vender y en la barra de arriba de la PC.
+- **Sin cambios de servidor ni de datos.**
+
+## 2026-11-12 · Precio de GaboHub
+- **Qué decidió el dueño:** Bs 49 por mes, o US$ 5 fijos para los que pagan en dólares. Lo pagan todos los revendedores (no solo los de página propia). Sin el «gratis si compra Bs 200». El cobro queda apagado hasta que él lo prenda.
+- **Por qué US$ 5 fijos:** pasar Bs 49 con la tasa del día da otro número cada día; el dueño quiere un precio redondo en dólares.
+
+## 2026-11-12 · Revendedor de prueba en la tienda real
+- **Qué:** el dueño quería entrar desde su celular al panel de un revendedor. El demo con datos inventados solo se ve dentro de la app de Claude, así que, con su OK, se creó «Revendedor Demo (prueba)» en la tienda real: sin clientes, saldo 0 y solo panel. Al crearlo no se mandó ningún mensaje (la cola siguió en 75).
+- **Ojo para revisarlo desde las pruebas:** la llave del asistente va en cada pedido y le gana a la sesión del revendedor, así que desde acá se ve el panel como admin. Se comprobó que el número y el PIN entran (respuesta 200).
+
 ## 2026-11-12 · Cuentas por plataforma (etapa 7)
 - **Qué:** en el celular, Cuentas agrupa por plataforma por defecto. Adentro de cada grupo van las mismas tarjetas, sin tocar nada de ellas.
 - **Por qué así:** la regla del dueño es no perder ninguna función. Reusar la tarjeta tal cual garantiza que los botones sean los mismos, y la prueba lo comprueba comparando las dos vistas.

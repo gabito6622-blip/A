@@ -312,7 +312,8 @@ describe("cuentas propias por HTTP", () => {
         const errors = [];
         page.on("pageerror", (e) => errors.push(e.message));
         page.on("dialog", (d) => d.accept());
-        await page.goto(base + "/hub#clientes");
+        // GaboHub etapa 1: "Mis cuentas propias" está en Inventario (abajo) y en "Más".
+        await page.goto(base + "/hub#cuentas");
         await page.getByRole("tab", { name: /Mis cuentas propias/ }).click();
         await page.getByRole("heading", { name: /Mis cuentas propias/ }).waitFor();
         await page.locator(".os-prod .rcopen").first().click();

@@ -3,7 +3,20 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-vencidas`) · Arreglo: cuentas ya vencidas en «Por plataforma»
+## 2026-11-12 · Sin publicar (rama `hub-etapa1`) · GaboHub etapa 2: Inventario por plataforma
+- **Inventario (abajo) → «🗂️ Por plataforma»:** por cada app, juntos, lo que el revendedor le compró a la tienda, las cuentas completas que reparte y sus cuentas propias. Arriba, cuántos clientes tiene, cupos libres, qué vence en la semana y qué ya venció.
+- **Avisos por app:** «Sin cupos libres», «vence ≤ 7 d», «vencido» y «cuenta vence con tu proveedor».
+- **«Ver» en cada fila:** lleva a la pantalla de siempre (la de la tienda ya filtrada por esa app).
+- **La guía de bienvenida** explica también Vender, Inventario y Más.
+
+## 2026-11-12 · Sin publicar (rama `hub-etapa1`) · GaboHub con la forma del panel del dueño (etapa 1)
+- **Barra de abajo del revendedor:** Inicio · Clientes · Vender · Inventario · Más, como el panel del dueño.
+- **Adiós a la fila de 10 pestañas:** «Mis clientes» se partió en 3 grupos que se ven completos: Mi negocio (clientes, control, deudas, ganancias), Inventario (cuentas de la tienda, repartir perfiles, cuentas propias) y Mi vitrina (página, combos, cupones, afiches).
+- **Vender:** un botón que pregunta qué vendés y te lleva directo.
+- **Más:** todo el panel en un menú por áreas, con buscador.
+- **Nada se perdió:** todas las pantallas, botones y formularios de adentro son los mismos.
+
+## 2026-11-12 · #46 Arreglo: cuentas ya vencidas en «Por plataforma»
 - El grupo de Disney decía «16 vencen ≤ 7 d», pero esas 16 ya vencieron (son las cuentas caídas). Ahora dicen «16 vencidas» en rojo, y «vence ≤ 7 d» cuenta solo las que todavía no vencieron.
 
 ## 2026-11-12 · #45 Cuentas por plataforma (etapa 7)

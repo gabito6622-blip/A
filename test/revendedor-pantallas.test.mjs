@@ -109,8 +109,15 @@ test("revendedor a 360 px: todas sus pestañas sin desborde ni errores, con logo
     await page.goto(base + "/hub#clientes");
     await page.locator(".rtabs").waitFor();
     const want = { perfiles: 1, control: 2, debe: 1, ganancias: 1 };
+    // Etapa 1 de GaboHub: las pestañas se ven por grupo; la que no está en la fila se abre desde "Más".
+    const openTab = async (t) => {
+      if (await page.locator(`[data-rtab="${t}"]`).count()) return page.locator(`[data-rtab="${t}"]`).click();
+      await page.locator('.bnav [data-s="mas"]').click();
+      await page.locator(`#sout [data-rtool="${t}"], #sout [data-gopage]`).first().waitFor();
+      await page.locator(t === "pagina" ? "#sout [data-gopage]" : `#sout [data-rtool="${t}"]`).click();
+    };
     for (const t of ["ventas", "perfiles", "control", "debe", "ganancias", "afiches", "pagina", "combos"]) {
-      await page.locator(`[data-rtab="${t}"]`).click();
+      await openTab(t);
       await page.waitForFunction((tab) => document.querySelector(`[data-rtab="${tab}"]`)?.getAttribute("aria-selected") === "true", t);
       await page.waitForTimeout(500);
       const r = await check("Clientes → " + t);
@@ -118,7 +125,7 @@ test("revendedor a 360 px: todas sus pestañas sin desborde ni errores, con logo
       if (t === "control") assert.ok(r.letters >= 1, "Crunchyroll sin logo: se ve la inicial");
     }
     // Repartir perfiles: la cuenta de alquiler sin imagen propia muestra el logo de Disney+.
-    await page.locator('[data-rtab="perfiles"]').click();
+    await openTab("perfiles");
     await page.locator(".subacc header .mini.mimg img").first().waitFor();
     assert.match(await page.locator(".subacc header .mini.mimg img").first().getAttribute("src"), /\/api\/products\/dis\/image/);
 
