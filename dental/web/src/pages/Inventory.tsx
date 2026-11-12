@@ -6,15 +6,15 @@ import { AlertTriangle, ArrowLeftRight, Minus, PackagePlus, Pencil, Plus, Slider
 import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
-import { bs, fmtDateTime } from "../lib/format";
-import { Empty, Loading, Tabs, useAsk, useToast } from "../components/ui";
+import { bs, fmtDateTime, localDate, pct } from "../lib/format";
+import { Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
 import { AdjustDialog, ConsumeDialog, ItemDialog, ReceiptDialog, ReceiveTransferDialog, TransferDialog, type InvItem } from "../components/inventory/Dialogs";
 import { PurchasingTab, SuppliersTab } from "../components/inventory/Purchasing";
 import { CountsTab } from "../components/inventory/Counts";
 import { AlertBadges, ExpiryBadge, KIND_LABELS, qty, useInvBranch } from "../components/inventory/shared";
 import { ExportLink } from "../components/management/shared";
 
-type Tab = "stock" | "alerts" | "lots" | "movements" | "transfers" | "count" | "purchases" | "suppliers";
+type Tab = "stock" | "alerts" | "lots" | "movements" | "transfers" | "count" | "purchases" | "suppliers" | "consumption";
 type DialogState =
   | { kind: "consume"; itemId?: string }
   | { kind: "adjust"; itemId?: string; lotId?: string; direction?: "in" | "out"; reason?: string; branchId?: string }
@@ -76,6 +76,7 @@ export function InventoryPage() {
         { id: "count", label: "Conteo físico" },
         { id: "purchases", label: "Compras" },
         { id: "suppliers", label: "Proveedores" },
+        { id: "consumption", label: "Consumo vs. estándar" },
       ]} />
 
       {tab === "stock" && <StockTab data={stock.data} consolidated={!current} canWrite={canWrite} canManage={can("inventory.manage")} catalog={items}
@@ -88,6 +89,7 @@ export function InventoryPage() {
       {tab === "count" && <CountsTab branchId={current} onStockChanged={refresh} />}
       {tab === "purchases" && <PurchasingTab items={items} onStockChanged={refresh} />}
       {tab === "suppliers" && <SuppliersTab />}
+      {tab === "consumption" && <ConsumptionReportTab branchId={current} />}
 
       {dlg?.kind === "consume" && <ConsumeDialog items={items} branchId={writeBranch} itemId={dlg.itemId} onClose={() => setDlg(null)} onDone={done} />}
       {dlg?.kind === "adjust" && <AdjustDialog items={items} branchId={dlg.branchId ?? writeBranch} itemId={dlg.itemId} lotId={dlg.lotId} direction={dlg.direction} reason={dlg.reason} onClose={() => setDlg(null)} onDone={done} />}
@@ -256,13 +258,23 @@ function MovementsTab({ branchId, items, rev }: { branchId: string | null; items
 }
 
 function TransfersTab({ branchId, rev, canWrite, onNew, onReceive }: { branchId: string | null; rev: number; canWrite: boolean; onNew: () => void; onReceive: (t: any) => void }) {
-  const { me } = useAuth();
+  const { me, can } = useAuth();
+  const ask = useAsk();
+  const toast = useToast();
   const list = useApi<any[]>(`/api/inventory/transfers${qs({ branchId })}`, [rev]);
+  // B-072: un envío que no llegó (o fue por error) se anula y todo vuelve al lote de origen.
+  const cancel = async (t: any) => {
+    const reason = await ask({ title: "Anular transferencia", message: `N° ${t.number} → ${t.toBranchName}. Todo vuelve al stock de ${t.fromBranchName}.`,
+      inputLabel: "Motivo", placeholder: "Ej.: se envió a la sucursal equivocada", confirmLabel: "Anular transferencia", danger: true });
+    if (!reason) return;
+    try { await api.post(`/api/inventory/transfers/${t.id}/cancel`, { reason }); toast("Transferencia anulada: el stock volvió al origen"); list.reload(); }
+    catch (e: any) { toast(e.message, true); }
+  };
   const mine = (id: string) => (branchId ? id === branchId : !!me?.branches.some((b) => b.id === id));
   const data = list.data ?? [];
   const incoming = data.filter((t) => t.status === "in_transit" && mine(t.toBranchId));
   const outgoing = data.filter((t) => t.status === "in_transit" && !mine(t.toBranchId));
-  const history = data.filter((t) => t.status === "received");
+  const history = data.filter((t) => t.status === "received" || t.status === "cancelled");
   const lineSummary = (t: any) => t.lines.map((l: any) => `${l.itemName} ${qty(l.qtySent)}${l.qtyReceived != null && Number(l.qtyReceived) !== Number(l.qtySent) ? ` (llegó ${qty(l.qtyReceived)})` : ""}`).join(" · ");
   return (
     <div className="stack">
@@ -284,24 +296,61 @@ function TransfersTab({ branchId, rev, canWrite, onNew, onReceive }: { branchId:
           <section className="card">
             <div className="card-head"><h2>Enviadas, en tránsito ({outgoing.length})</h2></div>
             <div className="table-wrap"><table className="table"><tbody>
-              {outgoing.map((t) => <tr key={t.id}><td><b>N° {t.number} → {t.toBranchName}</b><span className="inv-sub">{lineSummary(t)}</span></td><td className="nowrap muted small">{fmtDateTime(t.sentAt)}</td></tr>)}
+              {outgoing.map((t) => <tr key={t.id}><td><b>N° {t.number} → {t.toBranchName}</b><span className="inv-sub">{lineSummary(t)}</span></td><td className="nowrap muted small">{fmtDateTime(t.sentAt)}</td>
+                <td className="num">{can("inventory.manage") && <button className="btn btn-sm btn-ghost" onClick={() => cancel(t)}>Anular</button>}</td></tr>)}
             </tbody></table></div>
           </section>
         )}
         <section className="card">
-          <div className="card-head"><h2>Recibidas</h2></div>
+          <div className="card-head"><h2>Recibidas y anuladas</h2></div>
           {!history.length ? <Empty>Aún no hay transferencias recibidas.</Empty> : (
             <div className="table-wrap"><table className="table"><tbody>
               {history.map((t) => (
                 <tr key={t.id}>
                   <td><b>N° {t.number} · {t.fromBranchName} → {t.toBranchName}</b><span className="inv-sub">{lineSummary(t)}</span>
                     {t.lines.some((l: any) => l.differenceReason) && <span className="inv-sub">Diferencias: {t.lines.filter((l: any) => l.differenceReason).map((l: any) => `${l.itemName}: ${l.differenceReason}`).join(" · ")}</span>}</td>
-                  <td className="nowrap muted small">{fmtDateTime(t.receivedAt)}<span className="inv-sub">{t.receivedByName}</span></td>
+                  <td className="nowrap muted small">{t.status === "cancelled"
+                    ? <><span className="badge danger">Anulada</span><span className="inv-sub">{fmtDateTime(t.cancelledAt)} · {t.cancelReason}</span></>
+                    : <>{fmtDateTime(t.receivedAt)}<span className="inv-sub">{t.receivedByName}</span></>}</td>
                 </tr>))}
             </tbody></table></div>
           )}
         </section>
       </>}
+    </div>
+  );
+}
+
+// B-072: consumo real frente al estándar de las prestaciones realizadas.
+function ConsumptionReportTab({ branchId }: { branchId: string | null }) {
+  const [from, setFrom] = useState(() => `${localDate().slice(0, 8)}01`);
+  const [to, setTo] = useState(localDate);
+  const r = useApi<any>(`/api/inventory/consumption-report${qs({ from, to, branchId })}`);
+  return (
+    <div className="stack">
+      <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Field label="Desde"><input className="input" type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} /></Field>
+        <Field label="Hasta"><input className="input" type="date" value={to} onChange={(e) => e.target.value && setTo(e.target.value)} /></Field>
+        <a className="btn btn-sm" href={`/api/inventory/consumption-report.xlsx${qs({ from, to, branchId })}`} download>Exportar a Excel</a>
+      </div>
+      <p className="muted small">Para los tratamientos realizados en el período: lo que se descontó (más lo que quedó pendiente por falta de stock) frente a lo que indica el estándar de cada prestación. Una diferencia positiva es más uso del previsto.</p>
+      <section className="card">
+        {!r.data ? <Loading /> : !r.data.items.length ? <Empty>Sin tratamientos con materiales estándar en el período.</Empty> : (
+          <div className="table-wrap"><table className="table cards-sm">
+            <thead><tr><th>Insumo</th><th className="num">Estándar</th><th className="num">Descontado</th><th className="num">Pendiente</th><th className="num">Diferencia</th></tr></thead>
+            <tbody>{r.data.items.map((x: any) => (
+              <tr key={x.itemId}>
+                <td><b>{x.name}</b><span className="inv-sub">{x.sku} · {x.unit}</span></td>
+                <td className="num">{qty(x.standardQty)}</td>
+                <td className="num">{qty(x.actualQty)}</td>
+                <td className="num">{x.pendingQty ? qty(x.pendingQty) : "—"}</td>
+                <td className="num"><b style={x.differenceQty > 0 ? { color: "var(--danger)" } : undefined}>{x.differenceQty > 0 ? "+" : ""}{qty(x.differenceQty)}</b>{x.differencePct != null && <span className="inv-sub">{pct(x.differencePct)}</span>}</td>
+              </tr>))}
+            </tbody>
+          </table></div>
+        )}
+      </section>
+      {r.data && <p className="muted small">{r.data.treatments} tratamientos realizados en el período.</p>}
     </div>
   );
 }

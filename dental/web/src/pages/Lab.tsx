@@ -7,7 +7,7 @@ import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import { api, qs } from "../lib/api";
 import { bs, fmtDateTime, localDate, parseBs, toBsInput } from "../lib/format";
-import { Dialog, Empty, Field, Loading, Tabs, useToast } from "../components/ui";
+import { Dialog, Empty, Field, Loading, Tabs, useAsk, useToast } from "../components/ui";
 import { LAB_STATUS, LabStatusBadge, OrderDetailDialog, OrderDialog, TAP, WORK_TYPES, fmtDay } from "../components/lab/LabShared";
 
 export function LabPage() {
@@ -129,6 +129,17 @@ function PayablesTab() {
   const p = useApi<any>("/api/lab/payables");
   const labs = useApi<any[]>("/api/lab/labs?all=1");
   const payments = useApi<any[]>("/api/lab/payments");
+  const { can } = useAuth();
+  const ask = useAsk();
+  const toast = useToast();
+  // B-073: anular un pago mal registrado (queda en el historial; lo que cubría vuelve a deberse).
+  const voidPayment = async (x: any) => {
+    const reason = await ask({ title: "Anular pago al laboratorio", message: `${x.labName} · ${bs(x.amountCents)}. El pago queda en el historial como anulado y lo que cubría vuelve a quedar por pagar.`,
+      inputLabel: "Motivo", placeholder: "Ej.: se registró dos veces", confirmLabel: "Anular pago", danger: true });
+    if (!reason) return;
+    try { await api.post(`/api/lab/payments/${x.id}/void`, { reason }); toast("Pago anulado"); payments.reload(); p.reload(); }
+    catch (e: any) { toast(e.message, true); }
+  };
   const [sel, setSel] = useState<Record<string, string>>({}); // orderId → monto (Bs)
   const [paying, setPaying] = useState<null | { labId: string; allocations: any[] }>(null);
   const [st, setSt] = useState({ labId: "", from: firstOfMonth(), to: localDate() });
@@ -224,8 +235,10 @@ function PayablesTab() {
               <tr key={x.id}>
                 <td className="nowrap">{fmtDay(x.paidOn)}</td>
                 <td>{x.labName}<div className="muted small">{x.methodLabel}{x.reference ? ` · ref. ${x.reference}` : ""} · {x.orders?.map((o: any) => `N° ${o.number}`).join(", ")}</div></td>
-                <td className="num"><b>{bs(x.amountCents)}</b></td>
-                <td className="hide-mobile muted small">{x.byName}<div>{fmtDateTime(x.createdAt)}</div></td>
+                <td className="num">{x.voidedAt ? <s className="muted">{bs(x.amountCents)}</s> : <b>{bs(x.amountCents)}</b>}
+                  {x.voidedAt && <div><span className="badge danger" title={`${x.voidReason} · ${x.voidedByName}`}>Anulado</span></div>}</td>
+                <td className="hide-mobile muted small">{x.byName}<div>{fmtDateTime(x.createdAt)}</div>{x.voidedAt && <div>Anulado: {x.voidReason}</div>}</td>
+                <td className="num">{!x.voidedAt && can("payments.void") && <button className="btn btn-sm btn-ghost" onClick={() => voidPayment(x)}>Anular</button>}</td>
               </tr>
             ))}
           </tbody></table></div>

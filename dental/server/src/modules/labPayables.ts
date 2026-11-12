@@ -7,7 +7,7 @@ import ExcelJS from "exceljs";
 import { DateTime } from "luxon";
 import type { FastifyReply } from "fastify";
 import type { Route } from "../lib/http.js";
-import { zDate, zId, zOptText } from "../lib/http.js";
+import { zDate, zId, zIdParams, zOptText } from "../lib/http.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
 import type { Client } from "../lib/db.js";
@@ -39,7 +39,7 @@ export function allocateFifo(amount: number, outstanding: { id: string; outstand
 
 const PAYABLE_SQL = `SELECT o.id, o.number, o.lab_id AS "labId", l.name AS "labName", o.work_type AS "workType", o.work_detail AS "workDetail", o.teeth,
     o.received_on AS "receivedOn", o.cost_cents AS "costCents", o.status, p.first_name AS "pf", p.last_name AS "pl", p.record_number AS "recordNumber",
-    b.name AS "branchName", COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id), 0) AS "paidCents"
+    b.name AS "branchName", COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = x.payment_id)), 0) AS "paidCents"
   FROM lab_orders o JOIN labs l ON l.id = o.lab_id JOIN patients p ON p.id = o.patient_id JOIN branches b ON b.id = o.branch_id
   WHERE o.status IN ('received','adjustment','delivered') AND ($1::uuid IS NULL OR o.lab_id = $1)`;
 
@@ -61,13 +61,13 @@ export async function statement(c: Client, labId: string, from: string, to: stri
   if (!lab) throw notFound("Laboratorio");
   const before = (await c.query<{ debit: number; credit: number }>(
     `SELECT COALESCE((SELECT sum(cost_cents) FROM lab_orders WHERE lab_id = $1 AND received_on < $2::date AND status IN ('received','adjustment','delivered')), 0) AS debit,
-            COALESCE((SELECT sum(amount_cents) FROM lab_payments WHERE lab_id = $1 AND paid_on < $2::date), 0) AS credit`, [labId, from])).rows[0]!;
+            COALESCE((SELECT sum(amount_cents) FROM lab_payments lp WHERE lab_id = $1 AND paid_on < $2::date AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = lp.id)), 0) AS credit`, [labId, from])).rows[0]!;
   const orders = (await c.query(
     `SELECT o.id, o.number, o.received_on AS date, o.cost_cents, o.work_type, o.work_detail, o.teeth, p.first_name AS pf, p.last_name AS pl, p.record_number
        FROM lab_orders o JOIN patients p ON p.id = o.patient_id
       WHERE o.lab_id = $1 AND o.received_on BETWEEN $2::date AND $3::date AND o.status IN ('received','adjustment','delivered')`, [labId, from, to])).rows;
   const pays = (await c.query(
-    `SELECT id, paid_on AS date, amount_cents, method, reference, note, created_at FROM lab_payments WHERE lab_id = $1 AND paid_on BETWEEN $2::date AND $3::date`,
+    `SELECT id, paid_on AS date, amount_cents, method, reference, note, created_at FROM lab_payments lp WHERE lab_id = $1 AND paid_on BETWEEN $2::date AND $3::date AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = lp.id)`,
     [labId, from, to])).rows;
   type Mv = { date: string; kind: "order" | "payment"; id: string; description: string; debitCents: number; creditCents: number; balanceCents?: number; seq: string };
   const moves: Mv[] = [
@@ -201,11 +201,33 @@ export function labPayableRoutes(route: Route) {
         `SELECT p.id, p.lab_id AS "labId", l.name AS "labName", p.amount_cents AS "amountCents", p.paid_on AS "paidOn", p.method, p.reference, p.note,
                 p.created_at AS "createdAt", u.full_name AS "byName",
                 (SELECT json_agg(json_build_object('number', o.number, 'amountCents', a.amount_cents) ORDER BY o.number)
-                   FROM lab_payment_allocations a JOIN lab_orders o ON o.id = a.order_id WHERE a.payment_id = p.id) AS orders
+                   FROM lab_payment_allocations a JOIN lab_orders o ON o.id = a.order_id WHERE a.payment_id = p.id) AS orders,
+                v.created_at AS "voidedAt", v.reason AS "voidReason", vu.full_name AS "voidedByName"
            FROM lab_payments p JOIN labs l ON l.id = p.lab_id JOIN users u ON u.id = p.created_by
+           LEFT JOIN lab_payment_voids v ON v.payment_id = p.id LEFT JOIN users vu ON vu.id = v.created_by
           WHERE ($1::uuid IS NULL OR p.lab_id = $1) AND ($2::date IS NULL OR p.paid_on >= $2) AND ($3::date IS NULL OR p.paid_on <= $3)
           ORDER BY p.paid_on DESC, p.created_at DESC LIMIT 300`, [query.labId ?? null, query.from ?? null, query.to ?? null])).rows
         .map((r) => ({ ...r, methodLabel: LAB_PAY_METHOD_LABELS[r.method] }));
+    },
+  });
+
+  // B-073: anular un pago mal registrado. El pago y sus aplicaciones quedan; las órdenes vuelven a deberse.
+  route({
+    method: "POST", url: "/api/lab/payments/:id/void", summary: "Anular un pago a laboratorio con motivo (queda en el historial; lo que cubría vuelve a quedar por pagar)", tags: ["laboratorio"],
+    perm: "patients.read", params: zIdParams, body: z.object({ reason: z.string().trim().min(3, "Escribe el motivo (al menos 3 caracteres)").max(300) }),
+    handler: async ({ c, auth, params, body }) => {
+      requirePayables(auth);
+      if (!auth.permissions.has("payments.void")) throw forbidden("Solo quien puede anular pagos (gerencia) anula un pago a laboratorio");
+      const p = (await c.query<{ lab_id: string; amount_cents: number }>("SELECT lab_id, amount_cents FROM lab_payments WHERE id = $1", [params.id])).rows[0];
+      if (!p) throw notFound("Pago");
+      try {
+        await c.query("INSERT INTO lab_payment_voids (clinic_id, payment_id, reason, created_by) VALUES ($1,$2,$3,$4)", [auth.clinicId, params.id, body.reason, auth.userId]);
+      } catch (e) {
+        if ((e as { constraint?: string }).constraint === "lab_payment_voids_once") throw conflict("Ese pago ya estaba anulado", "already_voided");
+        throw e;
+      }
+      await audit(c, auth, "lab.payment_voided", "lab_payment", params.id, { labId: p.lab_id, amountCents: Number(p.amount_cents), reason: body.reason });
+      return { ok: true };
     },
   });
 

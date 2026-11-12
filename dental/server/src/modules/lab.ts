@@ -74,7 +74,8 @@ export async function todayIn(c: Client, clinicId: string) {
 const READY_AT = `(SELECT max(e.created_at) FROM lab_order_events e WHERE e.order_id = o.id AND e.to_status = 'received')`;
 const NO_PLACEMENT = `NOT EXISTS (SELECT 1 FROM appointments a WHERE a.patient_id = o.patient_id AND a.status NOT IN ('cancelled','no_show')
   AND a.starts_at >= COALESCE(${READY_AT}, o.received_on::timestamptz))`;
-const PAID = `COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id), 0)`;
+const PAID = `COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id
+  AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = x.payment_id)), 0)`;
 
 const ORDER_COLS = `o.id, o.number, o.status, o.work_type AS "workType", o.work_detail AS "workDetail", o.teeth, o.material, o.shade, o.shade_note AS "shadeNote",
   o.impression, o.instructions, o.attachment_url AS "attachmentUrl", o.sent_on AS "sentOn", o.promised_on AS "promisedOn", o.received_on AS "receivedOn",
@@ -262,7 +263,8 @@ export function labRoutes(route: Route) {
         .map((e) => ({ ...e, toLabel: LAB_STATUS_LABELS[e.toStatus as LabStatus], fromLabel: e.fromStatus ? LAB_STATUS_LABELS[e.fromStatus as LabStatus] : null }));
       const payments = auth.permissions.has("payments.verify") || auth.permissions.has("clinic.manage") || auth.permissions.has("payments.read")
         ? (await c.query(
-          `SELECT a.amount_cents AS "amountCents", p.paid_on AS "paidOn", p.method, p.reference FROM lab_payment_allocations a JOIN lab_payments p ON p.id = a.payment_id
+          `SELECT a.amount_cents AS "amountCents", p.paid_on AS "paidOn", p.method, p.reference,
+                  (SELECT v.reason FROM lab_payment_voids v WHERE v.payment_id = p.id) AS "voidReason" FROM lab_payment_allocations a JOIN lab_payments p ON p.id = a.payment_id
             WHERE a.order_id = $1 ORDER BY p.paid_on, p.created_at`, [params.id])).rows
         : [];
       const can = LAB_WRITE.some((p) => auth.permissions.has(p));

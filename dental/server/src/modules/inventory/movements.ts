@@ -142,12 +142,13 @@ export function inventoryMovementRoutes(route: Route) {
   // ---------------- Transferencias en dos pasos ----------------
   route({
     method: "GET", url: "/api/inventory/transfers", summary: "Transferencias (enviadas y por recibir) de las sucursales permitidas", tags: ["inventario"], perm: "inventory.read",
-    query: z.object({ branchId: zId.optional(), status: z.enum(["in_transit", "received"]).optional() }),
+    query: z.object({ branchId: zId.optional(), status: z.enum(["in_transit", "received", "cancelled"]).optional() }),
     handler: async ({ c, auth, query }) => {
       const scope = scopeBranches(auth, query.branchId);
       const ts = (await c.query(
         `SELECT t.id, t.number, t.status, t.note, t.from_branch_id AS "fromBranchId", fb.name AS "fromBranchName", t.to_branch_id AS "toBranchId", tb.name AS "toBranchName",
-                t.sent_at AS "sentAt", su.full_name AS "sentByName", t.received_at AS "receivedAt", ru.full_name AS "receivedByName", t.receive_note AS "receiveNote"
+                t.sent_at AS "sentAt", su.full_name AS "sentByName", t.received_at AS "receivedAt", ru.full_name AS "receivedByName", t.receive_note AS "receiveNote",
+                t.cancelled_at AS "cancelledAt", t.cancel_reason AS "cancelReason"
            FROM inv_transfers t JOIN branches fb ON fb.id = t.from_branch_id JOIN branches tb ON tb.id = t.to_branch_id
            JOIN users su ON su.id = t.sent_by LEFT JOIN users ru ON ru.id = t.received_by
           WHERE ($1::uuid[] IS NULL OR t.from_branch_id = ANY($1) OR t.to_branch_id = ANY($1)) AND ($2::text IS NULL OR t.status = $2)
@@ -191,6 +192,30 @@ export function inventoryMovementRoutes(route: Route) {
       }
       await audit(c, auth, "inventory.transfer_sent", "inv_transfer", id, { number, to: body.toBranchId, lines: body.lines }, body.fromBranchId);
       return { id, number };
+    },
+  });
+
+  // B-072: una transferencia que no llegó (o se envió por error) se anula y todo vuelve al lote de origen.
+  route({
+    method: "POST", url: "/api/inventory/transfers/:id/cancel", summary: "Anular una transferencia en tránsito con motivo: todo vuelve al lote de origen (una recibida no se anula)", tags: ["inventario"],
+    perm: "inventory.manage", params: zIdParams, body: z.object({ reason: z.string().trim().min(3, "Escribe el motivo (al menos 3 caracteres)").max(300) }),
+    handler: async ({ c, auth, params, body }) => {
+      const t = (await c.query<{ status: string; from_branch_id: string; to_branch_id: string; number: number }>(
+        "SELECT status, from_branch_id, to_branch_id, number FROM inv_transfers WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
+      if (!t) throw notFound("Transferencia");
+      requireBranch(auth, t.from_branch_id);
+      if (t.status !== "in_transit") throw conflict(t.status === "received" ? "Esa transferencia ya fue recibida: no se puede anular" : "Esa transferencia ya estaba anulada", "not_in_transit");
+      const lines = (await c.query<{ item_id: string; from_lot_id: string; qty_sent: number }>(
+        "SELECT item_id, from_lot_id, qty_sent FROM inv_transfer_lines WHERE transfer_id = $1 ORDER BY id", [params.id])).rows;
+      for (const ln of lines) {
+        const cost = (await c.query<{ unit_cost: number }>(
+          "SELECT unit_cost FROM inv_movements WHERE transfer_id = $1 AND lot_id = $2 AND kind = 'transfer_out' ORDER BY created_at LIMIT 1", [params.id, ln.from_lot_id])).rows[0]?.unit_cost ?? 0;
+        await insertMovement(c, auth, { itemId: ln.item_id, branchId: t.from_branch_id, lotId: ln.from_lot_id, kind: "transfer_in", qtyMilli: toMilli(ln.qty_sent),
+          unitCost: Number(cost), transferId: params.id, note: `Transferencia N° ${t.number} anulada: ${body.reason}`.slice(0, 500) });
+      }
+      await c.query("UPDATE inv_transfers SET status = 'cancelled', cancelled_by = $2, cancelled_at = now(), cancel_reason = $3 WHERE id = $1", [params.id, auth.userId, body.reason]);
+      await audit(c, auth, "inventory.transfer_cancelled", "inv_transfer", params.id, { number: t.number, reason: body.reason, lines: lines.length }, t.from_branch_id);
+      return { ok: true };
     },
   });
 

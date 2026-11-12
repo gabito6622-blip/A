@@ -343,7 +343,7 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
           {o.payments.length > 0 && (
             <section className="stack-sm">
               <h3 style={{ margin: 0 }}>Pagos al laboratorio</h3>
-              {o.payments.map((p: any, i: number) => <span key={i} className="small">{fmtDay(p.paidOn)} · {bs(p.amountCents)}{p.reference ? ` · ref. ${p.reference}` : ""}</span>)}
+              {o.payments.map((p: any, i: number) => <span key={i} className="small">{p.voidReason ? <s>{fmtDay(p.paidOn)} · {bs(p.amountCents)}</s> : <>{fmtDay(p.paidOn)} · {bs(p.amountCents)}</>}{p.reference ? ` · ref. ${p.reference}` : ""}{p.voidReason ? ` · anulado: ${p.voidReason}` : ""}</span>)}
             </section>
           )}
         </div>
