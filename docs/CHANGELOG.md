@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
+- **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
+- **5 cuentas por vencer marcadas pagadas** (nu1 13/11, c16 16/11, dis02 19/11, nu2 19/11, d2025j.g 20/11), a su precio de siempre. liz y pam ya estaban pagadas.
+- **Vencidas sin tocar:** netscz108+10m (19/10) y gabito6626+d27 (03/11): falta que el dueño diga.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Yuvinka Avila Orias
 - **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
 - **netgb117+m2:** figuraba a oby; es de Yuvinka. Pasada a ella, vence 09/12/2026, pagada a Bs 70, clave nueva (no se escribe acá).
