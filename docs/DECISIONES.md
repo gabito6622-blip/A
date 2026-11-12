@@ -2,6 +2,31 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Sofi no se publica
+- **Qué:** el dueño ya no necesita una secretaria a la que darle órdenes. Como nunca se publicó, se sacó de la rama con un revert, sin borrar el historial: el commit 2154083 la tiene completa por si algún día se quiere de vuelta.
+- **Qué se conserva:** todo lo que vino después, incluido el menú en 6 áreas y los pendientes en Inicio.
+
+## 2026-11-12 · Reglas para rediseñar el panel (pedido del dueño)
+- **No se quita nada:** ni funciones, ni botones, ni rutas, ni permisos, ni datos. Se reubica y se mejora la forma de usarlo.
+- **Antes de cada cambio grande:** respaldo verificable y una rama de prueba aparte de la que publica Railway.
+- **Por etapas chicas,** cada una con pruebas funcionales, visuales y de permisos que comparan antes y después, y con una matriz que dice dónde quedó cada función de antes y qué prueba lo demuestra.
+- **Sin publicar** hasta que el dueño apruebe con resultados a la vista. Si un cambio puede romper algo, se frena y se explica el riesgo.
+- **Referencias de otras apps** (StreamGestor, Mercado Streaming, StreamingManager): solo como ideas de cómo se trabaja; nada copiado (regla 7).
+
+## 2026-11-12 · Sofi, la secretaria: Claude entiende, el sistema hace
+- **Qué hace Claude:** solo clasifica la orden dentro de una lista cerrada. Antes de mandarle el texto se tapan correos y números largos. No ve contraseñas, códigos ni costos.
+- **Qué hace el sistema:** busca los datos reales y responde con plantillas propias. El texto libre que escriba Claude no se muestra nunca.
+- **Lo que cambia algo** pasa por un plan de un solo uso que vence a los 10 minutos. Se ejecuta con las mismas funciones del panel y los permisos de quien confirma, y se audita como `assistant.command`.
+- **Formas de pago:** QR y efectivo se anotan igual que en Vender. Fiado queda «Pendiente» en el Control. Los códigos siguen siendo solo del dueño.
+- **Los planes viven en memoria:** si el servidor se reinicia, se repite la orden.
+
+## 2026-11-12 · WhatsApp por QR: solo el oficial («coexistencia»)
+- **Qué pidió el dueño:** un bot que se conecte por QR o por código.
+- **Qué no se hace:** los conectores no oficiales. La regla 7 de `CLAUDE.md` los prohíbe, y además WhatsApp puede bloquear el número.
+- **La opción oficial:** la «coexistencia» de Meta. Se usa el mismo número de WhatsApp Business y se conecta escaneando un QR desde la app. El bot y Wali responden por ese número, y la app del celular sigue funcionando.
+- **Por qué no va directo en el panel:** según la página de Meta «Onboard WhatsApp Business app users», ese QR solo lo puede ofrecer un Solution Partner o un Tech Provider de Meta. Serlo exige verificar la empresa y pasar la revisión de la app.
+- **Caminos posibles:** (a) que la tienda se haga Tech Provider; (b) usar un proveedor oficial que ya ofrezca coexistencia y conectar el panel; (c) un número aparte solo para el bot, con la guía que ya está en el panel. Decide el dueño (B21).
+
 ## 2026-11-11 · Mi oficina en 2D (pixel art propio)
 - **Por qué 2D y no 3D:** carga rápido y gasta poca batería en celulares sencillos. El 3D no agrega nada útil. Los dibujos son propios, hechos con cuadraditos en SVG, sin imágenes de terceros.
 - **Solo muestra:** no hace trabajo nuevo ni gasta Claude.

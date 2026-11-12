@@ -1126,3 +1126,14 @@ table.ctl tfoot td.ccli{z-index:3}
   .cg-table td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:600;padding-top:1px}
   .cg .inline .pbtn{flex:1 1 100%;justify-content:center}
 }
+
+/* ===== Menú en 6 áreas (12/11/2026): buscador de pantallas y perfil compacto para que el menú entre en el celular ===== */
+.menufind{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;font-size:14px;min-height:44px}
+.menufind:focus-visible{outline:2px solid var(--blue-text);outline-offset:1px}
+.menunone{margin:0;padding:6px 4px;font-size:13px}
+.profile{grid-template-columns:auto minmax(0,1fr);justify-items:start;align-items:center;column-gap:10px;row-gap:2px;padding-bottom:12px}
+.profile .avatar{width:40px;height:40px;font-size:20px;grid-row:span 2}
+.profile .avatar .i{width:22px;height:22px}
+.profile b{font-size:14px;color:var(--ink)}
+.profile .role{width:auto;padding:2px 10px;font-size:12px;border-radius:999px;letter-spacing:.03em}
+.menu details .sub{border-left:2px solid var(--line);margin-left:18px;padding-left:8px}

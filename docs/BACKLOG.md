@@ -12,6 +12,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B3 | Conectar gabostore.lat (DNS en Namecheap) | P1 | 🔧 con el dueño |
 | B4 | ✅ marcados como prueba en la tienda real (#33): 6 servicios, Bs 100 · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
+| B21 | WhatsApp oficial con su mismo número (coexistencia por QR): ¿hacerse Tech Provider de Meta, usar un proveedor oficial o un número aparte para el bot? Al conectar, pausar el bot cuando el dueño responde desde el celular | P1 | 🧑 |
 | B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), #34 |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |
@@ -106,5 +107,10 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
 | M7 | Precio de GaboHub: 7 de 8 pagarían Bs 60 o menos por mes (4 de ellos Bs 30 o menos) | P2 | 🧑 |
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
-| M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ sin publicar |
+| M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |
+| M11 | Sofi: medir qué tan bien entiende con Claude real y textos dictados | P2 | ❌ cancelado: Sofi no se usa (12/11) |
+| M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ❌ cancelado: Sofi no se usa (12/11) |
+| M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ❌ cancelado: Sofi no se usa (12/11) |
+| M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | — | ⏸️ en pausa: el dueño ya no va a usar el Ganadero (12/11) |
+| M15 | Panel ordenado en 6 áreas + Herramientas (Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas): buscador global, Ficha 360°, Vender/Renovar/Reemplazar guiados, inventario por niveles. Auditoría y matriz de las 30 pantallas presentadas el 12/11; sin tocar código | P1 | ✅ aprobada · etapas 1 y 2 hechas en la rama `panel-ordenado` (sin publicar) · siguen 3 a 7 |

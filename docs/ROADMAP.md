@@ -2,7 +2,11 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Ahora — 🏢 Mi oficina · 🔧 sin publicar
+## Descartado — 🗣️ Sofi, la secretaria (el dueño ya no la necesita, 12/11)
+- Órdenes con tus palabras y confirmación. 476 pruebas en verde.
+- Sigue: Recuperador, Almacenero y Técnico. (El Cajero con el Ganadero quedó en pausa por decisión del dueño.)
+
+## Hecho — 🏢 Mi oficina · ✅ publicado (#38)
 - Los asistentes dibujados en 2D, trabajando con datos reales. 463 pruebas en verde.
 
 ## Hecho — Lo que pidieron en el estudio de mercado · ✅ publicado (#37)

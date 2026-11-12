@@ -1,12 +1,30 @@
 # Informe de pruebas
 
-## Tanda 11/11/2026 · Mi oficina (sin publicar)
+## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (rama `panel-ordenado`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` (sin las 13 de Sofi, que se sacó) | **464 / 464 ✅** |
+| Ninguna pantalla perdida | `test/panel-ordenado.test.mjs`: por rol (dueño, admin, atención) compara el menú nuevo con la foto del anterior (30, 26 y 16 pantallas) y abre cada una sin error; buscador con permisos; barra de abajo; «Más»; pendientes de Inicio = Notificaciones; 360 px, 44 px, sin desborde | ✅ |
+| Foto antes / después | Mismo guion y mismos datos de ejemplo: 27 pantallas idénticas, 0 con menos botones, formularios o enlaces. Inicio tiene 1 botón más (el pendiente); Usuarios cambia porque la prueba creó 2 usuarios | ✅ |
+| Revisión visual | 390 px, claro y oscuro: menú completo en una pantalla, búsqueda e Inicio. 0 errores | ✅ |
+| No probado | Tu panel real (se ve al publicar); celular físico | ⚠️ |
+
+## Tanda 12/11/2026 · Sofi, la secretaria (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar | **463 → 476 / 476 ✅** (~29 s) |
+| Secretaria | `test/ordenes.test.mjs` (13), con Claude falso. Cubre: cada consulta con datos reales; lo enviado a Claude no lleva contraseña, código, correo completo ni costo; los planes no cambian nada hasta confirmar; usado, vencido o de otro → error; Cancelar; ambigüedad con botones; falta de forma de pago; permisos (atención 403, cliente no); apagada, sin clave o en el tope → mensaje claro; 429; navegador a 360 px | ✅ |
+| Revisión visual | 360 y 390 px, claro y oscuro: caja en Inicio, elegir cliente, plan con confirmación y Sofi en Mi oficina. 0 desbordes, 44 px, 12 px | ✅ |
+| No probado | Claude real con textos dictados de verdad; el micrófono del teclado; un celular físico | ⚠️ |
+
+## Tanda 11/11/2026 · Mi oficina (publicado en #38)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **456 → 463 / 463 ✅** (~31 s) |
 | Mi oficina | `test/oficina.test.mjs` (7), con Claude y Meta falsos. Cubre: los 6 en su puesto; permisos (dueño y admin sí, vendedor 403, cliente no, gasto solo el dueño); el comprobante revisado se anota con el primer nombre, sin apellido, contraseña, correo ni número de operación; WhatsApp respondido y pase a una persona; la alarma de Vico se apaga al ver el aviso; Coco se despierta con un código que nunca se muestra; no va en el estado ni en la exportación; tope de 80; navegador a 360 px en claro y oscuro | ✅ |
 | Revisión visual | Datos de ejemplo a 360, 390 y 1280 px: 0 desbordes, botones de 44 px, letra de 12 px o más, 0 errores. Video corto grabado para el dueño | ✅ |
-| No probado | Con los asistentes reales de la tienda publicada (se ve después de publicar). Revisión con axe (falta `axe-core` en este entorno) | ⚠️ |
+| **Después de publicar (#38), tienda real** | Servicios 85 → 85; cola 33 → 33; `/api/admin/office` responde con los 6 (5 en su puesto, Wali apagado); panel `#oficina` a 390 px: 6 escritorios, 0 desbordes, 0 errores | ✅ |
+| No probado | Revisión con axe (falta `axe-core` en este entorno) | ⚠️ |
 
 ## Tanda 11/11/2026 · Avisos solos + códigos solos (publicado en #37)
 | Qué | Cómo | Resultado |

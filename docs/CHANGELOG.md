@@ -3,7 +3,21 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-11 · Sin publicar · 🏢 Mi oficina
+## 2026-11-12 · Sin publicar (rama `panel-ordenado`) · Panel ordenado, etapas 1 y 2
+- **Menú en 6 áreas + Herramientas:** Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas y Herramientas, con «🔎 Buscar pantalla». Entra completo en la pantalla del celular; antes era una lista de 31 renglones.
+- **Barra de abajo:** Inicio, Clientes, Vender, Inventario y Más (Más abre todo el menú). Control de alquileres pasa a Ventas.
+- **Inicio:** «📋 Lo que tenés pendiente», con lo mismo que Notificaciones; los accesos rápidos suben. No se quitó nada.
+- **Ninguna pantalla se quitó:** cada una conserva su dirección (`#clave`) y sus permisos.
+
+## 2026-11-12 · ❌ No se publica (el dueño ya no la necesita; sacada de la rama) · 🗣️ Decile qué hacer (Sofi, tu secretaria)
+- **Dueño y admin:** en Inicio hay una caja para darle órdenes con tus palabras. Se puede escribir o dictar con el micrófono del teclado.
+  - Busca códigos, perfiles libres, cómo está un cliente, quién debe, quién vence y los datos de una cuenta (la contraseña va detrás de «Ver contraseña»).
+  - Vende, renueva y pasa perfiles, siempre después de tu «✅ Hacerlo». Después deja listo el WhatsApp con los datos para el cliente.
+  - Si hay dos clientes parecidos, pregunta cuál con botones.
+- **Apagada por defecto.** Se prende en Configuración → Oficina virtual o desde su escritorio en Mi oficina.
+- **Mi oficina:** Sofi 🗂️ es la 7.ª integrante.
+
+## 2026-11-11 · #38 🏢 Mi oficina
 - **Dueño y admin:** nueva pantalla «🏢 Mi oficina» en el menú. Muestra a los asistentes dibujados en 2D, cada uno en su escritorio:
   - con IA: Rocío (comprobantes), Wali (WhatsApp), Dani (asistente del dueño) y Vico (vigilante);
   - gratis, sin IA: Coco (códigos) y Tito (avisos de vencimiento).

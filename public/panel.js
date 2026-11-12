@@ -17,19 +17,33 @@ const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 const CTAGS = { vip: ["⭐ VIP", "vip"], moroso: ["⚠️ Moroso", "moroso"], nuevo: ["🆕 Nuevo", "nuevo"], mayorista: ["📦 Mayorista", "may"], regalo: ["🎁 Regalo", "reg"] };
 const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}">${CTAGS[t][0]}</span>` : "";
 
-const MENU = [
-  ["inicio", "home", "Inicio"], ["oficina", "monitor", "🏢 Mi oficina", "review"], ["vender", "cart", "Vender"], ["control", "grid", "Control de alquileres"], ["renovar", "renew", "Renovar"], ["dashboard", "monitor", "Dashboard", "review"],
-  ["finanzas", "coins", "Finanzas", "owner"],
-  ["fiado", "flag", "Fiado (lo que te deben)"],
-  ["quevuelvan", "coins", "💸 Que vuelvan"],
-  ["notificaciones", "bell", "Notificaciones"],
-  ["fallas", "help", "Fallas reportadas"],
-  ["reubicar", "renew", "Reubicar", "review"],
-  ["aprobacion", "approve", "Aprobación de Ventas"], ["recordatorios", "bell", "Recordatorios"], ["codigos", "mailbox", "Panel de códigos", "owner"],
-  ["G", "box", "Productos", [["cuentas", "Cuentas"], ["carga", "Carga de Cuentas"], ["productos", "Productos y precios"], ["cupones", "Cupones de descuento"]], "review"],
-  ["revendedores", "userplus", "Revendedores"], ["comovan", "users", "📈 Cómo van", "review"], ["proveedores", "truck", "Proveedores", "review"], ["clientes", "users", "Clientes"], ["excel", "ext", "Excel: exportar e importar"], ["whatsapp", "wa", "WhatsApp"],
-  ["apariencia", "sun", "Apariencia de la tienda", "review"], ["usuarios", "userplus", "Usuarios", "owner"], ["auditoria", "history", "Auditoría", "owner"], ["configuracion", "gear", "Configuración"], ["ayuda", "help", "Guía"],
+/* Menú en 6 áreas + Herramientas (propuesta aprobada por el dueño el 12/11/2026). Ninguna pantalla se quita:
+   cada una conserva su dirección (#clave) y su permiso ("review" = dueño y admin, "owner" = solo dueño). Un área con
+   una sola pantalla visible para ese rol se muestra como botón directo; un área vacía no se muestra. */
+const AREAS = [
+  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
+  ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
+  ["a-clientes", "users", "Clientes", [["clientes", "Clientes"]]],
+  ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
+  ["a-revendedores", "userplus", "Revendedores", [["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
+  ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
+  ["a-herramientas", "gear", "Herramientas", [["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
 ];
+/** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
+const MENU_WORDS = {
+  inicio: "principal resumen pendientes", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
+  vender: "venta nueva prueba gratis combo", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
+  aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
+  clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
+  codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
+  revendedores: "revendedor pin tienda saldo", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
+  dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia sofi",
+  apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
+  auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
+};
+const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
+const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const TITLE = { inicio: ["home", "Inicio"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
@@ -509,6 +523,13 @@ const V = {
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
+    // 📋 Lo pendiente, todo junto (lo mismo que Notificaciones): cada renglón lleva a resolverlo.
+    const notif = await api("GET", "/api/admin/notifications").catch(() => null);
+    const sevcls = { bad: "bad", warn: "warn", info: "ok" };
+    const pendCard = notif ? `<section class="card hm-pend"><h2>📋 Lo que tenés pendiente <small>· tocá para ir a resolverlo</small></h2>
+      ${notif.items.length ? `<div class="notis">${notif.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
+        <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
+      : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>` : "";
     return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
@@ -518,7 +539,7 @@ const V = {
         ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
         ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
         ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
-      ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
+      ${pendCard}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -529,6 +550,8 @@ const V = {
         ${tile("aprobacion", "✅", "Aprobar pagos", "Comprobantes por QR")}
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
         ${canReview() ? tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña") : tile("renovar", "🔄", "Renovar", "Renovar servicios")}</section>
+      ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
+
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
           <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
@@ -1870,6 +1893,7 @@ function showPending(n) {
 async function refreshNotifCount() {
   try {
     const d = await api("GET", "/api/admin/notifications");
+    P.notifTotal = d.total;
     const el = $("#notifcount"); if (el) { el.textContent = d.total > 99 ? "99+" : String(d.total); el.hidden = !d.total; }
     const m = $('#menu [data-go="notificaciones"]'); if (m) { m.querySelector(".count")?.remove(); if (d.total) m.insertAdjacentHTML("beforeend", `<span class="count">${d.total > 99 ? "99+" : d.total}</span>`); }
   } catch { /* sin permiso o sin sesión */ }
@@ -2024,23 +2048,39 @@ async function waBotHtml() {
 }
 
 /* ---------------- render ---------------- */
+/** El menú: 6 áreas + Herramientas, o la lista de pantallas que coinciden con "Buscar pantalla". */
+function menuHtml(pend) {
+  const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
+  const cnt = (k) => (k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : k === "notificaciones" && P.notifTotal ? `<span class="count">${P.notifTotal > 99 ? "99+" : P.notifTotal}</span>` : "");
+  const btn = ([k, t]) => `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`;
+  const areas = AREAS.map(([id, ic, t, items]) => [id, ic, t, items.filter((x) => roleOk(x[2]))]).filter((x) => x[3].length);
+  const q = norm(P.menuQ).trim();
+  if (q) {
+    const hits = areas.flatMap((x) => x[3]).filter(([k, t]) => norm(`${t} ${TITLE[k]?.[1] ?? ""} ${MENU_WORDS[k] ?? ""}`).includes(q));
+    return hits.length ? hits.map(btn).join("") : `<p class="muted menunone">No encontré esa pantalla. Probá con otra palabra.</p>`;
+  }
+  const open = menuOpenGet();
+  return areas.map(([id, ic, t, items]) => {
+    if (items.length === 1) { const [k] = items[0]; return `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(ic)}${t}${cnt(k)}</button>`; }
+    const here = items.some((x) => x[0] === P.view);
+    const sum = items.some((x) => x[0] === "aprobacion") ? pend : 0;
+    return `<details data-area="${id}" ${here || open.includes(id) ? "open" : ""}><summary>${icon(ic)}${t}${sum ? `<span class="count">${sum}</span>` : ""}${icon("chev", "i chev")}</summary><div class="sub">${items.map(btn).join("")}</div></details>`;
+  }).join("");
+}
 async function render() {
   const pend = await api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0);
   watch.last = pend;
   showPending(pend);
   refreshNotifCount();
-  const inG = ["cuentas", "carga", "productos", "cupones"].includes(P.view);
-  // Atención (seller) no ve en el menú las pantallas que no puede usar (antes le daban error).
-  const roleOk = (r) => !r || Array.isArray(r) || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
-  $("#menu").innerHTML = MENU.filter((m) => roleOk(m[3]) && roleOk(m[4])).map(([k, i, t, sub]) => Array.isArray(sub)
-    ? `<details ${inG ? "open" : ""}><summary>${icon(i)}${t}${icon("chev", "i chev")}</summary><div class="sub">${sub.map(([k2, t2]) => `<button type="button" data-go="${k2}" ${k2 === P.view ? 'aria-current="page"' : ""}>${t2}</button>`).join("")}</div></details>`
-    : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(i)}${t}${k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : ""}</button>`).join("");
+  $("#menu").innerHTML = menuHtml(pend);
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
-  const bnavFor = ["cuentas", "carga", "productos", "cupones"].includes(P.view) ? "cuentas" : P.view;
+  // Barra de abajo: Inicio, Clientes, Vender, Inventario y Más (lo demás se marca en "Más").
+  const INV = ["cuentas", "carga", "reubicar", "codigos", "productos", "cupones", "proveedores"];
+  const bnavFor = ["inicio", "vender", "clientes"].includes(P.view) ? P.view : INV.includes(P.view) ? "cuentas" : P.view === "fallas" && P.me && !canReview() ? "fallas" : "more";
   const bCuentas = $('#pbnav button[data-go="cuentas"]');
   if (bCuentas && P.me && !canReview()) { bCuentas.dataset.go = "fallas"; bCuentas.querySelector("span").textContent = "Fallas"; bCuentas.querySelector("use")?.setAttribute("href", "/icons.svg#i-help"); }
-  $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", b.dataset.go === bnavFor ? "page" : "false"));
+  $$("#pbnav button").forEach((b) => b.setAttribute("aria-current", (b.dataset.go ?? (b.dataset.more ? "more" : "")) === bnavFor ? "page" : "false"));
   $("#app").classList.remove("open");
   try {
     $("#pout").innerHTML = await V[P.view]();
@@ -2059,6 +2099,7 @@ async function render() {
 }
 function go(v) {
   P.view = TITLE[v] ? v : "inicio";
+  P.menuQ = ""; const mf = $("#menuFind"); if (mf) mf.value = "";
   history.replaceState(null, "", "#" + P.view);
   scrollTo(0, 0);
   render();
@@ -2273,6 +2314,7 @@ document.addEventListener("click", async (ev) => {
   if (!el) return;
   const d = el.dataset;
   if (d.go) return go(d.go);
+  if (d.more) { $("#app").classList.add("open"); return; }
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
@@ -3255,6 +3297,14 @@ document.addEventListener("submit", async (ev) => {
 });
 
 $("#burger").onclick = () => $("#app").classList.add("open");
+// "Buscar pantalla": filtra el menú mientras escribís; Enter abre la primera.
+$("#menuFind")?.addEventListener("input", (ev) => { P.menuQ = ev.target.value; $("#menu").innerHTML = menuHtml(watch.last ?? 0); });
+$("#menuFind")?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); $("#menu button[data-go]")?.click(); } });
+// Las áreas que abrís o cerrás quedan así la próxima vez.
+$("#menu").addEventListener("toggle", (ev) => {
+  const id = ev.target?.dataset?.area; if (!id) return;
+  const l = menuOpenGet().filter((x) => x !== id); if (ev.target.open) l.push(id); menuOpenSet(l);
+}, true);
 $("#sscrim").onclick = () => $("#app").classList.remove("open");
 const tick = () => ($("#clock").textContent = new Date().toLocaleString("es-BO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }));
 tick(); setInterval(tick, 30_000);
