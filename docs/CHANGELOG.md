@@ -7,7 +7,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **ARIt · Aracely Sarabia Rojas** (mismo número): nota «✅ muy buena revendedora, siempre paga; a veces paga 3 o 4 por adelantado. Avisarle 3 días antes y 1 día antes».
 - La secretaria (avisos de mediodía y tarde) aplica esa regla y le agrupa las cuentas en un solo mensaje.
 - Sus 16 cuentas: falta que el dueño diga pagos y precio (3 vencieron el 11/11).
-- **Caídas del mes pasado:** gabito6626+r19 (16/10) → reemplazada por n2025nt+tv89 (ya era de ella); netscz107+e26 (07/10, vencía 05/11) → reemplazada por netscz107+1, que estaba en cuarentena: sacada y anotada a Aracely; el dueño dijo que ahora vence el 05/12 (precio y pago, falta confirmar). r19 y e26 figuran «libres»: falta que el dueño diga si están muertas o sirven. Una (opajg12+dd10) tiene una contraseña escrita en la nota del Control: se ofreció pasarla al campo protegido.
+- **Caídas del mes pasado:** gabito6626+r19 (16/10) → reemplazada por n2025nt+tv89 (ya era de ella); netscz107+e26 (07/10, vencía 05/11) → reemplazada por netscz107+1, que estaba en cuarentena: sacada y anotada a Aracely; vence el 05/12, pagada Bs 66 (confirmado por el dueño). r19 y e26 figuran «libres»: falta que el dueño diga si están muertas o sirven. Una (opajg12+dd10) tiene una contraseña escrita en la nota del Control: se ofreció pasarla al campo protegido.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
