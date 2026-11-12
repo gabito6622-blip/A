@@ -30,7 +30,7 @@ export const LAB_STATUS: Record<string, { label: string; tone: string }> = {
 };
 export const ACTION_LABELS: Record<string, string> = {
   sent: "Marcar enviado", in_process: "En proceso", received: "Registrar llegada", adjustment: "Devolver para ajuste",
-  delivered: "Entregado al paciente", cancelled: "Cancelar orden",
+  delivered: "Entregado al paciente", cancelled: "Cancelar orden", extra: "Costo adicional del laboratorio",
 };
 export const fmtDay = (d: string | null | undefined) => (d ? fmtDate(`${d}T12:00:00`) : "—");
 export const TAP = { minHeight: 40 } as const;
@@ -228,7 +228,7 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
   const toast = useToast();
   const d = useApi<any>(`/api/lab/orders/${id}`);
   const [action, setAction] = useState<string | null>(null);
-  const [form, setForm] = useState({ date: localDate(), cost: "", reason: "", promisedOn: "" });
+  const [form, setForm] = useState({ date: localDate(), cost: "", reason: "", promisedOn: "", extra: "", extraReason: "" });
   const [err, setErr] = useState<string | null>(null);
   const [fieldErr, setFieldErr] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
@@ -236,24 +236,39 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
   const o = d.data;
   const start = (a: string) => {
     setAction(a); setErr(null); setFieldErr({});
-    setForm({ date: localDate(), cost: o?.costCents != null ? toBsInput(o.costCents) : "", reason: "", promisedOn: a === "sent" ? o?.promisedOn ?? "" : "" });
+    setForm({ date: localDate(), cost: o?.costCents != null ? toBsInput(o.costCents) : "", reason: "", promisedOn: a === "sent" ? o?.promisedOn ?? "" : "", extra: "", extraReason: "" });
   };
   const confirm = async () => {
     const e: Record<string, string> = {};
     if ((action === "adjustment" || action === "cancelled") && form.reason.trim().length < 3) e.reason = "Escribe el motivo (al menos 3 caracteres)";
     if (action === "received" && !o.receivedOn && !/^\d{1,7}([.,]\d{1,2})?$/.test(form.cost.trim())) e.cost = "Registra el costo en Bs (queda fijo desde ahora)";
+    const reenvio = action === "received" && o.status === "adjustment";
+    if (reenvio && form.extra.trim() && !/^\d{1,7}([.,]\d{1,2})?$/.test(form.extra.trim())) e.extra = "Monto en Bs, o déjalo vacío si no cobra";
+    if (action === "extra") {
+      if (!/^-?\d{1,7}([.,]\d{1,2})?$/.test(form.extra.trim()) || parseBs(form.extra.replace("-", "")) === 0) e.extra = "Monto en Bs (negativo para corregir uno anterior)";
+      if (form.extraReason.trim().length < 3) e.extraReason = "Escribe el motivo (al menos 3 caracteres)";
+    }
     setFieldErr(e);
     if (Object.keys(e).length) return;
     setBusy(true); setErr(null);
     try {
+      if (action === "extra") {
+        const neg = form.extra.trim().startsWith("-");
+        await api.post(`/api/lab/orders/${id}/extra-costs`, { amountCents: (neg ? -1 : 1) * parseBs(form.extra.replace("-", "")), date: form.date || null, reason: form.extraReason.trim() });
+        toast(`Orden N° ${o.number}: costo adicional registrado`);
+        setAction(null); d.reload(); onChanged();
+        return;
+      }
+      const extraCents = action === "received" && o.status === "adjustment" && form.extra.trim() ? parseBs(form.extra) : 0;
       await api.post(`/api/lab/orders/${id}/transition`, {
         to: action, date: form.date || null, reason: form.reason.trim() || null,
         costCents: action === "received" && !o.receivedOn ? parseBs(form.cost) : null, promisedOn: form.promisedOn || null,
+        extraCostCents: extraCents || null, extraCostReason: extraCents ? form.extraReason.trim() || null : null,
       });
       toast(`Orden N° ${o.number}: ${LAB_STATUS[action!]!.label.toLowerCase()}`);
       setAction(null); d.reload(); onChanged();
     } catch (x: any) {
-      if (x.details?.field) setFieldErr({ [x.details.field === "costCents" ? "cost" : x.details.field]: x.message }); else setErr(x.message);
+      if (x.details?.field) setFieldErr({ [x.details.field === "costCents" ? "cost" : x.details.field === "extraCostCents" ? "extra" : x.details.field]: x.message }); else setErr(x.message);
     } finally { setBusy(false); }
   };
   const FE = ({ k }: { k: string }) => (fieldErr[k] ? <span className="hint lab-err" role="alert">{fieldErr[k]}</span> : null);
@@ -281,7 +296,7 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
             <Kv k="Prometido" v={fmtDay(o.promisedOn)} />
             <Kv k="Recibido" v={fmtDay(o.receivedOn)} />
             <Kv k="Entregado" v={fmtDay(o.deliveredOn)} />
-            <Kv k="Costo" v={o.costCents != null ? `${bs(o.costCents)}${o.receivedOn ? " (fijo)" : ""}` : "Sin registrar"} />
+            <Kv k="Costo" v={o.costCents != null ? `${bs(o.costCents)}${o.receivedOn ? " (fijo)" : ""}${o.extraCostCents ? ` + ${bs(o.extraCostCents)} por reenvío = ${bs(o.totalCostCents)}` : ""}` : "Sin registrar"} />
             {o.outstandingCents != null && <Kv k="Pendiente de pago" v={bs(o.outstandingCents)} />}
           </div>
           {o.workDetail && o.workType !== "other" && <p className="small" style={{ margin: 0 }}>Detalle: {o.workDetail}</p>}
@@ -293,6 +308,7 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
               <h3 style={{ margin: 0 }}>{ACTION_LABELS[action]}</h3>
               {action === "received" && !o.receivedOn && <p className="muted small" style={{ margin: 0 }}>Al registrar la llegada, el costo queda fijo y pasa a «Por pagar al laboratorio».</p>}
               {action === "adjustment" && <p className="muted small" style={{ margin: 0 }}>El trabajo vuelve al laboratorio; queda el motivo en el historial.</p>}
+              {action === "extra" && <p className="muted small" style={{ margin: 0 }}>Lo que el laboratorio cobra de más por un reenvío o repetición. Para corregir uno anterior, escribe el monto en negativo. Queda en el historial; no se borra.</p>}
               <div className="form-grid">
                 {["sent", "received", "delivered"].includes(action) && (
                   <Field label={action === "sent" ? "Fecha de envío" : action === "received" ? "Fecha de llegada" : "Fecha de entrega al paciente"}>
@@ -304,6 +320,19 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
                     <input className="input" inputMode="decimal" value={form.cost} aria-invalid={!!fieldErr.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} /><FE k="cost" />
                   </Field>
                 )}
+                {((action === "received" && o.status === "adjustment") || action === "extra") && (<>
+                  <Field label={action === "extra" ? "Monto (Bs)" : "Costo adicional del reenvío (Bs, opcional)"} hint={action === "extra" ? undefined : "Déjalo vacío si el laboratorio no cobra el reenvío"}>
+                    <input className="input" inputMode="decimal" value={form.extra} aria-invalid={!!fieldErr.extra} placeholder="0,00" onChange={(e) => setForm({ ...form, extra: e.target.value })} /><FE k="extra" />
+                  </Field>
+                  <Field label={action === "extra" ? "Motivo" : "Motivo del costo adicional (opcional)"}>
+                    <input className="input" value={form.extraReason} aria-invalid={!!fieldErr.extraReason} maxLength={300} onChange={(e) => setForm({ ...form, extraReason: e.target.value })} placeholder="Ej.: repetición por cambio de color" /><FE k="extraReason" />
+                  </Field>
+                  {action === "extra" && (
+                    <Field label="Fecha">
+                      <input className="input" type="date" value={form.date} max={localDate()} onChange={(e) => setForm({ ...form, date: e.target.value })} /><FE k="date" />
+                    </Field>
+                  )}
+                </>)}
                 {(action === "sent" || action === "adjustment") && (
                   <Field label={action === "sent" ? "Fecha prometida" : "Nueva fecha prometida (opcional)"}>
                     <input className="input" type="date" value={form.promisedOn} min={localDate()} onChange={(e) => setForm({ ...form, promisedOn: e.target.value })} /><FE k="promisedOn" />
@@ -328,6 +357,7 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
                 </button>
               ))}
               {o.canEdit && <button className="btn" style={TAP} onClick={() => setEditing(true)}><Pencil size={15} />Editar</button>}
+              {o.canWrite && o.receivedOn && o.status !== "cancelled" && <button className="btn" style={TAP} onClick={() => start("extra")}>Costo adicional</button>}
               <Link className="btn" style={TAP} to={`/laboratorio/orden/${o.id}`}><Printer size={15} />Orden para el laboratorio</Link>
             </div>
           )}
@@ -340,6 +370,14 @@ export function OrderDetailDialog({ id, onClose, onChanged }: { id: string; onCl
               ))}
             </ol>
           </section>
+          {o.extraCosts?.length > 0 && (
+            <section className="stack-sm">
+              <h3 style={{ margin: 0 }}>Costos adicionales</h3>
+              <ul className="lab-timeline">
+                {o.extraCosts.map((x: any) => <li key={x.id}><b>{bs(x.amountCents)}</b> · {fmtDay(x.chargedOn)} · {x.reason}<div className="muted small">{x.byName} · {fmtDateTime(x.createdAt)}</div></li>)}
+              </ul>
+            </section>
+          )}
           {o.payments.length > 0 && (
             <section className="stack-sm">
               <h3 style={{ margin: 0 }}>Pagos al laboratorio</h3>

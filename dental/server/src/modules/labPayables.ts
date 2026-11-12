@@ -38,7 +38,7 @@ export function allocateFifo(amount: number, outstanding: { id: string; outstand
 }
 
 const PAYABLE_SQL = `SELECT o.id, o.number, o.lab_id AS "labId", l.name AS "labName", o.work_type AS "workType", o.work_detail AS "workDetail", o.teeth,
-    o.received_on AS "receivedOn", o.cost_cents AS "costCents", o.status, p.first_name AS "pf", p.last_name AS "pl", p.record_number AS "recordNumber",
+    o.received_on AS "receivedOn", o.cost_cents + COALESCE((SELECT sum(e.amount_cents) FROM lab_order_extra_costs e WHERE e.order_id = o.id), 0) AS "costCents", o.status, p.first_name AS "pf", p.last_name AS "pl", p.record_number AS "recordNumber",
     b.name AS "branchName", COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = x.payment_id)), 0) AS "paidCents"
   FROM lab_orders o JOIN labs l ON l.id = o.lab_id JOIN patients p ON p.id = o.patient_id JOIN branches b ON b.id = o.branch_id
   WHERE o.status IN ('received','adjustment','delivered') AND ($1::uuid IS NULL OR o.lab_id = $1)`;
@@ -60,21 +60,31 @@ export async function statement(c: Client, labId: string, from: string, to: stri
   const lab = (await c.query<{ id: string; name: string }>("SELECT id, name FROM labs WHERE id = $1", [labId])).rows[0];
   if (!lab) throw notFound("Laboratorio");
   const before = (await c.query<{ debit: number; credit: number }>(
-    `SELECT COALESCE((SELECT sum(cost_cents) FROM lab_orders WHERE lab_id = $1 AND received_on < $2::date AND status IN ('received','adjustment','delivered')), 0) AS debit,
+    `SELECT COALESCE((SELECT sum(cost_cents) FROM lab_orders WHERE lab_id = $1 AND received_on < $2::date AND status IN ('received','adjustment','delivered')), 0)
+            + COALESCE((SELECT sum(e.amount_cents) FROM lab_order_extra_costs e JOIN lab_orders o ON o.id = e.order_id WHERE o.lab_id = $1 AND e.charged_on < $2::date), 0) AS debit,
             COALESCE((SELECT sum(amount_cents) FROM lab_payments lp WHERE lab_id = $1 AND paid_on < $2::date AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = lp.id)), 0) AS credit`, [labId, from])).rows[0]!;
   const orders = (await c.query(
     `SELECT o.id, o.number, o.received_on AS date, o.cost_cents, o.work_type, o.work_detail, o.teeth, p.first_name AS pf, p.last_name AS pl, p.record_number
        FROM lab_orders o JOIN patients p ON p.id = o.patient_id
       WHERE o.lab_id = $1 AND o.received_on BETWEEN $2::date AND $3::date AND o.status IN ('received','adjustment','delivered')`, [labId, from, to])).rows;
+  // B-111: lo que el laboratorio cobró de más por un reenvío, en su propia fecha.
+  const extras = (await c.query(
+    `SELECT e.id, e.charged_on AS date, e.amount_cents, e.reason, e.created_at, o.number FROM lab_order_extra_costs e JOIN lab_orders o ON o.id = e.order_id
+      WHERE o.lab_id = $1 AND e.charged_on BETWEEN $2::date AND $3::date`, [labId, from, to])).rows;
   const pays = (await c.query(
     `SELECT id, paid_on AS date, amount_cents, method, reference, note, created_at FROM lab_payments lp WHERE lab_id = $1 AND paid_on BETWEEN $2::date AND $3::date AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = lp.id)`,
     [labId, from, to])).rows;
-  type Mv = { date: string; kind: "order" | "payment"; id: string; description: string; debitCents: number; creditCents: number; balanceCents?: number; seq: string };
+  type Mv = { date: string; kind: "order" | "extra" | "payment"; id: string; description: string; debitCents: number; creditCents: number; balanceCents?: number; seq: string };
   const moves: Mv[] = [
     ...orders.map((o) => ({
       date: o.date, kind: "order" as const, id: o.id, seq: `0-${String(o.number).padStart(10, "0")}`,
       description: `Orden N° ${o.number} · ${orderLabel(o.work_type, o.teeth.map(Number), o.work_detail)} · ${initials(o.pf, o.pl)} (ficha ${o.record_number})`,
       debitCents: Number(o.cost_cents), creditCents: 0,
+    })),
+    ...extras.map((e) => ({
+      date: e.date, kind: "extra" as const, id: e.id, seq: `0-${String(e.number).padStart(10, "0")}-${new Date(e.created_at).toISOString()}`,
+      description: `Orden N° ${e.number} · ${Number(e.amount_cents) < 0 ? "corrección del costo adicional" : "costo adicional por reenvío"}: ${e.reason}`,
+      debitCents: Number(e.amount_cents), creditCents: 0,
     })),
     ...pays.map((p) => ({
       date: p.date, kind: "payment" as const, id: p.id, seq: `1-${new Date(p.created_at).toISOString()}`,

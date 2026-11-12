@@ -214,8 +214,8 @@ export async function actualLabRemaining(c: Client, itemIds: string[]): Promise<
   if (!itemIds.length) return out;
   const ids = [...new Set(itemIds)];
   const cost = (await c.query<{ id: string; v: number }>(
-    `SELECT budget_item_id AS id, sum(cost_cents) AS v FROM lab_orders
-      WHERE budget_item_id = ANY($1) AND status NOT IN ('draft','cancelled') AND cost_cents IS NOT NULL GROUP BY budget_item_id`, [ids])).rows;
+    `SELECT o.budget_item_id AS id, sum(o.cost_cents + COALESCE((SELECT sum(e.amount_cents) FROM lab_order_extra_costs e WHERE e.order_id = o.id), 0)) AS v FROM lab_orders o
+      WHERE o.budget_item_id = ANY($1) AND o.status NOT IN ('draft','cancelled') AND o.cost_cents IS NOT NULL GROUP BY o.budget_item_id`, [ids])).rows;
   const used = (await c.query<{ id: string; v: number }>(
     `SELECT ch.budget_item_id AS id, sum(l.lab_actual_cents) AS v FROM fee_settlement_lines l JOIN charges ch ON ch.id = l.charge_id
       WHERE ch.budget_item_id = ANY($1) AND l.kind = 'production' AND l.lab_actual_cents IS NOT NULL

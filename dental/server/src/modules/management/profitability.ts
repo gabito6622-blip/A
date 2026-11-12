@@ -83,8 +83,12 @@ async function computeMonth(c: Client, auth: AuthCtx, range: MonthRange, branchI
   // Laboratorio
   const hasLabs = !!(await c.query("SELECT 1 FROM labs LIMIT 1")).rowCount;
   const lab = byBranch((await c.query(
-    `SELECT branch_id, sum(cost_cents) AS v FROM lab_orders
-      WHERE status <> 'cancelled' AND received_on >= $1::date AND received_on < $2::date AND cost_cents IS NOT NULL AND branch_id = ANY($3)
+    `SELECT branch_id, sum(v) AS v FROM (
+       SELECT branch_id, cost_cents AS v FROM lab_orders
+        WHERE status <> 'cancelled' AND received_on >= $1::date AND received_on < $2::date AND cost_cents IS NOT NULL AND branch_id = ANY($3)
+       UNION ALL -- B-111: costo adicional de reenvíos, en el mes en que se cobró
+       SELECT o.branch_id, e.amount_cents FROM lab_order_extra_costs e JOIN lab_orders o ON o.id = e.order_id
+        WHERE e.charged_on >= $1::date AND e.charged_on < $2::date AND o.branch_id = ANY($3)) x
       GROUP BY branch_id`, [range.fromDate, range.toDateExclusive, branchIds])).rows);
   // Materiales
   const invBranches = new Set((await c.query<{ branch_id: string }>("SELECT DISTINCT branch_id FROM inv_stock WHERE branch_id = ANY($1)", [branchIds])).rows.map((r) => r.branch_id));

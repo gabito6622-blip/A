@@ -27,7 +27,7 @@ const NO_RLS_BY_DESIGN = ["sessions"];
 
 /** Registros que no deben cambiar nunca (historias, cierres, intentos, eventos, asientos). */
 const INSERT_ONLY = [
-  "lab_payment_voids", "certificate_template_versions", "appointment_events", "appointment_series", "audit_log", "bank_statements", "budget_events", "cash_movements", "cash_session_reviews",
+  "lab_payment_voids", "lab_order_extra_costs", "certificate_template_versions", "appointment_events", "appointment_series", "audit_log", "bank_statements", "budget_events", "cash_movements", "cash_session_reviews",
   "charges", "checkin_attempts", "cleaning_logs", "clinical_document_voids", "clinical_documents", "clinical_file_events", "clinical_files",
   "clinical_notes", "expense_voids", "fee_settlement_lines", "inbound_messages", "inv_movements", "inv_po_receipt_lines", "inv_po_receipts",
   "inv_treatment_consumptions", "invoice_request_lines", "lab_order_events", "lab_payment_allocations", "lab_payments",

@@ -77,13 +77,16 @@ const NO_PLACEMENT = `NOT EXISTS (SELECT 1 FROM appointments a WHERE a.patient_i
 const PAID = `COALESCE((SELECT sum(x.amount_cents) FROM lab_payment_allocations x WHERE x.order_id = o.id
   AND NOT EXISTS (SELECT 1 FROM lab_payment_voids v WHERE v.payment_id = x.payment_id)), 0)`;
 
+// B-111: lo que el laboratorio cobró de más por reenvíos (movimientos aparte, solo inserción).
+const EXTRA = `COALESCE((SELECT sum(e.amount_cents) FROM lab_order_extra_costs e WHERE e.order_id = o.id), 0)`;
+
 const ORDER_COLS = `o.id, o.number, o.status, o.work_type AS "workType", o.work_detail AS "workDetail", o.teeth, o.material, o.shade, o.shade_note AS "shadeNote",
   o.impression, o.instructions, o.attachment_url AS "attachmentUrl", o.sent_on AS "sentOn", o.promised_on AS "promisedOn", o.received_on AS "receivedOn",
   o.delivered_on AS "deliveredOn", o.cost_cents AS "costCents", o.created_at AS "createdAt", o.updated_at AS "updatedAt",
   o.lab_id AS "labId", l.name AS "labName", o.patient_id AS "patientId", p.first_name AS "patientFirstName", p.last_name AS "patientLastName",
   p.record_number AS "recordNumber", o.dentist_id AS "dentistId", u.full_name AS "dentistName", o.branch_id AS "branchId", b.name AS "branchName",
   o.budget_item_id AS "budgetItemId", bi.description AS "budgetItemDescription", bu.number AS "budgetNumber",
-  ${PAID} AS "paidCents",
+  ${PAID} AS "paidCents", ${EXTRA} AS "extraCostCents",
   (o.status = ANY('{sent,in_process,adjustment}') AND o.promised_on < $1::date) AS overdue,
   (o.status = 'received' AND ${NO_PLACEMENT}) AS "readyNoAppointment"`;
 const ORDER_FROM = `FROM lab_orders o JOIN labs l ON l.id = o.lab_id JOIN patients p ON p.id = o.patient_id JOIN users u ON u.id = o.dentist_id
@@ -94,7 +97,9 @@ function present(r: Record<string, any>): Record<string, any> {
   return {
     ...r, teeth, label: orderLabel(r.workType, teeth, r.workDetail), workLabel: WORK_LABELS[r.workType], statusLabel: LAB_STATUS_LABELS[r.status as LabStatus],
     patientName: `${r.patientFirstName} ${r.patientLastName}`, patientInitials: initials(r.patientFirstName, r.patientLastName),
-    outstandingCents: r.costCents != null && ["received", "adjustment", "delivered"].includes(r.status) ? Number(r.costCents) - Number(r.paidCents) : null,
+    extraCostCents: Number(r.extraCostCents ?? 0),
+    totalCostCents: r.costCents != null ? Number(r.costCents) + Number(r.extraCostCents ?? 0) : null,
+    outstandingCents: r.costCents != null && ["received", "adjustment", "delivered"].includes(r.status) ? Number(r.costCents) + Number(r.extraCostCents ?? 0) - Number(r.paidCents) : null,
     patientFirstName: undefined, patientLastName: undefined,
   };
 }
@@ -267,8 +272,11 @@ export function labRoutes(route: Route) {
                   (SELECT v.reason FROM lab_payment_voids v WHERE v.payment_id = p.id) AS "voidReason" FROM lab_payment_allocations a JOIN lab_payments p ON p.id = a.payment_id
             WHERE a.order_id = $1 ORDER BY p.paid_on, p.created_at`, [params.id])).rows
         : [];
+      const extraCosts = (await c.query(
+        `SELECT e.id, e.amount_cents AS "amountCents", e.charged_on AS "chargedOn", e.reason, e.created_at AS "createdAt", u.full_name AS "byName"
+           FROM lab_order_extra_costs e JOIN users u ON u.id = e.created_by WHERE e.order_id = $1 ORDER BY e.created_at`, [params.id])).rows;
       const can = LAB_WRITE.some((p) => auth.permissions.has(p));
-      return { ...present(r), events, payments, transitions: can ? LAB_TRANSITIONS[r.status as LabStatus] : [], canEdit: can && !["delivered", "cancelled"].includes(r.status) };
+      return { ...present(r), events, payments, extraCosts, canWrite: can, transitions: can ? LAB_TRANSITIONS[r.status as LabStatus] : [], canEdit: can && !["delivered", "cancelled"].includes(r.status) };
     },
   });
 
@@ -338,6 +346,9 @@ export function labRoutes(route: Route) {
       date: zDate.nullish().transform((v) => v ?? null),
       costCents: z.number().int().min(0).max(100000000).nullish().transform((v) => v ?? null),
       promisedOn: zDate.nullish().transform((v) => v ?? null),
+      // B-111: al recibir un trabajo reenviado, lo que el laboratorio cobra de más (0 o vacío si no cobra).
+      extraCostCents: z.number().int().min(0).max(100000000).nullish().transform((v) => v ?? null),
+      extraCostReason: zOptText(300),
     }),
     handler: async ({ c, auth, params, body }) => {
       requireAny(auth, LAB_WRITE);
@@ -369,6 +380,8 @@ export function labRoutes(route: Route) {
           set.cost_cents = cost;
         }
       }
+      const extra = body.to === "received" && o.status === "adjustment" && body.extraCostCents ? body.extraCostCents : 0;
+      if (body.extraCostCents && !extra) throw badRequest("El costo adicional se registra al recibir un trabajo que volvió del ajuste", { field: "extraCostCents" });
       if (body.to === "adjustment" && body.promisedOn) {
         if (body.promisedOn < today) throw badRequest("La nueva fecha prometida no puede estar en el pasado", { field: "promisedOn" });
         set.promised_on = body.promisedOn;
@@ -381,8 +394,43 @@ export function labRoutes(route: Route) {
       await c.query(`UPDATE lab_orders SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(", ")}, updated_at = now() WHERE id = $1`, [params.id, ...entries.map(([, v]) => v)]);
       await c.query("INSERT INTO lab_order_events (clinic_id, order_id, from_status, to_status, reason, created_by) VALUES ($1,$2,$3,$4,$5,$6)",
         [auth.clinicId, params.id, o.status, body.to, body.reason, auth.userId]);
-      await audit(c, auth, "lab_order.status", "lab_order", params.id, { number: o.number, from: o.status, to: body.to, reason: body.reason, date, costCents: set.cost_cents ?? undefined }, o.branch_id);
+      if (extra) {
+        await c.query("INSERT INTO lab_order_extra_costs (clinic_id, order_id, amount_cents, charged_on, reason, created_by) VALUES ($1,$2,$3,$4,$5,$6)",
+          [auth.clinicId, params.id, extra, date, body.extraCostReason ?? body.reason ?? "Reenvío o repetición del trabajo", auth.userId]);
+      }
+      await audit(c, auth, "lab_order.status", "lab_order", params.id, { number: o.number, from: o.status, to: body.to, reason: body.reason, date, costCents: set.cost_cents ?? undefined, extraCostCents: extra || undefined }, o.branch_id);
       return { ok: true, status: body.to };
+    },
+  });
+
+  // B-111: costo adicional fuera de la recepción (lo cobró después) o corrección con monto negativo.
+  route({
+    method: "POST", url: "/api/lab/orders/:id/extra-costs", summary: "Registrar un costo adicional del laboratorio (reenvío o repetición) o corregirlo con un monto negativo, con motivo", tags: ["laboratorio"], perm: "patients.read",
+    params: zIdParams,
+    body: z.object({
+      amountCents: z.number().int().refine((v) => v !== 0, "El monto no puede ser cero").refine((v) => Math.abs(v) <= 100000000, "Monto fuera de rango"),
+      date: zDate.nullish().transform((v) => v ?? null),
+      reason: z.string().trim().min(3, "Escribe el motivo (al menos 3 caracteres)").max(300),
+    }),
+    handler: async ({ c, auth, params, body }) => {
+      requireAny(auth, LAB_WRITE);
+      const o = await loadOrder(c, auth, params.id, true);
+      requireBranch(auth, o.branch_id);
+      if (!["received", "adjustment", "delivered"].includes(o.status)) throw conflict("Solo se registra un costo adicional en órdenes ya recibidas", "not_received");
+      const today = await todayIn(c, auth.clinicId!);
+      const date = body.date ?? today;
+      if (date > today) throw badRequest("La fecha no puede ser futura", { field: "date" });
+      if (o.received_on && date < o.received_on) throw badRequest("La fecha no puede ser anterior a la recepción", { field: "date" });
+      try {
+        await c.query("INSERT INTO lab_order_extra_costs (clinic_id, order_id, amount_cents, charged_on, reason, created_by) VALUES ($1,$2,$3,$4,$5,$6)",
+          [auth.clinicId, params.id, body.amountCents, date, body.reason, auth.userId]);
+      } catch (e) {
+        const msg = (e as { code?: string; message?: string }).code === "23514" ? (e as Error).message : null;
+        if (msg) throw conflict(msg, "invalid_extra_cost");
+        throw e;
+      }
+      await audit(c, auth, "lab_order.extra_cost", "lab_order", params.id, { number: o.number, amountCents: body.amountCents, date, reason: body.reason }, o.branch_id);
+      return { ok: true };
     },
   });
 
