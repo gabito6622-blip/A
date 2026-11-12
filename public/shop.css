@@ -1107,3 +1107,22 @@ input[type=color]{min-width:44px;min-height:44px}
 .hubarea-i:hover{border-color:var(--s-blue)}
 .hubarea-i svg{width:16px;height:16px;opacity:.55;flex:none}
 @media (min-width:700px){.hubarea-l{grid-template-columns:repeat(2,minmax(0,1fr))}.hubpick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ===== GaboHub etapa 2: Inventario por plataforma ===== */
+.invtot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.invtot-i{display:grid;gap:2px;padding:12px 14px}
+.invtot-i small{color:var(--s-muted);font-size:12.5px}
+.invtot-i b{font-size:24px}
+.invtot-i.warn b{color:#f59f00}
+.invtot-i.bad b{color:#e5484d}
+.invrow{display:grid;gap:10px}
+.invrow > header{display:flex;align-items:center;gap:10px;font-size:17px}
+.invsrc{display:flex;align-items:center;gap:10px;border-top:1px solid var(--s-line);padding-top:10px}
+.invsrc-i{font-size:22px;flex:none}
+.invsrc > div{display:grid;gap:2px;flex:1;min-width:0}
+.invsrc small{color:var(--s-muted);font-size:13px;overflow-wrap:anywhere}
+.invsrc .sbtn{min-height:44px;flex:none}
+.invpills{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.invcta{display:grid;gap:8px}
+.invcta span{color:var(--s-muted);font-size:14px}
+@media (min-width:700px){.invtot{grid-template-columns:repeat(4,minmax(0,1fr))}}

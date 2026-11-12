@@ -19,7 +19,7 @@ const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas"],
-  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas"],
+  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario"],
 }[MODE];
 
 // Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
@@ -206,9 +206,13 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
     if (S.data.rtab === "cupones" && S.data.shop?.couponsAllowed && !S.data.rcoupons) S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
-    else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
+  }
+  // Inventario por plataforma: lo propio y las cuentas completas (los servicios de la tienda ya se cargan siempre).
+  if (S.view === "inventario" && isReseller()) {
+    [S.data.invOwn, S.data.rsubs] = await Promise.all([api("GET", "/api/me/own").catch(() => null), api("GET", "/api/me/subs").catch(() => null)]);
   }
 }
 
@@ -494,28 +498,28 @@ function usdtBlock(toPay, fixedUsdt) {
 }
 
 const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], asesor: ["grid", "Asesor"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
-  clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"], vender: ["cart", "Vender"], mas: ["menu", "Más"] };
+  clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"], vender: ["cart", "Vender"], mas: ["menu", "Más"], inventario: ["box", "Inventario"] };
 // GaboHub (12/11/2026, etapa 1): el panel del revendedor con la misma forma que el del dueño. Abajo: Inicio ·
 // Clientes · Vender · Inventario · Más. "Cuentas" se llama Inventario y Comprar/Códigos/Saldo siguen arriba, en Inicio y en Más.
-const HUB_LABEL = { cuentas: ["box", "Inventario"], clientes: ["user", "Clientes"] };
+const HUB_LABEL = { clientes: ["user", "Clientes"] };
 const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
 // Las 10 pestañas de "Mis clientes" se reparten en 3 grupos; cada grupo muestra solo sus pestañas (ninguna se pierde).
 const HUB_GROUPS = {
   negocio: [["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
-  inventario: [["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
+  inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
   vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"]],
 };
 const groupOf = (tab) => Object.keys(HUB_GROUPS).find((g) => HUB_GROUPS[g].some(([k]) => k === tab)) ?? "negocio";
 const groupTabs = (g, sel) => {
   const canPage = !!S.me?.pageAllowed, coupons = !!S.data.shop?.couponsAllowed;
   const l = HUB_GROUPS[g].filter(([, , need]) => !need || need === "view" || (need === "page" && canPage) || (need === "coupons" && canPage && coupons));
-  return `<div class="rtabs hubtabs" role="tablist">${l.map(([k, t, need]) => need === "view" ? `<button type="button" role="tab" data-s="${k}" aria-selected="${sel === k}">${t}</button>` : `<button type="button" role="tab" ${sel === "cuentas" ? `data-rtool="${k}"` : `data-rtab="${k}"`} aria-selected="${sel === k}">${t}</button>`).join("")}</div>`;
+  return `<div class="rtabs hubtabs" role="tablist">${l.map(([k, t, need]) => need === "view" ? `<button type="button" role="tab" data-s="${k}" aria-selected="${sel === k}">${t}</button>` : `<button type="button" role="tab" ${S.view !== "clientes" ? `data-rtool="${k}"` : `data-rtab="${k}"`} aria-selected="${sel === k}">${t}</button>`).join("")}</div>`;
 };
 function buildNav() {
   const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : []), "cuentas", "codigos", "recargas"]
-    : hubPanel() ? ["inicio", "clientes", "vender", "cuentas", "precios", "codigos", "recargas", "mas"] : ["inicio", "tiendas"];
+    : hubPanel() ? ["inicio", "clientes", "vender", "inventario", "precios", "codigos", "recargas", "mas"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? [...(comboOn() ? ["inicio", "catalogo", "combo", "cart"] : ["inicio", "catalogo", "cart"])] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
-    : hubPanel() ? ["inicio", "clientes", "vender", "cuentas", "mas"] : ["inicio", "tiendas", "login"];
+    : hubPanel() ? ["inicio", "clientes", "vender", "inventario", "mas"] : ["inicio", "tiendas", "login"];
   const key = `${MODE}:${top}:${bottom}`;
   if (buildNav.last === key) return;
   buildNav.last = key;
@@ -542,7 +546,7 @@ function render() {
 }
 function renderInner() {
   buildNav();
-  const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "cuentas", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : S.view;
+  const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "inventario", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : MODE === "hub" && S.view === "cuentas" ? "inventario" : S.view;
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === navOn && !b.closest(".rtabs") ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
   if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
@@ -650,6 +654,7 @@ function renderInner() {
         <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>`}
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
     vender: () => !isReseller() ? needLogin("tu panel") : hubVender(),
+    inventario: () => !isReseller() ? needLogin("tu inventario") : hubInventario(),
     mas: () => !isReseller() ? needLogin("tu panel") : hubMas(),
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
@@ -1146,7 +1151,7 @@ function hubMas() {
   const canPage = !!S.me?.pageAllowed, sh = S.data.shop;
   const areas = [
     ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"]]],
-    ["📦 Inventario", [[`data-s="cuentas"`, "📺 Cuentas de la tienda", "accesos correos contraseñas pedidos"], [`data-rtool="perfiles"`, "🧩 Repartir perfiles", "cuenta completa alquiler"], [`data-rtool="propias"`, "📦 Mis cuentas propias", "flujo proveedor stock cupos"], [`data-s="codigos"`, "🔑 Códigos y link de códigos", "verificacion disney netflix"]]],
+    ["📦 Inventario", [[`data-s="inventario"`, "🗂️ Por plataforma", "inventario resumen stock libres plataformas"], [`data-s="cuentas"`, "📺 Cuentas de la tienda", "accesos correos contraseñas pedidos"], [`data-rtool="perfiles"`, "🧩 Repartir perfiles", "cuenta completa alquiler"], [`data-rtool="propias"`, "📦 Mis cuentas propias", "flujo proveedor stock cupos"], [`data-s="codigos"`, "🔑 Códigos y link de códigos", "verificacion disney netflix"]]],
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
       ...(canPage && sh?.couponsAllowed ? [[`data-rtool="cupones"`, "🏷️ Mis cupones", "descuento codigo"]] : []),
@@ -1167,6 +1172,57 @@ document.addEventListener("input", (ev) => {
   $$(".hubarea").forEach((sec) => { let any = 0; sec.querySelectorAll(".hubarea-i").forEach((b) => { const ok = !q || normTxt(b.textContent + " " + b.dataset.kw).includes(q); b.hidden = !ok; any += ok; }); sec.hidden = !any; n += any; });
   $("#hubNone").hidden = n > 0;
 });
+
+/* ---------------- GaboHub etapa 2: Inventario por plataforma ---------------- */
+// Junta, por plataforma, lo que el revendedor tiene en los 3 lugares de siempre: cuentas compradas a la tienda,
+// cuentas completas que reparte y sus cuentas propias. Solo lee: cada fila lleva a su pantalla de siempre.
+function hubInventario() {
+  const DAYMS = 86_400_000, now = Date.now();
+  const sv = S.data.services ?? [], subs = S.data.rsubs?.list ?? [], own = S.data.invOwn;
+  const key = (n) => normTxt(String(n ?? "")).replace(/\(alquiler revendedores\)/, "").replace(/[^a-z0-9+]+/g, " ").trim();
+  const rows = new Map();
+  const nice = (n) => String(n ?? "").replace(/ \(alquiler revendedores\)/i, "");
+  const row = (name, logo) => { const k = key(name) || "otro"; if (!rows.has(k)) rows.set(k, { name: nice(name), logo, tienda: null, completas: null, propias: null }); return rows.get(k); };
+  // Las cuentas completas que reparte también vienen en sus servicios: se cuentan una sola vez, como "Cuentas completas".
+  const rented = new Set(subs.map((a) => a.assignmentId));
+  for (const a of sv.filter((x) => !rented.has(x.assignmentId))) {
+    const r = row(a.product, am(a.productId, a.product));
+    const t = (r.tienda ??= { n: 0, week: 0, bad: 0, q: a.product });
+    t.n++; if (a.daysLeft < 0) t.bad++; else if (a.daysLeft <= 7) t.week++;
+  }
+  for (const a of subs) {
+    const r = row(a.product, am(a.productId, a.product));
+    const c = (r.completas ??= { n: 0, perf: 0, week: 0, bad: 0 });
+    c.n++; c.perf += a.subs.length;
+    const d = Math.ceil((a.expiresAt - now) / DAYMS);
+    if (d < 0) c.bad++; else if (d <= 7) c.week++;
+  }
+  for (const p of own?.products ?? []) {
+    const r = row(p.name, p.hasLogo ? `<span class="mini mimg"><img src="/api/me/own/products/${encodeURIComponent(p.id)}/logo" alt=""></span>` : `<span class="mini">${esc(p.emoji || p.name[0] || "?")}</span>`);
+    const sales = (own.sales ?? []).filter((x) => x.productId === p.id);
+    const prov = (own.accounts ?? []).filter((a) => a.productId === p.id && a.providerExpiresAt && a.providerExpiresAt <= now + 3 * DAYMS).length;
+    const o = (r.propias ??= { cuentas: 0, libres: 0, vendidos: 0, week: 0, bad: 0, prov: 0 });
+    o.cuentas += p.accounts; o.libres += p.free; o.vendidos += sales.length; o.prov += prov;
+    for (const x of sales) { const d = Math.ceil((x.expiresAt - now) / DAYMS); if (d < 0) o.bad++; else if (d <= 7) o.week++; }
+  }
+  const list = [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const sum = (f) => list.reduce((t, r) => t + f(r), 0);
+  const tot = { clientes: sum((r) => (r.tienda?.n ?? 0) + (r.completas?.perf ?? 0) + (r.propias?.vendidos ?? 0)), libres: sum((r) => r.propias?.libres ?? 0), week: sum((r) => (r.tienda?.week ?? 0) + (r.completas?.week ?? 0) + (r.propias?.week ?? 0)), bad: sum((r) => (r.tienda?.bad ?? 0) + (r.completas?.bad ?? 0) + (r.propias?.bad ?? 0)) };
+  const pl = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+  const warn = (w, b) => `${b ? `<span class="spill sp-bad">${pl(b, "vencido", "vencidos")}</span>` : ""}${w ? `<span class="spill sp-warn">${pl(w, "vence", "vencen")} ≤ 7 d</span>` : ""}`;
+  const line = (ico, title, txt, pills, btn) => `<div class="invsrc"><span class="invsrc-i">${ico}</span><div><b>${title}</b><small>${txt}</small>${pills ? `<div class="invpills">${pills}</div>` : ""}</div>${btn}</div>`;
+  const card = (r) => `<article class="sbox invrow"><header>${r.logo}<b>${esc(r.name)}</b></header>
+    ${r.tienda ? line("🛒", "De la tienda", `${pl(r.tienda.n, "servicio activo", "servicios activos")}`, warn(r.tienda.week, r.tienda.bad), `<button class="sbtn sm" type="button" data-invsee="${esc(r.tienda.q)}">Ver</button>`) : ""}
+    ${r.completas ? line("🧩", "Cuentas completas", `${pl(r.completas.n, "cuenta", "cuentas")} · ${pl(r.completas.perf, "perfil repartido", "perfiles repartidos")}`, warn(r.completas.week, r.completas.bad), `<button class="sbtn sm" type="button" data-rtool="perfiles">Ver</button>`) : ""}
+    ${r.propias ? line("📦", "Propias", `${pl(r.propias.cuentas, "cuenta", "cuentas")} · ${pl(r.propias.libres, "cupo libre", "cupos libres")} · ${pl(r.propias.vendidos, "vendido", "vendidos")}`, `${r.propias.cuentas && !r.propias.libres ? `<span class="spill sp-bad">Sin cupos libres</span>` : ""}${r.propias.prov ? `<span class="spill sp-warn">${pl(r.propias.prov, "cuenta vence", "cuentas vencen")} con tu proveedor</span>` : ""}${warn(r.propias.week, r.propias.bad)}`, `<button class="sbtn sm" type="button" data-rtool="propias">Ver</button>`) : ""}
+  </article>`;
+  return `${groupTabs("inventario", "inventario")}
+    <div class="sec-h"><div><span class="chip">Inventario</span><h2>Todo tu stock por plataforma</h2><p>Lo que le compraste a la tienda, las cuentas completas que repartís y tus cuentas propias, juntos.</p></div></div>
+    <div class="invtot">${[["Clientes", tot.clientes, ""], ["Cupos libres (propias)", tot.libres, ""], ["Vencen ≤ 7 días", tot.week, "warn"], ["Vencidos", tot.bad, "bad"]].map(([t, n, c]) => `<div class="sbox invtot-i ${n ? c : ""}"><small>${t}</small><b>${n}</b></div>`).join("")}</div>
+    ${list.length ? list.map(card).join("") : ""}
+    ${!(own?.products ?? []).length ? `<div class="sbox invcta"><b>📦 ¿Vendés cuentas de otro proveedor?</b><span>Cargalas en «Mis cuentas propias» (Flujo TV, IPTV, lo que sea) y las ves acá junto con todo lo demás.</span><button class="sbtn pri" type="button" data-rtool="propias">Cargar mis cuentas propias</button></div>` : ""}
+    ${!list.length ? `<div class="sbox"><p class="empty" style="margin:0">Todavía no tenés cuentas. Comprá en la tienda o cargá tus cuentas propias.</p><div class="hrow"><button class="sbtn pri" type="button" data-s="precios">Ver precios</button></div></div>` : ""}`;
+}
 
 /* ---------------- Inicio del revendedor (botones grandes) ---------------- */
 function resellerHome() {
@@ -1261,6 +1317,15 @@ function tourStepList() {
     ['.htiles [data-s="recargas"]', "Recargar saldo 💵", "Cuando necesites saldo, pedí una recarga o pagá por QR en el momento."],
     ['.htiles [data-s="clientes"]', "Mis clientes 👥", "Cargá a quién le revendés y mandales los datos por WhatsApp con un toque. Ahí también tenés Mi control, Quién me debe y Mis ganancias."],
     ["#myPin", "Tu acceso 🔑", "Entrás con tu número y tu PIN. Acá lo podés cambiar cuando quieras."],
+  );
+  // La barra de abajo (celular): Vender, Inventario y Más (GaboHub etapas 1 y 2).
+  const bn = document.querySelector(".bnav");
+  if (bn && getComputedStyle(bn).display !== "none" && bn.querySelector('[data-s="mas"]')) steps.push(
+    ['.bnav [data-s="vender"]', "Vender 🛒", "Elegí qué vendés: una cuenta de la tienda, una tuya o un perfil. Te llevo directo."],
+    ['.bnav [data-s="inventario"]', "Inventario 📦", "Todo tu stock por plataforma: lo que compraste, las cuentas completas y tus cuentas propias."],
+    ['.bnav [data-s="mas"]', "Más ☰", "Todo tu panel en un menú: Mi página, combos, afiches, ganancias… con buscador."],
+  );
+  steps.push(
     ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
   );
   return steps.map(([sel, title, text]) => ({ sel, title, text }));
@@ -1989,6 +2054,7 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
   if (d.navgrp && !HUB_GROUPS[d.navgrp].some(([k]) => k === S.data.rtab)) S.data.rtab = HUB_GROUPS[d.navgrp][0][0];
+  if (d.invsee !== undefined) { S.data.mq = d.invsee; S.data.mf = "all"; return setView("cuentas"); }
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");

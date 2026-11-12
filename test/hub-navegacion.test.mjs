@@ -58,10 +58,14 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     assert.deepEqual(await small(page, ".rtabs [role=tab]"), []);
     assert.equal(await over(page), false);
 
-    // Inventario: Cuentas de la tienda + Repartir perfiles + Mis cuentas propias. La barra marca Inventario también adentro.
-    await page.locator('.bnav [data-s="cuentas"]').click();
+    // Inventario (etapa 2): Por plataforma + Cuentas de la tienda + Repartir perfiles + Mis cuentas propias.
+    // La barra marca Inventario también adentro de cada pestaña.
+    await page.locator('.bnav [data-s="inventario"]').click();
+    await page.waitForFunction(() => location.hash === "#inventario");
+    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🗂️ Por plataforma", "📺 Cuentas de la tienda", "🧩 Repartir perfiles", "📦 Mis cuentas propias"]);
+    await page.getByRole("tab", { name: /Cuentas de la tienda/ }).click();
     await page.waitForFunction(() => location.hash === "#cuentas");
-    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["📺 Cuentas de la tienda", "🧩 Repartir perfiles", "📦 Mis cuentas propias"]);
+    assert.equal((await current(page)).trim(), "Inventario");
     await page.getByRole("tab", { name: /Mis cuentas propias/ }).click();
     await page.getByRole("heading", { name: /Mis cuentas propias/ }).waitFor();
     assert.equal(await selTab(page), "📦 Mis cuentas propias");
@@ -84,7 +88,7 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     await page.locator('.bnav [data-s="mas"]').click();
     await page.locator(".hubarea").first().waitFor();
     const items = (await page.locator(".hubarea-i").allInnerTexts()).map((x) => x.trim());
-    for (const want of ["Clientes y ventas", "Mi control", "Quién me debe", "Mis ganancias", "Cuentas de la tienda", "Repartir perfiles", "Mis cuentas propias", "Códigos", "Mi página", "Mis combos y descuentos", "Afiches", "Comprar a la tienda", "Saldo y recargas", "Reportar falla", "Guía", "Mi país y moneda"])
+    for (const want of ["Clientes y ventas", "Mi control", "Quién me debe", "Mis ganancias", "Por plataforma", "Cuentas de la tienda", "Repartir perfiles", "Mis cuentas propias", "Códigos", "Mi página", "Mis combos y descuentos", "Afiches", "Comprar a la tienda", "Saldo y recargas", "Reportar falla", "Guía", "Mi país y moneda"])
       assert.ok(items.some((x) => x.includes(want)), `En "Más" falta: ${want}`);
     assert.deepEqual(await small(page, ".hubarea-i"), []);
     // Buscador (sin tildes): "pagina" encuentra Mi página; algo que no existe avisa.
