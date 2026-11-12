@@ -46,6 +46,10 @@ const has = (txt: string | undefined, re: RegExp) => !!txt && re.test(txt);
 const RE_CORTAR = /POR CORTAR/i;
 const RE_COBRO = /EN COBRO/i;
 const RE_DESENLAZAR = /DESENLAZAR/i;
+/** La nota pide cambiar la clave o hacerle seguimiento a la cuenta. */
+const RE_CLAVE = /CAMBIAR (LA )?(CLAVE|CONTRASEÑA)|SEGUIMIENTO/i;
+/** Si la clave se cambió hace menos de esto, la cuenta deja de aparecer en «claves por cambiar». */
+export const KEY_RECENT_DAYS = 7;
 
 export function secretaryReport(e: Engine, actor: Actor) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo el panel");
@@ -91,6 +95,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
   const listas: { accountId: Id; email: string; product: string; free: number; note?: string }[] = [];
   const faltaFecha: { accountId: Id; email: string; product: string; free: number; supplierExpiresAt: number; note?: string }[] = [];
   const apartadas: { accountId: Id; email: string; product: string; count: number; note?: string }[] = [];
+  const claves: { accountId: Id; email: string; product: string; note: string; passwordChangedAt: number | null; clients: number }[] = [];
   const slotsOf = new Map<Id, (typeof e.s.slots)[string][]>();
   for (const s of Object.values(e.s.slots)) { const l = slotsOf.get(s.accountId); if (l) l.push(s); else slotsOf.set(s.accountId, [s]); }
   for (const acc of Object.values(e.s.accounts)) {
@@ -106,6 +111,9 @@ export function secretaryReport(e: Engine, actor: Actor) {
       else faltaFecha.push({ accountId: acc.id, email: acc.email, product, free, supplierExpiresAt: acc.supplierExpiresAt, ...(note ? { note } : {}) });
     }
     if (quarantined) apartadas.push({ accountId: acc.id, email: acc.email, product, count: quarantined, ...(note ? { note } : {}) });
+    if (has(acc.notes, RE_CLAVE) && !(acc.passwordChangedAt && now - acc.passwordChangedAt < KEY_RECENT_DAYS * DAY)) {
+      claves.push({ accountId: acc.id, email: acc.email, product, note: acc.notes ?? "", passwordChangedAt: acc.passwordChangedAt ?? null, clients: slots.filter((s) => s.status === "assigned").length });
+    }
   }
   const byEmail = <T extends { email: string }>(xs: T[]) => xs.sort((x, y) => x.email.localeCompare(y.email));
 
@@ -119,6 +127,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
     cobrar: list(groups.cobrar), cortar: list(groups.cortar), deben: list(groups.deben),
     sinAnotar: list(groups.sinAnotar), avisar: list(groups.avisar),
     desenlazar: byEmail(desenlazar), libres: { listas: byEmail(listas), faltaFecha: byEmail(faltaFecha) }, apartadas: byEmail(apartadas),
+    claves: byEmail(claves),
     actividad,
   };
   const n = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.length, 0);
@@ -126,7 +135,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
     ...out,
     counts: {
       cobrar: n(out.cobrar), cortar: n(out.cortar), deben: n(out.deben), sinAnotar: n(out.sinAnotar), avisar: n(out.avisar),
-      desenlazar: desenlazar.length, libres: listas.length, faltaFecha: faltaFecha.length, apartadas: apartadas.length,
+      desenlazar: desenlazar.length, libres: listas.length, faltaFecha: faltaFecha.length, apartadas: apartadas.length, claves: claves.length,
     },
   };
 }

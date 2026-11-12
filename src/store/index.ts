@@ -14,6 +14,7 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
+import * as inventario from "./inventario.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as subs from "./subRentals.js";
@@ -81,6 +82,11 @@ export function createStore(opts: EngineOptions = {}) {
       isUsd: (customerId: Id) => usd.isUsd(e, customerId),
       rate: () => usd.rateNow(e),
       toBs: (usdCents: Cents, rate: number) => usd.usdToBs(usdCents, rate),
+    },
+    /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
+    inventario: {
+      cuts: bind(e, inventario.cutsReport),
+      rotatePassword: bind(e, inventario.rotatePassword),
     },
     inventory: {
       addAccount: bind(e, inventory.addAccount),

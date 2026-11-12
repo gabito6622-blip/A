@@ -44,11 +44,11 @@ const accRows = (list, extra) => `<ul class="sec-items">${list.map((a) => `<li><
 export async function secretaryView(activity) {
   const r = await api("GET", "/api/admin/secretaria");
   const c = r.counts;
-  const todo = c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha;
+  const todo = c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0);
   const resumen = [
     c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
     c.deben && `💸 <b>${c.deben}</b> sin pagar`, c.avisar && `⏰ <b>${c.avisar}</b> vencen en ${r.aheadDays} días`, c.desenlazar && `🔗 <b>${c.desenlazar}</b> por desenlazar`,
-    c.apartadas && `⏸️ <b>${c.apartadas}</b> apartadas`, `✅ <b>${c.libres}</b> libres listas`,
+    c.apartadas && `⏸️ <b>${c.apartadas}</b> apartadas`, c.claves && `🔑 <b>${c.claves}</b> claves por cambiar`, `✅ <b>${c.libres}</b> libres listas`,
   ].filter(Boolean);
   const hero = `<section class="card sec-hero"><h2>🗂️ Mi secretaria <small>revisé tu panel ${fdt(r.at)}</small></h2>
     <p style="margin:0">${todo ? "Esto es lo que tenés pendiente:" : "🎉 Todo al día: no tenés nada pendiente ahora."}</p>
@@ -63,6 +63,8 @@ export async function secretaryView(activity) {
       <p class="muted" style="margin:0">Antes de venderlas otra vez, sacalas del correo del revendedor anterior.</p>${accRows(r.desenlazar, (a) => esc(a.note.replace(/^.*?(DESENLAZAR[^.]*)\.?.*$/i, "$1")))}</section>` : "";
   const apart = r.apartadas.length ? `<section class="card sec-card" id="sec-apartadas"><h2>⏸️ Apartadas (en cuarentena)</h2>
       <p class="muted" style="margin:0">No se venden hasta que las revises (por ejemplo, cambiar la clave).</p>${accRows(r.apartadas, (a) => esc((a.note || "sin nota").slice(0, 120)))}</section>` : "";
+  const claves = r.claves?.length ? `<section class="card sec-card" id="sec-claves"><h2>🔑 Claves por cambiar</h2>
+      <p class="muted" style="margin:0">La nota pide cambiar la clave o hacer seguimiento. Cambiala desde Cuentas con «Cambié la clave»: queda la fecha y se avisa a sus clientes.</p>${accRows(r.claves, (a) => `${a.clients ? `${a.clients} cliente${a.clients === 1 ? "" : "s"} · ` : ""}${a.passwordChangedAt ? `última clave ${dm(a.passwordChangedAt)}` : "nunca cambiada acá"}`)}</section>` : "";
   const act = r.actividad ? `<section class="card sec-card" id="sec-actividad"><h2>🕑 Lo que pasó en las últimas 24 horas</h2>
       ${r.actividad.length ? `<details class="sec-more"><summary>Ver los ${r.actividad.length} movimientos</summary>${activity(r.actividad)}</details>` : `<p class="muted" style="margin:0">No hubo movimientos.</p>`}</section>` : "";
 
@@ -72,5 +74,5 @@ export async function secretaryView(activity) {
     + section("sec-vencidas", "🗓️ Vencidas sin anotar", "Ya vencieron y no tienen nota: ¿renovaron, las cobrás o las cortás?", r.sinAnotar, "vencidas")
     + section("sec-deben", "💸 Te deben", "Siguen activas pero figuran sin pagar.", r.deben, "deben")
     + section("sec-avisar", `⏰ Avisar: vencen en los próximos ${r.aheadDays} días`, "Mirá la regla de cada uno (📝) para saber cuándo avisarle.", r.avisar, "avisar")
-    + desen + libres + apart + act;
+    + desen + libres + apart + claves + act;
 }

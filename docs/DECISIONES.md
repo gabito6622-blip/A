@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 4: inventario que avisa, no que decide
+- **Doble = misma plataforma + mismo correo, no solo mismo correo:** el dueño usa el mismo Gmail para Disney y Netflix. Bloquear por correo a secas le hubiera impedido cargar cuentas reales.
+- **Dominio mal escrito avisa, no frena:** el 12/11 el dueño escribió «gmaik.com» y era un error; pero un dominio raro puede ser real. La respuesta trae `warning` y el panel lo muestra; la cuenta queda cargada.
+- **Semáforo con motivos escritos:** un color solo no alcanza para saber qué hacer; cada cuenta dice por qué está amarilla o roja, con las mismas marcas que el dueño ya usa en las notas (CAÍDA, POR CORTAR, SEGUIMIENTO, DESENLAZAR).
+- **Cortes no mueve fechas:** el dueño pidió «un corte de toditas las cuentas y ordenarlo»; mover vencimientos solo sería tocar plata de clientes. La pantalla sugiere la fecha que más se repite y muestra a quién le sobran o faltan días; él decide y lo hace con los botones de siempre (fecha, renovar). Descartado: «alinear todos» con un botón.
+- **«Cambié la clave» registra, no ejecuta:** el panel no entra a Netflix ni a Disney; el dueño cambia la clave en la plataforma y acá queda la fecha, la auditoría (sin la clave) y el aviso en cola para los clientes de esa cuenta. La secretaria deja de pedirla 7 días; si la nota sigue diciendo «cambiar clave», vuelve a recordarla.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 3: rápido sin cambiar lo que se ve
 - **Un endpoint para Inicio, no un rediseño:** la pantalla queda igual; solo cambia cómo trae los datos (una llamada en vez de seis). Si una parte falla, viene en `null` y la pantalla sigue (antes, un `.catch` por llamada hacía lo mismo).
 - **Caché de 20 s, solo listas del panel, se vacía al guardar y al cambiar de pantalla:** la demora que sentía el dueño era filtrar el Control (cada pestaña volvía a bajar todos los alquileres). Con esa regla, nunca ve un dato viejo después de guardar, y al entrar a una pantalla siempre lee de nuevo. Descartado: caché larga o compartida con la tienda (los primeros intentos rompieron dos pruebas de la tienda y de Mis clientes).

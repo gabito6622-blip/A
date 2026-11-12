@@ -5,6 +5,7 @@ import { MINUTE } from "./time.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { queue } from "./notify.js";
+import { duplicateAccount, emailTypo, normEmail, riskOf } from "./inventario.js";
 
 export interface NewAccount {
   productId: Id;
@@ -44,7 +45,7 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
     const connections = raw.connections != null && raw.connections !== 0 ? Math.max(1, Math.min(20, Math.trunc(Number(raw.connections)))) : undefined;
     if (mode === "mac" && !mac) throw new DomainError("VALIDATION", "Para una línea por MAC cargá la MAC del aparato");
     iptv = { mode, ...(server ? { server } : {}), ...(mac ? { mac } : {}), ...(app ? { app } : {}), ...(connections ? { connections } : {}) };
-  } else if (!/^[^@\s]+@[^@\s]+$/.test(a.email)) throw new DomainError("VALIDATION", "Email de cuenta inválido");
+  } else if (!/^[^@\s]+@[^@\s]+$/.test(normEmail(a.email))) throw new DomainError("VALIDATION", "Email de cuenta inválido");
   if (!a.password && !a.passwordPending) throw new DomainError("VALIDATION", isIptv ? "Falta la clave / enlace de la línea" : "Falta la contraseña de la cuenta");
   // Una línea IPTV es una unidad: siempre un solo slot, aunque venga otra cosa.
   const profiles = isIptv ? [{ label: a.profiles[0]?.label?.trim() || "Línea IPTV" }] : a.profiles;
@@ -54,6 +55,11 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
   if (costUsd !== undefined && (!Number.isInteger(costUsd) || costUsd < 0 || costUsd > 100_000)) throw new DomainError("VALIDATION", "Costo en dólares inválido (hasta US$ 1000)");
   return e.tx(() => {
     e.get("products", a.productId);
+    // La misma cuenta cargada dos veces para la misma plataforma: no (etapa 4). Si es otra, el correo tiene que ser otro.
+    if (!isIptv) {
+      const dup = duplicateAccount(e, a.email, a.productId);
+      if (dup) throw new DomainError("VALIDATION", `Esa cuenta ya está cargada para ${e.s.products[a.productId]?.name ?? a.productId} (${dup.email}). Si es otra, revisá el correo.`);
+    }
     // Proveedor opcional: si no se indica, se usa "Propias" (tus cuentas, sin proveedor).
     const supplierId = a.supplierId || ensurePropias(e);
     const sup = e.get("suppliers", supplierId);
@@ -63,7 +69,7 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
     if (supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
     const id = e.id("acc");
     const account: Account = {
-      id, productId: a.productId, supplierId, email: isIptv ? a.email.trim() : a.email.toLowerCase(), password: a.password ?? "",
+      id, productId: a.productId, supplierId, email: isIptv ? a.email.trim() : normEmail(a.email), password: a.password ?? "",
       supplierExpiresAt, cost: a.cost, status: "active", createdAt: e.now(),
       ...(costUsd ? { costUsd } : {}),
       ...(iptv ? { iptv } : {}),
@@ -76,7 +82,9 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
       return s;
     });
     e.audit(actor, "account.add", "account", id, { productId: a.productId, supplierId, slots: slots.length });
-    return { account: structuredClone(account), slots: structuredClone(slots) };
+    // Dominio que parece mal escrito («gmaik.com»): se carga igual, pero se avisa.
+    const typo = isIptv ? null : emailTypo(account.email);
+    return { account: structuredClone(account), slots: structuredClone(slots), ...(typo ? { warning: `¿Será ${typo}? Revisá el correo de la cuenta.` } : {}) };
   });
 }
 
@@ -165,7 +173,11 @@ export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: Acc
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
     const changed: string[] = [];
-    const email = patch.email?.trim().toLowerCase();
+    const email = patch.email === undefined ? undefined : normEmail(patch.email);
+    if (email !== undefined && email !== acc.email && !acc.iptv) {
+      const dup = duplicateAccount(e, email, acc.productId, acc.id);
+      if (dup) throw new DomainError("VALIDATION", `Ya hay otra cuenta de ${e.s.products[acc.productId]?.name ?? acc.productId} con ese correo (${dup.email}).`);
+    }
     const credsChanged = (email !== undefined && email !== acc.email) || (patch.password !== undefined && patch.password !== acc.password);
     if (acc.status === "retired" && credsChanged) throw new DomainError("INVALID_STATE", "La cuenta está retirada");
     if (email !== undefined && email !== acc.email) { acc.email = email; changed.push("email"); }
@@ -269,6 +281,7 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
   return Object.values(e.s.accounts).map((a) => ({
     ...structuredClone(a),
     password: !a.password ? "(pendiente)" : opts.withSecrets ? a.password : "••••••",
+    risk: riskOf(e, a),
     slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => {
       const asg = s.status === "assigned" ? Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active") : undefined;
       const cust = asg ? e.s.customers[asg.customerId] : undefined;

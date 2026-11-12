@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 4 «Inventario inteligente»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Correo normalizado («  NetGB.117@GMAIL.com » → «netgb.117@gmail.com»); repetida para la misma plataforma: rechazada (también con mayúsculas/espacios); misma dirección en otra plataforma: entra; editar hacia un correo que ya existe: rechazado; retirada la vieja, se puede cargar de nuevo; «gmaik.com» avisa sin frenar | `test/inventario-inteligente.test.mjs` (núcleo, datos ficticios) | OK (encontró que la validación del correo corría antes de normalizar: un espacio al final daba «Email inválido»; corregido) |
+| Semáforo: verde; clave pendiente → amarillo; proveedor en 5 días → amarillo; en 1 día con cliente → rojo; vencida con cliente → rojo; «POR CORTAR» → rojo; «SEGUIMIENTO» → amarillo; perfil apartado → amarillo; aviso grave sin ver → rojo y visto → verde; clave de más de 90 días → amarillo | misma prueba | OK |
+| Cortes: 3 clientes (22/11, 22/11, 02/12) → corte sugerido 22/11, diferencia 10 días, Ana 0 / Beto 0 / Carla +10; la cuenta completa de Disney no entra; alinear a Carla deja la cuenta alineada; sin claves en la respuesta; Atención no entra | misma prueba | OK |
+| Cambié la clave: muy corta / igual a la anterior → rechazada; Atención no puede; admin sí: clave nueva, fecha, 2 avisos en cola (ninguno real), auditoría sin la clave; la secretaria deja de pedirla y a los 8 días vuelve | misma prueba | OK |
+| API: cargar con «gmaik.com» → 200 con `warning`; repetida → 400 «ya está cargada»; `GET /api/admin/cortes` 200 (1 cuenta) y 401 sin sesión; `POST …/password` 200 con `notified: 1`; la lista sigue sin mostrar la clave | misma prueba, servidor en puerto efímero | OK |
+| El menú suma «Cortes» para dueño y admin (no para Atención) y no pierde pantallas | `test/panel-ordenado.test.mjs` | OK |
+| La secretaria mantiene sus conteos (más `claves`) | `test/secretaria.test.mjs` | OK |
+| Revisión visual a 360 px: pantalla Cortes (vacía y con una cuenta desalineada: 3 clientes, corte 12/12, diferencia 10 d, filas por perfil) y Cuentas (filtros) sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | capturas con datos de ejemplo (fuera del repo) | OK. La pastilla 🟡/🔴 en la tarjeta de cada cuenta no se alcanzó a capturar (las tarjetas se abren por plataforma); queda cubierta por la prueba de `risk` en la lista |
+| Tanda completa | `npm test` | **506/507**: volvió a fallar solo `hub-clientes-unidos` («Mis clientes») bajo carga: Playwright veía «inestable» el botón «Guardar en mis clientes» porque la lista se redibuja al abrir el desplegable. Se cambió ese clic a JS en la prueba (no cambia el producto); sola pasa |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 3 «Panel rápido y oscuro»
 | Qué | Cómo | Resultado |
 |---|---|---|

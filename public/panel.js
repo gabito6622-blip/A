@@ -29,14 +29,14 @@ const AREAS = [
   ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   ["a-clientes", "users", "Clientes", [["clientes", "Clientes"]]],
-  ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
+  ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["cortes", "✂️ Cortes", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
   ["a-revendedores", "userplus", "Revendedores", [["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
   ["a-herramientas", "gear", "Herramientas", [["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
 ];
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
-  inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
+  cortes: "corte fechas alinear perfiles clientes finales hbo disney netflix cambiar clave semaforo riesgo", inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
   vender: "venta nueva prueba gratis combo", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
@@ -50,7 +50,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -119,8 +119,31 @@ function applyTheme() {
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
+/** Semáforo de riesgo de una cuenta (etapa 4): verde nada, amarillo revisar, rojo clientes en peligro. */
+const riskPill = (r) => !r ? "" : r.level === "bad" ? pill("🔴 Riesgo", "bad") : r.level === "warn" ? pill("🟡 Revisar", "warn") : pill("🟢 OK", "ok");
+
 /* ---------------- vistas ---------------- */
 const V = {
+  /** «Cortes»: cuentas por perfiles con clientes que vencen en fechas distintas y una fecha sugerida para alinearlos. */
+  async cortes() {
+    if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño y los admins.</div></section>`;
+    const list = await api("GET", "/api/admin/cortes");
+    const only = P.tab.cutOnly ?? "des";
+    const shown = list.filter((x) => only === "todas" || !x.aligned);
+    const sign = (n) => (n > 0 ? `+${n}` : String(n));
+    const row = (pr) => `<tr><td><b>${esc(pr.label)}</b></td><td>${pr.customer ? `${esc(pr.customer)}${pr.phone ? `<br><small class="muted">${esc(pr.phone)}</small>` : ""}` : `<span class="muted">${pr.status === "available" ? "libre" : pr.status === "quarantined" ? "apartado" : pr.status}</span>`}</td>
+      <td>${pr.expiresAt ? fdate(pr.expiresAt) : "—"}</td><td>${pr.diffDays === undefined ? "" : pr.diffDays === 0 ? pill("al día", "ok") : pr.diffDays > 0 ? pill(`${sign(pr.diffDays)} d · le sobran`, "warn") : pill(`${sign(pr.diffDays)} d · le faltan`, "bad")}</td></tr>`;
+    const card = (x) => `<article class="card cutcard">
+      <header class="cuthead"><div><b>${esc(x.product)}</b><br><small class="mono">${esc(x.email)}</small></div>${riskPill(x.risk)}</header>
+      <div class="cutsum"><div><small>Corte sugerido</small><b>${fdate(x.suggestedCut)}</b></div><div><small>Clientes</small><b>${x.clients}</b></div><div><small>Diferencia</small><b class="${x.spreadDays ? "down" : "up"}">${x.spreadDays} d</b></div><div><small>Proveedor</small><b>${fdate(x.supplierExpiresAt)}</b></div></div>
+      ${x.aligned ? `<p class="pok">✅ Todos vencen el mismo día.</p>` : `<p class="muted" style="margin:0">La fecha sugerida es la que más se repite. A quien le sobran días, al cortar le podés dar ese tiempo de regalo en su próximo mes; a quien le faltan, cobrale solo los días hasta el corte.</p>`}
+      ${table(["Perfil", "Cliente", "Vence", "Respecto del corte"], x.profiles.map(row), "Sin perfiles.")}
+      <footer class="inline"><button class="pbtn sm" type="button" data-rotate="${esc(x.accountId)}">🔑 Cambié la clave</button><button class="pbtn sm" type="button" data-go="cuentas">Ver en Cuentas</button>${x.passwordChangedAt ? `<small class="muted">Última clave: ${fdate(x.passwordChangedAt)}</small>` : ""}</footer></article>`;
+    return `<section class="card"><h2>✂️ Cortes <small>· cuentas por perfiles con clientes que vencen en fechas distintas</small></h2>
+      <p class="muted" style="margin:0">Para ordenar una cuenta se elige una sola fecha de corte: ese día cambiás la clave y todos arrancan juntos. Acá no se cambia nada: es para decidir.</p>
+      <div class="tabs ctl-chips" role="tablist">${[["des", `Desalineadas (${list.filter((x) => !x.aligned).length})`], ["todas", `Todas (${list.length})`]].map(([k, l]) => `<button type="button" role="tab" data-tab="cutOnly:${k}" aria-selected="${only === k}">${l}</button>`).join("")}</div></section>
+      ${shown.map(card).join("") || `<section class="card"><div class="emptybox">${list.length ? "Todas tus cuentas por perfiles están alineadas 🎉" : "Todavía no hay cuentas por perfiles con clientes adentro."}</div></section>`}`;
+  },
   comovan: () => comoVanView(P.tab),
   oficina: () => officeView(),
   async secretaria() {
@@ -924,14 +947,15 @@ const V = {
       const libres = a.slots.filter((s) => s.status === "available").length;
       const vivos = a.slots.filter((s) => s.status !== "retired");
       return `<article class="acard">
-        <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
+        <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div><span class="ahpills">${riskPill(a.risk)}${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</span></header>
+        ${a.risk?.reasons?.length ? `<p class="arisk ${a.risk.level}">${a.risk.level === "bad" ? "🔴" : "🟡"} ${esc(a.risk.reasons.join(" · "))}</p>` : ""}
         ${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
-        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     };
     // Etapa 7 (12/11/2026): "Por plataforma" agrupa las MISMAS tarjetas por producto (Plataforma → Cuenta →
@@ -1537,6 +1561,7 @@ const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", bi
 const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
 const AUD_VERB = {
+  "account.password_rotated": "cambió la clave de la cuenta",
   "account.add": "cargó {x}", "account.retire": "retiró {x}", "account.update": "editó {x}",
   "alerts.settings": "cambió los avisos para el dueño", "alerts.supplier_expiry": "recibió el aviso de vencimiento con el proveedor de {x}",
   "assignment.control": "actualizó el control de {x}", "assignment.deliver": "abrió los datos de entrega de {x}", "assignment.expire": "cerró por vencido {x}",
@@ -2596,6 +2621,11 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
+  if (d.rotate) {
+    const pw = prompt("Clave NUEVA de la cuenta (ya la cambiaste en la plataforma):");
+    if (pw === null) return;
+    return act(() => api("POST", `/api/admin/accounts/${d.rotate}/password`, { password: pw }), (r) => `🔑 Clave guardada · ${r.notified ? `${r.notified} cliente(s) quedan avisados en la cola` : "sin clientes que avisar"}`);
+  }
   if (d.unquar) {
     const acc = (await api("GET", "/api/admin/accounts")).find((x) => x.id === d.unquar);
     const q = (acc?.slots ?? []).filter((x) => x.status === "quarantined");

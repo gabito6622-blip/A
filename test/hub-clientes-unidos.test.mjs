@@ -92,7 +92,8 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     // Guardar a Beto en sus clientes: queda con su ficha y ya no figura como suelto.
     await page.locator('.bnav [data-s="clientes"]').click();
     await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("summary").click();
-    await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("[data-addcli]").click();
+    // Clic por JS: al abrir el desplegable la lista se vuelve a dibujar y el botón real cambia de nodo (bajo carga, Playwright lo veía «inestable»).
+    await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("[data-addcli]").evaluate((b) => b.click());
     await page.waitForFunction(() => ![...document.querySelectorAll(".rcli-x")].some((x) => x.textContent.includes("Beto Suelto")));
     const mine = await (await fetch(base + "/api/me/customers", { headers: { cookie: rck } })).json();
     assert.ok(mine.some((c) => c.name === "Beto Suelto" && c.phone.endsWith("70044444")));

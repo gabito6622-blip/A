@@ -764,6 +764,8 @@ export function createApp(cfg: AppConfig): App {
     if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
     return r;
   });
+  route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
+  route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));

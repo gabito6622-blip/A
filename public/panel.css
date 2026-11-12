@@ -1198,3 +1198,15 @@ table.ctl tfoot td.ccli{z-index:3}
 /* Aprobación: monto verificado de una recarga (etapa 1) */
 form[data-approve] .vamt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut,#5b6577);white-space:nowrap}
 form[data-approve] .vamt input{max-width:110px;min-height:44px}
+
+/* Etapa 4: semáforo de riesgo y vista Cortes */
+.acard header .ahpills{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.arisk{margin:0;font-size:12.5px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--ink)}
+.arisk.bad{background:var(--bad-soft)}
+.cutcard{display:grid;gap:10px}
+.cuthead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.cutsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.cutsum div{background:var(--soft);border-radius:10px;padding:8px 10px}
+.cutsum small{display:block;color:var(--muted);font-size:12px}
+.cutsum b{font-size:15px}
+.cutcard footer{align-items:center;gap:8px;flex-wrap:wrap}

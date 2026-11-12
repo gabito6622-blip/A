@@ -246,6 +246,8 @@ export interface Account {
   iptv?: IptvLine;
   /** Vencimiento con el proveedor para el que ya se avisó al dueño. */
   supplierAlertSentFor?: number;
+  /** Última vez que se cambió la clave con «Cambié la clave» (etapa 4). */
+  passwordChangedAt?: number;
   createdAt: number;
 }
 
