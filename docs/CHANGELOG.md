@@ -8,6 +8,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».
 - **n2025gt+18dp:** revisada por el dueño: libre, con clave nueva (no se escribe acá). Se quitó la marca vieja «pagar proveedor».
 - **n2025gt+ps1** (sin ESPN): la usa el dueño para sus perfiles de clientes finales. Se apartó (cuarentena) para que no se alquile; nota «👤 LA USA EL DUEÑO · NO ALQUILAR». Pendiente: cambiar la clave.
+- **n2025jg+nov y n2025jg+nov3** (sin ESPN): igual que ps1, las usa el dueño para sus perfiles de clientes finales. Apartadas (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar clave y expulsar dispositivos para liberarlas.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
 - **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
