@@ -50,3 +50,14 @@ pantallas y todos los botones y formularios de adentro son iguales. Solo cambió
 | Quien solo estaba en una cuenta propia o en un perfil no aparecía en Mis clientes | Aparece en la misma lista («no está en tu lista de clientes») con ➕ Guardar en mis clientes (el mismo alta de «Agregar cliente») | `hub-clientes-unidos` |
 | Buscador: nombre o teléfono (desde 5 clientes) | Nombre, teléfono o app (ej.: «netflix»), sin tildes | `hub-clientes-unidos` |
 | Editar cliente, link de códigos, renovar, avisar, copiar datos | Iguales | `revendedor-pantallas` |
+
+## Etapa 5 (12/11/2026, rama `hub-etapa5`): suscripción GaboHub
+
+| Antes | Ahora | Prueba |
+|---|---|---|
+| Alquiler mensual solo para revendedores con página propia | Igual por defecto («Solo con página propia»); nueva opción «Todos (suscripción GaboHub)» | `suscripcion-gabohub`, `store` (alquiler de siempre) |
+| Revendedor en dólares: Bs pasados con la tasa del día | Igual si no hay precio en dólares; nuevo «Precio fijo en dólares» (US$ 5) | `suscripcion-gabohub` |
+| Sin pagar: se apagaba su página | Igual; con «Todos», además se pausan Mi control, Quién me debe, Mis ganancias y Afiches (el servidor no entrega esos datos). Comprar, cuentas, códigos, recargar, vender y anotar fiados nunca se bloquean | `suscripcion-gabohub` |
+| Pagar desde el Inicio (solo con página) | También sin página; aviso en el Inicio y candado con «Pagar» en las herramientas pausadas | `suscripcion-gabohub` |
+| Lista de revendedores: «Alquiler pagado hasta» (con página) | Con «Todos»: «Suscripción GaboHub pagada hasta» o «sin pagar», también para los de solo panel | revisado a mano |
+| Cobro apagado | Sigue apagado hasta que el dueño lo prenda | `suscripcion-gabohub` |

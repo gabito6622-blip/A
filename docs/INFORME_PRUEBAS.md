@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 12/11/2026 · GaboHub etapa 5: suscripción (rama `hub-etapa5`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cobro | `test/suscripcion-gabohub.test.mjs`: apagada no cobra; prendida para todos cobra Bs 49 al de solo panel, US$ 5 fijos al de dólares y arranca la gracia al que no tiene saldo; a los 3 días se pausa; paga y vuelve; no se cobra dos veces el mismo mes; apagar limpia las pausas; si arma su página, lo pagado pasa a la página; «solo con página» no toca a los de solo panel | ✅ |
+| Pausa en el servidor | Pausado: control, fiados y ganancias responden 402; servicios, clientes, página, cuentas propias y precios responden 200; anotar un fiado sigue funcionando | ✅ |
+| En el celular (360 px) | Aviso en el Inicio, candado con «Pagar» en Mi control (botones de 44 px); paga y se reactiva | ✅ |
+| Lo de antes | Las pruebas del alquiler de página (`store`) siguen pasando sin cambios | ✅ |
+| Revisión visual | Ajustes del dueño (el selector «¿Quién paga?» se cortaba en el celular: textos acortados, entra a 360 px) y aviso del revendedor | ✅ |
+| Prueba inestable | `hub-clientes-unidos` falló 1 vez en 4 corridas completas (máquina cargada): más margen en sus esperas | ✅ |
+| Pruebas automáticas | `npm test`: 482 / 482 (52 s) | ✅ |
+
 ## 12/11/2026 · Después de publicar #48 (GaboHub etapas 3 y 4)
 | Qué | Cómo | Resultado |
 |---|---|---|

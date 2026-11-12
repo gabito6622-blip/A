@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · GaboHub etapa 5: qué pasa si un revendedor no paga la suscripción
+- **Propuesta del asistente, sin respuesta explícita del dueño («vos trabajá»):** nunca se bloquea lo que le deja plata al dueño (comprar, cuentas, códigos, recargar, vender, anotar fiados). Después de los días de gracia se pausan Mi control, Quién me debe, Mis ganancias y Afiches, y su página si tiene. Es fácil de cambiar antes de prender el cobro.
+- **La pausa la controla el servidor** (402 en esas pantallas) y solo cuenta mientras el cobro esté prendido para todos: si el dueño lo apaga, nadie queda pausado.
+- **Dónde se guarda:** con página, en su página (como siempre); sin página, aparte (`hubBill`), y pasa a la página si después la arma.
+- **US$ fijos:** el dueño pidió US$ 5 redondos; sin ese número se usa la tasa del día como antes.
+
 ## 2026-11-12 · GaboHub etapa 4: clientes en una sola lista
 - **Cómo se une:** una cuenta propia va con el cliente si la venta tiene su ficha; si no, por WhatsApp (solo números, 7 o más). Los perfiles de cuentas completas, por WhatsApp. Sin WhatsApp, se agrupan por nombre como «sueltos».
 - **Sueltos, no fichas automáticas:** no se crea ningún cliente solo; el revendedor decide con «Guardar en mis clientes».
