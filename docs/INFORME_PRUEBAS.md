@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 12/11/2026 · Cambio de datos reales: cuentas de Disney sin proveedor (con OK del dueño)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo | Antes de tocar: id, producto, proveedor, fecha y perfiles libres de las 124 cuentas de Disney (sin contraseñas), guardado fuera del repositorio y entregado al dueño | ✅ |
+| Prueba con 1 cuenta | Fecha nueva guardada; su cliente pasa a poder renovarse; la fecha del cliente y los perfiles de la cuenta no cambian | ✅ |
+| Las otras 107 | 107 de 107 sin fallas. En las 125 cuentas, los perfiles quedaron iguales; los 82 servicios conservan su fecha; las 16 cuentas dejadas para decidir siguen igual; clientes frenados por el proveedor: 81 → 0 | ✅ |
+| «Proveedor Disney» → «Propias» | Botón del panel: 125 cuentas movidas. Servicios 82, cuentas 125, clientes 27, pedidos 92 y cola 75: iguales antes y después | ✅ |
+
 ## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (publicado en #43)
 | Qué | Cómo | Resultado |
 |---|---|---|
