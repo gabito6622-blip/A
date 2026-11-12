@@ -15,7 +15,7 @@ import { AppError, badRequest, conflict, forbidden, notFound } from "../lib/erro
 import { audit } from "../lib/audit.js";
 import { nextCounter, type Client } from "../lib/db.js";
 import { requireBranch, type AuthCtx } from "../lib/rbac.js";
-import { allergyWarnings } from "../lib/allergies.js";
+import { allergyTerms, allergyWarnings } from "../lib/allergies.js";
 import { interactionWarnings, type InteractionHistory } from "../lib/interactions.js";
 import { formatVerifyCode, normalizeVerifyCode, snapshotHash } from "../lib/pdf.js";
 import { budgetSnapshot, consentSnapshot, findPdf, letterheadData, patientSnap, receiptSnapshot, sendPdf, storePdf, verifyRow, type PdfRow } from "./documents-core.js";
@@ -103,7 +103,9 @@ async function latestHistory(c: Client, patientId: string) {
 }
 async function latestAllergies(c: Client, patientId: string) {
   const mh = await latestHistory(c, patientId);
-  return { hasHistory: !!mh, allergies: mh?.data?.allergies?.trim() || null, recordedAt: mh?.recorded_at ?? null };
+  const allergies = mh?.data?.allergies?.trim() || null;
+  // «Ninguna», «niega alergias»… no son alergias: la pantalla no debe mostrarlas en rojo.
+  return { hasHistory: !!mh, allergies, allergiesNone: !!allergies && allergyTerms(allergies).length === 0, recordedAt: mh?.recorded_at ?? null };
 }
 
 const zLine = z.object({

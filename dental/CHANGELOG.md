@@ -30,6 +30,10 @@ Todo listo para publicar el día que la dueña lo autorice (sin publicar nada) y
 - El tope «no pagar más que el costo de la orden» contaba pagos anulados.
 - Quien ve todas las sucursales no veía el botón «Anular» de una transferencia (aparecía solo como «Por recibir»).
 - La comprobación de alergias de un paciente de otra clínica respondía vacío en vez de 404 (no exponía datos).
+- La propietaria no veía la lista de textos de certificados (pedía permiso clínico).
+- «Alergias: Ninguna» se mostraba en rojo como si fuera una alergia.
+- En el celular, el nombre y el código de un insumo salían pegados en las tablas en tarjetas.
+- El informe de consumo avisa cuando ningún tratamiento descontó materiales, para no leer −100 % como desperdicio.
 
 ## [0.8.0] — 2026-11-11
 

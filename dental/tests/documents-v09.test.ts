@@ -50,6 +50,8 @@ describe("interacciones (unidad)", () => {
 
 describe("interacciones al recetar (API)", () => {
   it("la comprobación en vivo avisa y la emisión NO se bloquea: queda anotado en la historia", async () => {
+    const ctx = (await dentist.get(`/api/patients/${patient}/prescription-context`)).body;
+    expect(ctx).toMatchObject({ allergies: "Ninguna", allergiesNone: true }); // «Ninguna» no se muestra como alergia
     const chk = await dentist.post(`/api/patients/${patient}/allergy-check`, { lines: [{ drug: "Ibuprofeno 400 mg" }, { drug: "Paracetamol" }] });
     expect(chk.status).toBe(200);
     expect(chk.body.currentMedications).toMatch(/Warfarina/);

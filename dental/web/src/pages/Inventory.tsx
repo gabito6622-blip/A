@@ -338,12 +338,15 @@ function ConsumptionReportTab({ branchId }: { branchId: string | null }) {
       </div>
       <p className="muted small">Para los tratamientos realizados en el período: lo que se descontó (más lo que quedó pendiente por falta de stock) frente a lo que indica el estándar de cada prestación. Una diferencia positiva es más uso del previsto.</p>
       <section className="card">
+        {r.data && r.data.items.length > 0 && r.data.items.every((x: any) => Number(x.actualQty) === 0 && Number(x.pendingQty) === 0) && (
+          <div className="alert warn small" role="status">Ningún tratamiento del período descontó materiales. Suele pasar si se realizaron antes de cargar el consumo estándar de cada prestación, o si se cargaron por importación: en ese caso la diferencia de −100 % no es desperdicio.</div>
+        )}
         {!r.data ? <Loading /> : !r.data.items.length ? <Empty>Sin tratamientos con materiales estándar en el período.</Empty> : (
           <div className="table-wrap"><table className="table cards-sm">
             <thead><tr><th>Insumo</th><th className="num">Estándar</th><th className="num">Descontado</th><th className="num">Pendiente</th><th className="num">Diferencia</th></tr></thead>
             <tbody>{r.data.items.map((x: any) => (
               <tr key={x.itemId}>
-                <td><b>{x.name}</b><span className="inv-sub">{x.sku} · {x.unit}</span></td>
+                <td><div><b>{x.name}</b><span className="inv-sub">{x.sku} · {x.unit}</span></div></td>
                 <td className="num">{qty(x.standardQty)}</td>
                 <td className="num">{qty(x.actualQty)}</td>
                 <td className="num">{x.pendingQty ? qty(x.pendingQty) : "—"}</td>

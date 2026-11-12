@@ -1,6 +1,6 @@
-# Informe de pruebas — v0.8
+# Informe de pruebas — v0.9
 
-- **Fecha:** 11-nov-2026.
+- **Fecha:** 12-nov-2026.
 - **Entorno:** Node 22.23, PostgreSQL 16.15 y Chromium (Playwright 1.63). Todos los datos son **ficticios**.
 
 ## Resumen
@@ -8,8 +8,8 @@
 | Suite | Comando | Resultado |
 |---|---|---|
 | Tipos (servidor + web) | `npm run typecheck` | ✅ sin errores |
-| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **675/675**, 49 archivos |
-| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **69/69** |
+| Unitarias + integración + respaldo (PostgreSQL real) | `npm test` | ✅ **689/689**, 52 archivos |
+| End-to-end en navegador real (escritorio + celular) | `npm run test:e2e` | ✅ **71/72** (1 se omite sola cuando, por la hora del día, no hay citas por llegar en esa sucursal) |
 | Recorrido automático de diseño (6 roles —propietaria, asistente, recepción, odontólogo, contabilidad y limpieza— × escritorio 1440 px y celular 390 px: todas las pantallas del menú, todas las pestañas de Configuración y de la ficha, más el portal a 360 px) | `walkall` (Playwright) | ✅ sin errores de consola, sin respuestas 403 ni 500 inesperadas y sin desborde horizontal |
 | Guardas automáticas de seguridad | `tests/route-guard.test.ts`, `tests/db-hardening.test.ts` | ✅ todas las rutas de la API (401/403, lista de públicas) y toda la base (RLS, solo inserción, funciones revisadas) |
 | Carga (100 000 pacientes, 600 960 citas, 1 M de auditoría) | `npm run perf:seed` + `npm run perf:bench` (fuera de CI) | ✅ pantallas diarias p95 < 300 ms; informes mensuales < 0,6 s; embudo de presupuestos 182 ms (v0.7); la exportación de pacientes empieza a bajar en 35 ms (total ~4 s, B-104) |
@@ -137,6 +137,26 @@ End-to-end nuevos: `inventario.spec.ts` (3, incluido el celular), `laboratorio.s
 
 End-to-end nuevos: `imagenes.spec.ts` (2), `gestion.spec.ts` y `fichaje-movil.spec.ts` (4), `coordinacion.spec.ts` (3), `experiencia.spec.ts` (3), `convenios-conciliacion.spec.ts`, `app-movil.spec.ts` (2: instalable, caché sin datos de la API, aviso sin conexión y tablas como tarjetas) y en `movil.spec.ts` el botón «Más» con el menú completo.
 
+### v0.9: listo para publicar, agenda, inventario, laboratorio, recetas, periodontograma y semilla
+| Archivo | Pruebas | Qué verifica |
+|---|---|---|
+| `preflight.test.ts` | 3 | El chequeo previo marca lo que falta (claves, frase de respaldo, SMTP, https) y nunca imprime un valor secreto |
+| `agenda.test.ts` | +1 | Cambiar solo la duración no suma reprogramación; «Deshacer» se acepta solo si coincide con el último movimiento de la misma persona y hace menos de 2 min, y devuelve la confirmación |
+| `inventory-lab-v2.test.ts` | 4 | Anular una transferencia: el stock vuelve al origen con su costo, permisos (403), otra clínica (404), no dos veces, una recibida no se anula. Consumo real frente al estándar (descontado y pendiente) por sucursal, fechas, permisos y Excel. Anular un pago a laboratorio: solo gerencia, 404 para otra clínica, no dos veces, la orden vuelve a deberse y se puede volver a pagar; solo inserción y auditoría |
+| `documents-v09.test.ts` | 6 | Interacciones: principios activos sin tildes o a medias, medicación actual, marca de anticoagulantes, dos AINE en la receta, embarazo, y que un medicamento fuera de la lista no genere avisos. La receta se emite igual y queda anotado. Textos de certificados: permisos, marcadores desconocidos, datos obligatorios, versiones, lo emitido conserva su versión, volver al original, solo inserción. Orden de sondaje por clínica |
+| e2e nuevos | 3 | Duración arrastrando el borde en la agenda; la propietaria guarda una versión del texto de un certificado y vuelve al original; anular una transferencia en tránsito (botón de 44 px) |
+| Semilla demo | medido | Producción «sin sillón identificado» en los últimos 60 días: **98,3 % → 0,9 %** (547 cargos) |
+| Revisión visual | 1440 y 390 px | Certificados, consumo real, transferencias, pagos a laboratorio y receta con aviso: sin desborde, sin errores de consola |
+
+Hallazgos de esta tanda, todos corregidos y con prueba:
+- anular un pago a laboratorio fallaba por permisos de la base;
+- el tope por orden contaba los pagos anulados;
+- la propietaria no veía la lista de textos de certificados;
+- quien ve todas las sucursales no tenía el botón «Anular» de una transferencia;
+- la comprobación de alergias de un paciente de otra clínica respondía vacío en vez de 404;
+- «Alergias: Ninguna» se mostraba en rojo;
+- en el celular, el nombre del insumo y su código salían pegados en las tablas en tarjetas.
+
 ### v0.8: mensajes desde una cola, bandeja de respuestas, respaldos grandes y rentabilidad
 | Archivo | Pruebas | Qué verifica |
 |---|---|---|
@@ -254,19 +274,20 @@ Agenda del día y de la semana, disponibilidad, ficha y «mi día» ya estaban p
 
 ## Lo que NO está probado todavía (riesgo conocido)
 
-- **Respaldos en producción.** `backup:run` y `backup:verify` probados en local con bases chicas y con la demo; la imagen todavía no trae `pg_dump` y no hay cron configurado (B-100).
+- **Respaldos en producción.** `backup:run` y `backup:verify` probados en local con bases chicas y con la demo. La imagen ya trae `pg_dump` 17 y la CI lo comprueba dentro de ella, pero no hay cron configurado porque no se publicó (B-100).
 - **Desbloqueo por correo real.** El enlace se probó con un buzón en memoria; falta SMTP.
 - **Correo real.** El envío por SMTP no se probó contra un servidor; las pruebas usan un buzón en memoria.
 - **Impresión de documentos.** Los PDF del servidor sí están probados (se lee su texto), pero la ventana de impresión del navegador no.
 - **WhatsApp real.** El adaptador de Cloud API y el webhook están probados con firmas y respuestas simuladas; no se envió ningún mensaje real (no hay cuenta de la clínica).
-- **Arrastre táctil** en la agenda: implementado, sin prueba automática.
+- **Arrastre táctil** en la agenda: probado con puntero (ratón) en e2e; con el dedo en un celular real, no.
 - **Archivos clínicos en Railway:** sin un volumen persistente montado en `/data`, se perderían al redeplegar. No se probó en un despliegue real.
 - **Conciliación con extractos reales:** probada con un extracto de ejemplo (`docs/extracto-ejemplo.csv`); cada banco boliviano tiene su formato y habrá que mapear las columnas con un extracto real anonimizado.
 - **Asistente con IA real.** No hay clave en este entorno, así que el flujo del chat con el modelo no se ejecutó. Sí están probadas las herramientas, los permisos y la degradación sin clave.
 - **Pantallas de Configuración, Reportes, Asistente y Plataforma.** Están compiladas y revisadas visualmente, pero sin e2e propios. Su API sí está probada.
 - **Navegadores** distintos de Chromium (Safari iOS, Firefox).
 - **Prueba de penetración externa** (B-026).
-- **Imagen Docker.** El daemon de Docker no estaba disponible en este entorno, así que el `Dockerfile` no se construyó aquí; lo cubre la CI con el mismo procedimiento de compilación.
+- **Imagen Docker.** El daemon de Docker no está disponible en este entorno; la imagen la construye la CI (trabajo `dental-docker`), que también comprueba `pg_dump`, `pg_restore`, el respaldo y el chequeo previo dentro de ella.
+- **Interacciones de medicamentos.** Probado que el aviso funciona; **no** está validado clínicamente que la lista sea correcta o suficiente: lo debe revisar un profesional de la clínica (B-112).
 
 ## Cómo reproducir
 

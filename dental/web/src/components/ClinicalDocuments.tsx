@@ -232,7 +232,9 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
         <div className="stack">
           {err && <div className="alert danger" role="alert">{err}</div>}
           <div className="row-between"><b>{c.patient.name}</b><span className="muted small">{c.patient.age != null ? `${c.patient.age} años` : "Edad no registrada"}{c.patient.document ? ` · ${c.patient.document}` : ""}</span></div>
-          {c.allergies
+          {c.allergies && c.allergiesNone
+            ? <div className="alert ok small">Sin alergias: la última historia dice «{c.allergies}» ({fmtDate(c.recordedAt)}).</div>
+            : c.allergies
             ? <div className="alert danger rx-allergy"><AlertTriangle size={18} aria-hidden /><span><b>Alergias registradas:</b> {c.allergies}</span></div>
             : c.hasHistory ? <div className="alert ok small">Sin alergias registradas en la última historia ({fmtDate(c.recordedAt)}).</div>
               : <div className="alert warn small">No hay antecedentes médicos registrados: confirma alergias con el paciente antes de recetar.</div>}
