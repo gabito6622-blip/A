@@ -1,68 +1,73 @@
 from lib import *
 from b1_supuestos import ROW
 
-MATS = [  # nombre, unidad, consumo/kit, merma?, precio Bs con factura, factura?, fuente
-    ('Arcilla roja (molida y tamizada)', 'kg', 5.0, 1, 0.40, 1, 'Supuesto: cotizar con ladrilleras / canteras de la zona'),
-    ('Aserrín o cascarilla de arroz tamizada', 'kg', 0.6, 1, 0.50, 1, 'Supuesto: residuo de aserraderos o arroceras; cotizar'),
-    ('Plata coloidal 3,2%', 'ml', 2.0, 1, 1.20, 1, 'Supuesto; dosis de referencia de Potters for Peace (verificar)'),
-    ('Contenedor plástico 20 L grado alimentario con tapa', 'unidad', 1.0, 0, 55.0, 1, 'Supuesto: cotizar con fábricas de plásticos de Santa Cruz'),
-    ('Grifo plástico', 'unidad', 1.0, 0, 12.0, 1, 'Supuesto: cotizar'),
-    ('Empaque: caja, manual y etiqueta', 'unidad', 1.0, 0, 14.0, 1, 'Supuesto: cotizar con imprentas'),
+MATS = [  # nombre, unidad, consumo/kit, merma?, moneda, precio unitario (en su moneda, con factura), factura?, fuente
+    ('Arcilla roja (molida y tamizada)', 'kg', 5.0, 1, 'Bs', 0.40, 1, 'Cotizar con ladrilleras o canteras de la zona'),
+    ('Aserrín o cascarilla de arroz tamizada', 'kg', 0.6, 1, 'Bs', 0.50, 1, 'Residuo de aserraderos o arroceras'),
+    ('Plata coloidal 3,2% (importada)', 'ml', 2.0, 1, 'USD', 0.10, 1, 'Importador de insumos químicos'),
+    ('Carbón activado de cáscara de castaña', 'kg', 0.15, 0, 'Bs', 30.0, 1, 'Beneficiadoras de castaña (contrato de cáscara)'),
+    ('Contenedor plástico 20 L grado alimentario con tapa', 'unidad', 1.0, 0, 'Bs', 55.0, 1, 'Fábricas de plástico de Santa Cruz'),
+    ('Grifo plástico (importado)', 'unidad', 1.0, 0, 'USD', 1.00, 1, 'Importadora de accesorios'),
+    ('Indicador de cambio (cinta en la tapa)', 'unidad', 1.0, 0, 'Bs', 4.0, 1, 'Proveedor de etiquetas indicadoras'),
+    ('Empaque: caja, manual y etiqueta con QR del lote', 'unidad', 1.0, 0, 'Bs', 14.5, 1, 'Imprenta'),
 ]
 
 def build_materiales(B):
-    ws = B.sheet('MP', 'MATERIALES POR KIT (LISTA DE MATERIALES) Y COSTO UNITARIO', 'Equivale a "MP" (Ñapefit) y "Costos (MP)" (Hypotolab). Precios en Bs con factura, editables.', tab='5B9BD5')
-    widths(ws, {'A': 44, 'B': 9, 'C': 12, 'D': 10, 'E': 13, 'F': 14, 'G': 10, 'H': 14, 'I': 14, 'J': 16, 'K': 52})
-    hd = ['Material', 'Unidad', 'Consumo por kit', '¿Merma? (1/0)', 'Consumo con merma', 'Precio unit. Bs (c/factura)', '¿Factura? (1/0)', 'Costo/kit c/factura', 'Costo/kit neto de IVA', 'Tipo', 'Fuente']
+    ws = B.sheet('MP', 'MATERIA PRIMA POR KIT (1 filtro 2.0)', '')
+    widths(ws, {'A': 46, 'B': 9, 'C': 11, 'D': 9, 'E': 11, 'F': 9, 'G': 12, 'H': 12, 'I': 9, 'J': 13, 'K': 13, 'L': 12, 'M': 40})
+    hd = ['Detalle', 'Unidad', 'Cantidad por kit', 'Merma (1/0)', 'Cantidad con merma', 'Moneda', 'Precio unitario', 'Precio en Bs', 'Factura (1/0)', 'Costo/kit Bs', 'Costo/kit sin IVA', 'Costo/kit $us', 'Proveedor']
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}6', h, 'hdr')
+    ws.row_dimensions[6].height = 32
     r = 7
-    for (n, u, c, m, p, fa, fu) in MATS:
-        put(ws, f'A{r}', n, 'label'); put(ws, f'B{r}', u, 'note')
+    for (n, u, c, m, mon, p, fa, fu) in MATS:
+        put(ws, f'A{r}', n, 'label', border=True); put(ws, f'B{r}', u, 'label', border=True)
         put(ws, f'C{r}', c, 'input', FMT_BS2); put(ws, f'D{r}', m, 'input', FMT_INT)
         put(ws, f'E{r}', f'=C{r}*(1+MERMA*D{r})', 'calc', '#,##0.000')
-        put(ws, f'F{r}', p, 'input', FMT_BS2); put(ws, f'G{r}', fa, 'input', FMT_INT)
-        put(ws, f'H{r}', f'=E{r}*F{r}', 'calc', FMT_BS2)
-        put(ws, f'I{r}', f'=H{r}*(1-TASA_IVA*G{r})', 'calc', FMT_BS2)
-        put(ws, f'J{r}', 'Supuesto (cotizar)', 'label'); put(ws, f'K{r}', fu, 'note')
+        put(ws, f'F{r}', mon, 'input'); put(ws, f'G{r}', p, 'input', FMT_BS2)
+        put(ws, f'H{r}', f'=G{r}*IF(F{r}="USD",TIPO_CAMBIO,1)', 'calc', FMT_BS2)
+        put(ws, f'I{r}', fa, 'input', FMT_INT)
+        put(ws, f'J{r}', f'=E{r}*H{r}', 'calc', FMT_BS2)
+        put(ws, f'K{r}', f'=J{r}*(1-TASA_IVA*I{r})', 'calc', FMT_BS2)
+        put(ws, f'L{r}', f'=J{r}/TIPO_CAMBIO', 'calc', FMT_BS2)
+        put(ws, f'M{r}', fu, 'label', border=True)
         r += 1
     ROW['MAT.first'] = 7; ROW['MAT.last'] = r - 1
-    put(ws, f'A{r}', 'TOTAL MATERIALES INVENTARIABLES POR KIT', 'label', bold=True, fill=FILL_TOT)
-    put(ws, f'H{r}', f'=SUM(H7:H{r-1})', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    put(ws, f'I{r}', f'=SUM(I7:I{r-1})', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    B.name('MP_KIT_CF', 'MP', f'H{r}'); B.name('MP_KIT_NETO', 'MP', f'I{r}')
+    put(ws, f'A{r}', 'TOTAL MATERIA PRIMA POR KIT', 'label', bold=True, fill=FILL_TOT, border=True)
+    for c in 'JKL': put(ws, f'{c}{r}', f'=SUM({c}7:{c}{r-1})', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
+    B.name('MP_KIT_CF', 'MP', f'J{r}'); B.name('MP_KIT_NETO', 'MP', f'K{r}')
     r += 2
-    put(ws, f'A{r}', 'Energía de cocción (gas) por filtro (no inventariable)', 'label')
-    put(ws, f'B{r}', 'Bs', 'note'); put(ws, f'C{r}', 1, 'input', FMT_BS2); put(ws, f'D{r}', 1, 'input', FMT_INT)
-    put(ws, f'E{r}', f'=C{r}*(1+MERMA*D{r})', 'calc', '#,##0.000'); put(ws, f'F{r}', 6, 'input', FMT_BS2); put(ws, f'G{r}', 1, 'input', FMT_INT)
-    put(ws, f'H{r}', f'=E{r}*F{r}', 'calc', FMT_BS2); put(ws, f'I{r}', f'=H{r}*(1-TASA_IVA*G{r})', 'calc', FMT_BS2)
-    put(ws, f'J{r}', 'Supuesto (medir)', 'label'); put(ws, f'K{r}', 'Supuesto: medir consumo de gas por cocción en el lote piloto', 'note')
-    B.name('ENERGIA_KIT_CF', 'MP', f'H{r}'); B.name('ENERGIA_KIT_NETO', 'MP', f'I{r}')
+    put(ws, f'A{r}', 'Gas para el horno por filtro', 'label', border=True)
+    put(ws, f'B{r}', 'Bs', 'label', border=True); put(ws, f'C{r}', 1, 'input', FMT_BS2); put(ws, f'D{r}', 1, 'input', FMT_INT)
+    put(ws, f'E{r}', f'=C{r}*(1+MERMA*D{r})', 'calc', '#,##0.000'); put(ws, f'F{r}', 'Bs', 'input'); put(ws, f'G{r}', 6, 'input', FMT_BS2)
+    put(ws, f'H{r}', f'=G{r}*IF(F{r}="USD",TIPO_CAMBIO,1)', 'calc', FMT_BS2); put(ws, f'I{r}', 1, 'input', FMT_INT)
+    put(ws, f'J{r}', f'=E{r}*H{r}', 'calc', FMT_BS2); put(ws, f'K{r}', f'=J{r}*(1-TASA_IVA*I{r})', 'calc', FMT_BS2); put(ws, f'L{r}', f'=J{r}/TIPO_CAMBIO', 'calc', FMT_BS2)
+    put(ws, f'M{r}', 'Medir en el lote piloto', 'label', border=True)
+    B.name('ENERGIA_KIT_CF', 'MP', f'J{r}'); B.name('ENERGIA_KIT_NETO', 'MP', f'K{r}')
     r += 1
-    put(ws, f'A{r}', 'COSTO VARIABLE DE PRODUCCIÓN POR KIT (2027)', 'label', bold=True, fill=FILL_TOT)
-    put(ws, f'H{r}', '=MP_KIT_CF+ENERGIA_KIT_CF', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    put(ws, f'I{r}', '=MP_KIT_NETO+ENERGIA_KIT_NETO', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
-    B.name('CVP_KIT_NETO', 'MP', f'I{r}')
+    put(ws, f'A{r}', 'COSTO VARIABLE DE PRODUCCIÓN POR KIT (2027)', 'label', bold=True, fill=FILL_TOT, border=True)
+    put(ws, f'J{r}', '=MP_KIT_CF+ENERGIA_KIT_CF', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
+    put(ws, f'K{r}', '=MP_KIT_NETO+ENERGIA_KIT_NETO', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
+    put(ws, f'L{r}', f'=J{r}/TIPO_CAMBIO', 'calc', FMT_BS2, bold=True, fill=FILL_TOT)
+    B.name('CVP_KIT_NETO', 'MP', f'K{r}')
     r += 1
-    put(ws, f'A{r}', 'Costo en USD (referencia, neto de IVA)', 'label'); put(ws, f'I{r}', f'=I{r-1}/TIPO_CAMBIO', 'calc', FMT_BS2)
-    r += 1
-    put(ws, f'A{r}', 'Kg de mezcla cerámica por filtro (arcilla + aserrín, con merma)', 'label')
+    put(ws, f'A{r}', 'Kg de mezcla de barro por filtro (arcilla + aserrín)', 'label', border=True)
     put(ws, f'E{r}', '=E7+E8', 'calc', '#,##0.000'); B.name('KG_FILTRO', 'MP', f'E{r}')
     r += 2
-    put(ws, f'A{r}', 'PROVEEDORES (sin nombres inventados: se completan al cotizar)', 'sec'); r += 1
+    put(ws, f'A{r}', 'PROVEEDORES', 'sec'); r += 1
     for j, h in enumerate(['Insumo', 'Tipo de proveedor', 'Criterios de selección', 'Estado']):
         put(ws, f'{L(1+j*3 if j else 1)}{r}', h, 'hdr')
-    prov = [('Arcilla', 'Canteras y ladrilleras de la región', 'Plasticidad, ausencia de contaminantes, regularidad', 'Por cotizar'),
-            ('Aserrín / cascarilla', 'Aserraderos o arroceras', 'Granulometría uniforme, sin químicos', 'Por cotizar'),
+    prov = [('Arcilla', 'Canteras y ladrilleras de la región', 'Plasticidad y limpieza', 'Por cotizar'),
+            ('Aserrín / cascarilla', 'Aserraderos o arroceras', 'Grano parejo, sin químicos', 'Por cotizar'),
+            ('Cáscara de castaña / carbón activado', 'Beneficiadoras de castaña', 'Contrato de exclusividad por la cáscara', 'Por cotizar'),
             ('Plata coloidal', 'Importadores de insumos químicos', 'Concentración certificada', 'Por cotizar'),
-            ('Contenedor y grifo', 'Fábricas de plástico locales', 'Grado alimentario, precio por volumen', 'Por cotizar'),
-            ('Empaque', 'Imprentas y fábricas de cartón', 'Precio y plazo', 'Por cotizar'),
-            ('Gas', 'Distribuidora de gas natural / GLP', 'Disponibilidad en la zona', 'Por cotizar')]
+            ('Contenedor, grifo e indicador', 'Fábricas e importadoras de plástico', 'Grado alimentario, precio por volumen', 'Por cotizar'),
+            ('Empaque y QR', 'Imprentas', 'Precio y plazo', 'Por cotizar'),
+            ('Gas', 'Distribuidora de gas natural o GLP', 'Disponibilidad en la zona', 'Por cotizar')]
     r += 1
     for row in prov:
         for j, v in enumerate(row):
             put(ws, f'{L(1+j*3 if j else 1)}{r}', v, 'label')
         r += 1
-    put(ws, f'A{r+1}', 'Ñapefit y Hypotolab listaban proveedores de su producto alimenticio; no aplican a este producto. Se conserva la metodología (cantidad por unidad x precio = costo unitario).', 'note')
     return ws
 
 STAGES = [  # etapa, equipo, capacidad, unidad, tipo ('kg_h','u_h','u_dia')
@@ -195,7 +200,7 @@ def build_compras(B):
     rd0 = r
     for i, m in enumerate(MATS):
         mr = P['MAT.first'] + i
-        qrow(ws, r, m[0], 'Bs', lambda q, mr=mr: f"={qc(q)}{rc}*'MP'!$H${mr}*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); r += 1
+        qrow(ws, r, m[0], 'Bs', lambda q, mr=mr: f"={qc(q)}{rc}*'MP'!$J${mr}*'Calendario'!{qc(q)}11*M_CVAR", FMT_BS); r += 1
     qrow(ws, r, 'Total (debe coincidir con "Compras con factura")', 'Bs', lambda q: f'=SUM({qc(q)}{rd0}:{qc(q)}{r-1})', FMT_BS, bold=True); P['COM.det_tot'] = r; r += 1
     P.update({'COM.compras': rc, 'COM.pago': rpb, 'COM.neto': rpn, 'COM.iva': riva, 'COM.consumo': rcon, 'COM.finbs': rfb, 'COM.fin': rf,
               'COM.en_pago': ren, 'COM.en_neto': renn, 'COM.en_iva': reni})

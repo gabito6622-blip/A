@@ -11,8 +11,8 @@ ROW = RowMap()
 def build_supuestos(B):
     ws = B.sheet('Supuestos', 'PANEL DE SUPUESTOS Y REGISTRO DE HIPÓTESIS',
                  'Todas las celdas azules con fondo amarillo son editables. Cada supuesto indica su tipo, fuente y cómo validarlo.', tab='FFC000')
-    widths(ws, {'A': 24, 'B': 52, 'C': 14, 'D': 16, 'E': 18, 'F': 62, 'G': 46})
-    hdrs = ['Código (nombre)', 'Descripción', 'Valor', 'Unidad', 'Tipo de dato', 'Fuente / justificación', 'Cómo validarlo']
+    widths(ws, {'A': 60, 'B': 14, 'C': 16, 'D': 20, 'E': 62, 'F': 46})
+    hdrs = ['Supuesto', 'Valor', 'Unidad', 'Tipo de dato', 'Fuente / justificación', 'Cómo validarlo']
     for j, h in enumerate(hdrs):
         put(ws, f'{L(1+j)}5', h, 'hdr')
     S = []
@@ -22,7 +22,7 @@ def build_supuestos(B):
     REAL = 'Dato real (fuente)'; NORM = 'Norma legal'; EST = 'Estimación técnica'; SUP = 'Supuesto (validar)'; ORIG = 'Tomado de los originales'
     sec('1. PARÁMETROS GENERALES Y MONEDA')
     p('ANIO_INICIO', 'Primer año de operación (año 0 = 2026, puesta en marcha)', 2027, 'año', SUP, 'Ñapefit proyecta 2027-2031; se conserva el horizonte de 5 años.', 'Calendario académico del proyecto', FMT_INT)
-    p('TIPO_CAMBIO', 'Tipo de cambio oficial Bs por USD (régimen flexible)', 12.06, 'Bs/USD', REAL, 'BCB abandonó el tipo fijo de 6,96 el 29/06/2026 (Res. Directorio 88/2026). Valor del 04/11/2026 según tabla del BCB reproducida por allratestoday.com; el 08/09/2026 el BCB fijó 12,64 (Correo del Sur).', 'Consultar bcb.gob.bo el día de la defensa y actualizar esta celda', FMT_BS2)
+    p('TIPO_CAMBIO', 'TIPO DE CAMBIO (Bs por 1 $us). Cambiar acá: todo el libro se actualiza', 12.06, 'Bs/$us', REAL, 'BCB abandonó el tipo fijo de 6,96 el 29/06/2026 (Res. Directorio 88/2026). Valor del 04/11/2026 según tabla del BCB reproducida por allratestoday.com; el 08/09/2026 el BCB fijó 12,64 (Correo del Sur).', 'Consultar bcb.gob.bo el día de la defensa y actualizar esta celda', FMT_BS2)
     p('FECHA_TC', 'Fecha del tipo de cambio usado', '04/11/2026', 'fecha', REAL, 'Ver fila anterior', 'Actualizar junto con el tipo de cambio')
     p('TC_HISTORICO', 'Tipo de cambio fijo usado en Ñapefit y Hypotolab (solo referencia)', 6.96, 'Bs/USD', ORIG, 'Vigente 2011-28/06/2026. No se usa en cálculos.', '—', FMT_BS2)
     p('INFL_BO', 'Inflación anual esperada en Bolivia (ajuste de costos)', 0.06, '% anual', EST, 'INE: inflación acumulada ene-oct 2026 = 6,03%; interanual a sep-2026 = 5,70% (BCB). Se usa 6% como proyección.', 'Comparar con el IPC del INE y el Informe de Política Monetaria del BCB', FMT_PCT)
@@ -61,7 +61,7 @@ def build_supuestos(B):
     p('M_SALARIOS', 'Multiplicador de sueldos', 1, 'x', SUP, 'Prueba de estrés', '—', FMT_BS2)
     p('M_INVERSION', 'Multiplicador de inversión en activos', 1, 'x', SUP, 'Prueba de estrés', '—', FMT_BS2)
     sec('4. COMERCIALIZACIÓN Y PRECIO')
-    p('PVP', 'Precio de venta al público 2027, con factura (kit completo)', 390, 'Bs/kit', SUP, 'Precio de mercado elegido (ver hoja Precio: cubre el costo total y es menor al gasto anual en botellones).', 'Prueba de precio en la encuesta y ventas piloto', FMT_BS)
+    p('PVP', 'Precio de venta al público 2027 del kit 2.0, con factura', 420, 'Bs/kit', SUP, 'Kit 2.0 (capa de carbón, indicador de cambio, QR del lote). Sigue costando menos de 6 meses de botellones.', 'Pregunta de precio de la encuesta y ventas del lote piloto', FMT_BS)
     p('MIX_DIRECTO', 'Ventas por canal directo (tienda en planta, redes, ferias)', 0.40, '% unidades', SUP, 'El resto va por ferreterías, supermercados y farmacias.', 'Contratos con distribuidores', FMT_PCT)
     p('MARGEN_CANAL', 'Margen del canal indirecto sobre el precio al público', 0.25, '% del PVP', SUP, 'Ñapefit usó 30% y Hypotolab 20% para el canal indirecto.', 'Negociación con distribuidores', FMT_PCT)
     p('DIAS_COBRO_IND', 'Plazo de cobro al canal indirecto', 30, 'días', SUP, 'Crédito habitual a distribuidores.', 'Contratos', FMT_INT)
@@ -114,42 +114,31 @@ def build_supuestos(B):
     for item in S:
         if item[0] == '#':
             put(ws, f'A{r}', item[1], 'sec')
-            for j in range(2, 8): ws[f'{L(j)}{r}'].fill = FILL_SEC
+            for j in range(2, 7): ws[f'{L(j)}{r}'].fill = FILL_SEC
             r += 1; continue
         nm, d, v, u, t, fu, va, fmt = item
-        put(ws, f'A{r}', nm, 'label', bold=True)
-        put(ws, f'B{r}', d, 'label', wrap=True)
-        put(ws, f'C{r}', v, 'input', fmt)
-        put(ws, f'D{r}', u, 'note')
-        put(ws, f'E{r}', t, 'label')
-        put(ws, f'F{r}', fu, 'label', wrap=True)
-        put(ws, f'G{r}', va, 'label', wrap=True)
-        B.name(nm, 'Supuestos', f'C{r}')
+        put(ws, f'A{r}', d, 'label', wrap=True, border=True)
+        put(ws, f'B{r}', v, 'input', fmt)
+        put(ws, f'C{r}', u, 'label', border=True)
+        put(ws, f'D{r}', t, 'label', border=True)
+        put(ws, f'E{r}', fu, 'label', wrap=True, border=True)
+        put(ws, f'F{r}', va, 'label', wrap=True, border=True)
+        B.name(nm, 'Supuestos', f'B{r}')
         ROW['SUP.' + nm] = r
         r += 1
     # validación del escenario
     dv = DataValidation(type='whole', operator='between', formula1='1', formula2='3', showErrorMessage=True,
                         errorTitle='Escenario', error='Ingrese 1, 2 o 3')
-    ws.add_data_validation(dv); dv.add(f"C{ROW['SUP.ESCENARIO']}")
+    ws.add_data_validation(dv); dv.add(f"B{ROW['SUP.ESCENARIO']}")
     dv2 = DataValidation(type='whole', operator='between', formula1='1', formula2='2', showErrorMessage=True)
-    ws.add_data_validation(dv2); dv2.add(f"C{ROW['SUP.METODO_VR']}")
-    # parámetro derivado: participación inicial del escenario activo
+    ws.add_data_validation(dv2); dv2.add(f"B{ROW['SUP.METODO_VR']}")
     r += 1
-    put(ws, f'A{r}', 'PART_INICIAL', 'label', bold=True)
-    put(ws, f'B{r}', 'Participación inicial del escenario activo (calculada)', 'label')
-    put(ws, f'C{r}', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', 'calc', FMT_PCT)
-    B.name('PART_INICIAL', 'Supuestos', f'C{r}')
-    r += 1
-    put(ws, f'A{r}', 'NOMBRE_ESCENARIO', 'label', bold=True)
-    put(ws, f'B{r}', 'Nombre del escenario activo', 'label')
-    put(ws, f'C{r}', '=CHOOSE(ESCENARIO,"Pesimista","Base","Optimista")', 'calc')
-    B.name('NOMBRE_ESCENARIO', 'Supuestos', f'C{r}')
-    r += 1
-    put(ws, f'A{r}', 'SUMA_EST', 'label', bold=True)
-    put(ws, f'B{r}', 'Control: la estacionalidad debe sumar 100%', 'label')
-    put(ws, f'C{r}', '=EST_T1+EST_T2+EST_T3+EST_T4', 'calc', FMT_PCT)
-    B.name('SUMA_EST', 'Supuestos', f'C{r}')
-    ws.freeze_panes = 'C6'
+    for nm, d, f, fm in [('PART_INICIAL', 'Participación inicial del escenario activo', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', FMT_PCT),
+                         ('NOMBRE_ESCENARIO', 'Escenario activo', '=CHOOSE(ESCENARIO,"Pesimista","Base","Optimista")', None),
+                         ('SUMA_EST', 'Control: la estacionalidad debe sumar 100%', '=EST_T1+EST_T2+EST_T3+EST_T4', FMT_PCT)]:
+        put(ws, f'A{r}', d, 'label', bold=True, border=True); put(ws, f'B{r}', f, 'calc', fm)
+        B.name(nm, 'Supuestos', f'B{r}'); r += 1
+    ws.freeze_panes = 'B6'
     return ws
 
 

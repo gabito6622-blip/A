@@ -1,6 +1,8 @@
-# Modelo empresarial maestro: kit purificador de agua con filtro cerámico
+# Modelo empresarial maestro: Filtro de agua 2.0
 
-Proyecto académico (Ingeniería Comercial / Juego de Negocios). Fusiona la metodología de los archivos Ñapefit e Hypotolab y la aplica a un producto físico no alimenticio. **No tiene relación con la tienda** del repositorio.
+Proyecto académico (Ingeniería Comercial / Juego de Negocios). Fusiona la metodología de los archivos Ñapefit e Hypotolab y la aplica a un producto físico no alimenticio: un filtro de agua de barro con plata coloidal y carbón activado de cáscara de castaña. **No tiene relación con la tienda** del repositorio.
+
+El tipo de cambio está en una sola celda (hoja Supuestos): si se cambia, se recalcula todo lo que está en dólares.
 
 | Archivo | Contenido |
 |---|---|

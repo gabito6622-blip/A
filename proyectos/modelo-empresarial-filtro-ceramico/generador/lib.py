@@ -27,6 +27,7 @@ BORDER = Border(top=THIN, bottom=THIN, left=THIN, right=THIN)
 WRAP = Alignment(wrap_text=True, vertical='top')
 CENTER = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
+KEEP_NOTES = {'Sensibilidad', 'DECISIONES Y ESCENARIOS', 'Muestra y encuesta', 'SIMULADOR EMPRESARIAL', 'Competencia'}
 FMT_BS = '#,##0;(#,##0);"-"'
 FMT_BS2 = '#,##0.00;(#,##0.00);"-"'
 FMT_U = '#,##0;(#,##0);"-"'
@@ -63,9 +64,6 @@ class Book:
     def sheet(self, name, title, subtitle='', tab=None):
         ws = self.wb.create_sheet(name)
         ws['A1'] = title; ws['A1'].font = F_TIT
-        if subtitle:
-            ws['A2'] = subtitle; ws['A2'].font = F_SUB
-        ws['A3'] = '◄ Volver al índice'; ws['A3'].hyperlink = "#'Índice'!A1"; ws['A3'].font = Font(name=FONT, size=9, color='0563C1', underline='single')
         ws.column_dimensions['A'].width = 46
         ws.column_dimensions['B'].width = 14
         return ws
@@ -81,7 +79,7 @@ def put(ws, cell, value, kind='calc', fmt=None, bold=False, fill=None, wrap=Fals
     if kind == 'input':
         c.font = Font(name=FONT, size=11, color='0000FF', bold=bold); c.fill = FILL_IN
     elif kind == 'link':
-        c.font = Font(name=FONT, size=11, color='008000', bold=bold)
+        c.font = Font(name=FONT, size=11, color='000000', bold=bold)
     elif kind == 'label':
         c.font = Font(name=FONT, size=11, bold=bold)
         c.alignment = Alignment(vertical='top', wrap_text=wrap)
@@ -98,6 +96,9 @@ def put(ws, cell, value, kind='calc', fmt=None, bold=False, fill=None, wrap=Fals
             if nc.value is None and not isinstance(nc, type(None)):
                 try: nc.fill = FILL_SEC
                 except AttributeError: pass
+    elif kind == 'note' and isinstance(value, str) and len(value) > 45 and ws.title not in KEEP_NOTES:
+        c.value = None
+        return c
     elif kind == 'note':
         c.font = Font(name=FONT, size=9, italic=True, color='555555')
     else:

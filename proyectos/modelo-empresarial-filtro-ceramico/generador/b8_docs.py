@@ -65,7 +65,7 @@ def build_matriz(B):
     ws.freeze_panes = 'C6'
     return ws
 
-PRODS = [('P1', 'Kit purificador de agua con filtro cerámico y plata coloidal', 'Hogares que compran botellones o hierven agua', [3, 5, 4, 3, 3, 5, 5, 4, 5, 4, 4, 5, 4, 5],
+PRODS = [('P1', 'Filtro de agua 2.0 (cerámica, plata y carbón de cáscara de castaña)', 'Hogares que compran botellones o hierven agua', [3, 5, 4, 3, 3, 5, 5, 4, 5, 4, 4, 5, 4, 5],
           'Materiales locales, inversión moderada, tecnología abierta y probada; ahorro claro frente al botellón; un solo producto, ideal para el simulador.'),
          ('P2', 'Envases desechables biodegradables de bagazo de caña', 'Restaurantes y delivery', [4, 4, 5, 4, 3, 3, 2, 3, 3, 4, 5, 4, 2, 4],
           'Gran mercado y bagazo local, pero la máquina de moldeo es costosa (cotizaciones en USD, ahora a ~12 Bs/USD) y compite con envases importados.'),
@@ -140,8 +140,8 @@ def build_competencia(B):
 def build_estrategia(B):
     ws = B.sheet('Estrategia comercial', 'ESTRATEGIA COMERCIAL: MEZCLA DE MARKETING, CANALES Y GASTOS COMERCIALES', '', tab='70AD47')
     widths(ws, {'A': 34, 'B': 16, 'C': 16, 'D': 16, 'E': 16, 'F': 16, 'G': 16})
-    mix = [('Producto', 'Kit completo con número de serie, manual, garantía de 6 meses y repuesto del elemento cerámico.'),
-           ('Precio', 'PVP de Bs 390 en 2027 (ver PRECIO): por debajo del gasto de un año en botellones; ajuste anual por inflación.'),
+    mix = [('Producto', 'Filtro 2.0 con capa de carbón, indicador de cambio, QR del lote, garantía de 6 meses y aviso de cambio por WhatsApp.'),
+           ('Precio', 'Bs 420 en 2027: menos que 6 meses de botellones; se ajusta cada año por inflación.'),
            ('Plaza', 'Canal directo (planta, redes sociales con entrega, ferias) y canal indirecto (ferreterías, supermercados, farmacias).'),
            ('Promoción', 'Demostraciones con prueba de agua, redes sociales, ferias barriales, alianzas con juntas vecinales y material en punto de venta.')]
     r = 5
@@ -179,8 +179,9 @@ def build_proceso(B):
             (6, 'Cocción', 'Cocción a ~860 °C; el aserrín se quema y deja poros', 'Horno a gas 1 m³', '1 cocción/día', 'Pirómetro; curva de temperatura'),
             (7, 'Prueba de caudal', 'Saturar con agua y medir litros por hora', 'Estaciones de prueba', '≈ 12 h', 'Caudal 1-3 L/h (fuera de rango = merma)'),
             (8, 'Plata coloidal', 'Aplicar la solución de plata', 'Mesa de trabajo', 'Minutos', 'Dosis por filtro'),
-            (9, 'Ensamblaje y empaque', 'Montar en contenedor con grifo, etiquetar con número de serie', 'Mesa de ensamblaje', '≈ 4 min/kit', 'Fugas; etiqueta'),
-            (10, 'Control de laboratorio', 'Análisis microbiológico por muestreo de lotes', 'Laboratorio externo', 'Mensual', 'Remoción de bacterias (requisito antes de vender)')]
+            (9, 'Capa de carbón activado', 'Colocar la capa de carbón de cáscara de castaña en la tapa filtrante', 'Mesa dosificadora', '≈ 2 min/kit', 'Peso de la capa'),
+            (10, 'Ensamblaje y empaque', 'Montar en el balde con grifo e indicador de cambio, pegar el QR del lote', 'Mesa de ensamblaje', '≈ 4 min/kit', 'Fugas; QR legible'),
+            (11, 'Control de laboratorio', 'Análisis microbiológico por muestreo de lotes', 'Laboratorio externo', 'Mensual', 'Remoción de bacterias (requisito antes de vender)')]
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}5', h, 'hdr')
     r = textsheet(ws, 6, rows, height=30)
     put(ws, f'A{r+1}', 'Flujo: Materiales → Molienda → Mezcla → Prensado → Secado → Cocción → Prueba de caudal → Plata → Ensamblaje → Inventario de producto terminado → Ventas. Capacidad por etapa en la hoja Capacidad Inst..', 'note')
@@ -392,8 +393,8 @@ def build_leyenda(B):
             ('Juego de Negocios', 'SIMULADOR EMPRESARIAL (decisiones por período), DECISIONES Y ESCENARIOS (comparador) y CONTROL DE PERIODOS (plan vs. real).'),
             ('Controles', 'La hoja Controles debe mostrar todo en OK. Si algo dice REVISAR, el tablero lo indica.'),
             ('Flujo del modelo', 'Santa Cruz y Zona urbana → Demanda → Pronostico → Inventario (producción) → Compras y MANO DE OBRA → costos → Estado de resultado → Carga impositiva → Flujo de caja → Balance general → Rentabilidad → Dashboard.'),
-            ('Moneda', 'Todo en Bs. Los activos cotizados en USD se convierten con Supuestos → TIPO_CAMBIO (fechado). No hay montos en USD mezclados con Bs.'),
-            ('Nombres', 'Los supuestos tienen nombre (ej. PVP, TASA_IVA): las fórmulas se leen como =PVP*M_PRECIO.')]
+            ('Moneda', 'Los estados financieros están en Bs. Lo importado se carga en $us y se convierte con el tipo de cambio de Supuestos; varias hojas muestran también la columna en $us.'),
+            ('Tipo de cambio', 'Está en Supuestos. Si se cambia (por ejemplo a 12), se recalcula todo lo que está en dólares: máquinas importadas, laboratorio, computadoras, plata coloidal, grifo y las columnas en $us.')]
     for i, (a, b) in enumerate(rows):
         put(ws, f'A{10+i}', a, 'label', bold=True); put(ws, f'B{10+i}', b, 'label', wrap=True); ws.row_dimensions[10+i].height = 30
     return ws

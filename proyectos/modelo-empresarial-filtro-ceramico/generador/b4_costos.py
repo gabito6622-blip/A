@@ -38,7 +38,7 @@ def build_personal(B):
     # ---- Planillas anuales (formato Ñapefit) ----
     put(ws, f'A{r}', 'D. PLANILLA MENSUAL POR AÑO (formato de Ñapefit)', 'sec'); r += 1
     ROW['PER.annual_r0'] = r
-    hdA = ['Personal', 'Cantidad', 'Sueldo básico (Bs)', 'Bono de antigüedad', 'Total ganado', 'Gestora Pública (12,71%)', 'Líquido pagable', 'CNS (10%)', 'Riesgo prof. (1,71%)', 'Aporte pat. sol. (3,5%)', 'Provivienda (2%)', 'Total aportes pat.', 'Provisión aguinaldo (8,33%)', 'Previsión indemnización (8,33%)', 'Total mensual', 'Total anual']
+    hdA = ['Personal', 'Cantidad', 'Sueldo básico (Bs)', 'Bono de antigüedad', 'Total ganado', 'Gestora Pública (12,71%)', 'Líquido pagable', 'CNS (10%)', 'Riesgo prof. (1,71%)', 'Aporte pat. sol. (3,5%)', 'Provivienda (2%)', 'Total aportes pat.', 'Provisión aguinaldo (8,33%)', 'Previsión indemnización (8,33%)', 'Total mensual (Bs)', 'Total anual (Bs)', 'Total anual ($us)']
     ann_tot = {}
     for y in range(1, 6):
         put(ws, f'A{r}', f'Año {2026+y}', 'label', bold=True); r += 1
@@ -62,9 +62,10 @@ def build_personal(B):
             put(ws, f'N{r}', f'=E{r}*TASA_INDEMNIZACION', 'calc', FMT_BS2)
             put(ws, f'O{r}', f'=E{r}+L{r}+M{r}+N{r}', 'calc', FMT_BS2)
             put(ws, f'P{r}', f'=O{r}*12', 'calc', FMT_BS2, bold=True)
+            put(ws, f'Q{r}', f'=P{r}/TIPO_CAMBIO', 'calc', FMT_BS2)
             r += 1
         put(ws, f'A{r}', 'Total', 'label', bold=True)
-        for col in 'BEFGHIJKLMNOP':
+        for col in 'BEFGHIJKLMNOPQ':
             put(ws, f'{col}{r}', f'=SUM({col}{a0}:{col}{r-1})', 'calc', FMT_BS2 if col != 'B' else FMT_INT, bold=True)
         ann_tot[y] = r; r += 2
     ROW['PER.ann_tot'] = ann_tot
@@ -122,19 +123,22 @@ GASTOS = [  # concepto, área, mensual, factura
     ('Otros gastos misceláneos (sin factura)', 'ADM', 600, 0),
     ('Publicidad y marketing', 'COM', '=PUBLICIDAD_MES', 1),
     ('Transporte y logística (fijo)', 'COM', 2000, 1),
+    ('Registro de clientes y avisos de cambio (WhatsApp)', 'COM', 300, 1),
 ]
 
 def build_gastos(B):
     ws = B.sheet('Otros gastos', 'GASTOS OPERATIVOS', 'Equivale a "Otros gastos" de ambos originales, en Bs (sin pasar a USD) y clasificados por área.', tab='5B9BD5')
-    for j, h in enumerate(['Concepto', 'Área', 'Monto mensual 2027 (Bs)', '¿Factura? (1/0)', 'Monto anual 2027 (Bs)']):
+    for j, h in enumerate(['Concepto', 'Área', 'Monto mensual (Bs)', 'Factura (1/0)', 'Monto anual (Bs)', 'Monto mensual ($us)', 'Monto anual ($us)']):
         put(ws, f'{L(1+j)}5', h, 'hdr')
-    widths(ws, {'A': 50, 'C': 14, 'D': 12, 'E': 14})
+    widths(ws, {'A': 50, 'C': 14, 'D': 12, 'E': 14, 'F': 14, 'G': 14})
     r = 6; grow = []
     for (c, a, m, f) in GASTOS:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', a, 'label')
         put(ws, f'C{r}', m, 'input', FMT_BS); put(ws, f'D{r}', f, 'input', FMT_INT); put(ws, f'E{r}', f'=C{r}*12', 'calc', FMT_BS)
+        put(ws, f'F{r}', f'=C{r}/TIPO_CAMBIO', 'calc', FMT_BS2); put(ws, f'G{r}', f'=E{r}/TIPO_CAMBIO', 'calc', FMT_BS)
         grow.append(r); r += 1
     put(ws, f'A{r}', 'Total', 'label', bold=True); put(ws, f'C{r}', f'=SUM(C{grow[0]}:C{grow[-1]})', 'calc', FMT_BS, bold=True); put(ws, f'E{r}', f'=SUM(E{grow[0]}:E{grow[-1]})', 'calc', FMT_BS, bold=True)
+    put(ws, f'F{r}', f'=SUM(F{grow[0]}:F{grow[-1]})', 'calc', FMT_BS2, bold=True); put(ws, f'G{r}', f'=SUM(G{grow[0]}:G{grow[-1]})', 'calc', FMT_BS, bold=True)
     ROW['GAS.alquiler'] = grow[0]
     r += 1
     put(ws, f'A{r}', 'Todos los montos son supuestos de mercado a cotizar. FAB = fabricación, ADM = administración, COM = comercialización.', 'note'); r += 2
@@ -169,21 +173,22 @@ def build_gastos(B):
 DEP = [('Maquinaria en general', 0.125, 8), ('Equipos e instalaciones', 0.125, 8), ('Herramientas en general', 0.25, 4),
        ('Muebles y enseres', 0.10, 10), ('Equipos de computación', 0.25, 4)]
 ACT = [  # detalle, clase, área, cant, moneda, costo unit, trimestre compra
-    ('Horno a gas de 1 m³ (fabricación local, diseño abierto)', 'Maquinaria en general', 'FAB', 1, 'Bs', 45000, 0),
-    ('Prensa hidráulica con 2 juegos de moldes', 'Maquinaria en general', 'FAB', 1, 'Bs', 47000, 0),
-    ('Molino de martillos para arcilla', 'Maquinaria en general', 'FAB', 1, 'Bs', 18000, 0),
-    ('Amasadora de arcilla', 'Maquinaria en general', 'FAB', 1, 'Bs', 22000, 0),
-    ('Tamizadora vibratoria', 'Maquinaria en general', 'FAB', 1, 'Bs', 6000, 0),
+    ('Horno a gas de 1 m³ (fabricación local)', 'Maquinaria en general', 'FAB', 1, 'Bs', 45000, 0),
+    ('Prensa hidráulica con 2 juegos de moldes (importada)', 'Maquinaria en general', 'FAB', 1, 'USD', 3900, 0),
+    ('Molino de martillos para arcilla (importado)', 'Maquinaria en general', 'FAB', 1, 'USD', 1500, 0),
+    ('Amasadora de arcilla (importada)', 'Maquinaria en general', 'FAB', 1, 'USD', 1800, 0),
+    ('Tamizadora vibratoria (importada)', 'Maquinaria en general', 'FAB', 1, 'USD', 500, 0),
     ('Estanterías y bandejas de secado', 'Equipos e instalaciones', 'FAB', 1, 'Bs', 8000, 0),
     ('Estaciones de prueba de caudal', 'Equipos e instalaciones', 'FAB', 30, 'Bs', 200, 0),
     ('Equipo de laboratorio (turbidímetro, pirómetro, incubadora)', 'Equipos e instalaciones', 'FAB', 1, 'USD', 1800, 0),
+    ('Mesa dosificadora para la capa de carbón', 'Equipos e instalaciones', 'FAB', 1, 'Bs', 3500, 0),
     ('Herramientas y carretillas', 'Herramientas en general', 'FAB', 1, 'Bs', 6000, 0),
     ('Muebles de oficina', 'Muebles y enseres', 'ADM', 1, 'Bs', 8000, 0),
-    ('Computadoras', 'Equipos de computación', 'ADM', 3, 'Bs', 6500, 0),
-    ('Impresora multifunción', 'Equipos de computación', 'ADM', 1, 'Bs', 2500, 0),
-    ('Reposición de computadoras (vida útil cumplida)', 'Equipos de computación', 'ADM', 3, 'Bs', '=6500*\'Calendario\'!AC11', 17),
-    ('Reposición de impresora', 'Equipos de computación', 'ADM', 1, 'Bs', '=2500*\'Calendario\'!AC11', 17),
-    ('Reposición de herramientas', 'Herramientas en general', 'FAB', 1, 'Bs', '=6000*\'Calendario\'!AC11', 17),
+    ('Computadoras', 'Equipos de computación', 'ADM', 3, 'USD', 540, 0),
+    ('Impresora multifunción', 'Equipos de computación', 'ADM', 1, 'USD', 210, 0),
+    ('Reposición de computadoras (vida útil cumplida)', 'Equipos de computación', 'ADM', 3, 'USD', 540, 17),
+    ('Reposición de impresora', 'Equipos de computación', 'ADM', 1, 'USD', 210, 17),
+    ('Reposición de herramientas', 'Herramientas en general', 'FAB', 1, 'Bs', "=6000*'Calendario'!AC11", 17),
 ]
 
 def build_activos(B):
@@ -194,9 +199,9 @@ def build_activos(B):
         put(ws, f'A{7+i}', c, 'label'); put(ws, f'B{7+i}', t, 'input', FMT_PCT); put(ws, f'C{7+i}', v, 'input', FMT_INT)
     d0, d1 = 7, 7 + len(DEP) - 1
     r = d1 + 2
-    hd = ['Detalle', 'Clase', 'Área', 'Cantidad', 'Moneda', 'Costo unitario', 'Costo total Bs (c/factura)', 'IVA crédito', 'Valor neto depreciable', 'Tasa anual', 'Depreciación trimestral', 'Trimestre de compra (0 = año 0)']
+    hd = ['Detalle', 'Clase', 'Área', 'Cantidad', 'Moneda', 'Costo unitario', 'Costo total Bs', 'IVA', 'Precio neto', 'Dpc. anual', 'Dpc. trimestral', 'Trimestre de compra (0 = año 0)', 'Costo total $us']
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}{r}', h, 'hdr')
-    widths(ws, {'A': 50, 'B': 22, 'C': 7, 'D': 9, 'E': 8, 'F': 12, 'G': 14, 'H': 12, 'I': 14, 'J': 9, 'K': 12, 'L': 12})
+    widths(ws, {'A': 50, 'B': 22, 'C': 7, 'D': 9, 'E': 8, 'F': 12, 'G': 14, 'H': 12, 'I': 14, 'J': 9, 'K': 12, 'L': 12, 'M': 13})
     r += 1; a0 = r
     for (dname, cl, ar, n, mon, cu, tq) in ACT:
         put(ws, f'A{r}', dname, 'label'); put(ws, f'B{r}', cl, 'label'); put(ws, f'C{r}', ar, 'label')
@@ -208,10 +213,11 @@ def build_activos(B):
         put(ws, f'J{r}', f'=INDEX($B${d0}:$B${d1},MATCH(B{r},$A${d0}:$A${d1},0))', 'calc', FMT_PCT)
         put(ws, f'K{r}', f'=I{r}*J{r}/4', 'calc', FMT_BS)
         put(ws, f'L{r}', tq, 'input', FMT_INT)
+        put(ws, f'M{r}', f'=G{r}/TIPO_CAMBIO', 'calc', FMT_BS)
         r += 1
     a1 = r - 1
     put(ws, f'A{r}', 'TOTAL', 'label', bold=True, fill=FILL_TOT)
-    for c in 'GHI': put(ws, f'{c}{r}', f'=SUM({c}{a0}:{c}{a1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
+    for c in 'GHIM': put(ws, f'{c}{r}', f'=SUM({c}{a0}:{c}{a1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     r += 1
     put(ws, f'A{r}', 'Inversión en activos fijos del año 0 (con factura)', 'label', bold=True)
     put(ws, f'G{r}', f'=SUMIF(L{a0}:L{a1},0,G{a0}:G{a1})', 'calc', FMT_BS, bold=True); B.name('AF_ANIO0', 'Maqu. y equip.', f'G{r}')
@@ -246,21 +252,23 @@ DIFER = [('Constitución, licencias y registros (FUNDEMPRESA, NIT, municipio)', 
          ('Honorarios profesionales (abogado, contador)', 4000, 1),
          ('Validación en laboratorio acreditado (eficacia bacteriológica)', 15000, 1),
          ('Registro de marca y diseño de empaque', 3500, 0),
+         ('Validación de la capa de carbón (olor, sabor, cloro)', 8000, 1),
+         ('Solicitud de modelo de utilidad en SENAPI (a confirmar si aplica)', 5000, 0),
          ('Capacitación técnica inicial (prensado, cocción, pruebas)', 8000, 1),
          ('Adecuación del galpón (instalación de gas, ventilación, piso)', 30000, 1)]
 
 def build_inversion(B):
     ws = B.sheet('Inversión', 'INVERSIÓN INICIAL Y CAPITAL DE TRABAJO', 'Inversión fija + diferida + puesta en marcha + capital de trabajo (método del período de desfase).', tab='C00000')
-    widths(ws, {'A': 60, 'B': 14, 'C': 12, 'D': 14, 'E': 14, 'F': 40})
-    for j, h in enumerate(['Concepto', 'Monto Bs (c/factura)', '¿Factura? (1/0)', 'IVA crédito', 'Valor neto']): put(ws, f'{L(1+j)}5', h, 'hdr')
+    widths(ws, {'A': 60, 'B': 14, 'C': 12, 'D': 14, 'E': 14, 'F': 14})
+    for j, h in enumerate(['Concepto', 'Monto (Bs)', 'Factura (1/0)', 'IVA crédito', 'Valor neto', 'Monto ($us)']): put(ws, f'{L(1+j)}5', h, 'hdr')
     put(ws, 'A6', '1. INVERSIÓN FIJA', 'sec')
     put(ws, 'A7', 'Activos fijos (ver Maqu. y equip.)', 'label'); put(ws, 'B7', '=AF_ANIO0', 'calc', FMT_BS); put(ws, 'C7', 1, 'calc', FMT_INT)
-    put(ws, 'D7', '=AF_ANIO0_IVA', 'calc', FMT_BS); put(ws, 'E7', '=AF_ANIO0_NETO', 'calc', FMT_BS)
+    put(ws, 'D7', '=AF_ANIO0_IVA', 'calc', FMT_BS); put(ws, 'E7', '=AF_ANIO0_NETO', 'calc', FMT_BS); put(ws, 'F7', '=B7/TIPO_CAMBIO', 'calc', FMT_BS)
     put(ws, 'A8', '2. INVERSIÓN DIFERIDA', 'sec')
     r = 9; d0 = r
     for (c, m, f) in DIFER:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', f'={m}*M_INVERSION', 'input', FMT_BS); put(ws, f'C{r}', f, 'input', FMT_INT)
-        put(ws, f'D{r}', f'=B{r}*TASA_IVA*C{r}', 'calc', FMT_BS); put(ws, f'E{r}', f'=B{r}-D{r}', 'calc', FMT_BS); r += 1
+        put(ws, f'D{r}', f'=B{r}*TASA_IVA*C{r}', 'calc', FMT_BS); put(ws, f'E{r}', f'=B{r}-D{r}', 'calc', FMT_BS); put(ws, f'F{r}', f'=B{r}/TIPO_CAMBIO', 'calc', FMT_BS); r += 1
     put(ws, f'A{r}', '3. PUESTA EN MARCHA (gastos preoperativos, se capitalizan)', 'sec'); r += 1
     pm = [('Materiales y energía del lote piloto (LOTE_PILOTO kits)', '=LOTE_PILOTO*(MP_KIT_CF+ENERGIA_KIT_CF)', 1),
           ('Sueldos preoperativos: 2 meses de jefe de producción y operarios mínimos', f"=2*('MANO DE OBRA'!D{ROW['PER.crow_MOI']}+MIN_OPERARIOS*'MANO DE OBRA'!D{ROW['PER.crow_MOD']})*(1+TASA_CARGAS)*M_SALARIOS", 0),
@@ -268,11 +276,12 @@ def build_inversion(B):
           ('Publicidad de lanzamiento', '=15000', 1)]
     for (c, m, f) in pm:
         put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', m, 'link' if '!' in m else ('input' if m == '=15000' else 'calc'), FMT_BS); put(ws, f'C{r}', f, 'input', FMT_INT)
-        put(ws, f'D{r}', f'=B{r}*TASA_IVA*C{r}', 'calc', FMT_BS); put(ws, f'E{r}', f'=B{r}-D{r}', 'calc', FMT_BS); r += 1
+        put(ws, f'D{r}', f'=B{r}*TASA_IVA*C{r}', 'calc', FMT_BS); put(ws, f'E{r}', f'=B{r}-D{r}', 'calc', FMT_BS); put(ws, f'F{r}', f'=B{r}/TIPO_CAMBIO', 'calc', FMT_BS); r += 1
     d1 = r - 1
     put(ws, f'A{r}', 'Total diferido + puesta en marcha', 'label', bold=True, fill=FILL_TOT)
     put(ws, f'B{r}', f'=SUMIF(C{d0}:C{d1},">=0",B{d0}:B{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     put(ws, f'D{r}', f'=SUM(D{d0}:D{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT); put(ws, f'E{r}', f'=SUM(E{d0}:E{d1})', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
+    put(ws, f'F{r}', f'=B{r}/TIPO_CAMBIO', 'calc', FMT_BS, bold=True, fill=FILL_TOT)
     B.name('DIF_PAGO', 'Inversión', f'B{r}'); B.name('DIF_IVA', 'Inversión', f'D{r}'); B.name('DIF_NETO', 'Inversión', f'E{r}')
     r += 1
     put(ws, f'A{r}', 'Tasa de amortización de diferidos (4 años)', 'label'); put(ws, f'B{r}', 0.25, 'input', FMT_PCT); B.name('TASA_AMORT', 'Inversión', f'B{r}')
@@ -305,8 +314,9 @@ def build_inversion(B):
     res = [('Inversión fija (activos fijos)', '=B7'), ('Inversión diferida y puesta en marcha', '=DIF_PAGO'), ('Capital de trabajo inicial', '=CT_INICIAL')]
     s0 = r
     for (c, f) in res:
-        put(ws, f'A{r}', c, 'label'); put(ws, f'B{r}', f, 'calc', FMT_BS); put(ws, f'C{r}', f'=B{r}/$B${s0+3}', 'calc', FMT_PCT); r += 1
+        put(ws, f'A{r}', c, 'label', border=True); put(ws, f'B{r}', f, 'calc', FMT_BS); put(ws, f'C{r}', f'=B{r}/$B${s0+3}', 'calc', FMT_PCT); put(ws, f'F{r}', f'=B{r}/TIPO_CAMBIO', 'calc', FMT_BS); r += 1
     put(ws, f'A{r}', 'INVERSIÓN TOTAL', 'label', bold=True, fill=FILL_KEY); put(ws, f'B{r}', f'=SUM(B{s0}:B{r-1})', 'calc', FMT_BS, bold=True, fill=FILL_KEY); put(ws, f'C{r}', f'=B{r}/$B${s0+3}', 'calc', FMT_PCT)
+    put(ws, f'F{r}', f'=B{r}/TIPO_CAMBIO', 'calc', FMT_BS, bold=True, fill=FILL_KEY)
     B.name('INVERSION_TOTAL', 'Inversión', f'B{r}'); r += 1
     put(ws, f'A{r}', 'Financiamiento: préstamo bancario', 'label'); put(ws, f'B{r}', '=PRESTAMO', 'calc', FMT_BS); put(ws, f'C{r}', f'=B{r}/INVERSION_TOTAL', 'calc', FMT_PCT); r += 1
     put(ws, f'A{r}', 'Financiamiento: aporte de los socios', 'label', bold=True); put(ws, f'B{r}', '=INVERSION_TOTAL-PRESTAMO', 'calc', FMT_BS, bold=True); put(ws, f'C{r}', f'=B{r}/INVERSION_TOTAL', 'calc', FMT_PCT)

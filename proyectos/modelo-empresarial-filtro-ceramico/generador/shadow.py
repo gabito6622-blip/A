@@ -4,7 +4,7 @@ f, rows = sys.argv[1], sys.argv[2]
 R = json.load(open(rows)); wb = openpyxl.load_workbook(f, data_only=True)
 def v(sh, c): return wb[sh][c].value
 def nv(n):
-    sh, c = list(wb.defined_names[n].destinations)[0]; return wb[sh][c.replace('$', '')].value
+    sh, c = R['_names'][n]; return wb[sh][c].value
 res = []
 def chk(name, model, mine, tol=0.01):
     ok = abs(model - mine) <= tol * max(1, abs(mine))
@@ -17,7 +17,7 @@ hog = pop27/3.5; cob = 1601724/urb24
 u27 = hog*cob*0.5*0.5*0.6*0.05
 chk('Unidades 2027 (escenario base)', v('Estado de resultado', f"Y{R['ER.u']}"), u27)
 # ventas netas 2027
-pprom = 390*(0.4+0.6*0.75)
+pprom = 420*(0.4+0.6*0.75)
 chk('Ventas netas 2027', v('Estado de resultado', f"Y{R['ER.vn']}"), u27*pprom*0.87)
 # unidades 2031: participación 5%*1.1^4, cobertura 80%
 pop31 = urb24*(1+tasa_urb)**7
@@ -27,16 +27,17 @@ chk('Unidades 2031', v('Estado de resultado', f"AC{R['ER.u']}"), u31)
 tasa = 0.10+0.0171+0.035+0.02+0.0833+0.0833
 chk('Costo laboral T1 2027', v('MANO DE OBRA', f"D{R['PER.tot']}"), (7000+5500+4000+2*3600)*3*(1+tasa))
 # préstamo
-P = 0.5*209708; i = 0.115/4; n = 12
+TC = 12.06
+acts = [(45000,.125),(3900*TC,.125),(1500*TC,.125),(1800*TC,.125),(500*TC,.125),(8000,.125),(6000,.125),(1800*TC,.125),(3500,.125),(6000,.25),(8000,.10),(3*540*TC,.25),(210*TC,.25)]
+P = 0.5*sum(c for c,t in acts)/1.0; i = 0.115/4; n = 12
 cuota = P*i/(1-(1+i)**-n)
 chk('Cuota trimestral del préstamo', nv('CUOTA'), cuota)
 chk('Intereses T1', v('Financiamiento', f"D{R['FIN.int']}"), P*i)
 # depreciación T1
-acts = [(45000,.125),(47000,.125),(18000,.125),(22000,.125),(6000,.125),(8000,.125),(6000,.125),(1800*12.06,.125),(6000,.25),(8000,.10),(19500,.25),(2500,.25)]
 dep = sum(c*0.87*t/4 for c,t in acts)
 chk('Depreciación T1', v('Maqu. y equip.', f"D{R['AF.dep']}"), dep)
 # costo variable por kit
-mat = 5*1.1*0.4 + 0.6*1.1*0.5 + 2*1.1*1.2 + 55 + 12 + 14
+mat = 5*1.1*0.4 + 0.6*1.1*0.5 + 2*1.1*0.10*TC + 0.15*30 + 55 + 1.0*TC + 4 + 14.5
 chk('Materiales por kit con factura', nv('MP_KIT_CF'), mat)
 chk('Costo variable de producción neto', nv('CVP_KIT_NETO'), (mat + 6*1.1)*0.87)
 # TRMA

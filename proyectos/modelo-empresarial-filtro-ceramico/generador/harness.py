@@ -6,7 +6,7 @@ RECALC = os.environ.get('RECALC', 'recalc.py')  # script que recalcula con Libre
 os.makedirs(OUTDIR, exist_ok=True)
 src = openpyxl.load_workbook(BASE)
 def cell_of(name):
-    sh, c = list(src.defined_names[name].destinations)[0]; return sh, c.replace('$', '')
+    sh, c = R['_names'][name]; return sh, c
 N = 0
 def run(changes, extra=None):
     global N; N += 1
@@ -20,7 +20,7 @@ def run(changes, extra=None):
     assert st.get('status') == 'success', st
     d = openpyxl.load_workbook(p, data_only=True)
     def nv(n):
-        sh, c = list(d.defined_names[n].destinations)[0]; return d[sh][c.replace('$', '')].value
+        sh, c = R['_names'][n]; return d[sh][c].value
     g = lambda sh, key, col: d[sh][f'{col}{R[key]}'].value
     qs = ['C'] + [L(3+q) for q in range(1, 21)]
     m = dict(van=nv('EV_VAN'), tir=nv('EV_TIR'), pri=nv('EV_PRI'), trma=nv('TRMA'),
@@ -78,9 +78,9 @@ for lbl, nm, equiv in [('Precio de venta', 'M_PRECIO', 'PVP 2027 = Bs {:.0f}'), 
         x2 = x1 - f1*(x1-x0)/(f1-f0)
         m = run({nm: x2}); x0, f0, x1, f1 = x1, f1, x2, m['van']
         if abs(f1) < 500: break
-    if nm == 'M_PRECIO': eq = equiv.format(390*x1)
+    if nm == 'M_PRECIO': eq = equiv.format(420*x1)
     elif nm == 'M_DEMANDA': eq = equiv.format(base['u1']*x1)
-    elif nm == 'M_CVAR': eq = equiv.format(80.7099*x1)
+    elif nm == 'M_CVAR': eq = equiv.format(88.6036*x1)
     else: eq = f'gastos fijos x{x1:.3f}'
     crit.append({'var': lbl, 'mult': x1, 'equiv': eq, 'holgura': x1-1, 'van_final': f1})
     print('critico', lbl, x1, f1)
@@ -88,7 +88,7 @@ for lbl, nm, equiv in [('Precio de venta', 'M_PRECIO', 'PVP 2027 = Bs {:.0f}'), 
 def setcob(wb):
     s = wb['Supuestos']
     for n in ['COB_2029', 'COB_2030', 'COB_2031']:
-        sh, c = cell_of(n); wb[sh][c].value = '=COB_2027'
+        sh, c = cell_of(n); s0, c0 = R['_names']['COB_2027']; wb[sh][c].value = f"='{s0}'!${''.join(ch for ch in c0 if ch.isalpha())}${''.join(ch for ch in c0 if ch.isdigit())}"
 stress = [('Pesimista', {'ESCENARIO': 1}, None), ('Optimista', {'ESCENARIO': 3}, None),
           ('Precio -10% y costo variable +10%', {'M_PRECIO': 0.9, 'M_CVAR': 1.1}, None),
           ('Sin crecimiento de participación (CRECE_PART = 0)', {'CRECE_PART': 0}, None),

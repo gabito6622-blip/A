@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Sin publicar · Proyecto académico: Filtro 2.0 (no toca la tienda)
+- **Excel con el formato de Ñapefit:** mismas 20 hojas, nombres y estilo; hojas nuevas al final.
+- **Filtro 2.0:** capa de carbón de cáscara de castaña, indicador de cambio, QR del lote y avisos de cambio, con sus costos; precio Bs 420.
+- **Dólares:** lo importado se carga en $us y un solo tipo de cambio actualiza todo el libro.
+- **Más simple de leer:** fórmulas con referencias normales a celdas y sin textos largos de explicación.
+
 ## 2026-11-11 · Sin publicar · Proyecto académico aparte (no toca la tienda)
 - **Nueva carpeta `proyectos/modelo-empresarial-filtro-ceramico/`:** modelo financiero en Excel que fusiona la metodología de los archivos Ñapefit e Hypotolab, aplicada a un kit purificador de agua con filtro cerámico. Incluye auditoría comparativa, informe de viabilidad, guía para la defensa e informe de pruebas.
 - **Tienda, GaboHub y revendedores:** sin cambios. No se tocó código, datos ni publicación.

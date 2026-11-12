@@ -165,6 +165,27 @@ if RowMap.misses:
     print('FALTAN FILAS:', RowMap.misses); sys.exit(1)
 if SNAP and os.path.exists(SNAP):
     write_snapshot(B, dec, sen, json.load(open(SNAP)))
+import re
+NAMES = dict(B.names)
+def _ref(nm):
+    sh, cell = NAMES[nm]
+    col = ''.join(ch for ch in cell if ch.isalpha()); row = ''.join(ch for ch in cell if ch.isdigit())
+    return f"'{sh}'!${col}${row}"
+pats = [(re.compile(r"(?<![A-Za-z0-9_\.'!$])" + re.escape(nm) + r"(?![A-Za-z0-9_(])"), _ref(nm)) for nm in sorted(NAMES, key=len, reverse=True)]
+def _conv(f):
+    parts = f.split('"')
+    for i in range(0, len(parts), 2):
+        for p, rf in pats:
+            parts[i] = p.sub(lambda m: rf, parts[i])
+    return '"'.join(parts)
+for ws in B.wb.worksheets:
+    for row in ws.iter_rows():
+        for c in row:
+            if isinstance(c.value, str) and c.value.startswith('='):
+                c.value = _conv(c.value)
+for nm in list(B.wb.defined_names.keys()):
+    del B.wb.defined_names[nm]
+ROW['_names'] = {k: [v[0], v[1]] for k, v in NAMES.items()}
 names = [o[0] for o in ORDER]
 assert set(names) == set(B.wb.sheetnames), (set(names) ^ set(B.wb.sheetnames))
 B.wb._sheets = [B.wb[n] for n in names]

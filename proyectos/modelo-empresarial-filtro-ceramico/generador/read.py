@@ -3,7 +3,7 @@ f = sys.argv[1]
 wb = openpyxl.load_workbook(f, data_only=True)
 R = json.load(open(sys.argv[2]))
 def nv(name):
-    dn = wb.defined_names[name]; sh, c = list(dn.destinations)[0]
+    sh, c = R['_names'][name]
     return wb[sh][c.replace('$','')].value
 out = {}
 for n in ['EV_VAN','EV_TIR','TRMA','EV_BC','EV_PRI','EV_PRID','INVERSION_TOTAL','PRESTAMO','APORTE_SOCIOS','CT_INICIAL','DIF_PAGO','AF_ANIO0','CTRL_OK','CTRL_TOT','EV_VAN_INV','EV_TIR_INV','CAP_ANUAL','N_MUESTRA','ACEPTACION','INC_SAL','WACC','MP_KIT_CF','CVP_KIT_NETO','EV_DECISION']:

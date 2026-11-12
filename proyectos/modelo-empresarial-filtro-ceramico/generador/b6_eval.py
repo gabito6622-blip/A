@@ -51,7 +51,10 @@ def build_evaluacion(B):
            ('PRI_TXT', 'PRI simple expresado', None, None),
            ('PRID', 'Período de recuperación descontado (años)', f"=IF(COUNT(D{P['EV.pri_d']}:H{P['EV.pri_d']})=0,\"No se recupera en 5 años\",MIN(D{P['EV.pri_d']}:H{P['EV.pri_d']}))", FMT_BS2),
            ('VR', 'Valor residual usado', f"=H{P['EV.vr']}", FMT_BS),
-           ('INV0', 'Inversión inicial (año 0)', f'=-C{fe}', FMT_BS)]
+           ('INV0', 'Inversión inicial (año 0)', f'=-C{fe}', FMT_BS),
+           ('VAN_USD', 'VAN en $us', f'=C{{VAN}}/TIPO_CAMBIO', FMT_BS),
+           ('INV0_USD', 'Inversión inicial en $us', f'=-C{fe}/TIPO_CAMBIO', FMT_BS)]
+    ind = [(k, l, (f.replace('{VAN}', str(r + 0)) if f else f), fm) for (k, l, f, fm) in ind]
     for k, lbl, fml, fm in ind:
         put(ws, f'A{r}', lbl, 'label', bold=k in ('VAN', 'TIR')); P['EV.' + k] = r
         if fml: put(ws, f'C{r}', fml, 'calc', fm, bold=k in ('VAN', 'TIR'), fill=FILL_KEY if k in ('VAN', 'TIR') else None)
@@ -59,7 +62,7 @@ def build_evaluacion(B):
     put(ws, f"C{P['EV.REN_NETA']}", f"=IF(ISNUMBER(C{P['EV.TIR']}),C{P['EV.TIR']}-C{P['EV.TRMA_EV']},\"—\")", 'calc', FMT_PCT2)
     put(ws, f"C{P['EV.BC']}", f"=(C{P['EV.VAN']}+C{P['EV.INV0']})/C{P['EV.INV0']}", 'calc', FMT_X)
     pr = P['EV.PRI']
-    put(ws, f"C{P['EV.PRI_TXT']}", f'=IF(ISNUMBER(C{pr}),INT(C{pr})&" años, "&INT((C{pr}-INT(C{pr}))*12)&" meses y "&ROUND(((C{pr}-INT(C{pr}))*12-INT((C{pr}-INT(C{pr}))*12))*30,0)&" días",C{pr})', 'calc')
+    put(ws, f"C{P['EV.PRI_TXT']}", f'=IF(ISNUMBER(C{pr}),INT(C{pr})&IF(INT(C{pr})=1," año, "," años, ")&INT((C{pr}-INT(C{pr}))*12)&IF(INT((C{pr}-INT(C{pr}))*12)=1," mes y "," meses y ")&ROUND(((C{pr}-INT(C{pr}))*12-INT((C{pr}-INT(C{pr}))*12))*30,0)&" días",C{pr})', 'calc')
     for nm in ['VAN', 'TIR', 'BC', 'PRI', 'PRID', 'INV0', 'REN_NETA']:
         B.name('EV_' + nm, 'Rentabilidad', f"C{P['EV.'+nm]}")
     put(ws, f'A{r}', 'Decisión', 'label', bold=True)

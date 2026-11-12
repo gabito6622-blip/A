@@ -47,7 +47,7 @@ def build_muestra(B):
           'P2. ¿Cuántos litros de agua para beber y cocinar consumen por día? (valida LITROS_DIA)',
           'P3. ¿Cuánto pagan por un botellón de 20 L? (valida PRECIO_BOTELLON)',
           'P4. Luego de ver el filtro y su demostración, ¿lo compraría? (Definitivamente sí / Probablemente sí / No sé / Probablemente no / Definitivamente no) (valida ACEPTACIÓN)',
-          'P5. ¿Cuánto pagaría por el kit? (Bs 300 / 350 / 390 / 450 / más) (valida PVP)',
+          'P5. ¿Cuánto pagaría por el kit? (Bs 350 / 390 / 420 / 450 / más)',
           'P6. ¿Dónde preferiría comprarlo? (ferretería, supermercado, farmacia, redes sociales, feria) (valida MIX_DIRECTO)',
           'P7. ¿Cada cuánto cambiaría el elemento filtrante? (valida CONSUMO_Q)']
     for i, q in enumerate(qs):
@@ -70,7 +70,7 @@ def build_muestra(B):
     put(ws, 'A35', 'D. TABULACIÓN DE LA PREGUNTA P5 (precio aceptable)', 'sec')
     for j, h in enumerate(['Precio (Bs)', 'Frecuencia', '% acumulado que acepta ese precio o más']):
         put(ws, f'{L(1+j)}36', h, 'hdr')
-    precios = [300, 350, 390, 450, 500]
+    precios = [350, 390, 420, 450, 500]
     for i, pr in enumerate(precios):
         put(ws, f'A{37+i}', pr, 'input', FMT_BS); put(ws, f'B{37+i}', None, 'input', FMT_U)
         put(ws, f'C{37+i}', f'=IF(SUM($B$37:$B$41)>0,SUM(B{37+i}:$B$41)/SUM($B$37:$B$41),0)', 'calc', FMT_PCT)
@@ -105,7 +105,6 @@ def build_demanda(B):
         ROW['DEM.' + key] = r
         r += 1
     assert ROW['DEM.hobj'] == 13 and ROW['DEM.dpot'] == 15 and ROW['DEM.def'] == 20
-    put(ws, 'A24', 'Diferencias con los originales:', 'label', bold=True)
     notas = ['• Ñapefit usaba en 2026 "D30*0,3" y "x0,2" aunque el rótulo decía 70%, y en 2027 un valor fijo del censo: la serie no era homogénea. Aquí toda la serie usa la misma fórmula.',
              '• Hypotolab aplicaba 54% y 5% fijos sin fuente. Aquí cada porcentaje está en Supuestos con su tipo y forma de validarlo.',
              '• La demanda insatisfecha no se calcula: no hay datos de oferta local de filtros (pendiente de relevamiento en Competencia).']
@@ -182,20 +181,18 @@ def build_pronostico(B):
     return ws
 
 def build_producto(B):
-    ws = B.sheet('Producto', 'DESCRIPCIÓN DEL PRODUCTO, PROBLEMA, NECESIDAD Y SEGMENTACIÓN', 'Producto seleccionado: kit purificador de agua con filtro cerámico y plata coloidal, fabricado en Santa Cruz.', tab='70AD47')
+    ws = B.sheet('Producto', 'PRODUCTO: FILTRO DE AGUA 2.0', '')
     widths(ws, {'A': 34, 'B': 90})
     items = [
-        ('Producto', 'Kit purificador de agua para el hogar: elemento filtrante de cerámica porosa (arcilla + aserrín o cascarilla de arroz, cocido a ~860 °C) impregnado con plata coloidal, montado en un contenedor plástico de 20 L con tapa y grifo. No usa electricidad.'),
-        ('Nombre comercial', 'Provisional: "AQUATIERRA". Pendiente: verificar disponibilidad en SENAPI antes de usarlo.'),
-        ('Problema', 'Muchos hogares de Santa Cruz compran botellones o hierven el agua para beber. Es un gasto recurrente y, al hervir, se consume gas y tiempo. Falta de confianza en el agua de la red o del pozo.'),
-        ('Necesidad', 'Agua segura para beber y cocinar, con bajo costo mensual, sin electricidad y fácil de mantener.'),
-        ('Innovación', 'Fabricación local de una tecnología abierta y probada (diseños libres de prensa y horno de Potters for Peace), con control de calidad de laboratorio por lote, trazabilidad por número de serie y venta con repuesto. No se copia ninguna marca: el diseño de producto, empaque y marca son propios.'),
-        ('Evidencia técnica (fuentes)', 'Caudal típico 1-3 L/hora (Akvopedia) o 1,5-2,5 L/hora (Potters for Peace); cocción a ~860 °C; una planta básica con 3-4 trabajadores produce ~50 filtros/día; horno de al menos 1 m³ fabricable localmente.'),
-        ('Requisito previo a la venta', 'Validación en laboratorio acreditado de la remoción de bacterias (análogo a la "validación médica" de Hypotolab). Está presupuestada en Inversión. Sin ese resultado no se debe afirmar eficacia ni cumplimiento normativo.'),
-        ('Segmento objetivo', 'Hogares urbanos del departamento de Santa Cruz que compran agua embotellada o tratan el agua (nivel socioeconómico medio y medio-bajo). Inicio: municipio de Santa Cruz de la Sierra; desde 2029, área metropolitana.'),
-        ('Segmentación', 'Geográfica: urbano, Santa Cruz. Demográfica: hogares (decide quien hace las compras). Conductual: compra botellones o hierve el agua. Psicográfica: busca ahorro y salud.'),
-        ('Propuesta de valor', 'Agua filtrada por menos de lo que cuesta un mes y medio de botellones; sin cargar bidones; repuesto disponible; fabricado en Santa Cruz.'),
-        ('Por qué no es alimento', 'Es un bien durable de uso doméstico (equipo de tratamiento de agua). Cumple la condición de producto físico no alimenticio.'),
+        ('Producto', 'Filtro de agua 2.0 para el hogar: maceta de barro cocido con poros muy finos y plata coloidal, más una capa de carbón activado hecho con cáscara de castaña. Va en un balde de 20 L con tapa y grifo. No usa electricidad.'),
+        ('Nombre', 'AQUATIERRA 2.0 (provisional, falta revisar en SENAPI).'),
+        ('Problema', 'Muchas familias de Santa Cruz compran botellones o hierven el agua para tomar. Es un gasto de todos los meses y hay que cargar bidones o gastar gas.'),
+        ('Qué necesita el cliente', 'Agua segura y con buen sabor, barata, sin electricidad y fácil de mantener.'),
+        ('Qué tiene de nuevo (2.0)', '1) Capa de carbón activado de cáscara de castaña (residuo de Bolivia) para mejorar olor y sabor. 2) Indicador en la tapa que cambia de color cuando toca cambiar el filtro. 3) QR en cada filtro con el análisis de laboratorio de su lote. 4) Aviso por WhatsApp cuando toca el cambio.'),
+        ('Por qué cuesta copiarlo', 'Receta propia de barro + carbón probada en laboratorio, contrato por la cáscara de castaña, control de calidad por lote, marca y clientes registrados que reciben el aviso de cambio.'),
+        ('Antes de vender', 'Análisis en laboratorio acreditado (bacterias y capa de carbón). Sin ese resultado no se promete ningún porcentaje de eliminación.'),
+        ('Segmento', 'Hogares urbanos de Santa Cruz que compran botellones o hierven el agua. Primero el municipio; desde 2029 el área metropolitana.'),
+        ('Propuesta de valor', 'Agua filtrada por unos Bs 18 al mes, contra unos Bs 72 en botellones.'),
     ]
     r = 5
     for k, v in items:
@@ -203,7 +200,7 @@ def build_producto(B):
         ws.row_dimensions[r].height = 45
         r += 1
     r += 1
-    put(ws, f'A{r}', 'COMPARACIÓN ECONÓMICA PARA EL HOGAR (fórmulas con supuestos de Supuestos)', 'sec'); r += 1
+    put(ws, f'A{r}', 'CUÁNTO AHORRA UNA FAMILIA', 'sec'); r += 1
     rows = [('Agua para beber y cocinar por día (L)', '=LITROS_DIA', FMT_BS2),
             ('Litros por año', f'=B{r}*365', FMT_U),
             ('Botellones de 20 L por año', f'=B{r+1}/20', FMT_BS2),
