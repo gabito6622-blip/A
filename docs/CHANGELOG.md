@@ -8,6 +8,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago a Bs 66 c/u (precio de ese día, dicho por el dueño): Bs 198 en total. Queda anotado en el historial de cada una.
 - **2 cuentas que eran de rodbol** (gabito6619+2np, que figuraba a oby, y gabito6619+9dp, que figuraba a piza): pasadas a rodbol, del 30/10 al 30/11/2026, pagadas a Bs 66 c/u (Bs 132). Contraseña nueva cargada (dada por el dueño, no se escribe acá) y correo corregido «@gmail.cm» → «@gmail.com».
 - **opajg12+7ped y opajg12+k7z** figuraban a oby: pasadas a rodbol (el dueño confirmó que son de él), sin cambiar fecha ni precio.
+- **gabito6626+md1, opajg12+7ped y opajg12+k7z** (vencidas el 10/11): nota «EN COBRO desde 12/11» en el Control; si no responde hasta la noche, el dueño las corta. Fechas y pagos sin tocar.
 - **3 cuentas hasta el 28/11** (opajg12+gar, opajg12+cm6, netgb117+voxg): confirmadas por el dueño y pagadas: Bs 66 las 2 con ESPN y Bs 35 la sin ESPN (cobro del período anotado con ese monto).
 - **Sin cambios:** los otros alquileres. La cola sumó 4 avisos para rodbol (cuenta pasada / datos actualizados) que NO se enviaron: él no aceptó avisos automáticos.
 
