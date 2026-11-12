@@ -875,7 +875,8 @@ const V = {
     const caidasCard = caidas.length ? `<section class="card caidas"><h2>🧹 ${caidas.length} cuenta${caidas.length === 1 ? "" : "s"} caída${caidas.length === 1 ? "" : "s"} sin clientes</h2>
       <p class="muted" style="margin:0">Vencieron y no tienen a nadie adentro. Si ya no las usás, retiralas: no se venden más y quedan guardadas en el historial. Ningún cliente se ve afectado.</p>
       <div class="caidas-list">${caidas.map((a) => `<label class="chk caida-row"><input type="checkbox" class="caida-sel" value="${esc(a.id)}" checked> <span><b class="mono">${esc(a.email)}</b><br><small class="muted">${esc(pname(a.productId))} · venció el ${fdate(a.supplierExpiresAt)} · ${a.slots.filter((s2) => s2.status === "available").length} libre(s)</small></span></label>`).join("")}</div>
-      <div class="inline"><button class="pbtn dark" type="button" data-caidas="1">🧹 Retirar las seleccionadas</button><small class="muted">Destildá las que todavía funcionan.</small></div></section>` : "";
+      <div class="inline"><button class="pbtn dark" type="button" data-caidas="1">🧹 Retirar las seleccionadas</button><button class="pbtn" type="button" data-caidaspropias="1">✅ Funcionan: dejarlas como propias</button></div>
+      <small class="muted">«Propias» = son tuyas y se pagan solas (autopay): quedan sin vencimiento y sus perfiles libres vuelven a estar a la venta.</small></section>` : "";
     const prodOf = (id) => products.find((x) => x.id === id);
     const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(pname(a.productId), p?.color); };
     const cards = shownAccs.map((a) => {
@@ -2348,6 +2349,21 @@ document.addEventListener("click", async (ev) => {
   if (d.more) { $("#app").classList.add("open"); return; }
   if (d.gsopen) return openSearch();
   if (d.wago) { P.tab.waSec = d.wago; return go("whatsapp"); }
+  if (d.caidaspropias) {
+    // Mismas ediciones que "Editar" de cada cuenta: proveedor Propias y sin vencimiento (la fecha lejana que el
+    // sistema ya usa para una cuenta cargada sin fecha).
+    const ids = $$(".caida-sel:checked").map((x) => x.value);
+    if (!ids.length) return toast("Marcá al menos una cuenta");
+    if (!confirm(`¿Dejar ${ids.length} cuenta${ids.length === 1 ? "" : "s"} como propias (autopay, sin vencimiento)?\n\nSus perfiles libres vuelven a estar a la venta.`)) return;
+    el.disabled = true;
+    const sinFecha = Date.now() + 36500 * 86400000;
+    let ok = 0; const bad = [];
+    for (const id of ids) {
+      try { await api("POST", `/api/admin/accounts/${id}`, { supplierId: "propias", supplierExpiresAt: sinFecha }); ok++; } catch (e) { bad.push(e.message); }
+    }
+    toast(bad.length ? `Listas ${ok}. No se pudo con ${bad.length}: ${bad[0]}` : `✅ ${ok} cuenta${ok === 1 ? "" : "s"} como propias`);
+    return render();
+  }
   if (d.caidas) {
     const ids = $$(".caida-sel:checked").map((x) => x.value);
     if (!ids.length) return toast("Marcá al menos una cuenta");

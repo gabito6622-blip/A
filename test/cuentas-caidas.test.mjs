@@ -57,6 +57,15 @@ test("cuentas caídas sin clientes: se listan solo esas y se retiran solo las ma
     const svc1 = await A("GET", "/api/admin/assignments");
     assert.deepEqual(svc1.map((x) => [x.id, x.slotId, x.customerExpiresAt]), svc0.map((x) => [x.id, x.slotId, x.customerExpiresAt]), "ningún cliente cambia");
     assert.deepEqual(await p.locator(".caida-row b").allInnerTexts(), ["otra2@ejemplo.lat"], "queda la que se destildó");
+    // "Funcionan: dejarlas como propias": otra2 queda sin vencimiento, en Propias, y vuelve a estar a la venta.
+    const stock0 = (await A("GET", "/api/admin/stock")).dis?.available ?? 0;
+    await p.click('[data-caidaspropias="1"]');
+    await p.waitForFunction(() => !document.querySelector(".caidas"), null, { timeout: 15_000 });
+    assert.match(dialogs.at(-1), /¿Dejar 1 cuenta como propias \(autopay, sin vencimiento\)\?/);
+    const o2 = (await A("GET", "/api/admin/accounts")).find((a) => a.id === otra2);
+    assert.deepEqual([o2.status, o2.supplierId, o2.supplierExpiresAt > Date.now() + 30000 * DAY], ["active", "propias", true]);
+    assert.equal((await A("GET", "/api/admin/stock")).dis?.available ?? 0, stock0 + 1, "su perfil libre vuelve a la venta");
+    assert.deepEqual((await A("GET", "/api/admin/assignments")).map((x) => [x.id, x.slotId, x.customerExpiresAt]), svc0.map((x) => [x.id, x.slotId, x.customerExpiresAt]), "ningún cliente cambia");
     assert.deepEqual(errs, []);
     await ctx.close();
   } finally { await b.close(); await app.close(); rmSync(dir, { recursive: true, force: true }); }
