@@ -275,3 +275,14 @@ Responde solo `{ok}` (200 o 503). El detalle lo ve únicamente la plataforma.
 ### D-60 · Orden de sondaje por clínica y «Deshacer» de la agenda verificado (B-066/B-074)
 - El orden de sondaje vive en `clinics.settings.perioOrder`. Cambiarlo durante una exploración vale solo para esa; quien gestiona la clínica puede dejarlo para todos.
 - «Deshacer» un movimiento de cita solo se acepta si coincide con el último cambio registrado en la auditoría, de la misma persona y hace menos de 2 minutos. Así no suma una reprogramación ni puede usarse para deshacer cambios ajenos.
+
+### D-61 · Costo de reenvío como movimiento aparte (B-111, v0.9.1)
+- El costo de la primera recepción sigue fijo. Lo que el laboratorio cobra de más por un reenvío se guarda en `lab_order_extra_costs` (solo inserción), con su fecha y su motivo.
+- No se suma al costo original para no reescribir meses cerrados. Cada informe lo cuenta en su fecha: estado de cuenta, rentabilidad y honorarios con costo real. El tope de pago por orden incluye el adicional.
+- Correcciones con monto negativo y motivo. El total adicional nunca queda negativo ni por debajo de lo ya pagado; en ese caso primero se anula el pago.
+- Quién absorbe el costo (clínica o paciente) no lo decide el sistema: solo registra lo que se le debe al laboratorio. Si el laboratorio lo rehace gratis, no se anota nada.
+
+### D-62 · Excel por flujo con estilos compartidos (B-104, v0.9.1)
+- ExcelJS recuerda el estilo de una celda por identidad del objeto, pero cada celda nueva recibía uno propio y se recalculaba siempre.
+- Las filas comunes ahora comparten un objeto por columna y por tipo de dato (fecha, número, texto), para que una fecha nunca herede el formato de un texto. Las filas con negrita o nota siguen con su estilo propio.
+- La compresión no era el cuello de botella: con nivel 1 o el habitual el tiempo fue igual.

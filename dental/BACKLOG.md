@@ -86,9 +86,9 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 |---|---|---|
 | B-100 | P0 | ⚠ Producción (requiere autorización). **Parte técnica lista en v0.9:** `pg_dump`/`pg_restore` 17 en la imagen, guía `docs/PUBLICAR.md`, `npm run preflight` y `npm run create-admin`. Falta lo de la dueña: `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_ID` arrancan el despachador de mensajes; `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
 | B-101 | ✅ v0.8 | Subida por partes para respaldos de más de 4,5 GB |
-| B-102 | P2 | Métricas compartidas entre réplicas (hoy por instancia, se pierden al reiniciar) |
-| B-103 | P2 | Simulacro de restauración en un servidor separado del de producción |
-| B-104 | P2 | Exportación de pacientes: el total sigue en ~4 s con 100 000 (CPU de compresión) aunque empieza a bajar enseguida; la memoria sube ~180 MB durante la descarga |
+| B-102 | P3 | Métricas compartidas entre réplicas (hoy por instancia, se pierden al reiniciar). Con una sola instancia en Railway no hace falta todavía |
+| B-103 | ✅ soportado (`BACKUP_VERIFY_ADMIN_URL`, ver `docs/PUBLICAR.md`); falta tener ese segundo servidor al publicar | Simulacro de restauración en un servidor separado del de producción |
+| B-104 | ✅ v0.9.1 (parcial) | Exportación de pacientes con 100 000: de 3,1 s a 1,5 s (el tiempo se iba en recalcular estilos, no en la compresión). La memoria todavía sube ~100 MB durante la descarga |
 | B-105 | P3 | «Primeros pasos» marca «Prestaciones» como listo con una sola prestación propia (con aviso de cuántas siguen con el precio de ejemplo): decidir la regla con la clínica |
 | B-106 | ✅ v0.7 | Tabla de Personal y comparación por sucursal a 1440 px: revisado con la semilla demo, sin desborde (no se reprodujo) |
 
@@ -96,23 +96,23 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | ID | Prioridad | Ítem |
 |---|---|---|
 | B-110 | P2 | ⚠ Decide la clínica: al anular un cargo, ¿se devuelven los materiales descontados? Hoy no, porque una anulación puede ser solo una corrección de precio después de usar el material (D-57) |
-| B-111 | P3 | Laboratorio: costo de un reenvío o repetición (quién lo paga: clínica o laboratorio) |
+| B-111 | ✅ v0.9.1 | Laboratorio: costo adicional de un reenvío o repetición, en su fecha, con correcciones (D-61) |
 | B-112 | P2 | ⚠ Revisión clínica de la lista de interacciones de recetas por un profesional de la clínica antes del piloto (D-58) |
-| B-113 | P3 | Textos de certificados: vista previa con un paciente de ejemplo antes de guardar la versión |
+| B-113 | ✅ v0.9.1 | Textos de certificados: vista previa con un paciente de ejemplo antes de guardar la versión |
 
 ## P1
 
 | ID | Ítem | Criterio |
 |---|---|---|
-| B-010 | WhatsApp Cloud API (plantillas, botones, entregas, baja) | Confirmar desde WhatsApp actualiza la cita; sin consentimiento no se envía; pruebas con un simulador |
-| B-011 | Periodontograma | 6 sitios por pieza; instantáneas inmutables; comparación entre fechas |
+| B-010 | → ver B-048 (✅ v0.4, modo de pruebas y reglas) y B-060 (falta la cuenta de Meta de la clínica). WhatsApp Cloud API (plantillas, botones, entregas, baja) | Confirmar desde WhatsApp actualiza la cita; sin consentimiento no se envía; pruebas con un simulador |
+| B-011 | ✅ v0.3 (como B-042) Periodontograma | 6 sitios por pieza; instantáneas inmutables; comparación entre fechas |
 | B-012 | ✅ v0.5 Archivos clínicos privados | URL firmadas de 5 min; la descarga queda auditada; límite de tamaño y tipo |
-| B-013 | Inventario por sucursal | Stock por lote y vencimiento; consumo al realizar un tratamiento; alertas; transferencias con doble registro |
-| B-014 | Liquidación de honorarios por período | Cierre inmutable; base producción o cobro; exportación Excel |
-| B-015 | Sala de espera (✅ v0.2) y vista semanal de la agenda (pendiente) | Cambios de estado con arrastre y teclado; prueba e2e |
-| B-016 | Recetas e informes PDF | Plantilla con matrícula; registrado como nota clínica |
+| B-013 | ✅ v0.4 (como B-047) Inventario por sucursal | Stock por lote y vencimiento; consumo al realizar un tratamiento; alertas; transferencias con doble registro |
+| B-014 | ✅ v0.3 (como B-044) Liquidación de honorarios por período | Cierre inmutable; base producción o cobro; exportación Excel |
+| B-015 | ✅ Sala de espera (v0.2) y vista semanal de la agenda (v0.4; arrastre de duración en v0.9) | Cambios de estado con arrastre y teclado; prueba e2e |
+| B-016 | ✅ v0.4 (como B-064) Recetas e informes PDF | Plantilla con matrícula; registrado como nota clínica |
 | B-017 | ✅ v0.5 Panel: rango libre de fechas y comparación con el período anterior | Variación en % por sucursal |
-| B-018 | Correos transaccionales (citas, recuperación) | Proveedor configurable; sin datos clínicos |
+| B-018 | Parcial: recuperación de contraseña, desbloqueo y alertas por correo hechos; avisos de citas por correo pendientes (hoy van por WhatsApp). Falta SMTP real (B-100). Correos transaccionales (citas, recuperación) | Proveedor configurable; sin datos clínicos |
 | B-019 | ✅ v0.5–v0.6 (diario; consultas reescritas para 100 000 pacientes) Paginación con cursor en auditoría y pagos | Más de 10 000 filas sin degradación |
 
 ## P2
@@ -121,12 +121,12 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 |---|---|---|
 | B-020 | Facturación SIAT con un proveedor autorizado | Emitir, anular y contingencia; pruebas en el ambiente piloto del SIN; decisión legal previa |
 | B-021 | ✅ v0.5 Conciliación bancaria por extracto | Emparejar referencia y monto; las diferencias quedan para revisión |
-| B-022 | Portal del paciente y reserva online | Disponibilidad real, captcha o límite de solicitudes, confirmación por WhatsApp |
-| B-023 | Laboratorios protésicos | Órdenes con estado, fechas y costo vinculadas al presupuesto |
-| B-024 | Compras y proveedores | Orden de compra → recepción → stock |
+| B-022 | ✅ v0.3 (como B-046; falta el QR real, B-061) Portal del paciente y reserva online | Disponibilidad real, captcha o límite de solicitudes, confirmación por WhatsApp |
+| B-023 | ✅ v0.4 (como B-063) Laboratorios protésicos | Órdenes con estado, fechas y costo vinculadas al presupuesto |
+| B-024 | ✅ v0.4 Compras y proveedores | Orden de compra → recepción → stock |
 | B-025 | Facturación del SaaS a las clínicas | Cobro recurrente; suspensión automática por impago con aviso |
 | B-026 | Prueba de penetración externa | Informe sin hallazgos críticos abiertos |
-| B-027 | Observabilidad | Registros JSON sin datos personales; métricas de latencia; alertas |
+| B-027 | ✅ v0.7 (métricas por instancia: ver B-102) Observabilidad | Registros JSON sin datos personales; métricas de latencia; alertas |
 
 ## P3
 
@@ -135,7 +135,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-030 | Dictado de evoluciones con IA (aprobación obligatoria del profesional) |
 | B-031 | Modo sin conexión |
 | B-032 | ✅ v0.5 PWA instalable |
-| B-033 | Analítica de retención y rentabilidad por sillón |
+| B-033 | Parcial: rentabilidad por sillón ✅ v0.5; analítica de retención pendiente |
 | B-034 | Interoperabilidad FHIR / Historia Clínica Única |
 
 ## Hecho en v0.1

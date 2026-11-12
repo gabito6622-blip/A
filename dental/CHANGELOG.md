@@ -2,6 +2,23 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.9.1] — 2026-11-12
+
+Pendientes que no dependían de la dueña. Migración 0033.
+
+### Agregado
+- **Laboratorio (B-111):**
+  - al registrar la llegada de un trabajo reenviado se anota lo que el laboratorio cobró de más (vacío si no cobra), con su fecha y su motivo;
+  - entra en lo que se debe al laboratorio, en el estado de cuenta, en la rentabilidad del mes y en los honorarios con costo real;
+  - las correcciones se hacen con un monto negativo y motivo; nada se borra.
+- **Textos de certificados (B-113):** vista previa en vivo con un paciente de ejemplo ficticio antes de guardar.
+
+### Mejorado
+- **Exportación de pacientes (B-104):** con 100 000 pacientes pasa de 3,1 s a 1,5 s.
+
+### Documentación
+- BACKLOG ordenado: los ítems viejos que ya se hicieron con otro número quedan marcados con su versión.
+
 ## [0.9.0] — 2026-11-12
 
 Todo listo para publicar el día que la dueña lo autorice (sin publicar nada) y las mejoras opcionales del backlog. Migraciones 0031 y 0032.
