@@ -25,7 +25,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
 - **netgb117+m2:** figuraba a oby; es de Yuvinka. Pasada a ella, vence 09/12/2026, pagada a Bs 70, clave nueva (no se escribe acá).
 - **netgb117+cob1:** pagada a Bs 70; vence 06/12/2026 (el dueño la corrigió del 09/12 al 06/12).
-- **rolljos11:** estaba «EN COBRO»; pagó Bs 69, vence 12/12/2026 (nota de cobro quitada).
+- **rolljos11:** estaba «EN COBRO»; pagó Bs 65 (el dueño corrigió: no 69), vence 12/12/2026 (nota de cobro quitada).
 - **rolljos11+2:** pagada a Bs 65, vence 25/11/2026 (confirmado por el dueño). Yuvinka queda con sus 4 cuentas pagadas.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
