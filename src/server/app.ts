@@ -542,7 +542,12 @@ export function createApp(cfg: AppConfig): App {
   route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp), { ok: true }));
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
   // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
-  route("GET", "/api/me/control", "customer", (c) => store.rtools.control(c.actor!));
+  // Suscripción GaboHub vencida (y cobro prendido para todos): se pausan estas pantallas. Vender, anotar fiados,
+  // comprar, cuentas, códigos y recargar NUNCA se bloquean (las rutas que escriben siguen abiertas).
+  const hubGuard = (c: { actor?: Actor }) => {
+    if (c.actor?.customerId && store.shops.hubLocked(c.actor.customerId)) throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
+  };
+  route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
@@ -582,9 +587,9 @@ export function createApp(cfg: AppConfig): App {
     }
     return r.ticket;
   });
-  route("GET", "/api/me/earnings", "customer", (c) => store.rtools.earnings(c.actor!));
-  route("GET", "/api/me/fiado", "customer", (c) => store.fiado.overview(c.actor!));
-  route("GET", "/api/me/fiado/:id", "customer", (c) => store.fiado.history(c.actor!, c.params.id));
+  route("GET", "/api/me/earnings", "customer", (c) => { hubGuard(c); return store.rtools.earnings(c.actor!); });
+  route("GET", "/api/me/fiado", "customer", (c) => { hubGuard(c); return store.fiado.overview(c.actor!); });
+  route("GET", "/api/me/fiado/:id", "customer", (c) => { hubGuard(c); return store.fiado.history(c.actor!, c.params.id); });
   route("POST", "/api/me/fiado/charge", "customer", (c) => store.fiado.charge(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
   route("POST", "/api/me/fiado/payment", "customer", (c) => store.fiado.pay(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
   route("POST", "/api/me/fiado/:id/from-control", "customer", (c) => store.fiado.fromControl(c.actor!, c.params.id));

@@ -291,6 +291,8 @@ export interface Customer {
   pageAllowed?: boolean;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
+  /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
+  hubBill?: { paidUntil?: number; suspended?: boolean };
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }
@@ -558,6 +560,10 @@ export interface ShopRent {
   freeIfSpent: Cents;
   /** Días que la página sigue publicada después de vencer sin saldo. */
   graceDays: number;
+  /** Quién paga: "page" (sin definir) solo los que tienen página propia; "all" todos los revendedores (suscripción GaboHub). */
+  scope?: "page" | "all";
+  /** Precio fijo en centavos de US$ para revendedores en dólares (sin definir: el precio en Bs pasado con la tasa de hoy). */
+  priceUsd?: Cents;
 }
 
 /** Pedido de alta de alguien que quiere ser revendedor (formulario público). */

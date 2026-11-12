@@ -1,6 +1,24 @@
 # Informe de pruebas
 
-## 12/11/2026 · GaboHub etapa 4 (rama `hub-etapa3`)
+## 12/11/2026 · GaboHub etapa 5: suscripción (rama `hub-etapa5`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cobro | `test/suscripcion-gabohub.test.mjs`: apagada no cobra; prendida para todos cobra Bs 49 al de solo panel, US$ 5 fijos al de dólares y arranca la gracia al que no tiene saldo; a los 3 días se pausa; paga y vuelve; no se cobra dos veces el mismo mes; apagar limpia las pausas; si arma su página, lo pagado pasa a la página; «solo con página» no toca a los de solo panel | ✅ |
+| Pausa en el servidor | Pausado: control, fiados y ganancias responden 402; servicios, clientes, página, cuentas propias y precios responden 200; anotar un fiado sigue funcionando | ✅ |
+| En el celular (360 px) | Aviso en el Inicio, candado con «Pagar» en Mi control (botones de 44 px); paga y se reactiva | ✅ |
+| Lo de antes | Las pruebas del alquiler de página (`store`) siguen pasando sin cambios | ✅ |
+| Revisión visual | Ajustes del dueño (el selector «¿Quién paga?» se cortaba en el celular: textos acortados, entra a 360 px) y aviso del revendedor | ✅ |
+| Prueba inestable | `hub-clientes-unidos` falló 1 vez en 4 corridas completas (máquina cargada): más margen en sus esperas | ✅ |
+| Pruebas automáticas | `npm test`: 482 / 482 (52 s) | ✅ |
+
+## 12/11/2026 · Después de publicar #48 (GaboHub etapas 3 y 4)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Páginas | /hub, /tienda/, /panel.html y ownstock.js responden 200; /tienda/ y /hub sin errores ni scroll de costado | ✅ |
+| No revisado en la tienda real | El panel por dentro de un revendedor (la llave del asistente le gana a su sesión); revisado con el mismo código en la tienda de prueba | ⚠️ |
+
+## 12/11/2026 · GaboHub etapa 4 (publicado en #48)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Clientes con todo lo suyo | `test/hub-clientes-unidos.test.mjs` a 360 px: Rosa con 3 servicios (tienda, propia por su ficha, perfil por su WhatsApp); Beto solo en lo propio aparece suelto y «Guardar» lo deja con ficha; buscador por app y por teléfono; nada del otro revendedor | ✅ |
@@ -10,7 +28,7 @@
 | Foto de controles (contra la etapa 3) | Ninguna pantalla con controles de menos | ✅ |
 | Pruebas automáticas | `npm test`: 480 / 480 (49 s) | ✅ |
 
-## 12/11/2026 · GaboHub etapa 3 (rama `hub-etapa3`)
+## 12/11/2026 · GaboHub etapa 3 (publicado en #48)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Cuentas propias en el negocio | `test/hub-propias-negocio.test.mjs` a 360 px: Mi control muestra solo la que vence en 2 días y 🔄 Renovó le suma 30 días; Quién me debe muestra la pendiente y 💵 Me pagó la marca pagada; Mis ganancias: 2 clientes, Bs 55 por mes. La venta de otro revendedor nunca aparece. Botones de 44 px, sin scroll de costado | ✅ |

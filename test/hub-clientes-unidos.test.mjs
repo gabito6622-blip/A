@@ -61,7 +61,7 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     await page.locator(".htiles").waitFor();
     await page.locator('.bnav [data-s="clientes"]').click();
     await page.locator('[data-rtab="ventas"][aria-selected="true"]').waitFor();
-    await page.waitForFunction(() => document.querySelectorAll(".rcli").length === 5 && /3 serv\./.test(document.body.innerText), null, { timeout: 15_000 });
+    await page.waitForFunction(() => document.querySelectorAll(".rcli").length === 5 && /3 serv\./.test(document.body.innerText), null, { timeout: 30_000 });
     const sums = await page.locator(".rcli > summary").evaluateAll((l) => l.map((x) => x.innerText.replace(/\s+/g, " ").trim()));
     // Rosa (3 servicios, uno de cada lado), Beto suelto y 3 de relleno. Nada del otro revendedor.
     assert.equal(sums.length, 5, sums.join("\n"));
@@ -77,7 +77,7 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     const names = () => page.locator(".rcli > summary b").evaluateAll((l) => l.map((x) => x.textContent.trim()).sort());
     const find = async (t, want) => {
       await page.fill("#cq", t);
-      await page.waitForFunction((w) => JSON.stringify([...document.querySelectorAll(".rcli > summary b")].map((x) => x.textContent.trim()).sort()) === JSON.stringify(w), want, { timeout: 15_000 }).catch(() => {});
+      await page.waitForFunction((w) => JSON.stringify([...document.querySelectorAll(".rcli > summary b")].map((x) => x.textContent.trim()).sort()) === JSON.stringify(w), want, { timeout: 30_000 }).catch(() => {});
       assert.deepEqual(await names(), want, `buscar "${t}"`);
     };
     assert.equal(await page.locator("#cq").count(), 1, "con 5 clientes aparece el buscador");
@@ -96,7 +96,7 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     await page.waitForFunction(() => ![...document.querySelectorAll(".rcli-x")].some((x) => x.textContent.includes("Beto Suelto")));
     const mine = await (await fetch(base + "/api/me/customers", { headers: { cookie: rck } })).json();
     assert.ok(mine.some((c) => c.name === "Beto Suelto" && c.phone.endsWith("70044444")));
-    assert.match((await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("summary").innerText()).replace(/\s+/g, " "), /1 serv\./);
+    await page.waitForFunction(() => [...document.querySelectorAll(".rcli:not(.rcli-x) > summary")].some((x) => x.textContent.includes("Beto Suelto") && /1 serv\./.test(x.textContent)), null, { timeout: 30_000 });
     const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth > document.documentElement.clientWidth }));
     assert.deepEqual(m, { over: false });
     assert.deepEqual(errs, []);

@@ -1391,7 +1391,8 @@ const V = {
       <p class="muted" style="margin:0">Ordenados por lo que te compraron en los últimos 30 días.</p>
       ${shown2.length ? `<div class="rgrid">${shown2.map((r) => `<div class="rcard${dormido(r) ? " rsleep" : ""}">
         <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
-        ${r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
+        ${rent.enabled && rent.scope === "all" ? `<small class="muted">${r.shop.suspended ? `<b style="color:var(--bad)">⚠️ Suscripción GaboHub sin pagar (herramientas pausadas)</b>` : r.shop.paidUntil ? `Suscripción GaboHub pagada hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Suscripción GaboHub: se cobra en la próxima revisión"}</small>`
+          : r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
         <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${wal(r.balance, r.currency)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
         ${canReview() ? resellerCountryRow(r) : ""}
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
@@ -1415,11 +1416,13 @@ const V = {
       <form class="form" id="resCfg">
         <label>Ganancia sugerida para sus precios (%)<input name="margin" inputmode="numeric" value="${esc(marginPct)}"><small class="muted">El asistente les propone tu precio + este %. Ellos lo pueden cambiar.</small></label>
         <label>🎁 Premio por traer un revendedor (${currencySym()}, 0 = apagado)<input name="referral" inputmode="decimal" value="${referralBonus / 100}"><small class="muted">Cuando un revendedor comparte su link y traés a otro que aprobás, le cae este saldo. Cada revendedor ve su link en “Referí y ganá”.</small></label>
-        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rentOn" ${rent.enabled ? "checked" : ""}> Cobrar alquiler mensual por la página (se descuenta solo de su saldo)</label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rentOn" ${rent.enabled ? "checked" : ""}> Cobrar la mensualidad (se descuenta sola de su saldo)</label>
+        <label style="grid-column:1/-1">¿Quién paga?<select name="scope"><option value="page" ${rent.scope !== "all" ? "selected" : ""}>Solo con página propia</option><option value="all" ${rent.scope === "all" ? "selected" : ""}>Todos (suscripción GaboHub)</option></select></label>
         <label>Precio por mes (${currencySym()})<input name="price" inputmode="decimal" value="${rent.price / 100}"></label>
+        <label>Precio fijo en dólares (US$, vacío = el de ${currencySym()} con la tasa del día)<input name="priceUsd" inputmode="decimal" value="${rent.priceUsd !== undefined ? rent.priceUsd / 100 : ""}" placeholder="Ej.: 5"></label>
         <label>Gratis si ese mes te compran (${currencySym()}, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
-        <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, su página sigue publicada los días de gracia y después se apaga sola. Apenas recarga, se cobra y se prende sola.</p>
+        <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, sigue todo igual los días de gracia. Después se apaga su página (si tiene) y, si pagan todos, se pausan Mi control, Quién me debe, Mis ganancias y Afiches. Comprar, sus cuentas, los códigos y vender nunca se bloquean. Apenas recarga y paga, vuelve todo solo.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
 </section>` : ""}`;
   },
@@ -3360,7 +3363,7 @@ document.addEventListener("submit", async (ev) => {
       if (v < 0 && !confirm(`¿Descontarle ${m(-v)} a ${name}?\nSu saldo queda en ${m(bal + v)}.`)) return;
       await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${m(bal)} → ${m(bal + v)}`);
     } else if (f.id === "resCfg") {
-      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0) } }), "Ajustes guardados");
+      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0), scope: f.scope.value, ...(f.priceUsd.value.trim() ? { priceUsd: toCents(f.priceUsd.value) } : {}) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {
