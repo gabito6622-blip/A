@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Netflix: primera carga (con OK del dueño)
+- **Producto nuevo «Netflix completa (alquiler revendedores)»** (`netflix-alq`): cuenta completa, 30 días, Bs 120, solo revendedores, categoría Alquiler (igual que los de Disney).
+- **Revendedor nuevo «Revendedor 78230650»** (+591 78230650, lista revendedor); nombre pendiente.
+- Pendiente: el correo de su cuenta de Netflix para cargarla (autopago con tarjeta terminada en 8562, US$ 9, se debita el 18/11) y anotarle el alquiler del 07/11 al 07/12, pagado Bs 120.
+
 ## 2026-11-12 · Panel: botón «Mi secretaria» (publicado, #50)
 - **Nuevo en Inicio:** botón grande «🗂️ Mi secretaria · ¿qué hay pendiente?» (y en el menú, área Inicio). Abre una pantalla con todo lo pendiente: cobrar (nota «EN COBRO»), cortar («POR CORTAR»), vencidas sin anotar, quién debe, a quién avisar (vencen en 3 días, con la regla de la ficha de cada revendedor), cuentas por desenlazar, libres de verdad (y las que el sistema no puede vender por la fecha del proveedor), apartadas y lo que pasó en las últimas 24 horas (solo el dueño).
 - **Mensaje listo:** cada revendedor trae un botón que abre WhatsApp con el texto armado (cuentas, fechas y total). Lo manda el dueño; la pantalla no envía nada ni cambia datos.
