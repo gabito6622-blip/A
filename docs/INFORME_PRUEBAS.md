@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Panel ordenado, etapas 1 y 2 (rama `panel-ordenado`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **476 → 477 / 477 ✅** |
+| Ninguna pantalla perdida | `test/panel-ordenado.test.mjs`: por rol (dueño, admin, atención) compara el menú nuevo con la foto del anterior (30, 26 y 16 pantallas) y abre cada una sin error; buscador con permisos; barra de abajo; «Más»; pendientes de Inicio = Notificaciones; 360 px, 44 px, sin desborde | ✅ |
+| Foto antes / después | Mismo guion y mismos datos de ejemplo: 27 pantallas idénticas, 0 con menos botones, formularios o enlaces. Inicio tiene 1 botón más (el pendiente); Usuarios cambia porque la prueba creó 2 usuarios | ✅ |
+| Revisión visual | 390 px, claro y oscuro: menú completo en una pantalla, búsqueda e Inicio. 0 errores | ✅ |
+| No probado | Tu panel real (se ve al publicar); celular físico | ⚠️ |
+
 ## Tanda 12/11/2026 · Sofi, la secretaria (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
