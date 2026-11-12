@@ -13,7 +13,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | B4 | ✅ marcados como prueba en la tienda real (#33): 6 servicios, Bs 100 · 6 servicios de perfil que no son alquiler: 5 en una misma cuenta Disney (cera 100gr, rodbol ×2, Ivana, gabo) y 1 Prime (gabo). ¿Son ventas reales de perfil o pruebas? | P3 | 🧑 |
 | B6 | Invitar a los 16 revendedores sin PIN | P1 | 🧑 botón "▶ Invitarlos ahora" en Inicio (publicado en #31) |
 | B21 | WhatsApp oficial con su mismo número (coexistencia por QR): ¿hacerse Tech Provider de Meta, usar un proveedor oficial o un número aparte para el bot? Al conectar, pausar el bot cuando el dueño responde desde el celular | P1 | 🧑 |
-| B22 | 16 cuentas de Disney caídas (vencidas, sin clientes): el dueño decidió retirarlas él | P2 | 🔧 botón «🧹 Retirar» listo en `panel-caidas`; falta publicar y que el dueño las retire |
+| B22 | 16 cuentas de Disney caídas (vencidas, sin clientes): el dueño decidió retirarlas él | P2 | 🔧 botones publicados (#44, #45); falta que el dueño las retire o las deje como propias |
+| B23 | Cuentas autopagables con tarjeta (Netflix y otras): cobran US$ 9 por mes cada una. Hoy no hay ninguna de Netflix cargada en el panel (12/11: 111 + 12 de Disney de alquiler, 1 de Disney+ y 1 de Prime). El dueño va a pasar la lista, separada en: clientes finales, revendedores y otros clientes. Al cargarlas, poner «Se cobra en dólares» = 9 | P1 | 🧑 esperando la lista |
 | B10 | Tasa del USDT automática | P3 | ✅ Banco Central de Bolivia (el dueño eligió la fuente), #34 |
 | B11 | País puesto en la tienda real: "paraguay" → Paraguay (+595, ₲), "panama" → Otro país (+507, $). La cola de avisos siguió en 33 | P1 | ✅ |
 | B13 | Precio en US$ de Flujo TV para la lista en dólares (en Bs está a Bs 25) | P1 | 🧑 |
