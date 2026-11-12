@@ -10,7 +10,7 @@ Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 39 
 | Controles internos (hoja Controles) | **19 de 19 en OK** |
 | Mismo resultado que la versión anterior en Bs | VAN $us 27.310,17 × 12,06 = **Bs 329.360,68**, igual al centavo |
 | Verificación independiente en Python (recalcula cifras desde los supuestos, sin leer las fórmulas) | **16 de 16 coinciden** |
-| Pruebas de coherencia y estrés (54 corridas del libro completo, 168 s) | **42 de 42 superadas** |
+| Pruebas de coherencia y estrés (54 corridas del libro completo, repetidas sobre la versión final: 208 s) | **42 de 42 superadas** |
 | Parecido con Ñapefit (títulos de Ñapefit que están en la misma celda del clon) | **1.402 de 1.557 (90%)** |
 | Cambio del tipo de cambio en la celda B3 de Supuestos (9; 12; 12,06; 15) | Se recalcula todo sin errores y con 19 de 19 controles. Ninguna fórmula tiene el tipo de cambio escrito a mano |
 | Balance general | Cuadra en los 21 cierres del caso base y en los 11 casos de estrés |
