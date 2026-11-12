@@ -4,13 +4,14 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-12 · Revisión de cuentas libres (con OK del dueño)
-- **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1 y netgb117+fe11 (figuraban libres). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
+- **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1, netgb117+fe11, netscz107+fg, netscz108+4d, netscz108+cap, netscz108+d24 y netscz108+e29 (figuraban libres). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
 - **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».
 - **n2025gt+18dp:** revisada por el dueño: libre, con clave nueva (no se escribe acá). Se quitó la marca vieja «pagar proveedor».
 - **netgb117+cd:** verificada por el dueño: libre, con clave nueva (no se escribe acá). Ojo: en el panel la fecha del proveedor figura vencida (07/07/2026); falta que el dueño diga la fecha nueva.
 - **netscz107+7es:** libre confirmada por el dueño, con clave nueva (no se escribe acá). netgb117+vox2 (perfiles de la tienda) queda como está, por pedido del dueño.
 - **n2025gt+ps1** (sin ESPN): la usa el dueño para sus perfiles de clientes finales. Se apartó (cuarentena) para que no se alquile; nota «👤 LA USA EL DUEÑO · NO ALQUILAR». Pendiente: cambiar la clave.
 - **n2025jg+nov y n2025jg+nov3** (sin ESPN): igual que ps1, las usa el dueño para sus perfiles de clientes finales. Apartadas (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar clave y expulsar dispositivos para liberarlas.
+- **netscz108+jon** (con ESPN): la usa el dueño para sus perfiles con ESPN. Apartada (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar la clave.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
 - **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
