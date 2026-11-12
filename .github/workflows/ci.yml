@@ -66,3 +66,16 @@ jobs:
             npx playwright install chromium
           }
       - run: npm run test:e2e
+
+  dental-docker:
+    name: Imagen Docker de Dentalia (solo construir, no se publica)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t dentalia:ci dental
+      - name: Herramientas de respaldo y chequeo previo dentro de la imagen
+        run: |
+          docker run --rm --entrypoint pg_dump dentalia:ci --version
+          docker run --rm --entrypoint pg_restore dentalia:ci --version
+          out=$(docker run --rm dentalia:ci node server/dist/cli/backup.js 2>&1 || true); echo "$out"; echo "$out" | grep -q "Uso:"
+          out=$(docker run --rm dentalia:ci node server/dist/cli/preflight.js 2>&1 || true); echo "$out"; echo "$out" | grep -q "pg_dump disponible"

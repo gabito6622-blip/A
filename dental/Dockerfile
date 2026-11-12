@@ -8,6 +8,18 @@ COPY web ./web
 RUN npm run build
 
 FROM node:22-slim
+# Cliente de PostgreSQL 17 (repositorio oficial PGDG) para los respaldos y el simulacro (B-100):
+# pg_dump debe ser de la misma versión mayor que el servidor o más nuevo (sirve para 16 y 17).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && install -d /usr/share/postgresql-common/pgdg \
+ && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+ && . /etc/os-release \
+ && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
+ && pg_dump --version && pg_restore --version
 ENV NODE_ENV=production \
     PORT=8080 \
     DENTAL_STATIC_DIR=/app/web/dist \

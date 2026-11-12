@@ -24,6 +24,8 @@
     "restore": "bash scripts/restore.sh",
     "backup:run": "tsx server/src/cli/backup.ts run",
     "backup:verify": "tsx server/src/cli/backup.ts verify",
+    "preflight": "tsx server/src/cli/preflight.ts",
+    "create-admin": "tsx server/src/cli/createAdmin.ts",
     "perf:seed": "tsx scripts/perf-seed.ts",
     "perf:bench": "tsx scripts/perf-bench.ts"
   },

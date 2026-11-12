@@ -104,7 +104,7 @@ Lado del paciente (demo): `http://localhost:5173/reservar/sonrisa-andina-demo` y
 - `WHATSAPP_TOKEN` y `WHATSAPP_PHONE_ID` (opcionales): activan el envío real por WhatsApp desde la cola de mensajes;
 - opcionales: `ANTHROPIC_API_KEY` para el chat del asistente, `SESSION_TTL_HOURS`.
 
-Las migraciones se aplican al arrancar. **No se desplegó nada todavía.**
+Las migraciones se aplican al arrancar. Guía paso a paso, chequeo previo (`node server/dist/cli/preflight.js`), primer administrador (`createAdmin.js`) y vuelta atrás: [`docs/PUBLICAR.md`](docs/PUBLICAR.md). **No se desplegó nada todavía.**
 
 ## Documentación
 
