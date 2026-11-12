@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Reglas para rediseñar el panel (pedido del dueño)
+- **No se quita nada:** ni funciones, ni botones, ni rutas, ni permisos, ni datos. Se reubica y se mejora la forma de usarlo.
+- **Antes de cada cambio grande:** respaldo verificable y una rama de prueba aparte de la que publica Railway.
+- **Por etapas chicas,** cada una con pruebas funcionales, visuales y de permisos que comparan antes y después, y con una matriz que dice dónde quedó cada función de antes y qué prueba lo demuestra.
+- **Sin publicar** hasta que el dueño apruebe con resultados a la vista. Si un cambio puede romper algo, se frena y se explica el riesgo.
+- **Referencias de otras apps** (StreamGestor, Mercado Streaming, StreamingManager): solo como ideas de cómo se trabaja; nada copiado (regla 7).
+
 ## 2026-11-12 · Sofi, la secretaria: Claude entiende, el sistema hace
 - **Qué hace Claude:** solo clasifica la orden dentro de una lista cerrada. Antes de mandarle el texto se tapan correos y números largos. No ve contraseñas, códigos ni costos.
 - **Qué hace el sistema:** busca los datos reales y responde con plantillas propias. El texto libre que escriba Claude no se muestra nunca.

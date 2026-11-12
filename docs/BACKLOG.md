@@ -113,3 +113,4 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ⏳ |
 | M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ⏳ |
 | M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | — | ⏸️ en pausa: el dueño ya no va a usar el Ganadero (12/11) |
+| M15 | Panel ordenado en 6 áreas + Herramientas (Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas): buscador global, Ficha 360°, Vender/Renovar/Reemplazar guiados, inventario por niveles. Auditoría y matriz de las 30 pantallas presentadas el 12/11; sin tocar código | P1 | 🧑 espera aprobación del dueño, respaldo y elección de etapa |
