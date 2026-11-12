@@ -271,6 +271,9 @@ function TransfersTab({ branchId, rev, canWrite, onNew, onReceive }: { branchId:
     catch (e: any) { toast(e.message, true); }
   };
   const mine = (id: string) => (branchId ? id === branchId : !!me?.branches.some((b) => b.id === id));
+  // Anula quien gestiona inventario y tiene acceso a la sucursal de ORIGEN (aunque la vea como «por recibir»).
+  const canCancel = (t: any) => can("inventory.manage") && !!me?.branches.some((b) => b.id === t.fromBranchId);
+  const cancelBtn = (t: any) => canCancel(t) && <button className="btn btn-ghost" onClick={() => cancel(t)} aria-label={`Anular transferencia N° ${t.number}`}>Anular</button>;
   const data = list.data ?? [];
   const incoming = data.filter((t) => t.status === "in_transit" && mine(t.toBranchId));
   const outgoing = data.filter((t) => t.status === "in_transit" && !mine(t.toBranchId));
@@ -287,7 +290,7 @@ function TransfersTab({ branchId, rev, canWrite, onNew, onReceive }: { branchId:
               {incoming.map((t) => (
                 <tr key={t.id}>
                   <td><b>N° {t.number} · desde {t.fromBranchName}</b><span className="inv-sub">{lineSummary(t)}</span><span className="inv-sub">Enviado {fmtDateTime(t.sentAt)} por {t.sentByName}{t.note ? ` · ${t.note}` : ""}</span></td>
-                  <td className="num">{canWrite && <button className="btn btn-primary" onClick={() => onReceive(t)}>Recibir</button>}</td>
+                  <td className="num"><div className="row" style={{ justifyContent: "flex-end" }}>{cancelBtn(t)}{canWrite && <button className="btn btn-primary" onClick={() => onReceive(t)}>Recibir</button>}</div></td>
                 </tr>))}
             </tbody></table></div>
           )}
@@ -297,7 +300,7 @@ function TransfersTab({ branchId, rev, canWrite, onNew, onReceive }: { branchId:
             <div className="card-head"><h2>Enviadas, en tránsito ({outgoing.length})</h2></div>
             <div className="table-wrap"><table className="table"><tbody>
               {outgoing.map((t) => <tr key={t.id}><td><b>N° {t.number} → {t.toBranchName}</b><span className="inv-sub">{lineSummary(t)}</span></td><td className="nowrap muted small">{fmtDateTime(t.sentAt)}</td>
-                <td className="num">{can("inventory.manage") && <button className="btn btn-sm btn-ghost" onClick={() => cancel(t)}>Anular</button>}</td></tr>)}
+                <td className="num">{cancelBtn(t)}</td></tr>)}
             </tbody></table></div>
           </section>
         )}

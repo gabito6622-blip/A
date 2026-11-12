@@ -2,6 +2,35 @@
 
 Formato basado en *Keep a Changelog*. Versionado semántico.
 
+## [0.9.0] — 2026-11-12
+
+Todo listo para publicar el día que la dueña lo autorice (sin publicar nada) y las mejoras opcionales del backlog. Migraciones 0031 y 0032.
+
+### Agregado
+- **Listo para publicar (B-100, parte técnica):**
+  - la imagen trae las herramientas de respaldo (`pg_dump`/`pg_restore` 17) y la CI comprueba que funcionen dentro de la imagen, sin subirla a ningún lado;
+  - `npm run preflight`: chequeo previo que dice qué falta en la configuración de producción, sin mostrar ningún secreto;
+  - `npm run create-admin`: crea el administrador de la plataforma con contraseña temporal;
+  - guía paso a paso `docs/PUBLICAR.md`, con listas de verificación y cómo volver atrás.
+- **Agenda (B-074):**
+  - cambiar la duración de una cita arrastrando su borde inferior (o con las flechas del teclado), en tramos de 15 min, con «Deshacer»;
+  - «Deshacer» un movimiento ya no suma una reprogramación.
+- **Inventario (B-072):**
+  - anular una transferencia en tránsito con motivo: todo vuelve al stock de origen con su costo;
+  - informe «Consumo real» frente al estándar de cada prestación, con exportación a Excel.
+- **Laboratorio (B-073):** anular un pago mal registrado, con motivo; queda en el historial tachado y la orden vuelve a deberse.
+- **Recetas (B-075):**
+  - aviso orientativo de interacciones con la medicación actual, la marca de anticoagulantes, el embarazo y las otras líneas de la receta; no bloquea y queda anotado en la historia;
+  - Configuración › Certificados: la clínica adapta el título y el texto de sus certificados y derivaciones, con historial de versiones y «Volver al texto original».
+- **Periodontograma (B-066):** el orden de sondaje se guarda para toda la clínica (antes, en cada navegador).
+- **Semilla demo (B-086):** cada tratamiento tiene su cita atendida con consultorio; la producción «sin sillón identificado» baja de 98,3 % a 0,9 %.
+
+### Corregido
+- Anular un pago a laboratorio fallaba por permisos de la base (lo detectaron las pruebas nuevas).
+- El tope «no pagar más que el costo de la orden» contaba pagos anulados.
+- Quien ve todas las sucursales no veía el botón «Anular» de una transferencia (aparecía solo como «Por recibir»).
+- La comprobación de alergias de un paciente de otra clínica respondía vacío en vez de 404 (no exponía datos).
+
 ## [0.8.0] — 2026-11-11
 
 Los últimos pendientes que dependían solo de nosotros. Migraciones 0029 y 0030.

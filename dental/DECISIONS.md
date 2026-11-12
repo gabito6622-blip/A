@@ -248,3 +248,30 @@ Responde solo `{ok}` (200 o 503). El detalle lo ve únicamente la plataforma.
 - **Tope anual:** lo usado es la porción de la empresa en el año menos lo trasladado al paciente.
   - La base (trigger) y la estimación del presupuesto usan la misma regla.
 - **Gastos fijos compartidos:** el reparto es una plantilla editable; cada borrador mensual copia el reparto exacto.
+
+### D-56 · Listo para publicar, sin publicar (B-100, v0.9)
+- La imagen trae `pg_dump`/`pg_restore` 17 (repositorio oficial de PostgreSQL), que sirven para servidores 16 y 17. La CI construye la imagen y comprueba las herramientas dentro, pero no la sube a ningún lado.
+- `npm run preflight` revisa la configuración de producción **sin mostrar ningún valor secreto** y solo lee la base. Con algún ✘ no se publica.
+- `npm run create-admin` crea el administrador de plataforma con contraseña temporal de un solo uso; se niega si el correo ya existe.
+- La guía `docs/PUBLICAR.md` deja los pasos, las listas de verificación y la vuelta atrás. Publicar sigue requiriendo la autorización explícita de la dueña.
+
+### D-57 · Anular sin borrar: transferencias y pagos a laboratorio (B-072/B-073)
+- **Transferencia en tránsito:** se anula con motivo; cada línea vuelve a su lote de origen con un movimiento `transfer_in` al costo con que salió, así el costo promedio no cambia. Una recibida no se anula: se corrige con otra transferencia.
+- **Pago a laboratorio:** la anulación es una tabla aparte de solo inserción (una por pago). El pago y sus imputaciones se conservan; todas las sumas (deuda, estado de cuenta, tope por orden) excluyen los anulados.
+- **Materiales al anular un cargo:** no se devuelven solos. Una anulación puede ser solo una corrección de precio después de haber usado el material, y devolverlo inflaría el stock. Lo decide la clínica (B-110).
+- **Consumo real frente al estándar:** cuenta lo descontado y lo que quedó pendiente por falta de stock, solo de tratamientos realizados en el período; lo usado a mano sin tratamiento no entra.
+
+### D-58 · Interacciones al recetar: aviso corto y honesto (B-075)
+- Lista corta de interacciones frecuentes en odontología (AINE con anticoagulantes, antihipertensivos, metotrexato, litio o ISRS; metronidazol, macrólidos o azoles con anticoagulantes; macrólidos o azoles con estatinas; tramadol con ISRS; tetraciclinas y AINE en el embarazo; dos AINE juntos; el mismo principio activo que ya toma).
+- Compara con la medicación actual (texto libre), la marca «toma anticoagulantes», la marca de embarazo y las otras líneas de la receta.
+- **Nunca bloquea** y la pantalla dice que no es completa ni reemplaza el criterio profesional. Lo mostrado queda anotado en la historia.
+- No inventa avisos: un medicamento fuera de la lista no genera ninguno. Un profesional de la clínica debe revisar la lista antes del piloto (B-112).
+
+### D-59 · Textos de certificados por clínica con versiones (B-075)
+- La clínica cambia solo el título y el texto; los campos de cada plantilla (fecha, motivo, días…) son fijos porque el servidor los valida.
+- Cada cambio es una versión de solo inserción con quién, cuándo y una nota. «Volver al original» es otra versión más, marcada como texto base.
+- Se rechazan los marcadores desconocidos y los textos sin `{paciente}` o sin los datos obligatorios. Lo emitido guarda con qué versión salió y no cambia.
+
+### D-60 · Orden de sondaje por clínica y «Deshacer» de la agenda verificado (B-066/B-074)
+- El orden de sondaje vive en `clinics.settings.perioOrder`. Cambiarlo durante una exploración vale solo para esa; quien gestiona la clínica puede dejarlo para todos.
+- «Deshacer» un movimiento de cita solo se acepta si coincide con el último cambio registrado en la auditoría, de la misma persona y hace menos de 2 minutos. Así no suma una reprogramación ni puede usarse para deshacer cambios ajenos.

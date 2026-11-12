@@ -153,7 +153,7 @@ erDiagram
 | `myday` | Agenda del día del profesional con alertas médicas |
 | `inventory/*` | Catálogo, lotes, movimientos de solo inserción aplicados por trigger (invariante lotes = stock), transferencias, conteos, compras y consumo estándar por prestación |
 | `lab`, `labPayables` | Órdenes de laboratorio con estados validados por trigger, eventos inmutables, cuentas por pagar y costo real para honorarios |
-| `documents*`, `lib/pdf.ts` | Recetas, certificados, derivaciones y PDF (presupuesto, consentimiento, recibo) con huella SHA-256; el primer PDF se guarda y se sirve siempre igual |
+| `documents*`, `lib/pdf.ts` | Recetas, certificados, derivaciones y PDF (presupuesto, consentimiento, recibo) con huella SHA-256; el primer PDF se guarda y se sirve siempre igual. Textos de certificados por clínica en `certificate_template_versions` (solo inserción). Avisos de alergia (`lib/allergies.ts`) e interacciones orientativas (`lib/interactions.ts`, D-58) |
 | `messaging/*` | Reglas, plantillas versionadas, programador idempotente, tokens de confirmación, adaptador de WhatsApp Cloud API y webhook |
 | `onboarding/*` | Primeros pasos derivados de datos, importación por lotes (pacientes, citas, saldos iniciales) idempotente y saldos de apertura |
 | `lib/filestore-s3.ts`, `lib/sigv4.ts`, `clinicalFilesSweep` | Controlador S3 compatible con firma SigV4 propia, miniaturas y barrido de huérfanos |

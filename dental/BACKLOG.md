@@ -45,17 +45,17 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-063 | ✅ v0.4 | Laboratorio protésico; costos reales en la liquidación de honorarios |
 | B-064 | ✅ v0.4 | PDF generados en el servidor con hash (presupuesto aceptado, consentimientos, recetas) |
 | B-065 | ✅ v0.5 (Inicio) | "Citas pasadas sin cerrar" también en el Inicio; exportar los controles a Excel; indicador "no contactar" |
-| B-066 | P2 | Orden de sondaje del periodontograma configurable por clínica (hoy se guarda en el navegador) |
+| B-066 | ✅ v0.9 | Orden de sondaje del periodontograma configurable por clínica (guardado en el servidor; cambiarlo en una exploración vale solo para esa) |
 
 ## Nuevos pendientes detectados en v0.4
 | ID | Prioridad | Ítem |
 |---|---|---|
 | B-070 | ✅ v0.8 | Mensajes: enviar al proveedor desde una cola fuera de la transacción de la clínica; bandeja de respuestas (no «BAJA») para recepción |
 | B-071 | P1 | Revisión legal y clínica de las plantillas de recetas y certificados y de las posologías sugeridas |
-| B-072 | P2 | Inventario: informe de consumo real frente al estándar, exportar a Excel, anular una transferencia en tránsito, reponer materiales al anular un cargo |
-| B-073 | P2 | Laboratorio: anular un pago, costo de un reenvío, adjuntos reales, costo de laboratorio en la rentabilidad por sucursal |
-| B-074 | P2 | Agenda: cambiar la duración arrastrando el borde; prueba automática del arrastre táctil; «Deshacer» sin sumar una reprogramación |
-| B-075 | P2 | Recetas: aviso de interacciones con la medicación actual; plantillas de certificados editables por clínica |
+| B-072 | ✅ v0.9 (parcial) | Inventario: informe de consumo real frente al estándar con Excel y anular una transferencia en tránsito, hechos. Queda B-110 (reponer materiales al anular un cargo, ⚠ decide la clínica) |
+| B-073 | ✅ v0.9 (parcial) | Laboratorio: anular un pago (solo inserción, con motivo) hecho; el costo de laboratorio ya entra en la rentabilidad por sucursal (v0.6). Quedan B-111 (costo de un reenvío) y adjuntos reales |
+| B-074 | ✅ v0.9 | Agenda: cambiar la duración arrastrando el borde (o con flechas), y «Deshacer» sin sumar una reprogramación. Prueba e2e del arrastre con puntero |
+| B-075 | ✅ v0.9 | Recetas: aviso orientativo de interacciones (lista corta, ⚠ revisar con un profesional de la clínica: D-58); textos de certificados editables por clínica con versiones |
 | B-076 | ✅ v0.5 | Laboratorio e inventario en el celular: tablas como tarjetas en lugar de desplazamiento horizontal dentro de la tarjeta |
 
 ## Nuevos pendientes detectados en v0.5
@@ -67,7 +67,7 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 | B-083 | ✅ v0.6 | Gastos compartidos entre sucursales con reparto por porcentaje y comprobante adjunto real |
 | B-084 | ✅ v0.6 | Botón en pantalla para generar el enlace de encuesta a mano; aviso de llamada entrante (fase 2 de R2-42); contador de tareas en el menú |
 | B-085 | ✅ v0.6 | Protección contra inyección de fórmulas en `payments.xlsx` (exportación antigua) |
-| B-086 | P3 | Semilla demo: producción atribuida a sillones (hoy mucha queda «sin sillón identificado») |
+| B-086 | ✅ v0.9 | Semilla demo: producción atribuida a sillones (de 98,3 % a 0,9 % «sin sillón identificado») |
 
 ## Nuevos pendientes detectados en v0.6
 | ID | Prioridad | Ítem |
@@ -84,13 +84,21 @@ Origen: anexos G, H e I (ver `INVESTIGACION_COMPETIDORES.md` §9).
 ## Nuevos pendientes detectados en v0.7
 | ID | Prioridad | Ítem |
 |---|---|---|
-| B-100 | P0 | ⚠ Producción (requiere autorización): `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_ID` arrancan el despachador de mensajes; `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
+| B-100 | P0 | ⚠ Producción (requiere autorización). **Parte técnica lista en v0.9:** `pg_dump`/`pg_restore` 17 en la imagen, guía `docs/PUBLICAR.md`, `npm run preflight` y `npm run create-admin`. Falta lo de la dueña: `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_ID` arrancan el despachador de mensajes; `pg_dump`/`pg_restore` en la imagen, servicio de cron para `backup:run` (diario) y `backup:verify` (semanal), dónde guardar los respaldos (otro bucket con bloqueo de objetos), `BACKUP_PASSPHRASE` guardada fuera del servidor, `DENTAL_MFA_KEY` y `DENTAL_LINK_KEY`, SMTP y quién recibe las alertas |
 | B-101 | ✅ v0.8 | Subida por partes para respaldos de más de 4,5 GB |
 | B-102 | P2 | Métricas compartidas entre réplicas (hoy por instancia, se pierden al reiniciar) |
 | B-103 | P2 | Simulacro de restauración en un servidor separado del de producción |
 | B-104 | P2 | Exportación de pacientes: el total sigue en ~4 s con 100 000 (CPU de compresión) aunque empieza a bajar enseguida; la memoria sube ~180 MB durante la descarga |
 | B-105 | P3 | «Primeros pasos» marca «Prestaciones» como listo con una sola prestación propia (con aviso de cuántas siguen con el precio de ejemplo): decidir la regla con la clínica |
 | B-106 | ✅ v0.7 | Tabla de Personal y comparación por sucursal a 1440 px: revisado con la semilla demo, sin desborde (no se reprodujo) |
+
+## Nuevos pendientes detectados en v0.9
+| ID | Prioridad | Ítem |
+|---|---|---|
+| B-110 | P2 | ⚠ Decide la clínica: al anular un cargo, ¿se devuelven los materiales descontados? Hoy no, porque una anulación puede ser solo una corrección de precio después de usar el material (D-57) |
+| B-111 | P3 | Laboratorio: costo de un reenvío o repetición (quién lo paga: clínica o laboratorio) |
+| B-112 | P2 | ⚠ Revisión clínica de la lista de interacciones de recetas por un profesional de la clínica antes del piloto (D-58) |
+| B-113 | P3 | Textos de certificados: vista previa con un paciente de ejemplo antes de guardar la versión |
 
 ## P1
 
