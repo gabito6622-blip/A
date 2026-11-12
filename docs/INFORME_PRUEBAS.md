@@ -7,6 +7,9 @@
 | Nombre | Solo cambió el nombre; teléfono, saldo y sus 11 cuentas iguales | ✅ |
 | 3 cuentas | Primero una sola (gabito6626+8ene), revisada; después las otras 2. Las 3: vencen 04/12, pago pendiente; precio a Bs 66 (primero una, después las otras 2): Bs 198 | ✅ |
 | Nada más | Los otros 79 alquileres idénticos; cola de avisos 75 (no salió ningún mensaje) | ✅ |
+| 2 cuentas pasadas a rodbol | Respaldo sin contraseñas; primero 2np y revisada, después 9dp. Las 2: de rodbol, 30/10 → 30/11, pagadas, Bs 66; contraseña confirmada con la vista de contraseñas (sin mostrarla); correo de 9dp corregido. Otros 80 alquileres iguales | ✅ |
+| Avisos | 4 avisos nuevos para rodbol quedaron «no enviado (sin permiso)» | ✅ |
+| Corrección | La primera comparación de contraseña de 2np se hizo con la contraseña oculta (no era válida); se rehízo con la vista de contraseñas | ⚠️ → ✅ |
 
 ## 12/11/2026 · Después de publicar #49 (suscripción GaboHub)
 | Qué | Cómo | Resultado |
