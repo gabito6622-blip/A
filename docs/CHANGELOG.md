@@ -13,6 +13,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **n2025jg+nov y n2025jg+nov3** (sin ESPN): igual que ps1, las usa el dueño para sus perfiles de clientes finales. Apartadas (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar clave y expulsar dispositivos para liberarlas.
 - **netscz108+jon** (con ESPN): la usa el dueño para sus perfiles con ESPN. Apartada (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar la clave.
 - **netscz108+va y netscz.101** (la .101 era de vallejos): sirven, pero el dueño debe cambiar la clave; siguen en cuarentena con esa nota. (La .101 se había dado de baja por error y el dueño lo corrigió: volvió a cuarentena.)
+- **netscz108+va:** el dueño le cambió la clave (no se escribe acá): libre confirmada, sale de cuarentena y se puede vender.
 - **Resultado de la revisión de libres:** quedan 15 cupos libres (7 perfiles de netgb117+vox2 + star, sem, 18dp, 7es, cd, 10m, pasa, kd3) y 6 apartados (ps1, nov, nov3, jon, va, netscz.101). Ya no hay libres sin confirmar.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
