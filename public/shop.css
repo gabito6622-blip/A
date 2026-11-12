@@ -1089,3 +1089,21 @@ input[type=color]{min-width:44px;min-height:44px}
 
 /* 🔔 Avisos automáticos de vencimiento (avisos.js): la marca puede bajar de renglón en celular. */
 .spill.avtag{white-space:normal;margin-left:2px}
+
+/* ===== GaboHub etapa 1: Vender, Más y pestañas por grupo ===== */
+.rtabs.hubtabs{flex-wrap:wrap;overflow:visible}
+.rtabs.hubtabs button{min-height:44px}
+.hubpick{display:grid;gap:10px}
+.hubpick-i{display:flex;align-items:center;gap:14px;text-align:left;padding:16px;border-radius:16px;border:1px solid var(--s-line);background:var(--s-card);color:inherit;font:inherit;cursor:pointer;min-height:64px}
+.hubpick-i:hover{border-color:var(--s-blue)}
+.hubpick-i > span{font-size:30px;flex:none}
+.hubpick-i > div{display:grid;gap:2px;flex:1;min-width:0}
+.hubpick-i small{color:var(--s-muted);font-size:13px;line-height:1.35}
+.hubpick-i > svg{width:18px;height:18px;flex:none;opacity:.6}
+.hubfind{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-card);color:inherit;padding:0 14px;font:inherit;font-size:15px}
+.hubarea{display:grid;gap:8px}
+.hubarea-l{display:grid;gap:6px}
+.hubarea-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--s-line);background:transparent;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer}
+.hubarea-i:hover{border-color:var(--s-blue)}
+.hubarea-i svg{width:16px;height:16px;opacity:.55;flex:none}
+@media (min-width:700px){.hubarea-l{grid-template-columns:repeat(2,minmax(0,1fr))}.hubpick{grid-template-columns:repeat(2,minmax(0,1fr))}}

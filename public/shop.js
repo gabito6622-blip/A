@@ -19,7 +19,7 @@ const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas"],
-  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas"],
+  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas"],
 }[MODE];
 
 // Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
@@ -206,6 +206,8 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
+    if (S.data.rtab === "cupones" && S.data.shop?.couponsAllowed && !S.data.rcoupons) S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   }
 }
@@ -492,20 +494,37 @@ function usdtBlock(toPay, fixedUsdt) {
 }
 
 const NAV = { inicio: ["home", "Inicio"], catalogo: ["grid", "Catálogo"], combo: ["plus", "Armá tu combo"], asesor: ["grid", "Asesor"], tiendas: ["grid", "Tiendas"], precios: ["cart", "Comprar"], cuentas: ["idcard", "Mis cuentas"],
-  clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"] };
+  clientes: ["user", "Mis clientes"], recargas: ["coins", "Saldo"], codigos: ["mailbox", "Códigos"], vender: ["cart", "Vender"], mas: ["menu", "Más"] };
+// GaboHub (12/11/2026, etapa 1): el panel del revendedor con la misma forma que el del dueño. Abajo: Inicio ·
+// Clientes · Vender · Inventario · Más. "Cuentas" se llama Inventario y Comprar/Códigos/Saldo siguen arriba, en Inicio y en Más.
+const HUB_LABEL = { cuentas: ["box", "Inventario"], clientes: ["user", "Clientes"] };
+const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
+// Las 10 pestañas de "Mis clientes" se reparten en 3 grupos; cada grupo muestra solo sus pestañas (ninguna se pierde).
+const HUB_GROUPS = {
+  negocio: [["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
+  inventario: [["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
+  vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"]],
+};
+const groupOf = (tab) => Object.keys(HUB_GROUPS).find((g) => HUB_GROUPS[g].some(([k]) => k === tab)) ?? "negocio";
+const groupTabs = (g, sel) => {
+  const canPage = !!S.me?.pageAllowed, coupons = !!S.data.shop?.couponsAllowed;
+  const l = HUB_GROUPS[g].filter(([, , need]) => !need || need === "view" || (need === "page" && canPage) || (need === "coupons" && canPage && coupons));
+  return `<div class="rtabs hubtabs" role="tablist">${l.map(([k, t, need]) => need === "view" ? `<button type="button" role="tab" data-s="${k}" aria-selected="${sel === k}">${t}</button>` : `<button type="button" role="tab" ${sel === "cuentas" ? `data-rtool="${k}"` : `data-rtab="${k}"`} aria-selected="${sel === k}">${t}</button>`).join("")}</div>`;
+};
 function buildNav() {
   const top = MODE === "rshop" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : [])] : MODE === "store" ? ["inicio", "catalogo", ...(comboOn() ? ["combo"] : []), ...(hasCombos() ? ["asesor"] : []), "cuentas", "codigos", "recargas"]
-    : hubPanel() ? ["inicio", "precios", "cuentas", "codigos", "clientes", "recargas"] : ["inicio", "tiendas"];
+    : hubPanel() ? ["inicio", "clientes", "vender", "cuentas", "precios", "codigos", "recargas", "mas"] : ["inicio", "tiendas"];
   const bottom = MODE === "rshop" ? [...(comboOn() ? ["inicio", "catalogo", "combo", "cart"] : ["inicio", "catalogo", "cart"])] : MODE === "store" ? ["inicio", "catalogo", "cart", "cuentas", "recargas"]
-    : hubPanel() ? ["inicio", "clientes", "precios", "cuentas", "codigos"] : ["inicio", "tiendas", "login"];
+    : hubPanel() ? ["inicio", "clientes", "vender", "cuentas", "mas"] : ["inicio", "tiendas", "login"];
   const key = `${MODE}:${top}:${bottom}`;
   if (buildNav.last === key) return;
   buildNav.last = key;
-  $(".snav").innerHTML = top.map((v) => `<button type="button" data-s="${v}">${NAV[v][1]}</button>`).join("");
+  const ng = (v) => (hubPanel() && v === "clientes" ? ` data-navgrp="negocio"` : "");
+  $(".snav").innerHTML = top.map((v) => `<button type="button" data-s="${v}"${ng(v)}>${navLabel(v)[1]}</button>`).join("");
   const bn = $(".bnav");
   bn.innerHTML = bottom.map((v) => v === "cart" ? `<button type="button" data-cart="1"><svg><use href="/icons.svg#i-cart"/></svg>Carrito</button>`
     : v === "login" ? `<button type="button" data-login="1"><svg><use href="/icons.svg#i-user"/></svg>Acceder</button>`
-    : `<button type="button" data-s="${v}"><svg><use href="/icons.svg#i-${NAV[v][0]}"/></svg>${NAV[v][1].replace("Mis c", "C")}</button>`).join("");
+    : `<button type="button" data-s="${v}"${ng(v)}><svg><use href="/icons.svg#i-${navLabel(v)[0]}"/></svg>${navLabel(v)[1].replace("Mis c", "C")}</button>`).join("");
   bn.style.gridTemplateColumns = `repeat(${bottom.length},1fr)`;
   const acc = $("#accBtn");
   if (acc) acc.hidden = MODE === "rshop";
@@ -523,7 +542,8 @@ function render() {
 }
 function renderInner() {
   buildNav();
-  $$("#shop button[data-s]").forEach((b) => (b.dataset.s === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+  const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "cuentas", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : S.view;
+  $$("#shop button[data-s]").forEach((b) => (b.dataset.s === navOn && !b.closest(".rtabs") ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
   if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
   const pub = S.catalog;
@@ -577,7 +597,7 @@ function renderInner() {
     combo: () => comboView(),
     asesor: () => asesorView(),
     fallas: () => fallasView(),
-    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
@@ -629,6 +649,8 @@ function renderInner() {
         ${S.settings.usdt ? `<fieldset class="tmethod"><legend>¿Cómo pagás?</legend>${abroad() ? "" : `<label><input type="radio" name="tm" value="qr" checked><span>QR de banco (Bolivia)</span></label>`}<label><input type="radio" name="tm" value="usdt" ${abroad() ? "checked" : ""}><span>USDT por Binance</span></label></fieldset>` : ""}
         <div id="tmQr" ${abroad() ? "hidden" : ""}>${qrBlock()}</div>${S.settings.usdt ? `<div id="tmUsdt" ${abroad() ? "" : "hidden"}>${abroad() ? usdtBlock(0, 20) : usdtBlock(10000)}</div>` : ""}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label><span id="tmRefLbl">${abroad() ? "Hash o número de la transacción" : "Número de operación"}</span><input name="ref" required placeholder="${abroad() ? "Pegá el hash de Binance" : "Ej.: 123456789"}"></label><button class="sbtn pri" type="submit">Enviar recarga</button></form>`}
       <div class="sbox"><h2>Movimientos</h2>${(S.data.ledger ?? []).length ? S.data.ledger.slice().reverse().slice(0, S.data.ledgerAll ? undefined : 30).map((m) => `<div class="line"><span>${esc({ topup: "Recarga", purchase: "Compra", renewal: "Renovación", refund: "Devolución", adjustment: "Ajuste", shop_rent: "Alquiler de tu página", referral: "🎁 Premio por traer un revendedor" }[m.type] ?? m.type)}<br><small class="empty">${esc(m.label || m.note || "")}${m.label || m.note ? " · " : ""}${fdate(m.at)}</small></span><span style="text-align:right"><b style="color:${m.amount < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${m.amount > 0 ? "+" : "−"}${bs(Math.abs(m.amount))}</b><br><small class="empty">Saldo ${bs(m.balanceAfter)}</small></span></div>`).join("") + (!S.data.ledgerAll && S.data.ledger.length > 30 ? `<button class="sbtn sm" type="button" data-ledgerall="1" style="justify-self:start">Ver todos (${S.data.ledger.length})</button>` : "") : `<p class="empty">Sin movimientos.</p>`}</div>`,
+    vender: () => !isReseller() ? needLogin("tu panel") : hubVender(),
+    mas: () => !isReseller() ? needLogin("tu panel") : hubMas(),
     revendedores: () => programView(),
     precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
@@ -643,7 +665,8 @@ function renderInner() {
       if (!canPage && !["ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
-      return `<div class="rtabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</div>${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      void tabs; // (lista completa de antes; ahora se muestra por grupos)
+      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -1104,6 +1127,46 @@ function referralCard(r) {
     <div class="refstat"><div><b>${r.count}</b><small>referidos</small></div><div><b>${bs(r.earned)}</b><small>ganado</small></div></div>
     ${list}</section>`;
 }
+
+/* ---------------- GaboHub: Vender y Más (etapa 1) ---------------- */
+// Vender: un solo botón que pregunta qué vendés. Cada opción lleva a la pantalla de siempre.
+function hubVender() {
+  const op = [
+    [`data-rtool="ventas"`, "🛒", "Una cuenta de la tienda", "Se paga con tu saldo y se la das a tu cliente al instante."],
+    [`data-rtool="propias"`, "📦", "Una cuenta tuya", "De tus cuentas propias (Flujo TV u otro proveedor): elegís el cupo y el cliente."],
+    [`data-rtool="perfiles"`, "🧩", "Un perfil de una cuenta completa", "Repartí los perfiles de las cuentas completas que alquilás."],
+    [`data-rtool="control"`, "🔁", "Renovar a un cliente", "Los que vencen, con su precio. Podés renovar varios juntos."],
+    [`data-s="precios"`, "💰", "Ver precios y comprar", "Todo lo que podés comprar a la tienda con tu saldo."],
+  ];
+  return `<div class="sec-h"><div><span class="chip">Vender</span><h2>¿Qué vas a vender?</h2><p>Elegí y te llevo directo. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
+    <div class="hubpick">${op.map(([a, e, t, d]) => `<button type="button" class="hubpick-i" ${a}><span>${e}</span><div><b>${t}</b><small>${d}</small></div>${icon("arrow")}</button>`).join("")}</div>`;
+}
+// Más: todo el panel en un menú, por áreas, con buscador (como el menú del dueño).
+function hubMas() {
+  const canPage = !!S.me?.pageAllowed, sh = S.data.shop;
+  const areas = [
+    ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"]]],
+    ["📦 Inventario", [[`data-s="cuentas"`, "📺 Cuentas de la tienda", "accesos correos contraseñas pedidos"], [`data-rtool="perfiles"`, "🧩 Repartir perfiles", "cuenta completa alquiler"], [`data-rtool="propias"`, "📦 Mis cuentas propias", "flujo proveedor stock cupos"], [`data-s="codigos"`, "🔑 Códigos y link de códigos", "verificacion disney netflix"]]],
+    ["🏪 Mi vitrina", [
+      ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
+      ...(canPage && sh?.couponsAllowed ? [[`data-rtool="cupones"`, "🏷️ Mis cupones", "descuento codigo"]] : []),
+      [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"]]],
+    ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
+    ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
+  ];
+  return `<div class="sec-h"><div><span class="chip">Más</span><h2>Todo tu panel</h2><p>Todo lo que podés hacer, en un solo lugar.</p></div></div>
+    <input id="hubFind" class="hubfind" type="search" placeholder="Buscar: página, deuda, códigos…" aria-label="Buscar en tu panel" autocomplete="off">
+    ${areas.filter(([, l]) => l.length).map(([t, l]) => `<section class="sbox hubarea"><b>${t}</b><div class="hubarea-l">${l.map(([a, txt, kw]) => `<button type="button" class="hubarea-i" ${a} data-kw="${esc(kw)}">${txt}${icon("arrow")}</button>`).join("")}</div></section>`).join("")}
+    <p class="empty" id="hubNone" hidden>No encontré nada con esa palabra.</p>`;
+}
+const normTxt = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "hubFind") return;
+  const q = normTxt(ev.target.value.trim());
+  let n = 0;
+  $$(".hubarea").forEach((sec) => { let any = 0; sec.querySelectorAll(".hubarea-i").forEach((b) => { const ok = !q || normTxt(b.textContent + " " + b.dataset.kw).includes(q); b.hidden = !ok; any += ok; }); sec.hidden = !any; n += any; });
+  $("#hubNone").hidden = n > 0;
+});
 
 /* ---------------- Inicio del revendedor (botones grandes) ---------------- */
 function resellerHome() {
@@ -1925,6 +1988,7 @@ document.addEventListener("click", async (ev) => {
   if (!el) return;
   const d = el.dataset;
   if (d.close) { closeAll(); if (d.s) setView(d.s); return; }
+  if (d.navgrp && !HUB_GROUPS[d.navgrp].some(([k]) => k === S.data.rtab)) S.data.rtab = HUB_GROUPS[d.navgrp][0][0];
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
