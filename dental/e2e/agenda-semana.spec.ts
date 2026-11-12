@@ -192,3 +192,46 @@ test("historial del paciente: línea de tiempo con filtros y sin datos clínicos
   await hist.getByRole("button", { name: "Todo" }).click();
   await expect(hist.getByText("Cita agendada")).toBeVisible();
 });
+
+test("vista semanal: cambiar la duración arrastrando el borde de la cita, con teclado y Deshacer", async ({ page }) => {
+  await login(page, "recepcion.lpz@demo.local");
+  const c = await ctx(page);
+  // Un día hábil con dos horarios seguidos libres de 30 min (para poder alargar la cita a 60 min).
+  const toMin = (iso: string) => Number(hm(iso).slice(0, 2)) * 60 + Number(hm(iso).slice(3));
+  let day = "", start = -1;
+  for (let k = 3; k <= 20 && start < 0; k++) {
+    const d = laPaz(new Date(Date.now() + k * 86_400_000));
+    if ([0, 6].includes(weekday(d))) continue;
+    const av = await (await page.request.get(`/api/availability?date=${d}&branchId=${c.lpz}&dentistId=${c.vargas}&durationMin=60`)).json();
+    const slots: number[] = (av[0]?.slots ?? []).map(toMin).filter((m: number) => m >= 9 * 60 && m <= 17 * 60);
+    if (slots.length) { day = d; start = slots[0]!; }
+  }
+  expect(start).toBeGreaterThan(0);
+  const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const pid = await c.patient("Duración E2E");
+  const id = await c.book(pid, day, hhmm(start), 30);
+  const durOf = async () => { const a = await (await page.request.get(`/api/appointments/${id}`)).json(); return (Date.parse(a.endsAt) - Date.parse(a.startsAt)) / 60_000; };
+
+  await openAgenda(page, "week", day);
+  const block = page.locator(".wk-appt", { hasText: "Duración E2E" });
+  await block.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  const handle = block.getByRole("slider", { name: /Duración de la cita/ });
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2 + i * 5); // +30 px = +2 tramos de 15 min
+  await expect(block.locator(".wk-resize-label")).toContainText("60 min");
+  await page.mouse.up();
+  await expect(page.getByRole("status").filter({ hasText: "ahora dura 60 min" })).toBeVisible();
+  await expect.poll(durOf).toBe(60);
+  // Al soltar no se abre la cita.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Deshacer" }).click();
+  await expect.poll(durOf).toBe(30);
+  // Teclado: flecha abajo suma 15 min.
+  await block.getByRole("slider", { name: /Duración de la cita/ }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(durOf).toBe(45);
+  const a = await (await page.request.get(`/api/appointments/${id}`)).json();
+  expect(a.rescheduleCount).toBe(0); // cambiar la duración no es reprogramar
+});

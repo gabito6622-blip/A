@@ -123,6 +123,36 @@ describe("agenda: solapamientos garantizados por la base de datos", () => {
     expect(DateTime.fromISO(d.body.startsAt).toMillis()).toBe(DateTime.fromISO(future(15, 13)).toMillis());
   });
 
+  it("B-074: «Deshacer» verificado no suma reprogramación y devuelve la confirmación; cambiar solo la duración no es reprogramar", async () => {
+    const a = await book(owner, { startsAt: future(17, 9) });
+    expect((await owner.post(`/api/appointments/${a.body.id}/status`, { status: "confirmed" })).status).toBe(200);
+    // Cambiar la duración: no es reprogramación, la cita sigue confirmada.
+    const dur = await owner.patch(`/api/appointments/${a.body.id}`, { durationMin: 45 });
+    expect(dur.body).toMatchObject({ ok: true, rescheduled: false });
+    let d = (await owner.get(`/api/appointments/${a.body.id}`)).body;
+    expect(d).toMatchObject({ rescheduleCount: 0, status: "confirmed" });
+    expect((Date.parse(d.endsAt) - Date.parse(d.startsAt)) / 60_000).toBe(45);
+    // Una duración que choca con otra cita se rechaza.
+    await book(owner, { startsAt: future(17, 10), patientId: p2 });
+    expect((await owner.patch(`/api/appointments/${a.body.id}`, { durationMin: 90 })).status).toBe(409);
+    // Mover y deshacer: vuelve, sin contar la reprogramación y otra vez confirmada.
+    expect((await owner.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 13) })).body.rescheduled).toBe(true);
+    expect((await owner.get(`/api/appointments/${a.body.id}`)).body).toMatchObject({ rescheduleCount: 1, status: "scheduled" });
+    const u = await owner.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 9), undo: true });
+    expect(u.status, JSON.stringify(u.body)).toBe(200);
+    expect(u.body).toMatchObject({ rescheduled: false, undone: true });
+    d = (await owner.get(`/api/appointments/${a.body.id}`)).body;
+    expect(d).toMatchObject({ rescheduleCount: 0, status: "confirmed" });
+    expect(Date.parse(d.startsAt)).toBe(DateTime.fromISO(future(17, 9)).toMillis());
+    // Un segundo «deshacer», o uno hacia otro horario, o de otra persona: no se acepta.
+    expect((await owner.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 13), undo: true })).status).toBe(409);
+    expect((await owner.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 14) })).body.rescheduled).toBe(true);
+    expect((await owner.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 15), undo: true })).body.error.code).toBe("undo_expired");
+    const rec = await login(env.app, (await addUser(env.db, K.clinicId, "receptionist", { allBranches: true })).email);
+    expect((await rec.patch(`/api/appointments/${a.body.id}`, { startsAt: future(17, 9), undo: true })).status).toBe(409);
+    expect((await owner.get(`/api/appointments/${a.body.id}`)).body.rescheduleCount).toBe(1);
+  });
+
   it("la disponibilidad descuenta citas y la búsqueda encuentra horarios para una prestación", async () => {
     const date = DateTime.fromISO(future(16, 9)).setZone("America/La_Paz").toISODate();
     await book(owner, { startsAt: future(16, 9) });

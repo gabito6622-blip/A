@@ -119,7 +119,8 @@ export function AgendaPage() {
         text: `Cita de ${a.patientName} movida al ${fmtDateLong(newStart).toLowerCase()} a las ${fmtTime(newStart)}`,
         run: async () => {
           try {
-            await api.patch(`/api/appointments/${a.id}`, { startsAt: a.startsAt, ...(dentistId !== a.dentistId ? { dentistId: a.dentistId } : {}) });
+            // undo: el servidor verifica que es la vuelta atrás del último movimiento y no suma una reprogramación (B-074).
+            await api.patch(`/api/appointments/${a.id}`, { startsAt: a.startsAt, undo: true, ...(dentistId !== a.dentistId ? { dentistId: a.dentistId } : {}) });
           } catch (e: any) { setMoveErr(`No se pudo deshacer: ${e.message}`); }
           reload();
         },
@@ -131,6 +132,30 @@ export function AgendaPage() {
     }
   };
   const drag = useDragMove(week ? WEEK_GEO : DAY_GEO, { enabled: can("agenda.write"), onDrop: moveAppt });
+
+  // Cambiar la duración arrastrando el borde inferior (vista semanal, B-074). No es una reprogramación.
+  const resizeAppt = async (a: any, durationMin: number) => {
+    const before = Math.round((Date.parse(a.endsAt) - Date.parse(a.startsAt)) / 60_000);
+    if (durationMin === before) return;
+    const newEnd = new Date(Date.parse(a.startsAt) + durationMin * 60_000).toISOString();
+    appts.setData((list) => (list ?? []).map((x) => (x.id === a.id ? { ...x, endsAt: newEnd } : x)));
+    setMoveErr(null);
+    try {
+      await api.patch(`/api/appointments/${a.id}`, { durationMin });
+      setUndo({
+        id: Date.now(),
+        text: `Cita de ${a.patientName}: ahora dura ${durationMin} min (hasta las ${fmtTime(newEnd)})`,
+        run: async () => {
+          try { await api.patch(`/api/appointments/${a.id}`, { durationMin: before }); } catch (e: any) { setMoveErr(`No se pudo deshacer: ${e.message}`); }
+          reload();
+        },
+      });
+      reload();
+    } catch (e: any) {
+      appts.setData((list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
+      setMoveErr(`No se pudo cambiar la duración de la cita de ${a.patientName}: ${e.message}`);
+    }
+  };
 
   const step = week ? 7 : 1;
   // Teclado: flechas izquierda/derecha cambian de día (o de semana en la vista semanal).
@@ -243,7 +268,7 @@ export function AgendaPage() {
           <div className="card" style={{ overflow: "hidden" }}>
             {week ? (
               !frame.data || (appts.loading && !appts.data) ? <Loading rows={8} /> : (
-                <WeekView days={frame.data.days} appts={shownAppts} colorOf={colorOf} canBook={can("agenda.write")} mobile={isMobile} drag={drag}
+                <WeekView days={frame.data.days} appts={shownAppts} colorOf={colorOf} canBook={can("agenda.write")} mobile={isMobile} drag={drag} onResize={resizeAppt}
                   onBook={(d, time) => setNewAppt({ date: d, time, dentistId: dentistF || undefined })} onOpen={setOpenId} />
               )
             ) : (appts.loading && !appts.data) || (avail.loading && !avail.data) ? <Loading rows={8} /> : view === "list" || columns.length === 0 ? (

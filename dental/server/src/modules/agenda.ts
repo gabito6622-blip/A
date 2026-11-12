@@ -280,10 +280,14 @@ export function agendaRoutes(route: Route) {
 
   route({
     method: "PATCH", url: "/api/appointments/:id", summary: "Reprogramar o editar cita", tags: ["agenda"], perm: "agenda.write", params: zIdParams,
-    body: apptBody.omit({ patientId: true, idempotencyKey: true, source: true }).partial().extend({ allowOutsideSchedule: z.boolean().default(false) }),
+    body: apptBody.omit({ patientId: true, idempotencyKey: true, source: true }).partial().extend({
+      allowOutsideSchedule: z.boolean().default(false),
+      /** «Deshacer» de la agenda (B-074): vuelve al lugar anterior sin contar una reprogramación. El servidor lo verifica. */
+      undo: z.boolean().default(false),
+    }),
     handler: async ({ c, auth, params, body }) => {
-      const cur = (await c.query<{ branch_id: string; chair_id: string | null; dentist_id: string; starts_at: Date; ends_at: Date; status: string; procedure_id: string | null }>(
-        "SELECT branch_id, chair_id, dentist_id, starts_at, ends_at, status, procedure_id FROM appointments WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
+      const cur = (await c.query<{ branch_id: string; chair_id: string | null; dentist_id: string; starts_at: Date; ends_at: Date; status: string; procedure_id: string | null; confirmed_at: Date | null }>(
+        "SELECT branch_id, chair_id, dentist_id, starts_at, ends_at, status, procedure_id, confirmed_at FROM appointments WHERE id = $1 FOR UPDATE", [params.id])).rows[0];
       if (!cur) throw notFound("Cita");
       requireBranch(auth, cur.branch_id);
       if (!["scheduled", "confirmed"].includes(cur.status)) throw conflict("Solo se pueden reprogramar citas agendadas o confirmadas", "invalid_status");
@@ -303,6 +307,26 @@ export function agendaRoutes(route: Route) {
         ({ startsAt, endsAt } = await resolveTimes(c, { startsAt: cur.starts_at.toISOString(), endsAt: body.endsAt, durationMin: body.durationMin, procedureId: null }));
       }
       const timeChanged = startsAt.getTime() !== cur.starts_at.getTime() || endsAt.getTime() !== cur.ends_at.getTime() || next.dentistId !== cur.dentist_id || next.branchId !== cur.branch_id;
+      // Reprogramar = cambia el comienzo, el profesional o la sucursal. Cambiar solo la duración (B-074)
+      // no cuenta como reprogramación ni anula la confirmación del paciente.
+      const moved = startsAt.getTime() !== cur.starts_at.getTime() || next.dentistId !== cur.dentist_id || next.branchId !== cur.branch_id;
+      // «Deshacer» verificado: la última reprogramación de esta cita la hizo esta persona hace menos de
+      // 2 minutos, desde exactamente el lugar al que se pide volver. Así no se puede usar para borrar
+      // reprogramaciones reales del contador.
+      let undoOf: { status?: string; confirmedAt?: string | null } | null = null;
+      if (body.undo) {
+        const last = (await c.query<{ action: string; data: any; user_id: string | null; recent: boolean }>(
+          `SELECT action, data, user_id, created_at > now() - interval '2 minutes' AS recent FROM audit_log
+            WHERE entity = 'appointment' AND entity_id = $1 AND action IN ('appointment.rescheduled', 'appointment.reschedule_undone')
+            ORDER BY id DESC LIMIT 1`, [params.id])).rows[0];
+        const f = last?.data?.from, t = last?.data?.to;
+        const same = (a: unknown, b: Date) => a != null && new Date(a as string).getTime() === b.getTime();
+        const ok = last && last.action === "appointment.rescheduled" && last.recent && last.user_id === auth.userId && f && t
+          && same(t.startsAt, cur.starts_at) && t.dentistId === cur.dentist_id
+          && same(f.startsAt, startsAt) && f.dentistId === next.dentistId && (f.branchId ?? next.branchId) === next.branchId;
+        if (!ok) throw new AppError(409, "undo_expired", "Ya no se puede deshacer este cambio. Si hace falta, mueve la cita de nuevo.");
+        undoOf = { status: f.status, confirmedAt: f.confirmedAt ?? null };
+      }
       if (timeChanged || next.chairId !== cur.chair_id) {
         const zone = await clinicZone(c, auth.clinicId!);
         await assertBookable(c, auth, zone, { ...next, startsAt, endsAt, allowOutsideSchedule: body.allowOutsideSchedule && (auth.permissions.has("clinic.manage") || auth.membership!.role === "dentist"), excludeId: params.id });
@@ -311,16 +335,22 @@ export function agendaRoutes(route: Route) {
         `UPDATE appointments SET branch_id=$2, chair_id=$3, dentist_id=$4, procedure_id=$5, starts_at=$6, ends_at=$7,
             reason = CASE WHEN $8::boolean THEN $9 ELSE reason END, notes = CASE WHEN $10::boolean THEN $11 ELSE notes END,
             appointment_type_id = CASE WHEN $13::boolean THEN $14::uuid ELSE appointment_type_id END,
-            reschedule_count = reschedule_count + CASE WHEN $12 THEN 1 ELSE 0 END,
-            status = CASE WHEN $12 THEN 'scheduled' ELSE status END, confirmed_at = CASE WHEN $12 THEN NULL ELSE confirmed_at END,
+            reschedule_count = CASE WHEN $15 THEN GREATEST(reschedule_count - 1, 0) ELSE reschedule_count + CASE WHEN $12 THEN 1 ELSE 0 END END,
+            status = CASE WHEN $15 THEN COALESCE($16, status) WHEN $12 THEN 'scheduled' ELSE status END,
+            confirmed_at = CASE WHEN $15 THEN $17::timestamptz WHEN $12 THEN NULL ELSE confirmed_at END,
             updated_at = now()
           WHERE id = $1`,
-        [params.id, next.branchId, next.chairId, next.dentistId, next.procedureId, startsAt, endsAt, body.reason !== undefined, body.reason ?? null, body.notes !== undefined, body.notes ?? null, timeChanged, body.appointmentTypeId !== undefined, body.appointmentTypeId ?? null],
+        [params.id, next.branchId, next.chairId, next.dentistId, next.procedureId, startsAt, endsAt, body.reason !== undefined, body.reason ?? null, body.notes !== undefined, body.notes ?? null,
+          moved && !undoOf, body.appointmentTypeId !== undefined, body.appointmentTypeId ?? null,
+          !!undoOf, undoOf?.status && ["scheduled", "confirmed"].includes(undoOf.status) ? undoOf.status : null, undoOf?.status === "confirmed" ? undoOf.confirmedAt : null],
       );
-      if (timeChanged && cur.status !== "scheduled") await recordAppointmentEvent(c, auth, { appointmentId: params.id, branchId: next.branchId, from: cur.status, to: "scheduled", reason: "Reprogramada" });
-      await audit(c, auth, timeChanged ? "appointment.rescheduled" : "appointment.updated", "appointment", params.id,
-        { from: { startsAt: cur.starts_at, dentistId: cur.dentist_id, branchId: cur.branch_id }, to: { startsAt, dentistId: next.dentistId, branchId: next.branchId } }, next.branchId);
-      return { ok: true, rescheduled: timeChanged };
+      if (moved && !undoOf && cur.status !== "scheduled") await recordAppointmentEvent(c, auth, { appointmentId: params.id, branchId: next.branchId, from: cur.status, to: "scheduled", reason: "Reprogramada" });
+      if (undoOf?.status === "confirmed" && cur.status !== "confirmed") await recordAppointmentEvent(c, auth, { appointmentId: params.id, branchId: next.branchId, from: cur.status, to: "confirmed", reason: "Se deshizo la reprogramación" });
+      const action = undoOf ? "appointment.reschedule_undone" : moved ? "appointment.rescheduled" : timeChanged ? "appointment.duration_changed" : "appointment.updated";
+      await audit(c, auth, action, "appointment", params.id,
+        { from: { startsAt: cur.starts_at, endsAt: cur.ends_at, dentistId: cur.dentist_id, branchId: cur.branch_id, status: cur.status, confirmedAt: cur.confirmed_at },
+          to: { startsAt, endsAt, dentistId: next.dentistId, branchId: next.branchId } }, next.branchId);
+      return { ok: true, rescheduled: moved && !undoOf, undone: !!undoOf };
     },
   });
 

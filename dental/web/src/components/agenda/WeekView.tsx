@@ -2,7 +2,7 @@
 // tiene citas o alguien atiende), bloques compactos con el color elegido e ícono de estado.
 // Clic en un hueco libre agenda; clic en un bloque abre la cita; arrastrar reprograma.
 // En el celular se muestra como lista día por día.
-import { useMemo, useState, type MouseEvent } from "react";
+import { useMemo, useRef, useState, type MouseEvent, type PointerEvent as RPointerEvent } from "react";
 import { Plus } from "lucide-react";
 import { fmtTime, localDate, minutesOfDay } from "../../lib/format";
 import { Empty } from "../ui";
@@ -44,11 +44,55 @@ export function visibleWeekDays(days: WeekDay[], appts: any[]) {
   return days.filter((d) => d.weekday !== 7 || d.work.length > 0 || appts.some((a) => localDate(new Date(a.startsAt)) === d.date));
 }
 
-export function WeekView({ days, appts, colorOf, canBook, onBook, onOpen, drag, mobile }: {
+export function WeekView({ days, appts, colorOf, canBook, onBook, onOpen, drag, mobile, onResize }: {
   days: WeekDay[]; appts: any[]; colorOf: (a: any) => string; canBook: boolean;
   onBook: (date: string, time: string) => void; onOpen: (id: string) => void;
   drag: ReturnType<typeof useDragMove>; mobile: boolean;
+  /** Cambiar la duración arrastrando el borde inferior (B-074). */
+  onResize?: (a: any, durationMin: number) => void;
 }) {
+  // Borde inferior: arrastrar cambia la duración en tramos de 15 min (mínimo 15). Teclado: con el
+  // borde enfocado, flecha abajo/arriba suma o resta 15 min.
+  const [resizing, setResizing] = useState<{ id: string; dur: number } | null>(null);
+  const rz = useRef<{ a: any; top: number; startMin: number; dur: number; moved: boolean } | null>(null);
+  const resizeHandle = (a: any, blockStartMin: number) => {
+    if (!onResize || !["scheduled", "confirmed"].includes(a.status)) return null;
+    const g = WEEK_GEO;
+    const cur = Math.round((Date.parse(a.endsAt) - Date.parse(a.startsAt)) / 60_000);
+    const clamp = (d: number) => Math.max(g.step, Math.min(g.end - blockStartMin, Math.round(d / g.step) * g.step));
+    return (
+      <div className="wk-resize" role="slider" tabIndex={0} aria-label={`Duración de la cita de ${a.patientName}`}
+        aria-valuemin={g.step} aria-valuemax={g.end - blockStartMin} aria-valuenow={cur} aria-valuetext={`${cur} minutos`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+          e.preventDefault(); e.stopPropagation();
+          const d = clamp(cur + (e.key === "ArrowDown" ? g.step : -g.step));
+          if (d !== cur) onResize(a, d);
+        }}
+        onPointerDown={(e: RPointerEvent<HTMLDivElement>) => {
+          if (e.button !== 0) return;
+          e.stopPropagation(); e.preventDefault();
+          const block = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+          rz.current = { a, top: block.top, startMin: blockStartMin, dur: cur, moved: false };
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const r = rz.current;
+          if (!r) return;
+          const d = clamp(((e.clientY - r.top) / g.px) * g.step);
+          if (d !== r.dur) { r.dur = d; r.moved = true; setResizing({ id: r.a.id, dur: d }); }
+        }}
+        onPointerUp={() => {
+          const r = rz.current;
+          rz.current = null;
+          setResizing(null);
+          if (r?.moved) onResize(r.a, r.dur);
+        }}
+        onPointerCancel={() => { rz.current = null; setResizing(null); }}
+      />
+    );
+  };
   const shown = useMemo(() => visibleWeekDays(days, appts), [days, appts]);
   const byDay = useMemo(() => {
     const m = new Map<string, any[]>();
@@ -143,8 +187,9 @@ export function WeekView({ days, appts, colorOf, canBook, onBook, onOpen, drag, 
               {canBook && hover?.date === d.date && !drag.drag && (
                 <div className="wk-hover" style={{ top: ((hover.min - g.start) / g.step) * g.px, height: g.px * 2 }} aria-hidden="true">{hhmm(hover.min)}</div>
               )}
-              {items.map(({ a, s, e, lane, lanes }) => {
+              {items.map(({ a, s, e: e0, lane, lanes }) => {
                 const color = colorOf(a);
+                const e = resizing && resizing.id === a.id ? s + resizing.dur : e0;
                 const h = Math.max(((e - s) / g.step) * g.px - 2, 16);
                 const dragging = drag.drag?.appt.id === a.id;
                 return (
@@ -157,6 +202,8 @@ export function WeekView({ days, appts, colorOf, canBook, onBook, onOpen, drag, 
                     onKeyDown={(ev) => ev.key === "Enter" && onOpen(a.id)}>
                     <span className="wk-line"><StatusIcon status={a.status} /><b>{fmtTime(a.startsAt)}</b> <span className="wk-name">{a.patientName}</span></span>
                     {h > 30 && <span className="wk-sub">{a.typeName ?? a.procedureName ?? "Consulta"}{lanes === 1 ? ` · ${a.dentistName}` : ""}</span>}
+                    {resizing && resizing.id === a.id && <span className="wk-resize-label">{hhmm(s)}–{hhmm(e)} · {resizing.dur} min</span>}
+                    {!mobile && resizeHandle(a, s)}
                   </div>
                 );
               })}
