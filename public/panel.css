@@ -1147,9 +1147,11 @@ table.ctl tfoot td.ccli{z-index:3}
 .gtabs-row button:focus-visible{outline:2px solid var(--blue-text);outline-offset:2px}
 
 /* ===== 🧹 Cuentas caídas sin clientes (Cuentas) ===== */
-.caidas-list{display:grid;gap:6px;max-height:340px;overflow:auto;padding:2px}
-.caida-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px}
-.caida-row span{min-width:0;overflow-wrap:anywhere}
+.caidas-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto;padding:2px}
+/* flex:none: con la lista limitada en alto, los renglones no se achican (antes el texto largo se pisaba) */
+.app label.chk.caida-row{flex:none;display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px;height:auto;white-space:normal}
+.caida-row input{margin-top:3px;flex:none}
+.caida-row span{display:block;min-width:0;line-height:1.4;overflow-wrap:anywhere}
 
 /* ===== 💳 Próximos cobros de la tarjeta (Finanzas) ===== */
 .tj-list{display:grid;gap:6px}
