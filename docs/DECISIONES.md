@@ -2,6 +2,16 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · GaboHub etapa 4: clientes en una sola lista
+- **Cómo se une:** una cuenta propia va con el cliente si la venta tiene su ficha; si no, por WhatsApp (solo números, 7 o más). Los perfiles de cuentas completas, por WhatsApp. Sin WhatsApp, se agrupan por nombre como «sueltos».
+- **Sueltos, no fichas automáticas:** no se crea ningún cliente solo; el revendedor decide con «Guardar en mis clientes».
+- **Sin cambios de servidor.**
+
+## 2026-11-12 · GaboHub etapa 3: cuentas propias en Mi control, Quién me debe y Mis ganancias
+- **Qué:** un apartado «📦» al final de cada pantalla, con los mismos botones que ya tiene «Mis cuentas propias» (Renovó, Me pagó). Lo de arriba no cambia.
+- **Por qué apartado y no mezclado:** así lo hacen ya los perfiles de cuentas completas; los números de la tienda los calcula el servidor y no se tocan.
+- **Ganancias sin costo:** las cuentas propias no tienen anotado cuánto le cuestan al revendedor, así que se muestra lo que cobra, no la ganancia, y se lo dice claro. Anotar ese costo queda en el BACKLOG.
+
 ## 2026-11-12 · GaboHub etapa 2: Inventario por plataforma
 - **Qué:** una pantalla que junta por app lo comprado a la tienda, las cuentas completas y las propias. Solo lee; para hacer algo, «Ver» lleva a la pantalla de siempre.
 - **Por qué así:** no se mueve ni se rehace ninguna función (regla del dueño), y el revendedor ve todo su stock en un lugar.

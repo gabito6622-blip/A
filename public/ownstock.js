@@ -17,6 +17,8 @@ const OS = { data: null, customers: [], loading: false, err: "", open: {}, paste
 let RENDER = () => {};
 /** shop.js le pasa su render() para redibujar después de cada cambio. */
 export function initOwnStock(render) { RENDER = render; }
+/** Lo propio del revendedor ya cargado (para Mi control, Quién me debe y Mis ganancias, GaboHub etapa 3). */
+export const ownData = () => OS.data;
 // Si cambia su moneda (desde acá o desde el Inicio), sus montos se vuelven a leer en la moneda nueva.
 onLocaleSaved(() => (OS.data ? loadOwnStock() : null));
 

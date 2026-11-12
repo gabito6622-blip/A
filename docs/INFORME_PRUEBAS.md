@@ -1,6 +1,32 @@
 # Informe de pruebas
 
-## 12/11/2026 · GaboHub etapa 2 (rama `hub-etapa1`)
+## 12/11/2026 · GaboHub etapa 4 (rama `hub-etapa3`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Clientes con todo lo suyo | `test/hub-clientes-unidos.test.mjs` a 360 px: Rosa con 3 servicios (tienda, propia por su ficha, perfil por su WhatsApp); Beto solo en lo propio aparece suelto y «Guardar» lo deja con ficha; buscador por app y por teléfono; nada del otro revendedor | ✅ |
+| Hallazgo 1 | Por un instante, antes de que llegara la lista, un cliente con ficha aparecía como «no está en tu lista»: ahora los sueltos se muestran recién con la lista completa | ❌ → ✅ |
+| Hallazgo 2 | Los botones «Ver en…» usaban la misma marca que las pestañas y se confundían con ellas: ahora usan la de los atajos | ❌ → ✅ |
+| Prueba inestable evitada | La prueba esperaba 450 ms fijos al buscador; ahora espera al resultado (falló 1 vez en una corrida completa, después 5 de 5 bien) | ✅ |
+| Foto de controles (contra la etapa 3) | Ninguna pantalla con controles de menos | ✅ |
+| Pruebas automáticas | `npm test`: 480 / 480 (49 s) | ✅ |
+
+## 12/11/2026 · GaboHub etapa 3 (rama `hub-etapa3`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cuentas propias en el negocio | `test/hub-propias-negocio.test.mjs` a 360 px: Mi control muestra solo la que vence en 2 días y 🔄 Renovó le suma 30 días; Quién me debe muestra la pendiente y 💵 Me pagó la marca pagada; Mis ganancias: 2 clientes, Bs 55 por mes. La venta de otro revendedor nunca aparece. Botones de 44 px, sin scroll de costado | ✅ |
+| Hallazgo | Con la libreta vacía decía «Nadie te debe nada» aunque le debieran por una cuenta propia (y ya pasaba con perfiles sin pagar): ahora dice «No tenés fiados anotados» | ❌ → ✅ |
+| Foto de controles (contra la etapa 2) | Ninguna pantalla con controles de menos; se suman Cobrar y Me pagó en Quién me debe | ✅ |
+| Pruebas automáticas | `npm test`: 479 / 479 (50 s) | ✅ |
+
+## 12/11/2026 · Después de publicar #47 (GaboHub etapas 1 y 2)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real | Servicios 82, cola 75, clientes 28, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Páginas | /hub, /tienda/, /panel.html y estilos responden 200; /tienda/ y /hub cargan sin errores ni scroll de costado; la barra de la tienda de clientes no cambió | ✅ |
+| Panel del dueño (solo mirando) | Cuentas: 4 grupos, 125 tarjetas, 0 errores | ✅ |
+| No revisado en la tienda real | El panel por dentro de un revendedor: desde acá la llave del asistente le gana a la sesión del revendedor. Se revisó con el mismo código en la tienda de prueba (pruebas y capturas) | ⚠️ |
+
+## 12/11/2026 · GaboHub etapa 2 (publicado en #47)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Inventario por plataforma | `test/hub-inventario.test.mjs` a 360 px: 3 apps (Disney+ completa con 2 perfiles, Flujo TV propio sin cupos, Netflix de la tienda + propio), totales 7 · 3 · 1 · 1, «Ver» a la pantalla correcta, 44 px, sin scroll de costado | ✅ |
@@ -10,7 +36,7 @@
 | Arreglo de la etapa 1 | La carga de cupones había quedado en medio de un «si… si no» existente; quedó como era, más los cupones | ✅ |
 | Pruebas automáticas | `npm test`: 478 / 478 (48 s) | ✅ |
 
-## 12/11/2026 · GaboHub etapa 1 (rama `hub-etapa1`)
+## 12/11/2026 · GaboHub etapa 1 (publicado en #47)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Foto de controles antes y después | Ariana (con página, demo de 6 meses) y un revendedor «solo panel», 390 px: 15 y 13 pantallas antes, 17 y 15 después. Dentro de cada pantalla, botones y formularios iguales; solo cambian las pestañas de navegación. La foto sale igual 2 veces seguidas | ✅ |
