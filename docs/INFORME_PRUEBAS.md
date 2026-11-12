@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (rama `panel-bandejas`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **471 → 472 / 472 ✅** |
+| Pestañas | `test/bandejas.test.mjs`, con navegador a 360 px. Cubre: las 4 pestañas de cada grupo; cada una lleva a su pantalla y marca la actual; «Mensajes por enviar» abre WhatsApp en Avisos; en Conversaciones, Aprobar pagos y Vender no aparecen; Atención ve solo Fiado y Pagos por revisar; botones de 44 px, sin desborde | ✅ |
+| Arreglo | Las pestañas se ven en dos filas: en una sola, dos quedaban escondidas en el celular | ✅ |
+| Prueba vieja más firme | La del buscador fallaba a veces: miraba también el «Reemplazar» de la ficha | ✅ |
+| Foto antes / después | 25 pantallas idénticas. Las 5 con pestañas tienen 4 botones más (las pestañas) y nada menos | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
 ## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (publicado en #42)
 | Qué | Cómo | Resultado |
 |---|---|---|
