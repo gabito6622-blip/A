@@ -110,38 +110,74 @@ def build_seleccion(B):
     put(ws, f'A{r}', 'Si P1 resultara inviable con datos de campo, la siguiente alternativa del ranking debe evaluarse con este mismo modelo (cambiando MP, Capacidad Inst., Demanda y Precio).', 'note')
     return ws
 
+COMP = [  # producto, tipo, precio Bs, fuente, nota
+    ('Recarga de botellón 20 L, Agua Villa Santa', 'Sustituto (botellón)', 18, 'scz.grupocascada.com (tienda en línea, Santa Cruz)', 'Consultado 12/11/2026; la página no muestra fecha'),
+    ('Recarga de agua alcalina 20 L, Villa Santa', 'Sustituto (botellón)', 30, 'scz.grupocascada.com', 'Consultado 12/11/2026'),
+    ('Botellón nuevo 20 L con agua, Villa Santa', 'Sustituto (botellón)', 70, 'scz.grupocascada.com', 'Precio de oferta; incluye el envase'),
+    ('Botellón 20 L, precio promedio Santa Cruz 2017', 'Sustituto (botellón)', 13, 'AEMP, Estudio de mercado de agua embotellada en Bolivia (2019)', 'Dato histórico (2011-2017: Bs 11,70 a 13,00)'),
+    ('"Filtros de agua" (paquete)', 'Filtro', 399, 'siscbolivia.com', 'No indica el tipo de filtro; precio de oferta (antes Bs 550)'),
+    ('Filtro para mezcladora', 'Filtro', 477, 'domusferreteria.com', 'Precio más bajo de la categoría (llega a Bs 8.495)'),
+    ('Purificador portátil KEIJI', 'Purificador', 650, 'Mercado Libre Bolivia (Santa Cruz)', 'Vendedor particular; puede no estar vigente'),
+    ('Purificador Electrolux 90 W', 'Purificador eléctrico', 1359, 'triplex.com.bo', 'Requiere electricidad'),
+]
+
 def build_competencia(B):
-    ws = B.sheet('Competencia', 'ANÁLISIS DE LA COMPETENCIA Y SUSTITUTOS', 'Precios de competidores: celdas vacías hasta relevarlos en tiendas (no se inventan).', tab='70AD47')
-    widths(ws, {'A': 38, 'B': 34, 'C': 40, 'D': 16, 'E': 18, 'F': 30})
-    hd = ['Competidor / sustituto', 'Ventaja para el cliente', 'Desventaja frente a nuestro kit', 'Precio relevado (Bs)', 'Índice de precio (nuestro PVP / competidor)', 'Fuente del precio']
+    ws = B.sheet('Competencia', 'COMPETENCIA Y PRECIOS DE REFERENCIA', '')
+    widths(ws, {'A': 46, 'B': 22, 'C': 13, 'D': 16, 'E': 52, 'F': 46})
+    put(ws, 'A4', 'A. PRECIOS ENCONTRADOS EN FUENTES PÚBLICAS (investigación de escritorio, 12/11/2026)', 'sec')
+    hd = ['Producto', 'Tipo', 'Precio (Bs)', 'Nuestro precio / precio', 'Fuente', 'Nota']
     for j, h in enumerate(hd): put(ws, f'{L(1+j)}5', h, 'hdr')
-    rows = [('Agua embotellada en botellón 20 L', 'Cómoda, sin mantenimiento', 'Gasto mensual alto; hay que cargar y almacenar bidones'),
-            ('Hervir el agua', 'Muy conocido, sin compra inicial', 'Consume gas y tiempo; sabor; no retiene sedimentos'),
-            ('Jarras filtrantes importadas', 'Marcas conocidas', 'Cartuchos importados caros y difíciles de conseguir; costo en USD'),
-            ('Purificadores de ósmosis inversa o UV', 'Alta remoción', 'Precio alto, requieren electricidad, instalación y repuestos importados'),
-            ('Filtros cerámicos artesanales o importados', 'Mismo principio', 'Calidad variable, sin control de laboratorio ni garantía local')]
-    for i, (a, b, c) in enumerate(rows):
-        r = 6 + i
-        put(ws, f'A{r}', a, 'label', bold=True); put(ws, f'B{r}', b, 'label', wrap=True); put(ws, f'C{r}', c, 'label', wrap=True)
-        put(ws, f'D{r}', None, 'input', FMT_BS2)
-        put(ws, f'E{r}', f"=IF(D{r}>0,PVP/D{r},\"a relevar\")", 'calc', FMT_BS2)
-        put(ws, f'F{r}', 'Pendiente de relevamiento', 'note'); ws.row_dimensions[r].height = 30
-    put(ws, 'A12', 'Fuerzas competitivas (Porter)', 'sec')
-    porter = [('Rivalidad', 'Media: no se identificó en esta investigación un fabricante local dominante de filtros cerámicos; el sustituto principal es el botellón.'),
-              ('Amenaza de nuevos ingresantes', 'Media: la tecnología es abierta; la barrera es la validación de laboratorio y la marca.'),
-              ('Poder de proveedores', 'Bajo para arcilla y aserrín; medio para el contenedor plástico y la plata coloidal.'),
-              ('Poder de compradores', 'Alto en el canal indirecto (exigen margen y crédito); bajo en venta directa.'),
-              ('Sustitutos', 'Altos: botellón y hervir el agua. La propuesta compite por ahorro.')]
-    for i, (a, b) in enumerate(porter):
-        put(ws, f'A{13+i}', a, 'label', bold=True); put(ws, f'B{13+i}', b, 'label', wrap=True); ws.merge_cells(f'B{13+i}:F{13+i}')
-    put(ws, 'A19', 'Ventaja frente al botellón (ver Producto): ahorro anual estimado del hogar', 'label'); put(ws, 'D19', f"='Producto'!B{ROW['PM.ahorro']}", 'link', FMT_BS)
+    r = 6
+    for (n, t, p, f, nt) in COMP:
+        put(ws, f'A{r}', n, 'label', border=True); put(ws, f'B{r}', t, 'label', border=True)
+        put(ws, f'C{r}', p, 'input', FMT_BS); put(ws, f'D{r}', f'=PVP/C{r}', 'calc', FMT_X)
+        put(ws, f'E{r}', f, 'label', border=True); put(ws, f'F{r}', nt, 'label', border=True)
+        r += 1
+    f0 = 6 + 4; f1 = r - 1
+    ROW['COMP.f0'] = f0; ROW['COMP.f1'] = f1
+    r += 1
+    put(ws, f'A{r}', 'Filtro o purificador más barato encontrado', 'label', border=True); put(ws, f'C{r}', f'=MIN(C{f0}:C{f1})', 'calc', FMT_BS); ROW['COMP.min'] = r; r += 1
+    put(ws, f'A{r}', 'Filtro o purificador más caro encontrado', 'label', border=True); put(ws, f'C{r}', f'=MAX(C{f0}:C{f1})', 'calc', FMT_BS); ROW['COMP.max'] = r; r += 1
+    put(ws, f'A{r}', 'Nuestro precio al público (Filtro 2.0)', 'label', bold=True, border=True); put(ws, f'C{r}', '=PVP', 'calc', FMT_BS, bold=True); r += 1
+    put(ws, f'A{r}', 'Posición', 'label', border=True)
+    put(ws, f'C{r}', f'=IF(PVP<C{ROW["COMP.min"]},"Más barato que todos",IF(PVP>C{ROW["COMP.max"]},"Más caro que todos","Entre el más barato y el más caro"))', 'calc'); r += 2
+    put(ws, f'A{r}', 'Datos del mercado de agua embotellada (AEMP, 2019)', 'sec'); r += 1
+    datos = [('Consumo de agua embotellada en Santa Cruz (2017)', '22 litros por persona al año, el mayor del país'),
+             ('Viviendas con agua por cañería en Santa Cruz (Censo 2012)', '83,4%'),
+             ('Empresas de agua embotellada con sede en Santa Cruz', 'Entre otras: Cielo (Aje), Villa Santa (Cascada del Oriente), Aguas Claras, Vital (EMBOL)')]
+    for a, b in datos:
+        put(ws, f'A{r}', a, 'label', border=True); put(ws, f'B{r}', b, 'label', border=True); ws.merge_cells(f'B{r}:F{r}'); r += 1
+    r += 1
+    put(ws, f'A{r}', 'B. COMPARACIÓN CON LOS SUSTITUTOS', 'sec'); r += 1
+    for j, h in enumerate(['Competidor o sustituto', 'Ventaja para el cliente', '', '', 'Desventaja frente a nuestro filtro']): 
+        if h: put(ws, f'{L(1+j)}{r}', h, 'hdr')
+    r += 1
+    rows = [('Botellón de 20 L', 'Cómodo, sin mantenimiento', 'Gasto todos los meses; hay que cargar y guardar bidones'),
+            ('Hervir el agua', 'Conocido, sin compra inicial', 'Gasta gas y tiempo; no quita la tierra'),
+            ('Filtros y jarras importados', 'Marcas conocidas', 'Repuestos importados y en dólares'),
+            ('Purificadores eléctricos u ósmosis', 'Filtran mucho', 'Caros, necesitan electricidad e instalación'),
+            ('Filtros de barro artesanales', 'Mismo principio', 'Sin control de laboratorio ni garantía')]
+    for (a, b, c) in rows:
+        put(ws, f'A{r}', a, 'label', bold=True, border=True); put(ws, f'B{r}', b, 'label', border=True); ws.merge_cells(f'B{r}:D{r}')
+        put(ws, f'E{r}', c, 'label', border=True); ws.merge_cells(f'E{r}:F{r}'); r += 1
+    r += 1
+    put(ws, f'A{r}', 'C. FUERZAS COMPETITIVAS (Porter)', 'sec'); r += 1
+    porter = [('Rivalidad', 'Media: no se encontró un fabricante local de filtros de barro; el sustituto principal es el botellón.'),
+              ('Nuevos competidores', 'Media: la técnica es libre; la barrera es la validación de laboratorio, la cáscara de castaña y la marca.'),
+              ('Poder de proveedores', 'Bajo para arcilla y aserrín; medio para el balde, la plata y la cáscara de castaña.'),
+              ('Poder de compradores', 'Alto en tiendas (piden margen y crédito); bajo en venta directa.'),
+              ('Sustitutos', 'Altos: botellón y hervir el agua. Se compite por ahorro y comodidad.')]
+    for (a, b) in porter:
+        put(ws, f'A{r}', a, 'label', bold=True, border=True); put(ws, f'B{r}', b, 'label', border=True); ws.merge_cells(f'B{r}:F{r}'); r += 1
+    r += 1
+    put(ws, f'A{r}', 'Falta: precios de tiendas físicas de Santa Cruz y la encuesta a hogares (hoja Muestra y encuesta).', 'label')
     return ws
 
 def build_estrategia(B):
     ws = B.sheet('Estrategia comercial', 'ESTRATEGIA COMERCIAL: MEZCLA DE MARKETING, CANALES Y GASTOS COMERCIALES', '', tab='70AD47')
     widths(ws, {'A': 34, 'B': 16, 'C': 16, 'D': 16, 'E': 16, 'F': 16, 'G': 16})
     mix = [('Producto', 'Filtro 2.0 con capa de carbón, indicador de cambio, QR del lote, garantía de 6 meses y aviso de cambio por WhatsApp.'),
-           ('Precio', 'Bs 420 en 2027: menos que 6 meses de botellones; se ajusta cada año por inflación.'),
+           ('Precio', 'Bs 420 en 2027: entre los filtros simples y los purificadores del mercado; se recupera en menos de 4 meses de botellones; se ajusta cada año por inflación.'),
            ('Plaza', 'Canal directo (planta, redes sociales con entrega, ferias) y canal indirecto (ferreterías, supermercados, farmacias).'),
            ('Promoción', 'Demostraciones con prueba de agua, redes sociales, ferias barriales, alianzas con juntas vecinales y material en punto de venta.')]
     r = 5
@@ -226,6 +262,9 @@ FUENTES = [
     ('Revista Mercado / Bloomberg Línea: riesgo país Bolivia 2026', 'EMBI ≈ 415 pb (17/08/2026)', 'https://revistamercado.do/money-invest/internacional-economia/riesgo-pais-2026-el-ranking-del-embi-en-america-latina-al-cierre-de-mayo/', 'Consultado 11/11/2026'),
     ('Akvopedia - Ceramic pot filter', 'Caudal 1-3 L/h; cocción ~860 °C; plata coloidal', 'https://akvopedia.org/wiki/Ceramic_filter', 'Consultado 11/11/2026'),
     ('Potters for Peace - Ceramic Water Filter Project', '~50 filtros/día con 3-4 trabajadores; diseños abiertos de prensa y horno', 'https://www.pottersforpeace.org/ceramic-water-filter-project', 'Consultado 11/11/2026'),
+    ('AEMP - Estudio de mercado de agua embotellada en Bolivia (agosto 2019)', 'Precio del botellón en Santa Cruz 2011-2017, consumo por persona, empresas', 'https://www.autoridadempresas.gob.bo/wp-content/uploads/2024/03/EM-Agua-Embotellada-en-Bolivia.pdf', 'Consultado 12/11/2026'),
+    ('Grupo Cascada - tienda en línea Santa Cruz (Agua Villa Santa)', 'Precio actual de la recarga de 20 L', 'https://scz.grupocascada.com/', 'Consultado 12/11/2026'),
+    ('SISC Bolivia; Domus Ferretería; Mercado Libre Bolivia; Triplex', 'Precios de filtros y purificadores en Bolivia', 'siscbolivia.com; domusferreteria.com; mercadolibre.com.bo; triplex.com.bo', 'Consultado 12/11/2026; vigencia por confirmar'),
     ('Ley 843 (texto ordenado)', 'IVA 13%, IT 3%, IUE 25%', 'Gaceta Oficial / Servicio de Impuestos Nacionales', 'Norma; igual en ambos originales'),
     ('DS 24051 (Reglamento del IUE), anexo de depreciaciones', 'Tasas de depreciación por clase de activo', 'Servicio de Impuestos Nacionales', 'Del conocimiento general; VERIFICAR'),
     ('DS 2055', 'Tasa máxima para crédito productivo', 'ASFI / Gaceta Oficial', 'Del conocimiento general; VERIFICAR vigencia'),

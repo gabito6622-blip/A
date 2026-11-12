@@ -84,7 +84,11 @@ def build_precio_costo(B, ws):
     put(ws, f'A{r}', 'D. PRECIO FRENTE A LA COMPETENCIA', 'sec'); r += 1
     put(ws, f'A{r}', 'Ahorro anual del hogar frente al botellón (Bs)', 'label'); put(ws, f'C{r}', f"='Producto'!B{P['PM.ahorro']}", 'link', FMT_BS); r += 1
     put(ws, f'A{r}', 'Meses para recuperar el precio del kit', 'label'); put(ws, f'C{r}', f"='Producto'!B{P['PM.meses']}", 'link', FMT_BS2); r += 1
-    put(ws, f'A{r}', 'Precios de competidores: ver Competencia (pendientes de relevamiento).', 'note')
+    put(ws, f'A{r}', 'Litros por día desde los que conviene el filtro', 'label'); put(ws, f'C{r}', f"='Producto'!B{P['PM.litros']}", 'link', FMT_BS2); r += 1
+    put(ws, f'A{r}', 'Filtro o purificador más barato en el mercado (Bs)', 'label'); put(ws, f'C{r}', f"='Competencia'!C{P['COMP.min']}", 'link', FMT_BS); r += 1
+    put(ws, f'A{r}', 'Filtro o purificador más caro en el mercado (Bs)', 'label'); put(ws, f'C{r}', f"='Competencia'!C{P['COMP.max']}", 'link', FMT_BS); r += 1
+    put(ws, f'A{r}', 'Fuente del precio elegido', 'label', bold=True)
+    put(ws, f'C{r}', 'Precio de mercado: entre los filtros simples y los purificadores que se venden en Bolivia (hoja Competencia), y menor que 4 meses de botellones. Falta confirmarlo con la encuesta.', 'label')
     widths(ws, {'A': 66})
 
 def build_all():

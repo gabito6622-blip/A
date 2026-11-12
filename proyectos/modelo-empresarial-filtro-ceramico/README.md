@@ -10,6 +10,7 @@ El tipo de cambio está en una sola celda (hoja Supuestos): si se cambia, se rec
 | `AUDITORIA_COMPARATIVA.md` | Qué tenía cada original, errores corregidos, qué se conservó y qué no |
 | `INFORME_DE_VIABILIDAD.md` | Producto, mercado, inversión, costos, rentabilidad, riesgos y recomendaciones |
 | `GUIA_PARA_DEFENSA.md` | Explicación de cada hoja, método e indicador, con preguntas probables |
+| `ENCUESTA_PARA_IMPRIMIR.md` | Cuestionario de 10 preguntas para los 384 hogares, con qué supuesto valida cada una |
 | `INFORME_DE_PRUEBAS.md` | Pruebas realizadas, resultados y limitaciones |
 | `generador/` | Scripts que construyen y prueban el Excel |
 

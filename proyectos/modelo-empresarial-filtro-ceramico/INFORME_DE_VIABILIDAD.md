@@ -41,7 +41,9 @@ La técnica del filtro de barro es libre. Lo difícil de copiar es lo que se con
 
 En 2031 se venden 7.249 kits: el 7,3% de la demanda efectiva, con distribución en el área metropolitana.
 
-**Para la familia:** gasta Bs 72 al mes en botellones; el filtro le cuesta unos Bs 18 al mes. Ahorra **Bs 666 al año** y recupera la compra en unos 6 meses.
+**Para la familia:** con 4 litros por día y la recarga a Bs 18 (precio actual en Santa Cruz), gasta unos Bs 108 al mes en botellones. El filtro le cuesta unos Bs 18 al mes. Ahorra **Bs 1.104 al año**, recupera la compra en menos de 4 meses y le conviene desde 0,64 litros por día.
+
+**Datos del mercado (AEMP, 2019):** en 2017, Santa Cruz era el departamento con mayor consumo de agua embotellada del país (22 litros por persona al año, promediando a toda la población) y el botellón costaba Bs 11,70 a 13,00. El 83,4% de las viviendas tenía agua por cañería (Censo 2012).
 
 ## 4. Inversión
 
@@ -57,7 +59,7 @@ Se financia con un préstamo de Bs 106.570 (3 años, 11,5%) y un aporte de socio
 ## 5. Costos y precio
 
 - **Materiales por kit:** Bs 95,24 con factura. El balde (Bs 55) es lo más caro; el 2.0 suma unos Bs 9.
-- **Precio:** Bs 420 al público. La empresa recibe en promedio Bs 357 (40% venta directa; 60% por tiendas con 25% de margen); sin IVA, Bs 310,59.
+- **Precio:** Bs 420 al público. Sale de la investigación de precios (hoja Competencia): queda entre los filtros simples (Bs 399 a 477) y los purificadores (desde Bs 650). Falta confirmarlo con la encuesta. La empresa recibe en promedio Bs 357 (40% venta directa; 60% por tiendas con 25% de margen); sin IVA, Bs 310,59.
 - **Margen de contribución:** Bs 204 por kit (66%).
 
 ## 6. Resultados
@@ -128,7 +130,7 @@ Se financia con un préstamo de Bs 106.570 (3 años, 11,5%) y un aporte de socio
 
 ## 10. Recomendaciones
 
-1. **Encuesta de 384 hogares**, con la pregunta de precio (Bs 350 a 500), y venta del lote piloto **antes** de comprar todo.
+1. **Encuesta de 384 hogares** (`ENCUESTA_PARA_IMPRIMIR.md`), con la pregunta de precio, y venta del lote piloto **antes** de comprar todo.
 2. **Cotizar el balde:** bajarlo a Bs 45 subiría el VAN a Bs 441.546.
 3. **Más venta directa:** pasar de 40% a 50% subiría el VAN a Bs 447.282.
 4. **Validar la capa de carbón** y pedir la opinión de SENAPI sobre el modelo de utilidad.
@@ -138,7 +140,7 @@ Los puntos 2 y 3 se calcularon uno por uno y **no se metieron al caso base**: de
 
 ## Pendiente (del equipo o del docente)
 
-- Encuesta real y precios de la competencia.
+- Encuesta real y precios en tiendas físicas de Santa Cruz (los de internet ya están en la hoja Competencia).
 - Cotizaciones de equipos, materiales, cáscara de castaña, alquiler y sueldos.
 - Confirmar el tipo de cambio, el riesgo país, la tasa bancaria, el aporte solidario (3% o 3,5%) y las tasas de depreciación.
 - Nombre comercial y modelo de utilidad en SENAPI.

@@ -116,6 +116,8 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
 - 2.0 agrega Bs 300/mes para el registro de clientes y los avisos de cambio por WhatsApp.
 
 ### Precio
+**De dónde sale el precio:** investigación de escritorio con precios reales (hoja Competencia). En Bolivia, los filtros simples cuestan Bs 399 a 477 y los purificadores Bs 650 o más. Bs 420 queda entre ambos y se recupera en menos de 4 meses de botellones. La encuesta (pregunta 6) debe confirmarlo.
+
 1. **Precio elegido:** Bs 420 con factura. La empresa recibe en promedio **Bs 357** (40% venta directa al precio completo; 60% por tiendas que se quedan 25%). Sin IVA, Bs 310,59.
 2. **Método de costo (el de Ñapefit):**
    - costo unitario total 2027: Bs 289,30;
@@ -123,9 +125,10 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
 
    Es mayor que el precio de mercado porque en 2027 se vende poco. Por eso el primer año deja poca ganancia.
 3. **Para el cliente:**
-   - gasta Bs 876 al año en botellones;
+   - con 4 litros por día y la recarga a Bs 18 (precio real en Santa Cruz), gasta Bs 1.314 al año en botellones;
    - el filtro le cuesta Bs 210 al año (Bs 420 cada 2 años, unos **Bs 18 por mes**);
-   - ahorra **Bs 666 al año** y recupera la compra en unos 6 meses.
+   - ahorra **Bs 1.104 al año** y recupera la compra en menos de 4 meses;
+   - el filtro conviene desde **0,64 litros por día**.
 
 ### Inversión
 | Concepto | Bs | $us |
@@ -193,5 +196,10 @@ Matriz de puntos para elegir el local (como Ñapefit, con la fórmula corregida)
    La técnica básica es libre; lo difícil de copiar es lo que se construye alrededor.
 3. **¿Es rentable?** Sí en el escenario base (VAN Bs 329.361; TIR 40,3% > 21,0%). Pero depende del precio: el filtro 2.0 vendido a Bs 390 tendría VAN de solo Bs 55.396. El escenario pesimista da VAN negativo.
 4. **¿Qué pasa si sube el dólar?** Se cambia la celda del tipo de cambio y todo se recalcula: con 15 Bs/$us el VAN baja a Bs 265.048, pero sigue positivo.
-5. **¿Dónde está la encuesta?** No se hizo trabajo de campo. Está el tamaño de muestra (384), el cuestionario y la tabla lista para cargar. No se inventaron datos.
+5. **¿De dónde sale el precio?** De una investigación de escritorio con precios reales:
+   - botellón Villa Santa Bs 18 (2026);
+   - estudio de la AEMP: Bs 11,70 a 13,00 en Santa Cruz (2011-2017);
+   - filtros de Bs 399 a 477 y purificadores desde Bs 650.
+
+   La encuesta de 384 hogares (`ENCUESTA_PARA_IMPRIMIR.md`) tiene que confirmarlo. No se inventaron respuestas.
 6. **¿Funciona el filtro?** Las fuentes describen filtros de barro en general. El nuestro debe validarse en laboratorio antes de vender (está presupuestado). Hasta entonces no se promete ningún porcentaje.

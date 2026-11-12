@@ -1,12 +1,12 @@
 # Informe de pruebas
 
-Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 hojas y 9.458 fórmulas: las 20 primeras con el formato de Ñapefit y el Filtro 2.0 incluido.
+Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 hojas y 9.468 fórmulas: las 20 primeras con el formato de Ñapefit y el Filtro 2.0 incluido.
 
 ## Resultado
 
 | Prueba | Resultado |
 |---|---|
-| Recalcular todo el libro con LibreOffice | **0 errores** en 9.458 fórmulas |
+| Recalcular todo el libro con LibreOffice | **0 errores** en 9.468 fórmulas |
 | Controles internos (hoja Controles) | **19 de 19 en OK** |
 | Verificación independiente en Python (recalcula cifras desde los supuestos, sin leer las fórmulas) | **14 de 14 coinciden** |
 | Pruebas de coherencia y estrés (54 corridas del libro completo, 155 s) | **42 de 42 superadas** |
@@ -38,6 +38,10 @@ Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 
    - las fórmulas usan referencias normales (`='Supuestos'!$B$45`) en lugar de nombres;
    - se quitaron los textos largos de explicación;
    - el libro no tiene ningún nombre definido.
+
+## 1b. Investigación de precios (12/11/2026)
+
+Se agregaron a la hoja Competencia precios reales de fuentes públicas (botellón, filtros y purificadores) y el precio del botellón pasó de Bs 12 (supuesto) a Bs 18 (dato). Esto solo cambia la comparación para el cliente: el VAN y la TIR no cambian. Se recalculó: 0 errores, 19 de 19 controles, 14 de 14 en la verificación independiente.
 
 ## 2. Verificación independiente (modelo sombra)
 

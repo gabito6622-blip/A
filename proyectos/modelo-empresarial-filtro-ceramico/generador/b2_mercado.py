@@ -192,7 +192,7 @@ def build_producto(B):
         ('Por qué cuesta copiarlo', 'Receta propia de barro + carbón probada en laboratorio, contrato por la cáscara de castaña, control de calidad por lote, marca y clientes registrados que reciben el aviso de cambio.'),
         ('Antes de vender', 'Análisis en laboratorio acreditado (bacterias y capa de carbón). Sin ese resultado no se promete ningún porcentaje de eliminación.'),
         ('Segmento', 'Hogares urbanos de Santa Cruz que compran botellones o hierven el agua. Primero el municipio; desde 2029 el área metropolitana.'),
-        ('Propuesta de valor', 'Agua filtrada por unos Bs 18 al mes, contra unos Bs 72 en botellones.'),
+        ('Propuesta de valor', 'Agua filtrada por unos Bs 18 al mes, contra unos Bs 108 en botellones (4 litros por día a Bs 18 el botellón).'),
     ]
     r = 5
     for k, v in items:
@@ -207,9 +207,10 @@ def build_producto(B):
             ('Gasto anual en botellones (Bs)', f'=B{r+2}*PRECIO_BOTELLON', FMT_BS),
             ('Costo anual del kit (PVP x compras por año)', f"='Precio'!C{ROW['PRE.pvp']}*CONSUMO_Q", FMT_BS),
             ('Ahorro anual estimado del hogar (Bs)', f'=B{r+3}-B{r+4}', FMT_BS),
-            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,'Precio'!C{ROW['PRE.pvp']}/(B{r+3}/12),0)", FMT_BS2)]
+            ('Meses para recuperar la compra del kit', f"=IF(B{r+3}>0,'Precio'!C{ROW['PRE.pvp']}/(B{r+3}/12),0)", FMT_BS2),
+            ('Litros por día desde los que el filtro conviene más que el botellón', f"=B{r+4}/(PRECIO_BOTELLON/20*365)", FMT_BS2)]
     for lbl, f, fm in rows:
         put(ws, f'A{r}', lbl, 'label'); put(ws, f'B{r}', f, 'link' if '!' in f else 'calc', fm); r += 1
-    ROW['PM.ahorro'] = r - 2; ROW['PM.meses'] = r - 1
+    ROW['PM.ahorro'] = r - 3; ROW['PM.meses'] = r - 2; ROW['PM.litros'] = r - 1
     put(ws, f'A{r+1}', 'Lectura: si el ahorro es positivo y la recuperación es de pocos meses, el precio es defendible frente al botellón. Validar PRECIO_BOTELLON y LITROS_DIA con la encuesta.', 'note')
     return ws
