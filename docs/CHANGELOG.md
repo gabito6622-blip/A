@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
+- **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
+- **next · gabito6619+21dp:** pagada, vence 28/11, Bs 66.
+- **Daniel Choque · n2025gt+dch:** cliente final; ya figuraba bien: pagada hasta el 02/03/2027 (sin cambios).
+- **Con esto quedan revisadas todas las cuentas Disney alquiladas.**
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · JOSUE ORIAS, aneliz y panama
 - **JOSUE ORIAS · netgb118+25** (Disney+ sin ESPN): vencía 27/10; renovada hasta el 27/11/2026, pagada Bs 40. Su teléfono en el panel tiene 9 dígitos (776115438): falta confirmarlo.
 - **aneliz · gabito6619+uwb:** no pagó (venció 06/11). Nota «✂️ POR CORTAR»; entra en el recordatorio de las 19:30. Al cortarla, el dueño pasa la clave nueva y se libera. aneliz no tiene número en el panel.
