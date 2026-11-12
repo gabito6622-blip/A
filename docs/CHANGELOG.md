@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Dani strem
+- **Dani strem:** ahora «Dani strem · Daniel Quispe Quispe», con su número +591 62505099 (no tenía).
+- **gabito6626+rclad** (vence 12/11): «EN COBRO».
+- **netgb117+efp** (vence 14/11): pagada a Bs 69.
+- **gabito6626+mana:** vence 19/11, confirmado por el dueño; sin cambios.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · robin sardan
 - **robin sardan:** ahora «robin sardan · Sardana Carballo Robin» (mismo número).
 - **netgb117+pg19:** se extendió al 15/12 como pagada, pero el dueño corrigió: sigue hasta el 15/11 (el pago de Bs 70 era de otra cuenta). Fecha original restaurada y cobro borrado. Antes no tenía estado de pago; el panel no permite volver a «sin estado», así que quedó «pendiente» hasta que el dueño diga si ese período está pago.
