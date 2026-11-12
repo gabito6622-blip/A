@@ -869,6 +869,13 @@ const V = {
     const aq = (P.tab.accq ?? "").trim().toLowerCase();
     const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
     const shownAccs = accs.filter(matchF).filter(matchQ);
+    // 🧹 Cuentas caídas sin clientes (pedido del dueño, 12/11/2026): vencidas y sin nadie adentro. Las retira EL
+    // DUEÑO con un toque; usa la misma acción de "Cuenta caída → Mover clientes y retirar" de cada cuenta.
+    const caidas = canReview() ? accs.filter((a) => a.status === "active" && a.supplierExpiresAt <= Date.now() && !a.slots.some((s2) => s2.status === "assigned" || s2.status === "reserved")) : [];
+    const caidasCard = caidas.length ? `<section class="card caidas"><h2>🧹 ${caidas.length} cuenta${caidas.length === 1 ? "" : "s"} caída${caidas.length === 1 ? "" : "s"} sin clientes</h2>
+      <p class="muted" style="margin:0">Vencieron y no tienen a nadie adentro. Si ya no las usás, retiralas: no se venden más y quedan guardadas en el historial. Ningún cliente se ve afectado.</p>
+      <div class="caidas-list">${caidas.map((a) => `<label class="chk caida-row"><input type="checkbox" class="caida-sel" value="${esc(a.id)}" checked> <span><b class="mono">${esc(a.email)}</b><br><small class="muted">${esc(pname(a.productId))} · venció el ${fdate(a.supplierExpiresAt)} · ${a.slots.filter((s2) => s2.status === "available").length} libre(s)</small></span></label>`).join("")}</div>
+      <div class="inline"><button class="pbtn dark" type="button" data-caidas="1">🧹 Retirar las seleccionadas</button><small class="muted">Destildá las que todavía funcionan.</small></div></section>` : "";
     const prodOf = (id) => products.find((x) => x.id === id);
     const svbadge = (a) => { const p = prodOf(a.productId); return p?.imageFileRef ? `<img class="svbadge" src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : brandBadge(pname(a.productId), p?.color); };
     const cards = shownAccs.map((a) => {
@@ -886,7 +893,7 @@ const V = {
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     }).join("");
-    return `${alertsCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
+    return `${alertsCard}${caidasCard}${slotCard}${editCard}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><span class="muted">${accs.length} cuentas</span></div>
       <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
@@ -2341,6 +2348,18 @@ document.addEventListener("click", async (ev) => {
   if (d.more) { $("#app").classList.add("open"); return; }
   if (d.gsopen) return openSearch();
   if (d.wago) { P.tab.waSec = d.wago; return go("whatsapp"); }
+  if (d.caidas) {
+    const ids = $$(".caida-sel:checked").map((x) => x.value);
+    if (!ids.length) return toast("Marcá al menos una cuenta");
+    if (!confirm(`¿Retirar ${ids.length} cuenta${ids.length === 1 ? "" : "s"} caída${ids.length === 1 ? "" : "s"}?\n\nNo tienen clientes. Dejan de venderse y quedan guardadas en el historial.`)) return;
+    el.disabled = true;
+    let ok = 0; const bad = [];
+    for (const id of ids) {
+      try { await api("POST", `/api/admin/accounts/${id}/replace`, { reason: "Cuenta caída (retirada por el dueño)" }); ok++; } catch (e) { bad.push(e.message); }
+    }
+    toast(bad.length ? `Retiradas ${ok}. No se pudo con ${bad.length}: ${bad[0]}` : `✅ ${ok} cuenta${ok === 1 ? "" : "s"} retirada${ok === 1 ? "" : "s"}`);
+    return render();
+  }
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
