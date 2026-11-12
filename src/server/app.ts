@@ -780,6 +780,8 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
+  // "Mi secretaria": todo lo pendiente en una pantalla (solo lee).
+  route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c)));
   route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
 
   route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined })

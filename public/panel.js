@@ -9,6 +9,7 @@ import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
+import { secretaryView } from "/secretaria.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 
 const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
@@ -24,7 +25,7 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
    cada una conserva su dirección (#clave) y su permiso ("review" = dueño y admin, "owner" = solo dueño). Un área con
    una sola pantalla visible para ese rol se muestra como botón directo; un área vacía no se muestra. */
 const AREAS = [
-  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
+  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   ["a-clientes", "users", "Clientes", [["clientes", "Clientes"]]],
   ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
@@ -34,7 +35,7 @@ const AREAS = [
 ];
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
-  inicio: "principal resumen pendientes", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
+  inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
   vender: "venta nueva prueba gratis combo", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
@@ -48,7 +49,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { inicio: ["home", "Inicio"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -120,6 +121,17 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
 const V = {
   comovan: () => comoVanView(P.tab),
   oficina: () => officeView(),
+  async secretaria() {
+    if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño.</div></section>`;
+    // "Lo que pasó" usa el mismo texto que la Auditoría (con nombres de clientes, productos y usuarios).
+    let maps = null;
+    const activity = (list) => `<div class="sec-act">${list.map((a) => { const t = auditText(a, maps); return `<div class="audrow"><div class="audtxt"><b>${esc(t.who)}</b> ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div><small class="muted">${fdt(a.at)}</small></div>`; }).join("")}</div>`;
+    if (isOwner()) {
+      const [staff, customers, products] = await Promise.all([api("GET", "/api/admin/staff").catch(() => []), api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => [])]);
+      maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
+    }
+    return secretaryView(activity);
+  },
   quevuelvan: () => winbackView(),
   async dashboard() {
     const dd = Number(P.tab.dd ?? 30);
@@ -547,7 +559,8 @@ const V = {
       ${notif.items.length ? `<div class="notis">${notif.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>` : "";
-    return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    const secBtn = canReview() ? `<button type="button" class="pbtn dark sec-cta" data-go="secretaria">🗂️ Mi secretaria · ¿qué hay pendiente?</button>` : "";
+    return secBtn + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
