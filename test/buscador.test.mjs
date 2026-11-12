@@ -103,7 +103,7 @@ describe("buscador del panel", () => {
         // Resultado de cliente → Clientes con su ficha abierta.
         await p.click('.gs-item[data-gsitem="customer"]');
         await p.waitForFunction(() => location.hash === "#clientes" && document.querySelector("details.rcli[open]"));
-        assert.match(await p.locator("details.rcli[open] summary").innerText(), /Ana María Quispe/);
+        assert.match(await p.locator("details.rcli[open] > summary").innerText(), /Ana María Quispe/);
         // Tecla "/" y Esc.
         await p.locator("body").click({ position: { x: 5, y: 300 } }).catch(() => {});
         await p.keyboard.press("/");
