@@ -56,7 +56,7 @@ const SESSION_ROUTES = new Set([
 // ---- Rutas de la clínica SIN permiso específico: catálogos que necesita cualquier miembro ----
 const ANY_MEMBER_ROUTES = new Set([
   "GET /api/clinic", "GET /api/branches", "GET /api/staff", "GET /api/schedules", "GET /api/procedures",
-  "GET /api/consent-templates", "GET /api/medications", "GET /api/procedure-sessions",
+  "GET /api/consent-templates", "GET /api/medications", "GET /api/certificate-templates", "GET /api/procedure-sessions",
   "GET /api/clinic/logo-info", "GET /api/clinic/logo", // logo de la clínica (B-096): lo muestra la barra lateral a todos
 ]);
 

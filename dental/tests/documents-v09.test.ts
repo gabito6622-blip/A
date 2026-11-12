@@ -71,6 +71,10 @@ describe("textos de certificados por clínica (B-075)", () => {
   const cur = async (a: Agent, id = "rest") => (await a.get("/api/certificate-templates")).body.find((t: any) => t.id === id);
 
   it("solo gerencia edita; se validan los marcadores y los datos obligatorios", async () => {
+    // Gerencia sin permiso clínico también ve la lista (para editarla); contabilidad no.
+    expect((await owner.get("/api/certificate-templates")).status).toBe(200);
+    const acct = await login(env.app, (await addUser(env.db, K.clinicId, "accountant", { allBranches: true })).email);
+    expect((await acct.get("/api/certificate-templates")).status).toBe(403);
     const base = await cur(dentist);
     expect(base).toMatchObject({ version: 0, customized: false });
     expect(base.placeholders).toEqual(expect.arrayContaining(["paciente", "restDays", "restFrom", "restTo"]));

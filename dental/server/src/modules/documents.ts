@@ -244,8 +244,11 @@ export function documentRoutes(route: Route, cfg: Config) {
   // Recetas, certificados y derivaciones
   // =====================================================================
   route({
-    method: "GET", url: "/api/certificate-templates", summary: "Plantillas de certificados y derivaciones de la clínica (texto vigente, versión y marcadores disponibles)", tags: ["documentos"], perm: "clinical.read",
-    handler: async ({ c }) => effectiveTemplates(c),
+    method: "GET", url: "/api/certificate-templates", summary: "Plantillas de certificados y derivaciones de la clínica (texto vigente, versión y marcadores; requiere clinical.read o clinic.manage)", tags: ["documentos"],
+    handler: async ({ c, auth }) => {
+      if (!canSeeCatalog(auth)) throw forbidden();
+      return effectiveTemplates(c);
+    },
   });
 
   route({

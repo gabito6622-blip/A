@@ -12,11 +12,11 @@ async function login(page: Page, email: string) {
 
 test.describe.configure({ mode: "serial" });
 
-test("certificados: la gerencia guarda una versión propia del texto y vuelve al original", async ({ page }) => {
-  await login(page, "gerente@demo.local");
+test("certificados: la propietaria guarda una versión propia del texto y vuelve al original", async ({ page }) => {
+  await login(page, "propietaria@demo.local");
   const errors: string[] = [];
-  page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-  await page.goto("/settings?tab=certificates");
+  page.on("console", (m) => { if (m.type() === "error" && !/status of 400/.test(m.text())) errors.push(m.text()); }); // el 400 es el rechazo pedido de {firma}
+  await page.goto("/configuracion?tab=certificates");
   const row = page.locator("tbody tr", { hasText: "Certificado de atención odontológica" });
   await expect(row).toContainText("Texto base");
   await row.getByRole("button", { name: /Editar/ }).click();
@@ -34,7 +34,7 @@ test("certificados: la gerencia guarda una versión propia del texto y vuelve al
   await expect(row).toContainText("Propio de la clínica");
   await row.getByRole("button", { name: /Historial/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Nota: Prueba e2e");
-  await page.getByRole("dialog").getByRole("button", { name: "Cerrar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cerrar", exact: true }).last().click();
   // Volver al original (confirmación con el diálogo propio, no window.prompt)
   await row.getByRole("button", { name: /Editar/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Volver al texto original" }).click();
@@ -44,8 +44,8 @@ test("certificados: la gerencia guarda una versión propia del texto y vuelve al
 });
 
 test("inventario: anular una transferencia en tránsito con motivo (la demo trae una de Sur a La Paz)", async ({ page }) => {
-  await login(page, "gerente@demo.local");
-  await page.goto("/inventory");
+  await login(page, "propietaria@demo.local");
+  await page.goto("/inventario");
   await page.getByRole("tab", { name: /Transferencias/ }).click();
   const btn = page.getByRole("button", { name: /Anular transferencia N°/ }).first();
   await expect(btn).toBeVisible();
