@@ -1,6 +1,12 @@
 # Informe de pruebas
 
-## 12/11/2026 · Después de publicar #45 y arreglo de «vencidas» (rama `panel-vencidas`)
+## 12/11/2026 · Después de publicar #46
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real después de #46 | Servicios 82, cola 75, clientes 27, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Cuentas en la tienda real (solo mirando) | Disney + ESPN dice «16 vencidas» y ya no «vencen ≤ 7 d»; 4 grupos, 125 tarjetas, 0 renglones pisados, sin scroll de costado, 0 errores | ✅ |
+
+## 12/11/2026 · Después de publicar #45 y arreglo de «vencidas» (publicado en #46)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Tienda real después de #45 | Servicios 82, cola 75, clientes 27, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |

@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-vencidas`) · Arreglo: cuentas ya vencidas en «Por plataforma»
+## 2026-11-12 · #46 Arreglo: cuentas ya vencidas en «Por plataforma»
 - El grupo de Disney decía «16 vencen ≤ 7 d», pero esas 16 ya vencieron (son las cuentas caídas). Ahora dicen «16 vencidas» en rojo, y «vence ≤ 7 d» cuenta solo las que todavía no vencieron.
 
 ## 2026-11-12 · #45 Cuentas por plataforma (etapa 7)
