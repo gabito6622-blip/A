@@ -4,7 +4,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Por cortar
-- **netscz.101@gmail.com** (Disney Premium + ESPN): nota «⛔ POR CORTAR» en la cuenta. En el panel no está alquilada a nadie (su perfil quedó en cuarentena cuando venció) y no se pudo ver quién la tenía: falta que el dueño diga qué revendedor es, para marcarlo «no paga, no renueva».
+- **netscz.101@gmail.com** (Disney Premium + ESPN): nota «⛔ POR CORTAR» en la cuenta. En el panel no está alquilada a nadie (su perfil quedó en cuarentena cuando venció) y no se pudo ver quién la tenía: la tenía **vallejos** (dicho por el dueño). En la ficha de vallejos: nota «⛔ NO VENDERLE por ahora: no paga y no va a renovar» (no se borró ni se bloqueó; sigue su historial).
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Dani strem
 - **Dani strem:** ahora «Dani strem · Daniel Quispe Quispe», con su número +591 62505099 (no tenía).
