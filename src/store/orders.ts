@@ -470,6 +470,7 @@ export function rejectPayment(e: Engine, actor: Actor, orderId: Id, reason: stri
     if (o.status !== "payment_review" && o.status !== "awaiting_payment") throw new DomainError("INVALID_STATE", `No se puede rechazar en estado ${o.status}`);
     releaseSlots(e, o.reservedSlotIds);
     o.status = "rejected";
+    o.rejectReason = reason.trim().slice(0, 200);
     o.updatedAt = e.now();
     queue(e, o.payerId ?? o.customerId, "payment_rejected", { order: o.id });
     e.audit(actor, "payment.reject", "order", o.id, { reason });

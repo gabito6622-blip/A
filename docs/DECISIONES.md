@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 5: la tienda explica, los colores los elige el dueño
+- **El motivo del rechazo se le dice al cliente:** antes solo quedaba en la auditoría y el cliente preguntaba por WhatsApp. Se muestra tal cual lo escribe el dueño (es él quien lo redacta), recortado a 200 letras.
+- **No se cambian los colores de la tienda solos:** la misión pide azul eléctrico/cian, pero el dueño ya tiene Apariencia con sus colores. Se agrega el estilo «Premium 2.0» como opción y se deja la decisión en Apariencia. Descartado: cambiar el valor por defecto (habría cambiado la tienda al publicar sin que nadie lo pidiera).
+- **Pasos numerados en vez de rediseñar el formulario de recarga:** el formulario funciona; lo que faltaba era que se entienda el orden. Tres títulos y nada más.
+- **Contraste medido, no estimado:** las letras de los servicios pasaron a texto oscuro sobre pastel porque blanco sobre el color del producto no llega a 4,5:1 con amarillos ni verdes claros.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 4: inventario que avisa, no que decide
 - **Doble = misma plataforma + mismo correo, no solo mismo correo:** el dueño usa el mismo Gmail para Disney y Netflix. Bloquear por correo a secas le hubiera impedido cargar cuentas reales.
 - **Dominio mal escrito avisa, no frena:** el 12/11 el dueño escribió «gmaik.com» y era un error; pero un dominio raro puede ser real. La respuesta trae `warning` y el panel lo muestra; la cuenta queda cargada.

@@ -1,5 +1,5 @@
 /* ===================== PANEL ===================== */
-.app{--bg:#eef1f6;--side:#ffffff;--card:#ffffff;--soft:#f3f5f9;--line:#e2e6ee;--ink:#1f2633;--muted:#4f5a6b;--dark:#2b2f38;--dark-ink:#ffffff;
+.app{--bg:#eef1f6;--side:#ffffff;--card:#ffffff;--soft:#f3f5f9;--line:#e2e6ee;--ink:#1f2633;--muted:#485363;--dark:#2b2f38;--dark-ink:#ffffff;
   --ok:#0a7040;--ok-soft:#d8f5e5;--warn:#9a5b00;--warn-soft:#fff1d6;--bad:#c92a2a;--bad-soft:#ffe3e3;--blue:var(--p-blue);--blue-text:var(--p-blue);
   background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-panel);min-height:100%;display:grid;grid-template-columns:300px minmax(0,1fr);color-scheme:light}
 /* Oscuro Premium 2.0: los colores salen de tema.css (--gs-*), los mismos de la oficina y GaboHub. */
@@ -313,7 +313,7 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
 /* ---- dashboard ---- */
 .dhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
-.seg button{border:0;background:none;color:var(--muted);font-weight:600;padding:7px 14px;border-radius:7px;font-size:13px}
+.seg button{border:0;background:none;color:var(--ink);font-weight:600;padding:7px 14px;border-radius:7px;font-size:13px}
 .seg button[aria-pressed="true"]{background:var(--blue);color:#fff}
 .big.mini{margin:0}.big.mini button{padding:10px 16px;font-size:14px}
 .dkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
@@ -528,7 +528,7 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .mchart .ax{fill:var(--muted);font-size:12px}
 .svclist{display:grid;gap:10px}
 .svcrow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(70px,120px);gap:10px;align-items:center}
-.svcic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+.svcic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#0b1020;font-weight:800;font-size:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c,#3b82f6) 45%,#fff),color-mix(in srgb,var(--c,#3b82f6) 28%,#fff))}
 .svcinfo{min-width:0}
 .svcinfo b{display:block;font-size:14px}
 .svcinfo small{color:var(--muted);font-size:12.5px}

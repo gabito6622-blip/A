@@ -429,6 +429,8 @@ export interface Order {
   evidence?: PaymentEvidence;
   /** Referencia bancaria confirmada por quien aprobó. */
   confirmedReference?: string;
+  /** Por qué se rechazó el pago (lo ve el cliente en su historial). */
+  rejectReason?: string;
   approvedBy?: Id;
   reservedSlotIds: Id[];
   assignmentIds: Id[];

@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 5 «Tienda premium»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Rechazo: motivo vacío → error; se guarda recortado; el cliente lo ve en sus pedidos; el cliente de un revendedor no ve el motivo (ni el monto) del pago del revendedor; el revendedor sí | `test/tienda-premium.test.mjs` (núcleo) | OK |
+| Estilo «Premium 2.0» primero en la lista, fondo y cian de tema.css, botón y texto ≥ 4,5:1; todos los estilos siguen pasando la prueba de contraste | misma prueba + `test/contrast.test.mjs` | OK |
+| Tienda a 360 px, clienta con 4 pedidos (esperando pago, en revisión, rechazado con motivo, entregado): «Mis cuentas» dice cada estado y el motivo; «Saldo» guía en 3 pasos; sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | misma prueba, Playwright | OK (encontró los dos «Copiar» de 32 px; corregidos a 44) |
+| Dashboard del panel en claro y oscuro: «7/30/90 días» y las letras de «Resumen por servicio» ≥ 4,5:1 (medido contra la punta más oscura del pastel) | misma prueba, Playwright a 360 px | OK |
+| La tienda de la etapa 0 (portada, catálogo, carrito, pago) sigue bien | `test/base-segura.test.mjs` | OK |
+| Revisión visual | capturas a 360 px del historial (Entregado / Rechazado con motivo / En revisión) y de la recarga en 3 pasos (fuera del repo) | OK: se lee claro, sin cortes |
+| Tanda completa | `npm test` | **511/511** en ~50 s |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 4 «Inventario inteligente»
 | Qué | Cómo | Resultado |
 |---|---|---|

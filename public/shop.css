@@ -975,7 +975,7 @@ body:has(.shop[data-layout="ticket"]) #announce{background:color-mix(in srgb,var
 /* Pulido GaboHub */
 .rlock{font-size:13px;color:var(--s-muted);display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
 .rlock a{color:var(--s-blue-text,var(--s-blue));font-weight:700}
-.cpy{border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;margin-left:6px;min-height:32px}
+.cpy{border:1px solid var(--s-line);background:var(--s-card2);color:var(--s-ink);border-radius:10px;padding:6px 12px;font-size:12.5px;font-weight:700;margin-left:6px;min-height:44px} /* 44 px: regla de celular (Premium 2.0, etapa 5) */
 .rgain{display:grid;gap:2px;padding:10px 12px;border-radius:14px;background:var(--s-card2)}
 .rgain span{font-size:13px;color:var(--s-muted)} .rgain b{font-size:24px} .rgain small{color:var(--s-muted)}
 .rpaid{border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;display:grid;gap:6px;margin:0}
@@ -1129,3 +1129,8 @@ input[type=color]{min-width:44px;min-height:44px}
 
 /* ===== GaboHub etapa 4: clientes con todo lo suyo ===== */
 .xsvc{border-style:dashed}
+
+/* Premium 2.0 · etapa 5: pasos de la recarga y motivo de rechazo en el historial */
+.tstep{margin:6px 0 0;font-weight:800;color:var(--s-sky);font-size:13px;letter-spacing:.02em;text-transform:uppercase}
+.line .rej{display:block;width:100%;margin-top:6px;font-size:12.5px;line-height:1.45}
+.line{flex-wrap:wrap}

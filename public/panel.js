@@ -221,7 +221,7 @@ const V = {
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
     // --- Resumen por servicio (ingresos por app: lo que entró, no la ganancia) ---
-    const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="background:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
+    const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="--c:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
     // --- Nivel de estrés (vencidos, por vencer, por cobrar, por revisar) ---
     const al = d.alerts;
     const sPts = al.overdue.count * 3 + al.due3.count * 2 + k.pendingReview * 2 + al.unpaid.count;

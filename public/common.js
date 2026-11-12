@@ -221,6 +221,8 @@ export function contrastNote(look) {
 
 /** Estilos listos: un toque y la página queda armada; después se puede cambiar todo. */
 export const THEMES = [
+  // Premium 2.0 (12/11/2026): la paleta de tema.css (azul eléctrico, cian, oscuro) como estilo elegible. No se aplica solo.
+  { id: "premium", name: "Premium 2.0 · Azul eléctrico", look: { backgroundColor: "#070b16", accentColor: "#3b7bff", accent2Color: "#22d3ee", bgStyle: "glow", cardStyle: "glass", headingFont: "outfit", fontFamily: "inter", corners: "round" } },
   { id: "neon", name: "Neón Cyber", look: { backgroundColor: "#07070d", accentColor: "#00e5ff", accent2Color: "#ff2bd6", bgStyle: "aurora", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },
   { id: "violeta", name: "Violeta Premium", look: { backgroundColor: "#0d0a1a", accentColor: "#8b5cf6", accent2Color: "#ec4899", bgStyle: "glow", cardStyle: "glass", headingFont: "poppins", fontFamily: "poppins", corners: "round" } },
   { id: "gamer", name: "Gamer", look: { backgroundColor: "#050b07", accentColor: "#22ff88", accent2Color: "#00b3ff", bgStyle: "grid", cardStyle: "neon", headingFont: "russo", fontFamily: "outfit", corners: "square" } },

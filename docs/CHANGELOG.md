@@ -3,6 +3,15 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 5 «Tienda premium» (rama `premium-2.0`, sin publicar)
+- **Pedido rechazado con motivo:** al rechazar un pago, el motivo queda en el pedido (`rejectReason`) y el cliente lo ve en «Mis cuentas → Historial de pedidos» («❌ Motivo: … Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp»). El cliente final de un revendedor no ve el motivo del pago que hizo su revendedor (sigue viendo solo el estado).
+- **Historial con estados de color:** Entregado (verde), En revisión (ámbar), Rechazado (rojo), lo demás gris. Los pedidos pendientes ya tenían sus pasos («Pedido → Revisando pago → Entregado») y la hora estimada.
+- **Recarga guiada:** el formulario de Saldo se lee en 3 pasos: «1 · Elegí cuánto», «2 · Pagá», «3 · Subí el comprobante».
+- **Botones «Copiar»** del correo y la clave: de 32 a 44 px (regla de celular).
+- **Estilo «Premium 2.0 · Azul eléctrico»** en Apariencia (primero de la lista): fondo `#070b16`, azul `#3b7bff`, cian `#22d3ee`, vidrio, Outfit + Inter. **No se aplica solo**: la tienda sigue con los colores que eligió el dueño hasta que él lo toque.
+- **Dashboard del panel (contraste):** el selector «7 / 30 / 90 días» pasa a tinta plena y las letras de «Resumen por servicio» van oscuras sobre un pastel del color del producto; el gris de texto del tema claro pasó de `#4f5a6b` a `#485363`. Todo ≥ 4,5:1 en claro y oscuro.
+- **Prueba nueva `test/tienda-premium.test.mjs`** (4 pruebas: núcleo + navegador).
+
 ## 2026-11-12 · Premium 2.0 · Etapa 4 «Inventario inteligente» (rama `premium-2.0`, sin publicar)
 - **Correos de cuentas sin dobles:** al cargar o editar una cuenta, el correo se guarda sin espacios y en minúsculas, y **la misma cuenta dos veces para la misma plataforma ya no entra** (mensaje claro con el correo que ya existe). La misma dirección en otra plataforma sí puede (Disney y Netflix con el mismo Gmail). Una cuenta retirada libera el correo.
 - **Aviso de dominio mal escrito:** «gmaik.com», «gmai.com», «hotmial.com»… se cargan igual, pero la respuesta trae `warning` («¿Será …@gmail.com?»). No frena.
