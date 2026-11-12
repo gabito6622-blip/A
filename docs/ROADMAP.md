@@ -2,8 +2,11 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Listo para publicar — Botón «Mi secretaria» en el panel (12/11)
-- Hecho y probado (484/484). Falta el «Publicá» del dueño.
+## Publicado — Botón «Mi secretaria» en el panel (12/11, #50)
+- Publicado con el «Publicá» del dueño; verificado en la tienda real (la pantalla trae los mismos 77 alquileres).
+
+## Ahora — Cargar Netflix (revendedores y clientes finales)
+- Pedido del dueño (12/11). Cargar cuentas, clientes finales y alquileres con respaldo y uno primero.
 
 ## En curso — GaboHub como panel completo del revendedor (aprobado el 12/11) · etapas 1 y 2 publicadas (#47) · etapas 3 y 4 publicadas (#48) · etapa 5 (suscripción) publicada (#49) y configurada (Bs 49 / US$ 5, para todos, APAGADA) · la prende el dueño en Revendedores → Ajustes cuando invite a sus revendedores
 - **Pedido del dueño:** que el revendedor sienta GaboHub como su propio panel, igual que el del dueño, para todo su negocio (no solo lo que le compra a Gabriel Store), sin las opciones de dueño.
