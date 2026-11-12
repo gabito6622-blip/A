@@ -101,7 +101,3 @@
 .of-log li.of-t-bad { border-left-color: #eb5757; }
 .of-log time { display: inline-block; min-width: 3.2em; margin-right: 6px; font-variant-numeric: tabular-nums; opacity: .75; }
 .of-cost { font-size: 13px; margin: 0; }
-
-/* Sofi, la secretaria (7.ª en la oficina): ocupa su propia fila, centrada, del mismo tamaño que los demás. */
-.of-desk.of-sofi { grid-column: 1 / -1; justify-self: center; width: calc(50% - 5px); }
-@media (min-width: 640px) { .of-desk.of-sofi { width: calc((100% - 28px) / 3); } }

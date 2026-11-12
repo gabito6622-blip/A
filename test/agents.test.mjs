@@ -146,11 +146,11 @@ describe("agentes (servidor)", () => {
   test("arranca apagado aunque haya clave; solo el dueño lo configura", async () => {
     const g = await call("GET", "/api/admin/ai");
     assert.equal(g.json.hasKey, true);
-    assert.deepEqual(g.json.enabled, { receipts: false, whatsapp: false, daily: false, watch: false, commands: false });
+    assert.deepEqual(g.json.enabled, { receipts: false, whatsapp: false, daily: false, watch: false });
     assert.equal(g.json.model, "claude-opus-5-5");
     assert.equal((await call("POST", "/api/admin/ai", { model: "gpt-9" })).status, 400);
     const ok = await call("POST", "/api/admin/ai", { enabled: { receipts: true, daily: true }, monthlyLimitUsd: 10 });
-    assert.deepEqual(ok.json.enabled, { receipts: true, whatsapp: false, daily: true, watch: false, commands: false });
+    assert.deepEqual(ok.json.enabled, { receipts: true, whatsapp: false, daily: true, watch: false });
     assert.ok([401, 403].includes((await call("GET", "/api/admin/ai", undefined, custCk)).status), "un cliente no lo ve");
   });
 

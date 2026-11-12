@@ -33,7 +33,6 @@ import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
-import { createCommands } from "./commands.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
@@ -1523,7 +1522,7 @@ export function createApp(cfg: AppConfig): App {
     const real = agents.cfg();
     if (real.spentUsd >= real.monthlyLimitUsd) throw new HttpError(409, "AI_LIMIT", "Ya se llegó al tope de gasto de este mes");
     // Agentes de prueba: todos prendidos, tope propio de 2 dólares; lo gastado se suma al mes real.
-    let tcfg: AiCfg = { ...defaultAiCfg(agents.monthKey()), enabled: { receipts: true, whatsapp: true, daily: true, watch: true, commands: false }, model, monthlyLimitUsd: Math.min(2, real.monthlyLimitUsd - real.spentUsd) };
+    let tcfg: AiCfg = { ...defaultAiCfg(agents.monthKey()), enabled: { receipts: true, whatsapp: true, daily: true, watch: true }, model, monthlyLimitUsd: Math.min(2, real.monthlyLimitUsd - real.spentUsd) };
     const tester = new Agents({ apiKey: cfg.anthropicApiKey, fetchImpl: cfg.anthropicFetch, now, getCfg: () => tcfg, saveCfg: (x) => { tcfg = x; } });
     const st: SelfTest = { status: "running", model, startedAt: now() };
     db.setSecret("ai_selftest", JSON.stringify(st), now());
@@ -2385,9 +2384,6 @@ export function createApp(cfg: AppConfig): App {
     aiMonth: () => { const c = agents.cfg(); return { spentUsd: c.spentUsd, monthlyLimitUsd: c.monthlyLimitUsd, calls: c.calls, model: c.model, modelLabel: AI_MODELS[c.model]?.label ?? c.model }; },
     mailOn: () => Object.values(store.engine.s.mailboxes).some((b) => !!passOf(b.id)), expiryStats: () => expiry.stats(),
     forbidden: (msg) => { throw new HttpError(403, "FORBIDDEN", msg); } });
-  // 🗣️ "Decile qué hacer": Sofi, la secretaria (commands.ts). Claude solo entiende la orden; el núcleo la hace al confirmar.
-  createCommands({ route, store, agents, now, note: (t, tone) => office.note("commands", t, tone),
-    fail: (status, code, msg) => { throw new HttpError(status, code, msg); } });
   const laDay = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(t));
   /** Datos del día (los calcula el sistema; la IA solo los redacta). */
   function dailyFacts(): string {
