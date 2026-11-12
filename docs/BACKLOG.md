@@ -109,3 +109,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
 | M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |
+| M11 | Sofi: medir qué tan bien entiende con Claude real y textos dictados | P2 | ⏳ |
+| M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ⏳ |
+| M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ⏳ |
+| M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | P1 | 🧑 falta una captura del correo |

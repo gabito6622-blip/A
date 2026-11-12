@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## Tanda 12/11/2026 · Sofi, la secretaria (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` después de integrar | **463 → 476 / 476 ✅** (~29 s) |
+| Secretaria | `test/ordenes.test.mjs` (13), con Claude falso. Cubre: cada consulta con datos reales; lo enviado a Claude no lleva contraseña, código, correo completo ni costo; los planes no cambian nada hasta confirmar; usado, vencido o de otro → error; Cancelar; ambigüedad con botones; falta de forma de pago; permisos (atención 403, cliente no); apagada, sin clave o en el tope → mensaje claro; 429; navegador a 360 px | ✅ |
+| Revisión visual | 360 y 390 px, claro y oscuro: caja en Inicio, elegir cliente, plan con confirmación y Sofi en Mi oficina. 0 desbordes, 44 px, 12 px | ✅ |
+| No probado | Claude real con textos dictados de verdad; el micrófono del teclado; un celular físico | ⚠️ |
+
 ## Tanda 11/11/2026 · Mi oficina (publicado en #38)
 | Qué | Cómo | Resultado |
 |---|---|---|

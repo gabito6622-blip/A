@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Sofi, la secretaria: Claude entiende, el sistema hace
+- **Qué hace Claude:** solo clasifica la orden dentro de una lista cerrada. Antes de mandarle el texto se tapan correos y números largos. No ve contraseñas, códigos ni costos.
+- **Qué hace el sistema:** busca los datos reales y responde con plantillas propias. El texto libre que escriba Claude no se muestra nunca.
+- **Lo que cambia algo** pasa por un plan de un solo uso que vence a los 10 minutos. Se ejecuta con las mismas funciones del panel y los permisos de quien confirma, y se audita como `assistant.command`.
+- **Formas de pago:** QR y efectivo se anotan igual que en Vender. Fiado queda «Pendiente» en el Control. Los códigos siguen siendo solo del dueño.
+- **Los planes viven en memoria:** si el servidor se reinicia, se repite la orden.
+
 ## 2026-11-12 · WhatsApp por QR: solo el oficial («coexistencia»)
 - **Qué pidió el dueño:** un bot que se conecte por QR o por código.
 - **Qué no se hace:** los conectores no oficiales. La regla 7 de `CLAUDE.md` los prohíbe, y además WhatsApp puede bloquear el número.
