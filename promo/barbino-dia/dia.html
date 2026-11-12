@@ -124,7 +124,7 @@ const emo = (s) => s.replace(/(\p{Extended_Pictographic}️?)/gu, '<span class="
 const markHTML = (size) => `<div class="mark" style="width:${size}px;height:${size}px;border-radius:${size * .3}px"><i class="s1"></i><i class="s2"></i><b style="font-size:${size * .58}px;margin-top:${-size * .04}px">b</b></div>`;
 const titleHTML = (text) => { let on = false; return text.split(" ").map((w) => { const o = w.startsWith("*"), c = w.endsWith("*"); const em = on || o; on = (on || o) && !c; w = w.replace(/\*/g, ""); return `<span class="w"><span>${em ? `<em>${w}</em>` : w}</span></span>`; }).join(" "); };
 const mins = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
-const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`;
+const hhmm = (x) => { const m = Math.round(x); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 
 const scenes = $("#scenes");
 const registry = [];   // { start, end, el, halves, update(lt) }
