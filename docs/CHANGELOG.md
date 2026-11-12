@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-ficha`) · Ficha 360° del cliente (etapa 4)
+## 2026-11-12 · #41 Ficha 360° del cliente (etapa 4)
 - **Clientes:** al abrir un cliente aparece su ficha, con pestañas:
   - **Servicios:** cada uno con su vencimiento, el del proveedor, el precio y el estado de pago, y los botones «Renovar +1 período», «💵 Pagado» y «↔️ Reemplazar».
   - **Pedidos:** los últimos 8.
