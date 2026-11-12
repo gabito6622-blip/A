@@ -1193,3 +1193,7 @@ table.ctl tfoot td.ccli{z-index:3}
 .sec-actions .pbtn{min-height:44px}
 .sec-act{display:grid;gap:6px}
 .sec-more > summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}
+
+/* Aprobación: monto verificado de una recarga (etapa 1) */
+form[data-approve] .vamt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut,#5b6577);white-space:nowrap}
+form[data-approve] .vamt input{max-width:110px;min-height:44px}

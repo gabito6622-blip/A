@@ -14,7 +14,7 @@
 | Por la API: recarga con llave repetida = una; misma imagen → 409 `DUPLICATE_EVIDENCE`; `force` + motivo + `verifiedAmount` → 200 con el monto corregido | misma prueba | OK |
 | Nada se rompió: store, binance, usdt-manual, avisos-solos, server | `node --test` de esos archivos: 161/161 | OK |
 | Tanda completa | `npm test` | **496/496** en ~51 s |
-| Revisión visual del panel (formulario de aprobación, bandeja Binance) | pendiente de captura a 360 px con datos de ejemplo | pendiente |
+| Revisión visual del panel: Aprobación a 360 px con una recarga repetida (avisos «Comprobante repetido» y «Número de operación ya visto», campo «Llegaron Bs», casilla del dueño y motivo) | captura con datos de ejemplo (fuera del repo), medición: sin desborde, campos de 44 px, letra ≥ 12 px, sin errores de JS | OK (se agregó la etiqueta «Llegaron Bs» porque el campo solo no se entendía) |
 
 ## 12/11/2026 · Premium 2.0 · Etapa 0 «Base segura»
 | Qué | Cómo | Resultado |
