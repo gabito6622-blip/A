@@ -13,6 +13,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Bajas confirmadas por el dueño (12/11):** gabito6626+r19, netscz107+e26 y n2025gt+f3 (las 3 caídas de Aracely). Su cupo pasó a «dado de baja» (ya no figuran libres ni se pueden vender) y cada cuenta tiene la nota de cuándo se cayó y por cuál se reemplazó. No se borró nada: se puede volver atrás desde el panel.
 - **Todo pagado salvo las vencidas (orden del dueño, 12/11):** ama, splus, bron15, netscz108+2 (16/11), rd3, disla (21/11), dj10, 5 y dd10 (28/11) marcadas pagadas con su precio de siempre (65, 66 o 69). Con las 5 de diciembre, quedan 14 pagadas.
 - **jm2, mig y sp (vencieron 11/11):** «🔔 EN COBRO»; el dueño ya le avisó y cobró. Si no paga hoy, las corta esta noche. jm2 pasó de «pagado» (del mes pasado, sin registro de cobro) a «pendiente». Recordatorio de la secretaria hoy 19:30.
+- **Los 9 revendedores revisados quedan pagados (orden del dueño, 12/11):** se marcaron pagadas las que faltaban: gabito6626+mana de Daniel (19/11, Bs 69), netgb117+pg19 de Robin (15/11, Bs 70) y n2025nt+za de Raúl (15/11, Bs 65). Siguen sin pagar solo las de cobro: las 3 de rodbol que debe (Bs 198, vencen 04/12), sus 3 «EN COBRO» y las 3 «EN COBRO» de Aracely.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · oby
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
