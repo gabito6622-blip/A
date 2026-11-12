@@ -5,6 +5,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Revisión de cuentas libres (con OK del dueño)
 - **Dadas de baja por caídas:** gabito6626+dan y gabito6626+fue (figuraban libres). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
+- **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
 - **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
