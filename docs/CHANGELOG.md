@@ -7,7 +7,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
 - **5 cuentas por vencer marcadas pagadas** (nu1 13/11, c16 16/11, dis02 19/11, nu2 19/11, d2025j.g 20/11), a su precio de siempre. liz y pam ya estaban pagadas.
 - **gabito6626+d27:** renovó, pagó Bs 69, vence 06/12/2026.
-- **Vencida sin tocar:** netscz108+10m (19/10): falta que el dueño diga.
+- **netscz108+10m:** vencida el 19/10 y no cortada a tiempo; el dueño la cortó: alquiler de oby cerrado, cuenta LIBRE oficialmente, clave nueva (no se escribe acá). Nota: «antes de darla, DESENLAZARLA del correo de oby». (Se conservó la nota vieja del Excel, que se había reemplazado por error y se restauró enseguida.) Alquileres activos 81 → 80.
+- **Aviso diario (la «secretaria»)**: ahora también recuerda las cuentas a desenlazar y lista las libres confirmadas.
 - **oby · Ovidio Nina Huaycho** (nombre completo).
 - **opajg12+nee:** estaba en cuarentena (alquiler cerrado solo al vencer, sin anotar la renovación). Es de oby: sacada de cuarentena y cargada a él con «Cargar sus cuentas» (sin cobro como venta, sin avisos), desde 09/10, renovó 09/11, vence 09/12/2026, pagada a Bs 69 (precio de revendedor del panel; el dueño no dijo otro). Alquileres activos 80 → 81.
 - **oby paga Bs 69 por cada cuenta** (dicho por el dueño): c16, nu2 y d2025j.g pasaron a Bs 69 (cobro reanotado con ese monto). Nota en su ficha: «avisarle 1 a 2 días antes».
