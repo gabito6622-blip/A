@@ -1150,3 +1150,10 @@ table.ctl tfoot td.ccli{z-index:3}
 .caidas-list{display:grid;gap:6px;max-height:340px;overflow:auto;padding:2px}
 .caida-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px}
 .caida-row span{min-width:0;overflow-wrap:anywhere}
+
+/* ===== 💳 Próximos cobros de la tarjeta (Finanzas) ===== */
+.tj-list{display:grid;gap:6px}
+.tj-day{border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.tj-day summary{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;min-height:44px;padding:6px 12px;cursor:pointer;list-style:none}
+.tj-day summary::-webkit-details-marker{display:none}
+.tj-day ul{margin:0;padding:4px 14px 10px 28px;display:grid;gap:4px;font-size:13px;overflow-wrap:anywhere}

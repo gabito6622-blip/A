@@ -119,10 +119,16 @@ function addMonths(t: number, months: number): number {
  * "Pagué la renovación": anota el pago de una cuenta como gasto (para que Finanzas muestre la
  * ganancia real) y corre su vencimiento con el proveedor los meses pagados, manteniendo el día de cobro.
  */
-export function payAccountRenewal(e: Engine, actor: Actor, accountId: Id, input: { amount?: unknown; months?: unknown } = {}) {
+export function payAccountRenewal(e: Engine, actor: Actor, accountId: Id, input: { amount?: unknown; months?: unknown; usd?: unknown; rate?: unknown } = {}) {
   authorize(actor, "inventory.manage");
   const months = input.months === undefined ? 1 : Number(input.months);
   if (!Number.isInteger(months) || months < 1 || months > 12) throw new DomainError("VALIDATION", "Meses pagados: de 1 a 12");
+  // Pago con tarjeta en dólares (opcional): cuántos US$ cobraron y a qué tasa se pasó a bolivianos.
+  const usd = input.usd === undefined || input.usd === null || input.usd === "" ? undefined : Number(input.usd);
+  const rate = input.rate === undefined || input.rate === null || input.rate === "" ? undefined : Number(input.rate);
+  if (usd !== undefined && !(Number.isInteger(usd) && usd > 0 && usd <= 1_200_000)) throw new DomainError("VALIDATION", "Dólares inválidos");
+  if (rate !== undefined && !(Number.isFinite(rate) && rate >= 1 && rate <= 100)) throw new DomainError("VALIDATION", "Tasa inválida (Bs por dólar)");
+  if ((usd === undefined) !== (rate === undefined)) throw new DomainError("VALIDATION", "Poné los dólares y la tasa, o ninguno de los dos");
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
     if (acc.status === "retired") throw new DomainError("INVALID_STATE", "La cuenta está retirada");
@@ -135,10 +141,12 @@ export function payAccountRenewal(e: Engine, actor: Actor, accountId: Id, input:
     const before = acc.supplierExpiresAt;
     acc.supplierExpiresAt = next;
     acc.cost = Math.round(amount / months);
+    if (usd !== undefined) acc.costUsd = Math.round(usd / months);
     delete acc.supplierAlertSentFor;
-    const exp: Expense = { id: e.id("exp"), amount, note: `Renovación ${prod} · ${acc.email}`.slice(0, 120), at: e.now(), accountId: acc.id };
+    const usdTxt = usd !== undefined ? ` · US$ ${(usd / 100).toFixed(2)} × ${rate}` : "";
+    const exp: Expense = { id: e.id("exp"), amount, note: `Renovación ${prod} · ${acc.email}${usdTxt}`.slice(0, 120), at: e.now(), accountId: acc.id, ...(usd !== undefined ? { usd, rate: Math.round(rate! * 10_000) / 10_000 } : {}) };
     (e.s.expenses ??= []).push(exp);
-    e.audit(actor, "account.renew_paid", "account", acc.id, { amount, months, from: before, to: next });
+    e.audit(actor, "account.renew_paid", "account", acc.id, { amount, months, from: before, to: next, ...(usd !== undefined ? { usd, rate } : {}) });
     return { expense: structuredClone(exp), supplierExpiresAt: next, cost: acc.cost };
   });
 }

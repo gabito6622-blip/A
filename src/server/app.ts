@@ -759,13 +759,13 @@ export function createApp(cfg: AppConfig): App {
     if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
     return r;
   });
-  route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months }));
+  route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/accounts/:id", "staff", (c) => {
     const b = c.body ?? {};
     return store.inventory.updateAccount(A(c), c.params.id, {
-      email: b.email, password: b.password, supplierId: b.supplierId, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, notes: b.notes,
+      email: b.email, password: b.password, supplierId: b.supplierId, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, notes: b.notes,
     });
   });
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));

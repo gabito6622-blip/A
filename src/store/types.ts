@@ -237,6 +237,8 @@ export interface Account {
   /** Vence con el proveedor. Las renovaciones del cliente NUNCA lo modifican. */
   supplierExpiresAt: number;
   cost: Cents;
+  /** Si la cuenta se paga en dólares (tarjeta de crédito): cuánto cobran por mes, en centavos de US$. */
+  costUsd?: number;
   status: "active" | "retired";
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
@@ -730,6 +732,9 @@ export interface Expense {
   at: number;
   /** Si es el pago de una cuenta (renovación con el proveedor o la tarjeta): cuál. */
   accountId?: Id;
+  /** Si se pagó en dólares: cuánto (centavos de US$) y a qué tasa (Bs por US$) se pasó a bolivianos. */
+  usd?: number;
+  rate?: number;
 }
 
 /** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */

@@ -287,7 +287,20 @@ const V = {
       <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/hub" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
-    const [d, mg] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null)]);
+    const [d, mg, accsT, usdtT] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null)]);
+    // 💳 Próximos cobros de la tarjeta: cuentas que se pagan en dólares y se cobran en los próximos 30 días.
+    const rateT = Number(usdtT?.rate) || 0, nowT = Date.now();
+    const tj = accsT.filter((x) => x.status === "active" && x.costUsd > 0 && x.supplierExpiresAt >= nowT - 86400000 && x.supplierExpiresAt <= nowT + 30 * 86400000).sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt);
+    const usdF = (c) => `US$ ${(c / 100).toFixed(2).replace(".", ",")}`;
+    const dayK = (t) => new Date(t).toLocaleDateString("es-BO", { weekday: "short", day: "2-digit", month: "2-digit" });
+    const byDay = []; for (const x of tj) { const k = dayK(x.supplierExpiresAt); const g = byDay.find((y) => y.k === k) ?? (byDay.push({ k, l: [] }), byDay.at(-1)); g.l.push(x); }
+    const tjTot = tj.reduce((n, x) => n + x.costUsd, 0);
+    const tarjeta = `<section class="card tjcard"><h2>💳 Próximos cobros de tu tarjeta <small>· 30 días${rateT ? ` · tasa Bs ${String(rateT).replace(".", ",")}` : ""}</small></h2>
+      ${!accsT.some((x) => x.costUsd > 0) ? `<p class="muted" style="margin:0">Todavía no marcaste qué cuentas se cobran en dólares. En <b>Cuentas → Editar</b>, poné «Se cobra en dólares» (US$ por mes).</p>`
+        : !tj.length ? `<p class="muted" style="margin:0">Ninguna cuenta en dólares se cobra en los próximos 30 días.</p>`
+        : `<div class="tj-list">${byDay.map((g) => { const u = g.l.reduce((n, x) => n + x.costUsd, 0); return `<details class="tj-day"><summary><b>${esc(g.k)}</b><span>${g.l.length} cuenta${g.l.length === 1 ? "" : "s"}</span><span class="num">${usdF(u)}</span>${rateT ? `<span class="num">≈ ${bs(Math.round(u * rateT))}</span>` : ""}</summary>
+            <ul>${g.l.map((x) => `<li><span class="mono">${esc(x.email)}</span> · ${usdF(x.costUsd)}</li>`).join("")}</ul></details>`; }).join("")}</div>
+          <p style="margin:0"><b>Total 30 días: ${usdF(tjTot)}${rateT ? ` ≈ ${bs(Math.round(tjTot * rateT))}` : ""}</b> <small class="muted">· cuando pagues, anotalo con «💳 Pagué la renovación» en la cuenta (te calcula los Bs)</small></p>`}</section>`;
     const c = d.current;
     const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos)));
     const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
@@ -298,7 +311,7 @@ const V = {
         <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
-    return `<div class="fin">
+    return `${tarjeta}<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
@@ -838,12 +851,15 @@ const V = {
       }
     }
     const a = accs.find((x) => x.id === P.tab.editAcc);
+    // Tasa del día (Banco Central, la misma que usa la tienda para el USDT) para pasar a Bs lo que cobró la tarjeta.
+    const dayRate = a?.costUsd ? Number((await api("GET", "/api/admin/usdt").catch(() => null))?.rate) || 0 : 0;
     const editCard = a && canReview() ? `<section class="card"><h2>Editar cuenta ${esc(a.email)} <small>· ${esc(pname(a.productId))}</small></h2><form class="form" data-editacc="${esc(a.id)}">
             <label>Email<input name="email" type="email" value="${esc(a.email)}"></label>
             <label>Contraseña nueva<input name="password" placeholder="Vacío = no cambia" autocomplete="off"></label>
             <label>Proveedor<select name="supplierId">${opt("propias", "Propias (tuyas, sin proveedor)", a.supplierId === "propias")}${suppliers.filter((s) => s.id !== "propias" && (s.active || s.id === a.supplierId)).map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
             <label>Vence con el proveedor<input name="exp" type="date" value="${dateInput(a.supplierExpiresAt)}"></label>
             <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${a.cost / 100}"></label>
+            <label>Se cobra en dólares <small class="muted">(US$ por mes, opcional: tarjeta de crédito)</small><input name="costUsd" inputmode="decimal" value="${a.costUsd ? a.costUsd / 100 : ""}" placeholder="Ej.: 15,49"></label>
             <label style="grid-column:1/-1">Notas internas<input name="notes" maxlength="500" value="${esc(a.notes ?? "")}" placeholder="Ej.: el proveedor cambió la clave el sábado"></label>
             <div style="grid-column:1/-1;display:grid;gap:6px;max-width:560px"><div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px" class="muted"><small>Perfil</small><small>PIN</small><small>Estado</small></div>
             ${a.slots.filter((s) => s.status !== "retired").map((s) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:center"><input name="label-${esc(s.id)}" value="${esc(s.label)}" aria-label="Nombre del perfil"><input name="pin-${esc(s.id)}" value="${esc(s.pin ?? "")}" placeholder="Sin PIN" inputmode="numeric" maxlength="8" aria-label="PIN de ${esc(s.label)}"><small class="muted">${{ available: "libre", reserved: "reservado", assigned: "vendido", quarantined: "cuarentena" }[s.status] ?? s.status}</small></div>`).join("")}</div>
@@ -851,8 +867,10 @@ const V = {
       <section class="card ok-card"><h2>💳 Pagué la renovación <small>· ${esc(a.email)}</small></h2>
         <p class="muted" style="margin:0">Anota el pago como gasto (para tu ganancia real) y corre el vencimiento con el proveedor, manteniendo el día de cobro. Hoy vence el <b>${fdate(a.supplierExpiresAt)}</b>.</p>
         <form class="form" data-renewpaid="${esc(a.id)}">
-          <label>¿Cuánto pagaste? (${currencySym()})<input name="amount" inputmode="decimal" required value="${a.cost ? a.cost / 100 : ""}" placeholder="Ej.: 66"></label>
-          <label>¿Cuántos meses?<select name="months">${[1, 2, 3, 6, 12].map((m) => opt(m, m === 1 ? "1 mes" : `${m} meses`, m === 1)).join("")}</select></label>
+          ${a.costUsd ? `<label>¿Cuántos dólares te cobró la tarjeta? (US$)<input name="usd" inputmode="decimal" required data-usdcalc="1" data-usdper="${a.costUsd}" value="${(a.costUsd / 100).toFixed(2)}"></label>
+          <label>Tasa (Bs por US$) <small class="muted">${dayRate ? "la del Banco Central de hoy; cambiala si tu banco cobró otra" : "poné la que cobró tu banco"}</small><input name="rate" inputmode="decimal" required data-usdcalc="1" value="${dayRate || ""}" placeholder="Ej.: 11,71"></label>` : ""}
+          <label>¿Cuánto pagaste? (${currencySym()})${a.costUsd ? ` <small class="muted">= dólares × tasa</small>` : ""}<input name="amount" inputmode="decimal" required value="${a.costUsd && dayRate ? (Math.round(a.costUsd * dayRate) / 100).toFixed(2) : a.cost ? a.cost / 100 : ""}" placeholder="Ej.: 66"></label>
+          <label>¿Cuántos meses?<select name="months"${a.costUsd ? ` data-usdcalc="1"` : ""}>${[1, 2, 3, 6, 12].map((m) => opt(m, m === 1 ? "1 mes" : `${m} meses`, m === 1)).join("")}</select></label>
           <button class="pbtn dark" type="submit" style="grid-column:1/-1">💳 Registrar pago y renovar</button></form></section>` : "";
     const estadoTxt = { available: "Libre", reserved: "Reservado", assigned: "Vendido", quarantined: "Cuarentena", retired: "Retirado" };
     const estadoK = { available: "ok", assigned: "warn", reserved: "mute", quarantined: "bad", retired: "mute" };
@@ -3136,12 +3154,15 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.dataset.renewpaid) {
       const amount = toCents(f.amount.value);
       if (!amount || amount <= 0) return toast("Poné cuánto pagaste");
-      await act(() => api("POST", `/api/admin/accounts/${f.dataset.renewpaid}/renew-paid`, { amount, months: +f.months.value }),
+      const num = (v) => parseFloat(String(v ?? "").replace(",", "."));
+      const usdPay = f.usd ? { usd: Math.round(num(f.usd.value) * 100), rate: num(f.rate.value) } : {};
+      if (f.usd && !(usdPay.usd > 0 && usdPay.rate > 0)) return toast("Poné los dólares y la tasa");
+      await act(() => api("POST", `/api/admin/accounts/${f.dataset.renewpaid}/renew-paid`, { amount, months: +f.months.value, ...usdPay }),
         (r) => `✅ Pago anotado (${bs(r.expense.amount)}). Ahora vence el ${fdate(r.supplierExpiresAt)}`);
     } else if (f.id === "minMarginForm") {
       await act(() => api("POST", "/api/admin/finance/min-margin", { pct: Math.round(+f.pct.value || 0) }), "Margen mínimo guardado");
     } else if (f.dataset.editacc) {
-      const body = { email: f.email.value.trim(), supplierId: f.supplierId.value, supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), notes: f.notes.value };
+      const body = { email: f.email.value.trim(), supplierId: f.supplierId.value, supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), costUsd: f.costUsd?.value.trim() ? Math.round(parseFloat(f.costUsd.value.replace(",", ".")) * 100) || 0 : 0, notes: f.notes.value };
       if (f.password.value) body.password = f.password.value;
       const r = await api("POST", `/api/admin/accounts/${f.dataset.editacc}`, body);
       let pins = 0;
@@ -3358,6 +3379,16 @@ document.addEventListener("submit", async (ev) => {
 });
 
 $("#burger").onclick = () => $("#app").classList.add("open");
+// 💳 "Pagué la renovación" en dólares: Bs = dólares × tasa, mientras escribís (siempre editable).
+document.addEventListener("input", (ev) => {
+  const t = ev.target; if (!t?.dataset?.usdcalc) return;
+  const f = t.closest("form[data-renewpaid]"); if (!f || !f.usd) return;
+  const num = (v) => parseFloat(String(v ?? "").replace(",", "."));
+  if (t.name === "months" && f.usd.dataset.usdper) f.usd.value = ((+f.usd.dataset.usdper * +f.months.value) / 100).toFixed(2);
+  const bsv = num(f.usd.value) * num(f.rate.value);
+  if (bsv > 0) f.amount.value = (Math.round(bsv * 100) / 100).toFixed(2);
+});
+document.addEventListener("change", (ev) => { if (ev.target?.name === "months" && ev.target.dataset.usdcalc) ev.target.dispatchEvent(new Event("input", { bubbles: true })); });
 // 👤 Ficha 360° (ficha.js): al abrir un cliente se cargan sus servicios, pedidos y fallas con sus acciones.
 function fichaOpen(d) {
   loadFicha(d.querySelector("[data-fxslot]"), { id: d.dataset.cid, name: d.dataset.name, phone: d.dataset.phone, canReview: canReview() });
