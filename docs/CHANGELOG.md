@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Datos de la tienda real (con OK del dueño) · EXTRANJERO
+- **EXTRANJERO** (+507 6554 3461, lista en US$): nota «Paga US$ 3 por cuenta Disney+ (sin ESPN)».
+- **n2025gt+nm, gabiti6615+nova y netgb10+nov:** pagó US$ 9 el 04/11 por las 3. Vencían el 02/11; ahora vencen el 03/12 (1 día de regalo), pagadas a US$ 3 c/u (antes US$ 3,50 de su lista). En nov se quitó la vieja marca «Excel: CORTAR» porque renovó.
+
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · piza
 - **piza** (+591 67327507): tuvo 5 cuentas Disney (9dp pasó a rodbol y netscz108+2 a Aracely hoy).
 - **gabito6619+kd3:** vencida desde el 27/10; el dueño la cortó con clave nueva (no se escribe acá). Liberada con nota «LIBRE oficialmente … DESENLAZAR del correo de piza» (la secretaria diaria lo recuerda).
