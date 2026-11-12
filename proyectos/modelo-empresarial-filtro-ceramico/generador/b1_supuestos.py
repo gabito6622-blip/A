@@ -9,10 +9,10 @@ class RowMap(dict):
 ROW = RowMap()
 
 def build_supuestos(B):
-    ws = B.sheet('Supuestos', 'PANEL DE SUPUESTOS Y REGISTRO DE HIPÓTESIS',
+    ws = B.sheet('Supuestos', 'SUPUESTOS',
                  'Todas las celdas azules con fondo amarillo son editables. Cada supuesto indica su tipo, fuente y cómo validarlo.', tab='FFC000')
-    widths(ws, {'A': 60, 'B': 14, 'C': 16, 'D': 20, 'E': 62, 'F': 46})
-    hdrs = ['Supuesto', 'Valor', 'Unidad', 'Tipo de dato', 'Fuente / justificación', 'Cómo validarlo']
+    widths(ws, {'A': 50, 'B': 14, 'C': 20, 'D': 48})
+    hdrs = ['Detalle', 'Valor', 'Unidad', 'Fuente']
     for j, h in enumerate(hdrs):
         put(ws, f'{L(1+j)}5', h, 'hdr')
     S = []
@@ -110,25 +110,22 @@ def build_supuestos(B):
     p('DIAS_PROCESO', 'Días de proceso (secado + cocción + pruebas)', 12, 'días', EST, 'Secado de 7-10 días + cocción + prueba de caudal.', 'Lote piloto', FMT_INT)
     p('DIAS_INV_PT', 'Días de inventario de producto terminado', 20, 'días', SUP, 'Coherente con SS_PT.', '—', FMT_INT)
 
+    from humano import SUP, SEC
     r = 6
     for item in S:
         if item[0] == '#':
-            put(ws, f'A{r}', item[1], 'sec')
-            for j in range(2, 7): ws[f'{L(j)}{r}'].fill = FILL_SEC
+            put(ws, f'A{r}', SEC.get(item[1], item[1]), 'sec')
+            for j in range(2, 5): ws[f'{L(j)}{r}'].fill = FILL_SEC
             r += 1; continue
         nm, d, v, u, t, fu, va, fmt = item
-        put(ws, f'A{r}', d, 'label', wrap=True, border=True)
         if nm == 'TIPO_CAMBIO':
-            put(ws, f'B{r}', '=$B$3', 'calc', fmt)
-            ROW['SUP.' + nm] = r; r += 1
-            put(ws, f'C{r-1}', u, 'label', border=True); put(ws, f'D{r-1}', t, 'label', border=True)
-            put(ws, f'E{r-1}', fu, 'label', wrap=True, border=True); put(ws, f'F{r-1}', va, 'label', wrap=True, border=True)
             continue
+        d, fu = SUP.get(nm, (d, fu))
+        u = u.replace('kits', 'filtros').replace('kit', 'filtro')
+        put(ws, f'A{r}', d, 'label', border=True)
         put(ws, f'B{r}', v, 'input', fmt)
         put(ws, f'C{r}', u, 'label', border=True)
-        put(ws, f'D{r}', t, 'label', border=True)
-        put(ws, f'E{r}', fu, 'label', wrap=True, border=True)
-        put(ws, f'F{r}', va, 'label', wrap=True, border=True)
+        put(ws, f'D{r}', fu, 'label', border=True)
         B.name(nm, 'Supuestos', f'B{r}')
         ROW['SUP.' + nm] = r
         r += 1
@@ -139,25 +136,22 @@ def build_supuestos(B):
     dv2 = DataValidation(type='whole', operator='between', formula1='1', formula2='2', showErrorMessage=True)
     ws.add_data_validation(dv2); dv2.add(f"B{ROW['SUP.METODO_VR']}")
     r += 1
-    for nm, d, f, fm in [('PART_INICIAL', 'Participación inicial del escenario activo', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', FMT_PCT),
-                         ('NOMBRE_ESCENARIO', 'Escenario activo', '=CHOOSE(ESCENARIO,"Pesimista","Base","Optimista")', None),
-                         ('SUMA_EST', 'Control: la estacionalidad debe sumar 100%', '=EST_T1+EST_T2+EST_T3+EST_T4', FMT_PCT),
-                         ('TASA_CARGAS', 'Cargas patronales y provisiones sobre el sueldo', '=TASA_CNS+TASA_RIESGO+TASA_SOLIDARIO+TASA_PROVIVIENDA+TASA_AGUINALDO+TASA_INDEMNIZACION', FMT_PCT2)]:
+    for nm, d, f, fm in [('PART_INICIAL', 'Participación del escenario', '=CHOOSE(ESCENARIO,PART_PES,PART_BASE,PART_OPT)', FMT_PCT),
+                         ('NOMBRE_ESCENARIO', 'Escenario', '=CHOOSE(ESCENARIO,"Pesimista","Esperado","Optimista")', None),
+                         ('SUMA_EST', 'Total ventas por trimestre', '=EST_T1+EST_T2+EST_T3+EST_T4', FMT_PCT),
+                         ('TASA_CARGAS', 'Aportes y provisiones sobre el sueldo', '=TASA_CNS+TASA_RIESGO+TASA_SOLIDARIO+TASA_PROVIVIENDA+TASA_AGUINALDO+TASA_INDEMNIZACION', FMT_PCT2)]:
         put(ws, f'A{r}', d, 'label', bold=True, border=True); put(ws, f'B{r}', f, 'calc', fm)
         B.name(nm, 'Supuestos', f'B{r}'); r += 1
     from openpyxl.styles import Font as _F, PatternFill as _P, Border as _B, Side as _S, Alignment as _A
-    thick = _S(style='thick', color='C00000')
-    ws['A3'] = 'TIPO DE CAMBIO (Bs por 1 $us)  >>  escribí el número nuevo en la celda amarilla'
-    ws['A3'].font = _F(name=FONT, size=14, bold=True, color='C00000'); ws['A3'].alignment = _A(vertical='center', wrap_text=True)
+    thin = _S(style='thin', color='000000')
+    ws['A3'] = 'TIPO DE CAMBIO (Bs por $us)'
+    ws['A3'].font = _F(name=FONT, size=12, bold=True); ws['A3'].alignment = _A(vertical='center')
     c = ws['B3']; c.value = 12.06; c.number_format = '0.00'
-    c.font = _F(name=FONT, size=20, bold=True, color='0000FF'); c.fill = _P('solid', fgColor='FFFF00')
-    c.border = _B(left=thick, right=thick, top=thick, bottom=thick); c.alignment = _A(horizontal='center', vertical='center')
-    ws['C3'] = 'Todo el libro se recalcula solo: máquinas, sueldos, precio, estados en $us, VAN y TIR.'
-    ws['C3'].font = _F(name=FONT, size=11, italic=True); ws['C3'].alignment = _A(vertical='center', wrap_text=True)
-    ws.merge_cells('C3:E3'); ws.row_dimensions[3].height = 42
-    dvt = DataValidation(type='decimal', operator='between', formula1='1', formula2='100', showErrorMessage=True, showInputMessage=True,
-                         promptTitle='Tipo de cambio', prompt='Escribí cuántos Bs vale 1 dólar (por ejemplo 12). Todo el libro se actualiza.',
-                         errorTitle='Tipo de cambio', error='Escribí un número entre 1 y 100 (por ejemplo 12,06).')
+    c.font = _F(name=FONT, size=14, bold=True, color='0000FF'); c.fill = _P('solid', fgColor='FFFF00')
+    c.border = _B(left=thin, right=thin, top=thin, bottom=thin); c.alignment = _A(horizontal='center', vertical='center')
+    ws.row_dimensions[3].height = 24
+    dvt = DataValidation(type='decimal', operator='between', formula1='1', formula2='100', showErrorMessage=True,
+                         errorTitle='Tipo de cambio', error='Debe ser un número entre 1 y 100')
     ws.add_data_validation(dvt); dvt.add('B3')
     B.name('TIPO_CAMBIO', 'Supuestos', 'B3')
     ws.freeze_panes = 'B6'

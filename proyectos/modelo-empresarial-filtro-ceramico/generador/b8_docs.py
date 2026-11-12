@@ -410,16 +410,16 @@ def build_portada(B, order):
 
 def build_indice(B, entries):
     ws = B.sheet('Índice', 'ÍNDICE DE HOJAS', 'Haga clic en el nombre para ir a la hoja.', tab='1F4E5F')
-    widths(ws, {'A': 6, 'B': 30, 'C': 22, 'D': 90})
-    for j, h in enumerate(['N°', 'Hoja', 'Bloque', 'Contenido']): put(ws, f'{L(1+j)}5', h, 'hdr')
+    widths(ws, {'A': 6, 'B': 30, 'C': 70})
+    for j, h in enumerate(['N°', 'Hoja', 'Contenido']): put(ws, f'{L(1+j)}5', h, 'hdr')
     c = put(ws, 'B3', 'Cambiar el tipo de cambio (clic acá)', 'label'); c.hyperlink = "#'Supuestos'!B3"
     c.font = Font(name=FONT, size=12, bold=True, color='0563C1', underline='single')
-    put(ws, 'C3', '=TIPO_CAMBIO', 'calc', '0.00'); put(ws, 'D3', 'Bs por 1 $us', 'label')
+    put(ws, 'C3', '=TIPO_CAMBIO', 'calc', '0.00')
     for i, (nm, blk, desc) in enumerate(entries):
         r = 6 + i
         put(ws, f'A{r}', i+1, 'label', FMT_INT)
         c = put(ws, f'B{r}', nm, 'label'); c.hyperlink = f"#'{nm}'!A1"; c.font = Font(name=FONT, size=10, color='0563C1', underline='single')
-        put(ws, f'C{r}', blk, 'label'); put(ws, f'D{r}', desc, 'label', wrap=True)
+        put(ws, f'C{r}', desc, 'label')
     return ws
 
 def build_leyenda(B):

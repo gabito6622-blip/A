@@ -6,7 +6,7 @@ Proyecto académico (Ingeniería Comercial / Juego de Negocios). Fusiona la meto
 
 | Archivo | Contenido |
 |---|---|
-| `MODELO_EMPRESARIAL_MAESTRO.xlsx` | Libro de 41 hojas. Las 20 primeras son un clon de Ñapefit: mismos nombres, orden, filas, columnas y colores, con los estados financieros en $us. Después vienen las hojas nuevas |
+| `MODELO_EMPRESARIAL_MAESTRO.xlsx` | Libro de 39 hojas. Las 20 primeras son un clon de Ñapefit: mismos nombres, orden, filas, columnas y colores, con los estados financieros en $us. Después vienen las hojas nuevas |
 | `AUDITORIA_COMPARATIVA.md` | Qué tenía cada original, errores corregidos, qué se conservó y qué no |
 | `INFORME_DE_VIABILIDAD.md` | Producto, mercado, inversión, costos, rentabilidad, riesgos y recomendaciones |
 | `GUIA_PARA_DEFENSA.md` | Explicación de cada hoja, método e indicador, con preguntas probables |
@@ -14,4 +14,4 @@ Proyecto académico (Ingeniería Comercial / Juego de Negocios). Fusiona la meto
 | `INFORME_DE_PRUEBAS.md` | Pruebas realizadas, resultados y limitaciones |
 | `generador/` | Scripts que construyen y prueban el Excel |
 
-Para usar el Excel, mirá las hojas `Índice` y `Leyenda` (al final). Las celdas azules con fondo amarillo son las únicas que se editan.
+El Excel abre en la hoja `Supuestos`. Las celdas azules con fondo amarillo son las que se pueden cambiar; la hoja `Índice` (al final) lleva a cada hoja.

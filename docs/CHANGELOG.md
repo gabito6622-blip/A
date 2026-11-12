@@ -4,7 +4,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-12 · Sin publicar · Proyecto académico: Filtro 2.0 (no toca la tienda)
-- **Tipo de cambio fácil de cambiar:** el Excel abre en Supuestos con un recuadro amarillo (celda B3); se escribe el número nuevo y todo se recalcula. Enlaces directos desde el Índice y el Tablero.
+- **Tipo de cambio fácil de cambiar:** el Excel abre en Supuestos con la celda amarilla del tipo de cambio (B3); se escribe el número nuevo y todo se recalcula.
+- **Excel más humano:** títulos cortos, sin instrucciones dentro de las celdas ni nombres internos; Supuestos con 4 columnas (detalle, valor, unidad, fuente). Se quitaron las hojas Leyenda y Matriz comparativa (su contenido está en la guía y en la auditoría).
 - **Clon fiel de Ñapefit en $us:** cada tabla de las 20 hojas está en las mismas filas, columnas y colores que en Ñapefit (9 de cada 10 títulos en la misma celda), y los estados financieros pasan a dólares como en Ñapefit. Resultados iguales a la versión en Bs (VAN $us 27.310 = Bs 329.361).
 - **Excel con el formato de Ñapefit:** mismas 20 hojas, nombres y estilo; hojas nuevas al final.
 - **Filtro 2.0:** capa de carbón de cáscara de castaña, indicador de cambio, QR del lote y avisos de cambio, con sus costos; precio Bs 420.

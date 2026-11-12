@@ -1,12 +1,12 @@
 # Informe de pruebas
 
-Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 hojas y 7.436 fórmulas (menos que las 9.468 de la versión anterior porque las tablas de Ñapefit son más compactas). Las 20 primeras son un clon de Ñapefit con los estados financieros en $us.
+Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 39 hojas y 7.435 fórmulas (menos que las 9.468 de la versión anterior porque las tablas de Ñapefit son más compactas). Las 20 primeras son un clon de Ñapefit con los estados financieros en $us.
 
 ## Resultado
 
 | Prueba | Resultado |
 |---|---|
-| Recalcular todo el libro con LibreOffice | **0 errores** en 7.436 fórmulas |
+| Recalcular todo el libro con LibreOffice | **0 errores** en 7.435 fórmulas |
 | Controles internos (hoja Controles) | **19 de 19 en OK** |
 | Mismo resultado que la versión anterior en Bs | VAN $us 27.310,17 × 12,06 = **Bs 329.360,68**, igual al centavo |
 | Verificación independiente en Python (recalcula cifras desde los supuestos, sin leer las fórmulas) | **16 de 16 coinciden** |
@@ -17,6 +17,8 @@ Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 
 | Pruebas de la tienda (`npm test`, regla del repositorio) | 463 de 463 (12/11/2026, 28 s). No se tocó su código |
 
 ## 1. Qué cambió en esta versión y cómo se verificó
+
+0. **Más humano (última pasada):** títulos cortos, sin instrucciones dentro de las celdas ni nombres internos; Supuestos con 4 columnas; se quitaron las hojas Leyenda y Matriz comparativa (la matriz pasó como anexo a `AUDITORIA_COMPARATIVA.md`). Solo cambiaron textos: los resultados son los mismos (VAN $us 27.310,17; 19 de 19 controles; 16 de 16 en la verificación aparte).
 
 1. **Clon de Ñapefit:** cada tabla de las 20 hojas está en las mismas filas y columnas que en Ñapefit, con los mismos títulos y colores. Por ejemplo:
    - Rentabilidad: flujo en la fila 5, valor residual en las filas 8 a 17, flujo neto en la 24, índices en B32, PRI en B41 y punto de equilibrio en B63;

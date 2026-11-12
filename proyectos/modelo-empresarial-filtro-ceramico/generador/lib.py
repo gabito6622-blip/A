@@ -27,7 +27,7 @@ BORDER = Border(top=THIN, bottom=THIN, left=THIN, right=THIN)
 WRAP = Alignment(wrap_text=True, vertical='top')
 CENTER = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-KEEP_NOTES = {'Sensibilidad', 'DECISIONES Y ESCENARIOS', 'Muestra y encuesta', 'SIMULADOR EMPRESARIAL', 'Competencia'}
+KEEP_NOTES = set()
 FMT_BS = '#,##0;(#,##0);"-"'
 FMT_BS2 = '#,##0.00;(#,##0.00);"-"'
 FMT_U = '#,##0;(#,##0);"-"'

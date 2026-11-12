@@ -5,7 +5,7 @@ Archivos auditados (entregados por el usuario):
 - **Ñapefit**: `OFICIAL OFICIAL Ñ APEFIT- INVERSIONES 3.xlsx` — 20 hojas, 2.939 fórmulas, 2 vínculos a archivos externos.
 - **Hypotolab**: `Plan financiero HIPOTAB.xlsx` — 19 hojas, 3.112 fórmulas, sin vínculos externos.
 
-Método: se leyeron todas las celdas de ambos libros dos veces (fórmulas y valores guardados), se reconstruyó la cadena de dependencias entre hojas y se revisó cada fórmula principal. La matriz completa (39 filas, una por hoja original) está dentro del Excel, en la hoja `Matriz comparativa`.
+Método: se leyeron todas las celdas de ambos libros dos veces (fórmulas y valores guardados), se reconstruyó la cadena de dependencias entre hojas y se revisó cada fórmula principal. La matriz completa (39 filas, una por hoja original) está al final de este documento.
 
 ## 1. Qué tenía cada archivo
 
@@ -109,7 +109,7 @@ Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y
 
 ## 5. Elementos nuevos
 
-`Balance general` (cuadra en los 21 cierres), `Financiamiento` (préstamo, sistema francés), `Muestra y encuesta` (tamaño de muestra, cuestionario y tabulación que reemplaza sola el supuesto de aceptación cuando hay datos), `Competencia`, `Estrategia comercial`, `Proceso productivo`, `Selección de producto`, `Ratios`, `Sensibilidad`, `SIMULADOR EMPRESARIAL`, `DECISIONES Y ESCENARIOS`, `CONTROL DE PERIODOS`, `Dashboard`, `Controles`, `Fuentes`, `Índice`, `Índice`, `Leyenda`, `Calendario`. Flujo del inversionista, B/C, PRI descontado, WACC de referencia.
+`Balance general` (cuadra en los 21 cierres), `Financiamiento` (préstamo, sistema francés), `Muestra y encuesta` (tamaño de muestra, cuestionario y tabulación que reemplaza sola el supuesto de aceptación cuando hay datos), `Competencia`, `Estrategia comercial`, `Proceso productivo`, `Selección de producto`, `Ratios`, `Sensibilidad`, `SIMULADOR EMPRESARIAL`, `DECISIONES Y ESCENARIOS`, `CONTROL DE PERIODOS`, `Dashboard`, `Controles`, `Fuentes`, `Índice`, `Calendario`. Flujo del inversionista, B/C, PRI descontado, WACC de referencia.
 
 ## 6. Lo que no se reprodujo y por qué
 
@@ -120,3 +120,49 @@ Donde los dos archivos hacían lo mismo, se dejó **una sola implementación** y
 | Vínculos a "Plan financiero HIPOTAB.xlsx" y "REPELTEX T.xlsx" | Eran errores (dependencia de archivos ajenos). |
 | Fórmulas matriciales sueltas (`Rentabilidad!C45`, `Pronóstico!C10`) | Se reemplazaron por fórmulas normales equivalentes. |
 | Encuestas y cotizaciones | No existían en los originales y no se inventaron: hay plantilla y supuestos marcados para validar. |
+
+## Anexo: matriz hoja por hoja
+
+Una fila por hoja original. Montos en la moneda del original (USD a 6,96).
+
+| Hoja original | Archivo | Objetivo | Fórmulas principales | Errores encontrados | Mejora aplicada | Hoja en el modelo |
+|---|---|---|---|---|---|---|
+| Santa Cruz | Ñapefit | Población departamental INE (Cuadros 3 y 8) y proyección 2025-2031 | C52 = B52*(1+0,01421517) | Tasa escrita como número en cada celda; T14 dice "hombres 20-64" pero suma ambos sexos de 25 a 64 | Tasa tomada de la celda del INE; rótulos corregidos | Santa Cruz / Zona urbana |
+| Zona urbana | Ñapefit | Población del municipio por área y edad (INE Cuadro 4) | R19 = SUM(N21:N23); R20 = R19/B56 | R20 divide un dato municipal por la población departamental (mezcla niveles) | Se usan niveles coherentes (urbano departamental y urbano municipal) | Santa Cruz / Zona urbana |
+| Demanda | Ñapefit | Demanda de mercado en unidades y Bs | D34 = D32*D33 | 2026 usa x0,3 y x0,2 aunque dice 70%; consumo 20 vs 6; precio con 10% fijo distinto del 12% de Pronóstico; 6,96 escrito | Cadena homogénea con supuestos con nombre; precio desde PRECIO | Demanda |
+| Pronostico | Ñapefit | 3 escenarios de ventas y distribución trimestral | F = C*D*E; trimestres = anual x % | Precios escritos a mano; fila 2028 en USD usa $C$44 en los 4 trimestres; fórmulas sueltas H40/J41; participación crece con la población | Escenario activo seleccionable; precio vinculado; crecimiento de participación como supuesto explícito | Pronostico |
+| Inventario | Ñapefit | Ventas trimestrales y "inventario" | C18 = C6*$E$14 | Los pesos de esta hoja no se usan para unidades pero sí para ventas en Bs (inconsistencia); factor E14 = 1 (sin stock de seguridad) | Un solo juego de pesos estacionales; stock de seguridad explícito | Inventario / Inv. terminado |
+| Inv. terminado | Ñapefit | Inventario de producto terminado en unidades y USD | Inv. final = inicial - ventas | Inventario inicial = ventas del mismo trimestre: no hay inventario real; valuado en USD | Inventario que se arrastra entre trimestres y valuación a costo promedio en Bs | Inventario / Inv. terminado |
+| MP | Ñapefit | Receta y costo de materia prima por envase | H20 = F20*F4/D20 | Rótulo "Bs/Kg" en costo por envase; restos de cálculos de otro producto (maltodextrina, glicerina) | Lista de materiales con merma, factura e IVA | MP |
+| Capacidad Inst. | Ñapefit | Capacidad por máquina y utilización | M7 = K7*5*12; N17 = C17/$M$8 | Divide por la capacidad del secador (55.876) y no por el cuello de botella (selladora 27.000): en el 2do trimestre la producción (32.218) supera la capacidad real | Cuello de botella = MIN; control de capacidad por trimestre | Capacidad Inst. |
+| Infraestructura | Ñapefit | Elección de local y puesta en marcha | L9 = suma de peso x puntaje | M9 multiplica pesos cambiados (K7 x M6 y K6 x M7) | SUMPRODUCT con los mismos pesos para todos | Infraestructura |
+| Compras | Ñapefit | Necesidades y programa de compras | D29 = B22*$M$4 | G3 vinculado a otro archivo ([1]); el programa de compras (D57:M65) son valores pegados que no coinciden con las fórmulas (almidón 33.787 vs 23.157 kg) | Compras = necesidad + stock final - stock inicial, todo con fórmulas | Compras |
+| Maqu. y equip. | Ñapefit | Activos fijos y depreciación | G = E - IVA; H = G x tasa | B5 usa un rango (B7:D7) como referencia de una celda; precios en USD a 6,96 | Moneda por activo y tipo de cambio editable; depreciación con tope y reposiciones | Maqu. y equip. |
+| MANO DE OBRA | Ñapefit | Planilla con cargas sociales 2027-2031 | O = N + M + L + C | En 2027-2028 suma el básico (C) y no el total ganado (E); bono sobre el sueldo y 11% en el 5to año; P14 suelto | Operarios según producción; bono sobre 3 SMN; costos por área | MANO DE OBRA |
+| Otros gastos | Ñapefit | Gastos mensuales | D = C x 3; E = D / 6,96 | Conversión fija a 6,96 | En Bs, por área, con factura o sin factura | Otros gastos |
+| Precio | Ñapefit | Precio por método de costo | H3 = F3/(1-0,35); I3 = H3 x 19,04% | J14 toma Internet (F4) en lugar de suministros (F8); F19 no suma la depreciación que lista; mezcla Bs y USD | Método de costo como referencia + precio de mercado + precios por canal | Precio |
+| Inversión | Ñapefit | Inversión total | H21 = H4+H6+H9+H15 | Capital de trabajo = 1 año completo de materiales y sueldos (87% de la inversión) | Capital de trabajo por período de desfase y verificado con el flujo de caja | Inversión |
+| Estado de resultado | Ñapefit | ER trimestral y anual | D20 = D7 - D19; D22 = D20 x 25% | Mantenimiento y transporte escritos a mano (no coinciden con Otros gastos); IUE trimestral; costo de ventas solo materiales | Gastos vinculados; IUE anual; costos fijos por área; prima e intereses | Estado de resultado |
+| Carga impositiva | Ñapefit | IVA, IT por año y trimestre | IVA = DF - CF | Ventas trimestrales con pesos distintos a los de unidades; no arrastra saldo a favor | Saldo a favor de IVA; IUE y prima con fecha de pago | Carga impositiva |
+| Flujo de caja | Ñapefit | Flujo directo trimestral y anual | C21 = C5 - C20 | B26 suma la inversión en vez de restarla; sueldos desde otro archivo ([2] REPELTEX); anual (con IUE) ≠ suma de trimestres (sin IUE) | Flujo directo completo con préstamo y aporte; anual = suma de trimestres; control de caja | Flujo de caja |
+| TRMA | Ñapefit | Tasa de descuento CAPM | F4 = Rf + β(Rm-Rf) + CRP | Tasa en USD aplicada a flujos convertidos con tipo fijo; promedio del S&P con año incompleto | Conversión a Bs con Fisher; riesgo país actualizado | TRMA |
+| Rentabilidad | Ñapefit | VAN, TIR, PRI, valor residual, punto de equilibrio | VAN = NPV + C24; TIR = IRR | PRI con signo cambiado (1,89 en vez de 2,11 años) y texto escrito a mano; perpetuidad sin calcular; punto de equilibrio vacío | PRI por interpolación; B/C; dos métodos de valor residual; flujo del inversionista | Rentabilidad |
+| Santa Cruz | Hypotolab | Igual que Ñapefit | Idem | Idem (tasa escrita a mano) | Idem | Santa Cruz / Zona urbana |
+| Demanda | Hypotolab | Demanda de personas con hipotensión | D34 = D32 x D33 | Porcentajes sin fuente | Supuestos con tipo, fuente y validación | Demanda |
+| Pronóstico | Hypotolab | 3 escenarios | F = C x D x E | Escenario esperado omite la aceptación (F18 = C18 x E18) | Misma fórmula en los 3 escenarios | Pronostico |
+| Inventario | Hypotolab | Stock de seguridad (ASCM 10-20%) | C19 = valor x 1,1 | Valores pegados; el 10% solo en algunos trimestres | Política de stock aplicada a todos los trimestres con fórmula (se conserva la idea ASCM) | Inventario / Inv. terminado |
+| Inventario envases | Hypotolab | Inventario de producto terminado | Final = inicial - ventas | Inventario final no se arrastra al siguiente trimestre | Inventario arrastrado y valuado | Inventario / Inv. terminado |
+| Costos (MP) | Hypotolab | Receta y costo por envase + proveedores | D46 = SUM; E46 = D46/6,96 x 1,1 | La merma de 10% solo en la columna USD | Merma explícita por material | MP |
+| Compras | Hypotolab | Necesidades de materiales | D28 = B21 x $M$4 | Agua y glicerina en ml rotuladas como kg; compras = necesidad (sin stock) | Stock de materiales y compras redondeadas | Compras |
+| Infraestructura | Hypotolab | Elección de local | Suma ponderada | Sin errores de fórmula | Se conserva el método | Infraestructura |
+| Capacidad Instalada | Hypotolab | Capacidad por máquina | K9 = G9 x $I$8 | Usa las horas de la 1ra máquina para todas; utilización contra una sola máquina | Cuello de botella y capacidad de mano de obra | Capacidad Inst. |
+| Maquinaria | Hypotolab | Activos y depreciación | Igual a Ñapefit | Precios en USD a 6,96 | Tipo de cambio editable | Maqu. y equip. |
+| Sueldos y salarios | Hypotolab | Planilla 6 cargos | Igual a Ñapefit | Aporte solidario 3% (Ñapefit 3,5%); bono sobre el sueldo | Tasa más prudente y bono sobre 3 SMN | MANO DE OBRA |
+| Impuestos | Hypotolab | IVA, IT | C26 = $C$11 x 0,3 | Pesos trimestrales escritos a mano | Pesos vinculados a Supuestos | Carga impositiva |
+| Precio | Hypotolab | Precio por costo (30%) y canal (20%) | H3 = F3/(1-0,3) | Mezcla de monedas | Método conservado como referencia en Bs | Precio |
+| Otros gastos | Hypotolab | Gastos mensuales | E = D / 6,96 | Conversión fija | En Bs por área | Otros gastos |
+| Estado de resultados | Hypotolab | ER | Idem | Publicidad escrita a mano; IUE trimestral | Idem Ñapefit | Estado de resultado |
+| Inversión | Hypotolab | Inversión total | Suma | Capital de trabajo de un año; incluye impuestos | Período de desfase; se conserva la "validación" previa (aquí de laboratorio) | Inversión |
+| Flujo de caja | Hypotolab | Flujo directo | Idem | No descuenta el IUE en el flujo anual; rangos corridos (D46 = SUM(D11:G11)); "IVA" de 7.200 que era la validación médica | IUE pagado; rangos por año correctos | Flujo de caja |
+| TRMA | Hypotolab | CAPM | Igual | Riesgo país de 2025 (ya bajó) | Riesgo país actualizado y conversión a Bs | TRMA |
+| Rentabilidad | Hypotolab | VAN, TIR, PRI, perpetuidad, punto de equilibrio | VR = H14/(H10-0) | Suma valor por perpetuidad y además capital de trabajo; "3 años 4 meses" escrito cuando la fórmula da 3,05 años; equilibrio con precio con impuestos | Valor residual con selector; PRI calculado; equilibrio corregido | Rentabilidad |

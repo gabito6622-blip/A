@@ -29,27 +29,25 @@ ORDER = [
  ('Flujo de caja', 'Ñapefit', 'Flujo de caja directo'),
  ('TRMA', 'Ñapefit', 'Tasa de descuento (CAPM + riesgo país + inflación de Bolivia)'),
  ('Rentabilidad', 'Ñapefit', 'Flujo de fondos, VAN, TIR, PRI, B/C y punto de equilibrio'),
- ('Supuestos', 'Nuevo', 'Panel de supuestos editables y registro de hipótesis'),
+ ('Supuestos', 'Nuevo', 'Datos del proyecto'),
  ('Calendario', 'Nuevo', 'Trimestres e índices de precios, costos y sueldos'),
  ('Financiamiento', 'Nuevo', 'Préstamo bancario y tabla de amortización'),
- ('Balance general', 'Nuevo', 'Balance general con control de cuadre'),
+ ('Balance general', 'Nuevo', 'Balance general trimestral'),
  ('Ratios', 'Nuevo', 'Indicadores financieros'),
  ('Sensibilidad', 'Nuevo', 'Sensibilidad, puntos críticos y estrés'),
  ('SIMULADOR EMPRESARIAL', 'Nuevo', 'Decisiones por período y sus consecuencias'),
- ('DECISIONES Y ESCENARIOS', 'Nuevo', 'Escenario activo, corridas registradas y comparador de decisiones'),
+ ('DECISIONES Y ESCENARIOS', 'Nuevo', 'Escenarios y comparación de decisiones'),
  ('CONTROL DE PERIODOS', 'Nuevo', 'Plan vs. real por trimestre'),
- ('Dashboard', 'Nuevo', 'Tablero ejecutivo'),
- ('Controles', 'Nuevo', 'Alertas de consistencia'),
+ ('Dashboard', 'Nuevo', 'Resumen de resultados'),
+ ('Controles', 'Nuevo', 'Verificaciones del modelo'),
  ('Producto', 'Nuevo', 'Descripción del producto, problema, segmentación y ahorro'),
  ('Selección de producto', 'Nuevo', 'Cinco productos evaluados con 14 criterios'),
  ('Muestra y encuesta', 'Nuevo', 'Tamaño de muestra, cuestionario y tabulación'),
  ('Competencia', 'Nuevo', 'Competidores, sustitutos y fuerzas de Porter'),
  ('Estrategia comercial', 'Nuevo', 'Mezcla de marketing, canales y gastos comerciales'),
  ('Proceso productivo', 'Nuevo', 'Etapas, equipos, tiempos y controles'),
- ('Matriz comparativa', 'Nuevo', 'Auditoría de las hojas de Ñapefit y Hypotolab'),
  ('Fuentes', 'Nuevo', 'Fuentes y bibliografía'),
  ('Índice', 'Nuevo', 'Este índice'),
- ('Leyenda', 'Nuevo', 'Cómo usar el modelo'),
 ]
 
 import c_mercado as cm, c_prod as cp, c_costos as cc, c_costos2 as cc2, c_fin as cf, c_eval as ce, c_anexos as ca, c_anexos2 as ca2
@@ -67,9 +65,9 @@ def build_all():
     ca.build_financiamiento(B); ca.build_balance(B); ca.build_ratios(B)
     b7.build_simulador(B); dec = b7.build_decisiones(B); b7.build_control(B)
     b2.build_muestra(B); b2.build_producto(B)
-    b8.build_matriz(B); b8.build_seleccion(B); b8.build_competencia(B); ca2.build_estrategia(B); b8.build_proceso(B)
+    b8.build_seleccion(B); b8.build_competencia(B); ca2.build_estrategia(B); b8.build_proceso(B)
     b8.build_fuentes(B); ca2.build_controles(B); sen = ca2.build_sensibilidad(B); ca2.build_dashboard(B)
-    b8.build_indice(B, ORDER); b8.build_leyenda(B)
+    b8.build_indice(B, ORDER)
     return B, dec, sen
 
 def write_snapshot(B, dec, sen, snap):
@@ -160,6 +158,8 @@ for k, e in REG.items():
     except Exception: d['y'] = None
     _reg[k] = d
 ROW['_reg'] = _reg
+import humano
+print('textos cambiados:', humano.aplicar(B.wb))
 import estilo
 estilo.aplicar(B.wb, SRC, [o[0] for o in ORDER if o[1] == 'Ñapefit'])
 names = [o[0] for o in ORDER]
