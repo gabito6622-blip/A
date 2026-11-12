@@ -22,7 +22,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Jhon Maykol Vidaurre
 - **Jhon Maykol Vidaurre** (antes «JHON VIDAURRE», mismo número).
 - **gabito6626+x91** (vence 15/11): pagada a Bs 63 (lo que pagó la última vez); renueva a Bs 63; nota «📅 avisarle el 13/11». En la cuenta: «enlazada al Gmail del revendedor: cable365b@gmail.com» (se conservó «LLENA»).
-- **Aviso diario de la «secretaria»** en esta conversación, pedido por el dueño: **todos los días a las 17:54** (≈ 6 de la tarde, empieza hoy 12/11): vencen en 0–2 días, en cobro, por cortar, vencidos sin pagar, cuentas a desenlazar y libres confirmadas. Los avisos sueltos (12/11 20:00, 13/11 y 14/11 9:10) quedaron pausados porque los cubre el diario. Solo arma los mensajes; no envía nada. El dueño también puede preguntar «¿qué hay pendiente?» cuando quiera.
+- **Aviso diario de la «secretaria»** en esta conversación, pedido por el dueño: **todos los días a las 12:24 (mediodía) y a las 17:54** (≈ 6 de la tarde; el de la tarde empieza hoy 12/11): vencen en 0–2 días, en cobro, por cortar, vencidos sin pagar, cuentas a desenlazar y libres confirmadas. Los avisos sueltos (12/11 20:00, 13/11 y 14/11 9:10) quedaron pausados porque los cubre el diario. Solo arma los mensajes; no envía nada. El dueño también puede preguntar «¿qué hay pendiente?» cuando quiera.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Raúl Parrilla
 - **Raúl Parrilla** (antes «Raul PARRILLA», mismo número): nota «✅ buen cliente, paga bien».
