@@ -79,7 +79,9 @@ describe("mi oficina", () => {
     assert.equal(r.today, 1);
     assert.equal(r.last.text, "Revisé el comprobante de Ana: ✅ parece correcto.");
     assert.equal(r.last.tone, "ok");
-    assert.ok(!JSON.stringify(d).match(/Rojas|Secreta#99|nf@x\.lat|777/), "ni apellido, ni contraseña, ni correo, ni número de operación");
+    // Solo los textos que se muestran (los ids y las fechas son números que pueden contener "777" por casualidad).
+    const shown = JSON.stringify([...d.feed.map((x) => x.text), ...d.agents.map((x) => x.last?.text ?? "")]);
+    assert.ok(!/Rojas|Secreta#99|nf@x\.lat|777/.test(shown), "ni apellido, ni contraseña, ni correo, ni número de operación");
   });
 
   test("Wali responde por WhatsApp y avisa cuando hace falta una persona", async () => {

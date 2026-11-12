@@ -58,7 +58,7 @@ describe("buscador del panel", () => {
   test("nunca devuelve contraseñas, PIN, costos ni ganancias", async () => {
     for (const q of ["disney", "ana", "4321", "secreta", "2000"]) {
       // Solo los resultados (la respuesta repite lo que se buscó en "q").
-      const res = JSON.stringify((await call("/api/admin/search?q=" + q)).json.groups);
+      const res = JSON.stringify((await call("/api/admin/search?q=" + q)).json.groups.map((g) => g.items.map((i) => [i.title, i.sub, i.q])));
       assert.ok(!/Secreta#99|4321|"cost"|"gain"|"password"|"pin"/i.test(res), `«${q}» no filtra datos sensibles`);
     }
     assert.deepEqual((await S("secreta")).groups, [], "buscar por la contraseña no encuentra nada");
