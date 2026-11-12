@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-bandejas`) · Pestañas de Avisos y de Plata (etapa 6)
+## 2026-11-12 · #43 Pestañas de Avisos y de Plata (etapa 6)
 - **«⏰ Avisos y vencimientos»:** arriba de Recordatorios, Que vuelvan y WhatsApp → Avisos hay pestañas para ir de una a otra, más «🔴 Vencidos», que abre el Control filtrado.
 - **«💰 Plata»:** arriba de Finanzas, Fiado y el Dashboard hay pestañas Caja del mes, Fiado, Reportes y Pagos por revisar.
 - **Cada pestaña respeta el permiso de su pantalla:** Atención ve solo Fiado y Pagos por revisar. Ninguna pantalla cambia por dentro.

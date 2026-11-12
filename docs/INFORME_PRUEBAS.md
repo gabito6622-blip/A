@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (rama `panel-bandejas`, sin publicar)
+## Tanda 12/11/2026 · Pestañas de Avisos y de Plata, etapa 6 (publicado en #43)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **471 → 472 / 472 ✅** |
@@ -8,7 +8,8 @@
 | Arreglo | Las pestañas se ven en dos filas: en una sola, dos quedaban escondidas en el celular | ✅ |
 | Prueba vieja más firme | La del buscador fallaba a veces: miraba también el «Reemplazar» de la ficha | ✅ |
 | Foto antes / después | 25 pantallas idénticas. Las 5 con pestañas tienen 4 botones más (las pestañas) y nada menos | ✅ |
-| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+| **Después de publicar (#43), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75. Con la llave del asistente (rol admin) a 390 px: Recordatorios y Que vuelvan con 4 pestañas, Fiado y Reportes con 3 (Caja del mes es solo del dueño); las pestañas navegan; sin desborde; 0 errores | ✅ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (publicado en #42)
 | Qué | Cómo | Resultado |
