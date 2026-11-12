@@ -165,9 +165,11 @@ estilo.aplicar(B.wb, SRC, [o[0] for o in ORDER if o[1] == 'Ñapefit'])
 names = [o[0] for o in ORDER]
 assert set(names) == set(B.wb.sheetnames), (set(names) ^ set(B.wb.sheetnames))
 B.wb._sheets = [B.wb[n] for n in names]
-B.wb.active = 0
+B.wb.active = names.index('Supuestos')
 for ws in B.wb.worksheets:
-    ws.sheet_view.tabSelected = (ws.title == 'Santa Cruz')
+    ws.sheet_view.tabSelected = (ws.title == 'Supuestos')
+_sv = B.wb['Supuestos'].sheet_view
+_sv.selection[0].activeCell = 'B3'; _sv.selection[0].sqref = 'B3'
 B.wb.properties.title = 'Modelo empresarial maestro - Filtro 2.0'
 # control: nombres sin convertir
 left = set()

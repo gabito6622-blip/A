@@ -2,7 +2,7 @@
 
 Proyecto académico (Ingeniería Comercial / Juego de Negocios). Fusiona la metodología de los archivos Ñapefit e Hypotolab y la aplica a un producto físico no alimenticio: un filtro de agua de barro con plata coloidal y carbón activado de cáscara de castaña. **No tiene relación con la tienda** del repositorio.
 
-El tipo de cambio está en una sola celda (hoja Supuestos): si se cambia, se recalcula todo el libro.
+**Tipo de cambio:** el Excel abre en la hoja Supuestos; se cambia en el recuadro amarillo de arriba (celda B3) y se recalcula todo el libro.
 
 | Archivo | Contenido |
 |---|---|

@@ -22,7 +22,7 @@ def build_supuestos(B):
     REAL = 'Dato real (fuente)'; NORM = 'Norma legal'; EST = 'Estimación técnica'; SUP = 'Supuesto (validar)'; ORIG = 'Tomado de los originales'
     sec('1. PARÁMETROS GENERALES Y MONEDA')
     p('ANIO_INICIO', 'Primer año de operación (año 0 = 2026, puesta en marcha)', 2027, 'año', SUP, 'Ñapefit proyecta 2027-2031; se conserva el horizonte de 5 años.', 'Calendario académico del proyecto', FMT_INT)
-    p('TIPO_CAMBIO', 'TIPO DE CAMBIO (Bs por 1 $us). Cambiar acá: todo el libro se actualiza', 12.06, 'Bs/$us', REAL, 'BCB abandonó el tipo fijo de 6,96 el 29/06/2026 (Res. Directorio 88/2026). Valor del 04/11/2026 según tabla del BCB reproducida por allratestoday.com; el 08/09/2026 el BCB fijó 12,64 (Correo del Sur).', 'Consultar bcb.gob.bo el día de la defensa y actualizar esta celda', FMT_BS2)
+    p('TIPO_CAMBIO', 'Tipo de cambio (Bs por 1 $us): se cambia arriba, en la celda B3', 12.06, 'Bs/$us', REAL, 'BCB abandonó el tipo fijo de 6,96 el 29/06/2026 (Res. Directorio 88/2026). Valor del 04/11/2026 según tabla del BCB reproducida por allratestoday.com; el 08/09/2026 el BCB fijó 12,64 (Correo del Sur).', 'Consultar bcb.gob.bo el día de la defensa y actualizar esta celda', FMT_BS2)
     p('FECHA_TC', 'Fecha del tipo de cambio usado', '04/11/2026', 'fecha', REAL, 'Ver fila anterior', 'Actualizar junto con el tipo de cambio')
     p('TC_HISTORICO', 'Tipo de cambio fijo usado en Ñapefit y Hypotolab (solo referencia)', 6.96, 'Bs/USD', ORIG, 'Vigente 2011-28/06/2026. No se usa en cálculos.', '—', FMT_BS2)
     p('INFL_BO', 'Inflación anual esperada en Bolivia (ajuste de costos)', 0.06, '% anual', EST, 'INE: inflación acumulada ene-oct 2026 = 6,03%; interanual a sep-2026 = 5,70% (BCB). Se usa 6% como proyección.', 'Comparar con el IPC del INE y el Informe de Política Monetaria del BCB', FMT_PCT)
@@ -118,6 +118,12 @@ def build_supuestos(B):
             r += 1; continue
         nm, d, v, u, t, fu, va, fmt = item
         put(ws, f'A{r}', d, 'label', wrap=True, border=True)
+        if nm == 'TIPO_CAMBIO':
+            put(ws, f'B{r}', '=$B$3', 'calc', fmt)
+            ROW['SUP.' + nm] = r; r += 1
+            put(ws, f'C{r-1}', u, 'label', border=True); put(ws, f'D{r-1}', t, 'label', border=True)
+            put(ws, f'E{r-1}', fu, 'label', wrap=True, border=True); put(ws, f'F{r-1}', va, 'label', wrap=True, border=True)
+            continue
         put(ws, f'B{r}', v, 'input', fmt)
         put(ws, f'C{r}', u, 'label', border=True)
         put(ws, f'D{r}', t, 'label', border=True)
@@ -139,6 +145,21 @@ def build_supuestos(B):
                          ('TASA_CARGAS', 'Cargas patronales y provisiones sobre el sueldo', '=TASA_CNS+TASA_RIESGO+TASA_SOLIDARIO+TASA_PROVIVIENDA+TASA_AGUINALDO+TASA_INDEMNIZACION', FMT_PCT2)]:
         put(ws, f'A{r}', d, 'label', bold=True, border=True); put(ws, f'B{r}', f, 'calc', fm)
         B.name(nm, 'Supuestos', f'B{r}'); r += 1
+    from openpyxl.styles import Font as _F, PatternFill as _P, Border as _B, Side as _S, Alignment as _A
+    thick = _S(style='thick', color='C00000')
+    ws['A3'] = 'TIPO DE CAMBIO (Bs por 1 $us)  >>  escribí el número nuevo en la celda amarilla'
+    ws['A3'].font = _F(name=FONT, size=14, bold=True, color='C00000'); ws['A3'].alignment = _A(vertical='center', wrap_text=True)
+    c = ws['B3']; c.value = 12.06; c.number_format = '0.00'
+    c.font = _F(name=FONT, size=20, bold=True, color='0000FF'); c.fill = _P('solid', fgColor='FFFF00')
+    c.border = _B(left=thick, right=thick, top=thick, bottom=thick); c.alignment = _A(horizontal='center', vertical='center')
+    ws['C3'] = 'Todo el libro se recalcula solo: máquinas, sueldos, precio, estados en $us, VAN y TIR.'
+    ws['C3'].font = _F(name=FONT, size=11, italic=True); ws['C3'].alignment = _A(vertical='center', wrap_text=True)
+    ws.merge_cells('C3:E3'); ws.row_dimensions[3].height = 42
+    dvt = DataValidation(type='decimal', operator='between', formula1='1', formula2='100', showErrorMessage=True, showInputMessage=True,
+                         promptTitle='Tipo de cambio', prompt='Escribí cuántos Bs vale 1 dólar (por ejemplo 12). Todo el libro se actualiza.',
+                         errorTitle='Tipo de cambio', error='Escribí un número entre 1 y 100 (por ejemplo 12,06).')
+    ws.add_data_validation(dvt); dvt.add('B3')
+    B.name('TIPO_CAMBIO', 'Supuestos', 'B3')
     ws.freeze_panes = 'B6'
     return ws
 

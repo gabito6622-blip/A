@@ -108,6 +108,8 @@ def build_dashboard(B):
              ('Utilización de capacidad 2027', f"={Y('CAP.util', 1)}", FMT_PCT), ('Utilización de capacidad 2031', f"={Y('CAP.util', 5)}", FMT_PCT),
              ('Caja mínima trimestral ($us)', f"=MIN({A0('FC.sfin')},{QR('FC.sfin', 1, 20)})", FMT_BS2), ('Controles en OK', '=CTRL_OK&" de "&CTRL_TOT', None)]
     put(ws, 'A5', 'Rentabilidad e inversión', 'sec'); put(ws, 'D5', 'Operación y liquidez', 'sec')
+    c = put(ws, 'D3', 'Cambiar el tipo de cambio (clic acá)', 'label'); c.hyperlink = "#'Supuestos'!B3"
+    c.font = Font(name=FONT, size=12, bold=True, color='0563C1', underline='single')
     for i, (l, f, fm) in enumerate(left):
         put(ws, f'A{6+i}', l, 'label'); put(ws, f'B{6+i}', f, 'calc', fm, bold=True)
     for i, (l, f, fm) in enumerate(right):

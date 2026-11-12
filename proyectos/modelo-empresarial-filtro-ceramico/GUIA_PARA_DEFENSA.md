@@ -29,7 +29,8 @@ Las **20 primeras hojas son un clon de Ñapefit**: mismos nombres, mismo orden, 
 - **Lo que se compra en dólares está en dólares**, como en Ñapefit: prensa, molino, amasadora, tamizadora, equipo de laboratorio, computadoras, impresora, plata coloidal y grifo.
 - **Los estados financieros están en $us, como en Ñapefit:** Estado de resultado, Carga impositiva, Flujo de caja, Rentabilidad, Balance general, Inversión y las planillas.
 - Lo que se paga en Bolivia (sueldos, alquiler, arcilla, balde, precio de venta) se carga en Bs, porque así se cotiza, y se pasa a $us con el tipo de cambio.
-- Hay **una sola celda de tipo de cambio** (Supuestos, primera sección). Si se cambia, por ejemplo a 12, se recalcula todo el libro.
+- **Cómo cambiar el tipo de cambio:** el Excel abre en la hoja Supuestos. Arriba hay un recuadro amarillo con borde rojo (celda **B3**). Se escribe el número nuevo, por ejemplo 12, y se recalcula todo el libro. También se llega con el enlace «Cambiar el tipo de cambio» del Índice y del Tablero.
+- Es la única celda del tipo de cambio: ninguna fórmula tiene el 12,06 ni el 6,96 escrito a mano (se revisaron las 7.436).
 - El VAN se muestra en $us y también en Bs (Rentabilidad, "Otros indicadores").
 - **Prueba hecha:**
 

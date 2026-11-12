@@ -1,18 +1,18 @@
 # Informe de pruebas
 
-Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 hojas y 7.434 fórmulas (menos que las 9.468 de la versión anterior porque las tablas de Ñapefit son más compactas). Las 20 primeras son un clon de Ñapefit con los estados financieros en $us.
+Fecha: 12/11/2026. Archivo probado: `MODELO_EMPRESARIAL_MAESTRO.xlsx`. Tiene 41 hojas y 7.436 fórmulas (menos que las 9.468 de la versión anterior porque las tablas de Ñapefit son más compactas). Las 20 primeras son un clon de Ñapefit con los estados financieros en $us.
 
 ## Resultado
 
 | Prueba | Resultado |
 |---|---|
-| Recalcular todo el libro con LibreOffice | **0 errores** en 7.434 fórmulas |
+| Recalcular todo el libro con LibreOffice | **0 errores** en 7.436 fórmulas |
 | Controles internos (hoja Controles) | **19 de 19 en OK** |
 | Mismo resultado que la versión anterior en Bs | VAN $us 27.310,17 × 12,06 = **Bs 329.360,68**, igual al centavo |
 | Verificación independiente en Python (recalcula cifras desde los supuestos, sin leer las fórmulas) | **16 de 16 coinciden** |
 | Pruebas de coherencia y estrés (54 corridas del libro completo, 168 s) | **42 de 42 superadas** |
 | Parecido con Ñapefit (títulos de Ñapefit que están en la misma celda del clon) | **1.402 de 1.557 (90%)** |
-| Cambio del tipo de cambio (9; 12; 12,06; 15) | Se recalcula todo sin errores y con 19 de 19 controles |
+| Cambio del tipo de cambio en la celda B3 de Supuestos (9; 12; 12,06; 15) | Se recalcula todo sin errores y con 19 de 19 controles. Ninguna fórmula tiene el tipo de cambio escrito a mano |
 | Balance general | Cuadra en los 21 cierres del caso base y en los 11 casos de estrés |
 | Pruebas de la tienda (`npm test`, regla del repositorio) | 463 de 463 (12/11/2026, 28 s). No se tocó su código |
 
