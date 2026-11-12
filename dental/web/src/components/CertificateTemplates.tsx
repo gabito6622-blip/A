@@ -6,11 +6,23 @@ import { api, ApiError } from "../lib/api";
 import { useApi } from "../lib/hooks";
 import { fmtDateTime } from "../lib/format";
 import { Dialog, Empty, Field, Loading, useAsk, useToast } from "./ui";
+import { fillTemplate } from "./ClinicalDocuments";
 import "./documents.css";
 
 const PLACEHOLDER_HELP: Record<string, string> = {
   paciente: "nombre del paciente", documento: "«con CI …» o «sin documento»", edad: "edad", clinica: "nombre de la clínica", sucursal: "sucursal",
   profesional: "quien emite", matricula: "su matrícula", fecha: "fecha de emisión", horario: "horario de la atención", restTo: "último día de reposo",
+};
+
+// B-113: datos FICTICIOS para la vista previa (nunca de un paciente real).
+const SAMPLE_BASE: Record<string, string> = {
+  paciente: "María Ejemplo Pérez", documento: "con CI 1234567 LP", edad: "34 años", clinica: "Clínica de ejemplo", sucursal: "Sucursal Centro",
+  profesional: "Dra. Ejemplo", matricula: "MP-0000", fecha: "12/11/2026",
+};
+const SAMPLE_FIELDS: Record<string, string> = {
+  attendedOn: "2026-11-10", timeFrom: "09:00", timeTo: "10:00", reason: "control y profilaxis", restDays: "2", restFrom: "2026-11-10",
+  status: "se encuentra en", startedOn: "2026-03-01", treatment: "ortodoncia fija con controles mensuales",
+  specialty: "Cirugía bucomaxilofacial", recipient: "Dr. Ejemplo", summary: "Pieza 38 incluida; radiografía panorámica adjunta.",
 };
 
 export function CertificateTemplatesTab() {
@@ -82,6 +94,11 @@ function TemplateDialog({ tpl, onClose, onSaved }: { tpl: any; onClose: () => vo
         <Field label="Texto" hint="Podés cambiar la redacción. Los datos obligatorios de la plantilla tienen que seguir apareciendo.">
           <textarea className="input cert-tpl-body" value={body} maxLength={5000} rows={10} onChange={(e) => setBody(e.target.value)} />
         </Field>
+        <section className="cert-tpl-preview" aria-label="Vista previa con datos de ejemplo">
+          <div className="muted small">Vista previa con un paciente de ejemplo (datos ficticios):</div>
+          <b>{title || "—"}</b>
+          <pre className="cert-tpl-pre">{fillTemplate(body, SAMPLE_FIELDS, SAMPLE_BASE)}</pre>
+        </section>
         <div className="small">
           <b>Datos disponibles</b> (tocá uno para agregarlo al final):
           <div className="cert-tpl-chips">

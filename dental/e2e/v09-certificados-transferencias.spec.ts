@@ -24,6 +24,10 @@ test("certificados: la propietaria guarda una versión propia del texto y vuelve
   // Un marcador inventado se rechaza con un mensaje claro
   const body = dlg.locator("textarea");
   const original = await body.inputValue();
+  // B-113: vista previa con un paciente de ejemplo ficticio, sin llaves sueltas
+  const preview = dlg.getByRole("region", { name: "Vista previa con datos de ejemplo" });
+  await expect(preview).toContainText("María Ejemplo Pérez");
+  await expect(preview).not.toContainText("{paciente}");
   await body.fill(`${original} {firma}`);
   await dlg.getByRole("button", { name: "Guardar versión nueva" }).click();
   await expect(dlg.getByRole("alert")).toContainText("{firma}");

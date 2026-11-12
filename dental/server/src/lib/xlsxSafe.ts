@@ -132,6 +132,7 @@ export async function streamXlsx(reply: FastifyReply, fileName: string, write: (
       ws.columns = cols.map((c) => ({ width: c.width ?? (c.money ? 16 : 18) }));
       const fmts = cols.map((c) => c.fmt ?? (c.money ? MONEY_FMT : undefined));
       let n = 0;
+      const shared: Partial<ExcelJS.Style>[] = [];
       if (opts.title) {
         const t = ws.addRow([sanitizeValue(opts.title)]);
         t.font = { bold: true, size: 13 };
@@ -146,6 +147,22 @@ export async function streamXlsx(reply: FastifyReply, fileName: string, write: (
         get rows() { return n; },
         add(values, style) {
           const row = ws.addRow(values.map(sanitizeValue));
+          if (!style) {
+            // B-104: las filas comunes comparten UN objeto de estilo por columna y tipo de dato. ExcelJS
+            // recuerda el estilo por identidad del objeto: sin esto lo recalcula en cada celda (la mitad
+            // del tiempo de una exportación grande). Por tipo, para que una fecha nunca herede el
+            // formato calculado para un texto ni al revés.
+            for (let i = 0; i < values.length; i++) {
+              const cell = row.getCell(i + 1);
+              const v = cell.value;
+              const kind = v instanceof Date ? 0 : typeof v === "number" ? 1 : 2;
+              const key = i * 3 + kind;
+              cell.style = shared[key] ??= kind === 1 && fmts[i] ? { numFmt: fmts[i] } : {};
+            }
+            row.commit();
+            n++;
+            return;
+          }
           fmts.forEach((f, i) => { if (f) { const cell = row.getCell(i + 1); if (typeof cell.value === "number") cell.numFmt = f; } });
           if (style === "bold") row.font = { bold: true };
           if (style === "note") row.font = { italic: true, color: { argb: "FF64788A" } };

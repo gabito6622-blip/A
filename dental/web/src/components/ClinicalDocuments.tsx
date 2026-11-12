@@ -291,7 +291,7 @@ function PrescriptionDialog({ patient, reissueOf, onClose, onSaved }: { patient:
 const ymd = (s: string | null | undefined) => (s ? s.slice(0, 10).split("-").reverse().join("/") : "");
 const addDays = (s: string, n: number) => { const d = new Date(`${s}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-function fillTemplate(body: string, f: Record<string, string>, base: Record<string, string>) {
+export function fillTemplate(body: string, f: Record<string, string>, base: Record<string, string>) {
   const v: Record<string, string> = { ...base };
   for (const [k, x] of Object.entries(f)) if (x !== "") v[k] = /^\d{4}-\d{2}-\d{2}$/.test(x) ? ymd(x) : x;
   v.horario = f.timeFrom && f.timeTo ? `, de ${f.timeFrom} a ${f.timeTo}` : f.timeFrom ? `, desde las ${f.timeFrom}` : "";

@@ -35,3 +35,4 @@ textarea.doc-body-preview { min-height: 180px; font-size: 14px; line-height: 1.5
 .cert-tpl-chips .btn { min-height: 44px; }
 .cert-tpl-pre { white-space: pre-wrap; font: inherit; font-size: 13px; margin: 6px 0 0; }
 .cert-tpl-version { padding: 12px; }
+.cert-tpl-preview { border: 1px dashed var(--line-2); border-radius: 10px; padding: 10px 12px; background: var(--surface); display: grid; gap: 4px; }
