@@ -41,3 +41,12 @@ pantallas y todos los botones y formularios de adentro son iguales. Solo cambió
 | Quién me debe: libreta de fiados y perfiles sin pagar | Igual, más «📦 Ventas propias sin pagar», con 💬 Cobrar y 💵 Me pagó (el mismo botón). Si le deben algo, la libreta vacía dice «No tenés fiados anotados» en vez de «Nadie te debe nada» | `hub-propias-negocio` |
 | Mis ganancias: solo lo comprado a la tienda y cuentas alquiladas | Igual, más «📦 Tus cuentas propias (por mes)»: clientes, cuánto cobra por mes y cuánto le deben | `hub-propias-negocio` |
 | Separación | Solo lo del revendedor que entró (la venta de otro revendedor no aparece) | `hub-propias-negocio` |
+
+## Etapa 4 (12/11/2026, rama `hub-etapa3`): clientes en una sola lista
+
+| Antes | Ahora | Prueba |
+|---|---|---|
+| Mis clientes: cada cliente con lo comprado a la tienda | Igual, más sus cuentas propias y sus perfiles de cuentas completas (unidos por su ficha o su WhatsApp), con «Ver en…» que lleva a esa pestaña | `hub-clientes-unidos` |
+| Quien solo estaba en una cuenta propia o en un perfil no aparecía en Mis clientes | Aparece en la misma lista («no está en tu lista de clientes») con ➕ Guardar en mis clientes (el mismo alta de «Agregar cliente») | `hub-clientes-unidos` |
+| Buscador: nombre o teléfono (desde 5 clientes) | Nombre, teléfono o app (ej.: «netflix»), sin tildes | `hub-clientes-unidos` |
+| Editar cliente, link de códigos, renovar, avisar, copiar datos | Iguales | `revendedor-pantallas` |

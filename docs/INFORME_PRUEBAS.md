@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 12/11/2026 · GaboHub etapa 4 (rama `hub-etapa3`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Clientes con todo lo suyo | `test/hub-clientes-unidos.test.mjs` a 360 px: Rosa con 3 servicios (tienda, propia por su ficha, perfil por su WhatsApp); Beto solo en lo propio aparece suelto y «Guardar» lo deja con ficha; buscador por app y por teléfono; nada del otro revendedor | ✅ |
+| Hallazgo 1 | Por un instante, antes de que llegara la lista, un cliente con ficha aparecía como «no está en tu lista»: ahora los sueltos se muestran recién con la lista completa | ❌ → ✅ |
+| Hallazgo 2 | Los botones «Ver en…» usaban la misma marca que las pestañas y se confundían con ellas: ahora usan la de los atajos | ❌ → ✅ |
+| Prueba inestable evitada | La prueba esperaba 450 ms fijos al buscador; ahora espera al resultado (falló 1 vez en una corrida completa, después 5 de 5 bien) | ✅ |
+| Foto de controles (contra la etapa 3) | Ninguna pantalla con controles de menos | ✅ |
+| Pruebas automáticas | `npm test`: 480 / 480 (49 s) | ✅ |
+
 ## 12/11/2026 · GaboHub etapa 3 (rama `hub-etapa3`)
 | Qué | Cómo | Resultado |
 |---|---|---|
