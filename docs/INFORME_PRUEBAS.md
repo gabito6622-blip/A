@@ -1,6 +1,26 @@
 # Informe de pruebas
 
-## 12/11/2026 · Cuentas pagadas en dólares con tarjeta (rama `panel-tarjeta`, sin publicar)
+## 12/11/2026 · Cuentas por plataforma, etapa 7 (rama `panel-inventario`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Mismos botones | `test/inventario-plataforma.test.mjs` a 360 px: toma la lista de botones y formularios de cada tarjeta en «Por plataforma» y en «Vista clásica», y las compara. Son idénticas | ✅ |
+| Contadores | Disney: 2 cuentas · 5 libres · 0 ocupados · 1 vence ≤ 7 d. Netflix: 1 cuenta · 3 libres · 1 ocupado (después de una venta) | ✅ |
+| Celular | Sin scroll de costado y los encabezados de grupo miden 44 px o más | ✅ |
+| Se recuerda | Un grupo abierto sigue abierto al redibujar; la vista elegida sigue al recargar; al buscar, el grupo con resultados se abre solo | ✅ |
+| Foto del panel (30 pantallas, datos de ejemplo) | 29 iguales; en Cuentas, 1 botón más (el de cambiar de vista) y 0 de menos; 0 errores | ✅ |
+| Pruebas automáticas | `npm test`: 476 / 476 | ✅ |
+| Revisión visual | Captura de celular con los datos de ejemplo: grupos legibles, la tarjeta de adentro igual a la de antes | ✅ |
+
+## 12/11/2026 · Después de publicar #44 y arreglo de renglones (rama `panel-caidas-fix`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real después de #44 | Servicios 82, clientes 27, cuentas 125, pedidos 92 y cola 75: iguales. Solo mirando, en Cuentas: la tarjeta lista las 16 cuentas caídas, todas marcadas, con sus 2 botones; 0 errores | ✅ |
+| Hallazgo en la captura | Con 16 cuentas y nombres largos, el texto de los renglones se pisaba. La prueba no lo veía porque usaba 3 cuentas con un nombre corto | ❌ → ✅ |
+| Arreglo | `test/cuentas-caidas.test.mjs` ahora usa 13 cuentas con el nombre real: sin el arreglo daba 13 renglones pisados, con el arreglo 0 | ✅ |
+| Pruebas automáticas | `npm test`: 475 / 475 en 2 corridas seguidas | ✅ |
+| Para revisar | `avisos-solos` falló 1 vez en una corrida completa. Después pasó 3 veces sola y 2 completas. No tiene que ver con este arreglo (queda en BACKLOG) | ⚠️ |
+
+## 12/11/2026 · Cuentas pagadas en dólares con tarjeta (publicado en #44)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **473 → 475 / 475 ✅** |
@@ -9,7 +29,7 @@
 | Foto antes / después | 30 pantallas idénticas (con los datos de ejemplo ninguna cuenta se cobra en dólares) | ✅ |
 | No probado | Tus cuentas reales; la tasa de tu banco (por eso se puede cambiar a mano) | ⚠️ |
 
-## 12/11/2026 · Cuentas caídas sin clientes (rama `panel-caidas`, sin publicar)
+## 12/11/2026 · Cuentas caídas sin clientes (publicado en #44)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **472 → 473 / 473 ✅** |

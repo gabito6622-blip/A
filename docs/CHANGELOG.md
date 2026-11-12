@@ -3,13 +3,21 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-tarjeta`) · 💳 Cuentas pagadas en dólares con tarjeta
+## 2026-11-12 · Sin publicar (rama `panel-inventario`, incluye el arreglo de abajo) · Cuentas por plataforma (etapa 7)
+- **Inventario → Cuentas, en el celular:** las cuentas se agrupan por plataforma (Canva, ChatGPT, Disney, Netflix…). Cada grupo dice cuántas cuentas, perfiles libres y ocupados tiene, y avisa «Sin libres» o «vence ≤ 7 d». Tocás el grupo y adentro están las mismas tarjetas de siempre, con los mismos botones.
+- **«📋 Vista clásica»:** un botón vuelve a la lista de antes, una cuenta tras otra. El celular recuerda la que elegiste.
+- **En la computadora no cambia nada:** sigue la tabla.
+
+## 2026-11-12 · Sin publicar (rama `panel-caidas-fix`) · Arreglo: renglones pisados en «Cuentas caídas»
+- Con muchas cuentas de nombre largo, como las 16 de la tienda real, el texto de cada renglón se montaba sobre el de abajo. Ahora cada renglón muestra su texto completo.
+
+## 2026-11-12 · #44 💳 Cuentas pagadas en dólares con tarjeta
 - **Editar cuenta:** campo nuevo «Se cobra en dólares» (US$ por mes, opcional), para las que pagás con tarjeta de crédito.
 - **«💳 Pagué la renovación»:** si la cuenta se cobra en dólares, te propone los Bs = dólares × tasa del Banco Central de hoy. Si tu banco cobró otra tasa, la cambiás. Queda anotado cuánto en dólares, con qué tasa y cuánto en Bs, y tu ganancia real en Finanzas usa esos Bs.
 - **Finanzas:** «💳 Próximos cobros de tu tarjeta» de los próximos 30 días, día por día, con cuántas cuentas, cuántos US$ y cuántos Bs aproximados.
 - **Las cuentas sin dólares funcionan igual que antes.**
 
-## 2026-11-12 · Sin publicar (rama `panel-caidas`) · 🧹 Cuentas caídas sin clientes
+## 2026-11-12 · #44 🧹 Cuentas caídas sin clientes
 - **Inventario → Cuentas:** si hay cuentas vencidas sin nadie adentro, aparece una tarjeta con su lista, todas marcadas. Destildás las que todavía funcionan y tocás «Retirar las seleccionadas». Te pide confirmar.
 - **Es la misma acción de «Cuenta caída» de cada cuenta:** no se borran, dejan de venderse y quedan en el historial. Nunca aparece una cuenta con clientes.
 - **Segundo botón, «✅ Funcionan: dejarlas como propias»:** las marcadas quedan en Propias y sin vencimiento (autopay), y sus perfiles libres vuelven a la venta. Es lo mismo que «Editar» de cada cuenta.

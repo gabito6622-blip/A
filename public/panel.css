@@ -1147,9 +1147,11 @@ table.ctl tfoot td.ccli{z-index:3}
 .gtabs-row button:focus-visible{outline:2px solid var(--blue-text);outline-offset:2px}
 
 /* ===== 🧹 Cuentas caídas sin clientes (Cuentas) ===== */
-.caidas-list{display:grid;gap:6px;max-height:340px;overflow:auto;padding:2px}
-.caida-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px}
-.caida-row span{min-width:0;overflow-wrap:anywhere}
+.caidas-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto;padding:2px}
+/* flex:none: con la lista limitada en alto, los renglones no se achican (antes el texto largo se pisaba) */
+.app label.chk.caida-row{flex:none;display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px;height:auto;white-space:normal}
+.caida-row input{margin-top:3px;flex:none}
+.caida-row span{display:block;min-width:0;line-height:1.4;overflow-wrap:anywhere}
 
 /* ===== 💳 Próximos cobros de la tarjeta (Finanzas) ===== */
 .tj-list{display:grid;gap:6px}
@@ -1157,3 +1159,20 @@ table.ctl tfoot td.ccli{z-index:3}
 .tj-day summary{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;min-height:44px;padding:6px 12px;cursor:pointer;list-style:none}
 .tj-day summary::-webkit-details-marker{display:none}
 .tj-day ul{margin:0;padding:4px 14px 10px 28px;display:grid;gap:4px;font-size:13px;overflow-wrap:anywhere}
+
+/* ===== Cuentas por plataforma (etapa 7): las mismas tarjetas, agrupadas por producto ===== */
+.pgrp{border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.pgrp + .pgrp{margin-top:10px}
+.pgrp > summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-height:56px;padding:8px 12px;cursor:pointer;list-style:none}
+.pgrp > summary::-webkit-details-marker{display:none}
+.pgrp-h{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 200px}
+.pgrp-h > span{display:grid;min-width:0}
+.pgrp-h small{color:var(--muted);font-size:12.5px}
+.pgrp-pills{display:flex;flex-wrap:wrap;gap:6px}
+.pgrp > summary .chev{margin-left:auto;transition:transform .15s}
+.pgrp[open] > summary .chev{transform:rotate(180deg)}
+.pgrp-cards{display:grid;gap:12px;padding:0 10px 12px}
+@media (min-width:900px){.pgrp-cards{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
+/* El cambio de vista solo aplica a las tarjetas (celular); en la compu se ve la tabla de siempre. */
+.acc-viewbtn{display:none}
+@media (max-width:900px){.acc-viewbtn{display:inline-flex}}
