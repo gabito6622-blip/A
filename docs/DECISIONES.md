@@ -2,6 +2,14 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Precio de GaboHub
+- **Qué decidió el dueño:** Bs 49 por mes, o US$ 5 fijos para los que pagan en dólares. Lo pagan todos los revendedores (no solo los de página propia). Sin el «gratis si compra Bs 200». El cobro queda apagado hasta que él lo prenda.
+- **Por qué US$ 5 fijos:** pasar Bs 49 con la tasa del día da otro número cada día; el dueño quiere un precio redondo en dólares.
+
+## 2026-11-12 · Revendedor de prueba en la tienda real
+- **Qué:** el dueño quería entrar desde su celular al panel de un revendedor. El demo con datos inventados solo se ve dentro de la app de Claude, así que, con su OK, se creó «Revendedor Demo (prueba)» en la tienda real: sin clientes, saldo 0 y solo panel. Al crearlo no se mandó ningún mensaje (la cola siguió en 75).
+- **Ojo para revisarlo desde las pruebas:** la llave del asistente va en cada pedido y le gana a la sesión del revendedor, así que desde acá se ve el panel como admin. Se comprobó que el número y el PIN entran (respuesta 200).
+
 ## 2026-11-12 · Cuentas por plataforma (etapa 7)
 - **Qué:** en el celular, Cuentas agrupa por plataforma por defecto. Adentro de cada grupo van las mismas tarjetas, sin tocar nada de ellas.
 - **Por qué así:** la regla del dueño es no perder ninguna función. Reusar la tarjeta tal cual garantiza que los botones sean los mismos, y la prueba lo comprueba comparando las dos vistas.
