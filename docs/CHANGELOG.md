@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Sin publicar (rama `panel-guiado`) · Ver antes de confirmar (etapa 5)
+## 2026-11-12 · #42 Ver antes de confirmar (etapa 5)
 - **Renovar (en la ficha y en la pantalla Renovar):** muestra «Si renovás: vence el dd/mm» y pide confirmar con «vence dd/mm → dd/mm». Si +1 período se pasaría de la fecha del proveedor, lo avisa en rojo antes de tocar (el sistema lo frena, igual que siempre).
 - **Vender, opción «⚡ Automático»:** dice qué perfil y de qué cuenta le va a tocar al cliente.
 - **Reemplazar:** dice cuántos perfiles libres hay de ese producto, o avisa que no hay.
