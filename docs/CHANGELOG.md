@@ -4,7 +4,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-12 · Revisión de cuentas libres (con OK del dueño)
-- **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1, netgb117+fe11, netscz107+fg, netscz108+4d, netscz108+cap, netscz108+d24 y netscz108+e29 (figuraban libres). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
+- **Dadas de baja por caídas:** gabito6626+dan, gabito6626+fue, gabito6626+03, gabolapv+7, gabolapv+tel, opa.jg12, n2025gt+nova1, n2025gt+san, n2025gt+tm3, n2025gt+za, n2025nt+f183, netgb10+m25, netgb117+a, netgb117+ew, netgb117+gr1, netgb117+fe11, netscz107+fg, netscz108+4d, netscz108+cap, netscz108+d24, netscz108+e29, netscz108+sad, netscz108+tube, netscz108+zz1, netscz.101 (era de vallejos), opajg12+com14, opajg12+ma189, opajg12+mu3 y prijg002 (figuraban libres o en cuarentena). Cupo «dado de baja» y nota «⛔ CAÍDA · NO VENDER». No se borró nada.
 - **gabito6626+star:** libre confirmada por el dueño, con clave nueva (no se escribe acá). Nota «✅ LIBRE oficialmente».
 - **n2025gt+18dp:** revisada por el dueño: libre, con clave nueva (no se escribe acá). Se quitó la marca vieja «pagar proveedor».
 - **netgb117+cd:** verificada por el dueño: libre, con clave nueva (no se escribe acá). Ojo: en el panel la fecha del proveedor figura vencida (07/07/2026); falta que el dueño diga la fecha nueva.
@@ -12,6 +12,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **n2025gt+ps1** (sin ESPN): la usa el dueño para sus perfiles de clientes finales. Se apartó (cuarentena) para que no se alquile; nota «👤 LA USA EL DUEÑO · NO ALQUILAR». Pendiente: cambiar la clave.
 - **n2025jg+nov y n2025jg+nov3** (sin ESPN): igual que ps1, las usa el dueño para sus perfiles de clientes finales. Apartadas (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar clave y expulsar dispositivos para liberarlas.
 - **netscz108+jon** (con ESPN): la usa el dueño para sus perfiles con ESPN. Apartada (cuarentena) con nota «NO ALQUILAR». Pendiente: cambiar la clave.
+- **netscz108+va:** sirve, pero el dueño debe cambiar la clave; sigue en cuarentena con esa nota.
+- **Resultado de la revisión de libres:** quedan 15 cupos libres (7 perfiles de netgb117+vox2 + star, sem, 18dp, 7es, cd, 10m, pasa, kd3) y 5 apartados (ps1, nov, nov3, jon, va). Ya no hay libres sin confirmar.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · ANDROID, next y Daniel Choque
 - **ANDROID · n2025gt+g** (Disney+ sin ESPN): pagada, vence 15/11, Bs 38. ANDROID no tiene número en el panel.
