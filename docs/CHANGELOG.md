@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Sin publicar (rama `hub-etapa3`) · GaboHub etapa 3: el negocio cuenta las cuentas propias
+- **Mi control:** «📦 Tus cuentas propias que vencen», con 💬 Avisar y 🔄 Renovó.
+- **Quién me debe:** «📦 Ventas propias sin pagar», con 💬 Cobrar y 💵 Me pagó. Ya no dice «Nadie te debe nada» si le deben por perfiles o por cuentas propias.
+- **Mis ganancias:** «📦 Tus cuentas propias (por mes)»: clientes, cuánto cobra por mes y cuánto le deben.
+
 ## 2026-11-12 · #47 GaboHub etapa 2: Inventario por plataforma
 - **Inventario (abajo) → «🗂️ Por plataforma»:** por cada app, juntos, lo que el revendedor le compró a la tienda, las cuentas completas que reparte y sus cuentas propias. Arriba, cuántos clientes tiene, cupos libres, qué vence en la semana y qué ya venció.
 - **Avisos por app:** «Sin cupos libres», «vence ≤ 7 d», «vencido» y «cuenta vence con tu proveedor».

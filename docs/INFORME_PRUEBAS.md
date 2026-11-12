@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 12/11/2026 · GaboHub etapa 3 (rama `hub-etapa3`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cuentas propias en el negocio | `test/hub-propias-negocio.test.mjs` a 360 px: Mi control muestra solo la que vence en 2 días y 🔄 Renovó le suma 30 días; Quién me debe muestra la pendiente y 💵 Me pagó la marca pagada; Mis ganancias: 2 clientes, Bs 55 por mes. La venta de otro revendedor nunca aparece. Botones de 44 px, sin scroll de costado | ✅ |
+| Hallazgo | Con la libreta vacía decía «Nadie te debe nada» aunque le debieran por una cuenta propia (y ya pasaba con perfiles sin pagar): ahora dice «No tenés fiados anotados» | ❌ → ✅ |
+| Foto de controles (contra la etapa 2) | Ninguna pantalla con controles de menos; se suman Cobrar y Me pagó en Quién me debe | ✅ |
+| Pruebas automáticas | `npm test`: 479 / 479 (50 s) | ✅ |
+
 ## 12/11/2026 · Después de publicar #47 (GaboHub etapas 1 y 2)
 | Qué | Cómo | Resultado |
 |---|---|---|
