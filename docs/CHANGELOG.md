@@ -5,7 +5,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: rodbol
 - **rodbol:** ahora se llama «rodbol · Sandi Perasso Rodrigo Diego» (apodo + nombre completo).
-- **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago (Bs 65 c/u, Bs 195 en total). Queda anotado en el historial de cada una.
+- **3 cuentas** (gabito6626+8ene, netscz107+dd2, gabito6626+dmw): período del 04/11 al 04/12/2026, pendientes de pago a Bs 66 c/u (precio de ese día, dicho por el dueño): Bs 198 en total. Queda anotado en el historial de cada una.
 - **Sin cambios:** sus otras 8 cuentas, los otros 79 alquileres y la cola de avisos (75).
 
 ## 2026-11-12 · #49 GaboHub etapa 5: suscripción para todos los revendedores
