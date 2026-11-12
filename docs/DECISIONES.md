@@ -2,6 +2,10 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Sofi no se publica
+- **Qué:** el dueño ya no necesita una secretaria a la que darle órdenes. Como nunca se publicó, se sacó de la rama con un revert, sin borrar el historial: el commit 2154083 la tiene completa por si algún día se quiere de vuelta.
+- **Qué se conserva:** todo lo que vino después, incluido el menú en 6 áreas y los pendientes en Inicio.
+
 ## 2026-11-12 · Reglas para rediseñar el panel (pedido del dueño)
 - **No se quita nada:** ni funciones, ni botones, ni rutas, ni permisos, ni datos. Se reubica y se mejora la forma de usarlo.
 - **Antes de cada cambio grande:** respaldo verificable y una rama de prueba aparte de la que publica Railway.

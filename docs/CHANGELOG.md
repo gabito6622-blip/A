@@ -9,7 +9,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Inicio:** «📋 Lo que tenés pendiente», con lo mismo que Notificaciones; los accesos rápidos suben. No se quitó nada.
 - **Ninguna pantalla se quitó:** cada una conserva su dirección (`#clave`) y sus permisos.
 
-## 2026-11-12 · Sin publicar · 🗣️ Decile qué hacer (Sofi, tu secretaria)
+## 2026-11-12 · ❌ No se publica (el dueño ya no la necesita; sacada de la rama) · 🗣️ Decile qué hacer (Sofi, tu secretaria)
 - **Dueño y admin:** en Inicio hay una caja para darle órdenes con tus palabras. Se puede escribir o dictar con el micrófono del teclado.
   - Busca códigos, perfiles libres, cómo está un cliente, quién debe, quién vence y los datos de una cuenta (la contraseña va detrás de «Ver contraseña»).
   - Vende, renueva y pasa perfiles, siempre después de tu «✅ Hacerlo». Después deja listo el WhatsApp con los datos para el cliente.

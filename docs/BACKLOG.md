@@ -109,8 +109,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M8 | Historial de conteos de avisos de más de un día | P3 | ⏳ |
 | M9 | 🏢 Mi oficina: asistentes animados en 2D con lo que hacen de verdad | P3 | ✅ publicado (#38) |
 | M10 | Mi oficina: aviso al celular cuando Vico prende la alarma (hoy solo en Notificaciones y en la oficina) | P3 | ⏳ |
-| M11 | Sofi: medir qué tan bien entiende con Claude real y textos dictados | P2 | ⏳ |
-| M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ⏳ |
-| M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ⏳ |
+| M11 | Sofi: medir qué tan bien entiende con Claude real y textos dictados | P2 | ❌ cancelado: Sofi no se usa (12/11) |
+| M12 | Sofi: más órdenes (aprobar pagos, anotar pagos del fiado), siempre con confirmación | P3 | ❌ cancelado: Sofi no se usa (12/11) |
+| M13 | Sofi: renovar por días sueltos y mensaje de WhatsApp propio para renovaciones | P3 | ❌ cancelado: Sofi no se usa (12/11) |
 | M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | — | ⏸️ en pausa: el dueño ya no va a usar el Ganadero (12/11) |
 | M15 | Panel ordenado en 6 áreas + Herramientas (Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas): buscador global, Ficha 360°, Vender/Renovar/Reemplazar guiados, inventario por niveles. Auditoría y matriz de las 30 pantallas presentadas el 12/11; sin tocar código | P1 | ✅ aprobada · etapas 1 y 2 hechas en la rama `panel-ordenado` (sin publicar) · siguen 3 a 7 |
