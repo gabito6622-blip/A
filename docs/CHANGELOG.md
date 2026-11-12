@@ -7,6 +7,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Producto nuevo «Netflix completa (alquiler revendedores)»** (`netflix-alq`): cuenta completa, 30 días, Bs 120, solo revendedores, categoría Alquiler (igual que los de Disney).
 - **Revendedor nuevo «Revendedor 78230650»** (+591 78230650, lista revendedor); nombre pendiente.
 - **Cuenta paphola40@gmail.com** (Netflix completa): cargada con proveedor hasta el 18/11 (autopago con tarjeta terminada en 8562, costo US$ 9) y clave pendiente. Alquilada a «Revendedor 78230650» del 07/11 al 07/12/2026, pagada Bs 120.
+- **Dalster** (+591 63855044, revendedor nuevo): 3 Netflix completas (netscz106+sol, gabito6622+mer, gabito6622+01), del 07/11 al 07/12/2026, pagadas (monto por confirmar; figuran a Bs 120 c/u, el precio del producto). Claves cargadas (no se escriben acá). Fecha del proveedor: falta (quedaron con la marca «sin fecha»).
 
 ## 2026-11-12 · Panel: botón «Mi secretaria» (publicado, #50)
 - **Nuevo en Inicio:** botón grande «🗂️ Mi secretaria · ¿qué hay pendiente?» (y en el menú, área Inicio). Abre una pantalla con todo lo pendiente: cobrar (nota «EN COBRO»), cortar («POR CORTAR»), vencidas sin anotar, quién debe, a quién avisar (vencen en 3 días, con la regla de la ficha de cada revendedor), cuentas por desenlazar, libres de verdad (y las que el sistema no puede vender por la fecha del proveedor), apartadas y lo que pasó en las últimas 24 horas (solo el dueño).
