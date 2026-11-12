@@ -77,6 +77,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **cabezas:** ahora «cabezas · Ronnye Alberto Cabezas Mendoza» (mismo número).
 - **netscz108+oby:** figuraba a rodbol; el dueño se la vendió a cabezas. Pasada a él, del 11/11 al 11/12/2026, contraseña nueva cargada (no se escribe acá). Bs 65, pagada.
 - **cabezas · netscz108+r10:** pagó; vence 05/12/2026, Bs 65 (estaba vencida desde el 03/11).
+- **cabezas · netscz108+cit:** pagó el período actual; vence 28/11, Bs 69. opajg12+ob2 (vence 13/11) ya figuraba pagada del mes pasado. opajg12+p29d vence el 12/11: falta saber si renovó.
 - Avisos: los nuevos quedaron «no enviado (sin permiso)»; no salió ningún mensaje.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Ponerse al día con Disney: rodbol
