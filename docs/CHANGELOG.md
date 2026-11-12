@@ -7,6 +7,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **oby:** nota «✅ muy buen cliente, siempre paga; sus cuentas están enlazadas a su correo».
 - **5 cuentas por vencer marcadas pagadas** (nu1 13/11, c16 16/11, dis02 19/11, nu2 19/11, d2025j.g 20/11), a su precio de siempre. liz y pam ya estaban pagadas.
 - **Vencidas sin tocar:** netscz108+10m (19/10) y gabito6626+d27 (03/11): falta que el dueño diga.
+- **oby · Ovidio Nina Huaycho** (nombre completo).
+- **opajg12+nee:** estaba en cuarentena (alquiler cerrado solo al vencer, sin anotar la renovación). Es de oby: sacada de cuarentena y cargada a él con «Cargar sus cuentas» (sin cobro como venta, sin avisos), desde 09/10, renovó 09/11, vence 09/12/2026, pagada a Bs 69 (precio de revendedor del panel; el dueño no dijo otro). Alquileres activos 80 → 81.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Yuvinka Avila Orias
 - **Yuvinka Avila Orias** (antes «avila», mismo número): nota «✅ buena clienta».
