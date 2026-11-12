@@ -2,8 +2,8 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Panel ordenado (M15) — etapas 1 a 6 publicadas (#39–#43)
-- Etapa 7, Cuentas por plataforma: lista en la rama `panel-inventario`, esperando «Publicá».
+## Panel ordenado (M15) — etapas 1 a 7 publicadas (#39–#45)
+- Arreglo de «vencidas» en Cuentas por plataforma: listo en la rama `panel-vencidas`, esperando «Publicá».
 - Después: revisar con el dueño si quiere más etapas.
 
 ## Descartado — 🗣️ Sofi, la secretaria (el dueño ya no la necesita, 12/11)

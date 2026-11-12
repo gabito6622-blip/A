@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 12/11/2026 · Después de publicar #45 y arreglo de «vencidas» (rama `panel-vencidas`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Tienda real después de #45 | Servicios 82, cola 75, clientes 27, cuentas 125, productos 39 y pedidos 92: idénticos antes y después | ✅ |
+| Cuentas en la tienda real (solo mirando) | 4 grupos con las 125 tarjetas; las 16 caídas se ven sin renglones pisados (0); sin scroll de costado; 0 errores | ✅ |
+| Hallazgo en la captura | Disney decía «16 vencen ≤ 7 d», pero esas 16 ya vencieron | ❌ → ✅ |
+| Arreglo | `test/inventario-plataforma.test.mjs` agrega una cuenta vencida: sin el arreglo falla con el mismo texto que se vio en la tienda; con el arreglo pasa | ✅ |
+| Pruebas automáticas | `npm test`: 476 / 476 (44 s) | ✅ |
+| Para revisar | En la tienda real, «Disney+ sin ESPN» muestra el logo vacío (cuadro negro). Ya pasaba en la vista clásica; no es de esta etapa | ⚠️ |
+
 ## 12/11/2026 · Cuentas por plataforma, etapa 7 (rama `panel-inventario`)
 | Qué | Cómo | Resultado |
 |---|---|---|
