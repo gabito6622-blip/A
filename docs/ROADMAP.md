@@ -2,6 +2,12 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## Propuesto — GaboHub como panel completo del revendedor (12/11, esperando OK del dueño)
+- **Pedido del dueño:** que el revendedor sienta GaboHub como su propio panel, igual que el del dueño, para todo su negocio (no solo lo que le compra a Gabriel Store), sin las opciones de dueño.
+- **Lo que ya existe y está escondido:** «📦 Mis cuentas propias» (productos, cuentas, clientes y renovaciones propias) está dentro de Mis clientes → pestañas. Mi control, Ganancias y Quién me debe todavía no cuentan esas ventas propias.
+- **Etapas propuestas (cada una con su «Publicá»):** 1) menú y barra inferior como el panel del dueño, con Inventario visible; 2) inventario por plataforma (propias + compradas); 3) Vender unificado; 4) Ganancias, Control y Quién me debe con las ventas propias; 5) clientes unificados y buscador.
+- **Nunca para el revendedor:** costos y proveedores de la tienda, otros revendedores, equipo, configuración, aprobar pagos de la tienda, oficina, bot de WhatsApp y respaldos.
+
 ## Panel ordenado (M15) — etapas 1 a 7 publicadas (#39–#45)
 - Arreglo de «vencidas» en Cuentas por plataforma: publicado (#46).
 - Después: revisar con el dueño si quiere más etapas.
