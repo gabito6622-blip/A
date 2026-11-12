@@ -6,6 +6,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · robin sardan
 - **robin sardan:** ahora «robin sardan · Sardana Carballo Robin» (mismo número).
 - **netgb117+pg19:** se extendió al 15/12 como pagada, pero el dueño corrigió: sigue hasta el 15/11 (el pago de Bs 70 era de otra cuenta). Fecha original restaurada y cobro borrado. Antes no tenía estado de pago; el panel no permite volver a «sin estado», así que quedó «pendiente» hasta que el dueño diga si ese período está pago.
+- **n2025gt+2dis:** el pago de Bs 70 del 11/11 era de esta: del 12/11 al 12/12/2026, pagada a Bs 70.
 
 ## 2026-11-12 · Datos de la tienda real (con OK del dueño) · Cuentas cortadas
 - **n2025gt+18dp y netscz108+sem:** el dueño las cortó en Disney (rodbol no las renovó). En el panel: alquiler cerrado (queda en el historial) y perfil libre. Clave nueva cargada en las 2 (la pasó el dueño; no se escribe acá). Libres de verdad: confirmado por el dueño; Disney Premium + ESPN, cuenta completa.
