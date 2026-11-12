@@ -2,6 +2,10 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Ver antes de confirmar: mismas cuentas que el servidor
+- **Qué se calcula en el panel:** la fecha nueva al renovar y el perfil del «Automático», con las mismas reglas del servidor (`extend` y `reserveSlots`). Una prueba compara lo mostrado con lo que el servidor hace. Si un día cambia una regla del servidor, esa prueba avisa.
+- **Lo que no cambia:** el servidor sigue decidiendo y frenando, como siempre. Renovar pide una confirmación más, con la fecha nueva, como ya hacía el Control.
+
 ## 2026-11-12 · Buscador: el servidor decide qué ve cada rol
 - **Cómo busca:** lo hace el servidor (`/api/admin/search`), con el mismo permiso que la pantalla de donde sale cada cosa (Clientes, Control, Cuentas, Aprobar pagos). Así Atención no ve cuentas ni pedidos.
 - **Qué devuelve:** nombre, teléfono, producto, perfil y fechas, lo justo para reconocer el resultado. Nunca contraseñas, PIN ni costos.

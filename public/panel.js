@@ -4,6 +4,7 @@ import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
 import { loadFicha } from "/ficha.js";
+import { renewPreview, replaceHint, autoPick } from "/guiado.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
@@ -767,16 +768,16 @@ const V = {
   },
 
   async renovar() {
-    const [list, customers] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers")]);
+    const [list, customers, stock] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers"), canReview() ? api("GET", "/api/admin/stock").catch(() => null) : Promise.resolve(null)]);
     return `<section class="card"><div class="inline"><button class="pbtn dark sm" type="button" data-renewsel="1">${icon("renew")}Renovar seleccionados (+1 período, efectivo)</button><span class="muted">${list.length} servicios activos</span></div>
       <div class="inline" style="margin-top:8px"><label class="chk"><input type="checkbox" id="selAll"> Seleccionar todos</label></div>
       ${table(["", "Cliente", "Producto", "Cuenta / perfil", "Vence cliente", "Vence proveedor", "Acciones"], list.map((a) => {
         const d = daysLeft(a.customerExpiresAt);
         return `<tr><td><label class="selbox"><input type="checkbox" class="sel" value="${esc(a.id)}" aria-label="Seleccionar"></label></td><td>${esc(a.customerName)}${a.customerPhone ? "" : `<br>${pill("Sin WhatsApp", "warn")}`}</td><td>${esc(a.product)}</td><td class="mono">${esc(a.email)}<br><small class="muted">${esc(a.profile)}${a.passwordPending ? " · clave pendiente" : ""}</small></td>
           <td>${fdate(a.customerExpiresAt)} ${d <= 3 ? pill(d < 0 ? "Vencido" : `${d} d`, d < 0 ? "bad" : "warn") : ""}${a.holdOpen ? `<br>${pill("Esperando fecha", "mute")}` : ""}</td><td>${fdate(a.supplierExpiresAt)}</td>
-          <td><button class="pbtn sm dark" type="button" data-renew="${esc(a.id)}">+1 período</button>
+          <td>${(() => { const rp = renewPreview(a); return `<button class="pbtn sm dark" type="button" data-renew="${esc(a.id)}" data-renewinfo="${esc(rp.confirm)}">+1 período</button><br><small class="${rp.ok ? "muted" : "bad"}">${esc(rp.ok ? `→ ${fdate(rp.next)}` : "⚠️ se pasa del proveedor")}</small>`; })()}
           <details class="more" ${a.holdOpen ? "open" : ""}><summary>Cambiar fecha</summary><form class="inline" data-expiry="${esc(a.id)}" style="margin-top:6px"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(a.customerExpiresAt, Date.now()) : a.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(a.customerExpiresAt)}"`} aria-label="Nueva fecha de vencimiento"><button class="pbtn sm" type="submit">Guardar</button></form></details>
-          ${canReview() ? `<details class="more"><summary>Reemplazar</summary><form class="inline" data-replace="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo (p. ej. perfil bloqueado)" required><label class="chk"><input type="checkbox" name="other"> otra cuenta</label><button class="pbtn sm" type="submit">Reemplazar</button></form></details>
+          ${canReview() ? `<details class="more"><summary>Reemplazar</summary><small class="muted" style="display:block;margin-top:6px;max-width:40ch">${esc(replaceHint(a, stock))}</small><form class="inline" data-replace="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo (p. ej. perfil bloqueado)" required><label class="chk"><input type="checkbox" name="other"> otra cuenta</label><button class="pbtn sm" type="submit">Reemplazar</button></form></details>
           <details class="more"><summary>Transferir</summary><form class="inline" data-transfer="${esc(a.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== a.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Transferir</button></form></details>` : ""}</td></tr>`;
       }), "No hay servicios activos.")}
       <p class="muted" style="margin:0">Renovar mueve solo la fecha del cliente. Si se pasaría de la fecha del proveedor, el sistema lo frena: renová con el proveedor o reemplazá el perfil.</p></section>`;
@@ -2627,7 +2628,7 @@ document.addEventListener("click", async (ev) => {
     if (!accs.length) { pp.hidden = true; pp.innerHTML = ""; return; }
     pp.hidden = false;
     pp.innerHTML = `<div class="ppsec">🎯 ${full ? "¿Qué cuenta?" : "¿De qué cuenta/perfil?"} <small class="muted">opcional</small></div>
-      <div class="ppchips"><button type="button" class="ppchip on" data-slot="">⚡ Automático <small>(el que vence antes)</small></button>
+      <div class="ppchips"><button type="button" class="ppchip on" data-slot="">⚡ Automático <small>${(() => { const ap = autoPick(P.tab.sellAccts, d.pick); return ap ? `(le toca ${esc(ap.slot.label)} de ${esc(ap.acc.email)}, la cuenta vence ${fdate(ap.acc.supplierExpiresAt)})` : "(el que vence antes)"; })()}</small></button>
       ${accs.map((a) => a.slots.filter((s) => s.status === "available").map((s) => `<button type="button" class="ppchip" data-slot="${esc(s.id)}"><b>${esc(s.label)}</b><small>${esc(a.email)}</small></button>`).join("")).join("")}</div>`;
     return;
   }

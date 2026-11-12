@@ -1,13 +1,23 @@
 # Informe de pruebas
 
-## Tanda 12/11/2026 · Ficha 360°, etapa 4 (rama `panel-ficha`, sin publicar)
+## Tanda 12/11/2026 · Ver antes de confirmar, etapa 5 (rama `panel-guiado`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **470 → 471 / 471 ✅** |
+| Lo que se ve antes = lo que pasa después | `test/guiado.test.mjs`, con navegador a 360 px. Cubre: el «Automático» de Vender nombra el mismo perfil que después entrega el servidor; la fecha de «Si renovás» es la que queda después de renovar; la confirmación muestra «dd/mm → dd/mm»; el aviso del proveedor aparece antes y, si igual se intenta, el servidor frena y la fecha no cambia; «Hay 3 perfiles libres» y «No hay perfiles libres» coinciden con el stock | ✅ |
+| Pruebas viejas más firmes | `oficina` y `buscador` fallaban a veces por casualidad: buscaban «777» o «4321» en ids y fechas. Ahora miran solo los textos que se muestran | ✅ |
+| Foto antes / después | Las 30 pantallas idénticas | ✅ |
+| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+
+## Tanda 12/11/2026 · Ficha 360°, etapa 4 (publicado en #41)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Pruebas automáticas | `npm test` | **469 → 470 / 470 ✅** |
 | Ficha | `test/ficha.test.mjs`, con navegador a 360 px. Cubre: servicios, pedidos y fallas del cliente; sin contraseña ni costo; pestañas; botones de 44 px sin desborde. «Pagado», «Renovar» (+30 días) y «Reemplazar» (otro perfil) cambian lo mismo que en sus pantallas y la ficha queda abierta. Atención (en oscuro) ve la ficha y Renovar, sin Reemplazar | ✅ |
 | Foto antes / después | Las 30 pantallas idénticas: mismos botones, formularios y enlaces | ✅ |
 | Revisión visual | 390 px, claro y oscuro, con datos de ejemplo: 0 desbordes, 0 errores | ✅ |
-| No probado | Tu panel real (al publicar); celular físico | ⚠️ |
+| **Después de publicar (#41), tienda real** | Servicios 82 → 82, clientes 27 → 27, cuentas 125 → 125, pedidos 92 → 92, cola 75 → 75. A 390 px, solo mirando y sin tocar botones de acción, se abrieron las fichas de 3 clientes reales (11, 16 y 5 servicios) con sus 3 pestañas: 0 desbordes, 0 errores | ✅ |
+| No probado | Celular físico | ⚠️ |
 
 ## Tanda 12/11/2026 · Buscador del panel, etapa 3 (publicado en #40)
 | Qué | Cómo | Resultado |
