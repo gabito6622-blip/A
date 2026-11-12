@@ -1,7 +1,8 @@
 // 🏢 Mi oficina: la pantalla animada de los asistentes. No hace trabajo nuevo: muestra lo que los
 // asistentes YA hacen, con datos reales.
 //
-// - 4 asistentes con Claude: revisor de comprobantes, atención por WhatsApp, asistente del dueño y vigilante.
+// - 5 asistentes con Claude: revisor de comprobantes, atención por WhatsApp, asistente del dueño, vigilante
+//   y la secretaria ("Decile qué hacer", commands.ts), que anota acá lo que hizo por orden del dueño.
 // - 2 ayudantes sin IA (gratis): el lector de códigos y el cartero de los avisos de vencimiento.
 //
 // De dónde sale cada cosa:
@@ -16,7 +17,7 @@ import type { GabrielStore } from "../store/index.js";
 import type { Db } from "./db.js";
 import { ALERT_TEXT } from "../store/watch.js";
 
-export const OFFICE_AGENTS = ["receipts", "whatsapp", "daily", "watch", "codes", "cartero"] as const;
+export const OFFICE_AGENTS = ["receipts", "whatsapp", "daily", "watch", "codes", "cartero", "commands"] as const;
 export type OfficeAgentId = (typeof OFFICE_AGENTS)[number];
 export type Tone = "ok" | "warn" | "bad" | "info";
 export interface OfficeEvent { a: OfficeAgentId; at: number; text: string; tone: Tone }
@@ -32,7 +33,7 @@ export interface OfficeDeps {
   db: Db;
   now: () => number;
   hasKey: () => boolean;
-  aiOn: (k: "receipts" | "whatsapp" | "daily" | "watch") => boolean;
+  aiOn: (k: "receipts" | "whatsapp" | "daily" | "watch" | "commands") => boolean;
   aiMonth: () => { spentUsd: number; monthlyLimitUsd: number; calls: number; model: string; modelLabel: string };
   aiDaily: () => { at: number; day: string } | null;
   pushOn: () => boolean;
@@ -92,11 +93,12 @@ export function createOffice(d: OfficeDeps) {
       receipts: key && d.aiOn("receipts"), whatsapp: key && d.aiOn("whatsapp"), daily: key && d.aiOn("daily"), watch: true,
       // Si llegó un código en las últimas 24 h, el lector está trabajando aunque el buzón no tenga clave guardada acá.
       codes: d.mailOn() || (e.s.codes ?? []).some((c) => t - c.receivedAt < 86_400_000), cartero: d.pushOn(),
+      commands: key && d.aiOn("commands"),
     };
     const agents = OFFICE_AGENTS.map((id) => {
       const mine = all.filter((x) => x.a === id);
       const todayN = id === "cartero" ? (d.expiryStats().day === today ? d.expiryStats().sent : 0) : mine.filter((x) => laDay(x.at) === today).length;
-      return { id, on: on[id], ai: id === "receipts" || id === "whatsapp" || id === "daily" || id === "watch", aiOn: id === "watch" ? key && d.aiOn("watch") : undefined, today: todayN, last: mine[0] ?? null, recent: mine.slice(0, 8) };
+      return { id, on: on[id], ai: id === "receipts" || id === "whatsapp" || id === "daily" || id === "watch" || id === "commands", aiOn: id === "watch" ? key && d.aiOn("watch") : undefined, today: todayN, last: mine[0] ?? null, recent: mine.slice(0, 8) };
     });
     const m = d.aiMonth();
     return {

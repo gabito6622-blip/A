@@ -46,10 +46,11 @@ describe("mi oficina", () => {
   });
   after(async () => { await app?.close(); rmSync(dir, { recursive: true, force: true }); });
 
-  test("arranca tranquila: los 6 en su puesto, los de IA dormidos hasta que el dueño los prenda", async () => {
+  test("arranca tranquila: los 7 en su puesto, los de IA dormidos hasta que el dueño los prenda", async () => {
     const r = await office();
     assert.equal(r.status, 200);
-    assert.deepEqual(r.json.agents.map((a) => a.id), ["receipts", "whatsapp", "daily", "watch", "codes", "cartero"]);
+    assert.deepEqual(r.json.agents.map((a) => a.id), ["receipts", "whatsapp", "daily", "watch", "codes", "cartero", "commands"]);
+    assert.equal(ag(r.json, "commands").on, false, "Sofi, la secretaria, arranca apagada");
     assert.equal(ag(r.json, "receipts").on, false);
     assert.equal(ag(r.json, "watch").on, true, "el vigilante con reglas trabaja siempre (gratis)");
     assert.equal(ag(r.json, "watch").aiOn, false);
@@ -142,7 +143,7 @@ describe("mi oficina", () => {
         await ctx.addCookies([{ name, value, url: base }]);
         await p.goto(base + "/panel.html#oficina");
         await p.waitForSelector(".of-desk");
-        assert.equal(await p.locator(".of-desk").count(), 6);
+        assert.equal(await p.locator(".of-desk").count(), 7);
         await p.click('[data-ofsel="watch"]');
         await p.waitForSelector("#ofDetail");
         const m = await p.evaluate(() => ({
@@ -154,7 +155,7 @@ describe("mi oficina", () => {
         assert.equal(m.over, false, `${scheme}: sin desborde`);
         assert.equal(m.small, 0, `${scheme}: botones de 44 px`);
         assert.equal(m.tiny, 0, `${scheme}: letra de 12 px o más`);
-        assert.equal(m.states.length, 6);
+        assert.equal(m.states.length, 7);
         assert.ok(m.states.every(Boolean));
         assert.deepEqual(errs, []);
         await ctx.close();

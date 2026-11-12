@@ -11,7 +11,7 @@ if (typeof document !== "undefined" && !document.querySelector('link[href="/ofic
   document.head.appendChild(l);
 }
 
-/** Los 6 de la oficina: nombre, puesto, colores y qué hacen. */
+/** Los 7 de la oficina: nombre, puesto, colores y qué hacen. */
 export const CREW = {
   receipts: { name: "Rocío", role: "Revisora de comprobantes", emoji: "🧾", skin: "#f1c27d", hair: "#3b2416", shirt: "#2f6fd6", acc: "#27ae60", long: true,
     does: "Lee cada comprobante que suben y te dice si el monto y el número coinciden con el pedido. Nunca aprueba: aprobás vos.",
@@ -31,9 +31,12 @@ export const CREW = {
   cartero: { name: "Tito", role: "Cartero de avisos", emoji: "📬", skin: "#d6a06b", hair: "#4a3020", shirt: "#d35400", acc: "#f2994a",
     does: "Cada mañana a las 9 manda solo los avisos de vencimiento al celular de los clientes que los activaron. No usa IA: es gratis.",
     idle: ["Mañana a las 9 reparto los avisos", "Esperando la hora de repartir…", "Hoy no vence nadie con avisos"] },
+  commands: { name: "Sofi", role: "Tu secretaria", emoji: "🗂️", skin: "#eac086", hair: "#8e3b1f", shirt: "#c2185b", acc: "#f48fb1", long: true,
+    does: "En Inicio, en “Decile qué hacer”, le pedís con tus palabras que venda, renueve, pase un perfil a otro cliente, busque un código o te diga quién debe. Claude solo entiende la orden; lo que cambia algo te lo muestra antes y lo confirmás vos. Nunca manda mensajes sola.",
+    idle: ["Decime qué hago 🗂️", "Lista para tu próxima orden", "Escribime en Inicio"] },
 };
-const ORDER = ["receipts", "whatsapp", "daily", "watch", "codes", "cartero"];
-const AI_KEYS = ["receipts", "whatsapp", "daily", "watch"];
+const ORDER = ["receipts", "whatsapp", "daily", "watch", "codes", "cartero", "commands"];
+const AI_KEYS = ["receipts", "whatsapp", "daily", "watch", "commands"];
 
 /* ---------------- dibujo (pixel art propio, 1 unidad = 1 pixel) ---------------- */
 const BASE = [
@@ -61,6 +64,8 @@ const EXTRA = {
   codes: [[3, 0, "A"], [4, 0, "A"], [5, 0, "A"], [6, 0, "A"], [7, 0, "A"], [8, 0, "A"], [2, 1, "W"], [3, 1, "W"], [4, 1, "W"], [5, 1, "W"], [6, 1, "W"], [7, 1, "W"], [8, 1, "W"], [9, 1, "W"], [5, -1, "W"], [6, -1, "W"]], // gorro de lana con pompón
   cartero: [[2, 1, "A"], [3, 1, "A"], [4, 1, "A"], [5, 1, "A"], [6, 1, "A"], [7, 1, "A"], [8, 1, "A"], [9, 1, "A"], [1, 2, "K"], [2, 2, "K"], [3, 2, "K"], [4, 2, "K"], [5, 2, "K"], [6, 2, "K"], [7, 2, "K"], [8, 2, "K"], [9, 2, "K"], [10, 2, "K"],
     [7, 9, "W"], [8, 9, "W"], [7, 10, "W"], [8, 10, "W"]], // gorra de cartero y sobre
+  commands: [[4, -1, "H"], [5, -1, "H"], [6, -1, "H"], [7, -1, "H"], [5, -2, "H"], [6, -2, "H"], [4, -2, "A"], // rodete con hebilla
+    [1, 5, "A"], [10, 5, "A"], [4, 8, "W"], [7, 8, "W"], [5, 9, "W"], [6, 9, "W"], [10, 2, "W"], [10, 3, "K"]], // aritos, cuello blanco y lápiz en la oreja
 };
 /** Lo que tiene cada uno arriba del escritorio. */
 const ITEM = {
@@ -69,6 +74,7 @@ const ITEM = {
   daily: `<rect x="25" y="10" width="3" height="3" fill="#fff"/><rect x="28" y="11" width="1" height="1" fill="#fff"/><rect x="25.5" y="10" width="2" height="0.7" fill="#6b4423"/><rect class="of-steam" x="26" y="7" width="0.6" height="2" fill="#dfe6ee"/><rect class="of-steam s2" x="27" y="6.5" width="0.6" height="2" fill="#dfe6ee"/>`,
   watch: `<rect x="25" y="11" width="4" height="2" fill="#333"/><rect class="of-siren" x="25.5" y="8" width="3" height="3" fill="#eb5757"/>`,
   codes: `<rect x="2" y="10" width="3" height="3" fill="#f2c94c"/><rect x="3" y="11" width="1" height="1" fill="#9c6a3a"/><rect x="5" y="11" width="4" height="1" fill="#f2c94c"/><rect x="7" y="12" width="1" height="1" fill="#f2c94c"/><rect x="8.5" y="12" width="0.8" height="1" fill="#f2c94c"/>`,
+  commands: `<rect x="2" y="9" width="6" height="4" fill="#f2c94c"/><rect x="2" y="8.3" width="2.6" height="0.9" fill="#d9a520"/><rect x="3" y="10" width="4" height="0.5" fill="#fff"/><rect x="3" y="11.2" width="3" height="0.5" fill="#fff"/><rect x="25" y="9" width="4" height="4" fill="#fdfaf2"/><rect x="25.6" y="10" width="2.8" height="0.4" fill="#9aa5b5"/><rect x="25.6" y="11" width="2" height="0.4" fill="#9aa5b5"/><rect class="of-tick" x="27.5" y="7" width="1.6" height="1.6" fill="#27ae60"/>`,
   cartero: `<rect x="2" y="10" width="6" height="3" fill="#fff"/><path d="M2 10 L5 11.8 L8 10" stroke="#9aa5b5" stroke-width="0.4" fill="none"/><rect x="3" y="8.5" width="5" height="1.6" fill="#f6f1e6"/><rect class="of-tick" x="7.5" y="7" width="1.5" height="1.5" fill="#eb5757"/>`,
 };
 
@@ -134,7 +140,7 @@ function bubble(a, st, now, owner) {
 function desk(a, d, owner, hop) {
   const c = CREW[a.id], st = stateOf(a, d.now);
   const label = `${c.name}, ${c.role}: ${STATE_TXT[st].slice(2)}. ${a.last ? a.last.text : ""}`;
-  return `<button type="button" class="of-desk of-${st}${hop ? " of-hop" : ""}${S.sel === a.id ? " of-sel" : ""}" data-ofsel="${a.id}" aria-label="${esc(label)}" aria-expanded="${S.sel === a.id}">
+  return `<button type="button" class="of-desk of-${st}${a.id === "commands" ? " of-sofi" : ""}${hop ? " of-hop" : ""}${S.sel === a.id ? " of-sel" : ""}" data-ofsel="${a.id}" aria-label="${esc(label)}" aria-expanded="${S.sel === a.id}">
     ${bubble(a, st, d.now, owner)}
     <span class="of-scene">${deskSvg(a.id)}${st === "off" ? `<span class="of-zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></span>` : ""}${st === "alert" ? `<span class="of-bang" aria-hidden="true">!</span>` : ""}</span>
     <span class="of-plate"><b>${c.emoji} ${esc(c.name)}</b><small>${esc(c.role)}</small><span class="of-st">${STATE_TXT[st]}${a.today ? ` · hoy ${a.today}` : ""}</span></span>
@@ -151,7 +157,7 @@ function wall(d) {
     <div class="of-sign"><b>GABRIEL STORE</b><small>oficina virtual</small></div>
     <div class="of-clock" aria-label="Hora de Bolivia"><b id="ofClock">${hhmm(d.now)}</b><small>La Paz</small></div>
   </div>
-  <p class="of-sum"><b>${on} de 6</b> en su puesto · <b>${working}</b> trabajando ahora · <b>${done}</b> cosa${done === 1 ? "" : "s"} hecha${done === 1 ? "" : "s"} hoy</p>`;
+  <p class="of-sum"><b>${on} de ${d.agents.length}</b> en su puesto · <b>${working}</b> trabajando ahora · <b>${done}</b> cosa${done === 1 ? "" : "s"} hecha${done === 1 ? "" : "s"} hoy</p>`;
 }
 
 function detail(d, owner) {
@@ -164,6 +170,7 @@ function detail(d, owner) {
     btn = a.id === "watch"
       ? `<button type="button" class="pbtn${isOn ? "" : " dark"}" data-oftoggle="watch" data-on="${isOn ? 0 : 1}">${isOn ? "Que use solo reglas (sin IA)" : "Que use IA para correos raros"}</button>`
       : `<button type="button" class="pbtn${isOn ? "" : " dark"}" data-oftoggle="${a.id}" data-on="${isOn ? 0 : 1}">${isOn ? `Apagar a ${esc(c.name)}` : `▶ Prender a ${esc(c.name)}`}</button>`;
+    if (a.id === "commands" && isOn) btn += `<button type="button" class="pbtn dark" data-go="inicio">🗣️ Darle una orden</button>`;
   } else if (a.id === "codes") btn = `<button type="button" class="pbtn" data-go="codigos">Ir al Panel de códigos</button>`;
   else if (a.id === "cartero") btn = `<button type="button" class="pbtn" data-go="notificaciones">Ver Notificaciones</button>`;
   const list = a.recent.length ? `<ul class="of-log">${a.recent.map((x) => `<li class="of-t-${esc(x.tone)}"><time>${ddmm(x.at)} ${hhmm(x.at)}</time>${esc(x.text)}</li>`).join("")}</ul>` : `<p class="muted" style="margin:0">Todavía no hizo nada esta semana.</p>`;
@@ -188,7 +195,7 @@ function html(d, hop = new Set()) {
   const owner = !!d.ai;
   return `<div class="of-wrap">
     ${wall(d)}
-    ${!d.hasKey ? `<div class="pok">Rocío, Wali y Dani necesitan la clave de Claude para trabajar. Se carga una sola vez en Configuración → Oficina virtual.</div>` : ""}
+    ${!d.hasKey ? `<div class="pok">Rocío, Wali, Dani y Sofi necesitan la clave de Claude para trabajar. Se carga una sola vez en Configuración → Oficina virtual.</div>` : ""}
     <div class="of-floor">${ORDER.map((id) => desk(d.agents.find((a) => a.id === id), d, owner, hop.has(id))).join("")}</div>
   </div>
   ${detail(d, owner)}
