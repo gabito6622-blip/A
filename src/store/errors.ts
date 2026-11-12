@@ -8,6 +8,7 @@ export type ErrorCode =
   | "ALREADY_PROCESSED"
   | "SUPPLIER_EXPIRY_EXCEEDED"
   | "NO_CONSENT"
+  | "DUPLICATE_EVIDENCE"
   | "SENSITIVE_DATA";
 
 export class DomainError extends Error {

@@ -263,6 +263,9 @@ export interface Slot {
   reservedUntil?: number;
 }
 
+/** Por dónde llegó el permiso de avisos: el cliente al registrarse o en su cuenta, por WhatsApp (ALTA/BAJA), el panel, su revendedor o el Excel. */
+export type ConsentVia = "registro" | "cliente" | "whatsapp" | "panel" | "revendedor" | "importado";
+
 export interface Customer {
   id: Id;
   name: string;
@@ -278,6 +281,9 @@ export interface Customer {
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
+  /** Cuándo y por dónde dio (o quitó) el permiso de avisos por WhatsApp. */
+  whatsappConsentAt?: number;
+  whatsappConsentVia?: ConsentVia;
   createdAt: number;
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
@@ -394,6 +400,8 @@ export interface PaymentEvidence {
   hash?: string;
   /** Si el mismo archivo ya se usó en otro pedido: cuál. */
   duplicateOf?: Id;
+  /** Si el número de operación declarado ya figura en otro pedido (declarado o confirmado): cuál. */
+  referenceSeenIn?: Id;
 }
 
 export interface Order {

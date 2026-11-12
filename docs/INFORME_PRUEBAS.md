@@ -1,5 +1,21 @@
 # Informe de pruebas
 
+## 12/11/2026 · Premium 2.0 · Etapa 1 «Plata segura»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Comprobante repetido: bloqueado; admin no fuerza; dueño sin motivo no; dueño con motivo sí y auditado; tras rechazo se aprueba normal | `test/plata-segura.test.mjs` (núcleo, datos ficticios) | OK |
+| Referencias «0012-345» / « 12 345 » / «12.345» = mismo pago; otra distinta pasa; se guarda como la escribieron | misma prueba | OK |
+| Número de operación ya visto: marcado y auditado, sin bloquear | misma prueba | OK |
+| Recarga: monto verificado (Bs 100 declarados → Bs 80 acreditados), auditoría de → a; menos de Bs 10 rechazado; igual monto no audita | misma prueba | OK |
+| Recarga: misma llave = una sola; 4ª en revisión rechazada; aprobada una, entra otra | misma prueba | OK |
+| Consentimiento: origen panel/cliente/whatsapp/registro/revendedor con fecha; auditoría con `via` | misma prueba | OK |
+| «Enviado a mano» sin permiso: NO_CONSENT; admin no fuerza; dueño con motivo sí, auditado | misma prueba | OK |
+| Binance: webhook firmado (RSA de prueba) con pedido sin perfil → no se entrega, queda en la bandeja; con stock nuevo «Reintentar» entrega (1 asignación) y la bandeja queda vacía | misma prueba, servidor real en puerto efímero, Binance simulado con `fetchImpl` | OK (encontró que un pedido sin perfil se entregaba vacío; corregido) |
+| Por la API: recarga con llave repetida = una; misma imagen → 409 `DUPLICATE_EVIDENCE`; `force` + motivo + `verifiedAmount` → 200 con el monto corregido | misma prueba | OK |
+| Nada se rompió: store, binance, usdt-manual, avisos-solos, server | `node --test` de esos archivos: 161/161 | OK |
+| Tanda completa | `npm test` | **496/496** en ~51 s |
+| Revisión visual del panel (formulario de aprobación, bandeja Binance) | pendiente de captura a 360 px con datos de ejemplo | pendiente |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 0 «Base segura»
 | Qué | Cómo | Resultado |
 |---|---|---|

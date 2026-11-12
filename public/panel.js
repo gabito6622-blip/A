@@ -481,18 +481,23 @@ const V = {
   async aprobacion() {
     const tab = P.tab.aprob ?? "payment_review";
     if (canReview() && !P.ai) P.ai = await api("GET", "/api/admin/ai").then((a) => ({ receipts: a.hasKey && a.enabled.receipts })).catch(() => ({}));
-    const orders = await api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`));
+    const [orders, bfail] = await Promise.all([api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`)), canReview() ? api("GET", "/api/admin/binance/failed").catch(() => []) : []]);
     const tabs = [["payment_review", "Por revisar"], ["awaiting_payment", "Esperando pago"], ["all", "Todos"]];
-    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}
+    const bfailCard = bfail.length ? `<section class="card"><h2>🟡 Pagos de Binance cobrados pero sin entregar <small>${bfail.length}</small></h2>
+      <p class="muted" style="margin:0">Binance avisó que el pago llegó, pero la tienda no pudo entregar el pedido (por ejemplo, sin stock). La plata está cobrada: reintentá cuando lo arregles.</p>
+      ${bfail.map((f) => `<div class="inline" style="flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><b>${esc(f.orderId ?? "sin pedido")}</b><span class="muted">${esc(f.amount)} · ${fdt(f.at)} · ${f.tries} intento${f.tries === 1 ? "" : "s"}</span><span class="bad" style="flex-basis:100%">${esc(f.error)}</span>
+        ${f.orderId ? `<button class="pbtn sm green" type="button" data-bretry="${esc(f.merchantTradeNo)}">🔄 Reintentar la entrega</button>` : ""}${isOwner() ? `<button class="pbtn sm" type="button" data-bdismiss="${esc(f.merchantTradeNo)}">Ya lo resolví a mano</button>` : ""}</div>`).join("")}</section>` : "";
+    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}${bfailCard}
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
         <td>${orderTotal(o)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.usdtQuote ? `<br><small class="muted">${o.usd !== undefined ? "" : "≈ "}${esc(String(o.usdtQuote.usdt).replace(".", ","))} USDT a Bs ${esc(String(o.usdtQuote.rate).replace(".", ","))}</small>` : ""}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
-          ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. Revisalo bien antes de aprobar.</small></div>` : ""}
+          ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. No se aprueba salvo que el dueño lo revise y diga por qué es otro pago.</small></div>` : ""}
+          ${o.evidence?.referenceSeenIn ? `<div class="aibox aibox-warn"><b>⚠️ Número de operación ya visto</b><small>El número ${esc(o.evidence.declaredReference)} figura también en el pedido ${esc(o.evidence.referenceSeenIn)}. Fijate que no sea el mismo pago.</small></div>` : ""}
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
-          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
+          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px;flex-wrap:wrap"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada">${o.kind === "topup" ? o.usd !== undefined ? `<input name="vusd" inputmode="decimal" value="${(o.usd / 100).toFixed(2)}" aria-label="Monto verificado en US$" title="Lo que de verdad llegó, en US$" style="max-width:110px">` : `<input name="vbs" inputmode="decimal" value="${(o.topupAmount / 100).toFixed(2)}" aria-label="Monto verificado en Bs" title="Lo que de verdad llegó al banco, en Bs" style="max-width:110px">` : ""}${o.evidence?.duplicateOf && isOwner() ? `<label class="chk" style="flex-basis:100%"><input type="checkbox" name="force"> Lo revisé: es un pago distinto</label><input name="forceReason" placeholder="Por qué (queda en la auditoría)" aria-label="Por qué es un pago distinto" style="flex-basis:100%">` : ""}<button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
           ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
             <small class="muted">¿Te mandó el comprobante por WhatsApp? Mirá la plata en tu banco, escribí la referencia y se entrega solo.</small>` : ""}
@@ -1548,7 +1553,7 @@ const AUD_VERB = {
   "order.binance": "abrió el pago con Binance de {x}", "order.cancel": "canceló {x}", "order.create": "creó {x}", "order.evidence": "subió el comprobante de {x}",
   "order.expire": "dejó vencer la reserva de {x}", "order.fulfill": "entregó {x}",
   "outbox.flush": "mandó los avisos de WhatsApp pendientes", "outbox.sent_manually": "marcó un aviso como enviado a mano",
-  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "price_group.upsert": "guardó la lista de precios {x}",
+  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "payment.approve_forced": "aprobó {x} con un comprobante repetido (revisado)", "payment.amount_corrected": "corrigió el monto de la recarga {x}", "order.evidence_reference_seen": "subió a {x} un número de operación ya visto", "outbox.sent_without_consent": "marcó enviado un aviso sin permiso del cliente", "binance.failed_dismiss": "descartó un pago de Binance de la bandeja", "price_group.upsert": "guardó la lista de precios {x}",
   "product.image": "cambió el logo de {x}", "product.upsert": "guardó el producto {x}",
   "reminders.auto": "programó recordatorios automáticos", "reminders.queue": "puso en cola recordatorios de vencimiento", "reminders.settings": "cambió los recordatorios",
   "renewal.create": "pidió una renovación ({x})", "reseller.apply": "mandó una solicitud para ser revendedor", "reseller.approve": "aprobó la solicitud de revendedor {x}",
@@ -2820,7 +2825,17 @@ document.addEventListener("click", async (ev) => {
   if (d.remind) return act(() => api("POST", "/api/admin/reminders", { withinDays: +d.remind }), (r) => r.queued ? `${r.queued} recordatorios listos en WhatsApp` : "No hay recordatorios nuevos para preparar");
   if (d.nobanner) return act(() => api("POST", "/api/admin/settings/banner/remove", {}), "Portada quitada");
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
-  if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
+  if (d.bretry) return act(() => api("POST", "/api/admin/binance/failed/retry", { merchantTradeNo: d.bretry }), "Pedido entregado");
+  if (d.bdismiss) { const reason = prompt("¿Cómo lo resolviste? (queda en la auditoría)"); if (!reason) return; return act(() => api("POST", "/api/admin/binance/failed/dismiss", { merchantTradeNo: d.bdismiss, reason }), "Sacado de la bandeja"); }
+  if (d.sent) return act(async () => {
+    try { return await api("POST", `/api/admin/outbox/${d.sent}/sent`, {}); } catch (e) {
+      // Sin permiso del cliente: solo el dueño, diciendo por qué (queda en la auditoría).
+      if (e.code !== "NO_CONSENT" || !isOwner()) throw e;
+      const reason = prompt("Este cliente no aceptó avisos. Si te lo pidió él, escribí por qué lo mandaste igual (queda en la auditoría):");
+      if (!reason) throw new Error("No se marcó: el cliente no tiene permiso de avisos");
+      return api("POST", `/api/admin/outbox/${d.sent}/sent`, { force: true, reason });
+    }
+  }, "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
   if (d.asis) {
     if (d.asis === "off") { if (!confirm("¿Apagar el acceso del asistente? Deja de poder entrar al instante.")) return; return act(() => api("POST", "/api/admin/assistant/off", {}), "⛔ Acceso del asistente apagado"); }
@@ -3073,7 +3088,11 @@ document.addEventListener("submit", async (ev) => {
       }
       return;
     } else if (f.dataset.approve) {
-      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey() }), "Pago aprobado y servicio entregado");
+      const extra = {};
+      if (f.vbs) extra.verifiedAmount = toCents(f.vbs.value);
+      if (f.vusd) extra.verifiedUsd = toCents(f.vusd.value);
+      if (f.force?.checked) { extra.force = true; extra.forceReason = f.forceReason?.value ?? ""; }
+      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey(), ...extra }), "Pago aprobado y servicio entregado");
     } else if (f.dataset.reject) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {

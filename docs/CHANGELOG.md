@@ -3,6 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-12 · Premium 2.0 · Etapa 1 «Plata segura» (rama `premium-2.0`, sin publicar)
+- **Comprobante repetido:** si dos pedidos vivos traen la misma imagen, el segundo ya no se aprueba (error `DUPLICATE_EVIDENCE`, 409). Solo el dueño puede forzarlo, con un motivo de 4 letras o más, y queda en Auditoría («payment.approve_forced»). Si el otro pedido fue rechazado, la misma foto es un reintento y se aprueba normal. Un admin no puede forzar.
+- **Referencias bancarias comparadas de verdad:** «0012-345», « 12 345 » y «12.345» son el mismo pago (se ignoran espacios, guiones, puntos, barras, mayúsculas y ceros de adelante). Se guarda como la escribieron.
+- **Número de operación ya visto:** al subir un comprobante cuyo número declarado ya figura en otro pedido, queda marcado (`referenceSeenIn`) y el panel lo avisa; no bloquea, decide el dueño.
+- **Recargas con monto verificado:** al aprobar una recarga, el dueño puede poner los Bs (o los US$) que de verdad llegaron; se acredita eso y queda en Auditoría («payment.amount_corrected», de → a). Límites: Bs 10 a Bs 5.000, US$ 1 a US$ 1.000.
+- **Recargas sin dobles:** la tienda manda una llave por recarga (`idempotencyKey`); un doble toque crea una sola. Y no se aceptan más de 3 recargas en revisión por cliente.
+- **Binance, bandeja de pagos cobrados sin entregar:** si el webhook confirma el pago pero la entrega falla (sin stock, estado raro, pedido no encontrado), el caso queda en `GET /api/admin/binance/failed` y en el panel (Aprobación), con «Reintentar» (entrega con la misma transacción, sin cobrar de nuevo) y «Descartar» con motivo (auditado). Antes solo quedaba en el registro del servidor.
+- **Consentimiento de WhatsApp con fecha y origen:** cada SÍ/BAJA guarda cuándo y por dónde llegó (`registro`, `cliente`, `whatsapp`, `panel`, `revendedor`, `importado`), también en Auditoría.
+- **«Enviado a mano» respeta el permiso:** un aviso que quedó «sin permiso» no se puede marcar como enviado a mano (error `NO_CONSENT`); el dueño sí, con motivo (Auditoría «outbox.sent_without_consent»).
+- **Pedido sin perfil:** si al aprobar una venta no queda ningún perfil reservado y no hay stock, ya no se entrega vacía: error `OUT_OF_STOCK` con el aviso de cargar stock.
+- **Prueba nueva `test/plata-segura.test.mjs`** (9 pruebas): todo lo de arriba, por el núcleo y por la API (incluido el webhook de Binance firmado con un certificado de prueba).
+
 ## 2026-11-12 · Premium 2.0 · Etapa 0 «Base segura» (rama `premium-2.0`, sin publicar)
 - **Tema común `public/tema.css`:** variables de marca (azul eléctrico, cian, violeta, oscuros), estados, tipografía, 44 px mínimos, radios, movimiento moderado y modo claro. Lo cargan la tienda, el panel y las páginas sueltas. Todavía no cambia el aspecto: es la base para las etapas siguientes.
 - **Fuentes sin frenar el primer dibujado:** los `<link>` de Google Fonts vienen con `media="print"` y `common.js` los activa (sin JS en línea, compatible con la CSP). Sin JS, se ve con la fuente del sistema.

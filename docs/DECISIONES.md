@@ -2,6 +2,15 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-12 · Premium 2.0 · Etapa 1: la plata se frena, no se adivina
+- **Comprobante repetido se bloquea, no se avisa:** antes el panel solo marcaba «repetido» y se podía aprobar igual; con dos revendedores y mucha venta eso termina en una cuenta regalada. Ahora frena y solo el dueño lo pasa, con motivo escrito. Un admin no, porque es la persona que más aprueba y el dueño quiere ver esos casos.
+- **Referencias normalizadas al comparar, no al guardar:** se guarda lo que escribió el dueño (para buscarlo igual que en el banco) y se compara sin formato. Descartado: pedirle que escriba «solo números» (más fricción en el celular).
+- **Monto verificado en recargas en vez de confiar en el cliente:** el cliente declara, el dueño confirma. Si no toca el campo, se acredita lo declarado, como antes. Se auditan solo las correcciones.
+- **Recargas: llave desde la tienda + tope de 3 en revisión:** el doble toque es el caso real (celular, conexión lenta); el tope evita que una cuenta llene la bandeja. Descartado: bloquear por imagen repetida en recargas, porque mucha gente manda la misma captura por error y ya se marca.
+- **Bandeja de Binance en lugar de reintento automático:** Binance ya cobró; reintentar solo cada tanto podría entregar cuando el dueño no mira. Mejor que lo vea en Aprobación y decida (reintentar o descartar con motivo). Sin cobros automáticos nuevos.
+- **Consentimiento con origen:** la Ley 164 y las reglas de Meta piden poder mostrar cuándo y cómo dijo que sí. Valores cerrados (registro, cliente, whatsapp, panel, revendedor, importado) para poder filtrar después.
+- **«Enviado a mano» pide permiso:** era la puerta para saltarse la BAJA. El dueño puede forzar (a veces el cliente pide por otro canal), con motivo y auditado.
+
 ## 2026-11-12 · «Mi secretaria» lee las marcas de las notas, sin IA
 - **Qué:** la pantalla se arma con reglas fijas sobre los datos (notas «EN COBRO», «POR CORTAR», «DESENLAZAR», fechas y estado de pago), no con Claude. Así funciona siempre, gratis y al instante, aunque los agentes estén apagados o sin clave.
 - **Avisar:** muestra lo que vence en los próximos 3 días y la nota de la ficha de cada revendedor (su regla: «avisar 3 días antes», «1 a 2 días antes»), en vez de adivinar la regla leyendo el texto.

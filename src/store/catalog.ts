@@ -1,6 +1,6 @@
 // Catálogo, grupos de precios, proveedores y clientes.
 import { cleanLook } from "./look.js";
-import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Supplier } from "./types.js";
+import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Supplier, ConsentVia } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -294,7 +294,7 @@ export function selfRegister(e: Engine, input: { name: string; phone: string; wh
   return e.tx(() => {
     if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
     const id = e.id("cus");
-    const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now() };
+    const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now(), ...(input.whatsappConsent ? { whatsappConsentAt: e.now(), whatsappConsentVia: "registro" as const } : {}) };
     e.s.customers[id] = cust;
     e.audit(system, "customer.self_register", "customer", id, { whatsappConsent: cust.whatsappConsent });
     return structuredClone(cust);
@@ -370,6 +370,7 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
     const cust: Customer = {
       id, name: c.name.trim(), phone, email, kind: c.kind ?? "customer", resellerId,
       priceGroupId: groupId, whatsappConsent: c.whatsappConsent ?? false, createdAt: e.now(),
+      ...(c.whatsappConsent ? { whatsappConsentAt: e.now(), whatsappConsentVia: (actor.role === "reseller" ? "revendedor" : "panel") as ConsentVia } : {}),
     };
     e.s.customers[id] = cust;
     e.audit(actor, "customer.create", "customer", id, { kind: cust.kind, resellerId });
@@ -438,12 +439,17 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
   });
 }
 
-export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, consent: boolean): void {
+export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, consent: boolean, via?: ConsentVia): void {
   const self = actor.customerId === customerId;
   if (!self && !can(actor, "customer.manage")) throw new DomainError("FORBIDDEN", "No podés cambiar el consentimiento de otro cliente");
+  // Por dónde llegó: lo dice quien llama; si no, se deduce de quién es el actor.
+  const v: ConsentVia = via ?? (String(actor.id).startsWith("wa:") ? "whatsapp" : self ? "cliente" : actor.role === "reseller" ? "revendedor" : "panel");
   e.tx(() => {
-    e.get("customers", customerId).whatsappConsent = consent;
-    e.audit(actor, consent ? "consent.granted" : "consent.revoked", "customer", customerId);
+    const c = e.get("customers", customerId);
+    c.whatsappConsent = consent;
+    c.whatsappConsentAt = e.now();
+    c.whatsappConsentVia = v;
+    e.audit(actor, consent ? "consent.granted" : "consent.revoked", "customer", customerId, { via: v });
   });
 }
 

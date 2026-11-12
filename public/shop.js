@@ -2603,7 +2603,10 @@ document.addEventListener("submit", async (ev) => {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       const pk = f.querySelector('input[name="pack"]:checked'), inUsdt = !!pk?.dataset.usdt;
       const method = inUsdt || f.tm?.value === "usdt" ? "usdt" : "qr";
-      await api("POST", "/api/me/topups", { ...(inUsdt ? { amount: 0, usdtAmount: +pk.value } : { amount: +pk.value }), contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method });
+      // Dos toques o red lenta: la misma llave devuelve la misma recarga en vez de crear dos.
+      S.topupKey ||= newKey();
+      await api("POST", "/api/me/topups", { ...(inUsdt ? { amount: 0, usdtAmount: +pk.value } : { amount: +pk.value }), contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim(), method, idempotencyKey: S.topupKey });
+      S.topupKey = null;
       toast("Recarga enviada: la acreditamos al verificar el pago");
     } else if (f.id === "resSell") {
       let customerId = f.client.value;
