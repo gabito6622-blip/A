@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 12/11/2026 · Cuentas pagadas en dólares con tarjeta (rama `panel-tarjeta`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Pruebas automáticas | `npm test` | **473 → 475 / 475 ✅** |
+| Datos | `test/tarjeta.test.mjs`. Cubre: costo en US$ (hasta US$ 1000, no negativo); el pago guarda US$, tasa y Bs; dólares sin tasa → no; 2 meses mantiene el costo por mes; sin dólares funciona como antes; se puede quitar el costo en dólares | ✅ |
+| Navegador a 360 px | Editar «15,49» → 1549. «Pagué la renovación» propone 15,49 × 11,71 = 181,39; con 2 meses 30,98 → 362,78; con tasa 12 → 371,76; el gasto queda anotado así. Finanzas muestra el cobro de los próximos 30 días (US$ 10,00 ≈ Bs 117,10) o avisa que no hay; sin desborde | ✅ |
+| Foto antes / después | 30 pantallas idénticas (con los datos de ejemplo ninguna cuenta se cobra en dólares) | ✅ |
+| No probado | Tus cuentas reales; la tasa de tu banco (por eso se puede cambiar a mano) | ⚠️ |
+
 ## 12/11/2026 · Cuentas caídas sin clientes (rama `panel-caidas`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

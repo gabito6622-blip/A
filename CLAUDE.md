@@ -6,7 +6,7 @@ Este archivo se lee solo al empezar cada sesión. Seguilo siempre, aunque el ped
 
 | Proyecto | Dónde | Qué es | Pruebas |
 |---|---|---|---|
-| **Gabriel Store / GaboHub** | raíz: `src/store`, `src/server`, `public/`, `test/` | Tienda de suscripciones digitales para Bolivia (Bs) con panel del vendedor (GaboHub), revendedores con página propia `/r/<slug>`, saldo, QR con comprobante, códigos, WhatsApp oficial | `npm test`: compila y corre 473 pruebas en ~40 s |
+| **Gabriel Store / GaboHub** | raíz: `src/store`, `src/server`, `public/`, `test/` | Tienda de suscripciones digitales para Bolivia (Bs) con panel del vendedor (GaboHub), revendedores con página propia `/r/<slug>`, saldo, QR con comprobante, códigos, WhatsApp oficial | `npm test`: compila y corre 475 pruebas en ~41 s |
 | **Dentalia** | **no está en esta rama**: vive en `dental/` de la rama `claude/sharp-albattani-cc2tst` (con su propio `CLAUDE.md`) | SaaS odontológico multiclínica y multisucursal | ver `dental/CLAUDE.md` en esa rama |
 | SDK VendePlay | `src/http.ts`, `src/resources`, `openapi.yaml`, `clients/python` | Cliente de la API de VendePlay, reconstruido por ingeniería inversa | `npm run validate:openapi` |
 
