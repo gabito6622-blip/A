@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Refresco automático de códigos (rama `codigos-refresco`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Bandeja vacía → llega un código de Disney al correo de su cuenta → a los 10 s aparece «847 213» sin tocar nada; una sola consulta por tick; sin novedades no se redibuja | `test/codigos-refresco.test.mjs`, Playwright 360 px con reloj simulado | OK |
+| «Ver códigos» abierto en Mis cuentas → llega un segundo código (Netflix, inicio de sesión) → aparece solo a los 10 s; quedan 2 | misma prueba | OK |
+| Al volver al Inicio, 30 s sin ninguna consulta a `/api/me/codes`; sin errores de JS ni desborde | misma prueba | OK |
+| Lector de códigos con correos de ejemplo de Disney («código de acceso único» 847 213), Max («código de verificación» 391 804) y Netflix (inicio de sesión 5521 y enlace de «actualizar tu Hogar») | semilla del revendedor + inyección por `codes.ingest` (sin correo real) | los 4 se guardan y clasifican bien; capturas de la bandeja y de «Ver códigos» fuera del repo |
+| Pruebas relacionadas `codigos-solos` (9) y `hub-navegacion` (1); suite completa | `node --test` / `npm test` | **575 pasan, 0 fallan, 54 s** |
+
 ## 13/11/2026 · Publicación de los tres niveles de GaboHub (PR #57, squash `6a4ad6a`)
 | Qué | Cómo | Resultado |
 |---|---|---|

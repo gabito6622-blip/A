@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Códigos que llegan solos a la bandeja del revendedor (**sin publicar**, rama `codigos-refresco`)
+- **Para el revendedor:** la pestaña «Códigos» y el «📩 Ver códigos» de cada cuenta se refrescan solos cada 10 segundos mientras están a la vista, igual que la página pública del link de códigos. Pide el código en la app y lo ve aparecer sin tocar «Actualizar» (el botón sigue ahí). Solo se redibuja si llegó algo nuevo, así no se borra lo que esté escribiendo; con la pestaña oculta o al irse a otra pantalla deja de consultar.
+- Prueba nueva `test/codigos-refresco.test.mjs` (navegador a 360 px con reloj simulado): el código aparece solo a los 10 s en la bandeja y en «Ver códigos»; en el Inicio no se consulta más.
+
 ## 2026-11-13 · GaboHub en tres niveles: Gratis / Vendedor / Negocio (**publicado el 13/11, PR #57**, squash `6a4ad6a`)
 - **Para el revendedor:** tres planes claros. **Gratis** (siempre, sin cobro): comprar con saldo, Mis cuentas, códigos, fallas, recargas y su catálogo en WhatsApp y PDF con sus precios. **Vendedor** (Bs 28): + su página con QR, combos, cupones, afiches, repartir perfiles y links de cobro. **Negocio** (Bs 49): + Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito. El candado de cada pestaña dice qué plan hace falta y ofrece pasarse con el precio a la vista; el Inicio muestra en qué plan está y los otros dos.
 - **Quien no paga pasa a Gratis** (después de los días de gracia) en vez de quedar «pausado»: sigue comprando y sacando su catálogo; su página y sus herramientas vuelven apenas paga. **Quien elige Gratis no debe nada y no se le cobra nunca.** Salir de Gratis cobra el mes en el momento (si no hay saldo, vence hoy y corren los días de gracia). En la prueba gratis rige Negocio.
