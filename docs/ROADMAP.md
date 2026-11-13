@@ -12,7 +12,8 @@ Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramie
 - ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». **Publicado el 13/11 (PR #53)** con el «Publica» del dueño; verificado en la tienda real: 78 alquileres y 34 clientes idénticos, cierre igual, `/hub` 200 y la pestaña en el código servido.
 - ✅ Link de cobro para todos sus clientes (no solo perfiles repartidos) y «Mensaje listo» con el link. **Publicado el 13/11 (PR #54).**
 - ✅ Recordatorio matutino de Tito «☀️ Tu día: 2 para cobrar · 1 por avisar» que abre Mi día. **Publicado el 13/11 (PR #54).**
-- 🔧 **Tres niveles de GaboHub** (Gratis / Vendedor Bs 28 / Negocio Bs 49): listo y probado en la rama `gabohub-tres-niveles`; **sin publicar** hasta el «PUBLICÁ». Con el cobro apagado no cambia nada para nadie.
+- ✅ **Tres niveles de GaboHub** (Gratis / Vendedor Bs 28 / Negocio Bs 49). **Publicado el 13/11 (PR #57).**
+- 🔧 Códigos que llegan solos a la bandeja del revendedor (refresco cada 10 s). Listo en la rama `codigos-refresco`, **sin publicar**. Con el cobro apagado no cambia nada para nadie; los 25 revendedores reales quedaron en Negocio.
 - ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
 - ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
 - ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.

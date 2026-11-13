@@ -1,5 +1,30 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Reenviar accesos» y mensaje de «Cobrar» (rama `codigos-refresco`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Panel → Control a 360 px: «📲 Reenviar accesos» abre la tarjeta con fondo del tema (no transparente) y adentro de `.app`; cierra con ✕, con Escape y tocando afuera; «Copiar todo» copia el mensaje con el correo | `test/panel-reenviar-accesos.test.mjs`, Playwright | OK |
+| «💰 Cobrar» de un alquiler de revendedor: «Hola Oby 👋 te recuerdo tu alquiler: / 📺 Disney Premium + ESPN / 📧 correo / 📅 Vence el dd/mm/aaaa (en 30 días) / 💰 Monto: Bs 69 / ¿Renovamos?…»; sin «Cuenta completa» como perfil | misma prueba | OK |
+| Captura de la tarjeta corregida en oscuro | fuera del repo | enviada al dueño |
+| Suite completa | `npm test` | **576 pasan, 0 fallan, 54 s** |
+
+## 13/11/2026 · Refresco automático de códigos (rama `codigos-refresco`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Bandeja vacía → llega un código de Disney al correo de su cuenta → a los 10 s aparece «847 213» sin tocar nada; una sola consulta por tick; sin novedades no se redibuja | `test/codigos-refresco.test.mjs`, Playwright 360 px con reloj simulado | OK |
+| «Ver códigos» abierto en Mis cuentas → llega un segundo código (Netflix, inicio de sesión) → aparece solo a los 10 s; quedan 2 | misma prueba | OK |
+| Al volver al Inicio, 30 s sin ninguna consulta a `/api/me/codes`; sin errores de JS ni desborde | misma prueba | OK |
+| Lector de códigos con correos de ejemplo de Disney («código de acceso único» 847 213), Max («código de verificación» 391 804) y Netflix (inicio de sesión 5521 y enlace de «actualizar tu Hogar») | semilla del revendedor + inyección por `codes.ingest` (sin correo real) | los 4 se guardan y clasifican bien; capturas de la bandeja y de «Ver códigos» fuera del repo |
+| Pruebas relacionadas `codigos-solos` (9) y `hub-navegacion` (1); suite completa | `node --test` / `npm test` | **575 pasan, 0 fallan, 54 s** |
+
+## 13/11/2026 · Publicación de los tres niveles de GaboHub (PR #57, squash `6a4ad6a`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 25 revendedores, finanzas del mes, ajuste del cobro (apagado, Bs 49 / Básico Bs 28) | API con la llave del asistente, guardada fuera del repo | guardada |
+| Rama de Railway vs lo fusionado en #56: sin cambios; unión «ours» con árbol igual al probado; CI verde en el commit de unión (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: nuevo código en vivo a los ~50 s; salud, `/tienda/`, `/hub` y `/panel` 200; el `shop.js` y el `panel.js` servidos traen los tres planes | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes y finanzas idénticos; ajuste del cobro idéntico; los 25 revendedores con el mismo id y la misma ficha, todos en Negocio (plan elegido y plan de hoy) | comparación de los JSON antes/después | **idéntico** |
+
 ## 13/11/2026 · GaboHub en tres niveles (rama `gabohub-tres-niveles`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
