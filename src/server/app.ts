@@ -37,8 +37,9 @@ import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { writeXlsx } from "./xlsx.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
-import { catalogData, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
+import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
+import { shrinkPng } from "./pdf.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -1187,7 +1188,7 @@ export function createApp(cfg: AppConfig): App {
 
   /* ---------------- Centro de exportaciones (13/11): catálogo WhatsApp / PDF y reporte Excel, para la tienda y para cada revendedor ---------------- */
   const catFilter = (c: Ctx): CatalogFilter => ({ categories: (c.query.get("cats") ?? "").split(",").map((x) => x.trim()).filter(Boolean), productIds: (c.query.get("ids") ?? "").split(",").map((x) => x.trim()).filter(Boolean) });
-  const descargasCatalogo = (c: Ctx, actor: Actor) => { const d = catalogData(store, actor, { origin: originOf(c.req) }); return { ...d, business: { ...d.business, hasLogo: !!d.business.logoRef, logoRef: undefined } }; };
+  const descargasCatalogo = (c: Ctx, actor: Actor) => { const d = catalogData(store, actor, { origin: originOf(c.req) }); return { ...d, business: { ...d.business, hasLogo: !!d.business.logoRef, logoRef: undefined }, categories: d.categories.map((cat) => ({ ...cat, items: cat.items.map(({ imageRef: _r, ...it }) => it) })) }; };
   const descargasWhatsapp = (c: Ctx, actor: Actor) => whatsappCatalog(filterCatalog(catalogData(store, actor, { origin: originOf(c.req) }), catFilter(c)), { descriptions: c.query.get("desc") !== "0" });
   // El catálogo es de cualquier revendedor (también en plan Básico); solo se frena si su GaboHub está pausado por falta de pago.
   const hubPaid = (c: { actor?: Actor }) => { if (c.actor?.customerId && store.shops.hubLockReason(c.actor.customerId) === "suspended") hubGuard(c); };
@@ -1195,14 +1196,27 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/descargas/catalogo", "staff", (c) => descargasCatalogo(c, A(c)));
   route("GET", "/api/admin/descargas/whatsapp", "staff", (c) => descargasWhatsapp(c, A(c)));
   route("GET", "/api/admin/descargas/logo", "staff", (c) => descargasLogo(c, A(c)));
+  const logoCache = new Map<string, Buffer | null>();
   const slugOf = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "catalogo";
   const descargasPdf = (c: Ctx, actor: Actor) => {
     const d = filterCatalog(catalogData(store, actor, { origin: originOf(c.req) }), catFilter(c));
     const design: CatalogDesign = c.query.get("design") === "clasico" ? "clasico" : "premium";
     const ref = d.business.logoRef, file = ref && /^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref) ? join(uploads, ref) : null;
     const logo = file && existsSync(file) ? readFileSync(file) : undefined;
+    // Logos de las apps, achicados a 160 px y guardados en memoria por archivo (los catálogos se bajan seguido).
+    const images = new Map<string, Buffer>();
+    for (const [id, r] of catalogImageRefs(d, store.engine.s.products)) {
+      let small = logoCache.get(r);
+      if (small === undefined) {
+        const f = /^[a-f0-9]{32}\.(png|jpg|webp)$/.test(r) ? join(uploads, r) : null;
+        try { small = f && existsSync(f) ? shrinkPng(readFileSync(f), 160) : null; } catch { small = null; }
+        if (logoCache.size > 400) logoCache.clear();
+        logoCache.set(r, small);
+      }
+      if (small) images.set(id, small);
+    }
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(now()));
-    return sendFile(c, catalogPdf(d, design, logo), `catalogo-${slugOf(d.business.name)}-${design}-${day}.pdf`, "application/pdf");
+    return sendFile(c, catalogPdf(d, design, logo, images), `catalogo-${slugOf(d.business.name)}-${design}-${day}.pdf`, "application/pdf");
   };
   route("GET", "/api/admin/descargas/catalogo.pdf", "staff", (c) => descargasPdf(c, A(c)));
   const descargasXlsx = (c: Ctx, actor: Actor) => { const { file, name } = businessReport(store, actor, parsePeriod(c.query.get("from"), c.query.get("to"), now()), originOf(c.req)); return sendFile(c, file, name); };

@@ -54,12 +54,22 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
     ock = (await post("/api/auth/staff/login", { username: "gabriel", password: "clave-del-dueño-123" })).headers.get("set-cookie").split(";")[0];
     ckA = await login(ana); ckB = await login(beto);
+    // Logo de Netflix: un PNG rojo de 64×64 (RGBA) armado acá, para que el catálogo lo incruste.
+    const { deflateSync } = await import("node:zlib");
+    const W = 64, raw = Buffer.alloc(W * (1 + W * 4)); for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { const o = y * (1 + W * 4) + 1 + x * 4; raw[o] = 229; raw[o + 1] = 9; raw[o + 2] = 20; raw[o + 3] = 255; }
+    const crcT = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
+    const crc = (b) => { let c = -1; for (const x of b) c = crcT[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; };
+    const chunk = (type, data) => { const l = Buffer.alloc(4); l.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(W, 4); ihdr[8] = 8; ihdr[9] = 6;
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+    assert.equal((await post("/api/admin/products/netflix/image", { contentBase64: png.toString("base64") }, ock)).status, 200);
   });
   after(async () => { await app?.close(); rmSync(dir, { recursive: true, force: true }); });
 
   test("la tienda: marca, precios públicos, combo con sus partes, promos (combo y cupón), sin ocultos ni «solo revendedores»", async () => {
     const d = (await get("/api/admin/descargas/catalogo", ock)).json;
-    assert.equal(d.owner, true); assert.equal(d.business.name, "Gabriel Store"); assert.equal(d.business.whatsapp, "59170000000"); assert.match(d.business.url, /\/tienda\/$/);
+    assert.equal(d.owner, true);
+    assert.equal(d.categories[1].items.find((i) => i.name === "Netflix Premium").hasImage, true); assert.ok(!JSON.stringify(d).includes("imageRef"), "el archivo del logo no viaja en el JSON"); assert.equal(d.business.name, "Gabriel Store"); assert.equal(d.business.whatsapp, "59170000000"); assert.match(d.business.url, /\/tienda\/$/);
     assert.deepEqual(d.categories.map((c) => c.name), ["Combos", "Streaming", "Música"]);
     const names = d.categories.flatMap((c) => c.items.map((i) => i.name));
     assert.ok(!names.includes("Producto Oculto") && !names.some((n) => n.includes("alquiler")), "sin ocultos ni productos de revendedores");
@@ -118,6 +128,8 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     assert.equal(prem.status, 200); assert.equal(prem.type, "application/pdf"); assert.match(prem.name, /catalogo-gabriel-store-premium-\d{4}-\d{2}-\d{2}\.pdf/);
     const f1 = join(dir, "prem.pdf"); writeFileSync(f1, prem.buf);
     assert.equal(pdfPages(f1), 2, "portada + productos");
+    // Los logos de las apps van incrustados: Netflix tiene imagen y el Dúo la reutiliza para su parte Netflix.
+    if (has("pdfimages")) { const imgs = execFileSync("pdfimages", ["-list", "-f", "2", "-l", "2", f1], { encoding: "utf8" }).split("\n").filter((l) => /^\s*2\s+\d+\s+image/.test(l)); assert.ok(imgs.length >= 1, `logos en la página de productos: ${imgs.length}`); }
     const t1 = pdfText(f1);
     for (const x of ["Gabriel Store", "CATÁLOGO DE SUSCRIPCIONES", "Netflix Premium", "Bs 40", "Dúo Netflix + Disney", "Bs 70", "NOV10", "+591 70000000", "Promo de noviembre", "pueden cambiar"]) assert.ok(t1.includes(x), `falta ${x} en el premium`);
     for (const x of ["Producto Oculto", "alquiler", "@", "3000"]) assert.ok(!t1.includes(x), `se filtró ${x}`);

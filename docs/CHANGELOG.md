@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Catálogo PDF con los logos de las apps (rama `exportaciones-premium`, sin publicar)
+- El dueño vio su catálogo real y pidió los logos. Ahora cada producto lleva su logo (el de la tienda, achicado a 160 px con un reductor PNG propio en `pdf.ts` para que el archivo pese poco: el catálogo real con 35 logos pesa ~310 KB) y los combos muestran los logos de las apps que incluyen (hasta 4), que se reconocen mejor que la imagen chica del combo. Si un logo está en un formato que el PDF no acepta (WEBP), va la inicial de color.
+- Los combos ya no repiten las apps dos veces cuando la descripción ya las enumera.
+- La vista previa de «Mis descargas» también muestra los logos. El JSON no expone el archivo del logo, solo `hasImage`.
+- Prueba: `exportaciones` sube un PNG a un producto y comprueba con `pdfimages` que la página de productos lleva imágenes incrustadas.
+
 ## 2026-11-13 · 📁 Mis descargas: Centro de exportaciones premium (**publicado el 13/11, PR #55**, squash)
 Para la tienda (panel → Herramientas → 📁 Mis descargas) y para cada revendedor (GaboHub → Clientes → pestaña «📁 Mis descargas», también en Más). Una sola fuente de datos (`src/server/exportCenter.ts`): productos publicados y con precio, con la misma regla de precios que la tienda y que `/r/<slug>`. Nunca costos, ganancias, claves, correos de cuentas ni clientes.
 - **📋 Catálogo para WhatsApp:** texto ordenado con nombre del negocio, categorías, productos y precios, descripción breve, combos («incluye…»), promos vigentes (Armá tu combo y cupones activos), WhatsApp para pedir, link de la tienda o de su página, horario y «los precios pueden cambiar». Copiar todo, copiar una categoría, o «Abrir WhatsApp con el mensaje» (no se manda nada). Elegir qué categorías entran.

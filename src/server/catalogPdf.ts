@@ -16,7 +16,44 @@ const inkAccent = (acc: string) => (lum(acc) > 0.55 ? mix(acc, "#000000", 0.45) 
 const dur = (days: number) => (days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
 const waPretty = (w: string) => (w ? `+${w.replace(/^(\d{3})(\d+)$/, "$1 $2")}` : "");
 
-interface Ctx { p: Pdf; d: CatalogData; design: CatalogDesign; logo?: Buffer; y: number; page: number; acc: string; accInk: string; bg: string; onDark: boolean }
+interface Ctx { p: Pdf; d: CatalogData; design: CatalogDesign; logo?: Buffer; images: Map<string, Buffer>; y: number; page: number; acc: string; accInk: string; bg: string; onDark: boolean }
+type Item = CatalogData["categories"][number]["items"][number];
+const BAD_IMG = new Set<string>();
+/** Logo de un producto (o inicial de color si no tiene o el formato no se puede incrustar). Devuelve true si dibujó una imagen. */
+function appLogo(c: Ctx, id: string, fallback: { name: string; color: string }, x: number, y: number, size: number): boolean {
+  const buf = c.images.get(id);
+  if (buf && !BAD_IMG.has(id)) {
+    const info = Pdf.imageSize(buf);
+    if (info) {
+      try {
+        c.p.rect(x, y, size, size, { fill: "#ffffff", radius: size * 0.24, stroke: "#e5e7eb", lineWidth: 0.5 });
+        const r = info.width / info.height, w = r >= 1 ? size - 4 : (size - 4) * r, h = r >= 1 ? (size - 4) / r : size - 4;
+        c.p.image(buf, x + (size - w) / 2, y + (size - h) / 2, w, h);
+        return true;
+      } catch { BAD_IMG.add(id); }
+    }
+  }
+  c.p.rect(x, y, size, size, { fill: fallback.color || c.acc, radius: size * 0.24 });
+  c.p.text((fallback.name.trim()[0] ?? "?").toUpperCase(), x + size / 2, y + size * 0.7, { font: "bold", size: size * 0.55, color: "#ffffff", align: "center" });
+  return false;
+}
+/** Combos: sus logos en fila (hasta 4), o el logo propio del combo si lo tiene. */
+function comboLogos(c: Ctx, it: Item, x: number, y: number, size: number): number {
+  // Un combo muestra los logos de sus apps (se reconocen mejor que la imagen chiquita del combo); si no las tiene, su propia imagen.
+  const ids = it.partIds ?? [];
+  if (ids.length < 2) { appLogo(c, it.id, it, x, y, size); return size; }
+  const parts = ids.slice(0, 4), step = size * 0.72;
+  parts.forEach((pid, i) => appLogo(c, pid, { name: it.items?.[i] ?? "?", color: it.color }, x + i * step, y, size));
+  return step * (parts.length - 1) + size;
+}
+/** Texto chico de un ítem: duración, qué incluye (si la descripción no lo dice ya) y la descripción. */
+function subText(it: Item): string {
+  const incl = it.items?.length ? `Incluye ${it.items.join(" + ")}` : "";
+  const desc = it.description || "";
+  // Si la descripción ya enumera las apps («Prime Video + Disney+ · Ahorrás…»), no se repite el «Incluye».
+  const dup = !!incl && !!desc && (desc.includes(" + ") || it.items!.every((n) => desc.toLowerCase().includes(n.toLowerCase().split(" ")[0])));
+  return [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), dup ? "" : incl, desc].filter(Boolean).join(" · ");
+}
 const M = 40, W = 595.28, H = 841.89;
 
 function footer(c: Ctx) {
@@ -100,35 +137,43 @@ function categoryTitle(c: Ctx, name: string, count: number) {
   }
 }
 
-function itemPremium(c: Ctx, it: CatalogData["categories"][number]["items"][number]) {
+function itemPremium(c: Ctx, it: Item) {
   const { p, d } = c;
-  const sub = [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), it.items?.length ? `Incluye ${it.items.join(" + ")}` : "", it.description].filter(Boolean).join(" · ");
+  const sub = subText(it);
   const priceTxt = money(it.price, d.currency), pw = p.textWidth(priceTxt, 13, "bold") + 22;
-  const textW = W - 2 * M - pw - 36;
+  const isCombo = (it.partIds?.length ?? 0) > 1;
+  const logoW = isCombo ? 34 * 0.72 * (Math.min(4, it.partIds!.length) - 1) + 34 : 34;
+  const tx = M + 16 + logoW + 10;
+  const textW = W - M - pw - 20 - tx;
   const subLines = sub ? p.wrap(sub, 9, textW, "regular").slice(0, 2) : [];
-  const h = 30 + subLines.length * 12;
+  const h = Math.max(46, 30 + subLines.length * 12);
   ensure(c, h + 6);
   p.rect(M, c.y, W - 2 * M, h, { fill: "#f8fafc", radius: 10, stroke: "#e5e7eb", lineWidth: 0.6 });
   p.rect(M, c.y, 5, h, { fill: it.color || c.acc, radius: 2.5 });
-  p.text(it.name, M + 16, c.y + 19, { font: "bold", size: 12, color: "#111827", maxWidth: textW });
+  comboLogos(c, it, M + 14, c.y + (h - 34) / 2, 34);
+  p.text(it.name, tx, c.y + 19, { font: "bold", size: 12, color: "#111827", maxWidth: textW });
   let yy = c.y + 31;
-  for (const l of subLines) { p.text(l, M + 16, yy, { size: 9, color: "#6b7280" }); yy += 12; }
+  for (const l of subLines) { p.text(l, tx, yy, { size: 9, color: "#6b7280" }); yy += 12; }
   p.rect(W - M - pw - 10, c.y + (h - 24) / 2, pw, 24, { fill: mix("#ffffff", c.acc, 0.16), radius: 12 });
   p.text(priceTxt, W - M - 10 - pw / 2, c.y + (h - 24) / 2 + 16, { font: "bold", size: 13, color: c.accInk, align: "center" });
   c.y += h + 6;
 }
-function itemClasico(c: Ctx, it: CatalogData["categories"][number]["items"][number]) {
+function itemClasico(c: Ctx, it: Item) {
   const { p, d } = c;
   const priceTxt = money(it.price, d.currency), pw = p.textWidth(priceTxt, 17, "bold");
-  const textW = W - 2 * M - pw - 24;
-  const sub = [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), it.items?.length ? `Incluye ${it.items.join(" + ")}` : "", it.description].filter(Boolean).join(" · ");
+  const isCombo = (it.partIds?.length ?? 0) > 1;
+  const logoW = isCombo ? 30 * 0.72 * (Math.min(4, it.partIds!.length) - 1) + 30 : 30;
+  const tx = M + logoW + 10;
+  const textW = W - M - pw - 12 - tx;
+  const sub = subText(it);
   const subLines = sub ? p.wrap(sub, 11, textW, "regular").slice(0, 2) : [];
-  const h = 26 + subLines.length * 14;
+  const h = Math.max(40, 26 + subLines.length * 14);
   ensure(c, h + 4);
-  p.text(it.name, M, c.y + 16, { font: "bold", size: 15, color: "#111827", maxWidth: textW });
+  comboLogos(c, it, M, c.y + 4, 30);
+  p.text(it.name, tx, c.y + 16, { font: "bold", size: 15, color: "#111827", maxWidth: textW });
   p.text(priceTxt, W - M, c.y + 16, { font: "bold", size: 17, color: "#111827", align: "right" });
   let yy = c.y + 31;
-  for (const l of subLines) { p.text(l, M, yy, { size: 11, color: "#374151" }); yy += 14; }
+  for (const l of subLines) { p.text(l, tx, yy, { size: 11, color: "#374151" }); yy += 14; }
   p.line(M, c.y + h, W - M, c.y + h, { color: "#d1d5db", lineWidth: 0.6 });
   c.y += h + 6;
 }
@@ -160,11 +205,11 @@ function contactBox(c: Ctx) {
 }
 
 /** El catálogo en PDF. `logo` es el archivo del logo (PNG/JPEG) si existe. */
-export function catalogPdf(d: CatalogData, design: CatalogDesign, logo?: Buffer): Buffer {
+export function catalogPdf(d: CatalogData, design: CatalogDesign, logo?: Buffer, images: Map<string, Buffer> = new Map()): Buffer {
   const p = new Pdf({ title: `Catálogo ${d.business.name}`, author: d.business.name, subject: `Catálogo de suscripciones · ${fdate(d.generatedAt)}` });
   const bg = d.business.background || "#070b16";
   const acc = d.business.accent || "#fcc42d";
-  const c: Ctx = { p, d, design, logo, y: 0, page: 0, acc, accInk: inkAccent(acc), bg, onDark: lum(bg) < 0.5 };
+  const c: Ctx = { p, d, design, logo, images, y: 0, page: 0, acc, accInk: inkAccent(acc), bg, onDark: lum(bg) < 0.5 };
   if (design === "premium") cover(c);
   newPage(c);
   if (design === "clasico") {

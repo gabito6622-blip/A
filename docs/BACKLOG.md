@@ -85,6 +85,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | R3 | Link de cobro para clientes registrados + recordatorio «Tu día» de Tito: dar el OK y el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#54) |
 | R4 | Centro de exportaciones (catálogo WhatsApp/PDF y Excel): dar el OK con los ejemplos y el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#55) |
 | R5 | QR propio (sin librerías) dentro del catálogo PDF y en la página /c/ | P3 | ⏳ |
+| R6 | Catálogo PDF con logos de las apps (pedido del dueño al ver el real): dar el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
 | R3 | 🏪 | Quién me debe en Bs 0 mientras Mi control decía que te deben | P1 | ✅ prueba `store` |
 | R4 | 🏪 | Cada pantalla contaba distinto "los que vencen"; aviso llevaba a Mis cuentas | P2 | ✅ "📣 Avisarles" + semana completa |
 | R5 | 🏪 | "Tu acceso" ofrecía correo sin tener contraseña | P2 | ✅ |

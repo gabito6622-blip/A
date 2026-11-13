@@ -25,7 +25,13 @@ export interface CatalogItem {
   kind: string;
   /** Combos: qué apps incluye. */
   items?: string[];
+  /** Combos de la tienda: ids de las apps (para los logos). */
+  partIds?: Id[];
   color: string;
+  /** Tiene logo propio en la tienda (se ve en la vista previa y en el PDF). */
+  hasImage?: boolean;
+  /** Archivo del logo (solo en el servidor: el JSON no lo lleva). */
+  imageRef?: string;
 }
 export interface CatalogData {
   /** true = la tienda (dueño); false = un revendedor. */
@@ -49,6 +55,23 @@ export interface CatalogData {
   generatedAt: number;
 }
 
+/** Logo del producto: el suyo o, si no tiene, el de la app del mismo nombre comercial («Disney+ (alquiler…)» usa el de «Disney+»). */
+function imageRefOf(products: Record<Id, { name: string; kind: string; imageFileRef?: string }>, id: Id): string | undefined {
+  const p = products[id];
+  if (!p) return undefined;
+  if (p.imageFileRef) return p.imageFileRef;
+  const name = p.name.replace(/\s*[([][^)\]]*[)\]]/g, " ").replace(/\s{2,}/g, " ").trim().toLowerCase();
+  return Object.values(products).find((x) => x.imageFileRef && x.kind !== "combo" && x.name.replace(/\s*[([][^)\]]*[)\]]/g, " ").replace(/\s{2,}/g, " ").trim().toLowerCase() === name)?.imageFileRef;
+}
+/** Los archivos de logo que hace falta cargar para el PDF: los de cada ítem y los de las partes de los combos. */
+export function catalogImageRefs(d: CatalogData, products: Record<Id, { name: string; kind: string; imageFileRef?: string }>): Map<Id, string> {
+  const m = new Map<Id, string>();
+  for (const c of d.categories) for (const it of c.items) {
+    if (it.imageRef) m.set(it.id, it.imageRef);
+    for (const pid of it.partIds ?? []) { const r = imageRefOf(products, pid); if (r) m.set(pid, r); }
+  }
+  return m;
+}
 const CAT_ORDER = ["Combos", "Streaming", "Música", "Series y películas", "Deportes", "Herramientas", "Mis servicios", "Otros"];
 const catRank = (name: string) => { const i = CAT_ORDER.indexOf(name); return i === -1 ? 50 : i; };
 
@@ -88,7 +111,8 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
     const cur = { symbol: st.currencySymbol || "Bs", decimals: 2, code: "BOB" };
     const items: CatalogItem[] = publicCatalog(e).filter((p) => !p.resellersOnly && p.price > 0).map((p) => ({
       id: p.id, name: p.name, category: p.kind === "combo" ? "Combos" : p.category, description: p.description, price: p.price, durationDays: p.durationDays, kind: p.kind, color: p.color,
-      ...(p.kind === "combo" && p.comboParts?.length ? { items: p.comboParts.map((id) => s.products[id]?.name ?? id) } : {}),
+      ...(p.kind === "combo" && p.comboParts?.length ? { items: p.comboParts.map((id) => s.products[id]?.name ?? id), partIds: p.comboParts } : {}),
+      ...(imageRefOf(s.products, p.id) ? { hasImage: true, imageRef: imageRefOf(s.products, p.id) } : {}),
     }));
     const promos: string[] = [];
     const cp = comboPromo(st.comboDiscounts, cur); if (cp) promos.push(cp);
@@ -115,11 +139,12 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
   const items: CatalogItem[] = Object.values(s.products)
     .filter((p) => p.published && mine(me.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)) && (mine(me.resellerPrices![p.id]) ?? 0) > 0)
     .map((p) => ({ id: p.id, name: p.name, category: p.kind === "combo" ? "Combos" : (p.category ?? "Otros"), description: p.description ?? "", price: mine(me.resellerPrices![p.id])!, durationDays: p.durationDays, kind: p.kind, color: p.color ?? "#3984ff",
-      ...(p.kind === "combo" && p.comboProductIds?.length ? { items: p.comboProductIds.map((id) => s.products[id]?.name ?? id) } : {}) }));
+      ...(p.kind === "combo" && p.comboProductIds?.length ? { items: p.comboProductIds.map((id) => s.products[id]?.name ?? id), partIds: p.comboProductIds } : {}),
+      ...(imageRefOf(s.products, p.id) ? { hasImage: true, imageRef: imageRefOf(s.products, p.id) } : {}) }));
   const nameOf = (id: Id) => s.products[id]?.name ?? id;
   for (const cb of sh?.combos ?? []) {
     if (!cb.productIds.every((id) => me.resellerPrices?.[id] !== undefined) || mine(cb.price) === undefined) continue;
-    items.push({ id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), color: "#7c5cff" });
+    items.push({ id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || "", price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), partIds: cb.productIds, color: "#7c5cff" });
   }
   for (const pc of pageCards(e, me)) items.push({ id: pc.id, name: pc.name, category: "Mis servicios", description: "", price: pc.price, durationDays: pc.durationDays, kind: "own", color: pc.color });
   const promos: string[] = [];

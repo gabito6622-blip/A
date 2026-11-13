@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 13/11/2026 · Catálogo PDF con logos (rama `exportaciones-premium`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Un PNG RGBA de 64×64 subido a Netflix por la API; el PDF premium lleva imágenes incrustadas en la página de productos (`pdfimages -list`); el JSON de la vista previa trae `hasImage` y no el archivo | `test/exportaciones.test.mjs` | OK |
+| Catálogo REAL con los 35 logos de la tienda, armado localmente con el código nuevo a partir de lecturas públicas (catálogo, logos) y la llave del asistente (nombre, WhatsApp): premium 5 páginas / 315 KB, clásico 4 páginas / 307 KB; logos nítidos a 160 px; combos con los logos de sus apps | script fuera del repo + pdftoppm | revisado |
+| Tanda completa | `npm test` | **570/570** |
+
 ## 13/11/2026 · Publicación Centro de exportaciones (PR #55, squash `fd0e410`)
 | Qué | Cómo | Resultado |
 |---|---|---|
