@@ -3,7 +3,7 @@
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
 ## En curso — Subdominios de revendedores (13/11)
-- ✅ Código y pruebas (rama `subdominios`, sin publicar).
+- ✅ Código y pruebas, publicado el 13/11 (PR #61). Los links nuevos siguen ocultos hasta `GS_SHOP_SUBDOMAINS=1`.
 - ⏳ Agregar `*.gabostore.lat` en Railway (necesita el permiso del dueño) y los registros que Railway pida en Namecheap.
 - ⏳ Con el candado listo: publicar (con «Publicá») y poner `GS_SHOP_SUBDOMAINS=1`.
 

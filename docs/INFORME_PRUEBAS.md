@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 13/11/2026 · Sin destello azul (rama `subdominios`, sin publicar)
+## 13/11/2026 · Sin destello azul (publicado el 13/11, PR #61)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Causa (solo lectura): la tienda real usa `#fcc42d` sobre `#070b16`; el HTML arrancaba con `#3984ff` (azul de fábrica) | `curl /api/settings` + lectura de `base.css` | confirmado |
@@ -11,7 +11,7 @@
 | `panel.`/`admin.gabostore.lat` → `/panel`; `hub.` → `/hub` | `test/subdominios.test.mjs` | pasa |
 | Suite completa | `npm test` | **593 pasan, 0 fallan, 58 s** (una corrida previa falló la prueba de elegir nombre porque escribía antes de que la pantalla terminara de dibujarse; ahora espera, 3 de 3 sola) |
 
-## 13/11/2026 · Portada sin salto (rama `subdominios`, sin publicar)
+## 13/11/2026 · Portada sin salto (publicado el 13/11, PR #61)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Producción hoy (solo lectura): `gabostore.lat/` responde 302 a `/tienda/`; la tienda responde 200 | `curl` | confirmado (el servidor no muestra GaboHub; el salto es lo que se saca) |
@@ -20,7 +20,7 @@
 | Celular 360 px: una sola navegación a `/`, es la tienda (barra de abajo y link «¿Sos revendedor?»), sin errores | ídem, Playwright | pasa |
 | Suite completa | `npm test` | **587 pasan, 0 fallan, 56 s** |
 
-## 13/11/2026 · Subdominios de revendedores (rama `subdominios`, sin publicar)
+## 13/11/2026 · Subdominios de revendedores (publicado el 13/11, PR #61)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | `daniel.gabostore.lat/` responde 200 con la página de Daniel, `<meta name="gs-shop">` y link de vista previa del subdominio; mayúsculas y `:443` no lo rompen | `test/subdominios.test.mjs` (host falso, datos ficticios) | pasa |
@@ -42,7 +42,7 @@
 | Datos antes y después, byte a byte: alquileres, clientes, revendedores, cuentas, finanzas | comparación de los JSON | **idéntico** |
 | Link de renovación de prueba (Marcelo, no enviado) sale con `https://gabostore.lat/tienda/#renovar=…` | API | OK |
 
-## 13/11/2026 · Atajos (rama `panel-atajos`, sin publicar)
+## 13/11/2026 · Atajos (publicado el 13/11, PR #61)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | «Ya le avisé»: sale de «por avisar» (4 → 2, 2 ya avisados al final); no cambia fecha ni pago; vale para ese vencimiento; a 2 días sigue marcado y el día antes vuelve a pedirse; al cambiar la fecha deja de contar; deshacer; un revendedor no puede marcar; a 360 px botón de 44 px | `test/secretaria-avise.test.mjs` (reglas + Playwright) | OK |

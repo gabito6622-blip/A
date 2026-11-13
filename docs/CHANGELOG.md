@@ -3,20 +3,20 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Sin destello azul al entrar; atajos panel.gabostore.lat y hub.gabostore.lat (**sin publicar**, rama `subdominios`)
+## 2026-11-13 · Sin destello azul al entrar; atajos panel.gabostore.lat y hub.gabostore.lat (**publicado el 13/11, PR #61**)
 - **Por qué:** el dueño veía «un destello azul al principio» al entrar a gabostore.lat. La página arrancaba con los colores de fábrica (azul `#3984ff`) y recién al llegar la configuración pasaba a su dorado (`#fcc42d`). El panel arrancaba claro con la barra del celular azul y después pasaba a oscuro.
 - **Qué hay ahora:** el servidor manda la tienda, GaboHub y cada página de revendedor con sus colores ya puestos (fondo, color principal, tarjetas, botones, barra del celular y estilo de fondo). El panel arranca oscuro (su tema por defecto).
 - **Atajos:** `panel.gabostore.lat` lleva a `gabostore.lat/panel` y `hub.gabostore.lat` a `gabostore.lat/hub` (andan cuando esté el comodín `*.gabostore.lat`).
 - Por dentro: `src/server/earlyLook.ts` (misma cuenta de colores y contraste que `applyLook`/`lookColors` del navegador).
 - Pruebas: `test/sin-destello.test.mjs` (4) y 1 más en `test/subdominios.test.mjs`.
 
-## 2026-11-13 · gabostore.lat abre la tienda al toque, sin salto (**sin publicar**, rama `subdominios`)
+## 2026-11-13 · gabostore.lat abre la tienda al toque, sin salto (**publicado el 13/11, PR #61**)
 - **Por qué:** el dueño vio que al entrar a gabostore.lat «por un momento sale la portada de Gabo» antes de su tienda. La portada mandaba a `/tienda/` con un salto (302) y, mientras iba y volvía, el celular podía seguir mostrando otra página.
 - **Qué hay ahora:** `gabostore.lat/` responde la tienda directamente (una sola carga, sin redirección). `/tienda/`, `/hub` y `/panel` siguen igual. La dirección de Railway sigue mostrando GaboHub en la portada, como antes.
 - Por dentro: la página lleva `<meta name="gs-mode" content="store">` para que el navegador la arme como tienda.
 - Prueba: `test/dominio.test.mjs` (portada 200 sin salto; en celular, una sola página y es la tienda).
 
-## 2026-11-13 · Revendedores: su página en su propio subdominio (daniel.gabostore.lat) (**sin publicar**, rama `subdominios`)
+## 2026-11-13 · Revendedores: su página en su propio subdominio (daniel.gabostore.lat) (**publicado el 13/11, PR #61**)
 - **Por qué:** el dueño pidió «daniel.gabostore.lat … para que los revendedores estén cómodos»: un link corto y con su nombre es más fácil de pasar por WhatsApp que `gabostore.lat/r/dani-strem-…`.
 - **Qué hay ahora:** `<nombre>.gabostore.lat` muestra la misma página que `/r/<nombre>` sin cambiar la dirección (la vista previa de WhatsApp también dice el subdominio). Si el nombre no es de una página publicada, está apagada o es reservado (api, panel, hub, www, mail…), lleva a la portada de la tienda. `/r/<nombre>` sigue andando igual.
 - **Link que ve el revendedor:** «Tu dirección», «Copiar link», «Compartir», «Abrir» y el afiche usan el subdominio **solo** con `GS_SHOP_SUBDOMAINS=1` en Railway; sin esa variable siguen mostrando `/r/<nombre>`. Se prende cuando el comodín `*.gabostore.lat` tenga DNS y candado.
@@ -30,7 +30,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - Hecho: el dueño agregó los dos dominios en Railway y los registros en Namecheap (ALIAS `@`, CNAME `www`, dos TXT `_railway-verify`; se borraron los de Netlify). Con el token de Railway del dueño se leyeron los registros pedidos y, con los dos certificados listos, se cambió `GS_PUBLIC_ORIGIN` a `https://gabostore.lat` (antes la dirección de Railway). Ninguna otra variable se tocó.
 - Los links nuevos (cobro, renovación, acceso, códigos) salen con gabostore.lat. Clientes y revendedores tienen que iniciar sesión de nuevo en la dirección nueva.
 
-## 2026-11-13 · Atajos del dueño y de los revendedores (**sin publicar**, rama `panel-atajos`)
+## 2026-11-13 · Atajos del dueño y de los revendedores (**publicado el 13/11, PR #61**)
 Pedido del dueño: «todo eso, implementá». Siete cosas, cada una con su prueba:
 - **Mi secretaria · «✅ Ya le avisé»:** un toque marca que ya le escribiste a un cliente y deja de pedírtelo. Vale para ese vencimiento (al renovar se va). Si vence mañana u hoy y el aviso fue hace 2 días o más, lo vuelve a pedir (regla «3 días antes y otra vez 1 día antes»). «↩️ No le avisé» deshace. El Control muestra «📣 Ya le avisaste el …». No manda nada ni cambia pagos o fechas.
 - **Control · fila de envíos:** después de «Mover todos a otra cuenta», arriba aparece «📲 Mandar los accesos nuevos»: el mensaje de cada cliente y su botón de WhatsApp; al tocarlo pasa solo al siguiente.
