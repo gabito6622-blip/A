@@ -19,7 +19,8 @@ import { ALERT_TEXT } from "../store/watch.js";
 export const OFFICE_AGENTS = ["receipts", "whatsapp", "daily", "watch", "codes", "cartero"] as const;
 export type OfficeAgentId = (typeof OFFICE_AGENTS)[number];
 export type Tone = "ok" | "warn" | "bad" | "info";
-export interface OfficeEvent { a: OfficeAgentId; at: number; text: string; tone: Tone }
+/** `a` = quién: un asistente, o "owner" (lo que hizo el dueño: aprobar, vender, renovar) para que la línea de tiempo cuente el día completo. */
+export interface OfficeEvent { a: OfficeAgentId | "owner"; at: number; text: string; tone: Tone }
 
 type Who = "public" | "customer" | "staff";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +38,7 @@ export interface OfficeDeps {
   aiDaily: () => { at: number; day: string } | null;
   pushOn: () => boolean;
   mailOn: () => boolean;
-  expiryStats: () => { day: string; sent: number };
+  expiryStats: () => { day: string; sent: number; lastAt?: number };
   forbidden: (msg: string) => never;
 }
 
@@ -80,11 +81,26 @@ export function createOffice(d: OfficeDeps) {
     const daily = d.aiDaily();
     if (daily && t - daily.at < KEEP_MS) out.push({ a: "daily", at: daily.at, text: "Te armé el reporte del día 📋. Está en Inicio.", tone: "ok" });
     const ex = d.expiryStats();
-    if (ex.day === laDay(t) && ex.sent > 0) out.push({ a: "cartero", at: t, text: `Hoy mandé ${ex.sent} aviso${ex.sent === 1 ? "" : "s"} de vencimiento al celular de tus clientes.`, tone: "ok" });
+    // La hora del evento es la del último aviso real (no "ahora"): si fuera "ahora", la oficina vería un evento
+    // nuevo cada 20 s, Tito saltaría todo el día y se redibujaría toda la pantalla. Sin hora guardada (avisos de
+    // antes de este cambio), se usa una fija del día: las 9 de Bolivia, cuando reparte.
+    if (ex.day === laDay(t) && ex.sent > 0) out.push({ a: "cartero", at: ex.lastAt ?? Date.parse(`${ex.day}T09:00:00-04:00`), text: `Hoy mandé ${ex.sent} aviso${ex.sent === 1 ? "" : "s"} de vencimiento al celular de tus clientes.`, tone: "ok" });
+    // Lo que hizo el dueño (Premium 2.0, etapa 7): sale de la auditoría, que ya existe. Solo el primer nombre y la plataforma.
+    const since = t - KEEP_MS;
+    const nameOfOrder = (id: string) => firstName(e.s.customers[e.s.orders[id]?.customerId ?? ""]?.name);
+    const prodOfOrder = (id: string) => { const o = e.s.orders[id]; const pid = o?.items[0]?.productId ?? e.s.assignments[o?.renewal?.assignmentId ?? ""]?.productId; return pid ? e.s.products[pid]?.name ?? "" : ""; };
+    for (const au of e.s.audit) {
+      if (au.at < since) continue;
+      if (au.action === "payment.approve") out.push({ a: "owner", at: au.at, text: `Aprobaste el pago de ${nameOfOrder(au.entityId)}${prodOfOrder(au.entityId) ? ` (${prodOfOrder(au.entityId)})` : ""}.`, tone: "ok" });
+      else if (au.action === "payment.reject") out.push({ a: "owner", at: au.at, text: `Rechazaste un pago de ${nameOfOrder(au.entityId)}.`, tone: "warn" });
+      else if (au.action === "order.create" && e.s.orders[au.entityId]?.channel !== "import" && e.s.orders[au.entityId]?.status === "fulfilled") out.push({ a: "owner", at: au.at, text: `${e.s.orders[au.entityId]?.kind === "renewal" ? "Renovaste" : "Vendiste"} ${prodOfOrder(au.entityId) || "un servicio"} a ${nameOfOrder(au.entityId)}.`, tone: "ok" });
+      else if (au.action === "account.password_rotated") out.push({ a: "owner", at: au.at, text: `Cambiaste la clave de una cuenta de ${e.s.products[e.s.accounts[au.entityId]?.productId ?? ""]?.name ?? "una plataforma"}.`, tone: "info" });
+    }
     return out;
   }
 
-  function view(role: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function view(role: string, actor?: any) {
     const t = now(), today = laDay(t);
     const all = [...read(), ...derived()].filter((x) => t - x.at < KEEP_MS).sort((a, b) => b.at - a.at);
     const key = d.hasKey();
@@ -95,12 +111,16 @@ export function createOffice(d: OfficeDeps) {
     };
     const agents = OFFICE_AGENTS.map((id) => {
       const mine = all.filter((x) => x.a === id);
+
       const todayN = id === "cartero" ? (d.expiryStats().day === today ? d.expiryStats().sent : 0) : mine.filter((x) => laDay(x.at) === today).length;
       return { id, on: on[id], ai: id === "receipts" || id === "whatsapp" || id === "daily" || id === "watch", aiOn: id === "watch" ? key && d.aiOn("watch") : undefined, today: todayN, last: mine[0] ?? null, recent: mine.slice(0, 8) };
     });
     const m = d.aiMonth();
+    // «Para hoy»: los mismos conteos de Mi secretaria (solo números; la pantalla completa está en el panel).
+    let pendientes: Record<string, number> | null = null;
+    if (actor) { try { pendientes = (store.stats.secretary(actor) as { counts: Record<string, number> }).counts; } catch { pendientes = null; } }
     return {
-      now: t, hour: laHour(t), day: today, hasKey: key, agents,
+      now: t, hour: laHour(t), day: today, hasKey: key, agents, pendientes,
       feed: all.slice(0, 30),
       // La plata de Claude: solo el dueño.
       ai: role === "owner" ? { spentUsd: m.spentUsd, limitUsd: m.monthlyLimitUsd, calls: m.calls, model: m.modelLabel } : null,
@@ -110,7 +130,7 @@ export function createOffice(d: OfficeDeps) {
   d.route("GET", "/api/admin/office", "staff", (c) => {
     const role = c.actor?.role;
     if (role !== "owner" && role !== "admin") d.forbidden("La oficina la ven el dueño y los admin");
-    return view(role);
+    return view(role, c.actor);
   });
 
   return { note, view };

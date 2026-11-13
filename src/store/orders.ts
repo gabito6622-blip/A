@@ -305,8 +305,10 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
     if (o.status === "awaiting_payment" && !isStaff(actor)) alertPayment(e, o);
     // Mismo archivo que en otro pedido: se marca para que el dueño lo vea (la estafa más común).
     const dup = ev.hash ? Object.values(e.s.orders).find((x) => x.id !== o.id && x.evidence?.hash === ev.hash) : undefined;
-    o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now(), ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) };
+    const seen = referenceSeenIn(e, ev.declaredReference, o.id);
+    o.evidence = { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: e.now(), ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}), ...(seen ? { referenceSeenIn: seen } : {}) };
     if (dup) e.audit(actor, "order.evidence_duplicate", "order", o.id, { duplicateOf: dup.id });
+    if (seen) e.audit(actor, "order.evidence_reference_seen", "order", o.id, { seenIn: seen });
     o.status = "payment_review";
     o.updatedAt = e.now();
     // Mientras se revisa, la reserva se mantiene (no se vende a otro).
@@ -319,8 +321,22 @@ export function submitEvidence(e: Engine, actor: Actor, orderId: Id, ev: { fileR
 
 /** Entrega un pedido que está en revisión: re-reserva si hiciera falta, guarda la referencia y cumple.
  *  Debe correr dentro de `tx`. La usan tanto la aprobación manual (QR) como la pasarela (Binance). */
+/**
+ * Dos referencias bancarias son la misma aunque cambien mayúsculas, espacios, guiones, puntos o ceros a la izquierda:
+ * "0012-345", " 12 345 " y "12.345" son el mismo pago. Se guarda tal cual la escribieron; se compara normalizada.
+ */
+export function normRef(ref: string | undefined): string {
+  return String(ref ?? "").toUpperCase().replace(/[\s\-._/#:]/g, "").replace(/^0+(?=\d)/, "");
+}
+/** Otro pedido donde esa referencia ya figura (confirmada por el dueño o declarada por el cliente). */
+function referenceSeenIn(e: Engine, ref: string, exceptId: Id): Id | undefined {
+  const n = normRef(ref);
+  if (!n) return undefined;
+  return Object.values(e.s.orders).find((x) => x.id !== exceptId && (normRef(x.confirmedReference) === n || normRef(x.evidence?.declaredReference) === n))?.id;
+}
+
 function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
-  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference === ref);
+  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference && normRef(x.confirmedReference) === normRef(ref));
   if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
   // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
   if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
@@ -337,13 +353,33 @@ function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
     }
     delete o.backorder;
   }
+  if (o.kind === "sale" && !o.reservedSlotIds.length && o.items.length) throw new DomainError("OUT_OF_STOCK", "El pedido quedó sin perfil reservado: cargá stock y volvé a aprobar.");
+
   o.confirmedReference = ref;
   o.approvedBy = actor.id;
   e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
   fulfill(e, actor, o);
 }
 
-export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { confirmedReference: string; idempotencyKey?: string }): Order {
+export interface ApproveInput {
+  confirmedReference: string;
+  idempotencyKey?: string;
+  /** Comprobante repetido: solo el dueño puede aprobar igual, diciendo por qué (queda en la auditoría). */
+  force?: boolean;
+  forceReason?: string;
+  /** Recarga en Bs: lo que de verdad llegó al banco, si no coincide con lo que escribió el cliente. */
+  verifiedAmount?: Cents;
+  /** Recarga en US$ (USDT): lo que de verdad llegó, en centavos de dólar. */
+  verifiedUsd?: Cents;
+}
+
+/** El otro pedido del comprobante repetido todavía "vale" (se pagó o está por revisarse): entonces es la estafa típica. */
+function duplicateStillCounts(e: Engine, o: Order): Order | undefined {
+  const d = o.evidence?.duplicateOf ? e.s.orders[o.evidence.duplicateOf] : undefined;
+  return d && (d.status === "fulfilled" || d.status === "payment_review" || d.status === "awaiting_payment") ? d : undefined;
+}
+
+export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: ApproveInput): Order {
   authorize(actor, "payment.review");
   const key = input.idempotencyKey ? `approve:${orderId}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
@@ -356,6 +392,39 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: { co
     if (actor.customerId && actor.customerId === o.customerId) throw new DomainError("FORBIDDEN", "No podés aprobar tu propio pedido");
     const ref = input.confirmedReference?.trim();
     if (!ref) throw new DomainError("VALIDATION", "Indicá la referencia bancaria verificada");
+    // Comprobante repetido: la misma imagen ya pagó (o está pagando) otro pedido. No se aprueba salvo que el DUEÑO
+    // lo revise y diga por qué es otro pago (por ejemplo, un comprobante por dos pedidos).
+    const dup = duplicateStillCounts(e, o);
+    if (dup) {
+      if (!input.force) throw new DomainError("DUPLICATE_EVIDENCE", `Este comprobante ya se usó en el pedido ${dup.id}. Revisá los dos; si de verdad es otro pago, el dueño puede aprobarlo igual diciendo por qué.`);
+      if (actor.role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño puede aprobar un comprobante repetido");
+      const why = String(input.forceReason ?? "").trim();
+      if (why.length < 4) throw new DomainError("VALIDATION", "Decí por qué es un pago distinto (queda en la auditoría)");
+      e.audit(actor, "payment.approve_forced", "order", o.id, { duplicateOf: dup.id, reason: why.slice(0, 200) });
+    }
+    // Recargas: el monto lo escribió el cliente; al aprobar se puede corregir por lo que de verdad llegó.
+    if (o.kind === "topup") {
+      if (o.usd !== undefined) {
+        if (input.verifiedUsd !== undefined && input.verifiedUsd !== null) {
+          const v = Number(input.verifiedUsd);
+          if (!Number.isInteger(v) || v < 100 || v > 100_000) throw new DomainError("VALIDATION", "Monto verificado en US$ inválido (de 1 a 1000)");
+          if (v !== o.usd) {
+            const rate = o.usdtQuote?.rate ?? requireRate(e);
+            e.audit(actor, "payment.amount_corrected", "order", o.id, { fromUsd: o.usd, toUsd: v });
+            o.usd = v; o.total = usdToBs(v, rate); o.topupAmount = o.total;
+            if (o.usdtQuote) o.usdtQuote = { ...o.usdtQuote, usdt: v / 100 };
+          }
+        }
+      } else if (input.verifiedAmount !== undefined && input.verifiedAmount !== null) {
+        const v = Number(input.verifiedAmount);
+        if (!Number.isInteger(v) || v < 1000 || v > 500_000) throw new DomainError("VALIDATION", "Monto verificado inválido (entre Bs 10 y Bs 5.000)");
+        if (v !== o.topupAmount) {
+          e.audit(actor, "payment.amount_corrected", "order", o.id, { from: o.topupAmount, to: v });
+          o.topupAmount = v; o.total = v;
+          if (o.usdtQuote) o.usdtQuote = { ...o.usdtQuote, usdt: usdtFor(e, v) };
+        }
+      }
+    }
     settle(e, actor, o, ref);
     return structuredClone(o);
   }));
@@ -401,6 +470,7 @@ export function rejectPayment(e: Engine, actor: Actor, orderId: Id, reason: stri
     if (o.status !== "payment_review" && o.status !== "awaiting_payment") throw new DomainError("INVALID_STATE", `No se puede rechazar en estado ${o.status}`);
     releaseSlots(e, o.reservedSlotIds);
     o.status = "rejected";
+    o.rejectReason = reason.trim().slice(0, 200);
     o.updatedAt = e.now();
     queue(e, o.payerId ?? o.customerId, "payment_rejected", { order: o.id });
     e.audit(actor, "payment.reject", "order", o.id, { reason });
@@ -997,8 +1067,21 @@ function lockUsdt(e: Engine, o: Order) {
   if (o.paymentMethod === "usdt" && r > 0 && o.total > 0 && o.usd === undefined) o.usdtQuote = { usdt: usdtFor(e, o.total), rate: r };
 }
 
-export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }, method: "qr" | "usdt" = "qr", usdtAmount?: number): Order {
+/** Cuántas recargas puede tener un cliente esperando revisión a la vez (frena el doble envío y el spam de comprobantes). */
+export const MAX_TOPUPS_IN_REVIEW = 3;
+
+export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Cents, ev: { fileRef: string; declaredReference: string; hash?: string }, method: "qr" | "usdt" = "qr", usdtAmount?: number, idempotencyKey?: string): Order {
   requireActFor(e, actor, customerId);
+  // Doble envío (dos toques, red lenta): la misma llave devuelve la misma recarga en vez de crear dos.
+  if (idempotencyKey) {
+    const key = `topup:${customerId}:${idempotencyKey}`;
+    if (key in e.s.idempotency) return structuredClone(e.s.idempotency[key]) as Order;
+    const o = requestTopup(e, actor, customerId, amount, ev, method, usdtAmount);
+    e.tx(() => { e.s.idempotency[key] = structuredClone(o); });
+    return o;
+  }
+  const pending = Object.values(e.s.orders).filter((x) => x.kind === "topup" && x.customerId === customerId && x.status === "payment_review").length;
+  if (pending >= MAX_TOPUPS_IN_REVIEW) throw new DomainError("VALIDATION", `Ya tenés ${pending} recargas esperando revisión. Cuando se aprueben, podés mandar otra.`);
   // Saldo en dólares: recarga solo con USDT, y se acreditan los US$ que mandó.
   if (isUsd(e, customerId)) return requestUsdTopup(e, actor, customerId, ev, method, usdtAmount ?? (Number.isFinite(Number(amount)) && Number(amount) > 0 ? Number(amount) / 100 : undefined));
   // Revendedores de afuera (Paraguay, Panamá…) recargan mandando USDT por Binance: solo si el dueño lo configuró.
@@ -1009,17 +1092,18 @@ export function requestTopup(e: Engine, actor: Actor, customerId: Id, amount: Ce
   if (method === "usdt" && usdtAmount !== undefined && usdtAmount !== null) {
     const n = Number(usdtAmount);
     if (!(Number.isFinite(n) && n >= 1 && n <= 1000 && Math.round(n * 100) === n * 100)) throw new DomainError("VALIDATION", "Poné cuántos USDT mandaste (de 1 a 1000)");
-    amount = Math.round(n * u!.rate! * 100);
+    amount = usdToBs(Math.round(n * 100), u!.rate!); // aritmética entera (sin errores de coma flotante)
   }
   if (!Number.isInteger(amount) || amount < 1000 || amount > 500_000) throw new DomainError("VALIDATION", "La recarga debe estar entre Bs 10 y Bs 5.000");
   if (!ev.fileRef?.trim() || !ev.declaredReference?.trim()) throw new DomainError("VALIDATION", "Falta el comprobante o el número de operación");
   return e.tx(() => {
     const now = e.now();
     const dup = ev.hash ? Object.values(e.s.orders).find((x) => x.evidence?.hash === ev.hash) : undefined;
+    const seen = referenceSeenIn(e, ev.declaredReference, "");
     const o: Order = {
       id: e.id("ord"), kind: "topup", customerId, payerId: customerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : "store", items: [], total: amount, topupAmount: amount, status: "payment_review",
-      paymentMethod: method, ...(method === "usdt" ? { usdtQuote: { usdt: usdtAmount !== undefined && usdtAmount !== null ? Number(usdtAmount) : usdtFor(e, amount), rate: u!.rate! } } : {}), evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}) },
+      paymentMethod: method, ...(method === "usdt" ? { usdtQuote: { usdt: usdtAmount !== undefined && usdtAmount !== null ? Number(usdtAmount) : usdtFor(e, amount), rate: u!.rate! } } : {}), evidence: { fileRef: ev.fileRef, declaredReference: ev.declaredReference.trim(), submittedAt: now, ...(ev.hash ? { hash: ev.hash } : {}), ...(dup ? { duplicateOf: dup.id } : {}), ...(seen ? { referenceSeenIn: seen } : {}) },
       reservedSlotIds: [], assignmentIds: [], createdAt: now, updatedAt: now,
     };
     e.s.orders[o.id] = o;

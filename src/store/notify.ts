@@ -92,12 +92,20 @@ export function queueStaff(e: Engine, template: TemplateId, params: Record<strin
 }
 
 /** Mientras no haya WhatsApp automático: el staff lo manda a mano y lo marca como enviado. */
-export function markSentManually(e: Engine, actor: Actor, messageId: Id): OutboxMessage {
+export function markSentManually(e: Engine, actor: Actor, messageId: Id, opts: { force?: boolean; reason?: string } = {}): OutboxMessage {
   authorize(actor, "notify.flush");
   return e.tx(() => {
     const m = e.s.outbox.find((x) => x.id === messageId);
     if (!m) throw new DomainError("NOT_FOUND", "Mensaje inexistente");
     if (m.status !== "queued" && m.status !== "failed" && m.status !== "skipped_no_consent") throw new DomainError("INVALID_STATE", "El mensaje ya se envió");
+    // Sin permiso del cliente no se marca como enviado "por las dudas": solo el dueño, diciendo por qué (p. ej. "me lo pidió
+    // por WhatsApp"), y queda en la auditoría. Lo correcto es activarle el permiso en su ficha.
+    if (m.status === "skipped_no_consent") {
+      const why = String(opts.reason ?? "").trim();
+      if (!opts.force || why.length < 4) throw new DomainError("NO_CONSENT", "El cliente no aceptó avisos. Activale el permiso en su ficha o, si te lo pidió, el dueño puede marcarlo igual diciendo por qué.");
+      if (actor.role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño puede marcar como enviado un aviso sin permiso del cliente");
+      e.audit(actor, "outbox.sent_without_consent", "outbox", m.id, { reason: why.slice(0, 200) });
+    }
     m.status = "sent_manually";
     e.audit(actor, "outbox.sent_manually", "outbox", m.id);
     return structuredClone(m);

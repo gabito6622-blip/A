@@ -35,6 +35,7 @@ import { registerSearchRoutes } from "./searchRoutes.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
+import { writeXlsx } from "./xlsx.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -105,7 +106,7 @@ const MAX_FILE = 5 * 1024 * 1024;
 
 const STATUS: Record<string, number> = {
   FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, OUT_OF_STOCK: 409, INSUFFICIENT_BALANCE: 409,
-  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, SENSITIVE_DATA: 400,
+  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400,
 };
 
 class HttpError extends Error {
@@ -539,14 +540,17 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/orders", "customer", (c) => store.portal.orders(c.actor!));
   route("GET", "/api/me/ledger", "customer", (c) => store.wallet.history(c.actor!, c.actor!.customerId!));
   route("GET", "/api/me/codes", "customer", (c) => store.portal.codes(c.actor!, String(c.query.get("customerId") ?? c.actor!.customerId)));
-  route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp), { ok: true }));
+  route("PUT", "/api/me/consent", "customer", (c) => (store.catalog.setWhatsappConsent(c.actor!, c.actor!.customerId!, !!c.body?.whatsapp, "cliente"), { ok: true }));
   route("GET", "/api/me/customers", "customer", (c) => store.portal.customers(c.actor!));
   // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
   // Suscripción GaboHub vencida (y cobro prendido para todos): se pausan estas pantallas. Vender, anotar fiados,
   // comprar, cuentas, códigos y recargar NUNCA se bloquean (las rutas que escriben siguen abiertas).
   const hubGuard = (c: { actor?: Actor }) => {
-    if (c.actor?.customerId && store.shops.hubLocked(c.actor.customerId)) throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
+    const why = c.actor?.customerId ? store.shops.hubLockReason(c.actor.customerId) : null;
+    if (why === "suspended") throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
+    if (why === "plan") throw new HttpError(402, "HUB_PLAN", "Esta herramienta es del plan Completo de GaboHub: pasate desde tu Inicio y se activa al instante");
   };
+  route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
@@ -579,6 +583,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
   route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
+  // Premium 2.0 (etapa 8): lo que el dueño configuró para soporte (respuestas guardadas y mensajes de la secretaria).
+  route("GET", "/api/admin/settings/soporte", "staff", () => ({ ticketReplies: store.engine.s.settings.ticketReplies ?? [], secretaryMsg: store.engine.s.settings.secretaryMsg ?? {} }));
   route("POST", "/api/admin/tickets/:id", "staff", (c) => {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
@@ -640,6 +646,27 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
   route("POST", "/api/admin/testimonials", "staff", (c) => store.shops.setTestimonials(A(c), c.body?.items));
   route("GET", "/api/admin/finance", "staff", (c) => store.finance.report(A(c), Number(c.query.get("months")) || 6));
+  // Premium 2.0 (etapa 9): cierre de un mes y su Excel.
+  route("GET", "/api/admin/finance/cierre", "staff", (c) => store.finance.monthClose(A(c), c.query.get("month") ?? undefined));
+  route("GET", "/api/admin/finance/cierre.xlsx", "staff", (c) => {
+    const d = store.finance.monthClose(A(c), c.query.get("month") ?? undefined);
+    const bsn = (v: number) => Math.round(v) / 100;
+    const rows: (string | number | null)[][] = [
+      ["Cierre de mes", d.label], [],
+      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)],
+      ["Ventas", d.ventas], ["Renovaciones", d.renovaciones], ["Cobros del Control", d.cobrosControl],
+      ["Gastos", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["Te quedó", bsn(d.ganancia)],
+      ...(d.cuentasEstimado ? [["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", bsn(d.gananciaEstimada)]] : []),
+      [], ["Mes anterior", d.prev.key], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Te quedó", bsn(d.prev.ganancia)],
+      ["Variación de ingresos", d.vs.ingresosPct === null ? "—" : `${d.vs.ingresosPct} %`],
+      [], ["Apps que más dejaron", "Entró", "Unidades", "Costo", "Ganancia"],
+      ...d.topApps.map((a) => [a.name, bsn(a.ingresos), a.units, bsn(a.costo), bsn(a.gana)]),
+      [], ["Quién te pagó más", "Tipo", "Monto"],
+      ...d.topPayers.map((p) => [p.name, p.kind === "reseller" ? "Revendedor" : "Cliente", bsn(p.amount)]),
+    ];
+    store.engine.tx(() => store.engine.audit(A(c), "export", "export", "cierre", { month: d.month }));
+    return sendFile(c, writeXlsx([{ name: `Cierre ${d.month}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
+  });
   route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
   route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));
@@ -702,7 +729,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
-      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr", c.body?.usdtAmount);
+      const o = store.orders.requestTopup(c.actor!, c.body?.customerId ?? c.actor!.customerId!, c.body?.amount, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }, c.body?.method === "usdt" ? "usdt" : "qr", c.body?.usdtAmount, typeof c.body?.idempotencyKey === "string" ? c.body.idempotencyKey.slice(0, 80) : undefined);
       autoReview(o.id);
       return o;
     } catch (e) {
@@ -758,12 +785,14 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
-    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, profiles: b.profiles ?? [], notes: b.notes,
+    const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
     // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
     if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
     return r;
   });
+  route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
+  route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
   route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
@@ -796,7 +825,12 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
   route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));
-  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => store.orders.approvePayment(A(c), c.params.id, { confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => store.orders.approvePayment(A(c), c.params.id, {
+    confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey,
+    force: c.body?.force === true, forceReason: c.body?.forceReason === undefined ? undefined : String(c.body.forceReason),
+    verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
+    verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
+  }));
   route("POST", "/api/admin/trials", "staff", (c) => {
     const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
     return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
@@ -821,7 +855,7 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/customers/:id/ledger", "staff", (c) => store.wallet.history(A(c), c.params.id));
   route("POST", "/api/admin/customers/:id/adjust", "staff", (c) => store.wallet.adjust(A(c), c.params.id, c.body?.amount, String(c.body?.reason ?? "")));
-  route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp), { ok: true }));
+  route("POST", "/api/admin/customers/:id/consent", "staff", (c) => (store.catalog.setWhatsappConsent(A(c), c.params.id, !!c.body?.whatsapp, "panel"), { ok: true }));
   // Ficha del revendedor: todos sus perfiles (los suyos y los de sus clientes) por cuenta, lo que debe y su link de códigos.
   route("GET", "/api/admin/resellers/:id/sheet", "staff", (c) => {
     const st = store.engine.s, r = st.customers[c.params.id];
@@ -863,6 +897,7 @@ export function createApp(cfg: AppConfig): App {
     return store.shops.apply({ name: c.body?.name, phone: c.body?.phone, note: c.body?.note, ref: c.body?.ref });
   });
   route("POST", "/api/me/shop/pay", "customer", (c) => store.shops.payRent(c.actor!));
+  route("POST", "/api/admin/resellers/:id/plan", "staff", (c) => store.shops.setPlan(A(c), c.params.id, c.body?.plan));
   route("POST", "/api/admin/customers/:id/shop", "staff", (c) => store.shops.setupFor(A(c), c.params.id, c.body ?? {}));
   route("POST", "/api/admin/customers/:id/login-link", "staff", (c) => {
     if (!store.catalog.canActFor(A(c), c.params.id)) throw new HttpError(403, "FORBIDDEN", "Sin permiso");
@@ -981,6 +1016,8 @@ export function createApp(cfg: AppConfig): App {
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
+    if (Array.isArray(b.ticketReplies)) pick.ticketReplies = b.ticketReplies;
+    if (b.secretaryMsg && typeof b.secretaryMsg === "object") pick.secretaryMsg = b.secretaryMsg;
     if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;
@@ -1021,7 +1058,7 @@ export function createApp(cfg: AppConfig): App {
     if (old) dropUpload(old);
     return out;
   });
-  route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id));
+  route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id, { force: c.body?.force === true, reason: c.body?.reason === undefined ? undefined : String(c.body.reason) }));
 
   const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const sendFile = (c: Ctx, buf: Buffer, name: string) => {
@@ -1331,7 +1368,7 @@ export function createApp(cfg: AppConfig): App {
         }
       } catch (e) { log(`agente de WhatsApp: ${(e as Error).message}`); }
     }
-    if (a.consent !== undefined && cust) store.catalog.setWhatsappConsent({ id: `wa:${cust.id}`, role: "customer", customerId: cust.id }, cust.id, a.consent);
+    if (a.consent !== undefined && cust) store.catalog.setWhatsappConsent({ id: `wa:${cust.id}`, role: "customer", customerId: cust.id }, cust.id, a.consent, "whatsapp");
     if (a.human) store.chats.requestHuman(phone, store.chats.botSettings().humanPauseHours);
     for (const text of a.replies) await sendChat(phone, text, "bot");
     if (a.sendQr && cfg.publicOrigin) {
@@ -1407,6 +1444,41 @@ export function createApp(cfg: AppConfig): App {
     return RAW;
   }, 1024 * 1024);
 
+  /** Bandeja de pagos de Binance que llegaron confirmados pero no se pudieron entregar (plata cobrada, pedido sin entregar). */
+  type BinanceFail = { merchantTradeNo: string; txnId: string; error: string; amount: string; at: number; tries: number };
+  const binanceFailed = {
+    list: (): BinanceFail[] => { try { const l = JSON.parse(db.getSecret("binance_failed") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } },
+    save(l: BinanceFail[]) { db.setSecret("binance_failed", l.length ? JSON.stringify(l.slice(-50)) : null, now()); },
+    add(f: Omit<BinanceFail, "at" | "tries">) {
+      const l = this.list(); const i = l.findIndex((x) => x.merchantTradeNo === f.merchantTradeNo);
+      if (i >= 0) l[i] = { ...l[i], ...f, at: now(), tries: l[i].tries + 1 }; else l.push({ ...f, at: now(), tries: 1 });
+      this.save(l);
+    },
+    resolve(mtn: string) { const l = this.list(); if (l.some((x) => x.merchantTradeNo === mtn)) this.save(l.filter((x) => x.merchantTradeNo !== mtn)); },
+  };
+  route("GET", "/api/admin/binance/failed", "staff", (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin ven los pagos de Binance");
+    return binanceFailed.list().map((f) => ({ ...f, orderId: Object.values(store.engine.s.orders).find((o) => o.binance?.merchantTradeNo === f.merchantTradeNo)?.id ?? null }));
+  });
+  route("POST", "/api/admin/binance/failed/retry", "staff", (c) => {
+    if (!["owner", "admin"].includes(A(c).role)) throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin reintentan pagos de Binance");
+    const mtn = String(c.body?.merchantTradeNo ?? "");
+    const f = binanceFailed.list().find((x) => x.merchantTradeNo === mtn);
+    if (!f) throw new HttpError(404, "NOT_FOUND", "Ese pago ya no está en la bandeja");
+    const order = Object.values(store.engine.s.orders).find((o) => o.binance?.merchantTradeNo === mtn);
+    if (!order) throw new HttpError(409, "INVALID_STATE", "El pago no tiene pedido en la tienda: revisalo a mano en Binance");
+    const o = store.orders.confirmBinancePayment(system, order.id, { txnId: f.txnId });
+    binanceFailed.resolve(mtn);
+    return o;
+  });
+  route("POST", "/api/admin/binance/failed/dismiss", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño descarta un pago de la bandeja");
+    const mtn = String(c.body?.merchantTradeNo ?? "");
+    store.engine.tx(() => store.engine.audit(A(c), "binance.failed_dismiss", "order", mtn, { reason: String(c.body?.reason ?? "").slice(0, 200) }));
+    binanceFailed.resolve(mtn);
+    return { ok: true };
+  });
+
   // Webhook de Binance Pay: avisa cuando un pago se completó. Se verifica la firma RSA con el certificado de Binance.
   route("POST", "/api/binance/webhook", "public", async (c) => {
     const client = binanceClient();
@@ -1422,10 +1494,16 @@ export function createApp(cfg: AppConfig): App {
       void (async () => {
         try {
           const order = Object.values(store.engine.s.orders).find((o) => o.binance?.merchantTradeNo === ev.merchantTradeNo);
-          if (!order) { log(`binance: pago sin pedido (merchantTradeNo ${ev.merchantTradeNo})`); return; }
+          if (!order) { log(`binance: pago sin pedido (merchantTradeNo ${ev.merchantTradeNo})`); binanceFailed.add({ merchantTradeNo: ev.merchantTradeNo!, txnId: ev.transactionId!, error: "Pago sin pedido en la tienda", amount: `${ev.totalFee ?? ""} ${ev.currency ?? ""}`.trim() }); return; }
           store.orders.confirmBinancePayment(system, order.id, { txnId: ev.transactionId! });
+          binanceFailed.resolve(ev.merchantTradeNo!);
           log(`binance: pedido ${order.id} pagado (${ev.totalFee} ${ev.currency})`);
-        } catch (e) { log(`binance webhook: ${(e as Error).message}`); }
+        } catch (e) {
+          // Binance ya recibió el "SUCCESS": si acá falla (sin stock, estado raro), el pago quedaría cobrado y el pedido sin
+          // entregar sin que nadie lo vea. Se guarda en una bandeja del dueño para reintentar.
+          log(`binance webhook: ${(e as Error).message}`);
+          binanceFailed.add({ merchantTradeNo: ev.merchantTradeNo!, txnId: ev.transactionId!, error: (e as Error).message, amount: `${ev.totalFee ?? ""} ${ev.currency ?? ""}`.trim() });
+        }
       })();
     }
     return RAW;
@@ -1494,6 +1572,21 @@ export function createApp(cfg: AppConfig): App {
     const c = agents.cfg();
     // El reporte del día (con plata del negocio) es solo del dueño.
     return { hasKey: agents.hasKey, keyShape: agents.keyShape, ...c, models: Object.entries(AI_MODELS).map(([id, m]) => ({ id, label: m.label, input: m.input, output: m.output })), daily: A(ctx).role === "owner" ? aiDaily() : null };
+  });
+  // Inicio del panel en UNA llamada (Premium 2.0, etapa 3): antes eran 6 pedidos encadenados (assignments, pagos por
+  // revisar, finanzas, agentes, revendedores sin PIN y notificaciones). Cada parte es la misma que su endpoint suelto;
+  // si una falla, va en null y el resto se muestra igual.
+  route("GET", "/api/admin/inicio", "staff", (ctx) => {
+    const a = A(ctx), review = a.role === "owner" || a.role === "admin";
+    const t = <T,>(f: () => T): T | null => { try { return f(); } catch { return null; } };
+    return {
+      assignments: store.admin.assignments(a, {}),
+      pendingReview: t(() => store.admin.orders(a, { status: "payment_review" as never }).length) ?? 0,
+      finance: a.role === "owner" ? t(() => store.finance.report(a, 1)) : null,
+      ai: review ? t(() => ({ hasKey: agents.hasKey, keyShape: agents.keyShape, ...agents.cfg(), daily: a.role === "owner" ? aiDaily() : null })) : null,
+      sinPin: review ? t(() => store.shops.resellers(a).filter((r) => !db.getSecret(`loginpin:${r.id}`)).length) ?? 0 : 0,
+      notifications: t(() => store.stats.notifications(a)),
+    };
   });
   route("POST", "/api/admin/ai", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño configura los agentes");

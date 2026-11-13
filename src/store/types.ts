@@ -67,6 +67,10 @@ export const DEFAULT_COMBO_DISCOUNTS: [Cents, Cents, Cents] = [500, 1000, 1500];
 /** Configuración de la tienda que ve el cliente. */
 export interface StoreSettings extends Look {
   shopRent?: ShopRent;
+  /** Premium 2.0 (etapa 8): respuestas guardadas para Fallas reportadas (hasta 10, de 1 a 200 letras). */
+  ticketReplies?: string[];
+  /** Premium 2.0 (etapa 8): mensajes de la secretaria editables ({nombre}, {cuentas}, {total}); vacío = el texto de siempre. */
+  secretaryMsg?: { cobrar?: string; avisar?: string; deben?: string };
   /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
   resellerMarginPct?: number;
   /** Premio (centavos) que gana un revendedor cuando traés a otro revendedor y el dueño lo aprueba. 0 lo apaga. */
@@ -246,6 +250,8 @@ export interface Account {
   iptv?: IptvLine;
   /** Vencimiento con el proveedor para el que ya se avisó al dueño. */
   supplierAlertSentFor?: number;
+  /** Última vez que se cambió la clave con «Cambié la clave» (etapa 4). */
+  passwordChangedAt?: number;
   createdAt: number;
 }
 
@@ -263,6 +269,9 @@ export interface Slot {
   reservedUntil?: number;
 }
 
+/** Por dónde llegó el permiso de avisos: el cliente al registrarse o en su cuenta, por WhatsApp (ALTA/BAJA), el panel, su revendedor o el Excel. */
+export type ConsentVia = "registro" | "cliente" | "whatsapp" | "panel" | "revendedor" | "importado";
+
 export interface Customer {
   id: Id;
   name: string;
@@ -278,6 +287,9 @@ export interface Customer {
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
+  /** Cuándo y por dónde dio (o quitó) el permiso de avisos por WhatsApp. */
+  whatsappConsentAt?: number;
+  whatsappConsentVia?: ConsentVia;
   createdAt: number;
   /** Notas internas del staff (nunca se muestran al cliente). */
   notes?: string;
@@ -292,7 +304,9 @@ export interface Customer {
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
-  hubBill?: { paidUntil?: number; suspended?: boolean };
+  hubBill?: { paidUntil?: number; suspended?: boolean; trial?: boolean };
+  /** Plan de GaboHub (Premium 2.0): "full" (todo) o "basic" (sin las herramientas premium). Sin definir = full. */
+  hubPlan?: "basic" | "full";
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }
@@ -342,6 +356,8 @@ export interface ResellerShop extends Look {
   paidUntil?: number;
   /** Apagada por falta de pago del alquiler (se prende sola al pagar). */
   suspended?: boolean;
+  /** Premium 2.0: está en los días de prueba gratis (todavía no pagó). */
+  trial?: boolean;
   /** Combos propios del revendedor (con su precio). */
   combos?: ResellerCombo[];
   /** Cupones propios para su página (solo si el dueño lo permite). */
@@ -394,6 +410,8 @@ export interface PaymentEvidence {
   hash?: string;
   /** Si el mismo archivo ya se usó en otro pedido: cuál. */
   duplicateOf?: Id;
+  /** Si el número de operación declarado ya figura en otro pedido (declarado o confirmado): cuál. */
+  referenceSeenIn?: Id;
 }
 
 export interface Order {
@@ -419,6 +437,8 @@ export interface Order {
   evidence?: PaymentEvidence;
   /** Referencia bancaria confirmada por quien aprobó. */
   confirmedReference?: string;
+  /** Por qué se rechazó el pago (lo ve el cliente en su historial). */
+  rejectReason?: string;
   approvedBy?: Id;
   reservedSlotIds: Id[];
   assignmentIds: Id[];
@@ -564,6 +584,12 @@ export interface ShopRent {
   scope?: "page" | "all";
   /** Precio fijo en centavos de US$ para revendedores en dólares (sin definir: el precio en Bs pasado con la tasa de hoy). */
   priceUsd?: Cents;
+  /** Premium 2.0: días de prueba gratis antes del primer cobro (0 = sin prueba). */
+  trialDays?: number;
+  /** Premium 2.0: precio del plan Básico (sin Mi control, Quién me debe, Mis ganancias ni Afiches). Sin definir = un solo plan. */
+  basicPrice?: Cents;
+  /** Plan Básico en US$ fijos (como `priceUsd`). */
+  basicPriceUsd?: Cents;
 }
 
 /** Pedido de alta de alguien que quiere ser revendedor (formulario público). */

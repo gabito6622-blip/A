@@ -1,6 +1,6 @@
 // Catálogo, grupos de precios, proveedores y clientes.
 import { cleanLook } from "./look.js";
-import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Supplier } from "./types.js";
+import type { Actor, Cents, Customer, Id, PriceGroup, Product, StoreSettings, Supplier, ConsentVia } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -121,10 +121,15 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     const ok = r && typeof r === "object" && Number.isInteger(r.price) && (r.price as number) >= 0 && (r.price as number) <= 1_000_000
       && Number.isInteger(r.freeIfSpent) && (r.freeIfSpent as number) >= 0 && Number.isInteger(r.graceDays) && (r.graceDays as number) >= 0 && (r.graceDays as number) <= 30
       && (r.scope === undefined || r.scope === "page" || r.scope === "all")
-      && (r.priceUsd === undefined || r.priceUsd === null || (Number.isInteger(r.priceUsd) && (r.priceUsd as number) >= 0 && (r.priceUsd as number) <= 100_000));
-    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras, días de gracia, quién paga o precio en dólares)");
+      && (r.priceUsd === undefined || r.priceUsd === null || (Number.isInteger(r.priceUsd) && (r.priceUsd as number) >= 0 && (r.priceUsd as number) <= 100_000))
+      && (r.trialDays === undefined || r.trialDays === null || (Number.isInteger(r.trialDays) && (r.trialDays as number) >= 0 && (r.trialDays as number) <= 90))
+      && (r.basicPrice === undefined || r.basicPrice === null || (Number.isInteger(r.basicPrice) && (r.basicPrice as number) >= 0 && (r.basicPrice as number) <= (r.price as number)))
+      && (r.basicPriceUsd === undefined || r.basicPriceUsd === null || (Number.isInteger(r.basicPriceUsd) && (r.basicPriceUsd as number) >= 0 && (r.basicPriceUsd as number) <= 100_000));
+    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras, días de gracia, quién paga, precio en dólares, días de prueba de 0 a 90 o plan Básico más caro que el Completo)");
     patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number,
-      ...(r.scope === "all" ? { scope: "all" as const } : {}), ...(Number.isInteger(r.priceUsd) ? { priceUsd: r.priceUsd as number } : {}) };
+      ...(r.scope === "all" ? { scope: "all" as const } : {}), ...(Number.isInteger(r.priceUsd) ? { priceUsd: r.priceUsd as number } : {}),
+      ...(Number.isInteger(r.trialDays) && (r.trialDays as number) > 0 ? { trialDays: r.trialDays as number } : {}),
+      ...(Number.isInteger(r.basicPrice) ? { basicPrice: r.basicPrice as number } : {}), ...(Number.isInteger(r.basicPriceUsd) ? { basicPriceUsd: r.basicPriceUsd as number } : {}) };
   }
   if (patch.resellerMarginPct !== undefined && !(Number.isInteger(patch.resellerMarginPct) && patch.resellerMarginPct >= 0 && patch.resellerMarginPct <= 300)) throw new DomainError("VALIDATION", "Ganancia sugerida: de 0 a 300 %");
   if (patch.referralBonus !== undefined && !(Number.isInteger(patch.referralBonus) && patch.referralBonus >= 0 && patch.referralBonus <= 1_000_000)) throw new DomainError("VALIDATION", "Premio por referido: de Bs 0 a Bs 10.000");
@@ -132,9 +137,26 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     const d = patch.comboDiscounts;
     if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 100000)) throw new DomainError("VALIDATION", "Descuentos del combo inválidos (de Bs 0 a Bs 1000)");
   }
+  if (patch.ticketReplies !== undefined) {
+    const l = patch.ticketReplies;
+    if (!Array.isArray(l) || l.length > 10 || l.some((x) => typeof x !== "string" || !x.trim() || x.length > 200)) throw new DomainError("VALIDATION", "Respuestas guardadas: hasta 10, de 1 a 200 letras cada una");
+    patch.ticketReplies = l.map((x) => x.trim());
+  }
+  if (patch.secretaryMsg !== undefined) {
+    const m = patch.secretaryMsg as Record<string, unknown>;
+    if (!m || typeof m !== "object") throw new DomainError("VALIDATION", "Mensajes de la secretaria inválidos");
+    const out: { cobrar?: string; avisar?: string; deben?: string } = {};
+    for (const k of ["cobrar", "avisar", "deben"] as const) {
+      const v = m[k];
+      if (v === undefined || v === null || v === "") continue;
+      if (typeof v !== "string" || v.length > 500) throw new DomainError("VALIDATION", "Cada mensaje de la secretaria va hasta 500 letras");
+      out[k] = v.trim();
+    }
+    patch.secretaryMsg = out;
+  }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));
@@ -294,7 +316,7 @@ export function selfRegister(e: Engine, input: { name: string; phone: string; wh
   return e.tx(() => {
     if (phone && Object.values(e.s.customers).some((x) => x.phone === phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
     const id = e.id("cus");
-    const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now() };
+    const cust: Customer = { id, name: input.name.trim(), phone, kind: "customer", priceGroupId: "final", whatsappConsent: !!input.whatsappConsent, createdAt: e.now(), ...(input.whatsappConsent ? { whatsappConsentAt: e.now(), whatsappConsentVia: "registro" as const } : {}) };
     e.s.customers[id] = cust;
     e.audit(system, "customer.self_register", "customer", id, { whatsappConsent: cust.whatsappConsent });
     return structuredClone(cust);
@@ -370,6 +392,7 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
     const cust: Customer = {
       id, name: c.name.trim(), phone, email, kind: c.kind ?? "customer", resellerId,
       priceGroupId: groupId, whatsappConsent: c.whatsappConsent ?? false, createdAt: e.now(),
+      ...(c.whatsappConsent ? { whatsappConsentAt: e.now(), whatsappConsentVia: (actor.role === "reseller" ? "revendedor" : "panel") as ConsentVia } : {}),
     };
     e.s.customers[id] = cust;
     e.audit(actor, "customer.create", "customer", id, { kind: cust.kind, resellerId });
@@ -438,12 +461,17 @@ export function updateCustomer(e: Engine, actor: Actor, customerId: Id, patch: C
   });
 }
 
-export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, consent: boolean): void {
+export function setWhatsappConsent(e: Engine, actor: Actor, customerId: Id, consent: boolean, via?: ConsentVia): void {
   const self = actor.customerId === customerId;
   if (!self && !can(actor, "customer.manage")) throw new DomainError("FORBIDDEN", "No podés cambiar el consentimiento de otro cliente");
+  // Por dónde llegó: lo dice quien llama; si no, se deduce de quién es el actor.
+  const v: ConsentVia = via ?? (String(actor.id).startsWith("wa:") ? "whatsapp" : self ? "cliente" : actor.role === "reseller" ? "revendedor" : "panel");
   e.tx(() => {
-    e.get("customers", customerId).whatsappConsent = consent;
-    e.audit(actor, consent ? "consent.granted" : "consent.revoked", "customer", customerId);
+    const c = e.get("customers", customerId);
+    c.whatsappConsent = consent;
+    c.whatsappConsentAt = e.now();
+    c.whatsappConsentVia = v;
+    e.audit(actor, consent ? "consent.granted" : "consent.revoked", "customer", customerId, { via: v });
   });
 }
 

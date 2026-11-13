@@ -2,6 +2,65 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Premium 2.0 · Etapa 9: un cierre que no inventa números
+- **El cierre usa `incomeEvents()` y nada más:** si el cierre tuviera su propia cuenta, volveríamos al problema de la etapa 2 (tres pantallas, tres números). Entró, por origen, por quién y por app salen de la misma lista.
+- **«Cerrado» es solo una etiqueta:** no se congela nada ni se bloquea editar el pasado; si el dueño corrige un cobro de octubre, el cierre de octubre cambia. Congelar meses queda para cuando haya contador.
+- **Excel y no PDF:** el dueño ya exporta a Excel y lo abre en el celular; un PDF sería otra dependencia.
+- **Comparativa simple:** Bs y % contra el mes anterior completo (no «a esta altura»), porque el cierre se mira al terminar el mes; «Cómo van» ya tiene la comparación a la misma altura para los revendedores.
+
+## 2026-11-13 · Premium 2.0 · Etapa 8: ayudar a responder, no responder solo
+- **Nada se automatiza hacia afuera:** la misión prohíbe cobros y mensajes automáticos; por eso «automatización» acá es recordar y preparar (tiempo de espera, respuestas a un toque, mensajes armados, débitos por anotar). El envío sigue siendo del dueño.
+- **24 h como «tarde»:** una falla es un cliente sin servicio; un día sin respuesta ya es mucho. Es un color, no un bloqueo.
+- **Mensajes con 3 comodines y nada más:** `{nombre}`, `{cuentas}`, `{total}` cubren los tres casos sin inventar un editor de plantillas; las plantillas oficiales de Meta no se tocan (las aprueba Meta).
+- **Débitos por la nota, no por un campo nuevo:** el dueño ya escribe «se debita el 18/11, tarjeta 8562» en la nota; se lee eso y la fecha del proveedor. Un campo «autopago» queda para después si hace falta filtrar más.
+
+## 2026-11-13 · Premium 2.0 · Etapa 7: la oficina cuenta el día entero, sin inventar
+- **Lo que hizo el dueño entra a la línea de tiempo:** la queja era «solo 6 eventos». En vez de inventar actividad para los asistentes, se lee la auditoría que ya existe (aprobar, rechazar, vender, cambiar clave). Es real y ya estaba guardado.
+- **La sala siempre es oscura:** es una escena (Propuesta 1 aprobada), no una pantalla de formularios; en tema claro también se ve de noche, y lo de abajo (detalle, línea de tiempo, Para hoy) sí sigue al tema del panel.
+- **Avatares vectoriales en vez del pixel art:** los 6 se mantienen con su nombre, puesto, rasgos y colores (ahora de la paleta Premium); el estado se lee en el anillo y el monitor, no solo en el texto.
+- **«Para hoy» reutiliza la secretaria:** son los mismos conteos (sin volver a calcular reglas); el detalle vive en Mi secretaria.
+
+## 2026-11-12 · Premium 2.0 · Etapa 6: planes sin tocar lo que ya cobra
+- **La prueba gratis es para quien nunca pagó, no solo para los nuevos:** cuando el dueño prenda el cobro, sus revendedores de hoy (ARIt, rodbol, Paraguay…) arrancan con 15 días gratis en vez de un descuento sorpresa. Es la forma menos agresiva de empezar a cobrar; si el dueño prefiere cobrar desde el día uno, pone 0 días.
+- **El Básico se define por lo que NO incluye:** las mismas cuatro herramientas que ya se pausan por falta de pago (Mi control, Quién me debe, Mis ganancias, Afiches). Así no hay que inventar permisos nuevos: se reutiliza el candado que existe, con otro mensaje y otro botón.
+- **Sin prorrateo:** cambiar de plan a mitad de mes no devuelve ni cobra diferencia; rige desde el próximo cobro (pasar al Completo destraba ya). Más simple de explicar y nadie pierde plata por un error de dedo.
+- **Precios en manos del dueño:** no se fijó el precio del Básico ni los días de prueba en el código; quedan en Ajustes y el cobro sigue apagado hasta que él lo prenda.
+
+## 2026-11-12 · Premium 2.0 · Etapa 5: la tienda explica, los colores los elige el dueño
+- **El motivo del rechazo se le dice al cliente:** antes solo quedaba en la auditoría y el cliente preguntaba por WhatsApp. Se muestra tal cual lo escribe el dueño (es él quien lo redacta), recortado a 200 letras.
+- **No se cambian los colores de la tienda solos:** la misión pide azul eléctrico/cian, pero el dueño ya tiene Apariencia con sus colores. Se agrega el estilo «Premium 2.0» como opción y se deja la decisión en Apariencia. Descartado: cambiar el valor por defecto (habría cambiado la tienda al publicar sin que nadie lo pidiera).
+- **Pasos numerados en vez de rediseñar el formulario de recarga:** el formulario funciona; lo que faltaba era que se entienda el orden. Tres títulos y nada más.
+- **Contraste medido, no estimado:** las letras de los servicios pasaron a texto oscuro sobre pastel porque blanco sobre el color del producto no llega a 4,5:1 con amarillos ni verdes claros.
+
+## 2026-11-12 · Premium 2.0 · Etapa 4: inventario que avisa, no que decide
+- **Doble = misma plataforma + mismo correo, no solo mismo correo:** el dueño usa el mismo Gmail para Disney y Netflix. Bloquear por correo a secas le hubiera impedido cargar cuentas reales.
+- **Dominio mal escrito avisa, no frena:** el 12/11 el dueño escribió «gmaik.com» y era un error; pero un dominio raro puede ser real. La respuesta trae `warning` y el panel lo muestra; la cuenta queda cargada.
+- **Semáforo con motivos escritos:** un color solo no alcanza para saber qué hacer; cada cuenta dice por qué está amarilla o roja, con las mismas marcas que el dueño ya usa en las notas (CAÍDA, POR CORTAR, SEGUIMIENTO, DESENLAZAR).
+- **Cortes no mueve fechas:** el dueño pidió «un corte de toditas las cuentas y ordenarlo»; mover vencimientos solo sería tocar plata de clientes. La pantalla sugiere la fecha que más se repite y muestra a quién le sobran o faltan días; él decide y lo hace con los botones de siempre (fecha, renovar). Descartado: «alinear todos» con un botón.
+- **«Cambié la clave» registra, no ejecuta:** el panel no entra a Netflix ni a Disney; el dueño cambia la clave en la plataforma y acá queda la fecha, la auditoría (sin la clave) y el aviso en cola para los clientes de esa cuenta. La secretaria deja de pedirla 7 días; si la nota sigue diciendo «cambiar clave», vuelve a recordarla.
+
+## 2026-11-12 · Premium 2.0 · Etapa 3: rápido sin cambiar lo que se ve
+- **Un endpoint para Inicio, no un rediseño:** la pantalla queda igual; solo cambia cómo trae los datos (una llamada en vez de seis). Si una parte falla, viene en `null` y la pantalla sigue (antes, un `.catch` por llamada hacía lo mismo).
+- **Caché de 20 s, solo listas del panel, se vacía al guardar y al cambiar de pantalla:** la demora que sentía el dueño era filtrar el Control (cada pestaña volvía a bajar todos los alquileres). Con esa regla, nunca ve un dato viejo después de guardar, y al entrar a una pantalla siempre lee de nuevo. Descartado: caché larga o compartida con la tienda (los primeros intentos rompieron dos pruebas de la tienda y de Mis clientes).
+- **Oscuro por defecto, claro opcional, sin mover el interruptor:** la misión pide oscuros elegantes; el dueño y su equipo que ya eligieron claro lo conservan porque la preferencia vive en su aparato. La paleta oscura se toma de `tema.css` para que panel, oficina y futuras pantallas sean iguales.
+- **GaboHub se queda con el aspecto que define el dueño:** su página ya arranca oscura (fondo `#090e1d`) y un interruptor personal por revendedor tocaría Apariencia y las páginas `/r/<slug>`; va al BACKLOG con prioridad baja.
+
+## 2026-11-12 · Premium 2.0 · Etapa 2: un solo «lo que entró»
+- **Los cobros del Control cuentan en todas las pantallas:** el negocio real del dueño (alquileres de Disney a revendedores) se cobra casi siempre por fuera y se marca 💵 en el Control. «Cómo van» ya los contaba; Inicio y Finanzas no, y por eso nunca coincidían. Ahora los tres leen `incomeEvents()` (src/store/income.ts) con la misma regla de no duplicar (un pedido a menos de 20 días de la marca = el mismo pago).
+- **Lo importado no es ingreso:** cargar lo que ya estaba vendido (Excel, «cargar vendidas») no es plata que entró ese día. Finanzas lo contaba (en Bs 0 casi siempre, pero contaba); se alineó con Inicio.
+- **Hora de Bolivia fija, no la del servidor:** Railway puede correr en UTC; con `TZ` sin setear, una venta a las 21:00 caía al día siguiente. Bolivia no tiene horario de verano, así que se usa UTC−4 fijo (más rápido que `Intl` y sin depender de la zona del proceso).
+- **Costo en US$ a la tasa de hoy:** lo que el dueño paga con tarjeta en dólares cambia con la tasa; guardar solo los Bs del día de la carga mostraba una ganancia vieja. Se convierte al mirar, no al guardar; el Bs anotado queda como referencia.
+- **Fiado sigue en Bs:** la libreta se lleva en Bs (así nació y así están los movimientos); al que paga en dólares se le muestra el ≈ US$ a la tasa de hoy, con la tasa visible. Descartado: libretas por moneda (habría que migrar movimientos y dividir totales).
+
+## 2026-11-12 · Premium 2.0 · Etapa 1: la plata se frena, no se adivina
+- **Comprobante repetido se bloquea, no se avisa:** antes el panel solo marcaba «repetido» y se podía aprobar igual; con dos revendedores y mucha venta eso termina en una cuenta regalada. Ahora frena y solo el dueño lo pasa, con motivo escrito. Un admin no, porque es la persona que más aprueba y el dueño quiere ver esos casos.
+- **Referencias normalizadas al comparar, no al guardar:** se guarda lo que escribió el dueño (para buscarlo igual que en el banco) y se compara sin formato. Descartado: pedirle que escriba «solo números» (más fricción en el celular).
+- **Monto verificado en recargas en vez de confiar en el cliente:** el cliente declara, el dueño confirma. Si no toca el campo, se acredita lo declarado, como antes. Se auditan solo las correcciones.
+- **Recargas: llave desde la tienda + tope de 3 en revisión:** el doble toque es el caso real (celular, conexión lenta); el tope evita que una cuenta llene la bandeja. Descartado: bloquear por imagen repetida en recargas, porque mucha gente manda la misma captura por error y ya se marca.
+- **Bandeja de Binance en lugar de reintento automático:** Binance ya cobró; reintentar solo cada tanto podría entregar cuando el dueño no mira. Mejor que lo vea en Aprobación y decida (reintentar o descartar con motivo). Sin cobros automáticos nuevos.
+- **Consentimiento con origen:** la Ley 164 y las reglas de Meta piden poder mostrar cuándo y cómo dijo que sí. Valores cerrados (registro, cliente, whatsapp, panel, revendedor, importado) para poder filtrar después.
+- **«Enviado a mano» pide permiso:** era la puerta para saltarse la BAJA. El dueño puede forzar (a veces el cliente pide por otro canal), con motivo y auditado.
+
 ## 2026-11-12 · «Mi secretaria» lee las marcas de las notas, sin IA
 - **Qué:** la pantalla se arma con reglas fijas sobre los datos (notas «EN COBRO», «POR CORTAR», «DESENLAZAR», fechas y estado de pago), no con Claude. Así funciona siempre, gratis y al instante, aunque los agentes estén apagados o sin clave.
 - **Avisar:** muestra lo que vence en los próximos 3 días y la nota de la ficha de cada revendedor (su regla: «avisar 3 días antes», «1 a 2 días antes»), en vez de adivinar la regla leyendo el texto.

@@ -1,9 +1,10 @@
 /* ===================== PANEL ===================== */
-.app{--bg:#eef1f6;--side:#ffffff;--card:#ffffff;--soft:#f3f5f9;--line:#e2e6ee;--ink:#1f2633;--muted:#4f5a6b;--dark:#2b2f38;--dark-ink:#ffffff;
+.app{--bg:#eef1f6;--side:#ffffff;--card:#ffffff;--soft:#f3f5f9;--line:#e2e6ee;--ink:#1f2633;--muted:#485363;--dark:#2b2f38;--dark-ink:#ffffff;
   --ok:#0a7040;--ok-soft:#d8f5e5;--warn:#9a5b00;--warn-soft:#fff1d6;--bad:#c92a2a;--bad-soft:#ffe3e3;--blue:var(--p-blue);--blue-text:var(--p-blue);
   background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-panel);min-height:100%;display:grid;grid-template-columns:300px minmax(0,1fr);color-scheme:light}
-.app.dark{--bg:#0f141d;--side:#141a25;--card:#18202d;--soft:#1f2836;--line:#2a3445;--ink:#e6ebf2;--muted:#98a3b5;--dark:#e6ebf2;--dark-ink:#11161f;
-  --ok:#4ad68c;--ok-soft:#163626;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:#4263eb;--blue-text:#8da2fb;color-scheme:dark}
+/* Oscuro Premium 2.0: los colores salen de tema.css (--gs-*), los mismos de la oficina y GaboHub. */
+.app.dark{--bg:var(--gs-bg,#070b16);--side:var(--gs-bg2,#0d1428);--card:var(--gs-panel,#111a33);--soft:var(--gs-panel2,#162040);--line:var(--gs-line,#223058);--ink:var(--gs-ink,#e6ecff);--muted:var(--gs-muted,#8ea0c9);--dark:#e6ecff;--dark-ink:#0b1020;
+  --ok:#4ad68c;--ok-soft:#133a2a;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:var(--gs-blue,#2f6bff);--blue-text:#8db0ff;color-scheme:dark}
 .app :focus-visible{outline-color:var(--blue)}
 .side{background:var(--side);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow:auto;padding:18px 14px 20px;display:flex;flex-direction:column;gap:12px}
 .plogo{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:17px;padding-bottom:12px;border-bottom:1px solid var(--line)}
@@ -312,7 +313,7 @@ table.ctl .up{color:#15803d}table.ctl .down{color:#dc2626}
 /* ---- dashboard ---- */
 .dhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
-.seg button{border:0;background:none;color:var(--muted);font-weight:600;padding:7px 14px;border-radius:7px;font-size:13px}
+.seg button{border:0;background:none;color:var(--ink);font-weight:600;padding:7px 14px;border-radius:7px;font-size:13px}
 .seg button[aria-pressed="true"]{background:var(--blue);color:#fff}
 .big.mini{margin:0}.big.mini button{padding:10px 16px;font-size:14px}
 .dkpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
@@ -330,7 +331,7 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .chart{width:100%;height:auto;display:block}
 .chart .gl{stroke:var(--line);stroke-width:1}.chart .ax{fill:var(--muted);font-size:12px}
 .chart g:hover rect[fill="transparent"]{fill:var(--soft)}
-.c1{fill:#3b82f6;background:#3b82f6}.c2{fill:#10b981;background:#10b981}.c3{fill:#f59e0b;background:#f59e0b}
+.c1{fill:#3b82f6;background:#3b82f6}.c2{fill:#10b981;background:#10b981}.c3{fill:#f59e0b;background:#f59e0b}.c4{fill:#8b5cf6;background:#8b5cf6}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
@@ -527,7 +528,7 @@ button.dk{font:inherit;color:inherit;text-align:left;border-top:0;border-right:0
 .mchart .ax{fill:var(--muted);font-size:12px}
 .svclist{display:grid;gap:10px}
 .svcrow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(70px,120px);gap:10px;align-items:center}
-.svcic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+.svcic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#0b1020;font-weight:800;font-size:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c,#3b82f6) 45%,#fff),color-mix(in srgb,var(--c,#3b82f6) 28%,#fff))}
 .svcinfo{min-width:0}
 .svcinfo b{display:block;font-size:14px}
 .svcinfo small{color:var(--muted);font-size:12.5px}
@@ -967,7 +968,7 @@ select.pay-pagado,select.pay-pendiente,select.pay-no_pago{color:#111}
 
 /* Control tipo Excel: ordenar tocando el título, filtro por columna, grupos y fila de totales */
 table.ctl th .thsort{all:unset;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:space-between;width:100%;font-weight:700;color:#fff}
-table.ctl th .thsort span{opacity:.75;font-size:11px}
+table.ctl th .thsort span{opacity:.75;font-size:12px}
 table.ctl th .thsort:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
 table.ctl th .cfin{display:block;width:100%;min-width:64px;box-sizing:border-box;margin-top:5px;padding:4px 6px;border-radius:6px;border:0;font:inherit;font-size:12px;font-weight:500;color:#111;background:rgba(255,255,255,.92)}
 table.ctl th{vertical-align:top}
@@ -1193,3 +1194,22 @@ table.ctl tfoot td.ccli{z-index:3}
 .sec-actions .pbtn{min-height:44px}
 .sec-act{display:grid;gap:6px}
 .sec-more > summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}
+
+/* Aprobación: monto verificado de una recarga (etapa 1) */
+form[data-approve] .vamt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut,#5b6577);white-space:nowrap}
+form[data-approve] .vamt input{max-width:110px;min-height:44px}
+
+/* Etapa 4: semáforo de riesgo y vista Cortes */
+.acard header .ahpills{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.arisk{margin:0;font-size:12.5px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--ink)}
+.arisk.bad{background:var(--bad-soft)}
+.cutcard{display:grid;gap:10px}
+.cuthead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.cutsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.cutsum div{background:var(--soft);border-radius:10px;padding:8px 10px}
+.cutsum small{display:block;color:var(--muted);font-size:12px}
+.cutsum b{font-size:15px}
+.cutcard footer{align-items:center;gap:8px;flex-wrap:wrap}
+
+/* Etapa 8: fallas que esperan hace más de un día */
+.tkt-late{border-left:4px solid var(--bad)}

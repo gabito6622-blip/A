@@ -12,8 +12,8 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
-import { effectivePrice } from "./admin.js";
-import { isUsd } from "./usd.js";
+import { effectivePrice, payerOf } from "./admin.js";
+import { bsToUsd, isUsd, rateNow } from "./usd.js";
 
 const DAY = 86_400_000;
 const all = (e: Engine) => (e.s.fiado ??= []);
@@ -187,8 +187,12 @@ export function overview(e: Engine, actor: Actor) {
     const open = charges.filter((x) => x.covered < x.amount);
     const nextDue = open.map((x) => x.dueAt).filter((x): x is number => !!x).sort((a, b2) => a - b2)[0];
     const pend = unpaidRentals(e, b, id);
+    // Libreta del dueño: quien paga en dólares ve su deuda también en US$ (a la tasa de hoy; la libreta se lleva en Bs).
+    const rate = rateNow(e), usdPayer = !b.creditor && isUsd(e, payerOf(e, id)) && rate > 0;
     return {
       customerId: id, name: c?.name ?? "?", phone: c?.phone ?? "", kind: c?.kind ?? "customer",
+      currency: usdPayer ? "USD" as const : "BOB" as const,
+      ...(usdPayer ? { owedUsd: bsToUsd(owed, rate, "up"), rate } : {}),
       owed, credit, openCharges: open.length, oldestAt: open[0]?.at, nextDue, overdue: !!nextDue && nextDue < now,
       unlinked: { count: pend.length, amount: pend.reduce((t, a) => t + rentalPrice(e, b, a), 0) },
       // Las apps que tiene activas (para mostrar sus logos): solo de este cliente, que es del mismo dueño de la libreta.

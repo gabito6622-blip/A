@@ -45,7 +45,7 @@ export interface ExpiryPushDeps {
 
 /** Suscripción de un navegador atada a un link /c/<token>. */
 interface TSub extends PushSubscriptionData { token: string; createdAt: number }
-type Stats = { day: string; sent: number; customers: number; links: number; failed: number };
+type Stats = { day: string; sent: number; customers: number; links: number; failed: number; /** Hora real del último aviso enviado hoy (para la oficina). */ lastAt?: number };
 
 const MAX_PER_TOKEN = 5, MAX_TOTAL = 20_000, LOG_DAYS = 10;
 const TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
@@ -101,7 +101,7 @@ export function createExpiryPush(d: ExpiryPushDeps) {
       else if (via?.page) url = via.page;
       const msg = alertText(items, via ? { seller: via.name, action: via.whatsapp ? "write" : via.page ? "page" : "none" } : undefined);
       const r = await d.customerPush(cid, { ...msg, url }).catch(() => ({ sent: 0, failed: 1 }));
-      if (r.sent) { items.forEach(mark); st.sent++; st.customers++; } else if (r.failed) st.failed++;
+      if (r.sent) { items.forEach(mark); st.sent++; st.customers++; st.lastAt = now(); } else if (r.failed) st.failed++;
     }
 
     // 2) Clientes sin cuenta, por su link /c/<token>. Un aviso por celular (endpoint), agrupado.
@@ -122,7 +122,7 @@ export function createExpiryPush(d: ExpiryPushDeps) {
       latest.set(endpoint, { ...msg, url: `/c/${items[0].token}`, at: now() });
       try {
         if ((await d.send(list[0])) === "gone") gone.add(endpoint);
-        else { st.sent++; st.links++; items.forEach((x) => ok.add(x.token)); }
+        else { st.sent++; st.links++; st.lastAt = now(); items.forEach((x) => ok.add(x.token)); }
       } catch { st.failed++; }
     }
     for (const tk of ok) mark(due.get(tk)!);

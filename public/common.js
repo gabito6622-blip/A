@@ -1,7 +1,23 @@
 // Utilidades compartidas por la tienda y el panel.
 
 /** Llama a la API. Lanza un Error con `.code` y `.status` si la respuesta no es OK. */
+// Caché corto de lecturas pesadas (Premium 2.0, etapa 3): filtrar, ordenar o cambiar de pestaña en el panel vuelve a
+// dibujar la pantalla, y antes cada vez pedía de nuevo toda la lista al servidor. Ahora la misma lectura se reutiliza
+// durante CACHE_MS; cualquier escritura (POST) la vacía, así lo que se guarda se ve al instante.
+const GET_CACHE = new Map();
+export const CACHE_MS = 20_000;
+const CACHEABLE = /^\/api\/admin\/(assignments|customers|products|price-groups|stock|suppliers|inicio)(\?|$)/;
+export function apiCacheClear() { GET_CACHE.clear(); }
 export async function api(method, path, body) {
+  if (method !== "GET") { GET_CACHE.clear(); return apiRaw(method, path, body); }
+  if (!CACHEABLE.test(path)) return apiRaw(method, path, body);
+  const hit = GET_CACHE.get(path);
+  if (hit && hit.t > Date.now() - CACHE_MS) return structuredClone(await hit.p);
+  const p = apiRaw(method, path, body);
+  GET_CACHE.set(path, { t: Date.now(), p });
+  try { return structuredClone(await p); } catch (e) { GET_CACHE.delete(path); throw e; }
+}
+async function apiRaw(method, path, body) {
   const r = await fetch(path, {
     method,
     credentials: "same-origin",
@@ -14,6 +30,9 @@ export async function api(method, path, body) {
   return data;
 }
 
+// Las fuentes de Google se cargan sin frenar el primer dibujado: el HTML las trae con media="print"
+// (el navegador las baja con prioridad baja) y acá se activan. Sin JS, el texto sale con la fuente del sistema.
+if (typeof document !== "undefined") document.querySelectorAll('link[data-font]').forEach((l) => { l.media = "all"; });
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
@@ -202,6 +221,8 @@ export function contrastNote(look) {
 
 /** Estilos listos: un toque y la página queda armada; después se puede cambiar todo. */
 export const THEMES = [
+  // Premium 2.0 (12/11/2026): la paleta de tema.css (azul eléctrico, cian, oscuro) como estilo elegible. No se aplica solo.
+  { id: "premium", name: "Premium 2.0 · Azul eléctrico", look: { backgroundColor: "#070b16", accentColor: "#3b7bff", accent2Color: "#22d3ee", bgStyle: "glow", cardStyle: "glass", headingFont: "outfit", fontFamily: "inter", corners: "round" } },
   { id: "neon", name: "Neón Cyber", look: { backgroundColor: "#07070d", accentColor: "#00e5ff", accent2Color: "#ff2bd6", bgStyle: "aurora", cardStyle: "neon", headingFont: "orbitron", fontFamily: "inter", corners: "round" } },
   { id: "violeta", name: "Violeta Premium", look: { backgroundColor: "#0d0a1a", accentColor: "#8b5cf6", accent2Color: "#ec4899", bgStyle: "glow", cardStyle: "glass", headingFont: "poppins", fontFamily: "poppins", corners: "round" } },
   { id: "gamer", name: "Gamer", look: { backgroundColor: "#050b07", accentColor: "#22ff88", accent2Color: "#00b3ff", bgStyle: "grid", cardStyle: "neon", headingFont: "russo", fontFamily: "outfit", corners: "square" } },

@@ -1,5 +1,5 @@
 // Panel del vendedor conectado al servidor.
-import { api, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
@@ -12,8 +12,9 @@ import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 
-const P = { me: null, view: "inicio", tab: {}, theme: "light", settings: null };
-try { P.theme = localStorage.getItem("gs-panel-theme") || "light"; } catch { /* sin almacenamiento */ }
+// Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
+const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
+try { P.theme = localStorage.getItem("gs-panel-theme") || "dark"; } catch { /* sin almacenamiento */ }
 
 const isOwner = () => P.me?.role === "owner";
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
@@ -28,20 +29,20 @@ const AREAS = [
   ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   ["a-clientes", "users", "Clientes", [["clientes", "Clientes"]]],
-  ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
+  ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["cortes", "✂️ Cortes", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
   ["a-revendedores", "userplus", "Revendedores", [["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
   ["a-herramientas", "gear", "Herramientas", [["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
 ];
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
-  inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
+  cortes: "corte fechas alinear perfiles clientes finales hbo disney netflix cambiar clave semaforo riesgo", inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
   vender: "venta nueva prueba gratis combo", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
   codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
   revendedores: "revendedor pin tienda saldo", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
-  dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia sofi",
+  dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
 };
@@ -49,7 +50,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -112,13 +113,37 @@ const mbBody = (f) => ({ id: f.dataset.id || undefined, kind: f.dataset.kind, ad
 function applyTheme() {
   const dark = P.theme === "dark" || (P.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   $("#app").classList.toggle("dark", dark);
-  document.body.style.background = dark ? "#0f141d" : "#eef1f6";
+  document.documentElement.dataset.gsTheme = dark ? "dark" : "light"; // tema.css: mismos colores que la oficina y GaboHub
+  document.body.style.background = dark ? "#070b16" : "#eef1f6";
   $$("[data-th]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.th === P.theme));
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
+/** Semáforo de riesgo de una cuenta (etapa 4): verde nada, amarillo revisar, rojo clientes en peligro. */
+const riskPill = (r) => !r ? "" : r.level === "bad" ? pill("🔴 Riesgo", "bad") : r.level === "warn" ? pill("🟡 Revisar", "warn") : pill("🟢 OK", "ok");
+
 /* ---------------- vistas ---------------- */
 const V = {
+  /** «Cortes»: cuentas por perfiles con clientes que vencen en fechas distintas y una fecha sugerida para alinearlos. */
+  async cortes() {
+    if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño y los admins.</div></section>`;
+    const list = await api("GET", "/api/admin/cortes");
+    const only = P.tab.cutOnly ?? "des";
+    const shown = list.filter((x) => only === "todas" || !x.aligned);
+    const sign = (n) => (n > 0 ? `+${n}` : String(n));
+    const row = (pr) => `<tr><td><b>${esc(pr.label)}</b></td><td>${pr.customer ? `${esc(pr.customer)}${pr.phone ? `<br><small class="muted">${esc(pr.phone)}</small>` : ""}` : `<span class="muted">${pr.status === "available" ? "libre" : pr.status === "quarantined" ? "apartado" : pr.status}</span>`}</td>
+      <td>${pr.expiresAt ? fdate(pr.expiresAt) : "—"}</td><td>${pr.diffDays === undefined ? "" : pr.diffDays === 0 ? pill("al día", "ok") : pr.diffDays > 0 ? pill(`${sign(pr.diffDays)} d · le sobran`, "warn") : pill(`${sign(pr.diffDays)} d · le faltan`, "bad")}</td></tr>`;
+    const card = (x) => `<article class="card cutcard">
+      <header class="cuthead"><div><b>${esc(x.product)}</b><br><small class="mono">${esc(x.email)}</small></div>${riskPill(x.risk)}</header>
+      <div class="cutsum"><div><small>Corte sugerido</small><b>${fdate(x.suggestedCut)}</b></div><div><small>Clientes</small><b>${x.clients}</b></div><div><small>Diferencia</small><b class="${x.spreadDays ? "down" : "up"}">${x.spreadDays} d</b></div><div><small>Proveedor</small><b>${fdate(x.supplierExpiresAt)}</b></div></div>
+      ${x.aligned ? `<p class="pok">✅ Todos vencen el mismo día.</p>` : `<p class="muted" style="margin:0">La fecha sugerida es la que más se repite. A quien le sobran días, al cortar le podés dar ese tiempo de regalo en su próximo mes; a quien le faltan, cobrale solo los días hasta el corte.</p>`}
+      ${table(["Perfil", "Cliente", "Vence", "Respecto del corte"], x.profiles.map(row), "Sin perfiles.")}
+      <footer class="inline"><button class="pbtn sm" type="button" data-rotate="${esc(x.accountId)}">🔑 Cambié la clave</button><button class="pbtn sm" type="button" data-go="cuentas">Ver en Cuentas</button>${x.passwordChangedAt ? `<small class="muted">Última clave: ${fdate(x.passwordChangedAt)}</small>` : ""}</footer></article>`;
+    return `<section class="card"><h2>✂️ Cortes <small>· cuentas por perfiles con clientes que vencen en fechas distintas</small></h2>
+      <p class="muted" style="margin:0">Para ordenar una cuenta se elige una sola fecha de corte: ese día cambiás la clave y todos arrancan juntos. Acá no se cambia nada: es para decidir.</p>
+      <div class="tabs ctl-chips" role="tablist">${[["des", `Desalineadas (${list.filter((x) => !x.aligned).length})`], ["todas", `Todas (${list.length})`]].map(([k, l]) => `<button type="button" role="tab" data-tab="cutOnly:${k}" aria-selected="${only === k}">${l}</button>`).join("")}</div></section>
+      ${shown.map(card).join("") || `<section class="card"><div class="emptybox">${list.length ? "Todas tus cuentas por perfiles están alineadas 🎉" : "Todavía no hay cuentas por perfiles con clientes adentro."}</div></section>`}`;
+  },
   comovan: () => comoVanView(P.tab),
   oficina: () => officeView(),
   async secretaria() {
@@ -155,7 +180,7 @@ const V = {
     const short = (c) => { const v = c / 100; return v >= 10000 ? (v / 1000).toFixed(0) + "k" : v >= 1000 ? (v / 1000).toFixed(1).replace(".0", "") + "k" : String(Math.round(v)); };
     // --- gráfico de ventas por día (barras apiladas) ---
     const S = d.series, mob = innerWidth < 640, W = mob ? 380 : 720, H = mob ? 200 : 220, pl = 34, pb = 24, pt = 10;
-    const tot = S.map((x) => x.sales + x.renewals + x.topups);
+    const tot = S.map((x) => x.sales + x.renewals + x.topups + (x.control || 0));
     const max = Math.max(...tot, 100);
     const step = 10 ** Math.floor(Math.log10(max / 100 / 3 || 1)) * 100;
     const nice = Math.ceil(max / 3 / step) * step || 100;
@@ -166,14 +191,14 @@ const V = {
     const bars = S.map((x, i) => {
       const x0 = pl + i * bw + bw * 0.15, w = Math.max(bw * 0.7, 1);
       let acc = 0;
-      const seg = [["sales", "c1"], ["renewals", "c2"], ["topups", "c3"]].map(([f, c]) => {
+      const seg = [["sales", "c1"], ["renewals", "c2"], ["control", "c4"], ["topups", "c3"]].map(([f, c]) => {
         if (!x[f]) return "";
         const r = `<rect x="${x0}" y="${y(acc + x[f])}" width="${w}" height="${y(acc) - y(acc + x[f])}" class="${c}"/>`;
         acc += x[f];
         return r;
       }).join("");
       const lab = (S.length - 1 - i) % lblEvery === 0 ? `<text x="${x0 + w / 2}" y="${H - 6}" class="ax" text-anchor="middle">${x.day.slice(8)}/${x.day.slice(5, 7)}</text>` : "";
-      return `<g><title>${x.day.slice(8)}/${x.day.slice(5, 7)}: ${bs(tot[i])} (ventas ${bs(x.sales)}, renovaciones ${bs(x.renewals)}, recargas ${bs(x.topups)})</title><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${seg}</g>${lab}`;
+      return `<g><title>${x.day.slice(8)}/${x.day.slice(5, 7)}: ${bs(tot[i])} (ventas ${bs(x.sales)}, renovaciones ${bs(x.renewals)}, cobros del Control ${bs(x.control || 0)}, recargas ${bs(x.topups)})</title><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${seg}</g>${lab}`;
     }).join("");
     const salesChart = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Ingresos por día">${grid}${bars}</svg>`;
     // --- vencimientos próximos 14 días ---
@@ -196,7 +221,7 @@ const V = {
     // --- ingresos por producto ---
     const B = d.byProduct, bmax = Math.max(...B.map((x) => x.revenue), 1);
     // --- Resumen por servicio (ingresos por app: lo que entró, no la ganancia) ---
-    const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="background:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
+    const svcList = B.length ? `<div class="svclist">${B.map((x, i) => `<div class="svcrow"><span class="svcic" style="--c:${PAL[i % 8]}">${esc((x.name[0] || "?").toUpperCase())}</span><div class="svcinfo"><b>${esc(x.name)}</b><small>${bs(x.revenue)} · ${x.units} venta(s)</small></div><div class="svcbar"><i style="width:${Math.max(4, (x.revenue / bmax) * 100)}%;background:${PAL[i % 8]}"></i></div></div>`).join("")}</div>` : `<div class="emptybox">Sin ventas en este período.</div>`;
     // --- Nivel de estrés (vencidos, por vencer, por cobrar, por revisar) ---
     const al = d.alerts;
     const sPts = al.overdue.count * 3 + al.due3.count * 2 + k.pendingReview * 2 + al.unpaid.count;
@@ -230,7 +255,7 @@ const V = {
       <div class="big mini"><button type="button" data-go="carga" style="background:#4263eb"><span>${icon("userplus")}</span>Registrar cuentas</button><button type="button" data-go="vender" style="background:#087f5b"><span>${icon("cart")}</span>Vender</button><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Ver como cliente</a></div></div>
       ${hechos < pasos.length ? `<section class="card setupmini"><div class="inline" style="justify-content:space-between;gap:10px"><div><b>🚀 Te faltan ${pasos.length - hechos} paso(s) para estar listo</b><br><small class="muted">Completalos desde la Guía.</small></div><button class="pbtn sm blue" type="button" data-go="ayuda">Ver primeros pasos ${icon("arrow")}</button></div><div class="pgbar" style="margin-top:8px"><i style="width:${Math.round(hechos / pasos.length * 100)}%"></i></div></section>` : ""}
       <div class="dkpis">
-        ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes`, "hero")}
+        ${kpi(`Ingresos · ${dd} días`, bs(k.revenue), `${delta(k.revenue, k.prevRevenue)} vs. ${bs(k.prevRevenue)} antes${k.fromControl ? ` · ${bs(k.fromControl)} marcados 💵 en el Control` : ""}`, "hero")}
         ${kpi("Pedidos", k.orders, `${delta(k.orders, k.prevOrders)} · ${k.renewals} renovaciones`)}
         ${kpi("Lo que te pagan por mes", bs(k.monthlyRecurring), `${k.activeServices} servicios · con el precio de quien paga`)}
         ${kpi("Recargas de saldo", bs(k.topups), owedText(k))}
@@ -243,7 +268,7 @@ const V = {
       <section class="card"><div class="mctop"><div><h2 style="margin:0">Ingresos por mes <small>12 meses</small></h2><p class="muted" style="margin:2px 0 0">Total del rango: <b>${bs(mtot)}</b></p></div>
         <div class="mcstats"><div class="up"><small>▲ MEJOR MES</small><b>${esc(best.label)} · ${bs(best.revenue)}</b></div><div class="down"><small>▼ MENOR MES</small><b>${esc(worst.label)} · ${bs(worst.revenue)}</b></div></div></div>${monthChart}</section>
       <section class="card"><h2>Ingresos por día <small>pasá el dedo o el mouse por una barra</small></h2>
-        <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
+        <div class="legend"><span><i class="c1"></i>Ventas</span><span><i class="c2"></i>Renovaciones</span><span><i class="c4"></i>Cobros del Control</span><span><i class="c3"></i>Recargas</span></div>${salesChart}</section>
       <div class="dgrid">
         <section class="card"><h2>Vencen en los próximos 14 días <small>${upCnt} servicios · ${bs(upSum)} si todos renuevan</small></h2>${upChart}
           <button class="pbtn sm" type="button" data-go="control">Ver en el control ${icon("arrow")}</button></section>
@@ -300,7 +325,23 @@ const V = {
       <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/hub" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
-    const [d, mg, accsT, usdtT] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null)]);
+    const fm = P.tab.fm || "";
+    const [d, mg, accsT, usdtT, cz] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null), api("GET", `/api/admin/finance/cierre${fm ? `?month=${encodeURIComponent(fm)}` : ""}`).catch(() => null)]);
+    // 📒 Cierre de mes (Premium 2.0, etapa 9): el mes elegido con la misma fuente que Inicio, comparado con el anterior.
+    const pctTxt = (v) => (v === null ? "sin mes anterior" : `${v > 0 ? "▲ +" : v < 0 ? "▼ " : "="} ${v}% vs. mes anterior`);
+    const cierre = cz ? `<section class="card cierre"><h2>📒 Cierre de mes <small>${esc(cz.label)}${cz.closed ? "" : " · en curso"}</small></h2>
+      <div class="tabs ctl-chips" role="tablist" aria-label="Mes">${cz.months.slice(0, 6).map((m) => `<button type="button" role="tab" data-tab="fm:${esc(m.key)}" aria-selected="${m.key === cz.month}">${esc(m.label.replace(/ \d{4}$/, ""))}</button>`).join("")}</div>
+      <div class="finkpis four">
+        <div class="finkpi in"><span>💵 Entró</span><b>${bs(cz.ingresos)}</b><small>${pctTxt(cz.vs.ingresosPct)}</small></div>
+        <div class="finkpi"><span>🧾 Por pedidos / 💵 Control</span><b>${bs(cz.dePedidos)}</b><small>+ ${bs(cz.delControl)} marcados cobrados</small></div>
+        <div class="finkpi out"><span>📤 Gastos</span><b>${bs(cz.gastos)}</b><small>${cz.vs.gastos > 0 ? "+" : ""}${bs(cz.vs.gastos)} vs. mes anterior</small></div>
+        <div class="finkpi net ${cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es) · ${cz.cobrosControl} cobro(s) del Control</small></div>
+      </div>
+      <div class="dgrid">
+        <div><h3 style="margin:8px 0 4px;font-size:14px">🏆 Quién te pagó más</h3>${cz.topPayers.length ? `<ol class="of-log" style="padding-left:0">${cz.topPayers.map((p) => `<li class="of-t-ok"><b>${esc(p.name)}</b> <small class="muted">${p.kind === "reseller" ? "revendedor" : "cliente"}</small><span style="float:right"><b>${bs(p.amount)}</b></span></li>`).join("")}</ol><small class="muted">${cz.payers} persona(s) te pagaron este mes.</small>` : `<p class="muted" style="margin:0">Nadie todavía.</p>`}</div>
+        <div><h3 style="margin:8px 0 4px;font-size:14px">📺 Apps que más dejaron</h3>${cz.topApps.length ? `<ul class="of-log">${cz.topApps.map((a) => `<li class="${a.gana >= 0 ? "of-t-ok" : "of-t-bad"}"><b>${esc(a.name)}</b> · entró ${bs(a.ingresos)} · ${a.units} u. · te dejó <b>${bs(a.gana)}</b></li>`).join("")}</ul>` : `<p class="muted" style="margin:0">Sin ventas este mes.</p>`}</div>
+      </div>
+      <div class="inline"><a class="pbtn" href="/api/admin/finance/cierre.xlsx?month=${esc(cz.month)}" download>📥 Descargar Excel del mes</a><small class="muted">Mes anterior: entró ${bs(cz.prev.ingresos)}, te quedó ${bs(cz.prev.ganancia)}.</small></div></section>` : "";
     // 💳 Próximos cobros de la tarjeta: cuentas que se pagan en dólares y se cobran en los próximos 30 días.
     const rateT = Number(usdtT?.rate) || 0, nowT = Date.now();
     const tj = accsT.filter((x) => x.status === "active" && x.costUsd > 0 && x.supplierExpiresAt >= nowT - 86400000 && x.supplierExpiresAt <= nowT + 30 * 86400000).sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt);
@@ -324,12 +365,12 @@ const V = {
         <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
-    return `${tarjeta}<div class="fin">
+    return `${cierre}${tarjeta}<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
         <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
-          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>ventas y renovaciones</small></div>
+          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}</small></div>
           <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que anotaste"}</small></div>
           ${c.cuentasEstimado ? `<div class="finkpi out est"><span>🔑 Cuentas (estimado)</span><b>${bs(c.cuentasEstimado)}</b><small>${c.sinAnotar} cuenta(s) sin anotar: lo que te cuestan por mes</small></div>` : ""}
           <div class="finkpi net ${gcls(c.gananciaEstimada)}"><span>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(c.gananciaEstimada)}</b><small>${c.gananciaEstimada >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
@@ -481,18 +522,23 @@ const V = {
   async aprobacion() {
     const tab = P.tab.aprob ?? "payment_review";
     if (canReview() && !P.ai) P.ai = await api("GET", "/api/admin/ai").then((a) => ({ receipts: a.hasKey && a.enabled.receipts })).catch(() => ({}));
-    const orders = await api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`));
+    const [orders, bfail] = await Promise.all([api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`)), canReview() ? api("GET", "/api/admin/binance/failed").catch(() => []) : []]);
     const tabs = [["payment_review", "Por revisar"], ["awaiting_payment", "Esperando pago"], ["all", "Todos"]];
-    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}
+    const bfailCard = bfail.length ? `<section class="card"><h2>🟡 Pagos de Binance cobrados pero sin entregar <small>${bfail.length}</small></h2>
+      <p class="muted" style="margin:0">Binance avisó que el pago llegó, pero la tienda no pudo entregar el pedido (por ejemplo, sin stock). La plata está cobrada: reintentá cuando lo arregles.</p>
+      ${bfail.map((f) => `<div class="inline" style="flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><b>${esc(f.orderId ?? "sin pedido")}</b><span class="muted">${esc(f.amount)} · ${fdt(f.at)} · ${f.tries} intento${f.tries === 1 ? "" : "s"}</span><span class="bad" style="flex-basis:100%">${esc(f.error)}</span>
+        ${f.orderId ? `<button class="pbtn sm green" type="button" data-bretry="${esc(f.merchantTradeNo)}">🔄 Reintentar la entrega</button>` : ""}${isOwner() ? `<button class="pbtn sm" type="button" data-bdismiss="${esc(f.merchantTradeNo)}">Ya lo resolví a mano</button>` : ""}</div>`).join("")}</section>` : "";
+    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}${bfailCard}
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
         <td>${orderTotal(o)}</td><td>${esc(o.localPay?.name ?? { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" }[o.paymentMethod] ?? o.paymentMethod)}${o.usdtQuote ? `<br><small class="muted">${o.usd !== undefined ? "" : "≈ "}${esc(String(o.usdtQuote.usdt).replace(".", ","))} USDT a Bs ${esc(String(o.usdtQuote.rate).replace(".", ","))}</small>` : ""}${o.evidence ? `<br><small class="muted">Op. ${esc(o.evidence.declaredReference)}</small>` : ""}</td>
         <td>${orderPill(o.status)}</td><td>${fdt(o.createdAt)}</td>
         <td>${o.evidence ? `<a class="pbtn sm" href="/api/admin/orders/${esc(o.id)}/evidence" target="_blank" rel="noopener">${icon("eye")}Comprobante</a>` : ""}
-          ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. Revisalo bien antes de aprobar.</small></div>` : ""}
+          ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. No se aprueba salvo que el dueño lo revise y diga por qué es otro pago.</small></div>` : ""}
+          ${o.evidence?.referenceSeenIn ? `<div class="aibox aibox-warn"><b>⚠️ Número de operación ya visto</b><small>El número ${esc(o.evidence.declaredReference)} figura también en el pedido ${esc(o.evidence.referenceSeenIn)}. Fijate que no sea el mismo pago.</small></div>` : ""}
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
-          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">Aprobar</button></form>
+          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px;flex-wrap:wrap"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada">${o.kind === "topup" ? o.usd !== undefined ? `<label class="vamt">Llegaron US$ <input name="vusd" inputmode="decimal" value="${(o.usd / 100).toFixed(2)}" aria-label="Monto verificado en US$" title="Lo que de verdad llegó, en US$"></label>` : `<label class="vamt">Llegaron Bs <input name="vbs" inputmode="decimal" value="${(o.topupAmount / 100).toFixed(2)}" aria-label="Monto verificado en Bs" title="Lo que de verdad llegó al banco, en Bs"></label>` : ""}${o.evidence?.duplicateOf && isOwner() ? `<label class="chk" style="flex-basis:100%"><input type="checkbox" name="force"> Lo revisé: es un pago distinto</label><input name="forceReason" placeholder="Por qué (queda en la auditoría)" aria-label="Por qué es un pago distinto" style="flex-basis:100%">` : ""}<button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
           ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
             <small class="muted">¿Te mandó el comprobante por WhatsApp? Mirá la plata en tu banco, escribí la referencia y se entrega solo.</small>` : ""}
@@ -502,9 +548,9 @@ const V = {
   },
 
   async inicio() {
-    const [all, pend, fin] = await Promise.all([api("GET", "/api/admin/assignments"),
-      api("GET", "/api/admin/orders?status=payment_review").then((l) => l.length).catch(() => 0),
-      isOwner() ? api("GET", "/api/admin/finance?months=1").catch(() => null) : Promise.resolve(null)]);
+    // Una sola llamada (antes eran 6 encadenadas: ~1,5 s en celular con datos reales).
+    const ini = await api("GET", "/api/admin/inicio");
+    const all = ini.assignments ?? [], pend = ini.pendingReview ?? 0, fin = ini.finance;
     // Para cobros cuenta solo lo tuyo: a los clientes de tus revendedores les cobra el revendedor.
     const viaRes = (a) => !!a.resellerId && a.resellerId !== a.customerId;
     const list = all.filter((a) => !viaRes(a));
@@ -535,9 +581,9 @@ const V = {
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
     const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
-    const aiInfo = canReview() ? await api("GET", "/api/admin/ai").catch(() => null) : null;
+    const aiInfo = ini.ai;
     // Revendedores que todavía no tienen PIN: un botón en Inicio arranca la fila de invitaciones.
-    const sinPin = canReview() ? ((await api("GET", "/api/admin/resellers").catch(() => null))?.list ?? []).filter((r) => !r.hasPin).length : 0;
+    const sinPin = ini.sinPin ?? 0;
     const invCard = sinPin ? `<section class="card hm-invite"><h2>📲 ${sinPin} revendedor${sinPin === 1 ? "" : "es"} todavía sin acceso</h2>
       <p class="muted" style="margin:0">Por cada uno: tocás <b>Generar PIN</b> y después <b>Abrir WhatsApp</b> para mandarle su acceso. La fila pasa sola al siguiente.</p>
       <button class="pbtn dark" type="button" data-hgo="revendedores:invitar">▶ Invitarlos ahora</button></section>` : "";
@@ -553,7 +599,7 @@ const V = {
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
     // 📋 Lo pendiente, todo junto (lo mismo que Notificaciones): cada renglón lleva a resolverlo.
-    const notif = await api("GET", "/api/admin/notifications").catch(() => null);
+    const notif = ini.notifications;
     const sevcls = { bad: "bad", warn: "warn", info: "ok" };
     const pendCard = notif ? `<section class="card hm-pend"><h2>📋 Lo que tenés pendiente <small>· tocá para ir a resolverlo</small></h2>
       ${notif.items.length ? `<div class="notis">${notif.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
@@ -742,17 +788,21 @@ const V = {
 
   /* Fiado: lo que te deben, por persona, con pagos parciales y fecha de cobro. */
   async fallas() {
-    const list = await api("GET", "/api/admin/tickets");
+    const [list, sup] = await Promise.all([api("GET", "/api/admin/tickets"), api("GET", "/api/admin/settings/soporte").catch(() => ({ ticketReplies: [] }))]);
     const ST = { recibido: ["📥 Recibido", "bad"], revisando: ["🔧 Revisando", "warn"], solucionado: ["✅ Solucionado", "ok"] };
+    // Respuestas guardadas (Configuración → Soporte); si no hay, tres de ejemplo.
+    const canned = sup.ticketReplies?.length ? sup.ticketReplies : ["Ya lo estoy revisando, en un rato te aviso.", "Te pasé a otra cuenta: revisá tus accesos en Mis cuentas.", "Probá cerrar sesión en todos los aparatos y volver a entrar."];
+    const wait = (t) => { const h = Math.floor(t.waitMs / 3_600_000), m = Math.floor((t.waitMs % 3_600_000) / 60_000); const txt = h >= 48 ? `${Math.floor(h / 24)} d` : h ? `${h} h` : `${m} min`; return t.status === "solucionado" ? pill(`resuelta en ${txt}`, "ok") : pill(`${t.late ? "⏰ " : ""}espera hace ${txt}`, t.late ? "bad" : "mute"); };
     const open = list.filter((t) => t.status !== "solucionado").length;
     const msg = (t) => `Hola ${t.reporter.split(" ")[0]} 👋 sobre tu reporte de ${t.product} (${t.client}): `;
     return `<section class="card"><h2>🛠️ Fallas reportadas ${open ? pill(`${open} abierta(s)`, "bad") : pill("Todo al día", "ok")}</h2>
       <p class="muted" style="margin:0">Lo que te reportan tus clientes y revendedores desde su panel ("no me deja entrar", "me pide código"…). Cambiá el estado y, si querés, dejá una respuesta: lo ven en su panel y, si activaron los avisos, les llega al celular.</p></section>
-      ${list.map((t) => `<section class="card tkt tkt-${t.status}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap"><b>${esc(t.product)} · ${esc(t.profile)}</b>${pill(ST[t.status][0], ST[t.status][1])}</div>
+      ${list.map((t) => `<section class="card tkt tkt-${t.status}${t.late ? " tkt-late" : ""}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap"><b>${esc(t.product)} · ${esc(t.profile)}</b><span class="inline" style="gap:6px">${wait(t)}${pill(ST[t.status][0], ST[t.status][1])}</span></div>
         <p class="muted" style="margin:0">Cliente: <b>${esc(t.client)}</b>${t.reporter !== t.client ? ` · reportó ${esc(t.reporter)} (${t.reporterKind === "reseller" ? "🏪 revendedor" : "👤 cliente"})` : ""} · ${fdate(t.createdAt)}</p>
         <p style="margin:0"><b>${esc(t.kindText)}</b>${t.note ? ` — “${esc(t.note)}”` : ""}</p>
         ${t.email ? `<p class="muted" style="margin:0">Cuenta: <code>${esc(t.email)}</code></p>` : ""}
         <form class="form" data-tkt="${esc(t.id)}"><label style="grid-column:1/-1">Respuesta para quien reportó (opcional)<input name="reply" maxlength="300" value="${esc(t.reply)}" placeholder="Ej.: te pasamos a otra cuenta, revisá tus datos en Mis cuentas"></label>
+          <div class="tabs ctl-chips" style="grid-column:1/-1" aria-label="Respuestas guardadas">${canned.map((r) => `<button type="button" data-canned="${esc(r)}">💬 ${esc(r.length > 34 ? r.slice(0, 33) + "…" : r)}</button>`).join("")}</div>
           <div class="inline" style="grid-column:1/-1;flex-wrap:wrap">${Object.keys(ST).map((s) => `<button class="pbtn ${t.status === s ? "dark" : ""}" type="submit" name="st" value="${s}">${ST[s][0]}</button>`).join("")}
           ${t.reporterPhone ? `<a class="pbtn" href="${waLink(t.reporterPhone, msg(t))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}${t.assignmentId ? `<button class="pbtn" type="button" data-deliver="${esc(t.assignmentId)}">📲 Reenviar accesos</button>` : ""}${canReview() ? `<button class="pbtn" type="button" data-go="reubicar">🔀 Reubicar</button>` : ""}</div></form></section>`).join("") || `<section class="card"><p class="muted" style="margin:0">No hay fallas reportadas 🎉</p></section>`}`;
   },
@@ -764,11 +814,12 @@ const V = {
     const det = T.fdet ? await api("GET", `/api/admin/fiado/${T.fdet}`).catch(() => null) : null;
     const detName = ov.rows.find((r) => r.customerId === T.fdet)?.name ?? customers.find((c) => c.id === T.fdet)?.name ?? "";
     const kb = (r) => (r.kind === "reseller" ? `<span class="kb kb-rev">🏪 Revendedor</span>` : `<span class="kb kb-fin">👤 Cliente final</span>`);
-    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
+    const usd = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${r.owedUsd ? `${usd(r.owedUsd)} (${bs(r.owed)})` : bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌`;
     const pend = ov.rows.filter((r) => r.unlinked.count);
     const card = (r) => `<article class="fcardx${r.overdue ? " late" : ""}">
         <header><div><b>${esc(r.name)}</b> ${kb(r)}<br><small class="muted">${esc(r.phone ? r.phone.replace(/^\+591/, "") : "Sin WhatsApp")}</small></div>
-          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
+          <div class="fowed"><small>Debe</small><b class="${r.owed ? "down" : "up"}">${bs(r.owed)}</b>${r.owedUsd ? `<small class="muted" title="A la tasa de hoy (Bs ${r.rate} por US$); la libreta se lleva en Bs">≈ ${usd(r.owedUsd)} · paga en dólares</small>` : ""}${r.credit ? `<small class="up">a favor ${bs(r.credit)}</small>` : ""}</div></header>
         ${r.nextDue || r.oldestAt ? `<div class="frow">${r.nextDue ? `<span>${r.overdue ? "⏰ <b>Ya tenía que pagar</b>" : "📅 Cobrar"} el <b>${fdate(r.nextDue)}</b></span>` : ""}${r.oldestAt ? `<span class="muted">Debe desde ${fdate(r.oldestAt)}</span>` : ""}</div>` : ""}
         ${r.unlinked.count && canReview() ? `<div class="fpend"><span>📋 ${r.unlinked.count} alquiler(es) marcado(s) sin pagar en el Control · ${bs(r.unlinked.amount)}</span><button class="pbtn sm" type="button" data-ffrom="${esc(r.customerId)}">➕ Pasarlos al fiado</button></div>` : ""}
         <footer>${r.phone && r.owed ? `<a class="pbtn sm green" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
@@ -916,14 +967,15 @@ const V = {
       const libres = a.slots.filter((s) => s.status === "available").length;
       const vivos = a.slots.filter((s) => s.status !== "retired");
       return `<article class="acard">
-        <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div>${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</header>
+        <header><div class="ahead">${svbadge(a)}<div><b>${esc(pname(a.productId))}</b><small class="mono">${esc(a.email)}</small></div></div><span class="ahpills">${riskPill(a.risk)}${a.status === "active" ? pill(`${libres} libre${libres === 1 ? "" : "s"}`, libres ? "ok" : "mute") : pill("Retirada", "mute")}</span></header>
+        ${a.risk?.reasons?.length ? `<p class="arisk ${a.risk.level}">${a.risk.level === "bad" ? "🔴" : "🟡"} ${esc(a.risk.reasons.join(" · "))}</p>` : ""}
         ${a.notes ? `<p class="anote">📝 ${esc(a.notes)}</p>` : ""}
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
-        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
       </article>`;
     };
     // Etapa 7 (12/11/2026): "Por plataforma" agrupa las MISMAS tarjetas por producto (Plataforma → Cuenta →
@@ -1411,6 +1463,7 @@ const V = {
         <small class="${dormido(r) ? "down" : "muted"}">${r.lastOrderAt ? `${dormido(r) ? "💤 " : ""}Última compra: ${fdate(r.lastOrderAt)} (${(() => { const n = Math.floor((now - r.lastOrderAt) / DAYMS); return n === 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`; })()})` : "💤 Todavía no te compró nada"}</small>
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
+        ${rent?.scope === "all" && rent.basicPrice !== undefined ? `<label class="chk rplan">Plan GaboHub <select data-hubplan="${esc(r.id)}" aria-label="Plan de ${esc(r.name)}"><option value="full" ${r.plan !== "basic" ? "selected" : ""}>Completo · ${bs(rent.price)}</option><option value="basic" ${r.plan === "basic" ? "selected" : ""}>Básico · ${bs(rent.basicPrice)}</option></select>${r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}</label>` : r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
@@ -1435,6 +1488,9 @@ const V = {
         <label>Precio fijo en dólares (US$, vacío = el de ${currencySym()} con la tasa del día)<input name="priceUsd" inputmode="decimal" value="${rent.priceUsd !== undefined ? rent.priceUsd / 100 : ""}" placeholder="Ej.: 5"></label>
         <label>Gratis si ese mes te compran (${currencySym()}, 0 = nunca)<input name="free" inputmode="decimal" value="${rent.freeIfSpent / 100}"></label>
         <label>Días de gracia sin pagar<input name="grace" inputmode="numeric" value="${rent.graceDays}"></label>
+        <label>🎁 Días de prueba gratis (0 = sin prueba)<input name="trialDays" inputmode="numeric" value="${rent.trialDays ?? 0}"><small class="muted">Al prender el cobro, cada revendedor arranca con estos días gratis; el primer cobro es al terminar.</small></label>
+        <label>Plan Básico por mes (${currencySym()}, vacío = un solo plan)<input name="basicPrice" inputmode="decimal" value="${rent.basicPrice !== undefined ? rent.basicPrice / 100 : ""}" placeholder="Ej.: 25"><small class="muted">Básico = comprar, cuentas, códigos, recargar y vender. El Completo suma Mi control, Quién me debe, Mis ganancias y Afiches.</small></label>
+        <label>Plan Básico en dólares (US$, vacío = con la tasa del día)<input name="basicPriceUsd" inputmode="decimal" value="${rent.basicPriceUsd !== undefined ? rent.basicPriceUsd / 100 : ""}" placeholder="Ej.: 3"></label>
         <p class="muted" style="grid-column:1/-1;margin:0">Si no tiene saldo, sigue todo igual los días de gracia. Después se apaga su página (si tiene) y, si pagan todos, se pausan Mi control, Quién me debe, Mis ganancias y Afiches. Comprar, sus cuentas, los códigos y vender nunca se bloquean. Apenas recarga y paga, vuelve todo solo.</p>
         <button class="pbtn dark" type="submit">Guardar ajustes</button></form>
 </section>` : ""}`;
@@ -1498,12 +1554,21 @@ const V = {
   },
 
   async configuracion() {
-    const s = await api("GET", "/api/settings");
+    const [s, sup] = await Promise.all([api("GET", "/api/settings"), canReview() ? api("GET", "/api/admin/settings/soporte").catch(() => ({ ticketReplies: [], secretaryMsg: {} })) : { ticketReplies: [], secretaryMsg: {} }]);
+    const supCard = canReview() ? `<section class="card"><h2>🛠️ Soporte y mensajes de la secretaria</h2>
+      <form class="form" id="supForm">
+        <label style="grid-column:1/-1">Respuestas guardadas para Fallas reportadas <small class="muted">· una por línea, hasta 10</small><textarea name="replies" rows="4" maxlength="2200" placeholder="Ya lo estoy revisando, en un rato te aviso.&#10;Te pasé a otra cuenta: revisá tus accesos en Mis cuentas.">${esc((sup.ticketReplies ?? []).join("\n"))}</textarea></label>
+        <p class="muted" style="grid-column:1/-1;margin:0">Mensajes de «Mi secretaria» (botón «Mensaje listo»). Podés usar <code>{nombre}</code>, <code>{cuentas}</code> y <code>{total}</code>. Vacío = el texto de siempre. Nada se manda solo: el mensaje se abre en tu WhatsApp.</p>
+        <label>Cobrar / vencidas<textarea name="mCobrar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Estas cuentas ya vencieron:&#10;{cuentas}&#10;Total para renovar: {total}. ¿Las renovás?">${esc(sup.secretaryMsg?.cobrar ?? "")}</textarea></label>
+        <label>Avisar (por vencer)<textarea name="mAvisar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te aviso que estas cuentas están por vencer:&#10;{cuentas}&#10;Total: {total}.">${esc(sup.secretaryMsg?.avisar ?? "")}</textarea></label>
+        <label>Te deben<textarea name="mDeben" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te recuerdo el pago pendiente de:&#10;{cuentas}&#10;Total: {total}. ¡Gracias!">${esc(sup.secretaryMsg?.deben ?? "")}</textarea></label>
+        <button class="pbtn dark" type="submit">Guardar soporte y mensajes</button></form></section>` : "";
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
       <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
+      ${supCard}
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
         <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (${currencySym()})<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
         <p class="muted" style="grid-column:1/-1;margin:0">Los combos ya armados mantienen su precio. Los revendedores no reciben este descuento. Poné 0 en los tres para apagar “Armá tu combo”.</p>
@@ -1529,6 +1594,9 @@ const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", bi
 const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
 const AUD_VERB = {
+  "account.password_rotated": "cambió la clave de la cuenta",
+  "reseller.hub_trial": "empezó su prueba gratis de GaboHub",
+  "reseller.hub_plan": "cambió el plan de GaboHub",
   "account.add": "cargó {x}", "account.retire": "retiró {x}", "account.update": "editó {x}",
   "alerts.settings": "cambió los avisos para el dueño", "alerts.supplier_expiry": "recibió el aviso de vencimiento con el proveedor de {x}",
   "assignment.control": "actualizó el control de {x}", "assignment.deliver": "abrió los datos de entrega de {x}", "assignment.expire": "cerró por vencido {x}",
@@ -1548,7 +1616,7 @@ const AUD_VERB = {
   "order.binance": "abrió el pago con Binance de {x}", "order.cancel": "canceló {x}", "order.create": "creó {x}", "order.evidence": "subió el comprobante de {x}",
   "order.expire": "dejó vencer la reserva de {x}", "order.fulfill": "entregó {x}",
   "outbox.flush": "mandó los avisos de WhatsApp pendientes", "outbox.sent_manually": "marcó un aviso como enviado a mano",
-  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "price_group.upsert": "guardó la lista de precios {x}",
+  "payment.approve": "aprobó el pago de {x}", "payment.reject": "rechazó el pago de {x}", "payment.approve_forced": "aprobó {x} con un comprobante repetido (revisado)", "payment.amount_corrected": "corrigió el monto de la recarga {x}", "order.evidence_reference_seen": "subió a {x} un número de operación ya visto", "outbox.sent_without_consent": "marcó enviado un aviso sin permiso del cliente", "binance.failed_dismiss": "descartó un pago de Binance de la bandeja", "price_group.upsert": "guardó la lista de precios {x}",
   "product.image": "cambió el logo de {x}", "product.upsert": "guardó el producto {x}",
   "reminders.auto": "programó recordatorios automáticos", "reminders.queue": "puso en cola recordatorios de vencimiento", "reminders.settings": "cambió los recordatorios",
   "renewal.create": "pidió una renovación ({x})", "reseller.apply": "mandó una solicitud para ser revendedor", "reseller.approve": "aprobó la solicitud de revendedor {x}",
@@ -2184,6 +2252,7 @@ async function render() {
   }
 }
 function go(v) {
+  apiCacheClear(); // al cambiar de pantalla se vuelve a leer todo; la caché solo sirve para filtrar dentro de la misma
   P.view = TITLE[v] ? v : "inicio";
   P.menuQ = ""; const mf = $("#menuFind"); if (mf) mf.value = "";
   history.replaceState(null, "", "#" + P.view);
@@ -2375,6 +2444,11 @@ function sellSummary() {
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
+document.addEventListener("change", async (ev) => {
+  const sel = ev.target.closest?.("[data-hubplan]");
+  if (!sel) return;
+  await act(() => api("POST", `/api/admin/resellers/${sel.dataset.hubplan}/plan`, { plan: sel.value }), sel.value === "basic" ? "Plan Básico: rige desde su próximo cobro" : "Plan Completo: rige desde su próximo cobro");
+});
 
 async function act(fn, okMsg) {
   try {
@@ -2587,6 +2661,12 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
+  if (d.canned !== undefined) { const inp = b.closest("form")?.querySelector('[name="reply"]'); if (inp) { inp.value = d.canned; inp.focus(); } return; }
+  if (d.rotate) {
+    const pw = prompt("Clave NUEVA de la cuenta (ya la cambiaste en la plataforma):");
+    if (pw === null) return;
+    return act(() => api("POST", `/api/admin/accounts/${d.rotate}/password`, { password: pw }), (r) => `🔑 Clave guardada · ${r.notified ? `${r.notified} cliente(s) quedan avisados en la cola` : "sin clientes que avisar"}`);
+  }
   if (d.unquar) {
     const acc = (await api("GET", "/api/admin/accounts")).find((x) => x.id === d.unquar);
     const q = (acc?.slots ?? []).filter((x) => x.status === "quarantined");
@@ -2820,7 +2900,17 @@ document.addEventListener("click", async (ev) => {
   if (d.remind) return act(() => api("POST", "/api/admin/reminders", { withinDays: +d.remind }), (r) => r.queued ? `${r.queued} recordatorios listos en WhatsApp` : "No hay recordatorios nuevos para preparar");
   if (d.nobanner) return act(() => api("POST", "/api/admin/settings/banner/remove", {}), "Portada quitada");
   if (d.nologo) return act(() => api("POST", "/api/admin/settings/logo/remove", {}), "Logo quitado");
-  if (d.sent) return act(() => api("POST", `/api/admin/outbox/${d.sent}/sent`, {}), "Marcado como enviado");
+  if (d.bretry) return act(() => api("POST", "/api/admin/binance/failed/retry", { merchantTradeNo: d.bretry }), "Pedido entregado");
+  if (d.bdismiss) { const reason = prompt("¿Cómo lo resolviste? (queda en la auditoría)"); if (!reason) return; return act(() => api("POST", "/api/admin/binance/failed/dismiss", { merchantTradeNo: d.bdismiss, reason }), "Sacado de la bandeja"); }
+  if (d.sent) return act(async () => {
+    try { return await api("POST", `/api/admin/outbox/${d.sent}/sent`, {}); } catch (e) {
+      // Sin permiso del cliente: solo el dueño, diciendo por qué (queda en la auditoría).
+      if (e.code !== "NO_CONSENT" || !isOwner()) throw e;
+      const reason = prompt("Este cliente no aceptó avisos. Si te lo pidió él, escribí por qué lo mandaste igual (queda en la auditoría):");
+      if (!reason) throw new Error("No se marcó: el cliente no tiene permiso de avisos");
+      return api("POST", `/api/admin/outbox/${d.sent}/sent`, { force: true, reason });
+    }
+  }, "Marcado como enviado");
   if (d.staff) return act(() => api("POST", `/api/admin/staff/${d.staff}/active`, { active: d.on === "1" }), d.on === "1" ? "Usuario activado" : "Usuario desactivado: se cerró su sesión");
   if (d.asis) {
     if (d.asis === "off") { if (!confirm("¿Apagar el acceso del asistente? Deja de poder entrar al instante.")) return; return act(() => api("POST", "/api/admin/assistant/off", {}), "⛔ Acceso del asistente apagado"); }
@@ -3073,7 +3163,11 @@ document.addEventListener("submit", async (ev) => {
       }
       return;
     } else if (f.dataset.approve) {
-      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey() }), "Pago aprobado y servicio entregado");
+      const extra = {};
+      if (f.vbs) extra.verifiedAmount = toCents(f.vbs.value);
+      if (f.vusd) extra.verifiedUsd = toCents(f.vusd.value);
+      if (f.force?.checked) { extra.force = true; extra.forceReason = f.forceReason?.value ?? ""; }
+      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey(), ...extra }), "Pago aprobado y servicio entregado");
     } else if (f.dataset.reject) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {
@@ -3376,11 +3470,14 @@ document.addEventListener("submit", async (ev) => {
       if (v < 0 && !confirm(`¿Descontarle ${m(-v)} a ${name}?\nSu saldo queda en ${m(bal + v)}.`)) return;
       await act(async () => { await api("POST", `/api/admin/customers/${f.dataset.rtopf}/adjust`, { amount: v, reason: f.reason.value.trim() || "Recarga de saldo (panel)" }); P.tab.rtop = ""; }, `✅ Saldo de ${name}: ${m(bal)} → ${m(bal + v)}`);
     } else if (f.id === "resCfg") {
-      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0), scope: f.scope.value, ...(f.priceUsd.value.trim() ? { priceUsd: toCents(f.priceUsd.value) } : {}) } }), "Ajustes guardados");
+      await act(() => api("POST", "/api/admin/settings", { resellerMarginPct: Math.round(Number(f.margin.value) || 0), referralBonus: toCents(f.referral.value || "0"), shopRent: { enabled: f.rentOn.checked, price: toCents(f.price.value || "0"), freeIfSpent: toCents(f.free.value || "0"), graceDays: Math.round(Number(f.grace.value) || 0), scope: f.scope.value, trialDays: Math.round(Number(f.trialDays.value) || 0), ...(f.basicPrice.value.trim() ? { basicPrice: toCents(f.basicPrice.value) } : {}), ...(f.basicPriceUsd.value.trim() ? { basicPriceUsd: toCents(f.basicPriceUsd.value) } : {}), ...(f.priceUsd.value.trim() ? { priceUsd: toCents(f.priceUsd.value) } : {}) } }), "Ajustes guardados");
     } else if (f.id === "mbForm") {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
+    } else if (f.id === "supForm") {
+      const replies = f.replies.value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 10);
+      await act(() => api("POST", "/api/admin/settings", { ticketReplies: replies, secretaryMsg: { cobrar: f.mCobrar.value.trim(), avisar: f.mAvisar.value.trim(), deben: f.mDeben.value.trim() } }), "Soporte y mensajes guardados");
     } else if (f.id === "setForm") {
       await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");

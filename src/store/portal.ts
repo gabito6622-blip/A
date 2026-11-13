@@ -64,7 +64,7 @@ export function myOrders(e: Engine, actor: Actor) {
         return { id: o.id, kind: o.kind, status: o.status, total: null, paidBy: "reseller" as const, customerId: o.customerId, createdAt: o.createdAt };
       }
       // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
-      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
+      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.rejectReason ? { rejectReason: o.rejectReason } : {}), ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
     });
 }
 

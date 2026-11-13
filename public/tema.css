@@ -1,0 +1,41 @@
+/* Gabriel Store Premium 2.0 · tema común (etapa 0).
+   Un solo juego de variables para la tienda, el panel, GaboHub y la oficina. Todavía no cambia el aspecto:
+   las pantallas se van pasando a estas variables una por una, con su prueba, en las etapas siguientes.
+   Nombres: --gs-* (marca y estados). Los --s-* (tienda) y los del panel (.app) siguen existiendo. */
+:root{
+  /* Marca */
+  --gs-blue:#2f6bff;        /* azul eléctrico: acción principal */
+  --gs-blue-ink:#ffffff;
+  --gs-cyan:#22d3ee;        /* en vivo, éxito suave, acentos */
+  --gs-violet:#8b5cf6;      /* GaboHub y destacados */
+  --gs-pink:#ec4899;
+  /* Estados */
+  --gs-ok:#22c55e; --gs-warn:#f59e0b; --gs-bad:#ef4444; --gs-info:#38bdf8;
+  /* Oscuro elegante (por defecto en panel y GaboHub a partir de la etapa 3) */
+  --gs-bg:#070b16; --gs-bg2:#0d1428; --gs-panel:#111a33; --gs-panel2:#162040; --gs-line:#223058;
+  --gs-ink:#e6ecff; --gs-muted:#8ea0c9;
+  /* Tipografía y medidas */
+  --gs-font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --gs-mono:ui-monospace,Menlo,Consolas,monospace;
+  --gs-tap:44px;            /* alto mínimo de cualquier botón o fila que se toca */
+  --gs-text-min:12px;       /* letra más chica permitida */
+  --gs-r-sm:8px; --gs-r:12px; --gs-r-lg:16px; --gs-r-xl:24px;
+  --gs-shadow:0 10px 30px rgba(7,11,22,.35);
+  --gs-glow:0 0 0 1px rgba(47,107,255,.35),0 10px 40px rgba(47,107,255,.25);
+  --gs-t-fast:150ms; --gs-t:220ms;
+  --gs-grad:linear-gradient(90deg,var(--gs-blue),var(--gs-violet));
+  --gs-grad-live:linear-gradient(90deg,var(--gs-cyan),var(--gs-violet));
+}
+/* Modo claro: mismos nombres, otros valores (lo elige el usuario; el panel ya tiene su interruptor). */
+[data-gs-theme="light"],.gs-light{
+  --gs-bg:#eef1f6; --gs-bg2:#f6f8fc; --gs-panel:#ffffff; --gs-panel2:#f3f5f9; --gs-line:#dfe3ea;
+  --gs-ink:#0f1a33; --gs-muted:#5b6577;
+  --gs-shadow:0 10px 30px rgba(15,26,51,.10);
+}
+/* Movimiento moderado: si la persona pidió menos movimiento, nada se anima. */
+@media (prefers-reduced-motion:reduce){
+  :root{--gs-t-fast:0ms;--gs-t:0ms}
+  .gs-anim,.gs-anim *{animation:none!important;transition:none!important}
+}
+/* Números alineados en tablas e indicadores. */
+.gs-num{font-variant-numeric:tabular-nums}

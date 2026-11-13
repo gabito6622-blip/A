@@ -1,12 +1,25 @@
 // Finanzas del dueño: lo que entró (ventas y renovaciones), lo que salió (gastos
 // manuales) y lo que quedó (ganancia), mes por mes.
-import type { Actor, Cents, Expense, Id } from "./types.js";
+import type { Account, Actor, Cents, Expense, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { boMonthKey, boMonthStart, boParts } from "./time.js";
+import { incomeEvents, type IncomeEvent } from "./income.js";
+import { rateNow, usdToBs } from "./usd.js";
 
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-const mk = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+/** Mes calendario de Bolivia ("AAAA-MM"), no el de la zona horaria del servidor. */
+const mk = boMonthKey;
+
+/**
+ * Lo que cuesta una cuenta por mes, en Bs. Si la pagás en dólares con la tarjeta (`costUsd`), vale lo
+ * que son esos dólares a la tasa de hoy; si no, el costo en Bs que anotaste.
+ */
+export function accountCostBs(e: Engine, a: Pick<Account, "cost" | "costUsd">): Cents {
+  const r = rateNow(e);
+  return a.costUsd && r ? usdToBs(a.costUsd, r) : a.cost;
+}
 
 export function addExpense(e: Engine, actor: Actor, amount: unknown, note: unknown): Expense {
   authorize(actor, "catalog.manage");
@@ -38,29 +51,72 @@ export function removeExpense(e: Engine, actor: Actor, id: Id): { ok: true } {
 export function report(e: Engine, actor: Actor, n = 6) {
   authorize(actor, "catalog.manage");
   const now = e.now();
-  const base = new Date(now); base.setDate(1); base.setHours(0, 0, 0, 0);
   const months = Array.from({ length: n }, (_, i) => {
-    const d = new Date(base.getFullYear(), base.getMonth() - (n - 1 - i), 1);
-    return { key: mk(d), label: `${MES[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents };
+    const start = boMonthStart(now, -(n - 1 - i)), p = boParts(start);
+    return { key: mk(start), label: `${MES[p.m]} ${String(p.y).slice(2)}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents, delControl: 0 as Cents };
   });
   const idx = new Map(months.map((m, i) => [m.key, i]));
-  for (const o of Object.values(e.s.orders)) {
-    // Las pruebas (gratis o marcadas "🧪 Era una prueba") no son plata que entró.
-    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial) continue;
-    const i = idx.get(mk(new Date(o.updatedAt)));
-    if (i !== undefined) months[i].ingresos += o.total;
+  // Fuente única de ingresos (pedidos entregados + cobros marcados en el Control): la misma que Inicio y Cómo van.
+  const events = incomeEvents(e, now);
+  for (const x of events) {
+    const i = idx.get(mk(x.at));
+    if (i !== undefined) { months[i].ingresos += x.amount; if (x.source === "control") months[i].delControl += x.amount; }
   }
   for (const x of (e.s.expenses ?? [])) {
-    const i = idx.get(mk(new Date(x.at)));
+    const i = idx.get(mk(x.at));
     if (i !== undefined) { months[i].gastos += x.amount; if (x.accountId) months[i].cuentas += x.amount; }
   }
   for (const m of months) m.ganancia = m.ingresos - m.gastos;
-  const curKey = mk(base);
-  const curExpenses = (e.s.expenses ?? []).filter((x) => mk(new Date(x.at)) === curKey).sort((a, b) => b.at - a.at);
+  const curKey = mk(now);
+  const curExpenses = (e.s.expenses ?? []).filter((x) => mk(x.at) === curKey).sort((a, b) => b.at - a.at);
   const est = accountsEstimate(e);
   const cur = months[months.length - 1];
   const current = { ...cur, cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ingresos - cur.gastos - est.amount };
-  return { months, current, topApps: topAppsOfMonth(e, curKey), expenses: structuredClone(curExpenses) };
+  return { months, current, topApps: topAppsOfMonth(e, events.filter((x) => mk(x.at) === curKey)), expenses: structuredClone(curExpenses) };
+}
+
+/**
+ * Cierre de un mes (Premium 2.0, etapa 9): todo lo del mes elegido con la MISMA fuente de ingresos que Inicio
+ * y Finanzas (pedidos entregados + cobros del Control), comparado con el mes anterior. Solo lee.
+ */
+export function monthClose(e: Engine, actor: Actor, month?: unknown) {
+  authorize(actor, "catalog.manage");
+  const now = e.now();
+  const curKey = mk(now);
+  let key = typeof month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : curKey;
+  if (key > curKey) key = curKey;
+  const [y, m] = key.split("-").map(Number);
+  const start = Date.UTC(y, m - 1, 1) + 4 * 3_600_000, end = Date.UTC(y, m, 1) + 4 * 3_600_000;
+  const prevKey = mk(start - 1);
+  const events = incomeEvents(e, now);
+  const sum = (l: { amount: Cents }[]) => l.reduce((t, x) => t + x.amount, 0);
+  const block = (k: string) => {
+    const ev = events.filter((x) => mk(x.at) === k);
+    const gastos = (e.s.expenses ?? []).filter((x) => mk(x.at) === k);
+    const byPayer = new Map<Id, Cents>();
+    for (const x of ev) byPayer.set(x.payerId, (byPayer.get(x.payerId) ?? 0) + x.amount);
+    const payers = [...byPayer].map(([id, amount]) => ({ customerId: id, name: e.s.customers[id]?.name ?? "—", kind: e.s.customers[id]?.kind ?? "customer", amount })).sort((a, b) => b.amount - a.amount);
+    const ingresos = sum(ev);
+    const g = gastos.reduce((t, x) => t + x.amount, 0), cuentas = gastos.filter((x) => x.accountId).reduce((t, x) => t + x.amount, 0);
+    return {
+      key: k, ingresos, delControl: sum(ev.filter((x) => x.source === "control")), dePedidos: sum(ev.filter((x) => x.source === "order")),
+      ventas: ev.filter((x) => x.kind === "sale").length, renovaciones: ev.filter((x) => x.kind === "renewal").length, cobrosControl: ev.filter((x) => x.kind === "control").length,
+      gastos: g, cuentas, ganancia: ingresos - g,
+      topApps: topAppsOfMonth(e, ev), topPayers: payers.slice(0, 5), payers: payers.length,
+    };
+  };
+  const cur = block(key), prev = block(prevKey);
+  const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+  const est = key === curKey ? accountsEstimate(e) : { amount: 0, count: 0 };
+  const MESL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const months = Array.from({ length: 12 }, (_, i) => { const s = boMonthStart(now, -i), p2 = boParts(s); return { key: mk(s), label: `${MESL[p2.m]} ${p2.y}` }; });
+  return {
+    month: key, label: `${MESL[m - 1]} ${y}`, closed: key < curKey, start, end, months,
+    ...cur,
+    cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ganancia - est.amount,
+    prev: { key: prevKey, ingresos: prev.ingresos, gastos: prev.gastos, ganancia: prev.ganancia, delControl: prev.delControl },
+    vs: { ingresosPct: pct(cur.ingresos, prev.ingresos), ingresos: cur.ingresos - prev.ingresos, gananciaPct: pct(cur.ganancia, prev.ganancia), ganancia: cur.ganancia - prev.ganancia, gastos: cur.gastos - prev.gastos },
+  };
 }
 
 /**
@@ -70,13 +126,14 @@ export function report(e: Engine, actor: Actor, n = 6) {
  */
 export function accountsEstimate(e: Engine): { amount: Cents; count: number } {
   const now = e.now();
-  const start = new Date(now); start.setDate(1); start.setHours(0, 0, 0, 0);
-  const curKey = mk(start);
-  const paid = new Set((e.s.expenses ?? []).filter((x) => x.accountId && mk(new Date(x.at)) === curKey).map((x) => x.accountId));
+  const start = boMonthStart(now);
+  const curKey = mk(now);
+  const paid = new Set((e.s.expenses ?? []).filter((x) => x.accountId && mk(x.at) === curKey).map((x) => x.accountId));
   let amount = 0, count = 0;
   for (const a of Object.values(e.s.accounts)) {
-    if (a.status === "retired" || !(a.cost > 0) || a.supplierExpiresAt < start.getTime() || a.createdAt > now || paid.has(a.id)) continue;
-    amount += a.cost; count++;
+    const cost = accountCostBs(e, a);
+    if (a.status === "retired" || !(cost > 0) || a.supplierExpiresAt < start || a.createdAt > now || paid.has(a.id)) continue;
+    amount += cost; count++;
   }
   return { amount, count };
 }
@@ -85,7 +142,7 @@ export function accountsEstimate(e: Engine): { amount: Cents; count: number } {
  * Las apps que más te dejaron este mes: lo que entró por cada una menos lo que te cuestan
  * esos perfiles (estimado con el costo de las cuentas). Un combo suma el costo de sus apps.
  */
-function topAppsOfMonth(e: Engine, curKey: string) {
+function topAppsOfMonth(e: Engine, events: IncomeEvent[]) {
   const unit: Record<Id, number> = {};
   for (const m of marginsData(e).products) if (m.unitCost !== null) unit[m.productId] = m.unitCost;
   const costOf = (pid: Id): number => {
@@ -94,13 +151,10 @@ function topAppsOfMonth(e: Engine, curKey: string) {
     return unit[pid] ?? 0;
   };
   const by: Record<Id, { productId: Id; name: string; ingresos: number; units: number; costo: number; gana: number }> = {};
-  for (const o of Object.values(e.s.orders)) {
-    if (o.status !== "fulfilled" || o.kind === "topup" || o.trial || mk(new Date(o.updatedAt)) !== curKey) continue;
-    const sub = o.items.reduce((t, it) => t + it.qty * it.unitPrice, 0) || 1;
-    for (const it of o.items) {
+  for (const x of events) {
+    for (const it of x.items) {
       const b = (by[it.productId] ??= { productId: it.productId, name: e.s.products[it.productId]?.name ?? it.productId, ingresos: 0, units: 0, costo: 0, gana: 0 });
-      const rev = Math.round((o.total * it.qty * it.unitPrice) / sub); // reparte cupones/descuentos
-      b.ingresos += rev; b.units += it.qty; b.costo += costOf(it.productId) * it.qty;
+      b.ingresos += it.amount; b.units += it.qty; b.costo += costOf(it.productId) * it.qty; // el total ya viene repartido (cupones/descuentos)
     }
   }
   return Object.values(by).map((b) => ({ ...b, gana: b.ingresos - b.costo })).sort((a, b) => b.gana - a.gana).slice(0, 3);
@@ -132,7 +186,7 @@ export function payAccountRenewal(e: Engine, actor: Actor, accountId: Id, input:
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
     if (acc.status === "retired") throw new DomainError("INVALID_STATE", "La cuenta está retirada");
-    const amount = input.amount === undefined || input.amount === null || input.amount === "" ? acc.cost * months : Math.round(Number(input.amount));
+    const amount = input.amount === undefined || input.amount === null || input.amount === "" ? accountCostBs(e, acc) * months : Math.round(Number(input.amount));
     if (!Number.isInteger(amount) || amount <= 0) throw new DomainError("VALIDATION", "Poné cuánto pagaste (mayor a 0)");
     const prod = e.s.products[acc.productId]?.name ?? acc.productId;
     // Si ya venció hace más de un ciclo, el nuevo período arranca hoy; si no, se mantiene el día de cobro.
@@ -184,7 +238,7 @@ export function marginsData(e: Engine) {
     const accs = Object.values(e.s.accounts).filter((a) => a.productId === p.id && a.status === "active");
     const units = accs.map((a) => {
       const slots = Object.values(e.s.slots).filter((s) => s.accountId === a.id && s.status !== "retired").length || 1;
-      return a.cost / slots;
+      return accountCostBs(e, a) / slots;
     }).filter((c) => c > 0);
     const unitCost = units.length ? Math.round(units.reduce((s, c) => s + c, 0) / units.length) : null;
     // El costo es por mes; el precio es por la duración del producto.

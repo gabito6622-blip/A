@@ -14,6 +14,7 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
+import * as inventario from "./inventario.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as subs from "./subRentals.js";
@@ -82,6 +83,11 @@ export function createStore(opts: EngineOptions = {}) {
       rate: () => usd.rateNow(e),
       toBs: (usdCents: Cents, rate: number) => usd.usdToBs(usdCents, rate),
     },
+    /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
+    inventario: {
+      cuts: bind(e, inventario.cutsReport),
+      rotatePassword: bind(e, inventario.rotatePassword),
+    },
     inventory: {
       addAccount: bind(e, inventory.addAccount),
       addAccountsBulk: bind(e, inventory.addAccountsBulk),
@@ -149,6 +155,8 @@ export function createStore(opts: EngineOptions = {}) {
       payRent: bind(e, rshop.payMyShopRent),
       /** Suscripción GaboHub sin pagar: Mi control, Quién me debe y Mis ganancias quedan pausadas (ver resellerShop). */
       hubLocked: (customerId: string) => rshop.hubLocked(e, customerId),
+      hubLockReason: (customerId: string) => rshop.hubLockReason(e, customerId),
+      setPlan: bind(e, rshop.setHubPlan),
       apply: (input: { name: unknown; phone: unknown; note?: unknown; ref?: unknown }) => rshop.applyReseller(e, input),
       apps: bind(e, rshop.listApps),
       approve: bind(e, rshop.approveApp),
@@ -249,6 +257,7 @@ export function createStore(opts: EngineOptions = {}) {
     },
     finance: {
       report: bind(e, finance.report),
+      monthClose: bind(e, finance.monthClose),
       addExpense: bind(e, finance.addExpense),
       removeExpense: bind(e, finance.removeExpense),
       payRenewal: bind(e, finance.payAccountRenewal),

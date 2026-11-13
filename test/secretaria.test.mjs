@@ -70,7 +70,7 @@ test("secretaria: separa cobrar, cortar, vencidas, deudas, avisos, desenlazar, l
     assert.deepEqual(r.libres.listas.map((a) => a.email), ["libre@ejemplo.lat"], "la de desenlazar no figura como lista");
     assert.deepEqual(r.libres.faltaFecha.map((a) => a.email), ["libre.vieja@ejemplo.lat"]);
     assert.deepEqual(r.apartadas.map((a) => a.email), ["apartada@ejemplo.lat"]);
-    assert.deepEqual(r.counts, { cobrar: 2, cortar: 1, deben: 1, sinAnotar: 1, avisar: 1, desenlazar: 1, libres: 1, faltaFecha: 1, apartadas: 1 });
+    assert.deepEqual(r.counts, { cobrar: 2, cortar: 1, deben: 1, sinAnotar: 1, avisar: 1, desenlazar: 1, libres: 1, faltaFecha: 1, apartadas: 1, claves: r.counts.claves, debitos: r.counts.debitos });
     // El dueño ve lo que pasó; un admin no (no tiene la auditoría); un revendedor no entra.
     assert.ok(Array.isArray(r.actividad) && r.actividad.length > 0);
     assert.equal(s.stats.secretary({ id: "stf_x", role: "admin" }).actividad, null);

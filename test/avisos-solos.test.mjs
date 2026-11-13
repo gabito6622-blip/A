@@ -151,7 +151,7 @@ describe("avisos solos (API)", () => {
   test("3 días antes: uno por cliente, agrupado si son varios; cliente de revendedor: 'Renová con…' sin precio", async () => {
     clock.t = at(12);
     const st = await app.checkExpiryPush();
-    assert.deepEqual(st, { day: "2026-12-12", sent: 4, customers: 2, links: 2, failed: 0 });
+    assert.deepEqual(st, { day: "2026-12-12", sent: 4, customers: 2, links: 2, failed: 0, lastAt: clock.t }, "lastAt = hora real del último aviso (la usa Mi oficina)");
     assert.equal(count(EP.ana), 1);
     assert.equal(count(EP.carla), 1);
     assert.equal(count(EP.tel), 1, "un solo aviso por celular aunque tenga dos links");
@@ -221,7 +221,7 @@ describe("avisos solos (API)", () => {
     status[EP.ana] = 404;
     clock.t = at(15);
     const st = await app.checkExpiryPush();
-    assert.deepEqual(st, { day: "2026-12-15", sent: 1, customers: 0, links: 1, failed: 0 }, "solo el celular que sigue vivo");
+    assert.deepEqual(st, { day: "2026-12-15", sent: 1, customers: 0, links: 1, failed: 0, lastAt: clock.t }, "solo el celular que sigue vivo");
     assert.ok(!tsubs().some((x) => x.endpoint === EP.tel2), "se borró la del link");
     assert.equal((await call("POST", `/api/cobro/${tk1}/alerts`, { action: "check", endpoint: EP.tel2 })).json.on, false);
     assert.equal((await call("GET", "/api/me/push", null, "ana")).json.mine, 0, "se borró la del cliente con cuenta");

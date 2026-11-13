@@ -1,5 +1,116 @@
 # Informe de pruebas
 
+## 13/11/2026 · Premium 2.0 · Etapa 9 «Finanzas pro»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Noviembre: entró Bs 182 (132 por pedidos + 50 del Control) = el mismo número de Finanzas; 1 venta, 1 renovación, 1 cobro del Control; gastos Bs 30; te quedó Bs 152; octubre Bs 101 / 20 / 81; +80 % vs. octubre; ARIt pagó todo; Disney primera; 12 meses listados; estimado de cuentas solo en el mes en curso | `test/finanzas-pro.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Octubre cerrado: sin estimado, comparado con septiembre, empieza y termina en hora de Bolivia; mes futuro o mal escrito → el actual; Atención no entra | misma prueba | OK |
+| API: `/api/admin/finance/cierre` 200 con los datos; `/cierre.xlsx` 200, nombre `cierre-AAAA-MM.xlsx`, archivo .xlsx válido (empieza en PK); sin sesión 401 | misma prueba, servidor en puerto efímero | OK |
+| Pantalla Finanzas a 360 px con la tarjeta de cierre: sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | captura con datos de ejemplo (fuera del repo) + medición en la página | OK |
+| Tanda completa | `npm test` | **522/522** en ~58 s. Además se hizo robusta la prueba intermitente «Mis clientes» (`hub-clientes-unidos`): ahora espera por la API y recarga la pantalla en vez de depender del redibujado en vivo; 2/2 sola y verde en la tanda completa |
+
+## 13/11/2026 · Premium 2.0 · Etapa 8 «Automatización y soporte»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Fallas: a las 2 h espera 2 h (no tarde); a las 25 h, tarde; resuelta: tardó 25 h y ya no está tarde; el cliente ve lo mismo | `test/soporte.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Respuestas guardadas: más de 10, vacías o de más de 200 letras → inválido; mensajes de más de 500 letras → inválido; Atención no puede; se guardan recortadas; un mensaje vacío no se guarda; la secretaria devuelve `templates` | misma prueba | OK |
+| Débitos: autopago en 2 días y autopago debitado ayer entran (ordenados por fecha, con US$ 9 cuando está anotado); uno a 10 días y uno sin autopago no; 3 días después solo queda el de ayer; al otro día ninguno | misma prueba | OK (la primera expectativa olvidaba la ventana «desde ayer»; corregida la prueba, no el producto) |
+| API: guardar soporte → 200; `/api/admin/settings/soporte` lo devuelve; sin sesión 401; el `/api/settings` público no lo trae; respuesta de 300 letras → 400 | misma prueba, servidor en puerto efímero | OK |
+| La secretaria mantiene sus conteos (más `debitos`) | `test/secretaria.test.mjs` | OK |
+| Tanda completa | `npm test` | **520/520** (segunda corrida, ~65 s). En la primera falló solo `hub-clientes-unidos` («Mis clientes»), la intermitente bajo carga: sola pasa |
+
+## 13/11/2026 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| API: 6 asistentes; `pendientes` con los conteos de la secretaria (1 clave por cambiar); la línea de tiempo trae «Aprobaste el pago de Ana (Netflix Premium)» y «Vendiste Netflix Premium a Ana»; ningún texto con apellido, clave, correo, número de operación ni costo | `test/oficina-2.test.mjs` (servidor en puerto efímero, datos ficticios) | OK (la primera versión del filtro buscaba «2000» en todo el JSON y lo encontraba dentro de una fecha; se acotó a los textos) |
+| Navegador a 360 px, claro y oscuro: 6 escritorios, 6 anillos con avatar, 6 monitores, línea de tiempo con eventos, «Para hoy», ticker; sin desborde; botones de 44 px; letra ≥ 12 px; los 6 globitos ≥ 4,5:1 | misma prueba, Playwright | OK (encontró que el ticker en una sola línea ensanchaba la página a 551 px: se acotó `#ofRoot` y las columnas con `minmax(0,1fr)`) |
+| La prueba anterior de la oficina (7 pruebas: arranque, permisos, Rocío, Wali, Vico/Coco, privacidad de lo anotado, navegador) | `test/oficina.test.mjs` | OK sin cambios |
+| Revisión visual | capturas a 360 px con datos de ejemplo (fuera del repo) | OK: el monitor salía aplastado (`span` en línea) y el puesto se cortaba «comprobante s»; corregidos |
+| Tanda completa | `npm test` | **516/516** en ~57 s |
+
+## 12/11/2026 · Premium 2.0 · Etapa 6 «GaboHub alquilable»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Prueba de 15 días: al prender el cobro los 2 revendedores arrancan en prueba sin descuento; día 10 nada; día 16 se cobra Bs 49 al que tiene saldo y sale de la prueba; quien ya pagó no vuelve a tener prueba | `test/gabohub-planes.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Planes: Básico más caro que el Completo → inválido; prueba de 91 días → inválido; sin precio Básico no se puede elegir Básico; otro revendedor no cambia tu plan; plan «oro» → inválido; Básico cobra Bs 25 y deja las herramientas premium pausadas (`lockReason: plan`); en US$ cobra US$ 3 fijos; volver al Completo destraba ya y el mes siguiente cobra Bs 49; auditoría solo de los cambios que entraron | misma prueba | OK |
+| API: `/api/me/shop` trae plan/prueba/precios; con Básico `/api/me/control` → 402 `HUB_PLAN`; sus pedidos siguen 200; el dueño cambia el plan por `/api/admin/resellers/:id/plan`; un revendedor no puede usar esa ruta (403) | misma prueba, servidor en puerto efímero | OK |
+| La suscripción de antes no cambió (Bs 49 / US$ 5, gracia, pausa y vuelta al pagar): solo se sumó `trials: 0` al conteo | `test/suscripcion-gabohub.test.mjs` | OK |
+| Menú del panel y navegación del hub sin cambios | `panel-ordenado`, `hub-navegacion` | OK |
+| Revisión visual a 360 px: Inicio del revendedor («Tu suscripción… plan Completo · Tenés 15 días de prueba gratis» y botón «Pasar al Básico») y Ajustes del dueño con los 3 campos nuevos | capturas con datos de ejemplo (fuera del repo) | OK (el botón de plan iba dentro del texto: se pasó a su propia fila) |
+| Tanda completa | `npm test` | **514/514** en ~65 s |
+
+## 12/11/2026 · Premium 2.0 · Etapa 5 «Tienda premium»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Rechazo: motivo vacío → error; se guarda recortado; el cliente lo ve en sus pedidos; el cliente de un revendedor no ve el motivo (ni el monto) del pago del revendedor; el revendedor sí | `test/tienda-premium.test.mjs` (núcleo) | OK |
+| Estilo «Premium 2.0» primero en la lista, fondo y cian de tema.css, botón y texto ≥ 4,5:1; todos los estilos siguen pasando la prueba de contraste | misma prueba + `test/contrast.test.mjs` | OK |
+| Tienda a 360 px, clienta con 4 pedidos (esperando pago, en revisión, rechazado con motivo, entregado): «Mis cuentas» dice cada estado y el motivo; «Saldo» guía en 3 pasos; sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | misma prueba, Playwright | OK (encontró los dos «Copiar» de 32 px; corregidos a 44) |
+| Dashboard del panel en claro y oscuro: «7/30/90 días» y las letras de «Resumen por servicio» ≥ 4,5:1 (medido contra la punta más oscura del pastel) | misma prueba, Playwright a 360 px | OK |
+| La tienda de la etapa 0 (portada, catálogo, carrito, pago) sigue bien | `test/base-segura.test.mjs` | OK |
+| Revisión visual | capturas a 360 px del historial (Entregado / Rechazado con motivo / En revisión) y de la recarga en 3 pasos (fuera del repo) | OK: se lee claro, sin cortes |
+| Tanda completa | `npm test` | **511/511** en ~50 s |
+
+## 12/11/2026 · Premium 2.0 · Etapa 4 «Inventario inteligente»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Correo normalizado («  NetGB.117@GMAIL.com » → «netgb.117@gmail.com»); repetida para la misma plataforma: rechazada (también con mayúsculas/espacios); misma dirección en otra plataforma: entra; editar hacia un correo que ya existe: rechazado; retirada la vieja, se puede cargar de nuevo; «gmaik.com» avisa sin frenar | `test/inventario-inteligente.test.mjs` (núcleo, datos ficticios) | OK (encontró que la validación del correo corría antes de normalizar: un espacio al final daba «Email inválido»; corregido) |
+| Semáforo: verde; clave pendiente → amarillo; proveedor en 5 días → amarillo; en 1 día con cliente → rojo; vencida con cliente → rojo; «POR CORTAR» → rojo; «SEGUIMIENTO» → amarillo; perfil apartado → amarillo; aviso grave sin ver → rojo y visto → verde; clave de más de 90 días → amarillo | misma prueba | OK |
+| Cortes: 3 clientes (22/11, 22/11, 02/12) → corte sugerido 22/11, diferencia 10 días, Ana 0 / Beto 0 / Carla +10; la cuenta completa de Disney no entra; alinear a Carla deja la cuenta alineada; sin claves en la respuesta; Atención no entra | misma prueba | OK |
+| Cambié la clave: muy corta / igual a la anterior → rechazada; Atención no puede; admin sí: clave nueva, fecha, 2 avisos en cola (ninguno real), auditoría sin la clave; la secretaria deja de pedirla y a los 8 días vuelve | misma prueba | OK |
+| API: cargar con «gmaik.com» → 200 con `warning`; repetida → 400 «ya está cargada»; `GET /api/admin/cortes` 200 (1 cuenta) y 401 sin sesión; `POST …/password` 200 con `notified: 1`; la lista sigue sin mostrar la clave | misma prueba, servidor en puerto efímero | OK |
+| El menú suma «Cortes» para dueño y admin (no para Atención) y no pierde pantallas | `test/panel-ordenado.test.mjs` | OK |
+| La secretaria mantiene sus conteos (más `claves`) | `test/secretaria.test.mjs` | OK |
+| Revisión visual a 360 px: pantalla Cortes (vacía y con una cuenta desalineada: 3 clientes, corte 12/12, diferencia 10 d, filas por perfil) y Cuentas (filtros) sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | capturas con datos de ejemplo (fuera del repo) | OK. La pastilla 🟡/🔴 en la tarjeta de cada cuenta no se alcanzó a capturar (las tarjetas se abren por plataforma); queda cubierta por la prueba de `risk` en la lista |
+| Tanda completa | `npm test` | **506/507**: volvió a fallar solo `hub-clientes-unidos` («Mis clientes») bajo carga: Playwright veía «inestable» el botón «Guardar en mis clientes» porque la lista se redibuja al abrir el desplegable. Se cambió ese clic a JS en la prueba (no cambia el producto); sola pasa |
+
+## 12/11/2026 · Premium 2.0 · Etapa 3 «Panel rápido y oscuro»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| `/api/admin/inicio` = alquileres, pagos por revisar, finanzas, agentes, revendedores sin PIN y notificaciones de los endpoints sueltos; admin sin finanzas ni reporte diario; cliente 401/403; sin sesión 401 | `test/panel-rapido.test.mjs` (servidor en puerto efímero, datos ficticios) | OK |
+| Navegador a 390 px: Inicio hace 1 llamada a `/api/admin/inicio` y ninguna a assignments/ai/resellers/finance; 7 pedidos en total (antes 12) | misma prueba, Playwright contando pedidos `/api/*` | OK |
+| Tema: arranca oscuro, `--bg` del panel = `#070b16` (tema.css), elegir Claro se guarda y sobrevive a recargar | misma prueba | OK |
+| Control: la lista se pide 1 vez; cambiar de pestaña 2 veces no vuelve a pedirla; tras guardar una nota (POST) se vuelve a pedir | misma prueba | OK (encontró que un POST a `/api/admin/assignments/:id/control` contaba como lectura en mi regex: corregido en la prueba) |
+| Nada se rompió en las pantallas con navegador: panel-ordenado, pulido-panel, secretaria, hub-navegacion, oficina, como-van, winback, base-segura, guiado, hub-clientes-unidos | `node --test` de esos archivos | OK (guiado y hub-clientes fallaron con la primera versión de la caché, que también guardaba `/api/settings` y sobrevivía al cambio de pantalla; se acotó a las listas del panel y se vacía al cambiar de pantalla) |
+| Revisión visual del oscuro a 360 px (Inicio, Control, Dashboard): sin desborde; contraste de textos medido | capturas con datos de ejemplo (fuera del repo) + medición en la página | Inicio y Control sin textos bajo 4,5:1. Dashboard: «30 días» y «Ver primeros pasos» dan 4,49:1 (borde), y las letras de los avatares de colores («N», «G») 2,5–3,7:1: queda anotado para la pasada visual de la etapa 5 |
+| Tanda completa | `npm test` | **501/502** en ~62 s: la que falló fue `hub-clientes-unidos` (Mis clientes), que ya era intermitente bajo carga; corrida sola 3 veces seguidas: 3/3 OK |
+
+## 12/11/2026 · Premium 2.0 · Etapa 2 «Números que coinciden»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Inicio, Finanzas, resumen y Cómo van dan el mismo ingreso (Bs 217 del mes): venta, venta a cliente final, renovación y un cobro del Control; la recarga (Bs 40) queda aparte; la marca sobre un alquiler con pedido cerca no suma; lo importado no suma (su marca vieja cuenta en octubre) | `test/numeros-coinciden.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Mes y día de Bolivia: venta del 31/10 23:30 La Paz cae en octubre y en el día 31 en Finanzas, gráfico de 12 meses, serie por día, `byDay` y gastos; «vencen en 14 días» arranca a las 00:00 de Bolivia | misma prueba | OK |
+| Costo en US$: cuenta a US$ 9 con tasa 12 → Bs 108 en el estimado del mes, el margen por perfil y el costo del proveedor; el costo en Bs anotado no se toca | misma prueba | OK (encontró que `costUsd` no se podía anotar al cargar la cuenta; corregido) |
+| Fiado: revendedor en US$ debe Bs 70 = US$ 7 (`owedUsd`, `rate`); con tasa 14 la libreta sigue en Bs 70 y el ≈ pasa a US$ 5; cliente en Bs sin `owedUsd`; la libreta del revendedor no cambia | misma prueba | OK |
+| Cómo van no cambió de números al pasar a la fuente única | `test/como-van.test.mjs` (12 pruebas) | OK |
+| Gráfico por día en fecha de Bolivia aunque el proceso corra en UTC | `test/pulido-panel.test.mjs` (clave fija «2026-11-11») | OK (antes la prueba calculaba la clave con la zona del proceso) |
+| Datos de ejemplo: los tres endpoints devuelven el mismo número (Bs 60, 0 del Control) | `seed-demo` + `/api/admin/dashboard`, `/api/admin/finance`, `/api/admin/stats` | OK |
+| Tanda completa | `npm test` | **500/500** en ~51 s |
+
+## 12/11/2026 · Premium 2.0 · Etapa 1 «Plata segura»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Comprobante repetido: bloqueado; admin no fuerza; dueño sin motivo no; dueño con motivo sí y auditado; tras rechazo se aprueba normal | `test/plata-segura.test.mjs` (núcleo, datos ficticios) | OK |
+| Referencias «0012-345» / « 12 345 » / «12.345» = mismo pago; otra distinta pasa; se guarda como la escribieron | misma prueba | OK |
+| Número de operación ya visto: marcado y auditado, sin bloquear | misma prueba | OK |
+| Recarga: monto verificado (Bs 100 declarados → Bs 80 acreditados), auditoría de → a; menos de Bs 10 rechazado; igual monto no audita | misma prueba | OK |
+| Recarga: misma llave = una sola; 4ª en revisión rechazada; aprobada una, entra otra | misma prueba | OK |
+| Consentimiento: origen panel/cliente/whatsapp/registro/revendedor con fecha; auditoría con `via` | misma prueba | OK |
+| «Enviado a mano» sin permiso: NO_CONSENT; admin no fuerza; dueño con motivo sí, auditado | misma prueba | OK |
+| Binance: webhook firmado (RSA de prueba) con pedido sin perfil → no se entrega, queda en la bandeja; con stock nuevo «Reintentar» entrega (1 asignación) y la bandeja queda vacía | misma prueba, servidor real en puerto efímero, Binance simulado con `fetchImpl` | OK (encontró que un pedido sin perfil se entregaba vacío; corregido) |
+| Por la API: recarga con llave repetida = una; misma imagen → 409 `DUPLICATE_EVIDENCE`; `force` + motivo + `verifiedAmount` → 200 con el monto corregido | misma prueba | OK |
+| Nada se rompió: store, binance, usdt-manual, avisos-solos, server | `node --test` de esos archivos: 161/161 | OK |
+| Tanda completa | `npm test` | **496/496** en ~51 s |
+| Revisión visual del panel: Aprobación a 360 px con una recarga repetida (avisos «Comprobante repetido» y «Número de operación ya visto», campo «Llegaron Bs», casilla del dueño y motivo) | captura con datos de ejemplo (fuera del repo), medición: sin desborde, campos de 44 px, letra ≥ 12 px, sin errores de JS | OK (se agregó la etiqueta «Llegaron Bs» porque el campo solo no se entendía) |
+
+## 12/11/2026 · Premium 2.0 · Etapa 0 «Base segura»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| tema.css cargado por tienda y panel; fuentes con `media="print"` + `data-font`; sin manejadores en línea; «Sofi» fuera del buscador | `test/base-segura.test.mjs` | OK |
+| Tito: misma hora en dos lecturas seguidas; sin hora guardada usa las 9 de Bolivia; con `lastAt` usa esa | misma prueba, `/api/admin/office` | OK |
+| Tienda a 360 px: portada, catálogo, carrito y paso de pago sin desborde, botones de 44 px, letra de 12 px o más (se excluyen adornos `.pt` y `.tkgrid`) | misma prueba, Playwright | OK (encontró y se corrigieron 3 textos de 11 px y un botón de 36 px) |
+| `avisos-solos`: las estadísticas del cartero ahora traen `lastAt` | 2 comparaciones exactas actualizadas | OK |
+| Tanda completa | `npm test` | **487/487** en ~46 s |
+
 ## 12/11/2026 · Botón «Mi secretaria» en el panel
 | Qué | Cómo | Resultado |
 |---|---|---|

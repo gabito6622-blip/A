@@ -3,7 +3,105 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-12 · Panel: botón «Mi secretaria» (sin publicar todavía)
+## 2026-11-13 · Premium 2.0 · Etapa 9 «Finanzas pro» (rama `premium-2.0`, sin publicar)
+- **Cierre de mes** (`GET /api/admin/finance/cierre?month=AAAA-MM`, dueño): para el mes elegido (12 meses para atrás, hora de Bolivia), con la **misma fuente de ingresos** que Inicio y Finanzas: entró en total y por origen (pedidos / cobros marcados en el Control), cuántas ventas, renovaciones y cobros del Control, gastos (y cuánto fue de cuentas), te quedó, estimado de cuentas sin anotar (solo el mes en curso), **comparativa con el mes anterior** (Bs y %), **quién te pagó más** (top 5, revendedor o cliente) y **apps que más dejaron**.
+- **Excel del mes** (`GET /api/admin/finance/cierre.xlsx?month=…`): una hoja con todo lo anterior; queda en Auditoría como exportación.
+- **Pantalla Finanzas:** tarjeta «📒 Cierre de mes» arriba, con chips de los últimos 6 meses, 4 indicadores, los dos rankings y el botón «Descargar Excel del mes». Lo demás de Finanzas no cambia.
+- **Prueba nueva `test/finanzas-pro.test.mjs`** (2 pruebas).
+
+## 2026-11-13 · Premium 2.0 · Etapa 8 «Automatización y soporte» (rama `premium-2.0`, sin publicar; nada se manda solo)
+- **Fallas reportadas con tiempo de espera:** cada falla dice «espera hace 2 h / 3 d» y, pasadas 24 h sin resolver, se marca ⏰ en rojo (`late`); las resueltas dicen cuánto tardaron (`waitMs`). Quien reportó también lo ve en su panel.
+- **Respuestas guardadas:** chips debajo de cada falla que llenan la respuesta con un toque. El dueño las edita en Configuración → «Soporte y mensajes de la secretaria» (hasta 10, una por línea); si no hay, salen tres de ejemplo.
+- **Mensajes de «Mi secretaria» editables:** cobrar/vencidas, avisar y te deben, con `{nombre}`, `{cuentas}` y `{total}`. Vacío = el texto de siempre. Siguen siendo links de WhatsApp que abre el dueño; nada sale solo.
+- **Secretaria · «💳 Débitos de tarjeta»:** cuentas con autopago (la nota dice «autopago», «se debita», «tarjeta»…) que se cobran desde ayer hasta en 3 días, con el monto (US$ si lo anotaste): el recordatorio que pidió el dueño para anotar «Pagué la renovación» cuando vea el débito.
+- API: `GET /api/admin/settings/soporte` (staff) y `ticketReplies` / `secretaryMsg` en `POST /api/admin/settings` (validados). El `/api/settings` público no los expone.
+- **Prueba nueva `test/soporte.test.mjs`** (4 pruebas).
+
+## 2026-11-13 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0» (rama `premium-2.0`, sin publicar)
+- **Sala nueva (Propuesta 1 «Oficina nocturna», la aprobada):** ventanas con el cielo de La Paz según la hora, reloj, ticker «EN VIVO» con lo último que pasó, y 6 escritorios con avatar vectorial propio dentro de un anillo que cambia según el estado (cian trabajando, violeta esperando, rojo alerta, gris dormido), monitor que «corre» cuando trabaja, globito con lo último que hizo, contador «hoy» y pastilla de estado. Mismos 6: Rocío, Wali, Dani, Vico, Coco y Tito. Tocar uno sigue abriendo su detalle con prender/apagar (solo el dueño).
+- **Línea de tiempo (de la Propuesta 2):** «Lo que pasó hoy» en orden, con hora y quién; si hoy no pasó nada, lo último de la semana.
+- **Más eventos reales:** además de lo de los asistentes, entra **lo que hizo el dueño** desde la auditoría que ya existe: «Aprobaste el pago de Ana (Netflix)», «Rechazaste un pago de…», «Vendiste … a …», «Cambiaste la clave de una cuenta de …». Solo primer nombre y plataforma; nunca apellidos, correos, montos de costo, claves ni números de operación.
+- **«Para hoy»:** tarjeta con los conteos de Mi secretaria (cobrar, cortar, vencidas sin anotar, avisar, claves por cambiar, desenlazar) y el botón para abrirla. **«Claude este mes»** con barra de uso (solo el dueño).
+- **Colores de `tema.css`** (la sala es una escena: siempre oscura, también en tema claro); celular primero: 2 escritorios por fila, 3 desde 640 px; animaciones moderadas y apagadas con «menos movimiento».
+- `GET /api/admin/office`: `pendientes` (conteos) y eventos `a: "owner"` en `feed`. **Prueba nueva `test/oficina-2.test.mjs`** (2 pruebas); la prueba anterior de la oficina sigue igual.
+
+## 2026-11-12 · Premium 2.0 · Etapa 6 «GaboHub alquilable» (rama `premium-2.0`, sin publicar; el cobro sigue APAGADO)
+- **Prueba gratis de N días** (`shopRent.trialDays`, 0 a 90; sugerido 15): cuando el dueño prende el cobro, cada revendedor que nunca pagó arranca con esos días gratis (no se le descuenta nada); el primer cobro es al terminar. En su Inicio ve «🎁 Prueba gratis de GaboHub hasta el dd/mm». Auditoría `reseller.hub_trial`.
+- **Dos planes:** Completo (todo) y Básico (`shopRent.basicPrice` / `basicPriceUsd`; sin precio Básico = un solo plan). El Básico incluye comprar, sus cuentas, códigos, recargar y vender; **no** incluye Mi control, Quién me debe, Mis ganancias ni Afiches (el servidor responde `402 HUB_PLAN` y la pantalla ofrece «Pasar al Completo»). El revendedor cambia su plan desde su Inicio (`POST /api/me/hub/plan`); el dueño, desde la tarjeta del revendedor (`POST /api/admin/resellers/:id/plan`). Sin prorrateo: el precio nuevo rige desde el próximo cobro; pasar al Completo destraba al instante. Auditoría `reseller.hub_plan`.
+- **Ajustes de revendedores:** campos nuevos «Días de prueba gratis», «Plan Básico por mes» y «Plan Básico en dólares». Validación: prueba de 0 a 90 días; el Básico no puede costar más que el Completo.
+- **`/api/me/shop`:** `rent` trae `plan`, `plans {basic, full}`, `trial`, `trialDays`, `lockReason` ("suspended" | "plan" | null). `chargeRents` devuelve además `trials`.
+- **Nada se cobra solo mientras el cobro esté apagado** (como está hoy en la tienda real). Los números finales (Bs 49 / US$ 5 del Completo, precio del Básico, días de prueba) los decide el dueño.
+- **Prueba nueva `test/gabohub-planes.test.mjs`** (3 pruebas).
+
+## 2026-11-12 · Premium 2.0 · Etapa 5 «Tienda premium» (rama `premium-2.0`, sin publicar)
+- **Pedido rechazado con motivo:** al rechazar un pago, el motivo queda en el pedido (`rejectReason`) y el cliente lo ve en «Mis cuentas → Historial de pedidos» («❌ Motivo: … Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp»). El cliente final de un revendedor no ve el motivo del pago que hizo su revendedor (sigue viendo solo el estado).
+- **Historial con estados de color:** Entregado (verde), En revisión (ámbar), Rechazado (rojo), lo demás gris. Los pedidos pendientes ya tenían sus pasos («Pedido → Revisando pago → Entregado») y la hora estimada.
+- **Recarga guiada:** el formulario de Saldo se lee en 3 pasos: «1 · Elegí cuánto», «2 · Pagá», «3 · Subí el comprobante».
+- **Botones «Copiar»** del correo y la clave: de 32 a 44 px (regla de celular).
+- **Estilo «Premium 2.0 · Azul eléctrico»** en Apariencia (primero de la lista): fondo `#070b16`, azul `#3b7bff`, cian `#22d3ee`, vidrio, Outfit + Inter. **No se aplica solo**: la tienda sigue con los colores que eligió el dueño hasta que él lo toque.
+- **Dashboard del panel (contraste):** el selector «7 / 30 / 90 días» pasa a tinta plena y las letras de «Resumen por servicio» van oscuras sobre un pastel del color del producto; el gris de texto del tema claro pasó de `#4f5a6b` a `#485363`. Todo ≥ 4,5:1 en claro y oscuro.
+- **Prueba nueva `test/tienda-premium.test.mjs`** (4 pruebas: núcleo + navegador).
+
+## 2026-11-12 · Premium 2.0 · Etapa 4 «Inventario inteligente» (rama `premium-2.0`, sin publicar)
+- **Correos de cuentas sin dobles:** al cargar o editar una cuenta, el correo se guarda sin espacios y en minúsculas, y **la misma cuenta dos veces para la misma plataforma ya no entra** (mensaje claro con el correo que ya existe). La misma dirección en otra plataforma sí puede (Disney y Netflix con el mismo Gmail). Una cuenta retirada libera el correo.
+- **Aviso de dominio mal escrito:** «gmaik.com», «gmai.com», «hotmial.com»… se cargan igual, pero la respuesta trae `warning` («¿Será …@gmail.com?»). No frena.
+- **Semáforo de riesgo por cuenta** (`risk` en `GET /api/admin/accounts`, pastilla 🟢/🟡/🔴 en Cuentas con los motivos): rojo = venció o vence en ≤2 días con clientes adentro, nota «CAÍDA / POR CORTAR / NO VENDER», aviso grave de la plataforma sin ver; amarillo = clave pendiente, proveedor en ≤7 días, sin fecha del proveedor con clientes, perfiles apartados, nota con «SEGUIMIENTO / cambiar clave», aviso leve sin ver, clave sin cambiar hace más de 90 días.
+- **Pantalla nueva «✂️ Cortes»** (Inventario, dueño y admin; `GET /api/admin/cortes`): cuentas por perfiles con clientes que vencen en fechas distintas. Para cada una: fecha de corte sugerida (la que más se repite; si empatan, la más lejana), diferencia en días, proveedor, y por perfil cuántos días le sobran (+) o le faltan (−). No cambia nada: es para decidir. Filtro «Desalineadas / Todas».
+- **«🔑 Cambié la clave»** (botón en Cuentas y en Cortes; `POST /api/admin/accounts/:id/password`): guarda la clave nueva y la fecha (`passwordChangedAt`), audita (`account.password_rotated`, sin la clave) y deja en la cola un aviso «datos actualizados» por cada cliente de esa cuenta (nada sale solo).
+- **Mi secretaria:** sección nueva «🔑 Claves por cambiar»: cuentas cuya nota pide cambiar la clave o seguimiento, con cuántos clientes tienen y la última fecha de cambio; deja de pedirla 7 días después de un «Cambié la clave».
+- **`costUsd` al cargar** (ya anotado en la etapa 2) y **prueba nueva `test/inventario-inteligente.test.mjs`** (5 pruebas).
+
+## 2026-11-12 · Premium 2.0 · Etapa 3 «Panel rápido y oscuro» (rama `premium-2.0`, sin publicar)
+- **Inicio en una sola llamada:** `GET /api/admin/inicio` trae junto lo que antes se pedía en 6 llamadas encadenadas (alquileres, pagos por revisar, finanzas del mes, agentes, revendedores sin PIN y notificaciones). Cada parte es idéntica a su endpoint suelto; si una falla, va en `null` y lo demás se muestra igual. El admin no recibe finanzas; un cliente no entra. La pantalla pasó de 12 pedidos a 7 (los otros son la sesión, la configuración, la campanita y dos tarjetas).
+- **Filtrar sin volver a pedir:** `common.js` guarda por 20 s las lecturas grandes del panel (`/api/admin/assignments`, `customers`, `products`, `price-groups`, `stock`, `suppliers`, `inicio`). Cambiar de pestaña o filtro en el Control (y en Clientes, Reubicar, etc.) vuelve a dibujar sin ir al servidor. Cualquier guardado (POST) vacía la caché, y al cambiar de pantalla también: lo que se guarda se ve al instante.
+- **Oscuro por defecto (Premium):** el panel arranca en oscuro con los colores de `tema.css` (`--gs-*`, los mismos de la oficina). Quien ya había elegido claro o sistema lo conserva (queda guardado en el aparato) y el botón Claro/Oscuro/Sistema sigue igual. `html[data-gs-theme]` acompaña el tema para que las piezas comunes se pinten igual.
+- **GaboHub:** sin cambios en esta etapa; su aspecto lo define el dueño en Apariencia (fondo oscuro por defecto). Un interruptor claro/oscuro personal para revendedores queda anotado en el BACKLOG.
+- **Prueba nueva `test/panel-rapido.test.mjs`** (2 pruebas: API y navegador).
+
+## 2026-11-12 · Premium 2.0 · Etapa 2 «Números que coinciden» (rama `premium-2.0`, sin publicar)
+- **Una sola fuente de ingresos (`src/store/income.ts`):** Inicio, Finanzas, el resumen (`/api/admin/stats`) y «Cómo van» calculan «lo que entró» con la misma regla: pedidos entregados (ventas y renovaciones) **más los cobros marcados 💵 en el Control** (sin pedido), sin recargas, sin pruebas gratis, sin lo importado de un Excel y sin contar dos veces el mismo mes. Antes Inicio y Finanzas no contaban los cobros del Control (la mayoría de los alquileres de Disney), y Finanzas sí contaba lo importado.
+- **Se ve de dónde viene:** Inicio dice «Bs X marcados 💵 en el Control» bajo Ingresos y el gráfico por día tiene una barra violeta «Cobros del Control»; Finanzas lo dice en «Entró» (`delControl` por mes); el resumen trae `fromControl`.
+- **Meses y días en hora de Bolivia:** los cortes de mes (Finanzas, gráfico de 12 meses, costo estimado de cuentas, gastos) y de día (gráfico por día, «vencen en 14 días», `byDay`) usan el calendario de Bolivia (UTC−4) aunque el servidor corra en otra zona horaria (`boMonthStart`, `boDayKey`… en `src/store/time.ts`).
+- **Costo en dólares en la ganancia:** una cuenta pagada en US$ con la tarjeta (`costUsd`) entra al costo estimado del mes, al margen por producto y al reporte de proveedores con la tasa de hoy (`accountCostBs`). Y ahora `costUsd` se puede anotar al cargar la cuenta (`POST /api/admin/accounts`), no solo al editarla.
+- **Fiado por moneda:** en la libreta del dueño, quien paga en dólares ve su deuda también en US$ (`currency`, `owedUsd`, `rate`, a la tasa de hoy; la libreta sigue en Bs) y el mensaje «Cobrar» dice «US$ 7,00 (Bs 70)».
+- **Prueba nueva `test/numeros-coinciden.test.mjs`** (4 pruebas); `test/pulido-panel.test.mjs` fija la fecha de Bolivia en vez de la del proceso.
+
+## 2026-11-12 · Premium 2.0 · Etapa 1 «Plata segura» (rama `premium-2.0`, sin publicar)
+- **Comprobante repetido:** si dos pedidos vivos traen la misma imagen, el segundo ya no se aprueba (error `DUPLICATE_EVIDENCE`, 409). Solo el dueño puede forzarlo, con un motivo de 4 letras o más, y queda en Auditoría («payment.approve_forced»). Si el otro pedido fue rechazado, la misma foto es un reintento y se aprueba normal. Un admin no puede forzar.
+- **Referencias bancarias comparadas de verdad:** «0012-345», « 12 345 » y «12.345» son el mismo pago (se ignoran espacios, guiones, puntos, barras, mayúsculas y ceros de adelante). Se guarda como la escribieron.
+- **Número de operación ya visto:** al subir un comprobante cuyo número declarado ya figura en otro pedido, queda marcado (`referenceSeenIn`) y el panel lo avisa; no bloquea, decide el dueño.
+- **Recargas con monto verificado:** al aprobar una recarga, el dueño puede poner los Bs (o los US$) que de verdad llegaron; se acredita eso y queda en Auditoría («payment.amount_corrected», de → a). Límites: Bs 10 a Bs 5.000, US$ 1 a US$ 1.000.
+- **Recargas sin dobles:** la tienda manda una llave por recarga (`idempotencyKey`); un doble toque crea una sola. Y no se aceptan más de 3 recargas en revisión por cliente.
+- **Binance, bandeja de pagos cobrados sin entregar:** si el webhook confirma el pago pero la entrega falla (sin stock, estado raro, pedido no encontrado), el caso queda en `GET /api/admin/binance/failed` y en el panel (Aprobación), con «Reintentar» (entrega con la misma transacción, sin cobrar de nuevo) y «Descartar» con motivo (auditado). Antes solo quedaba en el registro del servidor.
+- **Consentimiento de WhatsApp con fecha y origen:** cada SÍ/BAJA guarda cuándo y por dónde llegó (`registro`, `cliente`, `whatsapp`, `panel`, `revendedor`, `importado`), también en Auditoría.
+- **«Enviado a mano» respeta el permiso:** un aviso que quedó «sin permiso» no se puede marcar como enviado a mano (error `NO_CONSENT`); el dueño sí, con motivo (Auditoría «outbox.sent_without_consent»).
+- **Pedido sin perfil:** si al aprobar una venta no queda ningún perfil reservado y no hay stock, ya no se entrega vacía: error `OUT_OF_STOCK` con el aviso de cargar stock.
+- **Prueba nueva `test/plata-segura.test.mjs`** (9 pruebas): todo lo de arriba, por el núcleo y por la API (incluido el webhook de Binance firmado con un certificado de prueba).
+
+## 2026-11-12 · Premium 2.0 · Etapa 0 «Base segura» (rama `premium-2.0`, sin publicar)
+- **Tema común `public/tema.css`:** variables de marca (azul eléctrico, cian, violeta, oscuros), estados, tipografía, 44 px mínimos, radios, movimiento moderado y modo claro. Lo cargan la tienda, el panel y las páginas sueltas. Todavía no cambia el aspecto: es la base para las etapas siguientes.
+- **Fuentes sin frenar el primer dibujado:** los `<link>` de Google Fonts vienen con `media="print"` y `common.js` los activa (sin JS en línea, compatible con la CSP). Sin JS, se ve con la fuente del sistema.
+- **Mi oficina:** Tito ya no «salta» cada 20 s. Su evento usa la hora real del último aviso (`exp_stats.lastAt`, nuevo) o las 9 de Bolivia si no hay hora guardada; antes usaba «ahora» y la oficina se redibujaba entera en cada refresco.
+- **Buscador del panel:** ya no conoce a «Sofi» (se dio de baja el 12/11); busca a los 6 de la oficina.
+- **Letra mínima de 12 px:** `.mk-kpi small`, `.mk-row em/i`, `.fcard small`, `.pay small`, `.hqrow .sbtn small` (tienda y hub) y `.thsort span` (panel) pasaron de 11 a 12 px; el aviso «Sumá otro servicio» del carrito mide 44 px.
+- **Prueba nueva `test/base-segura.test.mjs`:** tema cargado y fuentes no bloqueantes; Tito con hora estable; tienda a 360 px (portada, catálogo, carrito y pago) sin desborde, botones de 44 px y letra de 12 px o más.
+
+## 2026-11-12 · Netflix: primera carga (con OK del dueño)
+- **Producto nuevo «Netflix completa (alquiler revendedores)»** (`netflix-alq`): cuenta completa, 30 días, Bs 120, solo revendedores, categoría Alquiler (igual que los de Disney).
+- **Revendedor nuevo «Revendedor 78230650»** (+591 78230650, lista revendedor); nombre pendiente.
+- **Cuenta paphola40@gmail.com** (Netflix completa): cargada con proveedor hasta el 18/11 (autopago con tarjeta terminada en 8562, costo US$ 9) y clave pendiente. Alquilada a «Revendedor 78230650» del 07/11 al 07/12/2026, pagada Bs 120.
+- **Dalster** (+591 63855044, revendedor nuevo): 3 Netflix completas (netscz106+sol, gabito6622+mer, gabito6622+01), del 07/11 al 07/12/2026, pagadas (monto por confirmar; figuran a Bs 120 c/u, el precio del producto). Claves cargadas (no se escriben acá). Fecha del proveedor: falta (quedaron con la marca «sin fecha»).
+- **11 cuentas de Netflix por perfiles** (clientes finales del dueño, producto «Netflix Premium HD 4K»): gabol.apv, gabito6617+mer1, netgb115, netgb.117, netscz109, netscz.111, anarquianetflix91, gabito6617+8, n2025gt+br, n.2025jg y n.2025gt (todas @gmail.com). 5 perfiles cada una (confirmar), los 55 APARTADOS para que la tienda no venda ninguno hasta cargar los clientes. Clave y fecha del proveedor: faltan. gabol.apv: la paga con la tarjeta de la mamá (por confirmar); gabito6617+mer1: con su tarjeta. El dueño escribió «netgb.117@gmaik.com»: se cargó como @gmail.com.
+- **avd2jgrb+1@gmail.com** (Disney+ sin ESPN, por perfiles para clientes finales): 7 perfiles APARTADOS; nota «🔍 SEGUIMIENTO: revisar si hay que cambiar la clave» (la secretaria lo recuerda). Clave cargada (no se escribe acá).
+- **gabiti6615+big@gmail.com** (HBO Max por perfiles para clientes finales): 5 perfiles APARTADOS; clave cargada (no se escribe acá). Venció el 08/11: nota «✂️ POR CORTAR» y fecha del proveedor 08/11 (dicho por el dueño).
+- **gabiti6615+h1u@gmail.com** (HBO Max por perfiles para clientes finales): 5 perfiles APARTADOS; clave cargada (no se escribe acá).
+- **gabiti6615+8@gmail.com** (HBO Max por perfiles para clientes finales): 5 perfiles APARTADOS; clave cargada (no se escribe acá). Confirma que «gabiti6615» (con i) es un correo real.
+- **gabito6623+max@gmail.com** (HBO Max por perfiles para clientes finales): 5 perfiles APARTADOS hasta cargar los clientes; clave cargada (no se escribe acá). Faltan fecha del proveedor y clientes.
+- **gabito6619+1dest@gmail.com** (Disney+ con ESPN, por perfiles para clientes finales): igual que viex, 7 perfiles APARTADOS, nota «✂️ POR CORTAR», clave cargada (no se escribe acá).
+- **gabito6626+viex@gmail.com** (Disney+ sin ESPN, por perfiles para clientes finales): cargada con 7 perfiles APARTADOS y nota «✂️ POR CORTAR» (el dueño la corta antes de usarla; la secretaria lo recuerda). Clave cargada (no se escribe acá). Faltan fecha del proveedor y clientes.
+- **Clientes finales nuevos con Netflix perfil extra:** Marisel (+591 75504203, pagó Bs 50, del 10/11 al 10/12) , Ruthy (+591 60377171, pagó Bs 50, del 08/11 al 08/12; ya anotada en gabito6617+xtra@gmail.com, clave cargada) y José Antonio (+591 72717875, pagó Bs 50, del 10/11 al 10/12; ya anotado en gabito6617+xtra1@gmail.com, clave cargada, sin cobrar de nuevo: importador). Fichas creadas con nota; falta saber en qué cuenta está cada perfil extra y su correo para anotarles el servicio.
+
+## 2026-11-12 · Panel: botón «Mi secretaria» (publicado, #50)
 - **Nuevo en Inicio:** botón grande «🗂️ Mi secretaria · ¿qué hay pendiente?» (y en el menú, área Inicio). Abre una pantalla con todo lo pendiente: cobrar (nota «EN COBRO»), cortar («POR CORTAR»), vencidas sin anotar, quién debe, a quién avisar (vencen en 3 días, con la regla de la ficha de cada revendedor), cuentas por desenlazar, libres de verdad (y las que el sistema no puede vender por la fecha del proveedor), apartadas y lo que pasó en las últimas 24 horas (solo el dueño).
 - **Mensaje listo:** cada revendedor trae un botón que abre WhatsApp con el texto armado (cuentas, fechas y total). Lo manda el dueño; la pantalla no envía nada ni cambia datos.
 - Archivos: `src/store/secretary.ts`, `GET /api/admin/secretaria`, `public/secretaria.js`, estilos `.sec-*` en `public/panel.css`.
