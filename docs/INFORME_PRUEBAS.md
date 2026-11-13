@@ -1,5 +1,27 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Mover todos a otra cuenta» (rama `mover-cuenta-completa`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Errores: misma cuenta 400; otra plataforma 400; destino con 2 libres para 3 clientes → 409 «2 perfil(es) libre(s) y hay que mover 3» y nadie se mueve | `test/mover-cuenta-completa.test.mjs` (API) | OK |
+| 3 clientes de un Netflix caído (Perfil 1, 3 y 5, fechas distintas) a la cuenta nueva: fechas idénticas; Perfil 1 y 5 conservan su nombre; el 3 estaba ocupado y va a otro; un perfil apartado del destino también sirve; nota «↔️ …» delante de la nota anterior; viejos apartados; «Reenviar accesos» con correo y PIN nuevos | misma prueba | OK |
+| Celular 360 px: la tarjeta de la cuenta ofrece solo destinos de Netflix con perfiles suficientes; al mover, confirma, pasa al Control filtrado por la cuenta nueva y el cliente quedó en el mismo nombre de perfil | misma prueba, Playwright | OK |
+| Suite completa | `npm test` | **578 pasan, 0 fallan, 56 s** (una corrida previa marcó `seguridad-plata` por un «1777» dentro de una fecha-hora; sola pasa 2 de 2; anotado en el backlog) |
+
+## 13/11/2026 · Publicación de «Cambiar de cuenta» (PR #59, squash `c0e7987`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 149 cuentas, revendedores y finanzas | API con la llave del asistente | guardada |
+| Rama de Railway vs #58: sin cambios; unión «ours» con árbol igual al probado; CI verde (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: código nuevo en vivo a los ~40 s; salud, `/tienda/`, `/hub`, `/panel` 200; el `panel.js` servido trae «Cambiar de cuenta» | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes, revendedores, cuentas y finanzas | comparación de los JSON antes/después | **idéntico** |
+
+## 13/11/2026 · Cambio real pedido por el dueño: Dani strem de …+rclad a …+md1 (hecho a mano, antes de publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo de las dos cuentas y del alquiler (sin claves) | JSON fuera del repo | guardado |
+| Clave de md1 cargada; perfil de md1 pasado a disponible; fecha de proveedor de md1 puesta 1 h adelante (para que el reemplazo automático la eligiera) y restaurada al instante; reemplazo del alquiler; nota del Control «↔️ 13/11/2026: de …rclad a …md1 (cuenta renovada, misma fecha)» | API con la llave del asistente, un solo registro | Dani strem en md1, vence 12/12/2026, pagado; rclad apartada; fecha de proveedor de md1 igual que antes |
+
 ## 13/11/2026 · «Cambiar de cuenta» (rama `cambiar-cuenta`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
