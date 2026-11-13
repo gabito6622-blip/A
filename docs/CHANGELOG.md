@@ -3,7 +3,17 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**sin publicar**, rama `mover-cuenta-completa`)
+## 2026-11-13 · Atajos del dueño y de los revendedores (**sin publicar**, rama `panel-atajos`)
+Pedido del dueño: «todo eso, implementá». Siete cosas, cada una con su prueba:
+- **Mi secretaria · «✅ Ya le avisé»:** un toque marca que ya le escribiste a un cliente y deja de pedírtelo. Vale para ese vencimiento (al renovar se va). Si vence mañana u hoy y el aviso fue hace 2 días o más, lo vuelve a pedir (regla «3 días antes y otra vez 1 día antes»). «↩️ No le avisé» deshace. El Control muestra «📣 Ya le avisaste el …». No manda nada ni cambia pagos o fechas.
+- **Control · fila de envíos:** después de «Mover todos a otra cuenta», arriba aparece «📲 Mandar los accesos nuevos»: el mensaje de cada cliente y su botón de WhatsApp; al tocarlo pasa solo al siguiente.
+- **Control · «Cobrar» con link:** con los links de renovación prendidos, «💰 Cobrar» abre «Cobro listo» con el mensaje completo y el link del cliente (paga con QR o saldo; vos solo aprobás). Con los links apagados o clientes de un revendedor, igual que antes.
+- **Avisos al celular · resumen del mediodía:** una vez por día, desde las 12:00, «🗂️ Mediodía: N en cobro · N por cortar · N por avisar» que abre Mi secretaria. Sin pendientes no avisa. Se apaga en Avisos al celular. Va solo a celulares de dueño y admins.
+- **Revendedores · «🔁 Que vuelvan» (en Mi día):** sus clientes a los que se les venció y no renovaron (hasta 60 días; perfiles repartidos de 31 a 90), con mensaje listo y «✅ Ya le escribí» (no lo muestra por 7 días). Plan Negocio.
+- **Revendedores · «🧾 Cierre de mes» (en Mis ganancias):** este mes contra el anterior con % (sin % si el anterior no tuvo ventas o quedó incompleto), quién le pagó más y la app que más le dejó.
+- **Detalles:** «Tu mes / Finanzas de noviembre 2026» (antes «nov 26», que se leía como día 26); títulos largos que ya no se cortan a 360 px; azul de los botones con contraste AA; prueba `seguridad-plata` sin falso positivo.
+
+## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**publicado el 13/11, PR #60**, squash `693e99e`)
 - **Por qué:** «se me cayó un Netflix y hoy tengo que reemplazar a toditos». «Cambiar de cuenta» mueve de a un cliente; con 5 perfiles son 5 vueltas.
 - **Qué hay ahora:** en la tarjeta de la cuenta (Inventario → Cuentas), «↔️ Mover todos a otra cuenta (N)»: lista solo las cuentas de la misma plataforma con N perfiles libres o apartados; «Mover N · mismas fechas» pide confirmación y pasa a todos de una vez. Cada cliente conserva su fecha; si el perfil nuevo se llama igual (Perfil 1 → Perfil 1) se respeta, si no va al primero libre; los perfiles viejos quedan apartados; cada Control recibe la nota «↔️ fecha: de vieja a nueva». Todo o nada: si no alcanzan los perfiles, no se mueve nadie. Al terminar, el panel abre el Control filtrado por la cuenta nueva para tocar «📲 Reenviar accesos» a cada uno.
 - Servidor: `POST /api/admin/accounts/:id/move-all` (`toAccountId`, `reason`), auditoría `account.move_all`.

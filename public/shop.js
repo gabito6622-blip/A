@@ -896,7 +896,7 @@ function rEarnView() { return rEarnBase() + ownEarnBox(); }
 function earnCloseBox(g) {
   if (!g?.month || !g.prev) return "";
   const m = g.month, p = g.prev, c = g.compare;
-  const arrow = (pct) => (pct === null || pct === undefined ? "" : `<span class="${pct >= 0 ? "ok" : "bad"}" style="font-weight:700">${pct >= 0 ? "▲ +" : "▼ "}${pct} %</span>`);
+  const arrow = (pct) => (pct === null || pct === undefined ? "" : `<span style="font-weight:700;color:var(${pct >= 0 ? "--s-ok" : "--s-bad"})">${pct >= 0 ? "▲ +" : "▼ "}${pct} %</span>`);
   const row = (label, a, b, pct) => `<div class="line"><span class="lgrow"><b>${label}</b><br><small class="empty">${esc(p.label)}: ${esc(b)}</small></span><span style="text-align:right"><b>${esc(a)}</b><br>${arrow(pct)}</span></div>`;
   const note = c ? "" : `<p class="empty" style="margin:0">${g.prevNote === "incompleto" ? `${esc(p.label)} fue tu primer mes y quedó incompleto: todavía no comparo en %.` : `En ${esc(p.label)} no tuviste ventas: no hay con qué comparar.`}</p>`;
   const top = g.topClients ?? [], app = g.byApp?.[0];

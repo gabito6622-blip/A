@@ -2461,7 +2461,7 @@ function showCobro({ name, phone, msg, link, linkNote }) {
   el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Mensaje de cobro">
       <div class="dlv-top"><h3>💰 Cobro listo</h3><button class="pbtn sm" type="button" data-dlvclose="1" aria-label="Cerrar">✕</button></div>
       <p class="muted" style="margin:0">Para <b>${esc(name || "el cliente")}</b> · ${esc(phone)}</p>
-      <pre class="cobpre">${esc(msg)}</pre>
+      <pre class="cobpre" style="max-height:320px">${esc(msg)}</pre>
       <p class="muted" style="margin:0">${link ? "🔗 Lleva su link: paga con QR o saldo y vos solo aprobás." : `⚠️ ${esc(linkNote || "Sin link de renovación")}: va el mensaje de siempre.`}</p>
       <a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>
       <button class="pbtn big" type="button" data-dlvcopy="1">📋 Copiar mensaje</button></div>`;
