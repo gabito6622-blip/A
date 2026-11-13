@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Catálogo público + Promos y combos (rama `exportaciones-premium`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Ahorro calculado: Dúo Bs 70 vs 40 + 35 → Bs 5 en el JSON, en el WhatsApp «(ahorrás Bs 5)» y en el PDF «Ahorrás Bs 5» y «ahorrás hasta Bs 5»; Pack Familia de Ana con SUS precios 45 + 38 vs 75 → Bs 8 | `test/exportaciones.test.mjs` | OK |
+| Público: `GET /api/catalogo.pdf` 200 sin sesión con el nombre del archivo de la tienda; segunda bajada idéntica (memoria); `GET /api/shops/ana-tv/catalogo.pdf` 200 con Ana TV y sin Gabriel Store; `/api/shops/no-existe/catalogo.pdf` 404 | misma prueba | OK |
+| Navegador 360 px (demo): botón «📄 Catálogo en PDF» de 44 px en la portada de `/tienda` y en `/r/carla-streaming`; las dos descargas públicas responden 200 con su archivo | Playwright + fetch, fuera del repo | OK |
+| Catálogo real con «Promos y combos»: 11 combos con ahorro, máximo Bs 34 | script fuera del repo | revisado |
+| Tanda completa | `npm test` | **570/570** en 55 s (dos corridas previas bajo carga fallaron una prueba de navegador distinta cada vez, `tarjeta` y `hub-inventario`; las dos pasan solas; anotado M19) |
+
 ## 13/11/2026 · Catálogo PDF con logos (rama `exportaciones-premium`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

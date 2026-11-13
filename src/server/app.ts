@@ -40,6 +40,7 @@ import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importSe
 import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
+import { findBySlug as findShopBySlug } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -1219,6 +1220,37 @@ export function createApp(cfg: AppConfig): App {
     return sendFile(c, catalogPdf(d, design, logo, images), `catalogo-${slugOf(d.business.name)}-${design}-${day}.pdf`, "application/pdf");
   };
   route("GET", "/api/admin/descargas/catalogo.pdf", "staff", (c) => descargasPdf(c, A(c)));
+  // Catálogo PÚBLICO (13/11): el cliente lo baja desde la tienda o desde la página del revendedor, sin sesión. Se arma con el
+  // mismo generador, se guarda en memoria 5 minutos (si 50 personas lo bajan seguido, se genera una vez) y tiene límite por IP.
+  const publicPdfCache = new Map<string, { at: number; buf: Buffer; name: string }>();
+  const publicPdfLimiter = new RateLimiter(12, 10 * 60_000, now);
+  const publicPdf = (c: Ctx, key: string, actor: Actor) => {
+    if (!publicPdfLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas descargas seguidas: probá en unos minutos");
+    const design: CatalogDesign = c.query.get("design") === "clasico" ? "clasico" : "premium";
+    const k = `${key}|${design}`, hit = publicPdfCache.get(k);
+    if (hit && now() - hit.at < 5 * 60_000) return sendFile(c, hit.buf, hit.name, "application/pdf");
+    const d = catalogData(store, actor, { origin: originOf(c.req) });
+    const ref = d.business.logoRef, file = ref && /^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref) ? join(uploads, ref) : null;
+    const logo = file && existsSync(file) ? readFileSync(file) : undefined;
+    const images = new Map<string, Buffer>();
+    for (const [id, r] of catalogImageRefs(d, store.engine.s.products)) {
+      let small = logoCache.get(r);
+      if (small === undefined) { const f = /^[a-f0-9]{32}\.(png|jpg|webp)$/.test(r) ? join(uploads, r) : null; try { small = f && existsSync(f) ? shrinkPng(readFileSync(f), 160) : null; } catch { small = null; } if (logoCache.size > 400) logoCache.clear(); logoCache.set(r, small); }
+      if (small) images.set(id, small);
+    }
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(now()));
+    const buf = catalogPdf(d, design, logo, images), name = `catalogo-${slugOf(d.business.name)}-${day}.pdf`;
+    if (publicPdfCache.size > 200) publicPdfCache.clear();
+    publicPdfCache.set(k, { at: now(), buf, name });
+    return sendFile(c, buf, name, "application/pdf");
+  };
+  route("GET", "/api/catalogo.pdf", "public", (c) => publicPdf(c, "tienda", { id: "public:catalogo", role: "owner" }));
+  route("GET", "/api/shops/:slug/catalogo.pdf", "public", (c) => {
+    store.shops.public(c.params.slug, c.actor ?? undefined); // 404 si la página no existe, está apagada o bloqueada
+    const owner = findShopBySlug(store.engine, c.params.slug);
+    if (!owner) throw new HttpError(404, "NOT_FOUND", "Esta página no existe o no está publicada");
+    return publicPdf(c, `r:${owner.id}`, { id: "public:catalogo", role: "reseller", customerId: owner.id });
+  });
   const descargasXlsx = (c: Ctx, actor: Actor) => { const { file, name } = businessReport(store, actor, parsePeriod(c.query.get("from"), c.query.get("to"), now()), originOf(c.req)); return sendFile(c, file, name); };
   route("GET", "/api/admin/descargas/reporte.xlsx", "staff", (c) => descargasXlsx(c, A(c)));
   route("GET", "/api/me/descargas/reporte.xlsx", "customer", (c) => { hubGuard(c); return descargasXlsx(c, c.actor!); });

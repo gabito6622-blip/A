@@ -110,7 +110,10 @@ function cover(c: Ctx) {
   y += 44;
   if (d.business.announcement) { for (const l of p.wrap(d.business.announcement, 12, W - 2 * M, "italic").slice(0, 3)) { p.text(l, M, y, { font: "italic", size: 12, color: soft }); y += 16; } y += 6; }
   const total = d.categories.reduce((n, cat) => n + cat.items.length, 0);
-  const chips = [`${total} servicio${total === 1 ? "" : "s"}`, `${d.categories.length} categoría${d.categories.length === 1 ? "" : "s"}`, ...(d.promos.length ? [`${d.promos.length} promo${d.promos.length === 1 ? "" : "s"}`] : [])];
+  const combos = d.categories.flatMap((cat) => cat.items).filter((it) => it.kind === "combo");
+  const maxSave = Math.max(0, ...combos.map((it) => it.savings ?? 0));
+  const chips = [`${total} servicio${total === 1 ? "" : "s"}`, `${d.categories.length} categoría${d.categories.length === 1 ? "" : "s"}`,
+    ...(combos.length ? [`${combos.length + d.promos.length} promo${combos.length + d.promos.length === 1 ? "" : "s"}${maxSave ? ` · ahorrás hasta ${money(maxSave, d.currency)}` : ""}`] : d.promos.length ? [`${d.promos.length} promo${d.promos.length === 1 ? "" : "s"}`] : [])];
   let cx = M;
   for (const ch of chips) { const w = p.textWidth(ch, 10, "bold") + 20; p.rect(cx, y, w, 24, { fill: mix(c.bg, c.acc, 0.25), radius: 12, stroke: c.acc, lineWidth: 0.6 }); p.text(ch, cx + 10, y + 16, { font: "bold", size: 10, color: ink }); cx += w + 8; }
   // Contacto, abajo.
@@ -146,7 +149,7 @@ function itemPremium(c: Ctx, it: Item) {
   const tx = M + 16 + logoW + 10;
   const textW = W - M - pw - 20 - tx;
   const subLines = sub ? p.wrap(sub, 9, textW, "regular").slice(0, 2) : [];
-  const h = Math.max(46, 30 + subLines.length * 12);
+  const h = Math.max(it.savings ? 52 : 46, 30 + subLines.length * 12);
   ensure(c, h + 6);
   p.rect(M, c.y, W - 2 * M, h, { fill: "#f8fafc", radius: 10, stroke: "#e5e7eb", lineWidth: 0.6 });
   p.rect(M, c.y, 5, h, { fill: it.color || c.acc, radius: 2.5 });
@@ -154,8 +157,10 @@ function itemPremium(c: Ctx, it: Item) {
   p.text(it.name, tx, c.y + 19, { font: "bold", size: 12, color: "#111827", maxWidth: textW });
   let yy = c.y + 31;
   for (const l of subLines) { p.text(l, tx, yy, { size: 9, color: "#6b7280" }); yy += 12; }
-  p.rect(W - M - pw - 10, c.y + (h - 24) / 2, pw, 24, { fill: mix("#ffffff", c.acc, 0.16), radius: 12 });
-  p.text(priceTxt, W - M - 10 - pw / 2, c.y + (h - 24) / 2 + 16, { font: "bold", size: 13, color: c.accInk, align: "center" });
+  const py = it.savings ? c.y + (h - 24) / 2 - 7 : c.y + (h - 24) / 2;
+  p.rect(W - M - pw - 10, py, pw, 24, { fill: mix("#ffffff", c.acc, 0.16), radius: 12 });
+  p.text(priceTxt, W - M - 10 - pw / 2, py + 16, { font: "bold", size: 13, color: c.accInk, align: "center" });
+  if (it.savings) p.text(`Ahorrás ${money(it.savings, d.currency)}`, W - M - 10 - pw / 2, py + 35, { font: "bold", size: 8, color: "#15803d", align: "center" });
   c.y += h + 6;
 }
 function itemClasico(c: Ctx, it: Item) {
@@ -172,6 +177,7 @@ function itemClasico(c: Ctx, it: Item) {
   comboLogos(c, it, M, c.y + 4, 30);
   p.text(it.name, tx, c.y + 16, { font: "bold", size: 15, color: "#111827", maxWidth: textW });
   p.text(priceTxt, W - M, c.y + 16, { font: "bold", size: 17, color: "#111827", align: "right" });
+  if (it.savings) p.text(`Ahorrás ${money(it.savings, d.currency)}`, W - M, c.y + 30, { font: "bold", size: 10, color: "#15803d", align: "right" });
   let yy = c.y + 31;
   for (const l of subLines) { p.text(l, tx, yy, { size: 11, color: "#374151" }); yy += 14; }
   p.line(M, c.y + h, W - M, c.y + h, { color: "#d1d5db", lineWidth: 0.6 });

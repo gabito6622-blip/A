@@ -32,6 +32,8 @@ export interface CatalogItem {
   hasImage?: boolean;
   /** Archivo del logo (solo en el servidor: el JSON no lo lleva). */
   imageRef?: string;
+  /** Combos: cuánto ahorra el cliente frente a comprar las apps sueltas (centavos), calculado con los precios de hoy. */
+  savings?: Cents;
 }
 export interface CatalogData {
   /** true = la tienda (dueño); false = un revendedor. */
@@ -72,7 +74,14 @@ export function catalogImageRefs(d: CatalogData, products: Record<Id, { name: st
   }
   return m;
 }
-const CAT_ORDER = ["Combos", "Streaming", "Música", "Series y películas", "Deportes", "Herramientas", "Mis servicios", "Otros"];
+/** Los combos son las promos del negocio: van primero, con ese nombre. */
+export const PROMO_CAT = "Promos y combos";
+const savingsOf = (price: Cents, parts: (Cents | undefined)[]): Cents | undefined => {
+  if (!parts.length || parts.some((v) => v === undefined)) return undefined;
+  const sum = (parts as Cents[]).reduce((acc: number, v: Cents) => acc + v, 0);
+  return sum > price ? sum - price : undefined;
+};
+const CAT_ORDER = [PROMO_CAT, "Combos", "Streaming", "Música", "Series y películas", "Deportes", "Herramientas", "Mis servicios", "Otros"];
 const catRank = (name: string) => { const i = CAT_ORDER.indexOf(name); return i === -1 ? 50 : i; };
 
 export const fdate = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t));
@@ -110,8 +119,8 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
   if (actor.role === "owner" || actor.role === "admin" || actor.role === "seller") {
     const cur = { symbol: st.currencySymbol || "Bs", decimals: 2, code: "BOB" };
     const items: CatalogItem[] = publicCatalog(e).filter((p) => !p.resellersOnly && p.price > 0).map((p) => ({
-      id: p.id, name: p.name, category: p.kind === "combo" ? "Combos" : p.category, description: p.description, price: p.price, durationDays: p.durationDays, kind: p.kind, color: p.color,
-      ...(p.kind === "combo" && p.comboParts?.length ? { items: p.comboParts.map((id) => s.products[id]?.name ?? id), partIds: p.comboParts } : {}),
+      id: p.id, name: p.name, category: p.kind === "combo" ? PROMO_CAT : p.category, description: p.description, price: p.price, durationDays: p.durationDays, kind: p.kind, color: p.color,
+      ...(p.kind === "combo" && p.comboParts?.length ? { items: p.comboParts.map((id) => s.products[id]?.name ?? id), partIds: p.comboParts, ...(savingsOf(p.price, p.comboParts.map((id) => (s.products[id]?.published ? s.products[id].price : undefined))) !== undefined ? { savings: savingsOf(p.price, p.comboParts.map((id) => (s.products[id]?.published ? s.products[id].price : undefined))) } : {}) } : {}),
       ...(imageRefOf(s.products, p.id) ? { hasImage: true, imageRef: imageRefOf(s.products, p.id) } : {}),
     }));
     const promos: string[] = [];
@@ -138,13 +147,14 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
   // Mismas reglas que su página /r/<slug>: publicados, con SU precio, y si eligió cuáles mostrar, solo esos.
   const items: CatalogItem[] = Object.values(s.products)
     .filter((p) => p.published && mine(me.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)) && (mine(me.resellerPrices![p.id]) ?? 0) > 0)
-    .map((p) => ({ id: p.id, name: p.name, category: p.kind === "combo" ? "Combos" : (p.category ?? "Otros"), description: p.description ?? "", price: mine(me.resellerPrices![p.id])!, durationDays: p.durationDays, kind: p.kind, color: p.color ?? "#3984ff",
-      ...(p.kind === "combo" && p.comboProductIds?.length ? { items: p.comboProductIds.map((id) => s.products[id]?.name ?? id), partIds: p.comboProductIds } : {}),
+    .map((p) => ({ id: p.id, name: p.name, category: p.kind === "combo" ? PROMO_CAT : (p.category ?? "Otros"), description: p.description ?? "", price: mine(me.resellerPrices![p.id])!, durationDays: p.durationDays, kind: p.kind, color: p.color ?? "#3984ff",
+      ...(p.kind === "combo" && p.comboProductIds?.length ? { items: p.comboProductIds.map((id) => s.products[id]?.name ?? id), partIds: p.comboProductIds, ...(savingsOf(mine(me.resellerPrices![p.id])!, p.comboProductIds.map((id) => mine(me.resellerPrices?.[id]))) !== undefined ? { savings: savingsOf(mine(me.resellerPrices![p.id])!, p.comboProductIds.map((id) => mine(me.resellerPrices?.[id]))) } : {}) } : {}),
       ...(imageRefOf(s.products, p.id) ? { hasImage: true, imageRef: imageRefOf(s.products, p.id) } : {}) }));
   const nameOf = (id: Id) => s.products[id]?.name ?? id;
   for (const cb of sh?.combos ?? []) {
     if (!cb.productIds.every((id) => me.resellerPrices?.[id] !== undefined) || mine(cb.price) === undefined) continue;
-    items.push({ id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || "", price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), partIds: cb.productIds, color: "#7c5cff" });
+    const sv = savingsOf(mine(cb.price)!, cb.productIds.map((id) => mine(me.resellerPrices?.[id])));
+    items.push({ id: `rc_${cb.id}`, name: cb.name, category: PROMO_CAT, description: cb.note || "", price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), partIds: cb.productIds, color: "#7c5cff", ...(sv !== undefined ? { savings: sv } : {}) });
   }
   for (const pc of pageCards(e, me)) items.push({ id: pc.id, name: pc.name, category: "Mis servicios", description: "", price: pc.price, durationDays: pc.durationDays, kind: "own", color: pc.color });
   const promos: string[] = [];
@@ -176,14 +186,14 @@ export function filterCatalog(d: CatalogData, f: CatalogFilter = {}): CatalogDat
   return { ...d, categories };
 }
 
-const CAT_EMOJI: Record<string, string> = { Combos: "🎁", Streaming: "📺", Música: "🎵", "Series y películas": "🎬", Deportes: "⚽", Herramientas: "🛠️", "Mis servicios": "⭐", Otros: "✨" };
+const CAT_EMOJI: Record<string, string> = { [PROMO_CAT]: "🎁", Combos: "🎁", Streaming: "📺", Música: "🎵", "Series y películas": "🎬", Deportes: "⚽", Herramientas: "🛠️", "Mis servicios": "⭐", Otros: "✨" };
 const dur = (days: number) => (days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
 
 /** Texto de UNA categoría para WhatsApp (negritas con *asteriscos*, viñetas, sin links raros). */
 export function whatsappCategory(d: CatalogData, c: CatalogData["categories"][number], opts: { descriptions?: boolean } = {}): string {
   const lines = [`${CAT_EMOJI[c.name] ?? "✨"} *${c.name.toUpperCase()}*`];
   for (const it of c.items) {
-    lines.push(`• ${it.name} — *${money(it.price, d.currency)}*`);
+    lines.push(`• ${it.name} — *${money(it.price, d.currency)}*${it.savings ? ` (ahorrás ${money(it.savings, d.currency)})` : ""}`);
     const extra = [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), it.items?.length ? `incluye ${it.items.join(" + ")}` : "", opts.descriptions !== false && it.description ? it.description : ""].filter(Boolean);
     if (extra.length) lines.push(`   ${extra.join(" · ")}`);
   }
