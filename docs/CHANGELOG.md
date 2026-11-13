@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Panel → Control: «Reenviar accesos» que no cerraba y mensaje de «Cobrar» completo (**sin publicar**, rama `codigos-refresco`)
+- **Arreglo:** la tarjeta «✅ Listo para enviar» (botón «📲 Reenviar accesos») salía transparente encima de la ficha y la ✕ no hacía nada. Causa: se dibujaba fuera de la zona del tema (sin sus colores) y los botones ✕ y «Copiar todo» llevaban un atributo vacío que el código leía como «no tocado». Ahora se ve con fondo, cierra con la ✕, con Escape o tocando afuera, y «Copiar todo» copia.
+- **Mejora pedida por el dueño:** el botón «💰 Cobrar» de cada alquiler arma el mensaje completo: plataforma, correo de la cuenta, perfil (si no es cuenta completa), vencimiento con los días que faltan o pasaron, y monto. Antes decía solo «tu Disney vence el … Monto …» sin el correo. El aviso al revendedor por un cliente suyo lleva los mismos datos y lo que le sale a él.
+- Prueba nueva `test/panel-reenviar-accesos.test.mjs` (navegador 360 px): fondo no transparente, cierre por ✕ / Escape / afuera, copiar, y el texto del Cobrar con correo, fecha y Bs 69.
+
 ## 2026-11-13 · Códigos que llegan solos a la bandeja del revendedor (**sin publicar**, rama `codigos-refresco`)
 - **Para el revendedor:** la pestaña «Códigos» y el «📩 Ver códigos» de cada cuenta se refrescan solos cada 10 segundos mientras están a la vista, igual que la página pública del link de códigos. Pide el código en la app y lo ve aparecer sin tocar «Actualizar» (el botón sigue ahí). Solo se redibuja si llegó algo nuevo, así no se borra lo que esté escribiendo; con la pestaña oculta o al irse a otra pantalla deja de consultar.
 - Prueba nueva `test/codigos-refresco.test.mjs` (navegador a 360 px con reloj simulado): el código aparece solo a los 10 s en la bandeja y en «Ver códigos»; en el Inicio no se consulta más.

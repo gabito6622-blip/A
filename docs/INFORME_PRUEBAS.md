@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Reenviar accesos» y mensaje de «Cobrar» (rama `codigos-refresco`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Panel → Control a 360 px: «📲 Reenviar accesos» abre la tarjeta con fondo del tema (no transparente) y adentro de `.app`; cierra con ✕, con Escape y tocando afuera; «Copiar todo» copia el mensaje con el correo | `test/panel-reenviar-accesos.test.mjs`, Playwright | OK |
+| «💰 Cobrar» de un alquiler de revendedor: «Hola Oby 👋 te recuerdo tu alquiler: / 📺 Disney Premium + ESPN / 📧 correo / 📅 Vence el dd/mm/aaaa (en 30 días) / 💰 Monto: Bs 69 / ¿Renovamos?…»; sin «Cuenta completa» como perfil | misma prueba | OK |
+| Captura de la tarjeta corregida en oscuro | fuera del repo | enviada al dueño |
+| Suite completa | `npm test` | **576 pasan, 0 fallan, 54 s** |
+
 ## 13/11/2026 · Refresco automático de códigos (rama `codigos-refresco`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
