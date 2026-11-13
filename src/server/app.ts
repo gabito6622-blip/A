@@ -40,7 +40,7 @@ import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importSe
 import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
-import { findBySlug as findShopBySlug, type HubFeature } from "../store/resellerShop.js";
+import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -67,6 +67,8 @@ export interface AppConfig {
   dataDir: string;
   /** Origen público, p. ej. "https://gabostore.lat". Los POST de navegador deben venir de acá. */
   publicOrigin?: string;
+  /** Subdominios de revendedores prendidos (daniel.gabostore.lat): GS_SHOP_SUBDOMAINS=1, cuando el comodín *.dominio ya tiene DNS y candado. */
+  shopSubdomains?: boolean;
   /** true en producción (HTTPS): cookies con Secure. */
   secureCookies?: boolean;
   /** Carpeta con la tienda y el panel (HTML/JS/CSS). */
@@ -288,6 +290,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
+      // Subdominios de revendedores (daniel.gabostore.lat): solo cuando el dueño los prendió (GS_SHOP_SUBDOMAINS=1) y hay dominio propio.
+      ...(cfg.shopSubdomains && customDomain() ? { shopDomain: customDomain() } : {}),
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
@@ -2178,37 +2182,56 @@ export function createApp(cfg: AppConfig): App {
     return true;
   }
   let shellHtml: { file: string; mtime: number; html: string } | null = null;
-  function shellWithOg(req: IncomingMessage, file: string, pathname: string): string | null {
+  function shellWithOg(req: IncomingMessage, file: string, pathname: string, shownPath = pathname): string | null {
     const info = ogInfo(pathname);
     if (!info) return null;
     const mtime = statSync(file).mtimeMs;
     if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
-    const origin = originOf(req);
-    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
+    // En el subdominio del revendedor (ruta reescrita), el link que se comparte es el del subdominio; el host ya se validó.
+    const sub = shownPath !== pathname ? String(req.headers.host ?? "").toLowerCase().replace(/:\d+$/, "") : "";
+    const origin = sub ? `https://${sub}` : originOf(req);
+    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + shownPath, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
     const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     let html = shellHtml.html
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
+    if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
     return html;
   }
 
-  /** A dónde mandar a quien entra por el dominio propio. null = servir normal. */
-  function domainRedirect(rawHost: string, pathname: string, search: string): { code: number; to: string } | null {
+  /** El dominio propio de la tienda (gabostore.lat), o null si se usa la dirección de Railway o la máquina local. */
+  function customDomain(): string | null {
     if (!cfg.publicOrigin?.startsWith("https://")) return null;
     let main: string;
     try { main = new URL(cfg.publicOrigin).hostname.toLowerCase(); } catch { return null; }
-    if (main.endsWith(".up.railway.app") || main === "localhost") return null;
+    return main.endsWith(".up.railway.app") || main === "localhost" ? null : main;
+  }
+  /**
+   * A dónde mandar a quien entra por el dominio propio. null = servir normal; `rewrite` = servir esa ruta sin cambiar la dirección.
+   * Subdominio de revendedor (13/11/2026): daniel.gabostore.lat muestra la página de Daniel (la misma que /r/daniel).
+   * Un subdominio que no es de ninguna página publicada (o reservado) lleva a la portada de la tienda.
+   */
+  function domainRedirect(rawHost: string, pathname: string, search: string): { code: number; to: string } | { rewrite: string } | null {
+    const main = customDomain();
+    if (!main) return null;
     const host = rawHost.toLowerCase().replace(/:\d+$/, "");
     if (host === `www.${main}`) return { code: 301, to: `https://${main}${pathname}${search}` };
     if (host === main && pathname === "/") return { code: 302, to: `/tienda/${search}` };
+    if (host.endsWith(`.${main}`)) {
+      const label = host.slice(0, -main.length - 1);
+      const ok = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(label) && !SHOP_RESERVED.has(label) && !!findShopBySlug(store.engine, label);
+      if (!ok) return { code: 302, to: `https://${main}/` };
+      if (pathname === "/" || pathname === "/index.html") return { rewrite: `/r/${label}` };
+    }
     return null;
   }
 
   const TEXTY = new Set([".js", ".css", ".html", ".svg", ".json", ".webmanifest", ".txt"]);
   const gzCache = new Map<string, Buffer>();
-  function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+  function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string, shownPath = pathname): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
     let file = normalize(join(root, decodeURIComponent(pathname)));
@@ -2221,7 +2244,7 @@ export function createApp(cfg: AppConfig): App {
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
     if (file === join(root, "index.html")) {
-      const html = shellWithOg(req, file, pathname);
+      const html = shellWithOg(req, file, pathname, shownPath);
       if (html !== null) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(req.method === "HEAD" ? undefined : html);
@@ -2277,8 +2300,9 @@ export function createApp(cfg: AppConfig): App {
         // Dominio propio (GS_PUBLIC_ORIGIN): www → dominio principal, y la portada del dominio es la tienda.
         // GaboHub (revendedores) queda en /hub. El link de Railway sigue igual que siempre.
         const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
-        if (go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
-        if (!serveSeoFiles(req, res, url.pathname) && !serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
+        if (go && "code" in go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
+        const path = go && "rewrite" in go ? go.rewrite : url.pathname;
+        if (!serveSeoFiles(req, res, path) && !serveOgImage(req, res, path) && !serveStatic(req, res, path, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
       const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));

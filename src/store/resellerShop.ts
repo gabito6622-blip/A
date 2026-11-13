@@ -261,7 +261,9 @@ export function rejectApp(e: Engine, actor: Actor, id: Id) {
   });
 }
 
-const RESERVED = new Set(["api", "panel", "admin", "r", "www", "tienda", "store", "login", "static", "assets", "gabriel", "gabrielstore", "soporte", "ayuda"]);
+// También son subdominios (daniel.gabostore.lat): nada que choque con direcciones del sistema o del correo.
+export const RESERVED = new Set(["api", "panel", "admin", "r", "www", "tienda", "store", "login", "static", "assets", "gabriel", "gabrielstore", "soporte", "ayuda",
+  "hub", "app", "mail", "webmail", "smtp", "imap", "pop", "ftp", "ns1", "ns2", "cdn", "og", "c", "codigos", "cobro", "recuperar", "blog", "dev", "test", "staging", "gabostore", "gabohub"]);
 
 function slugify(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);

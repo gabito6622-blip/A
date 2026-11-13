@@ -15,7 +15,9 @@ import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, a
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
 const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
-const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
+// La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
+const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase()
+  ?? (location.pathname === "/" ? document.querySelector('meta[name="gs-shop"]')?.content?.toLowerCase() : null) ?? null;
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
@@ -1062,7 +1064,7 @@ async function drawPoster() {
   x.textAlign = "center"; x.fillStyle = st.ink; x.font = `900 52px ${F}`; x.fillText("📲 Pedí por WhatsApp", cx, H - 220);
   const wa = posterPhone(sh.whatsapp || S.me?.phone);
   if (wa) { x.fillStyle = st.accent; fit(wa, W - 140, 76, 900); x.fillText(wa, cx, H - 130); }
-  if (sh.enabled && sh.slug) { x.fillStyle = st.soft; x.font = `600 34px ${F}`; x.fillText(`${location.host}/r/${sh.slug}`, cx, H - 66); }
+  if (sh.enabled && sh.slug) { x.fillStyle = st.soft; x.font = `600 34px ${F}`; x.fillText(shopUrl(sh.slug).replace(/^https?:\/\//, ""), cx, H - 66); }
 }
 const posterBlob = () => new Promise((ok) => $("#poster").toBlob(ok, "image/png"));
 async function renewMany(ids, el) {
@@ -1693,7 +1695,8 @@ const p_dur = (list) => { const d = [...new Set(list.map((p) => p.durationDays))
 /* ---------- Editor de la página propia del revendedor ---------- */
 const LOOK_FIELDS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout",
   "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"];
-const shopUrl = (slug) => `${location.origin}/r/${slug}`;
+// Con subdominios prendidos (shopDomain), el link lindo: https://daniel.gabostore.lat. Si no, el de siempre: /r/daniel.
+const shopUrl = (slug) => (S.settings?.shopDomain ? `https://${slug}.${S.settings.shopDomain}` : `${location.origin}/r/${slug}`);
 
 function shopEditor() {
   const sh = S.data.shop;
@@ -1712,7 +1715,7 @@ function shopEditor() {
     ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
     <div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
       <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
-      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
+      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="${esc(shopUrl(sh.slug))}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
       <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
     ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
 
