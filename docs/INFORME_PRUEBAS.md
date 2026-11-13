@@ -1,5 +1,19 @@
 # Informe de pruebas
 
+## 13/11/2026 · Publicación de «Cambiar de cuenta» (PR #59, squash `c0e7987`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 149 cuentas, revendedores y finanzas | API con la llave del asistente | guardada |
+| Rama de Railway vs #58: sin cambios; unión «ours» con árbol igual al probado; CI verde (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: código nuevo en vivo a los ~40 s; salud, `/tienda/`, `/hub`, `/panel` 200; el `panel.js` servido trae «Cambiar de cuenta» | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes, revendedores, cuentas y finanzas | comparación de los JSON antes/después | **idéntico** |
+
+## 13/11/2026 · Cambio real pedido por el dueño: Dani strem de …+rclad a …+md1 (hecho a mano, antes de publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Respaldo de las dos cuentas y del alquiler (sin claves) | JSON fuera del repo | guardado |
+| Clave de md1 cargada; perfil de md1 pasado a disponible; fecha de proveedor de md1 puesta 1 h adelante (para que el reemplazo automático la eligiera) y restaurada al instante; reemplazo del alquiler; nota del Control «↔️ 13/11/2026: de …rclad a …md1 (cuenta renovada, misma fecha)» | API con la llave del asistente, un solo registro | Dani strem en md1, vence 12/12/2026, pagado; rclad apartada; fecha de proveedor de md1 igual que antes |
+
 ## 13/11/2026 · «Cambiar de cuenta» (rama `cambiar-cuenta`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

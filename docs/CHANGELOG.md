@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Control: «↔️ Cambiar de cuenta» a una cuenta elegida, misma fecha (**sin publicar**, rama `cambiar-cuenta`)
+## 2026-11-13 · Control: «↔️ Cambiar de cuenta» a una cuenta elegida, misma fecha (**publicado el 13/11, PR #59**, squash `c0e7987`)
 - **Por qué:** el dueño renovó un Disney en otra cuenta y quiso pasar al cliente a ESA cuenta manteniendo su vencimiento. El panel solo tenía «Reubicar» (elige sola cualquier cuenta libre) y «Pasar a otro» (cambia de cliente, no de cuenta). No había forma de elegir el destino.
 - **Qué hay ahora:** en cada tarjeta del Control (y en la tabla), «↔️ Cambiar de cuenta» lista las otras cuentas activas de la misma plataforma con perfil libre o apartado, y «Mover · misma fecha». La cuenta vieja queda apartada (no se revende sin revisar). En la nota del Control queda «↔️ dd/mm/aaaa: de correo-viejo a correo-nuevo», que lee Mi secretaria. Después, «📲 Reenviar accesos» manda los datos nuevos.
 - Servidor: `POST /api/admin/assignments/:id/replace` acepta `toSlotId`; valida misma plataforma, perfil libre y cuenta activa (errores claros).
