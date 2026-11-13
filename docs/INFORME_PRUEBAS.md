@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Mover todos a otra cuenta» (rama `mover-cuenta-completa`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Errores: misma cuenta 400; otra plataforma 400; destino con 2 libres para 3 clientes → 409 «2 perfil(es) libre(s) y hay que mover 3» y nadie se mueve | `test/mover-cuenta-completa.test.mjs` (API) | OK |
+| 3 clientes de un Netflix caído (Perfil 1, 3 y 5, fechas distintas) a la cuenta nueva: fechas idénticas; Perfil 1 y 5 conservan su nombre; el 3 estaba ocupado y va a otro; un perfil apartado del destino también sirve; nota «↔️ …» delante de la nota anterior; viejos apartados; «Reenviar accesos» con correo y PIN nuevos | misma prueba | OK |
+| Celular 360 px: la tarjeta de la cuenta ofrece solo destinos de Netflix con perfiles suficientes; al mover, confirma, pasa al Control filtrado por la cuenta nueva y el cliente quedó en el mismo nombre de perfil | misma prueba, Playwright | OK |
+| Suite completa | `npm test` | **578 pasan, 0 fallan, 56 s** (una corrida previa marcó `seguridad-plata` por un «1777» dentro de una fecha-hora; sola pasa 2 de 2; anotado en el backlog) |
+
 ## 13/11/2026 · Publicación de «Cambiar de cuenta» (PR #59, squash `c0e7987`)
 | Qué | Cómo | Resultado |
 |---|---|---|

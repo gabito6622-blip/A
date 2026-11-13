@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**sin publicar**, rama `mover-cuenta-completa`)
+- **Por qué:** «se me cayó un Netflix y hoy tengo que reemplazar a toditos». «Cambiar de cuenta» mueve de a un cliente; con 5 perfiles son 5 vueltas.
+- **Qué hay ahora:** en la tarjeta de la cuenta (Inventario → Cuentas), «↔️ Mover todos a otra cuenta (N)»: lista solo las cuentas de la misma plataforma con N perfiles libres o apartados; «Mover N · mismas fechas» pide confirmación y pasa a todos de una vez. Cada cliente conserva su fecha; si el perfil nuevo se llama igual (Perfil 1 → Perfil 1) se respeta, si no va al primero libre; los perfiles viejos quedan apartados; cada Control recibe la nota «↔️ fecha: de vieja a nueva». Todo o nada: si no alcanzan los perfiles, no se mueve nadie. Al terminar, el panel abre el Control filtrado por la cuenta nueva para tocar «📲 Reenviar accesos» a cada uno.
+- Servidor: `POST /api/admin/accounts/:id/move-all` (`toAccountId`, `reason`), auditoría `account.move_all`.
+- Prueba nueva `test/mover-cuenta-completa.test.mjs`: errores (misma cuenta, otra plataforma, perfiles insuficientes sin mover a nadie), 3 clientes movidos con fechas y notas intactas y mismo nombre de perfil, PIN nuevo en «Reenviar accesos»; navegador a 360 px.
+
 ## 2026-11-13 · Control: «↔️ Cambiar de cuenta» a una cuenta elegida, misma fecha (**publicado el 13/11, PR #59**, squash `c0e7987`)
 - **Por qué:** el dueño renovó un Disney en otra cuenta y quiso pasar al cliente a ESA cuenta manteniendo su vencimiento. El panel solo tenía «Reubicar» (elige sola cualquier cuenta libre) y «Pasar a otro» (cambia de cliente, no de cuenta). No había forma de elegir el destino.
 - **Qué hay ahora:** en cada tarjeta del Control (y en la tabla), «↔️ Cambiar de cuenta» lista las otras cuentas activas de la misma plataforma con perfil libre o apartado, y «Mover · misma fecha». La cuenta vieja queda apartada (no se revende sin revisar). En la nota del Control queda «↔️ dd/mm/aaaa: de correo-viejo a correo-nuevo», que lee Mi secretaria. Después, «📲 Reenviar accesos» manda los datos nuevos.
