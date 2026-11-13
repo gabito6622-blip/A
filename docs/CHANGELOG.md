@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · GaboHub en tres niveles: Gratis / Vendedor / Negocio (**sin publicar**, rama `gabohub-tres-niveles`)
+## 2026-11-13 · GaboHub en tres niveles: Gratis / Vendedor / Negocio (**publicado el 13/11, PR #57**, squash `6a4ad6a`)
 - **Para el revendedor:** tres planes claros. **Gratis** (siempre, sin cobro): comprar con saldo, Mis cuentas, códigos, fallas, recargas y su catálogo en WhatsApp y PDF con sus precios. **Vendedor** (Bs 28): + su página con QR, combos, cupones, afiches, repartir perfiles y links de cobro. **Negocio** (Bs 49): + Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito. El candado de cada pestaña dice qué plan hace falta y ofrece pasarse con el precio a la vista; el Inicio muestra en qué plan está y los otros dos.
 - **Quien no paga pasa a Gratis** (después de los días de gracia) en vez de quedar «pausado»: sigue comprando y sacando su catálogo; su página y sus herramientas vuelven apenas paga. **Quien elige Gratis no debe nada y no se le cobra nunca.** Salir de Gratis cobra el mes en el momento (si no hay saldo, vence hoy y corren los días de gracia). En la prueba gratis rige Negocio.
 - **Para el dueño:** en Revendedores → Ajustes el precio del Básico pasa a llamarse **Vendedor** (el Bs 28 ya cargado se respeta); en la ficha de cada revendedor el selector tiene los tres planes y avisa si hoy está en otro por falta de pago. **Con el cobro apagado (como hoy) no cambia nada para nadie: rige Negocio para todos.**

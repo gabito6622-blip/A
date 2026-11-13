@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 13/11/2026 · Publicación de los tres niveles de GaboHub (PR #57, squash `6a4ad6a`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 25 revendedores, finanzas del mes, ajuste del cobro (apagado, Bs 49 / Básico Bs 28) | API con la llave del asistente, guardada fuera del repo | guardada |
+| Rama de Railway vs lo fusionado en #56: sin cambios; unión «ours» con árbol igual al probado; CI verde en el commit de unión (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: nuevo código en vivo a los ~50 s; salud, `/tienda/`, `/hub` y `/panel` 200; el `shop.js` y el `panel.js` servidos traen los tres planes | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes y finanzas idénticos; ajuste del cobro idéntico; los 25 revendedores con el mismo id y la misma ficha, todos en Negocio (plan elegido y plan de hoy) | comparación de los JSON antes/después | **idéntico** |
+
 ## 13/11/2026 · GaboHub en tres niveles (rama `gabohub-tres-niveles`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
