@@ -309,7 +309,8 @@ export interface Customer {
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
   hubBill?: { paidUntil?: number; suspended?: boolean; trial?: boolean };
   /** Plan de GaboHub (Premium 2.0): "full" (todo) o "basic" (sin las herramientas premium). Sin definir = full. */
-  hubPlan?: "basic" | "full";
+  /** Plan de GaboHub elegido: "free" (Gratis), "seller" (Vendedor) o "business" (Negocio). "basic"/"full" son los nombres viejos (= seller / business). */
+  hubPlan?: "free" | "seller" | "business" | "basic" | "full";
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }
@@ -591,9 +592,12 @@ export interface ShopRent {
   priceUsd?: Cents;
   /** Premium 2.0: días de prueba gratis antes del primer cobro (0 = sin prueba). */
   trialDays?: number;
-  /** Premium 2.0: precio del plan Básico (sin Mi control, Quién me debe, Mis ganancias ni Afiches). Sin definir = un solo plan. */
+  /** Plan Vendedor (su vidriera: página, combos, cupones, afiches, links de cobro) por mes. `price` es el plan Negocio (todo). */
+  sellerPrice?: Cents;
+  /** Plan Vendedor en US$ fijos (como `priceUsd`). */
+  sellerPriceUsd?: Cents;
+  /** Nombres viejos del plan Vendedor (Premium 2.0 «Básico»): se leen como `sellerPrice` si el nuevo no está. */
   basicPrice?: Cents;
-  /** Plan Básico en US$ fijos (como `priceUsd`). */
   basicPriceUsd?: Cents;
 }
 

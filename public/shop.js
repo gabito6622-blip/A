@@ -675,7 +675,7 @@ function renderInner() {
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
-      if (S.data.shop?.rent?.locked && HUB_LOCKED_TABS.includes(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard()}`;
+      if (hubTabNeeds(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard(hubTabNeeds(tab))}`;
       return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
@@ -824,10 +824,22 @@ function rControlBase() {
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
-const HUB_LOCKED_TABS = ["dia", "control", "debe", "ganancias", "afiches"];
-const hubLockCard = () => { const r = S.data.shop?.rent;
-  if (r?.lockReason === "plan") return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan Completo</h2><p class="empty" style="margin:0">Tu plan Básico (${bs(r.plans?.basic ?? r.price)} por mes) incluye comprar, tus cuentas, los códigos, recargar y vender. El Completo (${bs(r.plans?.full ?? r.price)} por mes) suma Mi control, Quién me debe, Mis ganancias y Afiches. El cambio rige desde tu próximo cobro.</p><div class="hrow"><button class="sbtn pri" type="button" data-hubplan="full">Pasar al Completo</button></div></div>`;
-  return `<div class="sbox hublock"><h2 style="margin:0">🔒 Pausado: tu suscripción de GaboHub venció</h2><p class="empty" style="margin:0">Son ${bs(r?.price ?? 0)} por mes. Pagala y vuelven Mi control, Quién me debe, Mis ganancias y Afiches al instante. Comprar, tus cuentas, los códigos y vender siguen funcionando.</p><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(r?.price ?? 0)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
+// Tres niveles de GaboHub: qué plan pide cada pestaña. Gratis = comprar, cuentas, códigos, fallas, recargas y Mis descargas (catálogo).
+const HUB_TAB_PLAN = { dia: "business", control: "business", debe: "business", ganancias: "business", pagina: "seller", combos: "seller", cupones: "seller", afiches: "seller", perfiles: "seller" };
+const PLAN_RANK = { free: 0, seller: 1, business: 2 };
+const PLAN_NAME = { free: "Gratis", seller: "Vendedor", business: "Negocio" };
+const PLAN_WHAT = { free: "comprar, tus cuentas, los códigos, las fallas, recargar y tu catálogo en WhatsApp y PDF", seller: "tu página con QR, combos, cupones, afiches, repartir perfiles y links de cobro", business: "Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito" };
+/** El plan que le falta para abrir `tab`, o null si ya lo tiene (con el cobro apagado rige Negocio: nada se bloquea). */
+const hubTabNeeds = (tab) => { const r = S.data.shop?.rent, need = HUB_TAB_PLAN[tab]; if (!need || !r?.hub || !r.enabled) return null; return (PLAN_RANK[r.plan] ?? 2) >= PLAN_RANK[need] ? null : need; };
+const planPrice = (r, p) => bs(r?.plans?.[p] ?? r?.price ?? 0);
+const hubLockCard = (need) => { const r = S.data.shop?.rent ?? {}, today = PLAN_NAME[r.plan] ?? "Gratis";
+  const why = r.suspended ? `Tu suscripción venció, así que hoy estás en <b>Gratis</b> (${PLAN_WHAT.free}).` : `Tu plan <b>${today}</b> incluye ${PLAN_WHAT[r.plan] ?? PLAN_WHAT.free}.`;
+  const chosen = r.chosen ?? "business";
+  // Sin pagar: el botón grande es Pagar (vuelve su plan al instante); si su plan no alcanza, también el de pasar al que hace falta.
+  const btns = r.suspended
+    ? `${PLAN_RANK[chosen] >= PLAN_RANK[need] ? `<button class="sbtn pri" type="button" data-rentpay="1">Pagar ${planPrice(r, chosen)} y volver a ${PLAN_NAME[chosen]}</button>` : `<button class="sbtn pri" type="button" data-hubplan="${need}">Pasar a ${PLAN_NAME[need]} (${planPrice(r, need)}/mes)</button>`}`
+    : [need, need === "seller" ? "business" : null].filter(Boolean).map((p, i) => `<button class="sbtn ${i === 0 ? "pri" : ""}" type="button" data-hubplan="${p}">Pasar a ${PLAN_NAME[p]} (${planPrice(r, p)}/mes)</button>`).join("");
+  return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan ${PLAN_NAME[need]}</h2><p class="empty" style="margin:0">${why} El plan ${PLAN_NAME[need]} (${planPrice(r, need)} por mes) suma ${PLAN_WHAT[need]}. ${r.suspended ? "Recargá saldo y pagá: vuelve al instante." : "Se cobra de tu saldo y se activa al instante."}</p><div class="hrow">${btns}<button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
 function rDebeView() {
   const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
   // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
@@ -1400,15 +1412,16 @@ function resellerHome() {
     const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
     const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
     const pay = `<button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(rent.price)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button>`;
-    const planTxt = rent.plans ? ` · plan ${rent.plan === "basic" ? "Básico" : "Completo"}` : "";
-    // Cambio de plan en su propia fila (no dentro del texto): Completo ↔ Básico, sin prorrateo.
-    const planBtn = rent.plans ? `<div class="hrow" style="margin-top:6px">${rent.plan === "basic" ? `<button class="sbtn sm pri" type="button" data-hubplan="full">Pasar al Completo (${bs(rent.plans.full)}/mes)</button>` : `<button class="sbtn sm" type="button" data-hubplan="basic">Pasar al Básico (${bs(rent.plans.basic)}/mes)</button>`}</div>` : "";
+    const chosen = rent.chosen ?? rent.plan ?? "business", planTxt = ` · plan ${PLAN_NAME[chosen]}`;
+    // Cambio de plan en su propia fila: los otros dos planes con su precio, sin prorrateo. Gratis no se cobra.
+    const planBtn = `<div class="hrow" style="margin-top:6px">${["business", "seller", "free"].filter((p) => p !== chosen).map((p) => `<button class="sbtn sm ${PLAN_RANK[p] > PLAN_RANK[chosen] ? "pri" : ""}" type="button" data-hubplan="${p}">Pasar a ${PLAN_NAME[p]}${p === "free" ? " (sin costo)" : ` (${bs(rent.plans?.[p] ?? rent.price)}/mes)`}</button>`).join("")}</div>`;
     if (rent.trial && rent.paidUntil && !rent.suspended) rentBox = `<div class="hbox warn"><b>🎁 Prueba gratis de GaboHub hasta el ${fdate(rent.paidUntil)}</b><span>Después son ${bs(rent.price)} por mes y se cobran solos de tu saldo${planTxt}.</span></div>`;
-    else if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu suscripción de GaboHub venció</b><span>Son ${bs(rent.price)} por mes. Se pausaron Mi control, Quién me debe, Mis ganancias y Afiches${sh?.saved ? ", y tu página" : ""}. Comprar, tus cuentas, los códigos y vender siguen funcionando. Recargá y tocá Pagar: se activa al instante.</span><div class="hrow">${pay}</div></div>`;
+    else if (rent.suspended) rentBox = `<div class="hbox bad"><b>⚠️ Tu suscripción de GaboHub venció: hoy estás en Gratis</b><span>Tu plan ${PLAN_NAME[chosen]} son ${bs(rent.price)} por mes. Se pausaron ${PLAN_WHAT[chosen === "free" ? "seller" : chosen]}${sh?.saved && chosen !== "free" ? " y tu página" : ""}. ${PLAN_WHAT.free[0].toUpperCase() + PLAN_WHAT.free.slice(1)} siguen funcionando. Recargá y tocá Pagar: se activa al instante.</span><div class="hrow">${pay}</div></div>`;
     else if (left !== null && left <= 5) rentBox = `<div class="hbox warn"><b>🗓️ Tu suscripción de GaboHub vence ${left <= 0 ? "hoy" : `en ${left} día(s)`}</b><span>Se cobra sola de tu saldo (${bs(rent.price)}). ${me.balance < rent.price ? "Te falta saldo: recargá para que no se pause." : "Ya tenés saldo suficiente ✓"} ${freeTxt}</span>${me.balance < rent.price ? `<div class="hrow"><button class="sbtn pri" type="button" data-s="recargas">Recargar saldo</button></div>` : ""}</div>`;
     else if (rent.paidUntil) rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub está pagada hasta el ${fdate(rent.paidUntil)}${planTxt}. ${freeTxt}</p>`;
     else rentBox = `<p class="empty" style="margin:0;font-size:13px">Tu suscripción de GaboHub es ${bs(rent.price)} por mes y se cobra sola de tu saldo${planTxt}. ${rent.trialDays ? `Tenés ${rent.trialDays} días de prueba gratis. ` : ""}${freeTxt}</p>`;
-    if (!rent.suspended) rentBox += planBtn;
+    if (!rent.suspended && chosen !== "free") rentBox += planBtn;
+    else if (chosen === "free") rentBox = `<p class="empty" style="margin:0;font-size:13px">Estás en el plan <b>Gratis</b> de GaboHub: ${PLAN_WHAT.free}. Sin cobros.</p>${planBtn}`;
   } else if (rent?.enabled && sh?.saved) {
     const left = rent.paidUntil ? Math.ceil((rent.paidUntil - Date.now()) / 86_400_000) : null;
     const freeTxt = rent.freeIfSpent ? `Gratis si este mes comprás ${bs(rent.freeIfSpent)} (llevás ${bs(rent.spent30)}).` : "";
@@ -2339,7 +2352,7 @@ document.addEventListener("click", async (ev) => {
   if (d.rcopen) { const o2 = new Set(S.data.rcOpen ?? []); o2.has(d.rcopen) ? o2.delete(d.rcopen) : o2.add(d.rcopen); S.data.rcOpen = [...o2]; return render(); }
   if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
-  if (d.hubplan) { try { await api("POST", "/api/me/hub/plan", { plan: d.hubplan }); toast(d.hubplan === "full" ? "Plan Completo activo: ya tenés todas las herramientas" : "Plan Básico: rige desde tu próximo cobro"); await refresh(); } catch (e) { toast(e.message); } return true; }
+  if (d.hubplan) { try { await api("POST", "/api/me/hub/plan", { plan: d.hubplan }); toast(d.hubplan === "free" ? "Plan Gratis: no se te cobra nada más" : `Plan ${PLAN_NAME[d.hubplan]} elegido`); await refresh(); } catch (e) { toast(e.message); } return true; }
   if (d.renewPay) {
     if (!S.renewToken) return;
     el.disabled = true;

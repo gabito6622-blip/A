@@ -124,12 +124,16 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
       && (r.priceUsd === undefined || r.priceUsd === null || (Number.isInteger(r.priceUsd) && (r.priceUsd as number) >= 0 && (r.priceUsd as number) <= 100_000))
       && (r.trialDays === undefined || r.trialDays === null || (Number.isInteger(r.trialDays) && (r.trialDays as number) >= 0 && (r.trialDays as number) <= 90))
       && (r.basicPrice === undefined || r.basicPrice === null || (Number.isInteger(r.basicPrice) && (r.basicPrice as number) >= 0 && (r.basicPrice as number) <= (r.price as number)))
-      && (r.basicPriceUsd === undefined || r.basicPriceUsd === null || (Number.isInteger(r.basicPriceUsd) && (r.basicPriceUsd as number) >= 0 && (r.basicPriceUsd as number) <= 100_000));
-    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras, días de gracia, quién paga, precio en dólares, días de prueba de 0 a 90 o plan Básico más caro que el Completo)");
+      && (r.basicPriceUsd === undefined || r.basicPriceUsd === null || (Number.isInteger(r.basicPriceUsd) && (r.basicPriceUsd as number) >= 0 && (r.basicPriceUsd as number) <= 100_000))
+      && (r.sellerPrice === undefined || r.sellerPrice === null || (Number.isInteger(r.sellerPrice) && (r.sellerPrice as number) >= 0 && (r.sellerPrice as number) <= (r.price as number)))
+      && (r.sellerPriceUsd === undefined || r.sellerPriceUsd === null || (Number.isInteger(r.sellerPriceUsd) && (r.sellerPriceUsd as number) >= 0 && (r.sellerPriceUsd as number) <= 100_000));
+    if (!ok) throw new DomainError("VALIDATION", "Alquiler inválido (precio, mínimo de compras, días de gracia, quién paga, precio en dólares, días de prueba de 0 a 90 o plan Vendedor más caro que el Negocio)");
     patch.shopRent = { enabled: !!r.enabled, price: r.price as number, freeIfSpent: r.freeIfSpent as number, graceDays: r.graceDays as number,
       ...(r.scope === "all" ? { scope: "all" as const } : {}), ...(Number.isInteger(r.priceUsd) ? { priceUsd: r.priceUsd as number } : {}),
       ...(Number.isInteger(r.trialDays) && (r.trialDays as number) > 0 ? { trialDays: r.trialDays as number } : {}),
-      ...(Number.isInteger(r.basicPrice) ? { basicPrice: r.basicPrice as number } : {}), ...(Number.isInteger(r.basicPriceUsd) ? { basicPriceUsd: r.basicPriceUsd as number } : {}) };
+      // Vendedor: se guarda en `sellerPrice`; `basicPrice` (nombre viejo) se acepta y se traduce para no perder el precio ya puesto.
+      ...(Number.isInteger(r.sellerPrice) ? { sellerPrice: r.sellerPrice as number } : Number.isInteger(r.basicPrice) ? { sellerPrice: r.basicPrice as number } : {}),
+      ...(Number.isInteger(r.sellerPriceUsd) ? { sellerPriceUsd: r.sellerPriceUsd as number } : Number.isInteger(r.basicPriceUsd) ? { sellerPriceUsd: r.basicPriceUsd as number } : {}) };
   }
   if (patch.resellerMarginPct !== undefined && !(Number.isInteger(patch.resellerMarginPct) && patch.resellerMarginPct >= 0 && patch.resellerMarginPct <= 300)) throw new DomainError("VALIDATION", "Ganancia sugerida: de 0 a 300 %");
   if (patch.referralBonus !== undefined && !(Number.isInteger(patch.referralBonus) && patch.referralBonus >= 0 && patch.referralBonus <= 1_000_000)) throw new DomainError("VALIDATION", "Premio por referido: de Bs 0 a Bs 10.000");

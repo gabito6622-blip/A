@@ -1,7 +1,7 @@
 // Centro de exportaciones (13/11/2026). Datos ficticios; nada real.
 //  1. Catálogo de WhatsApp: la tienda con su marca y precios públicos; el revendedor con SU nombre, SUS precios, SUS combos y SU link.
 //  2. Solo publicados y con precio; nunca costos, claves, clientes ni ids internos. Filtro por categorías.
-//  3. Aislamiento: un revendedor no ve precios ni productos de otro; sin sesión 401; GaboHub pausado → 402; plan Básico sí puede.
+//  3. Aislamiento: un revendedor no ve precios ni productos de otro; sin sesión 401; el catálogo es del plan Gratis; el Excel, del Negocio.
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -111,15 +111,16 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     assert.deepEqual(b.categories.flatMap((c) => c.items.map((i) => [i.name, i.price])), [["Netflix Premium", 4200]]);
   });
 
-  test("permisos: sin sesión 401; GaboHub pausado → 402; plan Básico sí exporta su catálogo", async () => {
+  test("permisos: sin sesión 401; el catálogo es del plan Gratis (sale aun pausado o en Vendedor); el Excel no", async () => {
     assert.equal((await get("/api/me/descargas/catalogo")).status, 401);
     assert.equal((await get("/api/admin/descargas/catalogo")).status, 401);
     await post("/api/admin/settings", { shopRent: { enabled: true, price: 4900, freeIfSpent: 0, graceDays: 3, scope: "all", trialDays: 0, basicPrice: 2500 } }, ock);
     app.store.shops.setPlan({ id: "u_" + ana.id, role: "reseller", customerId: ana.id }, ana.id, "basic");
-    assert.equal((await get("/api/me/descargas/catalogo", ckA)).status, 200, "el catálogo no es del plan Completo");
+    assert.equal((await get("/api/me/descargas/catalogo", ckA)).status, 200, "el catálogo no es del plan Negocio");
     app.store.engine.tx(() => { app.store.engine.s.customers[ana.id].shop.suspended = true; });
-    const r = await get("/api/me/descargas/whatsapp", ckA);
-    assert.equal(r.status, 402); assert.equal(r.json.error, "HUB_UNPAID");
+    assert.equal((await get("/api/me/descargas/whatsapp", ckA)).status, 200, "pausado (hoy Gratis): el catálogo igual sale");
+    const r = await get("/api/me/descargas/reporte.xlsx", ckA);
+    assert.equal(r.status, 402); assert.equal(r.json.error, "HUB_UNPAID"); assert.match(r.json.message, /plan Negocio/);
     app.store.engine.tx(() => { app.store.engine.s.customers[ana.id].shop.suspended = false; });
     await post("/api/admin/settings", { shopRent: { enabled: false, price: 4900, freeIfSpent: 0, graceDays: 3, scope: "all" } }, ock);
   });

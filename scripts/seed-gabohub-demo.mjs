@@ -2,8 +2,8 @@
 // Uso: node scripts/seed-gabohub-demo.mjs ./data-gabohub-demo
 //      GS_DATA_DIR=./data-gabohub-demo GS_STATIC_DIR=public PORT=8090 npm start
 // Crea la tienda con catálogo y stock, la suscripción de GaboHub con prueba de 15 días y dos planes
-// (Completo Bs 49 / US$ 5, Básico Bs 25 / US$ 3) PRENDIDA SOLO EN ESTA DEMO, y tres revendedores en tres
-// momentos distintos: Ana (en prueba gratis), Beto (plan Básico, pagando) y Carla (plan Completo, con página propia).
+// (Negocio Bs 49 / US$ 5, Vendedor Bs 28 / US$ 3; el Gratis no se cobra) PRENDIDA SOLO EN ESTA DEMO, y tres revendedores en tres
+// momentos distintos: Ana (en prueba gratis), Beto (plan Vendedor, pagando) y Carla (plan Negocio, con página propia).
 // No manda invitaciones ni mensajes: los PIN y links se generan desde el panel cuando el dueño quiera.
 import { existsSync, readdirSync } from "node:fs";
 import { createApp } from "../dist/server/app.js";
@@ -35,15 +35,15 @@ let em = 0;
 const acc = (productId, n) => s.inventory.addAccount(owner, { productId, supplierId: "andes", email: `${productId}${String(++em).padStart(2, "0")}@proveedor.lat`, password: "Prov#Demo" + em, supplierExpiresAt: clock.now() + 200 * DAY, cost: 1000 * n, profiles: Array.from({ length: n }, (_, i) => ({ label: n === 1 ? "Cuenta completa" : `Perfil ${i + 1}` })) });
 for (let i = 0; i < 6; i++) { acc("netflix", 5); acc("disney", 6); acc("max", 6); acc("prime", 6); acc("spotify", 6); }
 
-// ---- Suscripción GaboHub (PRENDIDA SOLO EN LA DEMO): prueba 15 días, Completo Bs 49 / US$ 5, Básico Bs 25 / US$ 3 ----
-s.catalog.updateSettings(owner, { shopRent: { enabled: true, price: 4900, freeIfSpent: 0, graceDays: 3, scope: "all", priceUsd: 500, trialDays: 15, basicPrice: 2500, basicPriceUsd: 300 } });
+// ---- Suscripción GaboHub (PRENDIDA SOLO EN LA DEMO): prueba 15 días, Negocio Bs 49 / US$ 5, Vendedor Bs 28 / US$ 3 ----
+s.catalog.updateSettings(owner, { shopRent: { enabled: true, price: 4900, freeIfSpent: 0, graceDays: 3, scope: "all", priceUsd: 500, trialDays: 15, sellerPrice: 2800, sellerPriceUsd: 300 } });
 
 // ---- Tres revendedores ----
 const mk = (name, phone, group) => { const c = s.catalog.createCustomer(owner, { name, phone, kind: "reseller", priceGroupId: group, whatsappConsent: true }); return { c, A: { id: "u_" + c.id, role: "reseller", customerId: c.id } }; };
 const sell = (R, cid, productId) => s.orders.create(R.A, { customerId: cid, items: [{ productId, qty: 1 }], paymentMethod: "balance" });
 const client = (R, name, phone) => s.catalog.createCustomer(R.A, { name, phone, whatsappConsent: true });
 
-// Carla: hace 40 días, plan Completo, página propia, clientes y ventas; pagó dos meses de suscripción.
+// Carla: hace 40 días, plan Negocio, página propia, clientes y ventas; pagó dos meses de suscripción.
 const carla = mk("Carla Quispe", "+59171000001", "revendedor");
 s.shops.setPage(owner, carla.c.id, true);
 s.shops.setupFor(owner, carla.c.id, { slug: "carla-streaming", title: "Carla Streaming", enabled: true });
@@ -56,14 +56,14 @@ at(Date.now() - 36 * DAY); s.shops.chargeRents(system); // arranca la prueba de 
 at(Date.now() - 20 * DAY); s.shops.chargeRents(system); // termina la prueba: paga Bs 49
 at(Date.now() - 2 * DAY); s.orders.renew(carla.A, s.engine.s.orders[Object.keys(s.engine.s.orders)[0]]?.assignmentIds?.[0] ?? Object.values(s.engine.s.assignments)[0].id, { paymentMethod: "balance" });
 
-// Beto: hace 25 días, eligió el plan Básico (más barato, sin Mi control / Quién me debe / Ganancias / Afiches).
+// Beto: hace 25 días, eligió el plan Vendedor (su vidriera, sin Mi día / Mi control / Quién me debe / Ganancias / Excel).
 const beto = mk("Beto Mamani", "+59171000002", "revendedor");
 s.wallet.adjust(owner, beto.c.id, 20000, "Recarga de saldo (demo)");
 at(Date.now() - 25 * DAY); s.shops.chargeRents(system); // Beto entra en prueba
-s.shops.setPlan(beto.A, beto.c.id, "basic");
+s.shops.setPlan(beto.A, beto.c.id, "seller");
 const bc = ["Lucía Villca", "Marco Zurita", "Aneliz Contreras"].map((n, i) => client(beto, n, `+5917550020${i}`));
 bc.forEach((c, i) => { at(Date.now() - (24 - i * 6) * DAY); sell(beto, c.id, ["netflix", "disney", "prime"][i]); });
-at(Date.now() - 9 * DAY); s.shops.chargeRents(system); // termina su prueba: paga Bs 25 (Básico)
+at(Date.now() - 9 * DAY); s.shops.chargeRents(system); // termina su prueba: paga Bs 28 (Vendedor)
 
 // Ana: hace 3 días, está en los 15 días de prueba gratis, con sus dos primeros clientes.
 const ana = mk("Ana Flores", "+59171000003", "revendedor");

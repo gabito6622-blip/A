@@ -40,7 +40,7 @@ import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importSe
 import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
-import { findBySlug as findShopBySlug } from "../store/resellerShop.js";
+import { findBySlug as findShopBySlug, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -550,17 +550,21 @@ export function createApp(cfg: AppConfig): App {
   // Herramientas del revendedor: su control tipo Excel, su fiado (lo que le deben a él) y sus ganancias.
   // Suscripción GaboHub vencida (y cobro prendido para todos): se pausan estas pantallas. Vender, anotar fiados,
   // comprar, cuentas, códigos y recargar NUNCA se bloquean (las rutas que escriben siguen abiertas).
-  const hubGuard = (c: { actor?: Actor }) => {
-    const why = c.actor?.customerId ? store.shops.hubLockReason(c.actor.customerId) : null;
-    if (why === "suspended") throw new HttpError(402, "HUB_UNPAID", "Tu suscripción de GaboHub venció: pagala desde tu Inicio y se activa al instante");
-    if (why === "plan") throw new HttpError(402, "HUB_PLAN", "Esta herramienta es del plan Completo de GaboHub: pasate desde tu Inicio y se activa al instante");
+  // Tres niveles (13/11): cada herramienta pide un plan (Gratis / Vendedor / Negocio). Sin pagar rige Gratis.
+  const needPlan = (feature: HubFeature) => (c: { actor?: Actor }) => {
+    const cid = c.actor?.customerId; if (!cid) return;
+    const need = store.shops.planGate(cid, feature); if (!need) return;
+    const name = store.shops.planNames[need];
+    if (store.shops.hubLockReason(cid) === "suspended") throw new HttpError(402, "HUB_UNPAID", `Tu suscripción de GaboHub venció y hoy estás en Gratis. Esta herramienta es del plan ${name}: pagalo desde tu Inicio y se activa al instante`);
+    throw new HttpError(402, "HUB_PLAN", `Esta herramienta es del plan ${name} de GaboHub: pasate desde tu Inicio y se activa al instante`);
   };
+  const hubGuard = needPlan("control"), sellerGuard = needPlan("links");
   route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // «Mi día» del revendedor: misma suscripción que Mi control (plan Completo).
-  route("GET", "/api/me/dia", "customer", (c) => { hubGuard(c); return store.rtools.day(c.actor!); });
-  route("GET", "/api/me/dia/preview/:id", "customer", (c) => { hubGuard(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
-  route("POST", "/api/me/dia/pay/:id", "customer", (c) => { hubGuard(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
+  route("GET", "/api/me/dia", "customer", (c) => { needPlan("dia")(c); return store.rtools.day(c.actor!); });
+  route("GET", "/api/me/dia/preview/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
+  route("POST", "/api/me/dia/pay/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
@@ -568,10 +572,10 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => { const r = store.subs.remove(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
   // Link de cobro de un perfil repartido (/c/<token>): lo arma el revendedor, lo abre su cliente sin cuenta.
   const cobroUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/c/${token}`;
-  route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
+  route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { sellerGuard(c); const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
   route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => { const r = store.subs.revokeLink(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
   // Link de cobro de un cliente REGISTRADO del revendedor (13/11): misma página /c/<token>.
-  route("POST", "/api/me/control/:id/link", "customer", (c) => { const r = store.rtools.clientLink(c.actor!, c.params.id); return { ...r, url: cobroUrl(r.token, c) }; });
+  route("POST", "/api/me/control/:id/link", "customer", (c) => { sellerGuard(c); const r = store.rtools.clientLink(c.actor!, c.params.id); return { ...r, url: cobroUrl(r.token, c) }; });
   route("POST", "/api/me/control/:id/link/revoke", "customer", (c) => { const r = store.rtools.revokeClientLink(c.actor!, c.params.id); expiry.purge(); return r; });
   // Contra el barrido de tokens: cada link que no sirve cuenta por IP; pasado el límite, 429 a todo por un rato.
   const cobroMissLimiter = new RateLimiter(20, 15 * 60_000, now);
@@ -685,9 +689,9 @@ export function createApp(cfg: AppConfig): App {
     }
     return r.ticket;
   });
-  route("GET", "/api/me/earnings", "customer", (c) => { hubGuard(c); return store.rtools.earnings(c.actor!); });
-  route("GET", "/api/me/fiado", "customer", (c) => { hubGuard(c); return store.fiado.overview(c.actor!); });
-  route("GET", "/api/me/fiado/:id", "customer", (c) => { hubGuard(c); return store.fiado.history(c.actor!, c.params.id); });
+  route("GET", "/api/me/earnings", "customer", (c) => { needPlan("ganancias")(c); return store.rtools.earnings(c.actor!); });
+  route("GET", "/api/me/fiado", "customer", (c) => { needPlan("debe")(c); return store.fiado.overview(c.actor!); });
+  route("GET", "/api/me/fiado/:id", "customer", (c) => { needPlan("debe")(c); return store.fiado.history(c.actor!, c.params.id); });
   route("POST", "/api/me/fiado/charge", "customer", (c) => store.fiado.charge(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note, dueAt: c.body?.dueAt, assignmentId: c.body?.assignmentId ? String(c.body.assignmentId) : undefined }));
   route("POST", "/api/me/fiado/payment", "customer", (c) => store.fiado.pay(c.actor!, { customerId: String(c.body?.customerId ?? ""), amount: c.body?.amount, note: c.body?.note }));
   route("POST", "/api/me/fiado/:id/from-control", "customer", (c) => store.fiado.fromControl(c.actor!, c.params.id));
@@ -700,10 +704,11 @@ export function createApp(cfg: AppConfig): App {
   /* ---- página propia del revendedor ---- */
   route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
   route("GET", "/api/me/referrals", "customer", (c) => store.shops.referrals(c.actor!));
-  route("PUT", "/api/me/shop", "customer", (c) => store.shops.update(c.actor!, c.body ?? {}));
+  // Su página, cupones e imágenes: plan Vendedor en adelante (leerlas sigue libre para que vea qué tiene).
+  route("PUT", "/api/me/shop", "customer", (c) => { needPlan("pagina")(c); return store.shops.update(c.actor!, c.body ?? {}); });
   // Cupones propios del revendedor (si el dueño lo permite) y presupuesto público en su página.
   route("GET", "/api/me/shop/coupons", "customer", (c) => store.shops.myCoupons(c.actor!));
-  route("POST", "/api/me/shop/coupons", "customer", (c) => store.shops.saveCoupon(c.actor!, c.body ?? {}));
+  route("POST", "/api/me/shop/coupons", "customer", (c) => { needPlan("pagina")(c); return store.shops.saveCoupon(c.actor!, c.body ?? {}); });
   route("POST", "/api/me/shop/coupons/:id/delete", "customer", (c) => store.shops.deleteCoupon(c.actor!, c.params.id));
   route("POST", "/api/shops/:slug/coupon", "public", (c) => {
     if (!couponLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en unos minutos.");
@@ -711,7 +716,7 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/reseller-coupons", "staff", () => ({ allowed: !!store.engine.s.settings.resellerCoupons }));
   route("POST", "/api/admin/reseller-coupons", "staff", (c) => store.shops.setCouponsAllowed(A(c), !!c.body?.allowed));
-  const shopImage = (kind: "logo" | "banner" | "qr") => (c: Ctx) => {
+  const shopImageRaw = (kind: "logo" | "banner" | "qr") => (c: Ctx) => {
     if (c.body?.remove === true) {
       const old = store.shops.setImage(c.actor!, kind, null);
       if (old) dropUpload(old);
@@ -725,6 +730,7 @@ export function createApp(cfg: AppConfig): App {
     } catch (e) { dropUpload(file); throw e; }
     return store.shops.mine(c.actor!);
   };
+  const shopImage = (kind: "logo" | "banner" | "qr") => (c: Ctx) => { needPlan("pagina")(c); return shopImageRaw(kind)(c); };
   route("POST", "/api/me/shop/logo", "customer", shopImage("logo"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/qr", "customer", shopImage("qr"), MAX_UPLOAD_JSON);
@@ -1191,8 +1197,8 @@ export function createApp(cfg: AppConfig): App {
   const catFilter = (c: Ctx): CatalogFilter => ({ categories: (c.query.get("cats") ?? "").split(",").map((x) => x.trim()).filter(Boolean), productIds: (c.query.get("ids") ?? "").split(",").map((x) => x.trim()).filter(Boolean) });
   const descargasCatalogo = (c: Ctx, actor: Actor) => { const d = catalogData(store, actor, { origin: originOf(c.req) }); return { ...d, business: { ...d.business, hasLogo: !!d.business.logoRef, logoRef: undefined }, categories: d.categories.map((cat) => ({ ...cat, items: cat.items.map(({ imageRef: _r, ...it }) => it) })) }; };
   const descargasWhatsapp = (c: Ctx, actor: Actor) => whatsappCatalog(filterCatalog(catalogData(store, actor, { origin: originOf(c.req) }), catFilter(c)), { descriptions: c.query.get("desc") !== "0" });
-  // El catálogo es de cualquier revendedor (también en plan Básico); solo se frena si su GaboHub está pausado por falta de pago.
-  const hubPaid = (c: { actor?: Actor }) => { if (c.actor?.customerId && store.shops.hubLockReason(c.actor.customerId) === "suspended") hubGuard(c); };
+  // El catálogo (WhatsApp y PDF, con sus precios) es del plan Gratis: nunca se frena.
+  const hubPaid = needPlan("catalogo");
   const descargasLogo = (c: Ctx, actor: Actor) => sendImage(c, catalogData(store, actor).business.logoRef, "Sin logo");
   route("GET", "/api/admin/descargas/catalogo", "staff", (c) => descargasCatalogo(c, A(c)));
   route("GET", "/api/admin/descargas/whatsapp", "staff", (c) => descargasWhatsapp(c, A(c)));
@@ -1253,7 +1259,7 @@ export function createApp(cfg: AppConfig): App {
   });
   const descargasXlsx = (c: Ctx, actor: Actor) => { const { file, name } = businessReport(store, actor, parsePeriod(c.query.get("from"), c.query.get("to"), now()), originOf(c.req)); return sendFile(c, file, name); };
   route("GET", "/api/admin/descargas/reporte.xlsx", "staff", (c) => descargasXlsx(c, A(c)));
-  route("GET", "/api/me/descargas/reporte.xlsx", "customer", (c) => { hubGuard(c); return descargasXlsx(c, c.actor!); });
+  route("GET", "/api/me/descargas/reporte.xlsx", "customer", (c) => { needPlan("excel")(c); return descargasXlsx(c, c.actor!); });
   route("GET", "/api/me/descargas/catalogo.pdf", "customer", (c) => { hubPaid(c); return descargasPdf(c, c.actor!); });
   route("GET", "/api/me/descargas/catalogo", "customer", (c) => { hubPaid(c); return descargasCatalogo(c, c.actor!); });
   route("GET", "/api/me/descargas/whatsapp", "customer", (c) => { hubPaid(c); return descargasWhatsapp(c, c.actor!); });
@@ -2500,8 +2506,8 @@ export function createApp(cfg: AppConfig): App {
       const me = s.customers[cid];
       if (!me || me.kind !== "reseller") continue;
       // «Mi día» (13/11): un solo aviso con lo de hoy (cobrar / avisar / te deben) que abre la pestaña. Si su GaboHub está
-      // pausado o en plan Básico (sin Mi día), sigue el aviso de siempre de «vence mañana».
-      if (!store.shops.hubLockReason(cid)) {
+      // pausado o en un plan sin Mi día (Gratis o Vendedor), sigue el aviso de siempre de «vence mañana».
+      if (!store.shops.planGate(cid, "tito")) {
         const dp = store.rtools.dayPushText({ id: `u_${cid}`, role: "reseller", customerId: cid });
         if (dp) { await customerPush(cid, { ...dp, body: withOwnSuffix(dp.body, ownSoonFor(store.engine, cid)) }).catch(() => {}); continue; }
       }

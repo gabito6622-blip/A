@@ -29,25 +29,54 @@ const spent30 = (e: Engine, id: Id) => Object.values(e.s.orders)
 const billRead = (c: Customer) => c.shop ?? c.hubBill ?? {};
 const billWrite = (c: Customer) => c.shop ?? (c.hubBill ??= {});
 const allPay = (e: Engine) => rentCfg(e).scope === "all";
-/** Plan de GaboHub del revendedor (Premium 2.0): "basic" solo si el dueño definió un precio Básico y el revendedor lo eligió. */
-export type HubPlan = "basic" | "full";
-export const planOf = (e: Engine, c: Customer): HubPlan => (c.hubPlan === "basic" && rentCfg(e).basicPrice !== undefined ? "basic" : "full");
+/* Tres niveles de GaboHub (13/11/2026, decisión del dueño). El criterio: lo que lo hace VENDER más (y por lo tanto
+   comprarle más a la tienda) va gratis o barato; lo que le AHORRA TRABAJO (su oficina) es lo que vale la cuota.
+     Gratis    → comprar, sus cuentas, códigos, fallas, recargas y el catálogo (WhatsApp y PDF) con sus precios.
+     Vendedor  → + su página con QR, combos, cupones, afiches, repartir perfiles y links de cobro.
+     Negocio   → + Mi día, Mi control, Quién me debe, Mis ganancias, Excel y el recordatorio diario de Tito.
+   Con el cobro apagado (o solo para páginas) rige Negocio para todos: nadie pierde nada. */
+export type HubPlan = "free" | "seller" | "business";
+export const PLAN_NAMES: Record<HubPlan, string> = { free: "Gratis", seller: "Vendedor", business: "Negocio" };
+const PLAN_RANK: Record<HubPlan, number> = { free: 0, seller: 1, business: 2 };
+export type HubFeature = "catalogo" | "pagina" | "links" | "afiches" | "perfiles" | "dia" | "control" | "debe" | "ganancias" | "excel" | "tito";
+export const FEATURE_PLAN: Record<HubFeature, HubPlan> = { catalogo: "free", pagina: "seller", links: "seller", afiches: "seller", perfiles: "seller", dia: "business", control: "business", debe: "business", ganancias: "business", excel: "business", tito: "business" };
+const sellerPriceOf = (r: ShopRent) => r.sellerPrice ?? r.basicPrice;
+const sellerUsdOf = (r: ShopRent) => r.sellerPriceUsd ?? r.basicPriceUsd;
+/** El plan que eligió (los nombres viejos "basic"/"full" valen como Vendedor/Negocio; sin elegir = Negocio). */
+export const chosenPlan = (c: Customer): HubPlan => (c.hubPlan === "free" ? "free" : c.hubPlan === "seller" || c.hubPlan === "basic" ? "seller" : "business");
+/** El plan que RIGE hoy: cobro apagado o solo de páginas → Negocio; en prueba → Negocio; sin pagar (pausado) → Gratis; si no, el elegido. */
+export function planOf(e: Engine, c: Customer): HubPlan {
+  const r = rentCfg(e);
+  if (!r.enabled || r.scope !== "all") return "business";
+  const b = billRead(c);
+  if (b.trial && (b.paidUntil ?? 0) > e.now()) return "business";
+  if (b.suspended) return "free";
+  return chosenPlan(c);
+}
+/** Qué plan hace falta para usar `feature`, o null si su plan de hoy ya la incluye. */
+export function planGate(e: Engine, customerId: Id, feature: HubFeature): HubPlan | null {
+  const c = e.s.customers[customerId];
+  if (!c || c.kind !== "reseller") return null;
+  const need = FEATURE_PLAN[feature];
+  return PLAN_RANK[planOf(e, c)] >= PLAN_RANK[need] ? null : need;
+}
 /**
- * Por qué están pausadas las herramientas premium (Mi control, Quién me debe, Mis ganancias, Afiches), si lo están:
- * "suspended" = no pagó la suscripción; "plan" = tiene el plan Básico. Solo cuenta si el cobro está prendido para todos.
+ * Compatibilidad: "suspended" = no pagó (hoy rige Gratis); "plan" = eligió un plan menor que Negocio. Solo cuenta con el
+ * cobro prendido para todos. Las rutas usan `planGate` por herramienta; esto queda para pantallas que resumen el estado.
  */
 export function hubLockReason(e: Engine, customerId: Id): "suspended" | "plan" | null {
   const c = e.s.customers[customerId], r = rentCfg(e);
   if (!c || c.kind !== "reseller" || !r.enabled || r.scope !== "all") return null;
   if (billRead(c).suspended) return "suspended";
-  return planOf(e, c) === "basic" ? "plan" : null;
+  return planOf(e, c) === "business" ? null : "plan";
 }
 export function hubLocked(e: Engine, customerId: Id): boolean { return hubLockReason(e, customerId) !== null; }
-/** Lo que se le cobra por mes según su plan, en SU moneda: US$ fijos si el dueño los puso, si no los Bs pasados con la tasa de hoy. */
-function rentPrice(e: Engine, c: Customer, plan: HubPlan = planOf(e, c)): Cents | null {
+/** Lo que se le cobra por mes según el plan, en SU moneda: US$ fijos si el dueño los puso, si no los Bs pasados con la tasa de hoy. Gratis = 0. */
+function rentPrice(e: Engine, c: Customer, plan: HubPlan = chosenPlan(c)): Cents | null {
   const r = rentCfg(e);
-  const bs = plan === "basic" ? (r.basicPrice ?? r.price) : r.price;
-  const usd = plan === "basic" ? (r.basicPriceUsd ?? r.priceUsd) : r.priceUsd;
+  if (plan === "free") return 0;
+  const bs = plan === "seller" ? (sellerPriceOf(r) ?? r.price) : r.price;
+  const usd = plan === "seller" ? (sellerUsdOf(r) ?? r.priceUsd) : r.priceUsd;
   if (!isUsd(e, c)) return bs;
   if (usd !== undefined) return usd;
   const rt = rateNow(e);
@@ -63,8 +92,9 @@ export function rentInfo(e: Engine, c: Customer) {
   const cv = (bs: Cents, dir: "up" | "down") => (rt ? bsToUsd(bs, rt, dir) : bs);
   const b = billRead(c);
   return { enabled: true as const, price: rentPrice(e, c) ?? cv(r.price, "up"), freeIfSpent: cv(r.freeIfSpent, "up"), graceDays: r.graceDays, paidUntil: b.paidUntil, suspended: !!b.suspended, spent30: cv(spent30(e, c.id), "down"),
-    // Premium 2.0: plan, precios de los dos planes (si hay Básico), prueba gratis y por qué está pausado.
-    plan: planOf(e, c), plans: r.basicPrice !== undefined ? { basic: rentPrice(e, c, "basic") ?? cv(r.basicPrice, "up"), full: rentPrice(e, c, "full") ?? cv(r.price, "up") } : null,
+    // Tres niveles: el plan que rige hoy, el elegido, el precio de cada uno y sus nombres.
+    plan: planOf(e, c), chosen: chosenPlan(c), planNames: PLAN_NAMES,
+    plans: { free: 0, seller: rentPrice(e, c, "seller") ?? cv(sellerPriceOf(r) ?? r.price, "up"), business: rentPrice(e, c, "business") ?? cv(r.price, "up") },
     trial: !!b.trial, trialDays: r.trialDays ?? 0, lockReason: hubLockReason(e, c.id), ...(isUsd(e, c) ? { currency: "USD" as const } : {}), hub: allPay(e), locked: hubLocked(e, c.id) };
 }
 
@@ -109,6 +139,8 @@ export function chargeShopRents(e: Engine, actor: Actor) {
     for (const c of due) {
       const s = billWrite(c);
       if (!r.enabled) { delete s.suspended; continue; }
+      // Gratis: no se cobra ni se pausa; se le da otro mes para que la tarea no lo vuelva a mirar hasta entonces.
+      if (all && chosenPlan(c) === "free" && (s.paidUntil !== undefined || !(r.trialDays ?? 0))) { delete s.suspended; delete s.trial; s.paidUntil = now + 30 * DAY; continue; }
       if (s.paidUntil === undefined) {
         out.started++;
         // Premium 2.0: con días de prueba, el primer período es gratis (no se descuenta nada); el cobro arranca al terminar.
@@ -142,6 +174,7 @@ export function payMyShopRent(e: Engine, actor: Actor) {
   const c = me(e, actor);
   if (!rentCfg(e).enabled) throw new DomainError("VALIDATION", "Tu página no tiene alquiler");
   if (!c.shop && !allPay(e)) throw new DomainError("VALIDATION", "Primero armá tu página");
+  if (allPay(e) && chosenPlan(c) === "free") throw new DomainError("VALIDATION", "Estás en el plan Gratis: no hay nada que pagar. Elegí Vendedor o Negocio si querés esas herramientas");
   const b = billRead(c), until = b.paidUntil;
   if (until !== undefined && !b.suspended && until - e.now() > 5 * DAY) {
     throw new DomainError("VALIDATION", `${allPay(e) ? "Tu suscripción" : "Tu página"} ya está pagada hasta el ${new Date(until).toLocaleDateString("es-BO", { timeZone: "America/La_Paz" })}`);
@@ -248,16 +281,24 @@ export function pageAllowed(e: Engine, c: Customer): boolean {
 
 /** El dueño prende o apaga el plan "página propia" de un revendedor. Al apagarlo, su página deja de verse. */
 /** Cambia el plan de GaboHub: el dueño/admin para cualquier revendedor; el revendedor, el suyo. Sin prorrateo: rige desde el próximo cobro. */
-export function setHubPlan(e: Engine, actor: Actor, customerId: Id, plan: unknown) {
-  if (plan !== "basic" && plan !== "full") throw new DomainError("VALIDATION", "Plan inválido: basic o full");
+export function setHubPlan(e: Engine, actor: Actor, customerId: Id, planRaw: unknown) {
+  const plan: HubPlan | null = planRaw === "free" ? "free" : planRaw === "seller" || planRaw === "basic" ? "seller" : planRaw === "business" || planRaw === "full" ? "business" : null;
+  if (!plan) throw new DomainError("VALIDATION", "Plan inválido: free, seller o business");
   if (actor.role === "reseller") { if (actor.customerId !== customerId) throw new DomainError("FORBIDDEN", "Solo podés cambiar tu plan"); }
   else authorize(actor, "reseller.manage");
   return e.tx(() => {
     const c = e.get("customers", customerId);
     if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Primero pasalo a revendedor");
-    if (plan === "basic" && rentCfg(e).basicPrice === undefined) throw new DomainError("VALIDATION", "Todavía no hay plan Básico: el dueño tiene que ponerle precio en Revendedores → Ajustes");
-    const before = planOf(e, c);
+    if (plan === "seller" && sellerPriceOf(rentCfg(e)) === undefined) throw new DomainError("VALIDATION", "Todavía no hay plan Vendedor: el dueño tiene que ponerle precio en Revendedores → Ajustes");
+    const before = chosenPlan(c);
     c.hubPlan = plan;
+    // Si pasa a Gratis, no debe nada: se quita la pausa por falta de pago.
+    if (plan === "free") { const b = billWrite(c); delete b.suspended; }
+    // Si sale de Gratis (y no está en prueba), el mes se cobra ya: si no tiene saldo, vence hoy y corren los días de gracia.
+    else if (before === "free" && rentCfg(e).enabled && allPay(e)) {
+      const b = billWrite(c);
+      if (!(b.trial && (b.paidUntil ?? 0) > e.now())) { b.paidUntil = Math.min(b.paidUntil ?? e.now(), e.now()); if (renewRent(e, actor, c) === "no_balance") b.paidUntil = e.now(); }
+    }
     e.audit(actor, "reseller.hub_plan", "customer", c.id, { from: before, to: plan });
     return rentInfo(e, c);
   });
@@ -344,7 +385,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
       // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
       locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil, trial: !!billRead(c).trial },
-      plan: planOf(e, c),
+      plan: chosenPlan(c), planToday: planOf(e, c),
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -490,7 +531,8 @@ export function setShopBlocked(e: Engine, actor: Actor, customerId: Id, blocked:
 
 export function findBySlug(e: Engine, slug: string): Customer | undefined {
   const c = Object.values(e.s.customers).find((x) => x.shop?.slug === String(slug).toLowerCase());
-  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || !pageAllowed(e, c) || e.s.settings.resellerShops === false) return undefined;
+  // Con el cobro prendido, la página es del plan Vendedor en adelante: en Gratis (elegido o por falta de pago) no se ve.
+  if (!c || c.kind !== "reseller" || !c.shop?.enabled || c.shop.blocked || c.shop.suspended || !pageAllowed(e, c) || e.s.settings.resellerShops === false || planGate(e, c.id, "pagina")) return undefined;
   return c;
 }
 

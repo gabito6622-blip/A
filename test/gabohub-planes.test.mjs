@@ -1,7 +1,8 @@
 // Premium 2.0 · etapa 6 "GaboHub alquilable" (12/11/2026). Sobre la suscripción que ya existe (apagada en la tienda real):
 //  1. Prueba gratis de N días: al prender el cobro, el primer período no se descuenta; el cobro arranca al terminar.
-//  2. Dos planes: Completo (todo) y Básico (sin Mi control, Quién me debe, Mis ganancias ni Afiches), cada uno con su precio
-//     (en Bs y, si el dueño quiere, en US$ fijos). El revendedor cambia su plan desde su Inicio; el dueño, desde Revendedores.
+//  2. Planes con precio propio (en Bs y, si el dueño quiere, en US$ fijos). El revendedor cambia su plan desde su Inicio; el
+//     dueño, desde Revendedores. 13/11: son tres niveles (Gratis / Vendedor / Negocio); los nombres viejos "basic"/"full"
+//     siguen valiendo como Vendedor/Negocio. La prueba fina de los tres está en gabohub-tres-niveles.test.mjs.
 //  3. Nada se cobra solo mientras el cobro esté apagado; nada real sale de acá. Datos ficticios.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -41,7 +42,7 @@ test("prueba gratis de 15 días: no se descuenta nada; al terminar se cobra; sin
     assert.deepEqual(s.shops.chargeRents(system), { charged: 0, free: 0, suspended: 0, started: 2, trials: 2 }, "los 2 revendedores arrancan en prueba");
     assert.equal(s.wallet.balance(bo.c.id), bal0, "la prueba no descuenta saldo");
     let info = s.shops.mine(bo.A).rent;
-    assert.deepEqual([info.trial, info.paidUntil, info.trialDays, info.plan, info.lockReason], [true, clock.t + 15 * DAY, 15, "full", null]);
+    assert.deepEqual([info.trial, info.paidUntil, info.trialDays, info.plan, info.lockReason], [true, clock.t + 15 * DAY, 15, "business", null]);
     assert.equal(s.shops.hubLocked(bo.c.id), false, "en prueba tiene todo");
     assert.equal(s.engine.s.audit.filter((a) => a.action === "reseller.hub_trial").length, 2);
     // Día 10: nada cambia. Día 16: se cobra el mes y sale de la prueba.
@@ -72,7 +73,7 @@ test("dos planes: Básico más barato sin herramientas premium (402 HUB_PLAN); c
     assert.throws(() => s.shops.setPlan(pa.A, bo.c.id, "basic"), err("FORBIDDEN"));
     assert.throws(() => s.shops.setPlan(bo.A, bo.c.id, "oro"), err("VALIDATION"));
     let info = s.shops.setPlan(bo.A, bo.c.id, "basic");
-    assert.deepEqual([info.plan, info.price, info.plans], ["basic", 2500, { basic: 2500, full: 4900 }]);
+    assert.deepEqual([info.plan, info.chosen, info.price, info.plans], ["seller", "seller", 2500, { free: 0, seller: 2500, business: 4900 }]);
     s.shops.chargeRents(system);
     assert.equal(s.wallet.balance(bo.c.id), 20000 - 2500, "se cobra el Básico");
     assert.equal(s.shops.hubLockReason(bo.c.id), "plan");
@@ -83,14 +84,14 @@ test("dos planes: Básico más barato sin herramientas premium (402 HUB_PLAN); c
     assert.equal(s.wallet.balance(pa.c.id), 5000 - 500, "en la corrida anterior Paula era Completo: pagó US$ 5");
     // Beto vuelve al Completo: se destraba ya; el precio nuevo rige en el próximo cobro.
     info = s.shops.setPlan(bo.A, bo.c.id, "full");
-    assert.deepEqual([info.plan, info.lockReason], ["full", null]);
+    assert.deepEqual([info.plan, info.lockReason], ["business", null]);
     assert.equal(s.wallet.balance(bo.c.id), 20000 - 2500, "sin cobro extra al cambiar");
     clock.t += 31 * DAY;
     s.shops.chargeRents(system);
     assert.equal(s.wallet.balance(bo.c.id), 20000 - 2500 - 4900, "el mes siguiente ya es Completo");
     assert.equal(s.wallet.balance(pa.c.id), 5000 - 500 - 300, "y Paula, ya en Básico, paga US$ 3");
     const ov = s.shops.resellers(owner).find((r) => r.id === bo.c.id);
-    assert.equal(ov.plan, "full");
+    assert.deepEqual([ov.plan, ov.planToday], ["business", "business"]);
     assert.equal(s.engine.s.audit.filter((a) => a.action === "reseller.hub_plan").length, 3, "solo los cambios que entraron se auditan");
   } finally { await t.close(); }
 });
@@ -99,7 +100,8 @@ test("por la API: el revendedor cambia su plan; con Básico el Control responde 
   const t = await setup();
   const { s, owner, system, bo, app } = t;
   try {
-    s.catalog.updateSettings(owner, { shopRent: cfg({ basicPrice: 2500, trialDays: 15 }) });
+    // Sin prueba gratis (en prueba rige Negocio para todos, pase lo que pase con el plan elegido).
+    s.catalog.updateSettings(owner, { shopRent: cfg({ basicPrice: 2500, trialDays: 0 }) });
     s.wallet.adjust(owner, bo.c.id, 20000, "saldo");
     s.shops.chargeRents(system);
     const base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
@@ -109,16 +111,16 @@ test("por la API: el revendedor cambia su plan; con Básico el Control responde 
     const ck = (await post("/api/auth/customer/link", { token: link.url.split("#acceso=")[1] })).headers.get("set-cookie").split(";")[0];
     const get = async (p, c) => { const r = await fetch(base + p, { headers: { cookie: c } }); return { status: r.status, json: await r.json().catch(() => null) }; };
     let shop = (await get("/api/me/shop", ck)).json;
-    assert.deepEqual([shop.rent.plan, shop.rent.trial, shop.rent.plans.basic, shop.rent.plans.full], ["full", true, 2500, 4900]);
-    assert.equal((await get("/api/me/control", ck)).status, 200, "en prueba y Completo: el Control responde");
+    assert.deepEqual([shop.rent.plan, shop.rent.trial, shop.rent.plans.seller, shop.rent.plans.business], ["business", false, 2500, 4900]);
+    assert.equal((await get("/api/me/control", ck)).status, 200, "pagó Negocio: el Control responde");
     const r1 = await post("/api/me/hub/plan", { plan: "basic" }, ck);
     assert.equal(r1.status, 200);
     const ctl = await get("/api/me/control", ck);
-    assert.equal(ctl.status, 402); assert.equal(ctl.json.error, "HUB_PLAN"); assert.match(ctl.json.message, /plan Completo/);
+    assert.equal(ctl.status, 402); assert.equal(ctl.json.error, "HUB_PLAN"); assert.match(ctl.json.message, /plan Negocio/);
     assert.equal((await get("/api/me/orders", ck)).status, 200, "lo básico (sus pedidos) sigue");
     const r2r = await post(`/api/admin/resellers/${bo.c.id}/plan`, { plan: "full" }, ownerCk);
     const r2 = { status: r2r.status, json: await r2r.json() };
-    assert.equal(r2.status, 200, JSON.stringify(r2.json)); assert.equal(r2.json.plan, "full", JSON.stringify(r2.json));
+    assert.equal(r2.status, 200, JSON.stringify(r2.json)); assert.equal(r2.json.plan, "business", JSON.stringify(r2.json));
     assert.equal((await get("/api/me/control", ck)).status, 200);
     assert.equal((await post(`/api/admin/resellers/${bo.c.id}/plan`, { plan: "basic" }, ck)).status, 403, "un revendedor no usa la ruta del dueño");
     shop = (await get("/api/me/shop", ck)).json;
