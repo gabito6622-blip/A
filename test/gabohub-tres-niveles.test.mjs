@@ -79,7 +79,7 @@ test("cobro prendido: Gratis no paga y solo tiene lo básico; Vendedor se cobra 
     assert.equal(s.shops.mine(ana.A).rent.suspended, false, "Gratis: nunca se pausa");
     assert.deepEqual([s.shops.planGate(ana.c.id, "catalogo"), s.shops.planGate(ana.c.id, "pagina"), s.shops.planGate(ana.c.id, "dia")], [null, "seller", "business"]);
     for (const p of ["/api/me/services", "/api/me/orders", "/api/me/prices", "/api/me/descargas/catalogo", "/api/me/descargas/whatsapp", "/api/me/shop"]) assert.equal((await get(p, ckA)).status, 200, `${p} es de Gratis`);
-    for (const [p, plan] of [["/api/me/dia", "Negocio"], ["/api/me/control", "Negocio"], ["/api/me/fiado", "Negocio"], ["/api/me/earnings", "Negocio"], ["/api/me/descargas/reporte.xlsx", "Negocio"]]) {
+    for (const [p, plan] of [["/api/me/dia", "Negocio"], ["/api/me/vuelvan", "Negocio"], ["/api/me/control", "Negocio"], ["/api/me/fiado", "Negocio"], ["/api/me/earnings", "Negocio"], ["/api/me/descargas/reporte.xlsx", "Negocio"]]) {
       const r = await get(p, ckA); assert.equal(r.status, 402, p); assert.equal(r.json.error, "HUB_PLAN"); assert.match(r.json.message, new RegExp(`plan ${plan}`));
     }
     let r = await put("/api/me/shop", { title: "Ana TV" }, ckA);

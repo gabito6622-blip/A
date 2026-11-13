@@ -311,6 +311,8 @@ export interface Customer {
   /** Plan de GaboHub (Premium 2.0): "full" (todo) o "basic" (sin las herramientas premium). Sin definir = full. */
   /** Plan de GaboHub elegido: "free" (Gratis), "seller" (Vendedor) o "business" (Negocio). "basic"/"full" son los nombres viejos (= seller / business). */
   hubPlan?: "free" | "seller" | "business" | "basic" | "full";
+  /** «Que vuelvan» del revendedor: renglones que marcó «Ya le escribí» → hasta cuándo no vuelven a aparecer. */
+  backQuiet?: Record<string, number>;
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }

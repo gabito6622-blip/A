@@ -55,6 +55,12 @@ test("resumen del mediodía: a las 12:00, una vez por día, con los pendientes; 
     let latest = await call("GET", "/api/admin/push/latest");
     assert.deepEqual([latest.title, latest.go], ["🗂️ Mediodía: 1 en cobro · 2 por avisar", "secretaria"]);
     assert.equal(latest.body, "Cobrar o cortar: Ari\nAvisar: oby", "usa el apodo, como los conoce el dueño");
+    // Un celular de Atención (seller) no recibe el resumen: Mi secretaria es del dueño y de admins.
+    const mkStaff = await call("POST", "/api/admin/staff", { username: "seba", name: "Seba Ventas", role: "seller", password: "clave-larga-seller-1" });
+    assert.ok(mkStaff.id || mkStaff.staff?.id || mkStaff.ok !== false);
+    const sck = (await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "seba", password: "clave-larga-seller-1" }) })).headers.get("set-cookie").split(";")[0];
+    const subSeller = await fetch(base + "/api/admin/push/subscribe", { method: "POST", headers: { "content-type": "application/json", cookie: sck }, body: JSON.stringify({ subscription: { endpoint: FCM + "-seller", keys: { p256dh: "a", auth: "b" } }, label: "Atención" }) });
+    assert.equal(subSeller.status, 200);
     // El mismo día no repite.
     clock.t += 2 * HOUR; await app.checkNoonPush();
     assert.equal(sent.length, 1);
@@ -64,6 +70,7 @@ test("resumen del mediodía: a las 12:00, una vez por día, con los pendientes; 
     s.orders.markNoticed(owner, Object.values(s.engine.s.assignments).filter((a) => a.id !== cobro && a.id !== a1).map((a) => a.id));
     await app.checkNoonPush();
     assert.equal(sent.length, 2);
+    assert.ok(!sent.some((x) => x.url.endsWith("-seller")), "el celular de Atención no recibió el resumen");
     latest = await call("GET", "/api/admin/push/latest");
     assert.equal(latest.title, "🗂️ Mediodía: 1 en cobro · 1 vencida sin anotar");
     // Apagado: no avisa más. De noche tampoco.

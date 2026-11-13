@@ -566,6 +566,9 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/dia", "customer", (c) => { needPlan("dia")(c); return store.rtools.day(c.actor!); });
   route("GET", "/api/me/dia/preview/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
   route("POST", "/api/me/dia/pay/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
+  // «Que vuelvan» del revendedor: va con Mi día (plan Negocio). Solo lo suyo.
+  route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
+  route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
@@ -2562,7 +2565,8 @@ export function createApp(cfg: AppConfig): App {
   async function checkNoonPush(): Promise<void> {
     const h = localHour(now(), "America/La_Paz");
     if (!pushOn() || h < 12 || h >= 20 || pushCfg().noon === false) return;
-    const subs = pushSubs();
+    // Solo a los celulares del dueño y de admins: Mi secretaria no es de Atención (seller), y el aviso nombra a quién cobrar.
+    const subs = pushSubs().filter((x) => ["owner", "admin"].includes(store.engine.s.staff[x.staffId]?.role ?? ""));
     if (!subs.length) return;
     const day = laDay(now());
     if (db.getSecret("npush_day") === day) return;
