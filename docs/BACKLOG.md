@@ -135,6 +135,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | O2 | Prender los links de renovación (Configuración → Soporte) y elegir si solo renuevan o también entran a Mis cuentas | P2 | ✅ prendidos el 13/11 por pedido del dueño: «solo renovar», 48 h (respaldo del ajuste anterior guardado fuera del repo) |
 | O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
 | O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
-| O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados; precio real del plan Básico de GaboHub | P2 | 🧑 datos del dueño |
+| O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados | P2 | 🧑 datos del dueño |
+| O6 | Precio del plan Básico de GaboHub | P2 | ✅ 13/11: el dueño fijó Bs 28; cargado en la tienda real con respaldo del ajuste anterior; el cobro sigue apagado; falta el precio del Básico en US$ (hoy los de afuera pagarían el Completo US$ 5) |
 | R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#53) |
 | R2 | Que la tarjeta «Tu día» del Inicio de GaboHub cuente igual que Mi día (hoy cuenta «por avisar» con ventana de 7 días; Mi día usa 3 días + vencidos) | P3 | ⏳ |
