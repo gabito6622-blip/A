@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Link de cobro para todos los clientes del revendedor + recordatorio «Tu día» de Tito (rama `revendedor-mi-dia`, sin publicar)
+## 2026-11-13 · Link de cobro para todos los clientes del revendedor + recordatorio «Tu día» de Tito (**publicado el 13/11, PR #54**, squash)
 - **Link de cobro para clientes registrados:** hasta hoy solo los perfiles repartidos tenían `/c/<token>`. Ahora cada fila de Mi control tiene «🔗 Link de cobro» (crear, copiar, mandar por WhatsApp, ver, cambiar). Es la misma página pública y la misma lista cerrada de campos: nombre de pila, app, vence, monto en su moneda, QR del revendedor y «Ya pagué» a su WhatsApp. Nada de la cuenta, ni costos, ni teléfono, ni ids. Lo crea solo el revendedor del cliente; muere si se revoca o si la tienda pasa el cliente a otro revendedor; sobrevive al reinicio. Guardado en `assignment.rlink` (campo opcional nuevo).
 - **Los mensajes llevan el link:** «Mensaje listo» de Mi día, «Recordar renovación» y «Avisar a los que vencen» de Mi control incluyen «Mirá cuánto es y cómo pagar acá 👉 …» cuando el cliente tiene link.
 - **Recordatorio matutino de Tito al revendedor:** a partir de las 9, un solo aviso «☀️ Tu día: 2 para cobrar · 1 por avisar» con los nombres y el aviso de saldo si no le alcanza para renovar; el toque abre `/hub#dia` (la pestaña Mi día). Reemplaza al «vence mañana» de siempre solo cuando hay algo en Mi día; con GaboHub pausado o plan Básico sigue el aviso anterior. Nada se manda sin que el revendedor haya activado los avisos.

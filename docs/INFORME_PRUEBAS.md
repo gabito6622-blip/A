@@ -1,6 +1,15 @@
 # Informe de pruebas
 
-## 13/11/2026 · Link de cobro de clientes registrados + recordatorio «Tu día» (rama `revendedor-mi-dia`, sin publicar)
+## 13/11/2026 · Publicación link de cobro + recordatorio «Tu día» (PR #54, squash `1694a77`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, cierre nov Bs 4.490,60 (incluye el cobro de ANDROID anotado hoy) | API con la llave del asistente | guardada |
+| Rama de Railway vs lo fusionado en #53: idéntico; unión «ours» con árbol igual al probado; CI verde | `git diff --stat` vacío | OK |
+| Publicación automática de Railway | PR #54 | nuevo código en vivo a los ~10 s (`sublinks.js` servido trae el link de clientes) |
+| Después: salud 200, `/hub` 200, `POST /api/me/control/x/link` sin sesión 401, token falso de `/api/cobro` 404, 78 alquileres y 34 clientes idénticos byte a byte, cierre igual (Bs 4.490,60) | `curl` + comparación JSON | OK |
+| Nada escrito en producción | — | ✅ |
+
+## 13/11/2026 · Link de cobro de clientes registrados + recordatorio «Tu día» (publicado en #54)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Crear link: token de 32+, pedirlo de nuevo da el mismo; vista pública = `{name:"Marisel", label:"", product:"Netflix perfil", expiresAt, price:4000, pay, seller:"Ana TV", sellerWhatsapp, hasQr:false, currency:"Bs", hasLogo:false, codes:"off"}`; sin correo, clave, teléfono, ids ni costo (2500) | `test/link-cobro-clientes.test.mjs` | OK |
