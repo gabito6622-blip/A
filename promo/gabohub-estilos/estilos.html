@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Desfile de estilos · GaboHub</title>
+<!--
+  Comercial vertical (1080x1920) de GaboHub para revendedores, con voz (Marco) y subtítulos: los 17 estilos de tienda en
+  desfile y después el panel, con pedazos de pantalla que salen del celular en 3D. Catálogo y logos reales de la tienda;
+  revendedora y números de ejemplo. window.seek(t) dibuja el cuadro t; render.cjs lo captura; ?play lo reproduce.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #08080d; }
+  body { font-family: "Inter Display", "Inter", "Noto Color Emoji", sans-serif; color: #f6f4ef; -webkit-font-smoothing: antialiased; }
+  :root { --ink: #08080d; --pink: #3984ff; --cyan: #8fd3ff; --blue: #3984ff; --cream: #f6f4ef; --mute: rgba(246,244,239,.62); --a1: #3984ff; --a2: #8fd3ff; }
+  .abs { position: absolute; }
+  .emoji { font-family: "Noto Color Emoji", sans-serif; font-weight: 400; font-style: normal; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--ink); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(10px); }
+  #bA { width: 1300px; height: 1300px; background: radial-gradient(circle, var(--a1), transparent 62%); opacity: .38; }
+  #bB { width: 1300px; height: 1300px; background: radial-gradient(circle, var(--a2), transparent 62%); opacity: .32; }
+  /* piso de neón con perspectiva */
+  #floor { position: absolute; left: -600px; right: -600px; top: 1250px; height: 1100px; transform-origin: 50% 0; transform: perspective(700px) rotateX(62deg);
+    background-image: linear-gradient(rgba(143,211,255,.30) 2px, transparent 2px), linear-gradient(90deg, rgba(57,132,255,.30) 2px, transparent 2px);
+    background-size: 110px 110px; -webkit-mask-image: linear-gradient(rgba(0,0,0,.95), rgba(0,0,0,0) 80%); mask-image: linear-gradient(rgba(0,0,0,.95), rgba(0,0,0,0) 80%); }
+  #grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; pointer-events: none; z-index: 90; }
+  #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 48%, rgba(0,0,0,.6) 100%); pointer-events: none; z-index: 89; }
+  #flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #fff, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 75%); opacity: 0; z-index: 70; pointer-events: none; }
+  #brand { position: absolute; left: 70px; top: 120px; display: flex; align-items: center; gap: 16px; z-index: 60; font-size: 36px; font-weight: 900; letter-spacing: -.02em; }
+  .gmark { display: grid; place-items: center; color: #fff; font-weight: 900; background: linear-gradient(140deg, #5b9bff, #2563eb 55%, #4f46e5); box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
+
+  .scene { position: absolute; inset: 0; display: none; perspective: 2200px; }
+  .kicker { position: absolute; left: 70px; top: 200px; font-size: 30px; font-weight: 800; letter-spacing: .28em; text-transform: uppercase;
+    background: linear-gradient(90deg, var(--pink), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .title { position: absolute; left: 70px; right: 60px; top: 250px; font-size: 100px; font-weight: 900; line-height: .98; letter-spacing: -.04em; }
+  .title em { font-style: normal; background: linear-gradient(90deg, var(--pink), #ff7ab8 40%, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+  .w > span { display: inline-block; }
+
+  .phone { position: absolute; left: 230px; top: 600px; width: 620px; height: 1300px; border-radius: 86px; padding: 18px; transform-style: preserve-3d;
+    background: linear-gradient(145deg, #3c3d52, #15151f 30%, #0b0b12 60%, #2e2f42);
+    box-shadow: 0 60px 120px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08), 0 0 160px rgba(255,46,136,.18); }
+  .screen { position: relative; width: 584px; height: 1264px; border-radius: 70px; overflow: hidden; background: #0b0b16; }
+  .screen img.shot { position: absolute; left: 0; top: 0; width: 584px; display: block; }
+  .dim { position: absolute; background: rgba(5,5,12,.7); border-radius: 18px; opacity: 0; }
+  .glare { position: absolute; inset: 0; border-radius: 70px; background: linear-gradient(115deg, rgba(255,255,255,.08), rgba(255,255,255,0) 30%); pointer-events: none; }
+  .card { position: absolute; border-radius: 22px; background-repeat: no-repeat; opacity: 0; transform-origin: 50% 50%;
+    box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.12), 0 0 60px rgba(255,46,136,.25); }
+  .ring { position: absolute; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; border: 6px solid var(--cyan); opacity: 0; }
+  .finger { position: absolute; font-size: 130px; opacity: 0; filter: drop-shadow(0 12px 18px rgba(0,0,0,.5)); }
+  .wa { position: absolute; left: 90px; right: 90px; top: 1180px; padding: 30px 34px 22px; border-radius: 34px 34px 34px 10px; background: #0f5c4b; color: #eafff6;
+    font-size: 40px; font-weight: 600; line-height: 1.3; box-shadow: 0 30px 70px rgba(0,0,0,.55); opacity: 0; transform-style: preserve-3d; }
+  .wa small { display: block; text-align: right; font-size: 26px; color: rgba(234,255,246,.7); margin-top: 8px; }
+  .wa .to { font-size: 28px; font-weight: 800; color: #7af0c4; margin-bottom: 8px; display: block; }
+
+  /* el caos del principio */
+  .note { position: absolute; left: 120px; top: 560px; width: 620px; height: 780px; border-radius: 18px; background: #f3ead2; color: #283044; transform: rotate(-7deg);
+    box-shadow: 0 40px 80px rgba(0,0,0,.55); font-family: "Comic Neue", "Chalkboard SE", "Segoe Print", cursive; padding: 70px 60px 0 90px;
+    background-image: repeating-linear-gradient(transparent 0 66px, rgba(57,132,255,.35) 66px 68px); }
+  .note::before { content: ""; position: absolute; left: 60px; top: 0; bottom: 0; width: 3px; background: rgba(255,46,136,.5); }
+  .note p { font-size: 40px; line-height: 68px; font-weight: 700; white-space: nowrap; }
+  .note s { text-decoration-thickness: 5px; text-decoration-color: rgba(200,30,60,.75); }
+  .chat { position: absolute; padding: 22px 30px; border-radius: 30px 30px 30px 8px; background: #23243a; color: var(--cream); font-size: 36px; font-weight: 600; white-space: nowrap;
+    box-shadow: 0 16px 40px rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.08); }
+  .chat i { position: absolute; right: -12px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: var(--pink); color: #fff; font-style: normal; font-size: 22px; font-weight: 900; display: grid; place-items: center; }
+
+  .big { position: absolute; left: 0; right: 0; text-align: center; font-size: 168px; font-weight: 900; letter-spacing: -.05em; line-height: 1; }
+  .big.on { background: linear-gradient(90deg, var(--pink), #ff7ab8 40%, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .big.off { color: transparent; -webkit-text-stroke: 3px rgba(246,244,239,.35); }
+  .pill { display: inline-block; padding: 24px 40px; border-radius: 999px; font-size: 42px; font-weight: 800; }
+
+  #cap { position: absolute; left: 60px; right: 60px; top: 1640px; text-align: center; z-index: 65; }
+  #cap span.box { display: inline-block; padding: 18px 30px 20px; border-radius: 22px; background: rgba(8,8,18,.84); box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    font-size: 50px; font-weight: 800; line-height: 1.15; color: rgba(246,244,239,.55); }
+  #cap b { font-weight: 800; color: #f6f4ef; }
+  #cap b.now { color: var(--cyan); }
+  /* desfile */
+  .look { position: absolute; left: 0; right: 0; text-align: center; }
+  .look .n { font-size: 30px; font-weight: 800; letter-spacing: .4em; color: var(--mute); }
+  .look .t { font-size: 120px; font-weight: 900; letter-spacing: -.045em; line-height: 1; margin-top: 10px;
+    background: linear-gradient(90deg, var(--a1), var(--a2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .runway { position: absolute; left: 245px; top: 560px; width: 590px; height: 1150px; border-radius: 80px; padding: 16px;
+    background: linear-gradient(145deg, #3c3d52, #15151f 30%, #0b0b12 60%, #2e2f42); box-shadow: 0 60px 120px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08), 0 0 180px var(--a1); }
+  .runway .scr { position: relative; width: 558px; height: 1118px; border-radius: 66px; overflow: hidden; background: #000; }
+  .runway img { position: absolute; left: 0; top: 0; width: 558px; }
+  .mosaic { position: absolute; left: 40px; right: 40px; top: 470px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .mosaic .m { position: relative; aspect-ratio: 390 / 700; border-radius: 22px; overflow: hidden; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+  .mosaic .m img { width: 100%; display: block; }
+  .mosaic .m b { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 6px; font-size: 18px; font-weight: 800; text-align: center; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.85)); }
+  .from { position: absolute; border-radius: 22px; background-repeat: no-repeat; opacity: 0; box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.12), 0 0 60px rgba(57,132,255,.3); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="blob" id="bA"></div><div class="blob" id="bB"></div><div id="floor"></div>
+  <div id="scenes"></div>
+  <div id="brand"><span class="gmark" style="width:56px;height:56px;border-radius:17px;font-size:32px">G</span>GaboHub</div>
+  <div id="flash"></div>
+  <div id="cap"></div>
+  <canvas id="grain" width="1080" height="1920"></canvas>
+  <div id="vignette"></div>
+</div>
+<script src="assets/recortes.js"></script>
+<script src="assets/estilos/estilos.js"></script>
+<script src="captions.js"></script>
+<script>
+// ------------------------------------------------------------------ tiempo (120 BPM: 1 compás = 2 s)
+const BEAT = .5, SB = 4.0, DURATION = 48.6;
+window.DURATION = DURATION;
+const K = 584 / 390;
+const C = window.CUTS;
+// en «Todos tus clientes» sale solo la columna derecha (Clientes y Vencen), sin el saldo
+C.clientesVencen = { x: C.numeros.x + Math.round(C.numeros.w / 2) + 2, y: C.numeros.y, w: Math.round(C.numeros.w / 2) - 2, h: C.numeros.h };
+const _unused = 0, E = Object.fromEntries(window.ESTILOS.map((e) => [e.id, e]));
+const ORDER = ["violeta", "oceano", "atardecer", "rojo", "neon", "galaxia", "oro", "gamer", "fuego", "rosa", "menta"];   // un estilo por golpe desde 1,5 s
+const SHOT0 = 1.5, T_MOSAIC = 7.0, T_PANEL = 10.0;
+const HITS = [38.38, 39.34, 40.30];   // «Tu tienda. Tu estilo. Tus clientes.»
+const CUTS = [10, 14, 18, 22, 26, 30, 34, 38, 42];
+const desfileAt = (t) => (t >= SHOT0 && t < T_MOSAIC ? E[ORDER[Math.min(ORDER.length - 1, Math.floor((t - SHOT0) / BEAT))]] : null);
+
+// ------------------------------------------------------------------ utilidades
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, d) => clamp((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const oCubic = (p) => 1 - Math.pow(1 - p, 3), iCubic = (p) => p * p * p;
+const ioCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const oExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const oBack = (p, s = 1.7) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+const spring = (p) => (p >= 1 ? 1 : 1 - Math.exp(-6 * p) * Math.cos(11 * p));
+const el = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; };
+const set = (e, css) => Object.assign(e.style, css);
+const emo = (s) => s.replace(/(\p{Extended_Pictographic}️?)/gu, '<span class="emoji">$1</span>');
+const titleHTML = (text) => { let on = false; return text.split(" ").map((w) => { const o = w.startsWith("*"), c = w.replace(/[,.!]$/, "").endsWith("*"); const em = on || o; on = (on || o) && !c; w = w.replace(/\*/g, ""); return `<span class="w"><span>${em ? `<em>${w}</em>` : w}</span></span>`; }).join(" "); };
+const words = (root, lt, t0, step = .06) => [...root.querySelectorAll(".w > span")].forEach((w, j) => { const p = oExpo(P(lt, t0 + j * step, .45)); set(w, { transform: `translateY(${(1 - p) * 110}%)` }); });
+
+
+
+const scenes = $("#scenes");
+const registry = [];
+function scene(start, len, node, update) { scenes.appendChild(node); registry.push({ start, end: start + len, el: node, update }); }
+
+// ------------------------------------------------------------------ 1. «¿Tenés una tienda de streaming?» + el desfile
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="q" style="left:70px;right:70px;top:240px;text-align:center;font-size:92px;font-weight:900;letter-spacing:-.04em;line-height:1">${titleHTML("¿Tenés una tienda de *streaming?*")}</div>
+    <div class="look" id="lk" style="top:250px"><div class="n" id="lkn"></div><div class="t" id="lkt"></div></div>
+    <div class="runway" id="rw"><div class="scr">${ORDER.map((id) => `<img data-id="${id}" src="assets/estilos/${id}-catalogo.jpg" style="opacity:0">`).join("")}</div></div>
+  </section>`);
+  const imgs = [...s.querySelectorAll(".runway img")];
+  scene(0, T_MOSAIC, s, (lt, t) => {
+    words($("#q", s), lt, .05, .07);
+    set($("#q", s), { opacity: 1 - P(t, SHOT0 - .1, .2) });
+    const e = oExpo(P(t, .2, 1.0));
+    const k = Math.floor((t - SHOT0) / BEAT), f = t >= SHOT0 ? (t - SHOT0) % BEAT : 0;
+    set($("#rw", s), { transform: `translateY(${(1 - e) * 900}px) scale(${1 + (t >= SHOT0 ? .03 * Math.exp(-f * 10) : 0)})` });
+    imgs.forEach((im, j) => {
+      const on = (t >= SHOT0 && j === k) || (t < SHOT0 && j === 0), prev = j === k - 1 && f < .12;
+      set(im, { opacity: on ? 1 : prev ? 1 - f / .12 : 0, transform: on ? `translateX(${(1 - oExpo(clamp(f / .14))) * 120}px) scale(${1.06 - .06 * oExpo(clamp(f / .2))})` : "none" });
+    });
+    const cur = desfileAt(t);
+    if (cur) {
+      $("#lkn", s).textContent = `LOOK ${String(k + 1).padStart(2, "0")} / 17`;
+      $("#lkt", s).textContent = cur.name;
+      const p = oExpo(clamp(f / .18));
+      set($("#lk", s), { opacity: 1, transform: `translateY(${(1 - p) * 30}px)` });
+    } else set($("#lk", s), { opacity: 0 });
+    const out = iCubic(P(t, T_MOSAIC - .25, .25));
+    set($("#rw", s), { opacity: 1 - out });
+  });
+}
+
+// ------------------------------------------------------------------ 2. el mosaico: los 17 a la vez
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="mt" style="left:0;right:0;top:200px;text-align:center;font-size:150px;font-weight:900;letter-spacing:-.05em;line-height:1">17 <span style="background:linear-gradient(90deg,#ff2bd6,#ffc93c,#22ff88,#00e5ff);-webkit-background-clip:text;background-clip:text;color:transparent">estilos</span></div>
+    <div class="abs" id="ms" style="left:0;right:0;top:370px;text-align:center;font-size:40px;font-weight:800;letter-spacing:.3em;color:var(--mute)">LISTOS CON UN TOQUE</div>
+    <div class="mosaic">${window.ESTILOS.map((e) => `<div class="m"><img src="assets/estilos/${e.id}-catalogo.jpg"><b>${e.name}</b></div>`).join("")}</div>
+  </section>`);
+  const ms = [...s.querySelectorAll(".mosaic .m")];
+  scene(T_MOSAIC, T_PANEL - T_MOSAIC, s, (lt) => {
+    const a = oExpo(P(lt, 0, .5)); set($("#mt", s), { opacity: a, transform: `scale(${1.3 - .3 * a})` });
+    set($("#ms", s), { opacity: oExpo(P(lt, .3, .5)) });
+    ms.forEach((m, j) => { const p = oBack(P(lt, .05 + j * .06, .45), 1.8); set(m, { opacity: clamp(p * 2), transform: `translateY(${(1 - p) * 80}px) scale(${.6 + .4 * p}) rotate(${(1 - p) * (j % 2 ? 6 : -6)}deg)` }); });
+    const out = iCubic(P(lt, 2.75, .25)); set(s, { opacity: 1 - out, transform: `scale(${1 + out * .2})` });
+  });
+}
+
+// ------------------------------------------------------------------ 3. el panel, con los pedazos que salen del celular
+/** Un celular que muestra una captura y, por encima, pedazos de esa captura que salen hacia la cámara. */
+function phoneScene(i, start, o) {
+  const scroll = o.scroll * K;
+  const cards = o.cards.map((c) => {
+    const b = C[c.cut];
+    return { ...c, b, img: c.img || o.img, left: 18 + b.x * K, top: 18 + b.y * K - scroll, w: b.w * K, h: b.h * K };
+  });
+  const s = el(`<section class="scene">
+    <div class="kicker">${o.k}</div>
+    <div class="title">${titleHTML(o.t)}</div>
+    <div class="phone"><div class="screen"><img class="shot" src="assets/${o.img}.jpg">
+      ${cards.map((c) => `<i class="dim" style="left:${c.left - 18}px;top:${c.top - 18}px;width:${c.w}px;height:${c.h}px;${c.img !== o.img ? "display:none" : ""}"></i>`).join("")}
+      ${o.tap ? `<i class="ring"></i>` : ""}<i class="glare"></i></div>
+      ${cards.map((c) => `<div class="card" style="left:${c.left}px;top:${c.top}px;width:${c.w}px;height:${c.h}px;background-image:url(assets/${c.img}.jpg);background-size:584px auto;background-position:${-c.b.x * K}px ${-c.b.y * K}px"></div>`).join("")}
+      ${o.tap ? `<span class="finger emoji">👆</span>` : ""}
+    </div>
+    ${o.extra || ""}
+  </section>`);
+  const phone = $(".phone", s), shot = $(".shot", s), cardEls = [...s.querySelectorAll(".card")], dims = [...s.querySelectorAll(".dim")];
+  const side = i % 2 ? -1 : 1;
+  scene(start, SB, s, (lt) => {
+    words(s, lt, .1);
+    const k = oCubic(P(lt, 0, .35)); set($(".kicker", s), { opacity: k, transform: `translateX(${(1 - k) * -40}px)` });
+    // el celular entra girando y queda flotando
+    const e = oExpo(P(lt, 0, .8)), x = iCubic(P(lt, SB - .25, .25));
+    const ry = side * (-14 + (1 - e) * -40) + Math.sin(lt * .9) * 2, rx = 6 + Math.sin(lt * .7) * 1.5;
+    set(phone, { transform: `translateY(${(1 - e) * 500 + Math.sin(lt * 1.3) * 10}px) translateX(${side * (o.shift ?? 60)}px) rotateY(${ry}deg) rotateX(${rx}deg) translateZ(${-x * 900}px)`, opacity: 1 - x });
+    // la pantalla baja un poco mientras tanto
+    set(shot, { transform: `translateY(${-scroll * ioCubic(P(lt, .1, .8))}px)` });
+    // los pedazos salen hacia la cámara y quedan flotando al costado
+    cards.forEach((c, j) => {
+      const p = oBack(P(lt, c.at, .7), 1.4), f = P(lt, c.at, .12);
+      const z = p * (c.z ?? 260), dx = p * (c.dx ?? -side * 120), dy = p * (c.dy ?? -40);
+      set(cardEls[j], { opacity: f, transform: `translate3d(${dx}px, ${dy + Math.sin(lt * 1.6 + j) * 6 * p}px, ${z}px) rotateY(${-ry * .6 * p}deg) scale(${1 + p * (c.s ?? .12)})` });
+      set(dims[j], { opacity: f });
+    });
+    if (o.tap) {
+      const b = C[o.tap.cut], tx = b.x * K + b.w * K / 2, ty = b.y * K + b.h * K / 2 - scroll;
+      const fin = oExpo(P(lt, o.tap.at - .55, .5)), press = Math.sin(P(lt, o.tap.at - .1, .25) * Math.PI);
+      set($(".finger", s), { left: `${18 + tx - 58}px`, top: `${18 + ty - 28}px`, opacity: fin * (1 - P(lt, o.tap.at + .8, .3)), transform: `translate3d(${(1 - fin) * 160}px, ${(1 - fin) * 220}px, 80px) scale(${1 - press * .15})` });
+      const r = P(lt, o.tap.at, .55); set($(".ring", s), { left: `${tx}px`, top: `${ty}px`, opacity: r > 0 && r < 1 ? 1 - r : 0, transform: `scale(${.4 + r * 1.4})` });
+    }
+    if (o.update) o.update(lt, s, ry);
+  });
+}
+
+
+phoneScene(0, 10, { k: "Tu marca", t: "Tu logo. *Tu portada.*", img: "pagina", scroll: C.logo.y - 120, shift: 40,
+  cards: [{ cut: "logo", at: .9, dx: -150, dy: -60, z: 330, s: .12 }] });
+phoneScene(1, 14, { k: "Diseño", t: "Fondos, tarjetas, *letras.*", img: "pagina", scroll: C.tipo.y - 260,
+  cards: [{ cut: "tipo", at: .8, dx: 140, dy: -230, z: 380, s: .3 }, { cut: "fondos", at: 1.5, dx: 170, dy: -80, z: 420, s: .3 }, { cut: "tarjetas", at: 2.2, dx: 150, dy: 90, z: 460, s: .3 }] });
+phoneScene(2, 18, { k: "Publicada", t: "Con tu *propio link.*", img: "directorio", scroll: 0,
+  cards: [{ cut: "directorio", at: 1.4, dx: -60, dy: -260, z: 360, s: .15 }, { cut: "publicada", img: "pagina", at: .8, dx: 170, dy: -380, z: 420, s: .2 }] });
+phoneScene(3, 22, { k: "Tu panel", t: "Todos tus *clientes.*", img: "clientes", scroll: C.numeros.y - 150,
+  cards: [{ cut: "clientesVencen", at: .9, dx: -260, dy: -60, z: 380, s: .45 }] });
+phoneScene(4, 26, { k: "WhatsApp", t: "Avisá con *un toque.*", img: "clientes", scroll: C.avisar.y - 260, shift: 0,
+  cards: [], tap: { cut: "avisar", at: 1.15 },
+  extra: `<div class="wa" id="wa"><span class="to">Para: ${C.mensaje.split(",")[0].replace("Hola ", "")}</span>${emo(C.mensaje)}<small>10:41 ✓✓</small></div>`,
+  update: (lt, s) => { const w = spring(P(lt, 1.7, .8)); set($("#wa", s), { opacity: clamp(w * 3) * (1 - P(lt, SB - .25, .25)), transform: `translateY(${(1 - w) * 80}px) scale(${.9 + .1 * w})` }); } });
+phoneScene(5, 30, { k: "Combos", t: "Tus combos, *tus descuentos.*", img: "combos", scroll: C.descuentos.y - 120,
+  cards: [{ cut: "descuentos", at: .8, dx: -150, dy: -90, z: 340, s: .12 }, { cut: "combos", at: 1.8, dx: 160, dy: 40, z: 420, s: .2 }] });
+phoneScene(6, 34, { k: "Cupones y códigos", t: "Tus clientes, *solos.*", img: "codigos", scroll: 0,
+  cards: [{ cut: "cupones", img: "cupones", at: .8, dx: -40, dy: -330, z: 420, s: .22 }, { cut: "codigos", at: 1.9, dx: 160, dy: 220, z: 400, s: .2 }] });
+
+// ------------------------------------------------------------------ 4. manifiesto
+{
+  const s = el(`<section class="scene">
+    <div class="big" id="m0" style="top:520px">TU TIENDA.</div>
+    <div class="big" id="m1" style="top:760px">TU ESTILO.</div>
+    <div class="big" id="m2" style="top:1000px">TUS CLIENTES.</div>
+  </section>`);
+  const ms = [0, 1, 2].map((k) => $("#m" + k, s));
+  scene(38, 4, s, (lt, t) => {
+    ms.forEach((m, k) => {
+      const hit = HITS[k], p = oExpo(P(t, hit, .25)), active = t >= hit && (k === 2 || t < HITS[k + 1]);
+      m.className = "big " + (active ? "on" : "off");
+      set(m, { opacity: clamp(P(t, hit - .05, .08)), transform: `scale(${1.6 - .6 * p}) translateY(${Math.sin(lt * 1.2 + k) * 4}px)`, fontSize: m.textContent.length > 11 ? "150px" : "168px" });
+    });
+    const out = iCubic(P(lt, 3.7, .3)); set(s, { opacity: 1 - out, transform: `scale(${1 + out * .3})` });
+  });
+}
+
+// ------------------------------------------------------------------ 5. cierre
+{
+  const s = el(`<section class="scene">
+    <div class="abs" id="cg" style="left:415px;top:400px"><span class="gmark" style="width:250px;height:250px;border-radius:75px;font-size:150px">G</span></div>
+    <div class="abs" id="cw" style="left:0;right:0;top:700px;text-align:center;font-size:180px;font-weight:900;letter-spacing:-.05em">GaboHub</div>
+    <div class="abs" id="cs" style="left:0;right:0;top:910px;text-align:center;font-size:44px;font-weight:800;letter-spacing:.3em;color:var(--mute)">PARA REVENDEDORES</div>
+    <div class="abs" id="cc" style="left:0;right:0;top:1040px;text-align:center"><span class="pill" style="background:#f6f4ef;color:#08080d">${emo("💬 Escribinos y armá tu tienda")}</span></div>
+    <div class="abs" id="cd" style="left:60px;right:60px;top:1210px;text-align:center;font-size:26px;font-weight:600;line-height:1.5;color:rgba(246,244,239,.42)">Tienda y datos de ejemplo. Las marcas y logos de cada plataforma pertenecen a sus dueños.</div>
+  </section>`);
+  scene(42, DURATION - 42 + 1, s, (lt) => {
+    const g = spring(P(lt, .05, .9)); set($("#cg", s), { transform: `scale(${g}) rotate(${(1 - g) * -30}deg)` });
+    const w = oExpo(P(lt, .3, .6)); set($("#cw", s), { opacity: w, transform: `translateY(${(1 - w) * 60}px)`, letterSpacing: `${-.05 + (1 - w) * .15}em` });
+    set($("#cs", s), { opacity: oExpo(P(lt, .7, .5)) });
+    const c = oBack(P(lt, 1.1, .5), 2), pulse = 1 + .03 * Math.max(0, Math.sin((lt - 1.6) * Math.PI * 2 / BEAT / 2)) * clamp(lt - 1.6);
+    set($("#cc", s), { opacity: clamp(c * 2), transform: `scale(${c * pulse})` });
+    set($("#cd", s), { opacity: oExpo(P(lt, 1.8, .5)) });
+  });
+}
+
+// ------------------------------------------------------------------ fondo, cortes y subtítulos
+const grain = $("#grain"), g = grain.getContext("2d"), tiles = [];
+for (let k = 0; k < 6; k++) {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), d = x.createImageData(256, 256); let sd = 909 + k * 53;
+  for (let i = 0; i < d.data.length; i += 4) { sd = (sd * 16807) % 2147483647; const v = sd % 256; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); tiles.push(c);
+}
+function seek(t) {
+  for (const r of registry) { const on = t >= r.start && t < r.end; r.el.style.display = on ? "block" : "none"; if (on) r.update(t - r.start, t); }
+  // destello en cada cambio de escena (y en cada golpe del manifiesto)
+  let fl = 0;
+  for (const c of CUTS) { const d = t - c; if (d >= 0 && d < .35) fl = Math.max(fl, (c === 10 ? .9 : .45) * (1 - d / .35)); }
+  for (const h of HITS) { const d = t - h; if (d >= 0 && d < .25) fl = Math.max(fl, .35 * (1 - d / .25)); }
+  $("#flash").style.opacity = fl;
+  set($("#bA"), { left: `${-500 + Math.sin(t * .3) * 200}px`, top: `${-300 + Math.cos(t * .25) * 160}px` });
+  set($("#bB"), { left: `${300 + Math.cos(t * .27) * 200}px`, top: `${800 + Math.sin(t * .31) * 180}px` });
+  set($("#floor"), { backgroundPosition: `0 ${(t * 90) % 110}px`, opacity: t < 10 ? .45 : .9 });
+  set($("#brand"), { opacity: clamp(P(t, 10, .5)) * (1 - P(t, 41.7, .3)) });
+  // colores del fondo: los del estilo que se está mostrando en el desfile; después, los de GaboHub
+  const cur = desfileAt(t), root = document.documentElement.style;
+  root.setProperty("--a1", cur ? cur.a1 : "#3984ff"); root.setProperty("--a2", cur ? cur.a2 : "#8fd3ff");
+  // subtítulos
+  const cap = (window.CAPS || []).find((c) => t >= c.a && t < c.b), capEl = $("#cap");
+  const key = cap ? cap.a + ":" + cap.words.filter((w) => w[1] <= t).length : "";
+  if (capEl.dataset.k !== key) {
+    capEl.dataset.k = key;
+    if (!cap) capEl.innerHTML = "";
+    else { const said = cap.words.filter((w) => w[1] <= t).length; capEl.innerHTML = `<span class="box">${cap.words.map((w, i) => i < said ? `<b class="${i === said - 1 ? "now" : ""}">${w[0]}</b>` : w[0]).join(" ")}</span>`; }
+  }
+  set(capEl, { opacity: t >= 38 && t < 42 ? 0 : 1 });   // en el manifiesto las palabras ya están en grande
+  g.fillStyle = g.createPattern(tiles[Math.round(t * 30) % 6], "repeat");
+  g.save(); g.translate((Math.round(t * 30) * 37) % 256, (Math.round(t * 30) * 91) % 256); g.fillRect(-256, -256, 1600, 2400); g.restore();
+}
+window.seek = seek;
+window.READY = (async () => {
+  await document.fonts.load('900 100px "Inter Display"'); await document.fonts.load('800 100px "Inter Display"'); await document.fonts.load('100px "Noto Color Emoji"');
+  await document.fonts.ready;
+  await Promise.all([...document.images].map((i) => i.decode().catch(() => console.warn("img", i.src))));
+  seek(0);
+  return true;
+})();
+if (location.search.includes("play")) window.READY.then(() => { const t0 = performance.now(); const loop = () => { seek(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); }; loop(); });
+</script>
+</body>
+</html>
