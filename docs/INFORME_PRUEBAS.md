@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 13/11/2026 · Publicación Premium 2.0 (PR #51)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Antes de publicar | lectura en vivo de la tienda real | 78 alquileres activos; `/api/admin/inicio` no existía (404) |
+| Después (30 s tras el squash) | lectura en vivo, solo GET | `/api/admin/inicio` 200 con los mismos 78 alquileres y 0 pagos por revisar; `/api/admin/cortes` 200; secretaria con conteos nuevos (claves 9, débitos 0); tienda y panel 200; `tema.css` servido |
+| Datos | ninguno tocado: los campos nuevos son opcionales | ✅ |
+
 ## 13/11/2026 · Premium 2.0 · Etapa 9 «Finanzas pro»
 | Qué | Cómo | Resultado |
 |---|---|---|
