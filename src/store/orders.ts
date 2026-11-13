@@ -754,6 +754,38 @@ export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: s
   return { retired, results };
 }
 
+/**
+ * «↔️ Mover todos sus clientes a…» (13/11/2026): pasa TODOS los clientes activos de una cuenta (p. ej. un Netflix que se
+ * cayó) a OTRA cuenta elegida por el dueño, cada uno con su misma fecha. Si el perfil nuevo tiene el mismo nombre que el
+ * viejo (Perfil 1 → Perfil 1) se respeta; si no, el primero libre. Los perfiles viejos quedan apartados. Todo o nada.
+ */
+export function moveAccountClients(e: Engine, actor: Actor, fromAccountId: Id, input: { toAccountId: Id; reason: string }) {
+  authorize(actor, "assignment.replace");
+  if (!input.reason?.trim()) throw new DomainError("VALIDATION", "Indicá el motivo del cambio");
+  return e.tx(() => {
+    const from = e.get("accounts", fromAccountId), to = e.get("accounts", String(input.toAccountId ?? ""));
+    if (from.id === to.id) throw new DomainError("VALIDATION", "Elegí otra cuenta, no la misma");
+    if (from.productId !== to.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
+    if (to.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+    const slotsOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId).sort((x, y) => x.label.localeCompare(y.label));
+    const busy = new Set(Object.values(e.s.assignments).filter((a) => a.status === "active").map((a) => a.slotId));
+    const moving = Object.values(e.s.assignments).filter((a) => a.status === "active" && e.s.slots[a.slotId]?.accountId === from.id);
+    if (!moving.length) throw new DomainError("VALIDATION", "Esa cuenta no tiene clientes activos");
+    const free = slotsOf(to.id).filter((s) => ["available", "quarantined"].includes(s.status) && !busy.has(s.id));
+    if (free.length < moving.length) throw new DomainError("OUT_OF_STOCK", `En ${to.email} hay ${free.length} perfil(es) libre(s) y hay que mover ${moving.length}`);
+    const moved: { assignmentId: Id; customerId: Id; from: string; to: string }[] = [];
+    for (const a of moving) {
+      const oldLabel = e.s.slots[a.slotId].label;
+      const i = free.findIndex((s) => s.label.toLowerCase() === oldLabel.toLowerCase());
+      const [dest] = free.splice(i >= 0 ? i : 0, 1);
+      replaceAssignment(e, actor, a.id, { reason: input.reason, oldSlot: "quarantined", toSlotId: dest.id });
+      moved.push({ assignmentId: a.id, customerId: a.customerId, from: oldLabel, to: dest.label });
+    }
+    e.audit(actor, "account.move_all", "account", from.id, { to: to.id, moved: moved.length, reason: input.reason });
+    return { from: from.email, to: to.email, moved };
+  });
+}
+
 /** Cierra servicios vencidos (+ días de gracia) y pone el perfil en cuarentena para cambiar la clave. */
 export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
   if (actor.role !== "system") authorize(actor, "assignment.replace");

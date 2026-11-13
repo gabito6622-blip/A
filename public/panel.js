@@ -890,7 +890,18 @@ const V = {
 
   async cuentas() {
     const show = P.tab.secrets && canReview();
+    // «↔️ Mover todos a otra cuenta» (13/11): de una cuenta con clientes (p. ej. un Netflix caído) a OTRA cuenta elegida de la
+    // misma plataforma con perfiles libres suficientes; cada cliente conserva su fecha. Después, en el Control, «Reenviar accesos».
+    let ACCS_ALL = [];
+    const moveAllForm = (a) => {
+      const n = a.slots.filter((s) => s.status === "assigned").length;
+      if (!n || a.status !== "active") return "";
+      const libres = (x) => x.slots.filter((s) => ["available", "quarantined"].includes(s.status)).length;
+      const dest = ACCS_ALL.filter((x) => x.id !== a.id && x.productId === a.productId && x.status === "active" && libres(x) >= n);
+      return `<details class="more"><summary>↔️ Mover todos a otra cuenta (${n})</summary>${dest.length ? `<form class="inline" data-moveall="${esc(a.id)}" data-n="${n}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlos a…</option>${dest.map((x) => `<option value="${esc(x.id)}" data-email="${esc(x.email)}">${esc(x.email)} · ${libres(x)} libre${libres(x) === 1 ? "" : "s"}</option>`).join("")}</select><input name="reason" placeholder="Motivo" value="Cuenta caída: pasan a la nueva"><button class="pbtn sm dark" type="submit">Mover ${n} · mismas fechas</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(a.productId))} con ${n} perfil${n === 1 ? "" : "es"} libre${n === 1 ? "" : "s"}. Cargá una primero en Carga de cuentas.</p>`}</details>`;
+    };
     const [accs, products, suppliers, customers, alerts] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/account-alerts?unseen=1").catch(() => [])]);
+    ACCS_ALL = accs;
     const alertsCard = alerts.length ? `<section class="card alertcard"><h2>🚨 Avisos de las plataformas <small>${alerts.length} sin ver</small></h2>
       <p class="muted" style="margin:0">Correos que llegaron a tus cuentas y pueden significar un problema. Revisá la cuenta antes de que se quejen tus clientes.</p>
       <div class="alertlist">${alerts.map((a) => `<div class="alertrow ${a.severe ? "sev" : ""}"><div><b>${esc(a.product)}</b> <span class="mono">${esc(a.email)}</span><br>
@@ -983,7 +994,7 @@ const V = {
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
-        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}</footer>` : ""}
+        ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}${moveAllForm(a)}</footer>` : ""}
       </article>`;
     };
     // Etapa 7 (12/11/2026): "Por plataforma" agrupa las MISMAS tarjetas por producto (Plataforma → Cuenta →
@@ -3303,6 +3314,10 @@ document.addEventListener("submit", async (ev) => {
       const result = await api("POST", "/api/admin/import/customers", { contentBase64: b64, dryRun: true });
       P.tab.import = { b64, result };
       await render();
+    } else if (f.dataset.moveall) {
+      const email = f.to.options[f.to.selectedIndex]?.dataset.email ?? "";
+      if (!confirm(`¿Pasar ${f.dataset.n} cliente(s) a ${email}? Cada uno conserva su fecha; los perfiles viejos quedan apartados.`)) return;
+      await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Acá están, tocá «Reenviar accesos» en cada uno`);
     } else if (f.dataset.swapacc) {
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);
