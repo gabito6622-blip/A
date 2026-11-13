@@ -71,6 +71,9 @@ export interface StoreSettings extends Look {
   ticketReplies?: string[];
   /** Premium 2.0 (etapa 8): mensajes de la secretaria editables ({nombre}, {cuentas}, {total}); vacío = el texto de siempre. */
   secretaryMsg?: { cobrar?: string; avisar?: string; deben?: string };
+  /** Optimización 2: links para que el cliente renueve con QR o saldo desde el aviso. APAGADO por defecto.
+   *  `access`: "renew" = el link solo sirve para renovar ese servicio; "full" = además lo deja entrar a Mis cuentas. */
+  renewLink?: { enabled: boolean; access: "renew" | "full"; hours: number };
   /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
   resellerMarginPct?: number;
   /** Premio (centavos) que gana un revendedor cuando traés a otro revendedor y el dueño lo aprueba. 0 lo apaga. */

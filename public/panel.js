@@ -1562,6 +1562,10 @@ const V = {
         <label>Cobrar / vencidas<textarea name="mCobrar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Estas cuentas ya vencieron:&#10;{cuentas}&#10;Total para renovar: {total}. ¿Las renovás?">${esc(sup.secretaryMsg?.cobrar ?? "")}</textarea></label>
         <label>Avisar (por vencer)<textarea name="mAvisar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te aviso que estas cuentas están por vencer:&#10;{cuentas}&#10;Total: {total}.">${esc(sup.secretaryMsg?.avisar ?? "")}</textarea></label>
         <label>Te deben<textarea name="mDeben" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te recuerdo el pago pendiente de:&#10;{cuentas}&#10;Total: {total}. ¡Gracias!">${esc(sup.secretaryMsg?.deben ?? "")}</textarea></label>
+        <p class="muted" style="grid-column:1/-1;margin:8px 0 0">🔗 <b>Links de renovación</b> (apagados de fábrica). Si los prendés, en Mi secretaria aparece «Link para renovar» por cada cuenta: el cliente abre el link y paga con QR (vos aprobás como siempre) o con su saldo (al instante). El aviso de Tito también lleva ese link. No se cobra nada solo ni se manda ningún mensaje.</p>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="rlOn" ${sup.renewLink?.enabled ? "checked" : ""}> Prender los links de renovación</label>
+        <label>Qué puede hacer el link<select name="rlAccess"><option value="renew" ${sup.renewLink?.access !== "full" ? "selected" : ""}>Solo renovar ese servicio</option><option value="full" ${sup.renewLink?.access === "full" ? "selected" : ""}>Renovar y entrar a Mis cuentas</option></select></label>
+        <label>Cuántas horas vale<input name="rlHours" type="number" min="1" max="168" value="${Number(sup.renewLink?.hours ?? 48)}"></label>
         <button class="pbtn dark" type="submit">Guardar soporte y mensajes</button></form></section>` : "";
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
@@ -3477,7 +3481,7 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
     } else if (f.id === "supForm") {
       const replies = f.replies.value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 10);
-      await act(() => api("POST", "/api/admin/settings", { ticketReplies: replies, secretaryMsg: { cobrar: f.mCobrar.value.trim(), avisar: f.mAvisar.value.trim(), deben: f.mDeben.value.trim() } }), "Soporte y mensajes guardados");
+      await act(() => api("POST", "/api/admin/settings", { ticketReplies: replies, secretaryMsg: { cobrar: f.mCobrar.value.trim(), avisar: f.mAvisar.value.trim(), deben: f.mDeben.value.trim() }, renewLink: { enabled: f.rlOn.checked, access: f.rlAccess.value, hours: Number(f.rlHours.value || 48) } }), "Soporte y mensajes guardados");
     } else if (f.id === "setForm") {
       await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");

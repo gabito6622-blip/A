@@ -1,5 +1,22 @@
 # Informe de pruebas
 
+## 13/11/2026 · Optimización 2 · Renovar por link (rama `optimizacion-1`, sin publicar, apagado)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Apagado de fábrica: Configuración dice `{enabled:false, access:"renew", hours:48}`; generar link → 409 `RENEW_LINKS_OFF`; token cualquiera → 404 (GET y POST) | `test/renovar-link.test.mjs` | OK |
+| Ajuste validado: horas 0 → 400, acceso «root» → 400; se guarda y se lee; `/api/settings` público no lo expone | misma prueba | OK |
+| Prendido: generar sin sesión → 401; cliente de revendedor → 409 `VIA_RESELLER`; el link vale 48 h; la vista trae nombre, producto, precio Bs 35, 30 días, fecha nueva, saldo; **no trae correo, clave ni teléfono** | misma prueba | OK |
+| Saldo: renueva al instante (`fulfilled`, Bs 35), la fecha corre exactamente un período, el saldo baja una vez, el link queda usado (404), auditoría `renewal.create` con actor `renewlink:…` | misma prueba | OK |
+| QR: pedido `awaiting_payment` sin correr la fecha; segundo pedido → 409 `ALREADY_PENDING`; comprobante → `payment_review` y el link cumplió (404); el dueño aprueba → `fulfilled` y recién ahí corre la fecha un período | misma prueba | OK |
+| Proveedor: cuenta que vence en 10 días → `supplierOk:false`; pagar con saldo → 409 `SUPPLIER_EXPIRY_EXCEEDED` y el saldo no se toca | misma prueba | OK |
+| «Entrar» con acceso «renew» → 403; con «full» → 200 y sesión del cliente (`/api/me` loggedIn); a las 49 h → 404; apagar el interruptor → los links vivos dan 404 | misma prueba | OK |
+| Tito: con el servicio venciendo mañana, apagado → `url=/tienda/#cuentas`; prendido → `url` con `#renovar=`; el camino real genera un token válido | misma prueba (push con doble, nada real) | OK |
+| Navegador a 360 px: abre el link, el token no queda en la barra (`#renovar`), se ve Marisel / Netflix perfil / Nueva fecha / 35.00, sin correo, sin scroll horizontal, botón ≥ 44 px; «Pagar con mi saldo» → pantalla «✅ ¡Renovado! … ahora vence el dd/mm/aaaa»; en la secretaria aparece «🔗 Link para renovar» para el cliente directo y **no** para el del revendedor; sin errores de consola | misma prueba (Playwright) | OK |
+| Capturas a 360 px (antes / renovado) | Playwright, demo local, fuera del repo | revisadas: fichas legibles, botones de 44 px, sin desborde |
+| Capturas del panel a 360 px: «🔗 Link para renovar» en la secretaria (link copiado, con fecha de vencimiento) y el interruptor en Configuración → Soporte (apagado de fábrica); sin desborde | Playwright, demo local | revisadas |
+| Nada tocado en producción | — | ✅ |
+| Tanda completa | `npm test` | **536/536** en ~55 s (527 anteriores + 9 nuevas; `soporte` ajustada por el campo nuevo) |
+
 ## 13/11/2026 · Optimización 1 (rama `optimizacion-1`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

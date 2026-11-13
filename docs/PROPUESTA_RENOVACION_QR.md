@@ -1,6 +1,6 @@
 # Propuesta: renovar con QR o saldo desde el aviso (sin activar)
 
-Fecha: 13/11/2026 · Estado: **propuesta, no implementada ni activada**. Decide el dueño.
+Fecha: 13/11/2026 · Estado: **aprobada por el dueño e implementada APAGADA** en la rama `optimizacion-1` (Optimización 2). Se prende en Configuración → Soporte. Detalles en `docs/CHANGELOG.md` y `docs/PUBLICACION_Y_REVERSION.md`.
 
 ## El problema de hoy
 Cuando a un cliente le vence un servicio, Tito le manda el aviso al celular (si lo activó) y el cliente te escribe por WhatsApp, te manda el comprobante, vos lo revisás, aprobás y renovás. Son 4 idas y vueltas por cada renovación; con 78 alquileres activos y 20 que vencen cada semana, es la mayor parte de tu trabajo diario.

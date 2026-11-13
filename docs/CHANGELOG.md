@@ -3,6 +3,15 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Optimización 2: renovar con QR o saldo desde un link (rama `optimizacion-1`, sin publicar, **apagado de fábrica**)
+- **Interruptor** en Configuración → «Soporte y mensajes»: «Prender los links de renovación», qué puede hacer el link (solo renovar / renovar y entrar a Mis cuentas) y cuántas horas vale (48 por defecto, de 1 a 168). Apagado, nada cambia.
+- **Mi secretaria:** con el interruptor prendido, cada cuenta de un cliente directo tiene «🔗 Link para renovar» (`POST /api/admin/assignments/:id/renew-link`): copia el link para pegarlo en WhatsApp. No aparece para clientes de revendedores (renuevan con su revendedor, 409).
+- **Pantalla «Renovar» en la tienda** (`/tienda/#renovar=TOKEN`): muestra UN servicio (sin correo, clave ni teléfono), fecha actual, fecha nueva, precio en su moneda y saldo. «Pagar con mi saldo» renueva al instante (la plata ya entró); «Pagar con QR» crea el pedido, pide el comprobante y queda **En revisión** hasta que el dueño aprueba en Aprobar pagos, como siempre. Nunca se entrega sin plata confirmada.
+- **Frenos:** fecha del proveedor (409 sin cobrar), segundo pedido por el mismo link (409), link vencido o usado (404), interruptor apagado (todos los links dejan de servir), 40 intentos por IP cada 15 min, idempotencia por llave.
+- **Aviso de Tito:** con el interruptor prendido y `GS_PUBLIC_ORIGIN` cargado, el toque del aviso abre «Renovar» de ese servicio; apagado, sigue abriendo Mis cuentas. No se manda ningún mensaje nuevo.
+- API pública nueva: `GET/POST /api/renovar/:token`, `POST /api/renovar/:token/evidence`, `POST /api/renovar/:token/entrar` (solo con acceso «full»).
+- Pruebas nuevas: `test/renovar-link.test.mjs` (9, incluida una en navegador a 360 px). Procedimiento: `docs/PUBLICACION_Y_REVERSION.md`.
+
 ## 2026-11-13 · Optimización 1 (rama `optimizacion-1`, sin publicar)
 - **Semáforo sin falsas alarmas:** una cuenta con todos sus perfiles dados de baja (las «caídas» que ya revisaste) o retirada deja de ser alerta roja: pastilla «⚪ Dada de baja» (`risk.inactive`). No se borra ni se retira nada; una cuenta con perfiles vivos y nota CAÍDA sigue en rojo. En la tienda real, de 34 rojas quedarían 4.
 - **«💵 Me pagó» en Mi secretaria:** en cada cuenta de Cobrar / Cortar / Vencidas / Te deben / Avisar. Primero una **vista previa** (`GET /api/admin/assignments/:id/pay-preview`): cliente (y quién paga), cuenta y perfil, monto (Bs o US$), período y **fecha nueva**, fecha del proveedor, avisos. **Frena** si ese período ya figura cobrado, si hubo un cobro hace menos de 10 minutos o si la fecha nueva pasa la del proveedor. «Confirmar» (`POST …/pay`, idempotente) corre la fecha con la misma regla del Control, marca pagado con el precio (editable), anota el cobro para Finanzas (una sola vez, también si ya estaba pagado el período anterior), limpia «EN COBRO / POR CORTAR» de la nota y deja «💵 pagado dd/mm»; auditoría `secretary.paid` con la nota anterior.

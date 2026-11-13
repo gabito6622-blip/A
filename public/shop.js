@@ -18,7 +18,7 @@ const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLow
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
-  store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas"],
+  store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario"],
 }[MODE];
 
@@ -221,6 +221,7 @@ async function refresh() {
   try {
     await loadBase();
     await loadPrivate();
+    if (S.view === "renovar") await loadRenovar();
   } catch (e) {
     $("#sout").innerHTML = `<div class="err">No pudimos cargar la tienda: ${esc(e.message)}. Revisá tu conexión y recargá.</div>`;
     return;
@@ -602,6 +603,7 @@ function renderInner() {
     combo: () => comboView(),
     asesor: () => asesorView(),
     fallas: () => fallasView(),
+    renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
       ${services.length ? (() => {
@@ -818,6 +820,40 @@ function rEarnBase() {
 }
 /* ---------------- Fallas, avisos al celular, app instalable y afiches ---------------- */
 const TK_ST = { recibido: ["📥", "Recibido"], revisando: ["🔧", "Revisando"], solucionado: ["✅", "Solucionado"] };
+/* ---------------- Renovar por link (Optimización 2): /tienda/#renovar=TOKEN ----------------
+   El link llega en el aviso de Tito o por WhatsApp. Muestra UN servicio (sin correo ni clave), la fecha nueva y el
+   precio, y deja pagar con saldo (al instante) o con QR + comprobante (queda «En revisión» hasta que la tienda aprueba). */
+async function loadRenovar() {
+  if (!S.renewToken) return;
+  try { S.data.renew = await api("GET", `/api/renovar/${S.renewToken}`); S.data.renewErr = null; }
+  catch (e) { S.data.renew = null; S.data.renewErr = e.message; }
+}
+function renovarView() {
+  const r = S.data.renew;
+  if (!S.renewToken || (!r && !S.data.renewErr)) return `<div class="sbox"><h2>Renovar</h2><p class="empty">Este link no tiene un servicio para renovar. Entrá a <a href="#cuentas">Mis cuentas</a> o escribinos por WhatsApp.</p></div>`;
+  if (!r) return `<div class="sbox"><h2>Renovar</h2><div class="err">${esc(S.data.renewErr)}</div>${S.settings.whatsapp ? `<a class="sbtn pri" style="justify-self:start" href="${waLink(S.settings.whatsapp, "Hola, quiero renovar mi servicio")}" target="_blank" rel="noopener">Escribir por WhatsApp</a>` : ""}</div>`;
+  const sym = r.currency === "USD" ? "US$" : (S.settings.currencySymbol || "Bs");
+  const m = (c) => `${sym} ${(c / 100).toFixed(2)}`;
+  const done = S.data.renewDone;
+  const head = `<div class="sec-h"><div><span class="chip">Renovar</span><h2>Hola, ${esc(r.name)} 👋</h2><p>Renová tu <b>${esc(r.product)}</b>${r.profile ? ` (${esc(r.profile)})` : ""} en un toque. No hace falta entrar con PIN.</p></div></div>`;
+  const ficha = `<div class="svc"><div class="top"><b>${esc(r.product)}${r.profile ? ` · ${esc(r.profile)}` : ""}</b><span class="spill ${r.expiresAt < Date.now() ? "sp-warn" : "sp-mute"}">${r.expiresAt < Date.now() ? "Vencido" : "Activo"}</span></div>
+    <div class="tsteps"><span class="on">📅 Vence ${fdate(r.expiresAt)}</span><span class="on">➡️ Nueva fecha ${fdate(r.to)}</span><span>💵 ${m(r.price ?? 0)} por ${r.days} días</span></div></div>`;
+  if (done) return `${head}${ficha}<div class="sbox"><h2>${done.status === "fulfilled" ? "✅ ¡Renovado!" : done.status === "payment_review" ? "🔍 Comprobante recibido" : "📝 Pedido creado"}</h2>
+    <p class="empty">${done.status === "fulfilled" ? `Tu ${esc(r.product)} ahora vence el <b>${fdate(done.expiresAt)}</b>. ¡Gracias!` : done.status === "payment_review" ? "Lo revisamos en 10–30 minutos y te queda renovado solo. Te avisamos por WhatsApp si hace falta algo." : "Subí el comprobante para que lo revisemos."}</p>
+    ${r.access === "full" ? `<button class="sbtn" type="button" data-renew-enter="1" style="justify-self:start">Ver Mis cuentas</button>` : ""}</div>`;
+  if (!r.supplierOk) return `${head}${ficha}<div class="sbox"><div class="err">Este servicio todavía no se puede renovar desde acá. Escribinos por WhatsApp y lo resolvemos.</div>${S.settings.whatsapp ? `<a class="sbtn pri" style="justify-self:start" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product}`)}" target="_blank" rel="noopener">Escribir por WhatsApp</a>` : ""}</div>`;
+  if (r.pending) return `${head}${ficha}<div class="sbox"><h2>${r.pending.status === "payment_review" ? "🔍 Estamos revisando tu pago" : "📝 Falta el comprobante"}</h2>
+    ${r.pending.status === "payment_review" ? `<p class="empty">Lo revisamos en 10–30 minutos. Cuando esté listo, tu servicio queda renovado solo.</p>` : `${qrBlock()}
+    <form class="inline-form" data-renew-evidence="1"><label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label><label>Número de operación<input name="ref" required maxlength="60" inputmode="numeric" placeholder="Ej.: 123456"></label><button class="sbtn pri" type="submit">Enviar comprobante</button></form>`}
+    ${r.access === "full" ? `<button class="sbtn" type="button" data-renew-enter="1" style="justify-self:start">Ver Mis cuentas</button>` : ""}</div>`;
+  const noPrice = !(r.price > 0);
+  return `${head}${ficha}<div class="sbox"><h2>¿Cómo querés pagar ${m(r.price ?? 0)}?</h2>
+    ${noPrice ? `<div class="err">Este servicio no tiene precio cargado: escribinos por WhatsApp.</div>` : `<div style="display:grid;gap:10px">
+      <button class="sbtn pri" type="button" data-renew-pay="balance" ${r.canBalance ? "" : "disabled"}>💰 Pagar con mi saldo (${m(r.balance)})${r.canBalance ? "" : " · no alcanza"}</button>
+      <button class="sbtn" type="button" data-renew-pay="qr" ${r.hasQr || r.paymentNote ? "" : "disabled"}>📲 Pagar con QR y subir comprobante</button>
+    </div><p class="empty" style="margin:0">Con saldo se renueva al instante. Con QR lo revisamos en 10–30 minutos. Nada se cobra solo.</p>`}
+    ${r.access === "full" ? `<button class="sbtn" type="button" data-renew-enter="1" style="justify-self:start">Ver Mis cuentas</button>` : ""}</div>`;
+}
 function fallasView() {
   if (!S.me?.loggedIn) return needLogin("tus reportes");
   const T = S.data.tickets ?? { kinds: {}, list: [] }, sv = S.data.services ?? [], pre = S.data.fallaPre ?? "";
@@ -2087,6 +2123,14 @@ async function afterLogin() {
   if (S.cart.length) { openDrawer(); S.step = 2; S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null); renderCart(); }
 }
 
+/** Link de renovación: /tienda/#renovar=TOKEN → guarda el token y deja el hash en #renovar (el token no queda en el historial). */
+function useRenewLink() {
+  const m = location.hash.match(/^#renovar=([\w-]+)$/);
+  if (!m) return false;
+  S.renewToken = m[1]; S.data.renewDone = null;
+  history.replaceState(null, "", location.pathname + "#renovar");
+  return true;
+}
 /** Link de acceso: /#acceso=TOKEN */
 async function useAccessLink() {
   const m = location.hash.match(/^#acceso=([\w-]+)$/);
@@ -2246,6 +2290,22 @@ document.addEventListener("click", async (ev) => {
   if (d.ledgerall) { S.data.ledgerAll = true; return render(); }
   if (d.rrenew || d.rrenewsel) return renewMany(d.rrenew ? [d.rrenew] : (S.data.rsel ?? []), el);
   if (d.hubplan) { try { await api("POST", "/api/me/hub/plan", { plan: d.hubplan }); toast(d.hubplan === "full" ? "Plan Completo activo: ya tenés todas las herramientas" : "Plan Básico: rige desde tu próximo cobro"); await refresh(); } catch (e) { toast(e.message); } return true; }
+  if (d.renewPay) {
+    if (!S.renewToken) return;
+    el.disabled = true;
+    try {
+      S.data.renewKey ??= newKey();
+      const r = await api("POST", `/api/renovar/${S.renewToken}`, { method: d.renewPay, idempotencyKey: S.data.renewKey });
+      // Con saldo el link ya cumplió (en modo «solo renovar» deja de servir): se muestra el resultado sin volver a pedirlo.
+      if (r.order.status === "fulfilled") { S.data.renewDone = { status: "fulfilled", expiresAt: r.assignment.expiresAt }; toast("¡Renovado! ✓"); render(); }
+      else { toast("Pedido creado: ahora pagá con el QR y subí el comprobante"); await loadRenovar(); render(); }
+    } catch (e) { toast(e.message); el.disabled = false; }
+    return;
+  }
+  if (d.renewEnter) {
+    try { await api("POST", `/api/renovar/${S.renewToken}/entrar`, {}); location.hash = "#cuentas"; await refresh(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.rentpay) { try { const hub = !!S.data.shop?.rent?.hub; await api("POST", "/api/me/shop/pay", {}); toast(hub ? "¡Pagado! Tu GaboHub está activo" : "¡Pagado! Tu página está publicada"); await refresh(); } catch (e) { toast(e.message); } return; }
   if (d.pvtheme !== undefined) return previewTheme(d.pvtheme || null);
   if (d.allthemes) { S.allThemes = true; return render(); }
@@ -2569,6 +2629,14 @@ document.addEventListener("submit", async (ev) => {
       await loadRTab("debe");
       return render();
     }
+    if (f.dataset.renewEvidence) {
+      if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
+      const r = await api("POST", `/api/renovar/${S.renewToken}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
+      S.data.renewDone = { status: r.status };
+      toast("Comprobante enviado: lo revisamos en 10–30 minutos");
+      render();
+      return;
+    }
     if (f.dataset.evidence) {
       if (!f.ref.value.trim()) throw new Error("Escribí el número de operación");
       await api("POST", `/api/orders/${f.dataset.evidence}/evidence`, { contentBase64: await fileToBase64(f.file.files[0]), declaredReference: f.ref.value.trim() });
@@ -2715,7 +2783,7 @@ window.addEventListener("message", (ev) => {
   render();
 });
 
-window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
+window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 (async () => {
   if (SLUG) {
@@ -2726,6 +2794,7 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#acc
   const h0 = location.hash.slice(1);
   if (MODE === "hub" && h0 === "catalogo") return location.replace("/tienda/#catalogo");
   await useAccessLink();
+  useRenewLink();
   const path = location.pathname.replace(/\/+$/, "");
   const h = location.hash.slice(1);
   S.view = VIEWS.includes(h) ? h : path === "/tiendas" ? "tiendas" : "inicio";

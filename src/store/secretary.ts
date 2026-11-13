@@ -27,6 +27,8 @@ export interface SecretaryItem {
   priceUsd?: Cents;
   payStatus?: string;
   note?: string;
+  /** El cliente paga a través de un revendedor (el link de renovación no aplica: renueva con él). */
+  viaReseller?: boolean;
 }
 export interface SecretaryGroup {
   customerId: Id;
@@ -83,6 +85,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
       assignmentId: a.id, email: acc?.email ?? "", product: e.s.products[a.productId]?.name ?? a.productId,
       expiresAt: a.customerExpiresAt, days: daysTo(a.customerExpiresAt), price: effectivePrice(e, a),
       ...(usd !== undefined ? { priceUsd: usd } : {}), ...(c.payStatus ? { payStatus: c.payStatus } : {}), ...(c.note ? { note: c.note } : {}),
+      ...(e.s.customers[a.customerId]?.resellerId ? { viaReseller: true } : {}),
     };
     if (has(c.note, RE_CORTAR)) put(groups.cortar, a, item);
     else if (has(c.note, RE_COBRO)) put(groups.cobrar, a, item);
@@ -139,6 +142,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
     debitos: debitos.sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt || x.email.localeCompare(y.email)),
     // Mensajes editables por el dueño (Configuración); vacío = el texto de siempre.
     templates: e.s.settings.secretaryMsg ?? {},
+    renewLinks: !!e.s.settings.renewLink?.enabled,
     actividad,
   };
   const n = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.length, 0);

@@ -2,6 +2,12 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## Listo, sin publicar — Optimización 1 + 2 (13/11, rama `optimizacion-1`)
+- ✅ Optimización 1: semáforo sin falsas alarmas, «Me pagó» con vista previa, cierre con mes incompleto, detalles visuales, demo de GaboHub.
+- ✅ Optimización 2: renovar con QR o saldo desde un link (aviso de Tito / secretaria), con aprobación humana para QR, **apagado de fábrica**.
+- ⏳ Espera: el dueño confirma su respaldo y dice «PUBLICÁ». Procedimiento y reversión: `docs/PUBLICACION_Y_REVERSION.md`.
+- Después de publicar (decide el dueño): prender los links en Configuración → Soporte; texto del mensaje de WhatsApp con `{link}` para la secretaria (hoy el link se copia y se pega a mano).
+
 ## Publicado — Premium 2.0 (etapas 0 a 9, 12–13/11, PR #51)
 Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: documento «Auditoría Gabriel Store Premium 2.0».
 - ✅ Etapa 0 · Base segura: tema común, fuentes sin bloquear, Tito estable, letra mínima (487 pruebas).

@@ -37,6 +37,8 @@ export interface ExpiryPushDeps {
   customerPush: (customerId: string, msg: Msg) => Promise<{ sent: number; failed: number }>;
   /** Clientes con cuenta que activaron avisos en algún celular. */
   customerIds: () => string[];
+  /** Optimización 2: link para renovar ese servicio con QR o saldo (null si los links están apagados). */
+  renewLink?: (assignmentId: string) => string | null;
   /** El mismo límite por IP de /api/cobro/* (cuenta los tokens que no sirven). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cobro: <T>(c: any, fn: () => T) => T;
@@ -99,6 +101,7 @@ export function createExpiryPush(d: ExpiryPushDeps) {
       let url = "/tienda/#cuentas";
       if (via?.whatsapp) url = `https://wa.me/${via.whatsapp}?text=${encodeURIComponent(renewWaText(items))}`;
       else if (via?.page) url = via.page;
+      else if (d.renewLink && items[0].key.startsWith("a:")) { const u = d.renewLink(items[0].key.slice(2)); if (u) url = u; } // el toque abre «Renovar» de ese servicio
       const msg = alertText(items, via ? { seller: via.name, action: via.whatsapp ? "write" : via.page ? "page" : "none" } : undefined);
       const r = await d.customerPush(cid, { ...msg, url }).catch(() => ({ sent: 0, failed: 1 }));
       if (r.sent) { items.forEach(mark); st.sent++; st.customers++; st.lastAt = now(); } else if (r.failed) st.failed++;
