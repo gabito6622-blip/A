@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 13/11/2026 · Publicación: refresco de códigos + Reenviar accesos + Cobrar (PR #58, squash `576567c`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 25 revendedores, finanzas del mes, cobro apagado | API con la llave del asistente | guardada |
+| Rama de Railway vs #57: sin cambios; unión «ours» con árbol igual al probado; CI verde (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: código nuevo en vivo a los ~40 s; salud, `/tienda/`, `/hub`, `/panel` 200; `shop.js`, `codigos-solos.js` y `panel.js` servidos traen los cambios | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes, revendedores y finanzas | comparación de los JSON antes/después | **idéntico** |
+
 ## 13/11/2026 · «Reenviar accesos» y mensaje de «Cobrar» (rama `codigos-refresco`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
