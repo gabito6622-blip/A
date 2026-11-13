@@ -4,7 +4,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
 ## 2026-11-13 · Tienda real: apariencia «Premium 2.0» y 15 días de prueba en GaboHub (con OK del dueño)
-- **Apariencia:** la tienda real pasó del estilo anterior (fondo `#172038`, dorado `#fcc42d`/`#ffd95a`, sólido, Outfit) al estilo «Premium 2.0 · Azul eléctrico» (fondo `#070b16`, azul `#3b7bff`, cian `#22d3ee`, vidrio, Outfit + Inter). Respaldo de lo anterior guardado fuera del repo. Se vuelve atrás desde Apariencia o con ese respaldo.
+- **Apariencia:** la tienda real pasó del estilo anterior (fondo `#172038`, dorado `#fcc42d`/`#ffd95a`, sólido, Outfit) primero al estilo «Premium 2.0 · Azul eléctrico» y, con la segunda decisión del dueño («Dale» a la mezcla), al **fondo oscuro Premium con el dorado del logo** (fondo `#070b16`, dorado `#fcc42d` / `#ffd95a`, vidrio, Outfit + Inter). El azul eléctrico queda para el panel y la oficina. Respaldo del estilo anterior guardado fuera del repo; se vuelve atrás desde Apariencia.
 - **GaboHub:** `trialDays: 15`. Todo lo demás igual (Bs 49 / US$ 5, gracia 3 días, para todos, **cobro apagado**). Falta el precio del plan Básico (lo decide el dueño).
 
 ## 2026-11-13 · Premium 2.0 · Etapa 9 «Finanzas pro» (publicado el 13/11, #51)
