@@ -281,7 +281,8 @@ test("por la API: el cliente final de un revendedor (Bs y US$) no ve el costo en
     assert.equal(ra.status, 200, ra.text);
     assert.equal(ra.body.order.total, AGREED_BS, "Ana renueva a su precio acordado");
     assert.equal(ra.body.assignment.control, undefined);
-    assert.doesNotMatch(ra.text, /1777|nota interna/);
+    // \b: el costo como número suelto. Sin eso, «1777» podía aparecer por casualidad dentro de una fecha-hora (falso positivo).
+    assert.doesNotMatch(ra.text, /\b1777\b|nota interna/);
     // La página pública de Ana: su precio de venta, nunca su costo.
     const shop = (await call()("GET", "/api/shops/ana-tienda")).text;
     assert.match(shop, new RegExp(String(SELL_A)));

@@ -3,7 +3,44 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**sin publicar**, rama `mover-cuenta-completa`)
+## 2026-11-13 · Sin destello azul al entrar; atajos panel.gabostore.lat y hub.gabostore.lat (**publicado el 13/11, PR #61**)
+- **Por qué:** el dueño veía «un destello azul al principio» al entrar a gabostore.lat. La página arrancaba con los colores de fábrica (azul `#3984ff`) y recién al llegar la configuración pasaba a su dorado (`#fcc42d`). El panel arrancaba claro con la barra del celular azul y después pasaba a oscuro.
+- **Qué hay ahora:** el servidor manda la tienda, GaboHub y cada página de revendedor con sus colores ya puestos (fondo, color principal, tarjetas, botones, barra del celular y estilo de fondo). El panel arranca oscuro (su tema por defecto).
+- **Atajos:** `panel.gabostore.lat` lleva a `gabostore.lat/panel` y `hub.gabostore.lat` a `gabostore.lat/hub` (andan cuando esté el comodín `*.gabostore.lat`).
+- Por dentro: `src/server/earlyLook.ts` (misma cuenta de colores y contraste que `applyLook`/`lookColors` del navegador).
+- Pruebas: `test/sin-destello.test.mjs` (4) y 1 más en `test/subdominios.test.mjs`.
+
+## 2026-11-13 · gabostore.lat abre la tienda al toque, sin salto (**publicado el 13/11, PR #61**)
+- **Por qué:** el dueño vio que al entrar a gabostore.lat «por un momento sale la portada de Gabo» antes de su tienda. La portada mandaba a `/tienda/` con un salto (302) y, mientras iba y volvía, el celular podía seguir mostrando otra página.
+- **Qué hay ahora:** `gabostore.lat/` responde la tienda directamente (una sola carga, sin redirección). `/tienda/`, `/hub` y `/panel` siguen igual. La dirección de Railway sigue mostrando GaboHub en la portada, como antes.
+- Por dentro: la página lleva `<meta name="gs-mode" content="store">` para que el navegador la arme como tienda.
+- Prueba: `test/dominio.test.mjs` (portada 200 sin salto; en celular, una sola página y es la tienda).
+
+## 2026-11-13 · Revendedores: su página en su propio subdominio (daniel.gabostore.lat) (**publicado el 13/11, PR #61**)
+- **Por qué:** el dueño pidió «daniel.gabostore.lat … para que los revendedores estén cómodos»: un link corto y con su nombre es más fácil de pasar por WhatsApp que `gabostore.lat/r/dani-strem-…`.
+- **Qué hay ahora:** `<nombre>.gabostore.lat` muestra la misma página que `/r/<nombre>` sin cambiar la dirección (la vista previa de WhatsApp también dice el subdominio). Si el nombre no es de una página publicada, está apagada o es reservado (api, panel, hub, www, mail…), lleva a la portada de la tienda. `/r/<nombre>` sigue andando igual.
+- **Link que ve el revendedor:** «Tu dirección», «Copiar link», «Compartir», «Abrir» y el afiche usan el subdominio **solo** con `GS_SHOP_SUBDOMAINS=1` en Railway; sin esa variable siguen mostrando `/r/<nombre>`. Se prende cuando el comodín `*.gabostore.lat` tenga DNS y candado.
+- Servidor: `domainRedirect` reescribe `/` del subdominio a `/r/<nombre>` y la página lleva `<meta name="gs-shop">`; `/api/settings` manda `shopDomain`. Lista de nombres reservados ampliada.
+- **Elegir su nombre:** en GaboHub → Mi página → «Tu marca», el campo dice «Tu dirección (lo que va antes de .gabostore.lat)» y muestra al instante «Tu link: https://<nombre>.gabostore.lat». Lo que escribe pasa solo a minúsculas y guiones (las reglas de siempre: 3 a 30, sin repetir, sin nombres reservados). Avisa que el link viejo deja de andar si lo cambia.
+- **Panel del dueño:** las tarjetas de revendedores, la tabla de páginas y los mensajes de bienvenida/guía usan el mismo link nuevo cuando el interruptor está prendido.
+- Prueba nueva `test/subdominios.test.mjs` (8, una en celular eligiendo el nombre).
+
+## 2026-11-13 · Dominio propio: gabostore.lat (**en vivo desde el 13/11, 17:57 Bolivia**)
+- gabostore.lat abre la tienda Gabriel Store (la portada lleva a `/tienda/`); www.gabostore.lat lleva a gabostore.lat; GaboHub sigue en `/hub`. La dirección de Railway sigue funcionando, así que los links viejos no se rompen.
+- Hecho: el dueño agregó los dos dominios en Railway y los registros en Namecheap (ALIAS `@`, CNAME `www`, dos TXT `_railway-verify`; se borraron los de Netlify). Con el token de Railway del dueño se leyeron los registros pedidos y, con los dos certificados listos, se cambió `GS_PUBLIC_ORIGIN` a `https://gabostore.lat` (antes la dirección de Railway). Ninguna otra variable se tocó.
+- Los links nuevos (cobro, renovación, acceso, códigos) salen con gabostore.lat. Clientes y revendedores tienen que iniciar sesión de nuevo en la dirección nueva.
+
+## 2026-11-13 · Atajos del dueño y de los revendedores (**publicado el 13/11, PR #61**)
+Pedido del dueño: «todo eso, implementá». Siete cosas, cada una con su prueba:
+- **Mi secretaria · «✅ Ya le avisé»:** un toque marca que ya le escribiste a un cliente y deja de pedírtelo. Vale para ese vencimiento (al renovar se va). Si vence mañana u hoy y el aviso fue hace 2 días o más, lo vuelve a pedir (regla «3 días antes y otra vez 1 día antes»). «↩️ No le avisé» deshace. El Control muestra «📣 Ya le avisaste el …». No manda nada ni cambia pagos o fechas.
+- **Control · fila de envíos:** después de «Mover todos a otra cuenta», arriba aparece «📲 Mandar los accesos nuevos»: el mensaje de cada cliente y su botón de WhatsApp; al tocarlo pasa solo al siguiente.
+- **Control · «Cobrar» con link:** con los links de renovación prendidos, «💰 Cobrar» abre «Cobro listo» con el mensaje completo y el link del cliente (paga con QR o saldo; vos solo aprobás). Con los links apagados o clientes de un revendedor, igual que antes.
+- **Avisos al celular · resumen del mediodía:** una vez por día, desde las 12:00, «🗂️ Mediodía: N en cobro · N por cortar · N por avisar» que abre Mi secretaria. Sin pendientes no avisa. Se apaga en Avisos al celular. Va solo a celulares de dueño y admins.
+- **Revendedores · «🔁 Que vuelvan» (en Mi día):** sus clientes a los que se les venció y no renovaron (hasta 60 días; perfiles repartidos de 31 a 90), con mensaje listo y «✅ Ya le escribí» (no lo muestra por 7 días). Plan Negocio.
+- **Revendedores · «🧾 Cierre de mes» (en Mis ganancias):** este mes contra el anterior con % (sin % si el anterior no tuvo ventas o quedó incompleto), quién le pagó más y la app que más le dejó.
+- **Detalles:** «Tu mes / Finanzas de noviembre 2026» (antes «nov 26», que se leía como día 26); títulos largos que ya no se cortan a 360 px; azul de los botones con contraste AA; prueba `seguridad-plata` sin falso positivo.
+
+## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**publicado el 13/11, PR #60**, squash `693e99e`)
 - **Por qué:** «se me cayó un Netflix y hoy tengo que reemplazar a toditos». «Cambiar de cuenta» mueve de a un cliente; con 5 perfiles son 5 vueltas.
 - **Qué hay ahora:** en la tarjeta de la cuenta (Inventario → Cuentas), «↔️ Mover todos a otra cuenta (N)»: lista solo las cuentas de la misma plataforma con N perfiles libres o apartados; «Mover N · mismas fechas» pide confirmación y pasa a todos de una vez. Cada cliente conserva su fecha; si el perfil nuevo se llama igual (Perfil 1 → Perfil 1) se respeta, si no va al primero libre; los perfiles viejos quedan apartados; cada Control recibe la nota «↔️ fecha: de vieja a nueva». Todo o nada: si no alcanzan los perfiles, no se mueve nadie. Al terminar, el panel abre el Control filtrado por la cuenta nueva para tocar «📲 Reenviar accesos» a cada uno.
 - Servidor: `POST /api/admin/accounts/:id/move-all` (`toAccountId`, `reason`), auditoría `account.move_all`.

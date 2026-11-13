@@ -9,6 +9,8 @@ import { incomeEvents, type IncomeEvent } from "./income.js";
 import { rateNow, usdToBs } from "./usd.js";
 
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+/** Mes con nombre completo para los títulos («noviembre 2026»): «nov 26» se leía como el día 26. */
+const MES_LARGO = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 /** Mes calendario de Bolivia ("AAAA-MM"), no el de la zona horaria del servidor. */
 const mk = boMonthKey;
 
@@ -53,7 +55,7 @@ export function report(e: Engine, actor: Actor, n = 6) {
   const now = e.now();
   const months = Array.from({ length: n }, (_, i) => {
     const start = boMonthStart(now, -(n - 1 - i)), p = boParts(start);
-    return { key: mk(start), label: `${MES[p.m]} ${String(p.y).slice(2)}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents, delControl: 0 as Cents };
+    return { key: mk(start), label: `${MES[p.m]} ${String(p.y).slice(2)}`, longLabel: `${MES_LARGO[p.m]} ${p.y}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents, delControl: 0 as Cents };
   });
   const idx = new Map(months.map((m, i) => [m.key, i]));
   // Fuente única de ingresos (pedidos entregados + cobros marcados en el Control): la misma que Inicio y Cómo van.

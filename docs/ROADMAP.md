@@ -2,6 +2,11 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## En curso — Subdominios de revendedores (13/11)
+- ✅ Código y pruebas, publicado el 13/11 (PR #61). Los links nuevos siguen ocultos hasta `GS_SHOP_SUBDOMAINS=1`.
+- ⏳ Agregar `*.gabostore.lat` en Railway (necesita el permiso del dueño) y los registros que Railway pida en Namecheap.
+- ⏳ Con el candado listo: publicar (con «Publicá») y poner `GS_SHOP_SUBDOMAINS=1`.
+
 ## Publicado — 📁 Mis descargas: Centro de exportaciones (13/11, PR #55, con el «Publica» del dueño)
 - ✅ Catálogo para WhatsApp (copiar todo / una categoría / abrir WhatsApp), catálogo PDF Premium y Clásico, Excel del negocio con gráficos; para la tienda y para cada revendedor con su marca y sus precios. Verificado en la tienda real (ver INFORME_PRUEBAS).
 - ✅ 13/11 (PR #56): logos de las apps en el PDF, botón «📄 Catálogo en PDF» público en la tienda y en cada página de revendedor, y «Promos y combos» con «Ahorrás Bs X» calculado.
@@ -15,9 +20,10 @@ Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramie
 - ✅ **Tres niveles de GaboHub** (Gratis / Vendedor Bs 28 / Negocio Bs 49). **Publicado el 13/11 (PR #57).**
 - ✅ Códigos que llegan solos a la bandeja del revendedor (refresco cada 10 s) y arreglo de «Reenviar accesos» + mensaje de «Cobrar» completo en el panel. **Publicado el 13/11 (PR #58).**
 - ✅ Control: «↔️ Cambiar de cuenta» a una cuenta elegida con la misma fecha. **Publicado el 13/11 (PR #59).**
-- 🔧 Cuentas: «↔️ Mover todos a otra cuenta» (un Netflix caído → todos sus clientes de una vez). Rama `mover-cuenta-completa`, **sin publicar**. Con el cobro apagado no cambia nada para nadie; los 25 revendedores reales quedaron en Negocio.
-- ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
-- ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
+- ✅ Cuentas: «↔️ Mover todos a otra cuenta» (un Netflix caído → todos sus clientes de una vez). **Publicado el 13/11 (PR #60).**
+- 🔧 Atajos (rama `panel-atajos`, **sin publicar**): «Ya le avisé», fila de envíos, «Cobrar» con link, resumen del mediodía al celular, «Que vuelvan» y cierre de mes de los revendedores, detalles visuales. Con el cobro apagado no cambia nada para nadie; los 25 revendedores reales quedaron en Negocio.
+- ✅ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más). Rama `panel-atajos`, sin publicar.
+- ✅ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo). Rama `panel-atajos`, sin publicar.
 - ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.
 
 ## Publicado — Optimización 1 + 2 (13/11, PR #52, con el «Publica» del dueño)

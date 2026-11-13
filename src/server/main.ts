@@ -38,6 +38,7 @@ if ((env.VAPID_PUBLIC_KEY || env.VAPID_PRIVATE_KEY) && !vapid) console.warn("Avi
 const app = createApp({
   dataDir: env.GS_DATA_DIR ?? "data",
   publicOrigin: origin,
+  shopSubdomains: env.GS_SHOP_SUBDOMAINS === "1",
   secureCookies: !!origin?.startsWith("https://"),
   staticDir,
   metaBaseUrl: env.GS_META_BASE_URL,

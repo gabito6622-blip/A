@@ -71,11 +71,14 @@ const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>$
 /** Valor para <input type="date"> con la fecha local (con toISOString se corría un día en Bolivia). */
 const dateInput = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+/** Link de la página de un revendedor: con subdominios prendidos, https://daniel.gabostore.lat; si no, …/r/daniel. */
+const shopLink = (slug, origin = location.origin) => (P.settings?.shopDomain ? `https://${slug}.${P.settings.shopDomain}` : `${origin}/r/${slug}`);
+
 /** Link de acceso + página + mensaje de WhatsApp para un revendedor. */
 async function resellerKit(id, name, phone, slug, pinIn) {
   const pin = pinIn ?? (await api("POST", `/api/admin/customers/${id}/login-pin`, {})).pin;
   const plat = P.settings?.platformName || "GaboHub";
-  const page = slug ? `${location.origin}/r/${slug}` : "";
+  const page = slug ? shopLink(slug) : "";
   const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/hub\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
@@ -86,7 +89,7 @@ async function resellerKit(id, name, phone, slug, pinIn) {
 /** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
 function guideMsg(name, plat, origin, slug, pageAllowed) {
   const n = (name || "").split(" ")[0] || "";
-  const page = pageAllowed && slug ? `${origin}/r/${slug}` : "";
+  const page = pageAllowed && slug ? shopLink(slug, origin) : "";
   return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
     + `*1) Cómo entrar*\n`
     + `• Entrá a: ${origin}/hub\n`
@@ -116,6 +119,7 @@ function applyTheme() {
   $("#app").classList.toggle("dark", dark);
   document.documentElement.dataset.gsTheme = dark ? "dark" : "light"; // tema.css: mismos colores que la oficina y GaboHub
   document.body.style.background = dark ? "#070b16" : "#eef1f6";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#070b16" : "#1e3a8e");
   $$("[data-th]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.th === P.theme));
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
@@ -368,7 +372,7 @@ const V = {
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `${cierre}${tarjeta}<div class="fin">
       <section class="card finhero">
-        <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
+        <h2 style="margin:0 0 4px">Finanzas de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
         <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
           <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}</small></div>
@@ -385,7 +389,7 @@ const V = {
         <div class="finchart">${bars}</div>
       </section>
       <section class="card">
-        <h2>Gastos de ${esc(c.label)}</h2>
+        <h2>Gastos de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
         <form id="expenseForm" class="finform" autocomplete="off">
           <label>Monto (${currencySym()})<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
@@ -595,7 +599,7 @@ const V = {
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
     // "Tu mes": cuánto entró, lo que te cuestan las cuentas (estimado) y lo que te quedó, con las 3 apps que más te dejan.
     const c = fin?.current;
-    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
+    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
@@ -637,7 +641,9 @@ const V = {
   },
 
   async control() {
-    const [list, customers, accsAll] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([])]);
+    const [list, customers, accsAll, sup] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([]), api("GET", "/api/admin/settings/soporte").catch(() => null)]);
+    // Links de renovación prendidos (Configuración → Soporte): «Cobrar» arma el mensaje CON el link para que pague solo.
+    const renewOn = !!sup?.renewLink?.enabled;
     const T = P.tab;
     // «↔️ Cambiar de cuenta»: perfiles libres (o apartados) de otras cuentas activas de la misma plataforma, para pasar al cliente con la misma fecha.
     const freeSlotsFor = (r) => accsAll.filter((a) => a.productId === r.productId && a.status === "active" && a.email !== r.email).flatMap((a) => (a.slots ?? []).filter((s) => ["available", "quarantined"].includes(s.status)).map((s) => ({ id: s.id, email: a.email, label: s.label, q: s.status === "quarantined" })));
@@ -705,13 +711,29 @@ const V = {
     const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} ${r.d < 0 ? "ya venció" : "está por vencer"}:\n\n${datos(r).replace(/💰 Monto: .*/, `💰 A vos te sale: ${payText(r, r.price)}`)}\n\n¿Lo renovás?`;
     const cobrarBtn = (r, title = "") => r.viaRes
       ? (r.resellerPhone ? `<a class="pbtn sm" href="${waLink(r.resellerPhone, resMsg(r))}" target="_blank" rel="noopener" title="Es cliente de ${esc(r.rname)}: le avisás a tu revendedor">📣 Avisar a ${esc(first(r.rname))}</a>` : `<span class="pp pp-warn">${esc(first(r.rname))} sin WhatsApp</span>`)
-      : r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>` : "";
+      : !r.customerPhone ? ""
+      : renewOn ? `<button class="pbtn sm" type="button" data-cobrolink="${esc(r.id)}" data-phone="${esc(r.customerPhone)}" data-name="${esc(r.customerName || "")}" data-msg="${esc(msg(r))}" title="Arma el mensaje con su link para renovar con QR o saldo">💰 Cobrar</button>`
+      : `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>`;
     const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
     const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
     const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
-    return `<section class="card ctl-top">
+    // «📲 Fila de envíos» (13/11): después de «Mover todos a otra cuenta», abre el WhatsApp de cada cliente con sus
+    // accesos nuevos, uno tras otro. Nada se manda solo: cada envío es un toque del dueño.
+    const sq = T.sendq;
+    if (sq && !sq.list) sq.list = (await Promise.all(sq.ids.map((id) => api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null)))).filter(Boolean);
+    const sqCard = !sq ? "" : (() => {
+      const n = sq.list.length, cur = sq.list[sq.i], sent = Object.keys(sq.sent).length;
+      return `<section class="card cobra sendq" id="sendq"><h2>📲 Mandar los accesos nuevos <small>${n} cliente${n === 1 ? "" : "s"}${sq.title ? ` · ${esc(sq.title)}` : ""}</small></h2>
+        ${cur ? `<div class="invstep"><div><small class="muted">${sq.i + 1} de ${n}${sent ? ` · ${sent} enviado${sent === 1 ? "" : "s"}` : ""}</small><b>${esc(cur.customerName || "Cliente")}</b><span class="muted">${esc(cur.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(cur.profile)}</span></div>
+          <pre class="cobpre">${esc(cur.message)}</pre>
+          ${cur.passwordPending ? `<p class="muted" style="margin:0">⚠️ Esta cuenta no tiene la contraseña cargada: cargala en Cuentas antes de mandar.</p>` : ""}
+          ${cur.customerPhone ? `<a class="pbtn green big" href="${waLink(cur.customerPhone, cur.message)}" target="_blank" rel="noopener" data-sendqsent="${esc(cur.assignmentId)}">${icon("wa")}Enviar por WhatsApp${sq.sent[cur.assignmentId] ? " ✅" : ""}</a>` : `<span class="pp pp-warn">Sin WhatsApp en su ficha</span><button class="pbtn sm" type="button" data-copy="${esc(cur.message)}">📋 Copiar mensaje</button>`}
+          <div class="inline">${sq.i > 0 ? `<button class="pbtn sm" type="button" data-sendq="prev">◀ Anterior</button>` : ""}<button class="pbtn sm" type="button" data-sendq="next">${sq.i + 1 < n ? "Siguiente ▶" : "Terminar ✓"}</button><button class="pbtn sm" type="button" data-sendq="stop">Cerrar</button></div></div>`
+        : `<p style="margin:0">✅ ¡Listo! Les mandaste los accesos a ${sent} de ${n}.</p><button class="pbtn sm" type="button" data-sendq="stop" style="justify-self:start">Cerrar</button>`}</section>`;
+    })();
+    return `${sqCard}<section class="card ctl-top">
         <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Te pagan</small><b>${bs(sum((r) => r.price))}</b></div>${canReview() ? `<div><small>Costo de esos perfiles (estim.)</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="${sum((r) => r.gain) < 0 ? "down" : "up"}">${bs(sum((r) => r.gain))}</b></div>` : ""}<div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length && canReview() ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
@@ -751,6 +773,7 @@ const V = {
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
           ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
+        ${r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
         <footer>${cobrarBtn(r)}
           ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
@@ -1316,7 +1339,7 @@ const V = {
       <section class="card"><h2>Páginas de revendedores</h2>
         <p class="muted" style="margin:0">Cada revendedor puede armar su propia página (<code>/r/su-nombre</code>) con su logo, colores, letras y precios. Sus clientes le piden por WhatsApp a él. Si alguna página tiene algo que no te gusta, bloqueala.</p>
         <label class="chk"><input type="checkbox" id="resellerShops" ${s.resellerShops ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Permitir que los revendedores publiquen su página</label>
-        ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="/r/${esc(x.slug)}" target="_blank" rel="noopener">/r/${esc(x.slug)}</a><br><small class="muted">${esc(x.title)}</small></td>
+        ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="${esc(shopLink(x.slug))}" target="_blank" rel="noopener">${esc(P.settings?.shopDomain ? `${x.slug}.${P.settings.shopDomain}` : `/r/${x.slug}`)}</a><br><small class="muted">${esc(x.title)}</small></td>
           <td>${x.blocked ? pill("Bloqueada", "bad") : x.enabled ? pill("Publicada", "ok") : pill("Apagada", "mute")}</td>
           <td><div class="inline"><button class="pbtn sm" type="button" data-shopfeat="${esc(x.customerId)}" data-on="${x.featured ? 0 : 1}">${x.featured ? "★ Quitar destacada" : "☆ Destacar"}</button><button class="pbtn sm" type="button" data-shopblock="${esc(x.customerId)}" data-on="${x.blocked ? 0 : 1}">${x.blocked ? "Desbloquear" : "Bloquear"}</button></div></td></tr>`)) : `<div class="emptybox">Ningún revendedor armó su página todavía.</div>`}</section>
       <section class="card"><h2>Opiniones de revendedores <small>· ${testis.length}/12</small></h2>
@@ -1487,7 +1510,7 @@ const V = {
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
         ${rent?.scope === "all" ? `<label class="chk rplan">Plan GaboHub <select data-hubplan="${esc(r.id)}" aria-label="Plan de ${esc(r.name)}"><option value="business" ${r.plan === "business" ? "selected" : ""}>Negocio · ${bs(rent.price)}</option><option value="seller" ${r.plan === "seller" ? "selected" : ""}>Vendedor · ${bs(rent.sellerPrice ?? rent.basicPrice ?? rent.price)}</option><option value="free" ${r.plan === "free" ? "selected" : ""}>Gratis · ${bs(0)}</option></select>${r.shop?.trial ? pill("🎁 en prueba", "ok") : r.planToday && r.planToday !== r.plan ? pill(`hoy ${r.planToday === "free" ? "Gratis (sin pagar)" : r.planToday === "business" ? "Negocio" : "Vendedor"}`, "warn") : ""}</label>` : r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}
-        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
+        ${r.pageAllowed ? `<div class="linkbar sm"><a href="${esc(shopLink(r.shop.slug, o))}" target="_blank" rel="noopener">${esc(shopLink(r.shop.slug, o).replace(/^https?:\/\//, ""))}</a><button class="pbtn sm" type="button" data-copy="${esc(shopLink(r.shop.slug, o))}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
@@ -1788,6 +1811,7 @@ async function pushCard() {
       <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
         <legend style="padding:0 6px;font-weight:600">¿De qué te avisamos?</legend>
         ${Object.entries(PUSH_LABELS).map(([k, t]) => `<label class="chk"><input type="checkbox" name="pa_${k}" ${sel.has(k) ? "checked" : ""}> ${t}</label>`).join("")}
+        <label class="chk"><input type="checkbox" name="noon" ${p.noon !== false ? "checked" : ""}> 🗂️ Resumen del mediodía de Mi secretaria (una vez por día, a las 12:00)</label>
       </fieldset>
       <label>Stock bajo: avisar cuando queden menos de<input name="lowStockAt" type="number" min="0" max="50" step="1" inputmode="numeric" value="${p.lowStockAt}"></label>
       <p class="muted" style="margin:0;align-self:end">perfiles libres de un producto (0 = no avisar).</p>
@@ -2433,6 +2457,25 @@ function showDeliveries(list) {
   el.querySelector("[data-dlvclose]")?.focus();
 }
 
+/** Tarjeta «💰 Cobro listo»: el mensaje de cobro (con el link de renovación si hay) y el botón para mandarlo por WhatsApp. */
+function showCobro({ name, phone, msg, link, linkNote }) {
+  document.getElementById("dlvScrim")?.remove();
+  const el = document.createElement("div");
+  el.id = "dlvScrim"; el.className = "dlv-scrim"; el.dataset.msg = msg;
+  el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Mensaje de cobro">
+      <div class="dlv-top"><h3>💰 Cobro listo</h3><button class="pbtn sm" type="button" data-dlvclose="1" aria-label="Cerrar">✕</button></div>
+      <p class="muted" style="margin:0">Para <b>${esc(name || "el cliente")}</b> · ${esc(phone)}</p>
+      <pre class="cobpre" style="max-height:320px">${esc(msg)}</pre>
+      <p class="muted" style="margin:0">${link ? "🔗 Lleva su link: paga con QR o saldo y vos solo aprobás." : `⚠️ ${esc(linkNote || "Sin link de renovación")}: va el mensaje de siempre.`}</p>
+      <a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>
+      <button class="pbtn big" type="button" data-dlvcopy="1">📋 Copiar mensaje</button></div>`;
+  el.addEventListener("click", (ev) => { if (ev.target === el) el.remove(); });
+  (document.getElementById("app") ?? document.body).appendChild(el);
+  const onKey = (ev) => { if (ev.key === "Escape") { el.remove(); document.removeEventListener("keydown", onKey); } };
+  document.addEventListener("keydown", onKey);
+  el.querySelector("[data-dlvclose]")?.focus();
+}
+
 // Presupuesto con cupón para la venta manual (se pide al servidor, que es quien decide).
 const sellQuote = { key: "", r: null, timer: 0 };
 function quoteSell(cid, productId, qty, code, periods = 1) {
@@ -2499,6 +2542,9 @@ async function act(fn, okMsg) {
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-cobsent]");
   if (a) { (P.tab.cob ??= { on: true, i: 0, sent: {} }).sent[a.dataset.cobsent] = true; setTimeout(render, 300); }
+  // Fila de envíos de accesos: al tocar «Enviar» queda marcado y pasa solo al siguiente.
+  const q = ev.target.closest("a[data-sendqsent]");
+  if (q && P.tab.sendq) { P.tab.sendq.sent[q.dataset.sendqsent] = true; P.tab.sendq.i++; setTimeout(render, 300); }
   const b = ev.target.closest("a[data-invsent]");
   if (b && P.tab.inv?.on) { const inv = P.tab.inv; (inv.sent ??= {})[b.dataset.invsent] = true; inv.i++; setTimeout(render, 300); }
 });
@@ -2542,6 +2588,16 @@ document.addEventListener("click", async (ev) => {
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
   if (d.dlvcopy) { const s = document.getElementById("dlvScrim"); if (s) { try { await navigator.clipboard.writeText(s.dataset.msg); toast("Datos copiados ✓"); } catch { toast("No se pudo copiar"); } } return; }
+  if (d.cobrolink) {
+    const b = el; b.disabled = true;
+    const base = d.msg, cut = base.lastIndexOf("\n\n¿Renovamos?");
+    try {
+      const r = await api("POST", `/api/admin/assignments/${d.cobrolink}/renew-link`, {});
+      const extra = `🔗 Renová vos mismo acá, con QR o saldo (el link vale hasta el ${fdt(r.expiresAt)}):\n${r.url}`;
+      showCobro({ name: d.name, phone: d.phone, link: true, msg: cut >= 0 ? `${base.slice(0, cut)}\n\n${extra}${base.slice(cut)}` : `${base}\n\n${extra}` });
+    } catch (e) { showCobro({ name: d.name, phone: d.phone, link: false, linkNote: e.message, msg: base }); }
+    b.disabled = false; return;
+  }
   if (d.deliver) { try { const info = await api("GET", `/api/admin/assignments/${d.deliver}/delivery`); showDeliveries([info]); } catch (e) { toast(e.message); } return; }
   if (d.tab) { const i = d.tab.indexOf(":"); P.tab[d.tab.slice(0, i)] = d.tab.slice(i + 1); return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }
@@ -2706,6 +2762,13 @@ document.addEventListener("click", async (ev) => {
     if (!q.length) return toast("No hay perfiles en cuarentena");
     if (!confirm(`¿Liberar ${q.length} perfil(es) de ${acc.email}? Vuelven a estar disponibles para vender.`)) return;
     return act(async () => { for (const x of q) await api("POST", `/api/admin/slots/${x.id}/status`, { status: "available", note: "Liberado desde Cuentas" }); return q.length; }, (n) => `✅ ${n} perfil(es) liberados`);
+  }
+  if (d.sendq) {
+    const sq = P.tab.sendq;
+    if (!sq || d.sendq === "stop") { delete P.tab.sendq; return render(); }
+    if (d.sendq === "next") sq.i++;
+    if (d.sendq === "prev") sq.i = Math.max(0, sq.i - 1);
+    return render();
   }
   if (d.cob) {
     const cob = (P.tab.cob ??= { on: false, i: 0, sent: {} });
@@ -3280,7 +3343,7 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/ai", { enabled, model: f.model.value, monthlyLimitUsd: Math.max(0, +f.limit.value || 0) }), "🤖 Agentes guardados");
     } else if (f.id === "pushForm") {
       const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
-      await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
+      await act(() => api("POST", "/api/admin/push/config", { alerts, noon: !!f.noon?.checked, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
     } else if (f.id === "tgForm") {
       const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
       if (f.token.value.trim()) body.token = f.token.value.trim();
@@ -3317,7 +3380,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.dataset.moveall) {
       const email = f.to.options[f.to.selectedIndex]?.dataset.email ?? "";
       if (!confirm(`¿Pasar ${f.dataset.n} cliente(s) a ${email}? Cada uno conserva su fecha; los perfiles viejos quedan apartados.`)) return;
-      await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Acá están, tocá «Reenviar accesos» en cada uno`);
+      await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; P.tab.sendq = { ids: r.moved.map((m) => m.assignmentId), i: 0, sent: {}, title: `ahora en ${r.to}` }; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Arriba tenés la fila para mandarles los accesos uno por uno`);
     } else if (f.dataset.swapacc) {
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);

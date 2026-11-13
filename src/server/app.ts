@@ -40,8 +40,9 @@ import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importSe
 import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
-import { findBySlug as findShopBySlug, type HubFeature } from "../store/resellerShop.js";
+import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
+import { injectEarlyLook } from "./earlyLook.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
  *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
@@ -67,6 +68,8 @@ export interface AppConfig {
   dataDir: string;
   /** Origen público, p. ej. "https://gabostore.lat". Los POST de navegador deben venir de acá. */
   publicOrigin?: string;
+  /** Subdominios de revendedores prendidos (daniel.gabostore.lat): GS_SHOP_SUBDOMAINS=1, cuando el comodín *.dominio ya tiene DNS y candado. */
+  shopSubdomains?: boolean;
   /** true en producción (HTTPS): cookies con Secure. */
   secureCookies?: boolean;
   /** Carpeta con la tienda y el panel (HTML/JS/CSS). */
@@ -170,6 +173,7 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
   checkResellerPush(): Promise<void>;
+  checkNoonPush(): Promise<void>;
   /** "🔔 Avisarme antes de que venza": avisos a clientes finales (una vez por día, desde las 9 de Bolivia). */
   checkExpiryPush(): Promise<unknown>;
   /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
@@ -288,6 +292,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
     return {
+      // Subdominios de revendedores (daniel.gabostore.lat): solo cuando el dueño los prendió (GS_SHOP_SUBDOMAINS=1) y hay dominio propio.
+      ...(cfg.shopSubdomains && customDomain() ? { shopDomain: customDomain() } : {}),
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
@@ -565,6 +571,9 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/dia", "customer", (c) => { needPlan("dia")(c); return store.rtools.day(c.actor!); });
   route("GET", "/api/me/dia/preview/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
   route("POST", "/api/me/dia/pay/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
+  // «Que vuelvan» del revendedor: va con Mi día (plan Negocio). Solo lo suyo.
+  route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
+  route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
@@ -1015,6 +1024,7 @@ export function createApp(cfg: AppConfig): App {
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
   route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
+  route("POST", "/api/admin/assignments/notified", "staff", (c) => store.orders.markNoticed(A(c), c.body?.ids, c.body?.off === true));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
@@ -1826,7 +1836,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/push", "staff", (c) => {
     const me = A(c).id, subs = pushSubs(), pc = pushCfg();
     return { configured: pushOn(), error: vapidError || null, publicKey: pushOn() ? cfg.vapid!.publicKey : null,
-      alerts: pc.alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
+      alerts: pc.alerts, noon: pc.noon !== false, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
       lastAt: pc.lastAt ?? null, lastError: pc.lastError ?? null };
   });
   route("POST", "/api/admin/push/subscribe", "staff", (c) => {
@@ -1857,12 +1867,13 @@ export function createApp(cfg: AppConfig): App {
     const alerts = Array.isArray(c.body?.alerts) ? c.body.alerts.map(String).filter((k: string) => PUSH_ALERTS.includes(k)) : pushCfg().alerts;
     const low = c.body?.lowStockAt;
     if (low !== undefined && (!Number.isInteger(low) || low < 0 || low > 50)) throw new HttpError(400, "VALIDATION", "Stock bajo: un número entre 0 y 50");
-    pushCfgSave({ alerts });
+    const noon = typeof c.body?.noon === "boolean" ? c.body.noon : pushCfg().noon !== false;
+    pushCfgSave({ alerts, noon });
     store.engine.tx(() => {
       if (low !== undefined) store.engine.s.settings.lowStockAt = low;
       store.engine.audit(A(c), "push.config", "settings", "push", { alerts: alerts.join(","), ...(low !== undefined ? { lowStockAt: low } : {}) });
     });
-    return { ok: true, alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
+    return { ok: true, alerts, noon, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
   });
   // El service worker pide acá el texto del último aviso (con la sesión del panel).
   route("GET", "/api/admin/push/latest", "staff", () =>
@@ -2178,37 +2189,67 @@ export function createApp(cfg: AppConfig): App {
     return true;
   }
   let shellHtml: { file: string; mtime: number; html: string } | null = null;
-  function shellWithOg(req: IncomingMessage, file: string, pathname: string): string | null {
+  function shellWithOg(req: IncomingMessage, file: string, pathname: string, shownPath = pathname): string | null {
     const info = ogInfo(pathname);
     if (!info) return null;
     const mtime = statSync(file).mtimeMs;
     if (!shellHtml || shellHtml.file !== file || shellHtml.mtime !== mtime) shellHtml = { file, mtime, html: readFileSync(file, "utf8") };
-    const origin = originOf(req);
-    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + pathname, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
+    // En el subdominio del revendedor (ruta reescrita), el link que se comparte es el del subdominio; el host ya se validó.
+    const sub = shownPath !== pathname ? String(req.headers.host ?? "").toLowerCase().replace(/:\d+$/, "") : "";
+    const origin = sub ? `https://${sub}` : originOf(req);
+    const tags = ogTags({ title: info.title, description: info.description, siteName: info.siteName, url: origin + shownPath, image: origin + info.img, ...(info.noSize ? {} : { imageW: OG_W, imageH: OG_H }) });
     const escT = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     let html = shellHtml.html
       .replace(/<title>[^<]*<\/title>/, `<title>${escT(info.title)}</title>`)
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    // Los colores del dueño (o del revendedor) desde el primer cuadro: sin destello azul de los colores de fábrica.
+    const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
+    if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
+    // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
+    if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
+    // La tienda servida en «/» del dominio propio: el navegador tiene que saber que es la tienda y no GaboHub.
+    else if (sub && pathname === "/tienda/") html = html.replace("</head>", `<meta name="gs-mode" content="store">\n</head>`);
     return html;
   }
 
-  /** A dónde mandar a quien entra por el dominio propio. null = servir normal. */
-  function domainRedirect(rawHost: string, pathname: string, search: string): { code: number; to: string } | null {
+  /** El dominio propio de la tienda (gabostore.lat), o null si se usa la dirección de Railway o la máquina local. */
+  function customDomain(): string | null {
     if (!cfg.publicOrigin?.startsWith("https://")) return null;
     let main: string;
     try { main = new URL(cfg.publicOrigin).hostname.toLowerCase(); } catch { return null; }
-    if (main.endsWith(".up.railway.app") || main === "localhost") return null;
+    return main.endsWith(".up.railway.app") || main === "localhost" ? null : main;
+  }
+  /**
+   * A dónde mandar a quien entra por el dominio propio. null = servir normal; `rewrite` = servir esa ruta sin cambiar la dirección.
+   * Subdominio de revendedor (13/11/2026): daniel.gabostore.lat muestra la página de Daniel (la misma que /r/daniel).
+   * Un subdominio que no es de ninguna página publicada (o reservado) lleva a la portada de la tienda.
+   */
+  function domainRedirect(rawHost: string, pathname: string, search: string): { code: number; to: string } | { rewrite: string } | null {
+    const main = customDomain();
+    if (!main) return null;
     const host = rawHost.toLowerCase().replace(/:\d+$/, "");
     if (host === `www.${main}`) return { code: 301, to: `https://${main}${pathname}${search}` };
-    if (host === main && pathname === "/") return { code: 302, to: `/tienda/${search}` };
+    // La portada del dominio ES la tienda, sin salto (13/11/2026): antes era un 302 a /tienda/ y, mientras iba y volvía,
+    // el celular podía seguir mostrando otra página un momento. Ahora sale la tienda al toque; /tienda/ sigue andando igual.
+    if (host === main && (pathname === "/" || pathname === "/index.html")) return { rewrite: "/tienda/" };
+    if (host.endsWith(`.${main}`)) {
+      const label = host.slice(0, -main.length - 1);
+      // Atajos fáciles de recordar: panel.gabostore.lat (el panel del dueño) y hub.gabostore.lat (GaboHub).
+      // Llevan a la dirección de siempre, así la sesión y los avisos al celular siguen en un solo lugar.
+      if (label === "panel" || label === "admin") return { code: 302, to: `https://${main}/panel` };
+      if (label === "hub") return { code: 302, to: `https://${main}/hub` };
+      const ok = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(label) && !SHOP_RESERVED.has(label) && !!findShopBySlug(store.engine, label);
+      if (!ok) return { code: 302, to: `https://${main}/` };
+      if (pathname === "/" || pathname === "/index.html") return { rewrite: `/r/${label}` };
+    }
     return null;
   }
 
   const TEXTY = new Set([".js", ".css", ".html", ".svg", ".json", ".webmanifest", ".txt"]);
   const gzCache = new Map<string, Buffer>();
-  function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string): boolean {
+  function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string, shownPath = pathname): boolean {
     if (!cfg.staticDir || (req.method !== "GET" && req.method !== "HEAD")) return false;
     const root = resolve(cfg.staticDir);
     let file = normalize(join(root, decodeURIComponent(pathname)));
@@ -2221,7 +2262,7 @@ export function createApp(cfg: AppConfig): App {
     if (!existsSync(file)) file = join(root, "index.html");
     if (!existsSync(file)) return false;
     if (file === join(root, "index.html")) {
-      const html = shellWithOg(req, file, pathname);
+      const html = shellWithOg(req, file, pathname, shownPath);
       if (html !== null) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(req.method === "HEAD" ? undefined : html);
@@ -2277,8 +2318,9 @@ export function createApp(cfg: AppConfig): App {
         // Dominio propio (GS_PUBLIC_ORIGIN): www → dominio principal, y la portada del dominio es la tienda.
         // GaboHub (revendedores) queda en /hub. El link de Railway sigue igual que siempre.
         const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
-        if (go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
-        if (!serveSeoFiles(req, res, url.pathname) && !serveOgImage(req, res, url.pathname) && !serveStatic(req, res, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
+        if (go && "code" in go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
+        const path = go && "rewrite" in go ? go.rewrite : url.pathname;
+        if (!serveSeoFiles(req, res, path) && !serveOgImage(req, res, path) && !serveStatic(req, res, path, url.pathname)) send(res, 404, { error: "NOT_FOUND", message: "No encontrado" });
         return;
       }
       const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
@@ -2446,7 +2488,8 @@ export function createApp(cfg: AppConfig): App {
   // junto a los secretos. El toque va sin contenido: el celular le pide el texto al panel.
   const PUSH_ALERTS = ["payment", "lowstock", "supplier1d", "reseller", "reloc"];
   type PushSub = PushSubscriptionData & { staffId: string; label?: string; createdAt: number };
-  type PushCfg = { alerts: string[]; lastAt?: number; lastError?: string };
+  /** `noon`: resumen del mediodía de Mi secretaria (prendido salvo que el dueño lo apague). */
+  type PushCfg = { alerts: string[]; noon?: boolean; lastAt?: number; lastError?: string };
   let vapidKey: KeyObject | null = null, vapidError = "";
   // Sin claves cargadas a mano: en la tienda publicada (https) las generamos una vez y quedan guardadas
   // junto a los secretos, así los avisos al celular funcionan sin configurar nada.
@@ -2461,7 +2504,7 @@ export function createApp(cfg: AppConfig): App {
   const pushOn = () => !!vapidKey && !!cfg.vapid;
   const pushSubs = (): PushSub[] => { try { const l = JSON.parse(db.getSecret("push_subs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
   const pushSubsSave = (l: PushSub[]) => db.setSecret("push_subs", JSON.stringify(l), now());
-  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
+  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], ...(c.noon === false ? { noon: false } : {}), lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
   const pushCfgSave = (patch: Partial<PushCfg>) => db.setSecret("push_cfg", JSON.stringify({ ...pushCfg(), ...patch }), now());
   /** Lo último que avisamos: el service worker del celular lo pide para mostrar el texto. */
   let pushLatest: { title: string; body: string; go: string; at: number } | null = null;
@@ -2548,6 +2591,29 @@ export function createApp(cfg: AppConfig): App {
     if (!news.length) return;
     await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
       body: news.length === 1 ? "Tocá para abrir el panel." : news.map((it) => `${it.icon} ${it.text}`).join("\n"), go: news[0].go });
+  }
+
+  /**
+   * «🗂️ Resumen del mediodía» (13/11/2026): una vez por día, desde las 12:00 de Bolivia, le llega al celular del dueño lo
+   * que Mi secretaria tiene pendiente (en cobro, por cortar, vencidas sin anotar, por avisar, sin pagar) y abre esa
+   * pantalla. Si no hay nada pendiente no molesta. Solo lee: no cambia nada ni le escribe a ningún cliente.
+   */
+  async function checkNoonPush(): Promise<void> {
+    const h = localHour(now(), "America/La_Paz");
+    if (!pushOn() || h < 12 || h >= 20 || pushCfg().noon === false) return;
+    // Solo a los celulares del dueño y de admins: Mi secretaria no es de Atención (seller), y el aviso nombra a quién cobrar.
+    const subs = pushSubs().filter((x) => ["owner", "admin"].includes(store.engine.s.staff[x.staffId]?.role ?? ""));
+    if (!subs.length) return;
+    const day = laDay(now());
+    if (db.getSecret("npush_day") === day) return;
+    db.setSecret("npush_day", day, now());
+    const r = store.stats.secretary({ id: "system:mediodia", role: "owner" });
+    const c = r.counts;
+    const parts = [c.cobrar && `${c.cobrar} en cobro`, c.cortar && `${c.cortar} por cortar`, c.sinAnotar && `${c.sinAnotar} vencida${c.sinAnotar === 1 ? "" : "s"} sin anotar`, c.avisar && `${c.avisar} por avisar`, c.deben && `${c.deben} sin pagar`].filter(Boolean) as string[];
+    if (!parts.length) return;
+    const names = (gs: { name: string; items: { noticedAt?: number }[] }[]) => [...new Set(gs.filter((g) => g.items.some((i) => i.noticedAt === undefined)).map((g) => firstName(g.name)))];
+    const who = [c.cobrar || c.cortar ? `Cobrar o cortar: ${names([...r.cobrar, ...r.cortar]).slice(0, 4).join(", ")}` : "", c.avisar ? `Avisar: ${names(r.avisar).slice(0, 5).join(", ")}` : ""].filter(Boolean);
+    await pushSend(subs, { title: `🗂️ Mediodía: ${parts.join(" · ")}`, body: who.join("\n") || "Tocá para ver Mi secretaria.", go: "secretaria" });
   }
 
   // ── Agentes con Claude (oficina virtual) ─────────────────────────────────
@@ -2766,6 +2832,7 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      checkNoonPush().catch((e) => log(`resumen del mediodía falló: ${(e as Error).message}`));
       expiry.check().catch((e) => log(`avisos de vencimiento fallaron: ${(e as Error).message}`));
       checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
     }, 60_000));
@@ -2773,7 +2840,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

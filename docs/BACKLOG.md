@@ -6,8 +6,12 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
+- **[Decide el dueño] Subdominios de revendedores** (13/11). Falta: permiso para crear `*.gabostore.lat` en Railway, los registros en Namecheap, «Publicá» y la variable `GS_SHOP_SUBDOMAINS=1`. La página de Daniel (`cus_00717`) está apagada y su nombre es `dani-strem-daniel-quispe-quisp`: para `daniel.gabostore.lat` hay que prenderla y cambiar el nombre a `daniel` (el dueño decide).
+
 - **[Decide el dueño] GaboHub: tres niveles publicados (PR #57), falta el «prendé»** (13/11). Gratis / Vendedor Bs 28 / Negocio Bs 49 ya en la tienda real con el cobro apagado. Falta: el precio del Vendedor en US$ (sugerido US$ 3; hoy los de afuera pagarían con la tasa del día), publicar, y decidir cuándo prender el cobro (con los 15 días de prueba, cada revendedor arranca en Negocio gratis).
-- **[P3] Prueba `seguridad-plata` con falso positivo ocasional:** busca el costo «1777» en el texto de la respuesta y a veces lo encuentra dentro de una fecha-hora. Cambiar la búsqueda a `"cost":1777` o usar otro número. Sola pasa.
+- **[P2] Venta a mano con precio propio.** Hoy «Vender» cobra el precio de lista: Alejandra pagó Bs 27 por Flujo TV (lista Bs 25) y en Finanzas entró Bs 25 (el Control sí dice Bs 27). Agregar «precio cobrado» a la venta manual del staff (13/11).
+- **[P2] «Registrar línea IPTV»: la fecha con el proveedor figura opcional,** pero sin ella la línea queda vencida y no se puede vender. Hacerla obligatoria o poner «sin fecha» por defecto (13/11).
+- **[P2] Productos IPTV publicados con líneas sueltas:** MASTV y FLUJOTV están publicados; una línea cargada sin asignar puede venderla la tienda web. Al cargar líneas de clientes que ya existen, asignarlas en el mismo paso (13/11).
 - **[P3] GaboHub: prorrateo al cambiar entre Vendedor y Negocio.** Hoy el cambio rige desde el próximo cobro (subir a Negocio a mitad de mes no cuesta más hasta entonces). Si se prende el cobro y alguien abusa, cobrar la diferencia proporcional.
 
 ## Decisiones del dueño

@@ -15,8 +15,11 @@ import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, a
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
 const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
-const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase() ?? null;
-const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
+// La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
+const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase()
+  ?? (location.pathname === "/" ? document.querySelector('meta[name="gs-shop"]')?.content?.toLowerCase() : null) ?? null;
+// En el dominio propio, «/» es la tienda (el servidor la marca con <meta name="gs-mode" content="store">).
+const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) || (location.pathname === "/" && document.querySelector('meta[name="gs-mode"]')?.content === "store") ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar"],
@@ -711,7 +714,7 @@ initOwnStock(() => render());
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 async function loadRTab(tab) {
-  if (tab === "dia") S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
+  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null)]);
   if (tab === "descargas") await descargasEnsure();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
@@ -787,7 +790,18 @@ function rDiaView() {
     <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${k.cobrar}</b><small>${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen en 1 a 3 días</small></div><div class="${k.deben ? "bad" : ""}"><span>💸 Me deben</span><b>${k.deben}</b><small>${esc(mine(D.totals.deben))}</small></div></div></div>
     ${sec("cobrar", "💵 Cobrar hoy", "Vencieron (hasta 30 días atrás) o vencen hoy. Si te pagan, tocá «Me pagó».", D.cobrar)}
     ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días: un mensaje a tiempo evita el corte.", D.avisar)}
-    ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}`;
+    ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}
+    ${rBackBox()}`;
+}
+/* ---- 🔁 Que vuelvan (13/11): sus clientes a los que se les venció y no renovaron, con mensaje listo y «Ya le escribí» ---- */
+const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+function rBackBox() {
+  const B = S.data.rback;
+  if (!B || (!B.items.length && !B.written)) return "";
+  return `<section class="sbox rdia-s" id="rback"><h3 style="margin:0">🔁 Que vuelvan <small class="empty">· ${B.items.length ? `${B.items.length} cliente${B.items.length === 1 ? "" : "s"}` : "nadie por ahora"}</small></h3>
+    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
+    ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
+      <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
 }
 /** Vista previa de «Me pagó»: qué va a pasar, precio editable y, si corresponde, renovar con su saldo en el mismo toque. */
 function diaPreviewHtml(pv, key) {
@@ -881,15 +895,31 @@ function rDebeBase() {
         <button class="sbtn sm" type="button" data-rfdet="${esc(r.customerId)}">📜 Movimientos</button></footer></article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">Nadie te debe nada 🎉</p></div>`}</div>`;
 }
 function rEarnView() { return rEarnBase() + ownEarnBox(); }
+/** 🧾 Cierre de mes del revendedor (13/11): este mes contra el anterior, quién le pagó más y qué app le dejó más. */
+function earnCloseBox(g) {
+  if (!g?.month || !g.prev) return "";
+  const m = g.month, p = g.prev, c = g.compare;
+  const arrow = (pct) => (pct === null || pct === undefined ? "" : `<span style="font-weight:700;color:var(${pct >= 0 ? "--s-ok" : "--s-bad"})">${pct >= 0 ? "▲ +" : "▼ "}${pct} %</span>`);
+  const row = (label, a, b, pct) => `<div class="line"><span class="lgrow"><b>${label}</b><br><small class="empty">${esc(p.label)}: ${esc(b)}</small></span><span style="text-align:right"><b>${esc(a)}</b><br>${arrow(pct)}</span></div>`;
+  const note = c ? "" : `<p class="empty" style="margin:0">${g.prevNote === "incompleto" ? `${esc(p.label)} fue tu primer mes y quedó incompleto: todavía no comparo en %.` : `En ${esc(p.label)} no tuviste ventas: no hay con qué comparar.`}</p>`;
+  const top = g.topClients ?? [], app = g.byApp?.[0];
+  return `<div class="sbox" id="rcierre"><h3 style="margin:0">🧾 Cierre de ${esc(m.label)} <small class="empty">· en curso</small></h3>
+    ${row("Vendiste", mine(m.revenue), mine(p.revenue), c?.revenuePct)}
+    ${m.profit !== null && m.profit !== undefined ? row("Ganaste", mine(m.profit), mine(p.profit ?? 0), c?.profitPct) : ""}
+    ${row("Ventas", `${m.sales}`, `${p.sales}`, null)}${note}
+    ${top.length ? `<h4 style="margin:6px 0 0">🏆 Quién te pagó más</h4>${top.map((t, i) => `<div class="line"><span class="lgrow">${i + 1}. <b>${esc(t.name)}</b><br><small class="empty">${t.sales} venta(s)${t.unpaid ? ` · te debe ${esc(mine(t.unpaid))}` : ""}</small></span><b>${esc(mine(t.revenue))}</b></div>`).join("")}` : ""}
+    ${app ? `<p class="empty" style="margin:0">📺 La app que más te dejó: <b>${esc(app.name)}</b> (${esc(mine(app.profit ?? app.revenue))}).</p>` : ""}</div>`;
+}
 function rEarnBase() {
   const g = S.data.rearn;
-  if (g?.split) return earnSplitView(g, S.data.rsubs?.summary); // otro país: dos monedas, sin mezclar
+  if (g?.split) return earnSplitView(g, S.data.rsubs?.summary) + earnCloseBox(g); // otro país: dos monedas, sin mezclar
   if (!g) return `<div class="sbox"><p class="empty" style="margin:0">No pudimos cargar tus ganancias. Probá de nuevo.</p></div>`;
   const m = g.month, max = Math.max(1, ...g.months.map((x) => Math.max(x.revenue, x.cost)));
   return `<div class="sbox"><h2 style="margin:0">📈 Mis ganancias · ${esc(m.label)}</h2>
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
+    ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
     <div class="sbox"><h3 style="margin:0">Últimos meses</h3>${g.months.length ? g.months.map((x) => `<div class="rebar"><span>${esc(x.label)}</span><div><i class="c" style="width:${Math.round((x.cost / max) * 100)}%"></i><i class="r" style="width:${Math.round((x.revenue / max) * 100)}%"></i></div><b>${bs(x.profit)}</b></div>`).join("") + `<small class="empty"><i class="rekey c"></i> te costó · <i class="rekey r"></i> vendiste · a la derecha, lo que ganaste</small>` : `<p class="empty" style="margin:0">Todavía no hay ventas. Cuando vendas a tus clientes, acá ves cuánto ganás.</p>`}</div>`;
@@ -1062,7 +1092,7 @@ async function drawPoster() {
   x.textAlign = "center"; x.fillStyle = st.ink; x.font = `900 52px ${F}`; x.fillText("📲 Pedí por WhatsApp", cx, H - 220);
   const wa = posterPhone(sh.whatsapp || S.me?.phone);
   if (wa) { x.fillStyle = st.accent; fit(wa, W - 140, 76, 900); x.fillText(wa, cx, H - 130); }
-  if (sh.enabled && sh.slug) { x.fillStyle = st.soft; x.font = `600 34px ${F}`; x.fillText(`${location.host}/r/${sh.slug}`, cx, H - 66); }
+  if (sh.enabled && sh.slug) { x.fillStyle = st.soft; x.font = `600 34px ${F}`; x.fillText(shopUrl(sh.slug).replace(/^https?:\/\//, ""), cx, H - 66); }
 }
 const posterBlob = () => new Promise((ok) => $("#poster").toBlob(ok, "image/png"));
 async function renewMany(ids, el) {
@@ -1693,7 +1723,17 @@ const p_dur = (list) => { const d = [...new Set(list.map((p) => p.durationDays))
 /* ---------- Editor de la página propia del revendedor ---------- */
 const LOOK_FIELDS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout",
   "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"];
-const shopUrl = (slug) => `${location.origin}/r/${slug}`;
+// Mientras el revendedor escribe su dirección, ve cómo le queda el link (en minúsculas y sin espacios).
+document.addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (el?.name !== "slug" || el.form?.id !== "shopForm") return;
+  const v = el.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  if (v !== el.value) el.value = v;
+  const b = document.querySelector("#slugPrev b");
+  if (b) b.textContent = v.length >= 3 ? shopUrl(v) : "(mínimo 3 letras)";
+});
+// Con subdominios prendidos (shopDomain), el link lindo: https://daniel.gabostore.lat. Si no, el de siempre: /r/daniel.
+const shopUrl = (slug) => (S.settings?.shopDomain ? `https://${slug}.${S.settings.shopDomain}` : `${location.origin}/r/${slug}`);
 
 function shopEditor() {
   const sh = S.data.shop;
@@ -1712,7 +1752,7 @@ function shopEditor() {
     ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
     <div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
       <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
-      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
+      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="${esc(shopUrl(sh.slug))}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
       <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
     ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
 
@@ -1734,7 +1774,8 @@ function shopEditor() {
     <form class="sbox sform" id="shopForm">
       <h2>2 · Tu marca</h2>
       <div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
-        <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
+        <label>${S.settings?.shopDomain ? `Tu dirección (lo que va antes de .${esc(S.settings.shopDomain)})` : "Dirección (después de /r/)"}<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="slugPrev">
+          <small id="slugPrev" class="slugprev">Tu link: <b>${esc(shopUrl(sh.slug))}</b><br>Solo minúsculas, números y guiones. Si la cambiás, el link viejo deja de andar.</small></label>
         <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
       <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
       <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>
@@ -2432,6 +2473,12 @@ document.addEventListener("click", async (ev) => {
   if (d.rcf) { S.data.rc.f = d.rcf; return render(); }
   if ((d.dldesign || d.dlperiod || d.dlcopy !== undefined) && await descargasClick(d, el)) return;
   if (d.rdwa) { for (const id of d.rdwa.split(",")) { const it = [...(S.data.rdia?.cobrar ?? []), ...(S.data.rdia?.avisar ?? []), ...(S.data.rdia?.deben ?? [])].flatMap((g) => g.items).find((x) => x.id === id); if (it) { try { localStorage.setItem(`gs-dia-${it.id}-${it.expiresAt}`, "1"); } catch { /* sin almacenamiento */ } } } setTimeout(render, 300); return; }
+  if (d.rback) {
+    el.disabled = true;
+    try { await api("POST", "/api/me/vuelvan/escrito", { key: d.rback }); toast("Anotado: no te lo muestro por unos días"); S.data.rback = await api("GET", "/api/me/vuelvan").catch(() => null); render(); }
+    catch (e) { toast(e.message); el.disabled = false; }
+    return;
+  }
   if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
   if (d.rdpay) {
     const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;

@@ -311,6 +311,8 @@ export interface Customer {
   /** Plan de GaboHub (Premium 2.0): "full" (todo) o "basic" (sin las herramientas premium). Sin definir = full. */
   /** Plan de GaboHub elegido: "free" (Gratis), "seller" (Vendedor) o "business" (Negocio). "basic"/"full" son los nombres viejos (= seller / business). */
   hubPlan?: "free" | "seller" | "business" | "basic" | "full";
+  /** «Que vuelvan» del revendedor: renglones que marcó «Ya le escribí» → hasta cuándo no vuelven a aparecer. */
+  backQuiet?: Record<string, number>;
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
 }
@@ -573,6 +575,11 @@ export interface RentalControl {
    * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
    */
   paidLog?: { at: number; from: number; amount: Cents }[];
+  /**
+   * «📣 Ya le avisé» (Mi secretaria): cuándo le avisó el dueño y para qué vencimiento. Solo vale mientras el alquiler
+   * siga con ese vencimiento: al renovar o cambiar la fecha, el aviso deja de contar.
+   */
+  noticed?: { at: number; for: number };
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent" | "referral";

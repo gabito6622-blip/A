@@ -24,14 +24,22 @@ function message(kind, g) {
   return `${hi} Estas cuentas ya vencieron:\n${lines}\nTotal para renovar: ${groupMoney(g)}. ¿Las renovás? Si no, las tengo que dar de baja hoy.`;
 }
 
+const hm = (t) => new Date(t).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
+const noticedTxt = (t) => `📣 avisado ${new Date(t).toDateString() === new Date().toDateString() ? `hoy ${hm(t)}` : dm(t)}`;
 function groupCard(kind, g) {
-  const wa = kind !== "cortar" && g.phone ? `<a class="pbtn sm" href="${esc(waLink(g.phone, message(kind, g)))}" target="_blank" rel="noopener">📲 Mensaje listo</a>` : "";
-  const items = g.items.map((i) => `<li data-secitem="${esc(i.assignmentId)}"><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}</span>${kind !== "cortar" || true ? `<button type="button" class="pbtn sm green sec-pay" data-secpay="${esc(i.assignmentId)}">💵 Me pagó</button>${RL && !i.viaReseller ? `<button type="button" class="pbtn sm sec-pay" data-seclink="${esc(i.assignmentId)}" title="Link para que renueve con QR o saldo">🔗 Link para renovar</button>` : ""}` : ""}<div class="sec-pv" hidden></div></li>`).join("");
-  return `<div class="sec-group">
+  // «✅ Ya le avisé»: marca los que faltan de este grupo (no manda nada). Si ya están todos, ofrece deshacer.
+  const pend = g.items.filter((i) => i.noticedAt === undefined), all = !pend.length;
+  const msgG = all ? g : { ...g, items: pend, total: pend.reduce((s, i) => s + i.price, 0), ...(g.usd ? { totalUsd: pend.reduce((s, i) => s + (i.priceUsd ?? 0), 0) } : {}) };
+  const wa = kind !== "cortar" && g.phone ? `<a class="pbtn sm" href="${esc(waLink(g.phone, message(kind, msgG)))}" target="_blank" rel="noopener">📲 Mensaje listo</a>` : "";
+  const avise = kind === "cortar" ? "" : all
+    ? `<button type="button" class="pbtn sm" data-secnotice="${esc(g.items.map((i) => i.assignmentId).join(","))}" data-off="1" title="Vuelve a la lista de pendientes">↩️ No le avisé</button>`
+    : `<button type="button" class="pbtn sm green" data-secnotice="${esc(pend.map((i) => i.assignmentId).join(","))}" data-name="${esc(first(g.name))}">✅ Ya le avisé</button>`;
+  const items = g.items.map((i) => `<li data-secitem="${esc(i.assignmentId)}"><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}${i.noticedAt !== undefined ? ` · <span class="sec-noticed">${noticedTxt(i.noticedAt)}</span>` : ""}</span>${kind !== "cortar" || true ? `<button type="button" class="pbtn sm green sec-pay" data-secpay="${esc(i.assignmentId)}">💵 Me pagó</button>${RL && !i.viaReseller ? `<button type="button" class="pbtn sm sec-pay" data-seclink="${esc(i.assignmentId)}" title="Link para que renueve con QR o saldo">🔗 Link para renovar</button>` : ""}` : ""}<div class="sec-pv" hidden></div></li>`).join("");
+  return `<div class="sec-group${all && kind !== "cortar" ? " sec-done" : ""}">
     <div class="sec-gh"><b>${esc(g.name)}</b><span class="sec-tot">${plural(g.items.length, "cuenta", "cuentas")} · ${groupMoney(g)}</span></div>
     ${g.note ? `<small class="muted sec-rule">📝 ${esc(g.note)}</small>` : ""}
     <ul class="sec-items">${items}</ul>
-    <div class="inline sec-actions">${wa}${!g.phone && kind !== "cortar" ? `<small class="muted">Sin número en su ficha</small>` : ""}</div></div>`;
+    <div class="inline sec-actions">${wa}${avise}${!g.phone && kind !== "cortar" ? `<small class="muted">Sin número en su ficha</small>` : ""}</div></div>`;
 }
 
 function section(id, title, hint, groups, kind) {
@@ -53,7 +61,7 @@ export async function secretaryView(activity) {
   const todo = c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
   const resumen = [
     c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
-    c.deben && `💸 <b>${c.deben}</b> sin pagar`, c.avisar && `⏰ <b>${c.avisar}</b> vencen en ${r.aheadDays} días`, c.desenlazar && `🔗 <b>${c.desenlazar}</b> por desenlazar`,
+    c.deben && `💸 <b>${c.deben}</b> sin pagar`, c.avisar && `⏰ <b>${c.avisar}</b> por avisar (vencen en ${r.aheadDays} días)`, c.avisados && `📣 <b>${c.avisados}</b> ya avisados`, c.desenlazar && `🔗 <b>${c.desenlazar}</b> por desenlazar`,
     c.apartadas && `⏸️ <b>${c.apartadas}</b> apartadas`, c.claves && `🔑 <b>${c.claves}</b> claves por cambiar`, c.debitos && `💳 <b>${c.debitos}</b> débitos de tarjeta`, `✅ <b>${c.libres}</b> libres listas`,
   ].filter(Boolean);
   const hero = `<section class="card sec-hero"><h2>🗂️ Mi secretaria <small>revisé tu panel ${fdt(r.at)}</small></h2>
@@ -104,8 +112,18 @@ function previewHtml(pv, key) {
       <button type="button" class="pbtn green" data-secpayok="${esc(pv.assignmentId)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button>` : ""}<button type="button" class="pbtn" data-secpayno="1">Cancelar</button></div></div>`;
 }
 if (typeof document !== "undefined") document.addEventListener("click", async (ev) => {
-  const b = ev.target.closest("[data-secpay],[data-secpayok],[data-secpayno],[data-seclink]");
+  const b = ev.target.closest("[data-secpay],[data-secpayok],[data-secpayno],[data-seclink],[data-secnotice]");
   if (!b) return;
+  if (b.dataset.secnotice) {
+    b.disabled = true;
+    try {
+      const off = b.dataset.off === "1";
+      const r = await api("POST", "/api/admin/assignments/notified", { ids: b.dataset.secnotice.split(","), ...(off ? { off: true } : {}) });
+      toast(off ? "Vuelve a pendientes" : `📣 Anotado: ya le avisaste${b.dataset.name ? ` a ${b.dataset.name}` : ""} (${r.ids.length} cuenta${r.ids.length === 1 ? "" : "s"})`);
+      document.querySelector('[data-go="secretaria"]')?.click();
+    } catch (e) { toast(e.message); b.disabled = false; }
+    return;
+  }
   if (b.dataset.seclink) {
     b.disabled = true;
     try {

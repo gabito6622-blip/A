@@ -2,6 +2,32 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Colores puestos por el servidor (no esconder la página)
+- **Qué se decidió:** el HTML sale con las variables de color del dueño (o del revendedor) en `<html style>`, en vez de esconder la página hasta que cargue.
+- **Por qué:** esconder deja la pantalla vacía más tiempo; con los colores puestos, el primer cuadro ya es el definitivo. No se puede leer la preferencia con un `<script>` en línea porque la política de seguridad (CSP) no lo permite, y un `style` sí.
+- **Una sola cuenta de colores:** `earlyLook.ts` repite la de `lookColors` (contraste 4,5:1); hay una prueba que compara el resultado con el dorado real.
+- **Panel:** arranca oscuro porque es el tema por defecto; quien eligió claro ve un instante oscuro (antes pasaba al revés con casi todos).
+- **panel./hub. llevan a la dirección de siempre** (no sirven el panel ahí): una sola sesión y los avisos al celular quedan en un solo lugar.
+
+## 2026-11-13 · La portada del dominio sirve la tienda, no redirige
+- **Qué se decidió:** `gabostore.lat/` entrega la tienda en la misma respuesta, en vez de un 302 a `/tienda/`.
+- **Por qué:** con el salto, el celular hace dos viajes y, en el medio, puede seguir viéndose la página anterior. Sin salto es más rápido y no asoma nada.
+- **Descartado:** mover la tienda entera a `/` (rompería links guardados a `/tienda/`); los dos caminos quedan andando.
+
+## 2026-11-13 · Subdominios de revendedores: servir la página, no redirigir
+- **Qué se decidió:** `daniel.gabostore.lat` muestra la página directamente (por dentro, la misma ruta `/r/daniel`) en vez de mandar a `gabostore.lat/r/daniel`.
+- **Por qué:** si redirige, el cliente ve la dirección larga y la vista previa de WhatsApp queda con el link largo.
+- **Interruptor aparte (`GS_SHOP_SUBDOMAINS=1`) para mostrar el link nuevo:** el código puede publicarse antes de que el DNS y el certificado del comodín estén listos; mientras tanto nadie recibe un link que todavía no abre.
+- **Subdominio desconocido → portada de la tienda** (no un error): quien escribe mal el nombre igual llega a Gabriel Store.
+- **Descartado:** cargar un dominio por revendedor a mano en Railway (26 revendedores = 26 dominios y 26 certificados); el comodín sirve para todos.
+## 2026-11-13 · Atajos: cómo se decidió cada regla
+- **«Ya le avisé» vale por vencimiento, no por fecha:** se guarda para qué vencimiento fue el aviso; al renovar o cambiar la fecha deja de contar solo. Descartado: guardarlo en la nota (texto libre que hay que borrar a mano, como se hizo el 13/11 por chat).
+- **Segundo aviso el día antes:** la regla de Aracely es «3 días antes y otra vez 1 día antes». Si vence mañana u hoy y el aviso tiene 2 días o más, vuelve a «por avisar». Descartado: una regla por cliente configurable (más pantallas para un caso que la regla general ya cubre).
+- **«Cobrar» con link abre una tarjeta en vez de ir directo a WhatsApp:** el link se crea en el servidor al tocar; abrir WhatsApp después de esperar una respuesta lo bloquean los celulares (ventana emergente). La tarjeta muestra el mensaje y un enlace real. Con los links apagados sigue siendo un toque directo.
+- **Resumen del mediodía solo a dueño y admins:** Mi secretaria no es de Atención, y el aviso nombra a quién cobrar. Salió de la revisión de aislamiento.
+- **«Que vuelvan» del revendedor dentro de Mi día, no como pestaña nueva:** es parte de su rutina diaria y no suma otra entrada al menú. Ventanas: 60 días para clientes registrados (igual criterio que el dueño, más largo porque el revendedor tiene pocos) y 31 a 90 para perfiles repartidos (hasta 30 ya los muestra «Para cobrar»).
+- **Cierre de mes sin % inventados:** igual que el cierre del dueño; si el mes anterior no tuvo ventas o fue su primer mes (incompleto), se dice y no se calcula %.
+
 ## 2026-11-13 · Tres niveles de GaboHub, cortados por «lo que vende» y «lo que ahorra trabajo»
 - **Qué se decidió:** Gratis / Vendedor (Bs 28) / Negocio (Bs 49). El dueño preguntó si Básico/Completo estaba bien cortado o hacían falta tres; aprobó los tres («Ok»).
 - **Por qué:** lo que hace que el revendedor **venda más** (y le compre más a la tienda) conviene regalarlo o cobrarlo barato: comprar, catálogo, su página. Lo que le **ahorra horas de administración** (Mi día, Mi control, Quién me debe, Ganancias, Excel, Tito) es lo que de verdad vale una cuota. Además, el «pausado por falta de pago» ya era un plan gratis de hecho: ahora se llama así y no asusta.
