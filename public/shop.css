@@ -1138,3 +1138,23 @@ input[type=color]{min-width:44px;min-height:44px}
 /* Optimización 1: botón de WhatsApp de la FAQ también de 44 px en computadora; dibujo del celular de muestra con letra legible */
 .faqcta .sbtn{min-height:44px}
 .phones .ph,.phones .ph *{font-size:max(12px,1em)}
+
+/* ☀️ Mi día del revendedor (13/11/2026): misma lógica que la secretaria del dueño, con su estilo de GaboHub. */
+.rdia-k{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
+.rdia-k>div.bad b{color:var(--s-bad)} .rdia-k>div.warn b{color:var(--s-warn)}
+.rdia-s{display:grid;gap:10px}
+.rdia-g{border:1px solid var(--s-line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;background:var(--s-card2,var(--s-card))}
+.rdia-g>header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.rdia-g>header>div{display:grid;gap:2px;min-width:0} .rdia-g>header small{color:var(--s-muted);font-size:12.5px}
+.rdia-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rdia-i{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 10px;align-items:center;padding:8px 0;border-top:1px solid var(--s-line)}
+.rdia-it{display:grid;gap:2px;min-width:0} .rdia-it small{color:var(--s-muted);font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.rdia-p{white-space:nowrap;font-size:15px}
+.rdia-act{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap} .rdia-act .sbtn{min-height:44px}
+.rdia-pv{grid-column:1/-1} .rdia-pv[hidden]{display:none}
+.rdia-pvbox{padding:10px;border-radius:12px;background:color-mix(in srgb,var(--s-ok) 10%,var(--s-card));border:1px solid color-mix(in srgb,var(--s-ok) 40%,var(--s-line));display:grid;gap:8px;font-size:13.5px}
+.rdia-pvact{display:grid;gap:8px} .rdia-pvact label{display:grid;gap:4px;font-size:13px;color:var(--s-muted)} .rdia-pvact input[name=price]{min-height:44px;width:100%;max-width:160px;font-size:16px}
+.rdia-ren{display:flex !important;gap:10px;align-items:flex-start;color:var(--s-ink) !important;font-size:13.5px} .rdia-ren input{flex:0 0 auto;width:22px;height:22px;margin-top:1px} .rdia-ren span{min-width:0;line-height:1.4}
+.rdia-ok{margin:0;color:var(--s-ok);font-weight:700}
+.rdia-g .sbtn{min-height:44px}
+@media (max-width:420px){.rdia-k{grid-template-columns:repeat(3,minmax(0,1fr))} .rdia-k b{font-size:20px}}

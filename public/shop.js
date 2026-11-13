@@ -205,7 +205,7 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
-    if (["control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    if (["dia", "control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
     if ((S.data.rtab ?? "ventas") === "ventas") await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
@@ -507,7 +507,7 @@ const HUB_LABEL = { clientes: ["user", "Clientes"] };
 const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
 // Las 10 pestañas de "Mis clientes" se reparten en 3 grupos; cada grupo muestra solo sus pestañas (ninguna se pierde).
 const HUB_GROUPS = {
-  negocio: [["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
+  negocio: [["dia", "☀️ Mi día"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
   inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
   vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"]],
 };
@@ -670,12 +670,12 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
       let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
-      if (!canPage && !["ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias"].includes(tab)) tab = "ventas";
+      if (!canPage && !["dia", "ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
       if (S.data.shop?.rent?.locked && HUB_LOCKED_TABS.includes(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard()}`;
-      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -695,6 +695,7 @@ initOwnStock(() => render());
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 async function loadRTab(tab) {
+  if (tab === "dia") S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
@@ -737,6 +738,51 @@ function ownEarnBox() {
 const myStore = () => S.data.shop?.title || S.me?.name || "";
 const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
 const seen = (r) => { try { return localStorage.getItem(`gs-av-${r.id}-${r.expiresAt}`) === "1"; } catch { return false; } };
+/* ---------------- ☀️ Mi día (13/11/2026): la secretaria del revendedor ----------------
+   Mismas fórmulas que la del dueño, sobre SUS clientes y SUS perfiles repartidos. Nada se manda solo. */
+const diaSeen = (it) => { try { return localStorage.getItem(`gs-dia-${it.id}-${it.expiresAt}`) === "1"; } catch { return false; } };
+const diaFirst = (n) => String(n || "").trim().split(" ")[0];
+/** Mensaje listo de un grupo (un cliente, una o varias cuentas), con el link de cobro de cada perfil si lo tiene. */
+function diaMsg(kind, g) {
+  const line = (it) => `${it.product}${it.label ? ` (${it.label})` : ""}${it.price ? ` · ${mine(it.price)}` : ""}${it.linkToken ? `\n  👉 ${location.origin}/c/${it.linkToken}` : ""}`;
+  const one = g.items.length === 1, it = g.items[0];
+  const when = (x) => (x.days < 0 ? "venció" : x.days === 0 ? "vence hoy" : "vence") + ` el ${fdate(x.expiresAt)}`;
+  let body;
+  if (kind === "avisar") body = one ? `tu ${it.product}${it.label ? ` (${it.label})` : ""} ${when(it)}.${it.price ? ` La renovación es ${mine(it.price)}.` : ""} ¿Lo renovamos? 🙌${it.linkToken ? `\nMirá cuánto es y cómo pagar acá 👉 ${location.origin}/c/${it.linkToken}` : ""}` : `te aviso que estas cuentas están por vencer:\n${g.items.map((x) => `• ${line(x)} · ${when(x)}`).join("\n")}\nTotal: ${mine(g.total)}. ¿Las renovamos? 🙌`;
+  else if (kind === "cobrar") body = one ? `tu ${it.product}${it.label ? ` (${it.label})` : ""} ${when(it)}.${it.price ? ` Para renovarla son ${mine(it.price)}.` : ""} ¿La renovás? 🙌${it.linkToken ? `\nPagás acá 👉 ${location.origin}/c/${it.linkToken}` : ""}` : `estas cuentas ya vencieron:\n${g.items.map((x) => `• ${line(x)} · ${when(x)}`).join("\n")}\nTotal para renovar: ${mine(g.total)}. ¿Las renovás? 🙌`;
+  else body = one ? `te recuerdo el pago de tu ${it.product}${it.label ? ` (${it.label})` : ""}${it.price ? `: ${mine(it.price)}` : ""}. ¡Gracias! 🙌${it.linkToken ? `\nPagás acá 👉 ${location.origin}/c/${it.linkToken}` : ""}` : `te recuerdo el pago pendiente de:\n${g.items.map((x) => `• ${line(x)}`).join("\n")}\nTotal: ${mine(g.total)}. ¡Gracias! 🙌`;
+  return `Hola ${diaFirst(g.client)} 👋 ${body}${myStore() ? `\n— ${myStore()}` : ""}`;
+}
+function rDiaView() {
+  const D = S.data.rdia;
+  if (!D) return `<div class="sbox"><p class="empty">Cargando tu día…</p></div>`;
+  if (D.error) return `<div class="sbox"><div class="err">${esc(D.error)}</div></div>`;
+  const pill = (it) => `<span class="rcest ${it.days < 0 ? "rc-bad" : it.days === 0 ? "rc-today" : it.days <= 3 ? "rc-week" : ""}">${it.days < 0 ? `Venció hace ${-it.days} d` : it.days === 0 ? "Vence hoy" : `${it.days} d`}</span>`;
+  const payPill = (it) => (it.pay === "pagado" ? "" : `<span class="rcest rc-bad">${it.pay === "no_pago" ? "No pagó" : "Debe"}</span>`);
+  const item = (it) => `<li class="rdia-i" data-diaitem="${esc(it.id)}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
+      <div class="rdia-act"><button class="sbtn sm pri" type="button" data-rdpay="${esc(it.id)}">💵 Me pagó</button></div><div class="rdia-pv" hidden></div></li>`;
+  const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(g.client)}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
+      ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
+      <ul class="rdia-l">${g.items.map(item).join("")}</ul></article>`;
+  const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
+  const k = D.counts;
+  return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
+    <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${k.cobrar}</b><small>${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen en 1 a 3 días</small></div><div class="${k.deben ? "bad" : ""}"><span>💸 Me deben</span><b>${k.deben}</b><small>${esc(mine(D.totals.deben))}</small></div></div></div>
+    ${sec("cobrar", "💵 Cobrar hoy", "Vencieron (hasta 30 días atrás) o vencen hoy. Si te pagan, tocá «Me pagó».", D.cobrar)}
+    ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días: un mensaje a tiempo evita el corte.", D.avisar)}
+    ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}`;
+}
+/** Vista previa de «Me pagó»: qué va a pasar, precio editable y, si corresponde, renovar con su saldo en el mismo toque. */
+function diaPreviewHtml(pv, key) {
+  const it = pv.item, price = pv.price;
+  const what = it.kind === "sub"
+    ? (pv.moves ? `El perfil <b>${esc(it.label || it.product)}</b> de ${esc(diaFirst(it.client))} pasa a vencer el <b>${fdate(pv.to)}</b> y queda pagado.` : `Queda marcado <b>pagado</b>. La fecha no cambia (todavía no vence).`)
+    : `Queda <b>pagado</b> en tu control.${pv.renew?.offered ? "" : pv.renew?.blocked ? ` ${esc(pv.renew.blocked)}` : " La fecha no cambia (todavía no vence)."}`;
+  const renew = it.kind === "client" && pv.renew?.offered ? `<label class="rdia-ren"><input type="checkbox" name="renew" ${pv.renew.enough ? "checked" : "disabled"}><span>🔄 Renovar ahora con mi saldo: te cuesta <b>${esc(bs(pv.renew.cost))}</b> (tenés ${esc(bs(pv.renew.balance))}).${pv.renew.enough ? ` Pasa a vencer el <b>${fdate(pv.renew.to)}</b>.` : ` <a href="#recargas">Te falta saldo</a>.`}</span></label>` : "";
+  return `<div class="rdia-pvbox"><p style="margin:0">${what}</p>
+    <div class="rdia-pvact"><label>Me pagó (${esc(mySym())})<input name="price" inputmode="decimal" value="${price !== null ? (price / 100).toFixed(2) : ""}" placeholder="0.00"></label>${renew}</div>
+    <div class="rbtns"><button class="sbtn sm pri" type="button" data-rdpayok="${esc(it.id)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button><button class="sbtn sm" type="button" data-rdpayno="1">Cancelar</button></div></div>`;
+}
 function rControlView() { return rControlBase() + ownControlBox(); }
 function rControlBase() {
   const rows = S.data.rctl ?? [];
@@ -775,7 +821,7 @@ function rControlBase() {
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
-const HUB_LOCKED_TABS = ["control", "debe", "ganancias", "afiches"];
+const HUB_LOCKED_TABS = ["dia", "control", "debe", "ganancias", "afiches"];
 const hubLockCard = () => { const r = S.data.shop?.rent;
   if (r?.lockReason === "plan") return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan Completo</h2><p class="empty" style="margin:0">Tu plan Básico (${bs(r.plans?.basic ?? r.price)} por mes) incluye comprar, tus cuentas, los códigos, recargar y vender. El Completo (${bs(r.plans?.full ?? r.price)} por mes) suma Mi control, Quién me debe, Mis ganancias y Afiches. El cambio rige desde tu próximo cobro.</p><div class="hrow"><button class="sbtn pri" type="button" data-hubplan="full">Pasar al Completo</button></div></div>`;
   return `<div class="sbox hublock"><h2 style="margin:0">🔒 Pausado: tu suscripción de GaboHub venció</h2><p class="empty" style="margin:0">Son ${bs(r?.price ?? 0)} por mes. Pagala y vuelven Mi control, Quién me debe, Mis ganancias y Afiches al instante. Comprar, tus cuentas, los códigos y vender siguen funcionando.</p><div class="hrow"><button class="sbtn pri" type="button" data-rentpay="1">Pagar ${bs(r?.price ?? 0)}</button><button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
@@ -915,7 +961,7 @@ function todayCard() {
     ...subs.filter((x) => daysLeft(x.expiresAt) >= -3 && daysLeft(x.expiresAt) <= 7 && !subSeen(x))];
   const gain = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
   const it = [
-    [subs.length ? "perfiles" : "control", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
+    ["dia", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana · Mi día" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
     ["debe", "💸", mine(owed), owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
     ["ganancias", "📈", gain === null ? splitGainText(g, sm) : bs(gain), "ganaste este mes", "g"],
   ];
@@ -1382,7 +1428,7 @@ function resellerHome() {
     ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc === 1 ? "1 cuenta vencida" : `${venc} cuentas vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
     ${rentBox}
-    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}${countryMenuBtn()}</div></div>` : ""}
+    ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["dia", "☀️", "Mi día"], ["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}${countryMenuBtn()}</div></div>` : ""}
     <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
@@ -2352,6 +2398,28 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.rcf) { S.data.rc.f = d.rcf; return render(); }
+  if (d.rdwa) { for (const id of d.rdwa.split(",")) { const it = [...(S.data.rdia?.cobrar ?? []), ...(S.data.rdia?.avisar ?? []), ...(S.data.rdia?.deben ?? [])].flatMap((g) => g.items).find((x) => x.id === id); if (it) { try { localStorage.setItem(`gs-dia-${it.id}-${it.expiresAt}`, "1"); } catch { /* sin almacenamiento */ } } } setTimeout(render, 300); return; }
+  if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
+  if (d.rdpay) {
+    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
+    el.disabled = true;
+    try { const pv = await api("GET", `/api/me/dia/preview/${encodeURIComponent(d.rdpay)}`); box.innerHTML = diaPreviewHtml(pv, newKey()); box.hidden = false; box.scrollIntoView({ block: "nearest" }); }
+    catch (e) { toast(e.message); } finally { el.disabled = false; }
+    return;
+  }
+  if (d.rdpayok) {
+    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
+    const price = box.querySelector('[name="price"]')?.value.trim(); const renew = !!box.querySelector('[name="renew"]')?.checked;
+    el.disabled = true;
+    try {
+      const r = await api("POST", `/api/me/dia/pay/${encodeURIComponent(d.rdpayok)}`, { ...(price ? { price: toCents(price) } : {}), renew, idempotencyKey: el.dataset.key });
+      toast(r.renewed ? `💵 Cobrado y renovado hasta el ${fdate(r.to)} ✓` : r.renewError ? `💵 Cobro anotado. No se renovó: ${r.renewError}` : r.kind === "sub" ? `💵 Cobrado ✓ (vence el ${fdate(r.to)})` : "💵 Cobro anotado ✓");
+      S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
+      S.me = await api("GET", "/api/me").catch(() => S.me);
+      render();
+    } catch (e) { toast(e.message); el.disabled = false; }
+    return;
+  }
   if (d.ravisar) {
     const r = (S.data.rctl ?? []).find((x) => x.id === d.ravisar);
     if (!r) return;

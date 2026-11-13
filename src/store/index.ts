@@ -18,6 +18,7 @@ import * as inventario from "./inventario.js";
 import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
+import * as rday from "./resellerDay.js";
 import * as subs from "./subRentals.js";
 import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
@@ -338,6 +339,10 @@ export function createStore(opts: EngineOptions = {}) {
       control: bind(e, rtools.myControl),
       setControl: bind(e, rtools.setMyControl),
       earnings: bind(e, rtools.myEarnings),
+      /** «Mi día» (13/11): la secretaria del revendedor con sus clientes y perfiles repartidos; «Me pagó» de un toque. */
+      day: bind(e, rday.myDay),
+      dayPreview: bind(e, rday.dayPreview),
+      dayPay: bind(e, rday.dayPay),
     },
   };
 }

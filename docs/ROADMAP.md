@@ -2,10 +2,18 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## Listo, sin publicar — Optimización 1 + 2 (13/11, rama `optimizacion-1`)
+## En curso — El revendedor tiene lo mismo que el dueño, con fórmulas (13/11, rama `revendedor-mi-dia`)
+Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramientas con reglas.
+- ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». Sin publicar: espera el OK del dueño con las capturas.
+- ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
+- ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
+- ⏳ Recordatorio diario de Tito al revendedor («hoy vencen 3 de tus clientes»).
+- ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.
+
+## Publicado — Optimización 1 + 2 (13/11, PR #52, con el «Publica» del dueño)
 - ✅ Optimización 1: semáforo sin falsas alarmas, «Me pagó» con vista previa, cierre con mes incompleto, detalles visuales, demo de GaboHub.
 - ✅ Optimización 2: renovar con QR o saldo desde un link (aviso de Tito / secretaria), con aprobación humana para QR, **apagado de fábrica**.
-- ⏳ Espera: el dueño confirma su respaldo y dice «PUBLICÁ». Procedimiento y reversión: `docs/PUBLICACION_Y_REVERSION.md`.
+- ✅ Verificado en la tienda real a los 65 s: 78 alquileres y 34 clientes idénticos (byte a byte) a la foto previa; cierre de noviembre igual (Bs 4.452,60, 66 cobros); links apagados (token falso → 404); semáforo: 32 cuentas pasaron de rojo a «dada de baja», quedan 4 rojas reales. Procedimiento y reversión: `docs/PUBLICACION_Y_REVERSION.md`.
 - Después de publicar (decide el dueño): prender los links en Configuración → Soporte; texto del mensaje de WhatsApp con `{link}` para la secretaria (hoy el link se copia y se pega a mano).
 
 ## Publicado — Premium 2.0 (etapas 0 a 9, 12–13/11, PR #51)

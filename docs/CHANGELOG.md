@@ -3,7 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Optimización 2: renovar con QR o saldo desde un link (rama `optimizacion-1`, sin publicar, **apagado de fábrica**)
+## 2026-11-13 · «☀️ Mi día» del revendedor (rama `revendedor-mi-dia`, sin publicar)
+- **La secretaria del dueño, para el revendedor, con las mismas fórmulas (sin agentes):** pestaña nueva «☀️ Mi día» en GaboHub → Clientes (primera del grupo Negocio) y acceso desde «Tu día» y «Tu negocio sin Excel» del Inicio. Tres grupos por cliente: **💵 Cobrar hoy** (vencidos hasta 30 días atrás o que vencen hoy), **📣 Avisar** (vencen en 1 a 3 días) y **💸 Me deben** (marcados sin pagar más lejos). Junta sus dos listas: clientes registrados (Mi control) y perfiles repartidos (Repartir perfiles). Totales en su moneda.
+- **«💵 Me pagó» de un toque con vista previa:** perfil repartido que vence → corre su fecha un período y queda pagado; si no vence todavía, solo pagado. Cliente registrado → pagado en Mi control (y su libreta de Quién me debe se salda) y, si marca la casilla, **renovado con su saldo en el mismo toque** (la misma renovación de siempre: precio de su lista, freno del proveedor, saldo). Si no se puede renovar, el cobro queda anotado igual y dice por qué. Precio editable. Idempotente.
+- **«💬 Mensaje listo»** por cliente: abre WhatsApp con el texto según el grupo, con el link de cobro `/c/…` de cada perfil si lo tiene, y queda marcado «Escrito ✓» en ese celular. Nada se manda solo.
+- Plan Básico: Mi día es del plan Completo (como Mi control). Solo ve lo suyo: nada de otros revendedores ni de clientes directos de la tienda; sin correos ni claves.
+- API: `GET /api/me/dia`, `GET /api/me/dia/preview/:id`, `POST /api/me/dia/pay/:id` (sesión de revendedor). Pruebas: `test/revendedor-mi-dia.test.mjs` (5, una en navegador).
+
+## 2026-11-13 · Optimización 2: renovar con QR o saldo desde un link (**publicado el 13/11, PR #52**, squash; **apagado de fábrica**)
 - **Interruptor** en Configuración → «Soporte y mensajes»: «Prender los links de renovación», qué puede hacer el link (solo renovar / renovar y entrar a Mis cuentas) y cuántas horas vale (48 por defecto, de 1 a 168). Apagado, nada cambia.
 - **Mi secretaria:** con el interruptor prendido, cada cuenta de un cliente directo tiene «🔗 Link para renovar» (`POST /api/admin/assignments/:id/renew-link`): copia el link para pegarlo en WhatsApp. No aparece para clientes de revendedores (renuevan con su revendedor, 409).
 - **Pantalla «Renovar» en la tienda** (`/tienda/#renovar=TOKEN`): muestra UN servicio (sin correo, clave ni teléfono), fecha actual, fecha nueva, precio en su moneda y saldo. «Pagar con mi saldo» renueva al instante (la plata ya entró); «Pagar con QR» crea el pedido, pide el comprobante y queda **En revisión** hasta que el dueño aprueba en Aprobar pagos, como siempre. Nunca se entrega sin plata confirmada.
@@ -12,7 +19,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - API pública nueva: `GET/POST /api/renovar/:token`, `POST /api/renovar/:token/evidence`, `POST /api/renovar/:token/entrar` (solo con acceso «full»).
 - Pruebas nuevas: `test/renovar-link.test.mjs` (9, incluida una en navegador a 360 px). Procedimiento: `docs/PUBLICACION_Y_REVERSION.md`.
 
-## 2026-11-13 · Optimización 1 (rama `optimizacion-1`, sin publicar)
+## 2026-11-13 · Optimización 1 (**publicado el 13/11, PR #52**)
 - **Semáforo sin falsas alarmas:** una cuenta con todos sus perfiles dados de baja (las «caídas» que ya revisaste) o retirada deja de ser alerta roja: pastilla «⚪ Dada de baja» (`risk.inactive`). No se borra ni se retira nada; una cuenta con perfiles vivos y nota CAÍDA sigue en rojo. En la tienda real, de 34 rojas quedarían 4.
 - **«💵 Me pagó» en Mi secretaria:** en cada cuenta de Cobrar / Cortar / Vencidas / Te deben / Avisar. Primero una **vista previa** (`GET /api/admin/assignments/:id/pay-preview`): cliente (y quién paga), cuenta y perfil, monto (Bs o US$), período y **fecha nueva**, fecha del proveedor, avisos. **Frena** si ese período ya figura cobrado, si hubo un cobro hace menos de 10 minutos o si la fecha nueva pasa la del proveedor. «Confirmar» (`POST …/pay`, idempotente) corre la fecha con la misma regla del Control, marca pagado con el precio (editable), anota el cobro para Finanzas (una sola vez, también si ya estaba pagado el período anterior), limpia «EN COBRO / POR CORTAR» de la nota y deja «💵 pagado dd/mm»; auditoría `secretary.paid` con la nota anterior.
 - **Cierre de mes con mes anterior incompleto:** si la tienda empezó a registrar después del día 1 del mes anterior, no se muestra % (sería inventado): dice «mes anterior incompleto (datos desde dd/mm)». Los Bs sí se comparan.
