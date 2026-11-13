@@ -2,7 +2,13 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
-## En curso — Premium 2.0 (rama `premium-2.0`, aprobado «Ok continuar» el 12/11; nada se publica sin «PUBLICÁ»)
+## Listo, sin publicar — Optimización 1 + 2 (13/11, rama `optimizacion-1`)
+- ✅ Optimización 1: semáforo sin falsas alarmas, «Me pagó» con vista previa, cierre con mes incompleto, detalles visuales, demo de GaboHub.
+- ✅ Optimización 2: renovar con QR o saldo desde un link (aviso de Tito / secretaria), con aprobación humana para QR, **apagado de fábrica**.
+- ⏳ Espera: el dueño confirma su respaldo y dice «PUBLICÁ». Procedimiento y reversión: `docs/PUBLICACION_Y_REVERSION.md`.
+- Después de publicar (decide el dueño): prender los links en Configuración → Soporte; texto del mensaje de WhatsApp con `{link}` para la secretaria (hoy el link se copia y se pega a mano).
+
+## Publicado — Premium 2.0 (etapas 0 a 9, 12–13/11, PR #51)
 Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: documento «Auditoría Gabriel Store Premium 2.0».
 - ✅ Etapa 0 · Base segura: tema común, fuentes sin bloquear, Tito estable, letra mínima (487 pruebas).
 - ✅ Etapa 1 · Plata segura: comprobante repetido frenado, referencias normalizadas, monto verificado e idempotencia en recargas, bandeja de Binance, consentimiento con origen, «enviado a mano» con permiso (496 pruebas).
@@ -14,7 +20,7 @@ Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: 
 - ✅ Etapa 7 · Mi Oficina 2.0: sala nocturna (Propuesta 1) con línea de tiempo (Propuesta 2), lo que hizo el dueño como eventos reales, «Para hoy» y uso de Claude.
 - ✅ Etapa 8 · Automatización y soporte: fallas con tiempo de espera y «tarde», respuestas guardadas, mensajes de la secretaria editables, débitos de tarjeta en la secretaria. Nada se manda solo.
 - ✅ Etapa 9 · Finanzas pro: cierre de mes con comparativa, quién pagó más, apps que más dejaron y Excel del mes.
-- **Las 9 etapas están listas en la rama.** Falta: respaldo manual del dueño, su «PUBLICÁ», PR hacia `ccr-0b4be8d6-1sld7s` con squash y verificación en la tienda real.
+- ✅ **Publicado el 13/11 (PR #51, squash) con el «Publica» del dueño.** Verificado en la tienda real: 78 alquileres iguales, Inicio en una llamada responde, Cortes responde, secretaria con claves (9) y débitos (0), tienda y panel 200.
 - Antes del primer «PUBLICÁ»: pedir respaldo manual (Configuración → Respaldos) y confirmar la copia en Gmail.
 
 ## Publicado — Botón «Mi secretaria» en el panel (12/11, #50)

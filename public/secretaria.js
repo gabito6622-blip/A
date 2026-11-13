@@ -1,7 +1,7 @@
 // "Mi secretaria": una pantalla del panel con todo lo pendiente (cobrar, cortar, quién debe, a quién avisar,
 // qué desenlazar, qué está libre de verdad, qué está apartado) y lo último que pasó. Solo lee.
 // Los mensajes de WhatsApp se arman listos (wa.me), pero los manda el dueño: nunca se envía nada solo.
-import { api, esc, bs, fdt, waLink } from "/common.js";
+import { api, esc, bs, fdt, fdate, waLink, toast, toCents, newKey } from "/common.js";
 
 const dm = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
 const usdTxt = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
@@ -13,6 +13,7 @@ const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
 
 /** Mensaje de WhatsApp listo para cada caso (lo manda el dueño). Si el dueño escribió el suyo en Configuración, se usa ese. */
 let TPL = {};
+let RL = false; // links de renovación prendidos (Configuración → Soporte)
 function message(kind, g) {
   const lines = g.items.map((i) => `• ${i.email} (${i.days < 0 ? "venció" : "vence"} ${dm(i.expiresAt)})`).join("\n");
   const hi = `Hola ${first(g.name)} 👋`;
@@ -25,7 +26,7 @@ function message(kind, g) {
 
 function groupCard(kind, g) {
   const wa = kind !== "cortar" && g.phone ? `<a class="pbtn sm" href="${esc(waLink(g.phone, message(kind, g)))}" target="_blank" rel="noopener">📲 Mensaje listo</a>` : "";
-  const items = g.items.map((i) => `<li><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}</span></li>`).join("");
+  const items = g.items.map((i) => `<li data-secitem="${esc(i.assignmentId)}"><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}</span>${kind !== "cortar" || true ? `<button type="button" class="pbtn sm green sec-pay" data-secpay="${esc(i.assignmentId)}">💵 Me pagó</button>${RL && !i.viaReseller ? `<button type="button" class="pbtn sm sec-pay" data-seclink="${esc(i.assignmentId)}" title="Link para que renueve con QR o saldo">🔗 Link para renovar</button>` : ""}` : ""}<div class="sec-pv" hidden></div></li>`).join("");
   return `<div class="sec-group">
     <div class="sec-gh"><b>${esc(g.name)}</b><span class="sec-tot">${plural(g.items.length, "cuenta", "cuentas")} · ${groupMoney(g)}</span></div>
     ${g.note ? `<small class="muted sec-rule">📝 ${esc(g.note)}</small>` : ""}
@@ -47,6 +48,7 @@ const accRows = (list, extra) => `<ul class="sec-items">${list.map((a) => `<li><
 export async function secretaryView(activity) {
   const r = await api("GET", "/api/admin/secretaria");
   TPL = r.templates ?? {};
+  RL = !!r.renewLinks;
   const c = r.counts;
   const todo = c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
   const resumen = [
@@ -82,3 +84,58 @@ export async function secretaryView(activity) {
     + section("sec-avisar", `⏰ Avisar: vencen en los próximos ${r.aheadDays} días`, "Mirá la regla de cada uno (📝) para saber cuándo avisarle.", r.avisar, "avisar")
     + debitos + desen + libres + apart + claves + act;
 }
+
+
+/* ---------------- «Me pagó» con vista previa (optimización 1) ---------------- */
+// 1) Tocás «Me pagó» → se pide la vista previa al servidor y se muestra debajo: cliente, cuenta, monto, período y fecha nueva.
+// 2) Si hay un freno (período ya cobrado, pasa la fecha del proveedor) no hay botón de confirmar.
+// 3) «Confirmar» guarda una sola vez (llave de idempotencia) y vuelve a dibujar la secretaria.
+const money = (pv) => (pv.priceUsd !== undefined ? `${usdTxt(pv.priceUsd)} (≈ ${bs(pv.price)})` : bs(pv.price));
+function previewHtml(pv, key) {
+  const rows = [["Cliente", `${esc(pv.customer.name)}${pv.payer.id !== pv.customer.id ? ` · paga ${esc(pv.payer.name)}${pv.payer.isReseller ? " (revendedor)" : ""}` : ""}`],
+    ["Cuenta", `<span class="sec-mail">${esc(pv.email)}</span>${pv.profile ? ` · ${esc(pv.profile)}` : ""} · ${esc(pv.product)}`],
+    ["Monto", `<b>${money(pv)}</b> por ${pv.periods} período${pv.periods === 1 ? "" : "s"} (${pv.days} días)`],
+    ["Período", `del <b>${fdate(pv.from)}</b> al <b>${fdate(pv.to)}</b>${pv.expiredDays ? ` <small class="muted">(venció hace ${pv.expiredDays} d: arranca hoy)</small>` : ""}`],
+    ["Fecha nueva", `<b>${fdate(pv.to)}</b> <small class="muted">· proveedor: ${pv.supplierNoDate ? "sin fecha" : fdate(pv.supplierExpiresAt)}</small>`]];
+  return `<div class="sec-pvbox">
+    <table class="sec-pvt">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>
+    ${pv.blockers.map((b) => `<p class="sec-block">⛔ ${esc(b)}</p>`).join("")}${pv.warnings.map((w) => `<p class="sec-warn">⚠️ ${esc(w)}</p>`).join("")}
+    <div class="inline sec-pvact">${pv.ok ? `<label class="sec-price">Cobré (${pv.priceUsd !== undefined ? "Bs, lo que llegó" : "Bs"})<input name="price" inputmode="decimal" value="${(pv.price / 100).toFixed(2)}"></label>
+      <button type="button" class="pbtn green" data-secpayok="${esc(pv.assignmentId)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button>` : ""}<button type="button" class="pbtn" data-secpayno="1">Cancelar</button></div></div>`;
+}
+if (typeof document !== "undefined") document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-secpay],[data-secpayok],[data-secpayno],[data-seclink]");
+  if (!b) return;
+  if (b.dataset.seclink) {
+    b.disabled = true;
+    try {
+      const r = await api("POST", `/api/admin/assignments/${b.dataset.seclink}/renew-link`, {});
+      let copied = false;
+      try { await navigator.clipboard.writeText(r.url); copied = true; } catch { /* sin permiso: se muestra para copiar a mano */ }
+      const box = b.closest("li[data-secitem]")?.querySelector(".sec-pv");
+      if (box) { box.innerHTML = `<p class="sec-warn" style="overflow-wrap:anywhere">🔗 ${copied ? "Link copiado" : "Link"} (vale hasta el ${fdt(r.expiresAt)}): <code>${esc(r.url)}</code> <button type="button" class="pbtn sm" data-copy="${esc(r.url)}">Copiar</button></p>`; box.hidden = false; }
+      toast(copied ? "Link copiado: pegalo en el WhatsApp del cliente" : "Link generado");
+    } catch (e) { toast(e.message); } finally { b.disabled = false; }
+    return;
+  }
+  const li = b.closest("li[data-secitem]"); const box = li?.querySelector(".sec-pv");
+  if (!box) return;
+  if (b.dataset.secpayno) { box.hidden = true; box.innerHTML = ""; return; }
+  if (b.dataset.secpay) {
+    b.disabled = true;
+    try {
+      const pv = await api("GET", `/api/admin/assignments/${b.dataset.secpay}/pay-preview`);
+      box.innerHTML = previewHtml(pv, newKey()); box.hidden = false;
+      box.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    } catch (e) { toast(e.message); } finally { b.disabled = false; }
+    return;
+  }
+  // Confirmar
+  const price = toCents(box.querySelector('[name="price"]')?.value || "0");
+  b.disabled = true;
+  try {
+    const r = await api("POST", `/api/admin/assignments/${b.dataset.secpayok}/pay`, { periods: 1, price, idempotencyKey: b.dataset.key });
+    toast(`💵 Cobro guardado: ${r.customer.name} hasta el ${fdate(r.saved.to)} (${bs(r.saved.price)})`);
+    document.querySelector('[data-go="secretaria"]')?.click();
+  } catch (e) { toast(e.message); b.disabled = false; }
+});

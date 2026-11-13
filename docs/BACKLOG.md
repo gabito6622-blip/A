@@ -6,7 +6,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
-- **[Decide el dueño] GaboHub: precios y prueba** (Premium 2.0, etapa 6). Días de prueba (sugerido 15), precio del plan Básico (Bs y US$) y si el Completo sigue en Bs 49 / US$ 5. Se cargan en Revendedores → Ajustes; el cobro queda apagado hasta su «prendé».
+- **[Decide el dueño] GaboHub: plan Básico** (Premium 2.0, etapa 6). Ya puesto: 15 días de prueba (13/11). Falta el precio del plan Básico (Bs y US$); el Completo sigue en Bs 49 / US$ 5 y el cobro apagado hasta su «prendé».
 
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
@@ -124,4 +124,9 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M14 | 💰 Cajero: confirmar pagos con el correo del Banco Ganadero | — | ⏸️ en pausa: el dueño ya no va a usar el Ganadero (12/11) |
 | M15 | Panel ordenado en 6 áreas + Herramientas (Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas): buscador global, Ficha 360°, Vender/Renovar/Reemplazar guiados, inventario por niveles. Auditoría y matriz de las 30 pantallas presentadas el 12/11; sin tocar código | P1 | ✅ aprobada · etapas 1 y 2 publicadas (#39) · etapa 3 (buscador) publicada (#40) · etapa 4 (ficha 360°) publicada (#41) · etapa 5 (ver antes de confirmar) publicada (#42) · etapa 6 (pestañas de Avisos y Plata) publicada (#43) · etapa 7 (cuentas por plataforma) publicada (#45) · arreglo «vencidas» publicado (#46) |
 | M16 | Alquileres de Disney frenados por la fecha del proveedor | P2 | ✅ resuelto el 12/11: el dueño no tiene proveedor de Disney; se quitaron las fechas (ver B22 para las 16 restantes) |
-| M17 | La prueba `avisos-solos` falló 1 vez por azar en una corrida completa (12/11). Revisar si depende de la hora o del orden | P3 | ⏳ |
+| M17 | La prueba `avisos-solos` falló 1 vez por azar en una corrida completa (12/11) y otra en la CI (13/11) | P3 | ✅ causa: el token al azar del link `/c/…` a veces contiene «Bs» y la revisión de privacidad lo tomaba por un monto; ahora revisa el texto sin el token (13/11) |
+| O1 | Dar el «PUBLICÁ» de Optimización 1 + 2 después de confirmar el respaldo (Configuración → Respaldos) | P1 | 🧑 esperando al dueño |
+| O2 | Prender los links de renovación (Configuración → Soporte) y elegir si solo renuevan o también entran a Mis cuentas | P2 | 🧑 decide el dueño después de publicar |
+| O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
+| O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
+| O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados; precio real del plan Básico de GaboHub | P2 | 🧑 datos del dueño |

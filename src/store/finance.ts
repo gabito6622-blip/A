@@ -4,7 +4,7 @@ import type { Account, Actor, Cents, Expense, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { boMonthKey, boMonthStart, boParts } from "./time.js";
+import { DAY, boMonthKey, boMonthStart, boParts } from "./time.js";
 import { incomeEvents, type IncomeEvent } from "./income.js";
 import { rateNow, usdToBs } from "./usd.js";
 
@@ -106,7 +106,12 @@ export function monthClose(e: Engine, actor: Actor, month?: unknown) {
     };
   };
   const cur = block(key), prev = block(prevKey);
-  const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+  // ¿Desde cuándo hay datos en la tienda? Si el mes anterior empezó antes que el primer dato, está incompleto:
+  // no se muestra un % (sería inventado), solo los montos y desde qué día hay registro.
+  const firstDataAt = Math.min(Infinity, ...Object.values(e.s.customers).map((c) => c.createdAt), ...Object.values(e.s.orders).map((o) => o.createdAt), ...Object.values(e.s.assignments).map((a) => a.startsAt), ...(e.s.expenses ?? []).map((x) => x.at));
+  const prevStart = boMonthStart(start - 1);
+  const prevIncomplete = Number.isFinite(firstDataAt) && firstDataAt > prevStart + DAY;
+  const pct = (a: number, b: number) => (prevIncomplete || b <= 0 ? null : Math.round(((a - b) / b) * 100));
   const est = key === curKey ? accountsEstimate(e) : { amount: 0, count: 0 };
   const MESL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const months = Array.from({ length: 12 }, (_, i) => { const s = boMonthStart(now, -i), p2 = boParts(s); return { key: mk(s), label: `${MESL[p2.m]} ${p2.y}` }; });
@@ -114,7 +119,7 @@ export function monthClose(e: Engine, actor: Actor, month?: unknown) {
     month: key, label: `${MESL[m - 1]} ${y}`, closed: key < curKey, start, end, months,
     ...cur,
     cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ganancia - est.amount,
-    prev: { key: prevKey, ingresos: prev.ingresos, gastos: prev.gastos, ganancia: prev.ganancia, delControl: prev.delControl },
+    prev: { key: prevKey, ingresos: prev.ingresos, gastos: prev.gastos, ganancia: prev.ganancia, delControl: prev.delControl, incomplete: prevIncomplete, dataSince: Number.isFinite(firstDataAt) ? firstDataAt : null },
     vs: { ingresosPct: pct(cur.ingresos, prev.ingresos), ingresos: cur.ingresos - prev.ingresos, gananciaPct: pct(cur.ganancia, prev.ganancia), ganancia: cur.ganancia - prev.ganancia, gastos: cur.gastos - prev.gastos },
   };
 }

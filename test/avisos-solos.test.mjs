@@ -174,7 +174,8 @@ describe("avisos solos (API)", () => {
     assert.deepEqual([t2.title, t2.url], ["🔔 Tu Disney+ vence en 3 días (15/12)", `/c/${tk1}`]);
     // Privacidad: nada de contraseñas, correos, montos ni nombres de otros clientes.
     for (const m of [a, c, t, t2]) {
-      const txt = JSON.stringify(m);
+      // El token del link /c/<token> es al azar y a veces contiene «Bs» (falló así en la CI el 13/11): se revisa el texto, no el token.
+      const txt = JSON.stringify({ ...m, url: String(m.url ?? "").replace(/[A-Za-z0-9_-]{20,}/g, "TOKEN") });
       for (const x of ["Clave-Secreta", "@x.lat", "secreto", "Bs", "15.00", "Lucía", "Mario", "Ana Tienda", "alquiler", "Mamá"]) assert.ok(!txt.includes(x), `el aviso muestra ${x}: ${txt}`);
     }
     // El dueño ve solo cuántos salieron hoy.

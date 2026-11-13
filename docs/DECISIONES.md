@@ -2,6 +2,22 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Optimización 2: el link acorta el camino, no decide por nadie
+- **Apagado de fábrica:** el dueño pidió «implementala inicialmente apagada». Sin el interruptor, no hay botón, no hay ruta útil y el aviso de Tito no cambia. Prenderlo es un toque suyo, reversible, y apagarlo invalida todos los links vivos.
+- **Un token aparte, no una sesión del cliente:** el link lleva una sesión de tipo `renew` (cliente + servicio) y no una sesión normal. Así, si el cliente lo reenvía, el que lo abre solo puede pagar ese servicio: no ve correos, claves, teléfono ni otras cuentas. El acceso a Mis cuentas es opcional («full») y lo elige el dueño.
+- **Reutiliza `orders.renew`:** el pago por link pasa por la misma función que «Renovar» en Mis cuentas, con el actor del cliente (`renewlink:…` en la auditoría). Mismo precio acordado, mismo freno del proveedor, misma aprobación en Aprobar pagos para QR, mismo comprobante repetido frenado. No se creó un segundo camino de cobro.
+- **Clientes de revendedor quedan afuera:** renuevan con su revendedor (regla existente); el botón no aparece y la API responde 409. Evita que un cliente final pague a la tienda lo que le corresponde a su revendedor.
+- **Un solo uso para pagar:** con saldo, el link se consume al entregar; con QR, al mandar el comprobante. Antes de eso se puede volver a abrir (para subir la captura más tarde). Con acceso «full» el link sigue sirviendo para entrar mientras no venza.
+- **Límite propio por IP (40 / 15 min):** el de login (5) frenaba el camino normal (ver, pagar, subir comprobante, volver a mirar); 40 alcanza de sobra para una persona y corta a quien pruebe tokens al azar.
+
+## 2026-11-13 · Optimización 1: menos trabajo diario sin perder control
+- **«Me pagó» reutiliza el Control, no lo reemplaza:** corre la fecha con `extend` (mismo freno del proveedor) y marca pagado con `setRentalControl` (mismo `paidLog` que leen Finanzas y Cómo van). Así el número no cambia según desde dónde cobres.
+- **Vista previa obligatoria:** el dueño pidió ver cliente, cuenta, monto, período y fecha nueva antes de guardar. Es una llamada aparte; el guardado repite la validación por si cambió algo en el medio.
+- **Frenos elegidos:** período ya cobrado (duplicado real), cobro hace menos de 10 min (doble toque o dos personas), proveedor (nunca se vende más allá de la cuenta). Descartado: frenar por «ya está pagado» a secas, porque cobrar el mes siguiente de una cuenta pagada es el caso normal.
+- **La nota se limpia, no se borra:** «EN COBRO» y «POR CORTAR» salen de la nota del Control (si no, la secretaria la seguiría pidiendo) y la nota anterior queda en la auditoría.
+- **Semáforo: «dada de baja» no es alerta:** el dueño ya revisó esas cuentas; mostrarlas rojas para siempre tapa las 4 que sí importan. No se borran ni se retiran: el dueño dijo «no retirar en lote».
+- **% solo con mes completo:** un porcentaje contra un mes a medias es un número inventado; se muestra desde cuándo hay datos.
+
 ## 2026-11-13 · Premium 2.0 · Etapa 9: un cierre que no inventa números
 - **El cierre usa `incomeEvents()` y nada más:** si el cierre tuviera su propia cuenta, volveríamos al problema de la etapa 2 (tres pantallas, tres números). Entró, por origen, por quién y por app salen de la misma lista.
 - **«Cerrado» es solo una etiqueta:** no se congela nada ni se bloquea editar el pasado; si el dueño corrige un cobro de octubre, el cierre de octubre cambia. Congelar meses queda para cuando haya contador.

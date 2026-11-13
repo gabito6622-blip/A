@@ -15,7 +15,7 @@ import type { State } from "../store/index.js";
 export interface SessionRow {
   tokenHash: string;
   /** "link" = enlace de acceso de un solo uso que el staff le manda al cliente. */
-  kind: "staff" | "customer" | "link";
+  kind: "staff" | "customer" | "link" | "renew";
   subjectId: string;
   createdAt: number;
   expiresAt: number;

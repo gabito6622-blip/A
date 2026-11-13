@@ -568,7 +568,87 @@ export function createApp(cfg: AppConfig): App {
     try { return fn(); } catch (e) { if (e instanceof DomainError && e.code === "NOT_FOUND") cobroMissLimiter.take(c.ip); throw e; }
   };
   // Avisos automáticos de vencimiento al celular del cliente final (expiryPush.ts). `alerts`: si alguien los activó en ese link.
+  /* ---------------- Optimización 2: links de renovación (QR o saldo), apagados por defecto ----------------
+     El link lleva un token (sesión de tipo "renew", con cliente|servicio) que vale `hours` horas. No es una sesión del
+     cliente: solo sirve para ver ese servicio y pagar su renovación. Con saldo se entrega al instante (la plata ya
+     entró); con QR queda «En revisión» y el dueño aprueba como siempre. Si el dueño eligió acceso "full", el cliente
+     puede además entrar a Mis cuentas con el mismo link. Nunca muestra correos ni claves. */
+  const renewCfg = () => store.engine.s.settings.renewLink ?? { enabled: false, access: "renew" as const, hours: 48 };
+  // Por IP: alcanza para ver, pagar, subir el comprobante y volver a mirar; frena a quien pruebe tokens al azar.
+  const renewLimiter = new RateLimiter(40, 15 * 60_000, now);
+  const renewTokenOf = (token: string) => { const s = token && /^[\w-]{16,}$/.test(token) ? db.getSession(sha256(token), now()) : null; if (!s || s.kind !== "renew") return null; const [customerId, assignmentId] = s.subjectId.split("|"); return { s, customerId, assignmentId }; };
+  function makeRenewLink(assignmentId: string, base: string): { url: string; expiresAt: number } {
+    const r = renewCfg();
+    if (!r.enabled) throw new HttpError(409, "RENEW_LINKS_OFF", "Los links de renovación están apagados (Configuración → Soporte)");
+    const a = store.engine.s.assignments[assignmentId];
+    if (!a || a.status !== "active") throw new HttpError(404, "NOT_FOUND", "Servicio inexistente o inactivo");
+    const cust = store.engine.s.customers[a.customerId];
+    if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    if (cust.resellerId && store.engine.s.customers[cust.resellerId]) throw new HttpError(409, "VIA_RESELLER", "Este cliente renueva con su revendedor: el link es para clientes que te pagan a vos");
+    const token = newToken(), expiresAt = now() + r.hours * HOUR;
+    db.putSession({ tokenHash: sha256(token), kind: "renew", subjectId: `${a.customerId}|${a.id}`, createdAt: now(), expiresAt });
+    return { url: `${base}/tienda/#renovar=${token}`, expiresAt };
+  }
+  const renewActor = (customerId: string, token: string): Actor => ({ id: `renewlink:${sha256(token).slice(0, 12)}`, role: "customer", customerId });
+  route("POST", "/api/admin/assignments/:id/renew-link", "staff", (c) => makeRenewLink(c.params.id, cfg.publicOrigin ?? `http://${c.req.headers.host}`));
+  const renewView = (token: string) => {
+    const r = renewCfg();
+    const tk = r.enabled ? renewTokenOf(token) : null;
+    if (!tk) throw new HttpError(404, "BAD_LINK", "El link venció o ya se usó. Escribinos por WhatsApp y te mandamos otro.");
+    const e = store.engine.s, a = e.assignments[tk.assignmentId], cust = e.customers[tk.customerId];
+    if (!a || !cust || a.status !== "active") throw new HttpError(404, "BAD_LINK", "Ese servicio ya no está activo");
+    const prod = e.products[a.productId], slot = e.slots[a.slotId], acc = slot ? e.accounts[slot.accountId] : undefined;
+    const actor = renewActor(cust.id, token);
+    const usd = store.usd.isUsd(cust.id);
+    const price: number | null = prod && prod.published !== false ? store.catalog.renewPriceFor(cust.id, a) : null;
+    const bal = store.wallet.balance(cust.id);
+    const pending = Object.values(e.orders).find((o) => o.kind === "renewal" && o.renewal?.assignmentId === a.id && (o.status === "awaiting_payment" || o.status === "payment_review"));
+    const days = prod?.durationDays ?? 30;
+    const from = Math.max(a.customerExpiresAt, now()), to = from + days * 86_400_000;
+    const st = e.settings;
+    return {
+      name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", expiresAt: a.customerExpiresAt, from, to, days,
+      price, currency: usd ? "USD" : "BOB", balance: bal, canBalance: price !== null && price > 0 && bal >= price,
+      supplierOk: !acc || to <= acc.supplierExpiresAt, access: r.access, storeName: st.storeName, whatsapp: st.whatsapp, hasQr: !!st.qrFileRef, paymentNote: st.paymentNote ?? "",
+      pending: pending ? { id: pending.id, status: pending.status, hasEvidence: !!pending.evidence } : null,
+      actorId: actor.id,
+    };
+  };
+  route("GET", "/api/renovar/:token", "public", (c) => { if (!renewLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos: esperá unos minutos"); return renewView(c.params.token); });
+  route("POST", "/api/renovar/:token", "public", (c) => {
+    if (!renewLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos: esperá unos minutos");
+    const v = renewView(c.params.token), tk = renewTokenOf(c.params.token)!;
+    const method = c.body?.method === "balance" ? "balance" : c.body?.method === "qr" ? "qr" : null;
+    if (!method) throw new HttpError(400, "VALIDATION", "Elegí cómo pagás: saldo o QR");
+    if (!v.supplierOk) throw new HttpError(409, "SUPPLIER_EXPIRY_EXCEEDED", "Este servicio no se puede renovar todavía: escribinos por WhatsApp");
+    if (v.pending) throw new HttpError(409, "ALREADY_PENDING", "Ya hay una renovación en curso para este servicio");
+    const r = store.orders.renew(renewActor(tk.customerId, c.params.token), tk.assignmentId, { periods: 1, paymentMethod: method, idempotencyKey: typeof c.body?.idempotencyKey === "string" ? c.body.idempotencyKey.slice(0, 80) : undefined });
+    if (method === "balance" && renewCfg().access === "renew") db.deleteSession(tk.s.tokenHash); // ya cumplió: un solo uso
+    return { order: { id: r.order.id, status: r.order.status, total: r.order.total }, assignment: { expiresAt: r.assignment.customerExpiresAt } };
+  });
+  route("POST", "/api/renovar/:token/evidence", "public", (c) => {
+    if (!renewLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos: esperá unos minutos");
+    const v = renewView(c.params.token), tk = renewTokenOf(c.params.token)!;
+    if (!v.pending || v.pending.status !== "awaiting_payment") throw new HttpError(409, "INVALID_STATE", "No hay una renovación esperando comprobante");
+    const file = saveUpload(c.body);
+    try {
+      const o = store.orders.submitEvidence(renewActor(tk.customerId, c.params.token), v.pending.id, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) });
+      autoReview(o.id);
+      if (renewCfg().access === "renew") db.deleteSession(tk.s.tokenHash);
+      return { id: o.id, status: o.status };
+    } catch (err) { try { unlinkSync(join(uploads, file)); } catch { /* */ } throw err; }
+  }, MAX_UPLOAD_JSON);
+  route("POST", "/api/renovar/:token/entrar", "public", (c) => {
+    if (!renewLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos: esperá unos minutos");
+    const tk = renewCfg().enabled ? renewTokenOf(c.params.token) : null;
+    if (!tk) throw new HttpError(404, "BAD_LINK", "El link venció o ya se usó");
+    if (renewCfg().access !== "full") throw new HttpError(403, "FORBIDDEN", "Este link solo sirve para renovar");
+    startSession(c.res, "customer", tk.customerId);
+    return { ok: true };
+  });
+
   const expiry = createExpiryPush({ route, store, db, now, pushOn: () => pushOn(), publicKey: () => cfg.vapid?.publicKey ?? null,
+    renewLink: (assignmentId) => { try { return renewCfg().enabled && cfg.publicOrigin ? makeRenewLink(assignmentId, cfg.publicOrigin).url : null; } catch { return null; } },
     send: (sub) => sendPush(sub, cfg.vapid!, vapidKey!, cfg.fetchImpl ?? fetch, now()), customerPush, customerIds: () => cpushSubs().map((x) => x.customerId),
     cobro, tooMany: () => { throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos."); } });
   route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => ({ ...store.subs.publicView(c.params.token), alerts: expiry.hasAlerts(c.params.token) })));
@@ -584,7 +664,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
   route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
   // Premium 2.0 (etapa 8): lo que el dueño configuró para soporte (respuestas guardadas y mensajes de la secretaria).
-  route("GET", "/api/admin/settings/soporte", "staff", () => ({ ticketReplies: store.engine.s.settings.ticketReplies ?? [], secretaryMsg: store.engine.s.settings.secretaryMsg ?? {} }));
+  route("GET", "/api/admin/settings/soporte", "staff", () => ({ ticketReplies: store.engine.s.settings.ticketReplies ?? [], secretaryMsg: store.engine.s.settings.secretaryMsg ?? {}, renewLink: renewCfg() }));
   route("POST", "/api/admin/tickets/:id", "staff", (c) => {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
@@ -792,6 +872,9 @@ export function createApp(cfg: AppConfig): App {
     return r;
   });
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
+  // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
+  route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
@@ -1018,6 +1101,7 @@ export function createApp(cfg: AppConfig): App {
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
     if (Array.isArray(b.ticketReplies)) pick.ticketReplies = b.ticketReplies;
     if (b.secretaryMsg && typeof b.secretaryMsg === "object") pick.secretaryMsg = b.secretaryMsg;
+    if (b.renewLink && typeof b.renewLink === "object") pick.renewLink = b.renewLink;
     if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;

@@ -84,7 +84,8 @@ describe("etapa 8 · soporte", () => {
       const r = await post("/api/admin/settings", { ticketReplies: ["Ya lo reviso"], secretaryMsg: { cobrar: "Hola {nombre}: {cuentas} · {total}" } }, ck);
       assert.equal(r.status, 200);
       const sup = await (await fetch(base + "/api/admin/settings/soporte", { headers: { cookie: ck } })).json();
-      assert.deepEqual(sup, { ticketReplies: ["Ya lo reviso"], secretaryMsg: { cobrar: "Hola {nombre}: {cuentas} · {total}" } });
+      // Optimización 2: la misma respuesta trae los links de renovación, apagados de fábrica.
+      assert.deepEqual(sup, { ticketReplies: ["Ya lo reviso"], secretaryMsg: { cobrar: "Hola {nombre}: {cuentas} · {total}" }, renewLink: { enabled: false, access: "renew", hours: 48 } });
       assert.equal((await fetch(base + "/api/admin/settings/soporte")).status, 401, "sin sesión no");
       const pub = await (await fetch(base + "/api/settings")).json();
       assert.equal(pub.ticketReplies, undefined, "la tienda pública no lo ve");

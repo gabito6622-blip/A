@@ -154,9 +154,15 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     }
     patch.secretaryMsg = out;
   }
+  if (patch.renewLink !== undefined) {
+    const r = patch.renewLink as Record<string, unknown>;
+    const hours = r?.hours === undefined || r?.hours === null || r?.hours === "" ? 48 : Number(r.hours);
+    if (!r || typeof r !== "object" || (r.access !== undefined && r.access !== "renew" && r.access !== "full") || !Number.isInteger(hours) || hours < 1 || hours > 168) throw new DomainError("VALIDATION", "Links de renovación inválidos (acceso renew/full, duración de 1 a 168 horas)");
+    patch.renewLink = { enabled: !!r.enabled, access: r.access === "full" ? "full" : "renew", hours };
+  }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg", "renewLink"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));
