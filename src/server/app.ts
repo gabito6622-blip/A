@@ -42,6 +42,7 @@ import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
 import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
+import { injectEarlyLook } from "./earlyLook.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
  *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
@@ -2197,6 +2198,9 @@ export function createApp(cfg: AppConfig): App {
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    // Los colores del dueño (o del revendedor) desde el primer cuadro: sin destello azul de los colores de fábrica.
+    const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
+    if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
     // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
     if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
     // La tienda servida en «/» del dominio propio: el navegador tiene que saber que es la tienda y no GaboHub.
@@ -2226,6 +2230,10 @@ export function createApp(cfg: AppConfig): App {
     if (host === main && (pathname === "/" || pathname === "/index.html")) return { rewrite: "/tienda/" };
     if (host.endsWith(`.${main}`)) {
       const label = host.slice(0, -main.length - 1);
+      // Atajos fáciles de recordar: panel.gabostore.lat (el panel del dueño) y hub.gabostore.lat (GaboHub).
+      // Llevan a la dirección de siempre, así la sesión y los avisos al celular siguen en un solo lugar.
+      if (label === "panel" || label === "admin") return { code: 302, to: `https://${main}/panel` };
+      if (label === "hub") return { code: 302, to: `https://${main}/hub` };
       const ok = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(label) && !SHOP_RESERVED.has(label) && !!findShopBySlug(store.engine, label);
       if (!ok) return { code: 302, to: `https://${main}/` };
       if (pathname === "/" || pathname === "/index.html") return { rewrite: `/r/${label}` };

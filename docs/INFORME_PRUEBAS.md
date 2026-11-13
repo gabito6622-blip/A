@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 13/11/2026 · Sin destello azul (rama `subdominios`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Causa (solo lectura): la tienda real usa `#fcc42d` sobre `#070b16`; el HTML arrancaba con `#3984ff` (azul de fábrica) | `curl /api/settings` + lectura de `base.css` | confirmado |
+| `/tienda/` y `/hub` traen `--s-blue:#fcc42d`, `--s-bg:#070b16`, barra del celular `#070b16` y `data-bg="glow" data-card="glass"`; ningún `#3984ff` | `test/sin-destello.test.mjs` | pasa |
+| Página de revendedor con fondo blanco: sus colores, letras oscuras y `color-scheme:light`; sin el dorado de la tienda | ídem | pasa |
+| Colores mal guardados no rompen la página (vuelven a los de fábrica) | ídem | pasa |
+| Celular 360 px con la configuración colgada a propósito: el primer cuadro ya es dorado (logo y fondo) | ídem, Playwright | pasa |
+| `panel.`/`admin.gabostore.lat` → `/panel`; `hub.` → `/hub` | `test/subdominios.test.mjs` | pasa |
+| Suite completa | `npm test` | **593 pasan, 0 fallan, 58 s** (una corrida previa falló la prueba de elegir nombre porque escribía antes de que la pantalla terminara de dibujarse; ahora espera, 3 de 3 sola) |
+
 ## 13/11/2026 · Portada sin salto (rama `subdominios`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

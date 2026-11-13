@@ -57,10 +57,18 @@ describe("Subdominios de revendedores", () => {
   });
 
   test("subdominio desconocido, apagado o reservado lleva a la portada de la tienda", async () => {
-    for (const host of ["nadie.gabostore.lat", "rosa.gabostore.lat", "api.gabostore.lat", "panel.gabostore.lat", "a.b.gabostore.lat", "-mal.gabostore.lat"]) {
+    for (const host of ["nadie.gabostore.lat", "rosa.gabostore.lat", "api.gabostore.lat", "www2.gabostore.lat", "a.b.gabostore.lat", "-mal.gabostore.lat"]) {
       const r = await get(s.port, host, "/");
       assert.equal(r.status, 302, host);
       assert.equal(r.location, "https://gabostore.lat/", host);
+    }
+  });
+
+  test("panel.gabostore.lat lleva a tu panel y hub.gabostore.lat a GaboHub", async () => {
+    for (const [host, to] of [["panel.gabostore.lat", "https://gabostore.lat/panel"], ["admin.gabostore.lat", "https://gabostore.lat/panel"], ["hub.gabostore.lat", "https://gabostore.lat/hub"]]) {
+      const r = await get(s.port, host, "/cualquier-cosa");
+      assert.equal(r.status, 302, host);
+      assert.equal(r.location, to, host);
     }
   });
 
@@ -132,6 +140,8 @@ test("en su panel, el revendedor elige su nombre y ve al instante cómo le queda
     await slug.waitFor();
     assert.match(await page.locator("#shopForm").innerText(), /lo que va antes de \.gabostore\.lat/);
     assert.match(await page.locator("#slugPrev b").innerText(), /^https:\/\/daniel\.gabostore\.lat$/);
+    // La vista se vuelve a dibujar cuando llegan los datos de la página: esperamos a que quede quieta antes de escribir.
+    await page.waitForLoadState("networkidle"); await page.waitForTimeout(300);
     await slug.fill(""); await slug.pressSequentially("Dani Strem");
     assert.equal(await slug.inputValue(), "dani-strem", "minúsculas y guiones solos");
     assert.equal(await page.locator("#slugPrev b").innerText(), "https://dani-strem.gabostore.lat");

@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Sin destello azul al entrar; atajos panel.gabostore.lat y hub.gabostore.lat (**sin publicar**, rama `subdominios`)
+- **Por qué:** el dueño veía «un destello azul al principio» al entrar a gabostore.lat. La página arrancaba con los colores de fábrica (azul `#3984ff`) y recién al llegar la configuración pasaba a su dorado (`#fcc42d`). El panel arrancaba claro con la barra del celular azul y después pasaba a oscuro.
+- **Qué hay ahora:** el servidor manda la tienda, GaboHub y cada página de revendedor con sus colores ya puestos (fondo, color principal, tarjetas, botones, barra del celular y estilo de fondo). El panel arranca oscuro (su tema por defecto).
+- **Atajos:** `panel.gabostore.lat` lleva a `gabostore.lat/panel` y `hub.gabostore.lat` a `gabostore.lat/hub` (andan cuando esté el comodín `*.gabostore.lat`).
+- Por dentro: `src/server/earlyLook.ts` (misma cuenta de colores y contraste que `applyLook`/`lookColors` del navegador).
+- Pruebas: `test/sin-destello.test.mjs` (4) y 1 más en `test/subdominios.test.mjs`.
+
 ## 2026-11-13 · gabostore.lat abre la tienda al toque, sin salto (**sin publicar**, rama `subdominios`)
 - **Por qué:** el dueño vio que al entrar a gabostore.lat «por un momento sale la portada de Gabo» antes de su tienda. La portada mandaba a `/tienda/` con un salto (302) y, mientras iba y volvía, el celular podía seguir mostrando otra página.
 - **Qué hay ahora:** `gabostore.lat/` responde la tienda directamente (una sola carga, sin redirección). `/tienda/`, `/hub` y `/panel` siguen igual. La dirección de Railway sigue mostrando GaboHub en la portada, como antes.

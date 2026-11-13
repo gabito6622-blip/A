@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Colores puestos por el servidor (no esconder la página)
+- **Qué se decidió:** el HTML sale con las variables de color del dueño (o del revendedor) en `<html style>`, en vez de esconder la página hasta que cargue.
+- **Por qué:** esconder deja la pantalla vacía más tiempo; con los colores puestos, el primer cuadro ya es el definitivo. No se puede leer la preferencia con un `<script>` en línea porque la política de seguridad (CSP) no lo permite, y un `style` sí.
+- **Una sola cuenta de colores:** `earlyLook.ts` repite la de `lookColors` (contraste 4,5:1); hay una prueba que compara el resultado con el dorado real.
+- **Panel:** arranca oscuro porque es el tema por defecto; quien eligió claro ve un instante oscuro (antes pasaba al revés con casi todos).
+- **panel./hub. llevan a la dirección de siempre** (no sirven el panel ahí): una sola sesión y los avisos al celular quedan en un solo lugar.
+
 ## 2026-11-13 · La portada del dominio sirve la tienda, no redirige
 - **Qué se decidió:** `gabostore.lat/` entrega la tienda en la misma respuesta, en vez de un 302 a `/tienda/`.
 - **Por qué:** con el salto, el celular hace dos viajes y, en el medio, puede seguir viéndose la página anterior. Sin salto es más rápido y no asoma nada.

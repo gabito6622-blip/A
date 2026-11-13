@@ -119,6 +119,7 @@ function applyTheme() {
   $("#app").classList.toggle("dark", dark);
   document.documentElement.dataset.gsTheme = dark ? "dark" : "light"; // tema.css: mismos colores que la oficina y GaboHub
   document.body.style.background = dark ? "#070b16" : "#eef1f6";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#070b16" : "#1e3a8e");
   $$("[data-th]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.th === P.theme));
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
