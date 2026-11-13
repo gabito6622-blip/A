@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Dominio propio: gabostore.lat (**en vivo desde el 13/11, 17:57 Bolivia**)
+- gabostore.lat abre la tienda Gabriel Store (la portada lleva a `/tienda/`); www.gabostore.lat lleva a gabostore.lat; GaboHub sigue en `/hub`. La dirección de Railway sigue funcionando, así que los links viejos no se rompen.
+- Hecho: el dueño agregó los dos dominios en Railway y los registros en Namecheap (ALIAS `@`, CNAME `www`, dos TXT `_railway-verify`; se borraron los de Netlify). Con el token de Railway del dueño se leyeron los registros pedidos y, con los dos certificados listos, se cambió `GS_PUBLIC_ORIGIN` a `https://gabostore.lat` (antes la dirección de Railway). Ninguna otra variable se tocó.
+- Los links nuevos (cobro, renovación, acceso, códigos) salen con gabostore.lat. Clientes y revendedores tienen que iniciar sesión de nuevo en la dirección nueva.
+
 ## 2026-11-13 · Atajos del dueño y de los revendedores (**sin publicar**, rama `panel-atajos`)
 Pedido del dueño: «todo eso, implementá». Siete cosas, cada una con su prueba:
 - **Mi secretaria · «✅ Ya le avisé»:** un toque marca que ya le escribiste a un cliente y deja de pedírtelo. Vale para ese vencimiento (al renovar se va). Si vence mañana u hoy y el aviso fue hace 2 días o más, lo vuelve a pedir (regla «3 días antes y otra vez 1 día antes»). «↩️ No le avisé» deshace. El Control muestra «📣 Ya le avisaste el …». No manda nada ni cambia pagos o fechas.

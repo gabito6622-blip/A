@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Dominio gabostore.lat
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Registros DNS pedidos por Railway y estado de los certificados | API de Railway (solo lectura) | ambos dominios verificados, certificados VALID |
+| Cambio de `GS_PUBLIC_ORIGIN` → `https://gabostore.lat` (respaldo del valor anterior fuera del repo) y redespliegue | API de Railway | despliegue SUCCESS en ~1 min |
+| `gabostore.lat/` → 302 a `/tienda/` (título «Gabriel Store…»); `www.gabostore.lat/` → 301 a `gabostore.lat/`; `/hub` 200; `/api/health` 200; dirección de Railway sigue respondiendo | `curl` | OK |
+| Datos antes y después, byte a byte: alquileres, clientes, revendedores, cuentas, finanzas | comparación de los JSON | **idéntico** |
+| Link de renovación de prueba (Marcelo, no enviado) sale con `https://gabostore.lat/tienda/#renovar=…` | API | OK |
+
 ## 13/11/2026 · Atajos (rama `panel-atajos`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
