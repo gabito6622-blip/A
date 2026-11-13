@@ -180,7 +180,9 @@ describe("renovar por link (apagado por defecto)", () => {
       return sent;
     };
     try {
-      clock.t = app.store.engine.s.assignments[aT].customerExpiresAt - 1 * DAY - 2 * HOUR; // mañana vence
+      // Mañana vence, a las 12:00 de Bolivia (Tito no avisa antes de las 9): día de Bolivia del vencimiento − 1, + 16 h UTC.
+      const { boDayStart } = await import("../dist/store/time.js");
+      clock.t = boDayStart(app.store.engine.s.assignments[aT].customerExpiresAt) - DAY + 16 * HOUR;
       const off = await run(null);
       assert.equal(off.length, 1); assert.equal(off[0].url, "/tienda/#cuentas");
       clock.t += DAY; // hoy vence (otro día: Tito vuelve a avisar)

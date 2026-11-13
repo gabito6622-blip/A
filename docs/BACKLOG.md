@@ -82,7 +82,9 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | C12 | 🛒 | "Tu pedido en vivo" (Pedido → Revisando pago → Entregado, con hora estimada) | P3 | ✅ idea wow, navegador |
 | R1 | 🏪 | Teléfono sin +591 → WhatsApp roto y clientes duplicados | P1 | ✅ prueba `store` + navegador |
 | R2 | 🏪 | Ganancias contaban lo que no te pagaron | P1 | ✅ prueba `store` |
-| R3 | Link de cobro para clientes registrados + recordatorio «Tu día» de Tito: dar el OK y el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
+| R3 | Link de cobro para clientes registrados + recordatorio «Tu día» de Tito: dar el OK y el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#54) |
+| R4 | Centro de exportaciones (catálogo WhatsApp/PDF y Excel): dar el OK con los ejemplos y el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
+| R5 | QR propio (sin librerías) dentro del catálogo PDF y en la página /c/ | P3 | ⏳ |
 | R3 | 🏪 | Quién me debe en Bs 0 mientras Mi control decía que te deben | P1 | ✅ prueba `store` |
 | R4 | 🏪 | Cada pantalla contaba distinto "los que vencen"; aviso llevaba a Mis cuentas | P2 | ✅ "📣 Avisarles" + semana completa |
 | R5 | 🏪 | "Tu acceso" ofrecía correo sin tener contraseña | P2 | ✅ |
@@ -111,7 +113,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 |---|---|---|---|
 | M1 | Avisos automáticos de vencimiento al cliente final | P1 | ✅ publicado (#37) |
 | M2 | El cliente ve su código solo | P1 | ✅ publicado (#37), apagado hasta que el dueño lo prenda |
-| M3 | Probar los avisos en un Android y un iPhone reales con la tienda publicada | P1 | ⏳ |
+| M3 | Probar los avisos en un Android y un iPhone reales con la tienda publicada | P1 | 🧑 13/11: el servidor tiene las claves y 0 celulares del panel suscritos; el dueño tiene que tocar «Activar avisos» en su celular y «Probar» |
 | M4 | Bot más automático: entrega automática y respuestas por WhatsApp oficial (necesita la API de Meta) | P2 | 🧑 |
 | M5 | Que "N de tus clientes reciben avisos solos" cuente también a los clientes con cuenta del revendedor | P3 | ⏳ |
 | M6 | Recordar para siempre los correos de cuentas propias que la tienda ya leyó (hoy el código deja de mostrarse si no llega ninguno en 7 días) | P3 | ⏳ |
@@ -128,7 +130,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M17 | La prueba `avisos-solos` falló 1 vez por azar en una corrida completa (12/11) y otra en la CI (13/11) | P3 | ✅ causa: el token al azar del link `/c/…` a veces contiene «Bs» y la revisión de privacidad lo tomaba por un monto; ahora revisa el texto sin el token (13/11) |
 | M18 | La prueba `tarjeta` (navegador, panel) falló 1 vez por tiempo de espera en una corrida completa lenta (76 s, 13/11); sola pasa. Revisar si conviene subirle el tiempo de espera | P3 | ⏳ |
 | O1 | Dar el «PUBLICÁ» de Optimización 1 + 2 después de confirmar el respaldo (Configuración → Respaldos) | P1 | ✅ publicado el 13/11 (#52) |
-| O2 | Prender los links de renovación (Configuración → Soporte) y elegir si solo renuevan o también entran a Mis cuentas | P2 | 🧑 decide el dueño (ya está publicado, apagado) |
+| O2 | Prender los links de renovación (Configuración → Soporte) y elegir si solo renuevan o también entran a Mis cuentas | P2 | ✅ prendidos el 13/11 por pedido del dueño: «solo renovar», 48 h (respaldo del ajuste anterior guardado fuera del repo) |
 | O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
 | O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
 | O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados; precio real del plan Básico de GaboHub | P2 | 🧑 datos del dueño |

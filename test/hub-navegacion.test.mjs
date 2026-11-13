@@ -100,7 +100,7 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     // Mi página (vitrina): la barra marca "Más" y la fila muestra Mi página, Combos y Afiches.
     await page.locator(".hubarea-i", { hasText: "Mi página" }).click();
     await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Mi página"));
-    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🏪 Mi página", "🎁 Mis combos y descuentos", "🖼️ Afiches"]);
+    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🏪 Mi página", "🎁 Mis combos y descuentos", "🖼️ Afiches", "📁 Mis descargas"]);
     assert.equal((await current(page)).trim(), "Más");
     // Tocar "Clientes" abajo te devuelve a Mi negocio (abre en «Mi día»), aunque vinieras de Mi página.
     await page.locator('.bnav [data-s="clientes"]').click();
@@ -121,7 +121,7 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     assert.match(it2, /Afiches/);
     await s2.page.locator(".hubarea-i", { hasText: "Afiches" }).click();
     await s2.page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Afiches"));
-    assert.deepEqual((await s2.page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🖼️ Afiches"]);
+    assert.deepEqual((await s2.page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🖼️ Afiches", "📁 Mis descargas"]);
     assert.equal(await over(s2.page), false);
     assert.deepEqual(s2.errs, []);
     await s2.ctx.close();
