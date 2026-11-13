@@ -2,6 +2,14 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Centro de exportaciones: sin librerías, una sola fuente, nada privado
+- **PDF y Excel propios, sin dependencias:** el proyecto no tiene librerías de terceros y la imagen de producción no trae Chromium. Se escribió un PDF 1.4 mínimo (Helvetica estándar con tabla de anchos, WinAnsi, formas, PNG/JPEG, links) y se amplió el escritor de Excel con estilos, fórmulas, filtros y gráficos DrawingML. Los dos se verifican con herramientas externas en las pruebas (poppler, openpyxl, LibreOffice), pero en producción no hacen falta.
+- **Una sola fuente de datos para los tres formatos** (`catalogData`): la vista previa, el texto de WhatsApp y el PDF salen de lo mismo, así no pueden mostrar precios distintos. Los precios del revendedor son los de su página (`resellerPrices` + `toMine`); los de la tienda, los públicos. Emojis solo en WhatsApp (el PDF usa Helvetica, sin emojis).
+- **Ingresos ≠ ganancia, explícito en el archivo:** la portada del Excel dice qué es cada indicador; la tienda ve ingresos (regla de `income.ts`, sin duplicar) y gastos aparte; el revendedor ve «vendiste», «le pagaste a la tienda» y «te quedó». Un revendedor de otro país no ve una resta entre monedas.
+- **Qué nunca sale:** correos y claves de cuentas, costos de la tienda en el archivo del revendedor, otros revendedores, ids internos. El Excel del dueño tampoco lleva correos de cuentas (si lo comparte con un contador, no filtra accesos).
+- **Catálogo para todos, Excel para el plan Completo:** el catálogo es la vidriera del revendedor y sirve aunque esté en Básico; el reporte usa Mi control y Mis ganancias, que ya eran del Completo.
+- **QR dentro del PDF: todavía no.** El dueño pidió «enlace o QR cuando sea útil»; va el link clicable y el WhatsApp. Un generador de QR propio queda anotado como mejora.
+
 ## 2026-11-13 · Un solo tipo de link de cobro, para dos tipos de cliente
 - **Misma página, misma lista cerrada:** el link de los clientes registrados reutiliza `/c/<token>` y `publicView` en vez de una página nueva. Así lo que ya se auditó (sin correo, sin clave, sin teléfono, sin costos, sin ids) vale igual para los dos casos, y Tito, el QR, el logo y los avisos del link funcionan sin código aparte.
 - **El token vive en el alquiler (`rlink`), no en el cliente:** un cliente puede tener varias cuentas con precios y fechas distintas; el link es por servicio, como en los perfiles repartidos.

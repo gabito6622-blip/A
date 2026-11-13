@@ -4,6 +4,7 @@
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
 import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/sublinks.js";
+import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
@@ -205,7 +206,7 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
-    if (["dia", "control", "debe", "ganancias", "perfiles"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    if (["dia", "control", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
     if ((S.data.rtab ?? "ventas") === "ventas") await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
@@ -509,7 +510,7 @@ const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
 const HUB_GROUPS = {
   negocio: [["dia", "☀️ Mi día"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
   inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
-  vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"]],
+  vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"], ["descargas", "📁 Mis descargas"]],
 };
 const groupOf = (tab) => Object.keys(HUB_GROUPS).find((g) => HUB_GROUPS[g].some(([k]) => k === tab)) ?? "negocio";
 const groupTabs = (g, sel) => {
@@ -670,12 +671,12 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
       let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
-      if (!canPage && !["dia", "ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias"].includes(tab)) tab = "ventas";
+      if (!canPage && !["dia", "ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias", "descargas"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
       if (S.data.shop?.rent?.locked && HUB_LOCKED_TABS.includes(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard()}`;
-      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -696,6 +697,7 @@ initSelfCodes(() => render());
 initAfuera(() => refresh());
 async function loadRTab(tab) {
   if (tab === "dia") S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
+  if (tab === "descargas") await descargasEnsure();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
@@ -1307,7 +1309,7 @@ function hubMas() {
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
       ...(canPage && sh?.couponsAllowed ? [[`data-rtool="cupones"`, "🏷️ Mis cupones", "descuento codigo"]] : []),
-      [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"]]],
+      [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"], [`data-rtool="descargas"`, "📁 Mis descargas", "catalogo pdf whatsapp excel reporte exportar"]]],
     ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
     ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
   ];
@@ -2400,6 +2402,7 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.rcf) { S.data.rc.f = d.rcf; return render(); }
+  if ((d.dldesign || d.dlperiod || d.dlcopy !== undefined) && await descargasClick(d, el)) return;
   if (d.rdwa) { for (const id of d.rdwa.split(",")) { const it = [...(S.data.rdia?.cobrar ?? []), ...(S.data.rdia?.avisar ?? []), ...(S.data.rdia?.deben ?? [])].flatMap((g) => g.items).find((x) => x.id === id); if (it) { try { localStorage.setItem(`gs-dia-${it.id}-${it.expiresAt}`, "1"); } catch { /* sin almacenamiento */ } } } setTimeout(render, 300); return; }
   if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
   if (d.rdpay) {
@@ -2853,6 +2856,8 @@ window.addEventListener("message", (ev) => {
   render();
 });
 
+initDescargas({ base: "/api/me/descargas", btn: "sbtn", render });
+descargasBind(document);
 window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 (async () => {

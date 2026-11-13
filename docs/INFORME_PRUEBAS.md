@@ -1,5 +1,20 @@
 # Informe de pruebas
 
+## 13/11/2026 · Centro de exportaciones (rama `exportaciones-premium`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Catálogo WhatsApp de la tienda: marca, precios públicos, combo con sus partes, promos (combo + cupón NOV10), sin ocultos, sin «solo revendedores», sin costos ni ids; filtro por categoría | `test/exportaciones.test.mjs` | OK |
+| Catálogo de la revendedora Ana: su nombre, su WhatsApp, su link `/r/ana-tv`, sus precios (Netflix Bs 45, no el costo 30 ni el público 40), su combo «Pack Familia», sus descuentos; nada de la tienda ni de Beto; Beto solo con lo que tiene precio y sin link (página no publicada) | misma prueba | OK |
+| Permisos: sin sesión 401; GaboHub pausado → 402; plan Básico sí exporta el catálogo; Excel en Básico → 402 | misma prueba | OK |
+| PDF premium: 2 páginas A4 (portada + productos), `pdftotext` trae nombre, productos, precios, combo, cupón, WhatsApp, aviso de precios; nada oculto ni correos. Clásico con 1 categoría: 1 página, solo esa categoría. El de Ana con sus datos y sin los de la tienda | misma prueba (pdfinfo/pdftotext) | OK |
+| Excel: 7 hojas, 1 gráfico en Resumen y 2 en Por producto, filtros, la portada suma Ventas con fórmula, una fila por ingreso y la suma = `incomeEvents` del sistema, total con SUM; sin correos ni claves; Ana: solo su venta (vendió 45, pagó 30), sin clientes directos ni Beto ni costos de cuentas | misma prueba (openpyxl) | OK |
+| Navegador 360 px (GaboHub): Más → Mis descargas, vista previa con Ana TV y Pack Familia, sin desborde, links de PDF y Excel, cambiar diseño, copiar al portapapeles (texto empieza con «🛒 *ANA TV*»), sacar una categoría quita Spotify de la vista previa; sin errores | misma prueba (Playwright) | OK |
+| Escritor PDF: 12 pruebas (pdfinfo A4, pdftotext con acentos, pypdf estricto, imágenes PNG+JPEG, link, emojis no rompen) | `test/pdf-writer.test.mjs` | 12/12 |
+| Escritor Excel pro: estilos, fórmulas, combinadas, filtro, panel fijo, 3 gráficos; LibreOffice abre sin reparar y calcula los totales | `test/xlsx-pro.test.mjs` | 7/7 |
+| Archivos de ejemplo con la demo (Gabriel Store y Carla Streaming): 4 PDF (premium/clásico × 2) y 2 Excel; abiertos con poppler y LibreOffice; cifras del Excel = sistema (tienda Bs 281 en 12 movimientos; Carla vendió Bs 263, pagó Bs 166, le quedó Bs 97) | scripts fuera del repo | OK |
+| Nada tocado en producción | — | ✅ |
+| Tanda completa | `npm test` | **570/570** en ~59 s (545 + 25 nuevas; `panel-ordenado`, `hub-navegacion` ajustadas por la pantalla nueva; `renovar-link` corregida porque dependía de la hora del día) |
+
 ## 13/11/2026 · Publicación link de cobro + recordatorio «Tu día» (PR #54, squash `1694a77`)
 | Qué | Cómo | Resultado |
 |---|---|---|

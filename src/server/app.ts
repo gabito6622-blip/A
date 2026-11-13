@@ -37,6 +37,9 @@ import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { writeXlsx } from "./xlsx.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
+import { catalogData, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
+import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
+import { businessReport, parsePeriod } from "./reportXlsx.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
  *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
@@ -1152,8 +1155,8 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/outbox/:id/sent", "staff", (c) => store.notify.markSentManually(A(c), c.params.id, { force: c.body?.force === true, reason: c.body?.reason === undefined ? undefined : String(c.body.reason) }));
 
   const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const sendFile = (c: Ctx, buf: Buffer, name: string) => {
-    c.res.writeHead(200, { "Content-Type": XLSX, "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "private, no-store", "Content-Length": buf.length });
+  const sendFile = (c: Ctx, buf: Buffer, name: string, mime = XLSX) => {
+    c.res.writeHead(200, { "Content-Type": mime, "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "private, no-store", "Content-Length": buf.length });
     c.res.end(buf);
     return RAW;
   };
@@ -1181,6 +1184,34 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/alerts", "staff", (c) => store.orders.updateStaffAlerts(A(c), {
     phone: c.body?.phone, payments: c.body?.payments, supplierExpiry: c.body?.supplierExpiry, supplierDaysBefore: c.body?.supplierDaysBefore,
   }));
+
+  /* ---------------- Centro de exportaciones (13/11): catálogo WhatsApp / PDF y reporte Excel, para la tienda y para cada revendedor ---------------- */
+  const catFilter = (c: Ctx): CatalogFilter => ({ categories: (c.query.get("cats") ?? "").split(",").map((x) => x.trim()).filter(Boolean), productIds: (c.query.get("ids") ?? "").split(",").map((x) => x.trim()).filter(Boolean) });
+  const descargasCatalogo = (c: Ctx, actor: Actor) => { const d = catalogData(store, actor, { origin: originOf(c.req) }); return { ...d, business: { ...d.business, hasLogo: !!d.business.logoRef, logoRef: undefined } }; };
+  const descargasWhatsapp = (c: Ctx, actor: Actor) => whatsappCatalog(filterCatalog(catalogData(store, actor, { origin: originOf(c.req) }), catFilter(c)), { descriptions: c.query.get("desc") !== "0" });
+  // El catálogo es de cualquier revendedor (también en plan Básico); solo se frena si su GaboHub está pausado por falta de pago.
+  const hubPaid = (c: { actor?: Actor }) => { if (c.actor?.customerId && store.shops.hubLockReason(c.actor.customerId) === "suspended") hubGuard(c); };
+  const descargasLogo = (c: Ctx, actor: Actor) => sendImage(c, catalogData(store, actor).business.logoRef, "Sin logo");
+  route("GET", "/api/admin/descargas/catalogo", "staff", (c) => descargasCatalogo(c, A(c)));
+  route("GET", "/api/admin/descargas/whatsapp", "staff", (c) => descargasWhatsapp(c, A(c)));
+  route("GET", "/api/admin/descargas/logo", "staff", (c) => descargasLogo(c, A(c)));
+  const slugOf = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "catalogo";
+  const descargasPdf = (c: Ctx, actor: Actor) => {
+    const d = filterCatalog(catalogData(store, actor, { origin: originOf(c.req) }), catFilter(c));
+    const design: CatalogDesign = c.query.get("design") === "clasico" ? "clasico" : "premium";
+    const ref = d.business.logoRef, file = ref && /^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref) ? join(uploads, ref) : null;
+    const logo = file && existsSync(file) ? readFileSync(file) : undefined;
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz" }).format(new Date(now()));
+    return sendFile(c, catalogPdf(d, design, logo), `catalogo-${slugOf(d.business.name)}-${design}-${day}.pdf`, "application/pdf");
+  };
+  route("GET", "/api/admin/descargas/catalogo.pdf", "staff", (c) => descargasPdf(c, A(c)));
+  const descargasXlsx = (c: Ctx, actor: Actor) => { const { file, name } = businessReport(store, actor, parsePeriod(c.query.get("from"), c.query.get("to"), now()), originOf(c.req)); return sendFile(c, file, name); };
+  route("GET", "/api/admin/descargas/reporte.xlsx", "staff", (c) => descargasXlsx(c, A(c)));
+  route("GET", "/api/me/descargas/reporte.xlsx", "customer", (c) => { hubGuard(c); return descargasXlsx(c, c.actor!); });
+  route("GET", "/api/me/descargas/catalogo.pdf", "customer", (c) => { hubPaid(c); return descargasPdf(c, c.actor!); });
+  route("GET", "/api/me/descargas/catalogo", "customer", (c) => { hubPaid(c); return descargasCatalogo(c, c.actor!); });
+  route("GET", "/api/me/descargas/whatsapp", "customer", (c) => { hubPaid(c); return descargasWhatsapp(c, c.actor!); });
+  route("GET", "/api/me/descargas/logo", "customer", (c) => { hubPaid(c); return descargasLogo(c, c.actor!); });
 
   route("GET", "/api/admin/export/:kind", "staff", (c) => {
     const kind = c.params.kind as ExportKind;

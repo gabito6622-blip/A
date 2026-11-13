@@ -7,6 +7,7 @@ import { loadFicha } from "/ficha.js";
 import { renewPreview, replaceHint, autoPick } from "/guiado.js";
 import { winbackView, winbackHomeCard } from "/winback.js";
 import { resellerCountryRow } from "/country.js";
+import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
@@ -32,7 +33,7 @@ const AREAS = [
   ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["cortes", "✂️ Cortes", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
   ["a-revendedores", "userplus", "Revendedores", [["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
-  ["a-herramientas", "gear", "Herramientas", [["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
+  ["a-herramientas", "gear", "Herramientas", [["descargas", "📁 Mis descargas"], ["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
 ];
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
@@ -50,7 +51,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -1198,6 +1199,10 @@ const V = {
       })()}</section>`;
   },
 
+  async descargas() {
+    await descargasEnsure();
+    return descargasView();
+  },
   async excel() {
     const imp = P.tab.import;
     const dl = (kind, title, desc, extra = "") => `<div class="todo"><div><span class="ic">${icon("ext")}</span><b>${title}<br><small class="muted" style="font-weight:400">${desc}</small></b>
@@ -2357,6 +2362,8 @@ async function start() {
   if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
   softwareNotice();
+  initDescargas({ base: "/api/admin/descargas", btn: "pbtn", render });
+  descargasBind(document);
   go(location.hash.slice(1) || "inicio");
 }
 
@@ -2791,6 +2798,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.ledger !== undefined) { P.tab.ledger = d.ledger || null; await render(); return scrollTo(0, 0); }
   if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast("Copiado"); } catch { toast("Copialo a mano"); } return; }
+  if ((d.dldesign || d.dlperiod || d.dlcopy !== undefined) && await descargasClick(d, el)) return;
   if (d.link) {
     if (!confirm(`¿Generar un PIN nuevo para ${d.name || "este cliente"}?\n\nEl PIN que tiene ahora deja de funcionar al toque.`)) return;
     const r = await act(() => api("POST", `/api/admin/customers/${d.link}/login-pin`, {}));

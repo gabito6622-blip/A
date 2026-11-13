@@ -2,6 +2,10 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## Listo, sin publicar — 📁 Mis descargas: Centro de exportaciones (13/11, rama `exportaciones-premium`)
+- ✅ Catálogo para WhatsApp (copiar todo / una categoría / abrir WhatsApp), catálogo PDF Premium y Clásico, Excel del negocio con gráficos; para la tienda y para cada revendedor con su marca y sus precios. Espera el «PUBLICÁ».
+- ⏳ Después: QR propio dentro del PDF; afiche de un solo producto; que el Excel incluya el detalle de perfiles repartidos cobrados (hoy no se registran cobros por perfil).
+
 ## En curso — El revendedor tiene lo mismo que el dueño, con fórmulas (13/11)
 Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramientas con reglas.
 - ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». **Publicado el 13/11 (PR #53)** con el «Publica» del dueño; verificado en la tienda real: 78 alquileres y 34 clientes idénticos, cierre igual, `/hub` 200 y la pestaña en el código servido.

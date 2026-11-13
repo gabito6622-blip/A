@@ -14,9 +14,9 @@ try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch 
 
 // Foto del menú ANTERIOR: lo que cada rol podía abrir (inventario del 12/11/2026).
 const BEFORE = {
-  owner: "inicio oficina vender control renovar dashboard finanzas fiado quevuelvan notificaciones fallas reubicar aprobacion recordatorios codigos cuentas carga productos cupones revendedores comovan proveedores clientes excel whatsapp apariencia usuarios auditoria configuracion ayuda",
-  admin: "inicio oficina vender control renovar dashboard fiado quevuelvan notificaciones fallas reubicar aprobacion recordatorios cuentas carga productos cupones revendedores comovan proveedores clientes excel whatsapp apariencia configuracion ayuda",
-  seller: "inicio vender control renovar fiado quevuelvan notificaciones fallas aprobacion recordatorios revendedores clientes excel whatsapp configuracion ayuda",
+  owner: "inicio oficina vender control renovar dashboard finanzas fiado quevuelvan notificaciones fallas reubicar aprobacion recordatorios codigos cuentas carga productos cupones revendedores comovan proveedores clientes excel descargas whatsapp apariencia usuarios auditoria configuracion ayuda",
+  admin: "inicio oficina vender control renovar dashboard fiado quevuelvan notificaciones fallas reubicar aprobacion recordatorios cuentas carga productos cupones revendedores comovan proveedores clientes excel descargas whatsapp apariencia configuracion ayuda",
+  seller: "inicio vender control renovar fiado quevuelvan notificaciones fallas aprobacion recordatorios revendedores clientes excel descargas whatsapp configuracion ayuda",
 };
 // Pantallas NUEVAS agregadas después de la foto (se suman; ninguna reemplaza a otra).
 // 12/11/2026: "Mi secretaria" (todo lo pendiente en una pantalla) para el dueño y el admin.
