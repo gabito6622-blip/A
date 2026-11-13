@@ -368,7 +368,7 @@ const V = {
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `${cierre}${tarjeta}<div class="fin">
       <section class="card finhero">
-        <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
+        <h2 style="margin:0 0 4px">Finanzas de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
         <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
           <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}</small></div>
@@ -385,7 +385,7 @@ const V = {
         <div class="finchart">${bars}</div>
       </section>
       <section class="card">
-        <h2>Gastos de ${esc(c.label)}</h2>
+        <h2>Gastos de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
         <form id="expenseForm" class="finform" autocomplete="off">
           <label>Monto (${currencySym()})<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
@@ -595,7 +595,7 @@ const V = {
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
     // "Tu mes": cuánto entró, lo que te cuestan las cuentas (estimado) y lo que te quedó, con las 3 apps que más te dejan.
     const c = fin?.current;
-    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
+    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";

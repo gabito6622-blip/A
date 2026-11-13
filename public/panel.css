@@ -4,7 +4,7 @@
   background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-panel);min-height:100%;display:grid;grid-template-columns:300px minmax(0,1fr);color-scheme:light}
 /* Oscuro Premium 2.0: los colores salen de tema.css (--gs-*), los mismos de la oficina y GaboHub. */
 .app.dark{--bg:var(--gs-bg,#070b16);--side:var(--gs-bg2,#0d1428);--card:var(--gs-panel,#111a33);--soft:var(--gs-panel2,#162040);--line:var(--gs-line,#223058);--ink:var(--gs-ink,#e6ecff);--muted:var(--gs-muted,#8ea0c9);--dark:#e6ecff;--dark-ink:#0b1020;
-  --ok:#4ad68c;--ok-soft:#133a2a;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:var(--gs-blue,#2f6bff);--blue-text:#8db0ff;color-scheme:dark}
+  --ok:#4ad68c;--ok-soft:#133a2a;--warn:#f2bb55;--warn-soft:#3a2c12;--bad:#ff8787;--bad-soft:#3d1c1c;--blue:color-mix(in srgb,var(--gs-blue,#2f6bff) 93%,#000);--blue-text:#8db0ff;color-scheme:dark}
 .app :focus-visible{outline-color:var(--blue)}
 .side{background:var(--side);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow:auto;padding:18px 14px 20px;display:flex;flex-direction:column;gap:12px}
 .plogo{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:17px;padding-bottom:12px;border-bottom:1px solid var(--line)}
@@ -138,6 +138,8 @@
   .ptop{flex-wrap:nowrap;gap:2px;min-width:0}
   .ptop h1{flex:1 1 auto}
   .ptop h1{font-size:18px;min-width:0;overflow:hidden}
+  /* A 360 px «Revendedores», «Recordatorios» y «Notificaciones» se cortaban con «…»: letra un punto más chica y sin el ícono. */
+  @media (max-width:400px){ .ptop h1{font-size:16.5px} .ptop h1 svg{display:none} .ptop .ibtn.ibl{padding:2px 1px;min-width:44px} }
   .ptop h1 span,.ptop h1 b{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .ptop h1 svg{margin-right:6px}
   .ibtn{width:34px;height:34px;flex:none}
