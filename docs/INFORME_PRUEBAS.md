@@ -33,6 +33,27 @@
 | Celular 360 px: el revendedor abre Mi página, ve «lo que va antes de .gabostore.lat» y su link; escribe «Dani Strem» → queda `dani-strem` y el link cambia a `https://dani-strem.gabostore.lat`; letra ≥ 12 px, sin scroll de costado | `test/subdominios.test.mjs`, Playwright | pasa |
 | Suite completa (con lo anterior y la portada sin salto) | `npm test` | **588 pasan, 0 fallan, 58 s** |
 | No probado | El comodín real en Railway y Namecheap (falta crearlo) | pendiente |
+## 13/11/2026 · Dominio gabostore.lat
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Registros DNS pedidos por Railway y estado de los certificados | API de Railway (solo lectura) | ambos dominios verificados, certificados VALID |
+| Cambio de `GS_PUBLIC_ORIGIN` → `https://gabostore.lat` (respaldo del valor anterior fuera del repo) y redespliegue | API de Railway | despliegue SUCCESS en ~1 min |
+| `gabostore.lat/` → 302 a `/tienda/` (título «Gabriel Store…»); `www.gabostore.lat/` → 301 a `gabostore.lat/`; `/hub` 200; `/api/health` 200; dirección de Railway sigue respondiendo | `curl` | OK |
+| Datos antes y después, byte a byte: alquileres, clientes, revendedores, cuentas, finanzas | comparación de los JSON | **idéntico** |
+| Link de renovación de prueba (Marcelo, no enviado) sale con `https://gabostore.lat/tienda/#renovar=…` | API | OK |
+
+## 13/11/2026 · Atajos (rama `panel-atajos`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| «Ya le avisé»: sale de «por avisar» (4 → 2, 2 ya avisados al final); no cambia fecha ni pago; vale para ese vencimiento; a 2 días sigue marcado y el día antes vuelve a pedirse; al cambiar la fecha deja de contar; deshacer; un revendedor no puede marcar; a 360 px botón de 44 px | `test/secretaria-avise.test.mjs` (reglas + Playwright) | OK |
+| Fila de envíos tras «Mover todos»: tarjeta «1 de 1» con correo y PIN nuevos, enlace wa.me del cliente, al tocarlo «¡Listo! … 1 de 1», Cerrar | `test/mover-cuenta-completa.test.mjs` | OK |
+| «Cobrar» con link: tarjeta «Cobro listo», mensaje con correo, monto y «🔗 Renová vos mismo acá…» antes del cierre; el link creado abre la página pública de renovación (200) | `test/panel-reenviar-accesos.test.mjs` | OK |
+| Resumen del mediodía: sin celular no hace nada; sin pendientes no avisa; 8:30 no, 12:30 sí («1 en cobro · 2 por avisar», abre secretaria, apodos); no repite en el día; lo ya avisado no cuenta; apagable; de noche no manda atrasado; el celular de Atención no lo recibe | `test/push-mediodia.test.mjs` (envío con doble, sin red) | OK |
+| «Que vuelvan» del revendedor: solo los suyos que no renovaron (no quien volvió a comprar, no el que no venció); sin costos de la tienda, correos ni claves; otro revendedor no ve ni marca los de Ana; «Ya le escribí» 7 días y deshacer; ruta 401 sin sesión y 402 en plan Gratis | `test/revendedor-vuelvan-cierre.test.mjs`, `gabohub-tres-niveles` | OK |
+| Cierre de mes del revendedor: nov Bs 115 vs oct Bs 110 (▲ +5 %), ganancia Bs 47 vs 42 (▲ +12 %), Kevin Bs 75 (debe Bs 30) y Ruthy Bs 40, app Netflix; primer mes incompleto y mes sin ventas: sin % | misma prueba (fórmulas + Playwright 360 px) | OK |
+| Detalles: títulos «Revendedores / Notificaciones / Recordatorios» 124 px en caja de 128 px a 360 px; contraste del azul del panel sin fallas en Vender, Finanzas y Dashboard; `seguridad-plata` 12 de 12 | medición con Playwright, axe-core 4.10.2 | OK: 0 fallas de contraste en 13 pantallas (tienda incluida). El rótulo «EN VIVO» de Mi oficina sigue en una línea a propósito (es una marquesina) |
+| Revisión de aislamiento (`/gabostore-aislamiento`) sobre los cambios | lectura del código + pruebas cruzadas | 1 hallazgo corregido: el resumen del mediodía iba a todos los celulares del staff; ahora solo dueño y admins |
+| Suite completa | `npm test` | **584 pasan, 0 fallan, 61 s** |
 
 ## 13/11/2026 · «Mover todos a otra cuenta» (rama `mover-cuenta-completa`, sin publicar)
 | Qué | Cómo | Resultado |

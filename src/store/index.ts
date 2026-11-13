@@ -19,6 +19,7 @@ import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as rday from "./resellerDay.js";
+import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
 import * as subLinks from "./subLinks.js";
@@ -134,6 +135,7 @@ export function createStore(opts: EngineOptions = {}) {
       autoReminders: bind(e, orders.autoReminders),
       setExpiry: bind(e, orders.setCustomerExpiry),
       setControl: bind(e, orders.setRentalControl),
+      markNoticed: bind(e, orders.markNoticed),
       reminderSettings: () => orders.reminderSettings(e),
       updateReminderSettings: bind(e, orders.updateReminderSettings),
       supplierExpiryAlerts: bind(e, orders.supplierExpiryAlerts),
@@ -351,6 +353,9 @@ export function createStore(opts: EngineOptions = {}) {
       dayPushText: bind(e, rday.dayPushText),
       dayPreview: bind(e, rday.dayPreview),
       dayPay: bind(e, rday.dayPay),
+      /** «Que vuelvan» (13/11): sus clientes vencidos sin renovar, con «Ya le escribí». */
+      winback: bind(e, rback.myWinback),
+      markBack: bind(e, rback.markBack),
     },
   };
 }

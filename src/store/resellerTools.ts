@@ -93,6 +93,9 @@ export function myEarnings(e: Engine, actor: Actor) {
   type Row = { sales: number; cost: Cents; revenue: Cents; noPrice: number; unpaid: Cents };
   const months = new Map<string, Row>();
   const apps = new Map<string, Row & { productId: Id; name: string }>();
+  // Cierre de mes (13/11): quién le pagó más este mes y cuándo fue su primera venta (para no inventar % con un mes incompleto).
+  const clients = new Map<Id, { customerId: Id; name: string; sales: number; revenue: Cents; unpaid: Cents }>();
+  let firstSaleAt = Infinity;
   const curMonth = monthKey(now);
   // Lo que le costó va en su moneda de compra (Bs o US$): los pedidos que pagó en la otra moneda (antes de cambiar de lista) no se mezclan.
   const cur = walletCurrency(e, me);
@@ -105,6 +108,7 @@ export function myEarnings(e: Engine, actor: Actor) {
   }
   for (const o of Object.values(e.s.orders)) {
     if (!mine(o)) continue;
+    firstSaleAt = Math.min(firstSaleAt, o.updatedAt);
     if (now - o.updatedAt > 370 * 86_400_000) continue;
     const k = monthKey(o.updatedAt);
     const m = months.get(k) ?? { sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
@@ -124,6 +128,9 @@ export function myEarnings(e: Engine, actor: Actor) {
         if (unpaid) p.unpaid += revenue;
         p.sales += units; p.cost += paidUnit(it) * it.qty; p.revenue += revenue; if (sell === undefined) p.noPrice++;
         apps.set(it.productId, p);
+        const cl = clients.get(o.customerId) ?? { customerId: o.customerId, name: e.s.customers[o.customerId]?.name ?? "Cliente", sales: 0, revenue: 0, unpaid: 0 };
+        cl.sales += units; cl.revenue += revenue; if (unpaid) cl.unpaid += revenue;
+        clients.set(o.customerId, cl);
       }
     }
     months.set(k, m);
@@ -133,8 +140,18 @@ export function myEarnings(e: Engine, actor: Actor) {
   const list = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
     .map(([k, m]) => ({ key: k, label: label(k), ...m, collected: m.revenue - m.unpaid, profit: gain(m.revenue, m.cost), profitCollected: gain(m.revenue - m.unpaid, m.cost) }));
   const thisMonth = list.find((x) => x.key === curMonth) ?? { key: curMonth, label: label(curMonth), sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0, collected: 0, profit: gain(0, 0), profitCollected: gain(0, 0) };
+  // Mes anterior y comparación. Sin % si el mes anterior no tuvo ventas o si empezó a vender a mitad de ese mes.
+  const prevKey = (() => { const [y, m] = curMonth.split("-").map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`; })();
+  const zero = { sales: 0, cost: 0, revenue: 0, noPrice: 0, unpaid: 0 };
+  const pm = months.get(prevKey) ?? zero;
+  const prev = { key: prevKey, label: label(prevKey), ...pm, collected: pm.revenue - pm.unpaid, profit: gain(pm.revenue, pm.cost), profitCollected: gain(pm.revenue - pm.unpaid, pm.cost) };
+  const prevComplete = pm.sales > 0 && monthKey(firstSaleAt) < prevKey;
+  const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+  const compare = prevComplete ? { revenuePct: pct(thisMonth.revenue, prev.revenue), profitPct: thisMonth.profit !== null && prev.profit !== null ? pct(thisMonth.profit, prev.profit) : null, salesDiff: thisMonth.sales - prev.sales } : null;
   return {
     month: thisMonth, months: list,
+    prev, compare, prevNote: compare ? null : pm.sales > 0 ? "incompleto" : "sin_ventas",
+    topClients: [...clients.values()].sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "es")).slice(0, 5),
     byApp: [...apps.values()].map((p) => ({ ...p, profit: gain(p.revenue, p.cost) })).sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue)),
     // Dos monedas: "vendiste/cobraste/te deben" en la suya, "te costó" en la de la tienda.
     ...(split ? { split: { mine: currencyOf(e, me), store: buyCurrency(e, me) } } : {}),

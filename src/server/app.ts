@@ -173,6 +173,7 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
   checkResellerPush(): Promise<void>;
+  checkNoonPush(): Promise<void>;
   /** "🔔 Avisarme antes de que venza": avisos a clientes finales (una vez por día, desde las 9 de Bolivia). */
   checkExpiryPush(): Promise<unknown>;
   /** Si toca, arma el reporte del día con Claude (lo corre el reloj cada minuto). */
@@ -570,6 +571,9 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/dia", "customer", (c) => { needPlan("dia")(c); return store.rtools.day(c.actor!); });
   route("GET", "/api/me/dia/preview/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
   route("POST", "/api/me/dia/pay/:id", "customer", (c) => { needPlan("dia")(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
+  // «Que vuelvan» del revendedor: va con Mi día (plan Negocio). Solo lo suyo.
+  route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
+  route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
@@ -1020,6 +1024,7 @@ export function createApp(cfg: AppConfig): App {
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
   route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
+  route("POST", "/api/admin/assignments/notified", "staff", (c) => store.orders.markNoticed(A(c), c.body?.ids, c.body?.off === true));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
@@ -1831,7 +1836,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/push", "staff", (c) => {
     const me = A(c).id, subs = pushSubs(), pc = pushCfg();
     return { configured: pushOn(), error: vapidError || null, publicKey: pushOn() ? cfg.vapid!.publicKey : null,
-      alerts: pc.alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
+      alerts: pc.alerts, noon: pc.noon !== false, lowStockAt: store.engine.s.settings.lowStockAt ?? 2, mine: subs.filter((x) => x.staffId === me).length, total: subs.length,
       lastAt: pc.lastAt ?? null, lastError: pc.lastError ?? null };
   });
   route("POST", "/api/admin/push/subscribe", "staff", (c) => {
@@ -1862,12 +1867,13 @@ export function createApp(cfg: AppConfig): App {
     const alerts = Array.isArray(c.body?.alerts) ? c.body.alerts.map(String).filter((k: string) => PUSH_ALERTS.includes(k)) : pushCfg().alerts;
     const low = c.body?.lowStockAt;
     if (low !== undefined && (!Number.isInteger(low) || low < 0 || low > 50)) throw new HttpError(400, "VALIDATION", "Stock bajo: un número entre 0 y 50");
-    pushCfgSave({ alerts });
+    const noon = typeof c.body?.noon === "boolean" ? c.body.noon : pushCfg().noon !== false;
+    pushCfgSave({ alerts, noon });
     store.engine.tx(() => {
       if (low !== undefined) store.engine.s.settings.lowStockAt = low;
       store.engine.audit(A(c), "push.config", "settings", "push", { alerts: alerts.join(","), ...(low !== undefined ? { lowStockAt: low } : {}) });
     });
-    return { ok: true, alerts, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
+    return { ok: true, alerts, noon, lowStockAt: store.engine.s.settings.lowStockAt ?? 2 };
   });
   // El service worker pide acá el texto del último aviso (con la sesión del panel).
   route("GET", "/api/admin/push/latest", "staff", () =>
@@ -2482,7 +2488,8 @@ export function createApp(cfg: AppConfig): App {
   // junto a los secretos. El toque va sin contenido: el celular le pide el texto al panel.
   const PUSH_ALERTS = ["payment", "lowstock", "supplier1d", "reseller", "reloc"];
   type PushSub = PushSubscriptionData & { staffId: string; label?: string; createdAt: number };
-  type PushCfg = { alerts: string[]; lastAt?: number; lastError?: string };
+  /** `noon`: resumen del mediodía de Mi secretaria (prendido salvo que el dueño lo apague). */
+  type PushCfg = { alerts: string[]; noon?: boolean; lastAt?: number; lastError?: string };
   let vapidKey: KeyObject | null = null, vapidError = "";
   // Sin claves cargadas a mano: en la tienda publicada (https) las generamos una vez y quedan guardadas
   // junto a los secretos, así los avisos al celular funcionan sin configurar nada.
@@ -2497,7 +2504,7 @@ export function createApp(cfg: AppConfig): App {
   const pushOn = () => !!vapidKey && !!cfg.vapid;
   const pushSubs = (): PushSub[] => { try { const l = JSON.parse(db.getSecret("push_subs") ?? "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
   const pushSubsSave = (l: PushSub[]) => db.setSecret("push_subs", JSON.stringify(l), now());
-  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
+  const pushCfg = (): PushCfg => { try { const c = JSON.parse(db.getSecret("push_cfg") ?? ""); return { alerts: Array.isArray(c.alerts) ? c.alerts : [...PUSH_ALERTS], ...(c.noon === false ? { noon: false } : {}), lastAt: c.lastAt, lastError: c.lastError }; } catch { return { alerts: [...PUSH_ALERTS] }; } };
   const pushCfgSave = (patch: Partial<PushCfg>) => db.setSecret("push_cfg", JSON.stringify({ ...pushCfg(), ...patch }), now());
   /** Lo último que avisamos: el service worker del celular lo pide para mostrar el texto. */
   let pushLatest: { title: string; body: string; go: string; at: number } | null = null;
@@ -2584,6 +2591,29 @@ export function createApp(cfg: AppConfig): App {
     if (!news.length) return;
     await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
       body: news.length === 1 ? "Tocá para abrir el panel." : news.map((it) => `${it.icon} ${it.text}`).join("\n"), go: news[0].go });
+  }
+
+  /**
+   * «🗂️ Resumen del mediodía» (13/11/2026): una vez por día, desde las 12:00 de Bolivia, le llega al celular del dueño lo
+   * que Mi secretaria tiene pendiente (en cobro, por cortar, vencidas sin anotar, por avisar, sin pagar) y abre esa
+   * pantalla. Si no hay nada pendiente no molesta. Solo lee: no cambia nada ni le escribe a ningún cliente.
+   */
+  async function checkNoonPush(): Promise<void> {
+    const h = localHour(now(), "America/La_Paz");
+    if (!pushOn() || h < 12 || h >= 20 || pushCfg().noon === false) return;
+    // Solo a los celulares del dueño y de admins: Mi secretaria no es de Atención (seller), y el aviso nombra a quién cobrar.
+    const subs = pushSubs().filter((x) => ["owner", "admin"].includes(store.engine.s.staff[x.staffId]?.role ?? ""));
+    if (!subs.length) return;
+    const day = laDay(now());
+    if (db.getSecret("npush_day") === day) return;
+    db.setSecret("npush_day", day, now());
+    const r = store.stats.secretary({ id: "system:mediodia", role: "owner" });
+    const c = r.counts;
+    const parts = [c.cobrar && `${c.cobrar} en cobro`, c.cortar && `${c.cortar} por cortar`, c.sinAnotar && `${c.sinAnotar} vencida${c.sinAnotar === 1 ? "" : "s"} sin anotar`, c.avisar && `${c.avisar} por avisar`, c.deben && `${c.deben} sin pagar`].filter(Boolean) as string[];
+    if (!parts.length) return;
+    const names = (gs: { name: string; items: { noticedAt?: number }[] }[]) => [...new Set(gs.filter((g) => g.items.some((i) => i.noticedAt === undefined)).map((g) => firstName(g.name)))];
+    const who = [c.cobrar || c.cortar ? `Cobrar o cortar: ${names([...r.cobrar, ...r.cortar]).slice(0, 4).join(", ")}` : "", c.avisar ? `Avisar: ${names(r.avisar).slice(0, 5).join(", ")}` : ""].filter(Boolean);
+    await pushSend(subs, { title: `🗂️ Mediodía: ${parts.join(" · ")}`, body: who.join("\n") || "Tocá para ver Mi secretaria.", go: "secretaria" });
   }
 
   // ── Agentes con Claude (oficina virtual) ─────────────────────────────────
@@ -2802,6 +2832,7 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      checkNoonPush().catch((e) => log(`resumen del mediodía falló: ${(e as Error).message}`));
       expiry.check().catch((e) => log(`avisos de vencimiento fallaron: ${(e as Error).message}`));
       checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
     }, 60_000));
@@ -2809,7 +2840,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

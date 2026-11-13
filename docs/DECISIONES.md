@@ -20,6 +20,13 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - **Interruptor aparte (`GS_SHOP_SUBDOMAINS=1`) para mostrar el link nuevo:** el código puede publicarse antes de que el DNS y el certificado del comodín estén listos; mientras tanto nadie recibe un link que todavía no abre.
 - **Subdominio desconocido → portada de la tienda** (no un error): quien escribe mal el nombre igual llega a Gabriel Store.
 - **Descartado:** cargar un dominio por revendedor a mano en Railway (26 revendedores = 26 dominios y 26 certificados); el comodín sirve para todos.
+## 2026-11-13 · Atajos: cómo se decidió cada regla
+- **«Ya le avisé» vale por vencimiento, no por fecha:** se guarda para qué vencimiento fue el aviso; al renovar o cambiar la fecha deja de contar solo. Descartado: guardarlo en la nota (texto libre que hay que borrar a mano, como se hizo el 13/11 por chat).
+- **Segundo aviso el día antes:** la regla de Aracely es «3 días antes y otra vez 1 día antes». Si vence mañana u hoy y el aviso tiene 2 días o más, vuelve a «por avisar». Descartado: una regla por cliente configurable (más pantallas para un caso que la regla general ya cubre).
+- **«Cobrar» con link abre una tarjeta en vez de ir directo a WhatsApp:** el link se crea en el servidor al tocar; abrir WhatsApp después de esperar una respuesta lo bloquean los celulares (ventana emergente). La tarjeta muestra el mensaje y un enlace real. Con los links apagados sigue siendo un toque directo.
+- **Resumen del mediodía solo a dueño y admins:** Mi secretaria no es de Atención, y el aviso nombra a quién cobrar. Salió de la revisión de aislamiento.
+- **«Que vuelvan» del revendedor dentro de Mi día, no como pestaña nueva:** es parte de su rutina diaria y no suma otra entrada al menú. Ventanas: 60 días para clientes registrados (igual criterio que el dueño, más largo porque el revendedor tiene pocos) y 31 a 90 para perfiles repartidos (hasta 30 ya los muestra «Para cobrar»).
+- **Cierre de mes sin % inventados:** igual que el cierre del dueño; si el mes anterior no tuvo ventas o fue su primer mes (incompleto), se dice y no se calcula %.
 
 ## 2026-11-13 · Tres niveles de GaboHub, cortados por «lo que vende» y «lo que ahorra trabajo»
 - **Qué se decidió:** Gratis / Vendedor (Bs 28) / Negocio (Bs 49). El dueño preguntó si Básico/Completo estaba bien cortado o hacían falta tres; aprobó los tres («Ok»).

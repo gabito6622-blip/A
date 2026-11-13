@@ -898,6 +898,28 @@ export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, inpu
   });
 }
 
+/**
+ * «📣 Ya le avisé» (13/11/2026): el dueño marca que ya le escribió al cliente por estos alquileres, para que Mi secretaria
+ * no se lo vuelva a pedir. No manda nada ni cambia fechas o pagos. `off` quita la marca.
+ */
+export function markNoticed(e: Engine, actor: Actor, ids: unknown, off = false) {
+  authorize(actor, "assignment.renew_any");
+  if (!Array.isArray(ids) || !ids.length || ids.length > 200) throw new DomainError("VALIDATION", "Elegí de 1 a 200 alquileres");
+  return e.tx(() => {
+    const done: Id[] = [];
+    for (const id of new Set(ids.map(String))) {
+      const a = e.get("assignments", id);
+      if (a.status !== "active") continue;
+      const c = { ...(a.control ?? {}) };
+      if (off) delete c.noticed; else c.noticed = { at: e.now(), for: a.customerExpiresAt };
+      a.control = c;
+      e.audit(actor, off ? "assignment.notice_off" : "assignment.noticed", "assignment", a.id, { customerId: a.customerId });
+      done.push(a.id);
+    }
+    return { ok: true as const, ids: done, at: e.now() };
+  });
+}
+
 export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patch: Partial<RentalControl>) {
   authorize(actor, "assignment.renew_any");
   const money = (v: unknown, what: string) => {

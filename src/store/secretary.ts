@@ -29,6 +29,8 @@ export interface SecretaryItem {
   note?: string;
   /** El cliente paga a través de un revendedor (el link de renovación no aplica: renueva con él). */
   viaReseller?: boolean;
+  /** «📣 Ya le avisé»: cuándo le avisó el dueño por ESTE vencimiento (si sigue vigente). */
+  noticedAt?: number;
 }
 export interface SecretaryGroup {
   customerId: Id;
@@ -76,6 +78,13 @@ export function secretaryReport(e: Engine, actor: Actor) {
     if (item.priceUsd !== undefined) { g.usd = true; g.totalUsd = (g.totalUsd ?? 0) + item.priceUsd; }
   };
 
+  // «Ya le avisé» vale para ESTE vencimiento. Si vence mañana u hoy y el aviso fue hace 2 días o más, vuelve a
+  // aparecer (segundo aviso, como pide la regla de «3 días antes y otra vez 1 día antes»).
+  const noticeFresh = (a: Assignment) => {
+    const n = a.control?.noticed;
+    if (!n || n.for !== a.customerExpiresAt) return false;
+    return daysTo(a.customerExpiresAt) >= 2 || daysTo(n.at) >= -1;
+  };
   for (const a of Object.values(e.s.assignments)) {
     if (a.status !== "active") continue;
     const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
@@ -86,6 +95,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
       expiresAt: a.customerExpiresAt, days: daysTo(a.customerExpiresAt), price: effectivePrice(e, a),
       ...(usd !== undefined ? { priceUsd: usd } : {}), ...(c.payStatus ? { payStatus: c.payStatus } : {}), ...(c.note ? { note: c.note } : {}),
       ...(e.s.customers[a.customerId]?.resellerId ? { viaReseller: true } : {}),
+      ...(noticeFresh(a) ? { noticedAt: c.noticed!.at } : {}),
     };
     if (has(c.note, RE_CORTAR)) put(groups.cortar, a, item);
     else if (has(c.note, RE_COBRO)) put(groups.cobrar, a, item);
@@ -146,10 +156,14 @@ export function secretaryReport(e: Engine, actor: Actor) {
     actividad,
   };
   const n = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.length, 0);
+  // Por avisar = los que todavía no marcaste «Ya le avisé»; los ya avisados se cuentan aparte y van al final.
+  const pend = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.filter((i) => i.noticedAt === undefined).length, 0);
+  const allNoticed = (g: SecretaryGroup) => g.items.every((i) => i.noticedAt !== undefined);
+  out.avisar = [...out.avisar.filter((g) => !allNoticed(g)), ...out.avisar.filter(allNoticed)];
   return {
     ...out,
     counts: {
-      cobrar: n(out.cobrar), cortar: n(out.cortar), deben: n(out.deben), sinAnotar: n(out.sinAnotar), avisar: n(out.avisar),
+      cobrar: n(out.cobrar), cortar: n(out.cortar), deben: n(out.deben), sinAnotar: n(out.sinAnotar), avisar: pend(out.avisar), avisados: n(out.avisar) - pend(out.avisar),
       desenlazar: desenlazar.length, libres: listas.length, faltaFecha: faltaFecha.length, apartadas: apartadas.length, claves: claves.length, debitos: debitos.length,
     },
   };
