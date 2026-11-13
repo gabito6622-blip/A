@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Premium 2.0 · Etapa 8 «Automatización y soporte» (rama `premium-2.0`, sin publicar; nada se manda solo)
+- **Fallas reportadas con tiempo de espera:** cada falla dice «espera hace 2 h / 3 d» y, pasadas 24 h sin resolver, se marca ⏰ en rojo (`late`); las resueltas dicen cuánto tardaron (`waitMs`). Quien reportó también lo ve en su panel.
+- **Respuestas guardadas:** chips debajo de cada falla que llenan la respuesta con un toque. El dueño las edita en Configuración → «Soporte y mensajes de la secretaria» (hasta 10, una por línea); si no hay, salen tres de ejemplo.
+- **Mensajes de «Mi secretaria» editables:** cobrar/vencidas, avisar y te deben, con `{nombre}`, `{cuentas}` y `{total}`. Vacío = el texto de siempre. Siguen siendo links de WhatsApp que abre el dueño; nada sale solo.
+- **Secretaria · «💳 Débitos de tarjeta»:** cuentas con autopago (la nota dice «autopago», «se debita», «tarjeta»…) que se cobran desde ayer hasta en 3 días, con el monto (US$ si lo anotaste): el recordatorio que pidió el dueño para anotar «Pagué la renovación» cuando vea el débito.
+- API: `GET /api/admin/settings/soporte` (staff) y `ticketReplies` / `secretaryMsg` en `POST /api/admin/settings` (validados). El `/api/settings` público no los expone.
+- **Prueba nueva `test/soporte.test.mjs`** (4 pruebas).
+
 ## 2026-11-13 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0» (rama `premium-2.0`, sin publicar)
 - **Sala nueva (Propuesta 1 «Oficina nocturna», la aprobada):** ventanas con el cielo de La Paz según la hora, reloj, ticker «EN VIVO» con lo último que pasó, y 6 escritorios con avatar vectorial propio dentro de un anillo que cambia según el estado (cian trabajando, violeta esperando, rojo alerta, gris dormido), monitor que «corre» cuando trabaja, globito con lo último que hizo, contador «hoy» y pastilla de estado. Mismos 6: Rocío, Wali, Dani, Vico, Coco y Tito. Tocar uno sigue abriendo su detalle con prender/apagar (solo el dueño).
 - **Línea de tiempo (de la Propuesta 2):** «Lo que pasó hoy» en orden, con hora y quién; si hoy no pasó nada, lo último de la semana.

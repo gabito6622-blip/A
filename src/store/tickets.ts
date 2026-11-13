@@ -14,6 +14,8 @@ export const TICKET_KINDS: Record<TicketKind, string> = {
   otro: "Otro problema",
 };
 const STATUSES: TicketStatus[] = ["recibido", "revisando", "solucionado"];
+/** Una falla abierta hace más de esto se marca «tarde» (el cliente sigue sin servicio). */
+export const LATE_MS = 24 * 3_600_000;
 const all = (e: Engine) => (e.s.tickets ??= {});
 
 function view(e: Engine, t: Ticket, staff: boolean) {
@@ -23,6 +25,9 @@ function view(e: Engine, t: Ticket, staff: boolean) {
     id: t.id, assignmentId: t.assignmentId, customerId: t.customerId, client: c?.name ?? "?", clientPhone: c?.phone ?? "",
     product: a ? e.s.products[a.productId]?.name ?? "" : "", profile: slot?.label ?? "", email: acc?.email ?? "",
     kind: t.kind, kindText: TICKET_KINDS[t.kind], note: t.note, status: t.status, reply: t.reply ?? "", createdAt: t.createdAt, updatedAt: t.updatedAt,
+    // Premium 2.0 (etapa 8): cuánto lleva esperando (abierta: desde que la reportaron; resuelta: cuánto tardó).
+    waitMs: t.status === "solucionado" ? t.updatedAt - t.createdAt : Math.max(0, e.now() - t.createdAt),
+    late: t.status !== "solucionado" && e.now() - t.createdAt > LATE_MS,
     ...(staff ? { reporter: rep?.name ?? "?", reporterPhone: rep?.phone ?? "", reporterKind: rep?.kind ?? "customer", accountId: acc?.id } : {}),
   };
 }

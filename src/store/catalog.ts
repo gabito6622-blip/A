@@ -137,9 +137,26 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     const d = patch.comboDiscounts;
     if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 100000)) throw new DomainError("VALIDATION", "Descuentos del combo inválidos (de Bs 0 a Bs 1000)");
   }
+  if (patch.ticketReplies !== undefined) {
+    const l = patch.ticketReplies;
+    if (!Array.isArray(l) || l.length > 10 || l.some((x) => typeof x !== "string" || !x.trim() || x.length > 200)) throw new DomainError("VALIDATION", "Respuestas guardadas: hasta 10, de 1 a 200 letras cada una");
+    patch.ticketReplies = l.map((x) => x.trim());
+  }
+  if (patch.secretaryMsg !== undefined) {
+    const m = patch.secretaryMsg as Record<string, unknown>;
+    if (!m || typeof m !== "object") throw new DomainError("VALIDATION", "Mensajes de la secretaria inválidos");
+    const out: { cobrar?: string; avisar?: string; deben?: string } = {};
+    for (const k of ["cobrar", "avisar", "deben"] as const) {
+      const v = m[k];
+      if (v === undefined || v === null || v === "") continue;
+      if (typeof v !== "string" || v.length > 500) throw new DomainError("VALIDATION", "Cada mensaje de la secretaria va hasta 500 letras");
+      out[k] = v.trim();
+    }
+    patch.secretaryMsg = out;
+  }
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

@@ -772,17 +772,21 @@ const V = {
 
   /* Fiado: lo que te deben, por persona, con pagos parciales y fecha de cobro. */
   async fallas() {
-    const list = await api("GET", "/api/admin/tickets");
+    const [list, sup] = await Promise.all([api("GET", "/api/admin/tickets"), api("GET", "/api/admin/settings/soporte").catch(() => ({ ticketReplies: [] }))]);
     const ST = { recibido: ["📥 Recibido", "bad"], revisando: ["🔧 Revisando", "warn"], solucionado: ["✅ Solucionado", "ok"] };
+    // Respuestas guardadas (Configuración → Soporte); si no hay, tres de ejemplo.
+    const canned = sup.ticketReplies?.length ? sup.ticketReplies : ["Ya lo estoy revisando, en un rato te aviso.", "Te pasé a otra cuenta: revisá tus accesos en Mis cuentas.", "Probá cerrar sesión en todos los aparatos y volver a entrar."];
+    const wait = (t) => { const h = Math.floor(t.waitMs / 3_600_000), m = Math.floor((t.waitMs % 3_600_000) / 60_000); const txt = h >= 48 ? `${Math.floor(h / 24)} d` : h ? `${h} h` : `${m} min`; return t.status === "solucionado" ? pill(`resuelta en ${txt}`, "ok") : pill(`${t.late ? "⏰ " : ""}espera hace ${txt}`, t.late ? "bad" : "mute"); };
     const open = list.filter((t) => t.status !== "solucionado").length;
     const msg = (t) => `Hola ${t.reporter.split(" ")[0]} 👋 sobre tu reporte de ${t.product} (${t.client}): `;
     return `<section class="card"><h2>🛠️ Fallas reportadas ${open ? pill(`${open} abierta(s)`, "bad") : pill("Todo al día", "ok")}</h2>
       <p class="muted" style="margin:0">Lo que te reportan tus clientes y revendedores desde su panel ("no me deja entrar", "me pide código"…). Cambiá el estado y, si querés, dejá una respuesta: lo ven en su panel y, si activaron los avisos, les llega al celular.</p></section>
-      ${list.map((t) => `<section class="card tkt tkt-${t.status}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap"><b>${esc(t.product)} · ${esc(t.profile)}</b>${pill(ST[t.status][0], ST[t.status][1])}</div>
+      ${list.map((t) => `<section class="card tkt tkt-${t.status}${t.late ? " tkt-late" : ""}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap"><b>${esc(t.product)} · ${esc(t.profile)}</b><span class="inline" style="gap:6px">${wait(t)}${pill(ST[t.status][0], ST[t.status][1])}</span></div>
         <p class="muted" style="margin:0">Cliente: <b>${esc(t.client)}</b>${t.reporter !== t.client ? ` · reportó ${esc(t.reporter)} (${t.reporterKind === "reseller" ? "🏪 revendedor" : "👤 cliente"})` : ""} · ${fdate(t.createdAt)}</p>
         <p style="margin:0"><b>${esc(t.kindText)}</b>${t.note ? ` — “${esc(t.note)}”` : ""}</p>
         ${t.email ? `<p class="muted" style="margin:0">Cuenta: <code>${esc(t.email)}</code></p>` : ""}
         <form class="form" data-tkt="${esc(t.id)}"><label style="grid-column:1/-1">Respuesta para quien reportó (opcional)<input name="reply" maxlength="300" value="${esc(t.reply)}" placeholder="Ej.: te pasamos a otra cuenta, revisá tus datos en Mis cuentas"></label>
+          <div class="tabs ctl-chips" style="grid-column:1/-1" aria-label="Respuestas guardadas">${canned.map((r) => `<button type="button" data-canned="${esc(r)}">💬 ${esc(r.length > 34 ? r.slice(0, 33) + "…" : r)}</button>`).join("")}</div>
           <div class="inline" style="grid-column:1/-1;flex-wrap:wrap">${Object.keys(ST).map((s) => `<button class="pbtn ${t.status === s ? "dark" : ""}" type="submit" name="st" value="${s}">${ST[s][0]}</button>`).join("")}
           ${t.reporterPhone ? `<a class="pbtn" href="${waLink(t.reporterPhone, msg(t))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}${t.assignmentId ? `<button class="pbtn" type="button" data-deliver="${esc(t.assignmentId)}">📲 Reenviar accesos</button>` : ""}${canReview() ? `<button class="pbtn" type="button" data-go="reubicar">🔀 Reubicar</button>` : ""}</div></form></section>`).join("") || `<section class="card"><p class="muted" style="margin:0">No hay fallas reportadas 🎉</p></section>`}`;
   },
@@ -1534,12 +1538,21 @@ const V = {
   },
 
   async configuracion() {
-    const s = await api("GET", "/api/settings");
+    const [s, sup] = await Promise.all([api("GET", "/api/settings"), canReview() ? api("GET", "/api/admin/settings/soporte").catch(() => ({ ticketReplies: [], secretaryMsg: {} })) : { ticketReplies: [], secretaryMsg: {} }]);
+    const supCard = canReview() ? `<section class="card"><h2>🛠️ Soporte y mensajes de la secretaria</h2>
+      <form class="form" id="supForm">
+        <label style="grid-column:1/-1">Respuestas guardadas para Fallas reportadas <small class="muted">· una por línea, hasta 10</small><textarea name="replies" rows="4" maxlength="2200" placeholder="Ya lo estoy revisando, en un rato te aviso.&#10;Te pasé a otra cuenta: revisá tus accesos en Mis cuentas.">${esc((sup.ticketReplies ?? []).join("\n"))}</textarea></label>
+        <p class="muted" style="grid-column:1/-1;margin:0">Mensajes de «Mi secretaria» (botón «Mensaje listo»). Podés usar <code>{nombre}</code>, <code>{cuentas}</code> y <code>{total}</code>. Vacío = el texto de siempre. Nada se manda solo: el mensaje se abre en tu WhatsApp.</p>
+        <label>Cobrar / vencidas<textarea name="mCobrar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Estas cuentas ya vencieron:&#10;{cuentas}&#10;Total para renovar: {total}. ¿Las renovás?">${esc(sup.secretaryMsg?.cobrar ?? "")}</textarea></label>
+        <label>Avisar (por vencer)<textarea name="mAvisar" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te aviso que estas cuentas están por vencer:&#10;{cuentas}&#10;Total: {total}.">${esc(sup.secretaryMsg?.avisar ?? "")}</textarea></label>
+        <label>Te deben<textarea name="mDeben" rows="3" maxlength="500" placeholder="Hola {nombre} 👋 Te recuerdo el pago pendiente de:&#10;{cuentas}&#10;Total: {total}. ¡Gracias!">${esc(sup.secretaryMsg?.deben ?? "")}</textarea></label>
+        <button class="pbtn dark" type="submit">Guardar soporte y mensajes</button></form></section>` : "";
     return `${canReview() ? `<section class="card"><h2>Mi tienda</h2><form class="form" id="setForm"><label>Nombre de la tienda<input name="storeName" required maxlength="60" value="${esc(s.storeName)}"></label>
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
       <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
+      ${supCard}
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
         <form class="form" id="comboForm">${["2 servicios", "3 servicios", "4 o más"].map((t, i) => `<label>Descuento ${t} (${currencySym()})<input name="d${i}" inputmode="decimal" value="${(s.comboDiscounts?.[i] ?? 0) / 100}"></label>`).join("")}
         <p class="muted" style="grid-column:1/-1;margin:0">Los combos ya armados mantienen su precio. Los revendedores no reciben este descuento. Poné 0 en los tres para apagar “Armá tu combo”.</p>
@@ -2632,6 +2645,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.hidesetup) { P.tab.hideSetup = true; return render(); }
+  if (d.canned !== undefined) { const inp = b.closest("form")?.querySelector('[name="reply"]'); if (inp) { inp.value = d.canned; inp.focus(); } return; }
   if (d.rotate) {
     const pw = prompt("Clave NUEVA de la cuenta (ya la cambiaste en la plataforma):");
     if (pw === null) return;
@@ -3445,6 +3459,9 @@ document.addEventListener("submit", async (ev) => {
       await act(async () => { await api("POST", "/api/admin/mailboxes", mbBody(f)); P.tab.mbEdit = null; P.tab.mbKind = null; }, "Correo conectado: ya se están leyendo los códigos");
     } else if (f.id === "comboForm") {
       await act(() => api("POST", "/api/admin/settings", { comboDiscounts: [0, 1, 2].map((i) => toCents(f[`d${i}`].value || "0")) }), "Descuentos del combo guardados");
+    } else if (f.id === "supForm") {
+      const replies = f.replies.value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 10);
+      await act(() => api("POST", "/api/admin/settings", { ticketReplies: replies, secretaryMsg: { cobrar: f.mCobrar.value.trim(), avisar: f.mAvisar.value.trim(), deben: f.mDeben.value.trim() } }), "Soporte y mensajes guardados");
     } else if (f.id === "setForm") {
       await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");

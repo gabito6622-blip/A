@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Premium 2.0 · Etapa 8: ayudar a responder, no responder solo
+- **Nada se automatiza hacia afuera:** la misión prohíbe cobros y mensajes automáticos; por eso «automatización» acá es recordar y preparar (tiempo de espera, respuestas a un toque, mensajes armados, débitos por anotar). El envío sigue siendo del dueño.
+- **24 h como «tarde»:** una falla es un cliente sin servicio; un día sin respuesta ya es mucho. Es un color, no un bloqueo.
+- **Mensajes con 3 comodines y nada más:** `{nombre}`, `{cuentas}`, `{total}` cubren los tres casos sin inventar un editor de plantillas; las plantillas oficiales de Meta no se tocan (las aprueba Meta).
+- **Débitos por la nota, no por un campo nuevo:** el dueño ya escribe «se debita el 18/11, tarjeta 8562» en la nota; se lee eso y la fecha del proveedor. Un campo «autopago» queda para después si hace falta filtrar más.
+
 ## 2026-11-13 · Premium 2.0 · Etapa 7: la oficina cuenta el día entero, sin inventar
 - **Lo que hizo el dueño entra a la línea de tiempo:** la queja era «solo 6 eventos». En vez de inventar actividad para los asistentes, se lee la auditoría que ya existe (aprobar, rechazar, vender, cambiar clave). Es real y ya estaba guardado.
 - **La sala siempre es oscura:** es una escena (Propuesta 1 aprobada), no una pantalla de formularios; en tema claro también se ve de noche, y lo de abajo (detalle, línea de tiempo, Para hoy) sí sigue al tema del panel.

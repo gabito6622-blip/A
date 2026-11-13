@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 13/11/2026 · Premium 2.0 · Etapa 8 «Automatización y soporte»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Fallas: a las 2 h espera 2 h (no tarde); a las 25 h, tarde; resuelta: tardó 25 h y ya no está tarde; el cliente ve lo mismo | `test/soporte.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Respuestas guardadas: más de 10, vacías o de más de 200 letras → inválido; mensajes de más de 500 letras → inválido; Atención no puede; se guardan recortadas; un mensaje vacío no se guarda; la secretaria devuelve `templates` | misma prueba | OK |
+| Débitos: autopago en 2 días y autopago debitado ayer entran (ordenados por fecha, con US$ 9 cuando está anotado); uno a 10 días y uno sin autopago no; 3 días después solo queda el de ayer; al otro día ninguno | misma prueba | OK (la primera expectativa olvidaba la ventana «desde ayer»; corregida la prueba, no el producto) |
+| API: guardar soporte → 200; `/api/admin/settings/soporte` lo devuelve; sin sesión 401; el `/api/settings` público no lo trae; respuesta de 300 letras → 400 | misma prueba, servidor en puerto efímero | OK |
+| La secretaria mantiene sus conteos (más `debitos`) | `test/secretaria.test.mjs` | OK |
+| Tanda completa | `npm test` | **520/520** (segunda corrida, ~65 s). En la primera falló solo `hub-clientes-unidos` («Mis clientes»), la intermitente bajo carga: sola pasa |
+
 ## 13/11/2026 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0»
 | Qué | Cómo | Resultado |
 |---|---|---|

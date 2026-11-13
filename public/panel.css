@@ -1210,3 +1210,6 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .cutsum small{display:block;color:var(--muted);font-size:12px}
 .cutsum b{font-size:15px}
 .cutcard footer{align-items:center;gap:8px;flex-wrap:wrap}
+
+/* Etapa 8: fallas que esperan hace más de un día */
+.tkt-late{border-left:4px solid var(--bad)}

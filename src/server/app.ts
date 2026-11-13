@@ -582,6 +582,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
   route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
+  // Premium 2.0 (etapa 8): lo que el dueño configuró para soporte (respuestas guardadas y mensajes de la secretaria).
+  route("GET", "/api/admin/settings/soporte", "staff", () => ({ ticketReplies: store.engine.s.settings.ticketReplies ?? [], secretaryMsg: store.engine.s.settings.secretaryMsg ?? {} }));
   route("POST", "/api/admin/tickets/:id", "staff", (c) => {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
@@ -992,6 +994,8 @@ export function createApp(cfg: AppConfig): App {
       .filter((k) => typeof b[k] === "string").reduce((o, k) => ({ ...o, [k]: b[k] }), {});
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
+    if (Array.isArray(b.ticketReplies)) pick.ticketReplies = b.ticketReplies;
+    if (b.secretaryMsg && typeof b.secretaryMsg === "object") pick.secretaryMsg = b.secretaryMsg;
     if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;
     if (b.referralBonus !== undefined) pick.referralBonus = b.referralBonus;
     if (typeof b.resellerShops === "boolean") pick.resellerShops = b.resellerShops;

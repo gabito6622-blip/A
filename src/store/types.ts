@@ -67,6 +67,10 @@ export const DEFAULT_COMBO_DISCOUNTS: [Cents, Cents, Cents] = [500, 1000, 1500];
 /** Configuración de la tienda que ve el cliente. */
 export interface StoreSettings extends Look {
   shopRent?: ShopRent;
+  /** Premium 2.0 (etapa 8): respuestas guardadas para Fallas reportadas (hasta 10, de 1 a 200 letras). */
+  ticketReplies?: string[];
+  /** Premium 2.0 (etapa 8): mensajes de la secretaria editables ({nombre}, {cuentas}, {total}); vacío = el texto de siempre. */
+  secretaryMsg?: { cobrar?: string; avisar?: string; deben?: string };
   /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
   resellerMarginPct?: number;
   /** Premio (centavos) que gana un revendedor cuando traés a otro revendedor y el dueño lo aprueba. 0 lo apaga. */
