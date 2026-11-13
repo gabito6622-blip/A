@@ -722,3 +722,51 @@ export class Pdf {
     return this.finished;
   }
 }
+
+/* ---------------- achicar PNG (para incrustar logos livianos) ---------------- */
+const PNG_CRC = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
+function pngCrc(buf: Buffer): number { let c = -1; for (const b of buf) c = PNG_CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; }
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4); len.writeUInt32BE(data.length, 0);
+  const td = Buffer.concat([Buffer.from(type, "latin1"), data]);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(pngCrc(td), 0);
+  return Buffer.concat([len, td, crc]);
+}
+/**
+ * Devuelve un PNG de 8 bits (RGB o RGBA) con el lado mayor en `maxPx` como máximo, promediando píxeles
+ * (filtro de caja). Si la imagen ya es chica, la devuelve tal cual. Sirve para que un catálogo con 35 logos
+ * de 300 KB no pese 10 MB. Lanza si el formato no se puede decodificar (WEBP, PNG entrelazado…).
+ */
+export function shrinkPng(buf: Buffer, maxPx: number): Buffer {
+  const img = decodeImage(buf);
+  if (img.filter !== "FlateDecode") return buf; // JPEG: se incrusta directo
+  const { width: w, height: h } = img;
+  const ch = img.colorSpace === "DeviceGray" ? 1 : img.colorSpace === "DeviceCMYK" ? 4 : 3;
+  if (Math.max(w, h) <= maxPx && ch === 3) return buf;
+  const scale = Math.max(1, Math.max(w, h) / maxPx);
+  const nw = Math.max(1, Math.round(w / scale)), nh = Math.max(1, Math.round(h / scale));
+  const hasA = !!img.alpha;
+  const out = Buffer.alloc(nh * (1 + nw * (hasA ? 4 : 3)));
+  for (let y = 0; y < nh; y++) {
+    const y0 = Math.floor(y * h / nh), y1 = Math.max(y0 + 1, Math.floor((y + 1) * h / nh));
+    out[y * (1 + nw * (hasA ? 4 : 3))] = 0; // filtro None
+    for (let x = 0; x < nw; x++) {
+      const x0 = Math.floor(x * w / nw), x1 = Math.max(x0 + 1, Math.floor((x + 1) * w / nw));
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) {
+        const i = (yy * w + xx) * ch;
+        if (ch === 1) { r += img.data[i]; g += img.data[i]; b += img.data[i]; }
+        else if (ch === 4) { const k = 255 - img.data[i + 3]; r += (255 - img.data[i]) * k / 255; g += (255 - img.data[i + 1]) * k / 255; b += (255 - img.data[i + 2]) * k / 255; }
+        else { r += img.data[i]; g += img.data[i + 1]; b += img.data[i + 2]; }
+        if (hasA) a += img.alpha![yy * w + xx];
+        n++;
+      }
+      const o = y * (1 + nw * (hasA ? 4 : 3)) + 1 + x * (hasA ? 4 : 3);
+      out[o] = Math.round(r / n); out[o + 1] = Math.round(g / n); out[o + 2] = Math.round(b / n);
+      if (hasA) out[o + 3] = Math.round(a / n);
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(nw, 0); ihdr.writeUInt32BE(nh, 4); ihdr[8] = 8; ihdr[9] = hasA ? 6 : 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), pngChunk("IHDR", ihdr), pngChunk("IDAT", deflateSync(out, { level: 9 })), pngChunk("IEND", Buffer.alloc(0))]);
+}

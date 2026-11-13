@@ -1,6 +1,32 @@
 # Informe de pruebas
 
-## 13/11/2026 · Centro de exportaciones (rama `exportaciones-premium`, sin publicar)
+## 13/11/2026 · Catálogo público + Promos y combos (rama `exportaciones-premium`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Ahorro calculado: Dúo Bs 70 vs 40 + 35 → Bs 5 en el JSON, en el WhatsApp «(ahorrás Bs 5)» y en el PDF «Ahorrás Bs 5» y «ahorrás hasta Bs 5»; Pack Familia de Ana con SUS precios 45 + 38 vs 75 → Bs 8 | `test/exportaciones.test.mjs` | OK |
+| Público: `GET /api/catalogo.pdf` 200 sin sesión con el nombre del archivo de la tienda; segunda bajada idéntica (memoria); `GET /api/shops/ana-tv/catalogo.pdf` 200 con Ana TV y sin Gabriel Store; `/api/shops/no-existe/catalogo.pdf` 404 | misma prueba | OK |
+| Navegador 360 px (demo): botón «📄 Catálogo en PDF» de 44 px en la portada de `/tienda` y en `/r/carla-streaming`; las dos descargas públicas responden 200 con su archivo | Playwright + fetch, fuera del repo | OK |
+| Catálogo real con «Promos y combos»: 11 combos con ahorro, máximo Bs 34 | script fuera del repo | revisado |
+| Tanda completa | `npm test` | **570/570** en 55 s (dos corridas previas bajo carga fallaron una prueba de navegador distinta cada vez, `tarjeta` y `hub-inventario`; las dos pasan solas; anotado M19) |
+
+## 13/11/2026 · Catálogo PDF con logos (rama `exportaciones-premium`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Un PNG RGBA de 64×64 subido a Netflix por la API; el PDF premium lleva imágenes incrustadas en la página de productos (`pdfimages -list`); el JSON de la vista previa trae `hasImage` y no el archivo | `test/exportaciones.test.mjs` | OK |
+| Catálogo REAL con los 35 logos de la tienda, armado localmente con el código nuevo a partir de lecturas públicas (catálogo, logos) y la llave del asistente (nombre, WhatsApp): premium 5 páginas / 315 KB, clásico 4 páginas / 307 KB; logos nítidos a 160 px; combos con los logos de sus apps | script fuera del repo + pdftoppm | revisado |
+| Tanda completa | `npm test` | **570/570** |
+
+## 13/11/2026 · Publicación Centro de exportaciones (PR #55, squash `fd0e410`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, cierre nov Bs 4.490,60 | API con la llave del asistente | guardada |
+| CI del primer commit roja: la prueba del Excel pedía `openpyxl`, que la CI no tiene. Se corrigió la prueba (revisa el XML del ZIP y la portada con el lector propio; con openpyxl suma lo fino) y se quitó «Gabriel Store» de las propiedades del archivo (ahora «GaboHub»). CI verde en `e6cf127`; `npm test` local 570/570 | GitHub Actions + local | OK |
+| Rama de Railway vs lo fusionado en #54: idéntico; unión «ours» con árbol igual al probado | `git diff --stat` vacío | OK |
+| Publicación automática y verificación posterior | PR #55 · `curl` | ver fila siguiente |
+| Después (a los ~15 s): salud, `/hub`, `/panel.html` 200; `/api/me/descargas/catalogo` sin sesión 401; el catálogo real de la tienda se arma (6 categorías, 35 productos, 1 promo); el PDF premium real abre (A4, 5 páginas, 54 KB) y el Excel real abre (7 hojas, 3 gráficos, 147 KB); 78 alquileres y 34 clientes idénticos byte a byte; cierre igual (Bs 4.490,60) | `curl` + pdfinfo + openpyxl + comparación JSON | OK |
+| Nada escrito en producción (los archivos se generan en memoria y se borran de la carpeta temporal) | — | ✅ |
+
+## 13/11/2026 · Centro de exportaciones (publicado en #55)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Catálogo WhatsApp de la tienda: marca, precios públicos, combo con sus partes, promos (combo + cupón NOV10), sin ocultos, sin «solo revendedores», sin costos ni ids; filtro por categoría | `test/exportaciones.test.mjs` | OK |

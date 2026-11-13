@@ -54,13 +54,24 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
     ock = (await post("/api/auth/staff/login", { username: "gabriel", password: "clave-del-dueño-123" })).headers.get("set-cookie").split(";")[0];
     ckA = await login(ana); ckB = await login(beto);
+    // Logo de Netflix: un PNG rojo de 64×64 (RGBA) armado acá, para que el catálogo lo incruste.
+    const { deflateSync } = await import("node:zlib");
+    const W = 64, raw = Buffer.alloc(W * (1 + W * 4)); for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { const o = y * (1 + W * 4) + 1 + x * 4; raw[o] = 229; raw[o + 1] = 9; raw[o + 2] = 20; raw[o + 3] = 255; }
+    const crcT = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
+    const crc = (b) => { let c = -1; for (const x of b) c = crcT[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; };
+    const chunk = (type, data) => { const l = Buffer.alloc(4); l.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(W, 4); ihdr[8] = 8; ihdr[9] = 6;
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+    assert.equal((await post("/api/admin/products/netflix/image", { contentBase64: png.toString("base64") }, ock)).status, 200);
   });
   after(async () => { await app?.close(); rmSync(dir, { recursive: true, force: true }); });
 
   test("la tienda: marca, precios públicos, combo con sus partes, promos (combo y cupón), sin ocultos ni «solo revendedores»", async () => {
     const d = (await get("/api/admin/descargas/catalogo", ock)).json;
-    assert.equal(d.owner, true); assert.equal(d.business.name, "Gabriel Store"); assert.equal(d.business.whatsapp, "59170000000"); assert.match(d.business.url, /\/tienda\/$/);
-    assert.deepEqual(d.categories.map((c) => c.name), ["Combos", "Streaming", "Música"]);
+    assert.equal(d.owner, true);
+    assert.equal(d.categories[1].items.find((i) => i.name === "Netflix Premium").hasImage, true); assert.ok(!JSON.stringify(d).includes("imageRef"), "el archivo del logo no viaja en el JSON"); assert.equal(d.business.name, "Gabriel Store"); assert.equal(d.business.whatsapp, "59170000000"); assert.match(d.business.url, /\/tienda\/$/);
+    assert.deepEqual(d.categories.map((c) => c.name), ["Promos y combos", "Streaming", "Música"]);
+    assert.equal(d.categories[0].items[0].savings, 500, "Dúo a Bs 70 contra 40 + 35 sueltos: ahorra Bs 5");
     const names = d.categories.flatMap((c) => c.items.map((i) => i.name));
     assert.ok(!names.includes("Producto Oculto") && !names.some((n) => n.includes("alquiler")), "sin ocultos ni productos de revendedores");
     assert.deepEqual(d.categories[0].items[0].items, ["Netflix Premium", "Disney+"]);
@@ -70,7 +81,8 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     assert.match(w.text, /^🛒 \*GABRIEL STORE\*\nCatálogo · 13\/11\/2026\n📣 Promo de noviembre/);
     assert.match(w.text, /• Netflix Premium — \*Bs 40\*\n   1 mes · 4K · 1 perfil/);
     assert.match(w.text, /wa\.me\/59170000000/); assert.match(w.text, /🕒 De 8 a 22/); assert.match(w.text, /Precios en Bs\. Pueden cambiar sin aviso\./);
-    assert.deepEqual(w.categories.map((c) => c.name), ["Combos", "Streaming", "Música"]);
+    assert.deepEqual(w.categories.map((c) => c.name), ["Promos y combos", "Streaming", "Música"]);
+    assert.match(w.text, /Dúo Netflix \+ Disney — \*Bs 70\* \(ahorrás Bs 5\)/);
     // Filtro por categoría.
     const w2 = (await get("/api/admin/descargas/whatsapp?cats=M%C3%BAsica", ock)).json;
     assert.deepEqual(w2.categories.map((c) => c.name), ["Música"]); assert.ok(!w2.text.includes("Netflix"));
@@ -84,11 +96,12 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     const flat = d.categories.flatMap((c) => c.items);
     assert.equal(flat.find((i) => i.name === "Netflix Premium").price, 4500, "su precio de venta, no el costo ni el público");
     assert.equal(flat.find((i) => i.name === "Pack Familia").price, 7500); assert.deepEqual(flat.find((i) => i.name === "Pack Familia").items, ["Netflix Premium", "Disney+"]);
+    assert.equal(flat.find((i) => i.name === "Pack Familia").savings, 800, "sus precios: 45 + 38 = 83 contra 75");
     assert.ok(!flat.some((i) => i.name.includes("Dúo")), "el combo de la tienda no es suyo");
     assert.ok(!flat.some((i) => i.name.includes("alquiler")), "lo que le compra a la tienda no se vende en su catálogo");
     assert.deepEqual(d.promos, ["Armá tu combo · 2 apps: Bs 3 menos · 3 apps: Bs 6 menos · 4 o más: Bs 9 menos"], "sus descuentos, no los de la tienda; el cupón NOV10 es de la tienda");
     const w = (await get("/api/me/descargas/whatsapp", ckA)).json;
-    assert.match(w.text, /^🛒 \*ANA TV\*/); assert.match(w.text, /Pack Familia — \*Bs 75\*\n   incluye Netflix Premium \+ Disney\+ · Para toda la casa/); assert.match(w.text, /wa\.me\/59171000001/); assert.match(w.text, /🕒 Lunes a sábado/);
+    assert.match(w.text, /^🛒 \*ANA TV\*/); assert.match(w.text, /Pack Familia — \*Bs 75\* \(ahorrás Bs 8\)\n   incluye Netflix Premium \+ Disney\+ · Para toda la casa/); assert.match(w.text, /wa\.me\/59171000001/); assert.match(w.text, /🕒 Lunes a sábado/);
     const txt = JSON.stringify(d) + w.text;
     for (const x of ["Gabriel Store", "59170000000", "NOV10", "Beto", "4200", "cus_", "cost", "profit"]) assert.ok(!txt.includes(x), `se filtró ${x}`);
     assert.ok(!flat.some((i) => i.price === 3000 || i.price === 2500 && i.name === "Disney+"), "ningún precio es el costo de revendedor");
@@ -118,8 +131,18 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     assert.equal(prem.status, 200); assert.equal(prem.type, "application/pdf"); assert.match(prem.name, /catalogo-gabriel-store-premium-\d{4}-\d{2}-\d{2}\.pdf/);
     const f1 = join(dir, "prem.pdf"); writeFileSync(f1, prem.buf);
     assert.equal(pdfPages(f1), 2, "portada + productos");
+    // Los logos de las apps van incrustados: Netflix tiene imagen y el Dúo la reutiliza para su parte Netflix.
+    if (has("pdfimages")) { const imgs = execFileSync("pdfimages", ["-list", "-f", "2", "-l", "2", f1], { encoding: "utf8" }).split("\n").filter((l) => /^\s*2\s+\d+\s+image/.test(l)); assert.ok(imgs.length >= 1, `logos en la página de productos: ${imgs.length}`); }
     const t1 = pdfText(f1);
-    for (const x of ["Gabriel Store", "CATÁLOGO DE SUSCRIPCIONES", "Netflix Premium", "Bs 40", "Dúo Netflix + Disney", "Bs 70", "NOV10", "+591 70000000", "Promo de noviembre", "pueden cambiar"]) assert.ok(t1.includes(x), `falta ${x} en el premium`);
+    for (const x of ["Gabriel Store", "CATÁLOGO DE SUSCRIPCIONES", "Netflix Premium", "Bs 40", "Dúo Netflix + Disney", "Bs 70", "Ahorrás Bs 5", "ahorrás hasta Bs 5", "NOV10", "+591 70000000", "Promo de noviembre", "pueden cambiar"]) assert.ok(t1.includes(x), `falta ${x} en el premium`);
+    // Público: el cliente lo baja desde la tienda sin sesión; la página del revendedor también; una página inexistente 404; se guarda en memoria.
+    const pub = await bin("/api/catalogo.pdf");
+    assert.equal(pub.status, 200); assert.equal(pub.type, "application/pdf"); assert.match(pub.name, /catalogo-gabriel-store-\d{4}-\d{2}-\d{2}\.pdf/);
+    const f4 = join(dir, "pub.pdf"); writeFileSync(f4, pub.buf); assert.ok(pdfText(f4).includes("Netflix Premium") && pdfText(f4).includes("Bs 40"));
+    const pub2 = await bin("/api/catalogo.pdf"); assert.ok(pub2.buf.equals(pub.buf), "la segunda descarga sale de la memoria, idéntica");
+    const pubAna = await bin("/api/shops/ana-tv/catalogo.pdf");
+    assert.equal(pubAna.status, 200); assert.match(pubAna.name, /catalogo-ana-tv-/); const f5 = join(dir, "puba.pdf"); writeFileSync(f5, pubAna.buf); const t5 = pdfText(f5); assert.ok(t5.includes("Ana TV") && t5.includes("Pack Familia") && !t5.includes("Gabriel Store"));
+    assert.equal((await bin("/api/shops/no-existe/catalogo.pdf")).status, 404);
     for (const x of ["Producto Oculto", "alquiler", "@", "3000"]) assert.ok(!t1.includes(x), `se filtró ${x}`);
     const cla = await bin("/api/admin/descargas/catalogo.pdf?design=clasico&cats=M%C3%BAsica", ock);
     const f2 = join(dir, "cla.pdf"); writeFileSync(f2, cla.buf);

@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Catálogo público: el mismo archivo, sin sesión, con freno
+- **Mismo generador, mismos datos públicos:** el catálogo público usa `catalogData` con un actor interno de solo lectura; lo que sale es lo mismo que ve cualquiera en la tienda (productos publicados, precios públicos, promos activas). Nada que no esté ya en la vitrina.
+- **Memoria de 5 minutos y límite por IP:** un PDF con 35 logos tarda un instante en armarse, pero si lo comparten en un estado lo pueden bajar cientos de personas seguidas. Se arma una vez cada 5 minutos por negocio y diseño; 12 bajadas por IP cada 10 minutos cortan a quien lo use de travesura.
+- **«Promos y combos» con ahorro calculado:** el dueño pidió qué decir cuando le preguntan «¿cuáles son tus promos?». El ahorro se calcula con los precios de hoy y no se copia de la descripción, así nunca queda un número viejo.
+
 ## 2026-11-13 · Centro de exportaciones: sin librerías, una sola fuente, nada privado
 - **PDF y Excel propios, sin dependencias:** el proyecto no tiene librerías de terceros y la imagen de producción no trae Chromium. Se escribió un PDF 1.4 mínimo (Helvetica estándar con tabla de anchos, WinAnsi, formas, PNG/JPEG, links) y se amplió el escritor de Excel con estilos, fórmulas, filtros y gráficos DrawingML. Los dos se verifican con herramientas externas en las pruebas (poppler, openpyxl, LibreOffice), pero en producción no hacen falta.
 - **Una sola fuente de datos para los tres formatos** (`catalogData`): la vista previa, el texto de WhatsApp y el PDF salen de lo mismo, así no pueden mostrar precios distintos. Los precios del revendedor son los de su página (`resellerPrices` + `toMine`); los de la tienda, los públicos. Emojis solo en WhatsApp (el PDF usa Helvetica, sin emojis).

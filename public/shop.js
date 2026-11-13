@@ -574,7 +574,7 @@ function renderInner() {
         ${S.settings.heroChip ? `<span class="chip">${esc(S.settings.heroChip)}</span>` : ""}
         <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
         <p>${esc(S.settings.heroText)}</p>
-        <div class="herobtns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">${SLUG ? "Ver precios" : "Explorar productos"} ${icon("arrow")}</button>${SLUG ? (S.settings.whatsapp ? `<a class="sbtn" href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">${icon("wa")}Escribime por WhatsApp</a>` : "") : `<button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button>`}</div>
+        <div class="herobtns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">${SLUG ? "Ver precios" : "Explorar productos"} ${icon("arrow")}</button>${MODE !== "hub" ? `<a class="sbtn" href="${SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf"}" download>📄 Catálogo en PDF</a>` : ""}${SLUG ? (S.settings.whatsapp ? `<a class="sbtn" href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">${icon("wa")}Escribime por WhatsApp</a>` : "") : `<button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button>`}</div>
         <div class="ticks">${(S.settings.heroTicks || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("")}</div></div>
       ${heroRight}</section>
       ${brandStrip()}
@@ -595,7 +595,7 @@ function renderInner() {
       if ((S.settings.layout || "") === "ticket") return ticketCatalog(pub, false);
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
       const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
-      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>
+      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div>${MODE !== "hub" ? `<a class="sbtn" href="${SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf"}" download>📄 Catálogo en PDF</a>` : ""}</div>
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
