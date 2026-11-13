@@ -72,8 +72,21 @@ export function svcCodes(a) {
   const list = CS.codes === null ? `<p class="empty" style="margin:0">Buscando…</p>`
     : (CS.codes.filter((c) => c.to === email).map((c) => `<div class="cs-code"><span><span class="ktag k-${esc(c.kind || "otro")}">${KIND[c.kind] || KIND.otro}</span><small>${ago(c.receivedAt)}</small></span>
         <span class="cs-act">${c.code ? `<b>${esc(c.code)}</b><button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</span></div>`).join("")
-      || `<p class="empty" style="margin:0">No llegó ningún código de esta cuenta en los últimos 30 minutos. Pedilo en la app y tocá Actualizar.</p>`);
+      || `<p class="empty" style="margin:0">No llegó ningún código de esta cuenta en los últimos 30 minutos. Pedilo en la app: acá aparece solo en unos segundos.</p>`);
+  svcAuto();
   return `${btn}<div class="cs-svc" role="region" aria-label="Códigos de esta cuenta">${list}<div class="rbtns"><button class="sbtn sm" type="button" data-svcreload="${esc(id)}">🔄 Actualizar</button></div></div>`;
+}
+
+// Mientras haya un «Ver códigos» abierto a la vista, se consulta cada 10 s y se redibuja solo si llegó algo nuevo.
+let svcTimer = null;
+const sigOf = (l) => (l ?? []).map((c) => `${c.to}|${c.receivedAt}|${c.code}|${c.link ?? ""}`).join(";");
+function svcAuto() {
+  if (svcTimer || typeof document === "undefined") return;
+  svcTimer = setInterval(async () => {
+    if (!document.querySelector(".cs-svc")) { clearInterval(svcTimer); svcTimer = null; return; }
+    if (document.hidden || CS.codes === null) return;
+    try { const l = await api("GET", "/api/me/codes"); if (sigOf(l) !== sigOf(CS.codes)) { CS.codes = l; RENDER(); } } catch { /* sin conexión: se reintenta en 10 s */ }
+  }, 10_000);
 }
 
 async function loadCodes() {
