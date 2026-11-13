@@ -6,7 +6,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
-- **[Decide el dueño] GaboHub: precios y prueba** (Premium 2.0, etapa 6). Días de prueba (sugerido 15), precio del plan Básico (Bs y US$) y si el Completo sigue en Bs 49 / US$ 5. Se cargan en Revendedores → Ajustes; el cobro queda apagado hasta su «prendé».
+- **[Decide el dueño] GaboHub: plan Básico** (Premium 2.0, etapa 6). Ya puesto: 15 días de prueba (13/11). Falta el precio del plan Básico (Bs y US$); el Completo sigue en Bs 49 / US$ 5 y el cobro apagado hasta su «prendé».
 
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
