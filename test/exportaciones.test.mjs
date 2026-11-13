@@ -14,6 +14,8 @@ import { createApp } from "../dist/server/app.js";
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
 const has = (bin) => existsSync(`/usr/bin/${bin}`);
+// openpyxl no está en la CI de GitHub: ahí se revisa el .xlsx con el lector propio y el texto crudo (el ZIP va sin comprimir).
+const hasOpenpyxl = (() => { if (process.env.GS_TEST_NO_PY) return false; try { execFileSync("python3", ["-I", "-c", "import openpyxl"], { stdio: "ignore" }); return true; } catch { return false; } })();
 const pdfText = (file) => execFileSync("pdftotext", ["-layout", file, "-"], { encoding: "utf8" });
 const pdfPages = (file) => Number(/Pages:\s+(\d+)/.exec(execFileSync("pdfinfo", [file], { encoding: "utf8" }))?.[1]);
 
@@ -132,7 +134,7 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     for (const x of ["Gabriel Store", "70000000", "NOV10", "Dúo", "Beto", "3000", "2500"]) assert.ok(!t3.includes(x), `se filtró ${x} en el de Ana`);
   });
 
-  test("Excel del negocio: 7 hojas con gráficos, filtros y fórmulas; cifras iguales al sistema; el revendedor solo lo suyo; plan Básico 402; sin sesión 401", { skip: !has("python3") && "sin python" }, async () => {
+  test("Excel del negocio: 7 hojas con gráficos, filtros y fórmulas; cifras iguales al sistema; el revendedor solo lo suyo; plan Básico 402; sin sesión 401", async () => {
     const s = app.store;
     // Movimiento real de plata para que el reporte tenga qué sumar: Ana vende a una clienta registrada y la tienda vende directo.
     s.catalog.upsertSupplier(owner, { id: "prov", name: "Proveedor", active: true });
@@ -151,6 +153,18 @@ describe("centro de exportaciones · catálogo de WhatsApp", () => {
     const st = await bin("/api/admin/descargas/reporte.xlsx" + q, ock); assert.equal(st.status, 200); assert.match(st.name, /reporte-gabriel-store-2026-11\.xlsx/);
     const an = await bin("/api/me/descargas/reporte.xlsx" + q, ckA); assert.equal(an.status, 200); assert.match(an.name, /reporte-ana-tv-2026-11\.xlsx/);
     const fS = join(dir, "tienda.xlsx"), fA = join(dir, "ana.xlsx"); writeFileSync(fS, st.buf); writeFileSync(fA, an.buf);
+    const { incomeEvents } = await import("../dist/store/income.js");
+    const ev = incomeEvents(s.engine).filter((x) => x.at >= Date.UTC(2026, 10, 1, 4));
+    // Siempre (con o sin openpyxl): el ZIP va sin comprimir, así que el XML de las hojas se puede buscar como texto.
+    const rawS = st.buf.toString("utf8"), rawA = an.buf.toString("utf8");
+    for (const sh of ["Portada", "Resumen", "Ventas", "Por producto", "Cobros y deudas", "Vencimientos", "Clientes"]) { assert.ok(rawS.includes(`name="${sh}"`), `hoja ${sh} en la tienda`); assert.ok(rawA.includes(`name="${sh}"`), `hoja ${sh} en Ana`); }
+    assert.ok(rawS.includes("Ingresos del período") && rawS.includes("SUM(Ventas!F5:F") && rawS.includes("<c:barChart>") && rawS.includes("<c:pieChart>") && rawS.includes("<autoFilter "), "KPI con fórmula, gráficos y filtro en el de la tienda");
+    assert.ok(!rawS.includes("secreto-nf@x.lat") && !rawS.includes("Clave#"), "sin correos ni claves de cuentas");
+    assert.ok(rawA.includes("Lucía Benítez") && rawA.includes("Vendiste"), "Ana ve su venta");
+    for (const x of ["Directo Pérez", "Beto", "Gabriel Store", "secreto-nf"]) assert.ok(!rawA.includes(x), `Ana ve ${x}`);
+    const { readSheet } = await import("../dist/server/xlsx.js");
+    const portada = readSheet(st.buf); assert.equal(portada[0][0], "Gabriel Store"); assert.ok(portada.some((r) => r[0] === "Ventas" && r[1] === String(ev.filter((x) => x.kind === "sale").length)), "la portada cuenta las ventas del período");
+    if (hasOpenpyxl) {
     const py = `
 import openpyxl, json, sys
 out = {}
@@ -165,8 +179,6 @@ print(json.dumps(out, default=str))`;
     assert.equal(out.tienda.charts.Resumen, 1); assert.equal(out.tienda.charts["Por producto"], 2); assert.match(out.tienda.filters.Ventas, /^A4:H\d+$/);
     assert.deepEqual(out.tienda.kpi1, ["Ingresos del período", "=SUM(Ventas!F5:F6)"], "la portada suma la hoja Ventas con una fórmula");
     // Cifras = sistema: los ingresos de noviembre según income.ts.
-    const { incomeEvents } = await import("../dist/store/income.js");
-    const ev = incomeEvents(s.engine).filter((x) => x.at >= Date.UTC(2026, 10, 1, 4));
     assert.equal(out.tienda.ventas.length, ev.length, "una fila por ingreso");
     assert.equal(out.tienda.ventas.reduce((t, r) => t + r[5], 0), ev.reduce((t, x) => t + x.amount, 0) / 100, "la suma de la columna Monto = ingresos del sistema");
     assert.match(out.tienda.ventasTotal[5], /^=SUM\(F5:F\d+\)$/);
@@ -176,6 +188,7 @@ print(json.dumps(out, default=str))`;
     assert.deepEqual(out.ana.sheets, out.tienda.sheets);
     assert.equal(out.ana.ventas.length, 1); assert.equal(out.ana.ventas[0][1], "Lucía Benítez"); assert.equal(out.ana.ventas[0][4], 45, "vendió a su precio"); assert.equal(out.ana.ventas[0][5], 30, "le pagó a la tienda su costo de revendedor");
     for (const x of ["Directo Pérez", "Beto", "Gabriel Store", "secreto-nf", "2000"]) assert.ok(!out.ana.text.includes(x), `Ana ve ${x}`);
+    }
     // Plan Básico: el Excel es del plan Completo (como Mi control).
     await post("/api/admin/settings", { shopRent: { enabled: true, price: 4900, freeIfSpent: 0, graceDays: 3, scope: "all", trialDays: 0, basicPrice: 2500 } }, ock);
     s.shops.setPlan(AA, ana.id, "basic");

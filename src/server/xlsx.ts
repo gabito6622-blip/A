@@ -598,7 +598,7 @@ export function writeXlsxPro(book: Workbook): Buffer {
     { name: "xl/styles.xml", data: styles.toXml() },
     { name: "docProps/core.xml", data: `${XML_HEAD}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`
       + `${title}${creator}<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>` },
-    { name: "docProps/app.xml", data: `${XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Gabriel Store</Application>${book.creator ? `<Company>${xmlEsc(book.creator)}</Company>` : ""}</Properties>` },
+    { name: "docProps/app.xml", data: `${XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>GaboHub</Application>${book.creator ? `<Company>${xmlEsc(book.creator)}</Company>` : ""}</Properties>` },
     { name: "_rels/.rels", data: relsXml([
       { id: "rId1", type: relType("officeDocument"), target: "xl/workbook.xml" },
       { id: "rId2", type: "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties", target: "docProps/core.xml" },
