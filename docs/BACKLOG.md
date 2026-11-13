@@ -6,7 +6,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
-- **[P1] Respaldos automáticos: la tienda real tiene 0 guardados** (13/11, visto antes de publicar PR #61). `GET /api/admin/backups` devuelve una lista vacía, aunque el respaldo diario debería correr con las tareas. Revisar en los registros de Railway si sale «respaldo falló» y por qué. Antes de publicar se guardó una foto de solo lectura de los datos (alquileres, clientes, cuentas, revendedores, productos, cierre del mes), pero no es un respaldo completo recuperable. No se creó ninguno a mano sin el OK del dueño.
+- **[Decide el dueño] Respaldos: confirmar desde el panel** (13/11). Corrección: la lista vacía que se vio antes de publicar PR #61 era un «FORBIDDEN» (los respaldos son solo del dueño y la llave del asistente no es dueño), no «0 respaldos». El asistente no puede crear, ver ni bajar respaldos; lo hace el dueño en Panel → Herramientas → Configuración → Respaldos («Hacer respaldo ahora», bajarlo y guardarlo en Drive o pendrive). Falta que el dueño confirme cuántos hay y si la copia a Gmail está activa.
 
 - **[Decide el dueño] Subdominios de revendedores** (13/11). Falta: permiso para crear `*.gabostore.lat` en Railway, los registros en Namecheap, «Publicá» y la variable `GS_SHOP_SUBDOMAINS=1`. La página de Daniel (`cus_00717`) está apagada y su nombre es `dani-strem-daniel-quispe-quisp`: para `daniel.gabostore.lat` hay que prenderla y cambiar el nombre a `daniel` (el dueño decide).
 
