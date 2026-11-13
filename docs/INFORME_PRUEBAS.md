@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Cambiar de cuenta» (rama `cambiar-cuenta`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Errores: cuenta de otra plataforma 400 «otra plataforma»; perfil ocupado 409 «no está libre»; el mismo perfil 400 «ya tiene» | `test/cambiar-cuenta.test.mjs` (API) | OK |
+| Cambio real a una cuenta apartada: correo nuevo, vencimiento idéntico (12/12/2026), nota «↔️ fecha: de vieja a nueva · nota anterior», perfil nuevo asignado, viejo apartado, «Reenviar accesos» con el correo nuevo y sin el viejo | misma prueba | OK |
+| Celular 360 px: la tarjeta del Control muestra «↔️ Cambiar de cuenta» solo con cuentas libres de la misma plataforma (no la propia, no las ocupadas); al mover, el alquiler queda en la elegida con la misma fecha; sin desborde ni errores de JS | misma prueba, Playwright | OK |
+| Suite completa | `npm test` | **577 pasan, 0 fallan, 58 s** |
+
 ## 13/11/2026 · Publicación: refresco de códigos + Reenviar accesos + Cobrar (PR #58, squash `576567c`)
 | Qué | Cómo | Resultado |
 |---|---|---|
