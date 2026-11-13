@@ -711,7 +711,21 @@ const V = {
     const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
     const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
-    return `<section class="card ctl-top">
+    // «📲 Fila de envíos» (13/11): después de «Mover todos a otra cuenta», abre el WhatsApp de cada cliente con sus
+    // accesos nuevos, uno tras otro. Nada se manda solo: cada envío es un toque del dueño.
+    const sq = T.sendq;
+    if (sq && !sq.list) sq.list = (await Promise.all(sq.ids.map((id) => api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null)))).filter(Boolean);
+    const sqCard = !sq ? "" : (() => {
+      const n = sq.list.length, cur = sq.list[sq.i], sent = Object.keys(sq.sent).length;
+      return `<section class="card cobra sendq" id="sendq"><h2>📲 Mandar los accesos nuevos <small>${n} cliente${n === 1 ? "" : "s"}${sq.title ? ` · ${esc(sq.title)}` : ""}</small></h2>
+        ${cur ? `<div class="invstep"><div><small class="muted">${sq.i + 1} de ${n}${sent ? ` · ${sent} enviado${sent === 1 ? "" : "s"}` : ""}</small><b>${esc(cur.customerName || "Cliente")}</b><span class="muted">${esc(cur.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(cur.profile)}</span></div>
+          <pre class="cobpre">${esc(cur.message)}</pre>
+          ${cur.passwordPending ? `<p class="muted" style="margin:0">⚠️ Esta cuenta no tiene la contraseña cargada: cargala en Cuentas antes de mandar.</p>` : ""}
+          ${cur.customerPhone ? `<a class="pbtn green big" href="${waLink(cur.customerPhone, cur.message)}" target="_blank" rel="noopener" data-sendqsent="${esc(cur.assignmentId)}">${icon("wa")}Enviar por WhatsApp${sq.sent[cur.assignmentId] ? " ✅" : ""}</a>` : `<span class="pp pp-warn">Sin WhatsApp en su ficha</span><button class="pbtn sm" type="button" data-copy="${esc(cur.message)}">📋 Copiar mensaje</button>`}
+          <div class="inline">${sq.i > 0 ? `<button class="pbtn sm" type="button" data-sendq="prev">◀ Anterior</button>` : ""}<button class="pbtn sm" type="button" data-sendq="next">${sq.i + 1 < n ? "Siguiente ▶" : "Terminar ✓"}</button><button class="pbtn sm" type="button" data-sendq="stop">Cerrar</button></div></div>`
+        : `<p style="margin:0">✅ ¡Listo! Les mandaste los accesos a ${sent} de ${n}.</p><button class="pbtn sm" type="button" data-sendq="stop" style="justify-self:start">Cerrar</button>`}</section>`;
+    })();
+    return `${sqCard}<section class="card ctl-top">
         <div class="ctl-kpis"><div><small>Alquileres</small><b>${view.length}</b></div><div><small>Te pagan</small><b>${bs(sum((r) => r.price))}</b></div>${canReview() ? `<div><small>Costo de esos perfiles (estim.)</small><b>${bs(sum((r) => r.cost))}</b></div><div><small>Ganancia</small><b class="${sum((r) => r.gain) < 0 ? "down" : "up"}">${bs(sum((r) => r.gain))}</b></div>` : ""}<div><small>Pendientes de pago</small><b class="${view.some((r) => r.pay !== "pagado") ? "down" : ""}">${view.filter((r) => r.pay !== "pagado").length}</b></div></div>
         ${(() => { const n30 = rows.filter((r) => r.d >= 0 && r.d <= 30); const proy = n30.reduce((s, r) => s + r.price, 0); const n7 = rows.filter((r) => r.d >= 0 && r.d <= 7).length; return n30.length ? `<div class="proyban"><span>📈 <b>Proyección del mes:</b> si todos renuevan, en los próximos 30 días entran <b>${bs(proy)}</b></span><small class="muted">${n30.length} servicios · ${n7} vencen esta semana</small></div>` : ""; })()}
         ${T.cf === "cobrar" || T.cfrom ? `<div class="pok ${T.cfrom ? "cobroday" : ""}">${T.cf === "cobrar" ? "Mostrando los que tenés que cobrar: vencidos, de hoy y esperando fecha." : `📅 El <b>${fdate(T.cfrom)}</b>: ${view.length === 1 ? "1 servicio vence" : `${view.length} servicios vencen`} · <b>${bs(sum((r) => r.price))}</b> por cobrar${view.length && canReview() ? ` · ganás ${bs(sum((r) => r.gain))}` : ""}.`} <button class="pbtn sm" type="button" data-hgo="control">Ver todos</button></div>` : ""}
@@ -2500,6 +2514,9 @@ async function act(fn, okMsg) {
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("a[data-cobsent]");
   if (a) { (P.tab.cob ??= { on: true, i: 0, sent: {} }).sent[a.dataset.cobsent] = true; setTimeout(render, 300); }
+  // Fila de envíos de accesos: al tocar «Enviar» queda marcado y pasa solo al siguiente.
+  const q = ev.target.closest("a[data-sendqsent]");
+  if (q && P.tab.sendq) { P.tab.sendq.sent[q.dataset.sendqsent] = true; P.tab.sendq.i++; setTimeout(render, 300); }
   const b = ev.target.closest("a[data-invsent]");
   if (b && P.tab.inv?.on) { const inv = P.tab.inv; (inv.sent ??= {})[b.dataset.invsent] = true; inv.i++; setTimeout(render, 300); }
 });
@@ -2707,6 +2724,13 @@ document.addEventListener("click", async (ev) => {
     if (!q.length) return toast("No hay perfiles en cuarentena");
     if (!confirm(`¿Liberar ${q.length} perfil(es) de ${acc.email}? Vuelven a estar disponibles para vender.`)) return;
     return act(async () => { for (const x of q) await api("POST", `/api/admin/slots/${x.id}/status`, { status: "available", note: "Liberado desde Cuentas" }); return q.length; }, (n) => `✅ ${n} perfil(es) liberados`);
+  }
+  if (d.sendq) {
+    const sq = P.tab.sendq;
+    if (!sq || d.sendq === "stop") { delete P.tab.sendq; return render(); }
+    if (d.sendq === "next") sq.i++;
+    if (d.sendq === "prev") sq.i = Math.max(0, sq.i - 1);
+    return render();
   }
   if (d.cob) {
     const cob = (P.tab.cob ??= { on: false, i: 0, sent: {} });
@@ -3318,7 +3342,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.dataset.moveall) {
       const email = f.to.options[f.to.selectedIndex]?.dataset.email ?? "";
       if (!confirm(`¿Pasar ${f.dataset.n} cliente(s) a ${email}? Cada uno conserva su fecha; los perfiles viejos quedan apartados.`)) return;
-      await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Acá están, tocá «Reenviar accesos» en cada uno`);
+      await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; P.tab.sendq = { ids: r.moved.map((m) => m.assignmentId), i: 0, sent: {}, title: `ahora en ${r.to}` }; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Arriba tenés la fila para mandarles los accesos uno por uno`);
     } else if (f.dataset.swapacc) {
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);

@@ -106,6 +106,18 @@ test("mover todos los clientes de un Netflix caído a otra cuenta: mismas fechas
     await page.locator("article", { hasText: "Dani Ficticio" }).first().waitFor({ timeout: 15_000 });
     const fin = (await J("GET", "/api/admin/assignments")).find((x) => x.id === o2.assignmentIds[0]);
     assert.deepEqual([fin.email, fin.profile], ["nf-destino@ejemplo.lat", "Perfil 2"]);
+    // Fila de envíos: arriba del Control, el mensaje con los accesos nuevos y el botón de WhatsApp; al tocarlo pasa al siguiente.
+    const q = page.locator("#sendq");
+    await q.waitFor();
+    assert.match(await q.innerText(), /1 de 1[\s\S]*Dani Ficticio[\s\S]*nf-destino@ejemplo\.lat[\s\S]*2222/, "mensaje con correo y PIN nuevos");
+    const href = await q.locator("a[data-sendqsent]").getAttribute("href");
+    assert.match(href, /^https:\/\/wa\.me\/59160000011\?text=/);
+    assert.match(decodeURIComponent(href), /nf-destino@ejemplo\.lat/);
+    await page.route(/wa\.me|whatsapp\.com/, (r) => r.abort());
+    await page.evaluate(() => { const a = document.querySelector("#sendq a[data-sendqsent]"); a.removeAttribute("target"); a.addEventListener("click", (e) => e.preventDefault()); a.click(); });
+    await page.locator("#sendq", { hasText: "¡Listo! Les mandaste los accesos a 1 de 1" }).waitFor({ timeout: 8000 });
+    await q.getByRole("button", { name: "Cerrar" }).click();
+    await page.waitForFunction(() => !document.querySelector("#sendq"));
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 360), "sin desborde");
     assert.deepEqual(errs, []);
   } finally {
