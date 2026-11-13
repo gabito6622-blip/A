@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| API: 6 asistentes; `pendientes` con los conteos de la secretaria (1 clave por cambiar); la línea de tiempo trae «Aprobaste el pago de Ana (Netflix Premium)» y «Vendiste Netflix Premium a Ana»; ningún texto con apellido, clave, correo, número de operación ni costo | `test/oficina-2.test.mjs` (servidor en puerto efímero, datos ficticios) | OK (la primera versión del filtro buscaba «2000» en todo el JSON y lo encontraba dentro de una fecha; se acotó a los textos) |
+| Navegador a 360 px, claro y oscuro: 6 escritorios, 6 anillos con avatar, 6 monitores, línea de tiempo con eventos, «Para hoy», ticker; sin desborde; botones de 44 px; letra ≥ 12 px; los 6 globitos ≥ 4,5:1 | misma prueba, Playwright | OK (encontró que el ticker en una sola línea ensanchaba la página a 551 px: se acotó `#ofRoot` y las columnas con `minmax(0,1fr)`) |
+| La prueba anterior de la oficina (7 pruebas: arranque, permisos, Rocío, Wali, Vico/Coco, privacidad de lo anotado, navegador) | `test/oficina.test.mjs` | OK sin cambios |
+| Revisión visual | capturas a 360 px con datos de ejemplo (fuera del repo) | OK: el monitor salía aplastado (`span` en línea) y el puesto se cortaba «comprobante s»; corregidos |
+| Tanda completa | `npm test` | **516/516** en ~57 s |
+
 ## 12/11/2026 · Premium 2.0 · Etapa 6 «GaboHub alquilable»
 | Qué | Cómo | Resultado |
 |---|---|---|

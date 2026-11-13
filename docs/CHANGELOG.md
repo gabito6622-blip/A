@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Premium 2.0 · Etapa 7 «Mi Oficina 2.0» (rama `premium-2.0`, sin publicar)
+- **Sala nueva (Propuesta 1 «Oficina nocturna», la aprobada):** ventanas con el cielo de La Paz según la hora, reloj, ticker «EN VIVO» con lo último que pasó, y 6 escritorios con avatar vectorial propio dentro de un anillo que cambia según el estado (cian trabajando, violeta esperando, rojo alerta, gris dormido), monitor que «corre» cuando trabaja, globito con lo último que hizo, contador «hoy» y pastilla de estado. Mismos 6: Rocío, Wali, Dani, Vico, Coco y Tito. Tocar uno sigue abriendo su detalle con prender/apagar (solo el dueño).
+- **Línea de tiempo (de la Propuesta 2):** «Lo que pasó hoy» en orden, con hora y quién; si hoy no pasó nada, lo último de la semana.
+- **Más eventos reales:** además de lo de los asistentes, entra **lo que hizo el dueño** desde la auditoría que ya existe: «Aprobaste el pago de Ana (Netflix)», «Rechazaste un pago de…», «Vendiste … a …», «Cambiaste la clave de una cuenta de …». Solo primer nombre y plataforma; nunca apellidos, correos, montos de costo, claves ni números de operación.
+- **«Para hoy»:** tarjeta con los conteos de Mi secretaria (cobrar, cortar, vencidas sin anotar, avisar, claves por cambiar, desenlazar) y el botón para abrirla. **«Claude este mes»** con barra de uso (solo el dueño).
+- **Colores de `tema.css`** (la sala es una escena: siempre oscura, también en tema claro); celular primero: 2 escritorios por fila, 3 desde 640 px; animaciones moderadas y apagadas con «menos movimiento».
+- `GET /api/admin/office`: `pendientes` (conteos) y eventos `a: "owner"` en `feed`. **Prueba nueva `test/oficina-2.test.mjs`** (2 pruebas); la prueba anterior de la oficina sigue igual.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 6 «GaboHub alquilable» (rama `premium-2.0`, sin publicar; el cobro sigue APAGADO)
 - **Prueba gratis de N días** (`shopRent.trialDays`, 0 a 90; sugerido 15): cuando el dueño prende el cobro, cada revendedor que nunca pagó arranca con esos días gratis (no se le descuenta nada); el primer cobro es al terminar. En su Inicio ve «🎁 Prueba gratis de GaboHub hasta el dd/mm». Auditoría `reseller.hub_trial`.
 - **Dos planes:** Completo (todo) y Básico (`shopRent.basicPrice` / `basicPriceUsd`; sin precio Básico = un solo plan). El Básico incluye comprar, sus cuentas, códigos, recargar y vender; **no** incluye Mi control, Quién me debe, Mis ganancias ni Afiches (el servidor responde `402 HUB_PLAN` y la pantalla ofrece «Pasar al Completo»). El revendedor cambia su plan desde su Inicio (`POST /api/me/hub/plan`); el dueño, desde la tarjeta del revendedor (`POST /api/admin/resellers/:id/plan`). Sin prorrateo: el precio nuevo rige desde el próximo cobro; pasar al Completo destraba al instante. Auditoría `reseller.hub_plan`.

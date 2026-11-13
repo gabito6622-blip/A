@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Premium 2.0 · Etapa 7: la oficina cuenta el día entero, sin inventar
+- **Lo que hizo el dueño entra a la línea de tiempo:** la queja era «solo 6 eventos». En vez de inventar actividad para los asistentes, se lee la auditoría que ya existe (aprobar, rechazar, vender, cambiar clave). Es real y ya estaba guardado.
+- **La sala siempre es oscura:** es una escena (Propuesta 1 aprobada), no una pantalla de formularios; en tema claro también se ve de noche, y lo de abajo (detalle, línea de tiempo, Para hoy) sí sigue al tema del panel.
+- **Avatares vectoriales en vez del pixel art:** los 6 se mantienen con su nombre, puesto, rasgos y colores (ahora de la paleta Premium); el estado se lee en el anillo y el monitor, no solo en el texto.
+- **«Para hoy» reutiliza la secretaria:** son los mismos conteos (sin volver a calcular reglas); el detalle vive en Mi secretaria.
+
 ## 2026-11-12 · Premium 2.0 · Etapa 6: planes sin tocar lo que ya cobra
 - **La prueba gratis es para quien nunca pagó, no solo para los nuevos:** cuando el dueño prenda el cobro, sus revendedores de hoy (ARIt, rodbol, Paraguay…) arrancan con 15 días gratis en vez de un descuento sorpresa. Es la forma menos agresiva de empezar a cobrar; si el dueño prefiere cobrar desde el día uno, pone 0 días.
 - **El Básico se define por lo que NO incluye:** las mismas cuatro herramientas que ya se pausan por falta de pago (Mi control, Quién me debe, Mis ganancias, Afiches). Así no hay que inventar permisos nuevos: se reutiliza el candado que existe, con otro mensaje y otro botón.
