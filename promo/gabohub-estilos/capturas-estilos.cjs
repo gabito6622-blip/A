@@ -5,6 +5,7 @@ const { chromium } = require("playwright");
 const path = require("path");
 const fs = require("fs");
 const B = process.env.BASE || "http://localhost:8091";
+const sinPrecios = require("./sin-precios.cjs");   // el video no muestra precios ni stock
 const OUT = path.join(__dirname, "assets/estilos");
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -26,6 +27,7 @@ fs.mkdirSync(OUT, { recursive: true });
     // carga las imágenes de abajo y vuelve arriba
     for (let y = 0; y < 3000; y += 600) { await p.evaluate((y) => window.scrollTo(0, y), y); await p.waitForTimeout(80); }
     await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(500);
+    await p.evaluate(sinPrecios);
     await p.screenshot({ path: path.join(OUT, `${t.id}-arriba.jpg`), type: "jpeg", quality: 86 });
     const y = await p.evaluate(() => { const h = [...document.querySelectorAll("h2")].find((e) => /catálogo/i.test(e.textContent)); return h ? h.getBoundingClientRect().top + window.scrollY - 30 : 1100; });
     await p.evaluate((y) => window.scrollTo(0, y), y); await p.waitForTimeout(600);

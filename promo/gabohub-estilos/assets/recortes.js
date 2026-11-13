@@ -37,7 +37,7 @@ window.CUTS = {
  },
  "logo": {
   "x": 24,
-  "y": 6551,
+  "y": 6658,
   "w": 342,
   "h": 728
  },
@@ -59,7 +59,7 @@ window.CUTS = {
   "w": 97,
   "h": 44
  },
- "mensaje": "Hola Sergio, tu Disney+ con ESPN venció el 12/11/2026. La renovación es Bs 40. ¿Lo renovamos? 🙌",
+ "mensaje": "Hola Sergio, tu Disney+ con ESPN venció el 12/11/2026. ¿Lo renovamos? 🙌",
  "descuentos": {
   "x": 24,
   "y": 470,

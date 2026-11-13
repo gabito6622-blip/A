@@ -3,7 +3,9 @@
 Vertical 1080×1920, 30 fps, 48,6 s, voz en off (Marco, ElevenLabs Eleven v4), subtítulos y música original
 (house de pasarela, 120 BPM). Archivo final: `desfile-de-estilos.mp4` (portada: `portada.jpg`).
 
-**No habla de comprar ni de precios de compra:** muestra lo que el revendedor puede hacer con su tienda y su panel.
+**No muestra precios ni stock de la tienda:** en cada tarjeta dice «Tu precio» (el revendedor pone el suyo), los cupones
+van en porcentaje y el mensaje de WhatsApp sale sin monto (`sin-precios.cjs` se aplica en cada captura). Tampoco habla de
+comprar: muestra lo que el revendedor puede hacer con su tienda y su panel.
 
 ## Guion
 

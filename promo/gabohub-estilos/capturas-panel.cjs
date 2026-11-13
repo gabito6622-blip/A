@@ -5,6 +5,7 @@ const { chromium } = require("playwright");
 const path = require("path");
 const fs = require("fs");
 const B = process.env.BASE || "http://localhost:8091";
+const sinPrecios = require("./sin-precios.cjs");   // el video no muestra precios ni stock
 const OUT = path.join(__dirname, "assets");
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -40,7 +41,9 @@ const has = (sel, txt) => `[...document.querySelectorAll(${JSON.stringify(sel)})
     const p = await ctx.newPage();
     await p.goto(B + url); await p.waitForTimeout(1600);
     if (tab) { await p.click(`[data-rtab=${tab}]`); await p.waitForTimeout(1200); }
-    await p.evaluate(prep); await p.waitForTimeout(200);
+    await p.evaluate(prep);
+    if (url !== "/#clientes" || tab) await p.evaluate(sinPrecios);   // en «Clientes y ventas» no hay precios de productos
+    await p.waitForTimeout(200);
     return p;
   };
   const shot = async (p, name, h) => {
@@ -68,7 +71,8 @@ const has = (sel, txt) => `[...document.querySelectorAll(${JSON.stringify(sel)})
   cuts.vence = await boxBy(p, `() => [...document.querySelectorAll("#sout a")].find((a) => a.textContent.includes("Avisarle"))?.closest(".svc")`);
   cuts.avisar = await boxBy(p, `() => [...document.querySelectorAll("#sout a")].find((a) => a.textContent.includes("Avisarle"))`);
   const href = await p.evaluate(() => [...document.querySelectorAll("#sout a")].find((a) => a.textContent.includes("Avisarle"))?.href || "");
-  cuts.mensaje = decodeURIComponent((href.split("text=")[1] || "").replace(/\+/g, " "));
+  // el mensaje real de «Avisarle»; sin la frase del precio (así lo arma GaboHub cuando el revendedor no cargó precio)
+  cuts.mensaje = decodeURIComponent((href.split("text=")[1] || "").replace(/\+/g, " ")).replace(/ La renovación es Bs\s?[\d.,]+\./, "");
   await shot(p, "clientes", 3000); await p.close();
 
   // combos y descuentos
