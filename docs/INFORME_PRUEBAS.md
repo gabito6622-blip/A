@@ -1,5 +1,17 @@
 # Informe de pruebas
 
+## 13/11/2026 · Subdominios de revendedores (rama `subdominios`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| `daniel.gabostore.lat/` responde 200 con la página de Daniel, `<meta name="gs-shop">` y link de vista previa del subdominio; mayúsculas y `:443` no lo rompen | `test/subdominios.test.mjs` (host falso, datos ficticios) | pasa |
+| `shop.js` y `/api/shops/daniel` desde el subdominio; la API pública no muestra costos | ídem | pasa |
+| Subdominio desconocido, de página apagada, reservado (api, panel), con dos niveles o mal escrito → 302 a `https://gabostore.lat/` | ídem | pasa |
+| Dominio principal, www y `/r/daniel` sin cambios; `test/dominio.test.mjs` sigue pasando | ídem | pasa |
+| `shopDomain` solo con el interruptor y dominio propio (no con la dirección de Railway) | ídem | pasa |
+| Celular 360 px: `daniel.gabostore.lat` abre «Daniel TV» con Netflix, sin errores, y la dirección queda en `/` | Playwright con el nombre apuntado a la máquina local | pasa |
+| Suite completa | `npm test` | **586 pasan, 0 fallan, 57 s** |
+| No probado | El comodín real en Railway y Namecheap (falta crearlo) | pendiente |
+
 ## 13/11/2026 · «Mover todos a otra cuenta» (rama `mover-cuenta-completa`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

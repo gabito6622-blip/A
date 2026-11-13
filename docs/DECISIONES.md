@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Subdominios de revendedores: servir la página, no redirigir
+- **Qué se decidió:** `daniel.gabostore.lat` muestra la página directamente (por dentro, la misma ruta `/r/daniel`) en vez de mandar a `gabostore.lat/r/daniel`.
+- **Por qué:** si redirige, el cliente ve la dirección larga y la vista previa de WhatsApp queda con el link largo.
+- **Interruptor aparte (`GS_SHOP_SUBDOMAINS=1`) para mostrar el link nuevo:** el código puede publicarse antes de que el DNS y el certificado del comodín estén listos; mientras tanto nadie recibe un link que todavía no abre.
+- **Subdominio desconocido → portada de la tienda** (no un error): quien escribe mal el nombre igual llega a Gabriel Store.
+- **Descartado:** cargar un dominio por revendedor a mano en Railway (26 revendedores = 26 dominios y 26 certificados); el comodín sirve para todos.
+
 ## 2026-11-13 · Tres niveles de GaboHub, cortados por «lo que vende» y «lo que ahorra trabajo»
 - **Qué se decidió:** Gratis / Vendedor (Bs 28) / Negocio (Bs 49). El dueño preguntó si Básico/Completo estaba bien cortado o hacían falta tres; aprobó los tres («Ok»).
 - **Por qué:** lo que hace que el revendedor **venda más** (y le compre más a la tienda) conviene regalarlo o cobrarlo barato: comprar, catálogo, su página. Lo que le **ahorra horas de administración** (Mi día, Mi control, Quién me debe, Ganancias, Excel, Tito) es lo que de verdad vale una cuota. Además, el «pausado por falta de pago» ya era un plan gratis de hecho: ahora se llama así y no asusta.

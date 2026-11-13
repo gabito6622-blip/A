@@ -2,6 +2,11 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## En curso — Subdominios de revendedores (13/11)
+- ✅ Código y pruebas (rama `subdominios`, sin publicar).
+- ⏳ Agregar `*.gabostore.lat` en Railway (necesita el permiso del dueño) y los registros que Railway pida en Namecheap.
+- ⏳ Con el candado listo: publicar (con «Publicá») y poner `GS_SHOP_SUBDOMAINS=1`.
+
 ## Publicado — 📁 Mis descargas: Centro de exportaciones (13/11, PR #55, con el «Publica» del dueño)
 - ✅ Catálogo para WhatsApp (copiar todo / una categoría / abrir WhatsApp), catálogo PDF Premium y Clásico, Excel del negocio con gráficos; para la tienda y para cada revendedor con su marca y sus precios. Verificado en la tienda real (ver INFORME_PRUEBAS).
 - ✅ 13/11 (PR #56): logos de las apps en el PDF, botón «📄 Catálogo en PDF» público en la tienda y en cada página de revendedor, y «Promos y combos» con «Ahorrás Bs X» calculado.

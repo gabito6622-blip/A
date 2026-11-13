@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Revendedores: su página en su propio subdominio (daniel.gabostore.lat) (**sin publicar**, rama `subdominios`)
+- **Por qué:** el dueño pidió «daniel.gabostore.lat … para que los revendedores estén cómodos»: un link corto y con su nombre es más fácil de pasar por WhatsApp que `gabostore.lat/r/dani-strem-…`.
+- **Qué hay ahora:** `<nombre>.gabostore.lat` muestra la misma página que `/r/<nombre>` sin cambiar la dirección (la vista previa de WhatsApp también dice el subdominio). Si el nombre no es de una página publicada, está apagada o es reservado (api, panel, hub, www, mail…), lleva a la portada de la tienda. `/r/<nombre>` sigue andando igual.
+- **Link que ve el revendedor:** «Tu dirección», «Copiar link», «Compartir», «Abrir» y el afiche usan el subdominio **solo** con `GS_SHOP_SUBDOMAINS=1` en Railway; sin esa variable siguen mostrando `/r/<nombre>`. Se prende cuando el comodín `*.gabostore.lat` tenga DNS y candado.
+- Servidor: `domainRedirect` reescribe `/` del subdominio a `/r/<nombre>` y la página lleva `<meta name="gs-shop">`; `/api/settings` manda `shopDomain`. Lista de nombres reservados ampliada.
+- Prueba nueva `test/subdominios.test.mjs` (7).
+
 ## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**sin publicar**, rama `mover-cuenta-completa`)
 - **Por qué:** «se me cayó un Netflix y hoy tengo que reemplazar a toditos». «Cambiar de cuenta» mueve de a un cliente; con 5 perfiles son 5 vueltas.
 - **Qué hay ahora:** en la tarjeta de la cuenta (Inventario → Cuentas), «↔️ Mover todos a otra cuenta (N)»: lista solo las cuentas de la misma plataforma con N perfiles libres o apartados; «Mover N · mismas fechas» pide confirmación y pasa a todos de una vez. Cada cliente conserva su fecha; si el perfil nuevo se llama igual (Perfil 1 → Perfil 1) se respeta, si no va al primero libre; los perfiles viejos quedan apartados; cada Control recibe la nota «↔️ fecha: de vieja a nueva». Todo o nada: si no alcanzan los perfiles, no se mueve nadie. Al terminar, el panel abre el Control filtrado por la cuenta nueva para tocar «📲 Reenviar accesos» a cada uno.
