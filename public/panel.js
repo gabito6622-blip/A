@@ -637,8 +637,11 @@ const V = {
   },
 
   async control() {
-    const [list, customers] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => [])]);
+    const [list, customers, accsAll] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([])]);
     const T = P.tab;
+    // «↔️ Cambiar de cuenta»: perfiles libres (o apartados) de otras cuentas activas de la misma plataforma, para pasar al cliente con la misma fecha.
+    const freeSlotsFor = (r) => accsAll.filter((a) => a.productId === r.productId && a.status === "active" && a.email !== r.email).flatMap((a) => (a.slots ?? []).filter((s) => ["available", "quarantined"].includes(s.status)).map((s) => ({ id: s.id, email: a.email, label: s.label, q: s.status === "quarantined" })));
+    const swapForm = (r) => { const opts = freeSlotsFor(r); return !canReview() ? "" : `<details class="more"><summary>↔️ Cambiar de cuenta</summary>${opts.length ? `<form class="inline" data-swapacc="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlo a…</option>${opts.map((o) => `<option value="${esc(o.id)}">${esc(o.email)}${o.label && !/completa/i.test(o.label) ? ` · ${esc(o.label)}` : ""}${o.q ? " (apartada)" : ""}</option>`).join("")}</select><input name="reason" placeholder="Motivo (ej.: cuenta renovada)" value="Reemplazo de cuenta"><button class="pbtn sm dark" type="submit">Mover · misma fecha</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(r))} con perfil libre.</p>`}</details>`; };
     const DAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
     const estado = (d, hold) => (hold ? ["ESPERANDO FECHA", "hold"] : d < 0 ? ["VENCIDO", "bad"] : d === 0 ? ["VENCE HOY", "today"] : d <= 3 ? ["POR VENCER", "warn"] : d <= 7 ? ["SEMANA", "week"] : ["ACTIVO", "ok"]);
     const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -753,6 +756,7 @@ const V = {
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
           <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
+          ${swapForm(r)}
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
           ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real: se libera el perfil y sale de tus números">🧪 Era una prueba</button>` : ""}
           ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
@@ -784,7 +788,7 @@ const V = {
             ${dlvBtn(r)}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
             <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
-            ${canReview() ? transferForm(r) : ""}</td></tr>`;
+            ${canReview() ? transferForm(r) : ""}${swapForm(r)}</td></tr>`;
         }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
         </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
         <p class="muted" style="margin:0">Como en Excel: tocá un <b>título</b> para ordenar (otra vez, al revés), escribí en <b>🔍 filtrar</b> debajo de cada título, y con <b>🧱 Columnas</b> escondés las que no usás. WhatsApp, perfil, vencimiento, precio, costo, pago, revendedor y nota se guardan solos al salir de la casilla. La fila azul de abajo suma lo que estás viendo.</p></section>`;
@@ -3299,6 +3303,9 @@ document.addEventListener("submit", async (ev) => {
       const result = await api("POST", "/api/admin/import/customers", { contentBase64: b64, dryRun: true });
       P.tab.import = { b64, result };
       await render();
+    } else if (f.dataset.swapacc) {
+      const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
+      await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);
     } else if (f.dataset.transfer) {
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value }), "Servicio transferido: misma fecha y mismo perfil");
     } else if (f.dataset.renewpaid) {

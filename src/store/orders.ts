@@ -7,7 +7,7 @@
 //                ├─ balance ─► (débito del saldo) ─► fulfilled
 //                └─ cash (solo staff) ─────────────► fulfilled
 // Un comprobante NO es un pago: solo un revisor con `payment.review` confirma la referencia bancaria.
-import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, RentalControl, StaffAlertSettings } from "./types.js";
+import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, RentalControl, Slot, StaffAlertSettings } from "./types.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, HOUR } from "./time.js";
@@ -636,6 +636,8 @@ export interface ReplaceInput {
   oldSlot?: "quarantined" | "available" | "retired";
   /** Buscar el reemplazo en OTRA cuenta (p. ej. si la cuenta se cayó). */
   otherAccount?: boolean;
+  /** Pasarlo a ESTE perfil (elegido por el dueño): tiene que ser del mismo producto y estar libre (disponible o apartado). */
+  toSlotId?: Id;
 }
 
 export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, input: ReplaceInput): Assignment {
@@ -645,13 +647,28 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
     const a = e.get("assignments", assignmentId);
     if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se reemplazan servicios activos");
     const old = e.get("slots", a.slotId);
-    const [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : []);
+    let fresh: Slot;
+    if (input.toSlotId) {
+      // Cuenta elegida a mano (13/11: «Cambiar de cuenta» en el Control). Vale un perfil libre o apartado de una cuenta activa del mismo producto.
+      fresh = e.get("slots", input.toSlotId);
+      const acc = e.s.accounts[fresh.accountId];
+      if (fresh.id === old.id) throw new DomainError("VALIDATION", "Ese es el perfil que ya tiene");
+      if (fresh.productId !== a.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
+      if (!["available", "quarantined"].includes(fresh.status) || Object.values(e.s.assignments).some((x) => x.status === "active" && x.slotId === fresh.id)) throw new DomainError("INVALID_STATE", "Ese perfil no está libre");
+      if (!acc || acc.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+    } else {
+      [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : []);
+    }
     fresh.status = "assigned";
     delete fresh.reservedUntil;
     old.status = input.oldSlot ?? "quarantined";
     delete old.reservedByOrder;
     a.slotId = fresh.id; // el vencimiento del cliente se conserva
     a.history.push({ at: e.now(), by: actor.id, event: "replaced", slotId: fresh.id, note: `${input.reason} (antes ${old.id})` });
+    // Queda anotado en la nota del Control (la lee Mi secretaria): de qué correo a cuál y cuándo.
+    const oldMail = e.s.accounts[old.accountId]?.email ?? old.id, newMail = e.s.accounts[fresh.accountId]?.email ?? fresh.id;
+    const tag = `↔️ ${fdate(e.now())}: de ${oldMail} a ${newMail}`;
+    a.control = { ...(a.control ?? {}), note: `${tag}${a.control?.note ? ` · ${a.control.note}` : ""}`.slice(0, 300) };
     queue(e, a.customerId, "replacement_done", { product: e.s.products[a.productId].name });
     e.audit(actor, "assignment.replace", "assignment", a.id, { from: old.id, to: fresh.id, reason: input.reason });
     return pubAssignment(a);
