@@ -4,6 +4,7 @@ Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
 ## Publicado — 📁 Mis descargas: Centro de exportaciones (13/11, PR #55, con el «Publica» del dueño)
 - ✅ Catálogo para WhatsApp (copiar todo / una categoría / abrir WhatsApp), catálogo PDF Premium y Clásico, Excel del negocio con gráficos; para la tienda y para cada revendedor con su marca y sus precios. Verificado en la tienda real (ver INFORME_PRUEBAS).
+- ✅ 13/11 (PR #56): logos de las apps en el PDF, botón «📄 Catálogo en PDF» público en la tienda y en cada página de revendedor, y «Promos y combos» con «Ahorrás Bs X» calculado.
 - ⏳ Después: QR propio dentro del PDF; afiche de un solo producto; que el Excel incluya el detalle de perfiles repartidos cobrados (hoy no se registran cobros por perfil).
 
 ## En curso — El revendedor tiene lo mismo que el dueño, con fórmulas (13/11)
