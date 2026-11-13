@@ -773,6 +773,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* Aviso de contraste al elegir colores (página del revendedor) */
 .lookwarn{border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.4;color:var(--s-ink)}
 .lookwarn:empty{display:none}
+.slugprev{display:block;margin-top:6px;font-size:13px;font-weight:500;line-height:1.4;color:var(--s-soft,inherit);word-break:break-all}
 .lookwarn.ok{background:color-mix(in srgb,var(--s-ok) 14%,var(--s-card))}
 .lookwarn.warn{background:color-mix(in srgb,var(--s-warn) 22%,var(--s-card));border:1px solid color-mix(in srgb,var(--s-warn) 55%,transparent)}
 

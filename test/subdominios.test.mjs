@@ -107,3 +107,37 @@ test("en el celular, daniel.gabostore.lat abre la tienda de Daniel con sus produ
     assert.deepEqual(errs, []);
   } finally { await b.close(); await s.stop(); }
 });
+
+test("en su panel, el revendedor elige su nombre y ve al instante cómo le queda el link", { skip: !chromium && "Playwright no está instalado", timeout: 120_000 }, async () => {
+  const s = await boot({ publicOrigin: "https://gabostore.lat", shopSubdomains: true });
+  s.app.bootstrapOwner("gabriel", "Gabriel", "clave-del-dueño-123");
+  const dani = Object.values(s.app.store.engine.s.customers).find((c) => c.shop?.slug === "daniel");
+  const base = `http://127.0.0.1:${s.port}`;
+  const b = await chromium.launch();
+  try {
+    const post = (p, body, ck) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json", ...(ck ? { cookie: ck } : {}) }, body: JSON.stringify(body) });
+    const ock = (await post("/api/auth/staff/login", { username: "gabriel", password: "clave-del-dueño-123" })).headers.get("set-cookie").split(";")[0];
+    const { pin } = await (await post(`/api/admin/customers/${dani.id}/login-pin`, {}, ock)).json();
+    const rck = (await post("/api/auth/customer/pin", { phone: dani.phone, pin })).headers.get("set-cookie").split(";")[0];
+    const ctx = await b.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true });
+    await ctx.route(/wa\.me|whatsapp\.com|fonts\.(googleapis|gstatic)/, (r) => r.abort());
+    await ctx.addInitScript((id) => { try { localStorage.setItem("gs-guide-" + id, "1"); } catch { /* sin almacenamiento */ } }, dani.id);
+    const [n, v] = rck.split("="); await ctx.addCookies([{ name: n, value: v, url: base }]);
+    const page = await ctx.newPage(); const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+    await page.goto(base + "/hub#clientes");
+    await page.locator(".rtabs").waitFor();
+    if (await page.locator('[data-rtab="pagina"]').count()) await page.locator('[data-rtab="pagina"]').click();
+    else { await page.locator('.bnav [data-s="mas"]').click(); await page.locator("#sout [data-gopage]").first().click(); }
+    const slug = page.locator('#shopForm input[name="slug"]');
+    await slug.waitFor();
+    assert.match(await page.locator("#shopForm").innerText(), /lo que va antes de \.gabostore\.lat/);
+    assert.match(await page.locator("#slugPrev b").innerText(), /^https:\/\/daniel\.gabostore\.lat$/);
+    await slug.fill(""); await slug.pressSequentially("Dani Strem");
+    assert.equal(await slug.inputValue(), "dani-strem", "minúsculas y guiones solos");
+    assert.equal(await page.locator("#slugPrev b").innerText(), "https://dani-strem.gabostore.lat");
+    const fs = await page.locator("#slugPrev").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    assert.ok(fs >= 12, `letra de ${fs}px`);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
+    assert.deepEqual(errs, []);
+  } finally { await b.close(); await s.stop(); }
+});

@@ -71,11 +71,14 @@ const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>$
 /** Valor para <input type="date"> con la fecha local (con toISOString se corría un día en Bolivia). */
 const dateInput = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+/** Link de la página de un revendedor: con subdominios prendidos, https://daniel.gabostore.lat; si no, …/r/daniel. */
+const shopLink = (slug, origin = location.origin) => (P.settings?.shopDomain ? `https://${slug}.${P.settings.shopDomain}` : `${origin}/r/${slug}`);
+
 /** Link de acceso + página + mensaje de WhatsApp para un revendedor. */
 async function resellerKit(id, name, phone, slug, pinIn) {
   const pin = pinIn ?? (await api("POST", `/api/admin/customers/${id}/login-pin`, {})).pin;
   const plat = P.settings?.platformName || "GaboHub";
-  const page = slug ? `${location.origin}/r/${slug}` : "";
+  const page = slug ? shopLink(slug) : "";
   const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/hub\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
@@ -86,7 +89,7 @@ async function resellerKit(id, name, phone, slug, pinIn) {
 /** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
 function guideMsg(name, plat, origin, slug, pageAllowed) {
   const n = (name || "").split(" ")[0] || "";
-  const page = pageAllowed && slug ? `${origin}/r/${slug}` : "";
+  const page = pageAllowed && slug ? shopLink(slug, origin) : "";
   return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
     + `*1) Cómo entrar*\n`
     + `• Entrá a: ${origin}/hub\n`
@@ -1316,7 +1319,7 @@ const V = {
       <section class="card"><h2>Páginas de revendedores</h2>
         <p class="muted" style="margin:0">Cada revendedor puede armar su propia página (<code>/r/su-nombre</code>) con su logo, colores, letras y precios. Sus clientes le piden por WhatsApp a él. Si alguna página tiene algo que no te gusta, bloqueala.</p>
         <label class="chk"><input type="checkbox" id="resellerShops" ${s.resellerShops ? "checked" : ""} ${isOwner() ? "" : "disabled"}> Permitir que los revendedores publiquen su página</label>
-        ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="/r/${esc(x.slug)}" target="_blank" rel="noopener">/r/${esc(x.slug)}</a><br><small class="muted">${esc(x.title)}</small></td>
+        ${shops.length ? table(["Revendedor", "Página", "Estado", ""], shops.map((x) => `<tr><td>${esc(x.name)}</td><td><a href="${esc(shopLink(x.slug))}" target="_blank" rel="noopener">${esc(P.settings?.shopDomain ? `${x.slug}.${P.settings.shopDomain}` : `/r/${x.slug}`)}</a><br><small class="muted">${esc(x.title)}</small></td>
           <td>${x.blocked ? pill("Bloqueada", "bad") : x.enabled ? pill("Publicada", "ok") : pill("Apagada", "mute")}</td>
           <td><div class="inline"><button class="pbtn sm" type="button" data-shopfeat="${esc(x.customerId)}" data-on="${x.featured ? 0 : 1}">${x.featured ? "★ Quitar destacada" : "☆ Destacar"}</button><button class="pbtn sm" type="button" data-shopblock="${esc(x.customerId)}" data-on="${x.blocked ? 0 : 1}">${x.blocked ? "Desbloquear" : "Bloquear"}</button></div></td></tr>`)) : `<div class="emptybox">Ningún revendedor armó su página todavía.</div>`}</section>
       <section class="card"><h2>Opiniones de revendedores <small>· ${testis.length}/12</small></h2>
@@ -1487,7 +1490,7 @@ const V = {
         ${dormido(r) && r.phone ? `<a class="pbtn sm" href="${waLink(r.phone, `¡Hola ${r.name.split(" ")[0]}! 👋 ¿Cómo vas? ¿Te ayudo a arrancar con algo? Escribime y te paso los precios de hoy 🙌`)}" target="_blank" rel="noopener">💬 Escribirle para reactivarlo</a>` : ""}
         ${topCard(r)}
         ${rent?.scope === "all" ? `<label class="chk rplan">Plan GaboHub <select data-hubplan="${esc(r.id)}" aria-label="Plan de ${esc(r.name)}"><option value="business" ${r.plan === "business" ? "selected" : ""}>Negocio · ${bs(rent.price)}</option><option value="seller" ${r.plan === "seller" ? "selected" : ""}>Vendedor · ${bs(rent.sellerPrice ?? rent.basicPrice ?? rent.price)}</option><option value="free" ${r.plan === "free" ? "selected" : ""}>Gratis · ${bs(0)}</option></select>${r.shop?.trial ? pill("🎁 en prueba", "ok") : r.planToday && r.planToday !== r.plan ? pill(`hoy ${r.planToday === "free" ? "Gratis (sin pagar)" : r.planToday === "business" ? "Negocio" : "Vendedor"}`, "warn") : ""}</label>` : r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}
-        ${r.pageAllowed ? `<div class="linkbar sm"><a href="/r/${esc(r.shop.slug)}" target="_blank" rel="noopener">${esc(o.replace(/^https?:\/\//, ""))}/r/${esc(r.shop.slug)}</a><button class="pbtn sm" type="button" data-copy="${esc(o)}/r/${esc(r.shop.slug)}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
+        ${r.pageAllowed ? `<div class="linkbar sm"><a href="${esc(shopLink(r.shop.slug, o))}" target="_blank" rel="noopener">${esc(shopLink(r.shop.slug, o).replace(/^https?:\/\//, ""))}</a><button class="pbtn sm" type="button" data-copy="${esc(shopLink(r.shop.slug, o))}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>

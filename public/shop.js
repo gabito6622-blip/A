@@ -1696,6 +1696,15 @@ const p_dur = (list) => { const d = [...new Set(list.map((p) => p.durationDays))
 /* ---------- Editor de la página propia del revendedor ---------- */
 const LOOK_FIELDS = ["accentColor", "accent2Color", "backgroundColor", "bgStyle", "cardStyle", "fontFamily", "headingFont", "corners", "layout",
   "heroTitle", "heroHighlight", "heroText", "heroChip", "heroTicks", "announcement", "footerText", "instagram", "tiktok", "facebook"];
+// Mientras el revendedor escribe su dirección, ve cómo le queda el link (en minúsculas y sin espacios).
+document.addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (el?.name !== "slug" || el.form?.id !== "shopForm") return;
+  const v = el.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  if (v !== el.value) el.value = v;
+  const b = document.querySelector("#slugPrev b");
+  if (b) b.textContent = v.length >= 3 ? shopUrl(v) : "(mínimo 3 letras)";
+});
 // Con subdominios prendidos (shopDomain), el link lindo: https://daniel.gabostore.lat. Si no, el de siempre: /r/daniel.
 const shopUrl = (slug) => (S.settings?.shopDomain ? `https://${slug}.${S.settings.shopDomain}` : `${location.origin}/r/${slug}`);
 
@@ -1738,7 +1747,8 @@ function shopEditor() {
     <form class="sbox sform" id="shopForm">
       <h2>2 · Tu marca</h2>
       <div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
-        <label>Dirección (después de /r/)<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none"></label>
+        <label>${S.settings?.shopDomain ? `Tu dirección (lo que va antes de .${esc(S.settings.shopDomain)})` : "Dirección (después de /r/)"}<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="slugPrev">
+          <small id="slugPrev" class="slugprev">Tu link: <b>${esc(shopUrl(sh.slug))}</b><br>Solo minúsculas, números y guiones. Si la cambiás, el link viejo deja de andar.</small></label>
         <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
       <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
       <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>

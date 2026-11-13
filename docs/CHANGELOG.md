@@ -14,7 +14,9 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Qué hay ahora:** `<nombre>.gabostore.lat` muestra la misma página que `/r/<nombre>` sin cambiar la dirección (la vista previa de WhatsApp también dice el subdominio). Si el nombre no es de una página publicada, está apagada o es reservado (api, panel, hub, www, mail…), lleva a la portada de la tienda. `/r/<nombre>` sigue andando igual.
 - **Link que ve el revendedor:** «Tu dirección», «Copiar link», «Compartir», «Abrir» y el afiche usan el subdominio **solo** con `GS_SHOP_SUBDOMAINS=1` en Railway; sin esa variable siguen mostrando `/r/<nombre>`. Se prende cuando el comodín `*.gabostore.lat` tenga DNS y candado.
 - Servidor: `domainRedirect` reescribe `/` del subdominio a `/r/<nombre>` y la página lleva `<meta name="gs-shop">`; `/api/settings` manda `shopDomain`. Lista de nombres reservados ampliada.
-- Prueba nueva `test/subdominios.test.mjs` (7).
+- **Elegir su nombre:** en GaboHub → Mi página → «Tu marca», el campo dice «Tu dirección (lo que va antes de .gabostore.lat)» y muestra al instante «Tu link: https://<nombre>.gabostore.lat». Lo que escribe pasa solo a minúsculas y guiones (las reglas de siempre: 3 a 30, sin repetir, sin nombres reservados). Avisa que el link viejo deja de andar si lo cambia.
+- **Panel del dueño:** las tarjetas de revendedores, la tabla de páginas y los mensajes de bienvenida/guía usan el mismo link nuevo cuando el interruptor está prendido.
+- Prueba nueva `test/subdominios.test.mjs` (8, una en celular eligiendo el nombre).
 
 ## 2026-11-13 · Cuentas: «↔️ Mover todos a otra cuenta» (Netflix caído → todos los clientes de una vez) (**sin publicar**, rama `mover-cuenta-completa`)
 - **Por qué:** «se me cayó un Netflix y hoy tengo que reemplazar a toditos». «Cambiar de cuenta» mueve de a un cliente; con 5 perfiles son 5 vueltas.

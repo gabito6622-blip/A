@@ -19,6 +19,8 @@
 | `shopDomain` solo con el interruptor y dominio propio (no con la dirección de Railway) | ídem | pasa |
 | Celular 360 px: `daniel.gabostore.lat` abre «Daniel TV» con Netflix, sin errores, y la dirección queda en `/` | Playwright con el nombre apuntado a la máquina local | pasa |
 | Suite completa | `npm test` | **586 pasan, 0 fallan, 57 s** |
+| Celular 360 px: el revendedor abre Mi página, ve «lo que va antes de .gabostore.lat» y su link; escribe «Dani Strem» → queda `dani-strem` y el link cambia a `https://dani-strem.gabostore.lat`; letra ≥ 12 px, sin scroll de costado | `test/subdominios.test.mjs`, Playwright | pasa |
+| Suite completa (con lo anterior y la portada sin salto) | `npm test` | **588 pasan, 0 fallan, 58 s** |
 | No probado | El comodín real en Railway y Namecheap (falta crearlo) | pendiente |
 
 ## 13/11/2026 · «Mover todos a otra cuenta» (rama `mover-cuenta-completa`, sin publicar)
