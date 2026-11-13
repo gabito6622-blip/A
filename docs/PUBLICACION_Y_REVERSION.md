@@ -1,6 +1,6 @@
 # Publicación y reversión de la Optimización 1 + 2 (rama `optimizacion-1`)
 
-Fecha: 13/11/2026 · Estado: **lista, sin publicar**. Se publica solo con el «PUBLICÁ» del dueño, después de que confirme su respaldo.
+Fecha: 13/11/2026 · Estado: **publicada el 13/11 (PR #52, squash `5a86b5f`) con el «Publica» del dueño.** Verificación posterior en `docs/INFORME_PRUEBAS.md`. La sección 5 (reversión) sigue vigente.
 
 ## 1. Qué se publicaría
 - **Optimización 1:** semáforo sin falsas alarmas, «💵 Me pagó» desde Mi secretaria con vista previa, cierre con mes anterior incompleto, detalles visuales, demo de GaboHub (solo con datos ficticios, no toca la tienda real).

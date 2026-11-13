@@ -1,6 +1,16 @@
 # Informe de pruebas
 
-## 13/11/2026 · Optimización 2 · Renovar por link (rama `optimizacion-1`, sin publicar, apagado)
+## 13/11/2026 · Publicación Optimización 1 + 2 (PR #52, squash `5a86b5f`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa de la tienda real (solo lectura, llave del asistente): alquileres, clientes, cierre de noviembre | `GET /api/admin/assignments`, `/customers`, `/finance/cierre?month=2026-11` | 78 · 34 · Bs 4.452,60 (66 cobros del Control) |
+| Conflicto de ramas: la rama de Railway tenía Premium 2.0 como squash (#51); el código era idéntico al de `premium-2.0` (solo 4 docs distintos) | `git diff --stat premium-2.0 origin/ccr-0b4be8d6-1sld7s`; unión con estrategia «ours» y comprobación de árbol idéntico al probado | árbol igual: sí |
+| Fusión con squash y publicación automática de Railway | PR #52 | nuevo código en vivo a los 65 s |
+| Verificación de solo lectura después: salud, alquileres y clientes idénticos byte a byte a la foto previa, cierre igual, `renewLink` apagado en Configuración, token falso → 404, secretaria sin botón de link (`renewLinks:false`), tienda 200 | `curl` + comparación JSON | todo OK |
+| Semáforo en la tienda real | `GET /api/admin/accounts` | 4 rojas, 106 amarillas, 7 verdes, 32 «dada de baja» (antes rojas) de 149 |
+| Nada escrito en producción | — | ✅ |
+
+## 13/11/2026 · Optimización 2 · Renovar por link (publicado en #52, apagado)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Apagado de fábrica: Configuración dice `{enabled:false, access:"renew", hours:48}`; generar link → 409 `RENEW_LINKS_OFF`; token cualquiera → 404 (GET y POST) | `test/renovar-link.test.mjs` | OK |
