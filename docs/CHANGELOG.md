@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · gabostore.lat abre la tienda al toque, sin salto (**sin publicar**, rama `subdominios`)
+- **Por qué:** el dueño vio que al entrar a gabostore.lat «por un momento sale la portada de Gabo» antes de su tienda. La portada mandaba a `/tienda/` con un salto (302) y, mientras iba y volvía, el celular podía seguir mostrando otra página.
+- **Qué hay ahora:** `gabostore.lat/` responde la tienda directamente (una sola carga, sin redirección). `/tienda/`, `/hub` y `/panel` siguen igual. La dirección de Railway sigue mostrando GaboHub en la portada, como antes.
+- Por dentro: la página lleva `<meta name="gs-mode" content="store">` para que el navegador la arme como tienda.
+- Prueba: `test/dominio.test.mjs` (portada 200 sin salto; en celular, una sola página y es la tienda).
+
 ## 2026-11-13 · Revendedores: su página en su propio subdominio (daniel.gabostore.lat) (**sin publicar**, rama `subdominios`)
 - **Por qué:** el dueño pidió «daniel.gabostore.lat … para que los revendedores estén cómodos»: un link corto y con su nombre es más fácil de pasar por WhatsApp que `gabostore.lat/r/dani-strem-…`.
 - **Qué hay ahora:** `<nombre>.gabostore.lat` muestra la misma página que `/r/<nombre>` sin cambiar la dirección (la vista previa de WhatsApp también dice el subdominio). Si el nombre no es de una página publicada, está apagada o es reservado (api, panel, hub, www, mail…), lleva a la portada de la tienda. `/r/<nombre>` sigue andando igual.

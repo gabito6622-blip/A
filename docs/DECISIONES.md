@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · La portada del dominio sirve la tienda, no redirige
+- **Qué se decidió:** `gabostore.lat/` entrega la tienda en la misma respuesta, en vez de un 302 a `/tienda/`.
+- **Por qué:** con el salto, el celular hace dos viajes y, en el medio, puede seguir viéndose la página anterior. Sin salto es más rápido y no asoma nada.
+- **Descartado:** mover la tienda entera a `/` (rompería links guardados a `/tienda/`); los dos caminos quedan andando.
+
 ## 2026-11-13 · Subdominios de revendedores: servir la página, no redirigir
 - **Qué se decidió:** `daniel.gabostore.lat` muestra la página directamente (por dentro, la misma ruta `/r/daniel`) en vez de mandar a `gabostore.lat/r/daniel`.
 - **Por qué:** si redirige, el cliente ve la dirección larga y la vista previa de WhatsApp queda con el link largo.

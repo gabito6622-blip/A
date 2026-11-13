@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Portada sin salto (rama `subdominios`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Producción hoy (solo lectura): `gabostore.lat/` responde 302 a `/tienda/`; la tienda responde 200 | `curl` | confirmado (el servidor no muestra GaboHub; el salto es lo que se saca) |
+| Cuadro por cuadro con navegador nuevo, datos de ejemplo, 360 px: ningún cuadro con GaboHub | Playwright, 37 capturas en 2,5 s | ninguno (lo que vio el dueño puede ser la página anterior que queda mientras salta, o algo guardado en su celular) |
+| Portada 200 con `gs-mode=store`, sin `location`; `/hub` sin la marca | `test/dominio.test.mjs` | pasa |
+| Celular 360 px: una sola navegación a `/`, es la tienda (barra de abajo y link «¿Sos revendedor?»), sin errores | ídem, Playwright | pasa |
+| Suite completa | `npm test` | **587 pasan, 0 fallan, 56 s** |
+
 ## 13/11/2026 · Subdominios de revendedores (rama `subdominios`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -65,7 +65,7 @@ describe("Subdominios de revendedores", () => {
   });
 
   test("el dominio principal, www y /r/daniel siguen como antes", async () => {
-    assert.equal((await get(s.port, "gabostore.lat", "/")).location, "/tienda/");
+    assert.match((await get(s.port, "gabostore.lat", "/")).body, /gs-mode" content="store"/);
     assert.equal((await get(s.port, "www.gabostore.lat", "/r/daniel")).location, "https://gabostore.lat/r/daniel");
     assert.equal((await get(s.port, "gabostore.lat", "/r/daniel")).status, 200);
   });

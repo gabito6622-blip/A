@@ -2199,6 +2199,8 @@ export function createApp(cfg: AppConfig): App {
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
     // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
     if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
+    // La tienda servida en «/» del dominio propio: el navegador tiene que saber que es la tienda y no GaboHub.
+    else if (sub && pathname === "/tienda/") html = html.replace("</head>", `<meta name="gs-mode" content="store">\n</head>`);
     return html;
   }
 
@@ -2219,7 +2221,9 @@ export function createApp(cfg: AppConfig): App {
     if (!main) return null;
     const host = rawHost.toLowerCase().replace(/:\d+$/, "");
     if (host === `www.${main}`) return { code: 301, to: `https://${main}${pathname}${search}` };
-    if (host === main && pathname === "/") return { code: 302, to: `/tienda/${search}` };
+    // La portada del dominio ES la tienda, sin salto (13/11/2026): antes era un 302 a /tienda/ y, mientras iba y volvía,
+    // el celular podía seguir mostrando otra página un momento. Ahora sale la tienda al toque; /tienda/ sigue andando igual.
+    if (host === main && (pathname === "/" || pathname === "/index.html")) return { rewrite: "/tienda/" };
     if (host.endsWith(`.${main}`)) {
       const label = host.slice(0, -main.length - 1);
       const ok = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(label) && !SHOP_RESERVED.has(label) && !!findShopBySlug(store.engine, label);

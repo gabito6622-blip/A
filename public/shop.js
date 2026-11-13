@@ -18,7 +18,8 @@ const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar"
 // La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
 const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLowerCase()
   ?? (location.pathname === "/" ? document.querySelector('meta[name="gs-shop"]')?.content?.toLowerCase() : null) ?? null;
-const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) ? "store" : "hub";
+// En el dominio propio, «/» es la tienda (el servidor la marca con <meta name="gs-mode" content="store">).
+const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) || (location.pathname === "/" && document.querySelector('meta[name="gs-mode"]')?.content === "store") ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar"],
