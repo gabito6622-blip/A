@@ -1,6 +1,25 @@
 # Informe de pruebas
 
-## 13/11/2026 · Catálogo público + Promos y combos (rama `exportaciones-premium`, sin publicar)
+## 13/11/2026 · GaboHub en tres niveles (rama `gabohub-tres-niveles`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cobro apagado (como la tienda real): rige Negocio para todos; ninguna ruta devuelve 402; no se cobra nada; el `basicPrice` viejo se guarda como `sellerPrice`; `hubPlan` viejo "basic"/"full" se lee como Vendedor/Negocio | `test/gabohub-tres-niveles.test.mjs` (datos ficticios en carpeta temporal) | OK |
+| Cobro prendido, plan Gratis: 40 días sin cobro ni pausa; servicios, pedidos, precios, catálogo WhatsApp y PDF 200; Mi día, Control, Quién me debe, Ganancias y Excel 402 `HUB_PLAN` «plan Negocio»; editar página y cupones 402 «plan Vendedor»; su página pública 404; «pagar» da error claro | misma prueba | OK |
+| Pasar a Vendedor: se cobran Bs 28 en el momento y vence en 30 días; página editable y visible; Mi día y Excel siguen 402. Pasar a Negocio: sin cobro extra; Mi día 200; al mes siguiente cobra Bs 49. Vendedor más caro que Negocio: ajuste inválido; sin precio Vendedor no se puede elegir | misma prueba | OK |
+| Sin pagar: tras 3 días de gracia rige Gratis (Control 402 `HUB_UNPAID` «hoy estás en Gratis … plan Negocio», catálogo 200, página 404; el panel ve plan Negocio / hoy Gratis). Elige Gratis: deja de deber y 60 días después sigue sin cobro. Quiere Negocio sin saldo: vence hoy, 4 días después vuelve a Gratis. Recarga y paga: Negocio al instante, saldo Bs 1 | misma prueba | OK |
+| Celular 360 px: en Gratis, Mi día muestra el candado «plan Negocio», Bs 49, botones de 44 px, sin desborde; el Inicio dice «plan Gratis» con botones a Vendedor y Negocio; sin errores de JS | Playwright, capturas fuera del repo | OK |
+| Pruebas viejas adaptadas: `gabohub-planes` (3), `exportaciones` (6: el catálogo sale aun pausado; el Excel 402), `suscripcion-gabohub` (2), `revendedor-mi-dia` (5), `link-cobro-clientes` (4) | `node --test` por archivo | OK |
+| Suite completa | `npm test` | **574 pasan, 0 fallan, 63 s** (local, 13/11 10:10 UTC) |
+| Demo de GaboHub con los nombres nuevos (`scripts/seed-gabohub-demo.mjs`): Beto en Vendedor pagando Bs 28, Carla en Negocio, Ana y Paula en prueba | correr la semilla en carpeta temporal; capturas del panel a 360 px | OK |
+
+## 13/11/2026 · Publicación logos + catálogo público + Promos y combos (PR #56, squash `c01587c`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, cierre nov Bs 4.490,60 | API con la llave del asistente | guardada |
+| Rama de Railway vs lo fusionado en #55: solo docs; unión «ours» con árbol igual al probado; CI verde en `f5a3380` | `git diff --stat` | OK |
+| Publicación: nuevo código en vivo a los ~20 s. Después: salud, `/tienda/`, `/hub` 200; el `shop.js` servido trae el botón; `GET /api/catalogo.pdf` público 200 (5 páginas, 315 KB, 105 imágenes incrustadas, «PROMOS Y COMBOS», «ahorrás hasta Bs 34»); página de revendedor inexistente 404; 78 alquileres y 34 clientes idénticos byte a byte; cierre igual (Bs 4.490,60) | PR #56 · `curl` + pdfinfo/pdfimages/pdftotext + comparación JSON | OK |
+
+## 13/11/2026 · Catálogo público + Promos y combos (publicado en #56)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Ahorro calculado: Dúo Bs 70 vs 40 + 35 → Bs 5 en el JSON, en el WhatsApp «(ahorrás Bs 5)» y en el PDF «Ahorrás Bs 5» y «ahorrás hasta Bs 5»; Pack Familia de Ana con SUS precios 45 + 38 vs 75 → Bs 8 | `test/exportaciones.test.mjs` | OK |

@@ -3,12 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Catálogo público para clientes + «Promos y combos» con ahorro (rama `exportaciones-premium`, sin publicar)
+## 2026-11-13 · GaboHub en tres niveles: Gratis / Vendedor / Negocio (**sin publicar**, rama `gabohub-tres-niveles`)
+- **Para el revendedor:** tres planes claros. **Gratis** (siempre, sin cobro): comprar con saldo, Mis cuentas, códigos, fallas, recargas y su catálogo en WhatsApp y PDF con sus precios. **Vendedor** (Bs 28): + su página con QR, combos, cupones, afiches, repartir perfiles y links de cobro. **Negocio** (Bs 49): + Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito. El candado de cada pestaña dice qué plan hace falta y ofrece pasarse con el precio a la vista; el Inicio muestra en qué plan está y los otros dos.
+- **Quien no paga pasa a Gratis** (después de los días de gracia) en vez de quedar «pausado»: sigue comprando y sacando su catálogo; su página y sus herramientas vuelven apenas paga. **Quien elige Gratis no debe nada y no se le cobra nunca.** Salir de Gratis cobra el mes en el momento (si no hay saldo, vence hoy y corren los días de gracia). En la prueba gratis rige Negocio.
+- **Para el dueño:** en Revendedores → Ajustes el precio del Básico pasa a llamarse **Vendedor** (el Bs 28 ya cargado se respeta); en la ficha de cada revendedor el selector tiene los tres planes y avisa si hoy está en otro por falta de pago. **Con el cobro apagado (como hoy) no cambia nada para nadie: rige Negocio para todos.**
+- Técnica: `planGate(revendedor, herramienta)` en el servidor decide ruta por ruta (402 `HUB_PLAN` nombra el plan; `HUB_UNPAID` si además venció); los nombres viejos `basic`/`full` se leen como Vendedor/Negocio. Pruebas nuevas en `test/gabohub-tres-niveles.test.mjs` (4) y adaptadas en `gabohub-planes` y `exportaciones`.
+
+## 2026-11-13 · Catálogo público para clientes + «Promos y combos» con ahorro (**publicado el 13/11, PR #56**, squash)
 - **El cliente baja el catálogo sin entrar:** botón «📄 Catálogo en PDF» en la portada y en el catálogo de la tienda (`/tienda`) y en la página de cada revendedor (`/r/<slug>`). Rutas públicas `GET /api/catalogo.pdf` y `GET /api/shops/:slug/catalogo.pdf` (404 si la página no existe, está apagada o bloqueada). El PDF se guarda en memoria 5 minutos por negocio y diseño, y hay límite de 12 descargas por IP cada 10 minutos. El link es fijo: se puede mandar por WhatsApp o poner en un estado y siempre baja la versión del día.
 - **Las promos son los combos:** la categoría pasa a llamarse «🎁 Promos y combos» y va primera. Cada combo lleva **«Ahorrás Bs X»**, calculado con los precios de hoy (lo que suman las apps sueltas menos el combo; para el revendedor, con sus precios). En la portada: «11 promos · ahorrás hasta Bs 34». El texto de WhatsApp dice «(ahorrás Bs X)».
 - Pruebas en `exportaciones`: ahorro del Dúo (Bs 5) y del Pack Familia de Ana (Bs 8); descarga pública de la tienda y de Ana (200, archivo idéntico en la segunda bajada), página inexistente 404.
 
-## 2026-11-13 · Catálogo PDF con los logos de las apps (rama `exportaciones-premium`, sin publicar)
+## 2026-11-13 · Catálogo PDF con los logos de las apps (**publicado el 13/11, PR #56**, squash)
 - El dueño vio su catálogo real y pidió los logos. Ahora cada producto lleva su logo (el de la tienda, achicado a 160 px con un reductor PNG propio en `pdf.ts` para que el archivo pese poco: el catálogo real con 35 logos pesa ~310 KB) y los combos muestran los logos de las apps que incluyen (hasta 4), que se reconocen mejor que la imagen chica del combo. Si un logo está en un formato que el PDF no acepta (WEBP), va la inicial de color.
 - Los combos ya no repiten las apps dos veces cuando la descripción ya las enumera.
 - La vista previa de «Mis descargas» también muestra los logos. El JSON no expone el archivo del logo, solo `hasImage`.
