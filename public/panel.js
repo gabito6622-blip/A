@@ -1807,6 +1807,7 @@ async function pushCard() {
       <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;margin:0">
         <legend style="padding:0 6px;font-weight:600">¿De qué te avisamos?</legend>
         ${Object.entries(PUSH_LABELS).map(([k, t]) => `<label class="chk"><input type="checkbox" name="pa_${k}" ${sel.has(k) ? "checked" : ""}> ${t}</label>`).join("")}
+        <label class="chk"><input type="checkbox" name="noon" ${p.noon !== false ? "checked" : ""}> 🗂️ Resumen del mediodía de Mi secretaria (una vez por día, a las 12:00)</label>
       </fieldset>
       <label>Stock bajo: avisar cuando queden menos de<input name="lowStockAt" type="number" min="0" max="50" step="1" inputmode="numeric" value="${p.lowStockAt}"></label>
       <p class="muted" style="margin:0;align-self:end">perfiles libres de un producto (0 = no avisar).</p>
@@ -3338,7 +3339,7 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", "/api/admin/ai", { enabled, model: f.model.value, monthlyLimitUsd: Math.max(0, +f.limit.value || 0) }), "🤖 Agentes guardados");
     } else if (f.id === "pushForm") {
       const alerts = Object.keys(PUSH_LABELS).filter((k) => f[`pa_${k}`]?.checked);
-      await act(() => api("POST", "/api/admin/push/config", { alerts, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
+      await act(() => api("POST", "/api/admin/push/config", { alerts, noon: !!f.noon?.checked, lowStockAt: Math.max(0, Math.min(50, Math.round(+f.lowStockAt.value || 0))) }), "Avisos guardados");
     } else if (f.id === "tgForm") {
       const body = { chatId: f.chatId.value.trim(), enabled: f.enabled.checked, alerts: [...f.querySelectorAll('input[name^="al_"]:checked')].map((x) => x.name.slice(3)) };
       if (f.token.value.trim()) body.token = f.token.value.trim();

@@ -111,7 +111,7 @@ describe("Web Push: con claves", () => {
 
   test("solo los avisos elegidos; umbral configurable", async () => {
     const r = await s.call("POST", "/api/admin/push/config", { alerts: ["payment"], lowStockAt: 0 });
-    assert.deepEqual(r.json, { ok: true, alerts: ["payment"], lowStockAt: 0 });
+    assert.deepEqual(r.json, { ok: true, alerts: ["payment"], noon: true, lowStockAt: 0 });
     assert.equal((await s.call("POST", "/api/admin/push/config", { lowStockAt: 99 })).status, 400);
   });
 
