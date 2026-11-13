@@ -637,7 +637,9 @@ const V = {
   },
 
   async control() {
-    const [list, customers, accsAll] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([])]);
+    const [list, customers, accsAll, sup] = await Promise.all([api("GET", "/api/admin/assignments"), api("GET", "/api/admin/customers").catch(() => []), canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([]), api("GET", "/api/admin/settings/soporte").catch(() => null)]);
+    // Links de renovación prendidos (Configuración → Soporte): «Cobrar» arma el mensaje CON el link para que pague solo.
+    const renewOn = !!sup?.renewLink?.enabled;
     const T = P.tab;
     // «↔️ Cambiar de cuenta»: perfiles libres (o apartados) de otras cuentas activas de la misma plataforma, para pasar al cliente con la misma fecha.
     const freeSlotsFor = (r) => accsAll.filter((a) => a.productId === r.productId && a.status === "active" && a.email !== r.email).flatMap((a) => (a.slots ?? []).filter((s) => ["available", "quarantined"].includes(s.status)).map((s) => ({ id: s.id, email: a.email, label: s.label, q: s.status === "quarantined" })));
@@ -705,7 +707,9 @@ const V = {
     const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} ${r.d < 0 ? "ya venció" : "está por vencer"}:\n\n${datos(r).replace(/💰 Monto: .*/, `💰 A vos te sale: ${payText(r, r.price)}`)}\n\n¿Lo renovás?`;
     const cobrarBtn = (r, title = "") => r.viaRes
       ? (r.resellerPhone ? `<a class="pbtn sm" href="${waLink(r.resellerPhone, resMsg(r))}" target="_blank" rel="noopener" title="Es cliente de ${esc(r.rname)}: le avisás a tu revendedor">📣 Avisar a ${esc(first(r.rname))}</a>` : `<span class="pp pp-warn">${esc(first(r.rname))} sin WhatsApp</span>`)
-      : r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>` : "";
+      : !r.customerPhone ? ""
+      : renewOn ? `<button class="pbtn sm" type="button" data-cobrolink="${esc(r.id)}" data-phone="${esc(r.customerPhone)}" data-name="${esc(r.customerName || "")}" data-msg="${esc(msg(r))}" title="Arma el mensaje con su link para renovar con QR o saldo">💰 Cobrar</button>`
+      : `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>`;
     const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
     const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
@@ -2448,6 +2452,25 @@ function showDeliveries(list) {
   el.querySelector("[data-dlvclose]")?.focus();
 }
 
+/** Tarjeta «💰 Cobro listo»: el mensaje de cobro (con el link de renovación si hay) y el botón para mandarlo por WhatsApp. */
+function showCobro({ name, phone, msg, link, linkNote }) {
+  document.getElementById("dlvScrim")?.remove();
+  const el = document.createElement("div");
+  el.id = "dlvScrim"; el.className = "dlv-scrim"; el.dataset.msg = msg;
+  el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Mensaje de cobro">
+      <div class="dlv-top"><h3>💰 Cobro listo</h3><button class="pbtn sm" type="button" data-dlvclose="1" aria-label="Cerrar">✕</button></div>
+      <p class="muted" style="margin:0">Para <b>${esc(name || "el cliente")}</b> · ${esc(phone)}</p>
+      <pre class="cobpre">${esc(msg)}</pre>
+      <p class="muted" style="margin:0">${link ? "🔗 Lleva su link: paga con QR o saldo y vos solo aprobás." : `⚠️ ${esc(linkNote || "Sin link de renovación")}: va el mensaje de siempre.`}</p>
+      <a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>
+      <button class="pbtn big" type="button" data-dlvcopy="1">📋 Copiar mensaje</button></div>`;
+  el.addEventListener("click", (ev) => { if (ev.target === el) el.remove(); });
+  (document.getElementById("app") ?? document.body).appendChild(el);
+  const onKey = (ev) => { if (ev.key === "Escape") { el.remove(); document.removeEventListener("keydown", onKey); } };
+  document.addEventListener("keydown", onKey);
+  el.querySelector("[data-dlvclose]")?.focus();
+}
+
 // Presupuesto con cupón para la venta manual (se pide al servidor, que es quien decide).
 const sellQuote = { key: "", r: null, timer: 0 };
 function quoteSell(cid, productId, qty, code, periods = 1) {
@@ -2560,6 +2583,16 @@ document.addEventListener("click", async (ev) => {
   if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
   if (d.dlvcopy) { const s = document.getElementById("dlvScrim"); if (s) { try { await navigator.clipboard.writeText(s.dataset.msg); toast("Datos copiados ✓"); } catch { toast("No se pudo copiar"); } } return; }
+  if (d.cobrolink) {
+    const b = el; b.disabled = true;
+    const base = d.msg, cut = base.lastIndexOf("\n\n¿Renovamos?");
+    try {
+      const r = await api("POST", `/api/admin/assignments/${d.cobrolink}/renew-link`, {});
+      const extra = `🔗 Renová vos mismo acá, con QR o saldo (el link vale hasta el ${fdt(r.expiresAt)}):\n${r.url}`;
+      showCobro({ name: d.name, phone: d.phone, link: true, msg: cut >= 0 ? `${base.slice(0, cut)}\n\n${extra}${base.slice(cut)}` : `${base}\n\n${extra}` });
+    } catch (e) { showCobro({ name: d.name, phone: d.phone, link: false, linkNote: e.message, msg: base }); }
+    b.disabled = false; return;
+  }
   if (d.deliver) { try { const info = await api("GET", `/api/admin/assignments/${d.deliver}/delivery`); showDeliveries([info]); } catch (e) { toast(e.message); } return; }
   if (d.tab) { const i = d.tab.indexOf(":"); P.tab[d.tab.slice(0, i)] = d.tab.slice(i + 1); return render(); }
   if (d.secrets) { P.tab.secrets = !P.tab.secrets; return render(); }

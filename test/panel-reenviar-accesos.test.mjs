@@ -74,6 +74,24 @@ test("Control en el celular: Reenviar accesos se ve y se cierra; Cobrar manda co
     assert.match(txt, /¿Renovamos\?/);
     assert.ok(!/Cuenta completa/.test(txt), "la cuenta completa no lista perfil");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 360), "sin desborde");
+
+    // 6) Con los links de renovación prendidos, «Cobrar» abre la tarjeta «Cobro listo» con el mensaje Y el link del cliente.
+    assert.equal((await A("POST", "/api/admin/settings", { renewLink: { enabled: true, access: "renew", hours: 48 } })).renewLink?.enabled ?? true, true);
+    await page.reload();
+    const cobrar = page.getByRole("button", { name: "💰 Cobrar" }).first();
+    await cobrar.waitFor({ timeout: 20_000 });
+    await cobrar.click();
+    const cobro = page.locator(".dlv-card", { hasText: "Cobro listo" });
+    await cobro.waitFor();
+    const wa = decodeURIComponent(new URL(await cobro.locator("a.green").getAttribute("href")).searchParams.get("text") ?? "");
+    assert.match(wa, /📧 cuenta\.demo\+nu1@ejemplo\.lat/);
+    assert.match(wa, /💰 Monto: Bs 69\n\n🔗 Renová vos mismo acá, con QR o saldo \(el link vale hasta el [^)]+\):\nhttp:\/\/127\.0\.0\.1:\d+\/tienda\/#renovar=[\w-]{16,}\n\n¿Renovamos\?/, "el link va antes del cierre");
+    const token = /#renovar=([\w-]+)/.exec(wa)[1];
+    const rv = await fetch(base + `/api/renovar/${token}`).then((r) => r.status).catch(() => 0);
+    assert.equal(rv, 200, "el link es de verdad: la página pública de renovación lo reconoce");
+    assert.match(await cobro.innerText(), /Lleva su link/);
+    await cobro.locator("[data-dlvclose]").click();
+    await page.waitForFunction(() => !document.querySelector("#dlvScrim"));
     assert.deepEqual(errs, []);
   } finally {
     await b?.close(); await app.close(); rmSync(dir, { recursive: true, force: true });
