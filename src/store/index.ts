@@ -19,6 +19,7 @@ import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as rday from "./resellerDay.js";
+import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
 import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
@@ -340,7 +341,11 @@ export function createStore(opts: EngineOptions = {}) {
       setControl: bind(e, rtools.setMyControl),
       earnings: bind(e, rtools.myEarnings),
       /** «Mi día» (13/11): la secretaria del revendedor con sus clientes y perfiles repartidos; «Me pagó» de un toque. */
+      /** Link de cobro para sus clientes registrados (clientLinks.ts); la página pública es la misma /c/<token>. */
+      clientLink: bind(e, clientLinks.clientLink),
+      revokeClientLink: bind(e, clientLinks.revokeClientLink),
       day: bind(e, rday.myDay),
+      dayPushText: bind(e, rday.dayPushText),
       dayPreview: bind(e, rday.dayPreview),
       dayPay: bind(e, rday.dayPay),
     },

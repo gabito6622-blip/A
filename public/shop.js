@@ -3,7 +3,7 @@
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
-import { subLinkBox, subLinkClick, cobroLine } from "/sublinks.js";
+import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/sublinks.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
@@ -798,7 +798,7 @@ function rControlBase() {
   // Mismo criterio que Inicio: de los que vencieron hace poco a los que vencen esta semana.
   const soon = rows.filter((r) => !r.holdOpen && dl(r) >= -3 && dl(r) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
   const canR = (r) => r.canRenew && r.renewableNow !== false;
-  const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${mine(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  const msg = (r) => `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl(r) < 0 ? "venció" : dl(r) === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${mine(r.price)}.` : ""} ¿Lo renovamos? 🙌${cobroLine(r)}${myStore() ? `\n— ${myStore()}` : ""}`;
   // Filas compactas: con muchos clientes la lista entra en pocas pantallas; se abren con un toque.
   const opened = new Set(S.data.rcOpen ?? []);
   const sel = new Set(S.data.rsel ?? []), selRows = rows.filter((r) => sel.has(r.id)), selCost = selRows.reduce((t, r) => t + (r.cost || 0), 0);
@@ -818,6 +818,7 @@ function rControlBase() {
       <div class="rcrow"><label>Le cobro<input class="rcin" data-rc="${esc(r.id)}" data-f="price" inputmode="decimal" value="${r.price !== null ? r.price / 100 : ""}" placeholder="${esc(mySym())}"></label>
         <label>Pago<select class="rcin pay-${r.pay}" data-rc="${esc(r.id)}" data-f="payStatus">${Object.entries(PAYS).map(([k, t]) => `<option value="${k}" ${r.pay === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
       <label class="rcnote">Nota<input class="rcin" data-rc="${esc(r.id)}" data-f="note" maxlength="120" value="${esc(r.note)}" placeholder="Ej.: paga los lunes"></label>
+      ${clientLinkBox(r, myStore())}
       <footer>${canR(r) ? `<button class="sbtn sm pri" type="button" data-rrenew="${esc(r.id)}">🔄 Renovar · ${bs(r.cost)}</button>` : r.canRenew ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, necesito renovar ${r.product} de ${r.client} (${r.profile}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : ""}${r.phone ? `<a class="sbtn sm" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : ""}${r.phone && S.data.codeLink?.url ? `<a class="sbtn sm" href="${waLink(r.phone, codesMsg(r))}" target="_blank" rel="noopener">🔑 Link de códigos</a>` : ""}<button class="sbtn sm" type="button" data-falla="${esc(r.id)}">⚠️ Falla</button>${r.pay !== "pagado" ? `<button class="sbtn sm" type="button" data-rcfiado="${esc(r.clientId)}">➕ Al fiado</button>` : ""}</footer>` : ""}</article>`).join("") || `<div class="sbox"><p class="empty" style="margin:0">${rows.length ? "Nada con ese filtro." : "Todavía no vendiste a ningún cliente. Vendé desde “Clientes y ventas” y aparecen acá."}</p></div>`}</div>`;
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
@@ -2313,6 +2314,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.avisos) return void await alertsClick(d, render);
+  if ((d.clink || d.clinknew) && await clientLinkClick(d, el)) { S.data.rctl = await api("GET", "/api/me/control").catch(() => S.data.rctl); return render(); }
   if ((d.sublink || d.sublinknew) && await subLinkClick(d, el)) { S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs); return render(); }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
   if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {
@@ -2424,7 +2426,7 @@ document.addEventListener("click", async (ev) => {
     const r = (S.data.rctl ?? []).find((x) => x.id === d.ravisar);
     if (!r) return;
     const dl = daysLeft(r.expiresAt);
-    window.open(waLink(r.phone, `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl < 0 ? "venció" : dl === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${myStore() ? `\n— ${myStore()}` : ""}`), "_blank", "noopener");
+    window.open(waLink(r.phone, `Hola ${r.client.split(" ")[0]} 👋 tu ${r.product} ${dl < 0 ? "venció" : dl === 0 ? "vence hoy" : "vence"} el ${fdate(r.expiresAt)}.${r.price ? ` La renovación es ${bs(r.price)}.` : ""} ¿Lo renovamos? 🙌${cobroLine(r)}${myStore() ? `\n— ${myStore()}` : ""}`), "_blank", "noopener");
     try { localStorage.setItem(`gs-av-${r.id}-${r.expiresAt}`, "1"); } catch { /* sin almacenamiento */ }
     return render();
   }
@@ -2865,7 +2867,9 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#ren
   useRenewLink();
   const path = location.pathname.replace(/\/+$/, "");
   const h = location.hash.slice(1);
-  S.view = VIEWS.includes(h) ? h : path === "/tiendas" ? "tiendas" : "inicio";
+  // /hub#dia (el toque del recordatorio de Tito): abre Clientes en la pestaña «Mi día».
+  if (MODE === "hub" && h === "dia") { S.data.rtab = "dia"; history.replaceState(null, "", location.pathname + "#clientes"); }
+  S.view = VIEWS.includes(h) ? h : MODE === "hub" && h === "dia" ? "clientes" : path === "/tiendas" ? "tiendas" : "inicio";
   await refresh();
   if (S.linkExpired) {
     S.linkExpired = false;

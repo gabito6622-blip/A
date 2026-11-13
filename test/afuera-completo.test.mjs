@@ -211,15 +211,16 @@ describe("por la API y en el navegador", () => {
     const to = t.sent.slice(n0).map((x) => x.url).sort();
     assert.deepEqual(to, [`${FCM}-bo`, `${FCM}-pa`, `${FCM}-py`], "un aviso para cada uno que tiene algo; Pablo no tiene nada");
     const py = (await t.call(t.cookies.py, "GET", "/api/me/push/latest")).json;
-    assert.equal(py.title, "📅 1 cliente tuyo vence mañana");
-    assert.match(py.body, /^Lucía/);
+    // Desde el 13/11 el aviso de la mañana es el resumen de «Mi día» (abre /hub#dia); lo de cuentas propias sigue al final.
+    assert.equal(py.title, "☀️ Tu día: 1 por avisar"); assert.equal(py.url, "/hub#dia");
+    assert.match(py.body, /^Lucía\. Tocá para abrir Mi día\./);
     assert.ok(py.body.endsWith("📦 Cuentas propias: 1 cliente(s) y 1 con tu proveedor"), py.body);
     const pa = (await t.call(t.cookies.pa, "GET", "/api/me/push/latest")).json;
     assert.equal(pa.title, "📦 Cuentas propias: 1 cliente(s) y 1 cuenta(s) por vencer");
     assert.equal(pa.body, "Rosa · Proveedor: flujo03 · Mirá Mis cuentas propias");
     const bo = (await t.call(t.cookies.bo, "GET", "/api/me/push/latest")).json;
-    assert.equal(bo.title, "📅 1 cliente tuyo vence mañana", "Bolivia: el aviso de siempre");
-    assert.equal(bo.body, "Carla · Avisales desde Mi control");
+    assert.equal(bo.title, "☀️ Tu día: 1 por avisar", "Bolivia: el mismo resumen de Mi día");
+    assert.equal(bo.body, "Carla. Tocá para abrir Mi día.");
     // El mismo día no se repite.
     await t.app.checkResellerPush();
     assert.equal(t.sent.length, n0 + 3);

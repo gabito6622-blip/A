@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## 13/11/2026 · Link de cobro de clientes registrados + recordatorio «Tu día» (rama `revendedor-mi-dia`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Crear link: token de 32+, pedirlo de nuevo da el mismo; vista pública = `{name:"Marisel", label:"", product:"Netflix perfil", expiresAt, price:4000, pay, seller:"Ana TV", sellerWhatsapp, hasQr:false, currency:"Bs", hasLogo:false, codes:"off"}`; sin correo, clave, teléfono, ids ni costo (2500) | `test/link-cobro-clientes.test.mjs` | OK |
+| Solo el revendedor del cliente: otro revendedor, el dueño y un cliente directo → FORBIDDEN | misma prueba | OK |
+| Mi control y Mi día traen `linkToken`; revocar → 404 y el nuevo es distinto; cliente pasado a otro revendedor → 404 y vuelve al volver; sobrevive a `initialState` (reinicio); link creado en transacción deshecha no vive | misma prueba | OK |
+| Texto del recordatorio: «☀️ Tu día: 1 para cobrar», «Marisel. Tocá para abrir Mi día.», `/hub#dia`; null sin pendientes; sin saldo agrega «Te falta saldo … (tenés 0, necesitás 25)» | misma prueba | OK |
+| API: sin sesión 401; `POST …/link` → url `/c/…`; `GET /api/cobro/<token>` 200 con lo mínimo y `alerts:false`; `/qr` 404 sin QR; Mi control trae el token; revocar → 404 | misma prueba, servidor efímero | OK |
+| Tito a las 9 (push falso): un solo aviso al revendedor suscrito, título «☀️ Tu día: 1 para cobrar», url `/hub#dia`; mismo día no repite; en plan Básico no manda el resumen | misma prueba | OK |
+| Navegador (demo de Carla, 360 px): página `/c/` del cliente registrado (Hola Ruthy · Disney+ · Bs 38 · Ya pagué); recuadro «Link de cobro» en Mi control; `/hub#dia` abre la pestaña Mi día; sin desborde | Playwright, capturas fuera del repo | OK |
+| Nada tocado en producción | — | ✅ |
+| Tanda completa | `npm test` | **545/545** en ~53 s (541 + 4 nuevas; `afuera-completo` ajustada porque el aviso de la mañana ahora es el resumen de Mi día). Una corrida bajo carga (76 s) falló `tarjeta` (panel del dueño, sin relación) por tiempo de espera; sola pasa 2 de 2 y en la corrida limpia pasó |
+
 ## 13/11/2026 · Publicación «Mi día» (PR #53, squash `c7bb327`)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -5,9 +5,10 @@ Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 ## En curso — El revendedor tiene lo mismo que el dueño, con fórmulas (13/11)
 Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramientas con reglas.
 - ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». **Publicado el 13/11 (PR #53)** con el «Publica» del dueño; verificado en la tienda real: 78 alquileres y 34 clientes idénticos, cierre igual, `/hub` 200 y la pestaña en el código servido.
+- ✅ Link de cobro para todos sus clientes (no solo perfiles repartidos) y «Mensaje listo» con el link. Sin publicar.
+- ✅ Recordatorio matutino de Tito «☀️ Tu día: 2 para cobrar · 1 por avisar» que abre Mi día. Sin publicar.
 - ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
 - ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
-- ⏳ Recordatorio diario de Tito al revendedor («hoy vencen 3 de tus clientes»).
 - ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.
 
 ## Publicado — Optimización 1 + 2 (13/11, PR #52, con el «Publica» del dueño)
