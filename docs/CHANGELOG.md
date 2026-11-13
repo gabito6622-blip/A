@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · 📁 Mis descargas: Centro de exportaciones premium (rama `exportaciones-premium`, sin publicar)
+## 2026-11-13 · 📁 Mis descargas: Centro de exportaciones premium (**publicado el 13/11, PR #55**, squash)
 Para la tienda (panel → Herramientas → 📁 Mis descargas) y para cada revendedor (GaboHub → Clientes → pestaña «📁 Mis descargas», también en Más). Una sola fuente de datos (`src/server/exportCenter.ts`): productos publicados y con precio, con la misma regla de precios que la tienda y que `/r/<slug>`. Nunca costos, ganancias, claves, correos de cuentas ni clientes.
 - **📋 Catálogo para WhatsApp:** texto ordenado con nombre del negocio, categorías, productos y precios, descripción breve, combos («incluye…»), promos vigentes (Armá tu combo y cupones activos), WhatsApp para pedir, link de la tienda o de su página, horario y «los precios pueden cambiar». Copiar todo, copiar una categoría, o «Abrir WhatsApp con el mensaje» (no se manda nada). Elegir qué categorías entran.
 - **📄 Catálogo PDF A4** en dos diseños, con el escritor de PDF propio (`src/server/pdf.ts`, sin dependencias): **Premium** (portada con los colores y el logo del negocio, productos por categoría en tarjetas, precios destacados, promos, «¿Cómo pedir?» con WhatsApp y link clicables, pie con fecha) y **Clásico** (blanco, letras grandes, precios claros, WhatsApp arriba de todo). Nombre del archivo con negocio, diseño y fecha.

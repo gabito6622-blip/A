@@ -1,6 +1,16 @@
 # Informe de pruebas
 
-## 13/11/2026 · Centro de exportaciones (rama `exportaciones-premium`, sin publicar)
+## 13/11/2026 · Publicación Centro de exportaciones (PR #55, squash `fd0e410`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, cierre nov Bs 4.490,60 | API con la llave del asistente | guardada |
+| CI del primer commit roja: la prueba del Excel pedía `openpyxl`, que la CI no tiene. Se corrigió la prueba (revisa el XML del ZIP y la portada con el lector propio; con openpyxl suma lo fino) y se quitó «Gabriel Store» de las propiedades del archivo (ahora «GaboHub»). CI verde en `e6cf127`; `npm test` local 570/570 | GitHub Actions + local | OK |
+| Rama de Railway vs lo fusionado en #54: idéntico; unión «ours» con árbol igual al probado | `git diff --stat` vacío | OK |
+| Publicación automática y verificación posterior | PR #55 · `curl` | ver fila siguiente |
+| Después (a los ~15 s): salud, `/hub`, `/panel.html` 200; `/api/me/descargas/catalogo` sin sesión 401; el catálogo real de la tienda se arma (6 categorías, 35 productos, 1 promo); el PDF premium real abre (A4, 5 páginas, 54 KB) y el Excel real abre (7 hojas, 3 gráficos, 147 KB); 78 alquileres y 34 clientes idénticos byte a byte; cierre igual (Bs 4.490,60) | `curl` + pdfinfo + openpyxl + comparación JSON | OK |
+| Nada escrito en producción (los archivos se generan en memoria y se borran de la carpeta temporal) | — | ✅ |
+
+## 13/11/2026 · Centro de exportaciones (publicado en #55)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Catálogo WhatsApp de la tienda: marca, precios públicos, combo con sus partes, promos (combo + cupón NOV10), sin ocultos, sin «solo revendedores», sin costos ni ids; filtro por categoría | `test/exportaciones.test.mjs` | OK |
