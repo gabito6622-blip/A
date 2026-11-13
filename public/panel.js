@@ -694,9 +694,12 @@ const V = {
     const sum = (f) => view.reduce((t, r) => t + f(r), 0);
     const cnt = (k) => rows.filter((r) => r.est[1] === k).length;
     const chips = [["todos", `Todos (${rows.length})`], ["bad", `Vencidos (${cnt("bad")})`], ["hold", `Esperando fecha (${cnt("hold")})`], ["today", `Vence hoy (${cnt("today")})`], ["warn", `Por vencer (${cnt("warn")})`], ["week", `Semana (${cnt("week")})`], ["ok", `Activos (${cnt("ok")})`]];
-    const msg = (r) => `Hola ${r.customerName} 👋 te recuerdo que tu ${r.product.replace(/ \(alquiler revendedores\)/, "")} ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Monto: ${payText(r, r.price)}. ¿Deseas renovar?`;
+    // Mensaje de cobro con la estructura completa (pedido del dueño 13/11): qué cuenta (correo y perfil), cuándo vence y cuánto.
+    const when = (r) => r.d < 0 ? `Venció el ${fdate(r.customerExpiresAt)} (hace ${-r.d} día${r.d === -1 ? "" : "s"})` : r.d === 0 ? `Vence HOY, ${fdate(r.customerExpiresAt)}` : `Vence el ${fdate(r.customerExpiresAt)} (en ${r.d} día${r.d === 1 ? "" : "s"})`;
+    const datos = (r) => [`📺 ${pname(r)}`, ...(r.email ? [`📧 ${r.email}`] : []), ...(r.profile && !/completa/i.test(r.profile) ? [`👤 Perfil: ${r.profile}`] : []), `📅 ${when(r)}`, `💰 Monto: ${payText(r, r.price)}`].join("\n");
+    const msg = (r) => `Hola ${first(r.customerName)} 👋 te recuerdo tu ${r.customerKind === "reseller" ? "alquiler" : "suscripción"}:\n\n${datos(r)}\n\n¿Renovamos? Si ya pagaste, mandame el comprobante 🙏`;
     // Cliente de un revendedor: el aviso va al revendedor (él le cobra a su cliente a su precio).
-    const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} (${pname(r)} · ${r.profile}) ${r.d < 0 ? "venció" : "vence"} el ${fdate(r.customerExpiresAt)}. Si renueva, a vos te sale ${payText(r, r.price)}. ¿Lo renovás?`;
+    const resMsg = (r) => `Hola ${first(r.rname)} 👋 tu cliente ${r.customerName} ${r.d < 0 ? "ya venció" : "está por vencer"}:\n\n${datos(r).replace(/💰 Monto: .*/, `💰 A vos te sale: ${payText(r, r.price)}`)}\n\n¿Lo renovás?`;
     const cobrarBtn = (r, title = "") => r.viaRes
       ? (r.resellerPhone ? `<a class="pbtn sm" href="${waLink(r.resellerPhone, resMsg(r))}" target="_blank" rel="noopener" title="Es cliente de ${esc(r.rname)}: le avisás a tu revendedor">📣 Avisar a ${esc(first(r.rname))}</a>` : `<span class="pp pp-warn">${esc(first(r.rname))} sin WhatsApp</span>`)
       : r.customerPhone ? `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>` : "";
@@ -2400,15 +2403,19 @@ function showDeliveries(list) {
   const el = document.createElement("div");
   el.id = "dlvScrim"; el.className = "dlv-scrim"; el.dataset.msg = msg;
   el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Enviar accesos">
-      <div class="dlv-top"><h3>✅ Listo para enviar</h3><button class="pbtn sm" type="button" data-dlvclose aria-label="Cerrar">✕</button></div>
+      <div class="dlv-top"><h3>✅ Listo para enviar</h3><button class="pbtn sm" type="button" data-dlvclose="1" aria-label="Cerrar">✕</button></div>
       <p class="muted" style="margin:0">Para <b>${esc(list[0].customerName || "el cliente")}</b>${phone ? ` · ${esc(phone)}` : ""}</p>
       ${list.map(cred).join("")}
       ${list.some((x) => x.passwordPending) ? `<p class="muted" style="margin:0">⚠️ Falta la contraseña de una cuenta: cargala en “Carga de Cuentas” y volvé a enviar.</p>` : ""}
       ${phone ? `<a class="pbtn green big" href="${waLink(phone, msg)}" target="_blank" rel="noopener">${icon("wa")}Enviar por WhatsApp</a>` : `<p class="muted" style="margin:0">Este cliente no tiene WhatsApp cargado. Copiá los datos y mandáselos por donde puedas.</p>`}
       ${phone ? `<a class="pbtn big" href="${waLink(phone, noEntraMessage(list))}" target="_blank" rel="noopener">🙋 Respuesta para “no me entra”</a>` : ""}
-      <button class="pbtn big" type="button" data-dlvcopy>📋 Copiar todo</button></div>`;
+      <button class="pbtn big" type="button" data-dlvcopy="1">📋 Copiar todo</button></div>`;
   el.addEventListener("click", (ev) => { if (ev.target === el) el.remove(); });
-  document.body.appendChild(el);
+  // Va adentro de .app (no en body): ahí viven los colores del tema; afuera la tarjeta salía transparente.
+  (document.getElementById("app") ?? document.body).appendChild(el);
+  const onKey = (ev) => { if (ev.key === "Escape") { el.remove(); document.removeEventListener("keydown", onKey); } };
+  document.addEventListener("keydown", onKey);
+  el.querySelector("[data-dlvclose]")?.focus();
 }
 
 // Presupuesto con cupón para la venta manual (se pide al servidor, que es quien decide).
