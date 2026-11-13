@@ -51,10 +51,10 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     assert.deepEqual((await page.locator(".bnav button").allInnerTexts()).map((x) => x.trim()), ["Inicio", "Clientes", "Vender", "Inventario", "Más"]);
     assert.deepEqual(await small(page, ".bnav button"), []);
 
-    // Clientes: solo "Mi negocio" (4 pestañas), en filas que se ven completas.
+    // Clientes: solo "Mi negocio" (5 pestañas desde el 13/11: primero «Mi día»), en filas que se ven completas.
     await page.locator('.bnav [data-s="clientes"]').click();
     await page.locator(".rtabs.hubtabs").waitFor();
-    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["👥 Clientes y ventas", "📊 Mi control", "💸 Quién me debe", "📈 Mis ganancias"]);
+    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["☀️ Mi día", "👥 Clientes y ventas", "📊 Mi control", "💸 Quién me debe", "📈 Mis ganancias"]);
     assert.deepEqual(await small(page, ".rtabs [role=tab]"), []);
     assert.equal(await over(page), false);
 
@@ -102,9 +102,9 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Mi página"));
     assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["🏪 Mi página", "🎁 Mis combos y descuentos", "🖼️ Afiches"]);
     assert.equal((await current(page)).trim(), "Más");
-    // Tocar "Clientes" abajo te devuelve a Mi negocio, aunque vinieras de Mi página.
+    // Tocar "Clientes" abajo te devuelve a Mi negocio (abre en «Mi día»), aunque vinieras de Mi página.
     await page.locator('.bnav [data-s="clientes"]').click();
-    await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Clientes y ventas"));
+    await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Mi día"));
     // Los atajos del Inicio siguen funcionando (Mi control → su pestaña, dentro de Mi negocio).
     await page.locator('.bnav [data-s="inicio"]').click();
     await page.locator('.hqrow [data-rtool="control"]').click();

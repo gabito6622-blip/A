@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · «☀️ Mi día» del revendedor (rama `revendedor-mi-dia`, sin publicar)
+- **La secretaria del dueño, para el revendedor, con las mismas fórmulas (sin agentes):** pestaña nueva «☀️ Mi día» en GaboHub → Clientes (primera del grupo Negocio) y acceso desde «Tu día» y «Tu negocio sin Excel» del Inicio. Tres grupos por cliente: **💵 Cobrar hoy** (vencidos hasta 30 días atrás o que vencen hoy), **📣 Avisar** (vencen en 1 a 3 días) y **💸 Me deben** (marcados sin pagar más lejos). Junta sus dos listas: clientes registrados (Mi control) y perfiles repartidos (Repartir perfiles). Totales en su moneda.
+- **«💵 Me pagó» de un toque con vista previa:** perfil repartido que vence → corre su fecha un período y queda pagado; si no vence todavía, solo pagado. Cliente registrado → pagado en Mi control (y su libreta de Quién me debe se salda) y, si marca la casilla, **renovado con su saldo en el mismo toque** (la misma renovación de siempre: precio de su lista, freno del proveedor, saldo). Si no se puede renovar, el cobro queda anotado igual y dice por qué. Precio editable. Idempotente.
+- **«💬 Mensaje listo»** por cliente: abre WhatsApp con el texto según el grupo, con el link de cobro `/c/…` de cada perfil si lo tiene, y queda marcado «Escrito ✓» en ese celular. Nada se manda solo.
+- Plan Básico: Mi día es del plan Completo (como Mi control). Solo ve lo suyo: nada de otros revendedores ni de clientes directos de la tienda; sin correos ni claves.
+- API: `GET /api/me/dia`, `GET /api/me/dia/preview/:id`, `POST /api/me/dia/pay/:id` (sesión de revendedor). Pruebas: `test/revendedor-mi-dia.test.mjs` (5, una en navegador).
+
 ## 2026-11-13 · Optimización 2: renovar con QR o saldo desde un link (**publicado el 13/11, PR #52**, squash; **apagado de fábrica**)
 - **Interruptor** en Configuración → «Soporte y mensajes»: «Prender los links de renovación», qué puede hacer el link (solo renovar / renovar y entrar a Mis cuentas) y cuántas horas vale (48 por defecto, de 1 a 168). Apagado, nada cambia.
 - **Mi secretaria:** con el interruptor prendido, cada cuenta de un cliente directo tiene «🔗 Link para renovar» (`POST /api/admin/assignments/:id/renew-link`): copia el link para pegarlo en WhatsApp. No aparece para clientes de revendedores (renuevan con su revendedor, 409).

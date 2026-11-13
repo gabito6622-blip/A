@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · «Mi día» del revendedor: lo mismo que el dueño, con fórmulas y no con agentes
+- **El dueño lo pidió así:** «los revendedores no van a tener agentes ni oficinas; tiene que ser todo mediante fórmulas para que tengan lo mismo que yo». Casi todo lo del dueño ya eran reglas (secretaria, Me pagó, semáforo, cierre); solo Mi oficina usa a Claude. Mi día reutiliza esas reglas sobre los datos del revendedor y no cuesta nada por uso.
+- **Una lista, dos fuentes:** el revendedor tiene clientes registrados (Mi control) y perfiles repartidos (Repartir perfiles). Antes miraba dos pantallas; ahora las dos entran en los mismos tres grupos. Los grupos son los del dueño (cobrar / avisar / deben) con la misma ventana de 3 días (`SECRETARY_AHEAD_DAYS`).
+- **«Me pagó» no es lo mismo que renovar, y se dice:** el revendedor cobra a su cliente pero el servicio lo renueva pagándole a la tienda. Por eso en un cliente registrado «Me pagó» marca pagado y **ofrece** renovar con su saldo en el mismo toque (casilla marcada si le alcanza), usando `orders.renew` de siempre. Si no alcanza o la cuenta vence antes, el cobro queda anotado y se explica. En un perfil repartido, que es su propia libreta, sí corre la fecha (igual que «renovar» en Repartir perfiles).
+- **Mismo estilo, sin personajes:** tarjetas, botones de 44 px y colores por estado de GaboHub; no hay agentes con nombre porque eso es la oficina del dueño.
+- **Del plan Completo:** depende de Mi control, que ya era del Completo; no tendría sentido en el Básico.
+
 ## 2026-11-13 · Optimización 2: el link acorta el camino, no decide por nadie
 - **Apagado de fábrica:** el dueño pidió «implementala inicialmente apagada». Sin el interruptor, no hay botón, no hay ruta útil y el aviso de Tito no cambia. Prenderlo es un toque suyo, reversible, y apagarlo invalida todos los links vivos.
 - **Un token aparte, no una sesión del cliente:** el link lleva una sesión de tipo `renew` (cliente + servicio) y no una sesión normal. Así, si el cliente lo reenvía, el que lo abre solo puede pagar ese servicio: no ve correos, claves, teléfono ni otras cuentas. El acceso a Mis cuentas es opcional («full») y lo elige el dueño.

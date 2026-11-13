@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Mi día» del revendedor (rama `revendedor-mi-dia`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Grupos: Marisel (venció hace 2 d) y Lucía (perfil «Mamá», venció ayer) en Cobrar; Ruthy (2 d) en Avisar; José (pendiente, 20 d) y Mario (perfil, debe, 10 d) en Me deben; totales Bs 55 / 40 / 60; `cost` = lo que le cuesta renovar; el perfil trae su link de cobro | `test/revendedor-mi-dia.test.mjs` | OK |
+| Aislamiento: nada del otro revendedor ni del cliente directo de la tienda; sin correos ni claves; el dueño (staff) → FORBIDDEN; mirar un servicio ajeno → NOT_FOUND | misma prueba | OK |
+| «Me pagó» en perfil repartido vencido: fecha +30 días desde hoy y pagado; misma llave no corre dos veces; perfil que no vence: solo pagado y precio corregido | misma prueba | OK |
+| «Me pagó» en cliente registrado con renovar: pagado en Mi control, saldo baja Bs 25 una vez (idempotente), fecha nueva; sin vencer: no se ofrece renovar y se salda su libreta (Quién me debe = 0); sin saldo: cobro anotado y motivo | misma prueba | OK |
+| API: sin sesión 401; con sesión de revendedor 200 con sus grupos; plan Básico → 402 `HUB_PLAN`; de vuelta al Completo 200 | misma prueba, servidor efímero | OK |
+| Navegador a 360 px: desde Inicio → «Mi día» → Cobrar hoy 1 · Marisel · Venció hace 2 d · Bs 40; sin correo; sin scroll horizontal; botón ≥ 44 px; «Me pagó» abre la vista previa con «Renovar ahora con mi saldo · Bs 25» marcada; confirmar → «Todo al día acá ✅», control pagado, alquiler renovado 30 días, saldo con una sola renovación; sin errores de consola | misma prueba (Playwright) | OK |
+| Capturas con la demo de Carla (Inicio, lista, vista previa) | Playwright, demo local, fuera del repo | revisadas |
+| Nada tocado en producción | — | ✅ |
+| Tanda completa | `npm test` | **541/541** en ~54 s (536 + 5 nuevas; `hub-navegacion` y `hub-clientes-unidos` ajustadas porque «Clientes» ahora abre en «Mi día») |
+
 ## 13/11/2026 · Publicación Optimización 1 + 2 (PR #52, squash `5a86b5f`)
 | Qué | Cómo | Resultado |
 |---|---|---|

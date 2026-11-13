@@ -552,6 +552,10 @@ export function createApp(cfg: AppConfig): App {
   };
   route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
+  // «Mi día» del revendedor: misma suscripción que Mi control (plan Completo).
+  route("GET", "/api/me/dia", "customer", (c) => { hubGuard(c); return store.rtools.day(c.actor!); });
+  route("GET", "/api/me/dia/preview/:id", "customer", (c) => { hubGuard(c); return store.rtools.dayPreview(c.actor!, c.params.id); });
+  route("POST", "/api/me/dia/pay/:id", "customer", (c) => { hubGuard(c); return store.rtools.dayPay(c.actor!, c.params.id, c.body ?? {}); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));

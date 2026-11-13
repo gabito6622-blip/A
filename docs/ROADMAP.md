@@ -2,6 +2,14 @@
 
 Qué viene, en orden. Cada etapa se publica solo con el OK del dueño.
 
+## En curso — El revendedor tiene lo mismo que el dueño, con fórmulas (13/11, rama `revendedor-mi-dia`)
+Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramientas con reglas.
+- ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». Sin publicar: espera el OK del dueño con las capturas.
+- ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
+- ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
+- ⏳ Recordatorio diario de Tito al revendedor («hoy vencen 3 de tus clientes»).
+- ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.
+
 ## Publicado — Optimización 1 + 2 (13/11, PR #52, con el «Publica» del dueño)
 - ✅ Optimización 1: semáforo sin falsas alarmas, «Me pagó» con vista previa, cierre con mes incompleto, detalles visuales, demo de GaboHub.
 - ✅ Optimización 2: renovar con QR o saldo desde un link (aviso de Tito / secretaria), con aprobación humana para QR, **apagado de fábrica**.

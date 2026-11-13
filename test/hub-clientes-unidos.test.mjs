@@ -59,7 +59,8 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", (e) => errs.push(e.message));
     await page.goto(base + "/hub#inicio");
     await page.locator(".htiles").waitFor();
-    await page.locator('.bnav [data-s="clientes"]').click();
+    await page.locator('.bnav [data-s="clientes"]').click(); // desde el 13/11 abre en «Mi día»: se pasa a «Clientes y ventas»
+    await page.locator('[data-rtab="ventas"]').click();
     await page.locator('[data-rtab="ventas"][aria-selected="true"]').waitFor();
     await page.waitForFunction(() => document.querySelectorAll(".rcli").length === 5 && /3 serv\./.test(document.body.innerText), null, { timeout: 30_000 });
     const sums = await page.locator(".rcli > summary").evaluateAll((l) => l.map((x) => x.innerText.replace(/\s+/g, " ").trim()));
@@ -91,6 +92,7 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     await page.getByRole("heading", { name: /Mis cuentas propias/ }).waitFor();
     // Guardar a Beto en sus clientes: queda con su ficha y ya no figura como suelto.
     await page.locator('.bnav [data-s="clientes"]').click();
+    await page.locator('[data-rtab="ventas"]').click();
     await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("summary").click();
     // Clic por JS: al abrir el desplegable la lista se vuelve a dibujar y el botón real cambia de nodo (bajo carga, Playwright lo veía «inestable»).
     await page.locator(".rcli", { hasText: "Beto Suelto" }).locator("[data-addcli]").evaluate((b) => b.click());
@@ -100,7 +102,7 @@ test("Mis clientes: todo lo de cada cliente en un lugar, clientes sueltos y busc
     for (let i = 0; i < 60 && !mine.some((c) => c.name === "Beto Suelto"); i++) { await new Promise((r) => setTimeout(r, 250)); mine = await (await fetch(base + "/api/me/customers", { headers: { cookie: rck } })).json(); }
     assert.ok(mine.some((c) => c.name === "Beto Suelto" && c.phone.endsWith("70044444")));
     await page.reload(); await page.waitForSelector('.bnav [data-s="clientes"]', { timeout: 30_000 });
-    await page.locator('.bnav [data-s="clientes"]').click(); await page.waitForSelector(".rcli", { timeout: 30_000 });
+    await page.locator('.bnav [data-s="clientes"]').click(); await page.locator('[data-rtab="ventas"]').click(); await page.waitForSelector(".rcli", { timeout: 30_000 });
     await page.waitForFunction(() => ![...document.querySelectorAll(".rcli-x")].some((x) => x.textContent.includes("Beto Suelto")), null, { timeout: 30_000 });
     await page.waitForFunction(() => [...document.querySelectorAll(".rcli:not(.rcli-x) > summary")].some((x) => x.textContent.includes("Beto Suelto") && /1 serv\./.test(x.textContent)), null, { timeout: 30_000 });
     const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth > document.documentElement.clientWidth }));
