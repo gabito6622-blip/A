@@ -1,6 +1,15 @@
 # Informe de pruebas
 
-## 13/11/2026 · «Mi día» del revendedor (rama `revendedor-mi-dia`, sin publicar)
+## 13/11/2026 · Publicación «Mi día» (PR #53, squash `c7bb327`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, cierre nov Bs 4.452,60 | API con la llave del asistente | guardada |
+| Rama de Railway vs lo fusionado en #52: contenido idéntico; unión «ours» con árbol igual al probado | `git diff --stat` vacío | OK |
+| Publicación automática de Railway | PR #53 | nuevo código en vivo a los ~20 s (`/api/me/dia` existe; `shop.js` servido trae «Mi día») |
+| Después: salud 200, `/hub` 200, alquileres y clientes idénticos byte a byte, cierre igual | `curl` + comparación JSON | OK |
+| Nada escrito en producción | — | ✅ |
+
+## 13/11/2026 · «Mi día» del revendedor (publicado en #53)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Grupos: Marisel (venció hace 2 d) y Lucía (perfil «Mamá», venció ayer) en Cobrar; Ruthy (2 d) en Avisar; José (pendiente, 20 d) y Mario (perfil, debe, 10 d) en Me deben; totales Bs 55 / 40 / 60; `cost` = lo que le cuesta renovar; el perfil trae su link de cobro | `test/revendedor-mi-dia.test.mjs` | OK |

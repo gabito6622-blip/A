@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · «☀️ Mi día» del revendedor (rama `revendedor-mi-dia`, sin publicar)
+## 2026-11-13 · «☀️ Mi día» del revendedor (**publicado el 13/11, PR #53**, squash)
 - **La secretaria del dueño, para el revendedor, con las mismas fórmulas (sin agentes):** pestaña nueva «☀️ Mi día» en GaboHub → Clientes (primera del grupo Negocio) y acceso desde «Tu día» y «Tu negocio sin Excel» del Inicio. Tres grupos por cliente: **💵 Cobrar hoy** (vencidos hasta 30 días atrás o que vencen hoy), **📣 Avisar** (vencen en 1 a 3 días) y **💸 Me deben** (marcados sin pagar más lejos). Junta sus dos listas: clientes registrados (Mi control) y perfiles repartidos (Repartir perfiles). Totales en su moneda.
 - **«💵 Me pagó» de un toque con vista previa:** perfil repartido que vence → corre su fecha un período y queda pagado; si no vence todavía, solo pagado. Cliente registrado → pagado en Mi control (y su libreta de Quién me debe se salda) y, si marca la casilla, **renovado con su saldo en el mismo toque** (la misma renovación de siempre: precio de su lista, freno del proveedor, saldo). Si no se puede renovar, el cobro queda anotado igual y dice por qué. Precio editable. Idempotente.
 - **«💬 Mensaje listo»** por cliente: abre WhatsApp con el texto según el grupo, con el link de cobro `/c/…` de cada perfil si lo tiene, y queda marcado «Escrito ✓» en ese celular. Nada se manda solo.

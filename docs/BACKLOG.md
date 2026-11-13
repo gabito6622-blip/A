@@ -130,5 +130,5 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
 | O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
 | O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados; precio real del plan Básico de GaboHub | P2 | 🧑 datos del dueño |
-| R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
+| R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#53) |
 | R2 | Que la tarjeta «Tu día» del Inicio de GaboHub cuente igual que Mi día (hoy cuenta «por avisar» con ventana de 7 días; Mi día usa 3 días + vencidos) | P3 | ⏳ |
