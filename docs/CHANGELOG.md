@@ -3,12 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-13 · Panel → Control: «Reenviar accesos» que no cerraba y mensaje de «Cobrar» completo (**sin publicar**, rama `codigos-refresco`)
+## 2026-11-13 · Control: «↔️ Cambiar de cuenta» a una cuenta elegida, misma fecha (**sin publicar**, rama `cambiar-cuenta`)
+- **Por qué:** el dueño renovó un Disney en otra cuenta y quiso pasar al cliente a ESA cuenta manteniendo su vencimiento. El panel solo tenía «Reubicar» (elige sola cualquier cuenta libre) y «Pasar a otro» (cambia de cliente, no de cuenta). No había forma de elegir el destino.
+- **Qué hay ahora:** en cada tarjeta del Control (y en la tabla), «↔️ Cambiar de cuenta» lista las otras cuentas activas de la misma plataforma con perfil libre o apartado, y «Mover · misma fecha». La cuenta vieja queda apartada (no se revende sin revisar). En la nota del Control queda «↔️ dd/mm/aaaa: de correo-viejo a correo-nuevo», que lee Mi secretaria. Después, «📲 Reenviar accesos» manda los datos nuevos.
+- Servidor: `POST /api/admin/assignments/:id/replace` acepta `toSlotId`; valida misma plataforma, perfil libre y cuenta activa (errores claros).
+- Prueba nueva `test/cambiar-cuenta.test.mjs`: API (errores y cambio real con fecha intacta y nota) y navegador a 360 px.
+
+## 2026-11-13 · Panel → Control: «Reenviar accesos» que no cerraba y mensaje de «Cobrar» completo (**publicado el 13/11, PR #58**, squash `576567c`)
 - **Arreglo:** la tarjeta «✅ Listo para enviar» (botón «📲 Reenviar accesos») salía transparente encima de la ficha y la ✕ no hacía nada. Causa: se dibujaba fuera de la zona del tema (sin sus colores) y los botones ✕ y «Copiar todo» llevaban un atributo vacío que el código leía como «no tocado». Ahora se ve con fondo, cierra con la ✕, con Escape o tocando afuera, y «Copiar todo» copia.
 - **Mejora pedida por el dueño:** el botón «💰 Cobrar» de cada alquiler arma el mensaje completo: plataforma, correo de la cuenta, perfil (si no es cuenta completa), vencimiento con los días que faltan o pasaron, y monto. Antes decía solo «tu Disney vence el … Monto …» sin el correo. El aviso al revendedor por un cliente suyo lleva los mismos datos y lo que le sale a él.
 - Prueba nueva `test/panel-reenviar-accesos.test.mjs` (navegador 360 px): fondo no transparente, cierre por ✕ / Escape / afuera, copiar, y el texto del Cobrar con correo, fecha y Bs 69.
 
-## 2026-11-13 · Códigos que llegan solos a la bandeja del revendedor (**sin publicar**, rama `codigos-refresco`)
+## 2026-11-13 · Códigos que llegan solos a la bandeja del revendedor (**publicado el 13/11, PR #58**, squash `576567c`)
 - **Para el revendedor:** la pestaña «Códigos» y el «📩 Ver códigos» de cada cuenta se refrescan solos cada 10 segundos mientras están a la vista, igual que la página pública del link de códigos. Pide el código en la app y lo ve aparecer sin tocar «Actualizar» (el botón sigue ahí). Solo se redibuja si llegó algo nuevo, así no se borra lo que esté escribiendo; con la pestaña oculta o al irse a otra pantalla deja de consultar.
 - Prueba nueva `test/codigos-refresco.test.mjs` (navegador a 360 px con reloj simulado): el código aparece solo a los 10 s en la bandeja y en «Ver códigos»; en el Inicio no se consulta más.
 

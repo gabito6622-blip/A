@@ -1,5 +1,21 @@
 # Informe de pruebas
 
+## 13/11/2026 · «Cambiar de cuenta» (rama `cambiar-cuenta`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Errores: cuenta de otra plataforma 400 «otra plataforma»; perfil ocupado 409 «no está libre»; el mismo perfil 400 «ya tiene» | `test/cambiar-cuenta.test.mjs` (API) | OK |
+| Cambio real a una cuenta apartada: correo nuevo, vencimiento idéntico (12/12/2026), nota «↔️ fecha: de vieja a nueva · nota anterior», perfil nuevo asignado, viejo apartado, «Reenviar accesos» con el correo nuevo y sin el viejo | misma prueba | OK |
+| Celular 360 px: la tarjeta del Control muestra «↔️ Cambiar de cuenta» solo con cuentas libres de la misma plataforma (no la propia, no las ocupadas); al mover, el alquiler queda en la elegida con la misma fecha; sin desborde ni errores de JS | misma prueba, Playwright | OK |
+| Suite completa | `npm test` | **577 pasan, 0 fallan, 58 s** |
+
+## 13/11/2026 · Publicación: refresco de códigos + Reenviar accesos + Cobrar (PR #58, squash `576567c`)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Foto previa (solo lectura): 78 alquileres, 34 clientes, 25 revendedores, finanzas del mes, cobro apagado | API con la llave del asistente | guardada |
+| Rama de Railway vs #57: sin cambios; unión «ours» con árbol igual al probado; CI verde (2 trabajos) | `git diff --stat`, Actions | OK |
+| Publicación: código nuevo en vivo a los ~40 s; salud, `/tienda/`, `/hub`, `/panel` 200; `shop.js`, `codigos-solos.js` y `panel.js` servidos traen los cambios | `curl` | OK |
+| Datos después, byte a byte: alquileres, clientes, revendedores y finanzas | comparación de los JSON antes/después | **idéntico** |
+
 ## 13/11/2026 · «Reenviar accesos» y mensaje de «Cobrar» (rama `codigos-refresco`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
