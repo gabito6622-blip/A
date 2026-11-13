@@ -565,6 +565,9 @@ export function createApp(cfg: AppConfig): App {
   const cobroUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/c/${token}`;
   route("POST", "/api/me/subs/:id/:sub/link", "customer", (c) => { const r = store.subs.link(c.actor!, c.params.id, c.params.sub); return { ...r, url: cobroUrl(r.token, c) }; });
   route("POST", "/api/me/subs/:id/:sub/link/revoke", "customer", (c) => { const r = store.subs.revokeLink(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
+  // Link de cobro de un cliente REGISTRADO del revendedor (13/11): misma página /c/<token>.
+  route("POST", "/api/me/control/:id/link", "customer", (c) => { const r = store.rtools.clientLink(c.actor!, c.params.id); return { ...r, url: cobroUrl(r.token, c) }; });
+  route("POST", "/api/me/control/:id/link/revoke", "customer", (c) => { const r = store.rtools.revokeClientLink(c.actor!, c.params.id); expiry.purge(); return r; });
   // Contra el barrido de tokens: cada link que no sirve cuenta por IP; pasado el límite, 429 a todo por un rato.
   const cobroMissLimiter = new RateLimiter(20, 15 * 60_000, now);
   const cobro = <T>(c: Ctx, fn: () => T): T => {
@@ -2419,6 +2422,12 @@ export function createApp(cfg: AppConfig): App {
     for (const cid of new Set(subs.map((x) => x.customerId))) {
       const me = s.customers[cid];
       if (!me || me.kind !== "reseller") continue;
+      // «Mi día» (13/11): un solo aviso con lo de hoy (cobrar / avisar / te deben) que abre la pestaña. Si su GaboHub está
+      // pausado o en plan Básico (sin Mi día), sigue el aviso de siempre de «vence mañana».
+      if (!store.shops.hubLockReason(cid)) {
+        const dp = store.rtools.dayPushText({ id: `u_${cid}`, role: "reseller", customerId: cid });
+        if (dp) { await customerPush(cid, { ...dp, body: withOwnSuffix(dp.body, ownSoonFor(store.engine, cid)) }).catch(() => {}); continue; }
+      }
       const soon = Object.values(s.assignments).filter((a) => a.status === "active" && !a.holdOpen && s.customers[a.customerId]?.resellerId === cid
         && a.customerExpiresAt > t && a.customerExpiresAt - t <= 2 * DAYMS);
       // Perfiles que reparte de sus cuentas alquiladas (su cuaderno) que vencen en 2 días.

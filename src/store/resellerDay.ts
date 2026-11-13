@@ -58,7 +58,7 @@ function items(e: Engine, actor: Actor): DayItem[] {
   const out: DayItem[] = [];
   for (const r of myControl(e, actor)) {
     if (r.holdOpen) continue;
-    out.push({ kind: "client", id: r.id, assignmentId: r.id, client: r.client, phone: r.phone, productId: r.productId, product: r.product, expiresAt: r.expiresAt, days: daysTo(r.expiresAt), price: r.price, pay: r.pay as DayItem["pay"], note: r.note, cost: r.cost, canRenew: r.canRenew && r.renewableNow !== false });
+    out.push({ kind: "client", id: r.id, assignmentId: r.id, client: r.client, phone: r.phone, productId: r.productId, product: r.product, expiresAt: r.expiresAt, days: daysTo(r.expiresAt), price: r.price, pay: r.pay as DayItem["pay"], note: r.note, cost: r.cost, canRenew: r.canRenew && r.renewableNow !== false, ...(r.linkToken ? { linkToken: r.linkToken } : {}) });
   }
   for (const a of listMine(e, actor)) for (const s of a.subs) {
     out.push({ kind: "sub", id: `${a.assignmentId}|${s.id}`, assignmentId: a.assignmentId, subId: s.id, client: s.name, phone: s.phone, productId: a.productId, product: a.product, label: s.label, expiresAt: s.expiresAt, days: daysTo(s.expiresAt), price: s.price ?? null, pay: s.pay, note: s.note ?? "", ...(s.linkToken ? { linkToken: s.linkToken } : {}) });
@@ -93,6 +93,25 @@ export function myDay(e: Engine, actor: Actor) {
     cobrar: grouped(cobrar), avisar: grouped(avisar), deben: grouped(deben),
     balance: balance(e, me.id),
   };
+}
+
+/**
+ * Texto del recordatorio matutino de Tito para el revendedor: «☀️ Tu día: 2 para cobrar · 1 por avisar», con los
+ * primeros nombres y el aviso de saldo si no le alcanza para renovar a los que vencen. null si no hay nada que hacer.
+ */
+export function dayPushText(e: Engine, actor: Actor): { title: string; body: string; url: string } | null {
+  const d = myDay(e, actor);
+  const k = d.counts;
+  if (!k.cobrar && !k.avisar) return null;
+  const parts: string[] = [];
+  if (k.cobrar) parts.push(`${k.cobrar} para cobrar`);
+  if (k.avisar) parts.push(`${k.avisar} por avisar`);
+  if (k.deben) parts.push(`${k.deben} te deben`);
+  const groups = [...d.cobrar, ...d.avisar];
+  const names = groups.slice(0, 3).map((g) => g.client.trim().split(/\s+/)[0]).join(", ") + (groups.length > 3 ? "…" : "");
+  const need = groups.flatMap((g) => g.items).filter((it) => it.kind === "client" && it.canRenew).reduce((t, it) => t + (it.cost ?? 0), 0);
+  const saldo = need > d.balance ? ` · ⚠️ Te falta saldo para renovarlos (tenés ${(d.balance / 100).toFixed(0)}, necesitás ${(need / 100).toFixed(0)})` : "";
+  return { title: `☀️ Tu día: ${parts.join(" · ")}`, body: `${names}${saldo}. Tocá para abrir Mi día.`, url: "/hub#dia" };
 }
 
 const find = (e: Engine, actor: Actor, id: Id) => {

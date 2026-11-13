@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Un solo tipo de link de cobro, para dos tipos de cliente
+- **Misma página, misma lista cerrada:** el link de los clientes registrados reutiliza `/c/<token>` y `publicView` en vez de una página nueva. Así lo que ya se auditó (sin correo, sin clave, sin teléfono, sin costos, sin ids) vale igual para los dos casos, y Tito, el QR, el logo y los avisos del link funcionan sin código aparte.
+- **El token vive en el alquiler (`rlink`), no en el cliente:** un cliente puede tener varias cuentas con precios y fechas distintas; el link es por servicio, como en los perfiles repartidos.
+- **El link muere si el cliente cambia de revendedor:** se comprueba `c.resellerId === rlink.by` en cada apertura. Nunca se muestran datos a nombre de otro.
+- **Un solo aviso a la mañana:** el recordatorio «Tu día» reemplaza al «vence mañana» cuando Mi día tiene algo, en vez de sumarse: dos avisos seguidos se ignoran. Si el revendedor no tiene Mi día (Básico o pausado), vuelve el aviso de siempre.
+
 ## 2026-11-13 · «Mi día» del revendedor: lo mismo que el dueño, con fórmulas y no con agentes
 - **El dueño lo pidió así:** «los revendedores no van a tener agentes ni oficinas; tiene que ser todo mediante fórmulas para que tengan lo mismo que yo». Casi todo lo del dueño ya eran reglas (secretaria, Me pagó, semáforo, cierre); solo Mi oficina usa a Claude. Mi día reutiliza esas reglas sobre los datos del revendedor y no cuesta nada por uso.
 - **Una lista, dos fuentes:** el revendedor tiene clientes registrados (Mi control) y perfiles repartidos (Repartir perfiles). Antes miraba dos pantallas; ahora las dos entran en los mismos tres grupos. Los grupos son los del dueño (cobrar / avisar / deben) con la misma ventana de 3 días (`SECRETARY_AHEAD_DAYS`).

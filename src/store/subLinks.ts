@@ -8,6 +8,7 @@ import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { me, rental } from "./subRentals.js";
 import { linkQr as ownLinkQr, linkView as ownLinkView } from "./ownStock.js";
+import { clientLinkQr, clientLinkTarget, clientLinkView } from "./clientLinks.js";
 import { localeOf } from "./country.js";
 import { codesMode } from "./codigosSolos.js";
 
@@ -108,6 +109,9 @@ export function publicView(e: Engine, token: unknown) {
   // El mismo /c/<token> sirve para los clientes de "Mis cuentas propias" (misma lista cerrada de campos).
   const own = ownLinkView(e, token);
   if (own) return { ...own, codes: codesMode(e, token) };
+  // Clientes registrados del revendedor (clientLinks.ts): misma lista de campos; el logo es el del producto.
+  const cl = clientLinkView(e, token);
+  if (cl) { const t = clientLinkTarget(e, token)!; return { ...cl, hasLogo: !!productLogo(e, t.a.productId), codes: "off" as const }; }
   const { a, s } = resolve(e, token);
   const c = e.s.customers[a.customerId];
   const seller = (c.shop?.title || c.name || "").trim();
@@ -139,6 +143,8 @@ export function subLinkTarget(e: Engine, token: unknown): { a: Assignment; s: Su
 export function publicQr(e: Engine, token: unknown): string | undefined {
   const own = ownLinkQr(e, token);
   if (own !== null) return own;
+  const cl = clientLinkQr(e, token);
+  if (cl !== null) return cl;
   const { a } = resolve(e, token);
   return usableQr(e, a.customerId);
 }
@@ -157,6 +163,8 @@ function productLogo(e: Engine, productId: Id): string | undefined {
 
 /** Logo del producto de ese link (Disney, Prime…), o undefined. */
 export function publicLogo(e: Engine, token: unknown): string | undefined {
+  const cl = clientLinkTarget(e, token);
+  if (cl) return productLogo(e, cl.a.productId);
   const { a } = resolve(e, token);
   return productLogo(e, a.productId);
 }

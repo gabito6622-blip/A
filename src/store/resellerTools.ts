@@ -30,6 +30,8 @@ export function myControl(e: Engine, actor: Actor) {
         price: a.rcontrol?.price ?? listPriceMine(e, me, a.productId) ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
         cost: renewPriceFor(e, me.id, a), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
+        // Link de cobro /c/<token> de este cliente (clientLinks.ts), si lo creó.
+        ...(a.rlink?.by === me.id ? { linkToken: a.rlink.token } : {}),
       };
     });
 }

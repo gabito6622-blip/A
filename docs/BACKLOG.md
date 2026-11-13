@@ -82,6 +82,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | C12 | 🛒 | "Tu pedido en vivo" (Pedido → Revisando pago → Entregado, con hora estimada) | P3 | ✅ idea wow, navegador |
 | R1 | 🏪 | Teléfono sin +591 → WhatsApp roto y clientes duplicados | P1 | ✅ prueba `store` + navegador |
 | R2 | 🏪 | Ganancias contaban lo que no te pagaron | P1 | ✅ prueba `store` |
+| R3 | Link de cobro para clientes registrados + recordatorio «Tu día» de Tito: dar el OK y el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
 | R3 | 🏪 | Quién me debe en Bs 0 mientras Mi control decía que te deben | P1 | ✅ prueba `store` |
 | R4 | 🏪 | Cada pantalla contaba distinto "los que vencen"; aviso llevaba a Mis cuentas | P2 | ✅ "📣 Avisarles" + semana completa |
 | R5 | 🏪 | "Tu acceso" ofrecía correo sin tener contraseña | P2 | ✅ |
@@ -125,10 +126,11 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | M15 | Panel ordenado en 6 áreas + Herramientas (Inicio, Ventas, Clientes, Inventario, Revendedores, Finanzas): buscador global, Ficha 360°, Vender/Renovar/Reemplazar guiados, inventario por niveles. Auditoría y matriz de las 30 pantallas presentadas el 12/11; sin tocar código | P1 | ✅ aprobada · etapas 1 y 2 publicadas (#39) · etapa 3 (buscador) publicada (#40) · etapa 4 (ficha 360°) publicada (#41) · etapa 5 (ver antes de confirmar) publicada (#42) · etapa 6 (pestañas de Avisos y Plata) publicada (#43) · etapa 7 (cuentas por plataforma) publicada (#45) · arreglo «vencidas» publicado (#46) |
 | M16 | Alquileres de Disney frenados por la fecha del proveedor | P2 | ✅ resuelto el 12/11: el dueño no tiene proveedor de Disney; se quitaron las fechas (ver B22 para las 16 restantes) |
 | M17 | La prueba `avisos-solos` falló 1 vez por azar en una corrida completa (12/11) y otra en la CI (13/11) | P3 | ✅ causa: el token al azar del link `/c/…` a veces contiene «Bs» y la revisión de privacidad lo tomaba por un monto; ahora revisa el texto sin el token (13/11) |
+| M18 | La prueba `tarjeta` (navegador, panel) falló 1 vez por tiempo de espera en una corrida completa lenta (76 s, 13/11); sola pasa. Revisar si conviene subirle el tiempo de espera | P3 | ⏳ |
 | O1 | Dar el «PUBLICÁ» de Optimización 1 + 2 después de confirmar el respaldo (Configuración → Respaldos) | P1 | ✅ publicado el 13/11 (#52) |
 | O2 | Prender los links de renovación (Configuración → Soporte) y elegir si solo renuevan o también entran a Mis cuentas | P2 | 🧑 decide el dueño (ya está publicado, apagado) |
 | O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
 | O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
 | O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados; precio real del plan Básico de GaboHub | P2 | 🧑 datos del dueño |
-| R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | 🧑 hecho en rama, sin publicar (13/11) |
+| R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#53) |
 | R2 | Que la tarjeta «Tu día» del Inicio de GaboHub cuente igual que Mi día (hoy cuenta «por avisar» con ventana de 7 días; Mi día usa 3 días + vencidos) | P3 | ⏳ |

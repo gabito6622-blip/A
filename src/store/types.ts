@@ -496,6 +496,8 @@ export interface Assignment {
   rcontrol?: RentalControl;
   /** Perfiles que el revendedor reparte de esta cuenta completa alquilada (su cuaderno; el dueño no los ve). */
   subs?: SubRental[];
+  /** Link de cobro /c/<token> que el revendedor le manda a su cliente registrado (clientLinks.ts). */
+  rlink?: { token: string; by: Id; at: number };
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
 }
