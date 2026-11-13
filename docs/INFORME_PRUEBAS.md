@@ -9,7 +9,8 @@
 | Sin pagar: tras 3 días de gracia rige Gratis (Control 402 `HUB_UNPAID` «hoy estás en Gratis … plan Negocio», catálogo 200, página 404; el panel ve plan Negocio / hoy Gratis). Elige Gratis: deja de deber y 60 días después sigue sin cobro. Quiere Negocio sin saldo: vence hoy, 4 días después vuelve a Gratis. Recarga y paga: Negocio al instante, saldo Bs 1 | misma prueba | OK |
 | Celular 360 px: en Gratis, Mi día muestra el candado «plan Negocio», Bs 49, botones de 44 px, sin desborde; el Inicio dice «plan Gratis» con botones a Vendedor y Negocio; sin errores de JS | Playwright, capturas fuera del repo | OK |
 | Pruebas viejas adaptadas: `gabohub-planes` (3), `exportaciones` (6: el catálogo sale aun pausado; el Excel 402), `suscripcion-gabohub` (2), `revendedor-mi-dia` (5), `link-cobro-clientes` (4) | `node --test` por archivo | OK |
-| Suite completa | `npm test` | ver abajo |
+| Suite completa | `npm test` | **574 pasan, 0 fallan, 63 s** (local, 13/11 10:10 UTC) |
+| Demo de GaboHub con los nombres nuevos (`scripts/seed-gabohub-demo.mjs`): Beto en Vendedor pagando Bs 28, Carla en Negocio, Ana y Paula en prueba | correr la semilla en carpeta temporal; capturas del panel a 360 px | OK |
 
 ## 13/11/2026 · Publicación logos + catálogo público + Promos y combos (PR #56, squash `c01587c`)
 | Qué | Cómo | Resultado |
