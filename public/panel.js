@@ -120,7 +120,7 @@ function applyTheme() {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
 /** Semáforo de riesgo de una cuenta (etapa 4): verde nada, amarillo revisar, rojo clientes en peligro. */
-const riskPill = (r) => !r ? "" : r.level === "bad" ? pill("🔴 Riesgo", "bad") : r.level === "warn" ? pill("🟡 Revisar", "warn") : pill("🟢 OK", "ok");
+const riskPill = (r) => !r ? "" : r.inactive ? pill("⚪ Dada de baja", "mute") : r.level === "bad" ? pill("🔴 Riesgo", "bad") : r.level === "warn" ? pill("🟡 Revisar", "warn") : pill("🟢 OK", "ok");
 
 /* ---------------- vistas ---------------- */
 const V = {
@@ -328,7 +328,7 @@ const V = {
     const fm = P.tab.fm || "";
     const [d, mg, accsT, usdtT, cz] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null), api("GET", `/api/admin/finance/cierre${fm ? `?month=${encodeURIComponent(fm)}` : ""}`).catch(() => null)]);
     // 📒 Cierre de mes (Premium 2.0, etapa 9): el mes elegido con la misma fuente que Inicio, comparado con el anterior.
-    const pctTxt = (v) => (v === null ? "sin mes anterior" : `${v > 0 ? "▲ +" : v < 0 ? "▼ " : "="} ${v}% vs. mes anterior`);
+    const pctTxt = (v) => (cz.prev?.incomplete ? `mes anterior incompleto (datos desde el ${fdate(cz.prev.dataSince)})` : v === null ? "sin mes anterior" : `${v > 0 ? "▲ +" : v < 0 ? "▼ " : "="} ${v}% vs. mes anterior`);
     const cierre = cz ? `<section class="card cierre"><h2>📒 Cierre de mes <small>${esc(cz.label)}${cz.closed ? "" : " · en curso"}</small></h2>
       <div class="tabs ctl-chips" role="tablist" aria-label="Mes">${cz.months.slice(0, 6).map((m) => `<button type="button" role="tab" data-tab="fm:${esc(m.key)}" aria-selected="${m.key === cz.month}">${esc(m.label.replace(/ \d{4}$/, ""))}</button>`).join("")}</div>
       <div class="finkpis four">

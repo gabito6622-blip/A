@@ -42,12 +42,15 @@ const RE_WATCH = /SEGUIMIENTO|CAMBIAR (LA )?(CLAVE|CONTRASEÑA)|DESENLAZAR/i;
 export const PASSWORD_OLD_DAYS = 90;
 
 export type RiskLevel = "ok" | "warn" | "bad";
-export interface Risk { level: RiskLevel; reasons: string[] }
+/** `inactive`: la cuenta está retirada o todos sus perfiles fueron dados de baja (caída): no es una alerta, es historial. */
+export interface Risk { level: RiskLevel; reasons: string[]; inactive?: boolean }
 
-/** Semáforo de una cuenta: rojo = clientes en peligro ya; amarillo = algo por revisar; verde = nada. */
+/** Semáforo de una cuenta: rojo = clientes en peligro ya; amarillo = algo por revisar; verde = nada; dada de baja = sin alerta. */
 export function riskOf(e: Engine, acc: Account, now: number = e.now()): Risk {
-  if (acc.status === "retired") return { level: "ok", reasons: [] };
+  if (acc.status === "retired") return { level: "ok", reasons: [], inactive: true };
   const slots = Object.values(e.s.slots).filter((s) => s.accountId === acc.id && s.status !== "retired");
+  // Todos los perfiles dados de baja (la cuenta «caída» que el dueño ya revisó): no hay nadie adentro ni nada que vender → no es alerta.
+  if (!slots.length && Object.values(e.s.slots).some((s) => s.accountId === acc.id)) return { level: "ok", reasons: [], inactive: true };
   const clients = slots.filter((s) => s.status === "assigned").length;
   const bad: string[] = [], warn: string[] = [];
   const dLeft = Math.ceil((acc.supplierExpiresAt - now) / DAY);

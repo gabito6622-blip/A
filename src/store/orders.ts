@@ -533,7 +533,7 @@ export function renewableNow(e: Engine, a: Assignment): boolean {
   return Math.max(a.customerExpiresAt, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
 }
 
-function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
+export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
   const days = e.s.products[a.productId].durationDays * periods;

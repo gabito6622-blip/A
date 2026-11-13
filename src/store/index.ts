@@ -15,6 +15,7 @@ import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as inventario from "./inventario.js";
+import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as subs from "./subRentals.js";
@@ -82,6 +83,11 @@ export function createStore(opts: EngineOptions = {}) {
       isUsd: (customerId: Id) => usd.isUsd(e, customerId),
       rate: () => usd.rateNow(e),
       toBs: (usdCents: Cents, rate: number) => usd.usdToBs(usdCents, rate),
+    },
+    /** «Me pagó» desde Mi secretaria (optimización 1): vista previa y guardado reutilizando el Control. */
+    cobro: {
+      preview: bind(e, cobro.payPreview),
+      apply: bind(e, cobro.payApply),
     },
     /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
     inventario: {

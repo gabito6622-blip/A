@@ -1213,3 +1213,13 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 
 /* Etapa 8: fallas que esperan hace más de un día */
 .tkt-late{border-left:4px solid var(--bad)}
+
+/* «Me pagó» en Mi secretaria */
+.sec-items li{position:relative}
+.sec-pay{margin-top:6px}
+.sec-pvbox{margin-top:8px;padding:10px;border-radius:12px;background:var(--soft);border:1px solid var(--line);display:grid;gap:8px}
+.sec-pvt{width:100%;border-collapse:collapse;font-size:13px}.sec-pvt th{text-align:left;color:var(--muted);font-weight:600;padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;width:1%}.sec-pvt td{padding:3px 0;overflow-wrap:anywhere}
+.sec-block{margin:0;padding:8px 10px;border-radius:8px;background:var(--bad-soft);color:var(--ink);font-size:13px}
+.sec-warn{margin:0;padding:8px 10px;border-radius:8px;background:var(--warn-soft);color:var(--ink);font-size:13px}
+.sec-pvact{flex-wrap:wrap;align-items:flex-end;gap:8px}
+.sec-price{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}.sec-price input{min-height:44px;max-width:140px}

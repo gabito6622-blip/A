@@ -3,6 +3,15 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Optimización 1 (rama `optimizacion-1`, sin publicar)
+- **Semáforo sin falsas alarmas:** una cuenta con todos sus perfiles dados de baja (las «caídas» que ya revisaste) o retirada deja de ser alerta roja: pastilla «⚪ Dada de baja» (`risk.inactive`). No se borra ni se retira nada; una cuenta con perfiles vivos y nota CAÍDA sigue en rojo. En la tienda real, de 34 rojas quedarían 4.
+- **«💵 Me pagó» en Mi secretaria:** en cada cuenta de Cobrar / Cortar / Vencidas / Te deben / Avisar. Primero una **vista previa** (`GET /api/admin/assignments/:id/pay-preview`): cliente (y quién paga), cuenta y perfil, monto (Bs o US$), período y **fecha nueva**, fecha del proveedor, avisos. **Frena** si ese período ya figura cobrado, si hubo un cobro hace menos de 10 minutos o si la fecha nueva pasa la del proveedor. «Confirmar» (`POST …/pay`, idempotente) corre la fecha con la misma regla del Control, marca pagado con el precio (editable), anota el cobro para Finanzas (una sola vez, también si ya estaba pagado el período anterior), limpia «EN COBRO / POR CORTAR» de la nota y deja «💵 pagado dd/mm»; auditoría `secretary.paid` con la nota anterior.
+- **Cierre de mes con mes anterior incompleto:** si la tienda empezó a registrar después del día 1 del mes anterior, no se muestra % (sería inventado): dice «mes anterior incompleto (datos desde dd/mm)». Los Bs sí se comparan.
+- **Detalles visuales:** botón «Escribir por WhatsApp» de la FAQ a 44 px también en PC; el dibujo de los celulares de la landing de revendedores pasó de 9,5 px a 12 px (sin recortes).
+- **Demo de GaboHub** (`scripts/seed-gabohub-demo.mjs` + `docs/DEMO_GABOHUB.md`): Ana en prueba, Beto en Básico, Carla en Completo con página, Paula en US$; cobro prendido solo en la demo.
+- **Propuesta** `docs/PROPUESTA_RENOVACION_QR.md`: renovar con QR o saldo desde el aviso, con aprobación humana; sin activar.
+- Pruebas nuevas: `test/optimizacion-1.test.mjs` (5).
+
 ## 2026-11-13 · Tienda real: apariencia «Premium 2.0» y 15 días de prueba en GaboHub (con OK del dueño)
 - **Apariencia:** la tienda real pasó del estilo anterior (fondo `#172038`, dorado `#fcc42d`/`#ffd95a`, sólido, Outfit) primero al estilo «Premium 2.0 · Azul eléctrico» y, con la segunda decisión del dueño («Dale» a la mezcla), al **fondo oscuro Premium con el dorado del logo** (fondo `#070b16`, dorado `#fcc42d` / `#ffd95a`, vidrio, Outfit + Inter). El azul eléctrico queda para el panel y la oficina. Respaldo del estilo anterior guardado fuera del repo; se vuelve atrás desde Apariencia.
 - **GaboHub:** `trialDays: 15`. Todo lo demás igual (Bs 49 / US$ 5, gracia 3 días, para todos, **cobro apagado**). Falta el precio del plan Básico (lo decide el dueño).

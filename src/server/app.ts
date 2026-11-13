@@ -792,6 +792,9 @@ export function createApp(cfg: AppConfig): App {
     return r;
   });
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
+  // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
+  route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);

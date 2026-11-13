@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## 13/11/2026 · Optimización 1 (rama `optimizacion-1`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Semáforo: cuenta con el único perfil dado de baja → «dada de baja» (no roja), sigue activa y el perfil retirado; cuenta viva con nota CAÍDA sigue roja; la lista trae `risk.inactive` | `test/optimizacion-1.test.mjs` (núcleo, datos ficticios) | OK |
+| «Me pagó»: vista previa con cliente/pagador, cuenta, producto, Bs 66, período 30 días desde hoy (venció hace 2 días), fecha nueva; Atención no puede; 13 períodos → inválido; guardar corre la fecha, marca pagado, limpia «EN COBRO», anota 1 cobro y Finanzas suma 66 una vez; misma llave = mismo resultado; 1 min después frena («hace 1 min»); 2 h después el período siguiente arranca donde termina el pagado; 3 períodos pasan al proveedor → frena sin tocar la fecha; precio corregido a 65 → segundo cobro anotado y sumado; la secretaria ya no la lista en Cobrar | misma prueba | OK (encontró que un segundo cobro consecutivo no se anotaba porque el Control solo anota al PASAR a pagado; se pasa por «pendiente» después de correr la fecha) |
+| Cierre: tienda que arranca el 22/10 → octubre incompleto, sin %, «datos desde 22/10»; con historia desde antes del 1/10 el % vuelve | misma prueba | OK |
+| API: `pay-preview` 200 con los datos; `pay` 200 e idempotente; segundo cobro a los segundos → 400; sin sesión 401 | misma prueba, servidor en puerto efímero | OK |
+| Navegador a 360 px: «💵 Me pagó» en la secretaria abre la vista previa con Rodbol, dis2@x.lat, Bs 69, Período, Fecha nueva y «Confirmar»; sin desborde; botones/campos de 44 px; al confirmar el alquiler queda pagado y sale de la lista | misma prueba, Playwright | OK |
+| Detalles visuales: botón WhatsApp de la FAQ en PC = 44 px; landing de revendedores sin letra < 12 px, sin desborde ni recortes en los 3 celulares de muestra (cel y PC) | medición con Playwright en demo local | OK |
+| Demo GaboHub: Ana (prueba), Beto (Básico, pagó Bs 25), Carla (Completo, pagó Bs 49, página `/r/carla-streaming`), Paula (US$, prueba); hubs de los 4, Mi control de Beto, página de Carla, Revendedores y Ajustes del dueño en cel y PC: sin desborde, sin errores, letra ≥ 12 px, botones de 44 px en celular | `scripts/seed-gabohub-demo.mjs` + capturas (fuera del repo) | OK |
+| Nada tocado en producción; tienda real solo leída | — | ✅ |
+| Tanda completa | `npm test` | **527/527** en ~59 s |
+
 ## 13/11/2026 · Publicación Premium 2.0 (PR #51)
 | Qué | Cómo | Resultado |
 |---|---|---|
