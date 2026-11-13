@@ -751,6 +751,7 @@ const V = {
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
           ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
+        ${r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
         <footer>${cobrarBtn(r)}
           ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>

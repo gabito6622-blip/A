@@ -1187,6 +1187,8 @@ table.ctl tfoot td.ccli{z-index:3}
 .sec-gh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;align-items:baseline}
 .sec-gh b{font-size:16px;overflow-wrap:anywhere}.sec-tot{font-size:14px;font-weight:600}
 .sec-rule{font-size:13px;overflow-wrap:anywhere}
+.sec-group.sec-done{opacity:.72;border-style:dashed}
+.sec-noticed{color:var(--ok,#1f9d55);font-weight:600;white-space:nowrap}
 .sec-items{margin:0;padding:0;list-style:none;display:grid;gap:6px}
 .sec-items li{display:grid;gap:1px;padding:6px 0;border-top:1px dashed var(--line,#dfe3ea)}
 .sec-items li:first-child{border-top:0}

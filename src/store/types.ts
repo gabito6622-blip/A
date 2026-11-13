@@ -573,6 +573,11 @@ export interface RentalControl {
    * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
    */
   paidLog?: { at: number; from: number; amount: Cents }[];
+  /**
+   * «📣 Ya le avisé» (Mi secretaria): cuándo le avisó el dueño y para qué vencimiento. Solo vale mientras el alquiler
+   * siga con ese vencimiento: al renovar o cambiar la fecha, el aviso deja de contar.
+   */
+  noticed?: { at: number; for: number };
 }
 
 export type LedgerType = "topup" | "purchase" | "renewal" | "refund" | "adjustment" | "shop_rent" | "referral";

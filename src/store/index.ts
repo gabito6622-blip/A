@@ -134,6 +134,7 @@ export function createStore(opts: EngineOptions = {}) {
       autoReminders: bind(e, orders.autoReminders),
       setExpiry: bind(e, orders.setCustomerExpiry),
       setControl: bind(e, orders.setRentalControl),
+      markNoticed: bind(e, orders.markNoticed),
       reminderSettings: () => orders.reminderSettings(e),
       updateReminderSettings: bind(e, orders.updateReminderSettings),
       supplierExpiryAlerts: bind(e, orders.supplierExpiryAlerts),
