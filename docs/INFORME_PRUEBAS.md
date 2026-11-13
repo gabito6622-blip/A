@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 13/11/2026 · Premium 2.0 · Etapa 9 «Finanzas pro»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Noviembre: entró Bs 182 (132 por pedidos + 50 del Control) = el mismo número de Finanzas; 1 venta, 1 renovación, 1 cobro del Control; gastos Bs 30; te quedó Bs 152; octubre Bs 101 / 20 / 81; +80 % vs. octubre; ARIt pagó todo; Disney primera; 12 meses listados; estimado de cuentas solo en el mes en curso | `test/finanzas-pro.test.mjs` (reloj controlado, datos ficticios) | OK |
+| Octubre cerrado: sin estimado, comparado con septiembre, empieza y termina en hora de Bolivia; mes futuro o mal escrito → el actual; Atención no entra | misma prueba | OK |
+| API: `/api/admin/finance/cierre` 200 con los datos; `/cierre.xlsx` 200, nombre `cierre-AAAA-MM.xlsx`, archivo .xlsx válido (empieza en PK); sin sesión 401 | misma prueba, servidor en puerto efímero | OK |
+| Pantalla Finanzas a 360 px con la tarjeta de cierre: sin desborde, botones de 44 px, letra ≥ 12 px, sin errores de JS | captura con datos de ejemplo (fuera del repo) + medición en la página | OK |
+| Tanda completa | `npm test` | **522/522** en ~58 s. Además se hizo robusta la prueba intermitente «Mis clientes» (`hub-clientes-unidos`): ahora espera por la API y recarga la pantalla en vez de depender del redibujado en vivo; 2/2 sola y verde en la tanda completa |
+
 ## 13/11/2026 · Premium 2.0 · Etapa 8 «Automatización y soporte»
 | Qué | Cómo | Resultado |
 |---|---|---|

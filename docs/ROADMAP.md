@@ -13,8 +13,8 @@ Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: 
 - ✅ Etapa 6 · GaboHub alquilable: prueba gratis configurable (sugerido 15 días) y dos planes (Completo / Básico) sobre la suscripción existente; el cobro sigue apagado y los precios los decide el dueño.
 - ✅ Etapa 7 · Mi Oficina 2.0: sala nocturna (Propuesta 1) con línea de tiempo (Propuesta 2), lo que hizo el dueño como eventos reales, «Para hoy» y uso de Claude.
 - ✅ Etapa 8 · Automatización y soporte: fallas con tiempo de espera y «tarde», respuestas guardadas, mensajes de la secretaria editables, débitos de tarjeta en la secretaria. Nada se manda solo.
-- ⏳ Etapa 9 · Finanzas pro (sigue).
-- Etapa 9 · Finanzas pro: cierre de mes, exportación, comparativas.
+- ✅ Etapa 9 · Finanzas pro: cierre de mes con comparativa, quién pagó más, apps que más dejaron y Excel del mes.
+- **Las 9 etapas están listas en la rama.** Falta: respaldo manual del dueño, su «PUBLICÁ», PR hacia `ccr-0b4be8d6-1sld7s` con squash y verificación en la tienda real.
 - Antes del primer «PUBLICÁ»: pedir respaldo manual (Configuración → Respaldos) y confirmar la copia en Gmail.
 
 ## Publicado — Botón «Mi secretaria» en el panel (12/11, #50)

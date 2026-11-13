@@ -76,6 +76,50 @@ export function report(e: Engine, actor: Actor, n = 6) {
 }
 
 /**
+ * Cierre de un mes (Premium 2.0, etapa 9): todo lo del mes elegido con la MISMA fuente de ingresos que Inicio
+ * y Finanzas (pedidos entregados + cobros del Control), comparado con el mes anterior. Solo lee.
+ */
+export function monthClose(e: Engine, actor: Actor, month?: unknown) {
+  authorize(actor, "catalog.manage");
+  const now = e.now();
+  const curKey = mk(now);
+  let key = typeof month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : curKey;
+  if (key > curKey) key = curKey;
+  const [y, m] = key.split("-").map(Number);
+  const start = Date.UTC(y, m - 1, 1) + 4 * 3_600_000, end = Date.UTC(y, m, 1) + 4 * 3_600_000;
+  const prevKey = mk(start - 1);
+  const events = incomeEvents(e, now);
+  const sum = (l: { amount: Cents }[]) => l.reduce((t, x) => t + x.amount, 0);
+  const block = (k: string) => {
+    const ev = events.filter((x) => mk(x.at) === k);
+    const gastos = (e.s.expenses ?? []).filter((x) => mk(x.at) === k);
+    const byPayer = new Map<Id, Cents>();
+    for (const x of ev) byPayer.set(x.payerId, (byPayer.get(x.payerId) ?? 0) + x.amount);
+    const payers = [...byPayer].map(([id, amount]) => ({ customerId: id, name: e.s.customers[id]?.name ?? "—", kind: e.s.customers[id]?.kind ?? "customer", amount })).sort((a, b) => b.amount - a.amount);
+    const ingresos = sum(ev);
+    const g = gastos.reduce((t, x) => t + x.amount, 0), cuentas = gastos.filter((x) => x.accountId).reduce((t, x) => t + x.amount, 0);
+    return {
+      key: k, ingresos, delControl: sum(ev.filter((x) => x.source === "control")), dePedidos: sum(ev.filter((x) => x.source === "order")),
+      ventas: ev.filter((x) => x.kind === "sale").length, renovaciones: ev.filter((x) => x.kind === "renewal").length, cobrosControl: ev.filter((x) => x.kind === "control").length,
+      gastos: g, cuentas, ganancia: ingresos - g,
+      topApps: topAppsOfMonth(e, ev), topPayers: payers.slice(0, 5), payers: payers.length,
+    };
+  };
+  const cur = block(key), prev = block(prevKey);
+  const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+  const est = key === curKey ? accountsEstimate(e) : { amount: 0, count: 0 };
+  const MESL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const months = Array.from({ length: 12 }, (_, i) => { const s = boMonthStart(now, -i), p2 = boParts(s); return { key: mk(s), label: `${MESL[p2.m]} ${p2.y}` }; });
+  return {
+    month: key, label: `${MESL[m - 1]} ${y}`, closed: key < curKey, start, end, months,
+    ...cur,
+    cuentasEstimado: est.amount, sinAnotar: est.count, gananciaEstimada: cur.ganancia - est.amount,
+    prev: { key: prevKey, ingresos: prev.ingresos, gastos: prev.gastos, ganancia: prev.ganancia, delControl: prev.delControl },
+    vs: { ingresosPct: pct(cur.ingresos, prev.ingresos), ingresos: cur.ingresos - prev.ingresos, gananciaPct: pct(cur.ganancia, prev.ganancia), ganancia: cur.ganancia - prev.ganancia, gastos: cur.gastos - prev.gastos },
+  };
+}
+
+/**
  * Costo ESTIMADO de las cuentas de este mes que todavía no anotaste como gasto: cada cuenta viva
  * este mes (activa o en cuarentena, que no venció antes del día 1) cuesta su costo mensual. Si ya
  * anotaste un gasto de esa cuenta este mes ("Ya la pagué" / "Pagué la renovación"), no se cuenta.

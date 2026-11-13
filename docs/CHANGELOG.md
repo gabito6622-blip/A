@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-13 · Premium 2.0 · Etapa 9 «Finanzas pro» (rama `premium-2.0`, sin publicar)
+- **Cierre de mes** (`GET /api/admin/finance/cierre?month=AAAA-MM`, dueño): para el mes elegido (12 meses para atrás, hora de Bolivia), con la **misma fuente de ingresos** que Inicio y Finanzas: entró en total y por origen (pedidos / cobros marcados en el Control), cuántas ventas, renovaciones y cobros del Control, gastos (y cuánto fue de cuentas), te quedó, estimado de cuentas sin anotar (solo el mes en curso), **comparativa con el mes anterior** (Bs y %), **quién te pagó más** (top 5, revendedor o cliente) y **apps que más dejaron**.
+- **Excel del mes** (`GET /api/admin/finance/cierre.xlsx?month=…`): una hoja con todo lo anterior; queda en Auditoría como exportación.
+- **Pantalla Finanzas:** tarjeta «📒 Cierre de mes» arriba, con chips de los últimos 6 meses, 4 indicadores, los dos rankings y el botón «Descargar Excel del mes». Lo demás de Finanzas no cambia.
+- **Prueba nueva `test/finanzas-pro.test.mjs`** (2 pruebas).
+
 ## 2026-11-13 · Premium 2.0 · Etapa 8 «Automatización y soporte» (rama `premium-2.0`, sin publicar; nada se manda solo)
 - **Fallas reportadas con tiempo de espera:** cada falla dice «espera hace 2 h / 3 d» y, pasadas 24 h sin resolver, se marca ⏰ en rojo (`late`); las resueltas dicen cuánto tardaron (`waitMs`). Quien reportó también lo ve en su panel.
 - **Respuestas guardadas:** chips debajo de cada falla que llenan la respuesta con un toque. El dueño las edita en Configuración → «Soporte y mensajes de la secretaria» (hasta 10, una por línea); si no hay, salen tres de ejemplo.

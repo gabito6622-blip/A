@@ -35,6 +35,7 @@ import { registerSearchRoutes } from "./searchRoutes.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
+import { writeXlsx } from "./xlsx.js";
 import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
@@ -645,6 +646,27 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
   route("POST", "/api/admin/testimonials", "staff", (c) => store.shops.setTestimonials(A(c), c.body?.items));
   route("GET", "/api/admin/finance", "staff", (c) => store.finance.report(A(c), Number(c.query.get("months")) || 6));
+  // Premium 2.0 (etapa 9): cierre de un mes y su Excel.
+  route("GET", "/api/admin/finance/cierre", "staff", (c) => store.finance.monthClose(A(c), c.query.get("month") ?? undefined));
+  route("GET", "/api/admin/finance/cierre.xlsx", "staff", (c) => {
+    const d = store.finance.monthClose(A(c), c.query.get("month") ?? undefined);
+    const bsn = (v: number) => Math.round(v) / 100;
+    const rows: (string | number | null)[][] = [
+      ["Cierre de mes", d.label], [],
+      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)],
+      ["Ventas", d.ventas], ["Renovaciones", d.renovaciones], ["Cobros del Control", d.cobrosControl],
+      ["Gastos", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["Te quedó", bsn(d.ganancia)],
+      ...(d.cuentasEstimado ? [["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", bsn(d.gananciaEstimada)]] : []),
+      [], ["Mes anterior", d.prev.key], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Te quedó", bsn(d.prev.ganancia)],
+      ["Variación de ingresos", d.vs.ingresosPct === null ? "—" : `${d.vs.ingresosPct} %`],
+      [], ["Apps que más dejaron", "Entró", "Unidades", "Costo", "Ganancia"],
+      ...d.topApps.map((a) => [a.name, bsn(a.ingresos), a.units, bsn(a.costo), bsn(a.gana)]),
+      [], ["Quién te pagó más", "Tipo", "Monto"],
+      ...d.topPayers.map((p) => [p.name, p.kind === "reseller" ? "Revendedor" : "Cliente", bsn(p.amount)]),
+    ];
+    store.engine.tx(() => store.engine.audit(A(c), "export", "export", "cierre", { month: d.month }));
+    return sendFile(c, writeXlsx([{ name: `Cierre ${d.month}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
+  });
   route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
   route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));

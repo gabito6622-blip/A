@@ -257,6 +257,7 @@ export function createStore(opts: EngineOptions = {}) {
     },
     finance: {
       report: bind(e, finance.report),
+      monthClose: bind(e, finance.monthClose),
       addExpense: bind(e, finance.addExpense),
       removeExpense: bind(e, finance.removeExpense),
       payRenewal: bind(e, finance.payAccountRenewal),

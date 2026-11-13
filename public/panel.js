@@ -325,7 +325,23 @@ const V = {
       <div class="big mini"><a href="/tienda/" target="_blank" rel="noopener" style="background:#6741d9"><span>👁️</span>Abrir la tienda</a><a href="/hub" target="_blank" rel="noopener" style="background:#087f5b"><span>🏪</span>Abrir GaboHub (revendedores)</a></div></section>`;
   },
   async finanzas() {
-    const [d, mg, accsT, usdtT] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null)]);
+    const fm = P.tab.fm || "";
+    const [d, mg, accsT, usdtT, cz] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null), api("GET", `/api/admin/finance/cierre${fm ? `?month=${encodeURIComponent(fm)}` : ""}`).catch(() => null)]);
+    // 📒 Cierre de mes (Premium 2.0, etapa 9): el mes elegido con la misma fuente que Inicio, comparado con el anterior.
+    const pctTxt = (v) => (v === null ? "sin mes anterior" : `${v > 0 ? "▲ +" : v < 0 ? "▼ " : "="} ${v}% vs. mes anterior`);
+    const cierre = cz ? `<section class="card cierre"><h2>📒 Cierre de mes <small>${esc(cz.label)}${cz.closed ? "" : " · en curso"}</small></h2>
+      <div class="tabs ctl-chips" role="tablist" aria-label="Mes">${cz.months.slice(0, 6).map((m) => `<button type="button" role="tab" data-tab="fm:${esc(m.key)}" aria-selected="${m.key === cz.month}">${esc(m.label.replace(/ \d{4}$/, ""))}</button>`).join("")}</div>
+      <div class="finkpis four">
+        <div class="finkpi in"><span>💵 Entró</span><b>${bs(cz.ingresos)}</b><small>${pctTxt(cz.vs.ingresosPct)}</small></div>
+        <div class="finkpi"><span>🧾 Por pedidos / 💵 Control</span><b>${bs(cz.dePedidos)}</b><small>+ ${bs(cz.delControl)} marcados cobrados</small></div>
+        <div class="finkpi out"><span>📤 Gastos</span><b>${bs(cz.gastos)}</b><small>${cz.vs.gastos > 0 ? "+" : ""}${bs(cz.vs.gastos)} vs. mes anterior</small></div>
+        <div class="finkpi net ${cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es) · ${cz.cobrosControl} cobro(s) del Control</small></div>
+      </div>
+      <div class="dgrid">
+        <div><h3 style="margin:8px 0 4px;font-size:14px">🏆 Quién te pagó más</h3>${cz.topPayers.length ? `<ol class="of-log" style="padding-left:0">${cz.topPayers.map((p) => `<li class="of-t-ok"><b>${esc(p.name)}</b> <small class="muted">${p.kind === "reseller" ? "revendedor" : "cliente"}</small><span style="float:right"><b>${bs(p.amount)}</b></span></li>`).join("")}</ol><small class="muted">${cz.payers} persona(s) te pagaron este mes.</small>` : `<p class="muted" style="margin:0">Nadie todavía.</p>`}</div>
+        <div><h3 style="margin:8px 0 4px;font-size:14px">📺 Apps que más dejaron</h3>${cz.topApps.length ? `<ul class="of-log">${cz.topApps.map((a) => `<li class="${a.gana >= 0 ? "of-t-ok" : "of-t-bad"}"><b>${esc(a.name)}</b> · entró ${bs(a.ingresos)} · ${a.units} u. · te dejó <b>${bs(a.gana)}</b></li>`).join("")}</ul>` : `<p class="muted" style="margin:0">Sin ventas este mes.</p>`}</div>
+      </div>
+      <div class="inline"><a class="pbtn" href="/api/admin/finance/cierre.xlsx?month=${esc(cz.month)}" download>📥 Descargar Excel del mes</a><small class="muted">Mes anterior: entró ${bs(cz.prev.ingresos)}, te quedó ${bs(cz.prev.ganancia)}.</small></div></section>` : "";
     // 💳 Próximos cobros de la tarjeta: cuentas que se pagan en dólares y se cobran en los próximos 30 días.
     const rateT = Number(usdtT?.rate) || 0, nowT = Date.now();
     const tj = accsT.filter((x) => x.status === "active" && x.costUsd > 0 && x.supplierExpiresAt >= nowT - 86400000 && x.supplierExpiresAt <= nowT + 30 * 86400000).sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt);
@@ -349,7 +365,7 @@ const V = {
         <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
-    return `${tarjeta}<div class="fin">
+    return `${cierre}${tarjeta}<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>

@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Premium 2.0 · Etapa 9: un cierre que no inventa números
+- **El cierre usa `incomeEvents()` y nada más:** si el cierre tuviera su propia cuenta, volveríamos al problema de la etapa 2 (tres pantallas, tres números). Entró, por origen, por quién y por app salen de la misma lista.
+- **«Cerrado» es solo una etiqueta:** no se congela nada ni se bloquea editar el pasado; si el dueño corrige un cobro de octubre, el cierre de octubre cambia. Congelar meses queda para cuando haya contador.
+- **Excel y no PDF:** el dueño ya exporta a Excel y lo abre en el celular; un PDF sería otra dependencia.
+- **Comparativa simple:** Bs y % contra el mes anterior completo (no «a esta altura»), porque el cierre se mira al terminar el mes; «Cómo van» ya tiene la comparación a la misma altura para los revendedores.
+
 ## 2026-11-13 · Premium 2.0 · Etapa 8: ayudar a responder, no responder solo
 - **Nada se automatiza hacia afuera:** la misión prohíbe cobros y mensajes automáticos; por eso «automatización» acá es recordar y preparar (tiempo de espera, respuestas a un toque, mensajes armados, débitos por anotar). El envío sigue siendo del dueño.
 - **24 h como «tarde»:** una falla es un cliente sin servicio; un día sin respuesta ya es mucho. Es un color, no un bloqueo.
