@@ -12,6 +12,7 @@ Pedido del dueño: sin agentes ni oficina para revendedores; las mismas herramie
 - ✅ «☀️ Mi día»: la secretaria del revendedor (cobrar / avisar / me deben) con «Me pagó» de un toque, renovar con saldo en el mismo toque y «Mensaje listo». **Publicado el 13/11 (PR #53)** con el «Publica» del dueño; verificado en la tienda real: 78 alquileres y 34 clientes idénticos, cierre igual, `/hub` 200 y la pestaña en el código servido.
 - ✅ Link de cobro para todos sus clientes (no solo perfiles repartidos) y «Mensaje listo» con el link. **Publicado el 13/11 (PR #54).**
 - ✅ Recordatorio matutino de Tito «☀️ Tu día: 2 para cobrar · 1 por avisar» que abre Mi día. **Publicado el 13/11 (PR #54).**
+- 🔧 **Tres niveles de GaboHub** (Gratis / Vendedor Bs 28 / Negocio Bs 49): listo y probado en la rama `gabohub-tres-niveles`; **sin publicar** hasta el «PUBLICÁ». Con el cobro apagado no cambia nada para nadie.
 - ⏳ Cierre de mes en Mis ganancias (mes contra mes, quién le pagó más, qué app le dejó más).
 - ⏳ Que vuelvan del revendedor (sus clientes vencidos sin renovar, con mensaje listo).
 - ⏳ Semáforo de sus cuentas propias con las mismas reglas de riesgo.
@@ -30,7 +31,7 @@ Plan de 9 etapas, cada una con su prueba y su informe. Auditoría y propuestas: 
 - ✅ Etapa 3 · Panel rápido y oscuro por defecto (claro opcional): Inicio en una sola llamada (12 → 7 pedidos), Control sin recargar por filtro (caché de 20 s), paleta oscura de tema.css (502 pruebas). GaboHub: interruptor personal al BACKLOG.
 - ✅ Etapa 4 · Inventario inteligente: correos sin dobles y con aviso de tipeo, semáforo de riesgo con motivos, pantalla «Cortes», «Cambié la clave» con fecha/auditoría/aviso, secretaria con «Claves por cambiar» (507 pruebas).
 - ✅ Etapa 5 · Tienda premium: motivo del rechazo visible, historial con estados de color, recarga en 3 pasos, «Copiar» de 44 px, estilo «Premium 2.0» elegible, contraste del dashboard.
-- ✅ Etapa 6 · GaboHub alquilable: prueba gratis configurable (sugerido 15 días) y dos planes (Completo / Básico) sobre la suscripción existente; el cobro sigue apagado y los precios los decide el dueño.
+- ✅ Etapa 6 · GaboHub alquilable: prueba gratis configurable (sugerido 15 días) y planes sobre la suscripción existente; el cobro sigue apagado y los precios los decide el dueño. 13/11: pasa a **tres niveles** (Gratis / Vendedor Bs 28 / Negocio Bs 49), ver «En curso».
 - ✅ Etapa 7 · Mi Oficina 2.0: sala nocturna (Propuesta 1) con línea de tiempo (Propuesta 2), lo que hizo el dueño como eventos reales, «Para hoy» y uso de Claude.
 - ✅ Etapa 8 · Automatización y soporte: fallas con tiempo de espera y «tarde», respuestas guardadas, mensajes de la secretaria editables, débitos de tarjeta en la secretaria. Nada se manda solo.
 - ✅ Etapa 9 · Finanzas pro: cierre de mes con comparativa, quién pagó más, apps que más dejaron y Excel del mes.

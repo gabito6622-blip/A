@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 13/11/2026 · GaboHub en tres niveles (rama `gabohub-tres-niveles`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Cobro apagado (como la tienda real): rige Negocio para todos; ninguna ruta devuelve 402; no se cobra nada; el `basicPrice` viejo se guarda como `sellerPrice`; `hubPlan` viejo "basic"/"full" se lee como Vendedor/Negocio | `test/gabohub-tres-niveles.test.mjs` (datos ficticios en carpeta temporal) | OK |
+| Cobro prendido, plan Gratis: 40 días sin cobro ni pausa; servicios, pedidos, precios, catálogo WhatsApp y PDF 200; Mi día, Control, Quién me debe, Ganancias y Excel 402 `HUB_PLAN` «plan Negocio»; editar página y cupones 402 «plan Vendedor»; su página pública 404; «pagar» da error claro | misma prueba | OK |
+| Pasar a Vendedor: se cobran Bs 28 en el momento y vence en 30 días; página editable y visible; Mi día y Excel siguen 402. Pasar a Negocio: sin cobro extra; Mi día 200; al mes siguiente cobra Bs 49. Vendedor más caro que Negocio: ajuste inválido; sin precio Vendedor no se puede elegir | misma prueba | OK |
+| Sin pagar: tras 3 días de gracia rige Gratis (Control 402 `HUB_UNPAID` «hoy estás en Gratis … plan Negocio», catálogo 200, página 404; el panel ve plan Negocio / hoy Gratis). Elige Gratis: deja de deber y 60 días después sigue sin cobro. Quiere Negocio sin saldo: vence hoy, 4 días después vuelve a Gratis. Recarga y paga: Negocio al instante, saldo Bs 1 | misma prueba | OK |
+| Celular 360 px: en Gratis, Mi día muestra el candado «plan Negocio», Bs 49, botones de 44 px, sin desborde; el Inicio dice «plan Gratis» con botones a Vendedor y Negocio; sin errores de JS | Playwright, capturas fuera del repo | OK |
+| Pruebas viejas adaptadas: `gabohub-planes` (3), `exportaciones` (6: el catálogo sale aun pausado; el Excel 402), `suscripcion-gabohub` (2), `revendedor-mi-dia` (5), `link-cobro-clientes` (4) | `node --test` por archivo | OK |
+| Suite completa | `npm test` | ver abajo |
+
 ## 13/11/2026 · Publicación logos + catálogo público + Promos y combos (PR #56, squash `c01587c`)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -6,7 +6,8 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
-- **[Decide el dueño] GaboHub: plan Básico** (Premium 2.0, etapa 6). Ya puesto: 15 días de prueba (13/11). Falta el precio del plan Básico (Bs y US$); el Completo sigue en Bs 49 / US$ 5 y el cobro apagado hasta su «prendé».
+- **[Decide el dueño] GaboHub: tres niveles listos, falta «PUBLICÁ» y «prendé»** (13/11). Gratis / Vendedor Bs 28 / Negocio Bs 49 en la rama `gabohub-tres-niveles`. Falta: el precio del Vendedor en US$ (sugerido US$ 3; hoy los de afuera pagarían con la tasa del día), publicar, y decidir cuándo prender el cobro (con los 15 días de prueba, cada revendedor arranca en Negocio gratis).
+- **[P3] GaboHub: prorrateo al cambiar entre Vendedor y Negocio.** Hoy el cambio rige desde el próximo cobro (subir a Negocio a mitad de mes no cuesta más hasta entonces). Si se prende el cobro y alguien abusa, cobrar la diferencia proporcional.
 
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
@@ -136,6 +137,6 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | O3 | Mensaje de WhatsApp de la secretaria con `{link}` (hoy se copia el link y se pega a mano) | P3 | ⏳ |
 | O4 | Cobros de anoche sin marcar (Araceli jm2/mig/sp, piza nes, cabezas p29d, aneliz uwb) → marcarlos con «Me pagó» cuando esté publicado | P2 | 🧑 datos del dueño |
 | O5 | Clientes de las 18 cuentas por perfiles sin clientes cargados | P2 | 🧑 datos del dueño |
-| O6 | Precio del plan Básico de GaboHub | P2 | ✅ 13/11: el dueño fijó Bs 28; cargado en la tienda real con respaldo del ajuste anterior; el cobro sigue apagado; falta el precio del Básico en US$ (hoy los de afuera pagarían el Completo US$ 5) |
+| O6 | Precio del plan Básico de GaboHub | P2 | ✅ 13/11: el dueño fijó Bs 28; cargado en la tienda real con respaldo del ajuste anterior; el cobro sigue apagado. Mismo día: pasa a ser el plan **Vendedor** de los tres niveles (rama `gabohub-tres-niveles`, sin publicar); falta el precio en US$ |
 | R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#53) |
 | R2 | Que la tarjeta «Tu día» del Inicio de GaboHub cuente igual que Mi día (hoy cuenta «por avisar» con ventana de 7 días; Mi día usa 3 días + vencidos) | P3 | ⏳ |

@@ -2,6 +2,14 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-13 · Tres niveles de GaboHub, cortados por «lo que vende» y «lo que ahorra trabajo»
+- **Qué se decidió:** Gratis / Vendedor (Bs 28) / Negocio (Bs 49). El dueño preguntó si Básico/Completo estaba bien cortado o hacían falta tres; aprobó los tres («Ok»).
+- **Por qué:** lo que hace que el revendedor **venda más** (y le compre más a la tienda) conviene regalarlo o cobrarlo barato: comprar, catálogo, su página. Lo que le **ahorra horas de administración** (Mi día, Mi control, Quién me debe, Ganancias, Excel, Tito) es lo que de verdad vale una cuota. Además, el «pausado por falta de pago» ya era un plan gratis de hecho: ahora se llama así y no asusta.
+- **Sin pagar = Gratis, no «bloqueado»:** el revendedor que no paga sigue siendo cliente de la tienda (compra, saca su catálogo). Se le apaga la página y la oficina, no el negocio.
+- **Salir de Gratis se cobra en el momento** para que nadie use un plan pago 30 días y vuelva a Gratis antes del cobro. Entre Vendedor y Negocio el cambio sigue rigiendo desde el próximo cobro (sin prorrateo), como antes.
+- **Compatibilidad:** `hubPlan` acepta los nombres viejos y `basicPrice` se lee como `sellerPrice`, así el Bs 28 ya cargado en la tienda real pasa a ser el Vendedor sin tocar datos. Con el cobro apagado rige Negocio para todos.
+- **Descartado:** cobrar prorrateo al cambiar de plan (más reglas que explicar por Bs 20 de diferencia); poner el catálogo en el plan Vendedor (el catálogo es lo que más le ayuda a vender, y vender es lo que más le conviene a la tienda).
+
 ## 2026-11-13 · Catálogo público: el mismo archivo, sin sesión, con freno
 - **Mismo generador, mismos datos públicos:** el catálogo público usa `catalogData` con un actor interno de solo lectura; lo que sale es lo mismo que ve cualquiera en la tienda (productos publicados, precios públicos, promos activas). Nada que no esté ya en la vitrina.
 - **Memoria de 5 minutos y límite por IP:** un PDF con 35 logos tarda un instante en armarse, pero si lo comparten en un estado lo pueden bajar cientos de personas seguidas. Se arma una vez cada 5 minutos por negocio y diseño; 12 bajadas por IP cada 10 minutos cortan a quien lo use de travesura.
