@@ -107,6 +107,7 @@ export function createStore(opts: EngineOptions = {}) {
       addSlot: bind(e, inventory.addSlot),
       importServices: bind(e, importer.importServices),
       listAccounts: bind(e, inventory.listAccounts),
+      accountSecret: bind(e, inventory.accountSecret),
       stock: () => inventory.stockByProduct(e),
     },
     orders: {

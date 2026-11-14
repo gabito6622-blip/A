@@ -301,7 +301,10 @@ test("panel: '📈 Cómo van' muestra las cifras, filtra por estado y arma el Wh
     const kp = await page.locator(".cv-kpis").innerText();
     assert.match(kp, /Te pagaron este mes/);
     assert.match(kp, /Vence en 7 días/);
-    assert.match(kp, /Concentración top 3/);
+    // 14/11/2026: un solo período («este mes»): la concentración es del mes y se suman ganancia estimada y deuda.
+    assert.match(kp, /Ganancia estimada este mes/);
+    assert.match(kp, /Te deben hoy/);
+    assert.match(kp, /el 100 % de lo que te pagaron este mes/);
     assert.match(kp, /138/);
     assert.equal(await page.locator(".cv-row").count(), 2);
     const first = page.locator(".cv-row").first();

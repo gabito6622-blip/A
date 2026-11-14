@@ -1,0 +1,25 @@
+/* Arreglos de Inventario y Finanzas (14/11/2026). Celular primero: desplegables de 44 px, texto de 12 px o más. */
+/* Desplegables de la tarjeta de cuenta («Cuenta caída», «↔️ Mover todos…») con 44 px de alto para el dedo. */
+.acard details.more>summary,.acc-table details.more>summary{display:flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-weight:600;list-style:none;box-sizing:border-box}
+.acard details.more>summary::-webkit-details-marker,.acc-table details.more>summary::-webkit-details-marker{display:none}
+.acard details.more select,.acard details.more input,.acard details.more button{min-height:44px;max-width:100%}
+.acard details.more form.inline{flex-wrap:wrap}
+.acard details.more select{flex:1 1 100%;min-width:0;font-size:14px}
+.acost b{font-weight:700}
+/* Error junto al campo (carga de cuentas). */
+.perr-inline{display:block;color:var(--bad);font-size:13px;font-weight:600;margin-top:4px}
+.editsecret{display:grid;gap:2px;justify-content:stretch;padding:8px 10px;border-radius:10px;background:var(--soft);border-top:0}
+.editsecret b{font-size:16px;overflow-wrap:anywhere}
+/* Finanzas: un mes sin costos anotados lo dice debajo de la barra. */
+.finsc{font-size:12px;color:var(--warn);font-weight:600}
+/* Cómo van: un solo período («este mes») y cuatro números. */
+.cv-period{margin:0 0 10px;font-size:14px}
+.cv-kpis.cv4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cv-kpi .up{color:var(--ok)}.cv-kpi .down{color:var(--bad)}
+@media (max-width:1100px){.cv-kpis.cv4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.cv-kpis.cv4{grid-template-columns:1fr}}
+/* Barras de 6 meses con el mes en palabras («septiembre»): en el celular no entran las 6; el gráfico se desliza
+   de costado dentro de su tarjeta (nunca la página entera). */
+.finchart{grid-auto-columns:minmax(66px,1fr);overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:4px}
+.finbar small{line-height:1.25}
+.acost>span:last-child{text-align:right;min-width:0;overflow-wrap:anywhere}

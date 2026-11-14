@@ -62,7 +62,7 @@ describe("listas de precios y moneda", () => {
 
   test("el precio de venta real sale de la lista del cliente, no del que mande", async () => {
     // Venta en efectivo al cliente de Panamá: el total usa el precio de su lista (2.90 = 290 centavos).
-    await call("POST", "/api/admin/accounts", { productId: "flujo", email: "line@x.lat", password: "k", profiles: [{ label: "Cuenta completa" }], cost: 0 }, owner);
+    await call("POST", "/api/admin/accounts", { productId: "flujo", email: "line@x.lat", password: "k", profiles: [{ label: "Cuenta completa" }], cost: 0, supplierExpiresAt: clock.now() + 60 * 864e5 }, owner);
     const order = await call("POST", "/api/admin/orders", { customerId: panama, items: [{ productId: "flujo", qty: 1 }], paymentMethod: "cash" }, owner);
     assert.equal(order.status, 200, JSON.stringify(order.json));
     assert.equal(order.json.total, 290, "cobró el precio de la lista de Panamá");
