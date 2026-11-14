@@ -82,6 +82,8 @@ export function accountsEstimateMonth(e: Engine, key: string, now: number = e.no
         if (s.accountId !== a.id || !l || l.boughtAt >= end || l.until < start || (l.down && l.down.at < start) || !(l.cost > 0)) continue;
         conCosto++;
         if ((e.s.expenses ?? []).some((x) => coversMonth(x, key) && (x.slotId === s.id || (!!l.prev && x.slotId === l.prev) || (x.accountId === a.id && !x.slotId)))) continue;
+        // Se cayó en este mes: no se le va a volver a pagar (lo que quedaba ya estaba pago), no se estima.
+        if (l.down && l.down.at < end) continue;
         accAmt += l.cost; count++;
       }
       if (accAmt) { amount += accAmt; byAccount.push({ accountId: a.id, amount: accAmt }); }

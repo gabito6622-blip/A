@@ -604,6 +604,14 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       // Independiente: sus propios alquileres de la tienda sí, si el dueño no se lo apagó (renovarVarias.ts).
       if (!prod || !(visibleTo(e, prod, payerFor(e, actor, a.customerId)) || ownStoreRenewOk(e, actor.customerId, a))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }
+    // Cliente o revendedor: si la fecha nueva pasa la de la cuenta con el proveedor, se le dice qué hacer (antes leía
+    // «renová con el proveedor o reemplazá el perfil», que es para el dueño).
+    if (!isStaff(actor)) {
+      const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
+      if (accN && prodN && !input.allowBeyondSupplier && renewStart(a, e.now()) + prodN.durationDays * periods * DAY > accN.supplierExpiresAt) {
+        throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: la tienda está renovando esta cuenta. Escribile a la tienda por WhatsApp y te la renueva (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
+      }
+    }
     const payerId = payerFor(e, actor, a.customerId);
     // El staff anota a mano (efectivo o saldo): si ya hay un cobro en este período, pide confirmar que es otro mes.
     if (isStaff(actor) && (input.paymentMethod === "cash" || input.paymentMethod === "balance")) assertNotDouble(e, a, input.confirmOther);
@@ -804,6 +812,7 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
       e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";
+      debtToFiadoOnCut(e, actor, a); // se cortó debiendo: lo fiado pasa a su libreta (no desaparece)
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -812,7 +821,6 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
 }
 
 /** Datos de control de un alquiler (precio, costo, estado de pago, nota…), como en el Excel del dueño. */
-      debtToFiadoOnCut(e, actor, a); // se cortó debiendo: lo fiado pasa a su libreta (no desaparece)
 /** Libera un perfil: si está vendido, revoca su asignación; queda disponible para vender de nuevo. */
 export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string): { ok: true } {
   authorize(actor, "assignment.replace");
