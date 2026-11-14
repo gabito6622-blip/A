@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-14 · GaboHub: «Cerrar sesión» a mano en «Más» (**sin publicar**, rama `salir-hub`)
+## 2026-11-14 · GaboHub: «Cerrar sesión» a mano en «Más» (**publicado el 14/11, PR #63**)
 - **Por qué:** el dueño entró a la cuenta de un revendedor y no encontró cómo salir. «Cerrar sesión» estaba solo al final de «Cuentas de la tienda», debajo de todas las cuentas y el historial (con 17 cuentas, muy abajo).
 - **Qué hay ahora:** en «Más» → «👤 Mi cuenta» → «🚪 Cerrar sesión» (44 px; el buscador de «Más» lo encuentra con «salir»). El de abajo de las cuentas sigue estando.
 - Prueba nueva: `test/hub-cerrar-sesion.test.mjs`.

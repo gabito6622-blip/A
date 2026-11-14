@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 14/11/2026 · GaboHub: «Cerrar sesión» en «Más» (rama `salir-hub`, sin publicar)
+## 14/11/2026 · GaboHub: «Cerrar sesión» en «Más» (publicado el 14/11, PR #63)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Revendedor en 360 px: «Más» muestra «🚪 Cerrar sesión» (≥ 44 px), el buscador lo encuentra con «salir», al tocarlo avisa «Cerraste sesión» y `/api/me` ya no tiene sesión | `test/hub-cerrar-sesion.test.mjs`, Playwright, datos ficticios | pasa |
