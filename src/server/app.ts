@@ -748,7 +748,12 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
   route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
-  route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
+  // Con «Te deben» de todo (el mismo número que Mi día y Quién me debe) y los cuadernos de cuentas cortadas (14/11).
+  route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!), debts: store.cuaderno.debts(c.actor!), cuts: store.cuaderno.cuts(c.actor!) }));
+  route("POST", "/api/me/subs/:id/:sub/pay", "customer", (c) => store.subs.pay(c.actor!, c.params.id, c.params.sub, c.body?.amount));
+  route("POST", "/api/me/cobros/:id/undo", "customer", (c) => store.cuaderno.undo(c.actor!, c.params.id));
+  route("POST", "/api/me/cortes/:id/move", "customer", (c) => store.cuaderno.moveCut(c.actor!, c.params.id, String(c.body?.to ?? "")));
+  route("POST", "/api/me/cortes/:id/drop", "customer", (c) => store.cuaderno.dropCut(c.actor!, c.params.id));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
   route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
   route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => { const r = store.subs.remove(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
@@ -3059,6 +3064,7 @@ export function createApp(cfg: AppConfig): App {
     const supplierAlerts = tasks.run("avisos del proveedor", () => store.orders.supplierExpiryAlerts(system));
     const closed = tasks.run("cortar vencidos", () => store.orders.closeExpired(system, CORTE_GRACE_DAYS));
     tasks.run("sesiones vencidas", () => db.purgeExpiredSessions(now()));
+    tasks.run("cierre de mes de revendedores", () => store.cuaderno.closeMonths(system));
     const backup: string | undefined = tasks.run("respaldo", () => backups.daily()?.name);
     // Alquiler de páginas de revendedores: se revisa una vez por hora.
     let rents: ReturnType<typeof store.shops.chargeRents> | undefined;

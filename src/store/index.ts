@@ -29,6 +29,10 @@ import * as rday from "./resellerDay.js";
 import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
+import * as cplata from "./cuadernoPlata.js";
+import * as cdeudas from "./deudas.js";
+import * as ccorte from "./cuadernoCorte.js";
+import * as greal from "./gananciaReal.js";
 import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
@@ -359,12 +363,22 @@ export function createStore(opts: EngineOptions = {}) {
       save: bind(e, subs.saveSub),
       renew: bind(e, subs.renewSub),
       remove: bind(e, subs.removeSub),
+      pay: bind(e, subs.paySub),
       summary: bind(e, subs.rentalSummary),
       link: bind(e, subLinks.subLink),
       revokeLink: bind(e, subLinks.revokeSubLink),
       publicView: (token: unknown) => subLinks.publicView(e, token),
       publicQr: (token: unknown) => subLinks.publicQr(e, token),
       publicLogo: (token: unknown) => subLinks.publicLogo(e, token),
+    },
+    /** Plata del cuaderno del revendedor (14/11): deudas en un solo lugar, cobros que se deshacen, cortes y cierre de mes. */
+    cuaderno: {
+      debts: bind(e, cdeudas.myDebts),
+      undo: bind(e, cplata.undoCobro),
+      cuts: bind(e, ccorte.myCuts),
+      moveCut: bind(e, ccorte.moveCut),
+      dropCut: bind(e, ccorte.dropCut),
+      closeMonths: (actor: Actor) => greal.closeMonths(e, actor, (rid) => cdeudas.myDebts(e, { id: `u_${rid}`, role: "reseller", customerId: rid }).total),
     },
     winback: {
       list: bind(e, winback.list),

@@ -4,7 +4,7 @@
 //    ni costos, ni teléfono del cliente, ni ids. Lo crea solo el revendedor del cliente; muere si el cliente
 //    cambia de revendedor o se revoca; sobrevive a un reinicio (índice por estado).
 //  - Mi control y Mi día traen el token para que el «Mensaje listo» lleve el link.
-//  - Tito a las 9: un solo aviso «☀️ Tu día: 1 para cobrar · …» que abre /hub#dia; con plan Básico, el aviso de siempre.
+//  - Tito a las 9: un solo aviso «☀️ Tu día: 1 por renovar · …» (14/11: un vencido registrado no es deuda, se renueva) que abre /hub#dia; con plan Básico, el aviso de siempre.
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -56,7 +56,7 @@ describe("link de cobro de clientes registrados", () => {
     // Mi control y Mi día lo traen.
     assert.equal(s.rtools.control(ana.A).find((r) => r.id === asg).linkToken, token);
     const d = s.rtools.day(ana.A);
-    assert.equal(d.cobrar[0].items[0].linkToken, token);
+    assert.equal(d.avisar[0].items[0].linkToken, token);
     // Revocar: muere al instante; crear de nuevo da otro distinto.
     assert.deepEqual(s.rtools.revokeClientLink(ana.A, asg), { ok: true, revoked: true });
     assert.throws(() => s.subs.publicView(token), err("NOT_FOUND"));
@@ -80,7 +80,7 @@ describe("link de cobro de clientes registrados", () => {
   test("recordatorio matutino: texto de «Tu día», con nombres, saldo y el link a /hub#dia; null si no hay nada", () => {
     const { s, ana, otro } = world();
     const p = s.rtools.dayPushText(ana.A);
-    assert.equal(p.title, "☀️ Tu día: 1 para cobrar"); assert.match(p.body, /^Marisel\. Tocá para abrir Mi día\.$/); assert.equal(p.url, "/hub#dia");
+    assert.equal(p.title, "☀️ Tu día: 1 por renovar"); assert.match(p.body, /^Marisel\. Tocá para abrir Mi día\.$/); assert.equal(p.url, "/hub#dia");
     assert.equal(s.rtools.dayPushText(otro.A), null, "sin nada que hacer, sin aviso");
     s.wallet.adjust(owner, ana.c.id, -s.wallet.balance(ana.c.id), "vaciar");
     assert.match(s.rtools.dayPushText(ana.A).body, /Te falta saldo para renovarlos \(tenés 0, necesitás 25\)/);
@@ -127,7 +127,7 @@ describe("link de cobro y recordatorio por la API", () => {
     await app.checkResellerPush();
     assert.equal(sent.filter((u) => u.includes("ana-cel")).length, 1, "un solo aviso");
     const m = (await get("/api/me/push/latest", rck)).json;
-    assert.equal(m.title, "☀️ Tu día: 1 para cobrar"); assert.match(m.body, /Marisel/); assert.equal(m.url, "/hub#dia");
+    assert.equal(m.title, "☀️ Tu día: 1 por renovar"); assert.match(m.body, /Marisel/); assert.equal(m.url, "/hub#dia");
     // Mismo día: no repite.
     await app.checkResellerPush();
     assert.equal(sent.filter((u) => u.includes("ana-cel")).length, 1);
