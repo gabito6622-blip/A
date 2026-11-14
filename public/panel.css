@@ -1320,3 +1320,4 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .ctl-fdet>summary{min-height:44px;list-style:none;display:flex;align-items:center;justify-content:center}
 .ctl-fdet>summary::-webkit-details-marker{display:none}
 .ctl-fdet[open]>summary{margin-bottom:8px}
+.sec-fold:not([open]){gap:0}
