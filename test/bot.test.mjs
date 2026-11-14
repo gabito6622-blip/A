@@ -35,9 +35,13 @@ describe("bot: respuestas", () => {
   });
 
   test("detecta el producto por nombre y muestra precio y stock (de revendedor si corresponde)", () => {
-    const { ask } = setup();
+    const { ask, s } = setup();
     const a = ask("+59170000000", "Cuánto está el Netflix?");
-    assert.match(a, /Netflix perfil\*: Bs 35 \/ 30 días · quedan 2/);
+    // «1 mes» (la tienda cuenta del mismo día al mismo día, mesModo.ts); con «30 días» elegido, dice «30 días».
+    assert.match(a, /Netflix perfil\*: Bs 35 \/ 1 mes · quedan 2/);
+    s.catalog.updateSettings(owner, { monthMode: "days" });
+    assert.match(ask("+59170000000", "Cuánto está el Netflix?"), /Netflix perfil\*: Bs 35 \/ 30 días · quedan 2/);
+    s.catalog.updateSettings(owner, { monthMode: "calendar" });
     assert.doesNotMatch(a, /Spotify/);
     assert.match(ask("+59170000000", "spotify"), /Spotify Premium\*: Bs 20 .*agotado/);
     assert.match(ask("+59171111111", "netflix"), /Bs 25[\s\S]*precio de revendedor/);

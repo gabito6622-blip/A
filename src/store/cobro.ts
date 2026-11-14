@@ -8,6 +8,7 @@ import { authorize, can } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { renewBlockOf } from "./vendible.js";
 import { DAY, boDayStart } from "./time.js";
+import { storeAddPeriods, storePeriodText } from "./mesModo.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { extend, setRentalControl as setControl } from "./orders.js";
 import { supplierRenewHint, type SupplierRenewHint } from "./dia.js";
@@ -28,6 +29,8 @@ export interface PayPreview {
   /** Lo que paga por período: en Bs (y en US$ si está en la lista en dólares). */
   price: Cents; priceUsd?: Cents; currency: "BOB" | "USD";
   periods: number; days: number;
+  /** «1 mes», «3 meses» o «30 días»: cuánto se cobra, dicho como cuenta la tienda (mesModo.ts). */
+  period: string;
   /** El período que se cobra arranca donde termina el actual (o hoy, si ya venció) y termina en `to`. */
   from: number; to: number; expiredDays: number;
   supplierExpiresAt: number; supplierNoDate: boolean;
@@ -62,7 +65,7 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
   const extra = debt !== undefined ? periods - 1 : periods;
   const days = (prod?.durationDays ?? 30) * extra;
   // Pago atrasado antes del corte: desde el vencimiento (decisión (a), cobrarBien.ts).
-  const from = debt !== undefined ? a.customerExpiresAt : renewStart(a, now), to = from + days * DAY;
+  const from = debt !== undefined ? a.customerExpiresAt : renewStart(a, now), to = storeAddPeriods(e, from, prod?.durationDays ?? 30, extra);
   const price = effectivePrice(e, a), usd = payUsdOf(e, a);
   const supplierExpiresAt = acc?.supplierExpiresAt ?? 0, supplierNoDate = supplierExpiresAt - now >= NO_DATE_AFTER;
   const ctl = a.control ?? {};
@@ -91,7 +94,7 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
     payer: { id: payer?.id ?? a.customerId, name: payer?.name ?? "—", isReseller: payer?.kind === "reseller" },
     email: acc?.email ?? "", profile: slot?.label ?? "", product: prod?.name ?? a.productId,
     price, ...(usd !== undefined ? { priceUsd: usd } : {}), currency: usd !== undefined ? "USD" : "BOB",
-    periods, days, from, to, expiredDays: Math.max(0, Math.round((boDayStart(now) - boDayStart(a.customerExpiresAt)) / DAY)),
+    periods, days, period: storePeriodText(e, prod?.durationDays ?? 30, periods), from, to, expiredDays: Math.max(0, Math.round((boDayStart(now) - boDayStart(a.customerExpiresAt)) / DAY)),
     supplierExpiresAt, supplierNoDate, payStatus: ctl.payStatus ?? null, lastPaidAt: last?.at ?? null,
     blockers, warnings, ok: blockers.length === 0, ...(supplierRenew ? { supplierRenew } : {}), ...(debt !== undefined ? { debt } : {}),
     ...(supplierWarn ? { supplierWarn } : {}), ...(doubleCharge ? { doubleCharge } : {}),

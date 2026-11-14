@@ -12,6 +12,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY } from "./time.js";
+import { storeAddPeriods, storeSubPeriods } from "./mesModo.js";
 import { effectivePrice, payerOf } from "./admin.js";
 import { setRentalControl as setControl } from "./orders.js";
 
@@ -46,12 +47,12 @@ export interface PriorCharge { at: number; amount: Cents; to: number; text: stri
  */
 export function doubleChargeOf(e: Engine, a: Assignment, opts: { sale?: boolean } = {}): PriorCharge | undefined {
   const now = e.now(), exp = a.customerExpiresAt;
-  const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+  const days = e.s.products[a.productId]?.durationDays ?? 30, dur = days * DAY;
   const win = Math.min(EARLY_PAY_DAYS * DAY, dur / 4);
   if (a.status !== "active" || now >= exp - win) return undefined;
   const near = (x: number, y: number) => Math.abs(x - y) < 60_000;
   const found: { at: number; amount?: Cents }[] = [];
-  for (const p of a.control?.paidLog ?? []) if (near(p.from + dur, exp) || p.from >= exp) found.push({ at: p.at, amount: p.amount });
+  for (const p of a.control?.paidLog ?? []) if (near(storeAddPeriods(e, p.from, days), exp) || near(p.from, storeSubPeriods(e, exp, days)) || p.from >= exp) found.push({ at: p.at, amount: p.amount });
   const lc = a.lastCharge;
   if (lc && near(lc.to, exp)) {
     // El monto: el del cobro anotado en ese momento, o el de la renovación (pedido) de ese momento.
@@ -63,7 +64,7 @@ export function doubleChargeOf(e: Engine, a: Assignment, opts: { sale?: boolean 
   // venderle volvía a cobrar y le regalaba 30 días. Una venta fiada que todavía no pagó no cuenta (ese cobro es la deuda).
   // Solo para «Me pagó» (`sale`): «Renovar» justo después de vender es pagar por adelantado y no se frena.
   const sale = !opts.sale ? undefined : Object.values(e.s.orders).find((o) => o.kind === "sale" && o.status === "fulfilled" && !o.trial && o.channel !== "import" && o.assignmentIds.includes(a.id));
-  if (sale && !lc && near(a.startsAt + dur * (sale.periods ?? 1), exp) && (!sale.payLater || sale.payLater.paid?.[a.id])) {
+  if (sale && !lc && near(storeAddPeriods(e, a.startsAt, days, sale.periods ?? 1), exp) && (!sale.payLater || sale.payLater.paid?.[a.id])) {
     found.push({ at: sale.payLater?.paid?.[a.id]?.at ?? sale.updatedAt, amount: sale.assignmentIds.length === 1 ? sale.total : undefined });
   }
   if (!found.length) return undefined;

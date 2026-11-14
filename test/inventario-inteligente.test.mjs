@@ -106,7 +106,8 @@ describe("etapa 4 · cortes y cambio de clave", () => {
     const { s, clock, add, cust, sell } = setup();
     const nf = add("nf", "nf1@x.lat");
     const [a, b, c] = [cust("Ana", "+59170000001"), cust("Beto", "+59170000002"), cust("Carla", "+59170000003")];
-    const o1 = sell(a, "nf", T0 - 20 * DAY), o2 = sell(b, "nf", T0 - 20 * DAY), o3 = sell(c, "nf", T0 - 10 * DAY);
+    // Meses de calendario (mesModo.ts): 22/10 → 22/11 (T0 + 10 d) y 02/11 → 02/12 (T0 + 20 d).
+    const o1 = sell(a, "nf", T0 - 21 * DAY), o2 = sell(b, "nf", T0 - 21 * DAY), o3 = sell(c, "nf", T0 - 10 * DAY);
     clock.t = T0;
     // Disney (cuenta completa) con cliente: no entra en Cortes.
     add("dis", "dis@x.lat", { profiles: [{ label: "Cuenta completa" }] });

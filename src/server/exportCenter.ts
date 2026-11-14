@@ -13,6 +13,7 @@ import { localeOf, toMine } from "../store/country.js";
 import { pageAllowed } from "../store/resellerShop.js";
 import { pageCards } from "../store/ownStock.js";
 import { listCoupons } from "../store/coupons.js";
+import { storeMonthMode } from "../store/mesModo.js";
 
 export interface CatalogItem {
   id: Id;
@@ -51,6 +52,8 @@ export interface CatalogData {
     footer?: string;
   };
   currency: { symbol: string; decimals: number; code: string };
+  /** Cómo cuenta un mes la tienda (mesModo.ts): con "days", un producto de 30 días se dice «30 días», no «1 mes». */
+  monthMode?: "calendar" | "days";
   categories: { name: string; items: CatalogItem[] }[];
   /** Promociones vigentes en texto simple («Cupón NAVIDAD: 10 % hasta el 24/12»). */
   promos: string[];
@@ -134,7 +137,7 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
         ...(st.storeHours ? { hours: st.storeHours } : {}), ...(st.announcement ? { announcement: st.announcement } : {}),
         ...(st.instagram ? { instagram: st.instagram } : {}), ...(st.tiktok ? { tiktok: st.tiktok } : {}), ...(st.facebook ? { facebook: st.facebook } : {}), ...(st.footerText ? { footer: st.footerText } : {}),
       },
-      currency: cur, categories: group(items), promos, generatedAt: now,
+      currency: cur, monthMode: storeMonthMode(e), categories: group(items), promos, generatedAt: now,
     };
   }
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo la tienda o un revendedor pueden exportar su catálogo");
@@ -172,7 +175,7 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
       ...(sh?.storeHours ? { hours: sh.storeHours } : {}), ...(sh?.announcement ? { announcement: sh.announcement } : {}),
       ...(sh?.instagram ? { instagram: sh.instagram } : {}), ...(sh?.tiktok ? { tiktok: sh.tiktok } : {}), ...(sh?.facebook ? { facebook: sh.facebook } : {}), ...(sh?.footerText ? { footer: sh.footerText } : {}),
     },
-    currency: cur, categories: group(items), promos, generatedAt: now,
+    currency: cur, monthMode: storeMonthMode(e), categories: group(items), promos, generatedAt: now,
   };
 }
 
@@ -189,14 +192,16 @@ export function filterCatalog(d: CatalogData, f: CatalogFilter = {}): CatalogDat
 }
 
 const CAT_EMOJI: Record<string, string> = { [PROMO_CAT]: "🎁", Combos: "🎁", Streaming: "📺", Música: "🎵", "Series y películas": "🎬", Deportes: "⚽", Herramientas: "🛠️", "TV en vivo": "📡", Servicios: "⭐", "Mis servicios": "⭐", Otros: "✨" };
-const dur = (days: number) => (days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
+/** «1 mes», «3 meses», «1 año»… o, si la tienda cuenta por días (mesModo.ts), «30 días», «90 días». */
+export const durText = (days: number, mode: CatalogData["monthMode"] = "calendar") => (mode === "days" ? (days === 1 ? "1 día" : `${days} días`)
+  : days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
 
 /** Texto de UNA categoría para WhatsApp (negritas con *asteriscos*, viñetas, sin links raros). */
 export function whatsappCategory(d: CatalogData, c: CatalogData["categories"][number], opts: { descriptions?: boolean } = {}): string {
   const lines = [`${CAT_EMOJI[c.name] ?? "✨"} *${c.name.toUpperCase()}*`];
   for (const it of c.items) {
     lines.push(`• ${it.name} — *${money(it.price, d.currency)}*${it.savings ? ` (ahorrás ${money(it.savings, d.currency)})` : ""}`);
-    const extra = [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), it.items?.length ? `incluye ${it.items.join(" + ")}` : "", opts.descriptions !== false && it.description ? it.description : ""].filter(Boolean);
+    const extra = [it.kind === "own" || it.kind === "combo" ? "" : durText(it.durationDays, d.monthMode), it.items?.length ? `incluye ${it.items.join(" + ")}` : "", opts.descriptions !== false && it.description ? it.description : ""].filter(Boolean);
     if (extra.length) lines.push(`   ${extra.join(" · ")}`);
   }
   return lines.join("\n");

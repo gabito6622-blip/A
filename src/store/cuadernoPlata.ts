@@ -17,7 +17,8 @@
 import type { Actor, Assignment, Cents, Id, SubRental } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { DAY, boDayStart } from "./time.js";
+import { DAY, addPeriods, boDayStart, subPeriods } from "./time.js";
+import { resellerMonthMode } from "./mesModo.js";
 import { SECRETARY_AHEAD_DAYS } from "./secretary.js";
 import { isForeign, maxAmount, normAmount, currencyOf } from "./country.js";
 
@@ -43,7 +44,18 @@ export const MAX_VIRTUAL = 12;
 /** «Deshacer» un cobro: hasta cuántos minutos después. */
 export const UNDO_MINUTES = 30;
 
+/** Largo nominal de un período (para ventanas aproximadas, no para correr fechas). */
 export const periodOf = (e: Engine, a: Assignment): number => (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+
+/**
+ * Cómo corre un período de SUS perfiles repartidos: con el modo del revendedor dueño del alquiler (mesModo.ts). Sin
+ * ajuste, 30 días justos como siempre; con «mismo día del mes siguiente», 13/12 → 13/01.
+ */
+export interface Per { next: (t: number) => number; prev: (t: number) => number }
+export function perOf(e: Engine, a: Assignment): Per {
+  const d = e.s.products[a.productId]?.durationDays ?? 30, m = resellerMonthMode(e, a.customerId);
+  return { next: (t) => addPeriods(t, d, 1, m), prev: (t) => subPeriods(t, d, 1, m) };
+}
 const cobros = (e: Engine) => (e.s.rcobros ??= []);
 
 /** Hasta cuándo corre el reparto de un alquiler: hoy si anda; si se cortó, hasta el corte (sin servicio no hay deuda nueva). */
@@ -54,16 +66,16 @@ export function runsUntil(a: Assignment, now: number): number {
 }
 
 /** Las deudas guardadas. Un perfil viejo marcado «pendiente» (antes de esto) debe su período actual. */
-function stored(s: SubRental, P: number): SubDebt[] {
+function stored(s: SubRental, P: Per): SubDebt[] {
   if (s.debts) return s.debts;
-  if (s.pay !== "pagado" && (s.price ?? 0) > 0) return [{ from: s.expiresAt - P, to: s.expiresAt, amount: s.price!, paid: 0 }];
+  if (s.pay !== "pagado" && (s.price ?? 0) > 0) return [{ from: P.prev(s.expiresAt), to: s.expiresAt, amount: s.price!, paid: 0 }];
   return [];
 }
 
 /** Períodos que ya empezaron (vence hoy o venció) y no se renovaron: el cliente sigue usando el perfil. */
-export function virtualPeriods(s: SubRental, P: number, until: number): SubDebt[] {
+export function virtualPeriods(s: SubRental, P: Per, until: number): SubDebt[] {
   const out: SubDebt[] = [];
-  for (let t = s.expiresAt; boDayStart(t) <= boDayStart(until) && out.length < MAX_VIRTUAL; t += P) out.push({ from: t, to: t + P, amount: s.price ?? 0, paid: 0 });
+  for (let t = s.expiresAt; boDayStart(t) <= boDayStart(until) && out.length < MAX_VIRTUAL; t = P.next(t)) out.push({ from: t, to: P.next(t), amount: s.price ?? 0, paid: 0 });
   return out;
 }
 
@@ -78,7 +90,7 @@ export interface SubMoney {
 
 /** Lo que debe un perfil hoy. Solo lee. */
 export function subMoney(e: Engine, a: Assignment, s: SubRental, now = e.now()): SubMoney {
-  const P = periodOf(e, a);
+  const P = perOf(e, a);
   const st = stored(s, P).filter((d) => d.paid < d.amount).map((d) => ({ from: d.from, to: d.to, owed: d.amount - d.paid, started: true }));
   const vt = virtualPeriods(s, P, runsUntil(a, now)).filter((d) => d.amount > 0).map((d) => ({ from: d.from, to: d.to, owed: d.amount, started: false }));
   const gross = [...st, ...vt].reduce((t, d) => t + d.owed, 0), credit = s.credit ?? 0;
@@ -95,7 +107,7 @@ export function amountIn(e: Engine, actor: Actor, v: unknown): Cents {
 }
 
 /** Deja las deudas guardadas en limpio (convierte el «pendiente» viejo) y el estado de pago al día. Dentro de `tx`. */
-function tidy(s: SubRental, P: number, keepPay?: SubRental["pay"]) {
+function tidy(s: SubRental, P: Per, keepPay?: SubRental["pay"]) {
   s.debts = stored(s, P).filter((d) => d.paid < d.amount).map((d) => ({ ...d }));
   const open = s.debts.length > 0;
   if (!open) delete s.debts;
@@ -104,7 +116,7 @@ function tidy(s: SubRental, P: number, keepPay?: SubRental["pay"]) {
 }
 
 /** Pasa el «pendiente» viejo a deudas guardadas (antes de tocar fecha o precio). Dentro de `tx`. */
-export function normalizeSub(e: Engine, a: Assignment, s: SubRental) { tidy(s, periodOf(e, a)); }
+export function normalizeSub(e: Engine, a: Assignment, s: SubRental) { tidy(s, perOf(e, a)); }
 
 /**
  * Aplica un pago a un perfil (dentro de `tx`): primero la deuda más vieja, después los períodos que ya empezaron (la fecha
@@ -112,7 +124,7 @@ export function normalizeSub(e: Engine, a: Assignment, s: SubRental) { tidy(s, p
  * sobra queda a favor. Devuelve lo que se aplicó y hasta cuándo quedó.
  */
 export function applyPayment(e: Engine, a: Assignment, s: SubRental, amount: Cents, opts: { ahead?: boolean; now?: number } = {}) {
-  const P = periodOf(e, a), now = opts.now ?? e.now();
+  const P = perOf(e, a), now = opts.now ?? e.now();
   tidy(s, P);
   let rem = amount + (s.credit ?? 0);
   delete s.credit;
@@ -122,15 +134,15 @@ export function applyPayment(e: Engine, a: Assignment, s: SubRental, amount: Cen
   const until = runsUntil(a, now);
   while (rem > 0 && boDayStart(s.expiresAt) <= boDayStart(until)) {
     const price = s.price ?? rem, x = Math.min(rem, price);
-    debts.push({ from: s.expiresAt, to: s.expiresAt + P, amount: price, paid: x });
-    s.expiresAt += P; rem -= x;
+    debts.push({ from: s.expiresAt, to: P.next(s.expiresAt), amount: price, paid: x });
+    s.expiresAt = P.next(s.expiresAt); rem -= x;
   }
   // Por adelantado: vence en 3 días (o lo pidió con «Renovó»).
   const daysLeft = Math.round((boDayStart(s.expiresAt) - boDayStart(now)) / DAY);
   if (rem > 0 && (opts.ahead || daysLeft <= SECRETARY_AHEAD_DAYS) && a.status === "active") {
     const price = s.price ?? rem, x = Math.min(rem, price);
-    debts.push({ from: s.expiresAt, to: s.expiresAt + P, amount: price, paid: x });
-    s.expiresAt += P; rem -= x;
+    debts.push({ from: s.expiresAt, to: P.next(s.expiresAt), amount: price, paid: x });
+    s.expiresAt = P.next(s.expiresAt); rem -= x;
   }
   if (rem > 0) s.credit = rem;
   tidy(s, P);
@@ -142,23 +154,23 @@ export function applyPayment(e: Engine, a: Assignment, s: SubRental, amount: Cen
  * debiendo («me paga después»). Lo que debía de antes sigue debiendo: las deudas se acumulan por período. Dentro de `tx`.
  */
 export function chargePeriod(e: Engine, a: Assignment, s: SubRental, paid: Cents = 0) {
-  const P = periodOf(e, a);
+  const P = perOf(e, a);
   tidy(s, P);
   const debts = (s.debts ??= []);
   const amount = s.price ?? 0;
-  const d: SubDebt = { from: s.expiresAt, to: s.expiresAt + P, amount, paid: Math.min(amount, paid) };
+  const d: SubDebt = { from: s.expiresAt, to: P.next(s.expiresAt), amount, paid: Math.min(amount, paid) };
   // Si tenía plata a favor, se usa en este período.
   if (s.credit && d.paid < d.amount) { const x = Math.min(s.credit, d.amount - d.paid); d.paid += x; s.credit -= x; }
   debts.push(d);
-  s.expiresAt += P;
+  s.expiresAt = d.to;
   tidy(s, P);
 }
 
 /** El período actual queda debiendo (lo marcó «Pendiente» / «No pagó» en el formulario). Dentro de `tx`. */
 export function markCurrentUnpaid(e: Engine, a: Assignment, s: SubRental, pay: SubRental["pay"]) {
-  const P = periodOf(e, a);
+  const P = perOf(e, a);
   tidy(s, P);
-  if ((s.price ?? 0) > 0 && !(s.debts ?? []).some((d) => d.to === s.expiresAt)) (s.debts ??= []).push({ from: s.expiresAt - P, to: s.expiresAt, amount: s.price!, paid: 0 });
+  if ((s.price ?? 0) > 0 && !(s.debts ?? []).some((d) => d.to === s.expiresAt)) (s.debts ??= []).push({ from: P.prev(s.expiresAt), to: s.expiresAt, amount: s.price!, paid: 0 });
   tidy(s, P, pay);
   if (!s.debts) s.pay = pay; // sin precio no hay monto, pero se respeta lo que eligió
 }

@@ -9,6 +9,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+import { addPeriods } from "../dist/store/time.js";
+/** «1 mes» de la tienda = mismo día del mes siguiente (mesModo.ts, por defecto). */
+const mes = (t) => addPeriods(t, 30, 1, "calendar");
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
@@ -118,7 +121,7 @@ test("Revendedores un mes entero: rutas, separación y pantallas a 360 px", { ti
       await until(() => s.wallet.balance(mam.id) !== bal1);
       await p.waitForFunction(() => !document.querySelector(".rmalert"));
       assert.match(dialogs.at(-1), /Renovar 3 cuentas por Bs 104(\.00)? con tu saldo/);
-      mIds.forEach((id, i) => assert.equal(s.engine.s.assignments[id].customerExpiresAt, exp[i] + 30 * DAY));
+      mIds.forEach((id, i) => assert.equal(s.engine.s.assignments[id].customerExpiresAt, mes(exp[i])));
       assert.equal(s.wallet.balance(mam.id), bal1 - 10400);
       // Mis ganancias: la ganancia real con sus alquileres.
       await p.evaluate(() => { const x = document.createElement("button"); x.dataset.rtool = "ganancias"; x.id = "goGan"; document.body.append(x); });

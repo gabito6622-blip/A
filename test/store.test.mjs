@@ -178,7 +178,8 @@ describe("2. Ventas, pagos, asignaciones, reemplazos y renovaciones", () => {
     const asg = o.assignmentIds[0];
     assert.equal(s.snapshot().slots[s.snapshot().assignments[asg].slotId].accountId, acc1.account.id);
     const r = s.orders.renew(as(maria), asg, { paymentMethod: "balance" });
-    assert.equal(r.assignment.customerExpiresAt, T0 + 60 * DAY);
+    // «1 mes» = mismo día del mes siguiente (mesModo.ts): 07/11 → 07/12 → 07/01 son 30 + 31 días.
+    assert.equal(r.assignment.customerExpiresAt, T0 + 61 * DAY);
     const acc = s.snapshot().accounts[acc1.account.id];
     assert.equal(acc.supplierExpiresAt, T0 + 90 * DAY);
     assert.equal(s.wallet.balance(maria.id), 10000 - 3500 * 2);
@@ -718,7 +719,7 @@ describe("8. Edición de cuentas, perfiles y clientes; transferencias", () => {
     const o = s.orders.create(seller, { customerId: maria.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" }); // nf02, vence a +40
     assert.throws(() => s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }), err("SUPPLIER_EXPIRY_EXCEEDED"));
     s.inventory.updateAccount(admin, acc2.account.id, { supplierExpiresAt: T0 + 120 * DAY });
-    assert.equal(s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }).assignment.customerExpiresAt, T0 + 60 * DAY);
+    assert.equal(s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }).assignment.customerExpiresAt, T0 + 61 * DAY, "07/11 → 07/12 → 07/01 (meses de calendario)");
   });
 
   test("cambiar el PIN de un perfil vendido avisa a su cliente; uno en cuarentena se puede liberar", () => {
@@ -877,8 +878,8 @@ describe("10. Recordatorios automáticos", () => {
     const o = sell(s, maria.id);
     clock.t = T0 + 28 * DAY + 4 * 3600_000;
     s.orders.autoReminders(system);
-    s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }); // ahora vence a T0 + 60 días
-    clock.t = T0 + 58 * DAY + 4 * 3600_000;
+    s.orders.renew(seller, o.assignmentIds[0], { paymentMethod: "cash" }); // ahora vence el 07/01 (T0 + 61 días: meses de calendario)
+    clock.t = T0 + 59 * DAY + 4 * 3600_000;
     assert.equal(s.orders.autoReminders(system), 1);
   });
 
@@ -1271,7 +1272,7 @@ describe("21. Productos solo para revendedores + autorenovación con saldo", () 
     const r = s.orders.renew(as(carla), id, { paymentMethod: "balance" });
     assert.equal(r.order.total, 6500, "cobra el precio acordado");
     assert.equal(s.wallet.balance(carla.id), 10000 - 6500);
-    assert.equal(r.assignment.customerExpiresAt, before + 30 * DAY, "la fecha se corre sola");
+    assert.equal(r.assignment.customerExpiresAt, before + 31 * DAY, "la fecha se corre sola: 07/12 → 07/01, un mes de calendario");
     assert.throws(() => s.orders.renew(as(carla), id, { paymentMethod: "balance" }), err("INSUFFICIENT_BALANCE"));
   });
 });

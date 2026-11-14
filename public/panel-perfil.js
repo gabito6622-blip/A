@@ -1,7 +1,7 @@
 // Perfiles sueltos comprados a otras personas (16/11/2026): «➕ Compré un perfil» (Inicio, Cuentas y Carga), la ficha del
 // perfil («Te costó Bs 15 · lo vendiste a Bs 25 · ganás Bs 10»), «⚠️ Se cayó» con sus tres salidas y «Le pagué a Juan».
 // La lógica de plata vive en el servidor (src/store/perfilSuelto.ts); acá solo los formularios. panel.js solo los llama.
-import { api, esc, bs, toCents, fdate } from "/common.js";
+import { api, esc, bs, toCents, fdate, addPeriods } from "/common.js";
 import { sendqStart } from "/panel-caidas.js";
 
 const DAY = 86_400_000;
@@ -28,7 +28,7 @@ export function perfilCompreCard(products, vendors, rate) {
       <label>Moneda<select name="currency">${opt("BOB", "Bs")}${opt("USD", "US$")}${opt("USDT", "USDT")}</select></label>
       <label class="pf-rate" hidden>Tasa (Bs por dólar)<input name="rate" inputmode="decimal" value="${esc(rate ? String(rate).replace(".", ",") : "")}"></label>
       <label>Le pagaste el<input type="date" name="date" value="${iso(Date.now())}" max="${iso(Date.now())}"></label>
-      <label>Te lo vende hasta<input type="date" name="until" value="${iso(Date.now() + 30 * DAY)}"></label>
+      <label>Te lo vende hasta<input type="date" name="until" value="${iso(addPeriods(Date.now(), 30))}"></label>
       <label style="grid-column:1/-1">Correo de la cuenta<input name="email" type="email" required placeholder="correo@gmail.com"></label>
       <label style="grid-column:1/-1">Clave<input name="password" required placeholder="clave de la cuenta"></label>
       <label>Perfil<input name="label" maxlength="40" placeholder="Ej.: Perfil 3"></label>

@@ -78,6 +78,8 @@ export interface StoreSettings extends Look {
   /** Optimización 2: links para que el cliente renueve con QR o saldo desde el aviso. APAGADO por defecto.
    *  `access`: "renew" = el link solo sirve para renovar ese servicio; "full" = además lo deja entrar a Mis cuentas. */
   renewLink?: { enabled: boolean; access: "renew" | "full"; hours: number };
+  /** Cómo cuenta un mes la tienda (mesModo.ts): "calendar" = 13/12 → 13/01 (sin valor); "days" = 30 días (13/12 → 12/01). */
+  monthMode?: "calendar" | "days";
   /** Ganancia sugerida (%) que el asistente le propone al revendedor sobre su costo. */
   resellerMarginPct?: number;
   /** Premio (centavos) que gana un revendedor cuando traés a otro revendedor y el dueño lo aprueba. 0 lo apaga. */
@@ -358,6 +360,8 @@ export interface Customer {
   locale?: ResellerLocale;
   /** «Plan mensual» del cliente de la tienda: servicios que paga juntos, el mismo día (sin cobro automático; planMensual.ts). */
   plan?: { ids: Id[]; since: number };
+  /** Revendedor: cómo cuenta un mes para SUS clientes (mesModo.ts). Sin valor = "days" (30 días, lo de siempre). */
+  monthMode?: "calendar";
 }
 
 export interface Testimonial {

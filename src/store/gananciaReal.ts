@@ -14,6 +14,7 @@
 import type { Actor, Cents, Customer, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, boMonthKey, boMonthStart } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
 import { orderCurrency, paidTotal, walletCurrency } from "./usd.js";
 import { isForeign, listPriceMine } from "./country.js";
 import { cobrosOf, subMoney } from "./cuadernoPlata.js";
@@ -59,7 +60,7 @@ export function rentalCostByMonth(e: Engine, me: Customer): Map<string, { cost: 
   for (const [aid, orders] of byAssignment) {
     const a = e.s.assignments[aid];
     if (!a) continue;
-    const P = (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+    const days = e.s.products[a.productId]?.durationDays ?? 30;
     let end: number | undefined;
     for (const o of orders.sort((x, y) => x.updatedAt - y.updatedAt)) {
       const it = o.items.find((x) => x.productId === a.productId) ?? o.items[0];
@@ -68,7 +69,7 @@ export function rentalCostByMonth(e: Engine, me: Customer): Map<string, { cost: 
       // Venta: desde que arrancó. Renovación: sigue donde terminaba (renovar temprano no adelanta el gasto); si ya se
       // había cortado hace días y volvió, desde el día que pagó.
       const from = o.kind === "sale" || end === undefined ? (o.kind === "sale" ? a.startsAt : o.updatedAt) : o.updatedAt <= end + 3 * DAY ? end : o.updatedAt;
-      const to = from + P * periods;
+      const to = storeAddPeriods(e, from, days, periods);
       end = to;
       const months: string[] = [], weights: number[] = [];
       for (let m0 = boMonthStart(from); m0 < to; m0 = boMonthStart(m0, 1)) {

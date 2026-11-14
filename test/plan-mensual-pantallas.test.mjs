@@ -122,7 +122,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     await p.locator("[data-raplan]").waitFor();
     await p.locator("[data-raplan]").check();
     await p.waitForFunction(() => /todos vencen el/.test(document.querySelector("#rabox .ratot")?.textContent ?? ""));
-    assert.match(await p.locator("#rabox .ralist").innerText(), /30 días: del \d\d\/\d\d\/\d{4} al \d\d\/\d\d\/\d{4}/);
+    assert.match(await p.locator("#rabox .ralist").innerText(), /1 mes: del \d\d\/\d\d\/\d{4} al \d\d\/\d\d\/\d{4}/, "el que vence primero renueva «1 mes» entero (mesModo.ts)");
     const bal0 = s.wallet.balance(ana.id);
     await p.locator('[data-rapay="balance"]').click();
     await p.locator(".plancard").waitFor();

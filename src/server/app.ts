@@ -1,6 +1,7 @@
 // Servidor HTTP de Gabriel Store: API JSON + archivos estáticos de la tienda y el panel.
 // Sin frameworks: node:http. Cada ruta declara quién puede llamarla; el núcleo vuelve a
 // validar permisos (defensa en dos capas).
+import { storeAddPeriods, storePeriodText } from "../store/mesModo.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { fetchBcbRate } from "./bcbRate.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -400,6 +401,7 @@ export function createApp(cfg: AppConfig): App {
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "", seoTitle: st.seoTitle ?? "", seoDescription: st.seoDescription ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
       faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
+      monthMode: st.monthMode ?? "calendar", // cómo cuenta un mes la tienda (mesModo.ts): textos y vistas previas
       attendHours: attendHours(store), // horario de atención (el del bot): «Te respondemos desde las 8:00» (hablar.js)
     };
   });
@@ -732,7 +734,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id), monthMode: cu.monthMode ?? "days" } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -826,10 +828,10 @@ export function createApp(cfg: AppConfig): App {
     const bal = store.wallet.balance(cust.id);
     const pending = Object.values(e.orders).find((o) => o.kind === "renewal" && o.renewal?.assignmentId === a.id && (o.status === "awaiting_payment" || o.status === "payment_review"));
     const days = prod?.durationDays ?? 30;
-    const from = renewStart(a, now()), to = from + days * 86_400_000;
+    const from = renewStart(a, now()), to = storeAddPeriods(store.engine, from, days);
     const st = e.settings;
     return {
-      name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", expiresAt: a.customerExpiresAt, from, to, days,
+      name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", email: acc?.email ?? "", expiresAt: a.customerExpiresAt, from, to, days, period: storePeriodText(store.engine, days),
       price, currency: usd ? "USD" : "BOB", balance: bal, canBalance: price !== null && price > 0 && bal >= price,
       supplierOk: !acc || to <= acc.supplierExpiresAt, access: r.access, storeName: st.storeName, whatsapp: st.whatsapp, hasQr: !!st.qrFileRef, paymentNote: st.paymentNote ?? "",
       pending: pending ? { id: pending.id, status: pending.status, hasEvidence: !!pending.evidence } : null,
@@ -1410,6 +1412,7 @@ export function createApp(cfg: AppConfig): App {
     if (typeof b.alwaysAvailable === "boolean") pick.alwaysAvailable = b.alwaysAvailable;
     if (typeof b.resellerOnlyCatalog === "boolean") pick.resellerOnlyCatalog = b.resellerOnlyCatalog;
     if (b.usdt && typeof b.usdt === "object") pick.usdt = b.usdt;
+    if (b.monthMode !== undefined) pick.monthMode = b.monthMode; // cómo cuenta un mes la tienda (mesModo.ts valida)
     return store.catalog.updateSettings(A(c), pick);
   });
   const imageSetting = (key: "qrFileRef" | "logoFileRef" | "bannerFileRef", what: string) => (c: Ctx) => {
@@ -2963,7 +2966,7 @@ export function createApp(cfg: AppConfig): App {
     // Cliente en la lista en dólares: sus precios van en US$.
     const st = store.engine.s.settings, sym = customerId && store.engine.s.customers[customerId] ? store.usd.currency(customerId).symbol : st.currencySymbol || "Bs";
     const money = (c: number) => `${sym} ${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
-    const cat = store.catalog.publicCatalog(customerId).slice(0, 40).map((p) => `- ${p.name}: ${money(p.price)} por ${p.durationDays} días${p.available === 0 ? " (sin stock ahora)" : ""}`);
+    const cat = store.catalog.publicCatalog(customerId).slice(0, 40).map((p) => `- ${p.name}: ${money(p.price)} por ${storePeriodText(store.engine, p.durationDays)}${p.available === 0 ? " (sin stock ahora)" : ""}`);
     const pm = store.payMethods.mine({ id: "bot", role: "customer", customerId });
     const pays = [pm.qr && st.qrFileRef ? "QR de banco (Bolivia)" : "", ...pm.methods.map((m) => `${m.name}${m.country ? ` (${m.country})` : ""}`), st.usdt?.enabled ? "USDT" : "", "saldo de la cuenta"].filter(Boolean);
     const bot = store.chats.botSettings();

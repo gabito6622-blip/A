@@ -35,6 +35,9 @@ export function registerOwnStockRoutes(d: OwnStockDeps): void {
   /* ---- país y moneda ---- */
   route("GET", "/api/me/locale", "customer", (c) => store.locale.mine(me(c)));
   route("PUT", "/api/me/locale", "customer", (c) => store.locale.setMine(me(c), c.body ?? {}));
+  /* ---- cómo cuenta un mes (para SUS clientes) ---- */
+  route("GET", "/api/me/month-mode", "customer", (c) => store.monthMode.mine(me(c)));
+  route("PUT", "/api/me/month-mode", "customer", (c) => store.monthMode.setMine(me(c), c.body ?? {}));
   route("POST", "/api/admin/customers/:id/locale", "staff", (c) => store.locale.setFor(me(c), c.params.id, c.body ?? {}));
 
   /* ---- Mis cuentas propias ---- */

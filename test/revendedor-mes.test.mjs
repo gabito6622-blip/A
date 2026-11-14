@@ -275,9 +275,13 @@ describe("8 · «Mis ganancias» con sus alquileres", () => {
     const g = s.rtools.earnings(me);
     assert.equal(g.month.revenue, 4000);
     assert.equal(g.month.cost, 2500);
-    assert.equal(g.rentals.cost, 6900 + 2000 + 2000 + 1500);
+    // Pagó Bs 124 de alquileres (6900 + 2000 + 2000 + 1500). Cubren del 01/10 10:00 al 01/11 10:00 (un mes de calendario,
+    // mesModo.ts): 10 de esas 744 horas son de noviembre, así que a octubre le tocan ≈ 12400 × 734/744 = 12233. Con
+    // «30 días» terminaban el 31/10 10:00 y octubre se llevaba los 12400 enteros. El total pagado no cambia.
+    assert.equal(g.rentals.cost, 12233);
     assert.equal(g.rentals.revenue, 8000);
-    assert.equal(g.real.profit, 4000 + 8000 - 2500 - 12400, "pierde Bs 29: ahora se ve");
+    assert.equal(g.real.alquileres, 12233);
+    assert.equal(g.real.profit, 4000 + 8000 - 2500 - 12233, "pierde Bs 27,33 este mes: ahora se ve");
   });
 });
 

@@ -2,6 +2,7 @@
 import type { Account, Actor, Cents, Id, Slot } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, MINUTE } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { queue } from "./notify.js";
@@ -123,7 +124,7 @@ export function freeCount(e: Engine, productId: Id): number {
  */
 export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = [], prefer: Id[] = [], needUntil?: number): Slot[] {
   const pref = new Map(prefer.map((id, i) => [id, i]));
-  const order = byCoverage(needUntil ?? e.now() + (e.s.products[productId]?.durationDays ?? 30) * DAY);
+  const order = byCoverage(needUntil ?? storeAddPeriods(e, e.now(), e.s.products[productId]?.durationDays ?? 30));
   const free = Object.values(e.s.slots)
     .filter((s) => s.productId === productId && sellable(e, s) && !exclude.includes(s.accountId))
     // Si el staff eligió perfiles, esos van primero (en su orden); si no, las cuentas que alcanzan la fecha del cliente

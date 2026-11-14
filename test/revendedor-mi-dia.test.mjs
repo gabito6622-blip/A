@@ -39,7 +39,9 @@ function world() {
   const sell = (R, cid, productId, t) => { at(t); return s.orders.create(R.A, { customerId: cid, items: [{ productId, qty: 1 }], paymentMethod: "balance" }); };
   // Ana: Marisel venció hace 2 días; Ruthy vence en 2 días; José vence en 20 días pero figura «pendiente»; Kevin vence en 15 días y pagó.
   const marisel = client(ana, "Marisel Rojas", "+59175000001"), ruthy = client(ana, "Ruthy Mamani", "+59175000002"), jose = client(ana, "José Vargas", "+59175000003"), kevin = client(ana, "Kevin Flores", "+59175000004");
-  const oM = sell(ana, marisel.id, "netflix", NOW - 32 * DAY), oR = sell(ana, ruthy.id, "netflix", NOW - 28 * DAY), oJ = sell(ana, jose.id, "netflix", NOW - 10 * DAY), oK = sell(ana, kevin.id, "netflix", NOW - 15 * DAY);
+  // «1 mes» = mismo día del mes siguiente (mesModo.ts). Octubre tiene 31 días: lo vendido en octubre se vende un día
+  // antes para que venza el mismo día que antes (Marisel 11/11, Ruthy 15/11, José 03/12, Kevin 28/11).
+  const oM = sell(ana, marisel.id, "netflix", NOW - 33 * DAY), oR = sell(ana, ruthy.id, "netflix", NOW - 29 * DAY), oJ = sell(ana, jose.id, "netflix", NOW - 10 * DAY), oK = sell(ana, kevin.id, "netflix", NOW - 16 * DAY);
   at(NOW);
   s.rtools.setControl(ana.A, oM.assignmentIds[0], { price: 4000 });
   s.rtools.setControl(ana.A, oR.assignmentIds[0], { price: 4000, note: "paga los lunes" });
@@ -51,8 +53,8 @@ function world() {
   const papa = s.subs.save(ana.A, aidD, { label: "Papá", name: "Mario Rojas", phone: "+59175556678", expiresAt: NOW + 10 * DAY, price: 1500, pay: "pendiente" }).sub;
   s.subs.link(ana.A, aidD, mama.id);
   // El otro revendedor tiene un cliente vencido que Ana nunca debe ver; y la tienda un cliente directo vencido.
-  const ajeno = client(otro, "Cliente Ajeno", "+59175009999"); sell(otro, ajeno.id, "netflix", NOW - 35 * DAY); at(NOW);
-  const directo = s.catalog.createCustomer(owner, { name: "Directo Tienda", phone: "+59175008888" }); at(NOW - 33 * DAY); s.orders.create(owner, { customerId: directo.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" }); at(NOW);
+  const ajeno = client(otro, "Cliente Ajeno", "+59175009999"); sell(otro, ajeno.id, "netflix", NOW - 36 * DAY); at(NOW);
+  const directo = s.catalog.createCustomer(owner, { name: "Directo Tienda", phone: "+59175008888" }); at(NOW - 34 * DAY); s.orders.create(owner, { customerId: directo.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" }); at(NOW);
   return { s, clock, at, ana, otro, ids: { marisel: oM.assignmentIds[0], ruthy: oR.assignmentIds[0], jose: oJ.assignmentIds[0], kevin: oK.assignmentIds[0], aidD, mama: mama.id, papa: papa.id } };
 }
 
@@ -152,7 +154,7 @@ describe("Mi día del revendedor · API y navegador", () => {
     ana = { c, A: { id: "u_" + c.id, role: "reseller", customerId: c.id } };
     s.wallet.adjust(owner, c.id, 100000, "demo");
     const marisel = s.catalog.createCustomer(ana.A, { name: "Marisel Rojas", phone: "+59175000001", whatsappConsent: true });
-    clock.t = NOW - 32 * DAY; const o = s.orders.create(ana.A, { customerId: marisel.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }); clock.t = NOW;
+    clock.t = NOW - 33 * DAY; /* 11/10 → vence 11/11 (un mes de calendario) */ const o = s.orders.create(ana.A, { customerId: marisel.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }); clock.t = NOW;
     s.rtools.setControl(ana.A, o.assignmentIds[0], { price: 4000 });
     ids = { marisel: o.assignmentIds[0] };
     base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;

@@ -192,28 +192,30 @@ describe("cuaderno del revendedor · plata", () => {
 
   test("4 · ganancia real: cobros del mes − alquileres por los días que cubren; renovar temprano no castiga; cierre de mes", () => {
     const { s, at, beto, rent } = world();
-    const aid = rent(beto); // 01/08: cubre 01/08 → 31/08 (Bs 15)
+    const aid = rent(beto); // 01/08 10:00: cubre hasta el 01/09 10:00 (Bs 15; un mes de calendario, mesModo.ts)
     s.subs.save(beto.A, aid, { name: "Nina Vela", expiresAt: T0 + 30 * DAY, price: 1500, pay: "pagado" });
     s.subs.save(beto.A, aid, { name: "Óscar Vela", expiresAt: T0 + 30 * DAY, price: 1500, pay: "pendiente" });
-    at(T0 + 27 * DAY); // 28/08: renueva temprano su alquiler (cubre 31/08 → 30/09)
+    at(T0 + 27 * DAY); // 28/08: renueva temprano su alquiler (cubre 01/09 → 01/10)
     s.orders.renew(beto.A, aid, { paymentMethod: "balance", periods: 1 });
     const g = s.rtools.earnings(beto.A);
     assert.equal(g.real.cobrosPerfiles, 1500, "solo lo que de verdad le pagaron (Óscar debe)");
-    // Agosto: el primer pago entero + las 14 horas del 31/08 que cubre la renovación (1500 × 14/720 ≈ 29).
-    assert.equal(g.real.alquileres, 1500 + 29, "la renovación temprana casi no pesa en agosto");
-    assert.equal(g.real.profit, 1500 - 1529);
+    // Agosto: el primer pago cubre del 01/08 10:00 al 01/09 10:00 (744 horas): 10 de esas horas son de septiembre,
+    // así que a agosto le tocan 1500 × 734/744 ≈ 1480. La renovación temprana arranca el 01/09: en agosto no pesa nada.
+    // (Con «30 días» eran 1500 + 29: el primer pago terminaba el 31/08 y la renovación cubría 14 horas de agosto.)
+    assert.equal(g.real.alquileres, 1480, "la renovación temprana no pesa en agosto");
+    assert.equal(g.real.profit, 1500 - 1480);
     assert.equal(g.rentals.owed, 1500);
-    // Septiembre: el resto de la renovación (29 días) y lo que cobre ese mes.
+    // Septiembre: las 10 horas del primer pago (20) + la renovación hasta el 01/10 00:00 (710 de 720 horas ≈ 1479).
     at(T0 + 35 * DAY);
     s.rtools.dayPay(beto.A, s.rtools.day(beto.A).cobrar.flatMap((x) => x.items).find((x) => x.client === "Óscar Vela").id, {});
     const g9 = s.rtools.earnings(beto.A);
-    assert.equal(g9.real.alquileres, 1471);
+    assert.equal(g9.real.alquileres, 20 + 1479);
     assert.ok(g9.real.cobrosPerfiles >= 1500);
     // Cierre de mes: agosto queda guardado y no cambia aunque después se corrija algo.
     assert.equal(s.cuaderno.closeMonths(system), 1);
     assert.equal(s.cuaderno.closeMonths(system), 0, "un mes cerrado no se vuelve a tocar");
     const aug = s.engine.s.rcierres[beto.c.id]["2026-08"];
-    assert.deepEqual([aug.cobros, aug.alquileres, aug.ganancia, aug.perfiles], [1500, 1529, -29, 2]);
+    assert.deepEqual([aug.cobros, aug.alquileres, aug.ganancia, aug.perfiles], [1500, 1480, 20, 2]);
     const h = s.rtools.earnings(beto.A).history;
     assert.deepEqual(h.map((m) => [m.key, m.closed]), [["2026-09", false], ["2026-08", true]]);
     assert.equal(s.cuaderno.closeMonths(beto.A), 0, "solo la tarea del sistema cierra meses");

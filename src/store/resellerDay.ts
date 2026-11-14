@@ -10,6 +10,8 @@ import type { Actor, Cents, Id, SubRental } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { DAY, boDayStart } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
+import { renewStart } from "./cobrarBien.js";
 import { SECRETARY_AHEAD_DAYS } from "./secretary.js";
 import { myControl, setMyControl } from "./resellerTools.js";
 import { listMine } from "./subRentals.js";
@@ -188,7 +190,7 @@ export function dayPreview(e: Engine, actor: Actor, id: Id, amount?: Cents) {
   // Cliente registrado: marcar pagado en Mi control; la renovación real (con su saldo) es opcional y tiene sus frenos.
   const soon = it.days <= SECRETARY_AHEAD_DAYS;
   const cost = it.cost ?? 0;
-  const renew = { offered: soon && !!it.canRenew, cost, balance: bal, enough: bal >= cost, to: Math.max(it.expiresAt, now) + days * DAY, blocked: soon && !it.canRenew ? "Este servicio lo renueva la tienda (la cuenta vence antes o no está a la venta): escribile." : null };
+  const renew = { offered: soon && !!it.canRenew, cost, balance: bal, enough: bal >= cost, to: e.s.assignments[it.assignmentId] ? storeAddPeriods(e, renewStart(e.s.assignments[it.assignmentId], now), days) : storeAddPeriods(e, Math.max(it.expiresAt, now), days), blocked: soon && !it.canRenew ? "Este servicio lo renueva la tienda (la cuenta vence antes o no está a la venta): escribile." : null };
   const pay = amount ?? it.price ?? 0;
   return { item: it, price: it.price, due: it.price ?? 0, owed: 0, amount: pay, left: Math.max(0, (it.price ?? 0) - pay), moves: false, to: it.expiresAt, renew, blockers: [] as string[] };
 }

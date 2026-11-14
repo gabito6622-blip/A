@@ -23,6 +23,7 @@ import type { Actor, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DAY, MINUTE, boMonthStart } from "./time.js";
+import { storeSubPeriods } from "./mesModo.js";
 import { effectivePrice } from "./admin.js";
 import { DEDUPE_DAYS, incomeEvents } from "./income.js";
 import { unitCostOf } from "./finance.js";
@@ -89,7 +90,7 @@ function renewalTiming(e: Engine, asgId: Id, list: Order[]): Map<Id, "on_time" |
   const out = new Map<Id, "on_time" | "late">();
   const a = e.s.assignments[asgId];
   if (!a) return out;
-  const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+  const days = e.s.products[a.productId]?.durationDays ?? 30;
   const changes = a.history.filter((h) => h.event === "date_changed").map((h) => h.at);
   let post: number | null = a.customerExpiresAt;
   let after = Infinity; // momento de la renovación ya procesada (la más nueva)
@@ -101,7 +102,7 @@ function renewalTiming(e: Engine, asgId: Id, list: Order[]): Map<Id, "on_time" |
       out.set(o.id, prev < o.createdAt ? "late" : "on_time");
       post = prev;
     } else if (post !== null) {
-      const pre: number = post - (o.renewal?.periods ?? 1) * dur;
+      const pre: number = storeSubPeriods(e, post, days, o.renewal?.periods ?? 1);
       if (pre > t + MINUTE) { out.set(o.id, "on_time"); post = pre; }
       else { out.set(o.id, "late"); post = null; }
     }

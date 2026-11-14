@@ -12,6 +12,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+import { addPeriods } from "../dist/store/time.js";
+/** «1 mes» de la tienda = mismo día del mes siguiente (mesModo.ts, por defecto). */
+const mes = (t) => addPeriods(t, 30, 1, "calendar");
 import { matches, matchCustomers, resolveCustomer } from "../public/buscar.js";
 
 let chromium = null;
@@ -139,7 +142,7 @@ test("Mi secretaria a 360 px: avisos que no salen, deuda sin correr la fecha, «
     await ig.locator('[name="otro"]').check();
     await ig.locator("[data-secpayok]").click();
     await p.waitForFunction(() => !/Iván Callisaya/.test(document.querySelector("#sec-cobrar")?.innerText ?? ""), null, { timeout: 15_000 });
-    assert.equal(A(ivan).customerExpiresAt, ivanExp + 30 * DAY);
+    assert.equal(A(ivan).customerExpiresAt, mes(ivanExp));
     // Proveedores por renovar: la cuenta corta con Fabio.
     const prov = p.locator("#sec-proveedores");
     if ((await prov.getAttribute("open")) === null) await prov.locator("summary").click();
@@ -209,7 +212,7 @@ test("Vender a 360 px: «quispe ana» sin tocar la sugerencia, «maria» con bot
     await dup.locator("[data-selldupren]").click();
     await p.waitForFunction(() => !document.querySelector("#sellDup"), null, { timeout: 15_000 });
     assert.match(msg, /Ya anotaste un cobro/);
-    assert.equal(A(anaNf).customerExpiresAt, exp0 + 30 * DAY, "renovó su Netflix");
+    assert.equal(A(anaNf).customerExpiresAt, mes(exp0), "renovó su Netflix");
     // «Es otro perfil»: vende.
     await p.locator("#sellBtn").click();
     await p.locator("#sellDup [data-selldupok]").click();
