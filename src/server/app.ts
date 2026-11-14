@@ -1003,6 +1003,16 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/renew", "customer", (c) =>
     store.orders.renew(c.actor!, String(c.body?.assignmentId), { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey }));
 
+  // Revendedores un mes entero (14/11/2026): varias renovaciones juntas, un comprobante para todas, aviso antes del corte.
+  route("POST", "/api/me/renew-many/preview", "customer", (c) => store.rmes.renewPreview(c.actor!, c.body?.ids));
+  route("POST", "/api/me/renew-many", "customer", (c) => store.rmes.renewMany(c.actor!, { ids: c.body?.ids, paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/me/renew-many/evidence", "customer", (c) => {
+    const file = saveUpload(c.body);
+    try { return store.rmes.evidenceMany(c.actor!, c.body?.orderIds, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }); }
+    catch (e) { dropUpload(file); throw e; }
+  }, MAX_UPLOAD_JSON);
+  route("GET", "/api/me/store-rentals", "customer", (c) => store.rmes.rentAlerts(c.actor!));
+
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
     try {
@@ -1127,6 +1137,8 @@ export function createApp(cfg: AppConfig): App {
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
   }));
+  route("GET", "/api/admin/order-groups", "staff", (c) => store.rmes.groups(A(c)));
+  route("POST", "/api/admin/order-groups/approve", "staff", (c) => store.rmes.approveGroup(A(c), { orderIds: c.body?.orderIds, confirmedReference: c.body?.confirmedReference, amount: c.body?.amount, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/trials", "staff", (c) => {
     const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
     return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
@@ -1179,8 +1191,9 @@ export function createApp(cfg: AppConfig): App {
     const list = store.shops.resellers(A(c)).map((r) => ({ ...r, hasPin: !!db.getSecret(`loginpin:${r.id}`), lastLoginAt: Number(db.getSecret(`lastlogin:${r.id}`) ?? 0) || null }));
     return { list, apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
   });
+  route("GET", "/api/admin/reseller-apps/options", "staff", (c) => store.rmes.approveOptions(A(c)));
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
-    const r = store.shops.approve(A(c), c.params.id);
+    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId });
     // Por defecto entra con plan "solo panel"; si pedís la página, se la habilitás después.
     const pin = randomPin();
     setLoginPin(r.customerId, pin);
@@ -1217,7 +1230,11 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
   route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true }));
-  route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? ""), { moveCharge: c.body?.moveCharge === true }));
+  route("GET", "/api/admin/assignments/:id/transfer-preview", "staff", (c) => store.rmes.transferPreview(A(c), c.params.id, String(c.query.get("to") ?? "")));
+  route("GET", "/api/admin/resellers/:id/due", "staff", (c) => store.rmes.due(A(c), c.params.id));
+  route("POST", "/api/admin/resellers/:id/paid-all", "staff", (c) => store.rmes.paidAll(A(c), c.params.id, { ids: c.body?.ids, total: c.body?.total, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/customers/:id/store-renew", "staff", (c) => store.rmes.setStoreRenew(A(c), c.params.id, c.body?.allowed));
   route("POST", "/api/admin/assignments/:id/replace", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? ""), oldSlot: c.body?.oldSlot, otherAccount: !!c.body?.otherAccount, ...(c.body?.toSlotId ? { toSlotId: String(c.body.toSlotId) } : {}) }));
   route("GET", "/api/admin/reminders/settings", "staff", () => store.orders.reminderSettings());
   route("POST", "/api/admin/reminders/settings", "staff", (c) => store.orders.updateReminderSettings(A(c), {
@@ -2750,6 +2767,9 @@ export function createApp(cfg: AppConfig): App {
     for (const cid of new Set(subs.map((x) => x.customerId))) {
       const me = s.customers[cid];
       if (!me || me.kind !== "reseller") continue;
+      // Sus alquileres con la tienda: 3 días antes y el día del vencimiento, cuándo se corta (avisoAlquiler.ts).
+      const sr = store.rmes.rentPush(cid, t);
+      if (sr) await customerPush(cid, sr).catch(() => {});
       // «Mi día» (13/11): un solo aviso con lo de hoy (cobrar / avisar / te deben) que abre la pestaña. Si su GaboHub está
       // pausado o en un plan sin Mi día (Gratis o Vendedor), sigue el aviso de siempre de «vence mañana».
       if (!store.shops.planGate(cid, "tito")) {

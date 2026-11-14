@@ -312,6 +312,10 @@ export interface Customer {
    * de revendedor, ni productos solo para revendedores, ni los pone en su página). Lo cambia el dueño.
    */
   trust?: "independent";
+  /** Independiente: `false` = el dueño no lo deja renovar sus alquileres de la tienda desde GaboHub (renovarVarias.ts). Sin valor = sí. */
+  storeRenew?: false;
+  /** Ficha que un revendedor cargó con un teléfono que ya tenía otra persona: no se usa para entrar con ese número. */
+  phoneShared?: true;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
@@ -426,6 +430,8 @@ export interface PaymentEvidence {
   duplicateOf?: Id;
   /** Si el número de operación declarado ya figura en otro pedido (declarado o confirmado): cuál. */
   referenceSeenIn?: Id;
+  /** Un solo comprobante para varios pedidos del mismo cliente (renovarVarias.ts): los pedidos del grupo. */
+  group?: Id[];
 }
 
 export interface Order {
@@ -772,7 +778,21 @@ export interface State {
   ownStock?: Record<Id, OwnStockBook>;
   /** "📩 Ver mi código de acceso" (codigosSolos.ts): permiso del dueño, interruptores y contador. Sin tokens. */
   selfCodes?: SelfCodesState;
+  /** «Pasar a otro» (traspaso.ts): la libreta del dueño anterior de un alquiler, guardada por `alquiler|cliente`. Nadie más la ve. */
+  transferBooks?: Record<string, TransferBook>;
   seq: number;
+}
+
+/** Lo que el dueño anterior tenía anotado en un alquiler que se pasó a otro: vuelve si el alquiler vuelve a él. */
+export interface TransferBook {
+  at: number;
+  subs?: SubRental[];
+  rcontrol?: RentalControl;
+  rlink?: Assignment["rlink"];
+  /** Precio acordado con él en el Control del dueño. */
+  price?: Cents;
+  priceUsd?: Cents;
+  seller?: string;
 }
 
 /** Marca de "Que vuelvan": cuándo se le escribió por última vez y cuándo pidió que no lo molesten. */

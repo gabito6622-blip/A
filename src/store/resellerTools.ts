@@ -5,11 +5,13 @@
 import type { Actor, Cents, Id, RentalControl } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { renewPriceFor, visibleTo } from "./catalog.js";
+import { renewPriceFor } from "./catalog.js";
 import { renewableNow } from "./orders.js";
 import { addPayment, chargeUnpaidRentals, history } from "./fiado.js";
 import { buyCurrency, currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
 import { orderCurrency, paidTotal, paidUnit, walletCurrency } from "./usd.js";
+import { rentalsThisMonth } from "./gananciaReal.js";
+import { canRenewHere } from "./renovarVarias.js";
 
 function reseller(e: Engine, actor: Actor) {
   if (actor.role !== "reseller" || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
@@ -29,7 +31,7 @@ export function myControl(e: Engine, actor: Actor) {
         // Lo que le cobra: en SU moneda (su lista de precios en Bs se convierte con su tipo de cambio).
         price: a.rcontrol?.price ?? listPriceMine(e, me, a.productId) ?? null, pay: a.rcontrol?.payStatus ?? "pagado", note: a.rcontrol?.note ?? "",
         // Lo que le cuesta renovar con su saldo (el mismo cálculo que usa la renovación).
-        cost: renewPriceFor(e, me.id, a), canRenew: !!e.s.products[a.productId] && visibleTo(e, e.s.products[a.productId], me.id), renewableNow: renewableNow(e, a),
+        cost: renewPriceFor(e, me.id, a), canRenew: canRenewHere(e, me.id, a), renewableNow: renewableNow(e, a),
         // Link de cobro /c/<token> de este cliente (clientLinks.ts), si lo creó.
         ...(a.rlink?.by === me.id ? { linkToken: a.rlink.token } : {}),
       };
@@ -148,8 +150,11 @@ export function myEarnings(e: Engine, actor: Actor) {
   const prevComplete = pm.sales > 0 && monthKey(firstSaleAt) < prevKey;
   const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
   const compare = prevComplete ? { revenuePct: pct(thisMonth.revenue, prev.revenue), profitPct: thisMonth.profit !== null && prev.profit !== null ? pct(thisMonth.profit, prev.profit) : null, salesDiff: thisMonth.sales - prev.sales } : null;
+  // Sus alquileres con la tienda (cuentas completas que reparte): lo que pagó este mes y lo que cobra por los perfiles.
+  const rentals = rentalsThisMonth(e, me, now);
+  const real = split ? null : { revenue: thisMonth.revenue + rentals.revenue, cost: thisMonth.cost + rentals.cost, profit: thisMonth.revenue + rentals.revenue - thisMonth.cost - rentals.cost };
   return {
-    month: thisMonth, months: list,
+    month: thisMonth, months: list, rentals, real,
     prev, compare, prevNote: compare ? null : pm.sales > 0 ? "incompleto" : "sin_ventas",
     topClients: [...clients.values()].sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "es")).slice(0, 5),
     byApp: [...apps.values()].map((p) => ({ ...p, profit: gain(p.revenue, p.cost) })).sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue)),

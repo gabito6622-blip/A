@@ -5,12 +5,13 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { canActFor, phoneTaken, phoneWithCountry, priceFor, renewPriceFor, visibleTo } from "./catalog.js";
+import { canActFor, phoneTaken, phoneWithCountry, priceFor, renewPriceFor, samePhone, visibleTo } from "./catalog.js";
 import { isUsd } from "./usd.js";
 import { balance } from "./wallet.js";
 import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
 import { resellerContact } from "./myReseller.js";
+import { canRenewHere } from "./renovarVarias.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
@@ -38,7 +39,7 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           daysLeft: Math.ceil((a.customerExpiresAt - e.now()) / 86_400_000),
           access: { email: acc.email, password: acc.password || "Pedila por WhatsApp", profile: slot.label, pin: slot.pin ?? null, passwordPending: !acc.password, ...(acc.iptv ? { iptv: acc.iptv } : {}) },
           guide: e.s.products[a.productId].guide ?? null,
-          canRenew: visibleTo(e, e.s.products[a.productId], actor.customerId),
+          canRenew: canRenewHere(e, actor.customerId, a),
           // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
           renewableNow: renewableNow(e, a),
           renewPrice: renewPriceFor(e, actor.customerId!, a),
@@ -100,7 +101,11 @@ export function updateMyClient(e: Engine, actor: Actor, customerId: Id, patch: {
       const phone = phoneWithCountry(String(patch.phone), dialFor(e, actor));
       if (phone.replace(/\D/g, "").length < 7) throw new DomainError("VALIDATION", "Teléfono inválido");
       if (phone !== c.phone) {
-        if (phoneTaken(e, phone, c.id)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+        // Igual que al cargarlo: solo se avisa si ya es cliente SUYO; si es de otro (o de la tienda), no se delata.
+        if (phoneTaken(e, phone, c.id)) {
+          if (Object.values(e.s.customers).some((x) => x.id !== c.id && x.resellerId === actor.customerId && !!x.phone && samePhone(x.phone, phone))) throw new DomainError("VALIDATION", "Ya existe un cliente tuyo con ese teléfono");
+          c.phoneShared = true;
+        } else delete c.phoneShared;
         c.phone = phone; changed.push("phone");
       }
     }

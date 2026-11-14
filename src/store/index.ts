@@ -37,6 +37,11 @@ import * as secretary from "./secretary.js";
 import * as dia from "./dia.js";
 import * as diaCobro from "./diaCobro.js";
 import * as bulkAssign from "./bulkAssign.js";
+import * as renovarVarias from "./renovarVarias.js";
+import * as traspaso from "./traspaso.js";
+import * as cobrarTodo from "./cobrarTodo.js";
+import * as avisoAlquiler from "./avisoAlquiler.js";
+import * as listaPrecios from "./listaPrecios.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -352,6 +357,21 @@ export function createStore(opts: EngineOptions = {}) {
     bulk: {
       preview: bind(e, bulkAssign.preview),
       apply: bind(e, bulkAssign.apply),
+    },
+    /** Revendedores un mes entero sin perder plata ni cuentas (revisión de 3 meses, 14/11/2026). */
+    rmes: {
+      renewPreview: bind(e, renovarVarias.renewManyPreview),
+      renewMany: bind(e, renovarVarias.renewMany),
+      evidenceMany: bind(e, renovarVarias.evidenceMany),
+      groups: bind(e, renovarVarias.paymentGroups),
+      approveGroup: bind(e, renovarVarias.approveGroup),
+      setStoreRenew: bind(e, renovarVarias.setStoreRenew),
+      transferPreview: bind(e, traspaso.transferPreview),
+      due: bind(e, cobrarTodo.resellerDue),
+      paidAll: bind(e, cobrarTodo.resellerPaidAll),
+      rentAlerts: bind(e, avisoAlquiler.myStoreRentAlerts),
+      rentPush: (customerId: Id, now?: number) => avisoAlquiler.storeRentPush(e, customerId, now),
+      approveOptions: bind(e, listaPrecios.approveOptions),
     },
     rtools: {
       control: bind(e, rtools.myControl),
