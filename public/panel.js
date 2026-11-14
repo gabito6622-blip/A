@@ -71,6 +71,15 @@ const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>$
 /** Valor para <input type="date"> con la fecha local (con toISOString se corría un día en Bolivia). */
 const dateInput = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+/* ---- Seguridad de las cuentas (14/11/2026): aparatos e ingresos ---- */
+const SEC_EVENT = {
+  login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerró una sesión", logout_others: "Cerró las otras sesiones",
+  logout_all: "La tienda cerró todas sus sesiones", pin_reset: "La tienda le generó un PIN nuevo", pin_change: "Cambió su PIN", access_link: "La tienda generó un link para entrar",
+};
+const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const secSessRows = (list, mine) => list.map((s) => `<div class="secrow"><div><b>${esc(s.device)}${s.current ? ` ${pill("Este aparato", "ok")}` : ""}</b><small class="muted">Entró el ${hhmm(s.since)}${s.via ? ` con ${esc(s.via)}` : ""} · último uso ${hhmm(s.lastSeen)}${s.place ? ` · red ${esc(s.place)}…` : ""}</small></div>${mine && !s.current ? `<button class="pbtn sm" type="button" data-mysecout="${esc(s.id)}">Cerrar</button>` : ""}</div>`).join("");
+const secLogRows = (log) => log.map((a) => `<div class="secrow"><div><b>${a.ok ? "✅" : "⛔"} ${esc(SEC_EVENT[a.event] ?? a.event)}</b><small class="muted">${hhmm(a.at)}${a.event.startsWith("login") || a.event === "logout" ? ` · ${esc(a.device)}` : ""}${a.via && a.via !== "la tienda" ? ` · con ${esc(a.via)}` : ""}</small></div></div>`).join("");
+
 /** Link de la página de un revendedor: con subdominios prendidos, https://daniel.gabostore.lat; si no, …/r/daniel. */
 const shopLink = (slug, origin = location.origin) => (P.settings?.shopDomain ? `https://${slug}.${P.settings.shopDomain}` : `${origin}/r/${slug}`);
 
@@ -1491,11 +1500,17 @@ const V = {
       : `<p style="margin:0">✅ ¡Listo! Les avisaste a ${Object.keys(cob.sent).length} de ${groups.length}.</p><button class="pbtn sm" type="button" data-cob="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
     // «🔗 Link para entrar» (14/11/2026): link de un toque sin cambiar el PIN; el dueño lo abre en WhatsApp y lo manda.
     const one = P.tab.rone;
+    const rs = P.tab.rsec;
+    const secCard = rs ? `<section class="card" id="rseccard"><h2>🔐 Seguridad de ${esc(rs.name)}</h2>
+      <p class="muted" style="margin:0">${rs.sessions.length ? `Su cuenta está abierta en <b>${rs.sessions.length}</b> aparato(s).` : "No tiene sesiones abiertas ahora."}${(() => { const f = rs.log.filter((a) => !a.ok && Date.now() - a.at < 7 * 86_400_000).length; return f ? ` <b style="color:var(--bad)">⛔ ${f} intento(s) fallido(s) en 7 días.</b>` : ""; })()}</p>
+      ${secSessRows(rs.sessions, false)}
+      <details ${rs.log.length ? "open" : ""}><summary>🕘 Últimos ingresos y cambios (${rs.log.length})</summary>${secLogRows(rs.log) || `<p class="muted">Todavía no hay movimientos anotados.</p>`}</details>
+      <div class="inline">${rs.sessions.length ? `<button class="pbtn" type="button" data-routall="${esc(rs.id)}" data-name="${esc(rs.name)}">🚪 Sacarlo de todos lados</button>` : ""}<button class="pbtn sm" type="button" data-rsecclose="1">Listo</button></div></section>` : "";
     const oneCard = one ? `<section class="card ok-card" id="ronecard"><h2>🔗 Link para entrar listo: ${esc(one.name)}</h2>
       <p class="muted" style="margin:0">Entra directo, sin número ni PIN. Sirve <b>una sola vez</b> y por <b>24 horas</b>; su PIN no cambió.</p>
       <div class="linkbar"><span class="muted">Link</span><b>${esc(one.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(one.url)}">${icon("copy")}Copiar</button></div>
       <div class="inline"><a class="pbtn green" href="${waLink(one.phone, one.msg)}" target="_blank" rel="noopener">${icon("wa")}Abrir WhatsApp con el mensaje</a><button class="pbtn sm" type="button" data-roneclose="1">Listo</button></div></section>` : "";
-    return `${cobCard}${inviteCard}${oneCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    return `${cobCard}${inviteCard}${secCard}${oneCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}
       <div class="inline" style="flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><span><b>🛒 Qué compran tus revendedores:</b> ${set.resellerOnlyCatalog ? "solo los productos <b>solo revendedores</b> (tus alquileres)" : "todo el catálogo + los productos solo revendedores"}</span>
@@ -1535,6 +1550,7 @@ const V = {
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="${esc(shopLink(r.shop.slug, o))}" target="_blank" rel="noopener">${esc(shopLink(r.shop.slug, o).replace(/^https?:\/\//, ""))}</a><button class="pbtn sm" type="button" data-copy="${esc(shopLink(r.shop.slug, o))}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() && r.phone ? `<button class="pbtn sm green" type="button" data-rone="${esc(r.id)}">🔗 Link para entrar</button>` : ""}
+          ${canReview() ? `<button class="pbtn sm" type="button" data-rsec="${esc(r.id)}" data-name="${esc(r.name)}">🔐 Seguridad</button>` : ""}
           ${canReview() ? `<button class="pbtn sm" type="button" data-rtrust="${esc(r.id)}" data-to="${r.trust === "independent" ? "trusted" : "independent"}" data-name="${esc(r.name)}">${r.trust === "independent" ? "🤝 Pasar a De confianza" : "🆕 Pasar a Independiente"}</button>` : ""}
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed, r.trust))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
@@ -1649,6 +1665,7 @@ const V = {
         <button class="pbtn dark" type="submit">Guardar descuentos</button></form></section>
       <section class="card"><h2>${icon("qr")}QR de cobro</h2><div class="inline">${s.hasQr ? `<img src="/api/settings/qr?t=${Date.now()}" alt="QR actual" style="width:140px;height:140px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--line)">` : `<span class="muted">Todavía no subiste el QR.</span>`}</div>
         <form class="inline" id="qrForm"><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del QR"><button class="pbtn dark" type="submit">${s.hasQr ? "Cambiar QR" : "Subir QR"}</button></form></section>` : ""}
+      ${await mySecurityCard()}
       ${isOwner() ? await ownerCards() : ""}
       ${isOwner() ? await aiCard() : ""}
       ${await pushCard()}
@@ -1755,6 +1772,19 @@ async function twoFactorCard() {
         <form class="inline" id="tfaOn"><input name="code" inputmode="numeric" maxlength="6" placeholder="123456" required autocomplete="one-time-code"><button class="pbtn dark" type="submit">Confirmar y activar</button></form>
         <p class="muted" style="margin:0">Guardá la clave en un lugar seguro. Si perdés el celular, se puede desactivar poniendo la variable <code>GS_RESET_2FA=${esc(P.me.username)}</code> en Railway.</p>`
       : `<button class="pbtn dark" type="button" data-tfa="setup" style="justify-self:start">Activar</button>`}</section>`;
+}
+
+/** «🔐 Mis aparatos e ingresos» (cada persona del equipo ve lo suyo). */
+async function mySecurityCard() {
+  const sec = await api("GET", "/api/admin/my-security").catch(() => null);
+  if (!sec) return "";
+  const others = sec.sessions.filter((s) => !s.current).length;
+  const fails = sec.log.filter((a) => !a.ok && Date.now() - a.at < 7 * 86_400_000).length;
+  return `<section class="card" id="mysec"><h2>🔐 Mis aparatos e ingresos</h2>
+    ${fails ? `<p class="perr" style="margin:0">⛔ ${fails} intento(s) fallido(s) de entrar a tu cuenta en los últimos 7 días. Si no fuiste vos, cambiá tu contraseña y activá la verificación en dos pasos.</p>` : `<p class="muted" style="margin:0">✅ Sin intentos raros en los últimos 7 días.</p>`}
+    <h3 style="margin:6px 0 0">📱 Dónde está abierto tu panel (${sec.sessions.length})</h3>${secSessRows(sec.sessions, true)}
+    ${others ? `<div class="inline"><button class="pbtn dark" type="button" data-mysecothers="1">🚪 Cerrar todas las demás (${others})</button></div>` : ""}
+    <details><summary>🕘 Últimos movimientos (${sec.log.length})</summary>${secLogRows(sec.log)}</details></section>`;
 }
 
 /* ---------------- Avisos para el dueño y respaldos ---------------- */
@@ -2767,6 +2797,22 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.roneclose) { P.tab.rone = null; return render(); }
+  if (d.rsecclose) { P.tab.rsec = null; return render(); }
+  if (d.rsec) {
+    try { P.tab.rsec = { id: d.rsec, name: d.name, ...(await api("GET", `/api/admin/customers/${d.rsec}/security`)) }; await render(); scrollTo(0, 0); $("#rseccard")?.scrollIntoView({ block: "start" }); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.routall) {
+    if (!confirm(`¿Sacar a ${d.name} de todos lados?\n\nSe cierra su cuenta en todos sus aparatos. Va a tener que volver a entrar con su número y su PIN. Le llega un aviso.`)) return;
+    try { const r = await api("POST", `/api/admin/customers/${d.routall}/logout-all`, {}); toast(`Listo: se cerraron ${r.closed} sesión(es)`); P.tab.rsec = { id: d.routall, name: d.name, ...(await api("GET", `/api/admin/customers/${d.routall}/security`)) }; await render(); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.mysecout) { try { await api("POST", "/api/admin/my-security/logout", { id: d.mysecout }); toast("Sesión cerrada"); await render(); } catch (e) { toast(e.message); } return; }
+  if (d.mysecothers) {
+    if (!confirm("¿Cerrar tu panel en todos los otros aparatos? Este sigue adentro.")) return;
+    try { const r = await api("POST", "/api/admin/my-security/logout-others", {}); toast(`Listo: ${r.closed} sesión(es) cerrada(s)`); await render(); } catch (e) { toast(e.message); }
+    return;
+  }
   // Tipo de revendedor (14/11/2026): De confianza compra/alquila tus cuentas; Independiente solo maneja las suyas.
   if (d.rtrust) {
     const toTrusted = d.to === "trusted";

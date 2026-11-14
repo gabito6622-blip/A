@@ -22,8 +22,8 @@ const SLUG = location.pathname.match(/^\/r\/([a-z0-9-]{3,30})\/?$/i)?.[1]?.toLow
 const MODE = SLUG ? "rshop" : /^\/tienda(\/|$)/.test(location.pathname) || (location.pathname === "/" && document.querySelector('meta[name="gs-mode"]')?.content === "store") ? "store" : "hub";
 const VIEWS = {
   rshop: ["inicio", "catalogo", "combo", "asesor"],
-  store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar"],
-  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario"],
+  store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar", "seguridad"],
+  hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario", "seguridad"],
 }[MODE];
 
 // Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
@@ -198,6 +198,7 @@ async function loadPrivate() {
     if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
+  if (S.view === "seguridad") S.data.sec = await api("GET", "/api/me/security").catch(() => null);
   if (S.view === "cuentas" && MODE === "store" && !isReseller()) await loadAlertsCard(); // 🔔 avisos antes de que venza
   if (S.view === "fallas") S.data.tickets = await api("GET", "/api/me/tickets").catch(() => ({ kinds: {}, list: [] }));
   if (S.view === "inicio" && hubPanel()) {
@@ -626,6 +627,7 @@ function renderInner() {
     combo: () => comboView(),
     asesor: () => asesorView(),
     fallas: () => fallasView(),
+    seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${pendingOrders()}
@@ -662,7 +664,7 @@ function renderInner() {
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><span class="spill ${o.status === "fulfilled" ? "sp-ok" : o.status === "payment_review" ? "sp-warn" : o.status === "rejected" ? "sp-bad" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></span>${o.status === "rejected" ? `<small class="empty rej" style="grid-column:1/-1;flex-basis:100%">❌ ${o.rejectReason ? `Motivo: ${esc(o.rejectReason)}. ` : ""}Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp.</small>` : ""}</div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
-      <button class="sbtn" type="button" data-logout="1" style="justify-self:start">Cerrar sesión</button>`,
+      <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
     codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
       ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos</h2><p class="empty" style="margin:0">Un solo link para tus clientes. Elegí la seguridad: <b>sin PIN</b> (escriben el correo de su cuenta) o <b>con PIN de 4 números</b> que vos elegís y les pasás.</p>
         ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
@@ -1376,7 +1378,7 @@ function hubMas() {
     ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
     ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
     // 14/11/2026: «Cerrar sesión» solo estaba al final de «Cuentas de la tienda» (abajo de todas las cuentas); el dueño no lo encontraba.
-    ["👤 Mi cuenta", [[`data-logout="1"`, "🚪 Cerrar sesión", "salir cerrar sesion logout cambiar cuenta"]]],
+    ["👤 Mi cuenta", [[`data-s="seguridad"`, "🔐 Seguridad de mi cuenta", "seguridad aparatos sesiones ingresos quien entro pin celular robado"], [`data-logout="1"`, "🚪 Cerrar sesión", "salir cerrar sesion logout cambiar cuenta"]]],
   ];
   if (isIndep()) for (const a of areas) a[1] = a[1].filter(([attr]) => !STORE_ONLY.includes(attr));
   return `<div class="sec-h"><div><span class="chip">Más</span><h2>Todo tu panel</h2><p>Todo lo que podés hacer, en un solo lugar.</p></div></div>
@@ -1442,6 +1444,34 @@ function hubInventario() {
     ${list.length ? list.map(card).join("") : ""}
     ${!(own?.products ?? []).length ? `<div class="sbox invcta"><b>📦 ¿Vendés cuentas de otro proveedor?</b><span>Cargalas en «Mis cuentas propias» (Flujo TV, IPTV, lo que sea) y las ves acá junto con todo lo demás.</span><button class="sbtn pri" type="button" data-rtool="propias">Cargar mis cuentas propias</button></div>` : ""}
     ${!list.length ? `<div class="sbox"><p class="empty" style="margin:0">Todavía no tenés cuentas. Comprá en la tienda o cargá tus cuentas propias.</p><div class="hrow"><button class="sbtn pri" type="button" data-s="precios">Ver precios</button></div></div>` : ""}`;
+}
+
+/* ---------------- Seguridad de mi cuenta (14/11/2026) ----------------
+   El dueño: «que se sienta seguro de que nadie está entrando a su cuenta». Dónde está abierta, quién entró y
+   cuándo, intentos fallidos, y cerrar sesiones. Lo mismo ve el dueño de su panel en Configuración. */
+const SEC_EVENT = {
+  login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerraste una sesión", logout_others: "Cerraste las otras sesiones",
+  logout_all: "La tienda cerró todas tus sesiones", pin_reset: "La tienda te generó un PIN nuevo", pin_change: "Cambiaste tu PIN", access_link: "La tienda generó un link para que entres",
+};
+const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+function securityView() {
+  const sec = S.data.sec;
+  if (!sec) return `<div class="sbox"><p class="empty">No se pudo cargar la seguridad de tu cuenta. Probá de nuevo.</p></div>`;
+  const others = sec.sessions.filter((s) => !s.current).length;
+  const fails = sec.log.filter((a) => !a.ok && Date.now() - a.at < 7 * 86_400_000).length;
+  const sess = sec.sessions.map((s) => `<div class="secrow${s.current ? " cur" : ""}"><div><b>${esc(s.device)}${s.current ? ` <span class="spill sp-ok">Este aparato</span>` : ""}</b>
+    <small>Entró el ${hhmm(s.since)}${s.via ? ` con ${esc(s.via)}` : ""} · último uso ${hhmm(s.lastSeen)}${s.place ? ` · red ${esc(s.place)}…` : ""}</small></div>
+    ${s.current ? "" : `<button class="sbtn sm" type="button" data-secout="${esc(s.id)}">Cerrar</button>`}</div>`).join("");
+  const log = sec.log.map((a) => `<div class="secrow"><div><b>${a.ok ? "✅" : "⛔"} ${esc(SEC_EVENT[a.event] ?? a.event)}</b>
+    <small>${hhmm(a.at)}${a.event.startsWith("login") || a.event === "logout" ? ` · ${esc(a.device)}` : ""}${a.via && a.via !== "la tienda" ? ` · con ${esc(a.via)}` : ""}</small></div></div>`).join("");
+  return `<div class="sec-h"><div><span class="chip">Tu cuenta</span><h2>🔐 Seguridad de mi cuenta</h2><p>Acá ves desde dónde está abierta tu cuenta y quién entró. Si ves algo que no es tuyo, cerralo y cambiá tu PIN.</p></div></div>
+    ${fails ? `<div class="hbox warn"><b>⛔ ${fails} intento(s) fallido(s) de entrar en los últimos 7 días</b><span>Si no fuiste vos, cambiá tu PIN abajo. Después de 5 intentos la cuenta se frena sola.</span></div>` : `<div class="hbox"><b>✅ Sin intentos raros en los últimos 7 días</b></div>`}
+    <section class="sbox"><h2>📱 Dónde está abierta (${sec.sessions.length})</h2>${sess || `<p class="empty">No hay sesiones abiertas.</p>`}
+      ${others ? `<button class="sbtn pri" type="button" data-secothers="1">🚪 Cerrar todas las demás (${others})</button>` : ""}</section>
+    <section class="sbox"><h2>🔑 Cambiar mi PIN</h2><p class="empty" style="margin:0">Al cambiarlo, se cierran solos los otros aparatos.</p>
+      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="current-password"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000" autocomplete="new-password"></label><button class="sbtn" type="submit" style="grid-column:1/-1">Cambiar PIN</button></form></section>
+    <section class="sbox"><h2>🕘 Últimos movimientos</h2>${log || `<p class="empty">Todavía no hay movimientos.</p>`}</section>
+    <p class="empty" style="font-size:13px">Tus datos y los de tus clientes son solo tuyos: nadie más que vos y la tienda los ve. Si perdiste el celular, pedile a la tienda que cierre tu cuenta en todos lados.</p>`;
 }
 
 /* ---------------- Inicio del revendedor (botones grandes) ---------------- */
@@ -2510,6 +2540,12 @@ document.addEventListener("click", async (ev) => {
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
   if (d.mf) { S.data.mf = d.mf; return render(); }
+  if (d.secout) { try { await api("POST", "/api/me/security/logout", { id: d.secout }); toast("Sesión cerrada"); S.data.sec = await api("GET", "/api/me/security"); render(); } catch (e) { toast(e.message); } return; }
+  if (d.secothers) {
+    if (!confirm("¿Cerrar tu cuenta en todos los otros aparatos? Este celular sigue adentro.")) return;
+    try { const r = await api("POST", "/api/me/security/logout-others", {}); toast(`Listo: ${r.closed} sesión(es) cerrada(s)`); S.data.sec = await api("GET", "/api/me/security"); render(); } catch (e) { toast(e.message); }
+    return;
+  }
   // Inicio simple: «💳 Renovar» abre Mis cuentas filtrada en lo que hay que renovar (vencidas primero).
   if (d.renewgo) { S.data.mf = d.renewgo; S.data.mq = ""; return setView("cuentas"); }
   if (d.rtab) {
@@ -2847,9 +2883,10 @@ document.addEventListener("submit", async (ev) => {
       toast("Listo: ya podés entrar con tu correo y contraseña ✓");
       await refresh();
     } else if (f.id === "myPin") {
-      await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
+      const r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
       f.reset();
-      toast("PIN cambiado ✓");
+      toast(r?.closed ? `PIN cambiado ✓ · se cerraron ${r.closed} aparato(s)` : "PIN cambiado ✓");
+      if (S.view === "seguridad") { S.data.sec = await api("GET", "/api/me/security").catch(() => S.data.sec); render(); }
     } else if (f.id === "wiz1") {
       S.data.wiz.title = f.title.value.trim(); S.data.wiz.whatsapp = f.whatsapp.value;
       S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value });

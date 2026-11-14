@@ -1251,3 +1251,7 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .dl-it{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed #e5e7eb}.dl-pl{width:34px;height:34px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:#f3f4f6}.dl-pli{display:inline-grid;place-items:center;color:#fff;font-weight:800;font-style:normal;font-size:15px}.dl-it>span{flex:1}.dl-it:last-child{border-bottom:0}.dl-it span{display:grid;gap:1px;min-width:0}.dl-it small{color:#6b7280;font-size:12px}
 .dl-p{white-space:nowrap;color:#111827}.dl-prev.premium .dl-p{color:#b45309;font-size:16px}.dl-prev.clasico .dl-it b{font-size:18px}.dl-prev.clasico .dl-p{font-size:20px}
 .dl-promo{background:#fffbeb}.dl-foot{padding:12px 16px;background:#f9fafb;font-size:13px;color:#374151}.dl-foot small{color:#6b7280}.dl-empty{padding:16px;color:#6b7280;margin:0}
+/* Seguridad de las cuentas (14/11/2026) */
+.secrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line,rgba(127,127,127,.2))}
+.secrow>div{display:grid;gap:2px;min-width:0}.secrow b{font-size:15px}.secrow small{font-size:13px}
+.secrow .pbtn{min-height:44px;flex:none}
