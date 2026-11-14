@@ -1,0 +1,67 @@
+/* 💬 «Hablar con una persona» (hablar.js) y lo de después de pagar (despues-pago.js). Celular primero. */
+/* Verde de WhatsApp oscurecido para que la letra blanca se lea (5:1). */
+.hablar{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;align-items:center;gap:10px;
+  min-height:52px;max-width:calc(100% - 24px);padding:8px 16px 8px 12px;border-radius:999px;background:#15803d;color:#fff;text-decoration:none;font-family:var(--f-shop,inherit);
+  border:2px solid rgba(255,255,255,.85);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.hablar:hover{background:#166534}
+.hablar:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #15803d}
+.hablar-ico{width:26px;height:26px;flex:none}
+.hablar-t{display:grid;line-height:1.2;min-width:0}
+.hablar-t b{font-size:15px;font-weight:800;white-space:nowrap}
+.hablar-t small{font-size:12px;font-weight:600;opacity:.95}
+/* En el celular la barra de abajo mide ~64 px: el botón va justo arriba, sin taparla. */
+@media (max-width:800px){.hablar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
+/* Con la barra del combo («2 en tu combo · Ver») el botón sube más. */
+@media (max-width:860px){body:has(.cbar) .hablar{bottom:calc(144px + env(safe-area-inset-bottom,0px))}}
+/* Con el carrito o una ficha abiertos, no estorba (adentro hay su propio botón). */
+body:has(#scrim:not([hidden])) .hablar,body:has(.qrg-full) .hablar{display:none}
+/* Espacio al final de la página para que el botón no tape lo último. */
+body.con-hablar .shop{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+.hablar-ficha{display:grid;gap:6px}
+.hablar-pre{justify-content:center;min-height:48px;background:#15803d;color:#fff;border-color:#15803d;font-weight:700}
+.hablar-pre:hover{background:#166534}
+.hablar-ficha small{font-size:13px;text-align:center}
+
+/* ---- Después de pagar (despues-pago.js) ---- */
+.dp-wa{background:#15803d;color:#fff;border-color:#15803d;justify-content:center;min-height:48px;font-weight:700}
+.dp-wa:hover{background:#166534}
+.dp-btns{display:grid;gap:10px}
+.dp-btns .sbtn{min-height:52px;justify-content:center;text-align:center;font-size:15px;white-space:normal;line-height:1.25}
+.dp-note{margin:0;font-size:14px;color:var(--s-muted)}
+.dp-done{display:grid;gap:12px;text-align:center;justify-items:center}
+.dp-done .dp-big{font-size:44px;line-height:1}
+.dp-done b{font-size:18px;color:var(--s-ink)}
+.dp-done p{margin:0;font-size:16px;color:var(--s-ink);line-height:1.45}
+.dp-done .sbtn{width:100%}
+.dp-usdt{display:grid;gap:8px;border:1px dashed var(--s-line);border-radius:14px;padding:12px;font-size:14px;color:var(--s-muted)}
+.dp-usdt b{color:var(--s-ink)}
+.dp-usdt code{word-break:break-all;color:var(--s-ink);font-size:13px}
+.dp-usdt summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:700;color:var(--s-ink)}
+.dp-late{display:grid;gap:8px;border-left:4px solid #d97706;padding:8px 12px;background:color-mix(in srgb,#d97706 10%,transparent);border-radius:10px}
+.dp-late b{color:var(--s-ink)}
+.dp-rej{border:2px solid var(--s-bad,#dc2626);background:color-mix(in srgb,var(--s-bad,#dc2626) 9%,var(--s-card));display:grid;gap:10px}
+.dp-rej h2{font-size:18px;margin:0}
+.dp-rej p{margin:0;color:var(--s-ink);font-size:15px;line-height:1.45}
+.dp-rej .dp-no{font-weight:800}
+.dp-rej .rbtns,.dp-hist .rbtns{display:flex;gap:8px;flex-wrap:wrap}
+.dp-hist{flex-wrap:wrap;row-gap:8px}
+.dp-hist>span:first-child{flex:1;min-width:0}
+.dp-hist .sbtn{min-height:44px}
+.dp-recibo{background:#fff;color:#111;border-radius:14px;padding:16px;display:grid;gap:8px;font-size:15px}
+.dp-recibo h3{margin:0;font-size:18px;color:#111}
+.dp-recibo dl{margin:0;display:grid;gap:6px}
+.dp-recibo dl div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed #ccc;padding-bottom:6px}
+.dp-recibo dt{color:#444}
+.dp-recibo dd{margin:0;font-weight:700;text-align:right;overflow-wrap:anywhere}
+.dp-recibo small{color:#444;font-size:13px}
+
+/* ---- QR: los 3 pasos siempre a la vista y «Mandar a quien paga» (qr-grande.js) ---- */
+.qrg-steps{width:100%;max-width:420px;text-align:left;display:grid;gap:8px}
+.qrg-steps>p{margin:0;font-weight:800;font-size:15px;color:var(--s-ink)}
+.qrg-steps ol{list-style:none;margin:0;padding:0;display:grid;gap:8px;counter-reset:paso}
+.qrg-steps li{counter-increment:paso;display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;align-items:center;font-size:15px;color:var(--s-ink);line-height:1.35}
+.qrg-steps li::before{content:counter(paso);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:20px;font-weight:900;background:var(--s-btn-a,var(--s-blue));color:var(--s-on-blue,#fff)}
+.qrg-share{width:100%;max-width:420px;min-height:48px;justify-content:center;font-size:15px;font-weight:700}
+.qrg-sharenote{margin:0;font-size:13px;color:var(--s-muted);max-width:420px}
+/* Pantalla muy angosta o letra gigante (zoom 200 %): solo el ícono redondo, sin texto que se salga (el nombre queda en aria-label). */
+@media (max-width:300px){.hablar{padding:0;width:52px;height:52px;justify-content:center;border-radius:50%}.hablar-t{display:none}}

@@ -12,6 +12,7 @@ import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
 import { resellerContact } from "./myReseller.js";
 import { canRenewHere } from "./renovarVarias.js";
+import { orderTitle } from "./tituloPedido.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "El portal es para clientes y revendedores");
@@ -62,14 +63,15 @@ export function myOrders(e: Engine, actor: Actor) {
       // revendedor (es su costo). Solo que existe, su estado y que lo pagó su revendedor.
       const payer = o.payerId ?? o.customerId;
       if (payer !== actor.customerId && !canActFor(e, actor, payer)) {
-        return { id: o.id, kind: o.kind, status: o.status, total: null, paidBy: "reseller" as const, customerId: o.customerId, createdAt: o.createdAt };
+        return { id: o.id, kind: o.kind, status: o.status, total: null, paidBy: "reseller" as const, customerId: o.customerId, createdAt: o.createdAt, title: orderTitle(e, o) };
       }
       // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
       // Renovación: de qué producto y correo es (R2: con varias esperando pago no se sabía cuál era cuál).
       const ra = o.kind === "renewal" && o.renewal ? e.s.assignments[o.renewal.assignmentId] : undefined;
       const racc = ra ? e.s.accounts[e.s.slots[ra.slotId]?.accountId ?? ""] : undefined;
       const label = ra ? `${(e.s.products[ra.productId]?.name ?? "").replace(/\s*\(alquiler revendedores\)\s*$/i, "")}${racc ? ` · ${racc.email}` : ""}${ra.customerId !== actor.customerId ? ` · ${e.s.customers[ra.customerId]?.name ?? ""}` : ""}` : undefined;
-      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(label ? { label } : {}), ...(o.rejectReason ? { rejectReason: o.rejectReason } : {}), ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
+      // title: de qué es el pedido; sentAt: cuándo subió el comprobante (el «antes de las HH:MM» cuenta desde ahí).
+      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, title: orderTitle(e, o), ...(o.evidence ? { sentAt: o.evidence.submittedAt } : {}), ...(label ? { label } : {}), ...(o.rejectReason ? { rejectReason: o.rejectReason } : {}), ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
     });
 }
 

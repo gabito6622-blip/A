@@ -22,6 +22,8 @@ import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
 import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent } from "/catalogo-claro.js";
+import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
+import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText } from "/despues-pago.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -442,28 +444,27 @@ function pendingOrders(skip = null) {
   // cuadro «Pagá Bs X con un solo QR» (hub-mes.js), para no repetirlos sueltos.
   const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review") && !skip?.has(o.id));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
-  const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
-  const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
   const steps = (o) => { const i = o.status === "payment_review" ? 1 : 0; return `<div class="tsteps">${[["📝", "Pedido"], ["🔍", "Revisando pago"], ["✅", "Entregado"]].map(([e, t], n) => `<span class="${n <= i ? "on" : ""}">${e} ${t}</span>`).join("")}</div>`; };
-  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]}${o.label ? ` · ${esc(o.label)}` : ""} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
+  return list.map((o) => `<div class="svc"><div class="top"><b>${esc(pedidoNombre(o))} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
     ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
-      : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. ${eta} Cuando esté listo, tus accesos aparecen acá abajo.</span>`
+      : o.status === "payment_review" ? revisionHtml(o) // «antes de las HH:MM» desde que subió el comprobante (despues-pago.js)
       : o.method === "usdt" ? `<span class="empty">Falta enviar el comprobante del pago en USDT.</span>
         <form class="inline-form" data-evidence="${esc(o.id)}">${usdtBlock(o.total, o.usdt)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Hash o número de la transacción<input name="ref" required placeholder="Pegá el hash de Binance"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
-        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
+        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total, pedidoNombre(o))}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`}</div>`).join("");
 }
 
 // QR grande con «Ver grande» y «Guardar QR» (qr-grande.js): antes era una miniatura de 120 px al costado del texto.
-function qrBlock(amount) {
+// `what`: qué se paga (para «📤 Mandar a quien paga»; no en GaboHub).
+function qrBlock(amount, what = "") {
   const st = S.settings;
   if (!st.hasQr) return `<div class="qr"><div style="display:grid;gap:6px">${st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}</div></div>`;
-  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", amountValue: amount, note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "" });
+  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", amountValue: amount, note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "", share: MODE === "hub" ? null : { what } });
 }
 /** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
 function localBlock(m, toPay) {
@@ -555,6 +556,7 @@ function render() {
   const tabOn = $('.rtabs [aria-selected="true"]');
   if (tabOn) tabOn.parentElement.scrollLeft = Math.max(0, tabOn.offsetLeft - 24); // la pestaña elegida siempre a la vista
   codesAutoRefresh();
+  hablarSync(); pagoAutoRefresh(); // botón de WhatsApp fijo y «Mis cuentas» al día mientras revisamos un pago
   return r;
 }
 // La bandeja de «Códigos» se refresca sola cada 10 s mientras está a la vista (como la página pública del link de
@@ -586,7 +588,7 @@ function renderInner() {
     inicio: () => {
       const L = S.settings.layout || "clasico";
       if (L === "ticket") return `${pub.length ? `${ticketCatalog(pub, true)}${trustBand()}` : `<section class="tkhero"><h1>${esc(S.settings.heroTitle || S.settings.storeName || "")} <span>${esc(S.settings.heroHighlight || "")}</span></h1><p>${esc(S.settings.heroText || "")}</p></section><div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
-      ${pub.length ? ccSteps() : ""}
+      ${pub.length ? ccSteps(datosText()) : ""}
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
       ${comboCompare(pub) || (hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : "")}
       ${SLUG ? "" : reviewsSection()}${faqSection()}`;
@@ -613,7 +615,7 @@ function renderInner() {
       ${faqSection()}
       ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
       ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/hub">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
-      ${L === "minimal" ? "" : ccSteps()}`;
+      ${L === "minimal" ? "" : ccSteps(datosText())}`;
     },
     catalogo: () => {
       if ((S.settings.layout || "") === "ticket") return ticketCatalog(pub, false);
@@ -630,8 +632,9 @@ function renderInner() {
     fallas: () => fallasView(),
     seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
-    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : datosText()}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${isReseller() ? rentAlertBanner() + accChangesBanner() : ""}
+      ${MODE === "store" && !isReseller() ? rechazosArriba(S.data.orders) : ""}
       ${pendingOrders(isReseller() ? qrBoxIds() : null)}
       ${isReseller() ? renewManyBox(services) : ""}
       ${services.length ? (() => {
@@ -664,7 +667,7 @@ function renderInner() {
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       ${MODE === "store" && !isReseller() ? alertsCard() : ""}
-      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><span class="spill ${o.status === "fulfilled" ? "sp-ok" : o.status === "payment_review" ? "sp-warn" : o.status === "rejected" ? "sp-bad" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></span>${o.status === "rejected" ? `<small class="empty rej" style="grid-column:1/-1;flex-basis:100%">❌ ${o.rejectReason ? `Motivo: ${esc(o.rejectReason)}. ` : ""}Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp.</small>` : ""}</div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
+      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map(historialLinea).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
@@ -2118,19 +2121,17 @@ function renderCartInner(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal() })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal(), share: { what: S.cart.map((l) => product(l.productId).name).join(" + ") } })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
           + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `${ccCartNotice()}<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
   const toPay = tot - cartDiscount();
   if (!S.me?.loggedIn) {
-    // Invitado (sin cuenta): ve el QR y coordina el pedido por WhatsApp, sin obligarlo a entrar.
-    const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
+    // Invitado (sin cuenta): QR, «Ya pagué» / «Todavía no pagué» por WhatsApp y USDT si hay (despues-pago.js).
+    const names = S.cart.map((l) => product(l.productId).name).join(" + ");
     $("#drawer").innerHTML = head
-      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
-      ${ccCartNotice()}${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock(toPay)}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
-      ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
+      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}${ccCartNotice()}${guestPayHtml({ lines: S.cart.map((l) => ({ name: product(l.productId).name, qty: l.qty, price: product(l.productId).price })), total: toPay, discount: cartDiscount(), qr: S.settings.hasQr ? qrBlock(toPay, names) : "" })}
       <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
@@ -2153,7 +2154,7 @@ function renderCartInner(msg = "") {
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net)}</div>` : ""}
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net, S.cart.map((l) => product(l.productId).name).join(" + "))}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
@@ -2676,7 +2677,7 @@ document.addEventListener("click", async (ev) => {
     saveCart(); closeAll(); render();
     return toast(`${p.name} agregado al carrito`);
   }
-  if (d.det) { openFicha(d.det); return; } // «Qué incluye» (catalogo-claro.js)
+  if (d.det) { if (openFicha(d.det) !== false) hablarFicha($("#modal"), product(d.det)); return; } // «Qué incluye» (catalogo-claro.js) + «💬 Preguntar por este» (hablar.js)
   if (d.tkpick) { (S.tkv ??= {})[d.tkpick] = d.id; return render(); } // Mensual / 3 meses en la fila
   if (d.inc) { const l = S.cart[d.inc]; if (l.qty < maxQty(product(l.productId))) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
   if (d.dec) { if (--S.cart[d.dec].qty <= 0) S.cart.splice(d.dec, 1); saveCart(); renderCart(); return render(); }
@@ -3023,6 +3024,9 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#p="
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
 initMoneyMask();
 initQrGrande();
+initHablar(() => ({ mode: MODE, settings: S.settings, cart: S.cart.map((l) => ({ name: product(l.productId)?.name, qty: l.qty, price: product(l.productId)?.price })) }));
+initDespuesPago({ mode: MODE, settings: () => S.settings, orders: () => S.data.orders, view: () => S.view, loggedIn: () => !!S.me?.loggedIn,
+  clearCart: () => { S.cart = []; saveCart(); render(); }, refresh: () => refresh(), render: () => render() });
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";

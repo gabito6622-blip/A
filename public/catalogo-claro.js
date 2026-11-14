@@ -251,10 +251,10 @@ export function ccTrustTop() {
   return `<p class="cctrust">${[...parts, `<a href="/terminos#garantias">garantía de reposición</a>`, `<a href="/terminos">Términos</a>`].join(" · ")}</p>`;
 }
 /** Los 3 pasos (los mismos en todos los diseños). */
-export function ccSteps() {
+export function ccSteps(recibi) {
   const steps = C().SLUG
     ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
-    : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]];
+    : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", recibi || "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]];
   return `<section class="sbox ccsteps" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:18px">${steps.map(([k, t, d]) => `<div style="display:grid;gap:4px"><span class="chip">Paso ${k}</span><b style="font-size:18px">${t}</b><span class="empty">${d}</span></div>`).join("")}</section>`;
 }
 /** Sin resultados: qué hacer (otra palabra o preguntar). */
