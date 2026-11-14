@@ -43,16 +43,21 @@ export function markFallen(e: Engine, actor: Actor, accountId: Id, reason?: unkn
   });
 }
 
-/** «✅ Volvió a funcionar»: saca la marca. Los perfiles apartados siguen apartados hasta que los libere el dueño. */
-export function unmarkFallen(e: Engine, actor: Actor, accountId: Id) {
+/**
+ * «✅ Volvió a funcionar»: saca la marca. Con `release` también libera sus perfiles apartados para vender (el panel lo
+ * ofrece: antes quedaban apartados y había que liberarlos uno por uno). Sin `release` siguen apartados.
+ */
+export function unmarkFallen(e: Engine, actor: Actor, accountId: Id, opts: { release?: unknown } = {}) {
   authorize(actor, "inventory.manage");
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
     const parked = () => Object.values(e.s.slots).filter((s) => s.accountId === acc.id && s.status === "quarantined" && !s.loose?.down);
     if (!acc.fallen) return { accountId: acc.id, changed: false, released: 0, parked: parked().length };
     delete acc.fallen;
-    e.audit(actor, "account.unfallen", "account", acc.id);
-    return { accountId: acc.id, changed: true };
+    let released = 0;
+    if (opts.release === true) for (const s of parked()) { s.status = "available"; released++; }
+    e.audit(actor, "account.unfallen", "account", acc.id, released ? { released } : undefined);
+    return { accountId: acc.id, changed: true, released, parked: parked().length };
   });
 }
 

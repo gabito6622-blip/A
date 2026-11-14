@@ -70,7 +70,7 @@ export function accButtons(a) {
   const n = clientsOf(a);
   return [
     !a.fallen ? `<button class="pbtn sm" type="button" data-cxpay="${esc(a.id)}">💳 Pagué la renovación</button>` : "",
-    a.fallen ? `<button class="pbtn sm green" type="button" data-cxunfall="${esc(a.id)}">✅ Volvió a funcionar</button>` : "",
+    a.fallen ? `<button class="pbtn sm green" type="button" data-cxunfall="${esc(a.id)}" data-parked="${a.slots.filter((s) => s.status === "quarantined" && !s.loose?.down).length}">✅ Volvió a funcionar</button>` : "",
     a.fallen && !n ? `<button class="pbtn sm dark" type="button" data-cxretire="${esc(a.id)}" data-email="${esc(a.email)}">🗑️ Retirar</button>` : "",
     !a.fallen ? `<button class="pbtn sm" type="button" data-cxnosell="${esc(a.id)}" data-on="${a.noSell ? "0" : "1"}">${a.noSell ? "✅ Volver a vender" : "🚫 No vender más"}</button>` : "",
   ].join("");
@@ -207,8 +207,11 @@ async function onClick(ev) {
     return run(() => C.api("POST", `/api/admin/accounts/${d.cxfall}/fallen`, { reason: "Se cayó (todavía sin mover)" }), (r) => r.clients ? `⚠️ Marcada caída: ${r.clients} cliente(s) para mover en Reubicar` : "⚠️ Marcada caída: ya no se vende");
   }
   if (d.cxunfall) {
-    if (!confirm("¿La cuenta volvió a funcionar?\n\nSale la marca de caída. Sus perfiles apartados siguen apartados: liberalos cuando cambies la clave.")) return;
-    return run(() => C.api("POST", `/api/admin/accounts/${d.cxunfall}/fallen/undo`, {}), "✅ Ya no está marcada como caída");
+    if (!confirm("¿La cuenta volvió a funcionar?\n\nSale la marca de caída.")) return;
+    // Ofrece liberar sus apartados para vender (antes quedaban apartados y había que liberarlos uno por uno).
+    const n = +d.parked || 0;
+    const release = n > 0 && confirm(`¿Liberar también sus ${n} perfil${n === 1 ? "" : "es"} apartado${n === 1 ? "" : "s"} para vender?\n\nTocá «Aceptar» solo si ya cambiaste la clave o el vendedor te confirmó que anda. Si no, quedan apartados.`);
+    return run(() => C.api("POST", `/api/admin/accounts/${d.cxunfall}/fallen/undo`, { release }), (r) => `✅ Ya no está marcada como caída${r.released ? ` · ${r.released} perfil${r.released === 1 ? "" : "es"} libre${r.released === 1 ? "" : "s"} para vender` : r.parked ? ` · ${r.parked} siguen apartados` : ""}`);
   }
   if (d.cxnosell) {
     const on = d.on === "1";

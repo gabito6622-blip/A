@@ -15,7 +15,7 @@ export function registerCaidasRoutes(d: { route: Route; store: GabrielStore }): 
   const route = (m: string, p: string, who: Who, h: (c: Ctx) => unknown) => d.route(m, p, who, h);
   route("POST", "/api/admin/accounts/renew-paid-many", "staff", (c) => store.caidas.payMany(A(c), { items: c.body?.items, months: c.body?.months }));
   route("POST", "/api/admin/accounts/:id/fallen", "staff", (c) => store.caidas.markFallen(A(c), c.params.id, c.body?.reason));
-  route("POST", "/api/admin/accounts/:id/fallen/undo", "staff", (c) => store.caidas.unmarkFallen(A(c), c.params.id));
+  route("POST", "/api/admin/accounts/:id/fallen/undo", "staff", (c) => store.caidas.unmarkFallen(A(c), c.params.id, { release: c.body?.release === true }));
   route("POST", "/api/admin/accounts/:id/no-sell", "staff", (c) => store.caidas.setNoSell(A(c), c.params.id, c.body?.on === true));
   route("POST", "/api/admin/accounts/:id/retire", "staff", (c) => store.caidas.retire(A(c), c.params.id, c.body?.reason));
   route("GET", "/api/me/account-changes", "customer", (c) => store.caidas.changes(c.actor!));
