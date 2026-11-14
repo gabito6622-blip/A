@@ -3,6 +3,45 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · Arreglos de la revisión del súper administrador (sin publicar, rama `ocultar-montos`)
+- **Por qué:** el dueño: «arreglá todo» lo que encontraron 4 revisores en su lugar (día a día, equipo, inventario, finanzas).
+- **Día a día:**
+  - «Me pagó» entra en la pantalla del celular.
+  - Lo que está por cortarse dice «✂️ se corta solo el dd/mm».
+  - Lo que se cortó solo (hasta 30 días) se reactiva con «💵 Me pagó · reactivar», sin vender dos veces un perfil.
+  - «💳 Renovar proveedor y anotar» cuando la cuenta vence antes con el proveedor.
+  - Los mismos números del día en Inicio y Mi secretaria, con «tuyos · de revendedores».
+  - «Renovar» del Control ya no promete fechas imposibles.
+  - «Ya le avisé» y Recordatorios usan la misma marca.
+  - «Cambiar de cuenta» muestra primero los perfiles libres y pide confirmar si elegís uno apartado.
+  - En Vender se crea el cliente nuevo ahí mismo.
+  - «Prueba gratis» quedó debajo de «Nueva venta» y «Tu mes» más arriba en el Inicio.
+- **Equipo:**
+  - La llave del asistente tiene el poder de un admin y no vence sola; no toca usuarios, contraseñas del equipo ni permisos. Lo eligió el dueño: «Como un admin».
+  - Auditoría con filtro por persona y Hoy / Ayer / 7 días / Todo, con las entradas y los fallos del equipo.
+  - Aviso al celular del dueño cuando alguien del equipo exporta clientes, ve más de 20 accesos en un día o da acceso a un revendedor; el asistente queda solo en la Auditoría.
+  - Atención no cambia el precio de un alquiler ya cobrado.
+  - El rol se llama «Atención» en todo el panel, y Usuarios muestra «2 pasos ✅/❌».
+- **Inventario:**
+  - Fecha del proveedor y costo obligatorios al cargar cuentas, con 30 días por defecto.
+  - «Editar» muestra solo la clave de esa cuenta y se vuelve a tapar al salir.
+  - Costo por mes y por perfil en la tarjeta.
+  - Vencimiento del destino en «Mover todos».
+  - Desplegables de 44 px.
+- **Finanzas:**
+  - Los meses cerrados descuentan el costo estimado de las cuentas, o dicen «sin costos anotados».
+  - El Excel muestra la misma ganancia que el panel y el precio real en Vencimientos.
+  - Los pagos del fiado suman a «Entró».
+  - Cómo van: «este mes», con la ganancia estimada y la deuda de cada revendedor.
+  - Meses con nombre largo, y el gráfico arranca en el mes actual.
+
+## 2026-11-14 · Tapar montos y seguridad del equipo (**publicado el 14/11, PR #66**)
+- Botón «Montos» para tapar las cifras en el panel y en GaboHub.
+- «🔐 Seguridad» por persona del equipo en Usuarios.
+- Tarjetas de producto que se abren con un toque.
+- Carga por lista con dd/mm/aaaa: todo o nada.
+- El gráfico de Finanzas coincide con «Tu mes».
+
 ## 2026-11-14 · Seguridad de las cuentas y arreglos de la revisión en 3 lugares (**publicado el 14/11, PR #65**)
 - **Por qué:** el dueño: «que se sienta seguro de que nadie está entrando a su cuenta; igual que la mía; seguridad, comodidad». Tres revisiones (dueño y seguridad, revendedor, cliente final) con datos ficticios.
 - **Ingresos anotados:** cada ingreso, intento fallido, cambio de PIN, link de acceso y cierre de sesiones queda guardado (180 días) con el aparato (p. ej. «📱 Android · Chrome») y cómo entró.

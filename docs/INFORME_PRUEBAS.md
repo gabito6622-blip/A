@@ -1,5 +1,18 @@
 # Informe de pruebas
 
+## 14/11/2026 · Arreglos de la revisión del súper administrador (rama `ocultar-montos`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total antes / después | `npm test` | 614 → **656 pasan, 0 fallan** (~80 s) |
+| Día a día: «Me pagó» a 360/390 px, corte y reactivación sin vender dos veces, renovar proveedor y anotar, números del día iguales, Renovar del Control, «Ya le avisé» y Recordatorios, Cambiar de cuenta, crear cliente en Vender | `test/dia-mepago`, `dia-numeros`, `dia-control-vender` (API y Playwright) | pasan |
+| Asistente como admin: ve claves, entrega, da PIN y links, baja Excel; no toca usuarios ni permisos; no vence; queda en la Auditoría | `test/equipo-asistente.test.mjs` | pasa |
+| Auditoría: persona, Hoy/Ayer/7 días con hora de Bolivia, ingresos del equipo solo para el dueño, 360 px claro y oscuro | `test/equipo-auditoria.test.mjs` | pasa |
+| Avisos al dueño (export, más de 20 accesos, PIN de revendedor), 1 por hora, el asistente sin aviso al celular pero en la Auditoría; Atención no cambia precio cobrado | `test/equipo-avisos.test.mjs`, push con fetch falso | pasa |
+| Inventario: fecha y costo obligatorios, Editar con una sola clave, costo en tarjeta, vencimiento en Mover todos, 44 px | `test/inventario-arreglos.test.mjs` | pasa |
+| Finanzas: cierre con costo estimado, Excel igual al panel (verificado con openpyxl), fiado en Entró, Cómo van, meses en palabras, el gráfico arranca en el mes actual | `test/finanzas-arreglos.test.mjs` | pasa |
+| Revisión en el celular con datos de ejemplo: 12 pantallas del panel a 360, 390 y 768 px, claro y oscuro | `scripts/revision-celular.cjs` | 0 desbordes y 0 textos chicos; el «cortado» es el título de la barra (ya estaba); 24 encabezados chicos en el Control a 768 px (ya estaban) |
+| Accesibilidad con axe | — | **no corrida**: falta axe-core en el entorno |
+
 ## 14/11/2026 · Seguridad de cuentas y arreglos de las 3 revisiones (publicado el 14/11, PR #65)
 | Qué | Cómo | Resultado |
 |---|---|---|

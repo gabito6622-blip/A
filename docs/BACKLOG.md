@@ -4,11 +4,17 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- **[P1] Revisión del súper administrador (14/11): pendientes sin hacer todavía** (el dueño decide cuáles):
-  - Día a día: la vista previa de «Me pagó» se sale de la pantalla en el celular (Confirmar cortado); lo vencido se corta solo a los 2 días sin avisar y después no se puede anotar el pago; «Me pagó» no deja anotar si la cuenta vence antes con el proveedor (falta «Renovar proveedor y anotar»); los números del día no coinciden entre saludo, botón, contadores y Mi secretaria (tuyos vs de revendedores); «Renovar · fecha» promete una fecha que no puede dar; «Ya le avisé» no se ve en Recordatorios; «Cambiar de cuenta» ofrece primero perfiles apartados; vender a un cliente nuevo obliga a crearlo en otra pantalla.
-  - Equipo: la llave del asistente entra como Admin completo y no vence; Auditoría sin filtro por persona/fecha; Atención puede poner precio Bs 0,01 «pagado» y bajar el Excel de clientes sin aviso al dueño; 2 pasos opcional.
-  - Inventario: fecha y costo escondidos en la carga rápida; «Editar» muestra todas las contraseñas; costo no visible en la tarjeta; «Mover todos» sin vencimiento del destino.
-  - Finanzas: meses cerrados sin costo de cuentas (100 % ganancia); Excel con otra ganancia y precio 0 en Vencimientos; pagos de fiado no suman a «Entró»; falta ganancia y deuda por revendedor; «Tu mes» muy abajo en Inicio.
+- ✅ **Revisión del súper administrador (14/11): hecha** (rama `ocultar-montos`, 3 equipos, sin publicar). Lo que quedó de ahí:
+  - **[P2] Reactivar lo que se cortó solo también desde el Control** (hoy solo desde Mi secretaria), y botón del proveedor al reactivar.
+  - **[P2] Atención puede desmarcar «pagado», cambiar el precio y volver a marcar.** Queda en la Auditoría con el precio anterior; falta aviso o freno (decide el dueño).
+  - **[P3] «💳 Renovar proveedor y anotar» cuando la cuenta no tiene costo cargado** (pedir el monto).
+  - **[P3] Mi secretaria: «vence hoy/mañana» con la hora de Bolivia** como los números del día.
+  - **[P3] Opción «cuenta propia sin vencimiento»** al cargar (hoy la fecha del proveedor es obligatoria para cuentas nuevas).
+  - **[P3] Fecha de retiro guardada en la cuenta** (hoy se lee de la auditoría) y tasa del dólar histórica para meses cerrados.
+  - **[P3] Fiado:** si un alquiler pasa al fiado, se le corre la fecha a mano y después se paga, puede contarse dos veces en «Entró».
+  - **[P3] Límite de 1 aviso por hora del equipo guardado en la base** (hoy se borra al reiniciar).
+  - **[Baja] Control a 768 px (tablet): los encabezados de la tabla tipo Excel miden menos de 44 px** (ya estaba así).
+  - **[Baja] Instalar axe-core** para correr `revision-accesibilidad.cjs`.
 
 - **[Decide el dueño] 2FA obligatorio para dueño y admin** (14/11, revisión de seguridad). Hoy es opcional y viene apagado; no hay códigos de respaldo.
 - **[P2] Atención ve contraseñas de cuentas al entregar** (14/11). `deliveryInfo` solo pide «ser del equipo». Mostrar solo al entregar un pedido suyo.
@@ -28,7 +34,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - **[Decide el dueño] GaboHub: tres niveles publicados (PR #57), falta el «prendé»** (13/11). Gratis / Vendedor Bs 28 / Negocio Bs 49 ya en la tienda real con el cobro apagado. Falta: el precio del Vendedor en US$ (sugerido US$ 3; hoy los de afuera pagarían con la tasa del día), publicar, y decidir cuándo prender el cobro (con los 15 días de prueba, cada revendedor arranca en Negocio gratis).
 - **[P2] Venta a mano con precio propio.** Hoy «Vender» cobra el precio de lista: Alejandra pagó Bs 27 por Flujo TV (lista Bs 25) y en Finanzas entró Bs 25 (el Control sí dice Bs 27). Agregar «precio cobrado» a la venta manual del staff (13/11).
-- **[P2] «Registrar línea IPTV»: la fecha con el proveedor figura opcional,** pero sin ella la línea queda vencida y no se puede vender. Hacerla obligatoria o poner «sin fecha» por defecto (13/11).
+- ✅ **«Registrar línea IPTV»: la fecha con el proveedor ahora es obligatoria** y viene con 30 días puestos (14/11, rama `ocultar-montos`).
 - **[P2] Productos IPTV publicados con líneas sueltas:** MASTV y FLUJOTV están publicados; una línea cargada sin asignar puede venderla la tienda web. Al cargar líneas de clientes que ya existen, asignarlas en el mismo paso (13/11).
 - **[P3] GaboHub: prorrateo al cambiar entre Vendedor y Negocio.** Hoy el cambio rige desde el próximo cobro (subir a Negocio a mitad de mes no cuesta más hasta entonces). Si se prende el cobro y alguien abusa, cobrar la diferencia proporcional.
 
