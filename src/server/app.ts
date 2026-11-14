@@ -597,19 +597,19 @@ export function createApp(cfg: AppConfig): App {
   }
   async function sendStoreEmail(to: string, subject: string, html: string): Promise<void> {
     const snd = emailSender();
-    if (!snd) throw new DomainError("VALIDATION", "La tienda todavia no conecto un Gmail para enviar correos (Panel de codigos).");
+    if (!snd) throw new DomainError("VALIDATION", "La tienda todavía no conectó un Gmail para enviar correos (Panel de códigos).");
     await sendMail(snd, { to, subject, html, fromName: store.engine.s.settings.storeName });
   }
   const escH = (x: unknown) => String(x ?? "").replace(/[&<>"\x27]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\x27": "&#39;" }[ch]!));
-  const emailWrap = (title: string, body: string) => `<div style="font-family:Inter,Arial,sans-serif;max-width:460px;margin:0 auto;padding:24px;background:#0b1020;color:#eef5ff;border-radius:16px"><h2 style="margin:0 0 8px">${escH(store.engine.s.settings.storeName)}</h2><p style="color:#9fb0d0;margin:0 0 16px">${escH(title)}</p>${body}<p style="color:#6b7a99;font-size:12px;margin-top:20px">Si no fuiste vos, ignora este correo.</p></div>`;
+  const emailWrap = (title: string, body: string) => `<div style="font-family:Inter,Arial,sans-serif;max-width:460px;margin:0 auto;padding:24px;background:#0b1020;color:#eef5ff;border-radius:16px"><h2 style="margin:0 0 8px">${escH(store.engine.s.settings.storeName)}</h2><p style="color:#9fb0d0;margin:0 0 16px">${escH(title)}</p>${body}<p style="color:#6b7a99;font-size:12px;margin-top:20px">Si no fuiste vos, ignorá este correo.</p></div>`;
 
   const regLimiter = new RateLimiter(10, 60 * 60_000, now);
   route("POST", "/api/auth/customer/register", "public", async (c) => {
-    if (!regLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en un rato.");
+    if (!regLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en un rato.");
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const password = String(c.body?.password ?? "");
-    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
-    if (password.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
+    if (password.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
     // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
     // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
     // que manda el enlace a ese correo y así prueba que es suyo.
@@ -617,14 +617,14 @@ export function createApp(cfg: AppConfig): App {
     const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
     db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
     startSession(c, "customer", cust.id);
-    sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
+    sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta está lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podés comprar y entrar con tu correo y tu contraseña.</p>`)).catch(() => undefined);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
   route("POST", "/api/auth/customer/login-email", "public", (c) => {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const k = `loginem|${c.ip}|${email}`;
-    if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en 15 minutos.");
+    if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     const lockKey = `pw:${email}`, wait = lockWait(lockKey);
     if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const cust = custByEmail(email);
@@ -632,7 +632,7 @@ export function createApp(cfg: AppConfig): App {
     if (!cust || !verifyPassword(String(c.body?.password ?? ""), stored)) {
       loginLimiter.take(k);
       if (cust && stored) { failOnce(lockKey, "customer", cust.id, cust.name); logAccess(c, "customer", cust.id, "login_fail", false); }
-      throw new HttpError(401, "BAD_LOGIN", "Correo o contrasena incorrectos");
+      throw new HttpError(401, "BAD_LOGIN", "Correo o contraseña incorrectos");
     }
     loginLimiter.reset(k);
     db.failClear(lockKey);
@@ -644,8 +644,8 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`custpw:${id}`);
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena nueva necesita al menos 8 caracteres");
-    if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contrasena actual no es correcta");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 8 caracteres");
+    if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no es correcta");
     // Para revendedores (y clientes sin correo): pueden fijar su correo de acceso acá.
     if (c.body?.email !== undefined && String(c.body.email).trim()) store.catalog.setOwnEmail(c.actor!, String(c.body.email));
     if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
@@ -659,15 +659,15 @@ export function createApp(cfg: AppConfig): App {
   const forgotLimiter = new RateLimiter(5, 60 * 60_000, now);
   route("POST", "/api/auth/customer/forgot", "public", async (c) => {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
-    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
-    if (!forgotLimiter.take(`${c.ip}|${email}`)) throw new HttpError(429, "RATE_LIMIT", "Ya pediste varios. Proba en un rato.");
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
+    if (!forgotLimiter.take(`${c.ip}|${email}`)) throw new HttpError(429, "RATE_LIMIT", "Ya pediste varios. Probá en un rato.");
     const cust = custByEmail(email);
     if (cust) {
       const token = newToken().slice(0, 32);
       db.setSecret(`pwreset:${token}`, JSON.stringify({ id: cust.id, exp: now() + 60 * 60_000 }), now());
       const url = `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/recuperar?t=${token}`;
       try {
-        await sendStoreEmail(email, "Recupera tu contrasena", emailWrap("Tocaste 'olvide mi contrasena'.", `<p>Para poner una nueva, entra a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contrasena</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
+        await sendStoreEmail(email, "Recuperá tu contraseña", emailWrap("Tocaste «Olvidé mi contraseña».", `<p>Para poner una nueva, entrá a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contraseña</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
       } catch (e) {
         // 14/11/2026: misma respuesta exista o no el correo (antes un error delataba que la cuenta existía).
         // Si el correo de la tienda no está conectado, se le avisa al dueño para que lo ayude por WhatsApp.
@@ -681,15 +681,15 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/auth/customer/reset/:token", "public", (c) => {
     const raw = db.getSecret(`pwreset:${c.params.token}`);
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
-    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     return { email: store.engine.s.customers[data.id].email ?? "", name: store.engine.s.customers[data.id].name };
   });
   route("POST", "/api/auth/customer/reset", "public", (c) => {
     const raw = db.getSecret(`pwreset:${String(c.body?.token ?? "")}`);
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
-    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
     db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
     db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
     db.deleteSessionsOf?.(data.id);
@@ -700,7 +700,7 @@ export function createApp(cfg: AppConfig): App {
   /** Link de un solo uso generado por el staff (para mandar a mano por WhatsApp). */
   route("POST", "/api/auth/customer/link", "public", (c) => {
     const token = String(c.body?.token ?? "");
-    if (!loginLimiter.take(`link|${c.ip}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos");
+    if (!loginLimiter.take(`link|${c.ip}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en un rato.");
     const s = token && db.getSession(sha256(token), now());
     if (!s || s.kind !== "link") throw new HttpError(401, "BAD_LINK", "El link venció o ya se usó. Pedí uno nuevo a la tienda.");
     db.deleteSession(s.tokenHash); // un solo uso

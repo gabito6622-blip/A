@@ -59,6 +59,8 @@ export interface Product {
   comboProductIds?: Id[];
   /** Regla / recordatorio que aparece al vender este servicio (ej.: "Disney pide PIN", "este panel tarda"). */
   saleNote?: string;
+  /** «Para quién / cuántas pantallas» que escribe el dueño (texto corto, opcional). La tienda lo muestra solo si existe. */
+  forWhom?: string;
   /** "Cómo verlo": guía que recibe el cliente al comprar (app, enlace de descarga y pasos). */
   guide?: { app?: string; link?: string; steps?: string };
 }

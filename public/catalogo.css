@@ -1,0 +1,138 @@
+/* 🛍️ Catálogo claro (catalogo-claro.js): qué recibís, hay o a pedido, Mensual / 3 meses, ficha, confianza y entrar.
+   Celular primero: 320 px, letra grande y zoom 200 % sin cortar nombres letra por letra ni salirse de la pantalla. */
+
+/* Qué recibís · para quién · hay o a pedido (tarjeta, ficha y fila del ticket dicen lo mismo) */
+.ccget,.ccfor,.ccstock,.ccsave{margin:0;font-size:14px;line-height:1.35}
+.ccget{color:var(--s-ink);font-weight:600}
+.ccfor{color:var(--s-muted)}
+.ccstock{font-weight:700}
+.ccstock.cc-now{color:var(--s-ok)}
+.ccstock.cc-order,.ccstock.cc-ask{color:var(--s-warn)}
+.ccstock.cc-out{color:var(--s-muted)}
+.ccsave{font-size:13px;font-weight:700;color:var(--s-ok)}
+
+/* Fila «ticket» apilada: arriba logo + nombre, en el medio la duración, abajo precio y botones (nunca al costado
+   de un nombre que se aprieta). Los dos círculos de boleto quedan en la línea punteada. */
+.tk.cc{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"logo mid" "dur dur" "end end";align-items:start;padding:14px 14px 0;gap:10px 12px}
+.tk.cc::before,.tk.cc::after{content:none}
+.tk.cc .tklogo{grid-area:logo}
+.tk.cc .tkmid{grid-area:mid;gap:5px}
+.tk.cc .tkmid h3{font-size:17px;overflow-wrap:break-word;word-break:normal}
+.tk.cc .ccdur{grid-area:dur}
+.tk.cc{container:cctk/inline-size}
+.tk.cc .tkend{grid-area:end;position:relative;width:auto;margin:0 -14px;padding:10px 14px 12px;border-left:0;border-top:2px dashed var(--s-line);display:grid;grid-template-columns:minmax(0,1fr) auto auto;justify-items:stretch;align-items:center;gap:8px}
+.tk.cc .tkend::before,.tk.cc .tkend::after{content:"";position:absolute;top:-9px;width:16px;height:16px;border-radius:50%;background:var(--s-bg)}
+.tk.cc .tkend::before{left:-9px}.tk.cc .tkend::after{right:-9px}
+.tk.cc .tkend b{justify-self:start;font-size:22px}
+.tk.cc .tkend .tkbtn{width:auto;min-width:108px;padding:0 16px}
+.ccmore{min-height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--s-line);background:transparent;color:var(--s-ink);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.ccmore:hover{border-color:var(--s-blue)}
+/* Tarjeta angosta (celular): «Bs 40 … Agregar» en una línea y «Ver qué incluye» debajo, a lo ancho. */
+@container cctk (max-width:400px){.tk.cc .tkend{grid-template-columns:minmax(0,1fr) auto}.tk.cc .ccmore{grid-column:1/-1;grid-row:2}}
+@container cctk (max-width:230px){.tk.cc .tkend{grid-template-columns:minmax(0,1fr)}.tk.cc .tkend .tkbtn{grid-row:auto}}
+@media (max-width:300px){
+  /* Zoom 200 % o letra enorme: todo en una columna. */
+  .tk.cc{grid-template-columns:minmax(0,1fr);grid-template-areas:"logo" "mid" "dur" "end"}
+}
+
+/* Mensual / 3 meses: botones grandes (≥ 44 px), con «ahorrás» solo si hay ahorro de verdad */
+.ccdur{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));gap:8px}
+.ccopt{min-height:48px;display:grid;align-content:center;justify-items:start;gap:2px;padding:6px 12px;border-radius:12px;border:1.5px solid var(--s-line);background:var(--s-bg);color:var(--s-ink);font:inherit;text-align:left;cursor:pointer;min-width:0}
+.ccopt b{font-size:15px;overflow-wrap:break-word}
+.ccopt small{font-size:13px;font-weight:700;color:var(--s-ok)}
+.ccopt[aria-pressed="true"]{border-color:var(--s-blue);background:color-mix(in srgb,var(--s-blue) 14%,var(--s-bg));box-shadow:0 0 0 1px var(--s-blue)}
+
+/* Tarjeta de los otros diseños */
+.pc.cc .pbody{display:flex;flex-direction:column;gap:6px}
+.pc.cc .pbody h3{overflow-wrap:break-word;word-break:normal}
+.pc.cc .price{margin-top:auto}
+.pc.cc .pbtns .sbtn{white-space:normal;text-align:center}
+@media (max-width:520px){.pc.cc .pbtns .det{display:inline-flex}}
+@media (max-width:359px){.pgrid{grid-template-columns:minmax(0,1fr)}}
+
+/* Ficha «Qué incluye» */
+.modal>div{grid-template-columns:minmax(0,1fr)}
+.ccficha .ccfhead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.ccflogo{width:56px;height:56px;display:grid;place-items:center;border-radius:14px;overflow:hidden}
+.ccflogo .plogo,.ccflogo .lt{width:56px;height:56px;object-fit:cover;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:24px}
+.ccficha h2{margin:0;font-size:22px;font-weight:900;line-height:1.2;overflow-wrap:break-word}
+.ccficha .x{min-width:44px;min-height:44px}
+.ccfsub{margin:0;font-size:16px}
+.ccinc{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ccinc li{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;font-size:15px;line-height:1.4}
+.ccfbtns{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:8px}
+.ccfbtns .sbtn,.ccshare{min-height:48px;white-space:normal;text-align:center}
+.ccshare{justify-self:start;font-size:14px}
+@media (max-width:300px){.ccficha .ccfhead{grid-template-columns:minmax(0,1fr) auto}.ccflogo{display:none}}
+
+/* Confianza */
+.cctrust{margin:0;font-size:13px;color:var(--s-muted);line-height:1.5}
+.cctrust a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.cmpase{justify-self:start;white-space:normal;text-align:left;min-height:44px}
+.cmpsel select{min-height:48px}
+.ccnone{gap:10px}
+.ccnone .sbtn{justify-self:start;white-space:normal}
+
+/* Carrito: aviso de «a pedido» antes de pagar */
+.ccorder{display:grid;gap:6px;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--s-warn) 60%,var(--s-line));background:color-mix(in srgb,var(--s-warn) 10%,var(--s-card))}
+.ccorder b{font-size:15px;overflow-wrap:break-word}
+.ccorder span{color:var(--s-muted);font-size:14px}
+.ccorder .sbtn{justify-self:start;min-height:44px;white-space:normal}
+
+/* Panel de pago: nunca más ancho que la pantalla, aunque la letra sea grande */
+.drawer{grid-template-columns:minmax(0,1fr)}
+.drawer>*{min-width:0}
+.drawer .pay label>span{min-width:0;overflow-wrap:break-word}
+.drawer .total{gap:10px;flex-wrap:wrap}
+.drawer .line>div{min-width:0}
+.drawer .line b{overflow-wrap:break-word}
+
+/* Entrar: «Soy nuevo» y «Olvidé mi PIN» grandes y separados del borde */
+.cclogin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:8px}
+.cclogin .sbtn,.ccghost{min-height:48px;white-space:normal;text-align:center}
+.ccghost{background:transparent}
+.cchint{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--s-blue) 10%,var(--s-card));color:var(--s-ink);font-size:14px}
+.sform label.ccconsent{color:var(--s-ink);font-size:14px;gap:10px;min-height:44px}
+.sform label.ccconsent input{width:22px!important;height:22px;flex:none;margin-top:1px}
+.ccconsent small{display:block;color:var(--s-muted);font-size:13px;margin-top:2px;font-weight:500}
+.ccconsent a{color:var(--s-blue-text,var(--s-blue));text-decoration:underline}
+
+/* Encabezado: ícono de persona arriba en el celular (tienda), y el nombre de la tienda no empuja nada */
+.shead .slogo{min-width:0}
+.shead .slogo span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:800px){
+  body.cc-store .shead .acc:not([hidden]){display:inline-flex;min-width:44px;min-height:44px;padding:0 10px}
+  body.cc-store .shead .acc #accName{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+}
+@media (max-width:400px){.shead .sw{gap:8px}.slogo{font-size:17px}}
+
+/* Portada «ticket»: la imagen nunca tapa el título */
+@media (max-width:420px){.tkhero.withban .tkban{width:72px}}
+@media (max-width:300px){.tkhero.withban{grid-template-columns:minmax(0,1fr)}.tkhero.withban .tkban{display:none}.trustband{grid-template-columns:minmax(0,1fr)}}
+.tkapp .mini{font-size:12px}
+@media (max-width:300px){
+  .modal{padding:6px}
+  .modal>div{padding:14px;border-radius:16px}
+  .ccficha h2{font-size:19px}
+  .bnav button{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+}
+/* QR del pago dentro del panel: se achica con la pantalla (zoom 150–200 %) */
+.drawer .qrg{min-width:0;max-width:100%;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}
+.drawer .qrg>*,.drawer .qrg-amtrow>*{min-width:0;max-width:100%}
+.drawer .qrg-amt,.drawer .qrg-copy{overflow-wrap:anywhere;white-space:normal}
+.cmpl .mini{font-size:12px}
+.drawer .sbtn{white-space:normal;max-width:100%;text-align:center}
+/* Letra grande: las secciones de abajo (preguntas, comparador) tampoco empujan la pantalla */
+.faq,.cmp{grid-template-columns:minmax(0,1fr)}
+.sec-h>div{min-width:0}
+@media (max-width:420px){#sout .sbtn,.faqcta .sbtn{white-space:normal;text-align:center}}
+.tktools{min-width:0;grid-template-columns:minmax(0,1fr)}
+.tktools #q{min-width:0;max-width:100%;box-sizing:border-box}
+.tkbar{flex-wrap:wrap}
+.tkbar label{flex-wrap:wrap;min-width:0}
+.tkbar select{min-width:0;max-width:100%}
+#sout .sbtn{max-width:100%}
+@media (max-width:300px){.drawer .qrg-btns{grid-template-columns:minmax(0,1fr)}}
+.drawer .qrg-btns>*{min-width:0}
+/* El nombre completo, sin «…» (antes se cortaba a 2 renglones y se perdía «· 3 meses») */
+.pc.cc .pbody h3{display:block;-webkit-line-clamp:unset;overflow:visible}
