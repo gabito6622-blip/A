@@ -387,7 +387,7 @@ export function createApp(cfg: AppConfig): App {
     return {
       // Subdominios de revendedores (daniel.gabostore.lat): solo cuando el dueño los prendió (GS_SHOP_SUBDOMAINS=1) y hay dominio propio.
       ...(cfg.shopSubdomains && customDomain() ? { shopDomain: customDomain() } : {}),
-      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
+      storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(), loginCode: !!otpSender(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
       logoV: imagenes.version(st.logoFileRef), bannerV: imagenes.version(st.bannerFileRef),

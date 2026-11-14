@@ -9,7 +9,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Inter,system-
 h1{font-size:clamp(30px,6vw,46px);line-height:1.1;letter-spacing:-.03em;margin:0 0 8px}
 .meta{color:var(--muted);font-size:14px;margin:0 0 22px}
 .toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
-.toc a{font-size:13px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px}
+.toc a{display:inline-flex;align-items:center;min-height:44px;font-size:13px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px}
 section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:14px;scroll-margin-top:16px}
 h2{font-size:20px;margin:0 0 8px}
 p,li{color:var(--ink)}
