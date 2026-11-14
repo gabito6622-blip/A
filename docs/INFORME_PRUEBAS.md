@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 14/11/2026 · 3 meses en el lugar de los revendedores
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | 754 → 800 (publicado en #69) → **811 pasan, 0 fallan** |
+| 3 revisores (de confianza, independiente, nuevo y clientes) | reloj simulado, 360 px | hallazgos en BACKLOG, todos atendidos |
+| 4 equipos R1–R4 | simulación propia antes/después | diferencia de plata 0; páginas sin permiso 10/15 → 0; «Gabriel Store» en la página del revendedor 13 → 0; clientes cortados con renovación pedida 2 → 0 |
+| Un agente, 7 corridas de agosto a octubre (4 revendedores y sus clientes, API y 166 pantallas) | `scratchpad/solorv/sim.mjs` | c7: **0 problemas en 17 categorías**; cobró, pagó, quedó, le deben y saldo iguales a la realidad en las 12 filas |
+| Producción después de #69 | instantánea antes y después, curl | datos idénticos; `/codigos/<token>` con mayúsculas responde 200 |
+
 ## 14/11/2026 · «3 meses en el lugar del dueño» (rama `ocultar-montos`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -81,7 +81,7 @@ const savingsOf = (price: Cents, parts: (Cents | undefined)[]): Cents | undefine
   const sum = (parts as Cents[]).reduce((acc: number, v: Cents) => acc + v, 0);
   return sum > price ? sum - price : undefined;
 };
-const CAT_ORDER = [PROMO_CAT, "Combos", "Streaming", "Música", "Series y películas", "Deportes", "Herramientas", "Mis servicios", "Otros"];
+const CAT_ORDER = [PROMO_CAT, "Combos", "Streaming", "Música", "Series y películas", "Deportes", "Herramientas", "TV en vivo", "Servicios", "Mis servicios", "Otros"];
 const catRank = (name: string) => { const i = CAT_ORDER.indexOf(name); return i === -1 ? 50 : i; };
 
 export const fdate = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t));
@@ -158,7 +158,7 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
     const sv = savingsOf(mine(cb.price)!, cb.productIds.map((id) => mine(me.resellerPrices?.[id])));
     items.push({ id: `rc_${cb.id}`, name: cb.name, category: PROMO_CAT, description: cb.note || "", price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), partIds: cb.productIds, color: "#7c5cff", ...(sv !== undefined ? { savings: sv } : {}) });
   }
-  for (const pc of pageCards(e, me)) items.push({ id: pc.id, name: pc.name, category: "Mis servicios", description: "", price: pc.price, durationDays: pc.durationDays, kind: "own", color: pc.color });
+  for (const pc of pageCards(e, me)) items.push({ id: pc.id, name: pc.name, category: pc.category, description: "", price: pc.price, durationDays: pc.durationDays, kind: "own", color: pc.color });
   const promos: string[] = [];
   const cp = comboPromo(sh?.comboDiscounts?.map((v) => mine(v) ?? 0), cur); if (cp) promos.push(cp);
   if (st.resellerCoupons) for (const c of sh?.coupons ?? []) if (c.active && (!c.expiresAt || c.expiresAt > now)) promos.push(couponPromo({ ...c, value: c.type === "fixed" ? (mine(c.value) ?? c.value) : c.value, ...(c.minTotal ? { minTotal: mine(c.minTotal) ?? c.minTotal } : {}) }, cur));
@@ -188,7 +188,7 @@ export function filterCatalog(d: CatalogData, f: CatalogFilter = {}): CatalogDat
   return { ...d, categories };
 }
 
-const CAT_EMOJI: Record<string, string> = { [PROMO_CAT]: "🎁", Combos: "🎁", Streaming: "📺", Música: "🎵", "Series y películas": "🎬", Deportes: "⚽", Herramientas: "🛠️", "Mis servicios": "⭐", Otros: "✨" };
+const CAT_EMOJI: Record<string, string> = { [PROMO_CAT]: "🎁", Combos: "🎁", Streaming: "📺", Música: "🎵", "Series y películas": "🎬", Deportes: "⚽", Herramientas: "🛠️", "TV en vivo": "📡", Servicios: "⭐", "Mis servicios": "⭐", Otros: "✨" };
 const dur = (days: number) => (days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
 
 /** Texto de UNA categoría para WhatsApp (negritas con *asteriscos*, viñetas, sin links raros). */

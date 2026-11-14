@@ -7,12 +7,12 @@ import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } f
 import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
-import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox } from "/cuaderno.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-mes.js";
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/cuaderno.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
@@ -20,6 +20,7 @@ import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slu
 import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
+import { qrCard, initQrGrande } from "/qr-grande.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -475,18 +476,20 @@ function pendingOrders(skip = null) {
         <label>Hash o número de la transacción<input name="ref" required placeholder="Pegá el hash de Binance"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
-        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
+        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`}</div>`).join("");
 }
 
-function qrBlock() {
+// QR grande con «Ver grande» y «Guardar QR» (qr-grande.js): antes era una miniatura de 120 px al costado del texto.
+function qrBlock(amount) {
   const st = S.settings;
-  return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
+  if (!st.hasQr) return `<div class="qr"><div style="display:grid;gap:6px">${st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}</div></div>`;
+  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "" });
 }
 /** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
 function localBlock(m, toPay) {
-  return `<div class="qr" style="align-items:flex-start">${m.hasQr ? `<img src="/api/paymethods/${esc(m.id)}/qr" alt="QR de ${esc(m.name)}">` : ""}<div style="display:grid;gap:8px;min-width:0">
+  return `${m.hasQr ? qrCard({ src: `/api/paymethods/${esc(m.id)}/qr`, who: m.holder || m.name, amount: bs(toPay) }) : ""}<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
     <b style="color:var(--s-ink);font-size:16px">Pagá ${bs(toPay)} por ${esc(m.name)}</b>
     <span class="empty">${m.country ? `${esc(m.country)} · ` : ""}A: <b style="color:var(--s-ink);overflow-wrap:anywhere">${esc(m.account)}</b> <button class="sbtn sm" type="button" data-copy="${esc(m.account)}">Copiar</button></span>
     ${m.holder ? `<span class="empty">A nombre de <b style="color:var(--s-ink)">${esc(m.holder)}</b></span>` : ""}
@@ -814,9 +817,9 @@ function rDiaView() {
 const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
 function rBackBox() {
   const B = S.data.rback;
-  if (!B || (!B.items.length && !B.written)) return "";
+  if (!B || (!B.items.length && !B.written && !B.owing)) return "";
   return `<section class="sbox rdia-s" id="rback"><h3 style="margin:0">🔁 Que vuelvan <small class="empty">· ${B.items.length ? `${B.items.length} cliente${B.items.length === 1 ? "" : "s"}` : "nadie por ahora"}</small></h3>
-    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
+    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}${B.owing ? ` ${B.owing === 1 ? "1 que todavía te debe no sale acá: está" : `${B.owing} que todavía te deben no salen acá: están`} en «💵 Cobrar hoy», para cobrarle primero.` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
       <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
 }
@@ -887,7 +890,11 @@ function rDebeBase() {
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const pend = ov.rows.filter((r) => r.unlinked.count);
-  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+  // 15/11: el número de arriba es TODO lo que le deben: perfiles, clientes registrados y sus cuentas propias.
+  const own = ownOwed(), subsPeople = new Set((S.data.rsubs?.debts?.items ?? []).map((x) => `${String(x.client ?? "").trim().toLowerCase()}|${String(x.phone ?? "").replace(/\D/g, "")}`));
+  const owedAll = (S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0) + own.owed;
+  const peopleAll = (S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0) + own.keys.filter((k) => !subsPeople.has(k)).length;
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(owedAll)}</b>${own.owed ? `<small>${bs(own.owed)} de tus cuentas propias</small>` : ""}</div><div><small>Personas</small><b>${peopleAll}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
@@ -925,7 +932,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${earnRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
+    ${gananciaRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
@@ -2136,7 +2143,7 @@ function renderCartInner(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b><img src="/api/shops/${esc(SLUG)}/qr" alt="QR para pagar" loading="lazy"><span>Total a pagar: <b>${bs(rshopTotal())}</b></span>${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()) })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
           + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
@@ -2147,7 +2154,7 @@ function renderCartInner(msg = "") {
     const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
     $("#drawer").innerHTML = head
       + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
-      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock()}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
+      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock(toPay)}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
       ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
       <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
@@ -2171,7 +2178,7 @@ function renderCartInner(msg = "") {
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net)}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
@@ -3046,6 +3053,7 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#ren
 
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
 initMoneyMask();
+initQrGrande();
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";

@@ -2819,11 +2819,14 @@ export function createApp(cfg: AppConfig): App {
       if (!me || me.kind !== "reseller") continue;
       // Sus alquileres con la tienda: 3 días antes y el día del vencimiento, cuándo se corta (avisoAlquiler.ts).
       const sr = store.rmes.rentPush(cid, t);
+      const dp0 = !store.shops.planGate(cid, "tito") ? store.rtools.dayPushText({ id: `u_${cid}`, role: "reseller", customerId: cid }) : null;
+      // 15/11: si lo único que se corta hoy es de SUS clientes (corteHoy.ts), va en el mismo aviso de «Mi día»: uno solo.
+      if (sr && dp0 && sr.url === "/hub#dia") { await customerPush(cid, { title: sr.title, body: `${dp0.title.replace(/^☀️\s*/, "")} · ${sr.body}`.slice(0, 200), url: "/hub#dia" }).catch(() => {}); continue; }
       if (sr) await customerPush(cid, sr).catch(() => {});
       // «Mi día» (13/11): un solo aviso con lo de hoy (cobrar / avisar / te deben) que abre la pestaña. Si su GaboHub está
       // pausado o en un plan sin Mi día (Gratis o Vendedor), sigue el aviso de siempre de «vence mañana».
       if (!store.shops.planGate(cid, "tito")) {
-        const dp = store.rtools.dayPushText({ id: `u_${cid}`, role: "reseller", customerId: cid });
+        const dp = dp0;
         if (dp) { await customerPush(cid, { ...dp, body: withOwnSuffix(dp.body, ownSoonFor(store.engine, cid)) }).catch(() => {}); continue; }
       }
       const soon = Object.values(s.assignments).filter((a) => a.status === "active" && !a.holdOpen && s.customers[a.customerId]?.resellerId === cid

@@ -3,6 +3,48 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · 3 meses en el lugar de los revendedores (PR #69 publicado; lo de la última corrida, sin publicar)
+- **Por qué:** el dueño: «hacé lo mismo pero poniéndote desde un revendedor». Lo revisaron 3 revisores (de confianza, independiente, nuevo y sus clientes), lo arreglaron 4 equipos y un agente hizo 7 corridas hasta tener 0 problemas en 17 categorías.
+- **Urgente (publicado en #69):** el link de códigos con mayúsculas daba «Link no válido» en 2 de cada 3 casos.
+- **Revendedor de confianza (#69):**
+  - pago parcial;
+  - deudas por período;
+  - el mismo «Te deben» en todas las pantallas;
+  - cuenta cortada con «Pasar a mi cuenta nueva»;
+  - ganancia real y cierre mes a mes;
+  - «Me pagó» de un toque;
+  - nombres con sus 3 dígitos;
+  - cartel y aviso por cambio de clave o cuenta;
+  - «Hoy se corta»;
+  - «📩 Pedir renovación» en Mi secretaria del dueño;
+  - QR en el cartel;
+  - sin renovaciones duplicadas;
+  - la sesión se renueva con el uso.
+- **Independiente (#69):**
+  - libro de deudas;
+  - cuentas caídas o vencidas que no se venden;
+  - mover uno o todos los clientes;
+  - «¿Te pagó?» con deshacer;
+  - ganancias por mes;
+  - Mi día con lo propio;
+  - combos propios;
+  - el dueño ya no ve los códigos de sus cuentas propias.
+- **Revendedor nuevo (#69):**
+  - sin permiso no puede publicar la página;
+  - primeros pasos;
+  - dirección desde el nombre de su tienda;
+  - página sin «Gabriel Store»;
+  - preguntas neutras y editables;
+  - referidos a /revendedores.
+- **Última corrida (sin publicar):**
+  - «Hoy se corta» también por los clientes del revendedor y al vencer la espera de un pedido;
+  - «Que vuelvan» sin deudores;
+  - «Quién me debe» suma lo propio;
+  - la lista para avisar a sus clientes por un cambio de clave no se pierde;
+  - el cliente que vuelve trae su historial;
+  - categorías en las tarjetas de su página;
+  - el campo del QR mide 44 px.
+
 ## 2026-11-14 · Revisión «3 meses en el lugar del dueño» y perfil suelto (sin publicar, rama `ocultar-montos`)
 - **Por qué:** el dueño pidió «trabajá 3 meses como yo, hasta corregir todos los errores». Primero lo revisaron 4 revisores, después lo arreglaron 4 equipos y al final un solo agente simuló 14 veces de agosto a octubre, hasta tener 0 problemas.
 - **La plata coincide con la caja real** (0 de diferencia en los 3 meses, en Finanzas, Cierre, Tu mes, el Excel y Cómo van):
