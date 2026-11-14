@@ -293,10 +293,11 @@ export function phoneTaken(e: Engine, phone: string, exceptId?: Id): boolean {
 
 export function findCustomerByPhone(e: Engine, phone: string) {
   const n = normalizePhone(phone);
-  let c = Object.values(e.s.customers).find((x) => x.phone === n);
+  // Una ficha que un revendedor cargó con un número que ya existía (`phoneShared`) no sirve para entrar con ese número.
+  let c = Object.values(e.s.customers).find((x) => x.phone === n && !x.phoneShared);
   if (!c) {
     // Tolerante: "70012345", "59170012345" y "+591 70012345" son el mismo número (si no hay dudas).
-    const m = n.replace(/\D/g, "").length >= 8 ? Object.values(e.s.customers).filter((x) => x.phone && samePhone(x.phone, n)) : [];
+    const m = n.replace(/\D/g, "").length >= 8 ? Object.values(e.s.customers).filter((x) => x.phone && !x.phoneShared && samePhone(x.phone, n)) : [];
     if (m.length === 1) c = m[0];
   }
   return c ? structuredClone(c) : undefined;
@@ -391,7 +392,14 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
     resellerId = actor.customerId;
   }
   return e.tx(() => {
-    if (phone && phoneTaken(e, phone)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+    // Un revendedor no se entera de si ese número es cliente de otro (ni de la tienda): cada uno tiene su ficha.
+    // Solo se le avisa si ya lo tiene él mismo. La ficha repetida no sirve para entrar con ese número (`phoneShared`).
+    let shared = false;
+    if (phone && phoneTaken(e, phone)) {
+      if (isStaff(actor)) throw new DomainError("VALIDATION", "Ya existe un cliente con ese teléfono");
+      if (Object.values(e.s.customers).some((x) => x.resellerId === resellerId && !!x.phone && samePhone(x.phone, phone))) throw new DomainError("VALIDATION", "Ya existe un cliente tuyo con ese teléfono");
+      shared = true;
+    }
     const email = c.email ? String(c.email).trim().toLowerCase() : undefined;
     // Un correo es de una sola persona: si no, alguien podría "adueñarse" del correo de otro.
     if (email && Object.values(e.s.customers).some((x) => (x.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ese correo ya lo usa otra cuenta");
@@ -403,6 +411,7 @@ export function createCustomer(e: Engine, actor: Actor, c: NewCustomer & { allow
       id, name: c.name.trim(), phone, email, kind: c.kind ?? "customer", resellerId,
       priceGroupId: groupId, whatsappConsent: c.whatsappConsent ?? false, createdAt: e.now(),
       ...(c.whatsappConsent ? { whatsappConsentAt: e.now(), whatsappConsentVia: (actor.role === "reseller" ? "revendedor" : "panel") as ConsentVia } : {}),
+      ...(shared ? { phoneShared: true as const } : {}),
     };
     e.s.customers[id] = cust;
     e.audit(actor, "customer.create", "customer", id, { kind: cust.kind, resellerId });

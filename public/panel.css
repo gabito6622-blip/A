@@ -1321,3 +1321,14 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .ctl-fdet>summary::-webkit-details-marker{display:none}
 .ctl-fdet[open]>summary{margin-bottom:8px}
 .sec-fold:not([open]){gap:0}
+/* Revendedores un mes entero (14/11/2026, panel-revmes.js y Cómo van) */
+.cv-topup{font-size:13px;color:var(--ok,inherit);font-weight:600}
+.rmgroups .rmgroup{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.rmglist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rmglist li{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;min-height:44px;border-bottom:1px dashed var(--line);padding:4px 0}
+.rmglist li span{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+.rmcard{max-height:calc(100vh - 32px);overflow:auto}
+.rmcard label{display:grid;gap:4px}
+.rmfs{border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:grid;gap:8px;margin:0}
+.rmfs label.chk{display:flex;gap:10px;align-items:flex-start;min-height:44px}
+.rmfs input[type=radio]{width:22px;height:22px;margin-top:2px}

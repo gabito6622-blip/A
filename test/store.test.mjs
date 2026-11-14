@@ -971,7 +971,12 @@ describe("12. Revendedor y apariencia", () => {
     assert.equal(s.portal.customers(r)[0].note, "paga los viernes");
     assert.throws(() => s.portal.updateClient(r, maria.id, { name: "X" }), err("FORBIDDEN"));
     assert.throws(() => s.portal.updateClient(as(maria), pedro.id, { name: "X" }), err("FORBIDDEN"));
-    assert.throws(() => s.portal.updateClient(r, pedro.id, { phone: maria.phone }), err("VALIDATION"));
+    // El número de otra persona (de la tienda u otro revendedor) no se delata: queda como ficha propia (B18, 14/11/2026).
+    const shared = s.portal.updateClient(r, pedro.id, { phone: maria.phone });
+    assert.ok(!JSON.stringify(shared).includes("Quispe") && !JSON.stringify(shared).includes(maria.id));
+    assert.equal(s.catalog.findCustomerByPhone(maria.phone).id, maria.id, "entrar con ese número sigue siendo María");
+    const otro = s.catalog.createCustomer(r, { name: "Otro", phone: "+591 71230001" });
+    assert.throws(() => s.portal.updateClient(r, otro.id, { phone: maria.phone }), err("VALIDATION", /tuyo/), "si ya es cliente SUYO, sí se avisa");
   });
 
   test("lista de precios del revendedor: costo, precio de venta y ganancia", () => {

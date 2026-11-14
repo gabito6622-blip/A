@@ -26,6 +26,10 @@ import { noticeOf } from "./dia.js";
 import { assertNotDouble, renewStart } from "./cobrarBien.js";
 import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
 import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
+import { ownStoreRenewOk } from "./renovarVarias.js";
+import { missingListPrices } from "./listaPrecios.js";
+import { paidInReview } from "./avisoAlquiler.js";
+import { transferAssignment as transferWithBooks } from "./traspaso.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -222,7 +226,9 @@ export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; ite
     try { const r = couponFor(e, input.couponCode, payerId, items, gross - discount); coupon = { code: r.coupon.code, amount: r.amount }; }
     catch (err) { if (err instanceof DomainError) couponError = err.message; else throw err; }
   }
-  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0) };
+  // Revendedor sin precio en su lista para algo de esto: se le cobraría el de la tienda. Se avisa antes de vender (listaPrecios.ts).
+  const missingListPrice = missingListPrices(e, payerId, items.map((it) => it.productId));
+  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0), ...(missingListPrice.length ? { missingListPrice } : {}) };
 }
 
 /** Prueba gratis: entrega una línea/perfil por unas horas, sin cobrar. No cuenta como venta. */
@@ -342,8 +348,10 @@ function referenceSeenIn(e: Engine, ref: string, exceptId: Id): Id | undefined {
   return Object.values(e.s.orders).find((x) => x.id !== exceptId && (normRef(x.confirmedReference) === n || normRef(x.evidence?.declaredReference) === n))?.id;
 }
 
-function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
-  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference && normRef(x.confirmedReference) === normRef(ref));
+function settle(e: Engine, actor: Actor, o: Order, ref: string, shared?: Set<Id>): void {
+  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && !shared?.has(x.id) && x.confirmedReference && normRef(x.confirmedReference) === normRef(ref));
+  // Misma persona: casi siempre un solo QR por varias renovaciones (renovarVarias.ts → «Aprobar juntos»).
+  if (reused && (reused.payerId ?? reused.customerId) === (o.payerId ?? o.customerId)) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id} de la misma persona. Si pagó todo junto con un solo QR, usá «Aprobar juntos» con el total que llegó.`);
   if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
   // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
   if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
@@ -367,6 +375,9 @@ function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
   e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
   fulfill(e, actor, o);
 }
+
+/** Aprobar dentro de un grupo pagado con un solo comprobante (renovarVarias.approveGroup): la referencia se comparte. */
+export const settleShared = (e: Engine, actor: Actor, o: Order, ref: string, shared: Set<Id>): void => settle(e, actor, o, ref, shared);
 
 export interface ApproveInput {
   confirmedReference: string;
@@ -403,7 +414,10 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: Appr
     // lo revise y diga por qué es otro pago (por ejemplo, un comprobante por dos pedidos).
     const dup = duplicateStillCounts(e, o);
     if (dup) {
-      if (!input.force) throw new DomainError("DUPLICATE_EVIDENCE", `Este comprobante ya se usó en el pedido ${dup.id}. Revisá los dos; si de verdad es otro pago, el dueño puede aprobarlo igual diciendo por qué.`);
+      const same = (dup.payerId ?? dup.customerId) === (o.payerId ?? o.customerId);
+      if (!input.force) throw new DomainError("DUPLICATE_EVIDENCE", same
+        ? `Este comprobante ya se usó en el pedido ${dup.id} de la misma persona. Si pagó todo junto con un solo QR, usá «Aprobar juntos» con el total que llegó.`
+        : `Este comprobante ya se usó en el pedido ${dup.id}. Revisá los dos; si de verdad es otro pago, el dueño puede aprobarlo igual diciendo por qué.`);
       if (actor.role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño puede aprobar un comprobante repetido");
       const why = String(input.forceReason ?? "").trim();
       if (why.length < 4) throw new DomainError("VALIDATION", "Decí por qué es un pago distinto (queda en la auditoría)");
@@ -583,7 +597,8 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       const via = actor.customerId === a.customerId ? resellerOf(e, a.customerId) : undefined;
       if (via) throw new DomainError("FORBIDDEN", `Este servicio lo renueva tu revendedor: escribile a ${via.shop?.title || via.name}`);
       const prod = e.s.products[a.productId];
-      if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+      // Independiente: sus propios alquileres de la tienda sí, si el dueño no se lo apagó (renovarVarias.ts).
+      if (!prod || !(visibleTo(e, prod, payerFor(e, actor, a.customerId)) || ownStoreRenewOk(e, actor.customerId, a))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }
     const payerId = payerFor(e, actor, a.customerId);
     // El staff anota a mano (efectivo o saldo): si ya hay un cobro en este período, pide confirmar que es otro mes.
@@ -696,25 +711,10 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
  * Transfiere un servicio activo a otro cliente (mismo perfil, misma fecha de vencimiento).
  * Útil cuando el perfil lo usa otra persona o se cargó al cliente equivocado.
  */
-export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, toCustomerId: Id, reason: string): Assignment {
-  authorize(actor, "assignment.replace");
-  if (!reason?.trim()) throw new DomainError("VALIDATION", "Indicá el motivo de la transferencia");
-  return e.tx(() => {
-    const a = e.get("assignments", assignmentId);
-    if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se transfieren servicios activos");
-    const to = e.get("customers", toCustomerId);
-    if (to.id === a.customerId) throw new DomainError("VALIDATION", "El servicio ya es de ese cliente");
-    const from = e.s.customers[a.customerId];
-    // El cuaderno del revendedor (a quién le dio cada perfil) y su control son del dueño anterior:
-    // no viajan con la cuenta, así el nuevo dueño nunca ve los clientes de otro revendedor.
-    const dropped = a.subs?.length ?? 0;
-    delete a.subs; delete a.rcontrol;
-    a.customerId = to.id;
-    a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
-    queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
-    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason, ...(dropped ? { subsDropped: dropped } : {}) });
-    return pubAssignment(a);
-  });
+export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, toCustomerId: Id, reason: string, opts: { moveCharge?: boolean } = {}): Assignment {
+  // «Pasar a otro» (traspaso.ts, 14/11/2026): el Control arranca de cero para el nuevo, la deuda queda del anterior y
+  // la libreta del anterior se guarda (vuelve si la cuenta vuelve a él). «Fue un error» lleva también el cobro.
+  return transferWithBooks(e, actor, assignmentId, toCustomerId, reason, opts);
 }
 
 /** Cuenta caída: mueve a todos sus clientes a otras cuentas y la retira si quedó vacía. */
@@ -795,6 +795,8 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       if (a.status !== "active" || a.holdOpen) continue;
       // Una prueba gratis vence sin período de gracia y deja el perfil libre (no hubo problema).
       if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
+      // Ya mandó el comprobante de la renovación y está por revisarse: no se corta algo pagado (avisoAlquiler.ts).
+      if (paidInReview(e, a)) continue;
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
       e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";

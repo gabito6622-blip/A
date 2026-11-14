@@ -1216,3 +1216,13 @@ input[type=color]{min-width:44px;min-height:44px}
 /* 14/11/2026: botones que medían menos de 44 px (revisión del revendedor). */
 #tour .tour-x{min-width:44px;min-height:44px;display:grid;place-items:center;margin:-10px -10px -10px 0}
 details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+/* GaboHub · un mes entero (14/11/2026): cartel antes del corte, renovar varias juntas y ganancia real (hub-mes.js) */
+.rmalert .rmline{color:var(--s-ink);font-size:14px}
+.rmbox summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rmlist{display:grid;gap:6px}
+.rmrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-height:44px;padding:6px 10px;border:1px solid var(--s-line);border-radius:12px}
+.rmrow input{width:22px;height:22px;margin:0}
+.rmrow span{display:grid;min-width:0}.rmrow small{font-size:12px;overflow-wrap:anywhere}
+.rmtot{font-size:14px}
+.rmqrimg{width:min(220px,100%);height:auto;border-radius:12px;background:#fff;padding:8px;justify-self:start}
+.rmqr label{display:grid;gap:4px;font-size:14px}
