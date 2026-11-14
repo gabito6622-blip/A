@@ -4,6 +4,7 @@
 // ni la contraseña. Si no aplica, le dice que se lo pida a quien le vendió.
 // cobro.js solo llama a codesCard(v); los eventos y la búsqueda están acá.
 import { waDigits } from "/common.js";
+import { kindHelp } from "/codigos-ayuda.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[href="/cobro-codigos.css"]')) {
   const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/cobro-codigos.css"; document.head.append(l);
@@ -42,7 +43,7 @@ function list(j) {
   if (!j.codes.length) {
     return `<p class="cc-empty">Todavía no llegó ningún código en los últimos 30 minutos.<br>Pedilo en la app, esperá un minuto y tocá <b>Buscar de nuevo</b>.</p>`;
   }
-  return j.codes.map((c) => `<div class="cc-code"><small>${esc(c.from)} · ${ago(c.at, j.now)} (${hhmm(c.at)})</small><span class="cc-kind">${KIND[c.kind] ?? KIND.otro}</span>
+  return j.codes.map((c) => `<div class="cc-code"><small>${esc(c.from)} · ${ago(c.at, j.now)} (${hhmm(c.at)})</small><span class="cc-kind">${KIND[c.kind] ?? KIND.otro}</span>${kindHelp(c.kind)}
     ${c.code ? `<b class="cc-num">${esc(c.code)}</b><button class="btn btn-ghost" type="button" data-cccopy="${esc(c.code.replace(/\D/g, ""))}">📋 Copiar código</button>` : ""}
     ${c.link ? `<a class="btn btn-ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">🔗 Abrir el enlace de ${esc(c.from)}</a>` : ""}</div>`).join("");
 }

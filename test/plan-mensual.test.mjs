@@ -157,11 +157,11 @@ describe("plan mensual y combos del cliente de la tienda", () => {
     assert.equal(pv.until, T0 + 60 * D, "todos hasta un mes después del que vence primero");
     const by = Object.fromEntries(pv.rows.map((r) => [r.product, r]));
     assert.deepEqual([by.Netflix.days, by["Disney+"].days, by.Spotify.days], [30, 20, 10]);
-    assert.deepEqual([by.Netflix.price, by["Disney+"].price, by.Spotify.price], [3500, 2000, 667], "proporcional al centavo");
+    assert.deepEqual([by.Netflix.price, by["Disney+"].price, by.Spotify.price], [3500, 2000, 666], "proporcional, redondeado hacia abajo al centavo");
     const b0 = bal(dani);
     const r = await call("POST", "/api/me/renew-all", { ids, align: true, plan: true, paymentMethod: "balance", idempotencyKey: "al1" }, "dani");
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.equal(b0 - bal(dani), 6167);
+    assert.equal(b0 - bal(dani), 6166);
     assert.ok(ids.every((id) => exp(id) === T0 + 60 * D), "mismo día para los tres");
     const v = (await call("GET", "/api/me/plan", null, "dani")).json;
     assert.equal(v.plan.aligned, true);

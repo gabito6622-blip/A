@@ -9,8 +9,8 @@
 //     Nunca se inventa un descuento: si el combo ya no existe o no está publicado, no hay descuento.
 //  3. «Plan mensual» (sin cobro automático: no hay tarjetas, nada se cobra solo): «Quiero un solo día de pago» empareja
 //     las fechas al renovar todo junto. Todos pasan a vencer el mismo día: el que vence primero se renueva un mes entero y
-//     los demás SOLO los días que faltan hasta ese día, con el precio proporcional (al centavo, sin días de regalo ni
-//     cobros de más). Se muestra antes de confirmar. Después, cada mes, «Pagar este mes» renueva todo junto.
+//     los demás SOLO los días que faltan hasta ese día, con el precio proporcional (redondeado hacia abajo al centavo:
+//     ni días de regalo ni un centavo de más). Se muestra antes de confirmar. Después, cada mes, «Pagar este mes» renueva todo junto.
 // El precio lo decide siempre el servidor (`renewPriceFor` y los combos de hoy); el cliente solo manda qué servicios.
 import type { Actor, Assignment, Cents, Customer, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
@@ -200,7 +200,7 @@ export function renewAllPreview(e: Engine, actor: Actor, raw: { ids?: unknown; a
       const frac = (until - r.from) / (d * DAY);
       r.to = until;
       r.days = Math.round(((until - r.from) / DAY) * 10) / 10;
-      r.price = Math.round((r.list - r.discount) * frac);
+      r.price = Math.floor((r.list - r.discount) * frac + 1e-9); // hacia abajo: nunca un centavo de más
       r.discount = Math.round(r.discount * frac);
     }
   }
@@ -286,7 +286,8 @@ export function planView(e: Engine, actor: Actor) {
     const q = quote(g.members.map((a) => a.id), false);
     return { id: g.id, name: g.name, ids: g.members.map((a) => a.id), discount: groupDiscount(e, me.id, g), total: q?.total ?? null, ok: !!q?.ok };
   });
-  const members = (me.plan?.ids ?? []).map((id) => e.s.assignments[id]).filter((a): a is Assignment => !!a && a.customerId === me.id && a.status === "active");
+  const members = (me.plan?.ids ?? []).map((id) => e.s.assignments[id]).filter((a): a is Assignment => !!a && a.customerId === me.id && a.status === "active")
+    .sort((x, y) => nameOf(e, x.productId).localeCompare(nameOf(e, y.productId)));
   let plan = null;
   if (members.length) {
     const aligned = new Set(members.map((a) => laDay(a.customerExpiresAt))).size === 1;

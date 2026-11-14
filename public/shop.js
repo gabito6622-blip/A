@@ -22,6 +22,10 @@ import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
 import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent } from "/catalogo-claro.js";
+import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
+import { fallasHelp, faqExtra, recoverHtml, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
+import { initA11y, a11yView } from "/a11y-tienda.js";
+import { kindHelp } from "/codigos-ayuda.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -217,7 +221,7 @@ async function loadPrivate() {
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "seguridad") S.data.sec = await api("GET", "/api/me/security").catch(() => null);
-  if (S.view === "cuentas" && MODE === "store" && !isReseller()) await loadAlertsCard(); // 🔔 avisos antes de que venza
+  if (S.view === "cuentas" && MODE === "store" && !isReseller()) await Promise.all([loadAlertsCard(), loadPlan()]); // 🔔 avisos antes de que venza; plan y combos
   if (S.view === "fallas") S.data.tickets = await api("GET", "/api/me/tickets").catch(() => ({ kinds: {}, list: [] }));
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
@@ -309,7 +313,7 @@ function availBar() {
 }
 /* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
 const FAQ_DEFAULT = [
-  ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Avisanos dentro de las 24 h desde Mis cuentas → ⚠️ Reportar falla y seguí el estado ahí mismo."],
+  ["¿Qué pasa si la cuenta deja de funcionar?", `La reponemos sin costo dentro de tu período. Avisanos dentro de las 24 h: ${REPORT_WHERE} Seguí el estado en Mis cuentas.`],
   ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
   ["¿Cómo pago?", "Con QR y comprobante, o coordinando por WhatsApp. Te activamos y te avisamos cuando esté listo."],
   ["¿Es seguro comprar acá?", "Sí. Te entregamos tus accesos y te damos soporte por WhatsApp si algo falla."],
@@ -319,7 +323,7 @@ function faqSection() {
   const custom = (S.settings.faq ?? []).filter((f) => f && f.q && f.a);
   const list = SLUG ? rshopFaq(S.settings) : custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
   return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
-    <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
+    <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(faqExtra(a))}</p></details>`).join("")}</div>
     ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
 }
 /* Asesor: encontrá tu combo ideal por presupuesto y cantidad de plataformas. */
@@ -555,6 +559,8 @@ function render() {
   const tabOn = $('.rtabs [aria-selected="true"]');
   if (tabOn) tabOn.parentElement.scrollLeft = Math.max(0, tabOn.offsetLeft - 24); // la pestaña elegida siempre a la vista
   codesAutoRefresh();
+  a11yView(S.view); // lector de pantalla: foco al título y aviso al cambiar de pantalla (a11y-tienda.js)
+  if (S.view === "cuentas") planAfterRender();
   return r;
 }
 // La bandeja de «Códigos» se refresca sola cada 10 s mientras está a la vista (como la página pública del link de
@@ -632,8 +638,9 @@ function renderInner() {
     renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${isReseller() ? rentAlertBanner() + accChangesBanner() : ""}
-      ${pendingOrders(isReseller() ? qrBoxIds() : null)}
-      ${isReseller() ? renewManyBox(services) : ""}
+      ${MODE === "store" && !isReseller() ? planCard() + planQrBox() : ""}
+      ${pendingOrders(isReseller() ? qrBoxIds() : planQrIds())}
+      ${isReseller() ? renewManyBox(services) : MODE === "store" ? renewAllBox(services) : ""}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
         const semana = services.filter((a) => a.daysLeft >= 1 && a.daysLeft <= 7).length;
@@ -653,15 +660,15 @@ function renderInner() {
         const d = a.daysLeft;
         // Con muchos servicios (revendedores) los datos van plegados: la lista entra en pocas pantallas.
         const fold = isReseller() || services.length > 5;
-        return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
+        return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b>${MODE === "store" && !isReseller() ? svcTags(a) : ""}<br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
-          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice })
+          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }, isReseller() ? {} : { client: true, daysLeft: a.daysLeft })
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
-          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
+          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button>${MODE === "store" && !isReseller() ? svcComboNote(a) : ""}</div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       ${MODE === "store" && !isReseller() ? alertsCard() : ""}
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><span class="spill ${o.status === "fulfilled" ? "sp-ok" : o.status === "payment_review" ? "sp-warn" : o.status === "rejected" ? "sp-bad" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></span>${o.status === "rejected" ? `<small class="empty rej" style="grid-column:1/-1;flex-basis:100%">❌ ${o.rejectReason ? `Motivo: ${esc(o.rejectReason)}. ` : ""}Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp.</small>` : ""}</div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
@@ -675,7 +682,7 @@ function renderInner() {
           <div class="rbtns"><a class="sbtn sm pri" href="${waLink("", `Mirá tu código acá 👇 ${S.data.codeLink.mode === "pin" ? "Entrá con el PIN que te pasé:" : "Escribí el correo de tu cuenta:"}\n${S.data.codeLink.url}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a>${S.data.codeLink.mode === "pin" ? `<button class="sbtn sm" type="button" data-makecodelink="1">Quitar PIN (modo correo)</button>` : ""}</div>
           <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end;margin-top:8px"><label>🔒 ${S.data.codeLink.mode === "pin" ? "Cambiar el PIN" : "Proteger con un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn pri" type="submit">Poner PIN</button></form>`
           : `<button class="sbtn pri" type="button" data-makecodelink="1" style="justify-self:start">Crear mi link de códigos</button>`}</div>` : ""}
-      <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small></div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
+      <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small>${kindHelp(c.kind)}</div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
@@ -725,6 +732,9 @@ initPropiasPlata({ render: () => render(), store: () => myStore() });
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+planInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+initClienteAyuda({ settings: () => S.settings });
+initA11y();
 // Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
 cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
 async function loadRTab(tab) {
@@ -958,6 +968,7 @@ function fallasView() {
   const accLines = (x) => [`Correo: ${x.email}`, `Contraseña: ${x.password}`, `Perfil: ${x.profile}`, ...(x.pin ? [`PIN: ${x.pin}`] : [])].join("\n");
   const okMsg = (t) => { const x = newAcc(t); return `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}${x ? `\nTus datos nuevos:\n${accLines(x)}\nEntrá con estos datos y cualquier cosa me avisás 🙌` : "\nProbá entrar de nuevo y cualquier cosa me avisás 🙌"}${myStore() ? `\n— ${myStore()}` : ""}`; };
   return `<div class="sec-h"><div><span class="chip">Soporte</span><h2>⚠️ Reportar una falla</h2><p>Contanos qué pasa y seguí el estado acá: <b>Recibido → Revisando → Solucionado</b>. Si activaste los avisos, te llega al celular cuando cambia.</p></div></div>
+    ${fallasHelp(T.hours, S.settings)}
     <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${isReseller() ? `${esc(a.customerName)} · ` : ""}${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
       <label>¿Qué pasa?<select name="kind">${Object.entries(T.kinds).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
       <label>Detalle (opcional)<textarea name="note" maxlength="300" rows="2" placeholder="Ej.: dice contraseña incorrecta desde hoy a la mañana"></textarea></label>
@@ -2262,10 +2273,11 @@ function openLogin(step, phone = "", msg = "", email = "") {
       <label>Tu PIN (4 números)<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" class="pinbox" placeholder="••••"></label>
       <button class="sbtn pri" type="submit">Entrar</button>
       ${ccLoginAlt()}`,
-    phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
+    phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button><button class="sbtn" type="button" data-loginstep="recover">Cambié de número / no me llega</button>`,
+    recover: recoverHtml(st, phone, pinGiver(st)),
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label>${ccConsent()}<button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a ${pinGiver(st)} para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
+    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${recoverHtml(st, phone, pinGiver(st))}`,
   }[step];
   markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
@@ -2555,6 +2567,7 @@ document.addEventListener("click", async (ev) => {
     const show = m.textContent === "••••••••";
     m.textContent = show ? m.dataset.pw : "••••••••";
     el.textContent = show ? "Ocultar" : "Ver";
+    el.setAttribute("aria-label", show ? "Ocultar contraseña" : "Ver contraseña");
     return;
   }
   if (d.mf) { S.data.mf = d.mf; return render(); }

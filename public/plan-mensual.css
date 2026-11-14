@@ -1,0 +1,32 @@
+/* Mis cuentas del cliente de la tienda: plan mensual, renovar todo junto y combos (plan-mensual.js). */
+.plancard{border-color:color-mix(in srgb,var(--s-blue) 45%,var(--s-line))}
+.plancard h2{font-size:18px;margin:0;overflow-wrap:anywhere}
+.planline{margin:0;font-size:16px}
+.plancard .hrow,.rabox .hrow{display:flex;gap:8px;flex-wrap:wrap}
+.plancard .sbtn,.rabox .sbtn,.combostrip .sbtn,.combonote .sbtn,.rmqr .sbtn{min-height:44px;white-space:normal;text-align:center}
+.combostrip{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.combostrip span{display:grid;gap:2px;min-width:0}
+.combostrip small{font-size:13px}
+.combonote{display:block;font-size:13px;color:var(--s-muted);flex-basis:100%}
+.combonote .sbtn{margin-top:6px}
+.raalign,.rabox .chk{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;min-height:44px;padding:6px 0;font-size:15px}
+.raalign input,.rabox .chk input{width:22px;height:22px;margin:2px 0 0}
+.raalign small{flex-basis:100%;font-size:13px}
+.ralist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ralist li{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;min-height:44px;padding:6px 10px;border:1px solid var(--s-line);border-radius:12px}
+.ralist li.bad{border-color:color-mix(in srgb,var(--s-warn) 60%,var(--s-line))}
+.ralist li span{display:grid;gap:2px;min-width:0}
+.ralist li small{font-size:13px;color:var(--s-muted);overflow-wrap:anywhere}
+.raprice{text-align:right;white-space:nowrap}
+.raprice s{color:var(--s-muted);font-size:13px}
+.rahint{margin:0;font-size:14px}
+.ratot{margin:0;font-size:16px}
+.fallapill{white-space:normal}
+#raqr label{display:grid;gap:4px;font-size:14px}
+#raqr input:not([type=file]){min-height:44px;background:var(--s-bg);color:inherit;border:1px solid var(--s-line);border-radius:12px;padding:11px 12px;font-size:16px;width:100%;min-width:0}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.fhelp{display:grid;gap:8px}
+.fhelp p{margin:0}
+.fhelp .sbtn{min-height:44px;justify-self:start;white-space:normal}
+.khelp{display:block;font-size:13px;margin-top:4px;color:var(--s-ink)}
+.ralist .spill{justify-self:start}
