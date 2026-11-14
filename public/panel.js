@@ -79,7 +79,12 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   const pin = pinIn ?? (await api("POST", `/api/admin/customers/${id}/login-pin`, {})).pin;
   const plat = P.settings?.platformName || "GaboHub";
   const page = slug ? shopLink(slug) : "";
-  const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n👉 Entrá acá: ${location.origin}/hub\n📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAhí ves tus precios, comprás con saldo o QR, y ves tus cuentas y códigos.`;
+  // Link de un toque (14/11/2026): casi ningún revendedor entraba con «link + número + PIN». Este link lo deja
+  // adentro directo (sirve 1 vez, por 24 h); el número y el PIN quedan para las próximas veces.
+  const one = await api("POST", `/api/admin/customers/${id}/login-link`, {}).then((r) => r.url).catch(() => "");
+  const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n`
+    + (one ? `👉 *Tocá acá y entrás directo* (sin escribir nada):\n${one}\n\nLas próximas veces entrás en ${location.origin}/hub con:\n` : `👉 Entrá acá: ${location.origin}/hub\n`)
+    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 💬 Hablar con nosotros.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
     : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
@@ -94,10 +99,12 @@ function guideMsg(name, plat, origin, slug, pageAllowed) {
     + `*1) Cómo entrar*\n`
     + `• Entrá a: ${origin}/hub\n`
     + `• Poné tu *número* y tu *PIN* (o tu correo y contraseña si te la diste).\n\n`
-    + `*2) Qué vas a ver*\n`
-    + `• 💲 *Precios*: comprás cuentas con tu saldo o por QR. Apenas pagás, te llega la cuenta.\n`
-    + `• 📦 *Mis cuentas*: todo lo que compraste, con sus vencimientos.\n`
-    + `• 👥 *Mis clientes*: cargás a quién le revendés y le mandás el aviso por WhatsApp con un toque.\n`
+    + `*2) Los 4 botones grandes* (lo de todos los días)\n`
+    + `• 📺 *Mis cuentas*: tus accesos con correo, clave y vencimiento. «📋 Copiar datos» y se los pegás a tu cliente.\n`
+    + `• 🔑 *Sacar código*: cuando Disney, Netflix o HBO piden código, te aparece ahí solo.\n`
+    + `• 💳 *Renovar*: lo que vence esta semana o ya venció, para renovarlo con saldo o QR.\n`
+    + `• 💬 *Hablar con nosotros*: un toque y nos escribís.\n`
+    + `• Más abajo: 🛒 *Comprar*, 💰 *Saldo* y 👥 *Mis clientes*. Lo demás está en «🧰 Todas mis herramientas».\n`
     + (page
         ? `• 🛍️ *Mi página*: tu tienda propia para tus clientes.\n\n`
           + `*3) Armá tu página*\n`
@@ -1473,7 +1480,13 @@ const V = {
           ${cg.phone ? `<a class="pbtn green" href="${waLink(cg.phone, cobMsg(cg))}" target="_blank" rel="noopener" data-cobsent="${esc(cg.id)}">${icon("wa")}Mandar por WhatsApp${cob.sent[cg.id] ? " ✅" : ""}</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
           <div class="inline"><button class="pbtn sm" type="button" data-cob="next">Siguiente ▶</button><button class="pbtn sm" type="button" data-cob="stop">Terminar</button></div></div>`
       : `<p style="margin:0">✅ ¡Listo! Les avisaste a ${Object.keys(cob.sent).length} de ${groups.length}.</p><button class="pbtn sm" type="button" data-cob="stop" style="justify-self:start">Cerrar</button>`}</section>` : "";
-    return `${cobCard}${inviteCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
+    // «🔗 Link para entrar» (14/11/2026): link de un toque sin cambiar el PIN; el dueño lo abre en WhatsApp y lo manda.
+    const one = P.tab.rone;
+    const oneCard = one ? `<section class="card ok-card" id="ronecard"><h2>🔗 Link para entrar listo: ${esc(one.name)}</h2>
+      <p class="muted" style="margin:0">Entra directo, sin número ni PIN. Sirve <b>una sola vez</b> y por <b>24 horas</b>; su PIN no cambió.</p>
+      <div class="linkbar"><span class="muted">Link</span><b>${esc(one.url)}</b><button class="pbtn sm" type="button" data-copy="${esc(one.url)}">${icon("copy")}Copiar</button></div>
+      <div class="inline"><a class="pbtn green" href="${waLink(one.phone, one.msg)}" target="_blank" rel="noopener">${icon("wa")}Abrir WhatsApp con el mensaje</a><button class="pbtn sm" type="button" data-roneclose="1">Listo</button></div></section>` : "";
+    return `${cobCard}${inviteCard}${oneCard}${sentCard}${ficha}${bulk}<section class="card ${set.resellerShops ? "ok-card" : ""}"><h2>🏪 Páginas de revendedores: ${set.resellerShops ? "ACTIVADAS ✅" : "APAGADAS ⛔"}</h2>
       <p class="muted" style="margin:0">Para que un revendedor tenga y publique su página hacen falta <b>2 pasos</b>: (1) este interruptor general encendido, y (2) en su tarjeta, tocar <b>✦ Habilitar página</b>. Si está apagado acá, sale el cartel de "no habilitado".</p>
       ${isOwner() ? `<button class="pbtn ${set.resellerShops ? "" : "dark"}" type="button" data-togshops="${set.resellerShops ? "0" : "1"}" style="justify-self:start">${set.resellerShops ? "Apagar páginas de revendedores" : "✅ Activar páginas de revendedores"}</button>` : `<p class="muted" style="margin:0">Solo el dueño puede cambiar esto.</p>`}
       <div class="inline" style="flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><span><b>🛒 Qué compran tus revendedores:</b> ${set.resellerOnlyCatalog ? "solo los productos <b>solo revendedores</b> (tus alquileres)" : "todo el catálogo + los productos solo revendedores"}</span>
@@ -1512,6 +1525,7 @@ const V = {
         ${rent?.scope === "all" ? `<label class="chk rplan">Plan GaboHub <select data-hubplan="${esc(r.id)}" aria-label="Plan de ${esc(r.name)}"><option value="business" ${r.plan === "business" ? "selected" : ""}>Negocio · ${bs(rent.price)}</option><option value="seller" ${r.plan === "seller" ? "selected" : ""}>Vendedor · ${bs(rent.sellerPrice ?? rent.basicPrice ?? rent.price)}</option><option value="free" ${r.plan === "free" ? "selected" : ""}>Gratis · ${bs(0)}</option></select>${r.shop?.trial ? pill("🎁 en prueba", "ok") : r.planToday && r.planToday !== r.plan ? pill(`hoy ${r.planToday === "free" ? "Gratis (sin pagar)" : r.planToday === "business" ? "Negocio" : "Vendedor"}`, "warn") : ""}</label>` : r.shop?.trial ? pill("🎁 en prueba", "ok") : ""}
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="${esc(shopLink(r.shop.slug, o))}" target="_blank" rel="noopener">${esc(shopLink(r.shop.slug, o).replace(/^https?:\/\//, ""))}</a><button class="pbtn sm" type="button" data-copy="${esc(shopLink(r.shop.slug, o))}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
+          ${canReview() && r.phone ? `<button class="pbtn sm green" type="button" data-rone="${esc(r.id)}">🔗 Link para entrar</button>` : ""}
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
           ${!canReview() ? "" : r.pageAllowed
@@ -2739,6 +2753,18 @@ document.addEventListener("click", async (ev) => {
       const msg = `🔗 ${r.name.split(" ")[0]}, este es tu link para ver los códigos de tus cuentas:\n${k.url}\n\nTus clientes solo escriben el correo de su cuenta y ven su código al toque (sin PIN). Pasáselo a cada cliente.`;
       P.tab.rlink = { name: r.name, phone: r.phone, url: k.url, page: "Sin PIN: cada cliente escribe su correo", msg, code: true };
       await render(); scrollTo(0, 0);
+    } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.roneclose) { P.tab.rone = null; return render(); }
+  if (d.rone) {
+    const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rone);
+    if (!r) return toast("No encontré a ese revendedor");
+    try {
+      const { url } = await api("POST", `/api/admin/customers/${r.id}/login-link`, {});
+      const msg = `¡Hola ${r.name.split("·").pop().trim().split(" ")[0]}! 👋 Te dejo tu acceso a ${P.settings?.platformName || "GaboHub"}.\n\n👉 *Tocá acá y entrás directo* (sin escribir nada):\n${url}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 💬 Hablar con nosotros.\n\n(El link sirve una vez. Después entrás en ${location.origin}/hub con tu número y tu PIN.)`;
+      P.tab.rone = { name: r.name, phone: r.phone, url, msg };
+      await render(); scrollTo(0, 0); $("#ronecard")?.scrollIntoView({ block: "start" });
     } catch (e) { toast(e.message); }
     return;
   }

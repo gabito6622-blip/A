@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 14/11/2026 · GaboHub simple (rama `hub-simple`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Uso real (solo lectura): 25 revendedores, 22 con cuentas, 9 con PIN, 2 entraron alguna vez, 1 anotó clientes, 0 compras desde el panel en 30 días | API con la llave del asistente | anotado |
+| Inicio 360 px: 4 botones grandes en orden, «2 cuentas» por renovar, WhatsApp de la tienda, botones ≥ 44 px, sin scroll de costado; herramientas plegadas (PIN y Mi control no se ven hasta abrir) | `test/hub-inicio-simple.test.mjs`, Playwright, datos ficticios | pasa |
+| «💳 Renovar» abre Mis cuentas con el filtro «Vencidas» | ídem | pasa |
+| Dueño: «🔗 Link para entrar» arma el link `/hub#acceso=…` y el WhatsApp «Tocá acá y entrás directo»; el link deja adentro en otro navegador y el PIN de antes sigue sirviendo | ídem | pasa |
+| Paraguay y Panamá siguen viendo su moneda arriba; Bolivia la ve en «Todas mis herramientas» | `test/afuera-completo.test.mjs` (ajustada) | pasa |
+| Capturas antes/después (390 px, datos de ejemplo): alto del inicio 3.025 px → 1.243 px | Playwright | revisadas |
+| Suite completa | `npm test` | **603 pasan, 0 fallan, 68 s** |
+
 ## 14/11/2026 · GaboHub: «Cerrar sesión» en «Más» (publicado el 14/11, PR #63)
 | Qué | Cómo | Resultado |
 |---|---|---|

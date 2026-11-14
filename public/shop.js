@@ -1438,6 +1438,8 @@ function hubInventario() {
 }
 
 /* ---------------- Inicio del revendedor (botones grandes) ---------------- */
+// «Todas mis herramientas» queda abierto o cerrado como lo dejó (mientras no recargue la página).
+document.addEventListener("toggle", (ev) => { if (ev.target?.classList?.contains("hmore")) S.data.hmoreOpen = ev.target.open; }, true);
 function resellerHome() {
   if (S.data.wiz) return wizardView();
   const sh = S.data.shop, sv = S.data.services ?? [], me = S.me;
@@ -1484,20 +1486,43 @@ function resellerHome() {
   const setupR = rpasos.length && rhechos < rpasos.length ? `<section class="sbox setupr"><b>🚀 Primeros pasos · ${rhechos} de ${rpasos.length}</b>
     <div class="pgbar"><i style="width:${Math.round(rhechos / rpasos.length * 100)}%"></i></div>
     <div class="pasos">${rpasos.map(([t, done, go, b], n) => `<div class="paso ${done ? "done" : ""}"><span class="pnum">${done ? "✓" : n + 1}</span><b>${esc(t)}</b>${done ? `<span class="pdone">Listo ✓</span>` : `<button class="sbtn sm pri" type="button" ${go === "gopage" ? `data-gopage="1"` : go === "wiz" ? `data-wiz="1"` : `data-s="${go}"`}>${esc(b)}</button>`}</div>`).join("")}</div></section>` : "";
-  return `<section class="hhead"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué querés hacer hoy?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
-    ${isReseller() ? todayCard() : ""}
-    ${isReseller() ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
+  // Inicio simple (14/11/2026): el dueño contó que los revendedores «ven demasiadas cosas a la vez» y casi nadie entraba.
+  // Arriba, solo lo de todos los días: 4 botones grandes (cuentas, código, renovar, hablar con la tienda) y lo urgente.
+  // Nada se quitó: todo lo demás está en «🧰 Todas mis herramientas» (abajo, plegado) y en «Más».
+  const urgentRent = rentBox.includes('class="hbox');
+  const waStore = S.settings.whatsapp ? waLink(S.settings.whatsapp, `Hola, soy ${me.name.split(" ")[0]} (revendedor). `) : "";
+  const toRenew = venc + week;
+  const big = [
+    [`data-s="cuentas"`, "📺", "Mis cuentas", sv.length ? (toRenew ? `${sv.length} · ${toRenew} por renovar` : `${sv.length} al día`) : "Tus accesos"],
+    [`data-s="codigos"`, "🔑", "Sacar código", "Disney, Netflix, HBO"],
+    [`data-renewgo="${venc ? "bad" : "week"}"`, "💳", "Renovar", toRenew ? `${toRenew} ${toRenew === 1 ? "cuenta" : "cuentas"}` : "Nada por ahora ✓"],
+    [waStore ? `data-href="${esc(waStore)}"` : `data-s="fallas"`, "💬", waStore ? `Hablar con ${esc((S.storeName || "la tienda").split(" ")[0])}` : "Pedir ayuda", "Por WhatsApp"],
+  ];
+  const small = tiles.filter(([v]) => !["cuentas", "codigos"].includes(v));
+  // «Tu día» y «Mi país y moneda» arriba solo cuando le sirven: si anota clientes o cuentas propias, o si vende desde
+  // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
+  const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
+  const foreign = (myLocale()?.country ?? "BO") !== "BO";
+  return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+    <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
+    ${urgentRent ? rentBox : ""}
+    <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
+    ${isReseller() && usesDay ? todayCard() : ""}
+    ${isReseller() && foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
+    <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>Mi página, Mi control, ganancias, afiches, mi PIN…</small></summary>
+    ${isReseller() && !usesDay ? todayCard() : ""}
+    ${isReseller() && !foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
     ${setupR}
-    ${venc || week || pend ? `<div class="hbox warn">${venc ? `<b>🔴 ${venc === 1 ? "1 cuenta vencida" : `${venc} cuentas vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago o revisión</b>` : ""}<div class="hrow">${isReseller() ? `<button class="sbtn pri" type="button" data-rtool="control">📣 Avisarles</button>` : ""}<button class="sbtn" type="button" data-s="cuentas">Ver mis cuentas</button></div></div>` : ""}
     ${canPage && sh && !sh.saved ? `<button class="hwiz" type="button" data-wiz="1"><span>✨</span><div><b>Armá tu página en 3 pasos</b><small>Nombre, qué vendés y listo. Te toma 2 minutos.</small></div>${icon("arrow")}</button>` : ""}
-    ${rentBox}
+    ${urgentRent ? "" : rentBox}
     ${isReseller() ? `<div class="sbox hquick"><b>🧾 Tu negocio, sin Excel</b><div class="hqrow">${[["dia", "☀️", "Mi día"], ["perfiles", "🧩", "Repartir perfiles"], ["control", "📊", "Mi control"], ["debe", "💸", "Quién me debe"], ["ganancias", "📈", "Mis ganancias"], ["afiches", "🖼️", "Afiches"], ["fallas", "⚠️", "Reportar falla"], ["codigos", "🔑", "Link de códigos"]].map(([k, e, t]) => `<button class="sbtn" type="button" ${k === "fallas" || k === "codigos" ? `data-s="${k}"` : `data-rtool="${k}"`}><span>${e}</span>${t}</button>`).join("")}${countryMenuBtn()}</div></div>` : ""}
-    <div class="htiles">${tiles.map(([v, e, t, d]) => `<button type="button" class="htile" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span>${e}</span><b>${t}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email && me.hasPassword ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ". Si querés, creá una contraseña para entrar también con tu correo"}.</p>
       <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
-      <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.hasPassword ? "Cambiar mi correo o contraseña" : "Crear mi contraseña"}</button></div>`;
+      <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.hasPassword ? "Cambiar mi correo o contraseña" : "Crear mi contraseña"}</button></div>
+    </details>`;
 }
 
 /* ---------------- Asistente: tu página en 3 pasos ---------------- */
@@ -1535,16 +1560,15 @@ function tourStepList() {
   const steps = [
     [".hhead .chip", `¡Bienvenido a ${plat}! 👋`, "Te muestro en 1 minuto para qué sirve cada botón. Tocá Siguiente."],
     [".hbal", "Tu saldo 💰", "Con tu saldo comprás cuentas. Cuando se te acabe, recargás y listo."],
-    ['.htiles [data-s="precios"]', "Comprar 🛒", "Elegí las cuentas que querés y pagá con tu saldo o por QR. Te llegan al instante."],
-    ['.htiles [data-s="cuentas"]', "Mis cuentas 📺", "Acá ves todo lo que compraste y cuándo vence cada cosa."],
-    ['.htiles [data-s="codigos"]', "Códigos 🔑", "Los códigos de Disney y otras apps te aparecen acá solos."],
+    ['.hsimple [data-s="cuentas"]', "Mis cuentas 📺", "Tus accesos con correo, clave y cuándo vence cada uno. «📋 Copiar datos» los deja listos para tu cliente."],
+    ['.hsimple [data-s="codigos"]', "Sacar código 🔑", "Cuando Disney, Netflix o HBO te piden un código, aparece acá solo. Sin escribirle a nadie."],
+    ['.hsimple [data-renewgo]', "Renovar 💳", "Te muestra lo que vence o ya venció, para renovarlo con tu saldo o por QR."],
+    ['.hsimple .htile:last-child', "Hablar con la tienda 💬", "Si algo no anda, un toque y nos escribís por WhatsApp."],
+    ['.hsmall [data-s="precios"]', "Comprar 🛒", "Elegí las cuentas que querés y pagá con tu saldo o por QR. Te llegan al instante."],
   ];
-  if (document.querySelector('.htiles [data-gopage], .htiles [data-wiz]'))
-    steps.push(['.htiles [data-gopage], .htiles [data-wiz]', "Mi página 🏪", "Tu tienda propia: ponele tu logo, tus colores y tus precios, y publicala para compartir."]);
   steps.push(
-    ['.htiles [data-s="recargas"]', "Recargar saldo 💵", "Cuando necesites saldo, pedí una recarga o pagá por QR en el momento."],
-    ['.htiles [data-s="clientes"]', "Mis clientes 👥", "Cargá a quién le revendés y mandales los datos por WhatsApp con un toque. Ahí también tenés Mi control, Quién me debe y Mis ganancias."],
-    ["#myPin", "Tu acceso 🔑", "Entrás con tu número y tu PIN. Acá lo podés cambiar cuando quieras."],
+    ['.hsmall [data-s="clientes"]', "Mis clientes 👥", "Si querés, anotá a quién le revendés y te avisamos cuándo cobrarles."],
+    [".hmore > summary", "Todas tus herramientas 🧰", "Mi página, Mi control, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites."],
   );
   // La barra de abajo (celular): Vender, Inventario y Más (GaboHub etapas 1 y 2).
   const bn = document.querySelector(".bnav");
@@ -2466,6 +2490,9 @@ document.addEventListener("click", async (ev) => {
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
   if (d.mf) { S.data.mf = d.mf; return render(); }
+  // Inicio simple: «💳 Renovar» abre Mis cuentas filtrada en lo que hay que renovar (vencidas primero).
+  if (d.renewgo) { S.data.mf = d.renewgo; S.data.mq = ""; return setView("cuentas"); }
+  if (d.href) return void window.open(d.href, "_blank", "noopener");
   if (d.rtab) {
     S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null;
     if (d.rtab === "cupones") S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];

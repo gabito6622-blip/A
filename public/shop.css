@@ -1182,3 +1182,27 @@ input[type=color]{min-width:44px;min-height:44px}
 .dl-it{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed #e5e7eb}.dl-pl{width:34px;height:34px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:#f3f4f6}.dl-pli{display:inline-grid;place-items:center;color:#fff;font-weight:800;font-style:normal;font-size:15px}.dl-it>span{flex:1}.dl-it:last-child{border-bottom:0}.dl-it span{display:grid;gap:1px;min-width:0}.dl-it small{color:#6b7280;font-size:12px}
 .dl-p{white-space:nowrap;color:#111827}.dl-prev.premium .dl-p{color:#b45309;font-size:16px}.dl-prev.clasico .dl-it b{font-size:18px}.dl-prev.clasico .dl-p{font-size:20px}
 .dl-promo{background:#fffbeb}.dl-foot{padding:12px 16px;background:#f9fafb;font-size:13px;color:#374151}.dl-foot small{color:#6b7280}.dl-empty{padding:16px;color:#6b7280;margin:0}
+/* Inicio simple del revendedor (14/11/2026): 4 botones grandes, una fila chica y el resto plegado. */
+.htiles.hsimple{grid-template-columns:repeat(2,1fr)}
+.hsimple .htile{padding:20px 10px;min-height:128px;align-content:center}
+.hsimple .htile span{font-size:38px}.hsimple .htile b{font-size:17px}.hsimple .htile small{font-size:13px}
+.hsmall{display:flex;flex-wrap:wrap;gap:8px}
+.hsmall .sbtn{min-height:44px;flex:1 1 100px;justify-content:center;gap:6px;padding-inline:10px}
+.hmore{padding:0}
+.hmore>summary{list-style:none;cursor:pointer;min-height:52px;padding:14px 16px;display:grid;gap:2px;font-weight:800;font-size:16px}
+.hmore>summary::-webkit-details-marker{display:none}
+.hmore>summary small{font-weight:500;font-size:13px;color:var(--s-muted)}
+.hmore>summary::after{content:"▾";position:absolute;right:16px;top:16px;font-size:16px;color:var(--s-muted)}
+.hmore{position:relative}.hmore[open]>summary::after{content:"▴"}
+.hmore[open]{display:grid;gap:14px;padding:0 12px 14px}
+.hmore[open]>summary{padding:14px 4px}
+@media (min-width:760px){.htiles.hsimple{grid-template-columns:repeat(4,1fr)}}
+/* Encabezado compacto del inicio simple: saludo y saldo en una fila, para que los 4 botones entren en la primera pantalla. */
+.hhead-s{flex-wrap:nowrap;align-items:flex-end}
+.hhead-s h2{font-size:22px}
+.hhead-s .hhead-r{flex-wrap:nowrap;gap:8px}
+.hhead-s .hbal{padding:6px 12px;border-radius:12px}.hhead-s .hbal b{font-size:18px}.hhead-s .hbal span{font-size:12px}
+.hhead-s [data-tour]{min-height:44px}
+.hnote{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:10px 14px}
+.hnote b{font-size:14px}.hnote .sbtn{margin-left:auto;min-height:44px}
+.hhead-s .hbal span,.hhead-s .hbal b{white-space:nowrap}

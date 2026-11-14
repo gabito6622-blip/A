@@ -265,7 +265,8 @@ describe("por la API y en el navegador", () => {
         assert.match(today, /Rosa, flujo03/);
         assert.ok(!/\bBs\b/.test(await page.locator("#sout").innerText()), "sin Bs en su Inicio");
         assert.ok(await noOverflow(page), "sin desborde (Paraguay, Inicio)");
-        // El menú "Tu negocio" lleva a la tarjeta.
+        // El menú "Tu negocio" lleva a la tarjeta (desde el 14/11 ese menú está en «Todas mis herramientas»).
+        await page.locator(".hmore > summary").click();
         await page.getByRole("button", { name: /Mi país y moneda/ }).click();
         assert.ok(await page.locator("#afCountry details").evaluate((d) => d.open));
         const h = await page.locator(".tday-own").evaluate((el) => el.getBoundingClientRect().height);
@@ -326,8 +327,9 @@ describe("por la API y en el navegador", () => {
         assert.deepEqual(page.errors, []);
         await page.close();
 
-        // Bolivia: una línea plegada, sin avisos de tipo de cambio.
+        // Bolivia: una línea plegada, sin avisos de tipo de cambio (desde el 14/11, dentro de «Todas mis herramientas»).
         page = await open("bo", "inicio");
+        await page.locator(".hmore > summary").click();
         await page.locator("#afCountry").waitFor();
         assert.ok(!(await page.locator("#afCountry").evaluate((d) => d.open)), "plegada");
         assert.ok(!/tipo de cambio/i.test(await page.locator(".hhead").innerText()));
