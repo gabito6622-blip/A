@@ -4,11 +4,12 @@
 // cuenta, monto, período y fecha nueva; y frena si ese período ya se cobró o si pasa la fecha del proveedor.
 import type { Actor, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
-import { authorize } from "./auth.js";
+import { authorize, can } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY, boDayStart } from "./time.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { extend, setRentalControl as setControl } from "./orders.js";
+import { supplierRenewHint, type SupplierRenewHint } from "./dia.js";
 
 /** Marca «sin fecha del proveedor» (cuentas cargadas sin vencimiento quedan muy a futuro). */
 const NO_DATE_AFTER = 50 * 365 * DAY;
@@ -31,6 +32,8 @@ export interface PayPreview {
   /** Avisos que no frenan. */
   warnings: string[];
   ok: boolean;
+  /** Si lo único que frena es la fecha del proveedor: cuánto y hasta cuándo renovarle para poder anotar (dia.ts). */
+  supplierRenew?: SupplierRenewHint;
 }
 
 export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { periods?: unknown } = {}): PayPreview {
@@ -50,12 +53,15 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
   const blockers: string[] = [], warnings: string[] = [];
   if (a.status !== "active") blockers.push("El servicio no está activo");
   if (!acc) blockers.push("La cuenta ya no existe");
-  else if (to > supplierExpiresAt) blockers.push(`La cuenta vence con el proveedor el ${fdate(supplierExpiresAt)}: la fecha nueva (${fdate(to)}) la pasaría. Renová primero con el proveedor o reemplazá el perfil.`);
+  const supplierBlocked = !!acc && to > supplierExpiresAt;
+  if (acc && supplierBlocked) blockers.push(`La cuenta vence con el proveedor el ${fdate(supplierExpiresAt)}: la fecha nueva (${fdate(to)}) la pasaría. Renová primero con el proveedor o reemplazá el perfil.`);
   // El mismo período ya se cobró (dos toques, o alguien lo marcó en el Control hace un rato).
   const periodFrom = a.customerExpiresAt;
   if (log.some((p) => p.from === periodFrom)) blockers.push(`Este período (desde el ${fdate(periodFrom)}) ya figura cobrado`);
   const last = log.length ? log[log.length - 1] : undefined;
   if (last && now - last.at < 10 * 60_000 && !blockers.length) blockers.push(`Se marcó un cobro hace ${Math.max(1, Math.round((now - last.at) / 60_000))} min: revisá antes de volver a cobrar`);
+  // «💳 Renovar proveedor y anotar» (14/11): solo si la fecha del proveedor es el único freno y quien mira puede anotar gastos de cuentas.
+  const supplierRenew = supplierBlocked && blockers.length === 1 && a.status === "active" && can(actor, "inventory.manage") ? supplierRenewHint(e, acc!, to) : undefined;
   if (!(price > 0)) warnings.push("No hay precio acordado ni de lista: el monto quedaría en Bs 0");
   if (supplierNoDate) warnings.push("La cuenta no tiene fecha del proveedor cargada");
   if (a.customerExpiresAt < now - 30 * DAY) warnings.push(`Venció hace ${Math.round((now - a.customerExpiresAt) / DAY)} días: el período nuevo arranca hoy, no desde el vencimiento viejo`);
@@ -67,7 +73,7 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
     price, ...(usd !== undefined ? { priceUsd: usd } : {}), currency: usd !== undefined ? "USD" : "BOB",
     periods, days, from, to, expiredDays: Math.max(0, Math.round((boDayStart(now) - boDayStart(a.customerExpiresAt)) / DAY)),
     supplierExpiresAt, supplierNoDate, payStatus: ctl.payStatus ?? null, lastPaidAt: last?.at ?? null,
-    blockers, warnings, ok: blockers.length === 0,
+    blockers, warnings, ok: blockers.length === 0, ...(supplierRenew ? { supplierRenew } : {}),
   };
 }
 

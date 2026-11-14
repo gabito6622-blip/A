@@ -34,6 +34,8 @@ import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
 import * as usd from "./usd.js";
 import * as secretary from "./secretary.js";
+import * as dia from "./dia.js";
+import * as diaCobro from "./diaCobro.js";
 import * as bulkAssign from "./bulkAssign.js";
 
 export * from "./types.js";
@@ -92,6 +94,14 @@ export function createStore(opts: EngineOptions = {}) {
     cobro: {
       preview: bind(e, cobro.payPreview),
       apply: bind(e, cobro.payApply),
+    },
+    /** Día a día (14/11): números del día, reactivar lo cortado por vencido y «Renovar proveedor y anotar». */
+    dia: {
+      numbers: bind(e, dia.todayNumbers),
+      reactivable: bind(e, diaCobro.reactivableList),
+      reactivatePreview: bind(e, diaCobro.reactivatePreview),
+      reactivate: bind(e, diaCobro.reactivate),
+      payWithSupplier: bind(e, diaCobro.payWithSupplier),
     },
     /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
     inventario: {

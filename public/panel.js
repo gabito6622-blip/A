@@ -12,6 +12,7 @@ import { initDescargas, descargasEnsure, descargasView, descargasClick, descarga
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
+import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint } from "/dia.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 
 // Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
@@ -506,11 +507,13 @@ const V = {
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Generar prueba</button>
       </form><div id="trialOut"></div>
       <p class="muted" style="margin:0">La prueba vence sola y <b>no cuenta como venta</b>. Se descuenta del stock mientras dure.</p></section>`;
-    return `${trialCard}<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
-      ${customers.length ? `<form class="form sellform" id="sellForm" data-key="${newKey()}">
+    // 14/11: «Prueba gratis» va debajo de «Nueva venta» (lo de todos los días primero) y el cliente se puede crear ahí mismo.
+    return `<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
+      ${`<form class="form sellform" id="sellForm" data-key="${newKey()}">
         <div class="sstep"><span class="sstepn">1</span><div class="sstepb">
           <label class="sstepl">👤 ¿A quién le vendés?</label>
-          <input name="customerName" list="custlist" autocomplete="off" value="${esc(P.tab.sellCustomer ?? "")}" placeholder="Escribí el nombre del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist>
+          <input name="customerName" list="custlist" autocomplete="off" value="${esc(P.tab.sellCustomer ?? "")}" placeholder="Nombre o número del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist>
+          <div id="sellNew" class="sellnew" hidden></div>
         </div></div>
         <input type="hidden" name="customerId" value="">
         <input type="hidden" name="productId" value="">
@@ -533,8 +536,8 @@ const V = {
         </details>
         <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
         <div id="sellSummary" class="sellsum" hidden></div>
-        <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
-      <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
+        <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>`}
+      <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>${trialCard}`;
   },
 
   async cupones() {
@@ -613,7 +616,6 @@ const V = {
     // Para cobros cuenta solo lo tuyo: a los clientes de tus revendedores les cobra el revendedor.
     const viaRes = (a) => !!a.resellerId && a.resellerId !== a.customerId;
     const list = all.filter((a) => !viaRes(a));
-    const deRev = all.filter(viaRes);
     const now = new Date();
     const dayStart = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
     const today = dayStart(now);
@@ -639,7 +641,12 @@ const V = {
     const weekAmount = week.reduce((x, w) => x + w.amount, 0);
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
-    const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
+    // 14/11: los números del día salen del servidor (dia.ts → todayNumbers), el MISMO cálculo que Mi secretaria.
+    // Si suman clientes de revendedores, se dice («tuyos · de revendedores») y el atajo abre el Control con todos.
+    const S0 = (n) => ({ mine: n, rev: 0, total: n });
+    const D = ini.dia ?? { hoy: S0(hoy.length), vencidos: S0(vencidos.length), espera: S0(espera.length), pronto: S0(pronto.length), sinPago: S0(sinPago.length), cobroFecha: S0(hoy.length + vencidos.length + espera.length), revisar: pend, total: hoy.length + vencidos.length + espera.length + pend + sinPago.length, rev: 0 };
+    const sum2 = (a, b) => ({ mine: a.mine + b.mine, rev: a.rev + b.rev, total: a.total + b.total });
+    const alert = (s, t, k, go) => { const n = typeof s === "number" ? s : s.total, sp = typeof s === "number" ? "" : splitTxt(s); return `<button type="button" class="hm-alert hm-${k}" data-hgo="${sp && go.endsWith(":mios") ? go.slice(0, -5) : go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span>${sp ? `<small class="hm-split">${sp}</small>` : ""}</button>`; };
     const aiInfo = ini.ai;
     // Revendedores que todavía no tienen PIN: un botón en Inicio arranca la fila de invitaciones.
     const sinPin = ini.sinPin ?? 0;
@@ -665,18 +672,19 @@ const V = {
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>` : "";
     // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
-    const hoyN = hoy.length + vencidos.length + espera.length + pend + sinPago.length;
-    const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy` : " · todo al día"}</span></button>` : "";
+    const hoyN = D.total;
+    const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy${D.rev ? ` <small>(${splitTxt(D)})</small>` : ""}` : " · todo al día"}</span></button>` : "";
     return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
-        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
+        <p>${D.cobroFecha.total ? `Hoy tenés <b>${D.cobroFecha.total}</b> pendiente(s) de cobro o fecha.${D.cobroFecha.rev ? ` <small>(${splitTxt(D.cobroFecha)}: a los de revendedores les avisás a ellos)</small>` : ""}` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       ${secBtn}
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
-        ${alert(hoy.length, "Vencen hoy", "today", "control:today:mios")}
-        ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold:mios" : "control:bad:mios")}
-        ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
-        ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
-        ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
+        ${alert(D.hoy, "Vencen hoy", "today", "control:today:mios")}
+        ${alert(sum2(D.vencidos, D.espera), "Vencidos / esperando fecha", "bad", D.espera.total && !D.vencidos.total ? "control:hold:mios" : "control:bad:mios")}
+        ${alert(D.pronto, "Vencen en 3 días", "warn", "control:warn:mios")}
+        ${alert(D.revisar, "Pagos por revisar", "pay", "aprobacion")}
+        ${alert(D.sinPago, "Sin pagar", "nopay", "control:nopay:mios")}</section>
+      ${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -688,7 +696,7 @@ const V = {
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
         ${canReview() ? tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña") : tile("renovar", "🔄", "Renovar", "Renovar servicios")}</section>
       ${pendCard}
-      ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
+      ${await rateCard()}${invCard}${await winbackHomeCard()}
 
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
@@ -704,7 +712,7 @@ const V = {
     const T = P.tab;
     // «↔️ Cambiar de cuenta»: perfiles libres (o apartados) de otras cuentas activas de la misma plataforma, para pasar al cliente con la misma fecha.
     const freeSlotsFor = (r) => accsAll.filter((a) => a.productId === r.productId && a.status === "active" && a.email !== r.email).flatMap((a) => (a.slots ?? []).filter((s) => ["available", "quarantined"].includes(s.status)).map((s) => ({ id: s.id, email: a.email, label: s.label, q: s.status === "quarantined" })));
-    const swapForm = (r) => { const opts = freeSlotsFor(r); return !canReview() ? "" : `<details class="more"><summary>↔️ Cambiar de cuenta</summary>${opts.length ? `<form class="inline" data-swapacc="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlo a…</option>${opts.map((o) => `<option value="${esc(o.id)}">${esc(o.email)}${o.label && !/completa/i.test(o.label) ? ` · ${esc(o.label)}` : ""}${o.q ? " (apartada)" : ""}</option>`).join("")}</select><input name="reason" placeholder="Motivo (ej.: cuenta renovada)" value="Reemplazo de cuenta"><button class="pbtn sm dark" type="submit">Mover · misma fecha</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(r))} con perfil libre.</p>`}</details>`; };
+    const swapForm = (r) => { const opts = freeSlotsFor(r); return !canReview() ? "" : `<details class="more"><summary>↔️ Cambiar de cuenta</summary>${opts.length ? `<form class="inline" data-swapacc="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlo a…</option>${swapOptionsHtml(opts)}</select><input name="reason" placeholder="Motivo (ej.: cuenta renovada)" value="Reemplazo de cuenta"><button class="pbtn sm dark" type="submit">Mover · misma fecha</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(r))} con perfil libre.</p>`}</details>`; };
     const DAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
     const estado = (d, hold) => (hold ? ["ESPERANDO FECHA", "hold"] : d < 0 ? ["VENCIDO", "bad"] : d === 0 ? ["VENCE HOY", "today"] : d <= 3 ? ["POR VENCER", "warn"] : d <= 7 ? ["SEMANA", "week"] : ["ACTIVO", "ok"]);
     const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -773,8 +781,6 @@ const V = {
       : `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>`;
     const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
-    const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
-    const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
     // «📲 Fila de envíos» (13/11): después de «Mover todos a otra cuenta», abre el WhatsApp de cada cliente con sus
     // accesos nuevos, uno tras otro. Nada se manda solo: cada envío es un toque del dueño.
@@ -830,11 +836,12 @@ const V = {
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
           ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
-        ${r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
+        ${r.notice ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.notice.at)}${r.notice.via === "recordatorio" ? " (recordatorio)" : ""}</div>` : r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
+        ${cutTxt(r.cutAt) ? `<div class="crow ctl-cut">${cutTxt(r.cutAt)} si no renueva</div>` : ""}
         <footer>${cobrarBtn(r)}
           ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
-          <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
+          ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}">${esc(rn.label)}</button>${rn.warn ? `<small class="ctl-renwarn">${esc(rn.warn)}</small>` : ""}`)(controlRenew(r, payText(r, r.price)))}
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${swapForm(r)}
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
@@ -861,13 +868,13 @@ const V = {
           ${canReview() ? `<td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"${r.control.cost === undefined ? ` title="Estimado: lo que te cuesta la cuenta ÷ sus perfiles"` : ""}></td>
           <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>` : ""}
           <td data-col="pay"><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
-          <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td data-col="d" class="mono"><b>${r.d}</b></td>
+          <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span>${cutTxt(r.cutAt) ? `<br><small class="ctl-cut">${cutTxt(r.cutAt)}</small>` : ""}</td><td data-col="d" class="mono"><b>${r.d}</b></td>
           <td data-col="seller">${r.rname && !r.control.seller ? `<span class="kb kb-rev">🏪 ${esc(r.rname)}</span>` : `<input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor">`}</td>
           <td data-col="note"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
           <td class="ctl-act">${cobrarBtn(r, "Mandar recordatorio de cobro")}
             ${dlvBtn(r)}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
-            <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
+            ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}" title="${esc(rn.warn || "Renovar un período")}">${esc(rn.label)}</button>`)(controlRenew(r, payText(r, r.price)))}
             ${canReview() ? transferForm(r) : ""}${swapForm(r)}</td></tr>`;
         }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
         </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
@@ -964,7 +971,7 @@ const V = {
       <p class="muted" style="margin:0">Los avisos salen por WhatsApp si el bot está conectado; si no, quedan en <b>WhatsApp → Avisos</b> para mandarlos con un toque.</p></section>`;
     return auto + `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
       ${canReview() ? `<button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Preparar avisos para estos</button>` : ""}</div>
-      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
+      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastNotice ? `${fdt(a.lastNotice.at)} · ${a.lastNotice.via === "secretaria" ? "✅ Ya le avisé (Mi secretaria)" : "🔔 recordatorio"}` : a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
       <p class="muted" style="margin:0">“Preparar” deja un mensaje por cliente en <b>WhatsApp</b> (máximo uno por día). Desde ahí los mandás.</p></section>`;
   },
 
@@ -2615,7 +2622,9 @@ function sellSummary() {
     <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
   btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
 }
-document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
+document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
+// Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
+initSellNew({ getMap: () => P.tab.custMap, onCreated: (label, c) => { (P.tab.custMap ??= {})[label] = c.id; P.tab.sellCustomer = label; } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
 document.addEventListener("change", async (ev) => {
   const sel = ev.target.closest?.("[data-hubplan]");
@@ -3532,6 +3541,7 @@ document.addEventListener("submit", async (ev) => {
       if (!confirm(`¿Pasar ${f.dataset.n} cliente(s) a ${email}? Cada uno conserva su fecha; los perfiles viejos quedan apartados.`)) return;
       await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; P.tab.sendq = { ids: r.moved.map((m) => m.assignmentId), i: 0, sent: {}, title: `ahora en ${r.to}` }; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Arriba tenés la fila para mandarles los accesos uno por uno`);
     } else if (f.dataset.swapacc) {
+      if (!confirmSwap(f.to)) { done(); return; }
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);
     } else if (f.dataset.transfer) {
