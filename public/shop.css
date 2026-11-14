@@ -1261,3 +1261,6 @@ details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center
 .qrg-full .sbtn:not(.pri){background:#f1f1f4;color:#111;border-color:#d0d0d8}
 .qrg-full p{margin:0;font-size:13px;color:#444;text-align:center}
 html.qrg-lock,html.qrg-lock body{overflow:hidden}
+.qrg-amtrow{display:grid;gap:8px;justify-items:center;width:100%;max-width:420px}
+.qrg-copy{width:100%;min-height:48px;justify-content:center;font-size:16px;font-weight:700}
+.qrg-copy.ok{border-color:#2fbf71;color:#2fbf71}
