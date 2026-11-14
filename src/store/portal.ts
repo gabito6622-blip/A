@@ -12,6 +12,7 @@ import { dialFor } from "./country.js";
 import { renewableNow } from "./orders.js";
 import { resellerContact } from "./myReseller.js";
 import { canRenewHere } from "./renovarVarias.js";
+import { owedOnRental } from "./fiado.js";
 import { orderTitle } from "./tituloPedido.js";
 
 function visibleCustomers(e: Engine, actor: Actor): Id[] {
@@ -44,6 +45,8 @@ export function myServices(e: Engine, actor: Actor, customerId?: Id) {
           // false = la cuenta vence antes con el proveedor: la tienda tiene que renovarla primero.
           renewableNow: renewableNow(e, a),
           renewPrice: renewPriceFor(e, actor.customerId!, a),
+          // Lo que ESTE cliente le debe a la tienda por este alquiler (solo el suyo: nunca la deuda de otro).
+          ...(a.customerId === actor.customerId && owedOnRental(e, a.customerId, a.id) > 0 ? { storeOwed: owedOnRental(e, a.customerId, a.id) } : {}),
           // Su propio servicio y tiene revendedor: renueva con él (no ve el precio de la tienda).
           ...(a.customerId === actor.customerId && resellerContact(e, a.customerId) ? { viaReseller: resellerContact(e, a.customerId), renewPrice: null } : {}),
         };

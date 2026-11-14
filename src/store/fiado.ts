@@ -241,6 +241,17 @@ export function history(e: Engine, actor: Actor, customerId: Id) {
   return { owed, credit, entries: mine.slice().sort((a, b2) => b2.at - a.at).map((x) => ({ ...structuredClone(x), covered: cov.get(x.id) })) };
 }
 
+/**
+ * Lo que un cliente le debe a la TIENDA por un alquiler puntual (cargos del Fiado del dueño atados a ese alquiler y
+ * todavía no cubiertos). Para mostrárselo en su propia tarjeta («Le debés a la tienda Bs 27 por esta cuenta»):
+ * el dueño lo pidió para Lizbeth el 14/11 (pagó Bs 43 de Bs 70).
+ */
+export function owedOnRental(e: Engine, customerId: Id, assignmentId: Id): Cents {
+  return settle(e, { creditor: undefined, owns: () => true }, customerId).charges
+    .filter((c) => c.assignmentId === assignmentId)
+    .reduce((t, c) => t + c.amount - c.covered, 0);
+}
+
 /** Lo que un cliente le debe al dueño (para mostrarlo en otras pantallas). */
 export function owedBy(e: Engine, customerId: Id): Cents {
   return settle(e, { creditor: undefined, owns: () => true }, customerId).owed;
