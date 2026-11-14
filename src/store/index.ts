@@ -39,6 +39,7 @@ import * as watch from "./watch.js";
 import * as winback from "./winback.js";
 import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
+import * as ownPlata from "./ownPlata.js";
 import * as usd from "./usd.js";
 import * as secretary from "./secretary.js";
 import * as dia from "./dia.js";
@@ -392,6 +393,18 @@ export function createStore(opts: EngineOptions = {}) {
       updateSale: bind(e, ownStock.updateSale),
       renew: bind(e, ownStock.renew),
       release: bind(e, ownStock.release),
+      undoRenew: bind(e, ownStock.undoRenew),
+      // Plata y día a día de sus cuentas propias (ownPlata.ts).
+      pay: bind(e, ownPlata.pay),
+      forgive: bind(e, ownPlata.forgive),
+      setDown: bind(e, ownPlata.setDown),
+      move: bind(e, ownPlata.move),
+      moveAll: bind(e, ownPlata.moveAll),
+      providerPay: bind(e, ownPlata.providerPay),
+      earnings: bind(e, ownPlata.earnings),
+      day: bind(e, ownPlata.day),
+      back: bind(e, ownPlata.back),
+      markBack: bind(e, ownPlata.markBack),
       link: bind(e, ownStock.link),
       revokeLink: bind(e, ownStock.revokeLink),
       counts: (customerId: Id) => ownStock.ownCounts(e, customerId),

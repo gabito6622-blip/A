@@ -14,8 +14,9 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { phoneWithCountry } from "./catalog.js";
-import { currencyOf, localeOf, maxAmount, normAmount } from "./country.js";
+import { currencyOf, localeOf, maxAmount, money, normAmount } from "./country.js";
 import { DAY } from "./time.js";
+import { LATE_FROM_EXPIRY_MAX_DAYS } from "./cobrarBien.js";
 
 export type OwnKind = "full" | "profiles" | "line";
 
@@ -56,6 +57,10 @@ export interface OwnAccount {
   /** Cuándo vence con SU proveedor. */
   providerExpiresAt?: number;
   note?: string;
+  /** «Se cayó esta cuenta»: no se ofrece ni se asignan cupos hasta que la marque «volvió» (ownPlata.ts). */
+  down?: { at: number; note?: string };
+  /** Lo que le paga a su proveedor por período (para «Mis ganancias»), en su moneda. */
+  cost?: Cents;
   createdAt: number;
 }
 
@@ -78,18 +83,51 @@ export interface OwnSale {
   link?: { token: string; at: number };
   /** Prueba gratis (IPTV: 24 h): no cuenta como venta ni como deuda hasta que se renueva. */
   trial?: boolean;
+  /** Sus cobros ya están en el libro (`ledger`). Las ventas viejas se pasan solas la primera vez que se toca algo. */
+  led?: true;
+  /** Para «deshacer» el último «Renovó» (unos segundos). */
+  undo?: { op: string; at: number; prevExp: number; prevTrial?: boolean; prevPrice?: Cents };
 }
+
+/** Un movimiento del libro de cobros: cada período es un cargo y cada cobro un pago (puede ser parcial). */
+export interface OwnEntry {
+  id: Id;
+  saleId: Id;
+  kind: "cargo" | "pago" | "perdon";
+  amount: Cents;
+  at: number;
+  /** Período que cubre un cargo. */
+  from?: number;
+  to?: number;
+  /** Operación que lo creó (para «deshacer»). */
+  op?: string;
+  note?: string;
+}
+
+/** «Pagué a mi proveedor»: lo que salió de su bolsillo por una cuenta propia. */
+export interface OwnProvPay { id: Id; accountId: Id; productId: Id; user: string; amount: Cents; months: number; at: number; to?: number; note?: string }
+
+/** Un cliente que liberó: queda acá para su deuda («Quién me debe») y para «Que vuelvan». */
+export type OwnGone = Omit<OwnSale, "link" | "undo"> & { releasedAt: number; productId: Id; product: string; user: string; debtAction?: "fiado" | "perdon" };
 
 export interface OwnStockBook {
   products: OwnProduct[];
   accounts: OwnAccount[];
   sales: OwnSale[];
+  /** Libro de cobros (cargos, pagos y perdones) de sus clientes, activos y liberados. */
+  ledger?: OwnEntry[];
+  /** Pagos a sus proveedores. */
+  provPays?: OwnProvPay[];
+  /** Clientes liberados (con o sin deuda). */
+  gone?: OwnGone[];
+  /** «Ya le escribí» de «Que vuelvan»: clave → cuándo. */
+  back?: Record<string, number>;
 }
 
 const MAX_PRODUCTS = 50, MAX_ACCOUNTS = 1000, MAX_SALES = 5000, MAX_SLOTS = 10, MAX_LINES = 200;
 
 /* ---------------- quién es y su cuaderno ---------------- */
-function me(e: Engine, actor: Actor): Customer {
+export function me(e: Engine, actor: Actor): Customer {
   authorize(actor, "reseller.own_stock");
   if (!actor.customerId) throw new DomainError("FORBIDDEN", "Solo para revendedores");
   const c = e.get("customers", actor.customerId);
@@ -97,41 +135,41 @@ function me(e: Engine, actor: Actor): Customer {
   return c;
 }
 /** Su cuaderno (lo crea vacío la primera vez; debe llamarse dentro de tx para escribir). */
-function book(e: Engine, id: Id): OwnStockBook {
+export function book(e: Engine, id: Id): OwnStockBook {
   const all = (e.s.ownStock ??= {});
   return (all[id] ??= { products: [], accounts: [], sales: [] });
 }
-const peek = (e: Engine, id: Id): OwnStockBook => e.s.ownStock?.[id] ?? { products: [], accounts: [], sales: [] };
+export const peek = (e: Engine, id: Id): OwnStockBook => e.s.ownStock?.[id] ?? { products: [], accounts: [], sales: [] };
 
-const productOf = (b: OwnStockBook, id: unknown) => {
+export const productOf = (b: OwnStockBook, id: unknown) => {
   const p = b.products.find((x) => x.id === id);
   if (!p) throw new DomainError("NOT_FOUND", "Ese producto no existe");
   return p;
 };
-const accountOf = (b: OwnStockBook, id: unknown) => {
+export const accountOf = (b: OwnStockBook, id: unknown) => {
   const a = b.accounts.find((x) => x.id === id);
   if (!a) throw new DomainError("NOT_FOUND", "Esa cuenta no existe");
   return a;
 };
-const saleOf = (b: OwnStockBook, id: unknown) => {
+export const saleOf = (b: OwnStockBook, id: unknown) => {
   const s = b.sales.find((x) => x.id === id);
   if (!s) throw new DomainError("NOT_FOUND", "Ese cliente no está en tus cuentas propias");
   return s;
 };
 
 /* ---------------- validaciones ---------------- */
-const text = (v: unknown, max: number, what: string, required = false) => {
+export const text = (v: unknown, max: number, what: string, required = false) => {
   const t = String(v ?? "").trim();
   if (required && !t) throw new DomainError("VALIDATION", `Escribí ${what}`);
   if (t.length > max) throw new DomainError("VALIDATION", `${what[0].toUpperCase()}${what.slice(1)}: hasta ${max} letras`);
   return t;
 };
-function amount(e: Engine, c: Customer, v: unknown, what = "Precio"): Cents {
+export function amount(e: Engine, c: Customer, v: unknown, what = "Precio"): Cents {
   const n = normAmount(Number(v), currencyOf(e, c));
   if (!Number.isInteger(n) || n < 0 || n > maxAmount(e, c)) throw new DomainError("VALIDATION", `${what} inválido`);
   return n;
 }
-function date(e: Engine, v: unknown, what: string): number {
+export function date(e: Engine, v: unknown, what: string): number {
   const t = Number(v);
   if (!Number.isFinite(t) || t < e.now() - 400 * DAY || t > e.now() + 800 * DAY) throw new DomainError("VALIDATION", `Fecha ${what} inválida`);
   return t;
@@ -150,6 +188,46 @@ const freeSlots = (b: OwnStockBook, a: OwnAccount) => {
   const used = new Set(b.sales.filter((s) => s.accountId === a.id).map((s) => s.slot));
   return Array.from({ length: a.slots }, (_, i) => i + 1).filter((n) => !used.has(n));
 };
+/** Por qué una cuenta no se puede vender: se cayó o venció con su proveedor (null = se puede). */
+export const blockedWhy = (a: OwnAccount, now: number): "caida" | "vencida" | null =>
+  a.down ? "caida" : a.providerExpiresAt && a.providerExpiresAt < now ? "vencida" : null;
+/** Cupos que se pueden ofrecer o asignar: ninguno si la cuenta se cayó o venció con su proveedor. */
+export const sellableSlots = (b: OwnStockBook, a: OwnAccount, now: number) => (blockedWhy(a, now) ? [] : freeSlots(b, a));
+export const BLOCKED_MSG = { caida: "Esta cuenta se cayó: usá otra o marcala «volvió»", vencida: "Esta cuenta venció con tu proveedor: anotá que la pagaste o usá otra" } as const;
+
+/* ---------------- libro de cobros ---------------- */
+/** Deuda de cada venta (activa o liberada), según el libro. Las ventas viejas usan su «pendiente». */
+export function debts(b: OwnStockBook): Map<Id, Cents> {
+  const m = new Map<Id, Cents>();
+  for (const x of b.ledger ?? []) m.set(x.saleId, (m.get(x.saleId) ?? 0) + (x.kind === "cargo" ? x.amount : -x.amount));
+  for (const s of [...b.sales, ...(b.gone ?? [])]) if (!s.led) m.set(s.id, s.pay === "pendiente" && !s.trial ? s.price ?? 0 : 0);
+  for (const [k, v] of m) if (v < 0) m.set(k, 0);
+  return m;
+}
+export const debtOf = (b: OwnStockBook, id: Id) => debts(b).get(id) ?? 0;
+/** Pasa al libro las ventas de antes (un cargo por su precio y, si estaba pagada, su pago). Dentro de tx. */
+export function ensureLedger(e: Engine, b: OwnStockBook) {
+  const L = (b.ledger ??= []);
+  for (const s of [...b.sales, ...(b.gone ?? [])]) {
+    if (s.led) continue;
+    if (!s.trial && (s.price ?? 0) > 0) {
+      L.push({ id: e.id("ole"), saleId: s.id, kind: "cargo", amount: s.price!, at: s.createdAt, to: s.expiresAt, note: "Antes del libro" });
+      if (s.pay === "pagado") L.push({ id: e.id("ole"), saleId: s.id, kind: "pago", amount: s.price!, at: s.createdAt, note: "Antes del libro" });
+    }
+    s.led = true;
+  }
+  return L;
+}
+/** Anota un movimiento (dentro de tx) y deja «pagado/pendiente» al día. */
+export function entry(e: Engine, b: OwnStockBook, s: OwnSale | OwnGone, x: Omit<OwnEntry, "id" | "saleId" | "at"> & { at?: number }) {
+  const L = ensureLedger(e, b);
+  if (L.length >= 200_000) throw new DomainError("VALIDATION", "Tu libro de cobros está lleno");
+  L.push({ id: e.id("ole"), saleId: s.id, at: e.now(), ...x });
+  syncPay(b, s);
+}
+export function syncPay(b: OwnStockBook, s: OwnSale | OwnGone) { s.pay = debtOf(b, s.id) > 0 ? "pendiente" : "pagado"; }
+/** Desde cuándo corre una renovación: si venció hace poco (el mismo plazo que el panel del dueño), desde el vencimiento. */
+export const renewFrom = (exp: number, now: number) => (exp >= now || now - exp <= LATE_FROM_EXPIRY_MAX_DAYS * DAY ? exp : now);
 
 /** Todo su cuaderno, para su pestaña. Incluye sus contraseñas: son suyas y las necesita para mandar el acceso. */
 export function view(e: Engine, actor: Actor) {
@@ -158,31 +236,40 @@ export function view(e: Engine, actor: Actor) {
   const now = e.now();
   const prodName = (id: Id) => b.products.find((p) => p.id === id)?.name ?? "";
   const accById = new Map(b.accounts.map((a) => [a.id, a]));
+  const owe = debts(b);
   const sales = b.sales.slice().sort((x, y) => x.expiresAt - y.expiresAt).map((s) => {
     const a = accById.get(s.accountId);
-    const { link, ...rest } = s;
-    return { ...rest, productId: a?.productId ?? "", product: prodName(a?.productId ?? ""), user: a?.user ?? "", ...(link ? { linkToken: link.token } : {}) };
+    const { link, undo, led, ...rest } = s;
+    void undo; void led;
+    const blocked = a ? blockedWhy(a, now) : null;
+    return { ...rest, productId: a?.productId ?? "", product: prodName(a?.productId ?? ""), user: a?.user ?? "", debt: owe.get(s.id) ?? 0, ...(blocked ? { blocked } : {}), ...(link ? { linkToken: link.token } : {}) };
   });
+  // Liberados que todavía le deben (van a «Quién me debe»).
+  const goneOwing = (b.gone ?? []).filter((g) => (owe.get(g.id) ?? 0) > 0).map((g) => ({ id: g.id, name: g.name, phone: g.phone, product: g.product, price: g.price ?? null, releasedAt: g.releasedAt, expiresAt: g.expiresAt, debt: owe.get(g.id) ?? 0 }));
   const week = now + 7 * DAY;
   return {
     currency: currencyOf(e, c),
     dial: localeOf(e, c).dial,
     products: b.products.map(({ logoFileRef, ...p }) => {
       const accs = b.accounts.filter((a) => a.productId === p.id);
-      return { ...p, hasLogo: !!logoFileRef, accounts: accs.length, free: accs.reduce((t, a) => t + freeSlots(b, a).length, 0), used: b.sales.filter((s) => accById.get(s.accountId)?.productId === p.id).length };
+      return { ...p, hasLogo: !!logoFileRef, accounts: accs.length, free: accs.reduce((t, a) => t + sellableSlots(b, a, now).length, 0), used: b.sales.filter((s) => accById.get(s.accountId)?.productId === p.id).length };
     }),
-    accounts: b.accounts.map((a) => ({ id: a.id, productId: a.productId, product: prodName(a.productId), user: a.user, password: a.password, slots: a.slots, free: freeSlots(b, a), providerExpiresAt: a.providerExpiresAt ?? null, note: a.note ?? "" })),
+    // `free`: cupos que se pueden dar (ninguno si se cayó o venció con su proveedor); `empty`: los vacíos de verdad.
+    accounts: b.accounts.map((a) => ({ id: a.id, productId: a.productId, product: prodName(a.productId), user: a.user, password: a.password, slots: a.slots, free: sellableSlots(b, a, now), empty: freeSlots(b, a).length, blocked: blockedWhy(a, now), down: a.down ? { at: a.down.at, note: a.down.note ?? "" } : null, cost: a.cost ?? null, providerExpiresAt: a.providerExpiresAt ?? null, note: a.note ?? "" })),
     sales,
+    gone: goneOwing,
     // Vencen esta semana: sus clientes y las cuentas con su proveedor (incluye lo ya vencido hace poco).
     soon: {
       clients: sales.filter((s) => s.expiresAt <= week && s.expiresAt >= now - 7 * DAY).map((s) => s.id),
-      provider: b.accounts.filter((a) => a.providerExpiresAt && a.providerExpiresAt <= now + 3 * DAY && a.providerExpiresAt >= now - 7 * DAY).map((a) => a.id),
+      provider: b.accounts.filter((a) => a.providerExpiresAt && a.providerExpiresAt <= now + 3 * DAY && a.providerExpiresAt >= now - 30 * DAY).map((a) => a.id),
     },
     totals: {
       clients: sales.length,
-      owed: sales.filter((s) => s.pay !== "pagado" && !s.trial).reduce((t, s) => t + (s.price ?? 0), 0),
+      // Lo que le deben de verdad: activos y liberados que pasó a «Quién me debe» (deudas que no se borran).
+      owed: [...owe.values()].reduce((t, v) => t + v, 0),
       trials: sales.filter((s) => s.trial && s.expiresAt > now).length,
-      monthly: sales.filter((s) => !s.trial).reduce((t, s) => { const d = accById.get(s.accountId); const days = b.products.find((p) => p.id === d?.productId)?.durationDays ?? 30; return t + Math.round(((s.price ?? 0) * 30) / Math.max(1, days)); }, 0),
+      // «Cobrás por mes»: solo los que siguen activos (los vencidos hace más del plazo ya no cuentan).
+      monthly: sales.filter((s) => !s.trial && s.expiresAt >= now - LATE_FROM_EXPIRY_MAX_DAYS * DAY).reduce((t, s) => { const d = accById.get(s.accountId); const days = b.products.find((p) => p.id === d?.productId)?.durationDays ?? 30; return t + Math.round(((s.price ?? 0) * 30) / Math.max(1, days)); }, 0),
     },
   };
 }
@@ -339,6 +426,7 @@ export function saveAccount(e: Engine, actor: Actor, raw: Record<string, unknown
   const password = id && !String(raw.password ?? "").trim() ? null : secretish(raw.password, "la contraseña o PIN");
   const providerExpiresAt = raw.providerExpiresAt === undefined || raw.providerExpiresAt === null || raw.providerExpiresAt === "" ? undefined : date(e, raw.providerExpiresAt, "con tu proveedor");
   const note = text(raw.note, 120, "la nota");
+  const cost = raw.cost === undefined ? undefined : raw.cost === null || raw.cost === "" ? null : amount(e, c, raw.cost, "Costo");
   return e.tx(() => {
     const b = book(e, c.id);
     const p = productOf(b, raw.productId);
@@ -358,6 +446,7 @@ export function saveAccount(e: Engine, actor: Actor, raw: Record<string, unknown
     }
     if (providerExpiresAt) a.providerExpiresAt = providerExpiresAt; else delete a.providerExpiresAt;
     if (note) a.note = note; else delete a.note;
+    if (cost === null) delete a.cost; else if (cost !== undefined) a.cost = cost;
     e.audit(actor, id ? "own.account_update" : "own.account_create", "customer", c.id, { account: a.id, product: p.id });
     return { id: a.id };
   });
@@ -389,6 +478,8 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
     const b = book(e, c.id);
     const a = accountOf(b, raw.accountId);
     const p = productOf(b, a.productId);
+    const why = blockedWhy(a, e.now());
+    if (why) throw new DomainError("OUT_OF_STOCK", BLOCKED_MSG[why]);
     if (b.sales.length >= MAX_SALES) throw new DomainError("VALIDATION", `Hasta ${MAX_SALES} clientes en tus cuentas propias`);
     let name: string, phone: string, customerId: Id | undefined;
     if (raw.customerId) {
@@ -409,7 +500,14 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
     const expiresAt = trialHours ? e.now() + trialHours * 3_600_000 : raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : e.now() + p.durationDays * DAY;
     const price = trialHours ? 0 : raw.price === undefined || raw.price === null || raw.price === "" ? p.price : amount(e, c, raw.price);
     const s: OwnSale = { id: e.id("osl"), accountId: a.id, slot, name, phone, ...(customerId ? { customerId } : {}), expiresAt, price, pay: trialHours ? "pagado" : pay, ...(note ? { note } : {}), ...(trialHours ? { trial: true } : {}), createdAt: e.now() };
+    ensureLedger(e, b);
     b.sales.push(s);
+    s.led = true;
+    // El primer período es un cargo; si ya le pagó, también el pago.
+    if (!trialHours && price > 0) {
+      entry(e, b, s, { kind: "cargo", amount: price, from: e.now(), to: expiresAt });
+      if (pay === "pagado") entry(e, b, s, { kind: "pago", amount: price });
+    }
     e.audit(actor, "own.assign", "customer", c.id, { sale: s.id, account: a.id, slot });
     const { link, ...out } = s;
     return { ...out, product: p.name, user: a.user };
@@ -420,12 +518,30 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
 export function updateSale(e: Engine, actor: Actor, saleId: Id, raw: Record<string, unknown>) {
   const c = me(e, actor);
   return e.tx(() => {
-    const s = saleOf(book(e, c.id), saleId);
+    const b = book(e, c.id);
+    const s = saleOf(b, saleId);
+    const L = ensureLedger(e, b);
     if (raw.expiresAt !== undefined) s.expiresAt = date(e, raw.expiresAt, "de vencimiento");
-    if (raw.price !== undefined) { if (raw.price === null || raw.price === "") delete s.price; else s.price = amount(e, c, raw.price); }
+    if (raw.price !== undefined) {
+      if (raw.price === null || raw.price === "") delete s.price; else s.price = amount(e, c, raw.price);
+      // Corregir el precio corrige el cargo del período actual (el último); los anteriores quedan como estaban.
+      const last = L.filter((x) => x.saleId === s.id && x.kind === "cargo").pop();
+      if (last && s.price !== undefined && !s.trial) last.amount = s.price;
+      syncPay(b, s);
+    }
     if (raw.pay !== undefined) {
       if (!["pagado", "pendiente"].includes(String(raw.pay))) throw new DomainError("VALIDATION", "Estado de pago inválido");
-      s.pay = raw.pay as OwnSale["pay"];
+      if (raw.pay === "pagado") {
+        // «Me pagó»: paga todo lo que debe (para pagos parciales está «Me pagó» con monto, ownPlata.ts).
+        const owe = debtOf(b, s.id);
+        if (owe > 0) entry(e, b, s, { kind: "pago", amount: owe });
+      } else if (debtOf(b, s.id) === 0) {
+        // «Marcar pendiente»: deshace el último pago anotado (se tocó «Me pagó» por error).
+        const i = L.map((x) => x.saleId === s.id && x.kind === "pago").lastIndexOf(true);
+        if (i >= 0) L.splice(i, 1);
+        else if (!s.trial && (s.price ?? 0) > 0) L.push({ id: e.id("ole"), saleId: s.id, kind: "cargo", amount: s.price!, at: e.now(), note: "Marcado pendiente" });
+      }
+      syncPay(b, s);
     }
     if (raw.note !== undefined) { const n = text(raw.note, 120, "la nota"); if (n) s.note = n; else delete s.note; }
     e.audit(actor, "own.sale_update", "customer", c.id, { sale: s.id, fields: Object.keys(raw).filter((k) => ["expiresAt", "price", "pay", "note"].includes(k)).join(",") });
@@ -433,31 +549,91 @@ export function updateSale(e: Engine, actor: Actor, saleId: Id, raw: Record<stri
   });
 }
 
-/** Renovó: suma la duración del producto (desde hoy si ya venció) y queda pagado o pendiente. */
-export function renew(e: Engine, actor: Actor, saleId: Id, paid = true) {
+/**
+ * Renovó: suma la duración del producto y anota el período como un cargo. Si venció hace poco (mismo plazo que el
+ * panel del dueño) corre desde el vencimiento, no desde hoy; si venció hace mucho, desde hoy. `paid`: «Sí, pagó»
+ * (con `amount`, puede ser distinto del precio) o «Me paga después» (el cargo se suma a lo que ya debía).
+ * Devuelve `undo` para deshacerlo unos segundos después.
+ */
+export function renew(e: Engine, actor: Actor, saleId: Id, opt: boolean | { paid?: unknown; amount?: unknown } = true) {
   const c = me(e, actor);
+  const o = typeof opt === "boolean" ? { paid: opt } : opt ?? {};
+  const paid = o.paid !== false;
+  const paidAmount = paid && o.amount !== undefined && o.amount !== null && o.amount !== "" ? amount(e, c, o.amount, "Monto") : undefined;
   return e.tx(() => {
     const b = book(e, c.id);
     const s = saleOf(b, saleId);
-    const days = b.products.find((p) => p.id === b.accounts.find((a) => a.id === s.accountId)?.productId)?.durationDays ?? 30;
-    s.expiresAt = Math.max(s.expiresAt, e.now()) + days * DAY;
-    s.pay = paid ? "pagado" : "pendiente";
+    const a = b.accounts.find((x) => x.id === s.accountId);
+    if (a?.down) throw new DomainError("INVALID_STATE", "Esta cuenta se cayó: primero mové a tu cliente a otra cuenta");
+    const p = b.products.find((x) => x.id === a?.productId);
+    const days = p?.durationDays ?? 30;
+    ensureLedger(e, b);
+    const op = e.id("oop");
+    s.undo = { op, at: e.now(), prevExp: s.expiresAt, ...(s.trial ? { prevTrial: true } : {}), ...(s.price !== undefined ? { prevPrice: s.price } : {}) };
+    // Una prueba gratis arranca hoy; una venta, desde su vencimiento si está dentro del plazo.
+    const from = s.trial ? Math.max(s.expiresAt, e.now()) : renewFrom(s.expiresAt, e.now());
+    s.expiresAt = from + days * DAY;
     // Renovar una prueba gratis la convierte en venta, al precio del producto.
-    if (s.trial) { delete s.trial; if (!s.price) s.price = b.products.find((p) => p.id === b.accounts.find((a) => a.id === s.accountId)?.productId)?.price ?? 0; }
-    e.audit(actor, "own.renew", "customer", c.id, { sale: s.id });
-    return { expiresAt: s.expiresAt, pay: s.pay };
+    if (s.trial) { delete s.trial; if (!s.price) s.price = p?.price ?? 0; }
+    const price = s.price ?? 0;
+    if (price > 0) entry(e, b, s, { kind: "cargo", amount: price, from, to: s.expiresAt, op });
+    const pay = paidAmount ?? (paid ? price : 0);
+    if (pay > 0) {
+      if (pay > debtOf(b, s.id)) throw new DomainError("VALIDATION", "Anotá como mucho lo que te debe");
+      entry(e, b, s, { kind: "pago", amount: pay, op });
+    }
+    syncPay(b, s);
+    e.audit(actor, "own.renew", "customer", c.id, { sale: s.id, paid: pay > 0 });
+    return { expiresAt: s.expiresAt, from, pay: s.pay, debt: debtOf(b, s.id), undo: op };
   });
 }
 
-/** Libera el cupo (el cliente se fue). Si tenía link de cobro, deja de servir. */
-export function release(e: Engine, actor: Actor, saleId: Id) {
+/** Deshace un «Renovó» recién hecho (hasta 2 minutos): vuelve la fecha y borra sus movimientos. */
+export function undoRenew(e: Engine, actor: Actor, saleId: Id, op: unknown) {
   const c = me(e, actor);
   return e.tx(() => {
     const b = book(e, c.id);
     const s = saleOf(b, saleId);
+    if (!s.undo || s.undo.op !== op || e.now() - s.undo.at > 120_000) throw new DomainError("INVALID_STATE", "Ya no se puede deshacer");
+    b.ledger = (b.ledger ?? []).filter((x) => x.op !== op);
+    s.expiresAt = s.undo.prevExp;
+    if (s.undo.prevTrial) s.trial = true;
+    if (s.undo.prevPrice !== undefined) s.price = s.undo.prevPrice; else delete s.price;
+    delete s.undo;
+    syncPay(b, s);
+    e.audit(actor, "own.renew_undo", "customer", c.id, { sale: s.id });
+    return { expiresAt: s.expiresAt, pay: s.pay, debt: debtOf(b, s.id) };
+  });
+}
+
+/**
+ * Libera el cupo (el cliente se fue). Si tenía link de cobro, deja de servir. Si todavía debe, frena:
+ * `debt: "fiado"` lo pasa a «Quién me debe» (la deuda queda) y `debt: "perdonar"` la borra con un movimiento.
+ * El cliente queda guardado como liberado (para su deuda y para «Que vuelvan»).
+ */
+export function release(e: Engine, actor: Actor, saleId: Id, opt: { debt?: unknown } = {}) {
+  const c = me(e, actor);
+  return e.tx(() => {
+    const b = book(e, c.id);
+    const s = saleOf(b, saleId);
+    ensureLedger(e, b);
+    const owe = debtOf(b, s.id);
+    if (owe > 0 && opt.debt !== "fiado" && opt.debt !== "perdonar") {
+      throw new DomainError("INVALID_STATE", `${s.name.split(" ")[0]} te debe ${money(owe, currencyOf(e, c))}: ¿lo pasás a Quién me debe o lo perdonás?`);
+    }
+    if (owe > 0 && opt.debt === "perdonar") entry(e, b, s, { kind: "perdon", amount: owe, note: "Perdonado al liberar" });
+    const a = b.accounts.find((x) => x.id === s.accountId);
+    const { link, undo, ...rest } = s;
+    void undo;
+    const g: OwnGone = { ...rest, releasedAt: e.now(), productId: a?.productId ?? "", product: b.products.find((p) => p.id === a?.productId)?.name ?? "", user: a?.user ?? "", ...(owe > 0 ? { debtAction: opt.debt === "fiado" ? "fiado" as const : "perdon" as const } : {}) };
+    syncPay(b, g);
     b.sales = b.sales.filter((x) => x !== s);
-    e.audit(actor, "own.release", "customer", c.id, { sale: s.id, ...(s.link ? { linkOff: true } : {}) });
-    return { ok: true as const };
+    const G = (b.gone ??= []);
+    G.push(g);
+    // Hasta 3000 liberados: se van primero los más viejos que no deben nada.
+    if (G.length > 3000) { const owing = debts(b); const i = G.findIndex((x) => !(owing.get(x.id) ?? 0)); if (i >= 0) G.splice(i, 1); }
+    e.audit(actor, "own.release", "customer", c.id, { sale: s.id, ...(link ? { linkOff: true } : {}), ...(owe > 0 ? { debt: String(opt.debt) } : {}) });
+    return { ok: true as const, debt: opt.debt === "fiado" ? owe : 0 };
   });
 }
 
@@ -559,7 +735,7 @@ export function pageCards(e: Engine, c: Customer) {
   const b = e.s.ownStock?.[c.id];
   if (!b) return [];
   return b.products.filter((p) => p.onPage && p.price > 0).map((p) => {
-    const free = b.accounts.filter((a) => a.productId === p.id).reduce((t, a) => t + freeSlots(b, a).length, 0);
+    const free = b.accounts.filter((a) => a.productId === p.id).reduce((t, a) => t + sellableSlots(b, a, e.now()).length, 0);
     return { id: `op_${p.id}`, name: p.name, category: "Mis servicios", description: p.emoji ?? "", color: "#0ea5e9", hasImage: false, kind: "own" as const, durationDays: p.durationDays, price: p.price, available: Math.min(free, 20) };
   });
 }
@@ -568,4 +744,18 @@ export function pageCards(e: Engine, c: Customer) {
 export function pagePrice(e: Engine, c: Customer, cardId: string): Cents | undefined {
   if (!cardId.startsWith("op_")) return undefined;
   return pageCards(e, c).find((x) => x.id === cardId)?.price;
+}
+
+/* ---------------- combos con sus productos propios (resellerShop.ts) ---------------- */
+/** Un combo de su página hecho solo con sus productos propios ("op_<id>"). Su precio va en SU moneda, sin convertir. */
+export const isOwnCombo = (ids: readonly string[]) => ids.length > 0 && ids.every((id) => id.startsWith("op_"));
+/** Nombres de las partes y cuántos combos se pueden armar con los cupos que hay (undefined si falta un producto). */
+export function ownComboParts(e: Engine, c: Customer, ids: readonly string[]): { names: string[]; free: number } | undefined {
+  const b = e.s.ownStock?.[c.id];
+  if (!b || !isOwnCombo(ids)) return undefined;
+  const ps = ids.map((id) => b.products.find((p) => p.id === id.slice(3)));
+  if (ps.some((p) => !p)) return undefined;
+  const now = e.now();
+  const free = Math.min(...ps.map((p) => b.accounts.filter((a) => a.productId === p!.id).reduce((t, a) => t + sellableSlots(b, a, now).length, 0)));
+  return { names: ps.map((p) => p!.name), free };
 }

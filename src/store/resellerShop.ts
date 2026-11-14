@@ -15,7 +15,7 @@ import { DAY } from "./time.js";
 import { normalizePhone, isIndependent } from "./catalog.js";
 import { localeOf, localeView, money, toMine } from "./country.js";
 import { bsToUsd, isUsd, rateNow } from "./usd.js";
-import { ownCounts, pageCards, pagePrice as ownPagePrice } from "./ownStock.js";
+import { ownCounts, pageCards, pagePrice as ownPagePrice, isOwnCombo, ownComboParts } from "./ownStock.js";
 
 export const DEFAULT_RENT: ShopRent = { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 };
 const rentCfg = (e: Engine): ShopRent => e.s.settings.shopRent ?? DEFAULT_RENT;
@@ -443,7 +443,10 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
       if (!name) throw new DomainError("VALIDATION", "Cada combo necesita un nombre");
       const ids = Array.isArray(raw.productIds) ? [...new Set(raw.productIds.map(String))] : [];
       if (ids.length < 2 || ids.length > 12) throw new DomainError("VALIDATION", `El combo "${name}" tiene que juntar de 2 a 12 apps`);
-      for (const id of ids) if (priced[id] === undefined) throw new DomainError("VALIDATION", `El combo "${name}" incluye una app sin precio`);
+      // Combo de sus productos propios ("op_…", en su moneda) o de apps de la tienda con su precio; sin mezclar.
+      if (isOwnCombo(ids)) { if (!ownComboParts(e, c, ids)) throw new DomainError("VALIDATION", `El combo "${name}" incluye un producto propio que ya no existe`); }
+      else if (ids.some((id) => id.startsWith("op_"))) throw new DomainError("VALIDATION", `El combo "${name}" mezcla tus productos propios con apps de la tienda: armalo con unos u otros`);
+      else for (const id of ids) if (priced[id] === undefined) throw new DomainError("VALIDATION", `El combo "${name}" incluye una app sin precio`);
       const price = Number(raw.price);
       if (!Number.isInteger(price) || price <= 0 || price > 10_000_000) throw new DomainError("VALIDATION", `Poné un precio válido para el combo "${name}"`);
       const note = raw.note ? String(raw.note).trim().slice(0, 120) : undefined;
@@ -569,10 +572,15 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
-  const comboCards = (indep ? [] : s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
+  // Combos de sus productos propios (también los del independiente): precio en su moneda y disponibles según sus cupos.
+  const ownCombos = (s.combos ?? []).flatMap((cb) => {
+    const parts = isOwnCombo(cb.productIds) ? ownComboParts(e, c!, cb.productIds) : undefined;
+    return parts ? [{ id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || parts.names.join(" + "), color: "#7c5cff", hasImage: false, kind: "combo" as const, durationDays: 30, price: cb.price, available: Math.min(parts.free, 20), items: parts.names }] : [];
+  });
+  const comboCards = [...ownCombos, ...(indep ? [] : s.combos ?? []).filter((cb) => !isOwnCombo(cb.productIds) && cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
     id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
     hasImage: false, kind: "combo" as const, durationDays: 30, price: mine(cb.price)!, available: 99, items: cb.productIds.map(nameOf),
-  }));
+  }))];
   const loc = localeOf(e, c);
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
@@ -739,7 +747,9 @@ export function quoteShopCoupon(e: Engine, slug: string, rawCode: unknown, items
     const id = String((it as { productId?: unknown })?.productId ?? ""), qty = Number((it as { qty?: unknown })?.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
     // Todo en la moneda de su página (igual que publicShop): combos y lista convertidos, propios tal cual.
-    const price = id.startsWith("rc_") ? toMine(e, c, combos.find((cb) => `rc_${cb.id}` === id)?.price)
+    const cb = id.startsWith("rc_") ? combos.find((x) => `rc_${x.id}` === id) : undefined;
+    const price = cb && isOwnCombo(cb.productIds) ? (ownComboParts(e, c, cb.productIds) ? cb.price : undefined)
+      : id.startsWith("rc_") ? toMine(e, c, cb?.price)
       : id.startsWith("op_") ? ownPagePrice(e, c, id)
       : e.s.products[id]?.published ? toMine(e, c, prices[id]) : undefined;
     if (price === undefined) throw new DomainError("NOT_FOUND", "Uno de los productos ya no está en esta página");
