@@ -21,6 +21,7 @@ import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
+import { noticeOf } from "./dia.js";
 import { bsToUsd, isUsd, paidTotal, refundToWallet, requireRate, usdToBs } from "./usd.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
@@ -911,7 +912,8 @@ export function markNoticed(e: Engine, actor: Actor, ids: unknown, off = false) 
       const a = e.get("assignments", id);
       if (a.status !== "active") continue;
       const c = { ...(a.control ?? {}) };
-      if (off) delete c.noticed; else c.noticed = { at: e.now(), for: a.customerExpiresAt };
+      // «No le avisé» borra las dos marcas de este vencimiento (la de Mi secretaria y la de Recordatorios).
+      if (off) { delete c.noticed; delete a.reminderFor; } else c.noticed = { at: e.now(), for: a.customerExpiresAt };
       a.control = c;
       e.audit(actor, off ? "assignment.notice_off" : "assignment.noticed", "assignment", a.id, { customerId: a.customerId });
       done.push(a.id);
@@ -1003,9 +1005,13 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
       const left = a.customerExpiresAt - e.now();
       if (left > withinDays * DAY) continue;
       if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY) continue;
+      // Si ya le avisaste desde Mi secretaria hoy («✅ Ya le avisé»), no se le prepara otro.
+      const nt = noticeOf(a);
+      if (nt && e.now() - nt.at < DAY) continue;
       const c = e.s.customers[a.customerId];
       queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
       a.lastReminderAt = e.now();
+      a.reminderFor = a.customerExpiresAt;
       n++;
     }
     if (n) e.audit(actor, "reminders.queue", "assignment", "*", { count: n });
@@ -1047,13 +1053,15 @@ export function autoReminders(e: Engine, actor: Actor): number {
       const key = `${a.customerExpiresAt}:${days}`;
       if (a.remindersSent?.includes(key)) continue;
       // Si ya se mandó uno a mano en las últimas 20 h, no se repite.
-      if (a.lastReminderAt && e.now() - a.lastReminderAt < 20 * 3_600_000) {
+      const nt = noticeOf(a);
+      if ((a.lastReminderAt && e.now() - a.lastReminderAt < 20 * 3_600_000) || (nt && e.now() - nt.at < 20 * 3_600_000)) {
         (a.remindersSent ??= []).push(key);
         continue;
       }
       const c = e.s.customers[a.customerId];
       queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
       a.lastReminderAt = e.now();
+      a.reminderFor = a.customerExpiresAt;
       a.remindersSent = [...(a.remindersSent ?? []).slice(-10), key];
       n++;
     }

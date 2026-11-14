@@ -11,6 +11,7 @@ import { gzipSync } from "node:zlib";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
+import { CORTE_GRACE_DAYS } from "../store/dia.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
 import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
 import { buildMail, emailsIn, parseMail } from "./mail.js";
@@ -1081,6 +1082,10 @@ export function createApp(cfg: AppConfig): App {
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  // Día a día (14/11): «Me pagó» de lo que se cortó solo (reactivar) y «Renovar proveedor y anotar».
+  route("GET", "/api/admin/assignments/:id/reactivate-preview", "staff", (c) => store.dia.reactivatePreview(A(c), c.params.id, { toSlotId: c.query.get("toSlotId") ?? undefined }));
+  route("POST", "/api/admin/assignments/:id/reactivate", "staff", (c) => store.dia.reactivate(A(c), c.params.id, { toSlotId: c.body?.toSlotId, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/assignments/:id/pay-with-supplier", "staff", (c) => store.dia.payWithSupplier(A(c), c.params.id, { months: c.body?.months, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
@@ -1952,6 +1957,8 @@ export function createApp(cfg: AppConfig): App {
       ai: review ? t(() => ({ hasKey: agents.hasKey, keyShape: agents.keyShape, ...agents.cfg(), daily: a.role === "owner" ? aiDaily() : null })) : null,
       sinPin: review ? t(() => store.shops.resellers(a).filter((r) => !db.getSecret(`loginpin:${r.id}`)).length) ?? 0 : 0,
       notifications: t(() => store.stats.notifications(a)),
+      // Números del día: el mismo cálculo que Mi secretaria (dia.ts).
+      dia: t(() => store.dia.numbers(a)),
     };
   });
   route("POST", "/api/admin/ai", "staff", (c) => {
@@ -2997,7 +3004,7 @@ export function createApp(cfg: AppConfig): App {
     const expired = store.orders.expireReservations(system);
     const reminders = store.orders.autoReminders(system);
     const supplierAlerts = store.orders.supplierExpiryAlerts(system);
-    const closed = store.orders.closeExpired(system, 2);
+    const closed = store.orders.closeExpired(system, CORTE_GRACE_DAYS);
     db.purgeExpiredSessions(now());
     let backup: string | undefined;
     try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }

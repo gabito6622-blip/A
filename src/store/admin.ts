@@ -5,6 +5,7 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { isUsd, rateNow, usdToBs } from "./usd.js";
+import { diaFields } from "./dia.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -183,6 +184,8 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         // Quien paga está en la lista en dólares: el Control muestra y anota su precio en US$.
         ...(isUsd(e, payerOf(e, a.customerId)) ? { payCurrency: "USD" as const, payUsd: payUsdOf(e, a) ?? null } : {}),
         resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
+        // Día a día: cuándo se corta solo y la marca de «ya le avisé» (la misma en Mi secretaria y Recordatorios).
+        ...diaFields(a),
       };
     });
 }
