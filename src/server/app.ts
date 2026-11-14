@@ -539,6 +539,26 @@ export function createApp(cfg: AppConfig): App {
     return { closed };
   });
 
+  // El dueño ve la seguridad de su EQUIPO (14/11/2026, revisión del súper administrador): ingresos, aparatos,
+  // intentos fallidos y si tiene verificación en dos pasos; y lo puede sacar de todos lados.
+  route("GET", "/api/admin/staff/:id/security", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const u = store.engine.s.staff[c.params.id];
+    if (!u) throw new HttpError(404, "NOT_FOUND", "Usuario inexistente");
+    return { ...securityOf(u.id), twoFactor: !!db.getSecret(`totp:${u.id}`) };
+  });
+  route("POST", "/api/admin/staff/:id/logout-all", "staff", (c) => {
+    if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
+    const u = store.engine.s.staff[c.params.id];
+    if (!u) throw new HttpError(404, "NOT_FOUND", "Usuario inexistente");
+    if (u.id === A(c).id) throw new HttpError(400, "VALIDATION", "Para tu propia cuenta usá «Cerrar todas las demás» en Configuración");
+    const closed = db.deleteSessionsOf(u.id);
+    store.engine.tx(() => store.engine.audit(A(c), "staff.logout_all", "staff", u.id, { sessionsClosed: closed }));
+    logAccess(c, "staff", u.id, "logout_all", true, "el dueño");
+    securityPush("staff", u.id, "🚪 El dueño cerró tus sesiones", "Volvé a entrar con tu usuario y contraseña.");
+    return { closed };
+  });
+
   route("GET", "/api/me/login-pin", "customer", (c) => ({ hasPin: !!db.getSecret(`loginpin:${c.actor!.customerId!}`) }));
 
   // ---- Cuentas de clientes con correo + contrasena (registro, login, recuperar) ----

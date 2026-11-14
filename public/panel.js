@@ -73,10 +73,33 @@ const opt = (v, t, sel) => `<option value="${esc(v)}" ${sel ? "selected" : ""}>$
 /** Valor para <input type="date"> con la fecha local (con toISOString se corría un día en Bolivia). */
 const dateInput = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+/** Una línea de «Carga por lista»: correo, contraseña (puede tener comas), perfiles, vence. También separada por tabulaciones (copiada de Excel). */
+export function bulkLine(line) {
+  const raw = String(line ?? "").trim();
+  if (!raw) return { empty: true };
+  let parts = raw.includes("\t") ? raw.split("\t") : raw.split(",");
+  parts = parts.map((x) => x.trim());
+  if (parts.length < 3) return { err: "faltan datos (correo, contraseña, perfiles, vence)" };
+  const email = parts[0];
+  const dateTxt = parts[parts.length - 1];
+  const nTxt = parts[parts.length - 2];
+  const password = parts.slice(1, parts.length - 2).join(",");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { err: `«${email}» no parece un correo` };
+  if (!password) return { err: "falta la contraseña" };
+  if (!/^\d{1,2}$/.test(nTxt)) return { err: `«${nTxt}» no es un número de perfiles` };
+  let y, m, d, x;
+  if ((x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(dateTxt))) [, y, m, d] = x;
+  else if ((x = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/.exec(dateTxt))) { [, d, m, y] = x; y = y ? (y.length === 2 ? "20" + y : y) : String(new Date().getFullYear()); }
+  else return { err: `«${dateTxt}» no es una fecha (usá dd/mm/aaaa)` };
+  const exp = new Date(+y, +m - 1, +d, 23, 59).getTime();
+  if (!Number.isFinite(exp) || new Date(exp).getDate() !== +d || +y < 2020 || +y > 2100) return { err: `«${dateTxt}» no es una fecha válida` };
+  return { email, password, n: +nTxt, exp };
+}
+
 /* ---- Seguridad de las cuentas (14/11/2026): aparatos e ingresos ---- */
 const SEC_EVENT = {
   login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerró una sesión", logout_others: "Cerró las otras sesiones",
-  logout_all: "La tienda cerró todas sus sesiones", pin_reset: "La tienda le generó un PIN nuevo", pin_change: "Cambió su PIN", access_link: "La tienda generó un link para entrar",
+  logout_all: "Le cerraron todas las sesiones", pin_reset: "La tienda le generó un PIN nuevo", pin_change: "Cambió su PIN", access_link: "La tienda generó un link para entrar",
 };
 const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const secSessRows = (list, mine) => list.map((s) => `<div class="secrow"><div><b>${esc(s.device)}${s.current ? ` ${pill("Este aparato", "ok")}` : ""}</b><small class="muted">Entró el ${hhmm(s.since)}${s.via ? ` con ${esc(s.via)}` : ""} · último uso ${hhmm(s.lastSeen)}${s.place ? ` · red ${esc(s.place)}…` : ""}</small></div>${mine && !s.current ? `<button class="pbtn sm" type="button" data-mysecout="${esc(s.id)}">Cerrar</button>` : ""}</div>`).join("");
@@ -392,9 +415,13 @@ const V = {
     const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
     const bars = d.months.map((m, i) => {
       const last = i === d.months.length - 1;
-      return `<div class="finbar ${last ? "cur" : ""}" title="${esc(m.label)} · entró ${bs(m.ingresos)} · salió ${bs(m.gastos)} · quedó ${bs(m.ganancia)}">
-        <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, (m.gastos / max) * 100)}%"></i></div>
-        <b class="${gcls(m.ganancia)}">${bs(m.ganancia)}</b><small>${esc(m.label)}</small></div>`;
+      // 14/11/2026: el mes en curso muestra la MISMA ganancia que «Te quedó» de arriba (con las cuentas estimadas);
+      // antes la barra decía Bs 1.022 y el número de arriba Bs -1.958.
+      const sal = last && c?.cuentasEstimado ? m.gastos + c.cuentasEstimado : m.gastos;
+      const gan = last && c && Number.isFinite(c.gananciaEstimada) ? c.gananciaEstimada : m.ganancia;
+      return `<div class="finbar ${last ? "cur" : ""}" title="${esc(m.label)} · entró ${bs(m.ingresos)} · salió ${bs(sal)} · quedó ${bs(gan)}">
+        <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, Math.min(100, (sal / max) * 100))}%"></i></div>
+        <b class="${gcls(gan)}">${bs(gan)}</b><small>${esc(m.label)}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `${cierre}${tarjeta}<div class="fin">
@@ -1132,9 +1159,9 @@ const V = {
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
       <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
-      <section class="card"><h2>Carga por lista <small>· una cuenta por línea: email, contraseña, perfiles, vence (AAAA-MM-DD)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <section class="card"><h2>Carga por lista <small>· una cuenta por línea: correo, contraseña, perfiles, vence (dd/mm/aaaa)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
-      <textarea name="rows" rows="5" style="grid-column:1/-1" placeholder="cuenta1@correo.com, Clave#1, 5, 2026-12-31&#10;cuenta2@correo.com, Clave#2, 5, 2026-12-31" aria-label="Lista de cuentas"></textarea>
+      <textarea name="rows" rows="5" style="grid-column:1/-1" placeholder="cuenta1@correo.com, Clave#1, 5, 31/12/2026&#10;cuenta2@correo.com, Clave#2, 5, 31/12/2026" aria-label="Lista de cuentas"></textarea>
       <button class="pbtn dark" type="submit" style="justify-self:start">Cargar lista</button></form><div id="bulkOut"></div></section>`;
   },
 
@@ -1408,8 +1435,17 @@ const V = {
       <div class="inline"><button class="pbtn ${asis.enabled ? "" : "dark"}" type="button" data-asis="new">${asis.enabled ? "🔁 Crear llave nueva" : "🔑 Crear llave para mi asistente"}</button>${asis.enabled ? `<button class="pbtn danger" type="button" data-asis="off">⛔ Apagar acceso</button>` : ""}</div></section>
       <section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
       <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
+      ${(() => {
+        // 14/11/2026: el dueño ve la seguridad de su equipo (ingresos, aparatos, intentos, 2 pasos) y lo saca de todos lados.
+        const ss = P.tab.ssec;
+        return ss ? `<section class="card" id="sseccard"><h2>🔐 Seguridad de ${esc(ss.name)}</h2>
+          <p class="muted" style="margin:0">Verificación en dos pasos: ${ss.twoFactor ? pill("✅ Activada", "ok") : pill("❌ Apagada", "warn")} · ${ss.sessions.length ? `abierta en <b>${ss.sessions.length}</b> aparato(s)` : "sin sesiones abiertas"}${(() => { const f = ss.log.filter((a) => !a.ok && Date.now() - a.at < 7 * 86_400_000).length; return f ? ` · <b style="color:var(--bad)">⛔ ${f} intento(s) fallido(s) en 7 días</b>` : ""; })()}</p>
+          ${secSessRows(ss.sessions, false)}
+          <details ${ss.log.length ? "open" : ""}><summary>🕘 Últimos ingresos (${ss.log.length})</summary>${secLogRows(ss.log) || `<p class="muted">Todavía no hay movimientos anotados.</p>`}</details>
+          <div class="inline">${ss.sessions.length ? `<button class="pbtn" type="button" data-sout="${esc(ss.id)}" data-name="${esc(ss.name)}">🚪 Sacarlo de todos lados</button>` : ""}<button class="pbtn sm" type="button" data-ssecclose="1">Listo</button></div></section>` : "";
+      })()}
       <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
-        <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
+        <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-ssec="${esc(u.id)}" data-name="${esc(u.name)}">🔐 Seguridad</button><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
           <form data-staffpw="${esc(u.id)}" style="display:grid;gap:6px"><input name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Contraseña nueva" aria-label="Contraseña nueva para ${esc(u.username)}" style="min-width:0;width:100%"><button class="pbtn sm" type="submit">Cambiar contraseña</button></form></div>` : ""}</td></tr>`))}
       <p class="muted" style="margin:10px 0 0">¿Alguien se olvidó la contraseña? Escribile una nueva (mínimo 10 letras) y tocá <b>Cambiar contraseña</b>: se cierra su sesión y entra con la nueva.</p></section>`;
   },
@@ -2609,8 +2645,14 @@ document.addEventListener("click", (ev) => {
   const b = ev.target.closest("a[data-invsent]");
   if (b && P.tab.inv?.on) { const inv = P.tab.inv; (inv.sent ??= {})[b.dataset.invsent] = true; inv.i++; setTimeout(render, 300); }
 });
+// 14/11/2026: las tarjetas de producto son role="button" (no <button>): tocarlas no abría nada y no se podía
+// cambiar un precio. Ahora cuentan como botón, también con Enter o espacio desde el teclado.
+document.addEventListener("keydown", (ev) => {
+  const c = ev.target.closest?.('[role="button"][data-editprod]');
+  if (c && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); c.click(); }
+});
 document.addEventListener("click", async (ev) => {
-  const el = ev.target.closest("button");
+  const el = ev.target.closest('button, [role="button"][data-editprod]');
   if (!el) return;
   const d = el.dataset;
   if (d.go) return go(d.go);
@@ -2805,6 +2847,16 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.roneclose) { P.tab.rone = null; return render(); }
   if (d.rsecclose) { P.tab.rsec = null; return render(); }
+  if (d.ssecclose) { P.tab.ssec = null; return render(); }
+  if (d.ssec) {
+    try { P.tab.ssec = { id: d.ssec, name: d.name, ...(await api("GET", `/api/admin/staff/${d.ssec}/security`)) }; await render(); scrollTo(0, 0); $("#sseccard")?.scrollIntoView({ block: "start" }); } catch (e) { toast(e.message); }
+    return;
+  }
+  if (d.sout) {
+    if (!confirm(`¿Sacar a ${d.name} de todos lados?\n\nSe cierra su panel en todos sus aparatos. Va a tener que volver a entrar con su usuario y contraseña.`)) return;
+    try { const r = await api("POST", `/api/admin/staff/${d.sout}/logout-all`, {}); toast(`Listo: se cerraron ${r.closed} sesión(es)`); P.tab.ssec = { id: d.sout, name: d.name, ...(await api("GET", `/api/admin/staff/${d.sout}/security`)) }; await render(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.rsec) {
     try { P.tab.rsec = { id: d.rsec, name: d.name, ...(await api("GET", `/api/admin/customers/${d.rsec}/security`)) }; await render(); scrollTo(0, 0); $("#rseccard")?.scrollIntoView({ block: "start" }); } catch (e) { toast(e.message); }
     return;
@@ -3571,9 +3623,15 @@ document.addEventListener("submit", async (ev) => {
         profiles: n === 1 ? [{ label: "Cuenta completa", pin }] : Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}`, pin })),
       }), `Cuenta cargada con ${n} perfil(es)`);
     } else if (f.id === "bulkForm") {
-      const rows = f.rows.value.split("\n").map((l) => l.split(",").map((x) => x.trim())).filter((r) => r[0]).map(([email, password, n, exp]) => {
+      // 14/11/2026 (revisión del súper administrador): «31/12/2026» quedaba como 2126, una clave con coma se cortaba y sin
+      // fecha la cuenta «vencía» en 100 años, sin avisar. Ahora se entiende dd/mm/aaaa, la clave puede tener comas,
+      // la fecha es obligatoria y si UNA línea está mal no se carga ninguna: se dice cuál corregir.
+      const parsed = f.rows.value.split("\n").map((l, i) => ({ i, ...bulkLine(l) })).filter((r) => !r.empty);
+      const errs = parsed.filter((r) => r.err);
+      if (errs.length) { $("#bulkOut").innerHTML = `<div class="perr">No se cargó nada. Corregí:<br>${errs.map((r) => `Línea ${r.i + 1}: ${esc(r.err)}`).join("<br>")}</div>`; throw new Error(`${errs.length} línea(s) para corregir`); }
+      const rows = parsed.map(({ email, password, n, exp }) => {
         const k = Math.max(1, Math.min(20, +n || 1));
-        return { productId: f.productId.value, supplierId: f.supplierId.value, email, password, cost: toCents(f.cost.value || 0), supplierExpiresAt: new Date((exp || "") + "T23:59:00").getTime() || 0, profiles: k === 1 ? [{ label: "Cuenta completa" }] : Array.from({ length: k }, (_, i) => ({ label: `Perfil ${i + 1}` })) };
+        return { productId: f.productId.value, supplierId: f.supplierId.value, email, password, cost: toCents(f.cost.value || 0), supplierExpiresAt: exp, profiles: k === 1 ? [{ label: "Cuenta completa" }] : Array.from({ length: k }, (_, i) => ({ label: `Perfil ${i + 1}` })) };
       });
       if (!rows.length) throw new Error("Pegá al menos una línea");
       const r = await api("POST", "/api/admin/accounts/bulk", { rows });
