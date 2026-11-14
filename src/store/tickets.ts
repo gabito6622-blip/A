@@ -5,6 +5,7 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { canActFor } from "./catalog.js";
 import { DomainError } from "./errors.js";
+import { ticketAccessChanged } from "./avisoCambios.js";
 
 export const TICKET_KINDS: Record<TicketKind, string> = {
   no_entra: "No me deja entrar",
@@ -29,6 +30,8 @@ function view(e: Engine, t: Ticket, staff: boolean) {
     waitMs: t.status === "solucionado" ? t.updatedAt - t.createdAt : Math.max(0, e.now() - t.createdAt),
     late: t.status !== "solucionado" && e.now() - t.createdAt > LATE_MS,
     ...(staff ? { reporter: rep?.name ?? "?", reporterPhone: rep?.phone ?? "", reporterKind: rep?.kind ?? "customer", accountId: acc?.id } : {}),
+    // Se resolvió cambiándole la cuenta o la clave: los datos nuevos para «💬 Avisar a mi cliente» (avisoCambios.ts).
+    ...(!staff && ticketAccessChanged(e, t) ? { accessChanged: true } : {}),
   };
 }
 

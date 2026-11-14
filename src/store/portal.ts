@@ -65,7 +65,11 @@ export function myOrders(e: Engine, actor: Actor) {
         return { id: o.id, kind: o.kind, status: o.status, total: null, paidBy: "reseller" as const, customerId: o.customerId, createdAt: o.createdAt };
       }
       // Pedido en dólares: el total que ve es lo que pagó en US$ (más cuántos USDT, si pagó así).
-      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(o.rejectReason ? { rejectReason: o.rejectReason } : {}), ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
+      // Renovación: de qué producto y correo es (R2: con varias esperando pago no se sabía cuál era cuál).
+      const ra = o.kind === "renewal" && o.renewal ? e.s.assignments[o.renewal.assignmentId] : undefined;
+      const racc = ra ? e.s.accounts[e.s.slots[ra.slotId]?.accountId ?? ""] : undefined;
+      const label = ra ? `${(e.s.products[ra.productId]?.name ?? "").replace(/\s*\(alquiler revendedores\)\s*$/i, "")}${racc ? ` · ${racc.email}` : ""}${ra.customerId !== actor.customerId ? ` · ${e.s.customers[ra.customerId]?.name ?? ""}` : ""}` : undefined;
+      return { id: o.id, kind: o.kind, status: o.status, total: o.usd ?? o.total, ...(label ? { label } : {}), ...(o.rejectReason ? { rejectReason: o.rejectReason } : {}), ...(o.usd !== undefined ? { currency: "USD" as const } : {}), ...(o.usdtQuote ? { usdt: o.usdtQuote.usdt } : {}), method: o.paymentMethod, customerId: o.customerId, createdAt: o.createdAt, ...(o.binance ? { binance: { link: o.binance.link, usdt: o.binance.usdt, status: o.binance.status } } : {}) };
     });
 }
 

@@ -20,6 +20,7 @@ import { normRef, renew, renewableNow, settleShared, submitEvidence } from "./or
 import { balance } from "./wallet.js";
 import { isUsd } from "./usd.js";
 import { mergeQueued } from "./avisosJuntos.js";
+import { pendingRenewalOf } from "./renovarSinTrabas.js";
 
 const MAX = 20;
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
@@ -74,8 +75,12 @@ export function renewManyPreview(e: Engine, actor: Actor, raw: unknown) {
   const rows = ids.map((id) => {
     const a = e.s.assignments[id];
     if (!a || a.customerId !== me.id) throw new DomainError("FORBIDDEN", "Esa cuenta no es tuya");
-    const why = a.status !== "active" ? "ya no está activa" : !canRenewHere(e, me.id, a) ? "la renueva la tienda" : !renewableNow(e, a) ? "la cuenta vence antes con el proveedor: la renueva la tienda" : "";
-    return { assignmentId: a.id, product: short(e.s.products[a.productId]?.name ?? ""), expiresAt: a.customerExpiresAt, price: renewPriceFor(e, me.id, a), ok: !why, ...(why ? { why } : {}) };
+    // Ya hay una renovación esperando pago o en revisión: no se cobra dos veces (renovarSinTrabas.ts).
+    const pend = a.status === "active" ? pendingRenewalOf(e, a.id) : undefined;
+    const why = a.status !== "active" ? "ya no está activa" : !canRenewHere(e, me.id, a) ? "la renueva la tienda" : !renewableNow(e, a) ? "para renovarla, la tienda primero renueva con su proveedor: tocá «📩 Pedir renovación»"
+      : pend ? (pend.status === "payment_review" ? "ya mandaste el comprobante: lo estamos revisando" : "ya tenés un pedido por QR esperando pago") : "";
+    return { assignmentId: a.id, product: short(e.s.products[a.productId]?.name ?? ""), expiresAt: a.customerExpiresAt, price: renewPriceFor(e, me.id, a), ok: !why, ...(why ? { why } : {}),
+      ...(pend ? { pendingOrderId: pend.id, pendingStatus: pend.status } : {}) };
   });
   const total = rows.filter((r) => r.ok).reduce((t, r) => t + r.price, 0);
   return { rows, total, balance: balance(e, me.id), currency: isUsd(e, me.id) ? "USD" as const : "BOB" as const };

@@ -48,6 +48,8 @@ import * as renovarVarias from "./renovarVarias.js";
 import * as traspaso from "./traspaso.js";
 import * as cobrarTodo from "./cobrarTodo.js";
 import * as avisoAlquiler from "./avisoAlquiler.js";
+import * as renovarSinTrabas from "./renovarSinTrabas.js";
+import * as avisoCambios from "./avisoCambios.js";
 import * as listaPrecios from "./listaPrecios.js";
 
 export * from "./types.js";
@@ -415,6 +417,16 @@ export function createStore(opts: EngineOptions = {}) {
       rentAlerts: bind(e, avisoAlquiler.myStoreRentAlerts),
       rentPush: (customerId: Id, now?: number) => avisoAlquiler.storeRentPush(e, customerId, now),
       approveOptions: bind(e, listaPrecios.approveOptions),
+    },
+    /** R2 (14/11): «📩 Pedir renovación» propio, sin corte mientras está abierto, y avisos de cambios de cuenta. */
+    rsin: {
+      request: bind(e, renovarSinTrabas.requestRenewal),
+      mine: bind(e, renovarSinTrabas.myRequests),
+      cancel: bind(e, renovarSinTrabas.cancelRequest),
+      staffList: bind(e, renovarSinTrabas.staffRequests),
+      resolve: bind(e, renovarSinTrabas.resolveRequest),
+      reject: bind(e, renovarSinTrabas.rejectRequest),
+      changePush: (customerId: Id, since: number) => avisoCambios.changePushText(e, customerId, since),
     },
     rtools: {
       control: bind(e, rtools.myControl),

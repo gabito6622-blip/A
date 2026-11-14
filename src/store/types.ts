@@ -586,6 +586,31 @@ export interface Ticket {
   updatedAt: number;
 }
 
+/**
+ * «📩 Pedir renovación» (renovarSinTrabas.ts): el revendedor (o cliente) quiere renovar pero la cuenta vence antes con el
+ * proveedor. Queda en el panel del dueño con el monto; mientras está abierto no se corta (a lo sumo 5 días de más).
+ */
+export interface RenewRequest {
+  id: Id;
+  assignmentId: Id;
+  /** Dueño del servicio y quién paga (el revendedor, si es el servicio de su cliente). */
+  customerId: Id;
+  payerId: Id;
+  /** Lo que va a pagar (su precio de renovación al pedirlo). */
+  amount: Cents;
+  /** Vencimiento del servicio al pedirlo: si después se renovó por otro lado, el pedido ya no hace falta. */
+  expiresAt: number;
+  createdAt: number;
+  createdBy: Id;
+  status: "open" | "done" | "rejected" | "cancelled";
+  closedAt?: number;
+  closedBy?: Id;
+  /** Por qué el dueño no la renueva (lo ve quien la pidió). */
+  reason?: string;
+  /** La renovación que la resolvió (con saldo, o el pedido por QR que espera su pago). */
+  orderId?: Id;
+}
+
 /** Un perfil de una cuenta alquilada que el revendedor le pasa a SU cliente. */
 export interface SubRental {
   id: Id;
@@ -816,6 +841,8 @@ export interface State {
   customerRefunds?: CustomerRefund[];
   /** Fallas reportadas (soporte). */
   tickets?: Record<Id, Ticket>;
+  /** «📩 Pedir renovación» cuando la cuenta vence antes con el proveedor (renovarSinTrabas.ts). */
+  renewRequests?: Record<Id, RenewRequest>;
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */

@@ -35,6 +35,7 @@ import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { registerAlquilerRoutes, checkAccountChangePush as accountChangePush } from "./alquilerRoutes.js";
 import { registerPerfilRoutes } from "./perfilRoutes.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
@@ -121,7 +122,7 @@ const MAX_FILE = 5 * 1024 * 1024;
 
 const STATUS: Record<string, number> = {
   FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, OUT_OF_STOCK: 409, INSUFFICIENT_BALANCE: 409,
-  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409,
+  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409, PENDING_RENEWAL: 409,
 };
 
 class HttpError extends Error {
@@ -180,6 +181,8 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
   checkResellerPush(): Promise<void>;
+  /** R2: aviso al celular por cambios de cuenta, clave o correo (lo corre el reloj cada minuto). Devuelve cuántos mandó. */
+  checkAccountChangePush(): Promise<number>;
   checkNoonPush(): Promise<void>;
   /** "🔔 Avisarme antes de que venza": avisos a clientes finales (una vez por día, desde las 9 de Bolivia). */
   checkExpiryPush(): Promise<unknown>;
@@ -322,7 +325,7 @@ export function createApp(cfg: AppConfig): App {
     if (chk.patch || !k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, ...chk.patch, lastUsedAt: now() }), now());
     return { actor: { id: u.id, role: u.role, assistant: true } };
   }
-  function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"] } {
+  function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"]; renewCookie?: string } {
     if (req.headers.authorization) { const a = resolveAssistant(req); if (a.actor) return a; }
     const raw = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
     if (!raw) return {};
@@ -338,8 +341,11 @@ export function createApp(cfg: AppConfig): App {
     }
     const c = st.customers[s.subjectId];
     if (!c) return {};
-    if (now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now());
-    return { actor: { id: `web:${c.id}`, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id }, session: s };
+    // R2 (14/11): la sesión del cliente o revendedor se renueva con el uso (antes se cerraba a los 30 días aunque
+    // entrara todos los días). Como mucho una vez por día se corre el vencimiento y se manda la cookie de nuevo.
+    const slide = s.kind === "customer" && s.expiresAt - now() <= CUSTOMER_SESSION_MS - 24 * HOUR;
+    if (slide || now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now(), slide ? now() + CUSTOMER_SESSION_MS : undefined);
+    return { actor: { id: `web:${c.id}`, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id }, session: s, ...(slide ? { renewCookie: raw } : {}) };
   }
 
   /* ---------------- archivos ---------------- */
@@ -1097,6 +1103,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
+  registerAlquilerRoutes({ route, store, push: (cid, m) => customerPush(cid, m) }); // R2: «📩 Pedir renovación» propio
   registerPerfilRoutes({ route, store }); // perfiles sueltos comprados a terceros (perfilSuelto.ts)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
@@ -2572,7 +2579,8 @@ export function createApp(cfg: AppConfig): App {
       checkOrigin(req);
       const m = url.pathname.match(r.re)!;
       const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-      const { actor, session } = resolveActor(req);
+      const { actor, session, renewCookie } = resolveActor(req);
+      if (renewCookie) res.setHeader("Set-Cookie", [`${COOKIE}=${renewCookie}`, "Path=/", "HttpOnly", "SameSite=Strict", `Max-Age=${Math.floor(CUSTOMER_SESSION_MS / 1000)}`, ...(cfg.secureCookies ? ["Secure"] : [])].join("; "));
       if (r.who === "staff" && !(actor && !actor.customerId)) throw new HttpError(actor ? 403 : 401, actor ? "FORBIDDEN" : "LOGIN_REQUIRED", actor ? "Solo el equipo de la tienda" : "Iniciá sesión");
       if (r.who === "customer" && !actor?.customerId) throw new HttpError(401, "LOGIN_REQUIRED", "Iniciá sesión");
       const why = actor?.assistant ? assistantBlocked(req.method ?? "", url.pathname) : null;
@@ -2783,6 +2791,10 @@ export function createApp(cfg: AppConfig): App {
     if (gone.size) cpushSubsSave(cpushSubs().filter((x) => !gone.has(x.endpoint)));
     return { sent, failed };
   }
+  /** R2 (14/11): aviso al celular cuando la tienda le cambia la cuenta, la clave o el correo (alquilerRoutes.ts). */
+  function checkAccountChangePush(): Promise<number> {
+    return accountChangePush({ store, now, pushOn, subscribers: () => cpushSubs().map((x) => x.customerId), getMark: (k) => db.getSecret(k), setMark: (k, v) => db.setSecret(k, v, now()), push: (cid, m) => customerPush(cid, m) });
+  }
   /** Una vez por día (desde las 9, hora de Bolivia): a cada revendedor, sus clientes que vencen mañana y si le alcanza el saldo. */
   async function checkResellerPush(): Promise<void> {
     if (!pushOn() || localHour(now(), "America/La_Paz") < 9) return;
@@ -2834,7 +2846,7 @@ export function createApp(cfg: AppConfig): App {
     const counts: Record<string, number> = {};
     for (const it of feed.items) counts[it.kind] = it.count;
     if (pushLast === null) { pushLast = counts; return; } // al arrancar no avisamos lo viejo
-    const news = feed.items.filter((it) => (c.alerts.includes(it.kind) || it.kind === "falla") && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
+    const news = feed.items.filter((it) => (c.alerts.includes(it.kind) || it.kind === "falla" || it.kind === "renewReq") && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
     pushLast = counts;
     if (!news.length) return;
     await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
@@ -3085,6 +3097,7 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      checkAccountChangePush().catch((e) => log(`avisos de cambios de cuenta fallaron: ${(e as Error).message}`));
       checkNoonPush().catch((e) => log(`resumen del mediodía falló: ${(e as Error).message}`));
       expiry.check().catch((e) => log(`avisos de vencimiento fallaron: ${(e as Error).message}`));
       checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
@@ -3093,7 +3106,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkAccountChangePush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

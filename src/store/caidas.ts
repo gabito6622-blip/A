@@ -10,7 +10,6 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { DAY } from "./time.js";
 import { replaceAssignment } from "./orders.js";
 import { payAccountRenewal } from "./finance.js";
 import { freeSlotsOf, plainMoveError, relocationRows, sellBlock } from "./vendible.js";
@@ -159,46 +158,5 @@ export function payRenewalMany(e: Engine, actor: Actor, input: { items?: unknown
 }
 
 // ── Revendedor: «Cambió la cuenta: avisá a tus N clientes» (GaboHub) ───────────────────────────────────────────────
-const CHANGE_DAYS = 30;
-
-function myCustomerId(actor: Actor): Id {
-  if ((actor.role !== "reseller" && actor.role !== "customer") || !actor.customerId) throw new DomainError("FORBIDDEN", "Solo para clientes y revendedores");
-  return actor.customerId;
-}
-
-/**
- * Cuentas de la tienda a nombre de quien pregunta que se cambiaron o se cayeron y todavía no marcó «Ya les avisé».
- * Solo SUS servicios y SUS clientes anotados (su cuaderno): nunca datos de otro revendedor, costos ni claves.
- */
-export function accountChanges(e: Engine, actor: Actor) {
-  const me = myCustomerId(actor);
-  const now = e.now();
-  const out = [];
-  for (const a of Object.values(e.s.assignments)) {
-    // Solo las cuentas completas alquiladas (las que tienen su cuaderno de clientes): un perfil suelto ya recibe su aviso.
-    if (a.customerId !== me || a.status !== "active" || e.s.products[a.productId]?.kind !== "full_account") continue;
-    const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""];
-    const moved = [...a.history].reverse().find((h) => h.event === "replaced")?.at;
-    const fallen = acc?.fallen?.at;
-    const at = Math.max(moved && now - moved <= CHANGE_DAYS * DAY ? moved : 0, fallen ?? 0);
-    if (!at || at <= (a.changeSeenAt ?? 0)) continue;
-    out.push({
-      assignmentId: a.id, kind: fallen ? "fallen" as const : "moved" as const, at,
-      product: (e.s.products[a.productId]?.name ?? "").replace(/ \(alquiler revendedores\)/, ""), email: acc?.email ?? "",
-      clients: (a.subs ?? []).map((s) => ({ id: s.id, name: s.name, phone: s.phone ?? "", label: s.label ?? "" })),
-    });
-  }
-  return out.sort((x, y) => y.at - x.at);
-}
-
-/** «✓ Ya les avisé»: saca el cartel de esa cuenta (hasta el próximo cambio). Solo sobre lo suyo. */
-export function accountChangeSeen(e: Engine, actor: Actor, assignmentId: Id) {
-  const me = myCustomerId(actor);
-  return e.tx(() => {
-    const a = e.s.assignments[assignmentId];
-    if (!a || a.customerId !== me) throw new DomainError("NOT_FOUND", "No se encontró esa cuenta");
-    a.changeSeenAt = e.now();
-    e.audit(actor, "account.change_seen", "assignment", a.id);
-    return { ok: true as const };
-  });
-}
+// Desde R2 (14/11) vive en avisoCambios.ts: también avisa cambios de clave, de correo y de PIN, y los de sus clientes.
+export { accountChanges, accountChangeSeen } from "./avisoCambios.js";

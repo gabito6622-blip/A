@@ -29,6 +29,7 @@ import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRef
 import { ownStoreRenewOk } from "./renovarVarias.js";
 import { missingListPrices } from "./listaPrecios.js";
 import { paidInReview } from "./avisoAlquiler.js";
+import { assertNoPendingRenewal, renewRequestHold, staleRenewal } from "./renovarSinTrabas.js";
 import { transferAssignment as transferWithBooks } from "./traspaso.js";
 import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
 
@@ -522,7 +523,8 @@ export function expireReservations(e: Engine, actor: Actor): number {
     for (const o of Object.values(e.s.orders)) {
       if (o.status !== "awaiting_payment") continue;
       const late = o.reservedSlotIds.some((id) => (e.s.slots[id].reservedUntil ?? Infinity) < e.now())
-        || (!o.reservedSlotIds.length && !!o.backorder && o.createdAt + DAY < e.now());
+        || (!o.reservedSlotIds.length && !!o.backorder && o.createdAt + DAY < e.now())
+        || staleRenewal(o, e.now()); // renovación por QR sin comprobante: vence a los 3 días (renovarSinTrabas.ts)
       if (!late) continue;
       releaseSlots(e, o.reservedSlotIds);
       o.status = "expired";
@@ -609,7 +611,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (!isStaff(actor)) {
       const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
       if (accN && prodN && !input.allowBeyondSupplier && renewStart(a, e.now()) + prodN.durationDays * periods * DAY > accN.supplierExpiresAt) {
-        throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: la tienda está renovando esta cuenta. Escribile a la tienda por WhatsApp y te la renueva (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
+        throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: para renovarla, la tienda primero renueva con su proveedor. Tocá «📩 Pedir renovación» y no se corta mientras tanto (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
       }
     }
     const payerId = payerFor(e, actor, a.customerId);
@@ -619,6 +621,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
     const usdPay = isUsd(e, payerId);
     const rate = usdPay ? usdCheckout(e, actor, input.paymentMethod) : 0;
+    assertNoPendingRenewal(e, actor, a.id, input.paymentMethod); // ya hay una renovación esperando pago: no pagar dos veces
     // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese: en Bs `price`, en
     // dólares `priceUsd` (si no hay, el de su lista en US$). El acordado es el de quien lo acordó (el
     // revendedor de ese cliente, o el propio cliente): si el cliente final de un revendedor renueva
@@ -809,6 +812,8 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
       // Ya mandó el comprobante de la renovación y está por revisarse: no se corta algo pagado (avisoAlquiler.ts).
       if (paidInReview(e, a)) continue;
+      // Pidió la renovación y la tienda primero tiene que renovar con su proveedor: tampoco se corta (renovarSinTrabas.ts).
+      if (renewRequestHold(e, a)) continue;
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
       e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";
