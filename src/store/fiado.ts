@@ -71,12 +71,17 @@ function settle(e: Engine, b: Book, customerId: Id) {
 
 /** Cuando un cargo de alquiler queda cubierto, el alquiler pasa a "Pagado" en su Control. */
 function syncControl(e: Engine, b: Book, customerId: Id) {
-  for (const c of settle(e, b, customerId).charges) {
+  // Por alquiler manda su último cargo: uno viejo ya pagado no pisa un mes nuevo marcado «Pendiente».
+  const last = new Map<Id, ReturnType<typeof settle>["charges"][number]>();
+  for (const c of settle(e, b, customerId).charges) if (c.assignmentId) last.set(c.assignmentId, c);
+  for (const c of last.values()) {
     if (!c.assignmentId) continue;
     const a = e.s.assignments[c.assignmentId];
     // Después de «Pasar a otro», el alquiler ya es de otra persona: lo que pague (o deba) el anterior no toca el Control del nuevo.
     if (!a || a.customerId !== customerId) continue;
     const cur = ctl(a, b)?.payStatus ?? "pagado";
+    // Un cargo de un período anterior (el alquiler ya se renovó después) no habla del mes que está usando ahora.
+    if (c.covered >= c.amount && c.dueAt !== undefined && c.dueAt < a.customerExpiresAt - 20 * 86_400_000) continue;
     const want = c.covered >= c.amount ? "pagado" : cur === "no_pago" ? "no_pago" : "pendiente";
     if (cur !== want) setCtl(a, b, want);
   }
@@ -141,7 +146,12 @@ export function removeEntry(e: Engine, actor: Actor, entryId: Id): { ok: true } 
 
 /** Alquileres marcados "Pendiente" o "No pagó" en el Control (de esa libreta) que no están en el fiado. */
 function unpaidRentals(e: Engine, b: Book, customerId?: Id) {
-  const linked = new Set(entriesOf(e, b).filter((x) => x.assignmentId).map((x) => x.assignmentId));
+  // «Ya está en el fiado» = tiene un cargo todavía abierto. Si lo que debía ya lo pagó y lo volvés a marcar «Pendiente»
+  // (otro mes fiado), es una deuda nueva y tiene que verse (antes quedaba invisible: ni en la libreta ni afuera).
+  const linked = new Set<Id | undefined>();
+  for (const cid of new Set(entriesOf(e, b).filter((x) => x.assignmentId && (!customerId || x.customerId === customerId)).map((x) => x.customerId))) {
+    for (const c of settle(e, b, cid).charges) if (c.assignmentId && c.covered < c.amount) linked.add(c.assignmentId);
+  }
   return Object.values(e.s.assignments).filter((a) => a.status === "active" && (!customerId || a.customerId === customerId) && b.owns(a.customerId)
     && (!b.creditor || a.customerId !== b.creditor) && ctl(a, b)?.payStatus && ctl(a, b)!.payStatus !== "pagado" && !linked.has(a.id));
 }

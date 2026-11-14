@@ -134,6 +134,16 @@ describe("Fiado que no se pierde", () => {
     assert.equal(owed(), 0);
     assert.ok(ids.every((id) => A(id).control.payStatus === "pagado"));
     assert.equal(sum(incomeEvents(E)), 2000 + 1800 + 3400, "entró lo que pagó, ni más ni menos");
+    // El mes siguiente le vuelve a fiar uno (lo renueva y lo marca «Pendiente»): la deuda nueva se ve en el Fiado y un
+    // pago de otra cosa no la pisa (el cargo viejo ya pagado no vuelve a poner «Pagado»).
+    clock.t = A(ids[0]).customerExpiresAt - DAY;
+    s.orders.renew(owner, ids[0], { paymentMethod: "cash" });
+    s.orders.setControl(owner, ids[0], { payStatus: "pendiente" });
+    assert.equal(owed(), 1800, "la renovación fiada se ve");
+    s.fiado.charge(owner, { customerId: pedro.id, amount: 500, note: "otra cosa" });
+    s.fiado.pay(owner, { customerId: pedro.id, amount: 500, note: "pagó la otra cosa" });
+    assert.equal(A(ids[0]).control.payStatus, "pendiente");
+    assert.equal(owed(), 1800);
   });
 });
 
