@@ -206,7 +206,9 @@ export function updateAccount(e: Engine, actor: Actor, accountId: Id, patch: Acc
     let notified = 0;
     if (credsChanged) {
       for (const a of activeOnAccount(e, acc.id)) {
-        a.history.push({ at: e.now(), by: actor.id, event: "access_updated", slotId: a.slotId, note: "datos de la cuenta actualizados" });
+        // La nota dice qué cambió: GaboHub arma con eso «Cambió la clave / el correo de tu HBO» (avisoCambios.ts).
+        const what = changed.includes("email") && changed.includes("password") ? "correo y clave de la cuenta cambiados" : changed.includes("password") ? "clave de la cuenta cambiada" : changed.includes("email") ? "correo de la cuenta cambiado" : "datos de la cuenta actualizados";
+        a.history.push({ at: e.now(), by: actor.id, event: "access_updated", slotId: a.slotId, note: what });
         queue(e, a.customerId, "access_updated", { product: e.s.products[a.productId].name });
         notified++;
       }

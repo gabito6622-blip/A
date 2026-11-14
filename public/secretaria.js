@@ -3,6 +3,7 @@
 // Los mensajes de WhatsApp se arman listos (wa.me), pero los manda el dueño: nunca se envía nada solo.
 import { api, esc, bs, fdt, fdate, waLink, toast, toCents, newKey } from "/common.js";
 import { diaLine, cutTxt, supplierRenewHtml, cortadosSection } from "/dia.js";
+import { pedidosRenovSection } from "/panel-pedidos-renov.js";
 
 const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" }); // «13/01» (es-BO sin año daba «13/1»)
 const usdTxt = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
@@ -74,9 +75,10 @@ export async function secretaryView(activity) {
   TPL = r.templates ?? {};
   RL = !!r.renewLinks;
   const c = r.counts;
-  const todo = (r.cortados?.length ?? 0) + (c.proveedores ?? 0) + c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
+  const nPed = (r.pedidosRenovar ?? []).filter((x) => x.status === "open").length; // R2: «📩 Pedir renovación»
+  const todo = nPed + (r.cortados?.length ?? 0) + (c.proveedores ?? 0) + c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
   const resumen = [
-    diaLine(r.dia), r.cortados?.length && `✂️ <b>${r.cortados.length}</b> se cortaron solos (podés reactivarlos)`, c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
+    diaLine(r.dia), nPed && `📩 <b>${nPed}</b> pedido${nPed === 1 ? "" : "s"} de renovación (renová con el proveedor)`, r.cortados?.length && `✂️ <b>${r.cortados.length}</b> se cortaron solos (podés reactivarlos)`, c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
     c.proveedores && `🏷️ <b>${c.proveedores}</b> proveedor${c.proveedores === 1 ? "" : "es"} por renovar`, c.deben && `💸 <b>${c.deben}</b> sin pagar`, c.avisar && `⏰ <b>${c.avisar}</b> por avisar (vencen en ${r.aheadDays} días)`, c.avisados && `📣 <b>${c.avisados}</b> ya avisados`, c.desenlazar && `🔗 <b>${c.desenlazar}</b> por desenlazar`,
     c.apartadas && `⏸️ <b>${c.apartadas}</b> apartadas`, c.claves && `🔑 <b>${c.claves}</b> claves por cambiar`, c.debitos && `💳 <b>${c.debitos}</b> débitos de tarjeta`, `✅ <b>${c.libres}</b> libres listas`,
   ].filter(Boolean);
@@ -116,6 +118,7 @@ export async function secretaryView(activity) {
       ${r.actividad.length ? `<details class="sec-more"><summary>Ver los ${r.actividad.length} movimientos</summary>${activity(r.actividad)}</details>` : `<p class="muted" style="margin:0">No hubo movimientos.</p>`}</section>` : "";
 
   return hero
+    + pedidosRenovSection(r.pedidosRenovar)
     + (soon ? prov : "")
     + section("sec-cobrar", "🔔 Cobrar ahora", "Están en cobro: si no pagan, se cortan.", r.cobrar, "cobrar")
     + section("sec-cortar", "✂️ Cortar", "No pagaron. Cortalas, cambiá la clave y anotala libre.", r.cortar, "cortar")

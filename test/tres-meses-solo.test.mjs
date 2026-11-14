@@ -155,7 +155,8 @@ describe("mensajes en palabras simples", () => {
     s.wallet.adjust(owner, rev.id, 5000, "recarga");
     const id = s.orders.create(owner, { customerId: rev.id, items: [{ productId: "nf", qty: 1 }], paymentMethod: "cash" }).assignmentIds[0];
     assert.throws(() => s.orders.renew({ id: "u_r", role: "reseller", customerId: rev.id }, id, { paymentMethod: "balance" }),
-      (e) => e.code === "SUPPLIER_EXPIRY_EXCEEDED" && /Escribile a la tienda/.test(e.message) && !/proveedor|reemplazá/.test(e.message));
+      // R2 (14/11): le dice qué hacer («📩 Pedir renovación», no se corta mientras tanto), no «renová con el proveedor o reemplazá».
+      (e) => e.code === "SUPPLIER_EXPIRY_EXCEEDED" && /Pedir renovación/.test(e.message) && /no se corta/.test(e.message) && !/renová con el proveedor|reemplazá/.test(e.message));
     assert.equal(s.wallet.balance(rev.id), 5000, "no se le cobró");
   });
 });

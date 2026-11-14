@@ -217,7 +217,7 @@ test("cuentas caídas: pantallas a 360 px", { skip: !chromium && "Playwright no 
     assert.match(box, /Camila Rojas/); assert.match(box, /Diego Mamani/);
     const links = await p.locator(".accchg a.sbtn").evaluateAll((l) => l.map((a) => decodeURIComponent(a.href)));
     assert.equal(links.length, 2);
-    assert.ok(links.every((h) => /wa\.me\/591711122(33|44)/.test(h) && /rev-nueva@ficticio\.lat/.test(h) && !/Clave-Larga/.test(h)), links.join(" | "));
+    assert.ok(links.every((h) => /wa\.me\/591711122(33|44)/.test(h) && /rev-nueva@ficticio\.lat/.test(h) && /Contraseña: Clave-Larga/.test(h)), links.join(" | ")); // R2: el mensaje lleva la clave nueva
     assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     if (SHOTS) { await p.locator(".accchg").scrollIntoViewIfNeeded(); await p.screenshot({ path: join(SHOTS, "10-gabohub-cambio.png") }); }
     await p.click("[data-accchgseen]");
