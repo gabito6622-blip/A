@@ -4,6 +4,12 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- **[P1] Revisión del súper administrador (14/11): pendientes sin hacer todavía** (el dueño decide cuáles):
+  - Día a día: la vista previa de «Me pagó» se sale de la pantalla en el celular (Confirmar cortado); lo vencido se corta solo a los 2 días sin avisar y después no se puede anotar el pago; «Me pagó» no deja anotar si la cuenta vence antes con el proveedor (falta «Renovar proveedor y anotar»); los números del día no coinciden entre saludo, botón, contadores y Mi secretaria (tuyos vs de revendedores); «Renovar · fecha» promete una fecha que no puede dar; «Ya le avisé» no se ve en Recordatorios; «Cambiar de cuenta» ofrece primero perfiles apartados; vender a un cliente nuevo obliga a crearlo en otra pantalla.
+  - Equipo: la llave del asistente entra como Admin completo y no vence; Auditoría sin filtro por persona/fecha; Atención puede poner precio Bs 0,01 «pagado» y bajar el Excel de clientes sin aviso al dueño; 2 pasos opcional.
+  - Inventario: fecha y costo escondidos en la carga rápida; «Editar» muestra todas las contraseñas; costo no visible en la tarjeta; «Mover todos» sin vencimiento del destino.
+  - Finanzas: meses cerrados sin costo de cuentas (100 % ganancia); Excel con otra ganancia y precio 0 en Vencimientos; pagos de fiado no suman a «Entró»; falta ganancia y deuda por revendedor; «Tu mes» muy abajo en Inicio.
+
 - **[Decide el dueño] 2FA obligatorio para dueño y admin** (14/11, revisión de seguridad). Hoy es opcional y viene apagado; no hay códigos de respaldo.
 - **[P2] Atención ve contraseñas de cuentas al entregar** (14/11). `deliveryInfo` solo pide «ser del equipo». Mostrar solo al entregar un pedido suyo.
 - **[P2] «Novedades en mis cuentas» para el revendedor** (14/11, revisión del revendedor): aviso cuando la tienda cambia perfil, contraseña o mueve una cuenta caída, con el mensaje para su cliente.
