@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-14 · Revendedores «🤝 De confianza» e «🆕 Independiente» (**sin publicar**, rama `hub-simple`)
+## 2026-11-14 · Revendedores «🤝 De confianza» e «🆕 Independiente» (**publicado el 14/11, PR #64**)
 - **Por qué:** el dueño: «mis cuentas están destinadas para mis revendedores de confianza; los nuevos no me van a comprar y no les tengo confianza con los códigos».
 - **De confianza** (los 25 de hoy, sin cambios): compran y alquilan las cuentas de la tienda. Inicio: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.
 - **Independiente** (los que se suman por la solicitud de /revendedores): usan GaboHub para SUS cuentas y SUS clientes. Inicio: 📦 Mis cuentas (las suyas) · 🔑 Mis códigos (de sus correos) · 💰 Cobrar · 🏪 Mi página (o 💸 Quién me debe). Sin «Comprar a la tienda», «Cuentas de la tienda», «Repartir perfiles» ni «Una cuenta de la tienda» en Vender y Más.
@@ -12,7 +12,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - La guía rápida y los mensajes de acceso hablan de los botones de cada tipo.
 - Prueba nueva: `test/revendedor-independiente.test.mjs`.
 
-## 2026-11-14 · GaboHub simple: 4 botones grandes y link de un toque (**sin publicar**, rama `hub-simple`)
+## 2026-11-14 · GaboHub simple: 4 botones grandes y link de un toque (**publicado el 14/11, PR #64**)
 - **Por qué:** el dueño mandó GaboHub a todos y nadie le dijo nada. Medido (solo lectura): de 25 revendedores, 22 tienen cuentas, 9 tienen PIN y solo 2 entraron alguna vez. El inicio tenía unas 20 cosas a la vez.
 - **Inicio del revendedor:** arriba 4 botones grandes: 📺 Mis cuentas (cuántas y cuántas por renovar), 🔑 Sacar código, 💳 Renovar (abre Mis cuentas filtrada en lo vencido o lo de esta semana), 🛒 Comprar. Debajo, un aviso de una línea y una fila chica: 💰 Saldo · 👥 Mis clientes (· 🏪 Mi página) · 🆘 Ayuda (Reportar falla). Sin el nombre del dueño: muchos revendedores no lo conocen (pedido del dueño). «Tu día» y «Mi país y moneda» quedan arriba solo si le sirven (si anota clientes o cuentas propias, o si es de otro país). **Nada se quitó:** lo demás (Mi control, ganancias, afiches, página, PIN, plan, referidos, instalar app) está en «🧰 Todas mis herramientas», plegado, y en «Más». En el celular, el inicio pasó de unos 3.000 px de alto a unos 1.250.
 - **Link de un toque:** en el panel del dueño, cada revendedor tiene «🔗 Link para entrar»: un link que lo deja adentro sin escribir nada (sirve 1 vez, 24 h) y **no le cambia el PIN**; se abre WhatsApp con el mensaje listo. «Nuevo PIN y acceso» ahora también trae ese link arriba.

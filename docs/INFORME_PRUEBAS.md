@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 14/11/2026 · Revendedores de confianza e independientes (rama `hub-simple`, sin publicar)
+## 14/11/2026 · Revendedores de confianza e independientes (publicado el 14/11, PR #64)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Solicitud aprobada → «independent»; creado por el dueño → de confianza; `/api/admin/resellers` y `/api/me` dicen el tipo | `test/revendedor-independiente.test.mjs` (API, datos ficticios) | pasa |
@@ -12,7 +12,7 @@
 | Revisión de aislamiento (`/gabostore-aislamiento`): se encontró y cerró que el catálogo para descargar y las etiquetas del directorio usaban sus precios sobre productos de la tienda | lectura del código + prueba | cerrado |
 | Suite completa | `npm test` | **604 pasan, 0 fallan, 76 s** |
 
-## 14/11/2026 · GaboHub simple (rama `hub-simple`, sin publicar)
+## 14/11/2026 · GaboHub simple (publicado el 14/11, PR #64)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Uso real (solo lectura): 25 revendedores, 22 con cuentas, 9 con PIN, 2 entraron alguna vez, 1 anotó clientes, 0 compras desde el panel en 30 días | API con la llave del asistente | anotado |
