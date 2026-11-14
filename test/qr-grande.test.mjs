@@ -1,6 +1,6 @@
 // QR de cobro grande (14/11/2026). Un cliente le dijo al dueño que el QR de la tienda «estaba muy chico» (120 px al
 // costado del texto). Ahora: a lo ancho, sin recortar un afiche vertical, con el monto exacto, «🔍 Ver grande» a
-// pantalla completa y «📥 Guardar QR» para pagar desde la galería del mismo celular. También en la página del revendedor.
+// pantalla completa, «📥 Guardar QR» para pagar desde la galería del mismo celular y «📋 Copiar monto» para pegarlo. También en la página del revendedor.
 // Imagen ficticia generada acá (nunca el QR real del dueño), 360 px, claro y oscuro.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -43,6 +43,7 @@ test("QR grande: a lo ancho, con el monto, «Ver grande» y «Guardar QR» en el
 
     for (const scheme of ["dark", "light"]) {
       const ctx = await b.newContext({ viewport: { width: 360, height: 780 }, colorScheme: scheme, isMobile: true, hasTouch: true, acceptDownloads: true });
+      await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
       await ctx.route(/wa\.me|whatsapp\.com|fonts\.(googleapis|gstatic)/, (r) => r.abort());
       const p = await ctx.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message));
       await p.goto(base + "/tienda/");
@@ -58,6 +59,13 @@ test("QR grande: a lo ancho, con el monto, «Ver grande» y «Guardar QR» en el
       assert.ok(box.width >= 290, `${scheme}: el QR mide ${box.width}px de ancho (antes 120)`);
       assert.ok(Math.abs(box.height / box.width - 656 / 600) < 0.02, `${scheme}: el afiche no se recorta ni se estira`);
       assert.match(await p.locator("#drawer .qrg-amt").innerText(), /Pagá exactamente Bs\s?35/);
+      // «📋 Copiar monto»: copia solo el número para pegarlo en la app del banco (pedido del dueño).
+      const cp = p.locator("#drawer .qrg-copy");
+      assert.equal(await cp.getAttribute("data-qrcopy"), "35");
+      assert.ok((await cp.boundingBox()).height >= 44);
+      await cp.click();
+      await p.locator("#drawer .qrg-copy", { hasText: "Copiado: 35" }).waitFor();
+      assert.equal(await p.evaluate(() => navigator.clipboard.readText()), "35", `${scheme}: en el portapapeles quedó «35»`);
       for (const h of await p.locator("#drawer .qrg-btns .sbtn").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) assert.ok(h >= 44, `${scheme}: botón de ${h}px`);
       assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, `${scheme}: sin desborde`);
       // «Guardar QR» baja la imagen con un nombre claro.
@@ -83,4 +91,13 @@ test("QR grande: a lo ancho, con el monto, «Ver grande» y «Guardar QR» en el
       await ctx.close();
     }
   } finally { await b.close(); await app.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("«Copiar monto» copia solo el número que pide la app del banco", async () => {
+  const { amountNumber } = await import("../public/qr-grande.js");
+  assert.equal(amountNumber(9900), "99", "sin «Bs» ni decimales de más");
+  assert.equal(amountNumber(9950), "99.50");
+  assert.equal(amountNumber(150000), "1500", "sin separador de miles");
+  assert.equal(amountNumber(0), "", "sin monto no hay botón");
+  assert.equal(amountNumber(null), "");
 });
