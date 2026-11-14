@@ -74,6 +74,19 @@ export function accountsEstimateMonth(e: Engine, key: string, now: number = e.no
     if (a.createdAt >= end || a.createdAt > now || a.supplierExpiresAt < start) continue;
     // Una cuenta retirada cuesta en los meses en que estuvo viva, también el mes en que se retiró (15/11/2026: ese
     // mes ya la habías pagado; antes desaparecía del costo y el mes salía con más ganancia).
+    // Cuenta de perfiles sueltos (perfilSuelto.ts): cada perfil tiene su costo, su fecha y su pago.
+    if (a.loose) {
+      let accAmt = 0;
+      for (const s of Object.values(e.s.slots)) {
+        const l = s.loose;
+        if (s.accountId !== a.id || !l || l.boughtAt >= end || l.until < start || (l.down && l.down.at < start) || !(l.cost > 0)) continue;
+        conCosto++;
+        if ((e.s.expenses ?? []).some((x) => coversMonth(x, key) && (x.slotId === s.id || (!!l.prev && x.slotId === l.prev) || (x.accountId === a.id && !x.slotId)))) continue;
+        accAmt += l.cost; count++;
+      }
+      if (accAmt) { amount += accAmt; byAccount.push({ accountId: a.id, amount: accAmt }); }
+      continue;
+    }
     if (a.status === "retired") { const r = retired.get(a.id); if (r === undefined || r < start) continue; }
     const cost = accountCostBs(e, a);
     if (!(cost > 0)) continue;

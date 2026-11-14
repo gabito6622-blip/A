@@ -6,6 +6,7 @@ import type { Actor, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize, can } from "./auth.js";
 import { DomainError } from "./errors.js";
+import { renewBlockOf } from "./vendible.js";
 import { DAY, boDayStart } from "./time.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { extend, setRentalControl as setControl } from "./orders.js";
@@ -59,6 +60,8 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
   const blockers: string[] = [], warnings: string[] = [];
   if (a.status !== "active") blockers.push("El servicio no está activo");
   if (!acc) blockers.push("La cuenta ya no existe");
+  const fallen = a.status === "active" ? renewBlockOf(e, a) : null; // cuenta caída: primero moverlo
+  if (fallen) blockers.push(fallen.replace("renová", "anotá el cobro"));
   // Decisión (b): si la fecha nueva pasa la del proveedor, se anota igual con un aviso claro (y la cuenta queda en
   // «Proveedores por renovar» de Mi secretaria). Sigue estando «💳 Renovar proveedor y anotar» para hacer las dos cosas juntas.
   const supplierBlocked = !!acc && to > supplierExpiresAt && !supplierNoDate;

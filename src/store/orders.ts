@@ -15,7 +15,7 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
-import { relocationRows, sellBlock, slotFreeStatus } from "./vendible.js";
+import { relocationRows, renewBlockOf, sellBlock, slotFreeStatus } from "./vendible.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
@@ -557,6 +557,8 @@ export function renewableNow(e: Engine, a: Assignment): boolean {
 export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
+  const fallen = renewBlockOf(e, a); // sigue en una cuenta caída: primero moverlo (vendible.ts)
+  if (fallen) throw new DomainError("INVALID_STATE", fallen);
   const days = e.s.products[a.productId].durationDays * periods;
   // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
   const next = renewStart(a, e.now()) + days * DAY;
@@ -590,6 +592,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
   const key = input.idempotencyKey ? `renew:${assignmentId}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
     const a = e.get("assignments", assignmentId);
+    { const fallen = renewBlockOf(e, a); if (fallen) throw new DomainError("INVALID_STATE", fallen); } // cuenta caída: moverlo primero
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
     else {
       requireActFor(e, actor, a.customerId);

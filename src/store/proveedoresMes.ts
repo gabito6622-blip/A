@@ -14,6 +14,7 @@ import { incomeEvents } from "./income.js";
 import { accountsEstimateMonth } from "./finanzasCostos.js";
 import { addMonthKey, monthLabel, pendingFixed, signedAmount } from "./gastos.js";
 import { servicesOf, sharesOf } from "./plata.js";
+import { looseMonth } from "./perfilSuelto.js";
 
 /** El perfil en que estaba un servicio en un momento: el del último cambio de su historial hasta ese momento. */
 export function slotAt(a: Assignment, t: number): Id {
@@ -31,14 +32,25 @@ export function accountAt(e: Engine, assignmentId: Id | undefined, t: number): I
 /** Lo que entró en [from, to) repartido por cuenta (donde estaba cada cliente al pagar). `""` = sin cuenta. */
 export function incomeByAccount(e: Engine, from: number, to: number, now = e.now()): Map<Id, Cents> {
   const out = new Map<Id, Cents>();
-  const add = (acc: Id | undefined, v: Cents) => out.set(acc ?? "", (out.get(acc ?? "") ?? 0) + v);
+  for (const [k, v] of incomeBy(e, from, to, now, (id, t) => accountAt(e, id, t))) out.set(k, v.amount);
+  return out;
+}
+
+/** Lo mismo, por perfil (para los perfiles sueltos): cuántos cobros y cuánto. */
+export function incomeBySlot(e: Engine, from: number, to: number, now = e.now()): Map<Id, { n: number; amount: Cents }> {
+  return incomeBy(e, from, to, now, (id, t) => { const a = id ? e.s.assignments[id] : undefined; return a ? slotAt(a, t) : undefined; });
+}
+
+function incomeBy(e: Engine, from: number, to: number, now: number, keyOf: (assignmentId: Id | undefined, t: number) => Id | undefined) {
+  const out = new Map<Id, { n: number; amount: Cents }>();
+  const add = (k: Id | undefined, v: Cents) => { const r = out.get(k ?? "") ?? { n: 0, amount: 0 }; r.amount += v; if (v > 0) r.n++; out.set(k ?? "", r); };
   for (const ev of incomeEvents(e, now)) {
     if (ev.at < from || ev.at >= to) continue;
     if (ev.source === "order" && ev.order && !ev.assignmentId) {
       const shares = sharesOf(e, ev.order);
       if (!servicesOf(ev.order).length) { add(undefined, ev.amount); continue; }
-      for (const [id, v] of shares) add(accountAt(e, id, ev.at), v);
-    } else add(accountAt(e, ev.assignmentId, ev.at), ev.amount);
+      for (const [id, v] of shares) add(keyOf(id, ev.at), v);
+    } else add(keyOf(ev.assignmentId, ev.at), ev.amount);
   }
   return out;
 }
@@ -69,8 +81,10 @@ export function supplierMonth(e: Engine, actor: Actor, month?: unknown) {
   for (const fx of pendingFixed(e, key)) row(e.s.fixedExpenses?.find((f) => f.id === fx.fixedId)?.supplierId ?? "").estimado += fx.amount;
   for (const [acc, v] of incomeByAccount(e, start, end, now)) row(supOfAcc(acc || undefined)).ingresos += v;
   for (const a of Object.values(e.s.accounts)) if (a.createdAt < end && a.supplierExpiresAt >= start) row(a.supplierId).cuentas++;
+  // Perfiles sueltos de cada vendedor (perfilSuelto.ts): compré, vendí, gané, caídas y cuánto devolvió.
+  const loose = looseMonth(e, key, incomeBySlot(e, start, end, now));
   const list = [...rows.values()].filter((r) => r.supplierId || r.pagado || r.devuelto || r.estimado || r.ingresos)
-    .map((r) => ({ ...r, ganancia: r.ingresos - r.pagado + r.devuelto - r.estimado }))
+    .map((r) => ({ ...r, ganancia: r.ingresos - r.pagado + r.devuelto - r.estimado, ...(loose.has(r.supplierId) ? { perfiles: loose.get(r.supplierId)! } : {}) }))
     .sort((a, b) => Number(!a.supplierId) - Number(!b.supplierId) || b.ingresos - a.ingresos || a.name.localeCompare(b.name, "es"));
   const tot = (k: "pagado" | "devuelto" | "estimado" | "ingresos" | "ganancia") => list.reduce((t, r) => t + r[k], 0);
   const gastos = (e.s.expenses ?? []).filter((x) => boMonthKey(x.at) === key).reduce((t, x) => t + signedAmount(x), 0);

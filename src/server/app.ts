@@ -35,6 +35,7 @@ import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { registerPerfilRoutes } from "./perfilRoutes.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
@@ -1096,6 +1097,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
+  registerPerfilRoutes({ route, store }); // perfiles sueltos comprados a terceros (perfilSuelto.ts)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
   route("POST", "/api/admin/accounts", "staff", (c) => {
