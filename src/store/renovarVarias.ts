@@ -19,6 +19,7 @@ import { isIndependent, renewPriceFor, visibleTo } from "./catalog.js";
 import { normRef, renew, renewableNow, settleShared, submitEvidence } from "./orders.js";
 import { balance } from "./wallet.js";
 import { isUsd } from "./usd.js";
+import { mergeQueued } from "./avisosJuntos.js";
 
 const MAX = 20;
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
@@ -96,8 +97,12 @@ export function renewMany(e: Engine, actor: Actor, input: { ids: unknown; paymen
     if (bad) throw new DomainError("VALIDATION", `${bad.product}: ${bad.why}. Sacala de la lista y probá de nuevo.`);
     if (method === "balance" && pv.total > pv.balance) throw new DomainError("INSUFFICIENT_BALANCE", `Te falta saldo: las ${ids.length} cuestan ${fmt(pv.total)} y tenés ${fmt(pv.balance)}. Recargá o pagá con QR.`);
     const orders: Order[] = [];
+    const box0 = e.s.outbox.length;
     for (const id of ids) orders.push(renew(e, actor, id, { paymentMethod: method as "balance" | "qr" }).order);
     const total = orders.reduce((t, o) => t + o.total, 0);
+    // Un solo aviso por persona (no uno por cuenta): «registramos tus pedidos…» y «renovamos Netflix y Disney».
+    mergeQueued(e, box0, "order_received", () => ({ total: fmt(total) }));
+    mergeQueued(e, box0, "renewal_confirmed");
     e.audit(actor, "renewal.many", "customer", me.id, { count: orders.length, total, method });
     return {
       method, total, count: orders.length,
@@ -117,7 +122,10 @@ export function evidenceMany(e: Engine, actor: Actor, raw: unknown, ev: { fileRe
       if ((o.payerId ?? o.customerId) !== me.id) throw new DomainError("FORBIDDEN", "Ese pedido no es tuyo");
       if (o.usd !== undefined) throw new DomainError("VALIDATION", "Los pedidos en dólares se pagan uno por uno");
     }
+    const box0 = e.s.outbox.length;
     const out = ids.map((id) => submitEvidence(e, actor, id, ev));
+    // Al dueño le llega UN «nuevo pago para revisar» con todos los pedidos y el total (no uno por cuenta).
+    mergeQueued(e, box0, "staff_payment_review", () => ({ total: fmt(out.reduce((t, o) => t + o.total, 0)) }));
     const set = new Set(ids);
     for (const id of ids) {
       const x = e.s.orders[id].evidence!;
@@ -212,7 +220,11 @@ export function approveGroup(e: Engine, actor: Actor, input: ApproveGroupInput) 
     if (sum + priorSum !== amount) {
       throw new DomainError("VALIDATION", `La suma no coincide: ${orders.length === 1 ? "el pedido suma" : `los ${orders.length} pedidos suman`} ${fmt(sum)}${priorSum ? ` y ya aprobaste ${fmt(priorSum)} con esa referencia (${fmt(sum + priorSum)} en total)` : ""}, y escribiste ${fmt(amount)}. Revisá el comprobante.`);
     }
+    const box0 = e.s.outbox.length;
     for (const o of orders) settleShared(e, actor, o, ref, shared);
+    // Un solo «renovamos…» / «tu pedido fue confirmado» por persona.
+    mergeQueued(e, box0, "renewal_confirmed");
+    mergeQueued(e, box0, "order_confirmed");
     e.audit(actor, "payment.approve_group", "customer", payerId, { orders: ids.join(",").slice(0, 300), prior: prior.map((o) => o.id).join(",").slice(0, 200), amount, confirmedReference: ref });
     return { ok: true as const, approved: ids, total: sum, priorTotal: priorSum };
   }));
