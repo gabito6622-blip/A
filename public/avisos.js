@@ -44,6 +44,8 @@ export async function loadAlertsCard() {
   A.err = "";
   if (isIOS() && !standalone()) ensureManifest("/tienda.webmanifest");
 }
+/** ¿La tienda tiene avisos y este celular ya los activó? (despues-pago.js ofrece «Avisarme cuando lo aprueben»). */
+export const alertsReady = () => ({ configured: !!A.cfg?.configured, on: !!A.on });
 export function alertsCard() {
   if (!A.cfg?.configured) return "";
   const cant = cantText("la tienda");

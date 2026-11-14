@@ -339,7 +339,7 @@ test("por la API: dos revendedores no se ven ni se tocan (leer, crear, editar, c
 });
 
 test("CSP: el Control del panel y Mis pedidos de la tienda conocen los campos nuevos (sin scripts en línea)", () => {
-  const panel = readFileSync(resolve("public/panel.js"), "utf8"), usdJs = readFileSync(resolve("public/usd.js"), "utf8"), shop = readFileSync(resolve("public/shop.js"), "utf8");
+  const panel = readFileSync(resolve("public/panel.js"), "utf8"), usdJs = readFileSync(resolve("public/usd.js"), "utf8"), shop = readFileSync(resolve("public/shop.js"), "utf8") + readFileSync(resolve("public/despues-pago.js"), "utf8"); // el historial vive en despues-pago.js (C1)
   assert.match(usdJs, /f: "priceUsd"/);
   assert.match(panel, /payField\(r, r\.price\)/);
   assert.match(panel, /f === "priceUsd"/);
