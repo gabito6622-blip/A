@@ -69,6 +69,7 @@ export function approveAppDialog(appId, name = "") {
         <label class="chk"><input type="radio" name="rmtrust" value="independent" checked> <span><b>🆕 Independiente</b><br><small class="muted">Usa GaboHub con SUS cuentas; no ve tu stock.</small></span></label></fieldset>
       <label>Lista de precios<select name="rmgroup">${opt.groups.map((g) => `<option value="${esc(g.id)}" ${g.id === opt.suggested ? "selected" : ""} ${withPrices && !g.prices ? "disabled" : ""}>${esc(g.name)} · ${g.prices} precio(s)${g.resellers ? ` · la usan ${g.resellers}` : ""}${!g.prices ? " · vacía" : ""}</option>`).join("")}</select></label>
       <small class="muted">Viene marcada la que usan tus otros revendedores. Una lista vacía le cobraría el precio de la tienda.</small>
+      <label class="chk"><input type="checkbox" name="rmpage"> <span><b>🏪 Con página propia</b><br><small class="muted">Puede armar y publicar su tienda (/r/…). Sin marcar: solo panel; se la habilitás después.</small></span></label>
       <p class="bad rmerr" hidden></p>
       <div class="inline"><button class="pbtn green" type="button" data-rmappok="1">✅ Aprobar</button><button class="pbtn" type="button" data-rmclose="1">Cancelar</button></div>`);
     const obs = new MutationObserver(() => { if (!m.el.isConnected) { obs.disconnect(); resolve(null); } });
@@ -77,7 +78,7 @@ export function approveAppDialog(appId, name = "") {
       ev.target.disabled = true;
       try {
         const trust = m.el.querySelector('[name="rmtrust"]:checked')?.value ?? "independent";
-        const r = await api("POST", `/api/admin/reseller-apps/${appId}/approve`, { trust, priceGroupId: m.el.querySelector('[name="rmgroup"]').value });
+        const r = await api("POST", `/api/admin/reseller-apps/${appId}/approve`, { trust, priceGroupId: m.el.querySelector('[name="rmgroup"]').value, page: !!m.el.querySelector('[name="rmpage"]')?.checked });
         obs.disconnect(); m.close(); resolve(r);
       } catch (e) { ev.target.disabled = false; errBox(m.el, e.message); }
     });

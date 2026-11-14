@@ -28,6 +28,8 @@ async function boot(opts) {
   const dani = s.catalog.createCustomer(owner, { name: "Daniel Prueba", phone: "+59171000099", kind: "reseller", priceGroupId: "rev" });
   s.shops.setPage(owner, dani.id, true);
   s.shops.setupFor(owner, dani.id, { slug: "daniel", title: "Daniel TV", whatsapp: "59171000099", enabled: true });
+  // Su precio de Netflix: así su página muestra el producto (antes la prueba solo encontraba «Netflix» en el texto de fábrica).
+  s.portal.setPrices({ id: "u_" + dani.id, role: "reseller", customerId: dani.id }, { nf: 3500 });
   const apagada = s.catalog.createCustomer(owner, { name: "Rosa Apagada", phone: "+59171000098", kind: "reseller", priceGroupId: "rev" });
   s.shops.setPage(owner, apagada.id, true);
   s.shops.setupFor(owner, apagada.id, { slug: "rosa", title: "Rosa TV", enabled: false });
@@ -110,7 +112,8 @@ test("en el celular, daniel.gabostore.lat abre la tienda de Daniel con sus produ
     const errs = []; page.on("pageerror", (e) => errs.push(String(e)));
     await page.goto(`http://daniel.gabostore.lat:${s.port}/`);
     await page.getByText("Daniel TV").first().waitFor({ timeout: 15_000 });
-    await page.getByText("Netflix").first().waitFor({ timeout: 15_000 });
+    // La tarjeta del producto (15/11/2026: el texto de portada de fábrica ya no nombra plataformas).
+    await page.locator("#sout article.pc", { hasText: "Netflix" }).first().waitFor({ timeout: 15_000 });
     assert.equal(new URL(page.url()).pathname, "/", "la dirección queda limpia");
     assert.deepEqual(errs, []);
   } finally { await b.close(); await s.stop(); }

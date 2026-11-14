@@ -1,0 +1,35 @@
+/* Arranque del revendedor nuevo (arranque.js) y página propia sin marca ajena (marca-propia.js). Celular primero. */
+.arr-pasos{gap:10px}
+.arr-pasos .pasos{list-style:none;margin:0;padding:0;gap:6px}
+.arr-pasos .paso{display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px}
+.arr-pasos .arr-n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:var(--s-line);color:var(--s-muted)}
+.arr-pasos .paso.done .arr-n{background:#16b47e;color:#fff}
+.arr-pasos .arr-tx{display:grid;gap:2px;min-width:0}
+.arr-pasos .arr-tx b{font-size:15px;line-height:1.3}
+.arr-pasos .arr-tx small{color:var(--s-muted);font-size:13px;line-height:1.35}
+.arr-pasos .arr-tx s{color:var(--s-muted);text-decoration-thickness:2px}
+.arr-pasos .paso .sbtn{min-height:44px;white-space:nowrap}
+.arr-pasos .paso.ask .sbtn{white-space:normal;max-width:120px;text-align:center;line-height:1.2}
+.arr-pasos .paso.ask{border-style:dashed}
+.arr-indep{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px}
+.arr-indep > span{color:var(--s-ink);font-size:13px;line-height:1.4}
+.arr-indep .sbtn,.arr-indepcat .sbtn{min-height:44px;justify-self:start}
+.arr-indepcat{display:grid;gap:10px}
+.arr-slug{display:flex;align-items:stretch;min-width:0;border:1px solid var(--s-line);border-radius:12px;overflow:hidden;background:var(--s-card2,var(--s-card))}
+.arr-slug .arr-pre{display:flex;align-items:center;padding:0 8px;color:var(--s-muted);font-size:13px;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--s-line)}
+.arr-slug input{flex:1;min-width:0;border:0 !important;border-radius:0 !important;min-height:44px}
+.arr-slugmsg{font-size:13px}
+.arr-slugmsg[data-bad]{color:var(--s-bad,#c92a2a)}
+.arr-where{margin:0;font-size:14px;overflow-wrap:anywhere}
+.linkbtn{background:none;border:0;padding:0 4px;min-height:44px;color:var(--s-blue,#3984ff);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+/* Preguntas de su página (Mi página) */
+.rfaq{display:grid;gap:10px}
+.rfaq fieldset{border:1px solid var(--s-line);border-radius:12px;padding:10px;display:grid;gap:8px;margin:0;min-width:0}
+.rfaq legend{font-size:13px;color:var(--s-muted);padding:0 4px}
+.rfaq textarea{min-height:64px;resize:vertical;background:var(--s-bg);color:var(--s-ink);border:1px solid var(--s-line);border-radius:12px;padding:11px 12px;width:100%;min-width:0;font:inherit}
+.rfaq ::placeholder{color:var(--s-muted);opacity:.8}
+/* Condiciones neutras de la página de un revendedor */
+.rconds{display:grid;gap:10px;max-height:70vh;overflow:auto}
+.rconds h3{margin:6px 0 0;font-size:16px}
+.rconds p,.rconds li{margin:0;font-size:14px;line-height:1.5;color:var(--s-muted)}
+.rconds ul{margin:0;padding-left:20px;display:grid;gap:6px}

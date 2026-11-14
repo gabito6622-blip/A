@@ -48,6 +48,7 @@ import { shrinkPng } from "./pdf.js";
 import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 import { injectEarlyLook } from "./earlyLook.js";
+import { brandShell } from "./marcaNeutra.js";
 import { deviceOf } from "./device.js";
 import { accessAsAudit, assistantBlocked, assistKeyCheck, auditRange, createTeamWatch, type AssistKey } from "./teamSecurity.js";
 
@@ -886,6 +887,9 @@ export function createApp(cfg: AppConfig): App {
   /* ---- página propia del revendedor ---- */
   route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
   route("GET", "/api/me/referrals", "customer", (c) => store.shops.referrals(c.actor!));
+  // Arranque del revendedor nuevo (arranque.ts): primeros pasos y la dirección de su página desde el nombre de su tienda.
+  route("GET", "/api/me/primeros-pasos", "customer", (c) => store.shops.firstSteps(c.actor!));
+  route("GET", "/api/me/shop/slug", "customer", (c) => store.shops.suggestSlug(c.actor!, c.query.get("t") ?? ""));
   // Su página, cupones e imágenes: plan Vendedor en adelante (leerlas sigue libre para que vea qué tiene).
   route("PUT", "/api/me/shop", "customer", (c) => { needPlan("pagina")(c); return store.shops.update(c.actor!, c.body ?? {}); });
   // Cupones propios del revendedor (si el dueño lo permite) y presupuesto público en su página.
@@ -1215,8 +1219,8 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/reseller-apps/options", "staff", (c) => store.rmes.approveOptions(A(c)));
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
-    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId });
-    // Por defecto entra con plan "solo panel"; si pedís la página, se la habilitás después.
+    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId, ...(c.body?.page !== undefined ? { page: c.body.page === true } : {}) });
+    // Por defecto entra con plan "solo panel" (queda guardado); con «con página» marcado ya puede armarla.
     const pin = randomPin();
     setLoginPin(r.customerId, pin);
     return { ...r, pin };
@@ -1635,7 +1639,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
-    return { name: o.name, mode: linkMode(o.customerId) };
+    return { name: o.name, mode: linkMode(o.customerId), platforms: store.codes.platforms(o.customerId) };
   });
   route("POST", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
@@ -1649,7 +1653,7 @@ export function createApp(cfg: AppConfig): App {
       if (emailLookupLimiter.blocked(kl)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
       emailLookupLimiter.take(kl);
       const codes = store.codes.of(o.customerId).filter((x) => x.to === email);
-      return { name: o.name, email, codes, minutes };
+      return { name: o.name, email, codes, minutes, platforms: store.codes.platforms(o.customerId) };
     }
     // Modo PIN (links viejos o privados): verifica el PIN y muestra todos los códigos.
     const k = `${c.params.token}|${c.ip}`;
@@ -1658,7 +1662,7 @@ export function createApp(cfg: AppConfig): App {
       pinLimiter.take(k); pinTokenLimiter.take(c.params.token);
       throw new HttpError(401, "BAD_PIN", "PIN incorrecto");
     }
-    return { name: o.name, codes: store.codes.of(o.customerId), minutes };
+    return { name: o.name, codes: store.codes.of(o.customerId), minutes, platforms: store.codes.platforms(o.customerId) };
   });
 
   // ---- Copia del respaldo fuera del servidor: se guarda como correo en una carpeta de tu Gmail ----
@@ -2432,6 +2436,8 @@ export function createApp(cfg: AppConfig): App {
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    // Encabezado y pie con el nombre de ESTA página desde el primer cuadro (la de un revendedor nunca dice el de la tienda).
+    html = brandShell(html, /^\/r\//i.test(pathname) && !info.shop ? "" : info.siteName);
     // Los colores del dueño (o del revendedor) desde el primer cuadro: sin destello azul de los colores de fábrica.
     const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
     if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
