@@ -10,13 +10,17 @@ import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js"
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox } from "/hub-mes.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
-import { initAccChanges, accChangeBox } from "/cambio-cuenta.js";
+import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
+import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
+import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
-initAccChanges(() => render()); // «Cambió la cuenta: avisá a tus N clientes» (cambio-cuenta.js)
+// «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
+initAccChanges(() => render(), { services: () => S.data.services });
+initAskRenew({ render: () => render(), refresh: () => refresh() }); // «📩 Pedir renovación» propio (pedir-renovacion.js)
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
 const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 // La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
@@ -447,14 +451,15 @@ function iptvAccessText(a) {
 const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores</h2><p class="empty">Tus compras y cuentas están en la tienda.</p><a class="sbtn pri" href="/tienda/#cuentas" style="justify-self:start">Ir a la tienda ${icon("arrow")}</a></div>`;
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
-function pendingOrders() {
-  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él).
-  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review"));
+function pendingOrders(skip = null) {
+  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él). `skip`: los que ya muestra el
+  // cuadro «Pagá Bs X con un solo QR» (hub-mes.js), para no repetirlos sueltos.
+  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review") && !skip?.has(o.id));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
   const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
   const steps = (o) => { const i = o.status === "payment_review" ? 1 : 0; return `<div class="tsteps">${[["📝", "Pedido"], ["🔍", "Revisando pago"], ["✅", "Entregado"]].map(([e, t], n) => `<span class="${n <= i ? "on" : ""}">${e} ${t}</span>`).join("")}</div>`; };
-  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
+  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]}${o.label ? ` · ${esc(o.label)}` : ""} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
     ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
       : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. ${eta} Cuando esté listo, tus accesos aparecen acá abajo.</span>`
@@ -635,8 +640,8 @@ function renderInner() {
     seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
-      ${isReseller() ? rentAlertBanner() : ""}
-      ${pendingOrders()}
+      ${isReseller() ? rentAlertBanner() + accChangesBanner() : ""}
+      ${pendingOrders(isReseller() ? qrBoxIds() : null)}
       ${isReseller() ? renewManyBox(services) : ""}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
@@ -662,9 +667,7 @@ function renderInner() {
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
-          ? `<span class="rlock">🔒 Esta cuenta la renueva la tienda. Te anda hasta el <b>${fdate(a.expiresAt)}</b>.</span>${S.settings.whatsapp
-            ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Pedir renovación</a>`
-            : `<button class="sbtn sm pri" type="button" data-falla="${esc(a.assignmentId)}">📩 Pedir renovación</button>`}`
+          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice })
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
@@ -981,7 +984,10 @@ function fallasView() {
   if (!S.me?.loggedIn) return needLogin("tus reportes");
   const T = S.data.tickets ?? { kinds: {}, list: [] }, sv = S.data.services ?? [], pre = S.data.fallaPre ?? "";
   const order = ["recibido", "revisando", "solucionado"];
-  const okMsg = (t) => `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}\nProbá entrar de nuevo y cualquier cosa me avisás 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  // R2: si la tienda le cambió la cuenta o la clave, el mensaje lleva los datos nuevos (de «Mis cuentas»), no solo «probá de nuevo».
+  const newAcc = (t) => (t.accessChanged ? sv.find((a) => a.assignmentId === t.assignmentId)?.access : null);
+  const accLines = (x) => [`Correo: ${x.email}`, `Contraseña: ${x.password}`, `Perfil: ${x.profile}`, ...(x.pin ? [`PIN: ${x.pin}`] : [])].join("\n");
+  const okMsg = (t) => { const x = newAcc(t); return `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}${x ? `\nTus datos nuevos:\n${accLines(x)}\nEntrá con estos datos y cualquier cosa me avisás 🙌` : "\nProbá entrar de nuevo y cualquier cosa me avisás 🙌"}${myStore() ? `\n— ${myStore()}` : ""}`; };
   return `<div class="sec-h"><div><span class="chip">Soporte</span><h2>⚠️ Reportar una falla</h2><p>Contanos qué pasa y seguí el estado acá: <b>Recibido → Revisando → Solucionado</b>. Si activaste los avisos, te llega al celular cuando cambia.</p></div></div>
     <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${isReseller() ? `${esc(a.customerName)} · ` : ""}${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
       <label>¿Qué pasa?<select name="kind">${Object.entries(T.kinds).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
@@ -1203,7 +1209,7 @@ function rSubsView() {
       <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
     <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
       return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header>${am(r.productId, r.product, "")}<div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
-        <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
+        <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? askRenewHtml({ assignmentId: r.assignmentId, product: r.product, expiresAt: r.expiresAt, price: r.cost }) : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${accChangeBox(r)}${selfCodesRental(r.assignmentId)}${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
         <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
           ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
@@ -1245,7 +1251,7 @@ function resellerView() {
     return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${sellText(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
   const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
-    <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda</span>` : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
+    <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }) : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
   const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
@@ -1563,7 +1569,7 @@ function resellerHome() {
   const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
   return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
-    ${rentAlertBanner()}
+    ${rentAlertBanner()}${accChangesBanner()}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
@@ -2277,7 +2283,7 @@ function openLogin(step, phone = "", msg = "", email = "") {
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da la tienda por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a la tienda para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
+    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a ${pinGiver(st)} para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
   }[step];
   markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
@@ -2747,17 +2753,18 @@ document.addEventListener("click", async (ev) => {
     } catch (e) {
       el.disabled = false;
       if (e.code === "INSUFFICIENT_BALANCE") { toast("Tu saldo no alcanza: recargá o renová con QR"); return setView("recargas"); }
-      toast(e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "Este servicio no se puede renovar por ahora. Escribinos por WhatsApp." : e.message);
+      if (await pendingRenewFlow(e, d.renew, async () => { const r = await api("POST", "/api/me/renew", { assignmentId: d.renew, paymentMethod: d.method, idempotencyKey: newKey() }); toast(`Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`); await refresh(); }).catch((x) => { toast(x.message); return true; })) return;
+      toast(e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "Para renovarla, la tienda primero renueva con su proveedor: tocá «📩 Pedir renovación»." : e.message);
     }
     return;
   }
   if (d.cancel) {
     el.disabled = true;
-    try { await api("POST", `/api/orders/${d.cancel}/cancel`); toast("Pedido cancelado"); await refresh(); } catch (e) { el.disabled = false; toast(e.message); }
+    try { await api("POST", `/api/orders/${d.cancel}/cancel`, {}); toast("Pedido cancelado"); await refresh(); } catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
   if (d.reload) { await loadPrivate(); return render(); }
-  if (d.logout) { await api("POST", "/api/auth/logout", {}); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
+  if (d.logout) { await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
 });
 
 // Tocar un campo de solo lectura (ej. tu link de referido) lo selecciona entero, para copiarlo fácil.
@@ -3073,7 +3080,11 @@ initMoneyMask();
   await refresh();
   if (S.linkExpired) {
     S.linkExpired = false;
-    openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a la tienda.</div>`);
+    openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a ${pinGiver(S.settings)}.</div>`);
+  } else if (MODE === "hub") {
+    // R2: la sesión se renueva con el uso; si igual se cerró, se le explica y se le pide el PIN con su número puesto.
+    if (S.me?.loggedIn) rememberHubUser(S.me);
+    else { const n = expiredNotice(S.settings); if (n) openLogin("pin", n.phone, n.html); }
   }
 })();
 

@@ -1,6 +1,6 @@
 // Arreglos de la revisión del revendedor (14/11/2026), en el celular con datos ficticios:
 // 1) dar un cupo propio ya no trae un cliente elegido (antes un toque en Guardar se lo daba al primero de la lista);
-// 2) una cuenta que renueva la tienda siempre tiene «Pedir renovación» y dice hasta cuándo anda;
+// 2) una cuenta que renueva la tienda siempre tiene «Pedir renovación» (pedido propio desde R2) y dice hasta cuándo anda;
 // 3) renovar un perfil repartido: tres botones claros y «No renovar» no renueva (antes Cancelar igual renovaba);
 // 4) el independiente no ve el formulario para comprar a la tienda en «Clientes y ventas».
 import { test } from "node:test";
@@ -56,9 +56,10 @@ test("Revendedor: cupo sin cliente elegido, «Pedir renovación», renovar perfi
     await p.goto(base + "/hub#cuentas");
     await p.locator(".svc").first().waitFor();
     const svc = await p.locator(".svc").first().innerText();
-    assert.match(svc, /Esta cuenta la renueva la tienda\. Te anda hasta el/);
-    const ask = p.locator('.svc [data-falla]', { hasText: "Pedir renovación" });
-    assert.equal(await ask.count(), 1, "sin WhatsApp de la tienda, pide la renovación por «Reportar falla»");
+    // R2 (14/11): el texto dice por qué y «📩 Pedir renovación» es un pedido propio (no una falla «No me deja entrar»).
+    assert.match(svc, /Para renovarla, la tienda primero renueva con su proveedor\. Te anda hasta el/);
+    const ask = p.locator(".svc [data-rrqask]", { hasText: "Pedir renovación" });
+    assert.equal(await ask.count(), 1, "pide la renovación como pedido propio");
     assert.ok((await ask.boundingBox()).height >= 44);
 
     // 3) Renovar a Rosa: «No renovar» no renueva; «Sí, ya me pagó» sí.
