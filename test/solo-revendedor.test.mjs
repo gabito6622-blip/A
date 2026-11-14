@@ -169,7 +169,10 @@ describe("pantallas (código del celular)", () => {
   test("hub-mes.js ya no reexporta la ganancia real: shop.js la toma de cuaderno.js", () => {
     assert.doesNotMatch(read("hub-mes.js"), /earnRealBox/);
     assert.doesNotMatch(read("shop.js"), /earnRealBox/);
-    assert.match(read("shop.js"), /gananciaRealBox[^;]*from "\/cuaderno\.js"/);
+    // Directo, o a demanda por hub-perezoso.js (que en GaboHub carga /cuaderno.js): la tienda del cliente no lo baja.
+    const shop = read("shop.js");
+    assert.ok(/gananciaRealBox[^;]*from "\/cuaderno\.js"/.test(shop)
+      || (/gananciaRealBox[^;]*from "\/hub-perezoso\.js"/.test(shop) && /MODULOS_HUB = \[[^\]]*"\/cuaderno\.js"/.test(read("hub-perezoso.js"))));
     assert.match(read("cuaderno.js"), /export function gananciaRealBox/);
   });
   test("«Quién me debe» suma lo propio en el número de arriba", () => {

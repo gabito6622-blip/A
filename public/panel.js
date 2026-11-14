@@ -2532,6 +2532,8 @@ async function start() {
   initDescargas({ base: "/api/admin/descargas", btn: "pbtn", render });
   descargasBind(document);
   go(location.hash.slice(1) || "inicio");
+  // Logos y portadas JPG/WEBP: este navegador arma su versión chica para la tienda (imagenes-chicas.js), una vez y en silencio.
+  if (canReview()) setTimeout(() => import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/admin/imagenes")).catch(() => {}), 1500);
 }
 
 /* ---------------- eventos ---------------- */

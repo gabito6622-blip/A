@@ -3,20 +3,20 @@
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
-import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/sublinks.js";
-import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
+import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/hub-perezoso.js"; // sublinks.js: se carga solo en GaboHub
+import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/hub-perezoso.js"; // descargas.js: se carga solo en GaboHub
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
-import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/hub-perezoso.js"; // ownstock.js: se carga solo en GaboHub
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/hub-perezoso.js"; // propias-plata.js: se carga solo en GaboHub
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-mes.js";
-import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/cuaderno.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-perezoso.js"; // hub-mes.js: se carga solo en GaboHub
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/hub-perezoso.js"; // cuaderno.js: se carga solo en GaboHub
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
-import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
-import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/arranque.js";
+import { initAccChanges, accChangeBox, accChangesBanner } from "/hub-perezoso.js"; // cambio-cuenta.js: se carga solo en GaboHub
+import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/hub-perezoso.js"; // arranque.js: se carga solo en GaboHub
 import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
@@ -28,6 +28,7 @@ import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTag
 import { fallasHelp, faqExtra, recoverHtml, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
+import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -47,6 +48,9 @@ const VIEWS = {
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar", "seguridad"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario", "seguridad"],
 }[MODE];
+// GaboHub: el panel del revendedor se baja ya, en paralelo con los datos (en la tienda y en /r/ no se baja).
+if (MODE === "hub") cargarHub().catch(() => {});
+alCargarHub(() => render());
 
 // Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
 const REF = (() => {
@@ -92,8 +96,8 @@ async function loadBase() {
   setCurrency(S.settings.currencySymbol); setMine(S.me?.locale);
   // Cliente en la lista en dólares: todos sus montos (precios, carrito, saldo, movimientos) en US$.
   if (usdMode()) setCurrency(S.me.currency.symbol, 2);
-  S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
-  S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner?v=${Date.now() % 1e6}` : null;
+  S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo${imgV(S.settings.logoV)}` : null;
+  S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner${imgV(S.settings.bannerV)}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
@@ -112,7 +116,7 @@ async function loadResellerShop() {
   const sh = await api("GET", `/api/shops/${SLUG}`);
   S.me = { loggedIn: false };
   S.catalog = sh.products;
-  S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo?v=${Date.now() % 1e6}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner?v=${Date.now() % 1e6}` : null };
+  S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo${imgV(sh.logoV)}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner${imgV(sh.bannerV)}` : null };
   setCurrency(sh.currencySymbol, sh.currencyDecimals);
   if (!sh.published) S.settings.announcement = "👀 Vista previa: tu página está apagada. Solo vos la ves. Publicala desde Mis clientes → Mi página.";
   S.cart = S.cart.filter((l) => product(l.productId));
@@ -249,6 +253,9 @@ async function loadPrivate() {
 async function refresh() {
   try {
     await loadBase();
+    if (MODE === "hub" || isReseller()) await cargarHub(); // funciones del revendedor (hub-perezoso.js)
+    // Su logo y portada JPG/WEBP: este navegador arma la versión chica para su página (imagenes-chicas.js), una vez.
+    if (MODE === "hub" && isReseller()) import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/me/shop/imagenes")).catch(() => {});
     await loadPrivate();
     if (S.view === "renovar") await loadRenovar();
   } catch (e) {
@@ -259,11 +266,17 @@ async function refresh() {
 }
 
 /* ---------------- vistas ---------------- */
-/** Logo del producto (si tiene) o su inicial. */
-const mark = (p) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+/** `?v=<fecha de subida>&w=<lado>`: con la fecha, el celular guarda la imagen y no la vuelve a pedir hasta que cambie. */
+const imgV = (v, w) => { const q = [v ? `v=${v}` : "", w ? `w=${w}` : ""].filter(Boolean).join("&"); return q ? `?${q}` : ""; };
+/** Logo del producto: versión chica del servidor (160 px; 320 para las tarjetas grandes), con su fecha de subida en la dirección. */
+/** La portada en el círculo chico del diseño «boleto» (104 a 260 px) no necesita la de 1080 px. */
+const conAncho = (u, w) => `${u}${u.includes("?") ? "&" : "?"}w=${w}`;
+const pimg = (p, w) => `/api/products/${encodeURIComponent(p.id)}/image${imgV(p.imageV, w)}`;
+/** Logo del producto (si tiene) o su inicial. `chico`: en la fila del boleto (52 px) no hace falta la de 320 px. */
+const mark = (p, chico) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="${pimg(p)}"${chico ? "" : ` srcset="${pimg(p)} 160w, ${pimg(p, 320)} 320w" sizes="150px"`} alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
 /** Logo de la app por id y nombre (también para productos de alquiler sin imagen propia). */
 const am = (id, name, cls) => appMark(S.catalog, id, name, cls);
-const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
+const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="${pimg(p)}" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
 
@@ -373,7 +386,7 @@ const appShort = (p) => p.name.replace(/^Amazon\s+/i, "").replace(/\s+Premium\b.
 // El ahorro sale del texto del dueño (en Bs): en una página o lista en otra moneda no se muestra.
 const comboSave = (c) => (buySym() === "Bs" ? (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1] : undefined);
 /** Ícono del combo: los logos de cada app ordenados (en vez de una imagen ancha recortada). */
-const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="/api/products/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
+const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="${pimg(x)}" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
 // Fila del ticket: qué recibís, hay / a pedido, Mensual / 3 meses y «Ver qué incluye» (catalogo-claro.js).
 const ticketRow = (x) => ccTicketRow(x);
 /** Comparador de combos: el cliente elige dos y los ve lado a lado (qué incluye, precio, ahorro). */
@@ -409,7 +422,7 @@ function ticketCatalog(pub, hero) {
   const from = pub.length ? Math.min(...pub.map((p) => p.price)) : 0;
   const title = S.settings.heroTitle && S.settings.heroTitle !== "Streaming premium," ? `${esc(S.settings.heroTitle)} <span>${esc(S.settings.heroHighlight || "")}</span>`
     : `Netflix, Disney+, Spotify y más <span>desde ${bs(from)}</span>`;
-  return `${hero ? `${ccTrustTop()}<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
+  return `${hero ? `${ccTrustTop()}<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" srcset="${esc(conAncho(S.settings.bannerUrl, 540))} 540w, ${esc(S.settings.bannerUrl)} 1080w" sizes="(max-width: 420px) 104px, 260px" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
     <div class="tktools"><input id="q" placeholder="Buscar: Netflix, Spotify, combo…" value="${esc(S.q)}" aria-label="Buscar productos">
       <div class="cats tkcats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
@@ -1742,12 +1755,12 @@ function programView() {
     ["renew", "Respaldo de la tienda", "Si una cuenta falla, se reemplaza y tu cliente ve los datos nuevos."],
   ];
   return `<section class="phero">
-      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i} ptimg" style="--c:${esc(p.color)}"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>`).join("")}</div>
+      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i} ptimg" style="--c:${esc(p.color)}"><img src="${pimg(p)}" alt=""></span>`).join("")}</div>
       <span class="pill"><i></i>${MODE === "hub" ? `${esc(S.settings.storeName)} · plataforma para revendedores de streaming` : `Programa de revendedores de ${esc(pg.storeName)}`}</span>
       <h1>Vendé streaming<br><span>con tu propia marca</span></h1>
       <p>Tu tienda online, precios de mayorista, panel de clientes y avisos de vencimiento. Nosotros ponemos el stock y la tecnología; vos ponés tu nombre.</p>
       <div class="pbtns2">${want()}<a class="pghost" href="/tiendas" data-s="tiendas">Explorar tiendas</a></div>
-      ${brands.length >= 4 ? `<div class="plogos"><small>Vendé lo que todos buscan</small><div class="plogos-track" aria-label="Plataformas que podés vender">${[...brands, ...brands].map((p, i) => `<span ${i >= brands.length ? 'aria-hidden="true"' : ""}><img src="/api/products/${encodeURIComponent(p.id)}/image" alt="" loading="lazy"><b>${esc(brandName(p))}</b></span>`).join("")}</div></div>` : ""}
+      ${brands.length >= 4 ? `<div class="plogos"><small>Vendé lo que todos buscan</small><div class="plogos-track" aria-label="Plataformas que podés vender">${[...brands, ...brands].map((p, i) => `<span ${i >= brands.length ? 'aria-hidden="true"' : ""}><img src="${pimg(p)}" alt="" loading="lazy"><b>${esc(brandName(p))}</b></span>`).join("")}</div></div>` : ""}
       <div class="pscroll">deslizá</div></section>
 
     <section class="psec"><div class="peyebrow">Por dentro</div><div class="psplit"><h2>Todo tu negocio<br>en una sola pantalla</h2><p>Saldo, clientes, vencimientos y ventas del día, en la compu o en el celular. Así se ve tu panel de revendedor.</p></div>
