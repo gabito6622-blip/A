@@ -229,12 +229,15 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const expiresText = new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(a.customerExpiresAt));
   const storeName = e.s.settings.storeName || "la tienda";
   const first = (cust?.name ?? "").split(" ")[0] || "";
-  const pin = slot.pin ?? "";
+  // La llave del asistente no ve contraseñas ni PIN de perfiles: el mensaje sale con «te la paso aparte».
+  const hide = !!actor.assistant;
+  const pin = hide ? "" : slot.pin ?? "";
+  const secret = hide ? "" : acc.password;
   const message = (acc.iptv
     ? [
       `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
       ``,
-      ...iptvLines(acc.iptv, acc.email, acc.password),
+      ...iptvLines(acc.iptv, acc.email, secret),
       `📅 Vence: ${expiresText}`,
       ...guideLines(prod),
       ``,
@@ -244,18 +247,18 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
       `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
       ``,
       `📧 Correo: ${acc.email}`,
-      `🔑 Contraseña: ${acc.password || "(te la paso aparte)"}`,
+      `🔑 Contraseña: ${secret || "(te la paso aparte)"}`,
       `👤 Perfil: ${slot.label}`,
       ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
       `📅 Vence: ${expiresText}`,
       ``,
       `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
     ]).join("\n");
-  e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId });
+  e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId, ...(hide ? { hidden: true } : {}) });
   return {
     assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerFirst: first,
-    customerPhone: cust?.phone ?? "", product: prod?.name ?? "", email: acc.email, password: acc.password || "",
-    profile: slot.label, pin, expiresAt: a.customerExpiresAt, expiresText, storeName, message, passwordPending: !acc.password,
+    customerPhone: cust?.phone ?? "", product: prod?.name ?? "", email: acc.email, password: secret || "",
+    profile: slot.label, pin, expiresAt: a.customerExpiresAt, expiresText, storeName, message, passwordPending: !acc.password, ...(hide ? { secretsHidden: true } : {}),
   };
 }
 

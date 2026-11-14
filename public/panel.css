@@ -799,6 +799,14 @@ small{font-size:max(12px,.85em)}
 }
 
 /* Auditoría en frases */
+/* Auditoría: filtros por persona y período (14/11/2026) */
+.audfil{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:4px 0 6px}
+.audfil label{display:grid;gap:4px;font-size:13px;min-width:0;flex:1 1 220px;max-width:100%}
+.audfil select{min-height:44px;font-size:14px;max-width:100%}
+.audfil .tabs{flex:1 1 220px}
+/* Usuarios: qué puede la llave del asistente y la etiqueta de 2 pasos */
+.asis-can{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.45}
+.tfa{display:inline-block;font-size:12px;white-space:nowrap;margin-top:4px}
 .audrow{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}
 .audrow:last-child{border-bottom:0}
 .audtxt{font-size:14px;line-height:1.4;overflow-wrap:anywhere}

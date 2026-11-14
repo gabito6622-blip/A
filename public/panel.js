@@ -19,6 +19,8 @@ const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "dark"; } catch { /* sin almacenamiento */ }
 
 const isOwner = () => P.me?.role === "owner";
+/** Nombre del rol del equipo, igual en todo el panel (14/11/2026: «Atención», nunca «Vendedor»). */
+const STAFF_ROLE = { owner: "Dueño", admin: "Admin", seller: "Atención" };
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 // Etiquetas de cliente: texto + clase de color (ver panel.css .tagp-*).
 const CTAGS = { vip: ["⭐ VIP", "vip"], moroso: ["⚠️ Moroso", "moroso"], nuevo: ["🆕 Nuevo", "nuevo"], mayorista: ["📦 Mayorista", "may"], regalo: ["🎁 Regalo", "reg"] };
@@ -1426,15 +1428,19 @@ const V = {
     const [list, asis] = await Promise.all([api("GET", "/api/admin/staff"), api("GET", "/api/admin/assistant").catch(() => ({ enabled: false }))]);
     const newKey = P.tab.asisKey;
     P.tab.asisKey = null;
-    return `<section class="card ${asis.enabled ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asis.enabled ? "· prendido" : "· apagado"}</small></h2>
-      <p class="muted" style="margin:0">Para que Claude entre a tu panel y haga cambios por vos (precios, descripciones, diseño). Entra como <b>Admin</b> con su propio usuario <b>asistente</b>: no puede tocar usuarios ni ser dueño, y todo lo que haga queda en <b>Auditoría</b>. Lo apagás con un toque.</p>
+    const asisOn = asis.enabled && !asis.expired;
+    return `<section class="card ${asisOn ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asisOn ? "· prendido" : asis.enabled ? "· vencido" : "· apagado"}</small></h2>
+      <p class="muted" style="margin:0">Para que Claude entre a tu panel y te ayude (precios, descripciones, diseño). Entra con su propio usuario <b>asistente</b>, con poder limitado, y todo lo que hace queda en <b>Auditoría</b>. La llave dura <b>7 días</b>; la apagás con un toque.</p>
+      <div class="asis-can"><p style="margin:0"><b>✅ Puede:</b> mirar el panel, cargar clientes y cuentas, vender y renovar, y cambiar precios y descripciones.</p>
+        <p style="margin:0"><b>⛔ No puede:</b> ver contraseñas ni PIN de las cuentas, dar PIN o links de acceso a clientes o revendedores, aprobar revendedores, descargar Excel con datos de tus clientes ni tocar usuarios o permisos.</p></div>
       ${newKey ? `<div class="pok" style="display:grid;gap:8px"><b>🔑 Esta es la llave (se muestra UNA sola vez):</b><code class="mono" style="overflow-wrap:anywhere;user-select:all">${esc(newKey)}</code>
         <button class="pbtn sm dark" type="button" data-copy="${esc(newKey)}" style="justify-self:start">${icon("copy")}Copiar llave</button>
         <small>⚠️ <b>No la pegues en el chat.</b> Pegala solo en el <b>formulario seguro</b> que te abre Claude (dice "API credential"). Si la perdés, tocá "Crear llave nueva" y la vieja deja de servir.</small></div>` : ""}
-      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>` : ""}
+      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>
+        <p style="margin:0">${asis.expired ? pill(`⛔ Venció el ${fdate(asis.expiresAt).slice(0, 5)}`, "bad") + " Tocá <b>Crear llave nueva</b> si la seguís necesitando." : asis.expiresAt ? pill(`⏳ Vence el ${fdate(asis.expiresAt).slice(0, 5)}`, "warn") : "⏳ Vence 7 días después de su próximo uso."}</p>` : ""}
       <div class="inline"><button class="pbtn ${asis.enabled ? "" : "dark"}" type="button" data-asis="new">${asis.enabled ? "🔁 Crear llave nueva" : "🔑 Crear llave para mi asistente"}</button>${asis.enabled ? `<button class="pbtn danger" type="button" data-asis="off">⛔ Apagar acceso</button>` : ""}</div></section>
       <section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
-      <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
+      <label>Rol<select name="role">${opt("seller", "Atención: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       ${(() => {
         // 14/11/2026: el dueño ve la seguridad de su equipo (ingresos, aparatos, intentos, 2 pasos) y lo saca de todos lados.
         const ss = P.tab.ssec;
@@ -1444,7 +1450,7 @@ const V = {
           <details ${ss.log.length ? "open" : ""}><summary>🕘 Últimos ingresos (${ss.log.length})</summary>${secLogRows(ss.log) || `<p class="muted">Todavía no hay movimientos anotados.</p>`}</details>
           <div class="inline">${ss.sessions.length ? `<button class="pbtn" type="button" data-sout="${esc(ss.id)}" data-name="${esc(ss.name)}">🚪 Sacarlo de todos lados</button>` : ""}<button class="pbtn sm" type="button" data-ssecclose="1">Listo</button></div></section>` : "";
       })()}
-      <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
+      <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${u.username === "asistente" ? "🤖 Asistente" : esc(STAFF_ROLE[u.role] ?? u.role)}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")} <span class="tfa" title="Verificación en dos pasos">2 pasos ${u.twoFactor ? "✅" : "❌"}</span></td><td>${fdate(u.createdAt)}</td>
         <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-ssec="${esc(u.id)}" data-name="${esc(u.name)}">🔐 Seguridad</button><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
           <form data-staffpw="${esc(u.id)}" style="display:grid;gap:6px"><input name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Contraseña nueva" aria-label="Contraseña nueva para ${esc(u.username)}" style="min-width:0;width:100%"><button class="pbtn sm" type="submit">Cambiar contraseña</button></form></div>` : ""}</td></tr>`))}
       <p class="muted" style="margin:10px 0 0">¿Alguien se olvidó la contraseña? Escribile una nueva (mínimo 10 letras) y tocá <b>Cambiar contraseña</b>: se cierra su sesión y entra con la nueva.</p></section>`;
@@ -1663,19 +1669,25 @@ const V = {
 
   async auditoria() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño ve la auditoría.</div></section>`;
+    // Filtros en el servidor (14/11/2026): persona y período. Se mezclan con Plata / Accesos / Precios (acá abajo).
+    const audw = P.tab.audw ?? "", audp = ["hoy", "ayer", "7d"].includes(P.tab.audp) ? P.tab.audp : "";
+    const aq = new URLSearchParams({ limit: "300", access: "1", ...(audw ? { who: audw } : {}), ...(audp ? { period: audp } : {}) });
     const [list, staff, customers, products] = await Promise.all([
-      api("GET", "/api/admin/audit?limit=300"), api("GET", "/api/admin/staff").catch(() => []),
+      api("GET", `/api/admin/audit?${aq}`), api("GET", "/api/admin/staff").catch(() => []),
       api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => []),
     ]);
     const maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
     // Filtros simples: plata, accesos y precios.
-    const AUDF = { plata: /^(ledger|wallet|order|renewal|expense|assignment\.refund|fiado|account\.renew_paid)/, accesos: /(login|pin|staff\.|2fa|credentials|secrets|password|assistant)/, precios: /^(price_group|product|coupon|reseller\.prices|settings\.min_margin|reseller\.coupon)/ };
+    const AUDF = { plata: /^(ledger|wallet|order|renewal|expense|assignment\.refund|fiado|account\.renew_paid)/, accesos: /(login|pin|staff\.|2fa|credentials|secrets|password|assistant|access\.|team\.alert|deliver|export)/, precios: /^(price_group|product|coupon|reseller\.prices|settings\.min_margin|reseller\.coupon)/ };
     const af = AUDF[P.tab.audf] ? P.tab.audf : "";
     const shownA = list.filter((a) => !af || AUDF[af].test(a.action));
     const rows = shownA.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
       <div class="audtxt"><b>${esc(t.who)}</b>${t.role ? ` <span class="muted">(${esc(t.role)})</span>` : ""} ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div>
       <div class="audmeta"><small class="muted">${fdt(a.at)}</small><details class="audtech"><summary>Ver detalle técnico</summary><code>${esc(a.action)} · ${esc(a.entityId)}${a.data && Object.keys(a.data).length ? " · " + esc(JSON.stringify(a.data)) : ""}</code></details></div></div>`; }).join("");
+    const people = staff.map((u) => `<option value="${esc(u.id)}" ${audw === u.id ? "selected" : ""}>${u.username === "asistente" ? "🤖 " : ""}${esc(u.name)} (${esc(u.username === "asistente" ? "asistente" : STAFF_ROLE[u.role] ?? u.role)})</option>`).join("");
     return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>
+      <div class="audfil"><label>Persona<select data-tabsel="audw"><option value="">Todo el equipo y clientes</option>${people}</select></label>
+      <div class="tabs ctl-chips" role="tablist" aria-label="Período">${[["hoy", "Hoy"], ["ayer", "Ayer"], ["7d", "7 días"], ["", "Todo"]].map(([k, t]) => `<button type="button" role="tab" data-tab="audp:${k}" aria-selected="${audp === k}">${t}</button>`).join("")}</div></div>
       <div class="tabs ctl-chips" role="tablist" aria-label="Filtrar">${[["", "Todo"], ["plata", "💰 Plata"], ["accesos", "🔑 Accesos"], ["precios", "🏷️ Precios"]].map(([k, t]) => `<button type="button" role="tab" data-tab="audf:${k}" aria-selected="${af === k}">${t}${k ? ` (${list.filter((a) => AUDF[k].test(a.action)).length})` : ""}</button>`).join("")}</div>
       ${rows || `<div class="emptybox">No hay movimientos con ese filtro.</div>`}</section>`;
   },
@@ -1721,7 +1733,7 @@ const V = {
 
 
 /* ---------------- Auditoría en frases que se entienden ---------------- */
-const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "vendedor", customer: "cliente", reseller: "revendedor", system: "automático" };
+const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "atención", customer: "cliente", reseller: "revendedor", system: "automático" };
 const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT", local: "con un método del país" };
 const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
@@ -1757,7 +1769,10 @@ const AUD_VERB = {
   "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
   "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
   "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
-  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "staff.password": "cambió la contraseña de {x}",
+  "access.login": "🔑 entró al panel", "access.login_fail": "⛔ falló al entrar", "access.logout_others": "cerró sus otras sesiones", "access.logout_one": "cerró una sesión",
+  "access.logout_all": "quedó afuera de todos lados (lo sacó el dueño)", "access.key_use": "🤖 usó la llave del asistente", "access.key_expired": "⛔ quiso usar la llave vencida",
+  "team.alert": "te avisó al celular sobre {x}", "staff.logout_all": "sacó de todos lados a {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
   "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
   "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
 };
@@ -1767,7 +1782,7 @@ function auditText(a, maps) {
   let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
   const aid = String(a.actorId ?? "");
   if (aid.startsWith("system")) { who = "El sistema"; role = "automático"; }
-  else if (maps.staff[aid]) who = maps.staff[aid].name;
+  else if (maps.staff[aid]) { who = maps.staff[aid].name; if (maps.staff[aid].username === "asistente") role = "asistente"; }
   else { const cid = aid.split(":")[1]; const c = cid && maps.cust[cid]; if (c) { who = c.name; if (aid.startsWith("wa:")) role = (role ? role + ", " : "") + "por WhatsApp"; } else if (aid) who = role ? role[0].toUpperCase() + role.slice(1) : aid; }
   if (who.toLowerCase() === role) role = "";
   // Sobre qué
@@ -1794,6 +1809,11 @@ function auditText(a, maps) {
   if (Number.isFinite(d.usdt)) parts.push(`${d.usdt} USDT`);
   if (Number.isFinite(d.count)) parts.push(`${d.count}`);
   if (Number.isFinite(d.slots) && d.slots) parts.push(`${d.slots} perfil(es)`);
+  if (a.action.startsWith("access.")) { if (d.with) parts.push(`con ${d.with}`); if (d.device) parts.push(d.device); }
+  if (Number.isFinite(d.priceFrom)) parts.push(`antes ${bs(d.priceFrom)}`);
+  if (d.hidden) parts.push("sin contraseñas");
+  if (a.action === "team.alert" && d.title) parts.push(`«${d.title}»`);
+  if (a.action === "export" && a.entityId) parts.push(`Excel «${a.entityId}»`);
   if (d.coupon) parts.push(`cupón ${d.coupon}${Number.isFinite(d.couponAmount) ? ` (−${bs(d.couponAmount)})` : ""}`);
   return { who, role, what, detail: parts.join(" · ") };
 }
@@ -2496,7 +2516,7 @@ async function start() {
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#pName").textContent = me.name;
-  $("#pRole").textContent = { owner: "DUEÑO", admin: "ADMIN", seller: "VENDEDOR" }[me.role];
+  $("#pRole").textContent = (STAFF_ROLE[me.role] ?? "").toUpperCase();
   $("#pStore").textContent = P.settings.storeName;
   if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
@@ -2617,6 +2637,8 @@ function sellSummary() {
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
+// Filtro con lista desplegable (p. ej. «Persona» en Auditoría): guarda la elección y vuelve a dibujar.
+document.addEventListener("change", (ev) => { const k = ev.target?.dataset?.tabsel; if (k) { P.tab[k] = ev.target.value; render(); } });
 document.addEventListener("change", async (ev) => {
   const sel = ev.target.closest?.("[data-hubplan]");
   if (!sel) return;

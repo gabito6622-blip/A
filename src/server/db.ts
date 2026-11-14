@@ -275,6 +275,14 @@ export class Db {
     return rows.map((r) => ({ ...r, ok: !!r.ok }));
   }
 
+  /** Ingresos de un tipo (el equipo: "staff") en un período, lo más nuevo primero: para la Auditoría del dueño. */
+  accessRange(o: { kind: string; subjectId?: string; from?: number; to?: number; limit?: number }): AccessRow[] {
+    type Raw = Omit<AccessRow, "ok"> & { ok: number };
+    const rows = this.db.prepare("SELECT at, kind, subject_id AS subjectId, event, via, ok, ip, ua FROM access_log WHERE kind = ? AND (? IS NULL OR subject_id = ?) AND at >= ? AND at < ? ORDER BY at DESC, id DESC LIMIT ?")
+      .all(o.kind, o.subjectId ?? null, o.subjectId ?? null, o.from ?? 0, o.to ?? Number.MAX_SAFE_INTEGER, Math.max(1, Math.min(o.limit ?? 200, 1000))) as unknown as Raw[];
+    return rows.map((r) => ({ ...r, ok: !!r.ok }));
+  }
+
   /** Intentos fallidos guardados en la base: sobreviven a reinicios y publicaciones (el freno en memoria no). */
   failGet(key: string): { n: number; until: number } | undefined {
     return this.db.prepare("SELECT n, until FROM login_fail WHERE key = ?").get(key) as { n: number; until: number } | undefined;
