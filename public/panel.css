@@ -1285,3 +1285,38 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .sellnew label{display:grid;gap:4px;font-size:13px}.sellnew input{min-height:44px}
 .sellnew .pbtn{min-height:44px;justify-content:center;white-space:normal}
 .hm-alert small.hm-split{display:block;font-size:12px;font-weight:600;opacity:.85}
+/* Cobrar y vender sin trabas (revisión de 3 meses, 14/11/2026) */
+.sec-fold>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.sec-fold>summary::-webkit-details-marker{display:none}
+.sec-fold>summary h2{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
+.sec-fold>summary h2::after{content:"▾";margin-left:auto;font-size:14px;color:var(--muted)}
+.sec-fold:not([open])>summary h2::after{content:"▸"}
+.sec-n{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 7px;border-radius:13px;background:var(--soft);border:1px solid var(--line);font-size:13px;font-weight:700}
+.sec-vermas>summary{justify-content:center;border:1px dashed var(--line);border-radius:12px}
+.sec-botoff{margin:0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--ink);font-size:14px}
+.sec-prep{display:block;font-size:13px;color:var(--ink);background:var(--warn-soft);border-radius:8px;padding:6px 8px;margin-top:4px;overflow-wrap:anywhere}
+.sec-debt{color:var(--bad,#c0392b)}
+.sec-paybtns{display:flex;flex-wrap:wrap;gap:6px}
+.sec-paybtns .pbtn,.sec-items .sec-pay{min-height:44px}
+.sec-otro{min-height:44px;font-size:14px;font-weight:600}
+.sec-otro.need{outline:2px solid var(--bad,#c0392b);outline-offset:2px;border-radius:8px}
+.sec-slot{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;padding-top:6px}
+.sec-slot .pbtn{min-height:44px}
+.sellsug{display:grid;gap:6px}
+.sellpick{min-height:48px;justify-content:flex-start;text-align:left;white-space:normal;overflow-wrap:anywhere;font-size:15px}
+.sellpick.on{box-shadow:0 0 0 2px var(--blue) inset}
+.sellnewd>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600;color:var(--blue-text)}
+.sellnewf{display:grid;gap:8px}
+.sellnew-alt{display:grid;gap:6px}
+.sellnew-alt .pbtn{min-height:44px;white-space:normal;overflow-wrap:anywhere;justify-content:center}
+.selldup{display:grid;gap:8px;padding:10px 12px;border-radius:12px;background:var(--warn-soft);border:1px solid var(--line)}
+.selldup p{margin:0;font-size:14px;overflow-wrap:anywhere}
+.selldup .pbtn{min-height:44px;white-space:normal}
+.swp{display:grid;gap:8px;margin-top:6px}
+.swp label{display:grid;gap:4px;font-size:13px}
+.swp select,.swp .pbtn,.swpbox .pbtn{min-height:44px;white-space:normal}
+.ctl-vermas{width:100%;min-height:48px;justify-content:center;margin-top:8px}
+.ctl-fdet{width:100%}
+.ctl-fdet>summary{min-height:44px;list-style:none;display:flex;align-items:center;justify-content:center}
+.ctl-fdet>summary::-webkit-details-marker{display:none}
+.ctl-fdet[open]>summary{margin-bottom:8px}

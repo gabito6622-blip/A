@@ -19,7 +19,7 @@ const DAY = 864e5, HOUR = 36e5;
 const owner = { id: "u_owner", role: "owner" }, admin = { id: "u_admin", role: "admin" }, seller = { id: "u_seller", role: "seller" };
 const err = (code) => (e) => e instanceof DomainError && e.code === code;
 const T0 = Date.UTC(2026, 9, 1, 15); // 01/10 11:00 Bolivia
-const dm = (t) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
+const dm = (t) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t)).slice(0, 5);
 
 function world() {
   const clock = { t: T0, now() { return this.t; } };

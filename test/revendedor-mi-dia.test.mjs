@@ -106,7 +106,8 @@ describe("Mi día del revendedor · fórmulas", () => {
     assert.deepEqual([pv.renew.offered, pv.renew.cost, pv.renew.enough], [true, 2500, true]);
     const bal0 = s.wallet.balance(ana.c.id), exp0 = E().assignments[ids.marisel].customerExpiresAt;
     const r = s.rtools.dayPay(ana.A, ids.marisel, { renew: true, idempotencyKey: "k1" });
-    assert.equal(r.renewed, true); assert.equal(r.to, NOW + 30 * DAY);
+    // Decisión (a) del 14/11: venció hace 2 días y no se cortó → el período arranca en el vencimiento (sin días gratis).
+    assert.equal(r.renewed, true); assert.equal(r.to, NOW - 2 * DAY + 30 * DAY);
     assert.equal(E().assignments[ids.marisel].rcontrol.payStatus, "pagado");
     assert.equal(s.wallet.balance(ana.c.id), bal0 - 2500, "pagó la renovación a la tienda una vez");
     s.rtools.dayPay(ana.A, ids.marisel, { renew: true, idempotencyKey: "k1" });
@@ -201,7 +202,7 @@ describe("Mi día del revendedor · API y navegador", () => {
       await p.locator("[data-rdpayok]").click();
       await p.waitForFunction(() => /Todo al día acá/.test(document.body.innerText) && /Cobrar hoy\s*0/.test(document.body.innerText.replace(/\s+/g, " ")), null, { timeout: 20_000 });
       const a = app.store.engine.s.assignments[ids.marisel];
-      assert.equal(a.rcontrol.payStatus, "pagado"); assert.equal(a.customerExpiresAt, NOW + 30 * DAY, "renovado un período desde hoy");
+      assert.equal(a.rcontrol.payStatus, "pagado"); assert.equal(a.customerExpiresAt, NOW - 2 * DAY + 30 * DAY, "renovado un período desde el vencimiento (decisión (a), sin días gratis)");
       assert.equal(app.store.wallet.balance(ana.c.id), 100000 - 2500 - 2500, "la venta y la renovación, una vez cada una");
       assert.deepEqual(errs, []);
     } finally { await b.close(); }

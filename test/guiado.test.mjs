@@ -76,11 +76,12 @@ test("lo que se ve antes es lo que pasa después: renovar, automático al vender
     assert.equal(said, real, "la fecha que mostró antes es la que quedó");
     assert.match(dialogs.at(-1), /¿Renovar Disney\+ de Ana Quispe[\s\S]*→/, "pide confirmar con la fecha nueva");
 
-    // 3) Max: el panel avisó; si igual se intenta, el servidor lo frena y la fecha no cambia.
+    // 3) Max: el panel avisó; decisión (b) del 14/11: si el dueño confirma, se anota igual y la cuenta queda en «Proveedores por renovar».
     await p.click(`${fx} [data-renew="${max.id}"]`).catch(() => {});
     await p.waitForTimeout(1500);
-    assert.match(dialogs.at(-1), /no lo va a dejar/);
-    assert.equal((await A("GET", `/api/admin/assignments?customerId=${ana.id}`)).find((x) => x.productId === "max").customerExpiresAt, max.customerExpiresAt);
+    assert.match(dialogs.at(-1), /pasa la del proveedor[\s\S]*Proveedores por renovar/);
+    assert.equal((await A("GET", `/api/admin/assignments?customerId=${ana.id}`)).find((x) => x.productId === "max").customerExpiresAt, max.customerExpiresAt + 30 * 864e5);
+    assert.equal((await A("GET", "/api/admin/secretaria")).counts.proveedores, 1);
 
     // 4) Pantalla Renovar: cada "+1 período" muestra su nueva fecha o el aviso.
     await p.evaluate(() => { location.hash = "renovar"; document.querySelector('#menu [data-go="renovar"]').click(); });

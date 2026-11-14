@@ -20,7 +20,8 @@ export const LATE_FROM_EXPIRY_MAX_DAYS = 30;
 /** Ventana de «pago adelantado normal»: dentro de estos días antes del vencimiento, cobrar el mes siguiente no pide confirmar. */
 export const EARLY_PAY_DAYS = 7;
 
-const fdm = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
+// dd/mm siempre con dos cifras (con día y mes solos, Intl a veces da «11/9»).
+const fdm = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t)).slice(0, 5);
 const fbs = (c: Cents) => `Bs ${(c / 100).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 /**
