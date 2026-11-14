@@ -99,13 +99,20 @@ describe("proveedores: cuando el proveedor sos vos", () => {
 });
 
 describe("venta de varios meses de una vez", () => {
-  test("3 meses: cobra 3 veces el precio y el perfil dura 90 días; un cliente no puede pedir meses", () => {
+  test("3 meses: cobra 3 veces el precio y el perfil dura 3 meses de calendario (90 días si la tienda cuenta días); un cliente no puede pedir meses", () => {
     const { s } = setup();
     const c = s.catalog.createCustomer(owner, { name: "Carla", phone: "+59171112222" });
     const o = s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], paymentMethod: "cash", periods: 3 });
     assert.equal(o.total, 7500);
     const a = s.engine.s.assignments[o.assignmentIds[0]];
-    assert.equal(Math.round((a.customerExpiresAt - a.startsAt) / DAY), 90);
+    // 07/11 → 07/02: 30 + 31 + 31 días (meses de calendario, mesModo.ts).
+    assert.equal(Math.round((a.customerExpiresAt - a.startsAt) / DAY), 92);
+    s.catalog.updateSettings(owner, { monthMode: "days" });
+    const o2 = s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], paymentMethod: "cash", periods: 3 });
+    assert.equal(o2.total, 7500, "la plata no cambia con el modo");
+    const a2 = s.engine.s.assignments[o2.assignmentIds[0]];
+    assert.equal(Math.round((a2.customerExpiresAt - a2.startsAt) / DAY), 90, "«30 días»: 3 × 30");
+    s.catalog.updateSettings(owner, { monthMode: "calendar" });
     assert.equal(s.orders.quote(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], periods: 3 }).total, 7500);
     assert.throws(() => s.orders.create(owner, { customerId: c.id, items: [{ productId: "nfp", qty: 1 }], paymentMethod: "cash", periods: 13 }), err("VALIDATION"));
     const me = { id: `web:${c.id}`, role: "customer", customerId: c.id };

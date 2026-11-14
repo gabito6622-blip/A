@@ -7,6 +7,8 @@
 //  - Familia Choque: compró en días distintos y pide «un solo día de pago»: paga solo los días que faltan, después Bs 85.
 // Se verifica: total pagado = lo prometido, 0 días regalados, 0 cobros de más, avisos 3 días antes, 1 día antes y el día.
 // Imprime los números (los usa el informe). Datos ficticios, carpeta temporal, sin red.
+// Corre dos veces (mesModo.ts, 14/11/2026): con «30 días» (los números de siempre, sin tocar) y con «del mismo día al
+// mismo día del mes siguiente» (lo que eligió el dueño): 01/12 → 01/01 → 01/02 → 01/03 → 01/04 (días 31, 62, 90, 121).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -15,6 +17,7 @@ import { join } from "node:path";
 import { createApp } from "../dist/server/app.js";
 import { generateVapidKeys } from "../dist/server/push.js";
 import { daysUntil } from "../dist/store/expiryAlerts.js";
+import { addPeriods } from "../dist/store/time.js";
 
 const D = 86_400_000;
 const T0 = Date.UTC(2026, 11, 1, 14, 0); // 01/12/2026, 10:00 en Bolivia
@@ -24,7 +27,10 @@ const FCM = "https://fcm.googleapis.com/fcm/send/";
 const KEYS = { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", auth: "tBHItJI5svbpez7KI4CCXg" };
 const LIST = { nf: 3500, dp: 3000, sp: 2000 };
 
-test("3 meses: familia con combo y plan, familia que se olvida y familia que empareja fechas", { timeout: 120_000 }, async () => {
+for (const mode of ["days", "calendar"]) test(`3 meses (${mode === "days" ? "30 días" : "mismo día del mes siguiente"}): familia con combo y plan, familia que se olvida y familia que empareja fechas`, { timeout: 120_000 }, async () => {
+  // Vencimientos de lo que se compró el día 0: con «30 días», 30/60/90/120; con meses de calendario, 31/62/90/121.
+  const due = [1, 2, 3, 4].map((n) => Math.round((addPeriods(T0, 30, n, mode) - T0) / D));
+  const next = (t) => addPeriods(t, 30, 1, mode);
   const clock = { t: T0, now() { return this.t; } };
   const pushes = []; // { ep, day }
   let day = 0;
@@ -41,7 +47,7 @@ test("3 meses: familia con combo y plan, familia que se olvida y familia que emp
       s.inventory.addAccount(owner, { productId: id, supplierId: "andes", email: `${id}@ficticio.lat`, password: "Clave-Ficticia#1", supplierExpiresAt: T0 + 400 * D, cost: 1000, profiles: [1, 2, 3, 4, 5].map((n) => ({ label: `P${n}` })) });
     }
     s.catalog.upsertProduct(owner, { id: "familia", name: "Combo Familia", kind: "combo", durationDays: 30, price: 6000, published: true, comboProductIds: ["nf", "dp", "sp"] });
-    s.catalog.updateSettings(owner, { comboDiscounts: [500, 1000, 1500] });
+    s.catalog.updateSettings(owner, { comboDiscounts: [500, 1000, 1500], monthMode: mode });
     const fam = {};
     for (const [k, name, phone] of [["rojas", "Familia Rojas", "+59170000301"], ["vargas", "Familia Vargas", "+59170000302"], ["choque", "Familia Choque", "+59170000303"]]) {
       fam[k] = s.catalog.createCustomer(owner, { name, phone });
@@ -76,15 +82,15 @@ test("3 meses: familia con combo y plan, familia que se olvida y familia que emp
       }
       // --- Vargas: «Armá tu combo» ---
       if (day === 0) buy("vargas", [{ productId: "nf", qty: 1 }, { productId: "dp", qty: 1 }, { productId: "sp", qty: 1 }], "v0");
-      if (day === 29) { // un día antes, con UN QR
+      if (day === due[0] - 1) { // un día antes, con UN QR
         const ids = active("vargas").map((a) => a.id);
-        const r = s.plan.renewAll(asC(fam.vargas), { ids, paymentMethod: "qr", idempotencyKey: "v29" });
+        const r = s.plan.renewAll(asC(fam.vargas), { ids, paymentMethod: "qr", idempotencyKey: `v${day}` });
         s.rmes.evidenceMany(asC(fam.vargas), r.orders.map((o) => o.id), { fileRef: "comprobante-ficticio.png", declaredReference: "VAR-0001" });
         s.rmes.approveGroup(owner, { orderIds: r.orders.map((o) => o.id), confirmedReference: "VAR-0001", amount: r.total });
         dues.vargas.push(day); log.push(`día ${day}: Vargas paga con un QR ${r.total / 100} Bs`);
       }
-      if (day === 61) { // se olvidó: paga un día tarde (antes del corte)
-        const r = s.plan.renewAll(asC(fam.vargas), { ids: active("vargas").map((a) => a.id), paymentMethod: "balance", idempotencyKey: "v61" });
+      if (day === due[1] + 1) { // se olvidó: paga un día tarde (antes del corte)
+        const r = s.plan.renewAll(asC(fam.vargas), { ids: active("vargas").map((a) => a.id), paymentMethod: "balance", idempotencyKey: `v${day}` });
         dues.vargas.push(day); log.push(`día ${day}: Vargas paga tarde ${r.total / 100} Bs`);
       }
       // --- Choque: compra en días distintos y empareja ---
@@ -108,28 +114,32 @@ test("3 meses: familia con combo y plan, familia que se olvida y familia que emp
 
     // ---------- Plata: total pagado = lo prometido ----------
     const paid = (k) => Object.values(e.s.orders).filter((o) => (o.payerId ?? o.customerId) === fam[k].id && o.status === "fulfilled" && o.kind !== "topup").reduce((t, o) => t + o.total, 0);
-    const promised = { rojas: 4 * 6000, vargas: 3 * (8500 - 1000), choque: 3500 + 3000 + 2000 + (3500 + 2000 + 666) + 2 * 8500 };
+    // Choque empareja el día 27 hasta un mes después de Netflix: Disney+ (comprado el día 10) y Spotify (día 20) pagan
+    // solo los días que faltan, al precio por día de SU mes, hacia abajo. «30 días»: 20/30 y 10/30 → Bs 20 y Bs 6,66.
+    // Meses de calendario: del 11/01 y el 21/01 al 01/02 son 21 y 11 días de un mes de 31 → Bs 20,32 y Bs 7,09.
+    const parts = mode === "days" ? 2000 + 666 : 2032 + 709;
+    const promised = { rojas: 4 * 6000, vargas: 3 * (8500 - 1000), choque: 3500 + 3000 + 2000 + (3500 + parts) + 2 * 8500 };
     const spent = (k) => 100_000 - s.wallet.balance(fam[k].id);
     for (const k of Object.keys(fam)) assert.equal(paid(k), promised[k], `${k}: pagó lo prometido`);
     assert.equal(spent("rojas"), promised.rojas, "el saldo se explica por sus compras");
     assert.equal(spent("vargas"), promised.vargas - 7500, "Vargas pagó un mes con QR");
     assert.equal(spent("choque"), promised.choque);
 
-    // ---------- Días: lo que se dio = lo que se pagó; cobro = precio × días / 30 (al centavo) ----------
+    // ---------- Días: lo que se dio = lo que se pagó; cobro = precio × días / días de su período (al centavo) ----------
     let gifted = 0, over = 0, maxCentDiff = 0;
     for (const k of Object.keys(fam)) for (const a of services(k)) {
       const sale = e.s.orders[a.orderId];
       const renewals = Object.values(e.s.orders).filter((o) => o.kind === "renewal" && o.status === "fulfilled" && o.renewal.assignmentId === a.id).sort((x, y) => x.createdAt - y.createdAt);
-      let paidDays = 30, prev = a.startsAt + 30 * D;
+      let prev = next(a.startsAt), paidDays = (prev - a.startsAt) / D;
       assert.ok(sale && sale.status === "fulfilled");
       for (const o of renewals) {
         assert.equal(o.renewal.prevExpiresAt, prev, `${k}: la renovación arranca donde terminó lo pagado (sin huecos ni días gratis)`);
-        const to = o.renewal.until ?? prev + 30 * D;
-        const days = (to - prev) / D;
-        // Lo exacto: (lista − su parte del descuento del combo) × días / 30. Con días proporcionales el descuento del
-        // pedido ya viene proporcional, así que su parte del mes entero es descuento × 30 / días.
-        const share = o.renewal.until ? ((o.discount ?? 0) * 30) / days : o.discount ?? 0;
-        const ex = ((LIST[a.productId] - share) * days) / 30;
+        const to = o.renewal.until ?? next(prev);
+        const days = (to - prev) / D, full = (next(prev) - prev) / D; // full: días de SU período (30, o 28 a 31)
+        // Lo exacto: (lista − su parte del descuento del combo) × días / días del período. Con días proporcionales el
+        // descuento del pedido ya viene proporcional, así que su parte del período entero es descuento × período / días.
+        const share = o.renewal.until ? ((o.discount ?? 0) * full) / days : o.discount ?? 0;
+        const ex = ((LIST[a.productId] - share) * days) / full;
         maxCentDiff = Math.max(maxCentDiff, Math.abs(o.total - ex));
         if (o.total > ex + 1e-6) over++; // ni un centavo por encima de lo exacto
         paidDays += days; prev = to;
@@ -144,22 +154,22 @@ test("3 meses: familia con combo y plan, familia que se olvida y familia que emp
     // ---------- Fechas ----------
     const ro = services("rojas"); // el día 122 (fin de la simulación) ya pasó su último vencimiento
     assert.equal(new Set(ro.map((a) => a.customerExpiresAt)).size, 1);
-    assert.equal(ro[0].customerExpiresAt, T0 + 120 * D, "Rojas: 4 meses pagados, 120 días");
+    assert.equal(ro[0].customerExpiresAt, T0 + due[3] * D, `Rojas: 4 meses pagados, ${due[3]} días`);
     assert.equal(active("vargas").length, 0, "Vargas se olvidó el mes 3: se cortó");
-    assert.ok(services("vargas").every((a) => a.customerExpiresAt === T0 + 90 * D), "Vargas: pagó hasta el día 90 (el pago tarde no le regaló días)");
+    assert.ok(services("vargas").every((a) => a.customerExpiresAt === T0 + due[2] * D), `Vargas: pagó hasta el día ${due[2]} (el pago tarde no le regaló días)`);
     const ch = services("choque");
-    assert.ok(ch.every((a) => a.customerExpiresAt === T0 + 120 * D), "Choque: los tres el mismo día");
+    assert.ok(ch.every((a) => a.customerExpiresAt === T0 + due[3] * D), "Choque: los tres el mismo día");
 
     // ---------- Avisos al celular: 3 días antes, 1 día antes y el día ----------
     const daysOf = (k) => [...new Set(pushes.filter((p) => p.ep === FCM + k).map((p) => p.day))].sort((a, b) => a - b);
     const want = (dueDays, paidBefore = []) => dueDays.flatMap((d) => [d - 3, d - 1, ...(paidBefore.includes(d) ? [] : [d])]);
-    for (const d of want([30, 60, 90, 120])) assert.ok(daysOf("rojas").includes(d), `Rojas recibió aviso el día ${d}`);
-    for (const d of [27, 29, 57, 59, 60, 87, 89, 90]) assert.ok(daysOf("vargas").includes(d), `Vargas recibió aviso el día ${d}`);
-    for (const d of [57, 59, 60, 87, 89, 90, 117, 119, 120]) assert.ok(daysOf("choque").includes(d), `Choque recibió aviso el día ${d}`);
+    for (const d of want(due)) assert.ok(daysOf("rojas").includes(d), `Rojas recibió aviso el día ${d}`);
+    for (const d of [due[0] - 3, due[0] - 1, ...want([due[1], due[2]])]) assert.ok(daysOf("vargas").includes(d), `Vargas recibió aviso el día ${d}`);
+    for (const d of want([due[1], due[2], due[3]])) assert.ok(daysOf("choque").includes(d), `Choque recibió aviso el día ${d}`);
     // WhatsApp (si el bot lo manda): el recordatorio de siempre queda preparado 2 días antes.
     const wa = (k) => e.s.outbox.filter((m) => m.customerId === fam[k].id && m.template === "expiry_reminder").length;
 
-    console.log(["", "SIMULACIÓN 3 MESES (C3)", ...log,
+    console.log(["", `SIMULACIÓN 3 MESES (C3) · ${mode === "days" ? "30 días" : "mismo día del mes siguiente"}`, ...log,
       `Pagado: Rojas Bs ${paid("rojas") / 100} (prometido ${promised.rojas / 100}) · Vargas Bs ${paid("vargas") / 100} (prometido ${promised.vargas / 100}) · Choque Bs ${paid("choque") / 100} (prometido ${promised.choque / 100})`,
       `Días regalados: ${gifted} · cobros de más: ${over} · redondeo máx.: ${maxCentDiff.toFixed(2)} centavos`,
       `Avisos al celular (días): Rojas ${daysOf("rojas").join(",")} · Vargas ${daysOf("vargas").join(",")} · Choque ${daysOf("choque").join(",")}`,

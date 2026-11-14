@@ -51,8 +51,8 @@ describe("Cómo van: números", () => {
     const ana = w.reseller("Ana Rojas", NOV1 - 100 * DAY);
     const AR = { id: "u_ana", role: "reseller", customerId: ana.id };
     const p1 = w.buy(ana.id, "prime-alq", NOV1 - 42 * DAY);         // 20/09 → vence 20/10, no lo renueva: se le cayó
-    const h1 = w.buy(ana.id, "hbo-alq", NOV1 - 31 * DAY + 12 * HOUR); // 01/10 12:00 → vence 31/10 12:00
-    const s1 = w.buy(ana.id, "disneyse-alq", NOV1 - 17 * DAY + 12 * HOUR); // 15/10 → vence 14/11 (en 7 días)
+    const h1 = w.buy(ana.id, "hbo-alq", NOV1 - 31 * DAY + 12 * HOUR); // 01/10 12:00 → vence 01/11 12:00 (un mes de calendario)
+    const s1 = w.buy(ana.id, "disneyse-alq", NOV1 - 17 * DAY + 12 * HOUR); // 15/10 → vence 15/11 (en 7 días)
     const d1 = w.buy(ana.id, "disney-alq", NOV1 - MIN);             // 31/10 23:59 en Bolivia: mes anterior
     const p2 = w.buy(ana.id, "prime-alq", NOV1);                     // 01/11 00:00 en Bolivia: este mes
     // Recarga de saldo por QR (pedido "topup"): no es un pago por servicios, no se cuenta.
@@ -63,7 +63,7 @@ describe("Cómo van: números", () => {
     w.at(NOV1 + DAY + HOUR);
     const cli = w.s.catalog.createCustomer(AR, { name: "Clienta Privada", phone: "+59169999999", email: "clienta@privado.test", whatsappConsent: true });
     const c1 = w.s.orders.create(AR, { customerId: cli.id, items: [{ productId: "hbo-alq", qty: 1 }], paymentMethod: "balance" }).assignmentIds[0];
-    w.renew(h1, NOV1 + 2 * DAY);                       // tarde: venció el 31/10
+    w.renew(h1, NOV1 + 2 * DAY);                       // tarde: venció el 01/11
     w.renew(d1, NOV1 + 4 * DAY, AR, "balance");        // a tiempo, con saldo (pedido + movimiento de saldo)
     // El cuaderno de Ana (no lo tiene que ver el dueño acá).
     w.s.subs.save(AR, d1, { label: "Perfil 1", name: "Sobrina Secreta", phone: "+59168888888", expiresAt: NOW + 10 * DAY, pay: "pagado", price: 3000 });
@@ -101,7 +101,7 @@ describe("Cómo van: números", () => {
     assert.equal(Object.values(st.orders).filter((o) => o.kind === "renewal" && o.payerId === ana.id).length, 2, "…y un solo pedido por renovación");
     // La renovación nueva guarda el vencimiento anterior.
     const ren = Object.values(st.orders).find((o) => o.kind === "renewal" && o.renewal.assignmentId === h1);
-    assert.equal(ren.renewal.prevExpiresAt, NOV1 - DAY + 12 * HOUR);
+    assert.equal(ren.renewal.prevExpiresAt, NOV1 + 12 * HOUR, "vencía el 01/11 12:00 (01/10 + un mes de calendario)");
   });
 
   test("renovaciones viejas sin el dato nuevo: a tiempo o tarde se reconstruye desde el vencimiento", () => {

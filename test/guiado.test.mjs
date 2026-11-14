@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+import { addPeriods } from "../dist/store/time.js";
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
@@ -28,7 +29,7 @@ test("lo que se ve antes es lo que pasa después: renovar, automático al vender
     // Dos cuentas de Disney: la que vence antes con el proveedor es la que el servidor usa primero.
     await A("POST", "/api/admin/accounts", { productId: "disney", supplierId: "andes", email: "dis.tarde@ejemplo.lat", password: "Clave-Larga#1", supplierExpiresAt: Date.now() + 120 * DAY, cost: 2000, profiles: [{ label: "Perfil A" }, { label: "Perfil B" }] });
     await A("POST", "/api/admin/accounts", { productId: "disney", supplierId: "andes", email: "dis.pronto@ejemplo.lat", password: "Clave-Larga#1", supplierExpiresAt: Date.now() + 70 * DAY, cost: 2000, profiles: [{ label: "Perfil 1" }, { label: "Perfil 2" }] });
-    // Una cuenta de Max que vence en 20 días: renovar +30 días se pasaría del proveedor.
+    // Una cuenta de Max que vence en 20 días: renovar +1 mes se pasaría del proveedor.
     await A("POST", "/api/admin/accounts", { productId: "max", supplierId: "andes", email: "max@ejemplo.lat", password: "Clave-Larga#1", supplierExpiresAt: Date.now() + 20 * DAY, cost: 1500, profiles: [{ label: "Perfil 1" }] });
     const ana = await A("POST", "/api/admin/customers", { name: "Ana Quispe", phone: "+59170011223" });
 
@@ -61,7 +62,7 @@ test("lo que se ve antes es lo que pasa después: renovar, automático al vender
     const cards = p.locator(`${fx} .fx-svc`);
     const disCard = cards.filter({ hasText: "Disney+" }), maxCard = cards.filter({ hasText: "Max" });
     const said = (await disCard.locator(".fx-prev").innerText()).match(/vence el (\d\d\/\d\d\/\d{4})/)[1];
-    assert.match(await maxCard.locator(".fx-prev").innerText(), /⚠️ \+30 días se pasaría de la fecha del proveedor/, "avisa el freno del proveedor antes de tocar");
+    assert.match(await maxCard.locator(".fx-prev").innerText(), /⚠️ \+1 mes se pasaría de la fecha del proveedor/, "avisa el freno del proveedor antes de tocar");
     // Reemplazar: cuántos libres hay (3 de Disney: A, B y Perfil 2).
     await disCard.locator(".fx-more summary").click();
     assert.match(await disCard.locator(".fx-hint").innerText(), /Hay 3 perfiles libres de Disney\+/);
@@ -80,14 +81,14 @@ test("lo que se ve antes es lo que pasa después: renovar, automático al vender
     await p.click(`${fx} [data-renew="${max.id}"]`).catch(() => {});
     await p.waitForTimeout(1500);
     assert.match(dialogs.at(-1), /pasa la del proveedor[\s\S]*Proveedores por renovar/);
-    assert.equal((await A("GET", `/api/admin/assignments?customerId=${ana.id}`)).find((x) => x.productId === "max").customerExpiresAt, max.customerExpiresAt + 30 * 864e5);
+    assert.equal((await A("GET", `/api/admin/assignments?customerId=${ana.id}`)).find((x) => x.productId === "max").customerExpiresAt, addPeriods(max.customerExpiresAt, 30, 1, "calendar"), "+1 mes: mismo día del mes siguiente");
     assert.equal((await A("GET", "/api/admin/secretaria")).counts.proveedores, 1);
 
     // 4) Pantalla Renovar: cada "+1 período" muestra su nueva fecha o el aviso.
     await p.evaluate(() => { location.hash = "renovar"; document.querySelector('#menu [data-go="renovar"]').click(); });
     await p.waitForSelector("[data-renewsel]");
     const txt = await p.locator("#pout").innerText();
-    // Max (vence en 20 días) y Disney ya renovado (11/01 → +30 se pasaría del 21/01 del proveedor): los dos avisan.
+    // Max (vence en 20 días) y Disney ya renovado (+1 mes se pasaría del proveedor): los dos avisan.
     assert.equal((txt.match(/se pasa del proveedor/g) ?? []).length, 2);
     assert.deepEqual(errs, []);
     await ctx.close();

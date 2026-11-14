@@ -40,9 +40,10 @@ function seed(s, clock) {
   const marisel = client(ana, "Marisel Rojas", "+59175000001"), ruthy = client(ana, "Ruthy Mamani", "+59175000002"), jose = client(ana, "José Vargas", "+59175000003"), kevin = client(ana, "Kevin Flores", "+59175000004");
   // Octubre (mes anterior completo: Ana ya vendía en septiembre): 2 ventas. Marisel y José NO renovaron; Ruthy sí.
   sell(ana, kevin.id, "max", NOW - 70 * DAY, 2500);                       // septiembre: su primera venta
-  const oM = sell(ana, marisel.id, "netflix", NOW - 40 * DAY, 4000);      // venció hace 10 días → Que vuelvan
-  const oJ = sell(ana, jose.id, "max", NOW - 36 * DAY, 3000);             // venció hace 6 días → Que vuelvan
-  const oR = sell(ana, ruthy.id, "netflix", NOW - 34 * DAY, 4000);        // venció hace 4 días, pero…
+  // «1 mes» = mismo día del mes siguiente (mesModo.ts): lo de octubre (31 días) se vende un día antes para que venza igual.
+  const oM = sell(ana, marisel.id, "netflix", NOW - 41 * DAY, 4000);      // venció hace 10 días → Que vuelvan
+  const oJ = sell(ana, jose.id, "max", NOW - 37 * DAY, 3000);             // venció hace 6 días → Que vuelvan
+  const oR = sell(ana, ruthy.id, "netflix", NOW - 35 * DAY, 4000);        // venció hace 4 días, pero…
   // Noviembre (este mes): Ruthy volvió a comprar Netflix (ya tiene uno activo: NO aparece) y Kevin compró dos veces.
   at(NOW - 20 * DAY); s.orders.closeExpired(system);
   at(NOW - 2 * DAY); s.orders.closeExpired(system);
@@ -55,9 +56,9 @@ function seed(s, clock) {
   const viejo = s.subs.save(ana.A, oD.assignmentIds[0], { label: "Tío", name: "Pedro Lejano", phone: "+59175550001", expiresAt: NOW - 45 * DAY, price: 1500, pay: "pagado" }).sub;
   s.subs.save(ana.A, oD.assignmentIds[0], { label: "Mamá", name: "Lucía Cerca", phone: "+59175550002", expiresAt: NOW + 10 * DAY, price: 1500, pay: "pagado" });
   // Otro revendedor y la tienda: clientes vencidos que Ana nunca debe ver.
-  const ajeno = client(otro, "Cliente Ajeno", "+59175009999"); sell(otro, ajeno.id, "netflix", NOW - 38 * DAY, 9999);
+  const ajeno = client(otro, "Cliente Ajeno", "+59175009999"); sell(otro, ajeno.id, "netflix", NOW - 39 * DAY, 9999);
   const directo = s.catalog.createCustomer(owner, { name: "Directo Tienda", phone: "+59175008888" });
-  at(NOW - 37 * DAY); s.orders.create(owner, { customerId: directo.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
+  at(NOW - 38 * DAY); s.orders.create(owner, { customerId: directo.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });
   at(NOW - 1 * DAY); s.orders.closeExpired(system);
   at(NOW);
   return { ana, otro, ids: { marisel: oM.assignmentIds[0], jose: oJ.assignmentIds[0], ruthy: oR.assignmentIds[0], viejo: `${oD.assignmentIds[0]}|${viejo.id}` } };

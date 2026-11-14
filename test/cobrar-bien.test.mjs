@@ -115,7 +115,7 @@ describe("3) doble cobro desde cualquier pantalla", () => {
     assert.equal(A(id).customerExpiresAt, after1, "nada se movió");
     // Confirmado («es otro mes»): renueva.
     const r = s.orders.renew(owner, id, { paymentMethod: "cash", idempotencyKey: "r3", confirmOther: true });
-    assert.equal(r.assignment.customerExpiresAt, after1 + 30 * DAY);
+    assert.equal(r.assignment.customerExpiresAt, after1 + 31 * DAY, "01/12 → 01/01: un mes de calendario (mesModo.ts)");
     // Y al revés: después del Control, «Me pagó» de Mi secretaria también pregunta, con el monto de la renovación.
     const pv = s.cobro.preview(owner, id);
     assert.match(pv.doubleCharge.text, /Bs 35/);
@@ -215,7 +215,9 @@ describe("9) cambiar de plataforma en un paso", () => {
     assert.equal(pv.ok, true, pv.blockers.join());
     assert.equal(pv.to.email, "max1@ficticio.lat");
     assert.equal(pv.priceDiff, 4200 - 3000);
-    assert.equal(pv.adjustedExpiresAt, T0 + 10 * DAY + Math.round((20 * DAY * 3000) / 4200 / 60_000) * 60_000);
+    // Le quedan 21 días (vendido el 01/10, vence el 01/11: un mes de calendario), ajustados por precio.
+    assert.equal(exp - (T0 + 10 * DAY), 21 * DAY);
+    assert.equal(pv.adjustedExpiresAt, T0 + 10 * DAY + Math.round((21 * DAY * 3000) / 4200 / 60_000) * 60_000);
     assert.match(pv.adjustText, /cuesta Bs 12 más/);
     assert.ok(pv.warnings.some((x) => /precio acordado/.test(x)));
     assert.match(s.dia.switchPreview(owner, id, { toProductId: "nf" }).blockers[0], /Ya tiene Netflix/);

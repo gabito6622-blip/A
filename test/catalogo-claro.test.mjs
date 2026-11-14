@@ -173,7 +173,7 @@ describe("catálogo claro · navegador", () => {
       const ft = (await f.innerText()).replace(/\s+/g, " ");
       assert.match(ft, /A pedido: te confirmamos antes de que pagues/);
       assert.match(ft, /Un perfil es tu propio espacio dentro de Disney\+, con tu nombre\./);
-      assert.match(ft, /Dura 1 mes \(30 días\)/);
+      assert.match(ft, /Dura 1 mes \(del mismo día al mismo día\)/, "«1 mes» ya no son «30 días» (mesModo.ts)");
       assert.match(ft, /Preguntar si hay/);
       assert.equal(await f.locator('[data-add="disney"]').innerText(), "Agregar al carrito");
       const m = await measure(p, "#modal");
