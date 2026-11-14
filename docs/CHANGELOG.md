@@ -3,6 +3,18 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · Seguridad de las cuentas y arreglos de la revisión en 3 lugares (**sin publicar**, rama `seguridad-cuentas`)
+- **Por qué:** el dueño: «que se sienta seguro de que nadie está entrando a su cuenta; igual que la mía; seguridad, comodidad». Tres revisiones (dueño y seguridad, revendedor, cliente final) con datos ficticios.
+- **Ingresos anotados:** cada ingreso, intento fallido, cambio de PIN, link de acceso y cierre de sesiones queda guardado (180 días) con el aparato (p. ej. «📱 Android · Chrome») y cómo entró.
+- **«🔐 Seguridad de mi cuenta»** para clientes y revendedores (Más → Mi cuenta, y en Mis cuentas): dónde está abierta, «Cerrar» y «Cerrar todas las demás», cambiar el PIN y últimos movimientos. El equipo ve lo suyo en Configuración → «Mis aparatos e ingresos».
+- **Dueño:** en la tarjeta de cada revendedor, «🔐 Seguridad» con sus ingresos y «🚪 Sacarlo de todos lados» (queda en la auditoría y le llega un aviso).
+- **PIN nuevo de la tienda cierra todas sus sesiones** (antes quien entró con el viejo seguía 30 días). Cambiar mi PIN cierra los otros aparatos.
+- **Frenos que no se borran al publicar:** 5 fallos → 15 min, 10 → 1 h, 15 → 24 h, para PIN, contraseña del panel y contraseña de cliente. El de la contraseña del panel ahora es por usuario: cambiar la IP en la cabecera ya no lo salta.
+- **Avisos al celular** (si los activó): entrada desde un aparato nuevo, PIN cambiado por la tienda, sesiones cerradas por la tienda, intentos fallidos (también al dueño).
+- **Revendedor:** al dar un cupo ya no viene un cliente elegido; las cuentas que renueva la tienda tienen «Pedir renovación» y dicen hasta cuándo andan; renovar un perfil repartido tiene tres botones claros y «No renovar» no renueva; el independiente no ve el formulario de compra a la tienda; botones chicos llevados a 44 px.
+- **Cliente final:** la contraseña de la cuenta sale tapada con «Ver»; «Olvidé mi contraseña» responde igual exista o no el correo (y avisa al dueño si el correo de la tienda no está conectado).
+- Pruebas nuevas: `seguridad-cuentas`, `seguridad-pantallas`, `revendedor-arreglos`, `cliente-seguro`.
+
 ## 2026-11-14 · Revendedores «🤝 De confianza» e «🆕 Independiente» (**publicado el 14/11, PR #64**)
 - **Por qué:** el dueño: «mis cuentas están destinadas para mis revendedores de confianza; los nuevos no me van a comprar y no les tengo confianza con los códigos».
 - **De confianza** (los 25 de hoy, sin cambios): compran y alquilan las cuentas de la tienda. Inicio: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.

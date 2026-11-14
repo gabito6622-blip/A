@@ -624,7 +624,10 @@ export function createApp(cfg: AppConfig): App {
       try {
         await sendStoreEmail(email, "Recupera tu contrasena", emailWrap("Tocaste 'olvide mi contrasena'.", `<p>Para poner una nueva, entra a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contrasena</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
       } catch (e) {
-        throw new DomainError("VALIDATION", (e as Error).message);
+        // 14/11/2026: misma respuesta exista o no el correo (antes un error delataba que la cuenta existía).
+        // Si el correo de la tienda no está conectado, se le avisa al dueño para que lo ayude por WhatsApp.
+        log(`recuperar contraseña: no se pudo mandar el correo (${(e as Error).message})`);
+        try { if (pushOn()) void pushSend(pushSubs().filter((x) => store.engine.s.staff[x.staffId]?.role === "owner"), { title: "📧 Un cliente no pudo recuperar su contraseña", body: `${cust.name} pidió recuperar su contraseña y el correo de la tienda no se pudo mandar. Ayudalo por WhatsApp.`, go: "configuracion" }).catch(() => {}); } catch { /* sin avisos */ }
       }
     }
     return { ok: true };

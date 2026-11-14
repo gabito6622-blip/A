@@ -1,5 +1,19 @@
 # Informe de pruebas
 
+## 14/11/2026 · Seguridad de cuentas y arreglos de las 3 revisiones (rama `seguridad-cuentas`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Revisiones con datos ficticios: dueño y seguridad (puertos 8093/8094), revendedor (8095), cliente final (8096) | 3 revisores en paralelo, solo lectura | informes recibidos |
+| Dos aparatos: ambos listados con nombre, «este aparato», cómo entró y comienzo de IP; nunca se manda el hash | `test/seguridad-cuentas.test.mjs` | pasa |
+| Cerrar otra sesión; PIN nuevo de la tienda cierra todo y el viejo no sirve; cambiar mi PIN deja este y cierra el otro | ídem | pasa |
+| Dueño ve ingresos y saca de todos lados; Atención recibe 403 | ídem | pasa |
+| 5 PIN mal (con IPs distintas) → frenado aun con el PIN bueno; sigue frenado después de reiniciar el servidor; a los 16 min entra | ídem, reloj simulado | pasa |
+| 5 contraseñas mal del panel con IPs distintas en la cabecera → frenado; el dueño ve los fallidos; «cerrar las demás» deja 1 | ídem | pasa |
+| Pantallas 360 px: revendedor llega desde Más, ve 2 aparatos y cierra el otro; dueño abre «🔐 Seguridad», saca al revendedor (queda afuera) y ve lo suyo en Configuración | `test/seguridad-pantallas.test.mjs`, Playwright | pasa |
+| Revendedor: «Pedir renovación» en cuenta que renueva la tienda; «No renovar» no cambia la fecha y «Sí, ya me pagó» renueva; cupo sin cliente elegido no guarda; independiente sin formulario de compra | `test/revendedor-arreglos.test.mjs` | pasa |
+| Cliente: «Olvidé mi contraseña» igual respuesta con o sin cuenta; contraseña tapada, «Ver» y «Ocultar»; Seguridad de mi cuenta en la tienda | `test/cliente-seguro.test.mjs` | pasa |
+| Suite completa | `npm test` | **608 pasan, 0 fallan, 72 s** |
+
 ## 14/11/2026 · Revendedores de confianza e independientes (publicado el 14/11, PR #64)
 | Qué | Cómo | Resultado |
 |---|---|---|

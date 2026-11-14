@@ -652,7 +652,7 @@ function renderInner() {
         const fold = isReseller() || services.length > 5;
         return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
-        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
           ? `<span class="rlock">🔒 Esta cuenta la renueva la tienda. Te anda hasta el <b>${fdate(a.expiresAt)}</b>.</span>${S.settings.whatsapp
@@ -2293,7 +2293,7 @@ async function submitLogin(form) {
     }
     if (step === "forgot") {
       await api("POST", "/api/auth/customer/forgot", { email: form.email.value.trim() });
-      return openLogin("email", "", `<div class="ok-msg">✅ Si ese correo tiene una cuenta, te mandamos el enlace. Revisá tu bandeja (y la carpeta de spam).</div>`, form.email.value.trim());
+      return openLogin("email", "", `<div class="ok-msg">✅ Si ese correo tiene una cuenta, te mandamos el enlace. Revisá tu bandeja (y la carpeta de spam). Si no te llega en unos minutos, escribinos por WhatsApp.</div>`, form.email.value.trim());
     }
     if (step === "pin") {
       await api("POST", "/api/auth/customer/pin", { phone, pin: form.pin.value.trim() });
@@ -2553,6 +2553,14 @@ document.addEventListener("click", async (ev) => {
   if (d.cart) return openDrawer();
   if (d.copy) return copyText(d.copy);
   if (d.rclear) { S.data.lastSale = []; return render(); }
+  if (d.pwshow) {
+    const m = el.parentElement?.querySelector(".pwmask");
+    if (!m) return;
+    const show = m.textContent === "••••••••";
+    m.textContent = show ? m.dataset.pw : "••••••••";
+    el.textContent = show ? "Ocultar" : "Ver";
+    return;
+  }
   if (d.mf) { S.data.mf = d.mf; return render(); }
   if (d.secout) { try { await api("POST", "/api/me/security/logout", { id: d.secout }); toast("Sesión cerrada"); S.data.sec = await api("GET", "/api/me/security"); render(); } catch (e) { toast(e.message); } return; }
   if (d.secothers) {
