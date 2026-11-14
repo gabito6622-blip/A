@@ -19,6 +19,8 @@ import * as plata from "./plata.js";
 import * as proveedoresMes from "./proveedoresMes.js";
 import * as inventario from "./inventario.js";
 import * as cobro from "./cobro.js";
+import * as cobrarBien from "./cobrarBien.js";
+import * as cambioPlataforma from "./cambioPlataforma.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as rday from "./resellerDay.js";
@@ -105,6 +107,10 @@ export function createStore(opts: EngineOptions = {}) {
       reactivatePreview: bind(e, diaCobro.reactivatePreview),
       reactivate: bind(e, diaCobro.reactivate),
       payWithSupplier: bind(e, diaCobro.payWithSupplier),
+      /** Revisión de 3 meses (14/11): «Me pagó lo que debía» (sin correr la fecha) y «🔀 Cambiar de plataforma». */
+      payDebt: bind(e, cobrarBien.payDebt),
+      switchPreview: bind(e, cambioPlataforma.switchPreview),
+      switchPlatform: bind(e, cambioPlataforma.switchPlatform),
     },
     /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
     inventario: {

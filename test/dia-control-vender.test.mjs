@@ -66,7 +66,8 @@ test("5) Control: «Renovar» no promete una fecha que pasa la del proveedor; el
     p.once("dialog", (d) => { msg = d.message(); d.dismiss(); });
     await ba.click();
     await p.waitForTimeout(300);
-    assert.match(msg, /No se puede prometer la fecha/);
+    // Decisión (b), 14/11: avisa que pasa la del proveedor y pregunta si anotarlo igual (dijo que no: no se anota).
+    assert.match(msg, /pasa la del proveedor[\s\S]*Proveedores por renovar/);
     assert.match(msg, /Monto: Bs\s?30/);
     assert.equal(s.engine.s.assignments[idAna].customerExpiresAt < Date.now(), true, "no se renovó");
     // Bea: entra con el proveedor → el botón dice la fecha nueva y la confirmación el monto.

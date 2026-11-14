@@ -13,14 +13,16 @@ const DAY = 86_400_000;
 /** Vista previa de "Renovar +1 período". */
 export function renewPreview(a, now = Date.now()) {
   const days = (a.durationDays ?? 30);
-  const next = Math.max(a.customerExpiresAt, now) + days * DAY;
+  // Igual que el servidor (cobrarBien.ts → renewStart): atrasado sin cortar, desde el vencimiento (sin días gratis).
+  const exp = a.customerExpiresAt, from = exp >= now || (!a.holdOpen && now - exp <= 30 * DAY) ? exp : now;
+  const next = from + days * DAY;
   const ok = !(a.supplierExpiresAt && next > a.supplierExpiresAt);
   return {
     ok, next, days,
     line: ok ? `Si renovás: vence el ${fdate(next)} (+${days} días)` : `⚠️ +${days} días se pasaría de la fecha del proveedor (${fdate(a.supplierExpiresAt)}): renová la cuenta con el proveedor o reemplazá el perfil`,
     confirm: ok
       ? `¿Renovar ${a.product} de ${a.customerName ?? "este cliente"} (${a.profile ?? ""})?\nVence: ${fdate(a.customerExpiresAt)} → ${fdate(next)} (+${days} días, cobrado en efectivo/QR).`
-      : `⚠️ ${a.product} de ${a.customerName ?? "este cliente"}: +${days} días llegaría al ${fdate(next)}, después de que la cuenta vence con el proveedor (${fdate(a.supplierExpiresAt)}).\nEl sistema no lo va a dejar. ¿Intentar igual?`,
+      : `⚠️ ${a.product} de ${a.customerName ?? "este cliente"}: +${days} días llegaría al ${fdate(next)}, después de que la cuenta vence con el proveedor (${fdate(a.supplierExpiresAt)}).\nLa fecha nueva pasa la del proveedor: si te pagó, se anota igual y la cuenta queda en «Proveedores por renovar» (Mi secretaria). ¿Anotar el cobro?`,
   };
 }
 

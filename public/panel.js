@@ -12,7 +12,8 @@ import { initDescargas, descargasEnsure, descargasView, descargasClick, descarga
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
-import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint } from "/dia.js";
+import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint, sellCustomer, sellDupCheck, renewFlow, switchPlatHtml, setRerender } from "/dia.js";
+import { matches } from "/buscar.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 import { cargaVenceCosto, cargaOk, costRow, moveDestLabel, editSecretRow, mesCorto } from "/panel-inventario.js";
 import { gastoFormCard, gastosListCard, proveedoresMesCard, gastoHomeBtn, offerFixSale, paidNowExtra, paidNowBody, initPlata } from "/panel-plata.js";
@@ -732,7 +733,7 @@ const V = {
     const qd = q.replace(/\D/g, "").length >= 6 ? q.replace(/\D/g, "").slice(-8) : "";
     const sameDay = (t, u) => new Date(t).toDateString() === new Date(u).toDateString();
     const view0 = rows.filter((r) => (!T.cf || T.cf === "todos" || r.est[1] === T.cf || (T.cf === "cobrar" && ["bad", "today", "hold"].includes(r.est[1]))) && (!T.cfrom || sameDay(r.customerExpiresAt, T.cfrom)) && (!T.cday || r.day === T.cday) && (!T.cprod || r.product === T.cprod) && (!T.cpay || r.pay === T.cpay || (T.cpay === "debe" && r.pay !== "pagado")) && (!T.ck || T.ck === "todos" || r.kind === T.ck)
-      && (!q || `${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.rname} ${r.control.note ?? ""}`.toLowerCase().includes(q) || (qd && (r.customerPhone || "").replace(/\D/g, "").includes(qd))));
+      && (!q || matches(`${r.customerName} ${r.customerPhone} ${r.email} ${r.profile} ${r.control.seller ?? ""} ${r.rname} ${r.control.note ?? ""}`, q) || (qd && (r.customerPhone || "").replace(/\D/g, "").includes(qd))));
     // Como en Excel: filtro por columna, rango de fechas, ordenar tocando el título y agrupar con subtotal.
     // Atención (seller) no ve costos ni ganancia: son del dueño.
     const COLS = [["n", "N°"], ["customerName", "Cliente"], ["kind", "Tipo"], ["customerPhone", "WhatsApp"], ["product", "Plataforma"], ["email", "Correo"], ["profile", "Perfil"], ["startsAt", "Inicio"], ["customerExpiresAt", "Vencimiento"], ["day", "Día vence"], ["price", "Te pagan Bs"], ["cost", "Costo Bs"], ["gain", "Ganancia Bs"], ["pay", "Estado pago"], ["est", "Estado"], ["d", "Días"], ["seller", "Revendedor"], ["note", "Nota"]].filter(([k]) => canReview() || !["cost", "gain"].includes(k));
@@ -760,6 +761,8 @@ const V = {
     const anyFilter = (T.cf && T.cf !== "todos") || T.cq || T.cday || T.cprod || T.cpay || (T.ck && T.ck !== "todos") || T.cfrom || T.cr1 || T.cr2 || Object.values(cfc).some(Boolean);
     const dIn = (t) => (t ? `${new Date(t).getFullYear()}-${String(new Date(t).getMonth() + 1).padStart(2, "0")}-${String(new Date(t).getDate()).padStart(2, "0")}` : "");
     P.controlView = view;
+    // Celular: las tarjetas van de a 25 («Ver más»), lo urgente arriba (ya vienen por vencimiento).
+    const CARDS_STEP = 25, cardsN = Math.max(CARDS_STEP, +T.cmore || 0);
     // En el celular arranca en Tarjetas (la tabla de 18 columnas no entra).
     const xl = (T.cv ?? (innerWidth < 700 ? "cards" : "excel")) === "excel";
     const first = (n) => (n || "").split(" ")[0];
@@ -803,6 +806,7 @@ const V = {
         <div class="ctl-kindrow"><div class="tabs ctl-chips" role="tablist" aria-label="Tipo de cliente">${[["todos", `👥 Todos (${rows.length})`], ["fin", `💰 Les cobrás vos (${rows.filter((r) => r.kind === "fin").length})`], ["rev", `🏪 De tus revendedores (${rows.filter((r) => r.kind === "rev").length})`]].map(([k, t]) => `<button type="button" role="tab" class="kc-${k}" data-tab="ck:${k}" aria-selected="${(T.ck ?? "todos") === k}">${t}</button>`).join("")}</div>
           <div class="ctl-viewsw" role="group" aria-label="Cómo ver la lista"><button type="button" data-tab="cv:excel" aria-pressed="${xl}">📋 Tabla (Excel)</button><button type="button" data-tab="cv:cards" aria-pressed="${!xl}">🗂️ Tarjetas</button></div></div>
         <div class="inline ctl-filters"><input id="cq" placeholder="Buscar cliente, correo o WhatsApp" value="${esc(T.cq ?? "")}" aria-label="Buscar">
+          ${innerWidth < 700 ? `<details class="ctl-fdet"${anyFilter && !T.cq ? " open" : ""}><summary class="pbtn">🔎 Filtros, orden y columnas</summary><div class="inline ctl-filters">` : ""}
           <select id="cday" aria-label="Día que vence">${opt("", "Día: todos", !T.cday)}${["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"].map((d) => opt(d, `${d[0].toUpperCase() + d.slice(1)} (${rows.filter((r) => r.day === d).length})`, T.cday === d)).join("")}</select>
           <select id="cprod" aria-label="Plataforma">${opt("", "Todas las apps", !T.cprod)}${products.map((x) => opt(x, x.replace(/ \(alquiler revendedores\)/, ""), T.cprod === x)).join("")}</select>
           <select id="cpay" aria-label="Estado de pago">${opt("", "Pago: todos", !T.cpay)}${opt("debe", "Debe (pendiente o no pagó)", T.cpay === "debe")}${Object.entries(PAY).map(([k, t]) => opt(k, t, T.cpay === k)).join("")}</select>
@@ -814,10 +818,10 @@ const V = {
           <details class="ctl-cols" ${colsOpen ? "open" : ""}><summary class="pbtn">🧱 Columnas${hid.length ? ` (${hid.length} ocultas)` : ""}</summary><div class="ctl-colsbox">${COLS.map(([k, l]) => `<label class="chk"><input type="checkbox" data-ccol="${k}" ${hid.includes(k) ? "" : "checked"}> ${l}</label>`).join("")}</div></details>
           <button class="pbtn" type="button" data-go="vender">➕ Agregar</button>
           ${anyFilter ? `<button class="pbtn" type="button" data-cclear="1">✕ Limpiar filtros</button>` : ""}
-          <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button></div></section>
+          <button class="pbtn" type="button" data-ctlcsv="1">${icon("ext")}Descargar Excel</button>${innerWidth < 700 ? "</div></details>" : ""}</div></section>
       ${(() => {
         // Si el texto buscado coincide con el nombre de UN solo cliente, se muestra su resumen.
-        const names = [...new Set(view.map((r) => r.customerName).filter((n) => n.toLowerCase().includes(q)))];
+        const names = [...new Set(view.map((r) => r.customerName).filter((n) => matches(n, q)))];
         if (!q || names.length !== 1) return "";
         const mine = view.filter((r) => r.customerName === names[0]);
         const r0 = mine[0];
@@ -825,7 +829,7 @@ const V = {
           <small>${mine.length} alquiler(es) · ${mine.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(mine.reduce((t, r) => t + r.price, 0))}</small>${mine.length < view.length ? `<br><small class="muted">+ ${view.length - mine.length} donde figura como revendedor o en la nota</small>` : ""}</div>
           <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
-      <section class="ctl-cards${xl ? " off" : ""}">${view.map((r) => `<article class="ccard rv-${r.est[1]} k-${r.kind}">
+      <section class="ctl-cards${xl ? " off" : ""}">${view.slice(0, cardsN).map((r) => `<article class="ccard rv-${r.est[1]} k-${r.kind}">
         <header><label class="ccheck selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
           <div><b>${esc(r.customerName)}</b> <small class="muted">#${r.n}</small> ${kb(r)}<br><small>${esc(r.product.replace(/ \(alquiler revendedores\)/, ""))} · ${esc(r.profile)}</small></div>
           <span class="est est-${r.est[1]}">${r.est[0]}${r.est[1] === "hold" ? "" : ` · ${r.d} d`}</span></header>
@@ -843,9 +847,11 @@ const V = {
           ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}">${esc(rn.label)}</button>${rn.warn ? `<small class="ctl-renwarn">${esc(rn.warn)}</small>` : ""}`)(controlRenew(r, payText(r, r.price)))}
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${swapForm(r)}
+          ${canReview() ? switchPlatHtml(r) : ""}
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button><button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-cash="1" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio: le devolviste la plata en efectivo (no va a su saldo)">💵 Le devolví en efectivo</button>` : ""}
-          ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real: se libera el perfil y sale de tus números">🧪 Era una prueba</button>` : ""}
-          ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
+          ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real o te equivocaste: se anula, se libera el perfil y sale de tus números">🧪 Era una prueba / Me equivoqué (anular venta)</button>` : ""}
+          ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}
+        ${view.length > cardsN ? `<button class="pbtn ctl-vermas" type="button" data-tab="cmore:${cardsN + CARDS_STEP}">Ver ${Math.min(CARDS_STEP, view.length - cardsN)} más (quedan ${view.length - cardsN})</button>` : ""}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
         <button class="pbtn sm dark" type="button" data-cbulk="renew">✅ Renovar +1</button>
         <button class="pbtn sm" type="button" data-cbulk="paid">💵 Pagado</button>
@@ -970,7 +976,7 @@ const V = {
       <p class="muted" style="margin:0">Los avisos salen por WhatsApp si el bot está conectado; si no, quedan en <b>WhatsApp → Avisos</b> para mandarlos con un toque.</p></section>`;
     return auto + `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
       ${canReview() ? `<button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Preparar avisos para estos</button>` : ""}</div>
-      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastNotice ? `${fdt(a.lastNotice.at)} · ${a.lastNotice.via === "secretaria" ? "✅ Ya le avisé (Mi secretaria)" : "🔔 recordatorio"}` : a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
+      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastNotice ? `${fdt(a.lastNotice.at)} · ${a.lastNotice.via === "secretaria" ? "✅ Ya le avisé (Mi secretaria)" : "🔔 recordatorio"}` : a.reminder ? `📝 Preparado ${fdt(a.reminder.at)}, no salió: mandalo vos` : a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
       <p class="muted" style="margin:0">“Preparar” deja un mensaje por cliente en <b>WhatsApp</b> (máximo uno por día). Desde ahí los mandás.</p></section>`;
   },
 
@@ -2619,11 +2625,12 @@ function sellSummary() {
   const box = $("#sellSummary"), btn = $("#sellBtn");
   const tile = document.querySelector('.selp[aria-pressed="true"]');
   const cname = f.customerName.value.trim();
-  const cid = P.tab.custMap?.[cname] || "";
+  const who = sellCustomer(cname); // el elegido o el único que coincide (dia.js → buscar.js)
+  const cid = who?.id || "";
   const ready = !!tile && !!cid;
   if (btn) btn.disabled = !ready;
   if (!ready) { if (box) box.hidden = true; if (btn) btn.innerHTML = `${icon("cart")}Registrar venta`; return; }
-  const name = tile.dataset.name, first = cname.split(" · ")[0];
+  const name = tile.dataset.name, first = (who?.label ?? cname).split(" · ")[0];
   const price = +tile.dataset.price || 0, qty = Math.max(1, +f.qty.value || 1), months = Math.max(1, +f.periodMonths.value || 1);
   const combo = tile.dataset.kind === "combo";
   const method = f.paymentMethod.value === "balance" ? "Saldo del cliente" : "Efectivo / QR";
@@ -2646,6 +2653,7 @@ document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellFor
 initSellNew({ getMap: () => P.tab.custMap, onCreated: (label, c) => { (P.tab.custMap ??= {})[label] = c.id; P.tab.sellCustomer = label; } });
 // Gastos, devoluciones, fijos y Proveedores por mes (panel-plata.js).
 initPlata({ act, render, toast, go });
+setRerender(() => render());
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
 // Filtro con lista desplegable (p. ej. «Persona» en Auditoría): guarda la elección y vuelve a dibujar.
 document.addEventListener("change", (ev) => { const k = ev.target?.dataset?.tabsel; if (k) { P.tab[k] = ev.target.value; render(); } });
@@ -3167,7 +3175,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
-    return act(() => api("POST", `/api/admin/assignments/${d.renew}/renew`, { paymentMethod: "cash", idempotencyKey: newKey() }), (r) => `✅ Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`);
+    return act(() => renewFlow(d.renew, { beyondOk: /pasa la del proveedor/.test(el.dataset.renewinfo ?? "") }), (r) => (r ? `✅ Renovado hasta ${fdate(r.to)}${r.supplierWarn ? " · ⚠️ renová el proveedor antes de esa fecha" : ""}` : "No se anotó nada"));
   }
   if (d.renewsel) {
     const ids = $$(".sel:checked").map((x) => x.value);
@@ -3418,10 +3426,13 @@ document.addEventListener("submit", async (ev) => {
       return;
     }
     if (f.id === "sellForm") {
-      if (!f.productId.value) { toast("Elegí un producto"); return; }
-      const cid = P.tab.custMap?.[f.customerName.value.trim()] || "";
-      if (!cid) { toast("Escribí y elegí un cliente de la lista"); return; }
+      // Cada salida temprana vuelve a habilitar el botón (antes quedaba trabado hasta recargar).
+      if (!f.productId.value) { toast("Elegí un producto"); return done(); }
+      const who = sellCustomer(f.customerName.value.trim()), cid = who?.id || "";
+      if (!cid) { toast("Tocá el cliente correcto debajo del nombre (o crealo)"); return done(); }
       const pname = document.querySelector('.selp[aria-pressed="true"] b')?.textContent ?? "el producto";
+      // ¿Ya tiene esa plataforma? «¿Es otro perfil o querías renovar?» (dia.js).
+      if (!(await sellDupCheck(f, cid, f.productId.value, pname, who.label))) return done();
       const months = Math.max(1, +f.periodMonths.value || 1), payStatus = f.payStatus.value || "pagado";
       if (btn) btn.disabled = true;
       try {

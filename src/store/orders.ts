@@ -22,6 +22,7 @@ import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
 import { noticeOf } from "./dia.js";
+import { assertNotDouble, renewStart } from "./cobrarBien.js";
 import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
 import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
 
@@ -535,19 +536,21 @@ export function pubAssignment(a: Assignment, staff = true): Assignment {
 export function renewableNow(e: Engine, a: Assignment): boolean {
   const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
   if (!prod || !acc || a.status !== "active") return false;
-  return Math.max(a.customerExpiresAt, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
+  return renewStart(a, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
 }
 
 export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
   const days = e.s.products[a.productId].durationDays * periods;
-  const next = Math.max(a.customerExpiresAt, e.now()) + days * DAY;
+  // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
+  const next = renewStart(a, e.now()) + days * DAY;
   const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
   if (next > acc.supplierExpiresAt && !allowBeyondSupplier) {
     throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renová con el proveedor o reemplazá el perfil`);
   }
   a.customerExpiresAt = next; // supplierExpiresAt NO se toca
+  a.lastCharge = { at: e.now(), to: next };
   delete a.holdOpen;
   a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: `+${days} días` });
   queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
@@ -560,6 +563,8 @@ export interface RenewInput {
   /** Solo el dueño: permite que el cliente venza después que la cuenta del proveedor. */
   allowBeyondSupplier?: boolean;
   idempotencyKey?: string;
+  /** El staff confirmó que es otro mes aunque ya hay un cobro anotado en este período (cobrarBien.ts). */
+  confirmOther?: boolean;
 }
 
 export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInput): { order: Order; assignment: Assignment } {
@@ -580,6 +585,8 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
     }
     const payerId = payerFor(e, actor, a.customerId);
+    // El staff anota a mano (efectivo o saldo): si ya hay un cobro en este período, pide confirmar que es otro mes.
+    if (isStaff(actor) && (input.paymentMethod === "cash" || input.paymentMethod === "balance")) assertNotDouble(e, a, input.confirmOther);
     // Solo estos métodos: uno con comprobante queda esperando el pago; nunca se renueva gratis.
     if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
     const usdPay = isUsd(e, payerId);
@@ -606,7 +613,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (input.paymentMethod === "qr" || input.paymentMethod === "usdt") {
       // Se valida ya contra el proveedor para no cobrar algo que no se puede entregar.
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
-      const next = Math.max(a.customerExpiresAt, now) + e.s.products[a.productId].durationDays * periods * DAY;
+      const next = renewStart(a, now) + e.s.products[a.productId].durationDays * periods * DAY;
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: order.id, total: fmtOrder(order) });
     } else {
@@ -1022,10 +1029,11 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
       if (left > withinDays * DAY) continue;
       if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY) continue;
       // Si ya le avisaste desde Mi secretaria hoy («✅ Ya le avisé»), no se le prepara otro.
-      const nt = noticeOf(a);
+      const nt = noticeOf(a, e);
       if (nt && e.now() - nt.at < DAY) continue;
       const c = e.s.customers[a.customerId];
-      queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+      // Queda «preparado»: cuenta como avisado solo cuando el mensaje sale de verdad (dia.ts → noticeOf).
+      a.reminderMsgId = queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) }).id;
       a.lastReminderAt = e.now();
       a.reminderFor = a.customerExpiresAt;
       n++;
@@ -1069,13 +1077,13 @@ export function autoReminders(e: Engine, actor: Actor): number {
       const key = `${a.customerExpiresAt}:${days}`;
       if (a.remindersSent?.includes(key)) continue;
       // Si ya se mandó uno a mano en las últimas 20 h, no se repite.
-      const nt = noticeOf(a);
+      const nt = noticeOf(a, e);
       if ((a.lastReminderAt && e.now() - a.lastReminderAt < 20 * 3_600_000) || (nt && e.now() - nt.at < 20 * 3_600_000)) {
         (a.remindersSent ??= []).push(key);
         continue;
       }
       const c = e.s.customers[a.customerId];
-      queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+      a.reminderMsgId = queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) }).id;
       a.lastReminderAt = e.now();
       a.reminderFor = a.customerExpiresAt;
       a.remindersSent = [...(a.remindersSent ?? []).slice(-10), key];

@@ -12,6 +12,7 @@ import { createStore, DomainError, normalizePhone, systemClock, type Actor, type
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { CORTE_GRACE_DAYS } from "../store/dia.js";
+import { renewStart } from "../store/cobrarBien.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
 import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
 import { buildMail, emailsIn, parseMail } from "./mail.js";
@@ -117,7 +118,7 @@ const MAX_FILE = 5 * 1024 * 1024;
 
 const STATUS: Record<string, number> = {
   FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, OUT_OF_STOCK: 409, INSUFFICIENT_BALANCE: 409,
-  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400,
+  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409,
 };
 
 class HttpError extends Error {
@@ -798,7 +799,7 @@ export function createApp(cfg: AppConfig): App {
     const bal = store.wallet.balance(cust.id);
     const pending = Object.values(e.orders).find((o) => o.kind === "renewal" && o.renewal?.assignmentId === a.id && (o.status === "awaiting_payment" || o.status === "payment_review"));
     const days = prod?.durationDays ?? 30;
-    const from = Math.max(a.customerExpiresAt, now()), to = from + days * 86_400_000;
+    const from = renewStart(a, now()), to = from + days * 86_400_000;
     const st = e.settings;
     return {
       name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", expiresAt: a.customerExpiresAt, from, to, days,
@@ -1095,11 +1096,14 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
-  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("GET", "/api/admin/assignments/:id/switch-preview", "staff", (c) => store.dia.switchPreview(A(c), c.params.id, { toProductId: c.query.get("to") ?? undefined, toSlotId: c.query.get("toSlotId") ?? undefined }));
+  route("POST", "/api/admin/assignments/:id/switch", "staff", (c) => store.dia.switchPlatform(A(c), c.params.id, { toProductId: c.body?.toProductId, toSlotId: c.body?.toSlotId, adjust: c.body?.adjust, reason: c.body?.reason, idempotencyKey: c.body?.idempotencyKey }));
   // Día a día (14/11): «Me pagó» de lo que se cortó solo (reactivar) y «Renovar proveedor y anotar».
   route("GET", "/api/admin/assignments/:id/reactivate-preview", "staff", (c) => store.dia.reactivatePreview(A(c), c.params.id, { toSlotId: c.query.get("toSlotId") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/reactivate", "staff", (c) => store.dia.reactivate(A(c), c.params.id, { toSlotId: c.body?.toSlotId, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
-  route("POST", "/api/admin/assignments/:id/pay-with-supplier", "staff", (c) => store.dia.payWithSupplier(A(c), c.params.id, { months: c.body?.months, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/assignments/:id/pay-with-supplier", "staff", (c) => store.dia.payWithSupplier(A(c), c.params.id, { months: c.body?.months, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
@@ -1119,7 +1123,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
   // "Mi secretaria": todo lo pendiente en una pantalla (solo lee).
-  route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c)));
+  route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c), { botOn: botOn() }));
   route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
 
   route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined })
@@ -1228,8 +1232,8 @@ export function createApp(cfg: AppConfig): App {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
-  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey }));
-  route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true }));
+  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true, confirmOther: c.body?.confirmOther === true }));
   route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? "")));
   route("POST", "/api/admin/assignments/:id/replace", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? ""), oldSlot: c.body?.oldSlot, otherAccount: !!c.body?.otherAccount, ...(c.body?.toSlotId ? { toSlotId: String(c.body.toSlotId) } : {}) }));
   route("GET", "/api/admin/reminders/settings", "staff", () => store.orders.reminderSettings());

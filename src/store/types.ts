@@ -513,6 +513,10 @@ export interface Assignment {
   reminderFor?: number;
   /** Recordatorios automáticos ya enviados: "vencimiento:días" (se reinicia al renovar). */
   remindersSent?: string[];
+  /** Mensaje de la bandeja (outbox) del último recordatorio: solo cuenta como «avisado» si salió de verdad (cobrarBien.ts). */
+  reminderMsgId?: Id;
+  /** Último movimiento de fecha por un cobro (`extend`): cuándo y hasta qué fecha quedó. Frena anotar dos veces el mismo mes. */
+  lastCharge?: { at: number; to: number };
   /** Importado ya vencido: no se cierra solo hasta que el staff le ponga fecha. */
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */

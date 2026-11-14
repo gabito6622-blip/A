@@ -226,9 +226,10 @@ test("3) «💳 Renovar proveedor y anotar»: anota la renovación del proveedor
   const A = t.addAcc("corta@ejemplo.lat", 10, ["P1"], 3500); // el proveedor vence en 10 días
   const aid = t.sell(ana, t.slotsOf(A.id)[0].id, -1);
   try {
-    // Vista previa: el freno del proveedor trae la sugerencia (1 mes, Bs 35, nueva fecha).
+    // Vista previa: la fecha del proveedor ya no frena (decisión (b), 14/11): avisa y trae la sugerencia (1 mes, Bs 35, nueva fecha).
     const pv = s.cobro.preview(owner, aid);
-    assert.equal(pv.ok, false);
+    assert.equal(pv.ok, true);
+    assert.match(pv.supplierWarn.text, /Renová el proveedor antes del/);
     assert.equal(pv.supplierRenew.months, 1);
     assert.equal(pv.supplierRenew.amount, 3500);
     assert.ok(pv.supplierRenew.to >= pv.to);

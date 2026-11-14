@@ -13,6 +13,7 @@ import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { payAccountRenewal } from "./finance.js";
 import { payApply, payPreview } from "./cobro.js";
 import { resellerOf } from "./myReseller.js";
+import { supplierWarnText } from "./cobrarBien.js";
 
 /** Hasta cuántos días después del corte automático se puede anotar «Me pagó» y reactivar. */
 export const REACTIVATE_DAYS = 30;
@@ -67,18 +68,21 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
   else if (now - at > REACTIVATE_DAYS * DAY) blockers.push(`Se cortó hace más de ${REACTIVATE_DAYS} días: hacé una venta nueva`);
   else if (superseded(e, a, at)) blockers.push(`Ya tiene otro ${prod?.name ?? "servicio"} activo`);
 
-  // ¿Su mismo perfil sigue libre? (apartado o libre, sin nadie adentro, cuenta activa y con fecha del proveedor que alcance)
+  // ¿Su mismo perfil sigue libre? (apartado o libre, sin nadie adentro y con la cuenta activa). La fecha del proveedor
+  // ya no frena (decisión (b), 14/11): si no alcanza, se reactiva igual con el aviso «Renová el proveedor antes del dd/mm».
   const old = e.s.slots[a.slotId], oldAcc = old ? e.s.accounts[old.accountId] : undefined;
   const okSlot = (s: Slot | undefined, statuses: Slot["status"][]) => {
     const acc = s ? e.s.accounts[s.accountId] : undefined;
-    return !!s && !!acc && acc.status === "active" && s.productId === a.productId && statuses.includes(s.status) && !usedByActive(e, s.id) && to <= acc.supplierExpiresAt;
+    return !!s && !!acc && acc.status === "active" && s.productId === a.productId && statuses.includes(s.status) && !usedByActive(e, s.id);
   };
+  const covers = (slotId: Id) => { const acc = e.s.accounts[e.s.slots[slotId]?.accountId]; return !!acc && to <= acc.supplierExpiresAt; };
   const sameFree = okSlot(old, ["quarantined", "available"]);
-  // Otros perfiles libres (solo «libres», no apartados de otros clientes) de la misma plataforma, el que vence antes con el proveedor primero.
+  // Otros perfiles libres (solo «libres», no apartados de otros clientes) de la misma plataforma: primero los que alcanzan
+  // con el proveedor (el que vence antes primero), después los que no.
   const options: SlotOption[] = Object.values(e.s.slots)
     .filter((s) => s.id !== a.slotId && okSlot(s, ["available"]))
     .map((s) => ({ slotId: s.id, email: e.s.accounts[s.accountId].email, label: s.label, supplierExpiresAt: e.s.accounts[s.accountId].supplierExpiresAt }))
-    .sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt || x.slotId.localeCompare(y.slotId));
+    .sort((x, y) => Number(to > x.supplierExpiresAt) - Number(to > y.supplierExpiresAt) || x.supplierExpiresAt - y.supplierExpiresAt || x.slotId.localeCompare(y.slotId));
   const want = input.toSlotId === undefined || input.toSlotId === null || input.toSlotId === "" ? undefined : String(input.toSlotId);
   let chosen: { slotId: Id; email: string; label: string } | undefined;
   if (want) {
@@ -90,9 +94,11 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
   const why = !old || !oldAcc || oldAcc.status !== "active" ? "la cuenta ya no está activa"
     : usedByActive(e, old.id) || old.status === "assigned" || old.status === "reserved" ? "ya lo tiene otro cliente"
     : old.status === "retired" ? "se retiró"
-    : to > oldAcc.supplierExpiresAt ? `la cuenta vence con el proveedor el ${new Date(oldAcc.supplierExpiresAt).toLocaleDateString("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" })}`
     : "no está libre";
   if (!blockers.length && mode === "none") blockers.push(`Su perfil anterior (${oldAcc?.email ?? "?"} · ${old?.label ?? "?"}) ${why} y no hay otro perfil libre de ${prod?.name ?? "esa plataforma"}. Cargá una cuenta o liberá un perfil, y volvé a tocar «Me pagó».`);
+  // Decisión (b): el perfil elegido no alcanza con el proveedor → se reactiva igual, con aviso, y queda en «Proveedores por renovar».
+  const chosenAcc = chosen ? e.s.accounts[e.s.slots[chosen.slotId]?.accountId] : undefined;
+  const supplierWarn = !blockers.length && chosen && chosenAcc && !covers(chosen.slotId) ? { supplierExpiresAt: chosenAcc.supplierExpiresAt, text: supplierWarnText(chosenAcc.supplierExpiresAt) } : undefined;
   if (!blockers.length && mode === "other") warnings.push(`Su perfil anterior (${oldAcc?.email ?? "?"} · ${old?.label ?? "?"}) ${why}: va a otro perfil. Después mandale los accesos nuevos.`);
   if (!blockers.length && mode === "same" && oldAcc?.passwordChangedAt && at !== undefined && oldAcc.passwordChangedAt > at) warnings.push("Cambiaste la clave de esa cuenta después del corte: mandale los accesos de nuevo.");
   const c = e.s.customers[a.customerId], payer = payerOf(e, a.customerId) ?? c, usd = payUsdOf(e, a), price = effectivePrice(e, a);
@@ -105,7 +111,7 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
     days, from, to, expiredAt: a.customerExpiresAt, closedAt: at ?? null,
     previous: { slotId: a.slotId, email: oldAcc?.email ?? "", label: old?.label ?? "", free: sameFree },
     mode, slot: chosen ?? null, options,
-    blockers, warnings, ok: blockers.length === 0,
+    blockers, warnings, ok: blockers.length === 0, ...(supplierWarn ? { supplierWarn } : {}),
   };
 }
 
@@ -143,17 +149,18 @@ export function reactivate(e: Engine, actor: Actor, assignmentId: Id, input: { t
  * «💳 Renovar proveedor y anotar»: anota «Pagué la renovación» de la cuenta por los meses que hacen falta (la misma
  * función que Cuentas) y después «Me pagó». Si el panel mostró otros meses, frena (los datos cambiaron).
  */
-export function payWithSupplier(e: Engine, actor: Actor, assignmentId: Id, input: { months?: unknown; price?: unknown; idempotencyKey?: unknown } = {}) {
+export function payWithSupplier(e: Engine, actor: Actor, assignmentId: Id, input: { months?: unknown; price?: unknown; idempotencyKey?: unknown; confirmOther?: unknown } = {}) {
   authorize(actor, "payment.review");
   authorize(actor, "inventory.manage");
   const key = input.idempotencyKey === undefined || input.idempotencyKey === null ? undefined : String(input.idempotencyKey).slice(0, 80);
   const run = () => {
     const pv = payPreview(e, actor, assignmentId, { periods: 1 });
     const hint = pv.supplierRenew;
+    if (hint && pv.doubleCharge && input.confirmOther !== true) throw new DomainError("DOUBLE_CHARGE", pv.doubleCharge.text);
     if (!hint) throw new DomainError("VALIDATION", pv.ok ? "La cuenta alcanza con el proveedor: usá «Confirmar: me pagó»" : pv.blockers[0]);
     if (input.months !== undefined && input.months !== null && Number(input.months) !== hint.months) throw new DomainError("VALIDATION", "Los datos cambiaron: cerrá y volvé a tocar «Me pagó»");
     const sup = payAccountRenewal(e, actor, hint.accountId, { months: hint.months });
-    const paid = payApply(e, actor, assignmentId, { periods: 1, price: input.price });
+    const paid = payApply(e, actor, assignmentId, { periods: 1, price: input.price, confirmOther: input.confirmOther });
     return { ...paid, supplier: { accountId: hint.accountId, email: hint.email, months: hint.months, amount: sup.expense.amount, supplierExpiresAt: sup.supplierExpiresAt } };
   };
   return e.tx(() => (key ? e.idempotent(`secsup:${assignmentId}:${key}`, run) : run()));
