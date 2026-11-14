@@ -1213,3 +1213,6 @@ input[type=color]{min-width:44px;min-height:44px}
 .secrow b{font-size:15px}.secrow small{font-size:13px;color:var(--s-muted)}
 .secrow .sbtn{min-height:44px;flex:none}
 .secrow.cur b{color:var(--s-ink)}
+/* 14/11/2026: botones que medían menos de 44 px (revisión del revendedor). */
+#tour .tour-x{min-width:44px;min-height:44px;display:grid;place-items:center;margin:-10px -10px -10px 0}
+details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center;cursor:pointer}

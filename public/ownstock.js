@@ -72,7 +72,7 @@ function saleRow(s) {
 function assignForm(a) {
   const p = OS.data.products.find((x) => x.id === a.productId);
   return `<form class="sform os-grid" data-osf="assign" data-acc="${esc(a.id)}"><b class="os-wide">➕ Darle un cupo a un cliente</b>
-    <label class="os-wide">Cliente<select name="who" data-oswho="1">${OS.customers.slice().sort((x, y) => x.name.localeCompare(y.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new" ${OS.customers.length ? "" : "selected"}>➕ Cliente nuevo</option></select></label>
+    <label class="os-wide">Cliente<select name="who" data-oswho="1" required>${OS.customers.length ? `<option value="" selected disabled>Elegí un cliente…</option>` : ""}${OS.customers.slice().sort((x, y) => x.name.localeCompare(y.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new" ${OS.customers.length ? "" : "selected"}>➕ Cliente nuevo</option></select></label>
     <div class="os-new os-grid os-wide" ${OS.customers.length ? "hidden" : ""}><label>Nombre<input name="name" maxlength="80" placeholder="Ej.: Rosa Pérez"></label><label>WhatsApp<input name="phone" inputmode="tel" placeholder="${esc(myPhoneHint())}"></label></div>
     ${p?.kind === "profiles" ? `<label>Cupo<select name="slot">${a.free.map((n) => `<option>${n}</option>`).join("")}</select></label>` : ""}
     <label>Le vence<input type="date" name="exp" required value="${ymd(Date.now() + (p?.durationDays ?? 30) * 86_400_000)}"></label>
@@ -243,6 +243,7 @@ if (typeof document !== "undefined") {
         let body;
         try {
           const who = f.who.value;
+          if (!who) throw new Error("Elegí a qué cliente le das el cupo");
           body = { accountId: f.dataset.acc, ...(who === "__new" ? { name: f.name.value, phone: f.phone.value } : { customerId: who }), ...(f.slot ? { slot: Number(f.slot.value) } : {}), expiresAt: endOfDay(f.exp.value), price: price(f.price.value), pay: f.pay.value };
         } catch (e) { OS.msg[key] = e.message; return RENDER(); }
         const r = await act(() => api("POST", "/api/me/own/sales", body), "✅ Cupo asignado", key);

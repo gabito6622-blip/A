@@ -655,7 +655,9 @@ function renderInner() {
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd>${esc(a.access.password)} <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
-          ? `<span class="rlock">🔒 Se renueva cuando la tienda renueve esta cuenta.${S.settings.whatsapp ? ` <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar a la tienda</a>` : ""}</span>`
+          ? `<span class="rlock">🔒 Esta cuenta la renueva la tienda. Te anda hasta el <b>${fdate(a.expiresAt)}</b>.</span>${S.settings.whatsapp
+            ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Pedir renovación</a>`
+            : `<button class="sbtn sm pri" type="button" data-falla="${esc(a.assignmentId)}">📩 Pedir renovación</button>`}`
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
@@ -1246,14 +1248,17 @@ function resellerView() {
     ${last.length ? `<div class="sbox rdone"><h2>✅ Venta lista: mandale estos datos a ${esc(byId[last[0].customerId].name)}</h2>${last.map((a) => `<pre class="rpre">${esc(accessText(a))}</pre>`).join("")}
       <div class="rbtns"><button class="sbtn sm pri" type="button" data-copy="${esc(last.map(accessText).join("\n\n"))}">Copiar datos</button><a class="sbtn sm" href="${waLink(byId[last[0].customerId].phone, last.map(accessText).join("\n\n"))}" target="_blank" rel="noopener">${icon("wa")}Mandar por WhatsApp</a><button class="sbtn sm" type="button" data-rclear="1">Listo</button></div></div>` : ""}
 
-    <form class="sbox sform" id="resSell"><h2>Vender a un cliente</h2>
+    ${isIndep()
+      // Independiente (14/11/2026): no compra el stock de la tienda; sus ventas son de sus cuentas propias.
+      ? `<div class="sbox"><h2>Vender a un cliente</h2><p class="empty" style="margin:0">Tus ventas van en «📦 Mis cuentas propias»: elegís la cuenta, el cupo y a quién se lo das.</p><button class="sbtn pri" type="button" data-rtool="propias" style="justify-self:start">📦 Ir a Mis cuentas propias</button></div>`
+      : `<form class="sbox sform" id="resSell"><h2>Vender a un cliente</h2>
       <label>Cliente<select name="client" required><option value="">Elegí un cliente…</option>${clients.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new">➕ Cliente nuevo</option></select></label>
       <div class="rnew" hidden><label>Nombre del cliente<input name="nname" maxlength="80"></label><label>WhatsApp del cliente<input name="nphone" inputmode="tel" value="${esc(myPhoneDefault())}" placeholder="${esc(myPhoneHint())}"></label></div>
       <label>Producto<select name="product" required><option value="">Elegí un producto…</option>${S.catalog.map((p) => `<option value="${esc(p.id)}" ${p.available ? "" : "disabled"}>${esc(p.name)} · ${bs(p.price)}${p.available ? "" : " · agotado"}</option>`).join("")}</select></label>
       <label>Cantidad<select name="qty">${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></label>
       <fieldset class="rpaid"><legend>¿Te pagó?</legend><label class="chk"><input type="radio" name="paid" value="si" checked> Sí, ya me pagó</label><label class="chk"><input type="radio" name="paid" value="no"> Me paga después (queda en “Quién me debe”)</label></fieldset>
       <p class="empty" id="sellSum" style="margin:0">Elegí cliente y producto.</p>
-      <button class="sbtn pri" type="submit">Comprar con mi saldo</button></form>
+      <button class="sbtn pri" type="submit">Comprar con mi saldo</button></form>`}
 
     <div class="sbox"><h2>Por vencer <span class="spill ${soon.length ? "sp-warn" : "sp-mute"}">${soon.length}</span></h2>
       ${soon.length ? soon.map((a) => svcRow(a, true)).join("") : `<p class="empty">Ningún cliente vence en los próximos 7 días. 👌</p>`}</div>
@@ -2464,8 +2469,8 @@ document.addEventListener("click", async (ev) => {
   if ((d.clink || d.clinknew) && await clientLinkClick(d, el)) { S.data.rctl = await api("GET", "/api/me/control").catch(() => S.data.rctl); return render(); }
   if ((d.sublink || d.sublinknew) && await subLinkClick(d, el)) { S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs); return render(); }
   if (d.subopen) { S.data.subOpen = S.data.subOpen === d.subopen ? "" : d.subopen; return render(); }
-  if (d.subavisar || d.subrenew || d.subdel || d.subpaid) {
-    const [aid, sid] = String(d.subavisar || d.subrenew || d.subdel || d.subpaid).split("|");
+  if (d.subavisar || d.subrenew || d.subrenewgo || d.subdel || d.subpaid) {
+    const [aid, sid] = String(d.subavisar || d.subrenew || d.subrenewgo || d.subdel || d.subpaid).split("|");
     const acc = (S.data.rsubs?.list ?? []).find((r) => r.assignmentId === aid), sub = acc?.subs.find((x) => x.id === sid);
     if (!sub) return;
     if (d.subavisar) {
@@ -2474,7 +2479,16 @@ document.addEventListener("click", async (ev) => {
       return render();
     }
     try {
-      if (d.subrenew) { const paid = confirm(`¿${sub.name} ya te pagó la renovación? (Aceptar = pagó · Cancelar = te paga después)`); const r = await api("POST", `/api/me/subs/${aid}/${sid}/renew`, { paid }); toast(`🔄 ${sub.name} renovado hasta ${fdate(r.sub.expiresAt)}${r.afterRental ? " · ⚠️ renová tu cuenta antes" : ""}`); }
+      // 14/11/2026: antes era un confirm «Aceptar = pagó · Cancelar = te paga después» y Cancelar igual renovaba.
+      // Ahora tres botones claros, y «No renovar» no hace nada.
+      if (d.subrenew) {
+        const k = `${aid}|${sid}`;
+        return infoModal(`🔄 Renovar a ${esc(sub.name)}`, `¿Ya te pagó la renovación?</p><div style="display:grid;gap:8px;margin-top:6px">
+          <button class="sbtn pri" type="button" data-subrenewgo="${esc(k)}" data-paid="1">✅ Sí, ya me pagó</button>
+          <button class="sbtn" type="button" data-subrenewgo="${esc(k)}" data-paid="0">⏳ Renovar y me paga después</button>
+          <button class="sbtn" type="button" data-close="1">No renovar</button></div><p style="display:none">`);
+      }
+      if (d.subrenewgo) { closeAll(); const paid = d.paid === "1"; const r = await api("POST", `/api/me/subs/${aid}/${sid}/renew`, { paid }); toast(`🔄 ${sub.name} renovado hasta ${fdate(r.sub.expiresAt)}${r.afterRental ? " · ⚠️ renová tu cuenta antes" : ""}`); }
       if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
       if (d.subpaid) { await api("POST", `/api/me/subs/${aid}`, { ...sub, pay: "pagado" }); toast(`💵 ${sub.name} ya no te debe`); }
     } catch (e) { toast(e.message); }
