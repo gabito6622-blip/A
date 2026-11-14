@@ -292,7 +292,10 @@ describe("pantallas a 360 px: Finanzas y Cómo van", () => {
           labels: [...document.querySelectorAll(".finbar > small")].map((x) => x.textContent.trim()),
           over: document.documentElement.scrollWidth > innerWidth + 1,
           cierre: document.querySelector(".cierre")?.textContent ?? "",
+          // el gráfico se desliza de costado y arranca mostrando el mes actual (la última barra a la vista)
+          lastVisible: (() => { const fc = document.querySelector(".finchart"), last = fc.querySelector(".finbar:last-child"); const a = fc.getBoundingClientRect(), r = last.getBoundingClientRect(); return r.right <= a.right + 2 && r.left >= a.left - 2; })(),
         }));
+        assert.equal(fin.lastVisible, true, `${scheme}: el mes actual se ve sin deslizar`);
         assert.equal(fin.over, false, `${scheme}: sin desborde`);
         assert.ok(fin.labels.some((l) => l.startsWith("noviembre") || l.startsWith(new Date().toLocaleDateString("es-BO", { month: "long" }))), `${scheme}: el mes en palabras (${fin.labels})`);
         assert.ok(fin.labels.every((l) => !/^[a-z]{3} \d{2}$/.test(l) && !/\d{4}-\d{2}/.test(l)), `${scheme}: nunca «jun 26» ni «2026-11» (${fin.labels})`);

@@ -2418,6 +2418,7 @@ async function render() {
     enhanceDates($("#pout"));
     enhanceFiles($("#pout"));
     fitChartText($("#pout"));
+    for (const fc of $("#pout").querySelectorAll(".finchart")) fc.scrollLeft = fc.scrollWidth; // el gráfico de 6 meses arranca mostrando el mes actual
     if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
     if (P.view === "apariencia") previewLook();
     if (P.view === "configuracion") pushStatus();
