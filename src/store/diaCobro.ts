@@ -8,7 +8,7 @@ import type { Actor, Assignment, Cents, Id, Slot } from "./types.js";
 import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
-import { DAY } from "./time.js";
+import { DAY, addPeriods } from "./time.js";
 import { sellBlock } from "./vendible.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { payAccountRenewal } from "./finance.js";
@@ -61,7 +61,7 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
   authorize(actor, "payment.review");
   const a = e.get("assignments", assignmentId);
   const now = e.now(), prod = e.s.products[a.productId];
-  const days = prod?.durationDays ?? 30, from = now, to = now + days * DAY;
+  const days = prod?.durationDays ?? 30, from = now, to = addPeriods(now, days);
   const at = closedAt(a);
   const blockers: string[] = [], warnings: string[] = [];
   if (a.status === "active") blockers.push("Este servicio sigue activo: usá «Me pagó» de siempre");

@@ -7,7 +7,7 @@ import type { Engine } from "./engine.js";
 import { authorize, can } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { renewBlockOf } from "./vendible.js";
-import { DAY, boDayStart } from "./time.js";
+import { DAY, boDayStart, addPeriods } from "./time.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { extend, setRentalControl as setControl } from "./orders.js";
 import { supplierRenewHint, type SupplierRenewHint } from "./dia.js";
@@ -62,7 +62,7 @@ export function payPreview(e: Engine, actor: Actor, assignmentId: Id, input: { p
   const extra = debt !== undefined ? periods - 1 : periods;
   const days = (prod?.durationDays ?? 30) * extra;
   // Pago atrasado antes del corte: desde el vencimiento (decisión (a), cobrarBien.ts).
-  const from = debt !== undefined ? a.customerExpiresAt : renewStart(a, now), to = from + days * DAY;
+  const from = debt !== undefined ? a.customerExpiresAt : renewStart(a, now), to = addPeriods(from, prod?.durationDays ?? 30, extra);
   const price = effectivePrice(e, a), usd = payUsdOf(e, a);
   const supplierExpiresAt = acc?.supplierExpiresAt ?? 0, supplierNoDate = supplierExpiresAt - now >= NO_DATE_AFTER;
   const ctl = a.control ?? {};

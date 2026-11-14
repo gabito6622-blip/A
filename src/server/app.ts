@@ -1,6 +1,7 @@
 // Servidor HTTP de Gabriel Store: API JSON + archivos estáticos de la tienda y el panel.
 // Sin frameworks: node:http. Cada ruta declara quién puede llamarla; el núcleo vuelve a
 // validar permisos (defensa en dos capas).
+import { addPeriods, periodText } from "../store/time.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { fetchBcbRate } from "./bcbRate.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -826,10 +827,10 @@ export function createApp(cfg: AppConfig): App {
     const bal = store.wallet.balance(cust.id);
     const pending = Object.values(e.orders).find((o) => o.kind === "renewal" && o.renewal?.assignmentId === a.id && (o.status === "awaiting_payment" || o.status === "payment_review"));
     const days = prod?.durationDays ?? 30;
-    const from = renewStart(a, now()), to = from + days * 86_400_000;
+    const from = renewStart(a, now()), to = addPeriods(from, days);
     const st = e.settings;
     return {
-      name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", expiresAt: a.customerExpiresAt, from, to, days,
+      name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", email: acc?.email ?? "", expiresAt: a.customerExpiresAt, from, to, days, period: periodText(days),
       price, currency: usd ? "USD" : "BOB", balance: bal, canBalance: price !== null && price > 0 && bal >= price,
       supplierOk: !acc || to <= acc.supplierExpiresAt, access: r.access, storeName: st.storeName, whatsapp: st.whatsapp, hasQr: !!st.qrFileRef, paymentNote: st.paymentNote ?? "",
       pending: pending ? { id: pending.id, status: pending.status, hasEvidence: !!pending.evidence } : null,

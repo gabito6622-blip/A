@@ -10,7 +10,7 @@
 import type { Actor, Assignment, Cents, Id, Order, OrderItem, PaymentMethod, ReminderSettings, RentalControl, Slot, StaffAlertSettings } from "./types.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "./types.js";
 import type { Engine } from "./engine.js";
-import { DAY, HOUR } from "./time.js";
+import { DAY, HOUR, addPeriods, periodText } from "./time.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
@@ -276,10 +276,10 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
       if (slot.status !== "reserved" || slot.reservedByOrder !== order.id) throw new DomainError("INVALID_STATE", `El perfil ${slotId} ya no está reservado para este pedido`);
       slot.status = "assigned";
       delete slot.reservedUntil;
-      const days = e.s.products[slot.productId].durationDays * (order.periods ?? 1);
+      const dProd = e.s.products[slot.productId].durationDays, nPer = order.periods ?? 1;
       const a: Assignment = {
         id: e.id("asg"), slotId, productId: slot.productId, customerId: order.customerId, orderId: order.id,
-        startsAt: now, customerExpiresAt: now + days * DAY, status: "active",
+        startsAt: now, customerExpiresAt: addPeriods(now, dProd, nPer), status: "active",
         history: [{ at: now, by: actor.id, event: "assigned", slotId }],
       };
       e.s.assignments[a.id] = a;
@@ -556,7 +556,7 @@ export function pubAssignment(a: Assignment, staff = true): Assignment {
 export function renewableNow(e: Engine, a: Assignment): boolean {
   const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
   if (!prod || !acc || a.status !== "active") return false;
-  return renewStart(a, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
+  return addPeriods(renewStart(a, e.now()), prod.durationDays) <= acc.supplierExpiresAt;
 }
 
 export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean, until?: number): Assignment {
@@ -564,11 +564,11 @@ export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: numbe
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
   const fallen = renewBlockOf(e, a); // sigue en una cuenta caída: primero moverlo (vendible.ts)
   if (fallen) throw new DomainError("INVALID_STATE", fallen);
-  const days = e.s.products[a.productId].durationDays * periods;
+  const dProd = e.s.products[a.productId].durationDays;
   // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
   // Plan mensual (planMensual.ts): hasta una fecha fija, con los días proporcionales ya cobrados. Nunca la acorta.
   if (until !== undefined && until <= a.customerExpiresAt) throw new DomainError("INVALID_STATE", `Ya está renovado hasta el ${fdate(a.customerExpiresAt)}: revisá antes de aprobar`);
-  const next = until ?? renewStart(a, e.now()) + days * DAY;
+  const next = until ?? addPeriods(renewStart(a, e.now()), dProd, periods);
   const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
   if (next > acc.supplierExpiresAt && !allowBeyondSupplier) {
     throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renová con el proveedor o reemplazá el perfil`);
@@ -576,7 +576,7 @@ export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: numbe
   a.customerExpiresAt = next; // supplierExpiresAt NO se toca
   a.lastCharge = { at: e.now(), to: next };
   delete a.holdOpen;
-  a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: until !== undefined ? `hasta el ${fdate(next)} (plan mensual)` : `+${days} días` });
+  a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: until !== undefined ? `hasta el ${fdate(next)} (plan mensual)` : `+${periodText(dProd, periods)}` });
   queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
   return a;
 }
@@ -619,7 +619,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     // «renová con el proveedor o reemplazá el perfil», que es para el dueño).
     if (!isStaff(actor)) {
       const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
-      if (accN && prodN && !input.allowBeyondSupplier && (input.deal?.until ?? renewStart(a, e.now()) + prodN.durationDays * periods * DAY) > accN.supplierExpiresAt) {
+      if (accN && prodN && !input.allowBeyondSupplier && (input.deal?.until ?? addPeriods(renewStart(a, e.now()), prodN.durationDays, periods)) > accN.supplierExpiresAt) {
         throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: para renovarla, la tienda primero renueva con su proveedor. Tocá «📩 Pedir renovación» y no se corta mientras tanto (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
       }
     }
@@ -655,7 +655,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (input.paymentMethod === "qr" || input.paymentMethod === "usdt") {
       // Se valida ya contra el proveedor para no cobrar algo que no se puede entregar.
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
-      const next = input.deal?.until ?? renewStart(a, now) + e.s.products[a.productId].durationDays * periods * DAY;
+      const next = input.deal?.until ?? addPeriods(renewStart(a, now), e.s.products[a.productId].durationDays, periods);
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: order.id, total: fmtOrder(order) });
     } else {
