@@ -15,6 +15,7 @@
 import type { Actor, Assignment, Cents, Customer, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
+import { storeAddPeriods, storePeriodText } from "./mesModo.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { priceFor, renewPriceFor } from "./catalog.js";
@@ -134,6 +135,8 @@ function shares(total: Cents, prices: Cents[]): Cents[] {
 
 export interface RenewAllRow {
   assignmentId: Id; product: string; email: string; expiresAt: number; from: number; to: number; days: number;
+  /** Cómo se dice lo que cubre: «1 mes» (o «30 días», según la tienda) si es un período entero; si no, «20 días». */
+  period: string;
   list: Cents; discount: Cents; price: Cents; ok: boolean; why?: string; combo?: string;
 }
 
@@ -158,7 +161,7 @@ export function renewAllPreview(e: Engine, actor: Actor, raw: { ids?: unknown; a
       : pend ? (pend.status === "payment_review" ? "ya mandaste el comprobante: lo estamos revisando" : "ya tenés un pedido por QR esperando el pago")
       : "";
     const list = renewPriceFor(e, me.id, a);
-    return { assignmentId: a.id, product: nameOf(e, a.productId), email: acc?.email ?? "", expiresAt: a.customerExpiresAt, from, to: from + dur * DAY, days: dur, list, discount: 0, price: list, ok: !why, ...(why ? { why } : {}) };
+    return { assignmentId: a.id, product: nameOf(e, a.productId), email: acc?.email ?? "", expiresAt: a.customerExpiresAt, from, to: storeAddPeriods(e, from, dur), days: dur, period: storePeriodText(e, dur), list, discount: 0, price: list, ok: !why, ...(why ? { why } : {}) };
   });
   // Un solo día de pago: todos hasta la misma fecha (un período desde el que vence primero). Primero qué entra…
   let until: number | null = null;
@@ -167,7 +170,7 @@ export function renewAllPreview(e: Engine, actor: Actor, raw: { ids?: unknown; a
     if (okRows.length) {
       const durOf = (r: RenewAllRow) => e.s.products[e.s.assignments[r.assignmentId].productId]?.durationDays ?? 30;
       const dur = Math.min(...okRows.map(durOf));
-      until = Math.min(...okRows.map((r) => r.from)) + dur * DAY;
+      until = storeAddPeriods(e, Math.min(...okRows.map((r) => r.from)), dur);
       for (const r of okRows) {
         const a = e.s.assignments[r.assignmentId];
         const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""];
@@ -197,9 +200,10 @@ export function renewAllPreview(e: Engine, actor: Actor, raw: { ids?: unknown; a
   if (until !== null) {
     for (const r of rows.filter((x) => x.ok)) {
       const d = e.s.products[e.s.assignments[r.assignmentId].productId]?.durationDays ?? 30;
-      const frac = (until - r.from) / (d * DAY);
+      const frac = Math.min(1, (until - r.from) / Math.max(1, storeAddPeriods(e, r.from, d) - r.from));
       r.to = until;
       r.days = Math.round(((until - r.from) / DAY) * 10) / 10;
+      r.period = frac === 1 ? storePeriodText(e, d) : `${String(r.days).replace(".", ",")} ${r.days === 1 ? "día" : "días"}`;
       r.price = Math.floor((r.list - r.discount) * frac + 1e-9); // hacia abajo: nunca un centavo de más
       r.discount = Math.round(r.discount * frac);
     }

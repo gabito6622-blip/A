@@ -6,6 +6,7 @@ import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { dialFor } from "./country.js";
 import { groupCurrency, isUsd, pendingOrdersOf } from "./usd.js";
+import { parseMonthMode } from "./mesModo.js";
 
 const money = (n: number, what: string) => {
   if (!Number.isInteger(n) || n < 0) throw new DomainError("VALIDATION", `${what} debe ser un entero >= 0 (centavos)`);
@@ -170,9 +171,10 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     if (!r || typeof r !== "object" || (r.access !== undefined && r.access !== "renew" && r.access !== "full") || !Number.isInteger(hours) || hours < 1 || hours > 168) throw new DomainError("VALIDATION", "Links de renovación inválidos (acceso renew/full, duración de 1 a 168 horas)");
     patch.renewLink = { enabled: !!r.enabled, access: r.access === "full" ? "full" : "renew", hours };
   }
+  if (patch.monthMode !== undefined) patch.monthMode = parseMonthMode(patch.monthMode);
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
-    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg", "renewLink"] as const).filter((k) => patch[k] !== undefined);
+    const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg", "renewLink", "monthMode"] as const).filter((k) => patch[k] !== undefined);
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

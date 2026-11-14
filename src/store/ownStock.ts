@@ -16,7 +16,8 @@ import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { phoneWithCountry } from "./catalog.js";
 import { currencyOf, localeOf, maxAmount, money, normAmount } from "./country.js";
-import { DAY } from "./time.js";
+import { DAY, addPeriods, periodText } from "./time.js";
+import { resellerMonthMode } from "./mesModo.js";
 import { LATE_FROM_EXPIRY_MAX_DAYS } from "./cobrarBien.js";
 
 export type OwnKind = "full" | "profiles" | "line";
@@ -262,12 +263,15 @@ export function view(e: Engine, actor: Actor) {
   // Liberados que todavía le deben (van a «Quién me debe»).
   const goneOwing = (b.gone ?? []).filter((g) => (owe.get(g.id) ?? 0) > 0).map((g) => ({ id: g.id, name: g.name, phone: g.phone, product: g.product, price: g.price ?? null, releasedAt: g.releasedAt, expiresAt: g.expiresAt, debt: owe.get(g.id) ?? 0 }));
   const week = now + 7 * DAY;
+  const monthMode = resellerMonthMode(e, c.id);
   return {
     currency: currencyOf(e, c),
     dial: localeOf(e, c).dial,
+    /** Cómo cuenta un mes (para que «Renovó» muestre la misma fecha que después guarda) y cómo se dice. */
+    monthMode,
     products: b.products.map(({ logoFileRef, ...p }) => {
       const accs = b.accounts.filter((a) => a.productId === p.id);
-      return { ...p, hasLogo: !!logoFileRef, accounts: accs.length, free: accs.reduce((t, a) => t + sellableSlots(b, a, now).length, 0), used: b.sales.filter((s) => accById.get(s.accountId)?.productId === p.id).length };
+      return { ...p, period: periodText(p.durationDays, 1, monthMode), hasLogo: !!logoFileRef, accounts: accs.length, free: accs.reduce((t, a) => t + sellableSlots(b, a, now).length, 0), used: b.sales.filter((s) => accById.get(s.accountId)?.productId === p.id).length };
     }),
     // `free`: cupos que se pueden dar (ninguno si se cayó o venció con su proveedor); `empty`: los vacíos de verdad.
     accounts: b.accounts.map((a) => ({ id: a.id, productId: a.productId, product: prodName(a.productId), user: a.user, password: a.password, slots: a.slots, free: sellableSlots(b, a, now), empty: freeSlots(b, a).length, blocked: blockedWhy(a, now), down: a.down ? { at: a.down.at, note: a.down.note ?? "" } : null, cost: a.cost ?? null, providerExpiresAt: a.providerExpiresAt ?? null, note: a.note ?? "" })),
@@ -512,7 +516,7 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
     if (slot === undefined) throw new DomainError("OUT_OF_STOCK", "Esta cuenta no tiene cupos libres");
     if (!Number.isInteger(slot) || slot < 1 || slot > a.slots) throw new DomainError("VALIDATION", "Ese cupo no existe en la cuenta");
     if (!free.includes(slot)) throw new DomainError("OUT_OF_STOCK", "Ese cupo ya lo tiene otro cliente");
-    const expiresAt = trialHours ? e.now() + trialHours * 3_600_000 : raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : e.now() + p.durationDays * DAY;
+    const expiresAt = trialHours ? e.now() + trialHours * 3_600_000 : raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : addPeriods(e.now(), p.durationDays, 1, resellerMonthMode(e, c.id));
     const price = trialHours ? 0 : raw.price === undefined || raw.price === null || raw.price === "" ? p.price : amount(e, c, raw.price);
     // 15/11: un cliente que se había ido y vuelve (mismo WhatsApp) recupera su historial: «cliente desde» y sus pagos de antes.
     const digits = phone.replace(/\D/g, "");
@@ -591,7 +595,7 @@ export function renew(e: Engine, actor: Actor, saleId: Id, opt: boolean | { paid
     s.undo = { op, at: e.now(), prevExp: s.expiresAt, ...(s.trial ? { prevTrial: true } : {}), ...(s.price !== undefined ? { prevPrice: s.price } : {}) };
     // Una prueba gratis arranca hoy; una venta, desde su vencimiento si está dentro del plazo.
     const from = s.trial ? Math.max(s.expiresAt, e.now()) : renewFrom(s.expiresAt, e.now());
-    s.expiresAt = from + days * DAY;
+    s.expiresAt = addPeriods(from, days, 1, resellerMonthMode(e, c.id));
     // Renovar una prueba gratis la convierte en venta, al precio del producto.
     if (s.trial) { delete s.trial; if (!s.price) s.price = p?.price ?? 0; }
     const price = s.price ?? 0;

@@ -8,7 +8,7 @@ import { DomainError } from "./errors.js";
 import { phoneWithCountry, renewPriceFor } from "./catalog.js";
 import { renewableNow } from "./orders.js";
 import { dialFor, isForeign, maxAmount, normAmount, currencyOf } from "./country.js";
-import { amountIn, applyPayment, chargePeriod, markCurrentUnpaid, payNow, recordCobro, subMoney, uncollect } from "./cuadernoPlata.js";
+import { amountIn, applyPayment, chargePeriod, markCurrentUnpaid, payNow, perOf, recordCobro, subMoney, uncollect } from "./cuadernoPlata.js";
 
 const DAY = 86_400_000;
 export const MAX_PROFILES = 10;
@@ -122,8 +122,7 @@ export function renewSub(e: Engine, actor: Actor, assignmentId: Id, subId: Id, p
     const a = rental(e, c.id, assignmentId);
     const s = (a.subs ?? []).find((x) => x.id === subId);
     if (!s) throw new DomainError("NOT_FOUND", "Ese perfil no existe");
-    const days = e.s.products[a.productId]?.durationDays ?? 30;
-    if (!(s.price && s.price > 0)) { s.expiresAt = Math.max(s.expiresAt, e.now()) + days * DAY; if (paid) s.pay = "pagado"; else s.pay = "pendiente"; }
+    if (!(s.price && s.price > 0)) { s.expiresAt = perOf(e, a).next(Math.max(s.expiresAt, e.now())); if (paid) s.pay = "pagado"; else s.pay = "pendiente"; }
     else if (paid) {
       // Cobra el período que renueva (lo que debía de antes sigue anotado aparte).
       const before = JSON.stringify(s);

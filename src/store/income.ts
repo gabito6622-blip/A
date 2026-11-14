@@ -24,6 +24,7 @@
 import type { Cents, FiadoEntry, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
+import { storeAddPeriods, storeSubPeriods } from "./mesModo.js";
 import { effectivePrice, payerOf } from "./admin.js";
 import { servicesOf, sharesOf } from "./plata.js";
 
@@ -82,9 +83,9 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
   for (const a of Object.values(e.s.assignments)) {
     const c = a.control;
     if (!c || a.trial) continue;
-    const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
+    const days = e.s.products[a.productId]?.durationDays ?? 30, start = storeSubPeriods(e, a.customerExpiresAt, days);
     const marks = c.paidLog?.length ? c.paidLog
-      : c.payStatus === "pagado" ? [{ at: Math.min(a.customerExpiresAt - dur, now), from: a.customerExpiresAt - dur, amount: effectivePrice(e, a) }] : [];
+      : c.payStatus === "pagado" ? [{ at: Math.min(start, now), from: start, amount: effectivePrice(e, a) }] : [];
     if (!marks.length) continue;
     const near = orderTimes.get(a.id) ?? [];
     const payerId = payerOf(e, a.customerId)?.id ?? a.customerId;
@@ -96,7 +97,7 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
       if ((laterFrom.get(a.id) ?? []).includes(m.from)) continue;
       if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
       // Ese período se pagó por el fiado: ya cuenta el pago del fiado.
-      if ((fiado.paidCharges.get(a.id) ?? []).some((ch) => ch.dueAt !== undefined ? Math.abs(ch.dueAt - (m.from + dur)) < DEDUPE_DAYS * DAY : Math.abs(ch.at - t) < DEDUPE_DAYS * DAY || Math.abs(ch.at - m.from) < DEDUPE_DAYS * DAY)) continue;
+      if ((fiado.paidCharges.get(a.id) ?? []).some((ch) => ch.dueAt !== undefined ? Math.abs(ch.dueAt - storeAddPeriods(e, m.from, days)) < DEDUPE_DAYS * DAY : Math.abs(ch.at - t) < DEDUPE_DAYS * DAY || Math.abs(ch.at - m.from) < DEDUPE_DAYS * DAY)) continue;
       // El cobro es de quien lo pagó: si después se pasó el alquiler a otro, sigue a nombre del anterior.
       const who = "customerId" in m && m.customerId ? m.customerId : a.customerId;
       out.push({ at: t, amount: m.amount, source: "control", kind: "control", payerId: who === a.customerId ? payerId : payerOf(e, who)?.id ?? who, customerId: who, assignmentId: a.id, items: [{ productId: a.productId, qty: 1, amount: m.amount }] });

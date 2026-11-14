@@ -19,6 +19,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY } from "./time.js";
+import { storeSubPeriods } from "./mesModo.js";
 import { effectivePrice } from "./admin.js";
 import { addCharge } from "./fiado.js";
 import { queue } from "./notify.js";
@@ -100,7 +101,7 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
       const c: RentalControl = { ...(a.control ?? {}) };
       if (c.payStatus === "pagado" && !c.paidLog?.length) {
         // Marca vieja sin anotación: se pasa a anotación para que lo cobrado no desaparezca de Finanzas.
-        const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY, start = a.customerExpiresAt - dur;
+        const start = storeSubPeriods(e, a.customerExpiresAt, e.s.products[a.productId]?.durationDays ?? 30);
         c.paidLog = [{ at: Math.min(start, e.now()), from: start, amount: effectivePrice(e, a) }];
       }
       // Lo que ya se cobró sigue a nombre de quien pagó (Finanzas, Cómo van), no del nuevo (revisión de 3 meses, 16/11/2026).

@@ -3,6 +3,7 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
+import { storeMonthMode } from "./mesModo.js";
 import { pickResellerGroup } from "./listaPrecios.js";
 import type { Actor, Cents, Customer, Id, ResellerApp, ResellerCombo, ResellerCoupon, ResellerShop, ShopRent, Testimonial } from "./types.js";
 import { normCode } from "./coupons.js";
@@ -593,7 +594,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
     hasQr: !!s.qrFileRef, payNote: s.payNote ?? "",
     hasCoupons: !!e.s.settings.resellerCoupons && (s.coupons ?? []).some((x) => x.active && (!x.expiresAt || x.expiresAt > e.now())),
-    currencySymbol: loc.symbol, currencyDecimals: loc.decimals,
+    currencySymbol: loc.symbol, currencyDecimals: loc.decimals, monthMode: storeMonthMode(e), // lo que vende es de la tienda: «1 mes» o «30 días» como cuenta ella
     // Si la tienda marcó "todo Disponible", la página del revendedor también deja agregar al carrito.
     alwaysAvailable: !!e.s.settings.alwaysAvailable,
     comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => (mine(v) ?? 0) > 0) ? s.comboDiscounts.map((v) => mine(v) ?? 0) : null,

@@ -7,6 +7,7 @@
 // - "BAJA" deja de mandar avisos; "ALTA" los vuelve a activar.
 // - Las respuestas propias del dueño (palabras clave → texto) van antes que las automáticas.
 import { localHour, reminderSettings, type GabrielStore } from "../store/index.js";
+import { storePeriodText } from "../store/mesModo.js";
 
 export interface BotContext {
   store: GabrielStore;
@@ -110,7 +111,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
     case "thanks":
       return { replies: [`¡De nada${name ? `, ${name}` : ""}! 🙌 Si necesitás algo más, escribí *menu*.`] };
     case "product": {
-      const lines = named.slice(0, 8).map((p) => `• *${p.name}*: ${money(p.price)} / ${p.durationDays} días · ${p.available > 0 ? (p.available <= 2 ? `quedan ${p.available}` : "disponible ✅") : "agotado ❌"}`);
+      const lines = named.slice(0, 8).map((p) => `• *${p.name}*: ${money(p.price)} / ${storePeriodText(s.engine, p.durationDays)} · ${p.available > 0 ? (p.available <= 2 ? `quedan ${p.available}` : "disponible ✅") : "agotado ❌"}`);
       return { replies: [`${lines.join("\n")}${isReseller ? "\n_(precio de revendedor)_" : ""}${shop ? `\n\n🛒 Comprá acá: ${shop}#catalogo` : ""}\n\nEscribí *3* para ver cómo pagar o *2* para ver todos los precios.`] };
     }
     case "orders": {
@@ -146,7 +147,7 @@ export function botAnswer(ctx: BotContext, phone: string, rawText: string, profi
     case "prices": {
       const list = s.catalog.publicCatalog(customer?.id).filter((p) => p.available > 0);
       if (!list.length) return { replies: ["Ahora no tenemos productos disponibles. Escribí *0* y te avisamos cuando haya. 🙏"] };
-      const lines = list.slice(0, 25).map((p) => `• ${p.name}: *${money(p.price)}* / ${p.durationDays} días`);
+      const lines = list.slice(0, 25).map((p) => `• ${p.name}: *${money(p.price)}* / ${storePeriodText(s.engine, p.durationDays)}`);
       return { replies: [`💰 *Precios${customer?.kind === "reseller" ? " de revendedor" : ""}*\n${lines.join("\n")}${shop ? `\n\n🛒 Comprá acá: ${shop}#catalogo` : ""}\n\nEscribí *3* para ver cómo pagar.`] };
     }
     case "pay": {
