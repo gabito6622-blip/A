@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 14/11/2026 · Direcciones con mayúsculas (rama `mayusculas`, sin publicar)
+## 14/11/2026 · Direcciones con mayúsculas (publicado el 14/11, PR #62)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Causa: foto del dueño con `gabostore.lat/PANEL` mostrando la portada de GaboHub | lectura del enrutado: solo `/panel` | confirmado |

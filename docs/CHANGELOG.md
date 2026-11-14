@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-14 · Direcciones con mayúsculas: gabostore.lat/PANEL entra al panel (**sin publicar**, rama `mayusculas`)
+## 2026-11-14 · Direcciones con mayúsculas: gabostore.lat/PANEL entra al panel (**publicado el 14/11, PR #62**)
 - **Por qué:** el dueño escribió `gabostore.lat/PANEL` y le salió la portada de GaboHub («Streaming hub»): solo existía `/panel` en minúsculas.
 - **Qué hay ahora:** las páginas conocidas (`/panel`, `/hub`, `/tienda/`, `/revendedores`, `/tiendas`, `/codigos`, `/recuperar`, `/privacidad`, `/terminos`, `/r/<nombre>`) escritas con mayúsculas llevan a su versión en minúsculas, con lo que venga después del `?`. No toca la API, los archivos ni los links de cobro (`/c/…`), que sí distinguen mayúsculas.
 - Prueba: `test/dominio.test.mjs` (2 nuevas).
