@@ -975,7 +975,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     // Un período se cuenta una sola vez; si lo volvés a "pendiente" (te equivocaste), se borra ese cobro.
     const from = a.customerExpiresAt - (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
     if (c.payStatus === "pagado" && !wasPaid && !(c.paidLog ?? []).some((p) => p.from === from)) {
-      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }) }].slice(-24);
+      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }), customerId: a.customerId }].slice(-24);
     } else if (wasPaid && c.payStatus !== "pagado" && c.paidLog?.length) {
       c.paidLog = c.paidLog.filter((p) => p.from !== from);
       if (!c.paidLog.length) delete c.paidLog;

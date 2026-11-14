@@ -635,7 +635,7 @@ export interface RentalControl {
    * Cobros marcados a mano ("💵 Marcar cobrado"): cuándo, de qué período y cuánto.
    * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
    */
-  paidLog?: { at: number; from: number; amount: Cents }[];
+  paidLog?: { at: number; from: number; amount: Cents; customerId?: Id }[];
   /**
    * «📣 Ya le avisé» (Mi secretaria): cuándo le avisó el dueño y para qué vencimiento. Solo vale mientras el alquiler
    * siga con ese vencimiento: al renovar o cambiar la fecha, el aviso deja de contar.

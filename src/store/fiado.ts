@@ -74,7 +74,8 @@ function syncControl(e: Engine, b: Book, customerId: Id) {
   for (const c of settle(e, b, customerId).charges) {
     if (!c.assignmentId) continue;
     const a = e.s.assignments[c.assignmentId];
-    if (!a) continue;
+    // Después de «Pasar a otro», el alquiler ya es de otra persona: lo que pague (o deba) el anterior no toca el Control del nuevo.
+    if (!a || a.customerId !== customerId) continue;
     const cur = ctl(a, b)?.payStatus ?? "pagado";
     const want = c.covered >= c.amount ? "pagado" : cur === "no_pago" ? "no_pago" : "pendiente";
     if (cur !== want) setCtl(a, b, want);
@@ -125,7 +126,7 @@ export function removeEntry(e: Engine, actor: Actor, entryId: Id): { ok: true } 
     const [x] = l.splice(i, 1);
     if (x.kind === "cargo" && x.assignmentId) {
       const a = e.s.assignments[x.assignmentId];
-      if (a && ctl(a, b)?.payStatus === "pendiente") setCtl(a, b, "pagado");
+      if (a && a.customerId === x.customerId && ctl(a, b)?.payStatus === "pendiente") setCtl(a, b, "pagado");
       if (!b.creditor) payLaterToFiado(e, x.assignmentId, true);
     }
     syncControl(e, b, x.customerId);
