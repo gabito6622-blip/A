@@ -7,7 +7,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
@@ -31,14 +31,19 @@ import { overview as resellerOverview } from "../store/resellerStats.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
+import { createImagenes, type ComoServir } from "./imagenes.js";
+import { createPrecarga } from "./precarga.js";
+import { registerImagenesRoutes } from "./imagenesRoutes.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
 import { registerAlquilerRoutes, checkAccountChangePush as accountChangePush } from "./alquilerRoutes.js";
 import { registerPerfilRoutes } from "./perfilRoutes.js";
+import { attendHours, createPayOutcomePush } from "./avisoPago.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
+import { registerPlanRoutes } from "./planRoutes.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { writeXlsx } from "./xlsx.js";
@@ -208,6 +213,8 @@ export function createApp(cfg: AppConfig): App {
   const log = cfg.log ?? ((m: string) => console.log(`[gabriel-store] ${m}`));
   const uploads = join(cfg.dataDir, "uploads");
   mkdirSync(uploads, { recursive: true });
+  // Versiones chicas de logos, íconos y portadas (imagenes.ts). Fuera de uploads/: se rearman solas, no van al respaldo.
+  const imagenes = createImagenes(uploads, join(cfg.dataDir, "imagenes-chicas"));
   const db = new Db(join(cfg.dataDir, "gabriel.db"), { dataKey: cfg.dataKey });
   const migrated = db.encryptExisting();
   if (migrated) log(`contraseñas de cuentas cifradas en ${migrated} versión(es) guardada(s)`);
@@ -364,12 +371,16 @@ export function createApp(cfg: AppConfig): App {
   const fileHash = (name: string) => sha256(readFileSync(join(uploads, name)).toString("base64"));
   const dropUpload = (name: string) => {
     try { unlinkSync(join(uploads, name)); } catch { /* ya no está */ }
+    imagenes.olvidar(name);
   };
 
   /* ---------------- rutas públicas ---------------- */
   route("GET", "/api/health", "public", () => ({ ok: true }));
 
-  route("GET", "/api/catalog", "public", (c) => store.catalog.publicCatalog(c.actor?.customerId));
+  route("GET", "/api/catalog", "public", (c) => conVersion(store.catalog.publicCatalog(c.actor?.customerId) as { id: string; hasImage?: boolean }[]));
+  /** Cada producto con imagen lleva `imageV` (fecha de subida): la dirección de la imagen cambia solo si cambia la imagen. */
+  const conVersion = <T extends { id: string; hasImage?: boolean }>(list: T[]): T[] =>
+    list.map((p) => (p.hasImage ? { ...p, imageV: imagenes.version(store.engine.s.products[p.id]?.imageFileRef) } : p));
 
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
@@ -379,6 +390,7 @@ export function createApp(cfg: AppConfig): App {
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
+      logoV: imagenes.version(st.logoFileRef), bannerV: imagenes.version(st.bannerFileRef),
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
@@ -388,17 +400,17 @@ export function createApp(cfg: AppConfig): App {
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "", seoTitle: st.seoTitle ?? "", seoDescription: st.seoDescription ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
       faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
+      attendHours: attendHours(store), // horario de atención (el del bot): «Te respondemos desde las 8:00» (hablar.js)
     };
   });
-  route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
-  route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
-  route("GET", "/api/settings/banner", "public", (c) => sendImage(c, store.engine.s.settings.bannerFileRef, "La tienda no tiene portada"));
-  route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR"));
-  function sendImage(c: Ctx, ref: string | undefined, missing: string) {
-    const file = ref && join(uploads, ref);
-    if (!file || !/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref!) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", missing);
-    c.res.writeHead(200, { "Content-Type": sniff(readFileSync(file).subarray(0, 16))!.mime, "Cache-Control": "no-cache" });
-    createReadStream(file).pipe(c.res);
+  route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen", { tipo: "icono", publico: true }));
+  route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo", { tipo: "logo", publico: true }));
+  route("GET", "/api/settings/banner", "public", (c) => sendImage(c, store.engine.s.settings.bannerFileRef, "La tienda no tiene portada", { tipo: "portada", publico: true }));
+  // El QR de cobro va siempre en tamaño completo (que se pueda escanear), con ETag para no bajarlo dos veces.
+  route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR", { publico: true }));
+  /** Manda una imagen guardada (imagenes.ts). Sin `como`: la original, sin guardar en caché (depende de la sesión). */
+  function sendImage(c: Ctx, ref: string | undefined, missing: string, como: ComoServir = {}) {
+    if (!imagenes.enviar(c.req, c.res, c.query, ref, como)) throw new HttpError(404, "NOT_FOUND", missing);
     return RAW;
   }
 
@@ -597,19 +609,19 @@ export function createApp(cfg: AppConfig): App {
   }
   async function sendStoreEmail(to: string, subject: string, html: string): Promise<void> {
     const snd = emailSender();
-    if (!snd) throw new DomainError("VALIDATION", "La tienda todavia no conecto un Gmail para enviar correos (Panel de codigos).");
+    if (!snd) throw new DomainError("VALIDATION", "La tienda todavía no conectó un Gmail para enviar correos (Panel de códigos).");
     await sendMail(snd, { to, subject, html, fromName: store.engine.s.settings.storeName });
   }
   const escH = (x: unknown) => String(x ?? "").replace(/[&<>"\x27]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\x27": "&#39;" }[ch]!));
-  const emailWrap = (title: string, body: string) => `<div style="font-family:Inter,Arial,sans-serif;max-width:460px;margin:0 auto;padding:24px;background:#0b1020;color:#eef5ff;border-radius:16px"><h2 style="margin:0 0 8px">${escH(store.engine.s.settings.storeName)}</h2><p style="color:#9fb0d0;margin:0 0 16px">${escH(title)}</p>${body}<p style="color:#6b7a99;font-size:12px;margin-top:20px">Si no fuiste vos, ignora este correo.</p></div>`;
+  const emailWrap = (title: string, body: string) => `<div style="font-family:Inter,Arial,sans-serif;max-width:460px;margin:0 auto;padding:24px;background:#0b1020;color:#eef5ff;border-radius:16px"><h2 style="margin:0 0 8px">${escH(store.engine.s.settings.storeName)}</h2><p style="color:#9fb0d0;margin:0 0 16px">${escH(title)}</p>${body}<p style="color:#6b7a99;font-size:12px;margin-top:20px">Si no fuiste vos, ignorá este correo.</p></div>`;
 
   const regLimiter = new RateLimiter(10, 60 * 60_000, now);
   route("POST", "/api/auth/customer/register", "public", async (c) => {
-    if (!regLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en un rato.");
+    if (!regLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en un rato.");
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const password = String(c.body?.password ?? "");
-    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
-    if (password.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
+    if (password.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
     // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
     // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
     // que manda el enlace a ese correo y así prueba que es suyo.
@@ -617,14 +629,14 @@ export function createApp(cfg: AppConfig): App {
     const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
     db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
     startSession(c, "customer", cust.id);
-    sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
+    sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta está lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podés comprar y entrar con tu correo y tu contraseña.</p>`)).catch(() => undefined);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
   route("POST", "/api/auth/customer/login-email", "public", (c) => {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const k = `loginem|${c.ip}|${email}`;
-    if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en 15 minutos.");
+    if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     const lockKey = `pw:${email}`, wait = lockWait(lockKey);
     if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const cust = custByEmail(email);
@@ -632,7 +644,7 @@ export function createApp(cfg: AppConfig): App {
     if (!cust || !verifyPassword(String(c.body?.password ?? ""), stored)) {
       loginLimiter.take(k);
       if (cust && stored) { failOnce(lockKey, "customer", cust.id, cust.name); logAccess(c, "customer", cust.id, "login_fail", false); }
-      throw new HttpError(401, "BAD_LOGIN", "Correo o contrasena incorrectos");
+      throw new HttpError(401, "BAD_LOGIN", "Correo o contraseña incorrectos");
     }
     loginLimiter.reset(k);
     db.failClear(lockKey);
@@ -644,8 +656,8 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`custpw:${id}`);
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena nueva necesita al menos 8 caracteres");
-    if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contrasena actual no es correcta");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 8 caracteres");
+    if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no es correcta");
     // Para revendedores (y clientes sin correo): pueden fijar su correo de acceso acá.
     if (c.body?.email !== undefined && String(c.body.email).trim()) store.catalog.setOwnEmail(c.actor!, String(c.body.email));
     if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
@@ -659,15 +671,15 @@ export function createApp(cfg: AppConfig): App {
   const forgotLimiter = new RateLimiter(5, 60 * 60_000, now);
   route("POST", "/api/auth/customer/forgot", "public", async (c) => {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
-    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
-    if (!forgotLimiter.take(`${c.ip}|${email}`)) throw new HttpError(429, "RATE_LIMIT", "Ya pediste varios. Proba en un rato.");
+    if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
+    if (!forgotLimiter.take(`${c.ip}|${email}`)) throw new HttpError(429, "RATE_LIMIT", "Ya pediste varios. Probá en un rato.");
     const cust = custByEmail(email);
     if (cust) {
       const token = newToken().slice(0, 32);
       db.setSecret(`pwreset:${token}`, JSON.stringify({ id: cust.id, exp: now() + 60 * 60_000 }), now());
       const url = `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/recuperar?t=${token}`;
       try {
-        await sendStoreEmail(email, "Recupera tu contrasena", emailWrap("Tocaste 'olvide mi contrasena'.", `<p>Para poner una nueva, entra a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contrasena</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
+        await sendStoreEmail(email, "Recuperá tu contraseña", emailWrap("Tocaste «Olvidé mi contraseña».", `<p>Para poner una nueva, entrá a este enlace (vale 1 hora):</p><p><a href="${url}" style="display:inline-block;background:#3984ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px">Cambiar mi contraseña</a></p><p style="color:#6b7a99;font-size:12px;word-break:break-all">${url}</p>`));
       } catch (e) {
         // 14/11/2026: misma respuesta exista o no el correo (antes un error delataba que la cuenta existía).
         // Si el correo de la tienda no está conectado, se le avisa al dueño para que lo ayude por WhatsApp.
@@ -681,15 +693,15 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/auth/customer/reset/:token", "public", (c) => {
     const raw = db.getSecret(`pwreset:${c.params.token}`);
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
-    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     return { email: store.engine.s.customers[data.id].email ?? "", name: store.engine.s.customers[data.id].name };
   });
   route("POST", "/api/auth/customer/reset", "public", (c) => {
     const raw = db.getSecret(`pwreset:${String(c.body?.token ?? "")}`);
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
-    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace vencio o ya se uso. Pedi uno nuevo.");
+    if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contrasena necesita al menos 8 caracteres");
+    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
     db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
     db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
     db.deleteSessionsOf?.(data.id);
@@ -700,7 +712,7 @@ export function createApp(cfg: AppConfig): App {
   /** Link de un solo uso generado por el staff (para mandar a mano por WhatsApp). */
   route("POST", "/api/auth/customer/link", "public", (c) => {
     const token = String(c.body?.token ?? "");
-    if (!loginLimiter.take(`link|${c.ip}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos");
+    if (!loginLimiter.take(`link|${c.ip}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en un rato.");
     const s = token && db.getSession(sha256(token), now());
     if (!s || s.kind !== "link") throw new HttpError(401, "BAD_LINK", "El link venció o ya se usó. Pedí uno nuevo a la tienda.");
     db.deleteSession(s.tokenHash); // un solo uso
@@ -863,6 +875,7 @@ export function createApp(cfg: AppConfig): App {
     cobro, tooMany: () => { throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos."); } });
   route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => ({ ...store.subs.publicView(c.params.token), alerts: expiry.hasAlerts(c.params.token) })));
   route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
+  registerImagenesRoutes({ route, store, imagenes }); // versiones chicas de JPG/WEBP hechas en el navegador
   registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON, onLinkGone: () => expiry.purge() }); // país/moneda y cuentas propias
   route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   // "📩 Ver mi código de acceso" en /c/<token> + interruptores del revendedor y del dueño.
@@ -870,7 +883,7 @@ export function createApp(cfg: AppConfig): App {
   // 🔎 Buscador del panel (searchRoutes.ts): clientes, revendedores, servicios, cuentas y pedidos, según permisos.
   registerSearchRoutes({ route, store });
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
-  route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
+  route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!), hours: store.tickets.hours() }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
   route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
   // Premium 2.0 (etapa 8): lo que el dueño configuró para soporte (respuestas guardadas y mensajes de la secretaria).
@@ -879,7 +892,9 @@ export function createApp(cfg: AppConfig): App {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
       const t = r.ticket, st = { recibido: "📥 Recibimos tu reporte", revisando: "🔧 Estamos revisando", solucionado: "✅ Falla solucionada" }[t.status];
-      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url: "/hub#fallas" }).catch(() => {});
+      // El cliente de la tienda sigue su falla en la tienda; el revendedor, en GaboHub.
+      const url = store.engine.s.customers[r.notify]?.kind === "reseller" ? "/hub#fallas" : "/tienda/#fallas";
+      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url }).catch(() => {});
     }
     return r.ticket;
   });
@@ -932,10 +947,22 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/qr", "customer", shopImage("qr"), MAX_UPLOAD_JSON);
   route("GET", "/api/resellers/program", "public", () => store.shops.program());
-  route("GET", "/api/shops/:slug", "public", (c) => store.shops.public(c.params.slug, c.actor ?? undefined));
-  route("GET", "/api/shops/:slug/logo", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "logo", c.actor ?? undefined), "Sin logo"));
-  route("GET", "/api/shops/:slug/qr", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "qr", c.actor ?? undefined), "Sin QR"));
-  route("GET", "/api/shops/:slug/banner", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "banner", c.actor ?? undefined), "Sin portada"));
+  route("GET", "/api/shops/:slug", "public", (c) => {
+    const sh = store.shops.public(c.params.slug, c.actor ?? undefined) as { products?: { id: string; hasImage?: boolean }[] };
+    const ref = (k: "logo" | "banner") => { try { return store.shops.image(c.params.slug, k, c.actor ?? undefined); } catch { return undefined; } };
+    return { ...sh, logoV: imagenes.version(ref("logo")), bannerV: imagenes.version(ref("banner")), ...(sh.products ? { products: conVersion(sh.products) } : {}) };
+  });
+  // Imágenes de la página de un revendedor: se guardan en caché solo si cualquiera puede verlas (página publicada);
+  // la vista previa de una página apagada depende de la sesión y va sin caché. El QR, siempre en tamaño completo.
+  const shopImg = (c: Ctx, kind: "logo" | "banner" | "qr", missing: string, tipo?: "logo" | "portada") => {
+    const ref = store.shops.image(c.params.slug, kind, c.actor ?? undefined);
+    let publico = false;
+    try { publico = !!ref && store.shops.image(c.params.slug, kind, undefined) === ref; } catch { /* página apagada */ }
+    return sendImage(c, ref, missing, { tipo, publico });
+  };
+  route("GET", "/api/shops/:slug/logo", "public", (c) => shopImg(c, "logo", "Sin logo", "logo"));
+  route("GET", "/api/shops/:slug/qr", "public", (c) => shopImg(c, "qr", "Sin QR"));
+  route("GET", "/api/shops/:slug/banner", "public", (c) => shopImg(c, "banner", "Sin portada", "portada"));
   route("GET", "/api/admin/shops", "staff", (c) => store.shops.list(A(c)));
   route("POST", "/api/admin/customers/:id/shop-feature", "staff", (c) => store.shops.setFeatured(A(c), c.params.id, !!c.body?.featured));
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
@@ -1044,6 +1071,7 @@ export function createApp(cfg: AppConfig): App {
     catch (e) { dropUpload(file); throw e; }
   }, MAX_UPLOAD_JSON);
   route("GET", "/api/me/store-rentals", "customer", (c) => store.rmes.rentAlerts(c.actor!));
+  registerPlanRoutes({ route, store }); // cliente de la tienda: renovar todo junto, combos y plan mensual
 
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
@@ -1169,19 +1197,21 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
   route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));
-  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => store.orders.approvePayment(A(c), c.params.id, {
+  // Aviso al celular del cliente de la tienda al aprobar o rechazar su pago (avisoPago.ts).
+  const payPush = createPayOutcomePush({ store, push: (cid, m) => customerPush(cid, m) });
+  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => payPush(store.orders.approvePayment(A(c), c.params.id, {
     confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey,
     force: c.body?.force === true, forceReason: c.body?.forceReason === undefined ? undefined : String(c.body.forceReason),
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
-  }));
+  })));
   route("GET", "/api/admin/order-groups", "staff", (c) => store.rmes.groups(A(c)));
   route("POST", "/api/admin/order-groups/approve", "staff", (c) => store.rmes.approveGroup(A(c), { orderIds: c.body?.orderIds, confirmedReference: c.body?.confirmedReference, amount: c.body?.amount, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/trials", "staff", (c) => {
     const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
     return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
   });
-  route("POST", "/api/admin/orders/:id/reject", "staff", (c) => store.orders.rejectPayment(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/orders/:id/reject", "staff", (c) => payPush(store.orders.rejectPayment(A(c), c.params.id, String(c.body?.reason ?? ""))));
   route("GET", "/api/admin/orders/:id/evidence", "staff", (c) => {
     const ev = store.admin.evidence(A(c), c.params.id);
     const file = join(uploads, ev.fileRef);
@@ -2433,6 +2463,7 @@ export function createApp(cfg: AppConfig): App {
     return true;
   }
   let shellHtml: { file: string; mtime: number; html: string } | null = null;
+  const precarga = cfg.staticDir ? createPrecarga(resolve(cfg.staticDir)) : () => ""; // módulos JS avisados desde el HTML
   function shellWithOg(req: IncomingMessage, file: string, pathname: string, shownPath = pathname): string | null {
     const info = ogInfo(pathname);
     if (!info) return null;
@@ -2454,6 +2485,8 @@ export function createApp(cfg: AppConfig): App {
     const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
     if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
     // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
+    // Los módulos JS se piden todos juntos desde el principio (precarga.ts): en 4G lento ahorra esperas en cadena.
+    html = html.replace("</head>", `${precarga(info.shop ? "rshop" : pathname === "/tienda/" ? "store" : "hub")}\n</head>`);
     if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
     // La tienda servida en «/» del dominio propio: el navegador tiene que saber que es la tienda y no GaboHub.
     else if (sub && pathname === "/tienda/") html = html.replace("</head>", `<meta name="gs-mode" content="store">\n</head>`);
@@ -2527,16 +2560,19 @@ export function createApp(cfg: AppConfig): App {
       ETag: etag, Vary: "Accept-Encoding",
     };
     if (String(req.headers["if-none-match"] ?? "") === etag) { res.writeHead(304, headers); res.end(); return true; }
-    // Texto comprimido (gzip): shop.js baja de ~220 KB a ~60 KB en datos móviles.
-    if (TEXTY.has(ext) && st.size > 1024 && /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
-      const key = `${file}|${st.mtimeMs}`;
+    // Texto comprimido: shop.js baja de ~320 KB a ~97 KB con gzip y a ~80 KB con brotli (br), que los celulares
+    // piden por HTTPS. Se comprime una vez por versión del archivo y queda en memoria.
+    const ae = String(req.headers["accept-encoding"] ?? ""), enc = /\bbr\b/.test(ae) ? "br" : /\bgzip\b/.test(ae) ? "gzip" : null;
+    if (TEXTY.has(ext) && st.size > 1024 && enc) {
+      const key = `${file}|${st.mtimeMs}|${enc}`;
       let gz = gzCache.get(key);
       if (!gz) {
-        gz = gzipSync(readFileSync(file), { level: 9 });
-        if (gzCache.size >= 40) gzCache.delete(gzCache.keys().next().value!);
+        const raw = readFileSync(file);
+        gz = enc === "br" ? brotliCompressSync(raw, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11, [zlibConstants.BROTLI_PARAM_SIZE_HINT]: raw.length } }) : gzipSync(raw, { level: 9 });
+        if (gzCache.size >= 80) gzCache.delete(gzCache.keys().next().value!);
         gzCache.set(key, gz);
       }
-      res.writeHead(200, { ...headers, "Content-Encoding": "gzip", "Content-Length": String(gz.length) });
+      res.writeHead(200, { ...headers, "Content-Encoding": enc, "Content-Length": String(gz.length) });
       res.end(req.method === "HEAD" ? undefined : gz);
       return true;
     }

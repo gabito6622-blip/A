@@ -9,7 +9,9 @@ export const CACHE_MS = 20_000;
 const CACHEABLE = /^\/api\/admin\/(assignments|customers|products|price-groups|stock|suppliers|inicio)(\?|$)/;
 export function apiCacheClear() { GET_CACHE.clear(); }
 export async function api(method, path, body) {
-  if (method !== "GET") { GET_CACHE.clear(); return apiRaw(method, path, body); }
+  if (method !== "GET") { GET_CACHE.clear(); tempranoFuera(); return apiRaw(method, path, body); }
+  const pre = temprano(path);
+  if (pre) return pre;
   if (!CACHEABLE.test(path)) return apiRaw(method, path, body);
   const hit = GET_CACHE.get(path);
   if (hit && hit.t > Date.now() - CACHE_MS) return structuredClone(await hit.p);
@@ -17,6 +19,21 @@ export async function api(method, path, body) {
   GET_CACHE.set(path, { t: Date.now(), p });
   try { return structuredClone(await p); } catch (e) { GET_CACHE.delete(path); throw e; }
 }
+/**
+ * Respuestas que temprano.js pidió al abrir la página (en paralelo con el JS). Se usan una sola vez, dentro de los
+ * primeros 15 s y solo si nada cambió la sesión (cualquier POST las descarta). Si no sirven, se pide como siempre.
+ */
+const TEMPRANO_MS = 15_000;
+function temprano(path) {
+  if (typeof window === "undefined") return null;
+  window.__gsTempranoTarde = true; // si temprano.js todavía no corrió, ya no hace falta
+  const t = window.__gsTemprano?.[path];
+  if (!t) return null;
+  delete window.__gsTemprano[path];
+  if (Date.now() - t.at > TEMPRANO_MS) return null;
+  return t.p.then((r) => (r ? r.data : apiRaw("GET", path)));
+}
+function tempranoFuera() { if (typeof window !== "undefined") { window.__gsTempranoTarde = true; window.__gsTemprano = null; } }
 async function apiRaw(method, path, body) {
   const r = await fetch(path, {
     method,

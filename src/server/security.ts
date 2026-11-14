@@ -4,7 +4,7 @@ import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeE
 const N = 16384, R = 8, P = 1, KEYLEN = 32;
 
 export function hashSecret(plain: string, min = 8): string {
-  if (typeof plain !== "string" || plain.length < min) throw new Error(`La contrasena necesita al menos ${min} caracteres`);
+  if (typeof plain !== "string" || plain.length < min) throw new Error(`La contraseña necesita al menos ${min} caracteres`);
   const salt = randomBytes(16);
   const key = scryptSync(plain, salt, KEYLEN, { N, r: R, p: P });
   return `scrypt$${N}$${R}$${P}$${salt.toString("base64")}$${key.toString("base64")}`;

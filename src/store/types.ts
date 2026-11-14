@@ -59,6 +59,8 @@ export interface Product {
   comboProductIds?: Id[];
   /** Regla / recordatorio que aparece al vender este servicio (ej.: "Disney pide PIN", "este panel tarda"). */
   saleNote?: string;
+  /** «Para quién / cuántas pantallas» que escribe el dueño (texto corto, opcional). La tienda lo muestra solo si existe. */
+  forWhom?: string;
   /** "Cómo verlo": guía que recibe el cliente al comprar (app, enlace de descarga y pasos). */
   guide?: { app?: string; link?: string; steps?: string };
 }
@@ -354,6 +356,8 @@ export interface Customer {
   backQuiet?: Record<string, number>;
   /** País y moneda del revendedor (country.ts). Sin esto: Bolivia, en la moneda de la tienda. */
   locale?: ResellerLocale;
+  /** «Plan mensual» del cliente de la tienda: servicios que paga juntos, el mismo día (sin cobro automático; planMensual.ts). */
+  plan?: { ids: Id[]; since: number };
 }
 
 export interface Testimonial {
@@ -492,7 +496,7 @@ export interface Order {
   reservedSlotIds: Id[];
   assignmentIds: Id[];
   /** prevExpiresAt: vencimiento antes de renovar (para saber si renovó a tiempo o tarde). */
-  renewal?: { assignmentId: Id; periods: number; prevExpiresAt?: number };
+  renewal?: { assignmentId: Id; periods: number; prevExpiresAt?: number; /** Plan mensual: renueva hasta esta fecha (días proporcionales, planMensual.ts). */ until?: number };
   topupAmount?: Cents;
   /** "A pedido": ítems sin stock al comprar (solo revendedores, pagando con QR). Se entregan al aprobar el pago. */
   backorder?: { productId: Id; qty: number }[];
@@ -566,6 +570,8 @@ export interface Assignment {
   trial?: boolean;
   /** El revendedor ya avisó a sus clientes del cambio/caída de esta cuenta (caidas.ts). */
   changeSeenAt?: number;
+  /** Comprado en combo (combo armado o «Armá tu combo»): renovado junto con el resto conserva el descuento (planMensual.ts). */
+  combo?: { group: Id; productId?: Id };
 }
 
 /** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */

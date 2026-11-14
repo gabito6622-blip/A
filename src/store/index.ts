@@ -57,6 +57,8 @@ import * as avisoAlquiler from "./avisoAlquiler.js";
 import * as renovarSinTrabas from "./renovarSinTrabas.js";
 import * as avisoCambios from "./avisoCambios.js";
 import * as listaPrecios from "./listaPrecios.js";
+import * as planMensual from "./planMensual.js";
+import { attentionHours } from "./atencion.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -365,6 +367,16 @@ export function createStore(opts: EngineOptions = {}) {
       list: bind(e, tickets.list),
       setStatus: bind(e, tickets.setStatus),
       kinds: tickets.TICKET_KINDS,
+      /** Horario de atención para la pantalla de fallas (atencion.ts). */
+      hours: () => attentionHours(e),
+    },
+    /** Cliente de la tienda: renovar todo junto, combos que no pierden el descuento y plan mensual (planMensual.ts). */
+    plan: {
+      view: bind(e, planMensual.planView),
+      set: bind(e, planMensual.setPlan),
+      preview: bind(e, planMensual.renewAllPreview),
+      renewAll: bind(e, planMensual.renewAll),
+      alert: (customerId: Id, items: Parameters<typeof planMensual.planAlert>[2]) => planMensual.planAlert(e, customerId, items),
     },
     subs: {
       list: bind(e, subs.listMine),

@@ -4,6 +4,20 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- **[P1] Revisión «en el lugar de ~30 clientes» (14/11)** (4 revisores: mayores, familias/niños, jóvenes, después de comprar). ✅ ya arreglado: link de códigos con PIN que daba error.
+  - **Hablar con una persona:** WhatsApp solo al final de la página (~10 pantallas): botón verde fijo «💬 Hablar con Gabriel» y «Preguntar» en cada producto.
+  - **Después de pagar:** el WhatsApp del invitado no dice «ya pagué, te mando el comprobante» y el paso «3 · Listo» no aparece; los 3 pasos del QR escondidos en un desplegable sin flecha; no avisa al aprobar/rechazar el pago ni se actualiza sola; «antes de las …» corre desde que mira; el rechazo sale abajo y parece que hay que pagar de nuevo.
+  - **A pedido:** la tarjeta dice «Agregar» pero la ficha «Pedir por WhatsApp / Disponibles: A pedido»; el invitado paga sin saber que es a pedido; con algo a pedido no se paga con saldo (solo Disney sin ESPN y Prime tienen stock en producción).
+  - **Qué recibo:** falta una línea simple por tarjeta («Para 1 persona · 1 tele o celular · 1 mes»), qué es un perfil, Perfil Extra Premium, ChatGPT; ficha solo tocando el logo y sin «Agregar»; «Compra ord_…» sin producto; sin recibo.
+  - **Planes mensuales:** el combo pierde el descuento al renovar y el cliente no puede renovar todo junto (solo revendedores); mostrar Mensual / 3 meses con «ahorrás Bs X»; plan con un día de pago y aviso con un QR (sin cobro automático).
+  - **Quien paga es otro (chicos):** «📤 Mandar a quien paga» con el monto y el producto.
+  - **Confianza:** 0 opiniones cargadas, quiénes somos, /tiendas con tiendas de prueba o vacías, marca con 3 nombres, Términos §08 (Código Penal) asusta, §07 desactualizado, errores sin tildes.
+  - **Letra grande / 320 px:** nombres de a una letra por renglón y monto cortado en el pago; logo tapa el título; selector de duración de 39 px.
+  - **Entrar:** «Olvidé mi PIN / soy nuevo» confuso y chico; sin salida para quien cambió de número.
+  - **Velocidad:** 1,9 MB por visita (íconos de 512 px, imágenes sin caché, ?v=Date.now, 19 módulos de revendedor antes del catálogo).
+  - **Otros:** «Hoy se corta»/candado y «proveedor» asustan al cliente; aviso de falla lleva a «GaboHub»; fallas sin horario ni «hablar con una persona»; códigos sin instrucciones; USDT invisible para el invitado; buscador sin tolerar errores; casilla de avisos marcada sola; accesibilidad (foco en Acceder, Ver/Ocultar).
+  - **[Decide el dueño]:** perfil infantil (qué se puede de verdad), regalos, precio del plan mensual, opiniones reales, si la tienda responde por clientes de revendedores, quitar tiendas de prueba, qué es «Perfil Extra», confirmar Gmail y avisos prendidos.
+
 - ✅ **[P1] Revisión «3 meses en el lugar del dueño» (14/11): HECHA** (rama `ocultar-montos`; 14 corridas hasta 0 problemas). Lo que sigue abierto va debajo de «Quedan». Lista original (4 revisores, datos ficticios, reloj simulado; evidencia en el informe de la sesión):
   - **Plata que no cierra:**
     - una venta o renovación fiada («Pendiente») cuenta como plata que entró, y al cobrarla se vuelve a contar (`income.ts:46`, `orders.ts:178`, `panel.js:3430/2783/3170`);

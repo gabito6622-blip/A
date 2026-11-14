@@ -3,24 +3,32 @@
 //  - "store" (/tienda/)   Gabriel Store: la tienda de clientes finales.
 //  - "rshop" (/r/<slug>)  La página propia de cada revendedor.
 import { api, $, $$, esc, bs, setCurrency, lookColors, contrastNote, softwareNotice, enhanceFiles, toCents, fdate, daysLeft, icon, toast, fileToBase64, waLink, newKey, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch, PAGE_TEMPLATES, templateSwatch } from "/common.js";
-import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/sublinks.js";
-import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
+import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } from "/hub-perezoso.js"; // sublinks.js: se carga solo en GaboHub
+import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/hub-perezoso.js"; // descargas.js: se carga solo en GaboHub
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
-import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/hub-perezoso.js"; // ownstock.js: se carga solo en GaboHub
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/hub-perezoso.js"; // propias-plata.js: se carga solo en GaboHub
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-mes.js";
-import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/cuaderno.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-perezoso.js"; // hub-mes.js: se carga solo en GaboHub
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/hub-perezoso.js"; // cuaderno.js: se carga solo en GaboHub
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
-import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
-import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/arranque.js";
+import { initAccChanges, accChangeBox, accChangesBanner } from "/hub-perezoso.js"; // cambio-cuenta.js: se carga solo en GaboHub
+import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/hub-perezoso.js"; // arranque.js: se carga solo en GaboHub
 import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
+import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent } from "/catalogo-claro.js";
+import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
+import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText } from "/despues-pago.js";
+import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
+import { fallasHelp, faqExtra, recoverHtml, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
+import { initA11y, a11yView } from "/a11y-tienda.js";
+import { kindHelp } from "/codigos-ayuda.js";
+import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -40,6 +48,9 @@ const VIEWS = {
   store: ["inicio", "catalogo", "combo", "asesor", "cuentas", "codigos", "recargas", "fallas", "renovar", "seguridad"],
   hub: ["inicio", "tiendas", "precios", "cuentas", "clientes", "recargas", "codigos", "fallas", "vender", "mas", "inventario", "seguridad"],
 }[MODE];
+// GaboHub: el panel del revendedor se baja ya, en paralelo con los datos (en la tienda y en /r/ no se baja).
+if (MODE === "hub") cargarHub().catch(() => {});
+alCargarHub(() => render());
 
 // Referido: si llegaste con ?ref=<id de un revendedor>, se guarda y viaja en la solicitud.
 const REF = (() => {
@@ -85,8 +96,8 @@ async function loadBase() {
   setCurrency(S.settings.currencySymbol); setMine(S.me?.locale);
   // Cliente en la lista en dólares: todos sus montos (precios, carrito, saldo, movimientos) en US$.
   if (usdMode()) setCurrency(S.me.currency.symbol, 2);
-  S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo?v=${Date.now() % 1e6}` : null;
-  S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner?v=${Date.now() % 1e6}` : null;
+  S.settings.logoUrl = S.settings.hasLogo ? `/api/settings/logo${imgV(S.settings.logoV)}` : null;
+  S.settings.bannerUrl = S.settings.hasBanner ? `/api/settings/banner${imgV(S.settings.bannerV)}` : null;
   if (S.me.kind === "staff") S.me = { loggedIn: false, staff: true };
   // Saca del carrito lo que ya no existe.
   S.cart = S.cart.filter((l) => product(l.productId));
@@ -105,7 +116,7 @@ async function loadResellerShop() {
   const sh = await api("GET", `/api/shops/${SLUG}`);
   S.me = { loggedIn: false };
   S.catalog = sh.products;
-  S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo?v=${Date.now() % 1e6}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner?v=${Date.now() % 1e6}` : null };
+  S.settings = { ...sh, storeName: sh.title, logoUrl: sh.hasLogo ? `/api/shops/${SLUG}/logo${imgV(sh.logoV)}` : null, bannerUrl: sh.hasBanner ? `/api/shops/${SLUG}/banner${imgV(sh.bannerV)}` : null };
   setCurrency(sh.currencySymbol, sh.currencyDecimals);
   if (!sh.published) S.settings.announcement = "👀 Vista previa: tu página está apagada. Solo vos la ves. Publicala desde Mis clientes → Mi página.";
   S.cart = S.cart.filter((l) => product(l.productId));
@@ -216,7 +227,7 @@ async function loadPrivate() {
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "seguridad") S.data.sec = await api("GET", "/api/me/security").catch(() => null);
-  if (S.view === "cuentas" && MODE === "store" && !isReseller()) await loadAlertsCard(); // 🔔 avisos antes de que venza
+  if (S.view === "cuentas" && MODE === "store" && !isReseller()) await Promise.all([loadAlertsCard(), loadPlan()]); // 🔔 avisos antes de que venza; plan y combos
   if (S.view === "fallas") S.data.tickets = await api("GET", "/api/me/tickets").catch(() => ({ kinds: {}, list: [] }));
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
@@ -242,6 +253,9 @@ async function loadPrivate() {
 async function refresh() {
   try {
     await loadBase();
+    if (MODE === "hub" || isReseller()) await cargarHub(); // funciones del revendedor (hub-perezoso.js)
+    // Su logo y portada JPG/WEBP: este navegador arma la versión chica para su página (imagenes-chicas.js), una vez.
+    if (MODE === "hub" && isReseller()) import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/me/shop/imagenes")).catch(() => {});
     await loadPrivate();
     if (S.view === "renovar") await loadRenovar();
   } catch (e) {
@@ -252,11 +266,17 @@ async function refresh() {
 }
 
 /* ---------------- vistas ---------------- */
-/** Logo del producto (si tiene) o su inicial. */
-const mark = (p) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="/api/products/${encodeURIComponent(p.id)}/image" alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
+/** `?v=<fecha de subida>&w=<lado>`: con la fecha, el celular guarda la imagen y no la vuelve a pedir hasta que cambie. */
+const imgV = (v, w) => { const q = [v ? `v=${v}` : "", w ? `w=${w}` : ""].filter(Boolean).join("&"); return q ? `?${q}` : ""; };
+/** Logo del producto: versión chica del servidor (160 px; 320 para las tarjetas grandes), con su fecha de subida en la dirección. */
+/** La portada en el círculo chico del diseño «boleto» (104 a 260 px) no necesita la de 1080 px. */
+const conAncho = (u, w) => `${u}${u.includes("?") ? "&" : "?"}w=${w}`;
+const pimg = (p, w) => `/api/products/${encodeURIComponent(p.id)}/image${imgV(p.imageV, w)}`;
+/** Logo del producto (si tiene) o su inicial. `chico`: en la fila del boleto (52 px) no hace falta la de 320 px. */
+const mark = (p, chico) => (p.hasImage ? `<img class="plogo${p.kind === "combo" ? " wide" : ""}" src="${pimg(p)}"${chico ? "" : ` srcset="${pimg(p)} 160w, ${pimg(p, 320)} 320w" sizes="150px"`} alt="${esc(p.name)}" loading="lazy">` : `<span class="lt" style="background:${esc(p.color)}">${esc(p.name[0])}</span>`);
 /** Logo de la app por id y nombre (también para productos de alquiler sin imagen propia). */
 const am = (id, name, cls) => appMark(S.catalog, id, name, cls);
-const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
+const miniMark = (p) => (p?.hasImage ? `<span class="mini mimg"><img src="${pimg(p)}" alt=""></span>` : `<span class="mini" style="background:${esc(p?.color ?? "#3984ff")}">${esc((p?.name ?? "?")[0])}</span>`);
 /** Sin stock: se pide por WhatsApp (a la tienda o al revendedor). */
 const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Tienen disponible?`) : null);
 
@@ -308,7 +328,7 @@ function availBar() {
 }
 /* Preguntas frecuentes (acordeón): saca dudas antes de comprar. */
 const FAQ_DEFAULT = [
-  ["¿Qué pasa si la cuenta deja de funcionar?", "La reponemos sin costo dentro de tu período. Avisanos dentro de las 24 h desde Mis cuentas → ⚠️ Reportar falla y seguí el estado ahí mismo."],
+  ["¿Qué pasa si la cuenta deja de funcionar?", `La reponemos sin costo dentro de tu período. Avisanos dentro de las 24 h: ${REPORT_WHERE} Seguí el estado en Mis cuentas.`],
   ["¿Cuánto dura mi compra?", "Lo que diga el plan (por ejemplo 30 días). La fecha de vencimiento te queda guardada en Mis cuentas."],
   ["¿Cómo pago?", "Con QR y comprobante, o coordinando por WhatsApp. Te activamos y te avisamos cuando esté listo."],
   ["¿Es seguro comprar acá?", "Sí. Te entregamos tus accesos y te damos soporte por WhatsApp si algo falla."],
@@ -318,7 +338,7 @@ function faqSection() {
   const custom = (S.settings.faq ?? []).filter((f) => f && f.q && f.a);
   const list = SLUG ? rshopFaq(S.settings) : custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
   return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
-    <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
+    <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(faqExtra(a))}</p></details>`).join("")}</div>
     ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
 }
 /* Asesor: encontrá tu combo ideal por presupuesto y cantidad de plataformas. */
@@ -349,20 +369,8 @@ function asesorView() {
       <div class="arecs">${list.length ? list.slice(0, 6).map((c, i) => comboCard(c, i === 0)).join("") : `<div class="sbox"><p class="empty" style="margin:0">No hay combos para ese presupuesto. Subí un poco el monto o elegí "Cualquiera" cantidad de plataformas.</p>${comboOn() ? `<button class="sbtn pri" type="button" data-s="combo" style="justify-self:start">Armá el tuyo a medida</button>` : ""}</div>`}</div>
     </div>`;
 }
-function card(p, badge) {
-  const s = p.available;
-  const rib = badge ? `<span class="prib">${esc(badge)}</span>` : (s && s <= 2 ? `<span class="prib hot">🔥 Últimas</span>` : "");
-  if (onDemand(p) && !s) return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
-  <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:${S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-warn)"}">${S.settings?.alwaysAvailable ? `✅ Disponible · pagás con ${abroad() ? "USDT" : "QR"} y te lo activamos al confirmar` : `A pedido · pagás con ${abroad() ? "USDT" : "QR"} y te la entregamos al confirmar`}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días · tu precio</small>${usdtHint(p.price)}</div>
-  <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button><button class="sbtn sm pri" type="button" data-add="${esc(p.id)}">Comprar +</button></div></div></article>`;
-  return `<article class="pc"><div class="pimg" style="--c:${esc(p.color)}"><div class="pbadges"><span class="tag">${esc(p.category)}</span>${rib}</div>${mark(p)}</div>
-  <div class="pbody"><span class="k">${esc(kindText(p.kind))} · ${p.durationDays} días</span><h3>${esc(p.name)}</h3><p class="d" style="margin:0">${esc(p.description)}</p>
-  <span class="stock" style="color:${s ? (s <= 2 && !S.settings?.alwaysAvailable ? "var(--s-warn)" : "var(--s-ok)") : askWa(p) ? (S.settings?.alwaysAvailable ? "var(--s-ok)" : "var(--s-muted)") : "var(--s-bad)"}">${s ? (S.settings?.alwaysAvailable ? "✅ Disponible · entrega al instante" : s === 1 ? "¡Queda 1!" : s <= 2 ? `Quedan ${s}` : `${s} disponibles`) : askWa(p) ? (S.settings?.alwaysAvailable ? "✅ Disponible · te lo activamos rápido" : "Disponible a pedido") : "Agotado"}</span>
-  <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small>${usdtHint(p.price)}${p.wholesale && p.publicPrice > p.price ? `<small class="pub">público ${bs(p.publicPrice)}</small>` : ""}</div>
-  <div class="pbtns"><button class="sbtn sm det" type="button" data-det="${esc(p.id)}">Detalles</button>${s || !askWa(p) ? `<button class="sbtn sm pri" type="button" data-add="${esc(p.id)}" ${s ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn sm pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir</a>`}</div></div></article>`;
-}
+// Tarjeta: qué recibís, si hay o es a pedido y «Ver qué incluye» (catalogo-claro.js).
+const card = (p, badge) => ccCard(p, badge);
 /* ---------------- Diseño "Lista tipo ticket": catálogo directo, filas compactas ---------------- */
 /** "Netflix Premium HD 4K · 3 meses" y "Netflix Premium HD 4K" van en la misma fila, con selector. */
 const tkBase = (p) => p.name.replace(/\s*[·\-–]\s*\d+\s*mes(es)?\s*$/i, "").trim();
@@ -378,21 +386,9 @@ const appShort = (p) => p.name.replace(/^Amazon\s+/i, "").replace(/\s+Premium\b.
 // El ahorro sale del texto del dueño (en Bs): en una página o lista en otra moneda no se muestra.
 const comboSave = (c) => (buySym() === "Bs" ? (c.description || "").match(/Ahorr[aá]s\s+Bs\s*(\d+(?:[.,]\d+)?)/i)?.[1] : undefined);
 /** Ícono del combo: los logos de cada app ordenados (en vez de una imagen ancha recortada). */
-const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="/api/products/${encodeURIComponent(x.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
-function ticketRow({ k, g }) {
-  const p = g.find((x) => x.id === S.tkv?.[k]) ?? g[0];
-  const s = p.available, od = onDemand(p);
-  const apps = comboApps(p);
-  const sel = apps.length
-    ? `<div class="tkapps">${apps.map((x) => `<span class="tkapp">${miniMark(x)}${esc(appShort(x))}</span>`).join("")}</div><div class="tkmeta">${comboSave(p) ? `<span class="tksave">Ahorrás Bs ${esc(comboSave(p))}</span>` : ""}<small class="tkdur">${tkDur(p)}</small></div>`
-    : g.length > 1
-    ? `<select class="tksel" data-tkv="${esc(k)}" aria-label="Duración de ${esc(tkBase(p))}">${g.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${tkDur(x)} · ${bs(x.price)}</option>`).join("")}</select>`
-    : `<small class="tkdur">${p.kind === "combo" && p.description ? `${esc(p.description)}<br>` : ""}${tkDur(p)}</small>`;
-  const btn = s || od ? `<button class="tkbtn" type="button" data-add="${esc(p.id)}">Agregar</button>`
-    : askWa(p) ? `<a class="tkbtn" href="${askWa(p)}" target="_blank" rel="noopener">Pedir</a>` : `<button class="tkbtn" type="button" disabled>Agotado</button>`;
-  return `<article class="tk${apps.length ? " tkcombo" : ""}"><button class="tklogo" type="button" data-det="${esc(p.id)}" aria-label="Ver detalles de ${esc(p.name)}">${apps.length ? comboIcon(apps) : mark(p)}</button>
-    <div class="tkmid"><h3>${esc(tkBase(p))}</h3>${sel}</div><div class="tkend"><b>${bs(p.price)}</b>${btn}</div></article>`;
-}
+const comboIcon = (apps) => `<span class="tkgrid n${Math.min(apps.length, 4)}">${apps.slice(0, 4).map((x) => (x.hasImage ? `<img src="${pimg(x)}" alt="" loading="lazy">` : `<i style="background:${esc(x.color ?? "#3984ff")}">${esc(x.name[0])}</i>`)).join("")}</span>`;
+// Fila del ticket: qué recibís, hay / a pedido, Mensual / 3 meses y «Ver qué incluye» (catalogo-claro.js).
+const ticketRow = (x) => ccTicketRow(x);
 /** Comparador de combos: el cliente elige dos y los ve lado a lado (qué incluye, precio, ahorro). */
 function comboCompare(pub) {
   const combos = pub.filter((p) => p.kind === "combo");
@@ -412,13 +408,13 @@ function comboCompare(pub) {
       ${save(c) ? `<p class="cmpsave">💰 Ahorrás Bs ${esc(save(c))} frente a comprarlos por separado</p>` : ""}
       <small class="muted">Sale ${bs(Math.round(per(c)))} por plataforma</small>${btn(c)}</article>`;
   const sel = (id, cur, other) => `<select id="${id}" aria-label="${id === "cmpA" ? "Primer" : "Segundo"} combo">${combos.filter((c) => c.id !== other.id).map((c) => `<option value="${esc(c.id)}" ${c.id === cur.id ? "selected" : ""}>${esc(c.name)} · ${bs(c.price)}</option>`).join("")}</select>`;
-  return `<section class="cmp"><h2>¿Cuál combo te conviene más?</h2><p>Elegí dos combos y comparalos: qué plataformas trae cada uno, cuánto sale y cuánto ahorrás.</p>
+  return `<section class="cmp"><h2>¿Cuál combo te conviene más?</h2><p>Elegí dos combos y comparalos: qué plataformas trae cada uno, cuánto sale y cuánto ahorrás.</p>${hasCombos() ? `<button class="sbtn cmpase" type="button" data-s="asesor">🧮 Que te recomendemos uno según tu presupuesto ${icon("arrow")}</button>` : ""}
     <div class="cmpsel"><label>Primer combo${sel("cmpA", a, b)}</label><span class="cmpvs">vs</span><label>Segundo combo${sel("cmpB", b, a)}</label></div>
     <div class="cmpgrid">${col(a)}${col(b)}</div></section>`;
 }
 function ticketCatalog(pub, hero) {
   const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
-  const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
+  const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && ccMatch(S.q, ccSearchText(p)));
   const groups = tkGroups(list);
   const min = (x) => Math.min(...x.g.map((p) => p.price));
   if (S.sort === "asc") groups.sort((a, b) => min(a) - min(b));
@@ -426,13 +422,14 @@ function ticketCatalog(pub, hero) {
   const from = pub.length ? Math.min(...pub.map((p) => p.price)) : 0;
   const title = S.settings.heroTitle && S.settings.heroTitle !== "Streaming premium," ? `${esc(S.settings.heroTitle)} <span>${esc(S.settings.heroHighlight || "")}</span>`
     : `Netflix, Disney+, Spotify y más <span>desde ${bs(from)}</span>`;
-  return `${hero ? `<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
+  return `${hero ? `${ccTrustTop()}<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" srcset="${esc(conAncho(S.settings.bannerUrl, 540))} 540w, ${esc(S.settings.bannerUrl)} 1080w" sizes="(max-width: 420px) 104px, 260px" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
     <div class="tktools"><input id="q" placeholder="Buscar: Netflix, Spotify, combo…" value="${esc(S.q)}" aria-label="Buscar productos">
       <div class="cats tkcats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
-    ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
+    ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : ccNoResults(S.q)}`;
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV", own: "Suscripción" })[k] ?? "Suscripción";
+initCatalogoClaro(() => ({ S, SLUG, MODE, onDemand, askWa, mark, miniMark, comboApps, comboIcon, comboSave, appShort, tkBase, usdtHint, markSheet }), MODE);
 /** Filas de credenciales IPTV (como <div><dt>..</dt><dd>..</dd></div>). */
 function iptvCredRows(ac) {
   const v = ac.iptv, rows = [];
@@ -464,28 +461,27 @@ function pendingOrders(skip = null) {
   // cuadro «Pagá Bs X con un solo QR» (hub-mes.js), para no repetirlos sueltos.
   const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review") && !skip?.has(o.id));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
-  const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
-  const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
   const steps = (o) => { const i = o.status === "payment_review" ? 1 : 0; return `<div class="tsteps">${[["📝", "Pedido"], ["🔍", "Revisando pago"], ["✅", "Entregado"]].map(([e, t], n) => `<span class="${n <= i ? "on" : ""}">${e} ${t}</span>`).join("")}</div>`; };
-  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]}${o.label ? ` · ${esc(o.label)}` : ""} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
+  return list.map((o) => `<div class="svc"><div class="top"><b>${esc(pedidoNombre(o))} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
     ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
-      : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. ${eta} Cuando esté listo, tus accesos aparecen acá abajo.</span>`
+      : o.status === "payment_review" ? revisionHtml(o) // «antes de las HH:MM» desde que subió el comprobante (despues-pago.js)
       : o.method === "usdt" ? `<span class="empty">Falta enviar el comprobante del pago en USDT.</span>
         <form class="inline-form" data-evidence="${esc(o.id)}">${usdtBlock(o.total, o.usdt)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Hash o número de la transacción<input name="ref" required placeholder="Pegá el hash de Binance"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
-        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
+        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total, pedidoNombre(o))}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`}</div>`).join("");
 }
 
 // QR grande con «Ver grande» y «Guardar QR» (qr-grande.js): antes era una miniatura de 120 px al costado del texto.
-function qrBlock(amount) {
+// `what`: qué se paga (para «📤 Mandar a quien paga»; no en GaboHub).
+function qrBlock(amount, what = "") {
   const st = S.settings;
   if (!st.hasQr) return `<div class="qr"><div style="display:grid;gap:6px">${st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}</div></div>`;
-  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", amountValue: amount, note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "" });
+  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", amountValue: amount, note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "", share: MODE === "hub" ? null : { what } });
 }
 /** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
 function localBlock(m, toPay) {
@@ -577,6 +573,9 @@ function render() {
   const tabOn = $('.rtabs [aria-selected="true"]');
   if (tabOn) tabOn.parentElement.scrollLeft = Math.max(0, tabOn.offsetLeft - 24); // la pestaña elegida siempre a la vista
   codesAutoRefresh();
+  hablarSync(); pagoAutoRefresh(); // botón de WhatsApp fijo y «Mis cuentas» al día mientras revisamos un pago
+  a11yView(S.view); // lector de pantalla: foco al título y aviso al cambiar de pantalla (a11y-tienda.js)
+  if (S.view === "cuentas") planAfterRender();
   return r;
 }
 // La bandeja de «Códigos» se refresca sola cada 10 s mientras está a la vista (como la página pública del link de
@@ -607,10 +606,10 @@ function renderInner() {
   const V = {
     inicio: () => {
       const L = S.settings.layout || "clasico";
-      if (L === "ticket") return `${pub.length ? ticketCatalog(pub, true) : `<section class="tkhero"><h1>${esc(S.settings.heroTitle || S.settings.storeName || "")} <span>${esc(S.settings.heroHighlight || "")}</span></h1><p>${esc(S.settings.heroText || "")}</p></section><div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
-      ${hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : ""}
+      if (L === "ticket") return `${pub.length ? `${ticketCatalog(pub, true)}${trustBand()}` : `<section class="tkhero"><h1>${esc(S.settings.heroTitle || S.settings.storeName || "")} <span>${esc(S.settings.heroHighlight || "")}</span></h1><p>${esc(S.settings.heroText || "")}</p></section><div class="sbox"><h2>Pronto</h2><p class="empty">Estamos cargando los productos. Volvé en un rato.</p></div>`}
+      ${pub.length ? ccSteps(datosText()) : ""}
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
-      ${comboCompare(pub)}
+      ${comboCompare(pub) || (hasCombos() ? `<button class="cbanner" type="button" data-s="asesor"><b>🧮 ¿Cuál combo te conviene?</b><span>Decinos tu presupuesto y te mostramos el combo ideal.</span>${icon("arrow")}</button>` : "")}
       ${SLUG ? "" : reviewsSection()}${faqSection()}`;
       const nFeat = L === "catalogo" ? pub.length : L === "vitrina" ? 6 : 4;
       const featTitle = L === "catalogo" ? "Todo el catálogo" : L === "minimal" ? "Nuestros servicios" : "Servicios populares";
@@ -635,30 +634,28 @@ function renderInner() {
       ${faqSection()}
       ${comboOn() ? `<section class="cteaser"><div><span class="chip">Tu combo, tus reglas</span><h2>Armá tu combo y ahorrá</h2><p class="empty" style="margin:0">Elegí 2 o más servicios: ${S.settings.comboDiscounts.map((v, i) => v ? `${["2", "3", "4 o más"][i]} → −${bs(v)}` : "").filter(Boolean).join(" · ")}.</p></div><button class="sbtn pri" type="button" data-s="combo">Armar mi combo ${icon("arrow")}</button></section>` : ""}
       ${!SLUG && !isReseller() ? `<section class="pteaser"><div><span class="chip">Programa de revendedores</span><h2>¿Querés tener tu propia tienda de streaming?</h2><p class="empty" style="margin:0">Precios de mayorista, tu página con tu logo y tus colores, y un panel para tus clientes.</p></div><a class="sbtn pri" href="/hub">Conocé ${esc(S.settings.platformName || "GaboHub")} ${icon("arrow")}</a></section>` : ""}
-      ${L === "minimal" ? "" : `<section class="sbox" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px">
-        ${(SLUG ? [["1", "Elegí", "Agregá al carrito lo que te gusta."], ["2", "Pedí", "Mandame tu pedido por WhatsApp con un toque."], ["3", "Disfrutá", "Te paso tus accesos al toque."]]
-          : [["1", "Elegí", "Agregá al carrito lo que necesitás."], ["2", "Pagá", "Con QR y comprobante, o al instante con tu saldo."], ["3", "Recibí", "Tus accesos aparecen en Mis cuentas y te avisamos por WhatsApp."]])
-          .map(([k, t, d]) => `<div style="display:grid;gap:4px"><span class="chip">Paso ${k}</span><b style="font-size:18px">${t}</b><span class="empty">${d}</span></div>`).join("")}</section>`}`;
+      ${L === "minimal" ? "" : ccSteps(datosText())}`;
     },
     catalogo: () => {
       if ((S.settings.layout || "") === "ticket") return ticketCatalog(pub, false);
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
-      const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(S.q));
+      const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && ccMatch(S.q, ccSearchText(p)));
       return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div>${MODE !== "hub" ? `<a class="sbtn" href="${SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf"}" download>📄 Catálogo en PDF</a>` : ""}</div>
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}
-      ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
+      ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : ccNoResults(S.q)}`;
     },
     combo: () => comboView(),
     asesor: () => asesorView(),
     fallas: () => fallasView(),
     seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
-    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+    cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : datosText()}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
       ${isReseller() ? rentAlertBanner() + accChangesBanner() : ""}
-      ${pendingOrders(isReseller() ? qrBoxIds() : null)}
-      ${isReseller() ? renewManyBox(services) : ""}
+      ${MODE === "store" && !isReseller() ? rechazosArriba(S.data.orders) + planCard() + planQrBox() : ""}
+      ${pendingOrders(isReseller() ? qrBoxIds() : planQrIds())}
+      ${isReseller() ? renewManyBox(services) : MODE === "store" ? renewAllBox(services) : ""}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
         const semana = services.filter((a) => a.daysLeft >= 1 && a.daysLeft <= 7).length;
@@ -678,18 +675,19 @@ function renderInner() {
         const d = a.daysLeft;
         // Con muchos servicios (revendedores) los datos van plegados: la lista entra en pocas pantallas.
         const fold = isReseller() || services.length > 5;
-        return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
+        return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b>${MODE === "store" && !isReseller() ? svcTags(a) : ""}<br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
+        ${a.storeOwed ? `<div class="svc-owed" role="status"><span>💸 Le debés a la tienda <b>${bs(a.storeOwed)}</b> por esta cuenta</span>${S.settings.whatsapp ? `<a class="sbtn sm" href="${waLink(S.settings.whatsapp, `Hola, te pago los ${bs(a.storeOwed)} que debo de ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email}).`)}" target="_blank" rel="noopener">${icon("wa")}Pagar / avisar</a>` : ""}</div>` : ""}
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
-          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice })
+          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }, isReseller() ? {} : { client: true, daysLeft: a.daysLeft })
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
-          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
+          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button>${MODE === "store" && !isReseller() ? svcComboNote(a) : ""}</div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       ${MODE === "store" && !isReseller() ? alertsCard() : ""}
-      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map((o) => `<div class="line"><span>${KIND_TEXT[o.kind]} ${esc(o.id)}<br><small class="empty">${fdate(o.createdAt)}</small></span><span style="text-align:right">${o.paidBy ? "Lo pagó tu revendedor" : bs(o.total)}<br><span class="spill ${o.status === "fulfilled" ? "sp-ok" : o.status === "payment_review" ? "sp-warn" : o.status === "rejected" ? "sp-bad" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></span>${o.status === "rejected" ? `<small class="empty rej" style="grid-column:1/-1;flex-basis:100%">❌ ${o.rejectReason ? `Motivo: ${esc(o.rejectReason)}. ` : ""}Si pagaste, hacé el pedido de nuevo y subí el comprobante correcto, o escribinos por WhatsApp.</small>` : ""}</div>`).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
+      <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map(historialLinea).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
@@ -700,7 +698,7 @@ function renderInner() {
           <div class="rbtns"><a class="sbtn sm pri" href="${waLink("", `Mirá tu código acá 👇 ${S.data.codeLink.mode === "pin" ? "Entrá con el PIN que te pasé:" : "Escribí el correo de tu cuenta:"}\n${S.data.codeLink.url}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a>${S.data.codeLink.mode === "pin" ? `<button class="sbtn sm" type="button" data-makecodelink="1">Quitar PIN (modo correo)</button>` : ""}</div>
           <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end;margin-top:8px"><label>🔒 ${S.data.codeLink.mode === "pin" ? "Cambiar el PIN" : "Proteger con un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn pri" type="submit">Poner PIN</button></form>`
           : `<button class="sbtn pri" type="button" data-makecodelink="1" style="justify-self:start">Crear mi link de códigos</button>`}</div>` : ""}
-      <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small></div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
+      <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small>${kindHelp(c.kind)}</div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
@@ -750,6 +748,9 @@ initPropiasPlata({ render: () => render(), store: () => myStore() });
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+planInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+initClienteAyuda({ settings: () => S.settings });
+initA11y();
 // Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
 cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
 async function loadRTab(tab) {
@@ -983,6 +984,7 @@ function fallasView() {
   const accLines = (x) => [`Correo: ${x.email}`, `Contraseña: ${x.password}`, `Perfil: ${x.profile}`, ...(x.pin ? [`PIN: ${x.pin}`] : [])].join("\n");
   const okMsg = (t) => { const x = newAcc(t); return `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}${x ? `\nTus datos nuevos:\n${accLines(x)}\nEntrá con estos datos y cualquier cosa me avisás 🙌` : "\nProbá entrar de nuevo y cualquier cosa me avisás 🙌"}${myStore() ? `\n— ${myStore()}` : ""}`; };
   return `<div class="sec-h"><div><span class="chip">Soporte</span><h2>⚠️ Reportar una falla</h2><p>Contanos qué pasa y seguí el estado acá: <b>Recibido → Revisando → Solucionado</b>. Si activaste los avisos, te llega al celular cuando cambia.</p></div></div>
+    ${fallasHelp(T.hours, S.settings)}
     <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${isReseller() ? `${esc(a.customerName)} · ` : ""}${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
       <label>¿Qué pasa?<select name="kind">${Object.entries(T.kinds).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
       <label>Detalle (opcional)<textarea name="note" maxlength="300" rows="2" placeholder="Ej.: dice contraseña incorrecta desde hoy a la mañana"></textarea></label>
@@ -1753,12 +1755,12 @@ function programView() {
     ["renew", "Respaldo de la tienda", "Si una cuenta falla, se reemplaza y tu cliente ve los datos nuevos."],
   ];
   return `<section class="phero">
-      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i} ptimg" style="--c:${esc(p.color)}"><img src="/api/products/${encodeURIComponent(p.id)}/image" alt=""></span>`).join("")}</div>
+      <div class="pfloat" aria-hidden="true">${tiles.map((p, i) => `<span class="pt pt${i} ptimg" style="--c:${esc(p.color)}"><img src="${pimg(p)}" alt=""></span>`).join("")}</div>
       <span class="pill"><i></i>${MODE === "hub" ? `${esc(S.settings.storeName)} · plataforma para revendedores de streaming` : `Programa de revendedores de ${esc(pg.storeName)}`}</span>
       <h1>Vendé streaming<br><span>con tu propia marca</span></h1>
       <p>Tu tienda online, precios de mayorista, panel de clientes y avisos de vencimiento. Nosotros ponemos el stock y la tecnología; vos ponés tu nombre.</p>
       <div class="pbtns2">${want()}<a class="pghost" href="/tiendas" data-s="tiendas">Explorar tiendas</a></div>
-      ${brands.length >= 4 ? `<div class="plogos"><small>Vendé lo que todos buscan</small><div class="plogos-track" aria-label="Plataformas que podés vender">${[...brands, ...brands].map((p, i) => `<span ${i >= brands.length ? 'aria-hidden="true"' : ""}><img src="/api/products/${encodeURIComponent(p.id)}/image" alt="" loading="lazy"><b>${esc(brandName(p))}</b></span>`).join("")}</div></div>` : ""}
+      ${brands.length >= 4 ? `<div class="plogos"><small>Vendé lo que todos buscan</small><div class="plogos-track" aria-label="Plataformas que podés vender">${[...brands, ...brands].map((p, i) => `<span ${i >= brands.length ? 'aria-hidden="true"' : ""}><img src="${pimg(p)}" alt="" loading="lazy"><b>${esc(brandName(p))}</b></span>`).join("")}</div></div>` : ""}
       <div class="pscroll">deslizá</div></section>
 
     <section class="psec"><div class="peyebrow">Por dentro</div><div class="psplit"><h2>Todo tu negocio<br>en una sola pantalla</h2><p>Saldo, clientes, vencimientos y ventas del día, en la compu o en el celular. Así se ve tu panel de revendedor.</p></div>
@@ -2143,19 +2145,17 @@ function renderCartInner(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal() })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
-          + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal(), share: { what: S.cart.map((l) => product(l.productId).name).join(" + ") } })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
+          + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `${ccCartNotice()}<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
   const toPay = tot - cartDiscount();
   if (!S.me?.loggedIn) {
-    // Invitado (sin cuenta): ve el QR y coordina el pedido por WhatsApp, sin obligarlo a entrar.
-    const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
+    // Invitado (sin cuenta): QR, «Ya pagué» / «Todavía no pagué» por WhatsApp y USDT si hay (despues-pago.js).
+    const names = S.cart.map((l) => product(l.productId).name).join(" + ");
     $("#drawer").innerHTML = head
-      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
-      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock(toPay)}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
-      ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
+      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}${ccCartNotice()}${guestPayHtml({ lines: S.cart.map((l) => ({ name: product(l.productId).name, qty: l.qty, price: product(l.productId).price })), total: toPay, discount: cartDiscount(), qr: S.settings.hasQr ? qrBlock(toPay, names) : "" })}
       <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
@@ -2178,7 +2178,7 @@ function renderCartInner(msg = "") {
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net)}</div>` : ""}
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net, S.cart.map((l) => product(l.productId).name).join(" + "))}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
@@ -2286,11 +2286,12 @@ function openLogin(step, phone = "", msg = "", email = "") {
     pin: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
       <label>Tu PIN (4 números)<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="current-password" class="pinbox" placeholder="••••"></label>
       <button class="sbtn pri" type="submit">Entrar</button>
-      <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="email">Entrar con correo</button><button class="sbtn sm" type="button" data-loginstep="phone">Olvidé mi PIN / soy nuevo</button></div>`,
-    phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
-    name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
+      ${ccLoginAlt()}`,
+    phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button><button class="sbtn" type="button" data-loginstep="recover">Cambié de número / no me llega</button>`,
+    recover: recoverHtml(st, phone, pinGiver(st)),
+    name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label>${ccConsent()}<button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a ${pinGiver(st)} para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
+    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${recoverHtml(st, phone, pinGiver(st))}`,
   }[step];
   markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
@@ -2412,7 +2413,7 @@ document.addEventListener("click", async (ev) => {
   if (d.gotab) S.data.rtab = d.gotab; // «Mis clientes» de Inicio abre la lista de clientes (no la última pestaña)
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
-  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
+  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", ccLoginWhy(d.loginwhy), $("#login [name=email]")?.value?.trim() ?? "");
   if (d.tour) { ev.preventDefault(); return startTour(); }
   if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
   if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }
@@ -2580,6 +2581,7 @@ document.addEventListener("click", async (ev) => {
     const show = m.textContent === "••••••••";
     m.textContent = show ? m.dataset.pw : "••••••••";
     el.textContent = show ? "Ocultar" : "Ver";
+    el.setAttribute("aria-label", show ? "Ocultar contraseña" : "Ver contraseña");
     return;
   }
   if (d.mf) { S.data.mf = d.mf; return render(); }
@@ -2701,14 +2703,8 @@ document.addEventListener("click", async (ev) => {
     saveCart(); closeAll(); render();
     return toast(`${p.name} agregado al carrito`);
   }
-  if (d.det) {
-    const p = product(d.det);
-    $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><div class="pimg" style="--c:${esc(p.color)}"><span class="tag">${esc(p.category)}</span>${mark(p)}</div><h2 style="font-size:24px;font-weight:900">${esc(p.name)}</h2><p class="empty">${esc(p.description)}</p>
-      <dl class="cred" style="margin:0"><div><dt>Modalidad</dt><dd>${esc(kindText(p.kind))}</dd></div><div><dt>Duración</dt><dd>${p.durationDays} días</dd></div><div><dt>Entrega</dt><dd>${SLUG ? "Por WhatsApp" : "En Mis cuentas"}</dd></div><div><dt>Disponibles</dt><dd>${p.available || (askWa(p) ? "A pedido" : 0)}</dd></div></dl>
-      <div class="price">${bs(p.price)}<small>/ ${p.durationDays} días</small></div><div class="pbtns"><button class="sbtn" type="button" data-close="1">Cerrar</button>${p.available || !askWa(p) ? `<button class="sbtn pri" type="button" data-add="${esc(p.id)}" ${p.available ? "" : "disabled"}>Añadir +</button>` : `<a class="sbtn pri" href="${askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Pedir por WhatsApp</a>`}</div></div>`;
-    $("#modal").hidden = false; $("#scrim").hidden = false;
-    return;
-  }
+  if (d.det) { if (openFicha(d.det) !== false) hablarFicha($("#modal"), product(d.det)); return; } // «Qué incluye» (catalogo-claro.js) + «💬 Preguntar por este» (hablar.js)
+  if (d.tkpick) { (S.tkv ??= {})[d.tkpick] = d.id; return render(); } // Mensual / 3 meses en la fila
   if (d.inc) { const l = S.cart[d.inc]; if (l.qty < maxQty(product(l.productId))) l.qty++; else toast("No hay más unidades"); saveCart(); renderCart(); return render(); }
   if (d.dec) { if (--S.cart[d.dec].qty <= 0) S.cart.splice(d.dec, 1); saveCart(); renderCart(); return render(); }
   if (d.coupon) {
@@ -3049,15 +3045,18 @@ window.addEventListener("message", (ev) => {
 
 initDescargas({ base: "/api/me/descargas", btn: "sbtn", render });
 descargasBind(document);
-window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
+window.addEventListener("hashchange", () => { if (location.hash.startsWith("#p=")) { ccOpenFromHash(); return; } if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
 initMoneyMask();
 initQrGrande();
+initHablar(() => ({ mode: MODE, settings: S.settings, cart: S.cart.map((l) => ({ name: product(l.productId)?.name, qty: l.qty, price: product(l.productId)?.price })) }));
+initDespuesPago({ mode: MODE, settings: () => S.settings, orders: () => S.data.orders, view: () => S.view, loggedIn: () => !!S.me?.loggedIn,
+  clearCart: () => { S.cart = []; saveCart(); render(); }, refresh: () => refresh(), render: () => render() });
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
-    return refresh();
+    return refresh().then(ccOpenFromHash);
   }
   // Links viejos de la tienda que apuntaban a la raíz: ahora la tienda está en /tienda/.
   const h0 = location.hash.slice(1);
@@ -3070,6 +3069,7 @@ initQrGrande();
   if (MODE === "hub" && h === "dia") { S.data.rtab = "dia"; history.replaceState(null, "", location.pathname + "#clientes"); }
   S.view = VIEWS.includes(h) ? h : MODE === "hub" && h === "dia" ? "clientes" : path === "/tiendas" ? "tiendas" : "inicio";
   await refresh();
+  ccOpenFromHash(); // /tienda/#p=netflix: abre la ficha del producto (links de Instagram y TikTok)
   if (S.linkExpired) {
     S.linkExpired = false;
     openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a ${pinGiver(S.settings)}.</div>`);

@@ -102,8 +102,11 @@ export function createExpiryPush(d: ExpiryPushDeps) {
       if (via?.whatsapp) url = `https://wa.me/${via.whatsapp}?text=${encodeURIComponent(renewWaText(items))}`;
       else if (via?.page) url = via.page;
       else if (d.renewLink && items[0].key.startsWith("a:")) { const u = d.renewLink(items[0].key.slice(2)); if (u) url = u; } // el toque abre «Renovar» de ese servicio
-      const msg = alertText(items, via ? { seller: via.name, action: via.whatsapp ? "write" : via.page ? "page" : "none" } : undefined);
-      const r = await d.customerPush(cid, { ...msg, url }).catch(() => ({ sent: 0, failed: 1 }));
+      // Plan mensual (planMensual.ts): «Tu plan vence mañana» y el toque abre «Pagar este mes».
+      const plan = via ? null : store.plan.alert(cid, items);
+      const msg = plan ?? alertText(items, via ? { seller: via.name, action: via.whatsapp ? "write" : via.page ? "page" : "none" } : undefined);
+      if (plan) url = plan.url;
+      const r = await d.customerPush(cid, { title: msg.title, body: msg.body, url }).catch(() => ({ sent: 0, failed: 1 }));
       if (r.sent) { items.forEach(mark); st.sent++; st.customers++; st.lastAt = now(); } else if (r.failed) st.failed++;
     }
 

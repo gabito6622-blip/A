@@ -1,4 +1,5 @@
 // Código de la página /codigos (antes estaba dentro del HTML; afuera para respetar la CSP).
+import { kindHelp } from "/codigos-ayuda.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const KLABEL = { login: "🔓 Código de inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Código de acceso temporal", verificacion: "🛡️ Código de verificación", otro: "✉️ Código" };
@@ -64,17 +65,17 @@ function show(data) {
   keep(data);
   last = data.codes; minutes = data.minutes ?? minutes;
   const list = last.filter((c) => !q || c.to.includes(q.toLowerCase()));
-  const keep = document.activeElement?.id === "q";
+  const keepFocus = document.activeElement?.id === "q"; // otro nombre: «keep» ya es la función de arriba (antes chocaba y el modo PIN tiraba error)
   $("#app").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(data.name)}</h1><span class="live"><i></i>Se actualiza solo</span></div>
     <p class="muted">Acá aparecen los códigos de ${esc(plat())}${platforms.length ? " de tus cuentas" : ""}. Cada uno dura ${data.minutes} minutos.</p>
     ${last.length > 3 ? `<input class="search" id="q" placeholder="Buscar por correo de la cuenta" value="${esc(q)}" inputmode="email">` : ""}
-    <div class="card">${list.length ? list.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>
+    <div class="card">${list.length ? list.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>${kindHelp(c.kind)}
       <div class="top"><small>${esc(c.product || c.to)}</small></div>
       ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
       <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
       : `<div class="empty">📭 No hay códigos nuevos.<br>Pedí el código en ${esc(plat("la app"))} y esperá unos segundos: aparece solo acá.</div>`}</div>
     <button class="ghost" type="button" id="out">Salir</button>`;
-  if (keep) { const f = $("#q"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+  if (keepFocus) { const f = $("#q"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
 }
 
 async function load(p) {
@@ -92,7 +93,7 @@ function showEmail(data) {
   last = data.codes; minutes = data.minutes ?? minutes;
   $("#app").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(data.name)}</h1><span class="live"><i></i>Se actualiza solo</span></div>
     <p class="muted">Código de <b>${esc(data.email || email)}</b>. Cada uno dura ${data.minutes} minutos.</p>
-    <div class="card">${last.length ? last.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>
+    <div class="card">${last.length ? last.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>${kindHelp(c.kind)}
       ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
       <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
       : `<div class="empty">📭 Todavía no hay código nuevo para ese correo.<br>Pedí el código en ${esc(plat("la app"))} y esperá unos segundos: aparece solo acá.</div>`}</div>

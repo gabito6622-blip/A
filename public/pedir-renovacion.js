@@ -21,8 +21,11 @@ const reqOf = (aid) => (data ?? []).find((r) => r.assignmentId === aid && (r.sta
 /**
  * Lo que va en la tarjeta de un servicio que vence antes con el proveedor. `x`: { assignmentId, product, expiresAt, price }.
  * Sin pedido: el porqué y «📩 Pedir renovación · Bs X». Con pedido: «✓ Pediste la renovación…» y que no se corta.
+ * `opts.client` (cliente de la tienda, 14/11): sin candado ni «proveedor», y solo en los últimos 7 días (`opts.daysLeft`):
+ * antes no hay nada que hacer y el cartel solo asusta. El revendedor lo sigue viendo como siempre.
  */
-export function askRenewHtml(x) {
+export function askRenewHtml(x, opts = {}) {
+  if (opts.client) return clientHtml(x, opts.daysLeft);
   ensure();
   const r = reqOf(x.assignmentId);
   const why = `<span class="rlock">🔒 Para renovarla, la tienda primero renueva con su proveedor. Te anda hasta el <b>${fdate(x.expiresAt)}</b>.</span>`;
@@ -30,6 +33,17 @@ export function askRenewHtml(x) {
   if (r.status === "rejected") return `<span class="rlock">❌ La tienda no la renueva: ${esc(r.reason ?? "")}</span>`;
   if (r.status === "done") return `<span class="rlock rrqok">✅ La tienda renovó con su proveedor: pagá ${bs(r.order.total)} con el QR de arriba. No se corta mientras tanto.</span>`;
   return `<span class="rlock rrqok">✓ Pediste la renovación el ${fdate(r.createdAt)}: la tienda primero renueva con su proveedor, ya le avisamos. No se corta mientras tanto.</span><button class="sbtn sm" type="button" data-rrqcancel="${esc(r.id)}">Ya no la quiero</button>`;
+}
+
+/** Cliente de la tienda: las mismas acciones con palabras que no asustan. */
+function clientHtml(x, daysLeft) {
+  if (typeof daysLeft === "number" && daysLeft > 7) return "";
+  ensure();
+  const r = reqOf(x.assignmentId);
+  if (!r) return `<span class="rlock">Para renovar, tocá «Pedir renovación» y te avisamos cuando esté lista. Tu cuenta sigue andando hasta el <b>${fdate(x.expiresAt)}</b>.</span><button class="sbtn sm pri" type="button" data-rrqask="${esc(x.assignmentId)}" data-what="${esc(short(x.product))}" data-amount="${x.price ?? 0}" data-client="1">📩 Pedir renovación${x.price ? ` · ${bs(x.price)}` : ""}</button>`;
+  if (r.status === "rejected") return `<span class="rlock">❌ Esta vez no la podemos renovar: ${esc(r.reason ?? "")}. Escribinos por WhatsApp y vemos otra opción.</span>`;
+  if (r.status === "done") return `<span class="rlock rrqok">✅ Ya está lista para renovar: pagá ${bs(r.order.total)} con el QR de arriba. Tu cuenta no se corta mientras tanto.</span>`;
+  return `<span class="rlock rrqok">✓ Pediste la renovación el ${fdate(r.createdAt)}: te avisamos cuando esté lista. Tu cuenta no se corta mientras tanto.</span><button class="sbtn sm" type="button" data-rrqcancel="${esc(r.id)}">Ya no la quiero</button>`;
 }
 
 /** ¿Hay un pedido abierto de este servicio? (para el cartel de Inicio). */
@@ -43,11 +57,13 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   if (d.rrqask) {
     const amt = Number(d.amount) || 0;
-    if (!confirm(`¿Pedir la renovación de ${d.what}${amt ? ` (${bs(amt)})` : ""}?\nLa tienda primero renueva con su proveedor. Cuando la renueve, se descuenta de tu saldo (si no te alcanza, te deja un QR). Mientras tanto no se corta.`)) return;
+    const how = d.client ? "Te avisamos cuando esté lista. Entonces se descuenta de tu saldo (si no te alcanza, te dejamos un QR). Tu cuenta no se corta mientras tanto."
+      : "La tienda primero renueva con su proveedor. Cuando la renueve, se descuenta de tu saldo (si no te alcanza, te deja un QR). Mientras tanto no se corta.";
+    if (!confirm(`¿Pedir la renovación de ${d.what}${amt ? ` (${bs(amt)})` : ""}?\n${how}`)) return;
     el.disabled = true;
     try {
       const r = await api("POST", "/api/me/renew-requests", { assignmentId: d.rrqask });
-      toast(r.already ? "Ya la habías pedido: la tienda la está renovando" : "📩 Listo: la tienda ya tiene tu pedido. No se corta mientras tanto.");
+      toast(r.already ? (d.client ? "Ya la habías pedido: te avisamos cuando esté lista" : "Ya la habías pedido: la tienda la está renovando") : "📩 Listo: la tienda ya tiene tu pedido. No se corta mientras tanto.");
       await reloadAll();
     } catch (e) { el.disabled = false; toast(e.message); }
   }

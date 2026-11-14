@@ -102,7 +102,7 @@ describe("etapa 5 · tienda premium (navegador)", () => {
       await p.goto(base + "/tienda/#cuentas");
       await p.waitForFunction(() => /Historial de pedidos/.test(document.body.innerText));
       let m = await measure();
-      for (const t of ["Esperando pago", "Revisando pago", "Estamos verificando tu pago", "Rechazado", "Motivo: Comprobante borroso", "hacé el pedido de nuevo", "Entregado"]) assert.ok(m.text.includes(t), `Mis cuentas tiene que decir «${t}»`);
+      for (const t of ["Esperando pago", "Revisando pago", "Estamos verificando tu pago", "Rechazado", "Motivo: Comprobante borroso", "No pagues de nuevo", "Entregado"]) assert.ok(m.text.includes(t), `Mis cuentas tiene que decir «${t}»`);
       assert.equal(m.over, false, "Mis cuentas sin desborde"); assert.deepEqual(m.small, [], "botones de 44 px"); assert.deepEqual(m.tiny, [], "letra ≥ 12 px");
       await p.goto("about:blank"); await p.goto(base + "/tienda/#recargas"); // en celular «Saldo» está en el menú Más: se entra por el enlace
       await p.waitForFunction(() => /Solicitar recarga/.test(document.body.innerText));
