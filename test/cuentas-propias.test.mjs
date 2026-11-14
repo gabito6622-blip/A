@@ -87,15 +87,19 @@ describe("cuentas propias (núcleo)", () => {
     assert.throws(() => s.own.assign(asR(py), { accountId: acc2.id, customerId: ajeno.id }), err("NOT_FOUND"));
     // Renovar: +30 días desde el vencimiento (o desde hoy si ya venció) y queda pagado.
     assert.equal(s.own.renew(asR(py), a1.id).expiresAt, T0 + 60 * DAY);
+    // Venció hace 30 días: dentro del plazo (el mismo del panel del dueño) corre desde el vencimiento, no regala días.
     clock.t = T0 + 90 * DAY;
-    assert.equal(s.own.renew(asR(py), a1.id, false).expiresAt, T0 + 120 * DAY);
+    assert.equal(s.own.renew(asR(py), a1.id, false).expiresAt, T0 + 90 * DAY);
     assert.equal(s.own.view(asR(py)).sales.find((x) => x.id === a1.id).pay, "pendiente");
     s.own.updateSale(asR(py), a1.id, { pay: "pagado" });
     assert.equal(s.own.view(asR(py)).totals.owed, 0);
     s.own.updateSale(asR(py), a2.id, { pay: "pendiente" });
     assert.equal(s.own.view(asR(py)).totals.owed, 3000000);
     // Liberar: el cupo queda libre y se puede volver a dar.
-    s.own.release(asR(py), a2.id);
+    clock.t = T0; // (a T0+90 la cuenta ya venció con su proveedor y no ofrece cupos)
+    // Debe: liberar frena y pregunta; lo perdona.
+    assert.throws(() => s.own.release(asR(py), a2.id), err("INVALID_STATE", /Quién me debe o lo perdonás/));
+    s.own.release(asR(py), a2.id, { debt: "perdonar" });
     assert.deepEqual(s.own.view(asR(py)).accounts.find((a) => a.id === acc.id).free, [2]);
     assert.equal(s.own.assign(asR(py), { accountId: acc.id, name: "Nueva", phone: "0985111222" }).slot, 2);
     // No se borra una cuenta con clientes; tampoco un producto con cuentas.

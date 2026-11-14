@@ -1,7 +1,8 @@
 // "📩 Mis clientes ven su código solos" (panel del revendedor) y "Ver códigos" de cada servicio en Mis cuentas.
 // - Repartir perfiles: un interruptor por cuenta alquilada (apagado por defecto) y el contador del mes.
-// - Mis cuentas propias: el mismo interruptor por cuenta, solo si su usuario es un correo; dice si la
-//   tienda ya recibe los códigos de ese correo (si no, su cliente ve "Pedile el código a tu vendedor").
+// - Mis cuentas propias: el mismo interruptor por cuenta, solo si su usuario es un correo; dice si ya llegan
+//   códigos de ese correo (si no, su cliente ve "Pedile el código a tu vendedor"). 14/11: ya NO sugiere reenviar
+//   sus correos a la tienda (el dueño los vería): GaboHub todavía no lee el correo propio del revendedor.
 // - Mis cuentas (cliente con cuenta): "📩 Ver códigos" muestra ahí mismo los de ESE servicio.
 // shop.js y ownstock.js solo llaman a estas funciones; la carga y los eventos están acá.
 import { api, esc, toast } from "/common.js";
@@ -54,8 +55,13 @@ export function selfCodesOwn(account) {
   const x = d.own.find((r) => r.accountId === account.id) ?? { on: false, readable: false };
   const state = !x.on ? "" : x.readable
     ? `<small class="cs-ok">✅ La tienda ya recibe los códigos de este correo.</small>`
-    : `<small class="cs-off">⏳ La tienda todavía no recibió códigos de este correo. Hasta que lleguen, tu cliente ve “Pedile el código a tu vendedor”. Preguntale a la tienda a qué correo reenviarlos.</small>`;
-  return `<div class="cs-box">${sw(`data-csown="${esc(account.id)}"`, x.on, "📩 Mis clientes ven su código solos", "Solo si los correos de esta cuenta llegan a la tienda.")}${state}${x.on ? ownerOff() : ""}</div>`;
+    : `<small class="cs-off">⏳ GaboHub todavía no puede leer tu correo, así que no llegan códigos de esta cuenta. Tu cliente ve “Pedile el código a tu vendedor”: abrí el correo de esta cuenta en tu celular y pasale el código vos.</small>`;
+  return `<div class="cs-box">${sw(`data-csown="${esc(account.id)}"`, x.on, "📩 Mis clientes ven su código solos", "Por ahora funciona solo con correos que ya lee la tienda. Conectar tu propio correo todavía no se puede.")}${state}${x.on ? ownerOff() : ""}</div>`;
+}
+
+/** «Mis códigos» del independiente: dice claro que los códigos de SUS cuentas propias no llegan acá (todavía). */
+export function ownCodesNote() {
+  return `<div class="sbox cs-ownnote" role="note"><b>📦 ¿Y los códigos de tus cuentas propias?</b><p class="empty" style="margin:0">Todavía no llegan acá: GaboHub no puede leer tu propio correo. Para sacar un código, abrí el correo de esa cuenta en tu celular. Acá ves los de cuentas compradas a la tienda y armás tu link de códigos para tus clientes.</p></div>`;
 }
 
 /* ---------------- Mis cuentas: los códigos de cada servicio ---------------- */

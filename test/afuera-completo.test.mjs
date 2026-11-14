@@ -108,10 +108,14 @@ describe("W1: cuentas propias que vencen (núcleo)", () => {
     assert.deepEqual(o.provider.map((a) => [a.user, a.product]), [["flujo03", "Flujo TV"]]);
     const raw = JSON.stringify(o);
     for (const x of ["Clave-", "0982", "+595"]) assert.ok(!raw.includes(x), `muestra ${x}`);
-    clock.t = T0 + 3 * DAY; // lo vencido ya no se avisa
-    assert.equal(ownSoonFor(s.engine, py.id).clients.length, 1, "Lejano (vence en 5) entra recién a 3 días");
-    assert.equal(ownSoonFor(s.engine, py.id).clients[0].name, "Lejano Pérez");
-    assert.equal(ownSoonFor(s.engine, py.id).provider.length, 0);
+    // 14/11/2026: lo ya vencido SE SIGUE avisando (marcado `late`) hasta 30 días; antes desaparecía el mismo día.
+    clock.t = T0 + 3 * DAY;
+    const later = ownSoonFor(s.engine, py.id);
+    assert.deepEqual(later.clients.map((c) => [c.name, !!c.late]), [["Rosa Giménez", true], ["Lejano Pérez", false]], "Lejano (vence en 5) entra a 3 días; Rosa sigue, vencida");
+    assert.deepEqual(later.provider.map((a) => [a.user, !!a.late]), [["flujo03", true]], "la cuenta vencida con su proveedor sigue avisando");
+    assert.match(ownPushText(later).title, /ya vencido/);
+    clock.t = T0 + 40 * DAY;
+    assert.equal(ownSoonFor(s.engine, py.id).clients.length, 0, "pasados 30 días pasa a «Que vuelvan»");
     clock.t = T0;
   });
 

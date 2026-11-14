@@ -8,7 +8,7 @@ import { mySoon } from "../store/ownAlerts.js";
 
 type Who = "public" | "customer" | "staff";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Ctx = { params: Record<string, string>; body: any; actor?: Actor; req: { headers: { host?: string } } };
+type Ctx = { params: Record<string, string>; body: any; actor?: Actor; query?: URLSearchParams; req: { headers: { host?: string } } };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Route = (method: string, path: string, who: Who, handler: (c: any) => unknown, maxBody?: number) => void;
 
@@ -69,8 +69,23 @@ export function registerOwnStockRoutes(d: OwnStockDeps): void {
   route("POST", "/api/me/own/accounts/:id/delete", "customer", (c) => store.own.deleteAccount(me(c), c.params.id));
   route("POST", "/api/me/own/sales", "customer", (c) => store.own.assign(me(c), c.body ?? {}));
   route("POST", "/api/me/own/sales/:id", "customer", (c) => store.own.updateSale(me(c), c.params.id, c.body ?? {}));
-  route("POST", "/api/me/own/sales/:id/renew", "customer", (c) => store.own.renew(me(c), c.params.id, c.body?.paid !== false));
-  route("POST", "/api/me/own/sales/:id/release", "customer", (c) => { const r = store.own.release(me(c), c.params.id); d.onLinkGone?.(); return r; });
+  // «Renovó»: `paid` (Sí, pagó / Me paga después) y `amount` (cuánto pagó). Devuelve `undo` para deshacerlo.
+  route("POST", "/api/me/own/sales/:id/renew", "customer", (c) => store.own.renew(me(c), c.params.id, { paid: c.body?.paid !== false, amount: c.body?.amount }));
+  route("POST", "/api/me/own/sales/:id/renew/undo", "customer", (c) => store.own.undoRenew(me(c), c.params.id, c.body?.undo));
+  // Liberar: si debe, `debt: "fiado"` (a Quién me debe) o `debt: "perdonar"`; sin eso, 409 con la pregunta.
+  route("POST", "/api/me/own/sales/:id/release", "customer", (c) => { const r = store.own.release(me(c), c.params.id, { debt: c.body?.debt }); d.onLinkGone?.(); return r; });
+  // Cobros (pagos parciales), perdonar, mover y cuentas caídas (ownPlata.ts).
+  route("POST", "/api/me/own/sales/:id/pay", "customer", (c) => store.own.pay(me(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/me/own/sales/:id/forgive", "customer", (c) => store.own.forgive(me(c), c.params.id));
+  route("POST", "/api/me/own/sales/:id/move", "customer", (c) => store.own.move(me(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/me/own/accounts/:id/move-all", "customer", (c) => store.own.moveAll(me(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/me/own/accounts/:id/down", "customer", (c) => store.own.setDown(me(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/me/own/accounts/:id/provider-pay", "customer", (c) => store.own.providerPay(me(c), c.params.id, c.body ?? {}));
+  // Mis ganancias de sus cuentas propias (por mes y su libro de cobros), su día y «Que vuelvan».
+  route("GET", "/api/me/own/earnings", "customer", (c) => store.own.earnings(me(c), c.query?.get("month") ?? undefined));
+  route("GET", "/api/me/own/day", "customer", (c) => store.own.day(me(c)));
+  route("GET", "/api/me/own/back", "customer", (c) => store.own.back(me(c)));
+  route("POST", "/api/me/own/back", "customer", (c) => store.own.markBack(me(c), c.body?.key, c.body?.off === true));
   // Link de cobro: el mismo /c/<token> y /api/cobro/<token> que el cuaderno de perfiles.
   route("POST", "/api/me/own/sales/:id/link", "customer", (c) => { const r = store.own.link(me(c), c.params.id); return { ...r, url: d.cobroUrl(r.token, c) }; });
   route("POST", "/api/me/own/sales/:id/link/revoke", "customer", (c) => { const r = store.own.revokeLink(me(c), c.params.id); d.onLinkGone?.(); return r; });

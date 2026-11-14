@@ -13,10 +13,13 @@ if (typeof document !== "undefined" && !document.querySelector('link[href="/owns
   const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/ownstock.css"; document.head.append(l);
 }
 
-const OS = { data: null, customers: [], loading: false, err: "", open: {}, paste: null, q: "", msg: {}, show: {}, logoV: Date.now() % 1e6 };
+const OS = { data: null, customers: [], loading: false, err: "", open: {}, paste: null, q: "", msg: {}, show: {}, logoV: Date.now() % 1e6, notify: null, notified: new Set() };
 let RENDER = () => {};
 /** shop.js le pasa su render() para redibujar después de cada cambio. */
 export function initOwnStock(render) { RENDER = render; }
+// Otros módulos (Mi día, Mis ganancias de cuentas propias) se enteran cuando algo cambia, para recargar lo suyo.
+const CHANGED = [];
+export const onOwnChange = (fn) => CHANGED.push(fn);
 /** Lo propio del revendedor ya cargado (para Mi control, Quién me debe y Mis ganancias, GaboHub etapa 3). */
 export const ownData = () => OS.data;
 // Si cambia su moneda (desde acá o desde el Inicio), sus montos se vuelven a leer en la moneda nueva.
@@ -56,11 +59,12 @@ const remindText = (s) => `Hola ${firstName(s.name)} 👋 tu ${s.product} ${days
 
 function saleRow(s) {
   const open = OS.open.sale === s.id;
-  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}${ownAlertTag(s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.debt ? ` · <span class="bad">Debe ${$m(s.debt)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}${s.blocked ? ` · <span class="bad">${s.blocked === "caida" ? "⚠️ cuenta caída" : "⚠️ cuenta vencida"}</span>` : ""}${ownAlertTag(s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
     ${open ? `<div class="os-sale">
       <div class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, accessText(s))}" target="_blank" rel="noopener">🔑 Mandar acceso por WhatsApp</a><a class="sbtn sm" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : `<small class="empty">Sin WhatsApp</small>`}</div>
       <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"} +${OS.data.products.find((p) => p.id === s.productId)?.durationDays ?? 30} días</button>
-        <button class="sbtn sm" type="button" data-os="pay" data-id="${esc(s.id)}" data-pay="${s.pay === "pagado" ? "pendiente" : "pagado"}">${s.pay === "pagado" ? "⏳ Marcar pendiente" : "💵 Me pagó"}</button>
+        <button class="sbtn sm" type="button" data-os="pay" data-id="${esc(s.id)}" data-pay="${s.debt || s.pay !== "pagado" ? "pagado" : "pendiente"}">${s.debt || s.pay !== "pagado" ? "💵 Me pagó" : "⏳ Marcar pendiente"}</button>
+        <button class="sbtn sm" type="button" data-os="move" data-id="${esc(s.id)}">↔️ Mover a otra cuenta</button>
         <button class="sbtn sm" type="button" data-os="release" data-id="${esc(s.id)}">🗑️ Liberar cupo</button></div>
       <form class="sform os-grid" data-osf="sale" data-id="${esc(s.id)}"><label>Le vence<input type="date" name="exp" required value="${ymd(s.expiresAt)}"></label><label>Le cobro (${esc(cur().symbol)})<input name="price" inputmode="decimal" value="${s.price != null ? s.price / 100 : ""}"></label>
         <label class="os-wide">Nota<input name="note" maxlength="120" value="${esc(s.note ?? "")}" placeholder="Ej.: paga los lunes"></label>${errBox("sale:" + s.id)}<button class="sbtn sm" type="submit">Guardar</button></form>
@@ -84,14 +88,23 @@ function assignForm(a) {
 function accountRow(a) {
   const open = OS.open.account === a.id, sales = OS.data.sales.filter((s) => s.accountId === a.id);
   const prov = a.providerExpiresAt ? ` · tu proveedor: ${fdate(a.providerExpiresAt)}` : "";
-  return `<div class="subrow"><button type="button" class="rcopen" data-os="account" data-id="${esc(a.id)}" aria-expanded="${open}"><span><b>${esc(a.user)}</b><small>${a.slots - a.free.length}/${a.slots} ocupado(s)${prov}</small></span>${a.providerExpiresAt ? pill(a.providerExpiresAt) : ""}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
-    ${open ? `<div class="os-acc"><div class="os-pass"><span>Contraseña o PIN: <code>${OS.show[a.id] ? esc(a.password) : "••••••"}</code></span><button class="sbtn sm" type="button" data-os="show" data-id="${esc(a.id)}">${OS.show[a.id] ? "Ocultar" : "👁 Ver"}</button></div>
+  const busy = a.slots - (a.empty ?? a.free.length);
+  const state = a.blocked === "caida" ? `<span class="rcest rc-bad">🔴 Se cayó</span>` : a.blocked === "vencida" ? `<span class="rcest rc-bad">⛔ Vencida</span>` : a.providerExpiresAt ? pill(a.providerExpiresAt) : "";
+  const blockedMsg = a.blocked === "caida" ? `⚠️ Marcaste que se cayó${a.down?.note ? ` (${esc(a.down.note)})` : ""}: no se ofrece en tu página ni se dan cupos.`
+    : a.blocked === "vencida" ? "⛔ Venció con tu proveedor: no se ofrece en tu página ni se dan cupos hasta que anotes que la pagaste." : "";
+  return `<div class="subrow"><button type="button" class="rcopen" data-os="account" data-id="${esc(a.id)}" aria-expanded="${open}"><span><b>${esc(a.user)}</b><small>${busy}/${a.slots} ocupado(s)${prov}${a.cost ? ` · te cuesta ${$m(a.cost)}` : ""}</small></span>${state}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+    ${open ? `<div class="os-acc">${blockedMsg ? `<p class="os-blocked" role="status">${blockedMsg}</p>` : ""}<div class="os-pass"><span>Contraseña o PIN: <code>${OS.show[a.id] ? esc(a.password) : "••••••"}</code></span><button class="sbtn sm" type="button" data-os="show" data-id="${esc(a.id)}">${OS.show[a.id] ? "Ocultar" : "👁 Ver"}</button></div>
+      <div class="rbtns">${a.blocked === "caida" ? `<button class="sbtn sm" type="button" data-os="up" data-id="${esc(a.id)}">✅ Ya volvió</button>` : `<button class="sbtn sm" type="button" data-os="down" data-id="${esc(a.id)}">⚠️ Se cayó esta cuenta</button>`}
+        ${sales.length && a.blocked ? `<button class="sbtn sm pri" type="button" data-os="moveall" data-id="${esc(a.id)}">↔️ Mover todos (${sales.length})</button>` : ""}
+        ${sales.length ? `<button class="sbtn sm" type="button" data-os="notifyacc" data-id="${esc(a.id)}">📣 Avisar a todos los de esta cuenta</button>` : ""}
+        <button class="sbtn sm" type="button" data-os="provpay" data-id="${esc(a.id)}">💸 Pagué a mi proveedor</button></div>
       ${selfCodesOwn(a)}${sales.length ? `<div class="os-sales">${sales.map(saleRow).join("")}</div>` : `<small class="empty">Nadie usa esta cuenta todavía.</small>`}
-      ${a.free.length ? assignForm(a) : `<small class="empty">Sin cupos libres.</small>`}
+      ${a.free.length ? assignForm(a) : a.blocked ? "" : `<small class="empty">Sin cupos libres.</small>`}
       <details><summary class="sbtn sm">✏️ Corregir cuenta</summary><form class="sform os-grid" data-osf="account" data-id="${esc(a.id)}" data-product="${esc(a.productId)}">
         <label>Usuario o correo<input name="user" required maxlength="120" value="${esc(a.user)}" autocomplete="off"></label><label>Contraseña o PIN nueva<input name="password" maxlength="120" placeholder="(dejala vacía para no cambiarla)" autocomplete="off"></label>
         ${OS.data.products.find((p) => p.id === a.productId)?.kind === "profiles" ? `<label>Cupos<input name="slots" type="number" min="1" max="10" value="${a.slots}"></label>` : ""}
         <label>Vence con tu proveedor<input type="date" name="prov" value="${a.providerExpiresAt ? ymd(a.providerExpiresAt) : ""}"></label>
+        <label>Te cuesta por período (${esc(cur().symbol)})<input name="cost" inputmode="decimal" value="${a.cost != null ? a.cost / 100 : ""}" placeholder="Ej.: 80"></label>
         <label class="os-wide">Nota<input name="note" maxlength="120" value="${esc(a.note)}"></label>${errBox("account:" + a.id)}
         <div class="rbtns os-wide"><button class="sbtn sm pri" type="submit">Guardar</button><button class="sbtn sm" type="button" data-os="delacc" data-id="${esc(a.id)}">🗑️ Borrar cuenta</button></div></form></details></div>` : ""}</div>`;
 }
@@ -131,7 +144,7 @@ function productCard(p) {
   const accs = OS.data.accounts.filter((a) => a.productId === p.id);
   const logo = p.hasLogo ? `<img class="os-logo" src="/api/me/own/products/${encodeURIComponent(p.id)}/logo?v=${OS.logoV}" alt="" width="40" height="40">` : `<span class="os-logo os-emoji" aria-hidden="true">${esc(p.emoji || "📦")}</span>`;
   return `<article class="rcard os-prod"><header><button type="button" class="rcopen" data-os="product" data-id="${esc(p.id)}" aria-expanded="${open}">${logo}<span><b>${esc(p.name)}</b><small>${$m(p.price)} · ${p.durationDays} días · ${esc(KINDS[p.kind])}</small><small>${p.accounts} cuenta(s) · ${p.used} cliente(s) · ${p.free} cupo(s) libre(s)${p.onPage ? " · en tu página" : ""}</small></span><i aria-hidden="true">${open ? "▴" : "▾"}</i></button></header>
-    ${open ? `<div class="rbtns"><button class="sbtn sm pri" type="button" data-os="paste" data-id="${esc(p.id)}">📋 Pegar cuentas</button><details class="os-inline"><summary class="sbtn sm">➕ Una cuenta</summary><form class="sform os-grid" data-osf="account" data-product="${esc(p.id)}"><label>Usuario o correo<input name="user" required maxlength="120" autocomplete="off"></label><label>Contraseña o PIN<input name="password" required maxlength="120" autocomplete="off"></label><label>Vence con tu proveedor<input type="date" name="prov"></label><label>Nota<input name="note" maxlength="120"></label>${errBox("account:new")}<button class="sbtn sm pri os-wide" type="submit">Guardar cuenta</button></form></details></div>
+    ${open ? `<div class="rbtns"><button class="sbtn sm pri" type="button" data-os="paste" data-id="${esc(p.id)}">📋 Pegar cuentas</button><details class="os-inline"><summary class="sbtn sm">➕ Una cuenta</summary><form class="sform os-grid" data-osf="account" data-product="${esc(p.id)}"><label>Usuario o correo<input name="user" required maxlength="120" autocomplete="off"></label><label>Contraseña o PIN<input name="password" required maxlength="120" autocomplete="off"></label><label>Vence con tu proveedor<input type="date" name="prov"></label><label>Te cuesta por período (${esc(cur().symbol)})<input name="cost" inputmode="decimal" placeholder="Ej.: 80"></label><label class="os-wide">Nota<input name="note" maxlength="120"></label>${errBox("account:new")}<button class="sbtn sm pri os-wide" type="submit">Guardar cuenta</button></form></details></div>
       ${OS.paste?.productId === p.id ? pasteBox(p) : ""}
       <div class="sublist">${accs.map(accountRow).join("") || `<p class="empty" style="margin:0">Todavía no cargaste cuentas de ${esc(p.name)}.</p>`}</div>
       <details><summary class="sbtn sm">✏️ Editar producto</summary>${productForm(p)}
@@ -153,15 +166,213 @@ export function ownStockView() {
   return `<div class="sbox"><h2 style="margin:0">📦 Mis cuentas propias</h2>
       <p class="empty" style="margin:0">Tus servicios que conseguís por tu lado (por ejemplo Flujo TV): cargá tus cuentas, dale un cupo a cada cliente y cobrá en ${esc(cur().symbol)}. Solo vos ves esto.</p>
       <div class="rkpis"><div><small>Clientes</small><b>${t.clients}</b></div><div><small>Te deben</small><b class="${t.owed ? "bad" : ""}">${$m(t.owed)}</b></div><div><small>Cobrás por mes</small><b>${$m(t.monthly)}</b></div><div><small>Cupos libres</small><b>${d.products.reduce((n, p) => n + p.free, 0)}</b></div></div></div>
+    ${notifyBox()}
     ${countryCard()}
     ${soonSales.length || soonAcc.length ? `<div class="sbox rcwarn"><h3 style="margin:0">⏰ Vencen esta semana</h3>
-      ${soonSales.map((s) => `<div class="rcsoon-r"><span><b>${esc(s.name)}</b><small>${esc(s.product)} · ${pill(s.expiresAt)}</small></span><span class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">🔄 Renovó</button></span></div>`).join("")}
-      ${soonAcc.map((a) => `<div class="rcsoon-r"><span><b>Tu cuenta ${esc(a.user)}</b><small>${esc(a.product)} · con tu proveedor ${pill(a.providerExpiresAt)}</small></span></div>`).join("")}</div>` : ""}
+      ${soonSales.map((s) => `<div class="rcsoon-r"><span><b>${esc(s.name)}</b><small>${esc(s.product)} · ${pill(s.expiresAt)}</small></span><span class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"}</button></span></div>`).join("")}
+      ${soonAcc.map((a) => `<div class="rcsoon-r"><span><b>Tu cuenta ${esc(a.user)}</b><small>${esc(a.product)} · con tu proveedor ${pill(a.providerExpiresAt)}</small></span><span class="rbtns"><button class="sbtn sm" type="button" data-os="provpay" data-id="${esc(a.id)}">💸 Pagué a mi proveedor</button></span></div>`).join("")}</div>` : ""}
+    ${(d.gone ?? []).length ? `<div class="sbox"><h3 style="margin:0">📒 Se fueron debiendo · ${$m(d.gone.reduce((t, g) => t + g.debt, 0))}</h3><p class="empty" style="margin:0">Liberaste su cupo pero la deuda sigue (también está en Quién me debe).</p>
+      ${d.gone.map((g) => `<div class="rcsoon-r"><span><b>${esc(g.name)}</b><small>${esc(g.product)} · debe ${$m(g.debt)}</small></span><span class="rbtns"><button class="sbtn sm pri" type="button" data-os="pay" data-id="${esc(g.id)}" data-pay="pagado">💵 Me pagó</button><button class="sbtn sm" type="button" data-os="forgive" data-id="${esc(g.id)}">🤝 Perdonar</button></span></div>`).join("")}</div>` : ""}
     <div class="rclist">${d.products.map(productCard).join("")}</div>
     <details class="sbox" ${d.products.length ? "" : "open"}><summary><b>➕ Nuevo producto</b></summary>${productForm(null)}</details>
     ${d.sales.length ? `<div class="sbox"><h3 style="margin:0">👥 Mis clientes de cuentas propias (${d.sales.length})</h3>${alertsSummary()}
       ${d.sales.length > 5 ? `<label class="sr-only" for="osq">Buscar cliente</label><input id="osq" class="rsearch" data-osq="1" placeholder="🔍 Buscar cliente, WhatsApp o producto" value="${esc(OS.q)}">` : ""}
       <div class="sublist">${list.map(saleRow).join("") || `<p class="empty" style="margin:0">Nadie coincide con la búsqueda.</p>`}</div></div>` : ""}`;
+}
+
+/* ---------------- avisos con los datos nuevos (mover, cambio de clave) ---------------- */
+/** Fila de avisos por WhatsApp: cada cliente con su acceso nuevo (cuenta, clave, cupo y la MISMA fecha). */
+function notifyBox() {
+  const N = OS.notify;
+  if (!N || !OS.data) return "";
+  const list = N.ids.map((id) => OS.data.sales.find((s) => s.id === id)).filter(Boolean);
+  const done = list.filter((s) => OS.notified.has(s.id)).length;
+  return `<div class="sbox rcwarn os-notify" id="osNotify" role="status"><h3 style="margin:0">${esc(N.title)} <small class="empty">(${done}/${list.length} avisados)</small></h3>
+    <p class="empty" style="margin:0">Tocá cada uno: se abre WhatsApp con su usuario, contraseña y cupo nuevos. Su fecha y lo que te debe no cambian.</p>
+    ${list.map((s) => `<div class="rcsoon-r ${OS.notified.has(s.id) ? "done" : ""}"><span><b>${esc(s.name)}</b><small>${esc(s.product)} · ${esc(s.user)}${s.slot ? ` · cupo ${s.slot}` : ""} · vence ${fdate(s.expiresAt)}</small></span>${s.phone ? `<a class="sbtn sm ${OS.notified.has(s.id) ? "" : "pri"}" href="${waLink(s.phone, `Hola ${firstName(s.name)} 👋 te paso los datos nuevos de tu cuenta:\n${accessText(s)}`)}" target="_blank" rel="noopener" data-osn="${esc(s.id)}">${OS.notified.has(s.id) ? "✓ Avisado" : "💬 Avisar"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</div>`).join("")}
+    ${N.left?.length ? `<p class="os-err">No entraron (no hay cupos libres en otra cuenta): ${esc(N.left.map((x) => x.name).join(", "))}. Cargá otra cuenta y tocá «Mover todos» de nuevo.</p>` : ""}
+    <button class="sbtn sm" type="button" data-os="notifyoff">Listo</button></div>`;
+}
+
+/* ---------------- hoja de preguntas (¿Te pagó?, liberar con deuda, mover, proveedor) ---------------- */
+// Una hoja abajo de la pantalla (celular primero), con botones grandes. Sirve desde cualquier pestaña:
+// Mis cuentas propias, Mi día, Mi control y Quién me debe usan los mismos data-os.
+const sym = () => cur().symbol;
+function closeSheet() { document.querySelector(".os-sheetw")?.remove(); }
+function sheet(title, body) {
+  closeSheet();
+  const w = document.createElement("div");
+  w.className = "os-sheetw";
+  w.innerHTML = `<div class="os-sheet" role="dialog" aria-modal="true" aria-labelledby="osSheetT"><h3 id="osSheetT">${title}</h3>${body}<p class="os-err" data-sheeterr hidden></p></div>`;
+  document.body.append(w);
+  (w.querySelector("input:not([type=hidden]), button.pri, button") ?? w).focus();
+}
+const sheetErr = (msg) => { const p = document.querySelector("[data-sheeterr]"); if (p) { p.textContent = msg; p.hidden = false; } else toast(msg); };
+const cancelBtn = `<button class="sbtn" type="button" data-os="sheetno">Cancelar</button>`;
+const findSale = (id) => OS.data?.sales.find((x) => x.id === id) ?? (OS.data?.gone ?? []).find((x) => x.id === id);
+const durOf = (s) => OS.data?.products.find((p) => p.id === s.productId)?.durationDays ?? 30;
+/** Mismo plazo que el servidor: si venció hace 30 días o menos, corre desde el vencimiento. */
+const renewTo = (s) => { const now = Date.now(), from = s.trial ? Math.max(s.expiresAt, now) : s.expiresAt >= now || now - s.expiresAt <= 30 * 86_400_000 ? s.expiresAt : now; return from + durOf(s) * 86_400_000; };
+
+/** Barra «Deshacer» por 10 segundos. */
+function undoBar(text, saleId, op) {
+  document.querySelector(".os-undo")?.remove();
+  const d = document.createElement("div");
+  d.className = "os-undo"; d.setAttribute("role", "status");
+  d.innerHTML = `<span>${esc(text)}</span><button class="sbtn sm" type="button" data-os="undo" data-id="${esc(saleId)}" data-op="${esc(op)}">↩️ Deshacer</button>`;
+  document.body.append(d);
+  setTimeout(() => d.remove(), 10_000);
+}
+
+/** Sale a la API desde la hoja: errores dentro de la hoja; si sale bien, la cierra y recarga. */
+async function sheetAct(fn, ok) {
+  try {
+    const r = await fn();
+    closeSheet();
+    if (ok) toast(typeof ok === "function" ? ok(r) : ok);
+    await loadOwnStock();
+    for (const f of CHANGED) { try { await f(); } catch { /* se recarga después */ } }
+    RENDER();
+    return r;
+  } catch (e) { sheetErr(e.message); return null; }
+}
+
+async function sheetClick(k, d, el) {
+  const id = d.id;
+  if (k === "sheetno") { closeSheet(); return true; }
+  if (!["renew", "renewlater", "pay", "release", "relfiado", "relperdon", "relok", "move", "moveall", "moveallok", "down", "up", "notifyacc", "notifyoff", "provpay", "forgive", "forgiveok", "undo"].includes(k)) return false;
+  if (!OS.data && !["notifyoff", "undo"].includes(k)) await loadOwnStock();
+  const s = findSale(id);
+  if (k === "renew") {
+    if (!s) return true;
+    const pr = s.price ?? OS.data.products.find((p) => p.id === s.productId)?.price ?? 0;
+    sheet(`${s.trial ? "✅" : "🔄"} ${esc(firstName(s.name))} ${s.trial ? "compró" : "renovó"} ${esc(s.product)}`,
+      `<p style="margin:0">Pasa a vencer el <b>${fdate(renewTo(s))}</b>${s.expiresAt < Date.now() ? ` (desde su vencimiento del ${fdate(s.expiresAt)})` : ""}.${s.debt ? ` Ya te debía <b>${$m(s.debt)}</b>.` : ""}</p>
+      <p style="margin:0"><b>¿Te pagó?</b></p>
+      <form class="sform" data-osf="renew" data-id="${esc(s.id)}"><label>Me pagó (${esc(sym())})<input name="amount" inputmode="decimal" value="${pr ? pr / 100 : ""}"></label>
+        <button class="sbtn pri" type="submit" data-paidlabel="1">✅ Sí, pagó ${$m(pr)}</button></form>
+      <div class="rbtns"><button class="sbtn" type="button" data-os="renewlater" data-id="${esc(s.id)}">⏳ Me paga después</button>${cancelBtn}</div>`);
+    return true;
+  }
+  if (k === "renewlater") {
+    el.disabled = true;
+    const r = await sheetAct(() => api("POST", `/api/me/own/sales/${id}/renew`, { paid: false }), (x) => `🔄 Renovado: te debe ${$m(x.debt)}`);
+    if (r) undoBar(`🔄 Renovado hasta ${fdate(r.expiresAt)} · te debe ${$m(r.debt)}`, id, r.undo);
+    return true;
+  }
+  if (k === "undo") {
+    el.disabled = true;
+    try { await api("POST", `/api/me/own/sales/${id}/renew/undo`, { undo: d.op }); toast("↩️ Listo, lo deshice"); el.closest(".os-undo")?.remove(); await loadOwnStock(); for (const f of CHANGED) { try { await f(); } catch { /* */ } } RENDER(); }
+    catch (e) { toast(e.message); }
+    return true;
+  }
+  if (k === "pay") {
+    if (!s) return true;
+    if (!s.debt) { await act(() => api("POST", `/api/me/own/sales/${id}`, { pay: "pagado" }), "💵 Marcado pagado"); return true; }
+    sheet(`💵 ¿Cuánto te pagó ${esc(firstName(s.name))}?`, `<p style="margin:0">Te debe <b>${$m(s.debt)}</b> (${esc(s.product)}). Si te paga una parte, anotá esa parte: el resto sigue en Quién me debe.</p>
+      <form class="sform" data-osf="pay" data-id="${esc(s.id)}"><label>Me pagó (${esc(sym())})<input name="amount" inputmode="decimal" required value="${s.debt / 100}"></label><label>Nota<input name="note" maxlength="120" placeholder="QR, efectivo, una parte…"></label>
+        <button class="sbtn pri" type="submit">✅ Guardar pago</button></form><div class="rbtns">${cancelBtn}</div>`);
+    return true;
+  }
+  if (k === "release") {
+    if (!s) return true;
+    if (s.debt) sheet(`${esc(firstName(s.name))} te debe ${$m(s.debt)}`, `<p style="margin:0">¿Lo pasás a <b>Quién me debe</b> o lo perdonás? Su cupo queda libre y su link de cobro deja de servir.</p>
+      <div class="rbtns"><button class="sbtn pri" type="button" data-os="relfiado" data-id="${esc(s.id)}">📒 Pasar a Quién me debe</button><button class="sbtn" type="button" data-os="relperdon" data-id="${esc(s.id)}">🤝 Lo perdono</button>${cancelBtn}</div>`);
+    else sheet(`¿Liberar el cupo de ${esc(firstName(s.name))}?`, `<p style="margin:0">Sale de la cuenta ${esc(s.user)} y su link de cobro deja de servir. Queda en «Que vuelvan» para escribirle más adelante.</p>
+      <div class="rbtns"><button class="sbtn pri" type="button" data-os="relok" data-id="${esc(s.id)}">🗑️ Sí, liberar</button>${cancelBtn}</div>`);
+    return true;
+  }
+  if (k === "relfiado" || k === "relperdon" || k === "relok") {
+    el.disabled = true;
+    await sheetAct(() => api("POST", `/api/me/own/sales/${id}/release`, k === "relok" ? {} : { debt: k === "relfiado" ? "fiado" : "perdonar" }), k === "relfiado" ? "📒 Cupo libre: la deuda pasó a Quién me debe" : "Cupo libre");
+    return true;
+  }
+  if (k === "forgive") {
+    if (!s) return true;
+    sheet(`¿Perdonar a ${esc(firstName(s.name))}?`, `<p style="margin:0">Te debe <b>${$m(s.debt)}</b>. Si lo perdonás, deja de aparecer en Quién me debe (queda anotado en tu libro).</p><div class="rbtns"><button class="sbtn pri" type="button" data-os="forgiveok" data-id="${esc(s.id)}">🤝 Sí, lo perdono</button>${cancelBtn}</div>`);
+    return true;
+  }
+  if (k === "forgiveok") { el.disabled = true; await sheetAct(() => api("POST", `/api/me/own/sales/${id}/forgive`, {}), "🤝 Perdonado"); return true; }
+  if (k === "move") {
+    if (!s) return true;
+    const opts = OS.data.accounts.filter((a) => a.productId === s.productId && a.id !== s.accountId && a.free.length);
+    sheet(`↔️ Mover a ${esc(firstName(s.name))} a otra cuenta`, opts.length
+      ? `<p style="margin:0">Mantiene su fecha (${fdate(s.expiresAt)}), su precio, lo que te debe y su link de cobro. Después te armo el mensaje con sus datos nuevos.</p>
+        <form class="sform" data-osf="move" data-id="${esc(s.id)}"><label>Cuenta y cupo<select name="to" required>${opts.flatMap((a) => a.free.map((n) => `<option value="${esc(a.id)}|${n}">${esc(a.user)} · cupo ${n}</option>`)).join("")}</select></label>
+        <button class="sbtn pri" type="submit">↔️ Mover</button></form><div class="rbtns">${cancelBtn}</div>`
+      : `<p style="margin:0">No tenés otra cuenta de ${esc(s.product)} con cupos libres (que no esté caída ni vencida). Cargá una y volvé a tocar «Mover».</p><div class="rbtns">${cancelBtn}</div>`);
+    return true;
+  }
+  const a = OS.data?.accounts.find((x) => x.id === id);
+  if (k === "moveall") {
+    if (!a) return true;
+    const n = OS.data.sales.filter((x) => x.accountId === a.id).length;
+    const room = OS.data.accounts.filter((x) => x.productId === a.productId && x.id !== a.id).reduce((t, x) => t + x.free.length, 0);
+    sheet(`↔️ Mover a los ${n} de ${esc(a.user)}`, `<p style="margin:0">Pasan a los cupos libres de tus otras cuentas de ${esc(a.product)} (hay ${room}). Mantienen su fecha, su precio, lo que te deben y su link. Después te armo los avisos con los datos nuevos.</p>
+      <div class="rbtns"><button class="sbtn pri" type="button" data-os="moveallok" data-id="${esc(a.id)}" ${room ? "" : "disabled"}>↔️ Mover todos</button>${cancelBtn}</div>${room ? "" : `<p class="os-err">No hay cupos libres: cargá otra cuenta de ${esc(a.product)} primero.</p>`}`);
+    return true;
+  }
+  if (k === "moveallok") {
+    el.disabled = true;
+    const r = await sheetAct(() => api("POST", `/api/me/own/accounts/${id}/move-all`, {}), (x) => `↔️ Moví ${x.moved.length}${x.left.length ? ` · faltan ${x.left.length}` : ""}`);
+    if (r) { OS.notify = { title: `↔️ Moviste ${r.moved.length}: mandales sus datos nuevos`, ids: r.moved.map((x) => x.id), left: r.left }; RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
+    return true;
+  }
+  if (k === "down") {
+    if (!a) return true;
+    sheet(`⚠️ ¿Se cayó ${esc(a.user)}?`, `<p style="margin:0">Deja de ofrecerse en tu página y no se dan cupos. Sus clientes siguen con su fecha: movelos a otra cuenta con «Mover todos».</p>
+      <form class="sform" data-osf="down" data-id="${esc(a.id)}"><label>¿Qué pasó? (opcional)<input name="note" maxlength="120" placeholder="Ej.: el proveedor la bloqueó"></label><button class="sbtn pri" type="submit">⚠️ Sí, se cayó</button></form><div class="rbtns">${cancelBtn}</div>`);
+    return true;
+  }
+  if (k === "up") { await act(() => api("POST", `/api/me/own/accounts/${id}/down`, { down: false }), "✅ La cuenta volvió"); return true; }
+  if (k === "notifyacc") {
+    if (!a) return true;
+    const ids = OS.data.sales.filter((x) => x.accountId === a.id).map((x) => x.id);
+    OS.notify = { title: `📣 Avisá a los ${ids.length} de ${a.user}`, ids, left: [] };
+    RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" });
+    return true;
+  }
+  if (k === "notifyoff") { OS.notify = null; RENDER(); return true; }
+  if (k === "provpay") {
+    if (!a) return true;
+    sheet(`💸 Pagué a mi proveedor · ${esc(a.user)}`, `<p style="margin:0">${a.providerExpiresAt ? `Hoy vence el ${fdate(a.providerExpiresAt)}. ` : ""}Se suma a «Mis ganancias» como lo que pagaste y corre la fecha con tu proveedor.</p>
+      <form class="sform os-grid" data-osf="provpay" data-id="${esc(a.id)}"><label>Le pagué (${esc(sym())})<input name="amount" inputmode="decimal" required value="${a.cost != null ? a.cost / 100 : ""}" placeholder="Ej.: 80"></label>
+        <label>¿Por cuántos meses?<select name="months">${[1, 2, 3, 6, 12].map((m) => `<option value="${m}">${m} ${m === 1 ? "mes" : "meses"}</option>`).join("")}</select></label>
+        <label class="os-wide">Nota<input name="note" maxlength="120" placeholder="Ej.: pagué por QR"></label>
+        <button class="sbtn pri os-wide" type="submit">✅ Guardar pago</button></form><div class="rbtns">${cancelBtn}</div>`);
+    return true;
+  }
+  return false;
+}
+
+async function sheetSubmit(k, f) {
+  const id = f.dataset.id;
+  if (!["renew", "pay", "move", "down", "provpay"].includes(k)) return false;
+  let n = null;
+  if (f.amount) { try { n = price(f.amount.value); } catch (e) { sheetErr(e.message); return true; } }
+  if (k === "renew") {
+    const r = await sheetAct(() => api("POST", `/api/me/own/sales/${id}/renew`, n ? { paid: true, amount: n } : { paid: false }), (x) => (x.debt ? `🔄 Renovado · te debe ${$m(x.debt)}` : "🔄 Renovado y pagado"));
+    if (r) undoBar(`🔄 Renovado hasta ${fdate(r.expiresAt)}${r.debt ? ` · te debe ${$m(r.debt)}` : " · pagado"}`, id, r.undo);
+    return true;
+  }
+  if (k === "pay") {
+    if (!n) { sheetErr("Escribí cuánto te pagó"); return true; }
+    await sheetAct(() => api("POST", `/api/me/own/sales/${id}/pay`, { amount: n, note: f.note.value }), (x) => (x.debt ? `💵 Anotado · todavía debe ${$m(x.debt)}` : "💵 Anotado: ya no te debe"));
+    return true;
+  }
+  if (k === "move") {
+    const [accountId, slot] = f.to.value.split("|");
+    const r = await sheetAct(() => api("POST", `/api/me/own/sales/${id}/move`, { accountId, slot: Number(slot) }), "↔️ Movido");
+    if (r) { OS.notify = { title: `↔️ Moviste a ${firstName(r.name)}: mandale sus datos nuevos`, ids: [r.id], left: [] }; RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
+    return true;
+  }
+  if (k === "down") { await sheetAct(() => api("POST", `/api/me/own/accounts/${id}/down`, { down: true, note: f.note.value }), "⚠️ Marcada como caída: ya no se ofrece"); return true; }
+  if (k === "provpay") {
+    if (!n) { sheetErr("Escribí cuánto le pagaste"); return true; }
+    await sheetAct(() => api("POST", `/api/me/own/accounts/${id}/provider-pay`, { amount: n, months: Number(f.months.value), note: f.note.value }), (x) => `💸 Anotado${x.providerExpiresAt ? ` · vence el ${fdate(x.providerExpiresAt)}` : ""}`);
+    return true;
+  }
+  return false;
 }
 
 /* ---------------- eventos (con captura: no pasan por los de shop.js) ---------------- */
@@ -171,6 +382,7 @@ async function act(fn, ok, key) {
     const r = await fn();
     if (ok) toast(ok);
     await loadOwnStock();
+    for (const fn of CHANGED) { try { await fn(); } catch { /* lo suyo se recarga la próxima vez */ } }
     return r;
   } catch (e) {
     if (key) OS.msg[key] = e.message; else toast(e.message);
@@ -180,6 +392,8 @@ const price = (v) => { const s = String(v ?? "").trim(); if (!s) return null; co
 
 if (typeof document !== "undefined") {
   document.addEventListener("click", async (ev) => {
+    const n = ev.target.closest("[data-osn]");
+    if (n) { OS.notified.add(n.dataset.osn); setTimeout(() => RENDER(), 300); return; }
     const el = ev.target.closest("[data-os]");
     if (!el) return;
     ev.stopPropagation();
@@ -200,13 +414,12 @@ if (typeof document !== "undefined") {
       if (r) { OS.open.sale = r.id; RENDER(); }
       return;
     }
-    if (k === "renew") return act(() => api("POST", `/api/me/own/sales/${id}/renew`, { paid: true }), "🔄 Renovado");
-    if (k === "pay") return act(() => api("POST", `/api/me/own/sales/${id}`, { pay: d.pay }), d.pay === "pagado" ? "💵 Marcado pagado" : "Quedó pendiente");
-    if (k === "release") { if (!confirm("¿Liberar este cupo? El cliente sale de la cuenta y su link de cobro deja de servir.")) return; return act(() => api("POST", `/api/me/own/sales/${id}/release`), "Cupo libre"); }
-    if (k === "link") return act(() => api("POST", `/api/me/own/sales/${id}/link`), "🔗 Link creado");
-    if (k === "unlink") { if (!confirm("¿Cambiar el link? El que ya mandaste deja de servir.")) return; return act(async () => { await api("POST", `/api/me/own/sales/${id}/link/revoke`); return api("POST", `/api/me/own/sales/${id}/link`); }, "🔗 Link nuevo"); }
-    if (k === "delacc") { if (!confirm("¿Borrar esta cuenta?")) return; return act(() => api("POST", `/api/me/own/accounts/${id}/delete`), "Cuenta borrada", "account:" + id); }
-    if (k === "delprod") { if (!confirm("¿Borrar este producto?")) return; return act(() => api("POST", `/api/me/own/products/${id}/delete`), "Producto borrado", "logo:" + id); }
+    if (await sheetClick(k, d, el)) return;
+    if (k === "pay" && d.pay === "pendiente") return act(() => api("POST", `/api/me/own/sales/${id}`, { pay: d.pay }), "Quedó pendiente");
+    if (k === "link") return act(() => api("POST", `/api/me/own/sales/${id}/link`, {}), "🔗 Link creado");
+    if (k === "unlink") { if (!confirm("¿Cambiar el link? El que ya mandaste deja de servir.")) return; return act(async () => { await api("POST", `/api/me/own/sales/${id}/link/revoke`, {}); return api("POST", `/api/me/own/sales/${id}/link`, {}); }, "🔗 Link nuevo"); }
+    if (k === "delacc") { if (!confirm("¿Borrar esta cuenta?")) return; return act(() => api("POST", `/api/me/own/accounts/${id}/delete`, {}), "Cuenta borrada", "account:" + id); }
+    if (k === "delprod") { if (!confirm("¿Borrar este producto?")) return; return act(() => api("POST", `/api/me/own/products/${id}/delete`, {}), "Producto borrado", "logo:" + id); }
     if (k === "nologo") { OS.logoV++; return act(() => api("POST", `/api/me/own/products/${id}/logo`, { remove: true }), "Logo quitado", "logo:" + id); }
   }, true);
 
@@ -235,8 +448,14 @@ if (typeof document !== "undefined") {
       }
       if (k === "account") {
         const key = "account:" + (f.dataset.id ?? "new");
-        const body = { ...(f.dataset.id ? { id: f.dataset.id } : {}), productId: f.dataset.product, user: f.user.value, password: f.password.value, note: f.note.value, providerExpiresAt: f.prov.value ? endOfDay(f.prov.value) : null, ...(f.slots ? { slots: Number(f.slots.value) } : {}) };
-        return act(() => api("POST", "/api/me/own/accounts", body), "🔐 Cuenta guardada", key);
+        let body;
+        try { body = { ...(f.dataset.id ? { id: f.dataset.id } : {}), productId: f.dataset.product, user: f.user.value, password: f.password.value, note: f.note.value, providerExpiresAt: f.prov.value ? endOfDay(f.prov.value) : null, ...(f.slots ? { slots: Number(f.slots.value) } : {}), ...(f.cost ? { cost: price(f.cost.value) } : {}) }; }
+        catch (e) { OS.msg[key] = e.message; return RENDER(); }
+        const newPass = !!(f.dataset.id && f.password.value.trim());
+        const r = await act(() => api("POST", "/api/me/own/accounts", body), "🔐 Cuenta guardada", key);
+        // Cambió la clave de una cuenta con clientes: la fila de avisos con los datos nuevos, lista para mandar.
+        if (r && newPass) { const ids = (OS.data?.sales ?? []).filter((x) => x.accountId === f.dataset.id).map((x) => x.id); if (ids.length) { OS.notify = { title: `🔑 Cambiaste la clave: avisales a ${ids.length === 1 ? "tu cliente" : `tus ${ids.length} clientes`} de esta cuenta`, ids, left: [] }; RENDER(); } }
+        return r;
       }
       if (k === "assign") {
         const key = "assign:" + f.dataset.acc;
@@ -250,6 +469,7 @@ if (typeof document !== "undefined") {
         if (r) { OS.open.sale = r.id; RENDER(); }
         return;
       }
+      if (await sheetSubmit(k, f)) return;
       if (k === "sale") {
         const key = "sale:" + f.dataset.id;
         let body;
@@ -271,7 +491,13 @@ if (typeof document !== "undefined") {
     }
   }, true);
 
+  // La hoja se cierra con Escape o tocando afuera.
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && document.querySelector(".os-sheetw")) closeSheet(); });
+  document.addEventListener("click", (ev) => { if (ev.target?.classList?.contains("os-sheetw")) closeSheet(); });
+
   document.addEventListener("input", (ev) => {
+    // «Sí, pagó Bs X»: el botón dice el monto que se va a anotar.
+    if (ev.target?.form?.dataset?.osf === "renew" && ev.target.name === "amount") { const b = ev.target.form.querySelector("[data-paidlabel]"); if (b) { let n = null; try { n = price(ev.target.value); } catch { /* se valida al guardar */ } b.textContent = n ? `✅ Sí, pagó ${$m(n)}` : "✅ Sí, pagó"; } return; }
     if (!ev.target?.dataset?.osq) return;
     OS.q = ev.target.value;
     const pos = ev.target.selectionStart;

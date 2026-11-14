@@ -129,7 +129,11 @@ export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string
 export function recentCodes(e: Engine, actor: Actor, limit = 50) {
   authorize(actor, "codes.configure");
   const byEmail = new Map(Object.values(e.s.accounts).map((a) => [a.email.toLowerCase(), a]));
-  return e.s.codes.slice().sort((a, b) => b.receivedAt - a.receivedAt).slice(0, limit).map((c) => {
+  // Correos de cuentas PROPIAS de revendedores (que no son de la tienda): esos códigos son solo de él («Solo vos ves
+  // esto»), aunque por error lleguen al lector de la tienda. El dueño no los ve en su lista.
+  const own = new Set<string>();
+  for (const b of Object.values(e.s.ownStock ?? {})) for (const a of b.accounts) { const u = a.user.trim().toLowerCase(); if (u.includes("@") && !byEmail.has(u)) own.add(u); }
+  return e.s.codes.filter((c) => !own.has(c.to)).sort((a, b) => b.receivedAt - a.receivedAt).slice(0, limit).map((c) => {
     const acc = byEmail.get(c.to);
     return { to: c.to, subject: c.subject, code: c.code, link: c.link, kind: c.kind ?? classifyCode(c.subject, ""), receivedAt: c.receivedAt, mailbox: e.s.mailboxes[c.mailboxId]?.address ?? "", product: acc ? e.s.products[acc.productId]?.name ?? "" : "", matched: !!acc };
   });

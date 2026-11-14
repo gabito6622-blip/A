@@ -7,7 +7,8 @@ import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } f
 import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
 import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
@@ -218,7 +219,7 @@ async function loadPrivate() {
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
       api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
-    [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null)]);
+    [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null), loadOwnDay()]);
   }
   if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals, S.data.pasos] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null), api("GET", "/api/me/primeros-pasos").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
@@ -226,7 +227,7 @@ async function loadPrivate() {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["dia", "control", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
-    if ((S.data.rtab ?? "ventas") === "ventas") await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen
+    if (["ventas", "combos"].includes(S.data.rtab ?? "ventas")) await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen; combos: sus productos propios
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
     if (S.data.rtab === "cupones" && S.data.shop?.couponsAllowed && !S.data.rcoupons) S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
   }
@@ -593,7 +594,10 @@ function renderInner() {
   const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "inventario", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : MODE === "hub" && S.view === "cuentas" ? "inventario" : S.view;
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === navOn && !b.closest(".rtabs") ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
-  if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
+  // Independiente que no compra a la tienda (sin saldo ni servicios ni carrito): no se le muestra «Bs 0» ni el carrito.
+  const noStore = MODE === "hub" && isIndep() && !S.me?.balance && !(S.data.services ?? []).length && !S.cart.length;
+  document.body.classList.toggle("gs-nostore", noStore);
+  if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? (noStore ? S.me.name.split(" ")[0] : `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}`) : "Acceder";
   const pub = S.catalog;
   const services = S.data.services ?? [];
   const V = {
@@ -685,7 +689,7 @@ function renderInner() {
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
-    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
+    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>${isIndep() ? ownCodesNote() : ""}
       ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos</h2><p class="empty" style="margin:0">Un solo link para tus clientes. Elegí la seguridad: <b>sin PIN</b> (escriben el correo de su cuenta) o <b>con PIN de 4 números</b> que vos elegís y les pasás.</p>
         ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
           <p class="empty" style="margin:0;font-size:13px">Seguridad actual: <b>${S.data.codeLink.mode === "pin" ? "🔒 Con PIN de 4 números" : "✉️ Escribí tu correo (sin PIN)"}</b></p>
@@ -738,18 +742,19 @@ const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-war
 /* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
 const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
 initOwnStock(() => render());
+initPropiasPlata({ render: () => render(), store: () => myStore() });
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
 async function loadRTab(tab) {
-  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null)]);
+  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock()]);
   if (tab === "descargas") await descargasEnsure();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
     S.data.rfdetail = S.data.rfdet ? await api("GET", `/api/me/fiado/${S.data.rfdet}`).catch(() => null) : null;
   }
-  if (tab === "ganancias") S.data.rearn = await api("GET", "/api/me/earnings").catch(() => null);
+  if (tab === "ganancias") [S.data.rearn] = await Promise.all([api("GET", "/api/me/earnings").catch(() => null), loadOwnEarn()]);
   if (["perfiles", "debe", "ganancias"].includes(tab)) S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   if (tab === "perfiles") await loadSelfCodes();
   // GaboHub etapa 3: Mi control, Quién me debe y Mis ganancias también muestran sus cuentas propias.
@@ -759,30 +764,10 @@ async function loadRTab(tab) {
 const ownFirst = (n) => String(n ?? "").trim().split(/\s+/)[0] ?? "";
 const ownPill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 3 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
 const ownLink = (x) => (x.linkToken ? `\nPagá acá: ${location.origin}/c/${x.linkToken}` : "");
-function ownControlBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const now = Date.now(), week = now + 7 * 86_400_000;
-  const l = d.sales.filter((x) => x.expiresAt <= week && x.expiresAt >= now - 30 * 86_400_000);
-  if (!l.length) return "";
-  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 tu ${x.product} ${daysLeft(x.expiresAt) < 0 ? "venció" : daysLeft(x.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(x.expiresAt)}.${x.price ? ` La renovación es ${mine(x.price)}.` : ""} ¿Lo renovamos? 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias que vencen <span class="spill sp-mute">${l.length}</span></h3>
-    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)}${x.price != null ? ` · ${mine(x.price)}` : ""}${x.trial ? " · 🎁 prueba" : ""}</small></span>${ownPill(x.expiresAt)}<span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(x.id)}">🔄 Renovó</button></span></div>`).join("")}
-    <button class="sbtn sm" type="button" data-rtool="propias">Ver todas mis cuentas propias</button></div>`;
-}
-function ownDebeBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const l = d.sales.filter((x) => x.pay !== "pagado" && !x.trial && x.price);
-  if (!l.length) return "";
-  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 te paso tu cuenta: tu ${x.product} es *${mine(x.price)}*. ¿Me podés pagar hoy? ¡Gracias! 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Ventas propias sin pagar · ${mine(l.reduce((t, x) => t + x.price, 0))}</h3>
-    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)} · ${mine(x.price)} · vence ${fdate(x.expiresAt)}</small></span><span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm" type="button" data-os="pay" data-id="${esc(x.id)}" data-pay="pagado">💵 Me pagó</button></span></div>`).join("")}</div>`;
-}
-function ownEarnBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const t = d.totals;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias (por mes)</h3><div class="rkpis"><div><small>Clientes</small><b>${t.clients}</b>${t.trials ? `<small>${t.trials} en prueba gratis</small>` : ""}</div><div><small>Cobrás por mes</small><b class="ok">${mine(t.monthly)}</b></div><div><small>Te deben</small><b class="${t.owed ? "bad" : ""}">${mine(t.owed)}</b></div></div>
-    <p class="empty" style="margin:0">Es lo que cobrás a tus clientes por tus cuentas propias. No se le resta lo que te cuestan esas cuentas: eso no está anotado en el panel.</p></div>`;
-}
+// 14/11: lo de sus cuentas propias vive en propias-plata.js (deudas reales, todos sus clientes y ganancia del mes).
+const ownControlBox = () => ownControlHtml();
+const ownDebeBox = () => ownDebeHtml();
+const ownEarnBox = () => ownEarnHtml();
 const myStore = () => S.data.shop?.title || S.me?.name || "";
 const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
 const seen = (r) => { try { return localStorage.getItem(`gs-av-${r.id}-${r.expiresAt}`) === "1"; } catch { return false; } };
@@ -802,7 +787,7 @@ function diaMsg(kind, g) {
   return `Hola ${diaFirst(g.client)} 👋 ${body}${myStore() ? `\n— ${myStore()}` : ""}`;
 }
 function rDiaView() {
-  const D = S.data.rdia;
+  const D = ownDayMerge(S.data.rdia); // + sus cuentas propias en los contadores
   if (!D) return `<div class="sbox"><p class="empty">Cargando tu día…</p></div>`;
   if (D.error) return `<div class="sbox"><div class="err">${esc(D.error)}</div></div>`;
   const pill = (it) => `<span class="rcest ${it.days < 0 ? "rc-bad" : it.days === 0 ? "rc-today" : it.days <= 3 ? "rc-week" : ""}">${it.days < 0 ? `Venció hace ${-it.days} d` : it.days === 0 ? "Vence hoy" : `${it.days} d`}</span>`;
@@ -812,14 +797,15 @@ function rDiaView() {
   const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(g.client)}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
       ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
       <ul class="rdia-l">${g.items.map(item).join("")}</ul></article>`;
-  const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
+  const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : ownDayNote(kind) ?? `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
   const k = D.counts;
   return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
     <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${k.cobrar}</b><small>${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen en 1 a 3 días</small></div><div class="${k.deben ? "bad" : ""}"><span>💸 Me deben</span><b>${k.deben}</b><small>${esc(mine(D.totals.deben))}</small></div></div></div>
     ${sec("cobrar", "💵 Cobrar hoy", "Vencieron (hasta 30 días atrás) o vencen hoy. Si te pagan, tocá «Me pagó».", D.cobrar)}
     ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días: un mensaje a tiempo evita el corte.", D.avisar)}
     ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}
-    ${rBackBox()}`;
+    ${ownDayHtml()}
+    ${rBackBox()}${ownBackHtml()}`;
 }
 /* ---- 🔁 Que vuelvan (13/11): sus clientes a los que se les venció y no renovaron, con mensaje listo y «Ya le escribí» ---- */
 const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
@@ -1044,17 +1030,20 @@ function infoModal(title, html) {
 /** "Tu día": lo que el revendedor tiene que hacer hoy, en una sola tarjeta con botones directos. */
 function todayCard() {
   const rows = S.data.rctl, fi = S.data.rfiado, g = S.data.rearn;
-  if (!rows && !fi && !g && !S.data.ownSoon?.clients?.length && !S.data.ownSoon?.provider?.length) return "";
+  if (!rows && !fi && !g && !S.data.ownSoon?.clients?.length && !S.data.ownSoon?.provider?.length && !ownTodayNums().has) return "";
   const subs = allSubs(), sm = S.data.rsubs?.summary;
   const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length
     + subs.filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7 && !subSeen(s)).length;
   const owed = (fi?.totals?.owed ?? 0) + (sm?.owed ?? 0);
   const apps = [...(rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)),
     ...subs.filter((x) => daysLeft(x.expiresAt) >= -3 && daysLeft(x.expiresAt) <= 7 && !subSeen(x))];
-  const gain = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
+  const own = ownTodayNums(); // sus cuentas propias: nunca «todo al día» con algo vencido
+  const gain0 = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
+  const gain = gain0 === null ? null : gain0 + own.kept;
+  const todo = avisar + own.pending, owedAll = owed + own.owed;
   const it = [
-    ["dia", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana · Mi día" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
-    ["debe", "💸", mine(owed), owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
+    ["dia", "📣", todo ? `${todo} por ${own.late ? "cobrar o avisar" : "avisar"}` : "Nadie por avisar", todo ? (own.late ? `${own.late} ya vencido(s) · Mi día` : "vencen esta semana · Mi día") : "todo al día 🙌", todo ? (own.late ? "b" : "w") : "", appsRow(S.catalog, apps)],
+    ["debe", "💸", mine(owedAll), owedAll ? "te deben" : "nadie te debe", owedAll ? "b" : ""],
     ["ganancias", "📈", gain === null ? splitGainText(g, sm) : bs(gain), "ganaste este mes", "g"],
   ];
   return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c, logos]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small>${logos ?? ""}</button>`).join("")}</div>${ownTodayRow(S.data.ownSoon)}</section>`;
@@ -1563,7 +1552,8 @@ function resellerHome() {
   const big = indep ? [
     // Independiente: su negocio, con sus cuentas. Nada del stock de la tienda.
     [`data-rtool="propias"`, "📦", "Mis cuentas", "Las tuyas: Netflix, IPTV…"],
-    [`data-s="codigos"`, "🔑", "Mis códigos", "De tus propios correos"],
+    // 14/11: GaboHub todavía no lee SU correo; «Mis códigos» muestra los de cuentas de la tienda y su link para clientes.
+    [`data-s="codigos"`, "🔑", "Mis códigos", "Link para tus clientes"],
     [`data-rtool="dia"`, "💰", "Cobrar", "A quién le vence hoy"],
     canPage ? [sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"] : [`data-rtool="debe"`, "💸", "Quién me debe", "Fiados y pagos"],
   ] : [
@@ -1577,7 +1567,7 @@ function resellerHome() {
   const small = [...tiles.filter(([v]) => !["cuentas", "codigos", "precios", ...(indep && canPage ? ["pagina"] : [])].includes(v)), ["fallas", "🆘", "Ayuda", ""]];
   // «Tu día» y «Mi país y moneda» arriba solo cuando le sirven: si anota clientes o cuentas propias, o si vende desde
   // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
-  const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
+  const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length || ownTodayNums().has);
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
   return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${rentAlertBanner()}${accChangesBanner()}
@@ -1940,14 +1930,15 @@ function shopEditor() {
 function combosEditor() {
   const sh = S.data.shop;
   if (!sh) return `<p class="empty">Cargando…</p>`;
-  const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
+  // Independiente: arma sus combos con SUS productos propios (en su moneda); los demás, con su lista de la tienda.
+  const priced = isIndep() ? ownComboPicks() : (S.data.prices ?? []).filter((p) => p.sell !== null);
   const combos = sh.combos ?? [];
   const D = sh.comboDiscounts ?? [0, 0, 0];
   const nameOf = (id) => (priced.find((p) => p.productId === id)?.name ?? id);
   const draft = S.data.cdraft ?? { picks: [], price: "", name: "" };
   const sum = draft.picks.reduce((t, id) => t + (priced.find((p) => p.productId === id)?.sell ?? 0), 0);
   return `<div class="sec-h"><div><span class="chip">Tus reglas</span><h2>Mis combos y descuentos</h2><p>Vos armás tus propios combos con tu precio, y ponés tus descuentos. Son independientes de los combos de la tienda.</p></div></div>
-    ${priced.length < 2 ? `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>` : ""}
+    ${priced.length < 2 ? (isIndep() ? `<div class="err">Primero creá 2 o más productos con precio en <b>📦 Mis cuentas propias</b>. Con eso armás tus combos.</div>` : `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>`) : ""}
 
     <form class="sbox sform" id="discForm"><h2>✦ Armá tu combo (descuento por cantidad)</h2>
       <p class="empty" style="margin:0">Tus clientes eligen 2, 3 o 4 apps sueltas y vos les hacés este descuento. Poné 0 en los tres para apagarlo.</p>
