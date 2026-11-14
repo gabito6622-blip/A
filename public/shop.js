@@ -11,8 +11,8 @@ import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, own
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
-import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox } from "/cuaderno.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-mes.js";
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/cuaderno.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
@@ -929,7 +929,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${earnRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
+    ${gananciaRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
