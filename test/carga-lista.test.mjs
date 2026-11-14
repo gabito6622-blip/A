@@ -40,6 +40,12 @@ test("Carga por lista: fechas dd/mm, claves con coma, todo o nada", { skip: !chr
     // Todo bien: fecha dd/mm/aaaa, clave con coma, separado por tabulación (copiado de Excel) también.
     await f.locator('textarea[name="rows"]').fill("uno@x.lat, Cla,ve#11, 5, 31/12/2026\ndos@x.lat\tClave#2\t1\t15/01/2027");
     await f.locator('button[type="submit"]').click();
+    // Fechas a más de 35 días (14/11/2026): primero pregunta «¿Las pagaste por adelantado?» y no carga nada.
+    if (await p.locator("#bulkOut input[name=bulkExpOk]").waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+      assert.equal(accounts().length, 0, "sin confirmar no se carga");
+      await p.check("#bulkOut input[name=bulkExpOk]");
+      await f.locator('button[type="submit"]').click();
+    }
     await p.waitForFunction(() => /2 cuentas cargadas/.test(document.body.innerText));
     const uno = accounts().find((a) => a.email === "uno@x.lat"), dos = accounts().find((a) => a.email === "dos@x.lat");
     assert.equal(new Date(uno.supplierExpiresAt).getFullYear(), 2026, "31/12/2026 queda en 2026 (no 2126)");
