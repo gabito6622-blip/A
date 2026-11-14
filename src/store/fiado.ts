@@ -109,6 +109,10 @@ export function addPayment(e: Engine, actor: Actor, input: { customerId: Id; amo
   const amount = amountOf(e, b, input.amount), note = noteOf(input.note);
   return e.tx(() => {
     customerOf(e, b, input.customerId);
+    // «Me pagó» en el Fiado por más de lo que hay en la libreta y con alquileres «Pendiente» en el Control: esos pasan a
+    // su libreta, así el pago los cubre (antes quedaba «debe Bs 72» y «a favor Bs 20» a la vez, y el Control seguía
+    // «Pendiente»). Si el pago entra en lo que ya debía, no se toca nada más.
+    if (amount > settle(e, b, input.customerId).owed) linkUnpaid(e, b, actor, input.customerId);
     const entry: FiadoEntry = { id: e.id("fia"), customerId: input.customerId, kind: "pago", amount, note, at: e.now(), by: actor.id, ...(b.creditor ? { creditorId: b.creditor } : {}) };
     all(e).push(entry);
     syncControl(e, b, input.customerId);
@@ -154,21 +158,26 @@ export function chargeUnpaidRentals(e: Engine, actor: Actor, customerId: Id): { 
   const b = bookOf(e, actor);
   return e.tx(() => {
     customerOf(e, b, customerId);
-    let added = 0, amount = 0;
-    for (const a of unpaidRentals(e, b, customerId)) {
-      const price = rentalPrice(e, b, a);
-      if (price <= 0) continue;
-      const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
-      all(e).push({ id: e.id("fia"), customerId, kind: "cargo", amount: price, at: e.now(), by: actor.id, assignmentId: a.id, dueAt: a.customerExpiresAt,
-        ...(b.creditor ? { creditorId: b.creditor } : {}),
-        note: `${e.s.products[a.productId]?.name ?? "Servicio"}${slot ? ` · ${slot.label}` : ""}${acc && !b.creditor ? ` · ${acc.email}` : ""}`.slice(0, 120) });
-      // Si era una venta fiada, la plata ahora entra por el fiado (no por el pedido): no se cuenta dos veces.
-      if (!b.creditor) payLaterToFiado(e, a.id);
-      added++; amount += price;
-    }
-    if (added) e.audit(actor, "fiado.from_control", "customer", customerId, { added, amount });
-    return { added, amount };
+    return linkUnpaid(e, b, actor, customerId);
   });
+}
+
+/** Los alquileres «Pendiente» del Control de ese cliente pasan a su libreta como cargos (uno por alquiler). Dentro de `tx`. */
+function linkUnpaid(e: Engine, b: Book, actor: Actor, customerId: Id): { added: number; amount: Cents } {
+  let added = 0, amount = 0;
+  for (const a of unpaidRentals(e, b, customerId)) {
+    const price = rentalPrice(e, b, a);
+    if (price <= 0) continue;
+    const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
+    all(e).push({ id: e.id("fia"), customerId, kind: "cargo", amount: price, at: e.now(), by: actor.id, assignmentId: a.id, dueAt: a.customerExpiresAt,
+      ...(b.creditor ? { creditorId: b.creditor } : {}),
+      note: `${e.s.products[a.productId]?.name ?? "Servicio"}${slot ? ` · ${slot.label}` : ""}${acc && !b.creditor ? ` · ${acc.email}` : ""}`.slice(0, 120) });
+    // Si era una venta fiada, la plata ahora entra por el fiado (no por el pedido): no se cuenta dos veces.
+    if (!b.creditor) payLaterToFiado(e, a.id);
+    added++; amount += price;
+  }
+  if (added) e.audit(actor, "fiado.from_control", "customer", customerId, { added, amount });
+  return { added, amount };
 }
 
 /** Hasta 3 apps distintas que el cliente tiene activas: id y nombre del producto (sin datos de la cuenta). */

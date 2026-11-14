@@ -30,6 +30,7 @@ import { ownStoreRenewOk } from "./renovarVarias.js";
 import { missingListPrices } from "./listaPrecios.js";
 import { paidInReview } from "./avisoAlquiler.js";
 import { transferAssignment as transferWithBooks } from "./traspaso.js";
+import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -642,7 +643,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
       // «Renovar» de un alquiler que figura sin pagar en el Control: la renovación queda fiada (plata.ts).
-      if (isStaff(actor)) payLaterIfPending(e, actor, order, a);
+      if (isStaff(actor)) { payLaterIfPending(e, actor, order, a); fiadaRenewalToBook(e, actor, order, a); }
     }
     return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id], isStaff(actor)) };
   }));
@@ -811,6 +812,7 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
 }
 
 /** Datos de control de un alquiler (precio, costo, estado de pago, nota…), como en el Excel del dueño. */
+      debtToFiadoOnCut(e, actor, a); // se cortó debiendo: lo fiado pasa a su libreta (no desaparece)
 /** Libera un perfil: si está vendido, revoca su asignación; queda disponible para vender de nuevo. */
 export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string): { ok: true } {
   authorize(actor, "assignment.replace");
