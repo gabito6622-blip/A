@@ -256,8 +256,10 @@ export class Db {
   }
 
   /** Marca el último uso de una sesión (se llama como mucho cada pocos minutos). */
-  touchSession(tokenHash: string, at: number): void {
-    this.db.prepare("UPDATE sessions SET last_seen = ? WHERE token_hash = ?").run(at, tokenHash);
+  touchSession(tokenHash: string, at: number, expiresAt?: number): void {
+    // Con `expiresAt` la sesión se renueva con el uso (R2, 14/11: no se cierra a los 30 días si entra a diario).
+    if (expiresAt !== undefined) this.db.prepare("UPDATE sessions SET last_seen = ?, expires_at = ? WHERE token_hash = ?").run(at, expiresAt, tokenHash);
+    else this.db.prepare("UPDATE sessions SET last_seen = ? WHERE token_hash = ?").run(at, tokenHash);
   }
 
   private accessWrites = 0;

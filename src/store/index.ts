@@ -9,6 +9,7 @@ import * as wallet from "./wallet.js";
 import * as orders from "./orders.js";
 import * as portal from "./portal.js";
 import * as rshop from "./resellerShop.js";
+import * as arranque from "./arranque.js";
 import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
@@ -29,6 +30,10 @@ import * as rday from "./resellerDay.js";
 import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
+import * as cplata from "./cuadernoPlata.js";
+import * as cdeudas from "./deudas.js";
+import * as ccorte from "./cuadernoCorte.js";
+import * as greal from "./gananciaReal.js";
 import * as subLinks from "./subLinks.js";
 import * as tickets from "./tickets.js";
 import * as importer from "./importer.js";
@@ -39,6 +44,7 @@ import * as watch from "./watch.js";
 import * as winback from "./winback.js";
 import * as country from "./country.js";
 import * as ownStock from "./ownStock.js";
+import * as ownPlata from "./ownPlata.js";
 import * as usd from "./usd.js";
 import * as secretary from "./secretary.js";
 import * as dia from "./dia.js";
@@ -48,6 +54,8 @@ import * as renovarVarias from "./renovarVarias.js";
 import * as traspaso from "./traspaso.js";
 import * as cobrarTodo from "./cobrarTodo.js";
 import * as avisoAlquiler from "./avisoAlquiler.js";
+import * as renovarSinTrabas from "./renovarSinTrabas.js";
+import * as avisoCambios from "./avisoCambios.js";
 import * as listaPrecios from "./listaPrecios.js";
 
 export * from "./types.js";
@@ -221,6 +229,9 @@ export function createStore(opts: EngineOptions = {}) {
       apply: (input: { name: unknown; phone: unknown; note?: unknown; ref?: unknown }) => rshop.applyReseller(e, input),
       apps: bind(e, rshop.listApps),
       approve: bind(e, rshop.approveApp),
+      /** Primeros pasos del revendedor nuevo y la dirección de su página desde el nombre de su tienda (arranque.ts). */
+      firstSteps: bind(e, arranque.firstSteps),
+      suggestSlug: bind(e, arranque.suggestSlug),
       reject: bind(e, rshop.rejectApp),
       resellers: bind(e, rshop.resellersOverview),
       program: () => rshop.programInfo(e),
@@ -252,6 +263,7 @@ export function createStore(opts: EngineOptions = {}) {
       setLink: bind(e, codes.setCodeLink),
       linkOwner: (token: string) => codes.codeLinkOwner(e, token),
       of: (customerId: string) => codes.codesOf(e, customerId),
+      platforms: (customerId: string) => arranque.codePlatforms(e, customerId),
     },
     notify: {
       outbox: (actor: Actor) => {
@@ -359,12 +371,22 @@ export function createStore(opts: EngineOptions = {}) {
       save: bind(e, subs.saveSub),
       renew: bind(e, subs.renewSub),
       remove: bind(e, subs.removeSub),
+      pay: bind(e, subs.paySub),
       summary: bind(e, subs.rentalSummary),
       link: bind(e, subLinks.subLink),
       revokeLink: bind(e, subLinks.revokeSubLink),
       publicView: (token: unknown) => subLinks.publicView(e, token),
       publicQr: (token: unknown) => subLinks.publicQr(e, token),
       publicLogo: (token: unknown) => subLinks.publicLogo(e, token),
+    },
+    /** Plata del cuaderno del revendedor (14/11): deudas en un solo lugar, cobros que se deshacen, cortes y cierre de mes. */
+    cuaderno: {
+      debts: bind(e, cdeudas.myDebts),
+      undo: bind(e, cplata.undoCobro),
+      cuts: bind(e, ccorte.myCuts),
+      moveCut: bind(e, ccorte.moveCut),
+      dropCut: bind(e, ccorte.dropCut),
+      closeMonths: (actor: Actor) => greal.closeMonths(e, actor, (rid) => cdeudas.myDebts(e, { id: `u_${rid}`, role: "reseller", customerId: rid }).total),
     },
     winback: {
       list: bind(e, winback.list),
@@ -392,6 +414,18 @@ export function createStore(opts: EngineOptions = {}) {
       updateSale: bind(e, ownStock.updateSale),
       renew: bind(e, ownStock.renew),
       release: bind(e, ownStock.release),
+      undoRenew: bind(e, ownStock.undoRenew),
+      // Plata y día a día de sus cuentas propias (ownPlata.ts).
+      pay: bind(e, ownPlata.pay),
+      forgive: bind(e, ownPlata.forgive),
+      setDown: bind(e, ownPlata.setDown),
+      move: bind(e, ownPlata.move),
+      moveAll: bind(e, ownPlata.moveAll),
+      providerPay: bind(e, ownPlata.providerPay),
+      earnings: bind(e, ownPlata.earnings),
+      day: bind(e, ownPlata.day),
+      back: bind(e, ownPlata.back),
+      markBack: bind(e, ownPlata.markBack),
       link: bind(e, ownStock.link),
       revokeLink: bind(e, ownStock.revokeLink),
       counts: (customerId: Id) => ownStock.ownCounts(e, customerId),
@@ -415,6 +449,16 @@ export function createStore(opts: EngineOptions = {}) {
       rentAlerts: bind(e, avisoAlquiler.myStoreRentAlerts),
       rentPush: (customerId: Id, now?: number) => avisoAlquiler.storeRentPush(e, customerId, now),
       approveOptions: bind(e, listaPrecios.approveOptions),
+    },
+    /** R2 (14/11): «📩 Pedir renovación» propio, sin corte mientras está abierto, y avisos de cambios de cuenta. */
+    rsin: {
+      request: bind(e, renovarSinTrabas.requestRenewal),
+      mine: bind(e, renovarSinTrabas.myRequests),
+      cancel: bind(e, renovarSinTrabas.cancelRequest),
+      staffList: bind(e, renovarSinTrabas.staffRequests),
+      resolve: bind(e, renovarSinTrabas.resolveRequest),
+      reject: bind(e, renovarSinTrabas.rejectRequest),
+      changePush: (customerId: Id, since: number) => avisoCambios.changePushText(e, customerId, since),
     },
     rtools: {
       control: bind(e, rtools.myControl),

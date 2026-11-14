@@ -15,7 +15,8 @@ import { DAY } from "./time.js";
 import { normalizePhone, isIndependent } from "./catalog.js";
 import { localeOf, localeView, money, toMine } from "./country.js";
 import { bsToUsd, isUsd, rateNow } from "./usd.js";
-import { ownCounts, pageCards, pagePrice as ownPagePrice } from "./ownStock.js";
+import { ownCounts, pageCards, pagePrice as ownPagePrice, isOwnCombo, ownComboParts } from "./ownStock.js";
+import { NEUTRAL_CHIP, NEUTRAL_HERO_TEXT, cleanShopFaq, neutralDefaults, neutralTicks } from "./paginaNeutra.js";
 
 export const DEFAULT_RENT: ShopRent = { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 };
 const rentCfg = (e: Engine): ShopRent => e.s.settings.shopRent ?? DEFAULT_RENT;
@@ -218,7 +219,7 @@ export function listApps(e: Engine, actor: Actor) {
 }
 
 /** Aprueba: crea el revendedor (o pasa a revendedor al cliente que ya existía) y devuelve su id. */
-export function approveApp(e: Engine, actor: Actor, id: Id, opts: { trust?: unknown; priceGroupId?: unknown } = {}): { customerId: Id; name: string; phone: string; trust: "trusted" | "independent"; priceGroupId: Id } {
+export function approveApp(e: Engine, actor: Actor, id: Id, opts: { trust?: unknown; priceGroupId?: unknown; page?: unknown } = {}): { customerId: Id; name: string; phone: string; trust: "trusted" | "independent"; priceGroupId: Id; pageAllowed: boolean } {
   authorize(actor, "reseller.manage");
   // 14/11/2026: el dueño elige el tipo y la lista al aprobar (listaPrecios.ts). Sin elegir: independiente y la lista de los demás.
   if (opts.trust !== undefined && opts.trust !== "trusted" && opts.trust !== "independent") throw new DomainError("VALIDATION", "Tipo: de confianza o independiente");
@@ -237,9 +238,12 @@ export function approveApp(e: Engine, actor: Actor, id: Id, opts: { trust?: unkn
     // Los que se suman por la solicitud entran como «Independiente» (14/11/2026): el dueño todavía no les tiene
     // confianza para sus cuentas. Si ya era revendedor, se queda como estaba.
     if (!wasReseller) { if (opts.trust === "trusted") delete c.trust; else c.trust = "independent"; }
+    // 15/11/2026: el permiso de página queda guardado SIEMPRE al aprobar (antes quedaba sin definir y subir un logo
+    // alcanzaba para publicarse). Por defecto «solo panel»; el dueño marca «con página» en el diálogo.
+    if (!wasReseller || opts.page !== undefined) c.pageAllowed = opts.page === true;
     if (!e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
     a.status = "approved"; a.customerId = c.id; a.decidedBy = actor.id; a.decidedAt = e.now();
-    e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id });
+    e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id, page: !!c.pageAllowed });
     // Premio por referido: se paga una sola vez, al convertir en revendedor a alguien que no lo era,
     // si la solicitud trae un referidor válido (y no es él mismo) y el dueño configuró un premio > 0.
     const bonus = e.s.settings.referralBonus ?? 0;
@@ -254,7 +258,7 @@ export function approveApp(e: Engine, actor: Actor, id: Id, opts: { trust?: unkn
         e.audit(actor, "reseller.referral_paid", "customer", ref, { referred: c.id, amount, ...(rt ? { currency: "USD", bonusBs: bonus, rate: rt } : {}) });
       } else if (bonus > 0) e.audit(actor, "reseller.referral_skipped", "customer", ref, { referred: c.id, reason: "sin tasa del dólar" });
     }
-    return { customerId: c.id, name: c.name, phone: c.phone, trust: c.trust ?? "trusted", priceGroupId: c.priceGroupId };
+    return { customerId: c.id, name: c.name, phone: c.phone, trust: c.trust ?? "trusted", priceGroupId: c.priceGroupId, pageAllowed: pageAllowed(e, c) };
   });
 }
 
@@ -272,7 +276,7 @@ export function rejectApp(e: Engine, actor: Actor, id: Id) {
 export const RESERVED = new Set(["api", "panel", "admin", "r", "www", "tienda", "store", "login", "static", "assets", "gabriel", "gabrielstore", "soporte", "ayuda",
   "hub", "app", "mail", "webmail", "smtp", "imap", "pop", "ftp", "ns1", "ns2", "cdn", "og", "c", "codigos", "cobro", "recuperar", "blog", "dev", "test", "staging", "gabostore", "gabohub"]);
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
 }
 
@@ -335,8 +339,8 @@ function defaults(e: Engine, c: Customer): ResellerShop {
     slug, enabled: false, title: c.name, whatsapp: c.phone.replace(/\D/g, ""),
     accentColor: "#7c5cff", accent2Color: "#00d4ff", backgroundColor: "#0b0b14", bgStyle: "glow", cardStyle: "glass",
     fontFamily: "poppins", headingFont: "poppins", corners: "round",
-    heroTitle: "Tus plataformas favoritas,", heroHighlight: "al mejor precio.", heroText: "Netflix, Spotify, Disney+ y más. Pedí por WhatsApp y te lo activo al toque.",
-    heroChip: "✦ Entrega inmediata", heroTicks: `Atención rápida, Garantía, Precios en ${localeOf(e, c).symbol}`,
+    heroTitle: "Tus plataformas favoritas,", heroHighlight: "al mejor precio.", heroText: NEUTRAL_HERO_TEXT,
+    heroChip: NEUTRAL_CHIP, heroTicks: neutralTicks(localeOf(e, c).symbol),
   };
 }
 
@@ -430,6 +434,7 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
     for (const id of patch.products) if (typeof id !== "string" || !e.s.products[id]) throw new DomainError("NOT_FOUND", `Producto inexistente: ${String(id)}`);
     p.products = [...new Set(patch.products as string[])];
   }
+  if (patch.faq !== undefined) p.faq = cleanShopFaq(patch.faq);
   if (patch.comboDiscounts !== undefined) {
     const d = patch.comboDiscounts;
     if (!Array.isArray(d) || d.length !== 3 || d.some((v) => !Number.isInteger(v) || v < 0 || v > 1_000_000)) throw new DomainError("VALIDATION", "Descuentos de combo inválidos");
@@ -443,7 +448,10 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
       if (!name) throw new DomainError("VALIDATION", "Cada combo necesita un nombre");
       const ids = Array.isArray(raw.productIds) ? [...new Set(raw.productIds.map(String))] : [];
       if (ids.length < 2 || ids.length > 12) throw new DomainError("VALIDATION", `El combo "${name}" tiene que juntar de 2 a 12 apps`);
-      for (const id of ids) if (priced[id] === undefined) throw new DomainError("VALIDATION", `El combo "${name}" incluye una app sin precio`);
+      // Combo de sus productos propios ("op_…", en su moneda) o de apps de la tienda con su precio; sin mezclar.
+      if (isOwnCombo(ids)) { if (!ownComboParts(e, c, ids)) throw new DomainError("VALIDATION", `El combo "${name}" incluye un producto propio que ya no existe`); }
+      else if (ids.some((id) => id.startsWith("op_"))) throw new DomainError("VALIDATION", `El combo "${name}" mezcla tus productos propios con apps de la tienda: armalo con unos u otros`);
+      else for (const id of ids) if (priced[id] === undefined) throw new DomainError("VALIDATION", `El combo "${name}" incluye una app sin precio`);
       const price = Number(raw.price);
       if (!Number.isInteger(price) || price <= 0 || price > 10_000_000) throw new DomainError("VALIDATION", `Poné un precio válido para el combo "${name}"`);
       const note = raw.note ? String(raw.note).trim().slice(0, 120) : undefined;
@@ -463,6 +471,8 @@ function applyShop(e: Engine, actor: Actor, c: Customer, patch: Record<string, u
 /** Cambia el logo o la portada. Devuelve el archivo anterior para borrarlo. */
 export function setMyShopImage(e: Engine, actor: Actor, kind: "logo" | "banner" | "qr", fileRef: string | null): string | undefined {
   const c = me(e, actor);
+  // 15/11/2026: subir una imagen creaba la página y desde ahí `pageAllowed` daba true. Sin permiso solo se puede quitar.
+  if (!pageAllowed(e, c) && !(fileRef === null && c.shop)) throw new DomainError("FORBIDDEN", "Tu plan es solo panel: la tienda todavía no te habilitó tu página propia.");
   return e.tx(() => {
     const cur = c.shop ?? defaults(e, c);
     const key = kind === "logo" ? "logoFileRef" : kind === "qr" ? "qrFileRef" : "bannerFileRef";
@@ -569,10 +579,15 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
-  const comboCards = (indep ? [] : s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
+  // Combos de sus productos propios (también los del independiente): precio en su moneda y disponibles según sus cupos.
+  const ownCombos = (s.combos ?? []).flatMap((cb) => {
+    const parts = isOwnCombo(cb.productIds) ? ownComboParts(e, c!, cb.productIds) : undefined;
+    return parts ? [{ id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || parts.names.join(" + "), color: "#7c5cff", hasImage: false, kind: "combo" as const, durationDays: 30, price: cb.price, available: Math.min(parts.free, 20), items: parts.names }] : [];
+  });
+  const comboCards = [...ownCombos, ...(indep ? [] : s.combos ?? []).filter((cb) => !isOwnCombo(cb.productIds) && cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
     id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
     hasImage: false, kind: "combo" as const, durationDays: 30, price: mine(cb.price)!, available: 99, items: cb.productIds.map(nameOf),
-  }));
+  }))];
   const loc = localeOf(e, c);
   return {
     slug: s.slug, title: s.title, whatsapp: s.whatsapp, hasLogo: !!s.logoFileRef, hasBanner: !!s.bannerFileRef, published: s.enabled,
@@ -583,7 +598,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
     alwaysAvailable: !!e.s.settings.alwaysAvailable,
     comboDiscounts: s.comboDiscounts && s.comboDiscounts.some((v) => (mine(v) ?? 0) > 0) ? s.comboDiscounts.map((v) => mine(v) ?? 0) : null,
     // Sus productos propios marcados "en mi página" (ya están en su moneda).
-    ...look, products: [...comboCards, ...products, ...pageCards(e, c)],
+    ...neutralDefaults(look as { heroText?: string; heroTicks?: string; heroChip?: string }, loc.symbol), products: [...comboCards, ...products, ...pageCards(e, c)],
   };
 }
 
@@ -625,7 +640,7 @@ export function programInfo(e: Engine) {
       const show = sh.products?.length ? new Set(sh.products) : null;
       const cats = [...new Set(published.filter((p) => !isIndependent(c) && c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
       return {
-        slug: sh.slug, title: sh.title, featured: !!sh.featured, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
+        slug: sh.slug, title: sh.title, featured: !!sh.featured, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: ((n) => n.heroChip || n.heroText || "")(neutralDefaults(sh, "")).slice(0, 90), tags: cats,
         accentColor: sh.accentColor, accent2Color: sh.accent2Color, backgroundColor: sh.backgroundColor, headingFont: sh.headingFont,
       };
     }) : [];
@@ -739,7 +754,9 @@ export function quoteShopCoupon(e: Engine, slug: string, rawCode: unknown, items
     const id = String((it as { productId?: unknown })?.productId ?? ""), qty = Number((it as { qty?: unknown })?.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) throw new DomainError("VALIDATION", "Cantidad inválida (1 a 10)");
     // Todo en la moneda de su página (igual que publicShop): combos y lista convertidos, propios tal cual.
-    const price = id.startsWith("rc_") ? toMine(e, c, combos.find((cb) => `rc_${cb.id}` === id)?.price)
+    const cb = id.startsWith("rc_") ? combos.find((x) => `rc_${x.id}` === id) : undefined;
+    const price = cb && isOwnCombo(cb.productIds) ? (ownComboParts(e, c, cb.productIds) ? cb.price : undefined)
+      : id.startsWith("rc_") ? toMine(e, c, cb?.price)
       : id.startsWith("op_") ? ownPagePrice(e, c, id)
       : e.s.products[id]?.published ? toMine(e, c, prices[id]) : undefined;
     if (price === undefined) throw new DomainError("NOT_FOUND", "Uno de los productos ya no está en esta página");

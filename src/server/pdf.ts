@@ -39,6 +39,8 @@ export interface PdfInfoOpts {
   title?: string;
   author?: string;
   subject?: string;
+  /** Programa que lo hizo (propiedades del PDF). El catálogo de un revendedor pone su nombre: nunca el de la tienda. */
+  producer?: string;
 }
 
 export interface ImageSize {
@@ -694,7 +696,7 @@ export class Pdf {
 
     set(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
     set(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
-    let info = `<< /Producer ${pdfString("Gabriel Store PDF")} /CreationDate (${pdfDate(new Date())})`;
+    let info = `<< /Producer ${pdfString(this.info.producer || "Gabriel Store PDF")} /CreationDate (${pdfDate(new Date())})`;
     if (this.info.title) info += ` /Title ${pdfString(this.info.title)}`;
     if (this.info.author) info += ` /Author ${pdfString(this.info.author)}`;
     if (this.info.subject) info += ` /Subject ${pdfString(this.info.subject)}`;

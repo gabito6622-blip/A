@@ -11,7 +11,9 @@ export type ErrorCode =
   | "DUPLICATE_EVIDENCE"
   | "SENSITIVE_DATA"
   /** Ya hay un cobro anotado en este período: hace falta confirmar que es otro mes (cobrarBien.ts). */
-  | "DOUBLE_CHARGE";
+  | "DOUBLE_CHARGE"
+  /** Ya hay una renovación de ese servicio esperando pago o en revisión (renovarSinTrabas.ts): no se crea otra. */
+  | "PENDING_RENEWAL";
 
 export class DomainError extends Error {
   constructor(public readonly code: ErrorCode, message: string) {

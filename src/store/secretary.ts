@@ -12,6 +12,7 @@ import { cutAtOf, noticeOf, preparedReminderOf, todayNumbers, type NoticeVia, ty
 import { reactivableList } from "./diaCobro.js";
 import { supplierPending } from "./cobrarBien.js";
 import { reminderSettings } from "./orders.js";
+import { staffRequests } from "./renovarSinTrabas.js";
 
 /** Días hacia adelante que la secretaria mira para "avisar antes de que venza". */
 export const SECRETARY_AHEAD_DAYS = 3;
@@ -185,6 +186,8 @@ export function secretaryReport(e: Engine, actor: Actor, opts: { botOn?: boolean
     cortados: can(actor, "payment.review") ? reactivableList(e, actor) : [],
     // Decisión (b): cobros anotados que pasan la fecha del proveedor → hay que renovarle antes de esa fecha.
     proveedores: supplierPending(e),
+    // R2: «📩 Pedir renovación» de revendedores y clientes: se resuelven con «💳 Renovar proveedor y anotar».
+    pedidosRenovar: can(actor, "payment.review") ? staffRequests(e, actor) : [],
     // Avisos automáticos: ¿salen de verdad? (el bot lo sabe el servidor; acá llega `botOn`).
     avisosAuto: { enabled: reminderSettings(e).enabled, bot: opts.botOn ?? null },
   };

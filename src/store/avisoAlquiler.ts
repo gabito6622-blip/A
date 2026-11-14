@@ -15,6 +15,7 @@ import { renewPriceFor } from "./catalog.js";
 import { canRenewHere } from "./renovarVarias.js";
 import { renewableNow } from "./orders.js";
 import { cutAtOf } from "./dia.js";
+import { myPendingQr, myRequests, openRequestOf, pendingRenewalOf, renewRequestHold } from "./renovarSinTrabas.js";
 
 /** Desde cuántos días antes del vencimiento aparece el cartel (y el primer aviso al celular). */
 export const ALERT_DAYS = 3;
@@ -41,13 +42,21 @@ export function storeRentAlerts(e: Engine, customerId: Id, now: number = e.now()
     .filter((a) => a.customerId === customerId && a.status === "active" && !a.holdOpen && !a.trial && daysLeft(a.customerExpiresAt, now) <= ALERT_DAYS)
     .sort((x, y) => x.customerExpiresAt - y.customerExpiresAt)
     .map((a) => {
-      const can = canRenewHere(e, customerId, a), ok = can && renewableNow(e, a);
+      const can = canRenewHere(e, customerId, a), supplierOk = renewableNow(e, a), ok = can && supplierOk;
+      const cutAt = cutAtOf(a) ?? a.customerExpiresAt, cutDays = daysLeft(cutAt, now), dl = daysLeft(a.customerExpiresAt, now);
+      const name = short(e.s.products[a.productId]?.name ?? "servicio");
+      // R2 (14/11): por qué no entra en «Renovar las N», el pedido de renovación y la renovación que espera el QR.
+      const req = openRequestOf(e, a.id), pend = pendingRenewalOf(e, a.id), held = renewRequestHold(e, a);
+      const why = !can ? "store" as const : !supplierOk ? "supplier" as const : undefined;
       return {
         assignmentId: a.id, productId: a.productId, product: short(e.s.products[a.productId]?.name ?? "Servicio"),
-        expiresAt: a.customerExpiresAt, cutAt: cutAtOf(a) ?? a.customerExpiresAt, daysLeft: daysLeft(a.customerExpiresAt, now),
-        price: renewPriceFor(e, customerId, a), canRenew: ok, inReview: paidInReview(e, a),
-        // El texto del cartel, igual al del aviso al celular.
-        text: `Tu ${short(e.s.products[a.productId]?.name ?? "servicio")} de la tienda ${daysLeft(a.customerExpiresAt, now) < 0 ? "venció" : "vence"} el ${fdm(a.customerExpiresAt)} y se corta el ${fdm(cutAtOf(a) ?? a.customerExpiresAt)}`,
+        expiresAt: a.customerExpiresAt, cutAt, daysLeft: dl, cutDaysLeft: cutDays,
+        price: renewPriceFor(e, customerId, a), canRenew: ok && !pend, inReview: paidInReview(e, a),
+        ...(why ? { why } : {}), ...(req ? { request: { id: req.id, createdAt: req.createdAt } } : {}), ...(held ? { held: true } : {}),
+        ...(pend ? { pendingOrderId: pend.id, pendingStatus: pend.status } : {}),
+        // El texto del cartel, igual al del aviso al celular. El día del corte: «Hoy se corta tu HBO».
+        text: cutDays === 0 && !held ? `✂️ Hoy se corta tu ${name} de la tienda (venció el ${fdm(a.customerExpiresAt)})`
+          : `Tu ${name} de la tienda ${dl < 0 ? "venció" : "vence"} el ${fdm(a.customerExpiresAt)} y se corta el ${fdm(cutAt)}`,
       };
     });
 }
@@ -56,7 +65,11 @@ export function storeRentAlerts(e: Engine, customerId: Id, now: number = e.now()
 export function myStoreRentAlerts(e: Engine, actor: Actor) {
   if (!actor.customerId || (actor.role !== "reseller" && actor.role !== "customer")) throw new DomainError("FORBIDDEN", "Solo para clientes y revendedores");
   const list = storeRentAlerts(e, actor.customerId);
-  return { list, total: list.filter((x) => x.canRenew && !x.inReview).reduce((t, x) => t + x.price, 0) };
+  return {
+    list, total: list.filter((x) => x.canRenew && !x.inReview).reduce((t, x) => t + x.price, 0),
+    // Sus renovaciones por QR esperando comprobante (para «Pagá Bs X con un solo QR») y sus pedidos de renovación.
+    pending: myPendingQr(e, actor.customerId), requests: myRequests(e, actor),
+  };
 }
 
 /**
@@ -64,12 +77,22 @@ export function myStoreRentAlerts(e: Engine, actor: Actor) {
  * El servidor lo manda una sola vez por día.
  */
 export function storeRentPush(e: Engine, customerId: Id, now: number = e.now()): { title: string; body: string; url: string } | null {
-  const due = storeRentAlerts(e, customerId, now).filter((x) => !x.inReview && (x.daysLeft === ALERT_DAYS || x.daysLeft === 0));
+  const alerts = storeRentAlerts(e, customerId, now).filter((x) => !x.inReview);
+  // El día del corte va solo y primero: «✂️ Hoy se corta tu HBO» (R2, 14/11). Si pidió la renovación, no se corta.
+  const cut = alerts.filter((x) => x.cutDaysLeft === 0 && !x.held);
+  if (cut.length) {
+    return {
+      title: cut.length === 1 ? `✂️ Hoy se corta tu ${cut[0].product} de la tienda` : `✂️ Hoy se cortan ${cut.length} cuentas tuyas de la tienda`,
+      body: `${cut.length === 1 ? "" : `${cut.map((x) => x.product).join(", ")}. `}${cut.some((x) => x.canRenew) ? "Renovala ya desde GaboHub para que tus clientes no se queden sin servicio." : "Tocá «📩 Pedir renovación» en GaboHub: mientras la tienda la renueva no se corta."}`,
+      url: "/hub#inicio",
+    };
+  }
+  const due = alerts.filter((x) => x.daysLeft === ALERT_DAYS || x.daysLeft === 0);
   if (!due.length) return null;
   const first = due[0];
   return {
     title: due.length === 1 ? `⏰ ${first.text}` : `⏰ ${due.length} cuentas tuyas de la tienda vencen pronto`,
-    body: due.length === 1 ? (first.canRenew ? "Renovala desde GaboHub para que tus clientes no se queden sin servicio." : "Escribile a la tienda para renovarla.")
+    body: due.length === 1 ? (first.canRenew ? "Renovala desde GaboHub para que tus clientes no se queden sin servicio." : first.why === "supplier" ? (first.request ? "Ya pediste la renovación: la tienda primero renueva con su proveedor." : "Tocá «📩 Pedir renovación» en GaboHub: la tienda primero renueva con su proveedor.") : "Escribile a la tienda para renovarla.")
       : `${due.slice(0, 3).map((x) => `${x.product} (vence ${fdm(x.expiresAt)}, se corta ${fdm(x.cutAt)})`).join(" · ")}${due.length > 3 ? "…" : ""}`,
     url: "/hub#cuentas",
   };

@@ -35,6 +35,7 @@ import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { registerAlquilerRoutes, checkAccountChangePush as accountChangePush } from "./alquilerRoutes.js";
 import { registerPerfilRoutes } from "./perfilRoutes.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
@@ -48,6 +49,7 @@ import { shrinkPng } from "./pdf.js";
 import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 import { injectEarlyLook } from "./earlyLook.js";
+import { brandShell } from "./marcaNeutra.js";
 import { deviceOf } from "./device.js";
 import { accessAsAudit, assistantBlocked, assistKeyCheck, auditRange, createTeamWatch, type AssistKey } from "./teamSecurity.js";
 
@@ -121,7 +123,7 @@ const MAX_FILE = 5 * 1024 * 1024;
 
 const STATUS: Record<string, number> = {
   FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, OUT_OF_STOCK: 409, INSUFFICIENT_BALANCE: 409,
-  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409,
+  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409, PENDING_RENEWAL: 409,
 };
 
 class HttpError extends Error {
@@ -180,6 +182,8 @@ export interface App {
   checkPushAlerts(): Promise<void>;
   /** Aviso diario al celular de cada revendedor (una vez por día, desde las 9 de Bolivia). */
   checkResellerPush(): Promise<void>;
+  /** R2: aviso al celular por cambios de cuenta, clave o correo (lo corre el reloj cada minuto). Devuelve cuántos mandó. */
+  checkAccountChangePush(): Promise<number>;
   checkNoonPush(): Promise<void>;
   /** "🔔 Avisarme antes de que venza": avisos a clientes finales (una vez por día, desde las 9 de Bolivia). */
   checkExpiryPush(): Promise<unknown>;
@@ -322,7 +326,7 @@ export function createApp(cfg: AppConfig): App {
     if (chk.patch || !k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, ...chk.patch, lastUsedAt: now() }), now());
     return { actor: { id: u.id, role: u.role, assistant: true } };
   }
-  function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"] } {
+  function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"]; renewCookie?: string } {
     if (req.headers.authorization) { const a = resolveAssistant(req); if (a.actor) return a; }
     const raw = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
     if (!raw) return {};
@@ -338,8 +342,11 @@ export function createApp(cfg: AppConfig): App {
     }
     const c = st.customers[s.subjectId];
     if (!c) return {};
-    if (now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now());
-    return { actor: { id: `web:${c.id}`, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id }, session: s };
+    // R2 (14/11): la sesión del cliente o revendedor se renueva con el uso (antes se cerraba a los 30 días aunque
+    // entrara todos los días). Como mucho una vez por día se corre el vencimiento y se manda la cookie de nuevo.
+    const slide = s.kind === "customer" && s.expiresAt - now() <= CUSTOMER_SESSION_MS - 24 * HOUR;
+    if (slide || now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now(), slide ? now() + CUSTOMER_SESSION_MS : undefined);
+    return { actor: { id: `web:${c.id}`, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id }, session: s, ...(slide ? { renewCookie: raw } : {}) };
   }
 
   /* ---------------- archivos ---------------- */
@@ -748,7 +755,12 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
   route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
-  route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!) }));
+  // Con «Te deben» de todo (el mismo número que Mi día y Quién me debe) y los cuadernos de cuentas cortadas (14/11).
+  route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!), debts: store.cuaderno.debts(c.actor!), cuts: store.cuaderno.cuts(c.actor!) }));
+  route("POST", "/api/me/subs/:id/:sub/pay", "customer", (c) => store.subs.pay(c.actor!, c.params.id, c.params.sub, c.body?.amount));
+  route("POST", "/api/me/cobros/:id/undo", "customer", (c) => store.cuaderno.undo(c.actor!, c.params.id));
+  route("POST", "/api/me/cortes/:id/move", "customer", (c) => store.cuaderno.moveCut(c.actor!, c.params.id, String(c.body?.to ?? "")));
+  route("POST", "/api/me/cortes/:id/drop", "customer", (c) => store.cuaderno.dropCut(c.actor!, c.params.id));
   route("POST", "/api/me/subs/:id", "customer", (c) => store.subs.save(c.actor!, c.params.id, c.body ?? {}));
   route("POST", "/api/me/subs/:id/:sub/renew", "customer", (c) => store.subs.renew(c.actor!, c.params.id, c.params.sub, c.body?.paid !== false));
   route("POST", "/api/me/subs/:id/:sub/delete", "customer", (c) => { const r = store.subs.remove(c.actor!, c.params.id, c.params.sub); expiry.purge(); return r; });
@@ -886,6 +898,9 @@ export function createApp(cfg: AppConfig): App {
   /* ---- página propia del revendedor ---- */
   route("GET", "/api/me/shop", "customer", (c) => store.shops.mine(c.actor!));
   route("GET", "/api/me/referrals", "customer", (c) => store.shops.referrals(c.actor!));
+  // Arranque del revendedor nuevo (arranque.ts): primeros pasos y la dirección de su página desde el nombre de su tienda.
+  route("GET", "/api/me/primeros-pasos", "customer", (c) => store.shops.firstSteps(c.actor!));
+  route("GET", "/api/me/shop/slug", "customer", (c) => store.shops.suggestSlug(c.actor!, c.query.get("t") ?? ""));
   // Su página, cupones e imágenes: plan Vendedor en adelante (leerlas sigue libre para que vea qué tiene).
   route("PUT", "/api/me/shop", "customer", (c) => { needPlan("pagina")(c); return store.shops.update(c.actor!, c.body ?? {}); });
   // Cupones propios del revendedor (si el dueño lo permite) y presupuesto público en su página.
@@ -1097,6 +1112,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
+  registerAlquilerRoutes({ route, store, push: (cid, m) => customerPush(cid, m) }); // R2: «📩 Pedir renovación» propio
   registerPerfilRoutes({ route, store }); // perfiles sueltos comprados a terceros (perfilSuelto.ts)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
@@ -1215,8 +1231,8 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/admin/reseller-apps/options", "staff", (c) => store.rmes.approveOptions(A(c)));
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
-    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId });
-    // Por defecto entra con plan "solo panel"; si pedís la página, se la habilitás después.
+    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId, ...(c.body?.page !== undefined ? { page: c.body.page === true } : {}) });
+    // Por defecto entra con plan "solo panel" (queda guardado); con «con página» marcado ya puede armarla.
     const pin = randomPin();
     setLoginPin(r.customerId, pin);
     return { ...r, pin };
@@ -1635,7 +1651,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
-    return { name: o.name, mode: linkMode(o.customerId) };
+    return { name: o.name, mode: linkMode(o.customerId), platforms: store.codes.platforms(o.customerId) };
   });
   route("POST", "/api/code-link/:token", "public", (c) => {
     const o = store.codes.linkOwner(c.params.token);
@@ -1649,7 +1665,7 @@ export function createApp(cfg: AppConfig): App {
       if (emailLookupLimiter.blocked(kl)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
       emailLookupLimiter.take(kl);
       const codes = store.codes.of(o.customerId).filter((x) => x.to === email);
-      return { name: o.name, email, codes, minutes };
+      return { name: o.name, email, codes, minutes, platforms: store.codes.platforms(o.customerId) };
     }
     // Modo PIN (links viejos o privados): verifica el PIN y muestra todos los códigos.
     const k = `${c.params.token}|${c.ip}`;
@@ -1658,7 +1674,7 @@ export function createApp(cfg: AppConfig): App {
       pinLimiter.take(k); pinTokenLimiter.take(c.params.token);
       throw new HttpError(401, "BAD_PIN", "PIN incorrecto");
     }
-    return { name: o.name, codes: store.codes.of(o.customerId), minutes };
+    return { name: o.name, codes: store.codes.of(o.customerId), minutes, platforms: store.codes.platforms(o.customerId) };
   });
 
   // ---- Copia del respaldo fuera del servidor: se guarda como correo en una carpeta de tu Gmail ----
@@ -2432,6 +2448,8 @@ export function createApp(cfg: AppConfig): App {
       .replace(/<meta name="description"[^>]*>\n?/, "")
       .replace("</head>", `${tags}\n</head>`);
     if (info.icon) html = html.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escT(info.icon)}">`);
+    // Encabezado y pie con el nombre de ESTA página desde el primer cuadro (la de un revendedor nunca dice el de la tienda).
+    html = brandShell(html, /^\/r\//i.test(pathname) && !info.shop ? "" : info.siteName);
     // Los colores del dueño (o del revendedor) desde el primer cuadro: sin destello azul de los colores de fábrica.
     const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
     if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
@@ -2443,7 +2461,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   /** Páginas que se pueden escribir con cualquier mezcla de mayúsculas (los nombres de revendedor también van en minúsculas). */
-  const PAGE_CASE = /^\/(panel|hub|tienda|revendedores|tiendas|codigos|recuperar|privacidad|terminos|r)(\/[a-z0-9-]*\/?)?$/i;
+  const PAGE_CASE = /^\/(panel|hub|tienda|revendedores|tiendas|codigos|recuperar|privacidad|terminos|r)(\/[a-z0-9_-]*\/?)?$/i;
   /** El dominio propio de la tienda (gabostore.lat), o null si se usa la dirección de Railway o la máquina local. */
   function customDomain(): string | null {
     if (!cfg.publicOrigin?.startsWith("https://")) return null;
@@ -2550,8 +2568,13 @@ export function createApp(cfg: AppConfig): App {
         // Direcciones escritas con mayúsculas (14/11/2026): «gabostore.lat/PANEL» mostraba la portada de GaboHub
         // porque solo existía /panel. Las páginas conocidas llevan a su versión en minúsculas, conservando el resto.
         // No toca /api/, archivos ni links con códigos (/c/…), que sí distinguen mayúsculas.
+        // OJO (14/11): el link de códigos lleva un token que SÍ distingue mayúsculas (/codigos/<token>): ahí solo se
+        // pasa a minúsculas la palabra «codigos»; el token queda igual (antes se rompían 2 de cada 3 links).
         if ((req.method === "GET" || req.method === "HEAD") && /[A-Z]/.test(url.pathname) && PAGE_CASE.test(url.pathname)) {
-          res.writeHead(301, { Location: url.pathname.toLowerCase() + url.search, "Cache-Control": "no-cache" }); res.end(); return;
+          const m = /^\/([^/]+)(.*)$/.exec(url.pathname)!;
+          const first = m[1].toLowerCase(), rest = first === "codigos" ? m[2] : m[2].toLowerCase();
+          const to = `/${first}${rest}`;
+          if (to !== url.pathname) { res.writeHead(301, { Location: to + url.search, "Cache-Control": "no-cache" }); res.end(); return; }
         }
         const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
         if (go && "code" in go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
@@ -2567,7 +2590,8 @@ export function createApp(cfg: AppConfig): App {
       checkOrigin(req);
       const m = url.pathname.match(r.re)!;
       const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-      const { actor, session } = resolveActor(req);
+      const { actor, session, renewCookie } = resolveActor(req);
+      if (renewCookie) res.setHeader("Set-Cookie", [`${COOKIE}=${renewCookie}`, "Path=/", "HttpOnly", "SameSite=Strict", `Max-Age=${Math.floor(CUSTOMER_SESSION_MS / 1000)}`, ...(cfg.secureCookies ? ["Secure"] : [])].join("; "));
       if (r.who === "staff" && !(actor && !actor.customerId)) throw new HttpError(actor ? 403 : 401, actor ? "FORBIDDEN" : "LOGIN_REQUIRED", actor ? "Solo el equipo de la tienda" : "Iniciá sesión");
       if (r.who === "customer" && !actor?.customerId) throw new HttpError(401, "LOGIN_REQUIRED", "Iniciá sesión");
       const why = actor?.assistant ? assistantBlocked(req.method ?? "", url.pathname) : null;
@@ -2778,6 +2802,10 @@ export function createApp(cfg: AppConfig): App {
     if (gone.size) cpushSubsSave(cpushSubs().filter((x) => !gone.has(x.endpoint)));
     return { sent, failed };
   }
+  /** R2 (14/11): aviso al celular cuando la tienda le cambia la cuenta, la clave o el correo (alquilerRoutes.ts). */
+  function checkAccountChangePush(): Promise<number> {
+    return accountChangePush({ store, now, pushOn, subscribers: () => cpushSubs().map((x) => x.customerId), getMark: (k) => db.getSecret(k), setMark: (k, v) => db.setSecret(k, v, now()), push: (cid, m) => customerPush(cid, m) });
+  }
   /** Una vez por día (desde las 9, hora de Bolivia): a cada revendedor, sus clientes que vencen mañana y si le alcanza el saldo. */
   async function checkResellerPush(): Promise<void> {
     if (!pushOn() || localHour(now(), "America/La_Paz") < 9) return;
@@ -2829,7 +2857,7 @@ export function createApp(cfg: AppConfig): App {
     const counts: Record<string, number> = {};
     for (const it of feed.items) counts[it.kind] = it.count;
     if (pushLast === null) { pushLast = counts; return; } // al arrancar no avisamos lo viejo
-    const news = feed.items.filter((it) => (c.alerts.includes(it.kind) || it.kind === "falla") && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
+    const news = feed.items.filter((it) => (c.alerts.includes(it.kind) || it.kind === "falla" || it.kind === "renewReq") && (counts[it.kind] ?? 0) > (pushLast![it.kind] ?? 0));
     pushLast = counts;
     if (!news.length) return;
     await pushSend(subs, { title: news.length === 1 ? `${news[0].icon} ${news[0].text}` : `${store.engine.s.settings.platformName || "GaboHub"}: ${news.length} avisos nuevos`,
@@ -3054,6 +3082,7 @@ export function createApp(cfg: AppConfig): App {
     const supplierAlerts = tasks.run("avisos del proveedor", () => store.orders.supplierExpiryAlerts(system));
     const closed = tasks.run("cortar vencidos", () => store.orders.closeExpired(system, CORTE_GRACE_DAYS));
     tasks.run("sesiones vencidas", () => db.purgeExpiredSessions(now()));
+    tasks.run("cierre de mes de revendedores", () => store.cuaderno.closeMonths(system));
     const backup: string | undefined = tasks.run("respaldo", () => backups.daily()?.name);
     // Alquiler de páginas de revendedores: se revisa una vez por hora.
     let rents: ReturnType<typeof store.shops.chargeRents> | undefined;
@@ -3080,6 +3109,7 @@ export function createApp(cfg: AppConfig): App {
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));
       checkResellerPush().catch((e) => log(`avisos a revendedores fallaron: ${(e as Error).message}`));
+      checkAccountChangePush().catch((e) => log(`avisos de cambios de cuenta fallaron: ${(e as Error).message}`));
       checkNoonPush().catch((e) => log(`resumen del mediodía falló: ${(e as Error).message}`));
       expiry.check().catch((e) => log(`avisos de vencimiento fallaron: ${(e as Error).message}`));
       checkBcbRate().then((r) => { if (r?.applied) log(`tasa del BCB: ${r.rate} (${r.date})`); }, (e) => log(`tasa del BCB falló: ${(e as Error).message}`));
@@ -3088,7 +3118,7 @@ export function createApp(cfg: AppConfig): App {
   }
 
   return {
-    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
+    server, store, db, runJobs, flushWhatsApp, pollMail, checkBcbRate, checkPushAlerts, checkResellerPush, checkAccountChangePush, checkNoonPush, checkExpiryPush: () => expiry.check(), checkDailyReport, handleInbound, watchMail,
     resetTwoFactor(username) {
       const u = store.admin.findStaffForLogin(String(username).toLowerCase());
       if (!u || !db.getSecret(`totp:${u.id}`)) return false;

@@ -409,6 +409,8 @@ export interface ResellerShop extends Look {
   coupons?: ResellerCoupon[];
   /** "Armá tu combo" en SU página: descuento para 2, 3 y 4+ apps sueltas (centavos). El revendedor elige los montos. */
   comboDiscounts?: [Cents, Cents, Cents];
+  /** Sus preguntas frecuentes (paginaNeutra.ts). Vacío = las de fábrica, neutras. */
+  faq?: { q: string; a: string }[];
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";
@@ -586,6 +588,31 @@ export interface Ticket {
   updatedAt: number;
 }
 
+/**
+ * «📩 Pedir renovación» (renovarSinTrabas.ts): el revendedor (o cliente) quiere renovar pero la cuenta vence antes con el
+ * proveedor. Queda en el panel del dueño con el monto; mientras está abierto no se corta (a lo sumo 5 días de más).
+ */
+export interface RenewRequest {
+  id: Id;
+  assignmentId: Id;
+  /** Dueño del servicio y quién paga (el revendedor, si es el servicio de su cliente). */
+  customerId: Id;
+  payerId: Id;
+  /** Lo que va a pagar (su precio de renovación al pedirlo). */
+  amount: Cents;
+  /** Vencimiento del servicio al pedirlo: si después se renovó por otro lado, el pedido ya no hace falta. */
+  expiresAt: number;
+  createdAt: number;
+  createdBy: Id;
+  status: "open" | "done" | "rejected" | "cancelled";
+  closedAt?: number;
+  closedBy?: Id;
+  /** Por qué el dueño no la renueva (lo ve quien la pidió). */
+  reason?: string;
+  /** La renovación que la resolvió (con saldo, o el pedido por QR que espera su pago). */
+  orderId?: Id;
+}
+
 /** Un perfil de una cuenta alquilada que el revendedor le pasa a SU cliente. */
 export interface SubRental {
   id: Id;
@@ -600,6 +627,10 @@ export interface SubRental {
   createdAt: number;
   /** Link de cobro para SU cliente (/c/<token>): lo crea y lo cambia solo el revendedor (subLinks.ts). */
   link?: { token: string; by: Id; at: number };
+  /** Períodos que debe (pagos parciales o «me paga después»), uno por período (cuadernoPlata.ts). */
+  debts?: import("./cuadernoPlata.js").SubDebt[];
+  /** Lo que pagó de más: se usa en el próximo período. */
+  credit?: Cents;
 }
 
 export interface FiadoEntry {
@@ -816,6 +847,8 @@ export interface State {
   customerRefunds?: CustomerRefund[];
   /** Fallas reportadas (soporte). */
   tickets?: Record<Id, Ticket>;
+  /** «📩 Pedir renovación» cuando la cuenta vence antes con el proveedor (renovarSinTrabas.ts). */
+  renewRequests?: Record<Id, RenewRequest>;
   /** Cupones de descuento. */
   coupons: Record<Id, Coupon>;
   /** Avisos del vigilante de cuentas (correos de riesgo de las plataformas). */
@@ -828,6 +861,9 @@ export interface State {
   selfCodes?: SelfCodesState;
   /** «Pasar a otro» (traspaso.ts): la libreta del dueño anterior de un alquiler, guardada por `alquiler|cliente`. Nadie más la ve. */
   transferBooks?: Record<string, TransferBook>;
+  /** Cobros de perfiles repartidos y cierres de mes de cada revendedor (cuadernoPlata.ts, gananciaReal.ts). Solo los ve él. */
+  rcobros?: import("./cuadernoPlata.js").ResellerCobro[];
+  rcierres?: Record<Id, Record<string, import("./gananciaReal.js").MonthClose>>;
   seq: number;
 }
 

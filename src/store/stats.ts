@@ -12,6 +12,7 @@ import { balance } from "./wallet.js";
 import { effectivePrice } from "./admin.js";
 import { accountCostBs, marginsData } from "./finance.js";
 import { isUsd, sumBalancesBs } from "./usd.js";
+import { openRequestCount } from "./renovarSinTrabas.js";
 
 /**
  * "Saldo que les debés a tus clientes" sin mezclar monedas: `balancesOwed` en Bs (los saldos en dólares
@@ -49,6 +50,10 @@ export function notificationItems(e: Engine) {
 
   const fallas = Object.values(e.s.tickets ?? {}).filter((t) => t.status === "recibido").length;
   add("falla", "🛠️", fallas === 1 ? "1 falla reportada por revisar" : `${fallas} fallas reportadas por revisar`, fallas, "fallas", "bad");
+
+  // R2: «📩 Pedir renovación» de revendedores (la tienda primero renueva con su proveedor). No se cortan mientras tanto.
+  const rrq = openRequestCount(e);
+  add("renewReq", "📩", rrq === 1 ? "1 pedido de renovación (renová con el proveedor)" : `${rrq} pedidos de renovación (renová con el proveedor)`, rrq, "secretaria", "bad");
 
   const pay = Object.values(e.s.orders).filter((o) => o.status === "payment_review").length;
   add("payment", "💳", pay === 1 ? "1 pago por revisar" : `${pay} pagos por revisar`, pay, "aprobacion", "warn");

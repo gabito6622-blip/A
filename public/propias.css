@@ -1,0 +1,13 @@
+/* "📦 Tus cuentas propias" en Mi día, Que vuelvan, Mi control, Quién me debe y Mis ganancias (propias-plata.js). */
+.ownbox .own-h{margin:6px 0 0;font-size:15px}
+.ownbox .own-eq{margin:0;font-size:15px;overflow-wrap:anywhere}
+.ownbox .own-all>summary,.ownbox .own-book>summary{cursor:pointer;min-height:44px;list-style:none;display:inline-flex;align-items:center}
+.ownbox .own-book{display:grid;gap:8px}
+.ownbox .own-book label{display:grid;gap:4px;font-size:14px}
+.ownbox .own-book select{min-height:44px}
+.ownbox .line{flex-wrap:wrap;gap:6px}
+.ownbox .rbtns{display:flex;flex-wrap:wrap;gap:6px}
+.ownbox .sbtn{min-height:44px}
+.ownbox .rkpis small{font-size:12px}
+/* Independiente que no compra a la tienda: sin «Tu saldo Bs 0» ni carrito. */
+body.gs-nostore .shead [data-cart],body.gs-nostore .hbal{display:none!important}

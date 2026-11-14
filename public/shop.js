@@ -7,16 +7,26 @@ import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } f
 import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox } from "/hub-mes.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox } from "/cuaderno.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
-import { initAccChanges, accChangeBox } from "/cambio-cuenta.js";
+import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
+import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/arranque.js";
+import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
+import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
+import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
-initAccChanges(() => render()); // «Cambió la cuenta: avisá a tus N clientes» (cambio-cuenta.js)
+// «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
+initAccChanges(() => render(), { services: () => S.data.services });
+initAskRenew({ render: () => render(), refresh: () => refresh() }); // «📩 Pedir renovación» propio (pedir-renovacion.js)
+initArranque(() => ({ settings: S.settings, me: S.me })); // primeros pasos del revendedor nuevo (arranque.js)
+initMarcaPropia(() => (MODE === "rshop" ? S.settings : null)); // su página sin marca ajena (marca-propia.js)
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
 const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 // La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
@@ -118,8 +128,9 @@ function footer() {
   $("#footWa").innerHTML = [
     ...links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`),
     MODE === "store" ? `<a href="/hub">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? `<a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "",
-    `<a href="/terminos">Términos</a>`, MODE === "rshop" ? "" : `<a href="/privacidad">Privacidad</a>`,
-    `<a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`,
+    // La página de un revendedor: solo sus condiciones, neutras (sin los términos ni el nombre de la tienda mayorista).
+    ...(MODE === "rshop" ? rshopFootLinks() : [`<a href="/terminos">Términos</a>`, `<a href="/privacidad">Privacidad</a>`,
+      `<a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`]),
   ].filter(Boolean).join(" · ");
   softwareNotice();
 }
@@ -209,15 +220,15 @@ async function loadPrivate() {
   if (S.view === "inicio" && hubPanel()) {
     [S.data.pushOn, S.data.pushCfg, S.data.rctl, S.data.rfiado, S.data.rearn] = await Promise.all([pushSubscribed(), api("GET", "/api/me/push").catch(() => null),
       api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
-    [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null)]);
+    [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null), loadOwnDay()]);
   }
-  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
+  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals, S.data.pasos] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null), api("GET", "/api/me/primeros-pasos").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
     if (["dia", "control", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
-    if ((S.data.rtab ?? "ventas") === "ventas") await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen
+    if (["ventas", "combos"].includes(S.data.rtab ?? "ventas")) await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen; combos: sus productos propios
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
     if (S.data.rtab === "cupones" && S.data.shop?.couponsAllowed && !S.data.rcoupons) S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
   }
@@ -278,7 +289,7 @@ function brandStrip() {
 function trustBand() {
   const n = (S.catalog ?? []).length;
   const st = S.settings;
-  const it = [
+  const it = SLUG ? rshopTrust(st, n) : [
     ["⚡", n ? `${n}+` : "24/7", n ? "servicios al toque" : "siempre abierto"],
     st.hasQr && ["💳", "QR", "pago fácil y seguro"],
     ["🕒", "con saldo", "entrega al instante"],
@@ -304,7 +315,7 @@ const FAQ_DEFAULT = [
 ];
 function faqSection() {
   const custom = (S.settings.faq ?? []).filter((f) => f && f.q && f.a);
-  const list = custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
+  const list = SLUG ? rshopFaq(S.settings) : custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
   return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
     <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
     ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
@@ -420,7 +431,7 @@ function ticketCatalog(pub, hero) {
       <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
     ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
 }
-const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" })[k] ?? k;
+const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV", own: "Suscripción" })[k] ?? "Suscripción";
 /** Filas de credenciales IPTV (como <div><dt>..</dt><dd>..</dd></div>). */
 function iptvCredRows(ac) {
   const v = ac.iptv, rows = [];
@@ -447,14 +458,15 @@ function iptvAccessText(a) {
 const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores</h2><p class="empty">Tus compras y cuentas están en la tienda.</p><a class="sbtn pri" href="/tienda/#cuentas" style="justify-self:start">Ir a la tienda ${icon("arrow")}</a></div>`;
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
-function pendingOrders() {
-  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él).
-  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review"));
+function pendingOrders(skip = null) {
+  // Los que paga tu revendedor no esperan nada de vos (y no se muestra cuánto pagó él). `skip`: los que ya muestra el
+  // cuadro «Pagá Bs X con un solo QR» (hub-mes.js), para no repetirlos sueltos.
+  const list = (S.data.orders ?? []).filter((o) => !o.paidBy && (o.status === "awaiting_payment" || o.status === "payment_review") && !skip?.has(o.id));
   // "Tu pedido en vivo": en qué paso está y para cuándo, así el cliente no tiene que preguntar.
   const h = Number(new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const eta = h >= 8 && h < 22 ? `Lo revisamos en 10–30 minutos (≈ antes de las ${new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit" }).format(new Date(Date.now() + 30 * 60_000))}).` : "Ahora estamos fuera de horario: lo revisamos mañana desde las 8:00.";
   const steps = (o) => { const i = o.status === "payment_review" ? 1 : 0; return `<div class="tsteps">${[["📝", "Pedido"], ["🔍", "Revisando pago"], ["✅", "Entregado"]].map(([e, t], n) => `<span class="${n <= i ? "on" : ""}">${e} ${t}</span>`).join("")}</div>`; };
-  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
+  return list.map((o) => `<div class="svc"><div class="top"><b>${KIND_TEXT[o.kind]}${o.label ? ` · ${esc(o.label)}` : ""} · ${bs(o.total)}</b><span class="spill ${o.status === "payment_review" ? "sp-warn" : "sp-mute"}">${STATUS_TEXT[o.status]}</span></div>${steps(o)}
     ${o.method === "binance" ? `<span class="empty">Pago con Binance Pay${o.binance?.usdt ? ` · ${esc(String(o.binance.usdt))} USDT` : ""}. Apenas se confirme, tu acceso aparece solo acá.</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${o.binance?.link ? `<a class="sbtn pri sm" href="${esc(o.binance.link)}" target="_blank" rel="noopener">Abrir Binance y pagar</a>` : ""}<button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div>`
       : o.status === "payment_review" ? `<span class="empty">Estamos verificando tu pago. ${eta} Cuando esté listo, tus accesos aparecen acá abajo.</span>`
@@ -550,6 +562,9 @@ function buildNav() {
   if (acc) acc.hidden = MODE === "rshop";
   const cartBtn = $(".shead [data-cart]");
   if (cartBtn) cartBtn.hidden = MODE === "hub" && !hubPanel();
+  // 🙈 Tapar montos: solo para el revendedor que entró (un visitante no tiene montos que tapar).
+  const mb = $(".mnybtn");
+  if (mb) mb.hidden = !(MODE === "hub" && hubPanel());
 }
 
 function render() {
@@ -580,7 +595,10 @@ function renderInner() {
   const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "inventario", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : MODE === "hub" && S.view === "cuentas" ? "inventario" : S.view;
   $$("#shop button[data-s]").forEach((b) => (b.dataset.s === navOn && !b.closest(".rtabs") ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
   $("#cartN").textContent = S.cart.reduce((s, l) => s + l.qty, 0);
-  if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}` : "Acceder";
+  // Independiente que no compra a la tienda (sin saldo ni servicios ni carrito): no se le muestra «Bs 0» ni el carrito.
+  const noStore = MODE === "hub" && isIndep() && !S.me?.balance && !(S.data.services ?? []).length && !S.cart.length;
+  document.body.classList.toggle("gs-nostore", noStore);
+  if (!SLUG) $("#accName").textContent = S.me?.loggedIn ? (noStore ? S.me.name.split(" ")[0] : `${S.me.name.split(" ")[0]} · ${bs(S.me.balance)}`) : "Acceder";
   const pub = S.catalog;
   const services = S.data.services ?? [];
   const V = {
@@ -635,8 +653,8 @@ function renderInner() {
     seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
-      ${isReseller() ? rentAlertBanner() : ""}
-      ${pendingOrders()}
+      ${isReseller() ? rentAlertBanner() + accChangesBanner() : ""}
+      ${pendingOrders(isReseller() ? qrBoxIds() : null)}
       ${isReseller() ? renewManyBox(services) : ""}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
@@ -662,9 +680,7 @@ function renderInner() {
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
-          ? `<span class="rlock">🔒 Esta cuenta la renueva la tienda. Te anda hasta el <b>${fdate(a.expiresAt)}</b>.</span>${S.settings.whatsapp
-            ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar ${a.product.replace(/ \(alquiler revendedores\)/, "")} de ${a.customerName} (${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Pedir renovación</a>`
-            : `<button class="sbtn sm pri" type="button" data-falla="${esc(a.assignmentId)}">📩 Pedir renovación</button>`}`
+          ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice })
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
           : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button></div></div>`;
@@ -674,7 +690,7 @@ function renderInner() {
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
-    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>
+    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>${isIndep() ? ownCodesNote() : ""}
       ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos</h2><p class="empty" style="margin:0">Un solo link para tus clientes. Elegí la seguridad: <b>sin PIN</b> (escriben el correo de su cuenta) o <b>con PIN de 4 números</b> que vos elegís y les pasás.</p>
         ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
           <p class="empty" style="margin:0;font-size:13px">Seguridad actual: <b>${S.data.codeLink.mode === "pin" ? "🔒 Con PIN de 4 números" : "✉️ Escribí tu correo (sin PIN)"}</b></p>
@@ -694,7 +710,7 @@ function renderInner() {
     inventario: () => !isReseller() ? needLogin("tu inventario") : hubInventario(),
     mas: () => !isReseller() ? needLogin("tu panel") : hubMas(),
     revendedores: () => programView(),
-    precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
+    precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : isIndep() ? indepCatalog({ settings: S.settings, me: S.me }) : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
       return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Precios para revendedores</h2><p>Comprá con tu saldo y la cuenta se entrega al instante. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
         ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
@@ -715,7 +731,8 @@ function renderInner() {
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/hub#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
-  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour")) setTimeout(() => { if (S.view === "inicio" && !guideSeen()) startTour(); }, 700);
+  // Con «🚀 Primeros pasos» a la vista la guía no arranca sola (tiene su botón 📖 en la tarjeta).
+  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour") && !document.querySelector(".arr-pasos")) setTimeout(() => { if (S.view === "inicio" && !guideSeen() && !S.data.wiz && S.data.pasos !== undefined && !document.querySelector(".arr-pasos")) startTour(); }, 700);
 }
 
 /* ---------------- revendedor ---------------- */
@@ -726,18 +743,21 @@ const dayPill = (d) => `<span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-war
 /* ---------------- Herramientas del revendedor: Mi control, Quién me debe, Mis ganancias ---------------- */
 const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["afiches", "🖼️ Afiches"]];
 initOwnStock(() => render());
+initPropiasPlata({ render: () => render(), store: () => myStore() });
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+// Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
+cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
 async function loadRTab(tab) {
-  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null)]);
+  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock()]);
   if (tab === "descargas") await descargasEnsure();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
     S.data.rfdetail = S.data.rfdet ? await api("GET", `/api/me/fiado/${S.data.rfdet}`).catch(() => null) : null;
   }
-  if (tab === "ganancias") S.data.rearn = await api("GET", "/api/me/earnings").catch(() => null);
+  if (tab === "ganancias") [S.data.rearn] = await Promise.all([api("GET", "/api/me/earnings").catch(() => null), loadOwnEarn()]);
   if (["perfiles", "debe", "ganancias"].includes(tab)) S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
   if (tab === "perfiles") await loadSelfCodes();
   // GaboHub etapa 3: Mi control, Quién me debe y Mis ganancias también muestran sus cuentas propias.
@@ -747,30 +767,10 @@ async function loadRTab(tab) {
 const ownFirst = (n) => String(n ?? "").trim().split(/\s+/)[0] ?? "";
 const ownPill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 3 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
 const ownLink = (x) => (x.linkToken ? `\nPagá acá: ${location.origin}/c/${x.linkToken}` : "");
-function ownControlBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const now = Date.now(), week = now + 7 * 86_400_000;
-  const l = d.sales.filter((x) => x.expiresAt <= week && x.expiresAt >= now - 30 * 86_400_000);
-  if (!l.length) return "";
-  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 tu ${x.product} ${daysLeft(x.expiresAt) < 0 ? "venció" : daysLeft(x.expiresAt) === 0 ? "vence hoy" : "vence"} el ${fdate(x.expiresAt)}.${x.price ? ` La renovación es ${mine(x.price)}.` : ""} ¿Lo renovamos? 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias que vencen <span class="spill sp-mute">${l.length}</span></h3>
-    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)}${x.price != null ? ` · ${mine(x.price)}` : ""}${x.trial ? " · 🎁 prueba" : ""}</small></span>${ownPill(x.expiresAt)}<span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Avisar</a>` : ""}<button class="sbtn sm" type="button" data-os="renew" data-id="${esc(x.id)}">🔄 Renovó</button></span></div>`).join("")}
-    <button class="sbtn sm" type="button" data-rtool="propias">Ver todas mis cuentas propias</button></div>`;
-}
-function ownDebeBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const l = d.sales.filter((x) => x.pay !== "pagado" && !x.trial && x.price);
-  if (!l.length) return "";
-  const txt = (x) => `Hola ${ownFirst(x.name)} 👋 te paso tu cuenta: tu ${x.product} es *${mine(x.price)}*. ¿Me podés pagar hoy? ¡Gracias! 🙌${ownLink(x)}${myStore() ? `\n— ${myStore()}` : ""}`;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Ventas propias sin pagar · ${mine(l.reduce((t, x) => t + x.price, 0))}</h3>
-    ${l.map((x) => `<div class="line"><span class="lgrow"><b>${esc(x.name)}</b><br><small class="empty">${esc(x.product)} · ${mine(x.price)} · vence ${fdate(x.expiresAt)}</small></span><span class="rbtns">${x.phone ? `<a class="sbtn sm pri" href="${waLink(x.phone, txt(x))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm" type="button" data-os="pay" data-id="${esc(x.id)}" data-pay="pagado">💵 Me pagó</button></span></div>`).join("")}</div>`;
-}
-function ownEarnBox() {
-  const d = ownData(); if (!d?.sales?.length) return "";
-  const t = d.totals;
-  return `<div class="sbox ownbox"><h3 style="margin:0">📦 Tus cuentas propias (por mes)</h3><div class="rkpis"><div><small>Clientes</small><b>${t.clients}</b>${t.trials ? `<small>${t.trials} en prueba gratis</small>` : ""}</div><div><small>Cobrás por mes</small><b class="ok">${mine(t.monthly)}</b></div><div><small>Te deben</small><b class="${t.owed ? "bad" : ""}">${mine(t.owed)}</b></div></div>
-    <p class="empty" style="margin:0">Es lo que cobrás a tus clientes por tus cuentas propias. No se le resta lo que te cuestan esas cuentas: eso no está anotado en el panel.</p></div>`;
-}
+// 14/11: lo de sus cuentas propias vive en propias-plata.js (deudas reales, todos sus clientes y ganancia del mes).
+const ownControlBox = () => ownControlHtml();
+const ownDebeBox = () => ownDebeHtml();
+const ownEarnBox = () => ownEarnHtml();
 const myStore = () => S.data.shop?.title || S.me?.name || "";
 const PAYS = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
 const seen = (r) => { try { return localStorage.getItem(`gs-av-${r.id}-${r.expiresAt}`) === "1"; } catch { return false; } };
@@ -790,24 +790,25 @@ function diaMsg(kind, g) {
   return `Hola ${diaFirst(g.client)} 👋 ${body}${myStore() ? `\n— ${myStore()}` : ""}`;
 }
 function rDiaView() {
-  const D = S.data.rdia;
+  const D = ownDayMerge(S.data.rdia); // + sus cuentas propias en los contadores
   if (!D) return `<div class="sbox"><p class="empty">Cargando tu día…</p></div>`;
   if (D.error) return `<div class="sbox"><div class="err">${esc(D.error)}</div></div>`;
   const pill = (it) => `<span class="rcest ${it.days < 0 ? "rc-bad" : it.days === 0 ? "rc-today" : it.days <= 3 ? "rc-week" : ""}">${it.days < 0 ? `Venció hace ${-it.days} d` : it.days === 0 ? "Vence hoy" : `${it.days} d`}</span>`;
   const payPill = (it) => (it.pay === "pagado" ? "" : `<span class="rcest rc-bad">${it.pay === "no_pago" ? "No pagó" : "Debe"}</span>`);
-  const item = (it) => `<li class="rdia-i" data-diaitem="${esc(it.id)}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
-      <div class="rdia-act"><button class="sbtn sm pri" type="button" data-rdpay="${esc(it.id)}">💵 Me pagó</button></div><div class="rdia-pv" hidden></div></li>`;
-  const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(g.client)}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
+  const item = (it, kind) => `<li class="rdia-i" data-diaitem="${esc(it.id)}" data-who="${esc(who(it.client, it.phone))}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${kind === "cobrar" ? `<span class="bad">${esc(owedText(it))}</span>${it.cut ? " · ✂️ cuenta cortada" : ""}` : `${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}`}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
+      <div class="rdia-act">${payButtons(it, kind)}</div><div class="rdia-pv" hidden></div></li>`;
+  const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(who(g.client, g.phone))}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
       ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
-      <ul class="rdia-l">${g.items.map(item).join("")}</ul></article>`;
-  const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
+      <ul class="rdia-l">${g.items.map((it) => item(it, kind)).join("")}</ul></article>`;
+  const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : ownDayNote(kind) ?? `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
   const k = D.counts;
   return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
-    <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${k.cobrar}</b><small>${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen en 1 a 3 días</small></div><div class="${k.deben ? "bad" : ""}"><span>💸 Me deben</span><b>${k.deben}</b><small>${esc(mine(D.totals.deben))}</small></div></div></div>
-    ${sec("cobrar", "💵 Cobrar hoy", "Vencieron (hasta 30 días atrás) o vencen hoy. Si te pagan, tocá «Me pagó».", D.cobrar)}
-    ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días: un mensaje a tiempo evita el corte.", D.avisar)}
-    ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}
-    ${rBackBox()}`;
+    <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${D.cobrar.length}</b><small>te deben ${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen pronto</small></div></div></div>
+    ${undoBar()}
+    ${sec("cobrar", "💵 Cobrar hoy", "Todo lo que te deben: vencieron y no renovaron, o te pagaron una parte. Es la misma lista de «Quién me debe». Si te pagan lo justo, un toque en «Me pagó»; si es otra plata, «Otro monto».", D.cobrar)}
+    ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días (o tus clientes registrados ya vencieron): un mensaje a tiempo evita el corte.", D.avisar)}
+    ${ownDayHtml()}
+    ${rBackBox()}${ownBackHtml()}`;
 }
 /* ---- 🔁 Que vuelvan (13/11): sus clientes a los que se les venció y no renovaron, con mensaje listo y «Ya le escribí» ---- */
 const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
@@ -818,17 +819,6 @@ function rBackBox() {
     <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
       <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
-}
-/** Vista previa de «Me pagó»: qué va a pasar, precio editable y, si corresponde, renovar con su saldo en el mismo toque. */
-function diaPreviewHtml(pv, key) {
-  const it = pv.item, price = pv.price;
-  const what = it.kind === "sub"
-    ? (pv.moves ? `El perfil <b>${esc(it.label || it.product)}</b> de ${esc(diaFirst(it.client))} pasa a vencer el <b>${fdate(pv.to)}</b> y queda pagado.` : `Queda marcado <b>pagado</b>. La fecha no cambia (todavía no vence).`)
-    : `Queda <b>pagado</b> en tu control.${pv.renew?.offered ? "" : pv.renew?.blocked ? ` ${esc(pv.renew.blocked)}` : " La fecha no cambia (todavía no vence)."}`;
-  const renew = it.kind === "client" && pv.renew?.offered ? `<label class="rdia-ren"><input type="checkbox" name="renew" ${pv.renew.enough ? "checked" : "disabled"}><span>🔄 Renovar ahora con mi saldo: te cuesta <b>${esc(bs(pv.renew.cost))}</b> (tenés ${esc(bs(pv.renew.balance))}).${pv.renew.enough ? ` Pasa a vencer el <b>${fdate(pv.renew.to)}</b>.` : ` <a href="#recargas">Te falta saldo</a>.`}</span></label>` : "";
-  return `<div class="rdia-pvbox"><p style="margin:0">${what}</p>
-    <div class="rdia-pvact"><label>Me pagó (${esc(mySym())})<input name="price" inputmode="decimal" value="${price !== null ? (price / 100).toFixed(2) : ""}" placeholder="0.00"></label>${renew}</div>
-    <div class="rbtns"><button class="sbtn sm pri" type="button" data-rdpayok="${esc(it.id)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button><button class="sbtn sm" type="button" data-rdpayno="1">Cancelar</button></div></div>`;
 }
 function rControlView() { return rControlBase() + ownControlBox(); }
 function rControlBase() {
@@ -886,7 +876,7 @@ const hubLockCard = (need) => { const r = S.data.shop?.rent ?? {}, today = PLAN_
     : [need, need === "seller" ? "business" : null].filter(Boolean).map((p, i) => `<button class="sbtn ${i === 0 ? "pri" : ""}" type="button" data-hubplan="${p}">Pasar a ${PLAN_NAME[p]} (${planPrice(r, p)}/mes)</button>`).join("");
   return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan ${PLAN_NAME[need]}</h2><p class="empty" style="margin:0">${why} El plan ${PLAN_NAME[need]} (${planPrice(r, need)} por mes) suma ${PLAN_WHAT[need]}. ${r.suspended ? "Recargá saldo y pagá: vuelve al instante." : "Se cobra de tu saldo y se activa al instante."}</p><div class="hrow">${btns}<button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
 function rDebeView() {
-  const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
+  const own = ownDebeBox(), subsOwed = (S.data.rsubs?.debts?.items ?? []).filter((x) => x.kind === "sub").length;
   // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
   const base = own || subsOwed ? rDebeBase().replace("Nadie te debe nada 🎉", "No tenés fiados anotados en tu libreta.") : rDebeBase();
   return base + own;
@@ -897,13 +887,13 @@ function rDebeBase() {
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const pend = ov.rows.filter((r) => r.unlinked.count);
-  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
         <label>Monto (${esc(mySym())})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
     ${det ? `<div class="sbox"><h3 style="margin:0">📜 Movimientos · debe ${bs(det.owed)} <button class="sbtn sm" type="button" data-rfdet="">Cerrar</button></h3>${det.entries.map((x) => `<div class="line"><span>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"} <small class="empty">${esc(x.note || "")} · ${fdate(x.at)}</small></span><span><b style="color:${x.kind === "cargo" ? "var(--s-bad)" : "var(--s-ok)"}">${bs(x.amount)}</b> <button class="sbtn sm" type="button" data-rfdel="${esc(x.id)}" aria-label="Borrar movimiento">🗑️</button></span></div>`).join("") || `<p class="empty">Sin movimientos.</p>`}</div>` : ""}
-    ${(S.data.rsubs?.summary?.unpaid ?? []).length ? `<div class="sbox"><h3 style="margin:0">🧩 Perfiles sin pagar · ${bs(S.data.rsubs.summary.owed)}</h3>${S.data.rsubs.summary.unpaid.map((u) => `<div class="line">${am(S.data.rsubs.list.find((x) => x.assignmentId === u.assignmentId)?.productId, u.product)}<span class="lgrow"><b>${esc(u.name)}</b><br><small class="empty">${esc(u.product)}${u.label ? ` · ${esc(u.label)}` : ""}${u.price != null ? ` · ${bs(u.price)}` : ""}</small></span><span class="rbtns">${u.phone ? `<a class="sbtn sm" href="${waLink(u.phone, subCobrar(u, u.product))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm pri" type="button" data-subpaid="${esc(u.assignmentId)}|${esc(u.id)}">💵 Me pagó</button></span></div>`).join("")}</div>` : ""}
+    ${subsDebtBox(S.data.rsubs?.debts)}
     <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b>${appsRow(S.catalog, r.apps)}<small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
       ${r.unlinked.count ? `<div class="rcrow"><span class="empty">${r.unlinked.count} sin pagar en Mi control</span><button class="sbtn sm" type="button" data-rffrom="${esc(r.customerId)}">➕ Pasar</button></div>` : ""}
       <footer>${r.phone && r.owed ? `<a class="sbtn sm pri" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
@@ -935,7 +925,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${earnRealBox(g)}
+    ${earnRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
@@ -981,7 +971,10 @@ function fallasView() {
   if (!S.me?.loggedIn) return needLogin("tus reportes");
   const T = S.data.tickets ?? { kinds: {}, list: [] }, sv = S.data.services ?? [], pre = S.data.fallaPre ?? "";
   const order = ["recibido", "revisando", "solucionado"];
-  const okMsg = (t) => `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}\nProbá entrar de nuevo y cualquier cosa me avisás 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
+  // R2: si la tienda le cambió la cuenta o la clave, el mensaje lleva los datos nuevos (de «Mis cuentas»), no solo «probá de nuevo».
+  const newAcc = (t) => (t.accessChanged ? sv.find((a) => a.assignmentId === t.assignmentId)?.access : null);
+  const accLines = (x) => [`Correo: ${x.email}`, `Contraseña: ${x.password}`, `Perfil: ${x.profile}`, ...(x.pin ? [`PIN: ${x.pin}`] : [])].join("\n");
+  const okMsg = (t) => { const x = newAcc(t); return `Hola ${t.client.split(" ")[0]} 👋 ya quedó solucionado tu ${t.product} ✅${t.reply ? `\n${t.reply}` : ""}${x ? `\nTus datos nuevos:\n${accLines(x)}\nEntrá con estos datos y cualquier cosa me avisás 🙌` : "\nProbá entrar de nuevo y cualquier cosa me avisás 🙌"}${myStore() ? `\n— ${myStore()}` : ""}`; };
   return `<div class="sec-h"><div><span class="chip">Soporte</span><h2>⚠️ Reportar una falla</h2><p>Contanos qué pasa y seguí el estado acá: <b>Recibido → Revisando → Solucionado</b>. Si activaste los avisos, te llega al celular cuando cambia.</p></div></div>
     <div class="sbox">${sv.length ? `<form class="sform" id="fallaForm"><label>¿Qué servicio?<select name="a" required><option value="">Elegí el servicio…</option>${sv.map((a) => `<option value="${esc(a.assignmentId)}" ${pre === a.assignmentId ? "selected" : ""}>${isReseller() ? `${esc(a.customerName)} · ` : ""}${esc(a.product)} · ${esc(a.access.profile)}</option>`).join("")}</select></label>
       <label>¿Qué pasa?<select name="kind">${Object.entries(T.kinds).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
@@ -1029,17 +1022,20 @@ function infoModal(title, html) {
 /** "Tu día": lo que el revendedor tiene que hacer hoy, en una sola tarjeta con botones directos. */
 function todayCard() {
   const rows = S.data.rctl, fi = S.data.rfiado, g = S.data.rearn;
-  if (!rows && !fi && !g && !S.data.ownSoon?.clients?.length && !S.data.ownSoon?.provider?.length) return "";
+  if (!rows && !fi && !g && !S.data.ownSoon?.clients?.length && !S.data.ownSoon?.provider?.length && !ownTodayNums().has) return "";
   const subs = allSubs(), sm = S.data.rsubs?.summary;
   const avisar = (rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)).length
     + subs.filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7 && !subSeen(s)).length;
   const owed = (fi?.totals?.owed ?? 0) + (sm?.owed ?? 0);
   const apps = [...(rows ?? []).filter((r) => !r.holdOpen && daysLeft(r.expiresAt) >= -3 && daysLeft(r.expiresAt) <= 7 && !seen(r)),
     ...subs.filter((x) => daysLeft(x.expiresAt) >= -3 && daysLeft(x.expiresAt) <= 7 && !subSeen(x))];
-  const gain = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
+  const own = ownTodayNums(); // sus cuentas propias: nunca «todo al día» con algo vencido
+  const gain0 = g?.split || sm?.split ? null : g?.month ? (g.month.profitCollected ?? g.month.profit) + (sm?.profit ?? 0) : sm ? sm.profit : null;
+  const gain = gain0 === null ? null : gain0 + own.kept;
+  const todo = avisar + own.pending, owedAll = owed + own.owed;
   const it = [
-    ["dia", "📣", avisar ? `${avisar} por avisar` : "Nadie por avisar", avisar ? "vencen esta semana · Mi día" : "todo al día 🙌", avisar ? "w" : "", appsRow(S.catalog, apps)],
-    ["debe", "💸", mine(owed), owed ? "te deben" : "nadie te debe", owed ? "b" : ""],
+    ["dia", "📣", todo ? `${todo} por ${own.late ? "cobrar o avisar" : "avisar"}` : "Nadie por avisar", todo ? (own.late ? `${own.late} ya vencido(s) · Mi día` : "vencen esta semana · Mi día") : "todo al día 🙌", todo ? (own.late ? "b" : "w") : "", appsRow(S.catalog, apps)],
+    ["debe", "💸", mine(owedAll), owedAll ? "te deben" : "nadie te debe", owedAll ? "b" : ""],
     ["ganancias", "📈", gain === null ? splitGainText(g, sm) : bs(gain), "ganaste este mes", "g"],
   ];
   return `<section class="tday"><b>☀️ Tu día</b><div class="tday-r">${it.map(([k, e, t, s2, c, logos]) => `<button type="button" class="tday-i ${c}" data-rtool="${k}"><span>${e}</span><b>${t}</b><small>${s2}</small>${logos ?? ""}</button>`).join("")}</div>${ownTodayRow(S.data.ownSoon)}</section>`;
@@ -1181,7 +1177,7 @@ function pasteBox(r) {
 function rSubsView() {
   const d = S.data.rsubs;
   if (!d) return `<div class="sbox"><p class="empty" style="margin:0">Cargando…</p></div>`;
-  if (!d.list.length) return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2><p class="empty" style="margin:0">Cuando le alquiles a la tienda una <b>cuenta completa</b> (Disney, Prime, HBO…), aparece acá para que anotes a quién le diste cada perfil, cuándo le vence y si te pagó.</p><button class="sbtn pri" type="button" data-s="precios" style="justify-self:start">Ver cuentas para alquilar</button></div>`;
+  if (!d.list.length) return `${cutsBox(d.cuts)}<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2><p class="empty" style="margin:0">Cuando le alquiles a la tienda una <b>cuenta completa</b> (Disney, Prime, HBO…), aparece acá para que anotes a quién le diste cada perfil, cuándo le vence y si te pagó.</p><button class="sbtn pri" type="button" data-s="precios" style="justify-self:start">Ver cuentas para alquilar</button></div>`;
   const sm = d.summary, soon = allSubs().filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
   const pill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
   const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -1193,20 +1189,21 @@ function rSubsView() {
       <label class="rcnote">Nota<input name="note" maxlength="120" value="${esc(s?.note ?? "")}" placeholder="Ej.: paga los lunes"></label>
       <div class="rbtns"><button class="sbtn sm pri" type="submit">${s ? "Guardar" : "➕ Agregar perfil"}</button>${s ? `<button class="sbtn sm" type="button" data-subrenew="${esc(aid)}|${esc(s.id)}">🔄 Renovó +30 días</button><button class="sbtn sm" type="button" data-subdel="${esc(aid)}|${esc(s.id)}">🗑️ Quitar</button>` : ""}</div></form>`;
   return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
-      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${mine(sm.owed)}</b></div></div>
-      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${selfCodesHead()}${alertsSummary()}</div>
+      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${d.debts?.total ? "bad" : ""}">${mine(d.debts?.total ?? sm.owed)}</b>${d.debts?.total ? `<small>${d.debts.people} persona(s)</small>` : ""}</div></div>
+      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${subsNav()}${selfCodesHead()}${alertsSummary()}</div>
+    ${undoBar()}${cutsBox(d.cuts)}
     ${(() => { const due = d.list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7); if (!due.length) return "";
       const tot = due.reduce((t, r) => t + r.cost, 0);
       return `<div class="sbox rcwarn"><h3 style="margin:0">🔄 Tus cuentas que vencen esta semana</h3><p class="empty" style="margin:0">${due.map((r) => `${esc(r.product)} (${fdate(r.expiresAt)})`).join(" · ")}</p>
         <div class="rbtns"><button class="sbtn pri" type="button" data-rentrenewall="1">🔄 Renovar las ${due.length} · ${bs(tot)}</button><small class="empty">Tu saldo: ${bs(S.me?.balance ?? 0)}</small></div></div>`; })()}
     ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(subSeen).length}/${soon.length})</h3>
-      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(who(s.name, s.phone))}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
     <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
       return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header>${am(r.productId, r.product, "")}<div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
-        <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda${S.settings.whatsapp ? ` · <a href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${r.product} (${r.email}), vence el ${fdate(r.expiresAt)}.`)}" target="_blank" rel="noopener">Avisar</a>` : ""}</span>` : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
+        <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? askRenewHtml({ assignmentId: r.assignmentId, product: r.product, expiresAt: r.expiresAt, price: r.cost }) : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${accChangeBox(r)}${selfCodesRental(r.assignmentId)}${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
-        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
-          ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
+        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(who(s.name, s.phone))}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.owed ? ` · <span class="bad">Debe ${mine(s.owed)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
+          ${open === s.id ? (s.owed ? `<div class="rbtns cpay"><small class="empty">${esc(owedText({ ...s, unit: s.price }))}</small>${subPayButtons(r.assignmentId, s, s.owed)}</div>` : "") + subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
         <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
         <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
         ${S.data.paste?.aid === r.assignmentId ? pasteBox(r) : ""}</article>`; }).join("")}</div>`;
@@ -1245,7 +1242,7 @@ function resellerView() {
     return waLink(c.phone, `Hola ${c.name.split(" ")[0]}, tu ${a.product} ${a.daysLeft < 0 ? "venció" : "vence"} el ${fdate(a.expiresAt)}.${price !== null ? ` La renovación es ${sellText(price)}.` : ""} ¿Lo renovamos? 🙌`);
   };
   const svcRow = (a, withClient) => `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product)}</b><br><small class="empty">${withClient ? esc(byId[a.customerId].name) + " · " : ""}${esc(a.access.profile)}</small></div></div>${dayPill(a.daysLeft)}</div>
-    <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? `<span class="rlock">🔒 La renueva la tienda</span>` : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
+    <div class="rbtns">${a.canRenew === false ? "" : a.renewableNow === false ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }) : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo</button>`}
     <a class="sbtn sm" href="${remind(a)}" target="_blank" rel="noopener">${icon("wa")}Avisarle</a>
     <button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">Copiar datos</button></div></div>`;
   const last = (S.data.lastSale ?? []).map((id) => svc.find((a) => a.assignmentId === id)).filter(Boolean);
@@ -1352,7 +1349,8 @@ function directoryView(standalone) {
 /* ---------------- Referí y ganá: trae otros revendedores y ganá saldo ---------------- */
 function referralCard(r) {
   if (!r) return "";
-  const link = `${location.origin}/?ref=${encodeURIComponent(r.code)}`;
+  // A la página para revendedores (en el dominio propio, «/» es la tienda de clientes).
+  const link = `${location.origin}/revendedores?ref=${encodeURIComponent(r.code)}`;
   const premio = r.enabled ? `Ganás <b>${bs(r.bonus)}</b> de saldo por cada revendedor que traigas y la tienda apruebe.` : "Compartí tu link: cuando la tienda active el premio, ganás saldo por cada revendedor que traigas.";
   const list = r.people?.length ? `<div class="reflist">${r.people.slice(0, 8).map((p) => `<div class="refrow"><b>${esc(p.name)}</b><small>${fdate(p.at)}</small></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no trajiste a nadie. Mandá tu link por WhatsApp a quien quiera revender. 😉</p>`;
   const waMsg = encodeURIComponent(`¡Volvete revendedor conmigo! Registrate acá y empezá a vender: ${link}`);
@@ -1388,6 +1386,7 @@ function hubMas() {
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
       ...(canPage && sh?.couponsAllowed ? [[`data-rtool="cupones"`, "🏷️ Mis cupones", "descuento codigo"]] : []),
+      ...(canPage ? [] : [pageAskItem()]),
       [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"], [`data-rtool="descargas"`, "📁 Mis descargas", "catalogo pdf whatsapp excel reporte exportar"]]],
     ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
     ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
@@ -1546,7 +1545,8 @@ function resellerHome() {
   const big = indep ? [
     // Independiente: su negocio, con sus cuentas. Nada del stock de la tienda.
     [`data-rtool="propias"`, "📦", "Mis cuentas", "Las tuyas: Netflix, IPTV…"],
-    [`data-s="codigos"`, "🔑", "Mis códigos", "De tus propios correos"],
+    // 14/11: GaboHub todavía no lee SU correo; «Mis códigos» muestra los de cuentas de la tienda y su link para clientes.
+    [`data-s="codigos"`, "🔑", "Mis códigos", "Link para tus clientes"],
     [`data-rtool="dia"`, "💰", "Cobrar", "A quién le vence hoy"],
     canPage ? [sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"] : [`data-rtool="debe"`, "💸", "Quién me debe", "Fiados y pagos"],
   ] : [
@@ -1560,17 +1560,19 @@ function resellerHome() {
   const small = [...tiles.filter(([v]) => !["cuentas", "codigos", "precios", ...(indep && canPage ? ["pagina"] : [])].includes(v)), ["fallas", "🆘", "Ayuda", ""]];
   // «Tu día» y «Mi país y moneda» arriba solo cuando le sirven: si anota clientes o cuentas propias, o si vende desde
   // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
-  const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
+  const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length || ownTodayNums().has);
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
   return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
-    ${rentAlertBanner()}
+    ${rentAlertBanner()}${accChangesBanner()}
+    ${indep ? indepLine({ settings: S.settings, me }) : ""}
+    ${firstStepsCard(S.data.pasos, { settings: S.settings, me, pageBtnAttr: sh?.saved ? `data-gopage="1"` : `data-wiz="1"` })}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
-    <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
+    <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"${v === "clientes" ? ` data-gotab="ventas"` : ""}`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
     ${isReseller() && usesDay ? todayCard() : ""}
     ${isReseller() && foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
-    <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>Mi página, Mi control, ganancias, afiches, mi PIN…</small></summary>
+    <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>${canPage ? "Mi página, " : ""}Mi control, ganancias, afiches, mi PIN…</small></summary>
     ${isReseller() && !usesDay ? todayCard() : ""}
     ${isReseller() && !foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
     ${setupR}
@@ -1590,8 +1592,9 @@ const roundBs = (c) => Math.max(100, Math.round(c / 100) * 100);
 function wizardView() {
   const w = S.data.wiz, sh = S.data.shop, m = sh?.marginPct ?? 30;
   const steps = `<div class="wsteps">${["Tu tienda", "Qué vendés", "¡Listo!"].map((t, i) => `<span class="${w.step > i ? "on" : ""}">${i + 1} · ${t}</span>`).join("")}</div>`;
-  if (w.step === 1) return `${steps}<form class="sbox sform wiz" id="wiz1"><h2>¿Cómo se llama tu tienda?</h2>
+  if (w.step === 1) return `${steps}<form class="sbox sform wiz" id="wiz1" data-saved="${sh.saved ? 1 : 0}"><h2>¿Cómo se llama tu tienda?</h2>
       <label>Nombre de tu tienda<input name="title" required maxlength="40" value="${esc(w.title ?? sh.title)}" placeholder="Ej.: Ari Streaming"></label>
+      ${slugField(w, sh, location.origin)}
       <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" required inputmode="tel" value="${esc(w.whatsapp ?? sh.whatsapp)}"></label>
       <label>Tu logo (opcional)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>
       <div class="hrow"><button class="sbtn" type="button" data-wizexit="1">Ahora no</button><button class="sbtn pri" type="submit">Siguiente ${icon("arrow")}</button></div></form>`;
@@ -1603,6 +1606,7 @@ function wizardView() {
       <p class="empty" style="margin:0">Marcá lo que querés mostrar. Ya te pusimos un precio de venta sugerido (tu costo + ${m}%): cambialo si querés.</p>
       <div class="hrow"><button class="sbtn sm" type="button" data-wizall="1">Marcar todo</button><button class="sbtn sm" type="button" data-wizall="0">Desmarcar todo</button><span class="empty" style="font-size:13px">${on} elegido(s)</span></div>
       <div class="wlist">${list.map((p) => { const k = w.picks[p.productId]; return `<label class="witem ${k.on ? "on" : ""}"><input type="checkbox" data-wpick="${esc(p.productId)}" ${k.on ? "checked" : ""}><span><b>${esc(p.name)}</b><small>Te cuesta ${bs(p.cost)} · ganás ${bs(Math.max(0, k.sell - p.cost))}</small></span><span class="wprice">${esc(buySym())} <input inputmode="decimal" data-wsell="${esc(p.productId)}" value="${k.sell / 100}"></span></label>`; }).join("")}</div>
+      ${slugConfirm(shopUrl(sh.slug))}
       <div class="hrow"><button class="sbtn" type="button" data-wizback="1">Atrás</button><button class="sbtn pri" type="submit" ${on ? "" : "disabled"}>Publicar mi página ${icon("arrow")}</button></div></form>`;
   }
   const url = shopUrl(sh.slug), txt = `¡Mirá mi tienda! 🛍️ ${url}`;
@@ -1628,14 +1632,14 @@ function tourStepList() {
   steps.push(
     ['.hsmall [data-s="clientes"]', "Mis clientes 👥", "Si querés, anotá a quién le revendés y te avisamos cuándo cobrarles."],
     ['.hsmall [data-s="fallas"]', "Ayuda 🆘", "¿Una cuenta no anda o tenés una duda? Contalo acá y te respondemos."],
-    [".hmore > summary", "Todas tus herramientas 🧰", "Mi página, Mi control, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites."],
+    [".hmore > summary", "Todas tus herramientas 🧰", `${S.me?.pageAllowed ? "Mi página, Mi control" : "Mi control"}, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites.`],
   );
   // La barra de abajo (celular): Vender, Inventario y Más (GaboHub etapas 1 y 2).
   const bn = document.querySelector(".bnav");
   if (bn && getComputedStyle(bn).display !== "none" && bn.querySelector('[data-s="mas"]')) steps.push(
     ['.bnav [data-s="vender"]', "Vender 🛒", "Elegí qué vendés: una cuenta de la tienda, una tuya o un perfil. Te llevo directo."],
     ['.bnav [data-s="inventario"]', "Inventario 📦", "Todo tu stock por plataforma: lo que compraste, las cuentas completas y tus cuentas propias."],
-    ['.bnav [data-s="mas"]', "Más ☰", "Todo tu panel en un menú: Mi página, combos, afiches, ganancias… con buscador."],
+    ['.bnav [data-s="mas"]', "Más ☰", `Todo tu panel en un menú: ${S.me?.pageAllowed ? "Mi página, combos, " : ""}afiches, ganancias… con buscador.`],
   );
   steps.push(
     ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
@@ -1911,21 +1915,23 @@ function shopEditor() {
     <div class="sbox"><h2>💳 Tu QR de cobro</h2><p class="empty" style="margin:0">Tus clientes te pagan <b>directo a vos</b>: cuando arman su pedido en tu página, ven tu QR con el total y te mandan el comprobante por WhatsApp.</p>
       <div class="rimgs"><form class="sform" id="shopQr">${sh.hasQr ? `<img class="rqrimg" src="/api/shops/${esc(sh.slug)}/qr?v=${Date.now() % 1e6}" alt="Tu QR de cobro">` : `<span class="empty">Todavía no subiste tu QR.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de tu QR"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasQr ? "Cambiar" : "Subir"} QR</button>${sh.hasQr ? `<button class="sbtn sm" type="button" data-rmimg="qr">Quitar</button>` : ""}</div><small class="empty">La captura del QR de tu banco o billetera.</small></form>
-      <form class="sform" id="shopPayNote"><label>Datos para pagarte (opcional)<input name="payNote" maxlength="160" value="${esc(sh.payNote ?? "")}" placeholder="Ej.: Banco Unión · a nombre de Juan Pérez"></label><button class="sbtn sm" type="submit">Guardar</button></form></div></div>`;
+      <form class="sform" id="shopPayNote"><label>Datos para pagarte (opcional)<input name="payNote" maxlength="160" value="${esc(sh.payNote ?? "")}" placeholder="Ej.: Banco Unión · a nombre de Juan Pérez"></label><button class="sbtn sm" type="submit">Guardar</button></form></div></div>
+    ${shopFaqBox(sh)}`;
 }
 
 /** Lee el formulario del editor como objeto de estilo. */
 function combosEditor() {
   const sh = S.data.shop;
   if (!sh) return `<p class="empty">Cargando…</p>`;
-  const priced = (S.data.prices ?? []).filter((p) => p.sell !== null);
+  // Independiente: arma sus combos con SUS productos propios (en su moneda); los demás, con su lista de la tienda.
+  const priced = isIndep() ? ownComboPicks() : (S.data.prices ?? []).filter((p) => p.sell !== null);
   const combos = sh.combos ?? [];
   const D = sh.comboDiscounts ?? [0, 0, 0];
   const nameOf = (id) => (priced.find((p) => p.productId === id)?.name ?? id);
   const draft = S.data.cdraft ?? { picks: [], price: "", name: "" };
   const sum = draft.picks.reduce((t, id) => t + (priced.find((p) => p.productId === id)?.sell ?? 0), 0);
   return `<div class="sec-h"><div><span class="chip">Tus reglas</span><h2>Mis combos y descuentos</h2><p>Vos armás tus propios combos con tu precio, y ponés tus descuentos. Son independientes de los combos de la tienda.</p></div></div>
-    ${priced.length < 2 ? `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>` : ""}
+    ${priced.length < 2 ? (isIndep() ? `<div class="err">Primero creá 2 o más productos con precio en <b>📦 Mis cuentas propias</b>. Con eso armás tus combos.</div>` : `<div class="err">Primero poné precio a 2 o más apps en <b>Clientes y ventas → Mi lista de precios</b>. Con eso armás combos.</div>`) : ""}
 
     <form class="sbox sform" id="discForm"><h2>✦ Armá tu combo (descuento por cantidad)</h2>
       <p class="empty" style="margin:0">Tus clientes eligen 2, 3 o 4 apps sueltas y vos les hacés este descuento. Poné 0 en los tres para apagarlo.</p>
@@ -2277,7 +2283,7 @@ function openLogin(step, phone = "", msg = "", email = "") {
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button>`,
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label><label class="chk"><input type="checkbox" name="consent" checked> Acepto recibir avisos de pedidos y vencimientos por WhatsApp.</label><button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da la tienda por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a la tienda para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
+    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${st.whatsapp ? `<a class="sbtn pri" href="${waLink(st.whatsapp, `Hola, quiero mi PIN de acceso a ${st.storeName}. Mi número es ${phone}`)}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>` : `<p class="empty">Escribile a ${pinGiver(st)} para pedirlo.</p>`}<button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`,
   }[step];
   markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
@@ -2396,6 +2402,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.invsee !== undefined) { S.data.mq = d.invsee; S.data.mf = "all"; return setView("cuentas"); }
+  if (d.gotab) S.data.rtab = d.gotab; // «Mis clientes» de Inicio abre la lista de clientes (no la última pestaña)
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
@@ -2496,7 +2503,7 @@ document.addEventListener("click", async (ev) => {
           <button class="sbtn" type="button" data-close="1">No renovar</button></div><p style="display:none">`);
       }
       if (d.subrenewgo) { closeAll(); const paid = d.paid === "1"; const r = await api("POST", `/api/me/subs/${aid}/${sid}/renew`, { paid }); toast(`🔄 ${sub.name} renovado hasta ${fdate(r.sub.expiresAt)}${r.afterRental ? " · ⚠️ renová tu cuenta antes" : ""}`); }
-      if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
+      if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?${sub.owed ? ` Te debe ${mine(sub.owed)} y eso también se borra.` : ""}`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
       if (d.subpaid) { await api("POST", `/api/me/subs/${aid}`, { ...sub, pay: "pagado" }); toast(`💵 ${sub.name} ya no te debe`); }
     } catch (e) { toast(e.message); }
     S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
@@ -2592,27 +2599,7 @@ document.addEventListener("click", async (ev) => {
     catch (e) { toast(e.message); el.disabled = false; }
     return;
   }
-  if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
-  if (d.rdpay) {
-    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
-    el.disabled = true;
-    try { const pv = await api("GET", `/api/me/dia/preview/${encodeURIComponent(d.rdpay)}`); box.innerHTML = diaPreviewHtml(pv, newKey()); box.hidden = false; box.scrollIntoView({ block: "nearest" }); }
-    catch (e) { toast(e.message); } finally { el.disabled = false; }
-    return;
-  }
-  if (d.rdpayok) {
-    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
-    const price = box.querySelector('[name="price"]')?.value.trim(); const renew = !!box.querySelector('[name="renew"]')?.checked;
-    el.disabled = true;
-    try {
-      const r = await api("POST", `/api/me/dia/pay/${encodeURIComponent(d.rdpayok)}`, { ...(price ? { price: toCents(price) } : {}), renew, idempotencyKey: el.dataset.key });
-      toast(r.renewed ? `💵 Cobrado y renovado hasta el ${fdate(r.to)} ✓` : r.renewError ? `💵 Cobro anotado. No se renovó: ${r.renewError}` : r.kind === "sub" ? `💵 Cobrado ✓ (vence el ${fdate(r.to)})` : "💵 Cobro anotado ✓");
-      S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
-      S.me = await api("GET", "/api/me").catch(() => S.me);
-      render();
-    } catch (e) { toast(e.message); el.disabled = false; }
-    return;
-  }
+  // «Me pagó» de Mi día (rdpay, rdpayok, rdpayno, rdfast) vive en cuaderno.js.
   if (d.ravisar) {
     const r = (S.data.rctl ?? []).find((x) => x.id === d.ravisar);
     if (!r) return;
@@ -2747,17 +2734,18 @@ document.addEventListener("click", async (ev) => {
     } catch (e) {
       el.disabled = false;
       if (e.code === "INSUFFICIENT_BALANCE") { toast("Tu saldo no alcanza: recargá o renová con QR"); return setView("recargas"); }
-      toast(e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "Este servicio no se puede renovar por ahora. Escribinos por WhatsApp." : e.message);
+      if (await pendingRenewFlow(e, d.renew, async () => { const r = await api("POST", "/api/me/renew", { assignmentId: d.renew, paymentMethod: d.method, idempotencyKey: newKey() }); toast(`Renovado hasta ${fdate(r.assignment.customerExpiresAt)}`); await refresh(); }).catch((x) => { toast(x.message); return true; })) return;
+      toast(e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "Para renovarla, la tienda primero renueva con su proveedor: tocá «📩 Pedir renovación»." : e.message);
     }
     return;
   }
   if (d.cancel) {
     el.disabled = true;
-    try { await api("POST", `/api/orders/${d.cancel}/cancel`); toast("Pedido cancelado"); await refresh(); } catch (e) { el.disabled = false; toast(e.message); }
+    try { await api("POST", `/api/orders/${d.cancel}/cancel`, {}); toast("Pedido cancelado"); await refresh(); } catch (e) { el.disabled = false; toast(e.message); }
     return;
   }
   if (d.reload) { await loadPrivate(); return render(); }
-  if (d.logout) { await api("POST", "/api/auth/logout", {}); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
+  if (d.logout) { await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
 });
 
 // Tocar un campo de solo lectura (ej. tu link de referido) lo selecciona entero, para copiarlo fácil.
@@ -2907,7 +2895,7 @@ document.addEventListener("submit", async (ev) => {
       toast("Comprobante enviado: lo revisamos en 10–30 minutos");
     } else if (f.id === "applyForm") {
       const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value, ...(REF ? { ref: REF } : {}) });
-      $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
+      $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "La tienda te va a escribir por WhatsApp con tu acceso cuando apruebe tu solicitud."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
       return;
     } else if (f.id === "pwdform") {
       await api("POST", "/api/me/password", { current: f.current?.value ?? "", password: f.password.value, email: f.email.value.trim() });
@@ -2921,7 +2909,8 @@ document.addEventListener("submit", async (ev) => {
       if (S.view === "seguridad") { S.data.sec = await api("GET", "/api/me/security").catch(() => S.data.sec); render(); }
     } else if (f.id === "wiz1") {
       S.data.wiz.title = f.title.value.trim(); S.data.wiz.whatsapp = f.whatsapp.value;
-      S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value });
+      S.data.wiz.slug = f.slug.value.trim().toLowerCase(); S.data.wiz.slugTouched = !!f.slug.dataset.touched; // dirección desde el nombre de su tienda (arranque.js)
+      S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value, slug: S.data.wiz.slug });
       if (f.logo.files[0]) S.data.shop = await api("POST", "/api/me/shop/logo", { contentBase64: await fileToBase64(f.logo.files[0]) });
       S.data.wiz.step = 2;
       render(); scrollTo(0, 0);
@@ -3005,6 +2994,9 @@ document.addEventListener("submit", async (ev) => {
       body.products = [...f.querySelectorAll('input[name="prod"]:checked')].map((x) => x.value);
       S.data.shop = await api("PUT", "/api/me/shop", body);
       toast(S.data.shop.enabled ? "Guardado: tus clientes ya ven los cambios" : "Guardado. Activá “Publicar” para que tus clientes la vean");
+    } else if (f.id === "shopFaq") {
+      S.data.shop = await saveShopFaq(f); // sus preguntas frecuentes (marca-propia.js)
+      toast("Preguntas guardadas: ya las ven tus clientes");
     } else if (f.id === "shopLogo" || f.id === "shopBanner") {
       S.data.shop = await api("POST", `/api/me/shop/${f.id === "shopLogo" ? "logo" : "banner"}`, { contentBase64: await fileToBase64(f.file.files[0]) });
       toast(f.id === "shopLogo" ? "Logo actualizado" : "Portada actualizada");
@@ -3053,7 +3045,6 @@ descargasBind(document);
 window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
-if (MODE === "hub") { const mb = document.querySelector(".mnybtn"); if (mb) mb.hidden = false; }
 initMoneyMask();
 (async () => {
   if (SLUG) {
@@ -3073,7 +3064,11 @@ initMoneyMask();
   await refresh();
   if (S.linkExpired) {
     S.linkExpired = false;
-    openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a la tienda.</div>`);
+    openLogin("pin", "", `<div class="err">Ese link ya no sirve (era de un solo uso). Ahora entrás con tu número y tu PIN de 4 números. Si no tenés PIN, pedíselo a ${pinGiver(S.settings)}.</div>`);
+  } else if (MODE === "hub") {
+    // R2: la sesión se renueva con el uso; si igual se cerró, se le explica y se le pide el PIN con su número puesto.
+    if (S.me?.loggedIn) rememberHubUser(S.me);
+    else { const n = expiredNotice(S.settings); if (n) openLogin("pin", n.phone, n.html); }
   }
 })();
 
@@ -3119,7 +3114,7 @@ function openApply(msg = "") {
     <form class="sform" id="applyForm"><label>Tu nombre<input name="name" required maxlength="80" autocomplete="name"></label>
     <label>Tu WhatsApp<input name="phone" required inputmode="tel" value="+591 " autocomplete="tel"></label>
     <label>¿Ya vendés? Contanos algo (opcional)<input name="note" maxlength="300" placeholder="Ej.: vendo Netflix hace 1 año"></label>
-    <button class="sbtn pri" type="submit">Enviar solicitud</button><p class="empty" style="margin:0;font-size:13px">Te escribimos por WhatsApp con tu acceso.</p></form></div>`;
+    <button class="sbtn pri" type="submit">Enviar solicitud</button><p class="empty" style="margin:0;font-size:13px">La tienda te va a escribir por WhatsApp con tu acceso.</p></form></div>`;
   $("#modal").hidden = false;
   $("#scrim").hidden = false;
   $("#modal input")?.focus();
