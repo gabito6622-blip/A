@@ -16,6 +16,7 @@ import { canRenewHere } from "./renovarVarias.js";
 import { renewableNow } from "./orders.js";
 import { cutAtOf } from "./dia.js";
 import { myPendingQr, myRequests, openRequestOf, pendingRenewalOf, renewRequestHold } from "./renovarSinTrabas.js";
+import { clientCutsToday, realCutAt } from "./corteHoy.js";
 
 /** Desde cuántos días antes del vencimiento aparece el cartel (y el primer aviso al celular). */
 export const ALERT_DAYS = 3;
@@ -43,7 +44,8 @@ export function storeRentAlerts(e: Engine, customerId: Id, now: number = e.now()
     .sort((x, y) => x.customerExpiresAt - y.customerExpiresAt)
     .map((a) => {
       const can = canRenewHere(e, customerId, a), supplierOk = renewableNow(e, a), ok = can && supplierOk;
-      const cutAt = cutAtOf(a) ?? a.customerExpiresAt, cutDays = daysLeft(cutAt, now), dl = daysLeft(a.customerExpiresAt, now);
+      // 15/11: con un pedido de renovación abierto, se corta al terminar la espera (corteHoy.ts), no el día del corte normal.
+      const cutAt = realCutAt(e, a) ?? cutAtOf(a) ?? a.customerExpiresAt, cutDays = daysLeft(cutAt, now), dl = daysLeft(a.customerExpiresAt, now);
       const name = short(e.s.products[a.productId]?.name ?? "servicio");
       // R2 (14/11): por qué no entra en «Renovar las N», el pedido de renovación y la renovación que espera el QR.
       const req = openRequestOf(e, a.id), pend = pendingRenewalOf(e, a.id), held = renewRequestHold(e, a);
@@ -55,7 +57,7 @@ export function storeRentAlerts(e: Engine, customerId: Id, now: number = e.now()
         ...(why ? { why } : {}), ...(req ? { request: { id: req.id, createdAt: req.createdAt } } : {}), ...(held ? { held: true } : {}),
         ...(pend ? { pendingOrderId: pend.id, pendingStatus: pend.status } : {}),
         // El texto del cartel, igual al del aviso al celular. El día del corte: «Hoy se corta tu HBO».
-        text: cutDays === 0 && !held ? `✂️ Hoy se corta tu ${name} de la tienda (venció el ${fdm(a.customerExpiresAt)})`
+        text: cutDays === 0 ? `✂️ Hoy se corta tu ${name} de la tienda (venció el ${fdm(a.customerExpiresAt)}${held ? "; tu pedido de renovación sigue sin resolverse" : ""})`
           : `Tu ${name} de la tienda ${dl < 0 ? "venció" : "vence"} el ${fdm(a.customerExpiresAt)} y se corta el ${fdm(cutAt)}`,
       };
     });
@@ -79,12 +81,16 @@ export function myStoreRentAlerts(e: Engine, actor: Actor) {
 export function storeRentPush(e: Engine, customerId: Id, now: number = e.now()): { title: string; body: string; url: string } | null {
   const alerts = storeRentAlerts(e, customerId, now).filter((x) => !x.inReview);
   // El día del corte va solo y primero: «✂️ Hoy se corta tu HBO» (R2, 14/11). Si pidió la renovación, no se corta.
-  const cut = alerts.filter((x) => x.cutDaysLeft === 0 && !x.held);
-  if (cut.length) {
+  // 15/11: también el día que termina la espera de un pedido sin resolver, y los servicios de SUS clientes (corteHoy.ts).
+  const cut = alerts.filter((x) => x.cutDaysLeft === 0);
+  const theirs = clientCutsToday(e, customerId, now);
+  if (cut.length || theirs.length) {
+    const names = [...cut.map((x) => `tu ${x.product} de la tienda`), ...theirs.map((x) => `el ${x.product} de ${x.client.trim().split(/\s+/)[0]}`)];
+    const canRenew = cut.some((x) => x.canRenew && !x.held) || theirs.some((x) => x.canRenew);
     return {
-      title: cut.length === 1 ? `✂️ Hoy se corta tu ${cut[0].product} de la tienda` : `✂️ Hoy se cortan ${cut.length} cuentas tuyas de la tienda`,
-      body: `${cut.length === 1 ? "" : `${cut.map((x) => x.product).join(", ")}. `}${cut.some((x) => x.canRenew) ? "Renovala ya desde GaboHub para que tus clientes no se queden sin servicio." : "Tocá «📩 Pedir renovación» en GaboHub: mientras la tienda la renueva no se corta."}`,
-      url: "/hub#inicio",
+      title: names.length === 1 ? `✂️ Hoy se corta ${names[0]}` : `✂️ Hoy se cortan ${names.length} servicios`,
+      body: `${names.length === 1 ? "" : `${names.slice(0, 4).join(", ")}${names.length > 4 ? "…" : ""}. `}${cut.some((x) => x.held) || theirs.some((x) => x.held) ? "Tu pedido de renovación sigue sin resolverse: escribile a la tienda. " : ""}${canRenew ? "Renovalo hoy desde GaboHub para que no se queden sin servicio." : "Tocá «📩 Pedir renovación» en GaboHub: mientras la tienda lo renueva no se corta."}`,
+      url: theirs.length && !cut.length ? "/hub#dia" : "/hub#inicio",
     };
   }
   const due = alerts.filter((x) => x.daysLeft === ALERT_DAYS || x.daysLeft === 0);

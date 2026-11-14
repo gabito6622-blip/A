@@ -59,8 +59,8 @@ const remindText = (s) => `Hola ${firstName(s.name)} 👋 tu ${s.product} ${days
 
 function saleRow(s) {
   const open = OS.open.sale === s.id;
-  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.debt ? ` · <span class="bad">Debe ${$m(s.debt)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}${s.blocked ? ` · <span class="bad">${s.blocked === "caida" ? "⚠️ cuenta caída" : "⚠️ cuenta vencida"}</span>` : ""}${ownAlertTag(s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
-    ${open ? `<div class="os-sale">
+  return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.debt ? ` · <span class="bad">Debe ${$m(s.debt)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}${s.blocked ? ` · <span class="bad">${s.blocked === "caida" ? "⚠️ cuenta caída" : "⚠️ cuenta vencida"}</span>` : ""}${s.back ? " · 🔁 Volvió" : ""}${ownAlertTag(s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+    ${open ? `<div class="os-sale">${s.back ? `<p class="empty" style="margin:0">🔁 Volvió${s.back.n > 1 ? ` (${s.back.n} veces)` : ""} · cliente desde ${fdate(s.since ?? s.createdAt)}${s.before ? ` · antes te pagó ${$m(s.before.paid)} en ${s.before.periods} ${s.before.periods === 1 ? "período" : "períodos"}` : ""}</p>` : ""}
       <div class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, accessText(s))}" target="_blank" rel="noopener">🔑 Mandar acceso por WhatsApp</a><a class="sbtn sm" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : `<small class="empty">Sin WhatsApp</small>`}</div>
       <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"} +${OS.data.products.find((p) => p.id === s.productId)?.durationDays ?? 30} días</button>
         <button class="sbtn sm" type="button" data-os="pay" data-id="${esc(s.id)}" data-pay="${s.debt || s.pay !== "pagado" ? "pagado" : "pendiente"}">${s.debt || s.pay !== "pagado" ? "💵 Me pagó" : "⏳ Marcar pendiente"}</button>
@@ -182,7 +182,22 @@ export function ownStockView() {
 
 /* ---------------- avisos con los datos nuevos (mover, cambio de clave) ---------------- */
 /** Fila de avisos por WhatsApp: cada cliente con su acceso nuevo (cuenta, clave, cupo y la MISMA fecha). */
+// 15/11: la fila de avisos sobrevive a cerrar o recargar GaboHub (antes, si el revendedor se distraía antes de avisar a
+// todos, la fila se perdía y sus clientes se quedaban con la clave vieja). Solo en este celular, hasta tocar «Listo».
+const NKEY = "gs-os-notify";
+function saveNotify() {
+  try { if (OS.notify) localStorage.setItem(NKEY, JSON.stringify({ ...OS.notify, done: [...OS.notified], at: Date.now() })); else localStorage.removeItem(NKEY); } catch { /* sin almacenamiento */ }
+}
+function loadNotify() {
+  if (OS.notify || OS.notifyLoaded) return;
+  OS.notifyLoaded = true;
+  try {
+    const x = JSON.parse(localStorage.getItem(NKEY) || "null");
+    if (x && Array.isArray(x.ids) && Date.now() - x.at < 7 * 86_400_000) { OS.notify = { title: String(x.title ?? ""), ids: x.ids.map(String), left: Array.isArray(x.left) ? x.left : [] }; OS.notified = new Set((x.done ?? []).map(String)); }
+  } catch { /* sin almacenamiento */ }
+}
 function notifyBox() {
+  loadNotify();
   const N = OS.notify;
   if (!N || !OS.data) return "";
   const list = N.ids.map((id) => OS.data.sales.find((s) => s.id === id)).filter(Boolean);
@@ -315,7 +330,7 @@ async function sheetClick(k, d, el) {
   if (k === "moveallok") {
     el.disabled = true;
     const r = await sheetAct(() => api("POST", `/api/me/own/accounts/${id}/move-all`, {}), (x) => `↔️ Moví ${x.moved.length}${x.left.length ? ` · faltan ${x.left.length}` : ""}`);
-    if (r) { OS.notify = { title: `↔️ Moviste ${r.moved.length}: mandales sus datos nuevos`, ids: r.moved.map((x) => x.id), left: r.left }; RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
+    if (r) { OS.notify = { title: `↔️ Moviste ${r.moved.length}: mandales sus datos nuevos`, ids: r.moved.map((x) => x.id), left: r.left }; OS.notified = new Set(); saveNotify(); RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
     return true;
   }
   if (k === "down") {
@@ -328,11 +343,11 @@ async function sheetClick(k, d, el) {
   if (k === "notifyacc") {
     if (!a) return true;
     const ids = OS.data.sales.filter((x) => x.accountId === a.id).map((x) => x.id);
-    OS.notify = { title: `📣 Avisá a los ${ids.length} de ${a.user}`, ids, left: [] };
+    OS.notify = { title: `📣 Avisá a los ${ids.length} de ${a.user}`, ids, left: [] }; OS.notified = new Set(); saveNotify();
     RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" });
     return true;
   }
-  if (k === "notifyoff") { OS.notify = null; RENDER(); return true; }
+  if (k === "notifyoff") { OS.notify = null; saveNotify(); RENDER(); return true; }
   if (k === "provpay") {
     if (!a) return true;
     sheet(`💸 Pagué a mi proveedor · ${esc(a.user)}`, `<p style="margin:0">${a.providerExpiresAt ? `Hoy vence el ${fdate(a.providerExpiresAt)}. ` : ""}Se suma a «Mis ganancias» como lo que pagaste y corre la fecha con tu proveedor.</p>
@@ -363,7 +378,7 @@ async function sheetSubmit(k, f) {
   if (k === "move") {
     const [accountId, slot] = f.to.value.split("|");
     const r = await sheetAct(() => api("POST", `/api/me/own/sales/${id}/move`, { accountId, slot: Number(slot) }), "↔️ Movido");
-    if (r) { OS.notify = { title: `↔️ Moviste a ${firstName(r.name)}: mandale sus datos nuevos`, ids: [r.id], left: [] }; RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
+    if (r) { OS.notify = { title: `↔️ Moviste a ${firstName(r.name)}: mandale sus datos nuevos`, ids: [r.id], left: [] }; OS.notified = new Set(); saveNotify(); RENDER(); document.getElementById("osNotify")?.scrollIntoView({ block: "start" }); }
     return true;
   }
   if (k === "down") { await sheetAct(() => api("POST", `/api/me/own/accounts/${id}/down`, { down: true, note: f.note.value }), "⚠️ Marcada como caída: ya no se ofrece"); return true; }
@@ -393,7 +408,7 @@ const price = (v) => { const s = String(v ?? "").trim(); if (!s) return null; co
 if (typeof document !== "undefined") {
   document.addEventListener("click", async (ev) => {
     const n = ev.target.closest("[data-osn]");
-    if (n) { OS.notified.add(n.dataset.osn); setTimeout(() => RENDER(), 300); return; }
+    if (n) { OS.notified.add(n.dataset.osn); saveNotify(); setTimeout(() => RENDER(), 300); return; }
     const el = ev.target.closest("[data-os]");
     if (!el) return;
     ev.stopPropagation();
@@ -454,7 +469,7 @@ if (typeof document !== "undefined") {
         const newPass = !!(f.dataset.id && f.password.value.trim());
         const r = await act(() => api("POST", "/api/me/own/accounts", body), "🔐 Cuenta guardada", key);
         // Cambió la clave de una cuenta con clientes: la fila de avisos con los datos nuevos, lista para mandar.
-        if (r && newPass) { const ids = (OS.data?.sales ?? []).filter((x) => x.accountId === f.dataset.id).map((x) => x.id); if (ids.length) { OS.notify = { title: `🔑 Cambiaste la clave: avisales a ${ids.length === 1 ? "tu cliente" : `tus ${ids.length} clientes`} de esta cuenta`, ids, left: [] }; RENDER(); } }
+        if (r && newPass) { const ids = (OS.data?.sales ?? []).filter((x) => x.accountId === f.dataset.id).map((x) => x.id); if (ids.length) { OS.notify = { title: `🔑 Cambiaste la clave: avisales a ${ids.length === 1 ? "tu cliente" : `tus ${ids.length} clientes`} de esta cuenta`, ids, left: [] }; OS.notified = new Set(); saveNotify(); RENDER(); } }
         return r;
       }
       if (k === "assign") {

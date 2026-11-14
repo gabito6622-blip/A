@@ -67,9 +67,9 @@ export function ownDayHtml() {
 const backMsg = (x) => `Hola ${first(x.name)} 👋 ¿Cómo estás? Hace ${x.days} días se venció tu ${x.product}. ¿Querés que te lo active de nuevo?${x.price ? ` Te sale ${mine(x.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${sign()}`;
 export function ownBackHtml() {
   const B = PP.back;
-  if (!B || (!B.items.length && !B.written)) return "";
+  if (!B || (!B.items.length && !B.written && !B.owing)) return "";
   return `<section class="sbox rdia-s ownbox" id="ownBack"><h3 style="margin:0">🔁 Que vuelvan · tus cuentas propias <small class="empty">· ${B.items.length ? `${B.items.length} cliente(s)` : "nadie por ahora"}</small></h3>
-    <p class="empty" style="margin:0">Se les venció hace más de 30 días o les liberaste el cupo. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito(s))` : ""}</p>
+    <p class="empty" style="margin:0">Se les venció hace más de 30 días o les liberaste el cupo. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito(s))` : ""}${B.owing ? ` ${B.owing === 1 ? "1 que todavía te debe no sale acá: está" : `${B.owing} que todavía te deben no salen acá: están`} en «Te deben», para cobrarle primero.` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((x) => `<li class="rdia-i"><span class="rdia-it"><b>${esc(x.name)}</b><small>${esc(x.product)} · ${x.released ? "liberado" : "venció"} el ${fdate(x.expiredAt)} (hace ${x.days} d)${x.price ? ` · ${esc(mine(x.price))}` : ""}</small></span>
       <div class="rdia-act">${wa(x, backMsg(x), "💬 Mensaje listo")}<button class="sbtn sm" type="button" data-ownback="${esc(x.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
 }
@@ -90,6 +90,15 @@ export function ownControlHtml() {
 }
 
 /* ---------------- 💸 Quién me debe ---------------- */
+/** Lo que le deben por sus cuentas propias (activos y liberados), para sumarlo arriba de «Quién me debe» (15/11). */
+export function ownOwed() {
+  const d = ownData();
+  if (!d) return { owed: 0, people: 0, keys: [] };
+  const l = [...(d.sales ?? []).filter((x) => x.debt > 0), ...(d.gone ?? []).filter((g) => g.debt > 0)];
+  const keys = [...new Set(l.map((x) => `${String(x.name ?? "").trim().toLowerCase()}|${String(x.phone ?? "").replace(/\D/g, "")}`))];
+  return { owed: l.reduce((t, x) => t + x.debt, 0), people: keys.length, keys };
+}
+
 export function ownDebeHtml() {
   const d = ownData();
   if (!d) return "";

@@ -82,9 +82,6 @@ function qrBox() {
     <div class="hrow"><button class="sbtn pri" type="button" data-rmsend="1">Enviar comprobante · ${bs(total)}</button></div></div>`;
 }
 
-/** «Mis ganancias»: tu ganancia real (14/11: con lo que de verdad te pagaron y el mensaje según lo que te deben; cuaderno.js). */
-export { gananciaRealBox as earnRealBox } from "/cuaderno.js";
-
 async function pay(method, ids) {
   let pv = await api("POST", "/api/me/renew-many/preview", { ids });
   // R2: una que ya espera un pago por QR no se renueva dos veces. Con saldo: «¿lo cancelo y pago con saldo?».

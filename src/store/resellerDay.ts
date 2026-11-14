@@ -148,6 +148,11 @@ const find = (e: Engine, actor: Actor, id: Id): DayItem => {
   // Una deuda de la libreta, o un perfil de una cuenta que se cortó: se puede cobrar lo que debía.
   const d = myDebts(e, actor).items.find((x) => x.id === id);
   if (d) return debtItem(e, d, daysFn(e.now()));
+  // 15/11: un perfil suyo en una cuenta que se cortó y que ya no debe nada: antes decía «no es de un cliente tuyo».
+  const [aid, sid] = id.split("|");
+  const a = sid ? e.s.assignments[aid] : undefined;
+  if (a && a.customerId === actor.customerId && a.status !== "active" && a.subs?.some((x) => x.id === sid))
+    throw new DomainError("INVALID_STATE", "Ese perfil está en una cuenta que se cortó y no te debe nada. Pasalo a tu cuenta nueva («➡️ Pasar a mi cuenta nueva») para seguir cobrándole.");
   throw new DomainError("NOT_FOUND", "Ese servicio no es de un cliente tuyo");
 };
 

@@ -238,7 +238,8 @@ export function day(e: Engine, actor: Actor) {
   const avisar = all.filter((x) => x.days > 0 && x.days <= OWN_DAY_AHEAD).sort((x, y) => x.expiresAt - y.expiresAt);
   const inCobrar = new Set(cobrar.map((x) => x.id));
   const deben = [
-    ...all.filter((x) => x.debt > 0 && !inCobrar.has(x.id) && x.days > OWN_DAY_AHEAD),
+    // 15/11: también los que vencieron hace más de 30 días y siguen debiendo (antes no salían en ninguna lista de Mi día).
+    ...all.filter((x) => x.debt > 0 && !inCobrar.has(x.id) && (x.days > OWN_DAY_AHEAD || x.days < -OWN_DAY_BACK)),
     // Liberados que pasó a «Quién me debe».
     ...(b.gone ?? []).filter((g) => (owe.get(g.id) ?? 0) > 0).map((g) => ({ id: g.id, name: g.name, phone: g.phone, product: g.product, productId: g.productId, accountId: g.accountId, user: g.user, slot: g.slot, expiresAt: g.expiresAt, days: daysTo(g.expiresAt), price: g.price ?? null, debt: owe.get(g.id) ?? 0, trial: false, gone: true })),
   ];
@@ -283,8 +284,11 @@ export function back(e: Engine, actor: Actor) {
   ];
   // Un mismo cliente (teléfono) aparece una vez: el más reciente.
   const seen = new Set<string>();
-  const list = items.sort((x, y) => x.days - y.days).filter((x) => { const k = x.phone.replace(/\D/g, ""); if (seen.has(k)) return false; seen.add(k); return true; });
-  return { quietDays: OWN_BACK_QUIET, written: list.filter((x) => quiet(x.key)).length, items: list.filter((x) => !quiet(x.key)) };
+  // 15/11: quien todavía le debe no sale acá: ya está en «Te deben» de Mi día con su mensaje para cobrar.
+  const owe = debts(b), owingPhones = new Set([...b.sales, ...(b.gone ?? [])].filter((x) => (owe.get(x.id) ?? 0) > 0).map((x) => x.phone.replace(/\D/g, "")));
+  const all = items.sort((x, y) => x.days - y.days).filter((x) => { const k = x.phone.replace(/\D/g, ""); if (seen.has(k)) return false; seen.add(k); return true; });
+  const list = all.filter((x) => !owingPhones.has(x.phone.replace(/\D/g, "")));
+  return { quietDays: OWN_BACK_QUIET, written: list.filter((x) => quiet(x.key)).length, items: list.filter((x) => !quiet(x.key)), owing: all.length - list.length };
 }
 
 /** «Ya le escribí» (o deshacerlo). */

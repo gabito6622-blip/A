@@ -7,12 +7,12 @@ import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } f
 import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
-import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
-import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox } from "/cuaderno.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, qrBoxIds } from "/hub-mes.js";
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox, gananciaRealBox } from "/cuaderno.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
@@ -814,9 +814,9 @@ function rDiaView() {
 const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
 function rBackBox() {
   const B = S.data.rback;
-  if (!B || (!B.items.length && !B.written)) return "";
+  if (!B || (!B.items.length && !B.written && !B.owing)) return "";
   return `<section class="sbox rdia-s" id="rback"><h3 style="margin:0">🔁 Que vuelvan <small class="empty">· ${B.items.length ? `${B.items.length} cliente${B.items.length === 1 ? "" : "s"}` : "nadie por ahora"}</small></h3>
-    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
+    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}${B.owing ? ` ${B.owing === 1 ? "1 que todavía te debe no sale acá: está" : `${B.owing} que todavía te deben no salen acá: están`} en «💵 Cobrar hoy», para cobrarle primero.` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
       <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
 }
@@ -887,7 +887,11 @@ function rDebeBase() {
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const pend = ov.rows.filter((r) => r.unlinked.count);
-  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+  // 15/11: el número de arriba es TODO lo que le deben: perfiles, clientes registrados y sus cuentas propias.
+  const own = ownOwed(), subsPeople = new Set((S.data.rsubs?.debts?.items ?? []).map((x) => `${String(x.client ?? "").trim().toLowerCase()}|${String(x.phone ?? "").replace(/\D/g, "")}`));
+  const owedAll = (S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0) + own.owed;
+  const peopleAll = (S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0) + own.keys.filter((k) => !subsPeople.has(k)).length;
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(owedAll)}</b>${own.owed ? `<small>${bs(own.owed)} de tus cuentas propias</small>` : ""}</div><div><small>Personas</small><b>${peopleAll}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
@@ -925,7 +929,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${earnRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
+    ${gananciaRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
