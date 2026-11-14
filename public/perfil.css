@@ -10,8 +10,8 @@
 .pf-opts{grid-column:1/-1;border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
 .pf-opts[hidden]{display:none}
 .pf-opts legend{font-weight:700;font-size:14px;margin-bottom:6px}
-.pf-opt{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
-.pf-opt input{width:22px;height:22px;flex:none;margin:0}
+.pf-opt,.form .pf-opt{color:var(--ink);display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+.pf-opt input,.form .pf-opt input{width:22px;height:22px;flex:none;margin:0;padding:0;accent-color:var(--blue)}
 .pf-opt:has(input:checked){border-color:var(--ink);background:var(--soft)}
 .pf-rep,.pf-cliback{grid-column:1/-1;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
 .pf-rep[hidden],.pf-cliback[hidden],.pf-dev[hidden],.pf-rate[hidden]{display:none}
