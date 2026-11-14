@@ -22,7 +22,8 @@ import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
 import { noticeOf } from "./dia.js";
-import { bsToUsd, isUsd, paidTotal, refundToWallet, requireRate, usdToBs } from "./usd.js";
+import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
+import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -70,6 +71,8 @@ export interface CreateOrderInput {
   localMethodId?: Id;
   /** Solo staff: cuántos períodos (meses) se venden de una vez, 1 a 12. Cobra precio × períodos. */
   periods?: number;
+  /** Solo staff, en efectivo: venta FIADA («⏳ Pendiente»): no cuenta como «Entró» hasta que se cobra (plata.ts). */
+  payLater?: boolean;
 }
 
 /** Períodos de una venta: el staff puede vender de 1 a 12 juntos; los clientes, siempre 1. */
@@ -177,6 +180,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     } else if (input.paymentMethod === "cash") {
       order.approvedBy = actor.id;
       fulfill(e, actor, order);
+      if (input.payLater === true && isStaff(actor)) markPayLater(e, actor, order);
     } else {
       // El aviso con el monto va a quien paga: el cliente final de un revendedor nunca ve lo que pagó su revendedor.
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: id, total: fmtOrder(order) });
@@ -611,6 +615,8 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
+      // «Renovar» de un alquiler que figura sin pagar en el Control: la renovación queda fiada (plata.ts).
+      if (isStaff(actor)) payLaterIfPending(e, actor, order, a);
     }
     return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id], isStaff(actor)) };
   }));
@@ -874,8 +880,12 @@ export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason
   });
 }
 
-/** Devolución proporcional: cierra un servicio activo y acredita al cliente por los días que le faltaban. */
-export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string } = {}) {
+/**
+ * Devolución proporcional: cierra un servicio activo y le devuelve al cliente por los días que le faltaban: a su saldo
+ * o, con `cash`, en efectivo (no toca el saldo). Las dos restan de «Entró» el día de hoy (plata.ts), así lo que pague
+ * después con ese saldo no cuenta dos veces. Con `slotFallen` (el perfil se cayó) el perfil va a cuarentena, no a libres.
+ */
+export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string; cash?: boolean; slotFallen?: boolean } = {}) {
   authorize(actor, "assignment.replace");
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
@@ -889,13 +899,16 @@ export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, inpu
     const suggested = Math.round(base * Math.min(remaining, total) / total);
     const amount = input.amount !== undefined ? Number(input.amount) : suggested;
     if (!Number.isInteger(amount) || amount < 0 || amount > base) throw new DomainError("VALIDATION", "Monto de devolución inválido");
-    if (amount > 0) post(e, actor, a.customerId, amount, "refund", a.id, (input.reason || "").trim() || `Devolución de ${prod.name}`);
+    const cash = input.cash === true;
+    const note = (input.reason || "").trim() || `Devolución de ${prod.name}`;
+    if (amount > 0 && !cash) post(e, actor, a.customerId, amount, "refund", a.id, note);
+    recordCustomerRefund(e, actor, { customerId: a.customerId, assignmentId: a.id, amountBs: usdW ? usdToBs(amount, rateNow(e)) : amount, via: cash ? "efectivo" : "saldo", ...(usdW ? { usd: amount } : {}), note });
     a.status = "revoked";
-    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
+    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${cash ? "en efectivo " : ""}${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
     const slot = e.s.slots[a.slotId];
-    if (slot && slot.status === "assigned") slot.status = "available";
-    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(usdW ? { currency: "USD" } : {}) });
-    return { amount, remaining, suggested, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
+    if (slot && slot.status === "assigned") slot.status = input.slotFallen === true ? "quarantined" : "available";
+    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(cash ? { via: "efectivo" } : {}), ...(input.slotFallen ? { slotFallen: true } : {}), ...(usdW ? { currency: "USD" } : {}) });
+    return { amount, remaining, suggested, via: cash ? "efectivo" as const : "saldo" as const, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
   });
 }
 
@@ -951,7 +964,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     if (priceUsd !== undefined) { if (priceUsd === null) delete c.priceUsd; else c.priceUsd = priceUsd; }
     if (price !== undefined) { if (price === null) delete c.price; else c.price = price; }
     if (cost !== undefined) { if (cost === null) delete c.cost; else c.cost = cost; }
-    const wasPaid = c.payStatus === "pagado";
+    const wasPaid = c.payStatus === "pagado", wasPaidish = (c.payStatus ?? "pagado") === "pagado";
     if (patch.payStatus !== undefined) c.payStatus = patch.payStatus;
     if (patch.note !== undefined) { const t = String(patch.note).trim(); if (t) c.note = t; else delete c.note; }
     if (patch.seller !== undefined) { const t = String(patch.seller).trim(); if (t) c.seller = t; else delete c.seller; }
@@ -965,6 +978,9 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
       c.paidLog = c.paidLog.filter((p) => p.from !== from);
       if (!c.paidLog.length) delete c.paidLog;
     }
+    // Ventas o renovaciones fiadas de este alquiler: se cobraron hoy (o se deshace, si volvió a «pendiente»).
+    if (c.payStatus === "pagado" && !wasPaid) settlePayLater(e, a.id, from);
+    else if (wasPaidish && patch.payStatus !== undefined && c.payStatus !== "pagado") { unsettlePayLater(e, a.id, from); payLaterFromControl(e, actor, a, from); }
     a.control = c;
     e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(","), ...(priceMoves && price !== undefined && price !== null ? { price, ...(priceBefore !== undefined ? { priceFrom: priceBefore } : {}) } : {}) });
     return structuredClone(c);

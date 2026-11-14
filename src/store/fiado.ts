@@ -14,6 +14,7 @@ import { DomainError } from "./errors.js";
 import { currencyOf, isForeign, listPriceMine, maxAmount, normAmount } from "./country.js";
 import { effectivePrice, payerOf } from "./admin.js";
 import { bsToUsd, isUsd, rateNow } from "./usd.js";
+import { owedFor, payLaterToFiado } from "./plata.js";
 
 const DAY = 86_400_000;
 const all = (e: Engine) => (e.s.fiado ??= []);
@@ -95,6 +96,7 @@ export function addCharge(e: Engine, actor: Actor, input: { customerId: Id; amou
     const entry: FiadoEntry = { id: e.id("fia"), customerId: input.customerId, kind: "cargo", amount, note, at: e.now(), by: actor.id,
       ...(b.creditor ? { creditorId: b.creditor } : {}), ...(dueAt !== undefined ? { dueAt } : {}), ...(input.assignmentId ? { assignmentId: input.assignmentId } : {}) };
     all(e).push(entry);
+    if (!b.creditor && input.assignmentId) payLaterToFiado(e, input.assignmentId);
     syncControl(e, b, input.customerId);
     e.audit(actor, "fiado.charge", "customer", input.customerId, { amount, entry: entry.id });
     return structuredClone(entry);
@@ -124,6 +126,7 @@ export function removeEntry(e: Engine, actor: Actor, entryId: Id): { ok: true } 
     if (x.kind === "cargo" && x.assignmentId) {
       const a = e.s.assignments[x.assignmentId];
       if (a && ctl(a, b)?.payStatus === "pendiente") setCtl(a, b, "pagado");
+      if (!b.creditor) payLaterToFiado(e, x.assignmentId, true);
     }
     syncControl(e, b, x.customerId);
     e.audit(actor, "fiado.remove", "customer", x.customerId, { kind: x.kind, amount: x.amount });
@@ -139,10 +142,10 @@ function unpaidRentals(e: Engine, b: Book, customerId?: Id) {
 }
 function rentalPrice(e: Engine, b: Book, a: Assignment): Cents {
   if (b.creditor) return a.rcontrol?.price ?? listPriceMine(e, e.s.customers[b.creditor], a.productId) ?? 0;
-  // Libreta del dueño (en Bs). Si el cliente paga en dólares, lo que te debe es su precio en US$ a la tasa de hoy.
-  const who = e.s.customers[a.customerId], payer = who?.resellerId ? e.s.customers[who.resellerId] : who;
-  if (payer && isUsd(e, payer)) return effectivePrice(e, a);
-  return a.control?.price ?? e.s.products[a.productId]?.price ?? 0;
+  // Libreta del dueño (en Bs): lo que de verdad te debe (15/11/2026). Si fue una venta o renovación fiada, lo fiado
+  // (con sus meses y su cupón); si no, su precio real (`effectivePrice`: el acordado, el de la lista de quien paga
+  // —revendedor o país— o el del producto; en dólares, a la tasa de hoy). Antes usaba el precio de lista del producto.
+  return owedFor(e, a);
 }
 
 /** Pasa al fiado todos los alquileres sin pagar de un cliente (uno por alquiler, cobra al vencer). */
@@ -158,6 +161,8 @@ export function chargeUnpaidRentals(e: Engine, actor: Actor, customerId: Id): { 
       all(e).push({ id: e.id("fia"), customerId, kind: "cargo", amount: price, at: e.now(), by: actor.id, assignmentId: a.id, dueAt: a.customerExpiresAt,
         ...(b.creditor ? { creditorId: b.creditor } : {}),
         note: `${e.s.products[a.productId]?.name ?? "Servicio"}${slot ? ` · ${slot.label}` : ""}${acc && !b.creditor ? ` · ${acc.email}` : ""}`.slice(0, 120) });
+      // Si era una venta fiada, la plata ahora entra por el fiado (no por el pedido): no se cuenta dos veces.
+      if (!b.creditor) payLaterToFiado(e, a.id);
       added++; amount += price;
     }
     if (added) e.audit(actor, "fiado.from_control", "customer", customerId, { added, amount });
