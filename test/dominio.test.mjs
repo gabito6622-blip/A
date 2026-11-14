@@ -99,4 +99,15 @@ describe("Direcciones con mayúsculas (14/11/2026)", () => {
     assert.notEqual((await get(s.port, "gabostore.lat", "/Shop.js")).status, 301);
     assert.notEqual((await get(s.port, "gabostore.lat", "/api/Settings")).status, 301);
   });
+  test("el link de códigos conserva su token con mayúsculas (antes se rompían 2 de cada 3)", async () => {
+    // El token distingue mayúsculas: pasarlo a minúsculas lo invalidaba («Link no válido»).
+    for (const tok of ["AbcDEFghiJKL123xyzQWE45", "abc_DEF", "UAIHsgqsw1RME0cjd6fsjshe"]) {
+      const r = await get(s.port, "gabostore.lat", `/codigos/${tok}`);
+      assert.notEqual(r.status, 301, tok);
+    }
+    // Solo la palabra fija pasa a minúsculas; el token queda igual.
+    const r = await get(s.port, "gabostore.lat", "/Codigos/AbC_12");
+    assert.equal(r.status, 301);
+    assert.equal(r.location, "/codigos/AbC_12");
+  });
 });
