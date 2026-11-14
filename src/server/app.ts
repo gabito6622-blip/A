@@ -7,7 +7,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
 import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
@@ -31,6 +31,9 @@ import { overview as resellerOverview } from "../store/resellerStats.js";
 import type { KeyObject } from "node:crypto";
 import { BinancePay, verifyWebhook as verifyBinanceWebhook, parseWebhook as parseBinanceWebhook } from "./binance.js";
 import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from "../store/index.js";
+import { createImagenes, type ComoServir } from "./imagenes.js";
+import { createPrecarga } from "./precarga.js";
+import { registerImagenesRoutes } from "./imagenesRoutes.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
@@ -208,6 +211,8 @@ export function createApp(cfg: AppConfig): App {
   const log = cfg.log ?? ((m: string) => console.log(`[gabriel-store] ${m}`));
   const uploads = join(cfg.dataDir, "uploads");
   mkdirSync(uploads, { recursive: true });
+  // Versiones chicas de logos, íconos y portadas (imagenes.ts). Fuera de uploads/: se rearman solas, no van al respaldo.
+  const imagenes = createImagenes(uploads, join(cfg.dataDir, "imagenes-chicas"));
   const db = new Db(join(cfg.dataDir, "gabriel.db"), { dataKey: cfg.dataKey });
   const migrated = db.encryptExisting();
   if (migrated) log(`contraseñas de cuentas cifradas en ${migrated} versión(es) guardada(s)`);
@@ -364,12 +369,16 @@ export function createApp(cfg: AppConfig): App {
   const fileHash = (name: string) => sha256(readFileSync(join(uploads, name)).toString("base64"));
   const dropUpload = (name: string) => {
     try { unlinkSync(join(uploads, name)); } catch { /* ya no está */ }
+    imagenes.olvidar(name);
   };
 
   /* ---------------- rutas públicas ---------------- */
   route("GET", "/api/health", "public", () => ({ ok: true }));
 
-  route("GET", "/api/catalog", "public", (c) => store.catalog.publicCatalog(c.actor?.customerId));
+  route("GET", "/api/catalog", "public", (c) => conVersion(store.catalog.publicCatalog(c.actor?.customerId) as { id: string; hasImage?: boolean }[]));
+  /** Cada producto con imagen lleva `imageV` (fecha de subida): la dirección de la imagen cambia solo si cambia la imagen. */
+  const conVersion = <T extends { id: string; hasImage?: boolean }>(list: T[]): T[] =>
+    list.map((p) => (p.hasImage ? { ...p, imageV: imagenes.version(store.engine.s.products[p.id]?.imageFileRef) } : p));
 
   route("GET", "/api/settings", "public", () => {
     const st = store.engine.s.settings;
@@ -379,6 +388,7 @@ export function createApp(cfg: AppConfig): App {
       storeName: st.storeName, platformName: st.platformName || "GaboHub", comboDiscounts: st.comboDiscounts ?? DEFAULT_COMBO_DISCOUNTS, whatsapp: st.whatsapp, paymentNote: st.paymentNote ?? "", currency: st.currency, currencySymbol: st.currencySymbol || "Bs", hasQr: !!st.qrFileRef, binance: binanceOn(),
       usdt: st.usdt?.enabled && (st.usdt.address || st.usdt.payId) && st.usdt.rate ? { address: st.usdt.address ?? "", network: st.usdt.network ?? "", payId: st.usdt.payId ?? "", rate: st.usdt.rate, rateAt: st.usdt.rateAt ?? null, note: st.usdt.note ?? "" } : null,
       accentColor: st.accentColor || "#3984ff", backgroundColor: st.backgroundColor || "#090e1d", hasLogo: !!st.logoFileRef, hasBanner: !!st.bannerFileRef,
+      logoV: imagenes.version(st.logoFileRef), bannerV: imagenes.version(st.bannerFileRef),
       heroTitle: st.heroTitle || "Todo lo digital,", heroHighlight: st.heroHighlight || "en un solo lugar.",
       heroText: st.heroText || "Suscripciones, herramientas de IA y productividad. Pagás con QR o con tu saldo, y recibís tus accesos en tu cuenta.",
       announcement: st.announcement ?? "",
@@ -390,15 +400,14 @@ export function createApp(cfg: AppConfig): App {
       faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
     };
   });
-  route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
-  route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo"));
-  route("GET", "/api/settings/banner", "public", (c) => sendImage(c, store.engine.s.settings.bannerFileRef, "La tienda no tiene portada"));
-  route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR"));
-  function sendImage(c: Ctx, ref: string | undefined, missing: string) {
-    const file = ref && join(uploads, ref);
-    if (!file || !/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(ref!) || !existsSync(file)) throw new HttpError(404, "NOT_FOUND", missing);
-    c.res.writeHead(200, { "Content-Type": sniff(readFileSync(file).subarray(0, 16))!.mime, "Cache-Control": "no-cache" });
-    createReadStream(file).pipe(c.res);
+  route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen", { tipo: "icono", publico: true }));
+  route("GET", "/api/settings/logo", "public", (c) => sendImage(c, store.engine.s.settings.logoFileRef, "La tienda no tiene logo", { tipo: "logo", publico: true }));
+  route("GET", "/api/settings/banner", "public", (c) => sendImage(c, store.engine.s.settings.bannerFileRef, "La tienda no tiene portada", { tipo: "portada", publico: true }));
+  // El QR de cobro va siempre en tamaño completo (que se pueda escanear), con ETag para no bajarlo dos veces.
+  route("GET", "/api/settings/qr", "public", (c) => sendImage(c, store.engine.s.settings.qrFileRef, "La tienda todavía no subió su QR", { publico: true }));
+  /** Manda una imagen guardada (imagenes.ts). Sin `como`: la original, sin guardar en caché (depende de la sesión). */
+  function sendImage(c: Ctx, ref: string | undefined, missing: string, como: ComoServir = {}) {
+    if (!imagenes.enviar(c.req, c.res, c.query, ref, como)) throw new HttpError(404, "NOT_FOUND", missing);
     return RAW;
   }
 
@@ -863,6 +872,7 @@ export function createApp(cfg: AppConfig): App {
     cobro, tooMany: () => { throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos."); } });
   route("GET", "/api/cobro/:token", "public", (c) => cobro(c, () => ({ ...store.subs.publicView(c.params.token), alerts: expiry.hasAlerts(c.params.token) })));
   route("GET", "/api/cobro/:token/qr", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicQr(c.params.token), "Sin QR")));
+  registerImagenesRoutes({ route, store, imagenes }); // versiones chicas de JPG/WEBP hechas en el navegador
   registerOwnStockRoutes({ route, store, saveUpload, dropUpload, sendImage, cobroUrl, maxUpload: MAX_UPLOAD_JSON, onLinkGone: () => expiry.purge() }); // país/moneda y cuentas propias
   route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   // "📩 Ver mi código de acceso" en /c/<token> + interruptores del revendedor y del dueño.
@@ -932,10 +942,22 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/me/shop/banner", "customer", shopImage("banner"), MAX_UPLOAD_JSON);
   route("POST", "/api/me/shop/qr", "customer", shopImage("qr"), MAX_UPLOAD_JSON);
   route("GET", "/api/resellers/program", "public", () => store.shops.program());
-  route("GET", "/api/shops/:slug", "public", (c) => store.shops.public(c.params.slug, c.actor ?? undefined));
-  route("GET", "/api/shops/:slug/logo", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "logo", c.actor ?? undefined), "Sin logo"));
-  route("GET", "/api/shops/:slug/qr", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "qr", c.actor ?? undefined), "Sin QR"));
-  route("GET", "/api/shops/:slug/banner", "public", (c) => sendImage(c, store.shops.image(c.params.slug, "banner", c.actor ?? undefined), "Sin portada"));
+  route("GET", "/api/shops/:slug", "public", (c) => {
+    const sh = store.shops.public(c.params.slug, c.actor ?? undefined) as { products?: { id: string; hasImage?: boolean }[] };
+    const ref = (k: "logo" | "banner") => { try { return store.shops.image(c.params.slug, k, c.actor ?? undefined); } catch { return undefined; } };
+    return { ...sh, logoV: imagenes.version(ref("logo")), bannerV: imagenes.version(ref("banner")), ...(sh.products ? { products: conVersion(sh.products) } : {}) };
+  });
+  // Imágenes de la página de un revendedor: se guardan en caché solo si cualquiera puede verlas (página publicada);
+  // la vista previa de una página apagada depende de la sesión y va sin caché. El QR, siempre en tamaño completo.
+  const shopImg = (c: Ctx, kind: "logo" | "banner" | "qr", missing: string, tipo?: "logo" | "portada") => {
+    const ref = store.shops.image(c.params.slug, kind, c.actor ?? undefined);
+    let publico = false;
+    try { publico = !!ref && store.shops.image(c.params.slug, kind, undefined) === ref; } catch { /* página apagada */ }
+    return sendImage(c, ref, missing, { tipo, publico });
+  };
+  route("GET", "/api/shops/:slug/logo", "public", (c) => shopImg(c, "logo", "Sin logo", "logo"));
+  route("GET", "/api/shops/:slug/qr", "public", (c) => shopImg(c, "qr", "Sin QR"));
+  route("GET", "/api/shops/:slug/banner", "public", (c) => shopImg(c, "banner", "Sin portada", "portada"));
   route("GET", "/api/admin/shops", "staff", (c) => store.shops.list(A(c)));
   route("POST", "/api/admin/customers/:id/shop-feature", "staff", (c) => store.shops.setFeatured(A(c), c.params.id, !!c.body?.featured));
   route("GET", "/api/admin/testimonials", "staff", () => store.engine.s.settings.testimonials ?? []);
@@ -2433,6 +2455,7 @@ export function createApp(cfg: AppConfig): App {
     return true;
   }
   let shellHtml: { file: string; mtime: number; html: string } | null = null;
+  const precarga = cfg.staticDir ? createPrecarga(resolve(cfg.staticDir)) : () => ""; // módulos JS avisados desde el HTML
   function shellWithOg(req: IncomingMessage, file: string, pathname: string, shownPath = pathname): string | null {
     const info = ogInfo(pathname);
     if (!info) return null;
@@ -2454,6 +2477,8 @@ export function createApp(cfg: AppConfig): App {
     const lookOf = info.shop ? findShopBySlug(store.engine, info.shop)?.shop : store.engine.s.settings;
     if (lookOf) html = injectEarlyLook(html, lookOf as Parameters<typeof injectEarlyLook>[1]);
     // La página de un revendedor dice de quién es: así también funciona en su subdominio (daniel.gabostore.lat), donde la ruta es «/».
+    // Los módulos JS se piden todos juntos desde el principio (precarga.ts): en 4G lento ahorra esperas en cadena.
+    html = html.replace("</head>", `${precarga(info.shop ? "rshop" : pathname === "/tienda/" ? "store" : "hub")}\n</head>`);
     if (info.shop) html = html.replace("</head>", `<meta name="gs-shop" content="${escT(info.shop)}">\n</head>`);
     // La tienda servida en «/» del dominio propio: el navegador tiene que saber que es la tienda y no GaboHub.
     else if (sub && pathname === "/tienda/") html = html.replace("</head>", `<meta name="gs-mode" content="store">\n</head>`);
@@ -2527,16 +2552,19 @@ export function createApp(cfg: AppConfig): App {
       ETag: etag, Vary: "Accept-Encoding",
     };
     if (String(req.headers["if-none-match"] ?? "") === etag) { res.writeHead(304, headers); res.end(); return true; }
-    // Texto comprimido (gzip): shop.js baja de ~220 KB a ~60 KB en datos móviles.
-    if (TEXTY.has(ext) && st.size > 1024 && /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
-      const key = `${file}|${st.mtimeMs}`;
+    // Texto comprimido: shop.js baja de ~320 KB a ~97 KB con gzip y a ~80 KB con brotli (br), que los celulares
+    // piden por HTTPS. Se comprime una vez por versión del archivo y queda en memoria.
+    const ae = String(req.headers["accept-encoding"] ?? ""), enc = /\bbr\b/.test(ae) ? "br" : /\bgzip\b/.test(ae) ? "gzip" : null;
+    if (TEXTY.has(ext) && st.size > 1024 && enc) {
+      const key = `${file}|${st.mtimeMs}|${enc}`;
       let gz = gzCache.get(key);
       if (!gz) {
-        gz = gzipSync(readFileSync(file), { level: 9 });
-        if (gzCache.size >= 40) gzCache.delete(gzCache.keys().next().value!);
+        const raw = readFileSync(file);
+        gz = enc === "br" ? brotliCompressSync(raw, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11, [zlibConstants.BROTLI_PARAM_SIZE_HINT]: raw.length } }) : gzipSync(raw, { level: 9 });
+        if (gzCache.size >= 80) gzCache.delete(gzCache.keys().next().value!);
         gzCache.set(key, gz);
       }
-      res.writeHead(200, { ...headers, "Content-Encoding": "gzip", "Content-Length": String(gz.length) });
+      res.writeHead(200, { ...headers, "Content-Encoding": enc, "Content-Length": String(gz.length) });
       res.end(req.method === "HEAD" ? undefined : gz);
       return true;
     }
