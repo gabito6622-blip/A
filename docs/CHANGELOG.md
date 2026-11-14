@@ -3,6 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · Panel del dueño: Mi secretaria como pantalla del día y menú en 6 áreas (**sin publicar**, rama `revision-panel`)
+- **Por qué:** el dueño preguntó si su panel estaba bien estructurado. Revisión: lo del día estaba repetido en 4 lugares y el menú tenía 7 áreas con 33 pantallas.
+- **Inicio:** el botón «🗂️ Abrir Mi secretaria · N para hoy» va dentro del saludo (antes era una barra aparte arriba). «Lo que tenés pendiente» (avisos de configuración) baja debajo de los accesos rápidos. Los contadores, los 9 accesos, «Tu mes» y «Mi semana» siguen igual.
+- **Menú:** «Clientes y revendedores» en un área (Clientes, Revendedores, Cómo van). «Herramientas y ajustes»: arriba lo de todos los días (Mis descargas, WhatsApp, Mi oficina, Excel, Guía) y bajo «⚙️ Ajustes» lo de configuración (Configuración, Apariencia, Usuarios, Auditoría). Las mismas 33 pantallas, con su misma dirección; el buscador no cambia.
+- Prueba nueva: `test/panel-dia.test.mjs`.
+
 ## 2026-11-14 · Revendedores «🤝 De confianza» e «🆕 Independiente» (**publicado el 14/11, PR #64**)
 - **Por qué:** el dueño: «mis cuentas están destinadas para mis revendedores de confianza; los nuevos no me van a comprar y no les tengo confianza con los códigos».
 - **De confianza** (los 25 de hoy, sin cambios): compran y alquilan las cuentas de la tienda. Inicio: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.

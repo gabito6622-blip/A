@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-14 · Panel del dueño: ordenar sin quitar
+- **Qué se decidió:** Mi secretaria como entrada principal del día (dentro del saludo) y el menú en 6 áreas con un separador «Ajustes».
+- **Por qué:** lo de «hoy» estaba en 4 lugares (Mi secretaria, pendientes, accesos Cobrar/Control/Por día, campanita) y el menú tenía 7 áreas.
+- **Sin quitar nada** (regla del dueño): los 9 accesos rápidos y las 33 pantallas siguen; solo cambian de lugar o de agrupación. `test/panel-ordenado` comprueba que las pantallas son las mismas.
+- **Pendiente:** la automatización grande (recordatorios que salen solos) depende de conectar WhatsApp de Meta, que necesita una cuenta del dueño.
+
 ## 2026-11-14 · Dos tipos de revendedor; el bloqueo va en el servidor
 - **Qué se decidió:** `Customer.trust` = sin valor («De confianza», como siempre) o `"independent"`. Los que entran por la solicitud quedan independientes; los 25 de hoy, de confianza. Lo cambia el dueño.
 - **Dónde se corta:** en `visibleTo` (catálogo, precios, compras y renovaciones pasan por ahí), en la página pública, en el catálogo para descargar y en las etiquetas del directorio. Esconder botones solo no alcanza (regla de aislamiento).
