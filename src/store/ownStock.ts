@@ -87,6 +87,10 @@ export interface OwnSale {
   led?: true;
   /** Para «deshacer» el último «Renovó» (unos segundos). */
   undo?: { op: string; at: number; prevExp: number; prevTrial?: boolean; prevPrice?: Cents };
+  /** Cliente desde (la primera vez, aunque se haya ido y vuelto). */
+  since?: number;
+  /** Volvió: la venta liberada de antes (su historial sigue en el libro con ese id) y cuántas veces volvió. */
+  back?: { from: Id; at: number; n: number };
 }
 
 /** Un movimiento del libro de cobros: cada período es un cargo y cada cobro un pago (puede ser parcial). */
@@ -230,6 +234,15 @@ export function syncPay(b: OwnStockBook, s: OwnSale | OwnGone) { s.pay = debtOf(
 export const renewFrom = (exp: number, now: number) => (exp >= now || now - exp <= LATE_FROM_EXPIRY_MAX_DAYS * DAY ? exp : now);
 
 /** Todo su cuaderno, para su pestaña. Incluye sus contraseñas: son suyas y las necesita para mandar el acceso. */
+/** Lo de antes de un cliente que volvió: sus ventas liberadas encadenadas, cuánto le pagó y cuántos períodos tuvo. */
+function pastOf(b: OwnStockBook, s: OwnSale) {
+  const ids = new Set<Id>();
+  let from: Id | undefined = s.back?.from;
+  for (let i = 0; from && i < 50 && !ids.has(from); i++) { ids.add(from); from = (b.gone ?? []).find((g) => g.id === from)?.back?.from; }
+  const led = (b.ledger ?? []).filter((x) => ids.has(x.saleId));
+  return { paid: led.filter((x) => x.kind === "pago").reduce((t, x) => t + x.amount, 0), periods: led.filter((x) => x.kind === "cargo").length, times: s.back?.n ?? 1 };
+}
+
 export function view(e: Engine, actor: Actor) {
   const c = me(e, actor);
   const b = peek(e, c.id);
@@ -242,7 +255,8 @@ export function view(e: Engine, actor: Actor) {
     const { link, undo, led, ...rest } = s;
     void undo; void led;
     const blocked = a ? blockedWhy(a, now) : null;
-    return { ...rest, productId: a?.productId ?? "", product: prodName(a?.productId ?? ""), user: a?.user ?? "", debt: owe.get(s.id) ?? 0, ...(blocked ? { blocked } : {}), ...(link ? { linkToken: link.token } : {}) };
+    const before = s.back ? pastOf(b, s) : null;
+    return { ...rest, ...(before ? { before } : {}), productId: a?.productId ?? "", product: prodName(a?.productId ?? ""), user: a?.user ?? "", debt: owe.get(s.id) ?? 0, ...(blocked ? { blocked } : {}), ...(link ? { linkToken: link.token } : {}) };
   });
   // Liberados que todavía le deben (van a «Quién me debe»).
   const goneOwing = (b.gone ?? []).filter((g) => (owe.get(g.id) ?? 0) > 0).map((g) => ({ id: g.id, name: g.name, phone: g.phone, product: g.product, price: g.price ?? null, releasedAt: g.releasedAt, expiresAt: g.expiresAt, debt: owe.get(g.id) ?? 0 }));
@@ -499,7 +513,11 @@ export function assign(e: Engine, actor: Actor, raw: Record<string, unknown>) {
     if (!free.includes(slot)) throw new DomainError("OUT_OF_STOCK", "Ese cupo ya lo tiene otro cliente");
     const expiresAt = trialHours ? e.now() + trialHours * 3_600_000 : raw.expiresAt ? date(e, raw.expiresAt, "de vencimiento") : e.now() + p.durationDays * DAY;
     const price = trialHours ? 0 : raw.price === undefined || raw.price === null || raw.price === "" ? p.price : amount(e, c, raw.price);
-    const s: OwnSale = { id: e.id("osl"), accountId: a.id, slot, name, phone, ...(customerId ? { customerId } : {}), expiresAt, price, pay: trialHours ? "pagado" : pay, ...(note ? { note } : {}), ...(trialHours ? { trial: true } : {}), createdAt: e.now() };
+    // 15/11: un cliente que se había ido y vuelve (mismo WhatsApp) recupera su historial: «cliente desde» y sus pagos de antes.
+    const digits = phone.replace(/\D/g, "");
+    const prev = (b.gone ?? []).filter((g) => g.phone.replace(/\D/g, "") === digits).sort((x, y) => y.releasedAt - x.releasedAt)[0];
+    const s: OwnSale = { id: e.id("osl"), accountId: a.id, slot, name, phone, ...(customerId ? { customerId } : {}), expiresAt, price, pay: trialHours ? "pagado" : pay, ...(note ? { note } : {}), ...(trialHours ? { trial: true } : {}), createdAt: e.now(),
+      ...(prev ? { since: prev.since ?? prev.createdAt, back: { from: prev.id, at: e.now(), n: (prev.back?.n ?? 0) + 1 } } : {}) };
     ensureLedger(e, b);
     b.sales.push(s);
     s.led = true;
