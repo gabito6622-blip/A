@@ -2249,7 +2249,7 @@ async function submitCheckout(form) {
     S.step = 3;
     $("#drawer").innerHTML = `<h2>${pm === "balance" ? "¡Listo!" : "Pedido enviado"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
       <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span class="on">3 · Listo</span></div>
-      ${pedidoListoHtml({ what, total: final.total ?? order.total, status: final.status, id: final.id })}`;
+      ${pedidoListoHtml({ what, total: final.total ?? order.total, status: final.status, id: final.id, sentAt: final.sentAt ?? final.evidence?.submittedAt })}`;
     await refresh();
   } catch (e) {
     btn.disabled = false;

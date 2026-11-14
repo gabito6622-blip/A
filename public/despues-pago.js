@@ -87,10 +87,13 @@ export function guestPayHtml({ lines, total, discount = 0, qr = "" }) {
  * Paso «3 · Listo» del cliente con cuenta: qué compró y cuánto (antes decía solo «Pedido ord_00297»). El número de
  * pedido queda abajo, chico, para reclamar. `what`: los nombres del carrito; `total`: lo cobrado (con cupón y combo).
  */
-export function pedidoListoHtml({ what, total, status, id }) {
+export function pedidoListoHtml({ what, total, status, id, sentAt }, now = Date.now()) {
   const ok = status === "fulfilled";
+  // Mismo plazo que «Mis cuentas» (con el horario): de noche no promete «10–30 minutos».
+  const dl = ok ? null : reviewDeadline(sentAt ?? now, hours());
+  const when = dl ? `Lo revisamos antes de las ${esc(hhmm(dl))}${dayKey(dl) !== dayKey(now) ? " de mañana" : ""} y te avisamos.` : "Verificamos tu pago en 10–30 minutos y te avisamos.";
   return `<div class="sbox"><h2>${esc(what || "Tu pedido")} · ${bs(total)} <span class="spill ${ok ? "sp-ok" : "sp-warn"}">${esc(STATUS_TEXT[status] ?? "")}</span></h2>
-      <p class="empty">${ok ? "Tus accesos ya están en Mis cuentas." : "Verificamos tu pago en 10–30 minutos y te avisamos. Lo podés seguir en Mis cuentas."}</p>
+      <p class="empty">${ok ? "Tus accesos ya están en Mis cuentas." : `${when} Lo podés seguir en Mis cuentas.`}</p>
       <small class="empty">Nro. de pedido ${esc(id)}</small>
       <button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button></div>`;
 }

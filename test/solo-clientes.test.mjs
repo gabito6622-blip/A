@@ -9,6 +9,8 @@
 //  5. Botones de 44 px también en la computadora (menú de arriba, «Acceder», carrito, botones chicos), en Términos y en
 //     las preguntas de /revendedores; «Abrir enlace» de los códigos no se parte; fechas de Términos y Privacidad en dd/mm.
 //  6. El cartel «… agregado al carrito» no tapa el pago (con zoom 200 % cubría «Guardar QR») ni bloquea toques.
+//  7. Al terminar de pagar con QR: qué compró y cuánto (decía «Pedido ord_00297») y, de noche, «antes de las 08:30 de
+//     mañana» como en Mis cuentas (prometía «10–30 minutos»).
 // Datos ficticios, carpeta temporal, sin red (wa.me cortado en el navegador).
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -163,6 +165,11 @@ describe("en el navegador (360 px y computadora)", { skip: !chromium && "Playwri
     assert.match(t, /Disney\+ · Bs 17/);
     assert.match(t, /Nro\. de pedido ord_\d+/);
     assert.doesNotMatch(t, /Pedido ord_/);
+    // De noche (22:30, la tienda atiende de 8 a 22) no promete «10–30 minutos»: el mismo plazo que «Mis cuentas».
+    const night = Date.UTC(2026, 10, 23, 2, 30); // domingo 22/11 22:30 en Bolivia
+    const html = await p.evaluate(async (t0) => (await import("/despues-pago.js")).pedidoListoHtml({ what: "Prime", total: 2000, status: "payment_review", id: "ord_1", sentAt: t0 }, t0), night);
+    assert.match(html, /antes de las 08:30 de mañana/);
+    assert.doesNotMatch(html, /10–30 minutos/);
     assert.deepEqual(errs, []);
     await ctx.close();
   });
