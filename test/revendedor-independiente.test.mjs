@@ -13,7 +13,7 @@ import { createApp } from "../dist/server/app.js";
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
 
-test("Revendedor independiente: el servidor le niega el stock de la tienda; el de confianza sigue igual; el dueño lo cambia", { timeout: 240_000 }, async () => {
+test("Revendedor independiente: el servidor le niega el stock de la tienda; el de confianza sigue igual; el dueño lo cambia", { timeout: 90_000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "gs-indep-"));
   const app = createApp({ dataDir: dir, staticDir: resolve("public"), jobs: false, log: () => {} });
   app.bootstrapOwner("gabriel", "Gabriel", "clave-del-dueño-123");
@@ -27,12 +27,12 @@ test("Revendedor independiente: el servidor le niega el stock de la tienda; el d
   const ari = s.catalog.createCustomer(owner, { name: "Ari Confianza", phone: "+59171000011", kind: "reseller", priceGroupId: "rev" });
   s.wallet.adjust(owner, ari.id, 50000, "carga de prueba");
   const base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
+  try {
   const call = async (method, p, body, ck) => { const r = await fetch(base + p, { method, headers: { "content-type": "application/json", ...(ck ? { cookie: ck } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); return { status: r.status, json: await r.json().catch(() => null), ck: r.headers.get("set-cookie")?.split(";")[0] }; };
   const ock = (await call("POST", "/api/auth/staff/login", { username: "gabriel", password: "clave-del-dueño-123" })).ck;
   // … y uno nuevo que se suma por la solicitud de /revendedores.
   await call("POST", "/api/resellers/apply", { name: "Nico Nuevo", phone: "+59171000022", note: "quiero vender" });
-  const app1 = (await call("GET", "/api/admin/reseller-apps", null, ock)).json;
-  const appId = (Array.isArray(app1) ? app1 : app1.list ?? app1.items).find((a) => a.phone === "+59171000022").id;
+  const appId = Object.values(s.engine.s.resellerApps).find((a) => a.phone === "+59171000022").id;
   const ap = await call("POST", `/api/admin/reseller-apps/${appId}/approve`, {}, ock);
   assert.equal(ap.status, 200, JSON.stringify(ap.json));
   const nico = Object.values(s.engine.s.customers).find((c) => c.phone === "+59171000022");
@@ -67,6 +67,10 @@ test("Revendedor independiente: el servidor le niega el stock de la tienda; el d
   s.own.saveProduct(N, { name: "Flujo TV", emoji: "📺", durationDays: 30, price: 3000, kind: "line", onPage: true });
   const page = (await call("GET", "/api/shops/nico-tv")).json;
   assert.deepEqual(page.products.map((p) => p.name), ["Flujo TV"]);
+  // Su catálogo para descargar (PDF/WhatsApp) tampoco trae el stock de la tienda.
+  const cat = (await call("GET", "/api/me/descargas/catalogo", null, nck)).json;
+  const names = cat.categories.flatMap((g) => g.items.map((i) => i.name));
+  assert.ok(!names.includes("Netflix") && !names.some((n) => /Disney/.test(n)), `catálogo: ${names.join(", ")}`);
 
   // De confianza: todo como siempre.
   assert.ok((await call("GET", "/api/catalog", null, ack)).json.some((p) => p.id === "dis-alq"));
@@ -122,7 +126,5 @@ test("Revendedor independiente: el servidor le niega el stock de la tienda; el d
   assert.equal(s.engine.s.customers[nico.id].trust, undefined);
   assert.ok((await call("GET", "/api/catalog", null, nck)).json.some((p) => p.id === "nf"));
   assert.equal((await call("POST", "/api/orders", { items: [{ productId: "nf", qty: 1 }], paymentMethod: "balance", idempotencyKey: "n-ok" }, nck)).status, 200);
-  const audit = Object.values(s.engine.s.audit ?? {}).concat(s.engine.s.auditLog ?? []);
-  void audit;
-  await app.close(); rmSync(dir, { recursive: true, force: true });
+  } finally { await app.close(); rmSync(dir, { recursive: true, force: true }); }
 });

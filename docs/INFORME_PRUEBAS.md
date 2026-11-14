@@ -1,5 +1,17 @@
 # Informe de pruebas
 
+## 14/11/2026 · Revendedores de confianza e independientes (rama `hub-simple`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Solicitud aprobada → «independent»; creado por el dueño → de confianza; `/api/admin/resellers` y `/api/me` dicen el tipo | `test/revendedor-independiente.test.mjs` (API, datos ficticios) | pasa |
+| Independiente: catálogo vacío, sin precios, comprar Netflix o el Disney de revendedores falla («no disponible») y no se le cobra; su página y su catálogo para descargar muestran solo su Flujo TV | ídem | pasa |
+| De confianza: ve el Disney de revendedores y compra | ídem | pasa |
+| Un revendedor no puede cambiar su tipo; un tipo inválido da 400 | ídem | pasa |
+| 360 px: inicio del independiente (Mis cuentas, Mis códigos, Cobrar, Mi página), sin «Comprar» ni el nombre del dueño; Más y Vender sin lo de la tienda | ídem, Playwright | pasa |
+| Dueño: la tarjeta dice «Independiente», «Pasar a De confianza» funciona y después compra | ídem | pasa |
+| Revisión de aislamiento (`/gabostore-aislamiento`): se encontró y cerró que el catálogo para descargar y las etiquetas del directorio usaban sus precios sobre productos de la tienda | lectura del código + prueba | cerrado |
+| Suite completa | `npm test` | **604 pasan, 0 fallan, 76 s** |
+
 ## 14/11/2026 · GaboHub simple (rama `hub-simple`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -619,7 +619,7 @@ export function programInfo(e: Engine) {
     .map((c) => {
       const sh = c.shop!;
       const show = sh.products?.length ? new Set(sh.products) : null;
-      const cats = [...new Set(published.filter((p) => c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
+      const cats = [...new Set(published.filter((p) => !isIndependent(c) && c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
       return {
         slug: sh.slug, title: sh.title, featured: !!sh.featured, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
         accentColor: sh.accentColor, accent2Color: sh.accent2Color, backgroundColor: sh.backgroundColor, headingFont: sh.headingFont,

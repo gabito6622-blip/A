@@ -508,9 +508,10 @@ export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
   return actor.role === "reseller" && !!c && c.resellerId === actor.customerId;
 }
 
-/** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
 /** Revendedor independiente: no compra el stock de la tienda (ver Customer.trust). */
 export const isIndependent = (c?: { kind?: string; trust?: string }): boolean => c?.kind === "reseller" && c.trust === "independent";
+
+/** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
 
 export function visibleTo(e: Engine, p: { id?: Id; published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
   if (!p.published) return false;

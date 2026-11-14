@@ -8,7 +8,7 @@
 import type { Actor, Cents, Customer, Id } from "../store/types.js";
 import type { GabrielStore } from "../store/index.js";
 import { DomainError } from "../store/errors.js";
-import { publicCatalog } from "../store/catalog.js";
+import { publicCatalog, isIndependent } from "../store/catalog.js";
 import { localeOf, toMine } from "../store/country.js";
 import { pageAllowed } from "../store/resellerShop.js";
 import { pageCards } from "../store/ownStock.js";
@@ -145,13 +145,15 @@ export function catalogData(store: GabrielStore, actor: Actor, opts: { origin?: 
   const mine = (bs: Cents | undefined) => toMine(e, me, bs);
   const show = sh?.products?.length ? new Set(sh.products) : null;
   // Mismas reglas que su página /r/<slug>: publicados, con SU precio, y si eligió cuáles mostrar, solo esos.
+  // Independiente (14/11/2026): su catálogo es solo lo suyo; nunca el stock de la tienda.
+  const indep = isIndependent(me);
   const items: CatalogItem[] = Object.values(s.products)
-    .filter((p) => p.published && mine(me.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)) && (mine(me.resellerPrices![p.id]) ?? 0) > 0)
+    .filter((p) => !indep && p.published && mine(me.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)) && (mine(me.resellerPrices![p.id]) ?? 0) > 0)
     .map((p) => ({ id: p.id, name: p.name, category: p.kind === "combo" ? PROMO_CAT : (p.category ?? "Otros"), description: p.description ?? "", price: mine(me.resellerPrices![p.id])!, durationDays: p.durationDays, kind: p.kind, color: p.color ?? "#3984ff",
       ...(p.kind === "combo" && p.comboProductIds?.length ? { items: p.comboProductIds.map((id) => s.products[id]?.name ?? id), partIds: p.comboProductIds, ...(savingsOf(mine(me.resellerPrices![p.id])!, p.comboProductIds.map((id) => mine(me.resellerPrices?.[id]))) !== undefined ? { savings: savingsOf(mine(me.resellerPrices![p.id])!, p.comboProductIds.map((id) => mine(me.resellerPrices?.[id]))) } : {}) } : {}),
       ...(imageRefOf(s.products, p.id) ? { hasImage: true, imageRef: imageRefOf(s.products, p.id) } : {}) }));
   const nameOf = (id: Id) => s.products[id]?.name ?? id;
-  for (const cb of sh?.combos ?? []) {
+  for (const cb of indep ? [] : sh?.combos ?? []) {
     if (!cb.productIds.every((id) => me.resellerPrices?.[id] !== undefined) || mine(cb.price) === undefined) continue;
     const sv = savingsOf(mine(cb.price)!, cb.productIds.map((id) => mine(me.resellerPrices?.[id])));
     items.push({ id: `rc_${cb.id}`, name: cb.name, category: PROMO_CAT, description: cb.note || "", price: mine(cb.price)!, durationDays: 30, kind: "combo", items: cb.productIds.map(nameOf), partIds: cb.productIds, color: "#7c5cff", ...(sv !== undefined ? { savings: sv } : {}) });

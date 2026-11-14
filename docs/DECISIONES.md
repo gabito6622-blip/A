@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-14 · Dos tipos de revendedor; el bloqueo va en el servidor
+- **Qué se decidió:** `Customer.trust` = sin valor («De confianza», como siempre) o `"independent"`. Los que entran por la solicitud quedan independientes; los 25 de hoy, de confianza. Lo cambia el dueño.
+- **Dónde se corta:** en `visibleTo` (catálogo, precios, compras y renovaciones pasan por ahí), en la página pública, en el catálogo para descargar y en las etiquetas del directorio. Esconder botones solo no alcanza (regla de aislamiento).
+- **El dueño eligió:** el independiente nunca le compra (no hay «pedir y aprobar»). Si le agarra confianza, lo pasa con un toque.
+- **Si un revendedor de confianza pasa a independiente:** lo que ya tiene sigue visible hasta que venza, pero no lo puede renovar desde su panel.
+
 ## 2026-11-14 · GaboHub: inicio de 4 botones y el resto plegado
 - **Qué se decidió:** el inicio del revendedor muestra solo lo de todos los días (cuentas, código, renovar, comprar) y pliega lo demás en «Todas mis herramientas».
 - **Por qué:** solo 2 de 25 revendedores entraron alguna vez; el dueño contó que «ven demasiadas cosas a la vez». Lo que más hacen (mirar sus cuentas, sacar el código de Disney, renovar) estaba mezclado con página, combos, ganancias y planes.
