@@ -4,7 +4,7 @@
 import { api, esc, bs, fdt, fdate, waLink, toast, toCents, newKey } from "/common.js";
 import { diaLine, cutTxt, supplierRenewHtml, cortadosSection } from "/dia.js";
 
-const dm = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" }); // «13/01» (es-BO sin año daba «13/1»)
 const usdTxt = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
 const itemMoney = (i) => (i.priceUsd !== undefined ? usdTxt(i.priceUsd) : bs(i.price));
 const groupMoney = (g) => (g.usd && g.totalUsd !== undefined ? usdTxt(g.totalUsd) : bs(g.total));

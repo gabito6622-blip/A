@@ -97,7 +97,9 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
       if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
       // Ese período se pagó por el fiado: ya cuenta el pago del fiado.
       if ((fiado.paidCharges.get(a.id) ?? []).some((ch) => ch.dueAt !== undefined ? Math.abs(ch.dueAt - (m.from + dur)) < DEDUPE_DAYS * DAY : Math.abs(ch.at - t) < DEDUPE_DAYS * DAY || Math.abs(ch.at - m.from) < DEDUPE_DAYS * DAY)) continue;
-      out.push({ at: t, amount: m.amount, source: "control", kind: "control", payerId, customerId: a.customerId, assignmentId: a.id, items: [{ productId: a.productId, qty: 1, amount: m.amount }] });
+      // El cobro es de quien lo pagó: si después se pasó el alquiler a otro, sigue a nombre del anterior.
+      const who = "customerId" in m && m.customerId ? m.customerId : a.customerId;
+      out.push({ at: t, amount: m.amount, source: "control", kind: "control", payerId: who === a.customerId ? payerId : payerOf(e, who)?.id ?? who, customerId: who, assignmentId: a.id, items: [{ productId: a.productId, qty: 1, amount: m.amount }] });
     }
   }
   out.push(...fiado.events);

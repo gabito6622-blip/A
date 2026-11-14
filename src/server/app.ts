@@ -35,6 +35,7 @@ import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { registerPerfilRoutes } from "./perfilRoutes.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
@@ -1096,6 +1097,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
+  registerPerfilRoutes({ route, store }); // perfiles sueltos comprados a terceros (perfilSuelto.ts)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
   route("POST", "/api/admin/accounts", "staff", (c) => {
@@ -1109,7 +1111,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
-  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }));
   route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("GET", "/api/admin/assignments/:id/switch-preview", "staff", (c) => store.dia.switchPreview(A(c), c.params.id, { toProductId: c.query.get("to") ?? undefined, toSlotId: c.query.get("toSlotId") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/switch", "staff", (c) => store.dia.switchPlatform(A(c), c.params.id, { toProductId: c.body?.toProductId, toSlotId: c.body?.toSlotId, adjust: c.body?.adjust, reason: c.body?.reason, idempotencyKey: c.body?.idempotencyKey }));
@@ -2928,7 +2930,7 @@ export function createApp(cfg: AppConfig): App {
   function ownerSnapshot(): string {
     const st = store.engine.s, t = now(), sym = st.settings.currencySymbol || "Bs";
     const money = (c: number) => `${sym} ${(c / 100).toFixed(2)}`;
-    const fd = (x: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x));
+    const fd = (x: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x)); // «13/01»
     const sys = { id: "system:ai", role: "owner" } as const;
     const pname = (id: string) => st.products[id]?.name ?? id;
     const cname = (id: string) => st.customers[id]?.name ?? id;

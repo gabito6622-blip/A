@@ -2,6 +2,7 @@
 // meses anteriores), «Me devolvió plata», gastos fijos con «Lo pagué», Proveedores por mes, corregir una venta y
 // devolver en efectivo. El panel (panel.js) solo llama a estas vistas; los formularios y botones se manejan acá.
 import { api, $, esc, bs, toCents, fdate } from "/common.js";
+import { perfilMesLine } from "/panel-perfil.js";
 
 const CATS = [["cuenta", "Cuenta"], ["perfil", "Perfil suelto"], ["publicidad", "Publicidad"], ["internet", "Internet"], ["comision", "Comisión"], ["otro", "Otro"]];
 const CUR = [["BOB", "Bs"], ["USD", "US$"], ["USDT", "USDT"]];
@@ -87,7 +88,7 @@ export function proveedoresMesCard(d) {
     <p class="muted" style="margin:0 0 10px">Lo que le pagaste de verdad a cada uno, lo que te devolvió, lo que falta anotar (estimado) y lo que entró por los clientes que estaban en sus cuentas cuando pagaron.</p>
     <div class="plprov">${d.rows.map((r) => `<div class="plprow"><b>${esc(r.name)}</b>
       <span>Pagado <b>${bs(r.pagado)}</b></span>${r.devuelto ? `<span class="plok">Devolvió <b>${bs(r.devuelto)}</b></span>` : ""}${r.estimado ? `<span>Estimado <b>${bs(r.estimado)}</b></span>` : ""}
-      <span>Entró <b>${bs(r.ingresos)}</b></span><span class="${r.ganancia < 0 ? "down" : "up"}">Ganancia <b>${bs(r.ganancia)}</b></span></div>`).join("")}</div>
+      <span>Entró <b>${bs(r.ingresos)}</b></span><span class="${r.ganancia < 0 ? "down" : "up"}">Ganancia <b>${bs(r.ganancia)}</b></span>${perfilMesLine(r.perfiles)}</div>`).join("")}</div>
     <p style="margin:10px 0 0"><b>Total: entró ${bs(T.ingresos)} · pagado ${bs(T.pagado)}${T.devuelto ? ` · devuelto ${bs(T.devuelto)}` : ""}${T.estimado ? ` · estimado ${bs(T.estimado)}` : ""} · ganancia ${bs(T.ganancia)}</b></p></section>`;
 }
 

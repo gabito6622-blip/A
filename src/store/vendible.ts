@@ -33,6 +33,20 @@ export function slotFreeStatus(e: Engine, slot: Slot): "available" | "quarantine
   return !acc || acc.status !== "active" || acc.fallen ? "quarantined" : "available";
 }
 
+/**
+ * El cliente sigue adentro de una cuenta caída (o de un perfil suelto caído): renovarlo ahí sería cobrarle por algo que
+ * no anda. Devuelve el motivo en palabras simples (null = se puede renovar).
+ */
+export function renewBlockOf(e: Engine, a: { slotId: Id }): string | null {
+  const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
+  if (slot?.loose?.down) return "El perfil de este cliente se cayó: pasalo a otro perfil en Reubicar y después renová";
+  if (acc?.status === "active" && acc.fallen) return `La cuenta de este cliente (${acc.email}) está caída: pasalo a otra cuenta en Reubicar y después renová`;
+  return null;
+}
+
+/** Un perfil suelto se vende mientras siga vigente con quien te lo vendió y no se haya caído. */
+export const looseOk = (s: Slot, now: number): boolean => !s.loose || (!s.loose.down && s.loose.until > now);
+
 /** La cuenta alcanza (con el proveedor) hasta `until`. */
 export const covers = (acc: Account, until: number): boolean => acc.supplierExpiresAt >= until;
 
@@ -53,7 +67,8 @@ const fdate = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "Ameri
 /** Perfiles libres y vendibles de una cuenta, con el del mismo nombre primero. */
 export function freeSlotsOf(e: Engine, accountId: Id, preferLabel?: string): Slot[] {
   const busy = new Set(Object.values(e.s.assignments).filter((a) => a.status === "active").map((a) => a.slotId));
-  const l = Object.values(e.s.slots).filter((s) => s.accountId === accountId && s.status === "available" && !busy.has(s.id))
+  const now = e.now();
+  const l = Object.values(e.s.slots).filter((s) => s.accountId === accountId && s.status === "available" && !busy.has(s.id) && looseOk(s, now))
     .sort((x, y) => x.label.localeCompare(y.label) || x.id.localeCompare(y.id));
   const i = preferLabel ? l.findIndex((s) => s.label.toLowerCase() === preferLabel.toLowerCase()) : -1;
   if (i > 0) l.unshift(...l.splice(i, 1));
@@ -63,6 +78,8 @@ export function freeSlotsOf(e: Engine, accountId: Id, preferLabel?: string): Slo
 /** Por qué un cliente está en una cuenta que no anda (null = está bien). */
 export function downReason(e: Engine, slot: Slot, now: number): string | null {
   const acc = e.s.accounts[slot.accountId];
+  // Perfil suelto que se cayó y el cliente todavía no se movió (perfilSuelto.ts → looseDown sin perfil libre).
+  if (slot.loose?.down) return "perfil caído";
   if (acc?.status === "active" && acc.fallen) return "cuenta caída";
   if (slot.status === "quarantined") return "cuarentena";
   if (!acc || acc.status !== "active") return "cuenta retirada";

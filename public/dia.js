@@ -10,7 +10,8 @@ import { api, esc, bs, fdate, toast, toCents, newKey } from "/common.js";
 import { matchCustomers, resolveCustomer } from "/buscar.js";
 
 const DAY = 86_400_000;
-export const dm = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+// «13/01», siempre con dos cifras: «es-BO» sin año daba «13/1» (revisión de 3 meses, 16/11/2026).
+export const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
 const usdTxt = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
 const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
 const reload = () => document.querySelector('[data-go="secretaria"]')?.click();
@@ -111,7 +112,7 @@ export async function renewFlow(id, { beyondOk = false } = {}) {
   const ask = (e) => confirm(`${e.message}\n\nTocá «Aceptar» solo si te pagó OTRO mes.`);
   const viaPay = async (confirmOther = false) => {
     try {
-      const r = await api("POST", `/api/admin/assignments/${id}/pay`, { periods: 1, idempotencyKey: key, ...(confirmOther ? { confirmOther: true } : {}) });
+      const r = await api("POST", `/api/admin/assignments/${id}/pay`, { periods: 1, idempotencyKey: key, renew: true, ...(confirmOther ? { confirmOther: true } : {}) });
       return { to: r.saved.to, supplierWarn: r.saved.supplierWarn };
     } catch (e) {
       if (e.code === "DOUBLE_CHARGE" && !confirmOther) return ask(e) ? viaPay(true) : null;

@@ -6,7 +6,8 @@ import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { queue } from "./notify.js";
 import { duplicateAccount, emailTypo, normEmail, riskOf } from "./inventario.js";
-import { accountSellable, byCoverage, sellBlock, slotFreeStatus } from "./vendible.js";
+import { accountSellable, byCoverage, looseOk, sellBlock, slotFreeStatus } from "./vendible.js";
+import { looseInfo } from "./perfilInfo.js";
 
 export interface NewAccount {
   productId: Id;
@@ -107,7 +108,8 @@ export function addAccountsBulk(e: Engine, actor: Actor, rows: NewAccount[]) {
 }
 
 // Caída, «No vender más» o nota CAÍDA / NO VENDER: no se vende (vendible.ts).
-const sellable = (e: Engine, s: Slot) => s.status === "available" && accountSellable(e.s.accounts[s.accountId], e.now());
+// Un perfil suelto vencido con quien te lo vendió tampoco (perfilSuelto.ts).
+const sellable = (e: Engine, s: Slot) => s.status === "available" && accountSellable(e.s.accounts[s.accountId], e.now()) && looseOk(s, e.now());
 
 /** Reserva `qty` slots del producto. Todo o nada; debe llamarse dentro de `tx`. */
 /** Perfiles libres que se pueden vender ahora mismo. */
@@ -299,6 +301,7 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
       const asg = s.status === "assigned" ? Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active") : undefined;
       const cust = asg ? e.s.customers[asg.customerId] : undefined;
       return { id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined,
+        ...(s.loose ? { loose: looseInfo(e, s) } : {}),
         ...(asg ? { assignmentId: asg.id, customerId: asg.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "", expiresAt: asg.customerExpiresAt } : {}) };
     }),
   }));

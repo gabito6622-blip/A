@@ -772,6 +772,10 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
   .menu button,.menu summary{min-height:44px}
   .ibtn{width:44px;height:44px;flex:none}
   .pbtn,.pbtn.sm{min-height:44px}
+  /* Cuentas: el buscador y «👥 Quién está en esta cuenta» también (medían 43 y 39 px; revisión de 3 meses, 16/11/2026). */
+  input.rsearch,.occ>summary,#fq{min-height:44px}
+  /* Todo «desplegable» del panel (Cambiar fecha, Reemplazar, Me pagó, Fiar más…) se toca con el dedo: 44 px. */
+  .pmain :where(details)>summary{min-height:44px;padding-block:11px;box-sizing:border-box}
   .form input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.form select,.inline input:not([type=checkbox]):not([type=radio]):not([type=file]),.inline select{min-height:44px}
   /* Barra de abajo: todos los íconos en una fila de 30 px, así "Vender" no queda más abajo */
   .pbnav button{grid-template-rows:30px auto;align-items:center;min-height:52px}

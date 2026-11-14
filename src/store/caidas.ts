@@ -43,15 +43,21 @@ export function markFallen(e: Engine, actor: Actor, accountId: Id, reason?: unkn
   });
 }
 
-/** «✅ Volvió a funcionar»: saca la marca. Los perfiles apartados siguen apartados hasta que los libere el dueño. */
-export function unmarkFallen(e: Engine, actor: Actor, accountId: Id) {
+/**
+ * «✅ Volvió a funcionar»: saca la marca. Con `release` también libera sus perfiles apartados para vender (el panel lo
+ * ofrece: antes quedaban apartados y había que liberarlos uno por uno). Sin `release` siguen apartados.
+ */
+export function unmarkFallen(e: Engine, actor: Actor, accountId: Id, opts: { release?: unknown } = {}) {
   authorize(actor, "inventory.manage");
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
-    if (!acc.fallen) return { accountId: acc.id, changed: false };
+    const parked = () => Object.values(e.s.slots).filter((s) => s.accountId === acc.id && s.status === "quarantined" && !s.loose?.down);
+    if (!acc.fallen) return { accountId: acc.id, changed: false, released: 0, parked: parked().length };
     delete acc.fallen;
-    e.audit(actor, "account.unfallen", "account", acc.id);
-    return { accountId: acc.id, changed: true };
+    let released = 0;
+    if (opts.release === true) for (const s of parked()) { s.status = "available"; released++; }
+    e.audit(actor, "account.unfallen", "account", acc.id, released ? { released } : undefined);
+    return { accountId: acc.id, changed: true, released, parked: parked().length };
   });
 }
 
@@ -126,7 +132,8 @@ export function relocate(e: Engine, actor: Actor, assignmentId: Id, input: { toA
   if (sellBlock(to) || to.supplierExpiresAt <= e.now()) throw new DomainError("INVALID_STATE", "Esa cuenta ya no está sana: tocá Reubicar de nuevo para ver otra");
   const slot = freeSlotsOf(e, to.id, old?.label)[0];
   if (!slot) throw new DomainError("OUT_OF_STOCK", `${to.email} ya no tiene perfiles libres: tocá Reubicar de nuevo para ver otra`);
-  const oldSlot = oldAcc?.status === "active" ? "quarantined" : "retired";
+  // Un perfil suelto caído no vuelve nunca: queda retirado (perfilSuelto.ts).
+  const oldSlot = oldAcc?.status === "active" && !old?.loose?.down ? "quarantined" : "retired";
   const r = replaceAssignment(e, actor, a.id, { reason: String(input.reason ?? "").trim() || "Reubicación: cuenta caída", oldSlot, toSlotId: slot.id });
   return { assignment: r, toAccountId: to.id, email: to.email, profile: slot.label, covers: to.supplierExpiresAt >= a.customerExpiresAt };
 }

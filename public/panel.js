@@ -18,12 +18,14 @@ import { selfCodesCard } from "/panel-codigos-solos.js";
 import { cargaVenceCosto, cargaOk, costRow, moveDestLabel, editSecretRow, mesCorto } from "/panel-inventario.js";
 import { gastoFormCard, gastosListCard, proveedoresMesCard, gastoHomeBtn, offerFixSale, paidNowExtra, paidNowBody, initPlata } from "/panel-plata.js";
 import { initCaidas, afterRender as caidasAfter, accBanner, accButtons, fallOnlyBtn, slotBlocked, payForm, payCard, payManyCard, cortesView, sendqLoad, sendqSave, sendqClear, sendqStart, sendqUrl, sendqTop, sendqAsk, expiryOk, bulkDatesOk } from "/panel-caidas.js";
+import { initPerfil, perfilBtn, perfilCompreCard, perfilSlotCard } from "/panel-perfil.js";
 import { initRevMes, groupCard, approveAppDialog, transferExtras, confirmTransfer, transferMsg, paidAllBtn, confirmBulkRenew, storeRenewBtn } from "/panel-revmes.js";
 
 // Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
 const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "dark"; } catch { /* sin almacenamiento */ }
 initCaidas({ api, render: () => render(), go: (v) => go(v), P }); // cuentas caídas sin sorpresas (panel-caidas.js)
+initPerfil({ render: () => render(), go: (v) => go(v), P, toast: (m) => toast(m) }); // perfiles sueltos comprados (panel-perfil.js)
 
 const isOwner = () => P.me?.role === "owner";
 /** Nombre del rol del equipo, igual en todo el panel (14/11/2026: «Atención», nunca «Vendedor»). */
@@ -110,7 +112,7 @@ const SEC_EVENT = {
   login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerró una sesión", logout_others: "Cerró las otras sesiones",
   logout_all: "Le cerraron todas las sesiones", pin_reset: "La tienda le generó un PIN nuevo", pin_change: "Cambió su PIN", access_link: "La tienda generó un link para entrar",
 };
-const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const hhmm = (t) => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); // «03/01, 15:00» (es-BO daba «3/1, 03:00 p. m.»)
 const secSessRows = (list, mine) => list.map((s) => `<div class="secrow"><div><b>${esc(s.device)}${s.current ? ` ${pill("Este aparato", "ok")}` : ""}</b><small class="muted">Entró el ${hhmm(s.since)}${s.via ? ` con ${esc(s.via)}` : ""} · último uso ${hhmm(s.lastSeen)}${s.place ? ` · red ${esc(s.place)}…` : ""}</small></div>${mine && !s.current ? `<button class="pbtn sm" type="button" data-mysecout="${esc(s.id)}">Cerrar</button>` : ""}</div>`).join("");
 const secLogRows = (log) => log.map((a) => `<div class="secrow"><div><b>${a.ok ? "✅" : "⛔"} ${esc(SEC_EVENT[a.event] ?? a.event)}</b><small class="muted">${hhmm(a.at)}${a.event.startsWith("login") || a.event === "logout" ? ` · ${esc(a.device)}` : ""}${a.via && a.via !== "la tienda" ? ` · con ${esc(a.via)}` : ""}</small></div></div>`).join("");
 
@@ -649,7 +651,7 @@ const V = {
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
     // "Tu mes": cuánto entró, lo que te cuestan las cuentas (estimado) y lo que te quedó, con las 3 apps que más te dejan.
     const c = fin?.current;
-    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><span class="inline">${gastoHomeBtn()}<button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></span></div>
+    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><span class="inline">${gastoHomeBtn()}${canReview() ? perfilBtn() : ""}<button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></span></div>
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
@@ -688,8 +690,8 @@ const V = {
       ${await rateCard()}${invCard}${await winbackHomeCard()}
 
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
-        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
-          <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
+        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
+          <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}</small>
           <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b><span class="hd-w"> vence${w.n > 1 ? "n" : ""}</span>` : "Libre"}</span>${w.amount ? `<small class="hd-amt">${bs(w.amount)}</small>` : ""}</button>`).join("")}</div>
         <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> si todos renuevan (con el precio que te pagan)` : ""}.</p></section>`;
   },
@@ -1013,8 +1015,9 @@ const V = {
               <label>Cobrado con<select name="paymentMethod">${opt("cash", "Efectivo / QR ya verificado")}${opt("balance", "Saldo del cliente")}</select></label>
               <div class="inline" style="grid-column:1/-1"><button class="pbtn dark" type="submit">✅ Asignar este perfil</button><button class="pbtn" type="button" data-tab="slotAct:">Cancelar</button></div></form></section>`;
         } else {
-          slotCard = `<section class="card ok-card"><h2>${head}</h2><p class="muted" style="margin:0">Estado: ${esc(sl.status)}.</p><div class="inline"><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Poner libre</button><button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div></section>`;
+          slotCard = `<section class="card ok-card"><h2>${head}</h2><p class="muted" style="margin:0">Estado: ${esc({ reserved: "reservado", quarantined: "apartado (cuarentena)", retired: "retirado" }[sl.status] ?? sl.status)}.</p><div class="inline">${acc.fallen ? "" : `<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Poner libre</button>`}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div></section>`;
         }
+        slotCard += perfilSlotCard(acc, sl, pname); // perfil suelto comprado: ficha, «Se cayó» y «Le pagué» (panel-perfil.js)
       }
     }
     // «Editar» pide la contraseña y los PIN de ESA cuenta sola (antes destapaba todas y quedaban a la vista).
@@ -1046,9 +1049,11 @@ const V = {
     const vivosOf = (a) => a.slots.filter((s) => s.status !== "retired");
     const af = P.tab.accf ?? "todas";
     const prov7 = (a) => a.status !== "retired" && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * 86400000;
-    const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter(fn).length, 0);
-    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Cliente vence (3 días)", cnt((s) => slotState(s) === "soon")], ["vencidas", "Cliente vencido", cnt((s) => slotState(s) === "exp")], ["cuarentena", "En cuarentena", cnt((s) => s.status === "quarantined")], ["prov7", "📅 Proveedor ≤ 7 días", accs.filter(prov7).length]];
-    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")) || (af === "cuarentena" && sv.some((s) => s.status === "quarantined")) || (af === "prov7" && prov7(a)); };
+    const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter((s) => fn(s, a)).length, 0);
+    // «Disponibles» = a la venta de verdad: no cuentan los de una cuenta caída, «No vender», vencida o un perfil suelto vencido.
+    const forSale = (s, a) => s.status === "available" && a.status === "active" && !a.sellBlock && a.supplierExpiresAt > now && !(s.loose && (s.loose.down || s.loose.until <= now));
+    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt(forSale)], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Cliente vence (3 días)", cnt((s) => slotState(s) === "soon")], ["vencidas", "Cliente vencido", cnt((s) => slotState(s) === "exp")], ["cuarentena", "En cuarentena", cnt((s) => s.status === "quarantined")], ["prov7", "📅 Proveedor ≤ 7 días", accs.filter(prov7).length]];
+    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => forSale(s, a))) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")) || (af === "cuarentena" && sv.some((s) => s.status === "quarantined")) || (af === "prov7" && prov7(a)); };
     const aq = (P.tab.accq ?? "").trim().toLowerCase();
     const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
     const shownAccs = accs.filter(matchF).filter(matchQ);
@@ -1101,7 +1106,7 @@ const V = {
     const cards = plat ? groups.map(grpHtml).join("") : shownAccs.map(cardOf).join("");
     const cxPay = canReview() ? await payCard(accs, P.tab, pname, currencySym()) + payManyCard(accs, suppliers, P.tab, pname, currencySym()) : "";
     setTimeout(caidasAfter);
-    return `${alertsCard}${caidasCard}${slotCard}${editCard}${cxPay}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button><button class="pbtn sm" type="button" data-cxmany="1">💳 Pagar varias</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button><button class="pbtn sm acc-viewbtn" type="button" data-accview="${accView() === "plat" ? "clasica" : "plat"}">${accView() === "plat" ? "📋 Vista clásica" : "🗂️ Por plataforma"}</button><span class="muted">${accs.length} cuentas</span></div>
+    return `${alertsCard}${caidasCard}${slotCard}${editCard}${cxPay}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button><button class="pbtn sm" type="button" data-cxmany="1">💳 Pagar varias</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button>${canReview() ? perfilBtn() : ""}<button class="pbtn sm acc-viewbtn" type="button" data-accview="${accView() === "plat" ? "clasica" : "plat"}">${accView() === "plat" ? "📋 Vista clásica" : "🗂️ Por plataforma"}</button><span class="muted">${accs.length} cuentas</span></div>
       <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
@@ -1118,7 +1123,8 @@ const V = {
   },
 
   async carga() {
-    const [products, suppliers] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers")]);
+    const [products, suppliers, pfVend, pfRate] = await Promise.all([api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), canReview() ? api("GET", "/api/admin/perfiles-sueltos/vendedores").catch(() => []) : [], canReview() ? api("GET", "/api/admin/usdt").catch(() => null) : null]);
+    const pfCard = canReview() ? perfilCompreCard(products, pfVend, Number(pfRate?.rate) || 0) : ""; // «➕ Compré un perfil» (panel-perfil.js)
     if (!products.length) return `<section class="card"><div class="emptybox">Antes de cargar cuentas creá al menos un producto.<div class="inline"><button class="pbtn dark" type="button" data-go="productos">Crear producto</button></div></div></section>`;
     const sel = (name) => `<select name="${name}">${name === "supplierId" ? `<option value="">Propias (sin proveedor)</option>` : ""}${(name === "productId" ? products.filter((x) => x.kind !== "iptv") : suppliers.filter((s) => s.active)).map((x) => opt(x.id, x.name)).join("")}</select>`;
     const iptvProds = products.filter((p) => p.kind === "iptv");
@@ -1142,7 +1148,7 @@ const V = {
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    return `${pfCard}${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>

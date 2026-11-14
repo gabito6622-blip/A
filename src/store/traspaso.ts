@@ -103,6 +103,8 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
         const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY, start = a.customerExpiresAt - dur;
         c.paidLog = [{ at: Math.min(start, e.now()), from: start, amount: effectivePrice(e, a) }];
       }
+      // Lo que ya se cobró sigue a nombre de quien pagó (Finanzas, Cómo van), no del nuevo (revisión de 3 meses, 16/11/2026).
+      if (c.paidLog?.length) c.paidLog = c.paidLog.map((p) => (p.customerId ? p : { ...p, customerId: fromId }));
       const keep: TransferBook = { at: e.now(), ...(a.subs?.length ? { subs: a.subs } : {}), ...(a.rcontrol ? { rcontrol: a.rcontrol } : {}),
         ...(c.price !== undefined ? { price: c.price } : {}), ...(c.priceUsd !== undefined ? { priceUsd: c.priceUsd } : {}), ...(c.seller ? { seller: c.seller } : {}) };
       delete c.payStatus; delete c.price; delete c.priceUsd; delete c.seller; delete c.noticed;
@@ -127,6 +129,8 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
       }
       delete books(e)[bookKey(a.id, to.id)];
     }
+    // «Fue un error»: lo cobrado también era de la persona correcta.
+    if (opts.moveCharge && a.control?.paidLog?.length) a.control = { ...a.control, paidLog: a.control.paidLog.map((p) => (!p.customerId || p.customerId === fromId ? { ...p, customerId: to.id } : p)) };
     a.customerId = to.id;
     a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}${opts.moveCharge ? " (con el cobro)" : ""}` });
     queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });

@@ -66,7 +66,7 @@ const ORDER_WHAT: Partial<Record<OrderStatus, string>> = {
 };
 
 const daysAgo = (now: number, t: number) => Math.max(0, Math.floor((now - t) / DAY));
-const ddmm = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
+const ddmm = (t: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t)); // «13/01» (es-BO sin año daba «13/1»)
 
 function money(e: Engine, c: Cents, sym = e.s.settings.currencySymbol || "Bs"): string {
   return `${sym} ${c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2).replace(".", ",")}`;

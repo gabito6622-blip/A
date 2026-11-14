@@ -15,14 +15,14 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
-import { relocationRows, sellBlock, slotFreeStatus } from "./vendible.js";
+import { relocationRows, renewBlockOf, sellBlock, slotFreeStatus } from "./vendible.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
-import { noticeOf } from "./dia.js";
+import { noticeOf, reminderMsgOf } from "./dia.js";
 import { assertNotDouble, renewStart } from "./cobrarBien.js";
 import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
 import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
@@ -30,6 +30,7 @@ import { ownStoreRenewOk } from "./renovarVarias.js";
 import { missingListPrices } from "./listaPrecios.js";
 import { paidInReview } from "./avisoAlquiler.js";
 import { transferAssignment as transferWithBooks } from "./traspaso.js";
+import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -557,6 +558,8 @@ export function renewableNow(e: Engine, a: Assignment): boolean {
 export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
+  const fallen = renewBlockOf(e, a); // sigue en una cuenta caída: primero moverlo (vendible.ts)
+  if (fallen) throw new DomainError("INVALID_STATE", fallen);
   const days = e.s.products[a.productId].durationDays * periods;
   // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
   const next = renewStart(a, e.now()) + days * DAY;
@@ -590,6 +593,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
   const key = input.idempotencyKey ? `renew:${assignmentId}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
     const a = e.get("assignments", assignmentId);
+    { const fallen = renewBlockOf(e, a); if (fallen) throw new DomainError("INVALID_STATE", fallen); } // cuenta caída: moverlo primero
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
     else {
       requireActFor(e, actor, a.customerId);
@@ -599,6 +603,14 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       const prod = e.s.products[a.productId];
       // Independiente: sus propios alquileres de la tienda sí, si el dueño no se lo apagó (renovarVarias.ts).
       if (!prod || !(visibleTo(e, prod, payerFor(e, actor, a.customerId)) || ownStoreRenewOk(e, actor.customerId, a))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+    }
+    // Cliente o revendedor: si la fecha nueva pasa la de la cuenta con el proveedor, se le dice qué hacer (antes leía
+    // «renová con el proveedor o reemplazá el perfil», que es para el dueño).
+    if (!isStaff(actor)) {
+      const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
+      if (accN && prodN && !input.allowBeyondSupplier && renewStart(a, e.now()) + prodN.durationDays * periods * DAY > accN.supplierExpiresAt) {
+        throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: la tienda está renovando esta cuenta. Escribile a la tienda por WhatsApp y te la renueva (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
+      }
     }
     const payerId = payerFor(e, actor, a.customerId);
     // El staff anota a mano (efectivo o saldo): si ya hay un cobro en este período, pide confirmar que es otro mes.
@@ -639,7 +651,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
       // «Renovar» de un alquiler que figura sin pagar en el Control: la renovación queda fiada (plata.ts).
-      if (isStaff(actor)) payLaterIfPending(e, actor, order, a);
+      if (isStaff(actor)) { payLaterIfPending(e, actor, order, a); fiadaRenewalToBook(e, actor, order, a); }
     }
     return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id], isStaff(actor)) };
   }));
@@ -800,6 +812,7 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
       e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";
+      debtToFiadoOnCut(e, actor, a); // se cortó debiendo: lo fiado pasa a su libreta (no desaparece)
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -923,6 +936,10 @@ export function markNoticed(e: Engine, actor: Actor, ids: unknown, off = false) 
       // «No le avisé» borra las dos marcas de este vencimiento (la de Mi secretaria y la de Recordatorios).
       if (off) { delete c.noticed; delete a.reminderFor; } else c.noticed = { at: e.now(), for: a.customerExpiresAt };
       a.control = c;
+      // «Ya le avisé»: el recordatorio preparado de este vencimiento que todavía no salió queda como «enviado a mano»,
+      // así el bot no le manda después uno viejo (revisión de 3 meses, 16/11/2026).
+      const prep = !off && a.reminderFor === a.customerExpiresAt ? reminderMsgOf(e, a) : undefined;
+      if (prep && (prep.status === "queued" || prep.status === "failed" || prep.status === "skipped_no_consent")) prep.status = "sent_manually";
       e.audit(actor, off ? "assignment.notice_off" : "assignment.noticed", "assignment", a.id, { customerId: a.customerId });
       done.push(a.id);
     }
@@ -968,7 +985,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     // Un período se cuenta una sola vez; si lo volvés a "pendiente" (te equivocaste), se borra ese cobro.
     const from = a.customerExpiresAt - (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
     if (c.payStatus === "pagado" && !wasPaid && !(c.paidLog ?? []).some((p) => p.from === from)) {
-      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }) }].slice(-24);
+      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }), customerId: a.customerId }].slice(-24);
     } else if (wasPaid && c.payStatus !== "pagado" && c.paidLog?.length) {
       c.paidLog = c.paidLog.filter((p) => p.from !== from);
       if (!c.paidLog.length) delete c.paidLog;

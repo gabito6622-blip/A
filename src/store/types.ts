@@ -261,6 +261,8 @@ export interface Account {
   fallen?: { at: number; by: Id; reason: string };
   /** «🚫 No vender más»: sale de la venta sin tocar a sus clientes actuales. */
   noSell?: boolean;
+  /** Cuenta de perfiles sueltos comprados a otra persona (perfilSuelto.ts): el costo y la fecha van por perfil. */
+  loose?: boolean;
   createdAt: number;
 }
 
@@ -276,7 +278,28 @@ export interface Slot {
   status: SlotStatus;
   reservedByOrder?: Id;
   reservedUntil?: number;
+  /** Perfil suelto comprado a otra persona (perfilSuelto.ts): a quién, cuánto, hasta cuándo y si se cayó. */
+  loose?: LooseProfile;
 }
+
+/** Datos de un perfil suelto comprado (perfilSuelto.ts). Plata en centavos de Bs (`usd` en centavos de US$). */
+export interface LooseProfile {
+  supplierId: Id;
+  /** Lo que pagaste por un período (Bs). */
+  cost: Cents;
+  usd?: number;
+  rate?: number;
+  /** Hasta cuándo te lo vendió (vence con el vendedor). */
+  until: number;
+  boughtAt: number;
+  /** «Me lo repuso» en otro perfil: el perfil de antes (su pago cubre a este; no se vuelve a estimar). */
+  prev?: Id;
+  /** «⚠️ Se cayó» y este perfil ya no sirve: cuándo y qué pasó (lo repuso en otro, devolvió plata o se perdió). */
+  down?: LooseFall;
+  /** Todas las veces que se cayó (también las que el vendedor arregló cambiando la clave): para el resumen del mes. */
+  falls?: LooseFall[];
+}
+export interface LooseFall { at: number; outcome: "repuso" | "devolvio" | "perdi"; refund?: Cents }
 
 /** Por dónde llegó el permiso de avisos: el cliente al registrarse o en su cuenta, por WhatsApp (ALTA/BAJA), el panel, su revendedor o el Excel. */
 export type ConsentVia = "registro" | "cliente" | "whatsapp" | "panel" | "revendedor" | "importado";
@@ -612,7 +635,7 @@ export interface RentalControl {
    * Cobros marcados a mano ("💵 Marcar cobrado"): cuándo, de qué período y cuánto.
    * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
    */
-  paidLog?: { at: number; from: number; amount: Cents }[];
+  paidLog?: { at: number; from: number; amount: Cents; customerId?: Id }[];
   /**
    * «📣 Ya le avisé» (Mi secretaria): cuándo le avisó el dueño y para qué vencimiento. Solo vale mientras el alquiler
    * siga con ese vencimiento: al renovar o cambiar la fecha, el aviso deja de contar.
@@ -849,6 +872,9 @@ export interface Expense {
   refund?: boolean;
   /** Si es el pago de un gasto fijo mensual: cuál. */
   fixedId?: Id;
+  /** Perfil suelto (perfilSuelto.ts): de qué perfil es y si fue la compra o una renovación. */
+  slotId?: Id;
+  looseKind?: "compra" | "renovacion";
   editedAt?: number;
 }
 

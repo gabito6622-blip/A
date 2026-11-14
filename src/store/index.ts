@@ -19,6 +19,7 @@ import * as plata from "./plata.js";
 import * as proveedoresMes from "./proveedoresMes.js";
 import * as inventario from "./inventario.js";
 import * as caidas from "./caidas.js";
+import * as perfilSuelto from "./perfilSuelto.js";
 import * as cobro from "./cobro.js";
 import * as cobrarBien from "./cobrarBien.js";
 import * as cambioPlataforma from "./cambioPlataforma.js";
@@ -124,6 +125,14 @@ export function createStore(opts: EngineOptions = {}) {
       rotatePassword: bind(e, inventario.rotatePassword),
     },
     /** Cuentas caídas sin sorpresas (revisión de 3 meses): marcar caída, no vender, Reubicar exacto, pagar varias. */
+    /** Perfiles sueltos comprados a otras personas (perfilSuelto.ts). */
+    perfiles: {
+      buy: bind(e, perfilSuelto.buyProfile),
+      down: bind(e, perfilSuelto.looseDown),
+      pay: bind(e, perfilSuelto.payLoose),
+      card: bind(e, perfilSuelto.looseCard),
+      vendors: bind(e, perfilSuelto.looseVendors),
+    },
     caidas: {
       markFallen: bind(e, caidas.markFallen),
       unmarkFallen: bind(e, caidas.unmarkFallen),
