@@ -70,7 +70,7 @@ describe("IPTV", () => {
   test("una línea M3U entrega el enlace, no usuario/clave", async () => {
     const r = await call("POST", "/api/admin/accounts", {
       productId: "flujotv", email: "Lista Pedro", password: "http://line.flujo.tv/get.php?username=p&password=q&type=m3u",
-      profiles: [{ label: "Línea IPTV" }], iptv: { mode: "m3u", app: "Smarters" }, cost: 0,
+      profiles: [{ label: "Línea IPTV" }], iptv: { mode: "m3u", app: "Smarters" }, cost: 0, supplierExpiresAt: clock.now() + 60 * 864e5,
     }, owner);
     assert.equal(r.status, 200);
     const order = await call("POST", "/api/admin/orders", { customerId: custId, items: [{ productId: "flujotv", qty: 1 }], paymentMethod: "cash", preferredSlotIds: [r.json.slots[0].id] }, owner);
@@ -88,7 +88,7 @@ describe("IPTV", () => {
 
   test("'cómo verlo': la guía del producto va en el mensaje de entrega", async () => {
     await call("POST", "/api/admin/products", { id: "flujotv", name: "Flujo TV", kind: "iptv", durationDays: 30, price: 3000, published: true, guide: { app: "IBO Player", link: "https://iboplayer.com", steps: "Pegá usuario, clave y servidor." } }, owner);
-    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "ana_flujo", password: "Clave#1", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0 }, owner);
+    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "ana_flujo", password: "Clave#1", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0, supplierExpiresAt: clock.now() + 60 * 864e5 }, owner);
     const maria = (await call("GET", "/api/admin/customers", undefined, owner)).json[0].id;
     const order = await call("POST", "/api/admin/orders", { customerId: maria, items: [{ productId: "flujotv", qty: 1 }], paymentMethod: "cash", preferredSlotIds: [r.json.slots[0].id] }, owner);
     const del = (await call("GET", `/api/admin/assignments/${order.json.assignmentIds[0]}/delivery`, undefined, owner)).json;
@@ -98,7 +98,7 @@ describe("IPTV", () => {
   });
 
   test("prueba gratis: entrega por horas, baja el stock, no cuenta como venta y vence sola", async () => {
-    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "prueba_linea", password: "Clave#T", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0 }, owner);
+    const r = await call("POST", "/api/admin/accounts", { productId: "flujotv", email: "prueba_linea", password: "Clave#T", profiles: [], iptv: { mode: "xtream", server: "http://line.flujo.tv:8080" }, cost: 0, supplierExpiresAt: clock.now() + 60 * 864e5 }, owner);
     const slotId = r.json.slots[0].id;
     const maria = (await call("GET", "/api/admin/customers", undefined, owner)).json[0].id;
     const t = await call("POST", "/api/admin/trials", { customerId: maria, productId: "flujotv", hours: 24, preferredSlotId: slotId }, owner);

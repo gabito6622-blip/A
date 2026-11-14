@@ -25,6 +25,8 @@ import { authorize } from "./auth.js";
 import { DAY, MINUTE, boMonthStart } from "./time.js";
 import { effectivePrice } from "./admin.js";
 import { DEDUPE_DAYS, incomeEvents } from "./income.js";
+import { unitCostOf } from "./finance.js";
+import { overview as fiadoOverview } from "./fiado.js";
 export { boMonthStart } from "./time.js";
 export { DEDUPE_DAYS } from "./income.js";
 
@@ -128,6 +130,10 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
     due7: { count: number; amount: Cents }; due30: { count: number; amount: Cents };
     active: Record<Id, number>; activeCount: number; lastOrderAt: number | null;
     fromControl30: Cents;
+    /** «Este mes» (14/11/2026): un solo período a la vista. */
+    costMonth: Cents; fromControlMonth: Cents; fromFiadoMonth: Cents;
+    renewalsOnTimeMonth: number; renewalsLateMonth: number; droppedMonth: number; droppedAmountMonth: Cents;
+    debtFiado: Cents; debtPending: Cents; debtPendingCount: number;
   };
   const rows = new Map<Id, Row>(resellers.map((c) => [c.id, {
     id: c.id, name: c.name, phone: c.phone, createdAt: c.createdAt,
@@ -135,6 +141,9 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
     renewalsOnTime: 0, renewalsLate: 0, dropped: 0, droppedAmount: 0,
     due7: { count: 0, amount: 0 }, due30: { count: 0, amount: 0 }, active: {}, activeCount: 0, lastOrderAt: null,
     fromControl30: 0,
+    costMonth: 0, fromControlMonth: 0, fromFiadoMonth: 0,
+    renewalsOnTimeMonth: 0, renewalsLateMonth: 0, droppedMonth: 0, droppedAmountMonth: 0,
+    debtFiado: 0, debtPending: 0, debtPendingCount: 0,
   }]));
   const addPaid = (r: Row, t: number, amount: Cents) => {
     if (t >= m0) r.thisMonth += amount;
@@ -145,12 +154,21 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
 
   // 1) Lo que pagó: la fuente única de ingresos (src/store/income.ts): pedidos entregados y cobros
   //    marcados en el Control, sin contar dos veces el mismo mes. La misma que usan Inicio y Finanzas.
+  //    Incluye los pagos del fiado del dueño (income.ts). Del mes: lo que te costó lo que te pagó (estimado con el
+  //    costo de las cuentas, como «Apps que más dejaron» de Finanzas) para la ganancia estimada.
   const renewalsByAsg = new Map<Id, Order[]>();
+  const costOf = unitCostOf(e);
   for (const ev of incomeEvents(e, now)) {
     const rid = ev.source === "order" ? ev.payerId : ownerOf(ev.customerId);
     const r = rid ? rows.get(rid) : undefined;
     if (!r) continue;
     addPaid(r, ev.at, ev.amount);
+    if (ev.at >= m0) {
+      r.costMonth += ev.items.reduce((t, it) => t + costOf(it.productId) * it.qty, 0);
+      if (ev.source === "control") r.fromControlMonth += ev.amount;
+      if (ev.source === "fiado") r.fromFiadoMonth += ev.amount;
+    }
+    if (ev.source === "fiado") continue;
     if (ev.source === "control") { if (ev.at > w30) r.fromControl30 += ev.amount; continue; }
     const o = ev.order!;
     if (ev.at > (r.lastOrderAt ?? 0)) r.lastOrderAt = ev.at;
@@ -162,14 +180,14 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
   }
   // 2) Renovaciones de los últimos 30 días: a tiempo o tarde.
   for (const [asgId, list] of renewalsByAsg) {
-    if (!list.some((o) => o.updatedAt > w30)) continue;
+    if (!list.some((o) => o.updatedAt > w30 || o.updatedAt >= m0)) continue;
     const timing = renewalTiming(e, asgId, list);
     for (const o of list) {
-      if (o.updatedAt <= w30) continue;
+      if (o.updatedAt <= w30 && o.updatedAt < m0) continue;
       const r = rows.get(o.payerId ?? o.customerId)!;
       const k = timing.get(o.id);
-      if (k === "on_time") r.renewalsOnTime++;
-      else if (k === "late") r.renewalsLate++;
+      if (o.updatedAt > w30) { if (k === "on_time") r.renewalsOnTime++; else if (k === "late") r.renewalsLate++; }
+      if (o.updatedAt >= m0) { if (k === "on_time") r.renewalsOnTimeMonth++; else if (k === "late") r.renewalsLateMonth++; }
     }
   }
   // 3) Servicios: activos hoy por producto, lo que vence pronto y lo que se le cayó.
@@ -190,6 +208,15 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       r.dropped++;
       r.droppedAmount += effectivePrice(e, a);
     }
+    if ((a.status === "active" || a.status === "revoked") && !a.holdOpen && exp < now && exp >= m0) { r.droppedMonth++; r.droppedAmountMonth += effectivePrice(e, a); }
+  }
+  // 4) Lo que te debe cada revendedor (él o sus clientes): la libreta de Fiado del dueño y los alquileres marcados
+  //    «Pendiente» o «No pagó» en el Control que todavía no pasaste al fiado. Los mismos números que la pantalla Fiado.
+  for (const f of fiadoOverview(e, actor).rows) {
+    const rid = ownerOf(f.customerId);
+    const r = rid ? rows.get(rid) : undefined;
+    if (!r) continue;
+    r.debtFiado += f.owed; r.debtPending += f.unlinked.amount; r.debtPendingCount += f.unlinked.count;
   }
 
   const list = [...rows.values()].map((r) => {
@@ -210,13 +237,24 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       due7: r.due7, lastOrderAt: r.lastOrderAt,
       /** De lo pagado en 30 días, cuánto viene de cobros marcados en el Control. */
       fromControl30: r.fromControl30,
+      /** Todo «este mes» (del día 1 a hoy): lo que pantalla «Cómo van» muestra. */
+      month: {
+        paid: r.thisMonth, cost: r.costMonth, profit: r.thisMonth - r.costMonth,
+        fromControl: r.fromControlMonth, fromFiado: r.fromFiadoMonth,
+        renewalsOnTime: r.renewalsOnTimeMonth, renewalsLate: r.renewalsLateMonth, dropped: r.droppedMonth, droppedAmount: r.droppedAmountMonth,
+      },
+      /** Lo que te debe hoy: fiado anotado + alquileres sin pagar en el Control (sin pasar al fiado). */
+      debt: { fiado: r.debtFiado, pending: r.debtPending, pendingCount: r.debtPendingCount, total: r.debtFiado + r.debtPending },
     };
-  }).sort((x, y) => y.paid30 - x.paid30 || y.thisMonth - x.thisMonth || x.name.localeCompare(y.name));
+  }).sort((x, y) => y.thisMonth - x.thisMonth || y.paid30 - x.paid30 || x.name.localeCompare(y.name));
 
   const sum = (f: (r: Row) => number) => [...rows.values()].reduce((t, r) => t + f(r), 0);
   const total30 = sum((r) => r.paid30);
-  const top = list.slice(0, TOP_N).filter((r) => r.paid30 > 0);
+  const top = [...list].sort((x, y) => y.paid30 - x.paid30).slice(0, TOP_N).filter((r) => r.paid30 > 0);
   const top30 = top.reduce((t, r) => t + r.paid30, 0);
+  // Concentración de ESTE MES (la que muestra la pantalla): cuánto pesan los que más te pagaron del día 1 a hoy.
+  const topM = list.slice(0, TOP_N).filter((r) => r.thisMonth > 0);
+  const topMAmt = topM.reduce((t, r) => t + r.thisMonth, 0);
   const thisMonth = sum((r) => r.thisMonth), prevMonthToDate = sum((r) => r.prevMonthToDate);
   const byStatus: Record<ResellerTrend, number> = { nuevo: 0, creciendo: 0, estable: 0, bajando: 0, dormido: 0 };
   for (const r of list) byStatus[r.status]++;
@@ -235,6 +273,13 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       projection30: { count: sum((r) => r.due30.count), amount: sum((r) => r.due30.amount) },
       dropped: { count: sum((r) => r.dropped), amount: sum((r) => r.droppedAmount) },
       concentration: { topN: top.length, pct: total30 > 0 ? Math.round((top30 / total30) * 100) : null, amount: top30, names: top.map((r) => r.name) },
+      month: {
+        paid: thisMonth, cost: sum((r) => r.costMonth), profit: thisMonth - sum((r) => r.costMonth),
+        fromControl: sum((r) => r.fromControlMonth), fromFiado: sum((r) => r.fromFiadoMonth),
+        dropped: { count: sum((r) => r.droppedMonth), amount: sum((r) => r.droppedAmountMonth) },
+        concentration: { topN: topM.length, pct: thisMonth > 0 ? Math.round((topMAmt / thisMonth) * 100) : null, amount: topMAmt, names: topM.map((r) => r.name) },
+      },
+      debt: { fiado: sum((r) => r.debtFiado), pending: sum((r) => r.debtPending), total: sum((r) => r.debtFiado + r.debtPending), people: list.filter((r) => r.debt.total > 0).length },
       byStatus,
       resellers: list.length,
     },

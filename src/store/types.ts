@@ -17,6 +17,8 @@ export interface Actor {
   id: Id;
   role: Role;
   customerId?: Id;
+  /** Entra con la llave del asistente: admin con poder limitado (ver `ASSISTANT_DENY` en auth.ts). */
+  assistant?: boolean;
 }
 
 export type ProductKind = "profile" | "full_account" | "invite" | "combo" | "iptv";
@@ -495,6 +497,8 @@ export interface Assignment {
   status: AssignmentStatus;
   history: AssignmentEvent[];
   lastReminderAt?: number;
+  /** Para qué vencimiento fue `lastReminderAt` (así Mi secretaria lo muestra como «ya le avisé» solo para esa fecha). */
+  reminderFor?: number;
   /** Recordatorios automáticos ya enviados: "vencimiento:días" (se reinicia al renovar). */
   remindersSent?: string[];
   /** Importado ya vencido: no se cierra solo hasta que el staff le ponga fecha. */

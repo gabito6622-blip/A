@@ -5,6 +5,7 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { isUsd, rateNow, usdToBs } from "./usd.js";
+import { diaFields } from "./dia.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -183,6 +184,8 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         // Quien paga está en la lista en dólares: el Control muestra y anota su precio en US$.
         ...(isUsd(e, payerOf(e, a.customerId)) ? { payCurrency: "USD" as const, payUsd: payUsdOf(e, a) ?? null } : {}),
         resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
+        // Día a día: cuándo se corta solo y la marca de «ya le avisé» (la misma en Mi secretaria y Recordatorios).
+        ...diaFields(a),
       };
     });
 }
@@ -229,12 +232,15 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const expiresText = new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(a.customerExpiresAt));
   const storeName = e.s.settings.storeName || "la tienda";
   const first = (cust?.name ?? "").split(" ")[0] || "";
-  const pin = slot.pin ?? "";
+  // El asistente entrega como un admin (decisión del dueño, 14/11/2026). `hide` queda para un rol sin contraseñas.
+  const hide = false;
+  const pin = hide ? "" : slot.pin ?? "";
+  const secret = hide ? "" : acc.password;
   const message = (acc.iptv
     ? [
       `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
       ``,
-      ...iptvLines(acc.iptv, acc.email, acc.password),
+      ...iptvLines(acc.iptv, acc.email, secret),
       `📅 Vence: ${expiresText}`,
       ...guideLines(prod),
       ``,
@@ -244,18 +250,18 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
       `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
       ``,
       `📧 Correo: ${acc.email}`,
-      `🔑 Contraseña: ${acc.password || "(te la paso aparte)"}`,
+      `🔑 Contraseña: ${secret || "(te la paso aparte)"}`,
       `👤 Perfil: ${slot.label}`,
       ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
       `📅 Vence: ${expiresText}`,
       ``,
       `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
     ]).join("\n");
-  e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId });
+  e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId, ...(hide ? { hidden: true } : {}) });
   return {
     assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerFirst: first,
-    customerPhone: cust?.phone ?? "", product: prod?.name ?? "", email: acc.email, password: acc.password || "",
-    profile: slot.label, pin, expiresAt: a.customerExpiresAt, expiresText, storeName, message, passwordPending: !acc.password,
+    customerPhone: cust?.phone ?? "", product: prod?.name ?? "", email: acc.email, password: secret || "",
+    profile: slot.label, pin, expiresAt: a.customerExpiresAt, expiresText, storeName, message, passwordPending: !acc.password, ...(hide ? { secretsHidden: true } : {}),
   };
 }
 

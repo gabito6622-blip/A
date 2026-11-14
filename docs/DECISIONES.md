@@ -2,6 +2,17 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-14 · Revisión del súper administrador: cómo se arregló
+- **Llave del asistente: como un admin, sin vencimiento.** Primero se limitó (sin contraseñas, PIN, Excel ni páginas de revendedores, y vencía a los 7 días). El dueño decidió: «vos sos mi asistente de todo mi panel, sí tenés derecho» → «Como un admin». Solo queda fuera lo de usuarios, contraseñas del equipo y permisos, que es exclusivo del dueño. El asistente no dispara avisos al celular porque trabaja a pedido del dueño, pero queda en la Auditoría. El mecanismo de límites (`ASSISTANT_DENY` y la tabla en `teamSecurity.ts`) quedó, por si el dueño cambia de idea.
+- **Números del día con un solo cálculo en el servidor** (`dia.ts`), con el día de Bolivia y cada alquiler contado una vez.
+- **Reactivar lo cortado reusa el mismo alquiler,** con el período desde hoy. Solo ofrece perfiles libres, nunca los apartados de otro cliente, y vuelve a comprobar que esté libre justo antes de guardar.
+- **Renovar el proveedor y anotar el cobro van en una sola transacción**, usando la función existente de «Pagué la renovación».
+- **El aviso se ata al vencimiento** (`reminderFor`), así «Ya le avisé» y Recordatorios coinciden.
+- **Una sola regla de costo de cuentas por mes** (`finanzasCostos.ts`), para el mes en curso, los cerrados, el Excel y el gráfico.
+- **El pago del fiado reemplaza a la marca «pagado» del Control del mismo período** (ventana de 20 días) para no contar dos veces.
+- **Fecha del proveedor obligatoria para cuentas nuevas.** Las viejas sin fecha se dejan como están.
+- **Avisos del equipo:** se miran en la Auditoría después de cada pedido, en vez de agregar código en cada ruta.
+
 ## 2026-11-14 · Seguridad de cuentas: registro aparte, frenos en la base, sin datos de más
 - **Registro de ingresos en una tabla propia** (`access_log`), no en la auditoría del estado: los intentos fallidos no tienen «actor» y no deben engordar el estado que se guarda por versiones. Se guarda 180 días.
 - **Aparato legible** («📱 Android · Chrome») a partir del navegador, y **solo el comienzo de la IP** («181.115…»): alcanza para reconocer «es mi celular / mi casa» sin exponer la dirección completa.

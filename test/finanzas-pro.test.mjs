@@ -56,9 +56,11 @@ describe("etapa 9 · finanzas pro", () => {
     assert.equal(c.topApps[0].productId, "disney-alq"); assert.equal(c.topApps[0].ingresos, 18200);
     assert.equal(c.months[0].key, "2026-11"); assert.equal(c.months.length, 12);
     assert.ok(c.cuentasEstimado > 0 && c.gananciaEstimada === c.ganancia - c.cuentasEstimado, "el mes en curso trae el estimado de cuentas");
-    // Octubre cerrado: sin estimado; su comparativa es contra septiembre.
+    // Octubre cerrado: desde el 14/11/2026 también resta el costo estimado de sus cuentas (6 × Bs 20 + Bs 25);
+    // su comparativa es contra septiembre.
     const oct = s.finance.monthClose(owner, "2026-10");
-    assert.deepEqual([oct.closed, oct.ingresos, oct.cuentasEstimado, oct.prev.key], [true, 10100, 0, "2026-09"]);
+    assert.deepEqual([oct.closed, oct.ingresos, oct.cuentasEstimado, oct.prev.key], [true, 10100, 6 * 2000 + 2500, "2026-09"]);
+    assert.equal(oct.gananciaEstimada, oct.ganancia - 14500);
     assert.equal(oct.start, boMonthStart(NOV1 - DAY)); assert.equal(oct.end, NOV1);
     assert.equal(s.finance.monthClose(owner, "2027-05").month, "2026-11", "un mes futuro vuelve al actual");
     assert.equal(s.finance.monthClose(owner, "cualquiera").month, "2026-11", "un mes mal escrito vuelve al actual");

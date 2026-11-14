@@ -136,7 +136,7 @@ export function summary(e: Engine, actor: Actor, range: { from: number; to: numb
   }
   // Ingreso de caja: lo que entró de verdad (QR/efectivo + recargas + cobros del Control). Lo pagado con saldo ya entró como recarga.
   const inRange = Object.values(e.s.orders).filter((o) => o.status === "fulfilled" && o.channel !== "import" && o.updatedAt >= range.from && o.updatedAt < range.to);
-  const cashIn = inRange.filter((o) => o.paymentMethod !== "balance").reduce((s, o) => s + o.total, 0) + sumIncome(ev.filter((x) => x.source === "control"));
+  const cashIn = inRange.filter((o) => o.paymentMethod !== "balance").reduce((s, o) => s + o.total, 0) + sumIncome(ev.filter((x) => x.source !== "order")); // + cobros del Control y pagos del fiado
   const customerIds = Object.keys(e.s.customers);
   return {
     revenue: sumIncome(ev),
@@ -295,10 +295,12 @@ export function supplierReport(e: Engine, actor: Actor) {
   });
 }
 
-export function auditLog(e: Engine, actor: Actor, filter: { entityId?: Id; action?: string; limit?: number } = {}) {
+/** Auditoría del dueño. Filtros (14/11/2026): por persona (`actorId`) y por período (`from` incluido, `to` excluido). */
+export function auditLog(e: Engine, actor: Actor, filter: { entityId?: Id; action?: string; limit?: number; actorId?: Id; from?: number; to?: number } = {}) {
   authorize(actor, "audit.view");
   return e.s.audit
-    .filter((a) => (!filter.entityId || a.entityId === filter.entityId) && (!filter.action || a.action.startsWith(filter.action)))
+    .filter((a) => (!filter.entityId || a.entityId === filter.entityId) && (!filter.action || a.action.startsWith(filter.action))
+      && (!filter.actorId || a.actorId === filter.actorId) && (filter.from === undefined || a.at >= filter.from) && (filter.to === undefined || a.at < filter.to))
     .slice(-(filter.limit ?? 200))
     .reverse();
 }

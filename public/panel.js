@@ -12,13 +12,17 @@ import { initDescargas, descargasEnsure, descargasView, descargasClick, descarga
 import { usd, wal, orderTotal, owedText, usdChip, currencySelect, listHint, payIsUsd, payText, payField } from "/usd.js";
 import { cargarCard } from "/panel-cargar.js";
 import { secretaryView } from "/secretaria.js";
+import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint } from "/dia.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
+import { cargaVenceCosto, cargaOk, costRow, moveDestLabel, editSecretRow, mesCorto } from "/panel-inventario.js";
 
 // Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
 const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
 try { P.theme = localStorage.getItem("gs-panel-theme") || "dark"; } catch { /* sin almacenamiento */ }
 
 const isOwner = () => P.me?.role === "owner";
+/** Nombre del rol del equipo, igual en todo el panel (14/11/2026: «Atención», nunca «Vendedor»). */
+const STAFF_ROLE = { owner: "Dueño", admin: "Admin", seller: "Atención" };
 const canReview = () => P.me?.role === "owner" || P.me?.role === "admin";
 // Etiquetas de cliente: texto + clase de color (ver panel.css .tagp-*).
 const CTAGS = { vip: ["⭐ VIP", "vip"], moroso: ["⚠️ Moroso", "moroso"], nuevo: ["🆕 Nuevo", "nuevo"], mayorista: ["📦 Mayorista", "may"], regalo: ["🎁 Regalo", "reg"] };
@@ -388,15 +392,16 @@ const V = {
       <div class="tabs ctl-chips" role="tablist" aria-label="Mes">${cz.months.slice(0, 6).map((m) => `<button type="button" role="tab" data-tab="fm:${esc(m.key)}" aria-selected="${m.key === cz.month}">${esc(m.label.replace(/ \d{4}$/, ""))}</button>`).join("")}</div>
       <div class="finkpis four">
         <div class="finkpi in"><span>💵 Entró</span><b>${bs(cz.ingresos)}</b><small>${pctTxt(cz.vs.ingresosPct)}</small></div>
-        <div class="finkpi"><span>🧾 Por pedidos / 💵 Control</span><b>${bs(cz.dePedidos)}</b><small>+ ${bs(cz.delControl)} marcados cobrados</small></div>
+        <div class="finkpi"><span>🧾 Por pedidos / 💵 Control</span><b>${bs(cz.dePedidos)}</b><small>+ ${bs(cz.delControl)} marcados cobrados${cz.delFiado ? ` + ${bs(cz.delFiado)} del fiado` : ""}</small></div>
         <div class="finkpi out"><span>📤 Gastos</span><b>${bs(cz.gastos)}</b><small>${cz.vs.gastos > 0 ? "+" : ""}${bs(cz.vs.gastos)} vs. mes anterior</small></div>
-        <div class="finkpi net ${cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es) · ${cz.cobrosControl} cobro(s) del Control</small></div>
+        <div class="finkpi net ${cz.sinCostos ? "" : cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.sinCostos ? "⚠️ sin costos anotados: no es ganancia real" : cz.cuentasEstimado ? `ya resta ${bs(cz.cuentasEstimado)} de cuentas (estimado)` : `${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es)`}</small></div>
       </div>
+      ${cz.sinCostos ? `<div class="finwarn">⚠️ En ${esc(cz.label)} no hay cuentas con costo ni gastos de cuentas anotados: «Te quedó» sería casi todo lo que entró. Cargá el costo de tus cuentas en Cuentas → Editar para ver tu ganancia real.</div>` : ""}
       <div class="dgrid">
         <div><h3 style="margin:8px 0 4px;font-size:14px">🏆 Quién te pagó más</h3>${cz.topPayers.length ? `<ol class="of-log" style="padding-left:0">${cz.topPayers.map((p) => `<li class="of-t-ok"><b>${esc(p.name)}</b> <small class="muted">${p.kind === "reseller" ? "revendedor" : "cliente"}</small><span style="float:right"><b>${bs(p.amount)}</b></span></li>`).join("")}</ol><small class="muted">${cz.payers} persona(s) te pagaron este mes.</small>` : `<p class="muted" style="margin:0">Nadie todavía.</p>`}</div>
         <div><h3 style="margin:8px 0 4px;font-size:14px">📺 Apps que más dejaron</h3>${cz.topApps.length ? `<ul class="of-log">${cz.topApps.map((a) => `<li class="${a.gana >= 0 ? "of-t-ok" : "of-t-bad"}"><b>${esc(a.name)}</b> · entró ${bs(a.ingresos)} · ${a.units} u. · te dejó <b>${bs(a.gana)}</b></li>`).join("")}</ul>` : `<p class="muted" style="margin:0">Sin ventas este mes.</p>`}</div>
       </div>
-      <div class="inline"><a class="pbtn" href="/api/admin/finance/cierre.xlsx?month=${esc(cz.month)}" download>📥 Descargar Excel del mes</a><small class="muted">Mes anterior: entró ${bs(cz.prev.ingresos)}, te quedó ${bs(cz.prev.ganancia)}.</small></div></section>` : "";
+      <div class="inline"><a class="pbtn" href="/api/admin/finance/cierre.xlsx?month=${esc(cz.month)}" download>📥 Descargar Excel del mes</a><small class="muted">${esc(cz.prev.label ?? "Mes anterior")}: entró ${bs(cz.prev.ingresos)}, te quedó ${cz.prev.sinCostos ? `${bs(cz.prev.gananciaEstimada)} (sin costos anotados)` : bs(cz.prev.gananciaEstimada ?? cz.prev.ganancia)}${cz.vs.gananciaPct !== null && cz.vs.gananciaPct !== undefined && !cz.prev.incomplete ? ` · ganancia ${cz.vs.gananciaPct > 0 ? "+" : ""}${cz.vs.gananciaPct}%` : ""}.</small></div></section>` : "";
     // 💳 Próximos cobros de la tarjeta: cuentas que se pagan en dólares y se cobran en los próximos 30 días.
     const rateT = Number(usdtT?.rate) || 0, nowT = Date.now();
     const tj = accsT.filter((x) => x.status === "active" && x.costUsd > 0 && x.supplierExpiresAt >= nowT - 86400000 && x.supplierExpiresAt <= nowT + 30 * 86400000).sort((x, y) => x.supplierExpiresAt - y.supplierExpiresAt);
@@ -411,17 +416,17 @@ const V = {
             <ul>${g.l.map((x) => `<li><span class="mono">${esc(x.email)}</span> · ${usdF(x.costUsd)}</li>`).join("")}</ul></details>`; }).join("")}</div>
           <p style="margin:0"><b>Total 30 días: ${usdF(tjTot)}${rateT ? ` ≈ ${bs(Math.round(tjTot * rateT))}` : ""}</b> <small class="muted">· cuando pagues, anotalo con «💳 Pagué la renovación» en la cuenta (te calcula los Bs)</small></p>`}</section>`;
     const c = d.current;
-    const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos)));
+    const max = Math.max(1, ...d.months.map((m) => Math.max(m.ingresos, m.gastos + (m.cuentasEstimado ?? 0))));
     const gcls = (v) => (v > 0 ? "up" : v < 0 ? "down" : "");
     const bars = d.months.map((m, i) => {
       const last = i === d.months.length - 1;
-      // 14/11/2026: el mes en curso muestra la MISMA ganancia que «Te quedó» de arriba (con las cuentas estimadas);
-      // antes la barra decía Bs 1.022 y el número de arriba Bs -1.958.
-      const sal = last && c?.cuentasEstimado ? m.gastos + c.cuentasEstimado : m.gastos;
-      const gan = last && c && Number.isFinite(c.gananciaEstimada) ? c.gananciaEstimada : m.ganancia;
-      return `<div class="finbar ${last ? "cur" : ""}" title="${esc(m.label)} · entró ${bs(m.ingresos)} · salió ${bs(sal)} · quedó ${bs(gan)}">
+      // 14/11/2026: TODOS los meses (no solo el actual) muestran la misma ganancia que «Te quedó», con las cuentas
+      // estimadas; un mes sin costos anotados lo dice en vez de mostrar 100 % de ganancia.
+      const sal = m.gastos + (m.cuentasEstimado ?? (last ? c?.cuentasEstimado ?? 0 : 0));
+      const gan = Number.isFinite(m.gananciaEstimada) ? m.gananciaEstimada : last && c && Number.isFinite(c.gananciaEstimada) ? c.gananciaEstimada : m.ganancia;
+      return `<div class="finbar ${last ? "cur" : ""}" title="${esc(m.longLabel ?? m.label)} · entró ${bs(m.ingresos)} · salió ${bs(sal)} · quedó ${bs(gan)}${m.sinCostos ? " · sin costos anotados" : ""}">
         <div class="finbcol"><i class="inb" style="height:${Math.max(2, (m.ingresos / max) * 100)}%"></i><i class="exb" style="height:${Math.max(2, Math.min(100, (sal / max) * 100))}%"></i></div>
-        <b class="${gcls(gan)}">${bs(gan)}</b><small>${esc(m.label)}</small></div>`;
+        <b class="${m.sinCostos ? "" : gcls(gan)}">${bs(gan)}</b><small>${esc(mesCorto(m))}${m.sinCostos ? `<br><span class="finsc">sin costos</span>` : ""}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
     return `${cierre}${tarjeta}<div class="fin">
@@ -429,7 +434,7 @@ const V = {
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
         <div class="finkpis ${c.cuentasEstimado ? "four" : ""}">
-          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}</small></div>
+          <div class="finkpi in"><span>💵 Entró</span><b>${bs(c.ingresos)}</b><small>${c.delControl ? `ventas, renovaciones y ${bs(c.delControl)} marcados 💵 en el Control` : "ventas, renovaciones y cobros del Control"}${c.delFiado ? ` · ${bs(c.delFiado)} de pagos del fiado` : ""}</small></div>
           <div class="finkpi out"><span>🧾 Salió</span><b>${bs(c.gastos)}</b><small>${c.cuentas ? `${bs(c.cuentas)} en cuentas · ${bs(c.gastos - c.cuentas)} otros` : "gastos que anotaste"}</small></div>
           ${c.cuentasEstimado ? `<div class="finkpi out est"><span>🔑 Cuentas (estimado)</span><b>${bs(c.cuentasEstimado)}</b><small>${c.sinAnotar} cuenta(s) sin anotar: lo que te cuestan por mes</small></div>` : ""}
           <div class="finkpi net ${gcls(c.gananciaEstimada)}"><span>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(c.gananciaEstimada)}</b><small>${c.gananciaEstimada >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
@@ -506,11 +511,13 @@ const V = {
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Generar prueba</button>
       </form><div id="trialOut"></div>
       <p class="muted" style="margin:0">La prueba vence sola y <b>no cuenta como venta</b>. Se descuenta del stock mientras dure.</p></section>`;
-    return `${trialCard}<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
-      ${customers.length ? `<form class="form sellform" id="sellForm" data-key="${newKey()}">
+    // 14/11: «Prueba gratis» va debajo de «Nueva venta» (lo de todos los días primero) y el cliente se puede crear ahí mismo.
+    return `<section class="card sellcard"><h2>${icon("cart")}Nueva venta <small>2 pasos: cliente y producto</small></h2>
+      ${`<form class="form sellform" id="sellForm" data-key="${newKey()}">
         <div class="sstep"><span class="sstepn">1</span><div class="sstepb">
           <label class="sstepl">👤 ¿A quién le vendés?</label>
-          <input name="customerName" list="custlist" autocomplete="off" value="${esc(P.tab.sellCustomer ?? "")}" placeholder="Escribí el nombre del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist>
+          <input name="customerName" list="custlist" autocomplete="off" value="${esc(P.tab.sellCustomer ?? "")}" placeholder="Nombre o número del cliente…" required><datalist id="custlist">${customers.map((c) => `<option value="${esc(c.name)} · ${esc(c.phone)}">`).join("")}</datalist>
+          <div id="sellNew" class="sellnew" hidden></div>
         </div></div>
         <input type="hidden" name="customerId" value="">
         <input type="hidden" name="productId" value="">
@@ -533,8 +540,8 @@ const V = {
         </details>
         <input type="hidden" name="periodMonths" value="1"><input type="hidden" name="payStatus" value="pagado">
         <div id="sellSummary" class="sellsum" hidden></div>
-        <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>` : `<div class="emptybox">Primero creá un cliente.</div>`}
-      <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>`;
+        <button class="pbtn dark big" type="submit" id="sellBtn" disabled>${icon("cart")}Registrar venta</button></form>`}
+      <div class="inline"><span class="muted">¿Cliente nuevo?</span><button class="pbtn sm" type="button" data-go="clientes">Crear cliente</button></div></section>${trialCard}`;
   },
 
   async cupones() {
@@ -613,7 +620,6 @@ const V = {
     // Para cobros cuenta solo lo tuyo: a los clientes de tus revendedores les cobra el revendedor.
     const viaRes = (a) => !!a.resellerId && a.resellerId !== a.customerId;
     const list = all.filter((a) => !viaRes(a));
-    const deRev = all.filter(viaRes);
     const now = new Date();
     const dayStart = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
     const today = dayStart(now);
@@ -639,7 +645,12 @@ const V = {
     const weekAmount = week.reduce((x, w) => x + w.amount, 0);
     const libres = week.filter((w) => w.lvl[1] === "free").map((w) => (w.i === 0 ? "hoy" : DN[new Date(w.t).getDay()].toLowerCase()));
     const tile = (go, ic, t, sub) => `<button type="button" class="hm-tile" data-hgo="${go}"><span class="hm-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
-    const alert = (n, t, k, go) => `<button type="button" class="hm-alert hm-${k}" data-hgo="${go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span></button>`;
+    // 14/11: los números del día salen del servidor (dia.ts → todayNumbers), el MISMO cálculo que Mi secretaria.
+    // Si suman clientes de revendedores, se dice («tuyos · de revendedores») y el atajo abre el Control con todos.
+    const S0 = (n) => ({ mine: n, rev: 0, total: n });
+    const D = ini.dia ?? { hoy: S0(hoy.length), vencidos: S0(vencidos.length), espera: S0(espera.length), pronto: S0(pronto.length), sinPago: S0(sinPago.length), cobroFecha: S0(hoy.length + vencidos.length + espera.length), revisar: pend, total: hoy.length + vencidos.length + espera.length + pend + sinPago.length, rev: 0 };
+    const sum2 = (a, b) => ({ mine: a.mine + b.mine, rev: a.rev + b.rev, total: a.total + b.total });
+    const alert = (s, t, k, go) => { const n = typeof s === "number" ? s : s.total, sp = typeof s === "number" ? "" : splitTxt(s); return `<button type="button" class="hm-alert hm-${k}" data-hgo="${sp && go.endsWith(":mios") ? go.slice(0, -5) : go}" ${n ? "" : "disabled"}><b>${n}</b><span>${t}</span>${sp ? `<small class="hm-split">${sp}</small>` : ""}</button>`; };
     const aiInfo = ini.ai;
     // Revendedores que todavía no tienen PIN: un botón en Inicio arranca la fila de invitaciones.
     const sinPin = ini.sinPin ?? 0;
@@ -665,18 +676,19 @@ const V = {
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>` : "";
     // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
-    const hoyN = hoy.length + vencidos.length + espera.length + pend + sinPago.length;
-    const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy` : " · todo al día"}</span></button>` : "";
+    const hoyN = D.total;
+    const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy${D.rev ? ` <small>(${splitTxt(D)})</small>` : ""}` : " · todo al día"}</span></button>` : "";
     return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
-        <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
+        <p>${D.cobroFecha.total ? `Hoy tenés <b>${D.cobroFecha.total}</b> pendiente(s) de cobro o fecha.${D.cobroFecha.rev ? ` <small>(${splitTxt(D.cobroFecha)}: a los de revendedores les avisás a ellos)</small>` : ""}` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       ${secBtn}
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
-        ${alert(hoy.length, "Vencen hoy", "today", "control:today:mios")}
-        ${alert(vencidos.length + espera.length, "Vencidos / esperando fecha", "bad", espera.length && !vencidos.length ? "control:hold:mios" : "control:bad:mios")}
-        ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
-        ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
-        ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
+        ${alert(D.hoy, "Vencen hoy", "today", "control:today:mios")}
+        ${alert(sum2(D.vencidos, D.espera), "Vencidos / esperando fecha", "bad", D.espera.total && !D.vencidos.total ? "control:hold:mios" : "control:bad:mios")}
+        ${alert(D.pronto, "Vencen en 3 días", "warn", "control:warn:mios")}
+        ${alert(D.revisar, "Pagos por revisar", "pay", "aprobacion")}
+        ${alert(D.sinPago, "Sin pagar", "nopay", "control:nopay:mios")}</section>
+      ${tuMes}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -688,7 +700,7 @@ const V = {
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
         ${canReview() ? tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña") : tile("renovar", "🔄", "Renovar", "Renovar servicios")}</section>
       ${pendCard}
-      ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
+      ${await rateCard()}${invCard}${await winbackHomeCard()}
 
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
@@ -704,7 +716,7 @@ const V = {
     const T = P.tab;
     // «↔️ Cambiar de cuenta»: perfiles libres (o apartados) de otras cuentas activas de la misma plataforma, para pasar al cliente con la misma fecha.
     const freeSlotsFor = (r) => accsAll.filter((a) => a.productId === r.productId && a.status === "active" && a.email !== r.email).flatMap((a) => (a.slots ?? []).filter((s) => ["available", "quarantined"].includes(s.status)).map((s) => ({ id: s.id, email: a.email, label: s.label, q: s.status === "quarantined" })));
-    const swapForm = (r) => { const opts = freeSlotsFor(r); return !canReview() ? "" : `<details class="more"><summary>↔️ Cambiar de cuenta</summary>${opts.length ? `<form class="inline" data-swapacc="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlo a…</option>${opts.map((o) => `<option value="${esc(o.id)}">${esc(o.email)}${o.label && !/completa/i.test(o.label) ? ` · ${esc(o.label)}` : ""}${o.q ? " (apartada)" : ""}</option>`).join("")}</select><input name="reason" placeholder="Motivo (ej.: cuenta renovada)" value="Reemplazo de cuenta"><button class="pbtn sm dark" type="submit">Mover · misma fecha</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(r))} con perfil libre.</p>`}</details>`; };
+    const swapForm = (r) => { const opts = freeSlotsFor(r); return !canReview() ? "" : `<details class="more"><summary>↔️ Cambiar de cuenta</summary>${opts.length ? `<form class="inline" data-swapacc="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlo a…</option>${swapOptionsHtml(opts)}</select><input name="reason" placeholder="Motivo (ej.: cuenta renovada)" value="Reemplazo de cuenta"><button class="pbtn sm dark" type="submit">Mover · misma fecha</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(r))} con perfil libre.</p>`}</details>`; };
     const DAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
     const estado = (d, hold) => (hold ? ["ESPERANDO FECHA", "hold"] : d < 0 ? ["VENCIDO", "bad"] : d === 0 ? ["VENCE HOY", "today"] : d <= 3 ? ["POR VENCER", "warn"] : d <= 7 ? ["SEMANA", "week"] : ["ACTIVO", "ok"]);
     const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -773,8 +785,6 @@ const V = {
       : `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>`;
     const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
-    const newDate = (r) => fdate(Math.max(r.customerExpiresAt, Date.now()) + (r.durationDays ?? 30) * 86400000);
-    const renewInfo = (r) => `Renovar este alquiler:\n\n📧 ${r.email}\n👤 ${r.profile}\n🗓️ Nueva fecha: ${newDate(r)}\n\n¿Confirmás la renovación (+1 período)?`;
     const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
     // «📲 Fila de envíos» (13/11): después de «Mover todos a otra cuenta», abre el WhatsApp de cada cliente con sus
     // accesos nuevos, uno tras otro. Nada se manda solo: cada envío es un toque del dueño.
@@ -830,11 +840,12 @@ const V = {
           <select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select>
           ${r.customerPhone || r.viaRes ? "" : `<span class="pp pp-warn">Sin WhatsApp</span>`}</div>
         ${r.control.note || r.control.seller ? `<div class="crow muted">${esc([r.control.seller, r.control.note].filter(Boolean).join(" · "))}</div>` : ""}
-        ${r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
+        ${r.notice ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.notice.at)}${r.notice.via === "recordatorio" ? " (recordatorio)" : ""}</div>` : r.control.noticed && r.control.noticed.for === r.customerExpiresAt ? `<div class="crow muted">📣 Ya le avisaste el ${fdate(r.control.noticed.at)}</div>` : ""}
+        ${cutTxt(r.cutAt) ? `<div class="crow ctl-cut">${cutTxt(r.cutAt)} si no renueva</div>` : ""}
         <footer>${cobrarBtn(r)}
           ${dlvBtn(r)}
           <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}">💻 Cuenta</button>
-          <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}">✅ Renovar · ${newDate(r)}</button>
+          ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}">${esc(rn.label)}</button>${rn.warn ? `<small class="ctl-renwarn">${esc(rn.warn)}</small>` : ""}`)(controlRenew(r, payText(r, r.price)))}
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${swapForm(r)}
           ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
@@ -861,13 +872,13 @@ const V = {
           ${canReview() ? `<td data-col="cost"><input class="ctl-in" data-ctl="${esc(r.id)}" data-f="cost" value="${(r.cost / 100).toString()}" inputmode="decimal" aria-label="Costo"${r.control.cost === undefined ? ` title="Estimado: lo que te cuesta la cuenta ÷ sus perfiles"` : ""}></td>
           <td data-col="gain" class="${r.gain < 0 ? "down" : "up"}"><b>${(r.gain / 100).toString()}</b></td>` : ""}
           <td data-col="pay"><select class="ctl-in pay-${r.pay}" data-ctl="${esc(r.id)}" data-f="payStatus" aria-label="Estado de pago">${Object.entries(PAY).map(([k, t]) => opt(k, t, r.pay === k)).join("")}</select></td>
-          <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span></td><td data-col="d" class="mono"><b>${r.d}</b></td>
+          <td data-col="est"><span class="est est-${r.est[1]}">${r.est[0]}</span>${cutTxt(r.cutAt) ? `<br><small class="ctl-cut">${cutTxt(r.cutAt)}</small>` : ""}</td><td data-col="d" class="mono"><b>${r.d}</b></td>
           <td data-col="seller">${r.rname && !r.control.seller ? `<span class="kb kb-rev">🏪 ${esc(r.rname)}</span>` : `<input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="seller" value="${esc(r.control.seller ?? "")}" aria-label="Revendedor">`}</td>
           <td data-col="note"><input class="ctl-in wide" data-ctl="${esc(r.id)}" data-f="note" value="${esc(r.control.note ?? "")}" aria-label="Nota"></td>
           <td class="ctl-act">${cobrarBtn(r, "Mandar recordatorio de cobro")}
             ${dlvBtn(r)}
             <button class="pbtn sm" type="button" data-copy="${esc(acc(r))}" title="Copiar datos de la cuenta">💻 Cuenta</button>
-            <button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(renewInfo(r))}" title="Renovar un período">✅ Renovar · ${newDate(r)}</button>
+            ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}" title="${esc(rn.warn || "Renovar un período")}">${esc(rn.label)}</button>`)(controlRenew(r, payText(r, r.price)))}
             ${canReview() ? transferForm(r) : ""}${swapForm(r)}</td></tr>`;
         }).join("") || `<tr><td colspan="40"><div class="emptybox">Nada con esos filtros.</div></td></tr>`}
         </tbody><tfoot><tr><td></td>${COLS.map(([k]) => `<td data-col="${k}"${k === "customerName" ? ` class="ccli"` : ""}>${k === "customerName" ? `<b>Total · ${view.length} fila(s)</b>` : ["price", "cost", "gain"].includes(k) ? `<b>${bs(sum((r) => r[k]))}</b>` : k === "d" ? `<small>${view.filter((r) => r.d < 0).length} venc.</small>` : ""}</td>`).join("")}<td></td></tr></tfoot></table></div>` : `<div class="emptybox">Nada con esos filtros.</div>`}
@@ -916,7 +927,7 @@ const V = {
           <button class="pbtn sm" type="button" data-fdet="${esc(r.customerId)}" aria-pressed="${T.fdet === r.customerId}">📜 Movimientos</button></footer></article>`;
     return `<section class="card"><h2>💸 Fiado <small>· lo que te deben</small></h2>
         <div class="ctl-kpis"><div><small>Te deben</small><b class="down">${bs(ov.totals.owed)}</b></div><div><small>Personas que deben</small><b>${ov.totals.people}</b></div><div><small>Cobros vencidos</small><b class="${ov.totals.overdue ? "down" : ""}">${ov.totals.overdue}</b></div><div><small>A cobrar esta semana</small><b>${ov.totals.dueWeek}</b></div><div><small>Sin pasar del Control</small><b>${bs(ov.totals.unlinked)}</b></div></div>
-        <p class="muted" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Los pagos cubren primero lo más viejo; cuando un alquiler del Control queda cubierto, pasa solo a <b>Pagado</b>.</p>
+        <p class="muted" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Los pagos cubren primero lo más viejo; cuando un alquiler del Control queda cubierto, pasa solo a <b>Pagado</b>. Cada pago suma a <b>💵 Entró</b> de Finanzas el día que lo anotás (sin contar dos veces ese alquiler).</p>
         ${pend.length && canReview() ? `<div class="fpend"><span>📋 En el Control hay <b>${pend.reduce((t, r) => t + r.unlinked.count, 0)}</b> alquiler(es) "Pendiente" o "No pagó" de ${pend.length} persona(s) (${bs(ov.totals.unlinked)}).</span><button class="pbtn sm dark" type="button" data-ffromall="1">➕ Pasar todos al fiado</button></div>` : ""}
         <div class="tabs ctl-chips" role="tablist">${[["todos", `Todos (${ov.rows.length})`], ["fin", `👤 Clientes finales (${ov.rows.filter((r) => r.kind !== "reseller").length})`], ["rev", `🏪 Revendedores (${ov.rows.filter((r) => r.kind === "reseller").length})`]].map(([x, t]) => `<button type="button" role="tab" data-tab="fk:${x}" aria-selected="${k === x}">${t}</button>`).join("")}</div>
         <input id="fq" placeholder="🔍 Buscar por nombre o WhatsApp" value="${esc(T.fq ?? "")}" aria-label="Buscar en el fiado"></section>
@@ -964,7 +975,7 @@ const V = {
       <p class="muted" style="margin:0">Los avisos salen por WhatsApp si el bot está conectado; si no, quedan en <b>WhatsApp → Avisos</b> para mandarlos con un toque.</p></section>`;
     return auto + `<section class="card"><div class="inline"><label class="inline" style="display:flex">Vencen en los próximos<select id="days">${[1, 3, 7, 15].map((d) => opt(d, `${d} días`, d === days)).join("")}</select></label>
       ${canReview() ? `<button class="pbtn" type="button" data-remind="${days}">${icon("bell")}Preparar avisos para estos</button>` : ""}</div>
-      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
+      ${table(["Cliente", "Producto", "Vence", "Último recordatorio"], list.map((a) => `<tr><td>${esc(a.customerName)}</td><td>${esc(a.product)}</td><td>${fdate(a.customerExpiresAt)} ${pill(daysLeft(a.customerExpiresAt) < 0 ? "Vencido" : `${daysLeft(a.customerExpiresAt)} d`, "warn")}</td><td>${a.lastNotice ? `${fdt(a.lastNotice.at)} · ${a.lastNotice.via === "secretaria" ? "✅ Ya le avisé (Mi secretaria)" : "🔔 recordatorio"}` : a.lastReminderAt ? fdt(a.lastReminderAt) : "Nunca"}</td></tr>`), "Nadie vence en ese plazo.")}
       <p class="muted" style="margin:0">“Preparar” deja un mensaje por cliente en <b>WhatsApp</b> (máximo uno por día). Desde ahí los mandás.</p></section>`;
   },
 
@@ -978,7 +989,7 @@ const V = {
       if (!n || a.status !== "active") return "";
       const libres = (x) => x.slots.filter((s) => ["available", "quarantined"].includes(s.status)).length;
       const dest = ACCS_ALL.filter((x) => x.id !== a.id && x.productId === a.productId && x.status === "active" && libres(x) >= n);
-      return `<details class="more"><summary>↔️ Mover todos a otra cuenta (${n})</summary>${dest.length ? `<form class="inline" data-moveall="${esc(a.id)}" data-n="${n}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlos a…</option>${dest.map((x) => `<option value="${esc(x.id)}" data-email="${esc(x.email)}">${esc(x.email)} · ${libres(x)} libre${libres(x) === 1 ? "" : "s"}</option>`).join("")}</select><input name="reason" placeholder="Motivo" value="Cuenta caída: pasan a la nueva"><button class="pbtn sm dark" type="submit">Mover ${n} · mismas fechas</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(a.productId))} con ${n} perfil${n === 1 ? "" : "es"} libre${n === 1 ? "" : "s"}. Cargá una primero en Carga de cuentas.</p>`}</details>`;
+      return `<details class="more"><summary>↔️ Mover todos a otra cuenta (${n})</summary>${dest.length ? `<form class="inline" data-moveall="${esc(a.id)}" data-n="${n}" style="margin-top:6px"><select name="to" required aria-label="Cuenta nueva"><option value="">Pasarlos a…</option>${dest.map((x) => `<option value="${esc(x.id)}" data-email="${esc(x.email)}">${esc(moveDestLabel(x, libres(x)))}</option>`).join("")}</select><input name="reason" placeholder="Motivo" value="Cuenta caída: pasan a la nueva"><button class="pbtn sm dark" type="submit">Mover ${n} · mismas fechas</button></form>` : `<p class="muted" style="margin:6px 0 0">No hay otra cuenta de ${esc(pname(a.productId))} con ${n} perfil${n === 1 ? "" : "es"} libre${n === 1 ? "" : "s"}. Cargá una primero en Carga de cuentas.</p>`}</details>`;
     };
     const [accs, products, suppliers, customers, alerts] = await Promise.all([api("GET", "/api/admin/accounts" + (show ? "?secrets=1" : "")), api("GET", "/api/admin/products"), api("GET", "/api/admin/suppliers"), api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/account-alerts?unseen=1").catch(() => [])]);
     ACCS_ALL = accs;
@@ -1014,10 +1025,14 @@ const V = {
         }
       }
     }
-    const a = accs.find((x) => x.id === P.tab.editAcc);
+    // «Editar» pide la contraseña y los PIN de ESA cuenta sola (antes destapaba todas y quedaban a la vista).
+    const a0 = accs.find((x) => x.id === P.tab.editAcc);
+    const sec = a0 && canReview() ? await api("GET", `/api/admin/accounts/${encodeURIComponent(a0.id)}/secret`).catch(() => null) : null;
+    const a = a0 && sec ? { ...a0, slots: a0.slots.map((s) => ({ ...s, pin: sec.pins?.[s.id] ?? "" })) } : a0;
     // Tasa del día (Banco Central, la misma que usa la tienda para el USDT) para pasar a Bs lo que cobró la tarjeta.
     const dayRate = a?.costUsd ? Number((await api("GET", "/api/admin/usdt").catch(() => null))?.rate) || 0 : 0;
-    const editCard = a && canReview() ? `<section class="card"><h2>Editar cuenta ${esc(a.email)} <small>· ${esc(pname(a.productId))}</small></h2><form class="form" data-editacc="${esc(a.id)}">
+    const editCard = a && canReview() ? `<section class="card"><h2>Editar cuenta ${esc(a.email)} <small>· ${esc(pname(a.productId))}</small></h2><form class="form" data-editacc="${esc(a.id)}" data-secrets="${sec ? "1" : ""}">
+            ${editSecretRow(sec)}
             <label>Email<input name="email" type="email" value="${esc(a.email)}"></label>
             <label>Contraseña nueva<input name="password" placeholder="Vacío = no cambia" autocomplete="off"></label>
             <label>Proveedor<select name="supplierId">${opt("propias", "Propias (tuyas, sin proveedor)", a.supplierId === "propias")}${suppliers.filter((s) => s.id !== "propias" && (s.active || s.id === a.supplierId)).map((s) => opt(s.id, s.name, s.id === a.supplierId)).join("")}</select></label>
@@ -1072,6 +1087,7 @@ const V = {
         <div class="arow"><span class="muted">🔑 Clave</span><b class="mono">${esc(a.password)}</b></div>
         <div class="arow"><span class="muted">🏷️ Proveedor</span><span>${esc(a.supplierId === "propias" ? "Propia (tuya)" : suppliers.find((s) => s.id === a.supplierId)?.name ?? a.supplierId)}</span></div>
         <div class="arow"><span class="muted">📅 Vence</span><span>${fdate(a.supplierExpiresAt)} ${d <= 7 ? pill(d < 0 ? "Vencida" : `${d} d`, "warn") : ""}</span></div>
+        ${canReview() ? costRow(a) : ""}
         <div class="pmap">${vivos.map((s) => { const st = slotState(s), dl = slotDL(s); return `<button type="button" class="pdot p-${st}${canReview() ? " clk" : ""}" ${canReview() ? `data-slotact="${esc(s.id)}"` : "disabled"} title="${esc(s.label)}: ${estadoTxt[s.status] ?? s.status}${s.status === "assigned" && s.customerName ? ` · ${esc(s.customerName.split(" ")[0])}${dl !== null ? ` (${dl < 0 ? "venció" : dl + "d"})` : ""}` : ""}">${icon("user")}</button>`; }).join("")}</div>
         ${(() => { const occ = vivos.filter((s) => s.status === "assigned" && s.customerName); if (!occ.length) return ""; return `<details class="occ"><summary>👥 Quién está en esta cuenta <small class="muted">(${occ.length} ocupado${occ.length === 1 ? "" : "s"})</small></summary><div class="occlist">${occ.map((s) => { const dl = slotDL(s); return `<div class="occrow"><span><b>${esc(s.label)}</b> → ${esc(s.customerName)}</span>${dl !== null ? `<span class="pp pp-${dl < 0 ? "bad" : dl <= 7 ? "warn" : "ok"}">${dl < 0 ? "venció" : dl === 0 ? "hoy" : `${dl}d`}</span>` : ""}</div>`; }).join("")}</div></details>`; })()}
         ${canReview() ? `<footer><button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>${a.status === "active" ? `<button class="pbtn sm" type="button" data-rotate="${esc(a.id)}" title="${a.passwordChangedAt ? `Última vez: ${fdate(a.passwordChangedAt)}` : "Nunca cambiada desde acá"}">🔑 Cambié la clave</button>` : ""}${a.slots.some((s2) => s2.status === "quarantined") ? `<button class="pbtn sm green" type="button" data-unquar="${esc(a.id)}">✅ Liberar ${a.slots.filter((s2) => s2.status === "quarantined").length} en cuarentena</button>` : ""}${a.status === "active" ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form></details>` : ""}${moveAllForm(a)}</footer>` : ""}
@@ -1127,11 +1143,8 @@ const V = {
         <label class="iptv-mac" hidden>MAC del aparato<input name="mac" placeholder="00:1A:79:XX:XX:XX"></label>
         <label>App para ver <small class="muted">(opcional)</small><input name="app" placeholder="IBO Player, IPTV Smarters…"></label>
         <label>Dispositivos a la vez<input name="connections" type="number" min="1" max="20" placeholder="1"></label>
-        <details style="grid-column:1/-1"><summary>Proveedor, vencimiento y costo <small class="muted">(opcional)</small></summary>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-            <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name)).join("")}</select></label>
-            <label>Vence con el proveedor<input type="date" name="exp"></label>
-            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label></div></details>
+        <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name)).join("")}</select></label>
+        ${cargaVenceCosto(currencySym())}
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Guardar línea IPTV</button>
       </form>
       <p class="muted" style="margin:0">La línea queda <b>libre</b>, lista para vender o asignar en Vender/Cuentas. Al venderla, el cliente recibe sus datos y cómo verla.</p></section>`;
@@ -1146,18 +1159,16 @@ const V = {
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
         <label style="grid-column:1/-1">Correo de la cuenta<input name="email" type="email" required placeholder="correo@gmail.com" autocomplete="off"></label>
         <label style="grid-column:1/-1">Contraseña<input name="password" required placeholder="clave de la cuenta" autocomplete="off"></label>
-        <details style="grid-column:1/-1"><summary>Proveedor y costo <small class="muted">(opcional)</small></summary>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-            <label>Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
-            <label>Vence con proveedor <small class="muted">(opcional)</small><input type="date" name="exp" value="${last.exp || ""}"></label>
-            <label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="${last.cost ?? 0}"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label></div></details>
+        ${cargaVenceCosto(currencySym(), last.cost)}
+        <label style="grid-column:1/-1">Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
-      <p class="muted" style="margin:0">Recuerda el producto, proveedor y fecha de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
+      <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      <label>Vence con el proveedor <small class="muted">(opcional)</small><input name="exp" type="date" value=""></label><label>Costo (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label><label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
+      ${cargaVenceCosto(currencySym())}<label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: correo, contraseña, perfiles, vence (dd/mm/aaaa)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
@@ -1426,15 +1437,19 @@ const V = {
     const [list, asis] = await Promise.all([api("GET", "/api/admin/staff"), api("GET", "/api/admin/assistant").catch(() => ({ enabled: false }))]);
     const newKey = P.tab.asisKey;
     P.tab.asisKey = null;
-    return `<section class="card ${asis.enabled ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asis.enabled ? "· prendido" : "· apagado"}</small></h2>
-      <p class="muted" style="margin:0">Para que Claude entre a tu panel y haga cambios por vos (precios, descripciones, diseño). Entra como <b>Admin</b> con su propio usuario <b>asistente</b>: no puede tocar usuarios ni ser dueño, y todo lo que haga queda en <b>Auditoría</b>. Lo apagás con un toque.</p>
+    const asisOn = asis.enabled && !asis.expired;
+    return `<section class="card ${asisOn ? "ok-card" : ""}"><h2>🤖 Acceso para tu asistente <small>${asisOn ? "· prendido" : asis.enabled ? "· vencido" : "· apagado"}</small></h2>
+      <p class="muted" style="margin:0">Para que Claude entre a tu panel y te ayude (precios, descripciones, diseño). Entra con su propio usuario <b>asistente</b>, con el poder de un admin, y todo lo que hace queda en <b>Auditoría</b>. No vence sola: la apagás o la cambiás con un toque.</p>
+      <div class="asis-can"><p style="margin:0"><b>✅ Puede:</b> todo lo que puede un admin: mirar el panel, cargar clientes y cuentas, vender y renovar, entregar accesos, armar páginas de revendedores y descargar Excel.</p>
+        <p style="margin:0"><b>⛔ No puede:</b> tocar usuarios, contraseñas del equipo ni permisos (eso es solo tuyo).</p></div>
       ${newKey ? `<div class="pok" style="display:grid;gap:8px"><b>🔑 Esta es la llave (se muestra UNA sola vez):</b><code class="mono" style="overflow-wrap:anywhere;user-select:all">${esc(newKey)}</code>
         <button class="pbtn sm dark" type="button" data-copy="${esc(newKey)}" style="justify-self:start">${icon("copy")}Copiar llave</button>
         <small>⚠️ <b>No la pegues en el chat.</b> Pegala solo en el <b>formulario seguro</b> que te abre Claude (dice "API credential"). Si la perdés, tocá "Crear llave nueva" y la vieja deja de servir.</small></div>` : ""}
-      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>` : ""}
+      ${asis.enabled ? `<p style="margin:0">Llave creada el ${fdt(asis.createdAt)}${asis.lastUsedAt ? ` · último uso ${fdt(asis.lastUsedAt)}` : " · todavía no la usó"}</p>
+        <p style="margin:0">${asis.expired ? pill(`⛔ Venció el ${fdate(asis.expiresAt).slice(0, 5)}`, "bad") + " Tocá <b>Crear llave nueva</b> si la seguís necesitando." : asis.expiresAt ? pill(`⏳ Vence el ${fdate(asis.expiresAt).slice(0, 5)}`, "warn") : "♾️ No vence sola."}</p>` : ""}
       <div class="inline"><button class="pbtn ${asis.enabled ? "" : "dark"}" type="button" data-asis="new">${asis.enabled ? "🔁 Crear llave nueva" : "🔑 Crear llave para mi asistente"}</button>${asis.enabled ? `<button class="pbtn danger" type="button" data-asis="off">⛔ Apagar acceso</button>` : ""}</div></section>
       <section class="card"><h2>Nuevo usuario</h2><form class="form" id="staffForm"><label>Nombre<input name="name" required></label><label>Usuario<input name="username" required autocapitalize="none" pattern="[a-z0-9._-]{3,32}" title="3 a 32 minúsculas, números, punto o guion"></label>
-      <label>Rol<select name="role">${opt("seller", "Vendedor: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
+      <label>Rol<select name="role">${opt("seller", "Atención: vende, renueva y carga clientes")}${opt("admin", "Admin: además aprueba pagos y maneja inventario")}</select></label><label>Contraseña inicial<input name="password" type="password" minlength="10" required></label><button class="pbtn dark" type="submit">${icon("plus")}Crear</button></form></section>
       ${(() => {
         // 14/11/2026: el dueño ve la seguridad de su equipo (ingresos, aparatos, intentos, 2 pasos) y lo saca de todos lados.
         const ss = P.tab.ssec;
@@ -1444,7 +1459,7 @@ const V = {
           <details ${ss.log.length ? "open" : ""}><summary>🕘 Últimos ingresos (${ss.log.length})</summary>${secLogRows(ss.log) || `<p class="muted">Todavía no hay movimientos anotados.</p>`}</details>
           <div class="inline">${ss.sessions.length ? `<button class="pbtn" type="button" data-sout="${esc(ss.id)}" data-name="${esc(ss.name)}">🚪 Sacarlo de todos lados</button>` : ""}<button class="pbtn sm" type="button" data-ssecclose="1">Listo</button></div></section>` : "";
       })()}
-      <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc({ owner: "Dueño", admin: "Admin", seller: "Vendedor" }[u.role])}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")}</td><td>${fdate(u.createdAt)}</td>
+      <section class="card">${table(["Nombre", "Usuario", "Rol", "Estado", "Creado", ""], list.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${u.username === "asistente" ? "🤖 Asistente" : esc(STAFF_ROLE[u.role] ?? u.role)}</td><td>${u.active ? pill("Activo", "ok") : pill("Inactivo", "mute")} <span class="tfa" title="Verificación en dos pasos">2 pasos ${u.twoFactor ? "✅" : "❌"}</span></td><td>${fdate(u.createdAt)}</td>
         <td>${u.role !== "owner" ? `<div style="display:grid;gap:6px"><button class="pbtn sm" type="button" data-ssec="${esc(u.id)}" data-name="${esc(u.name)}">🔐 Seguridad</button><button class="pbtn sm" type="button" data-staff="${esc(u.id)}" data-on="${u.active ? 0 : 1}">${u.active ? "Desactivar" : "Activar"}</button>
           <form data-staffpw="${esc(u.id)}" style="display:grid;gap:6px"><input name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Contraseña nueva" aria-label="Contraseña nueva para ${esc(u.username)}" style="min-width:0;width:100%"><button class="pbtn sm" type="submit">Cambiar contraseña</button></form></div>` : ""}</td></tr>`))}
       <p class="muted" style="margin:10px 0 0">¿Alguien se olvidó la contraseña? Escribile una nueva (mínimo 10 letras) y tocá <b>Cambiar contraseña</b>: se cierra su sesión y entra con la nueva.</p></section>`;
@@ -1663,19 +1678,25 @@ const V = {
 
   async auditoria() {
     if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño ve la auditoría.</div></section>`;
+    // Filtros en el servidor (14/11/2026): persona y período. Se mezclan con Plata / Accesos / Precios (acá abajo).
+    const audw = P.tab.audw ?? "", audp = ["hoy", "ayer", "7d"].includes(P.tab.audp) ? P.tab.audp : "";
+    const aq = new URLSearchParams({ limit: "300", access: "1", ...(audw ? { who: audw } : {}), ...(audp ? { period: audp } : {}) });
     const [list, staff, customers, products] = await Promise.all([
-      api("GET", "/api/admin/audit?limit=300"), api("GET", "/api/admin/staff").catch(() => []),
+      api("GET", `/api/admin/audit?${aq}`), api("GET", "/api/admin/staff").catch(() => []),
       api("GET", "/api/admin/customers").catch(() => []), api("GET", "/api/admin/products").catch(() => []),
     ]);
     const maps = { staff: Object.fromEntries(staff.map((x) => [x.id, x])), cust: Object.fromEntries(customers.map((x) => [x.id, x])), prod: Object.fromEntries(products.map((x) => [x.id, x])) };
     // Filtros simples: plata, accesos y precios.
-    const AUDF = { plata: /^(ledger|wallet|order|renewal|expense|assignment\.refund|fiado|account\.renew_paid)/, accesos: /(login|pin|staff\.|2fa|credentials|secrets|password|assistant)/, precios: /^(price_group|product|coupon|reseller\.prices|settings\.min_margin|reseller\.coupon)/ };
+    const AUDF = { plata: /^(ledger|wallet|order|renewal|expense|assignment\.refund|fiado|account\.renew_paid)/, accesos: /(login|pin|staff\.|2fa|credentials|secrets|password|assistant|access\.|team\.alert|deliver|export)/, precios: /^(price_group|product|coupon|reseller\.prices|settings\.min_margin|reseller\.coupon)/ };
     const af = AUDF[P.tab.audf] ? P.tab.audf : "";
     const shownA = list.filter((a) => !af || AUDF[af].test(a.action));
     const rows = shownA.map((a) => { const t = auditText(a, maps); return `<div class="audrow">
       <div class="audtxt"><b>${esc(t.who)}</b>${t.role ? ` <span class="muted">(${esc(t.role)})</span>` : ""} ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div>
       <div class="audmeta"><small class="muted">${fdt(a.at)}</small><details class="audtech"><summary>Ver detalle técnico</summary><code>${esc(a.action)} · ${esc(a.entityId)}${a.data && Object.keys(a.data).length ? " · " + esc(JSON.stringify(a.data)) : ""}</code></details></div></div>`; }).join("");
+    const people = staff.map((u) => `<option value="${esc(u.id)}" ${audw === u.id ? "selected" : ""}>${u.username === "asistente" ? "🤖 " : ""}${esc(u.name)} (${esc(u.username === "asistente" ? "asistente" : STAFF_ROLE[u.role] ?? u.role)})</option>`).join("");
     return `<section class="card"><h2>Auditoría <small>· quién hizo qué, en orden (últimos ${list.length})</small></h2>
+      <div class="audfil"><label>Persona<select data-tabsel="audw"><option value="">Todo el equipo y clientes</option>${people}</select></label>
+      <div class="tabs ctl-chips" role="tablist" aria-label="Período">${[["hoy", "Hoy"], ["ayer", "Ayer"], ["7d", "7 días"], ["", "Todo"]].map(([k, t]) => `<button type="button" role="tab" data-tab="audp:${k}" aria-selected="${audp === k}">${t}</button>`).join("")}</div></div>
       <div class="tabs ctl-chips" role="tablist" aria-label="Filtrar">${[["", "Todo"], ["plata", "💰 Plata"], ["accesos", "🔑 Accesos"], ["precios", "🏷️ Precios"]].map(([k, t]) => `<button type="button" role="tab" data-tab="audf:${k}" aria-selected="${af === k}">${t}${k ? ` (${list.filter((a) => AUDF[k].test(a.action)).length})` : ""}</button>`).join("")}</div>
       ${rows || `<div class="emptybox">No hay movimientos con ese filtro.</div>`}</section>`;
   },
@@ -1721,7 +1742,7 @@ const V = {
 
 
 /* ---------------- Auditoría en frases que se entienden ---------------- */
-const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "vendedor", customer: "cliente", reseller: "revendedor", system: "automático" };
+const AUD_ROLE = { owner: "dueño", admin: "admin", seller: "atención", customer: "cliente", reseller: "revendedor", system: "automático" };
 const AUD_METHOD = { cash: "en efectivo", qr: "por QR", balance: "con saldo", binance: "por Binance Pay", usdt: "en USDT", local: "con un método del país" };
 const AUD_KIND = { sale: "venta", renewal: "renovación", topup: "recarga" };
 // {x} = sobre qué (pedido #70, el cliente María…). Si no hay {x}, la acción no necesita objeto.
@@ -1757,7 +1778,10 @@ const AUD_VERB = {
   "reseller.shop_update": "editó la página de {x}", "secrets.view": "vio las contraseñas de las cuentas", "settings.update": "cambió la configuración de la tienda",
   "slot.add": "agregó {x}", "slot.freed": "liberó {x}", "slot.status": "cambió el estado de {x}", "slot.update": "editó {x}",
   "staff.2fa_off": "desactivó la verificación en dos pasos", "staff.2fa_on": "activó la verificación en dos pasos", "staff.create": "creó al usuario del panel {x}",
-  "staff.password": "cambió la contraseña de {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
+  "staff.password": "cambió la contraseña de {x}",
+  "access.login": "🔑 entró al panel", "access.login_fail": "⛔ falló al entrar", "access.logout_others": "cerró sus otras sesiones", "access.logout_one": "cerró una sesión",
+  "access.logout_all": "quedó afuera de todos lados (lo sacó el dueño)", "access.key_use": "🤖 usó la llave del asistente", "access.key_expired": "⛔ quiso usar la llave vencida",
+  "team.alert": "te avisó al celular sobre {x}", "staff.logout_all": "sacó de todos lados a {x}", "assistant.key": "creó la llave del asistente", "assistant.off": "apagó el acceso del asistente", "fiado.charge": "anotó un fiado", "fiado.payment": "anotó un pago del fiado", "fiado.remove": "borró un movimiento del fiado", "fiado.from_control": "pasó alquileres sin pagar al fiado", "supplier.upsert": "guardó el proveedor {x}", "telegram.config": "configuró los avisos de Telegram",
   "testimonials.update": "editó las opiniones", "topup.request": "pidió una recarga de saldo", "trial.create": "dio una prueba gratis ({x})",
   "whatsapp.secrets": "cambió las claves de WhatsApp", "whatsapp.settings": "cambió la configuración del bot",
 };
@@ -1767,7 +1791,7 @@ function auditText(a, maps) {
   let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
   const aid = String(a.actorId ?? "");
   if (aid.startsWith("system")) { who = "El sistema"; role = "automático"; }
-  else if (maps.staff[aid]) who = maps.staff[aid].name;
+  else if (maps.staff[aid]) { who = maps.staff[aid].name; if (maps.staff[aid].username === "asistente") role = "asistente"; }
   else { const cid = aid.split(":")[1]; const c = cid && maps.cust[cid]; if (c) { who = c.name; if (aid.startsWith("wa:")) role = (role ? role + ", " : "") + "por WhatsApp"; } else if (aid) who = role ? role[0].toUpperCase() + role.slice(1) : aid; }
   if (who.toLowerCase() === role) role = "";
   // Sobre qué
@@ -1794,6 +1818,11 @@ function auditText(a, maps) {
   if (Number.isFinite(d.usdt)) parts.push(`${d.usdt} USDT`);
   if (Number.isFinite(d.count)) parts.push(`${d.count}`);
   if (Number.isFinite(d.slots) && d.slots) parts.push(`${d.slots} perfil(es)`);
+  if (a.action.startsWith("access.")) { if (d.with) parts.push(`con ${d.with}`); if (d.device) parts.push(d.device); }
+  if (Number.isFinite(d.priceFrom)) parts.push(`antes ${bs(d.priceFrom)}`);
+  if (d.hidden) parts.push("sin contraseñas");
+  if (a.action === "team.alert" && d.title) parts.push(`«${d.title}»`);
+  if (a.action === "export" && a.entityId) parts.push(`Excel «${a.entityId}»`);
   if (d.coupon) parts.push(`cupón ${d.coupon}${Number.isFinite(d.couponAmount) ? ` (−${bs(d.couponAmount)})` : ""}`);
   return { who, role, what, detail: parts.join(" · ") };
 }
@@ -2389,6 +2418,7 @@ async function render() {
     enhanceDates($("#pout"));
     enhanceFiles($("#pout"));
     fitChartText($("#pout"));
+    for (const fc of $("#pout").querySelectorAll(".finchart")) fc.scrollLeft = fc.scrollWidth; // el gráfico de 6 meses arranca mostrando el mes actual
     if (["apariencia", "configuracion"].includes(P.view)) foldCards($("#pout"));
     if (P.view === "apariencia") previewLook();
     if (P.view === "configuracion") pushStatus();
@@ -2400,6 +2430,7 @@ async function render() {
   }
 }
 function go(v) {
+  if (v !== P.view) { P.tab.editAcc = null; P.tab.secrets = false; } // al salir de Cuentas, las contraseñas se vuelven a tapar
   apiCacheClear(); // al cambiar de pantalla se vuelve a leer todo; la caché solo sirve para filtrar dentro de la misma
   P.view = TITLE[v] ? v : "inicio";
   P.menuQ = ""; const mf = $("#menuFind"); if (mf) mf.value = "";
@@ -2496,7 +2527,7 @@ async function start() {
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#pName").textContent = me.name;
-  $("#pRole").textContent = { owner: "DUEÑO", admin: "ADMIN", seller: "VENDEDOR" }[me.role];
+  $("#pRole").textContent = (STAFF_ROLE[me.role] ?? "").toUpperCase();
   $("#pStore").textContent = P.settings.storeName;
   if (P.settings.hasLogo) $(".plogo i").outerHTML = `<img src="/api/settings/logo" alt="" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`;
   applyTheme();
@@ -2615,8 +2646,12 @@ function sellSummary() {
     <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
   btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
 }
-document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") P.tab.sellCustomer = ev.target.value; sellSummary(); } });
+document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
+// Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
+initSellNew({ getMap: () => P.tab.custMap, onCreated: (label, c) => { (P.tab.custMap ??= {})[label] = c.id; P.tab.sellCustomer = label; } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
+// Filtro con lista desplegable (p. ej. «Persona» en Auditoría): guarda la elección y vuelve a dibujar.
+document.addEventListener("change", (ev) => { const k = ev.target?.dataset?.tabsel; if (k) { P.tab[k] = ev.target.value; render(); } });
 document.addEventListener("change", async (ev) => {
   const sel = ev.target.closest?.("[data-hubplan]");
   if (!sel) return;
@@ -3022,7 +3057,7 @@ document.addEventListener("click", async (ev) => {
     } catch (e) { toast(e.message); }
     return render();
   }
-  if (d.editaccopen !== undefined) { P.tab.editAcc = d.editaccopen || null; if (P.tab.editAcc && !P.tab.secrets) P.tab.secrets = true; await render(); return scrollTo(0, 0); }
+  if (d.editaccopen !== undefined) { P.tab.editAcc = d.editaccopen || null; await render(); return scrollTo(0, 0); }
   if (d.editcus !== undefined) { P.tab.editCus = d.editcus || null; await render(); return scrollTo(0, 0); }
   if (d.slotfree) { if (!confirm("¿Poner este perfil libre para vender? Deja de contar para el cliente que lo tenía.")) return; return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender"); }
   if (d.slotact !== undefined) { P.tab.slotAct = d.slotact || null; await render(); return scrollTo(0, 0); }
@@ -3532,6 +3567,7 @@ document.addEventListener("submit", async (ev) => {
       if (!confirm(`¿Pasar ${f.dataset.n} cliente(s) a ${email}? Cada uno conserva su fecha; los perfiles viejos quedan apartados.`)) return;
       await act(async () => { const r = await api("POST", `/api/admin/accounts/${f.dataset.moveall}/move-all`, { toAccountId: f.to.value, reason: f.reason.value.trim() || "Cuenta caída: pasan a la nueva" }); P.tab.cq = r.to; P.tab.cf = "todos"; P.tab.sendq = { ids: r.moved.map((m) => m.assignmentId), i: 0, sent: {}, title: `ahora en ${r.to}` }; go("control"); }, `✅ Clientes pasados a ${email}: mismas fechas. Arriba tenés la fila para mandarles los accesos uno por uno`);
     } else if (f.dataset.swapacc) {
+      if (!confirmSwap(f.to)) { done(); return; }
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);
     } else if (f.dataset.transfer) {
@@ -3555,7 +3591,7 @@ document.addEventListener("submit", async (ev) => {
         const id = inp.name.slice(6), pin = f[`pin-${id}`];
         const patch = {};
         if (inp.value.trim() !== inp.defaultValue) patch.label = inp.value.trim();
-        if (pin.value !== pin.defaultValue && (pin.value || P.tab.secrets)) patch.pin = pin.value;
+        if (pin.value !== pin.defaultValue && (pin.value || f.dataset.secrets)) patch.pin = pin.value;
         if (Object.keys(patch).length) { await api("POST", `/api/admin/slots/${id}`, patch); pins++; }
       }
       P.tab.editAcc = null;
@@ -3582,7 +3618,8 @@ document.addEventListener("submit", async (ev) => {
       await act(() => api("POST", `/api/admin/accounts/${f.dataset.down}/replace`, { reason: f.reason.value }), (r) => r.retired ? `Cuenta retirada. ${r.results.length} cliente(s) movidos` : `No se pudo mover a todos: ${r.results.find((x) => !x.ok)?.error}`);
     } else if (f.id === "quickForm") {
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
-      try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, exp: f.exp.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
+      if (!cargaOk(f)) { done(); return; }
+      try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
         supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
@@ -3607,6 +3644,7 @@ document.addEventListener("submit", async (ev) => {
       for (const inp of f.querySelectorAll('input[name^="pp-"]')) { const v = inp.value.trim(); if (v !== "") { const c = toCents(v); if (Number.isFinite(c) && c >= 0) prices[inp.name.slice(3)] = c; } }
       await act(() => api("POST", "/api/admin/price-groups", { id: f.dataset.pricelist, name: f.name.value.trim(), prices, ...(f.currency ? { currency: f.currency.value } : {}) }), "Lista de precios guardada");
     } else if (f.id === "iptvForm") {
+      if (!cargaOk(f)) { done(); return; }
       const mode = f.mode.value;
       const iptv = { mode, server: f.server.value.trim() || undefined, mac: f.mac.value.trim() || undefined, app: f.app.value.trim() || undefined, connections: +f.connections.value || undefined };
       await act(() => api("POST", "/api/admin/accounts", {
@@ -3615,6 +3653,7 @@ document.addEventListener("submit", async (ev) => {
         profiles: [{ label: "Línea IPTV" }], iptv,
       }), "📺 Línea IPTV registrada, lista para vender");
     } else if (f.id === "accForm") {
+      if (!cargaOk(f)) { done(); return; }
       const n = Math.max(1, Math.min(20, +f.n.value || 1));
       const pin = f.pin.value.trim() || undefined;
       await act(() => api("POST", "/api/admin/accounts", {
@@ -3671,7 +3710,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.dataset.fpay) {
       const amount = toCents(f.amount.value);
       if (!(amount > 0)) return toast("Escribí el monto que te pagó");
-      await act(() => api("POST", "/api/admin/fiado/payment", { customerId: f.dataset.fpay, amount, note: f.note.value }), (r) => r.owed ? `💵 Pago guardado · todavía debe ${bs(r.owed)}` : "💵 Pago guardado · ¡ya no debe nada! 🎉");
+      await act(() => api("POST", "/api/admin/fiado/payment", { customerId: f.dataset.fpay, amount, note: f.note.value }), (r) => `${r.owed ? `💵 Pago guardado · todavía debe ${bs(r.owed)}` : "💵 Pago guardado · ¡ya no debe nada! 🎉"} · suma a «Entró» de hoy`);
     } else if (f.dataset.fcharge || f.id === "fNewForm") {
       const amount = toCents(f.amount.value);
       if (!(amount > 0)) return toast("Escribí el monto");

@@ -8,6 +8,8 @@ import { can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { DAY } from "./time.js";
+import { cutAtOf, noticeOf, todayNumbers, type NoticeVia } from "./dia.js";
+import { reactivableList } from "./diaCobro.js";
 
 /** Días hacia adelante que la secretaria mira para "avisar antes de que venza". */
 export const SECRETARY_AHEAD_DAYS = 3;
@@ -31,6 +33,10 @@ export interface SecretaryItem {
   viaReseller?: boolean;
   /** «📣 Ya le avisé»: cuándo le avisó el dueño por ESTE vencimiento (si sigue vigente). */
   noticedAt?: number;
+  /** De dónde salió el aviso: «Ya le avisé» (secretaria) o un recordatorio preparado en Recordatorios. */
+  noticedVia?: NoticeVia;
+  /** Cuándo se corta solo si no renueva (vencimiento + días de gracia). No viene si está «esperando fecha». */
+  cutAt?: number;
 }
 export interface SecretaryGroup {
   customerId: Id;
@@ -80,22 +86,25 @@ export function secretaryReport(e: Engine, actor: Actor) {
 
   // «Ya le avisé» vale para ESTE vencimiento. Si vence mañana u hoy y el aviso fue hace 2 días o más, vuelve a
   // aparecer (segundo aviso, como pide la regla de «3 días antes y otra vez 1 día antes»).
+  // La marca es la misma que la de Recordatorios (dia.ts → noticeOf): si le avisaste por un lado, el otro lo muestra.
   const noticeFresh = (a: Assignment) => {
-    const n = a.control?.noticed;
-    if (!n || n.for !== a.customerExpiresAt) return false;
-    return daysTo(a.customerExpiresAt) >= 2 || daysTo(n.at) >= -1;
+    const n = noticeOf(a);
+    if (!n) return undefined;
+    return daysTo(a.customerExpiresAt) >= 2 || daysTo(n.at) >= -1 ? n : undefined;
   };
   for (const a of Object.values(e.s.assignments)) {
     if (a.status !== "active") continue;
     const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
     const c = a.control ?? {};
     const usd = payUsdOf(e, a);
+    const nt = noticeFresh(a), cutAt = cutAtOf(a);
     const item: SecretaryItem = {
       assignmentId: a.id, email: acc?.email ?? "", product: e.s.products[a.productId]?.name ?? a.productId,
       expiresAt: a.customerExpiresAt, days: daysTo(a.customerExpiresAt), price: effectivePrice(e, a),
       ...(usd !== undefined ? { priceUsd: usd } : {}), ...(c.payStatus ? { payStatus: c.payStatus } : {}), ...(c.note ? { note: c.note } : {}),
       ...(e.s.customers[a.customerId]?.resellerId ? { viaReseller: true } : {}),
-      ...(noticeFresh(a) ? { noticedAt: c.noticed!.at } : {}),
+      ...(nt ? { noticedAt: nt.at, noticedVia: nt.via } : {}),
+      ...(cutAt !== undefined ? { cutAt } : {}),
     };
     if (has(c.note, RE_CORTAR)) put(groups.cortar, a, item);
     else if (has(c.note, RE_COBRO)) put(groups.cobrar, a, item);
@@ -154,6 +163,10 @@ export function secretaryReport(e: Engine, actor: Actor) {
     templates: e.s.settings.secretaryMsg ?? {},
     renewLinks: !!e.s.settings.renewLink?.enabled,
     actividad,
+    // Números del día: el MISMO cálculo que el Inicio (dia.ts → todayNumbers).
+    dia: todayNumbers(e, actor),
+    // Se cortaron solos hace poco (≤ 30 días): todavía se puede anotar «Me pagó» y reactivarlos.
+    cortados: can(actor, "payment.review") ? reactivableList(e, actor) : [],
   };
   const n = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.length, 0);
   // Por avisar = los que todavía no marcaste «Ya le avisé»; los ya avisados se cuentan aparte y van al final.

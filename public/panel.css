@@ -799,6 +799,14 @@ small{font-size:max(12px,.85em)}
 }
 
 /* Auditoría en frases */
+/* Auditoría: filtros por persona y período (14/11/2026) */
+.audfil{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:4px 0 6px}
+.audfil label{display:grid;gap:4px;font-size:13px;min-width:0;flex:1 1 220px;max-width:100%}
+.audfil select{min-height:44px;font-size:14px;max-width:100%}
+.audfil .tabs{flex:1 1 220px}
+/* Usuarios: qué puede la llave del asistente y la etiqueta de 2 pasos */
+.asis-can{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.45}
+.tfa{display:inline-block;font-size:12px;white-space:nowrap;margin-top:4px}
 .audrow{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}
 .audrow:last-child{border-bottom:0}
 .audtxt{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
@@ -1259,3 +1267,21 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .hm-hero .sec-cta{background:#fff;color:#0b1430;border:0;margin:12px 0 10px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .hm-hero .sec-cta b{font-weight:900}
 .menusep{margin:10px 12px 2px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.7}
+
+/* 14/11/2026 · Día a día: la vista previa de «Me pagó» entra en 360/390 px (antes el renglón medía 800 px y «Cancelar» quedaba afuera). */
+.sec-card,.sec-group,.sec-items li,.sec-pvbox{grid-template-columns:minmax(0,1fr);min-width:0}
+.app table.sec-pvt{min-width:0;table-layout:fixed}.sec-pvt th{width:6.4em;white-space:normal}
+.sec-pvact{display:flex;flex-wrap:wrap;align-items:stretch}
+.sec-pvact>*{flex:1 1 140px;min-width:0}
+.sec-pvact .pbtn{min-height:44px;justify-content:center;white-space:normal;text-align:center}
+.sec-price input{max-width:none;width:100%}
+.sec-cut{color:var(--bad,#c0392b);font-weight:600;white-space:nowrap}
+.sec-supbox{display:grid;gap:8px;padding:10px;border-radius:10px;border:1px dashed var(--line);background:var(--card)}
+.sec-supbox p{margin:0;font-size:14px}
+.sec-slotpick{display:grid;gap:4px;font-size:13px}.sec-slotpick select{min-height:44px;width:100%}
+.ctl-cut{color:var(--bad,#c0392b);font-weight:600}
+.ctl-renwarn{display:block;font-size:12.5px;color:var(--bad,#c0392b);overflow-wrap:anywhere}
+.sellnew{display:grid;gap:8px;margin-top:8px;padding:10px;border-radius:12px;border:1px dashed var(--line);background:var(--soft)}
+.sellnew label{display:grid;gap:4px;font-size:13px}.sellnew input{min-height:44px}
+.sellnew .pbtn{min-height:44px;justify-content:center;white-space:normal}
+.hm-alert small.hm-split{display:block;font-size:12px;font-weight:600;opacity:.85}

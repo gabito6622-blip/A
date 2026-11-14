@@ -2,6 +2,7 @@
 // qué desenlazar, qué está libre de verdad, qué está apartado) y lo último que pasó. Solo lee.
 // Los mensajes de WhatsApp se arman listos (wa.me), pero los manda el dueño: nunca se envía nada solo.
 import { api, esc, bs, fdt, fdate, waLink, toast, toCents, newKey } from "/common.js";
+import { diaLine, cutTxt, supplierRenewHtml, cortadosSection } from "/dia.js";
 
 const dm = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
 const usdTxt = (c) => `US$ ${(c / 100).toLocaleString("es-BO", { maximumFractionDigits: 2 })}`;
@@ -25,7 +26,7 @@ function message(kind, g) {
 }
 
 const hm = (t) => new Date(t).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
-const noticedTxt = (t) => `📣 avisado ${new Date(t).toDateString() === new Date().toDateString() ? `hoy ${hm(t)}` : dm(t)}`;
+const noticedTxt = (t, via) => `📣 ${via === "recordatorio" ? "recordatorio" : "avisado"} ${new Date(t).toDateString() === new Date().toDateString() ? `hoy ${hm(t)}` : dm(t)}`;
 function groupCard(kind, g) {
   // «✅ Ya le avisé»: marca los que faltan de este grupo (no manda nada). Si ya están todos, ofrece deshacer.
   const pend = g.items.filter((i) => i.noticedAt === undefined), all = !pend.length;
@@ -34,7 +35,7 @@ function groupCard(kind, g) {
   const avise = kind === "cortar" ? "" : all
     ? `<button type="button" class="pbtn sm" data-secnotice="${esc(g.items.map((i) => i.assignmentId).join(","))}" data-off="1" title="Vuelve a la lista de pendientes">↩️ No le avisé</button>`
     : `<button type="button" class="pbtn sm green" data-secnotice="${esc(pend.map((i) => i.assignmentId).join(","))}" data-name="${esc(first(g.name))}">✅ Ya le avisé</button>`;
-  const items = g.items.map((i) => `<li data-secitem="${esc(i.assignmentId)}"><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}${i.noticedAt !== undefined ? ` · <span class="sec-noticed">${noticedTxt(i.noticedAt)}</span>` : ""}</span>${kind !== "cortar" || true ? `<button type="button" class="pbtn sm green sec-pay" data-secpay="${esc(i.assignmentId)}">💵 Me pagó</button>${RL && !i.viaReseller ? `<button type="button" class="pbtn sm sec-pay" data-seclink="${esc(i.assignmentId)}" title="Link para que renueve con QR o saldo">🔗 Link para renovar</button>` : ""}` : ""}<div class="sec-pv" hidden></div></li>`).join("");
+  const items = g.items.map((i) => `<li data-secitem="${esc(i.assignmentId)}"><span class="sec-mail">${esc(i.email || i.product)}</span><span class="sec-meta">${esc(when(i.days))} · ${dm(i.expiresAt)} · ${itemMoney(i)}${i.payStatus === "pagado" && kind === "avisar" ? " · pagada" : ""}${i.noticedAt !== undefined ? ` · <span class="sec-noticed">${noticedTxt(i.noticedAt, i.noticedVia)}</span>` : ""}${cutTxt(i.cutAt) ? ` · <span class="sec-cut">${cutTxt(i.cutAt)}</span>` : ""}</span>${kind !== "cortar" || true ? `<button type="button" class="pbtn sm green sec-pay" data-secpay="${esc(i.assignmentId)}">💵 Me pagó</button>${RL && !i.viaReseller ? `<button type="button" class="pbtn sm sec-pay" data-seclink="${esc(i.assignmentId)}" title="Link para que renueve con QR o saldo">🔗 Link para renovar</button>` : ""}` : ""}<div class="sec-pv" hidden></div></li>`).join("");
   return `<div class="sec-group${all && kind !== "cortar" ? " sec-done" : ""}">
     <div class="sec-gh"><b>${esc(g.name)}</b><span class="sec-tot">${plural(g.items.length, "cuenta", "cuentas")} · ${groupMoney(g)}</span></div>
     ${g.note ? `<small class="muted sec-rule">📝 ${esc(g.note)}</small>` : ""}
@@ -58,9 +59,9 @@ export async function secretaryView(activity) {
   TPL = r.templates ?? {};
   RL = !!r.renewLinks;
   const c = r.counts;
-  const todo = c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
+  const todo = (r.cortados?.length ?? 0) + c.cobrar + c.cortar + c.deben + c.sinAnotar + c.avisar + c.desenlazar + c.apartadas + c.faltaFecha + (c.claves ?? 0) + (c.debitos ?? 0);
   const resumen = [
-    c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
+    diaLine(r.dia), r.cortados?.length && `✂️ <b>${r.cortados.length}</b> se cortaron solos (podés reactivarlos)`, c.cobrar && `🔔 <b>${c.cobrar}</b> en cobro`, c.cortar && `✂️ <b>${c.cortar}</b> por cortar`, c.sinAnotar && `🗓️ <b>${c.sinAnotar}</b> vencidas sin anotar`,
     c.deben && `💸 <b>${c.deben}</b> sin pagar`, c.avisar && `⏰ <b>${c.avisar}</b> por avisar (vencen en ${r.aheadDays} días)`, c.avisados && `📣 <b>${c.avisados}</b> ya avisados`, c.desenlazar && `🔗 <b>${c.desenlazar}</b> por desenlazar`,
     c.apartadas && `⏸️ <b>${c.apartadas}</b> apartadas`, c.claves && `🔑 <b>${c.claves}</b> claves por cambiar`, c.debitos && `💳 <b>${c.debitos}</b> débitos de tarjeta`, `✅ <b>${c.libres}</b> libres listas`,
   ].filter(Boolean);
@@ -87,6 +88,7 @@ export async function secretaryView(activity) {
   return hero
     + section("sec-cobrar", "🔔 Cobrar ahora", "Están en cobro: si no pagan, se cortan.", r.cobrar, "cobrar")
     + section("sec-cortar", "✂️ Cortar", "No pagaron. Cortalas, cambiá la clave y anotala libre.", r.cortar, "cortar")
+    + cortadosSection(r.cortados)
     + section("sec-vencidas", "🗓️ Vencidas sin anotar", "Ya vencieron y no tienen nota: ¿renovaron, las cobrás o las cortás?", r.sinAnotar, "vencidas")
     + section("sec-deben", "💸 Te deben", "Siguen activas pero figuran sin pagar.", r.deben, "deben")
     + section("sec-avisar", `⏰ Avisar: vencen en los próximos ${r.aheadDays} días`, "Mirá la regla de cada uno (📝) para saber cuándo avisarle.", r.avisar, "avisar")
@@ -108,6 +110,7 @@ function previewHtml(pv, key) {
   return `<div class="sec-pvbox">
     <table class="sec-pvt">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>
     ${pv.blockers.map((b) => `<p class="sec-block">⛔ ${esc(b)}</p>`).join("")}${pv.warnings.map((w) => `<p class="sec-warn">⚠️ ${esc(w)}</p>`).join("")}
+    ${supplierRenewHtml(pv)}
     <div class="inline sec-pvact">${pv.ok ? `<label class="sec-price">Cobré (${pv.priceUsd !== undefined ? "Bs, lo que llegó" : "Bs"})<input name="price" inputmode="decimal" value="${(pv.price / 100).toFixed(2)}"></label>
       <button type="button" class="pbtn green" data-secpayok="${esc(pv.assignmentId)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button>` : ""}<button type="button" class="pbtn" data-secpayno="1">Cancelar</button></div></div>`;
 }
