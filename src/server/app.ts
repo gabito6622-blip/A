@@ -43,6 +43,7 @@ import { shrinkPng } from "./pdf.js";
 import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeature } from "../store/resellerShop.js";
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 import { injectEarlyLook } from "./earlyLook.js";
+import { deviceOf } from "./device.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
  *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
@@ -222,16 +223,70 @@ export function createApp(cfg: AppConfig): App {
   };
 
   /* ---------------- sesiones ---------------- */
-  function startSession(res: ServerResponse, kind: "staff" | "customer", subjectId: string) {
+  /* ---- Seguridad de las cuentas (14/11/2026): cada ingreso queda anotado con su aparato; aviso si es uno nuevo ---- */
+  const uaOf = (req: IncomingMessage) => String(req.headers["user-agent"] ?? "").slice(0, 300);
+  /** Cómo entró, según la ruta: lo que se le muestra a la persona en «Seguridad de mi cuenta». */
+  const viaOf = (req: IncomingMessage): string => {
+    const u = (req.url ?? "").split("?")[0];
+    if (u.startsWith("/api/auth/staff")) return "contraseña";
+    if (u.endsWith("/customer/pin")) return "PIN";
+    if (u.endsWith("/customer/link")) return "link de un toque";
+    if (u.includes("/otp")) return "código por WhatsApp";
+    if (u.includes("/password") || u.includes("/login")) return "contraseña";
+    if (u.includes("/signup") || u.includes("/register")) return "registro";
+    if (u.includes("/renovar/")) return "link de renovación";
+    if (u.includes("/2fa")) return "contraseña y código";
+    return "otro";
+  };
+  const logAccess = (c: { req: IncomingMessage; ip: string }, kind: "staff" | "customer", subjectId: string, event: string, ok: boolean, via = viaOf(c.req)) => {
+    try { db.logAccess({ at: now(), kind, subjectId, event, via, ok, ip: c.ip, ua: uaOf(c.req) }); } catch { /* el registro nunca frena un ingreso */ }
+  };
+  /** Aviso al celular de la persona (si activó avisos): «Entraron a tu cuenta», «Cambiaron tu PIN»… Nunca frena nada. */
+  const securityPush = (kind: "staff" | "customer", subjectId: string, title: string, body: string) => {
+    try {
+      if (!pushOn()) return;
+      if (kind === "customer") {
+        const cu = store.engine.s.customers[subjectId];
+        void customerPush(subjectId, { title, body, url: cu?.kind === "reseller" ? "/hub#seguridad" : "/tienda/#seguridad" }).catch(() => {});
+      } else void pushSend(pushSubs().filter((x) => x.staffId === subjectId), { title, body, go: "configuracion" }).catch(() => {});
+    } catch { /* sin avisos */ }
+  };
+  function startSession(c: { req: IncomingMessage; res: ServerResponse; ip: string }, kind: "staff" | "customer", subjectId: string) {
+    const res = c.res;
     const token = newToken();
     const ttl = kind === "staff" ? STAFF_SESSION_MS : CUSTOMER_SESSION_MS;
-    db.putSession({ tokenHash: sha256(token), kind, subjectId, createdAt: now(), expiresAt: now() + ttl });
+    const ua = uaOf(c.req), via = viaOf(c.req);
+    // ¿Aparato nuevo? Si ya entró antes y nunca desde este aparato, le avisamos al celular.
+    const before = db.accessOf(subjectId, 200).filter((r) => r.ok && r.event === "login");
+    const fresh = before.length > 0 && !before.some((r) => deviceOf(r.ua ?? "") === deviceOf(ua));
+    db.putSession({ tokenHash: sha256(token), kind, subjectId, createdAt: now(), expiresAt: now() + ttl, ua, ip: c.ip, via, lastSeen: now() });
+    logAccess(c, kind, subjectId, "login", true, via);
+    if (fresh) securityPush(kind, subjectId, "🔐 Entraron a tu cuenta desde otro aparato", `${deviceOf(ua)} · con ${via}. ¿No fuiste vos? Tocá acá y cerrá esa sesión.`);
     // Último ingreso de clientes y revendedores: así el dueño sabe a quién le falta entrar.
     if (kind === "customer") db.setSecret(`lastlogin:${subjectId}`, String(now()), now());
     const attrs = [`${COOKIE}=${token}`, "Path=/", "HttpOnly", "SameSite=Strict", `Max-Age=${Math.floor(ttl / 1000)}`];
     if (cfg.secureCookies) attrs.push("Secure");
     res.setHeader("Set-Cookie", attrs.join("; "));
   }
+  /**
+   * Frenos guardados en la base (14/11/2026): sobreviven a reinicios y publicaciones (los de memoria no).
+   * 5 fallos seguidos → 15 min · 10 → 1 h · 15 o más → 24 h. Al llegar a cada escalón se avisa al dueño y a la persona.
+   */
+  const LOCK_STEPS: [number, number][] = [[15, 24 * 60], [10, 60], [5, 15]];
+  const lockWait = (key: string): number => { const f = db.failGet(key); return f && f.until > now() ? f.until - now() : 0; };
+  const lockMsg = (ms: number) => `Por seguridad, esta cuenta quedó frenada por varios intentos fallidos. Probá de nuevo en ${ms >= 3_600_000 ? `${Math.ceil(ms / 3_600_000)} hora(s)` : `${Math.ceil(ms / 60_000)} minutos`} o pedile ayuda a la tienda.`;
+  function failOnce(key: string, kind: "staff" | "customer", subjectId: string | undefined, who: string) {
+    const n = (db.failGet(key)?.n ?? 0) + 1;
+    const step = LOCK_STEPS.find(([k]) => n >= k);
+    db.failSet(key, n, step ? now() + step[1] * 60_000 : 0, now());
+    if (step && LOCK_STEPS.some(([k]) => k === n)) {
+      try {
+        if (pushOn()) void pushSend(pushSubs().filter((x) => store.engine.s.staff[x.staffId]?.role === "owner"), { title: "🔒 Intentos fallidos de ingreso", body: `${n} intentos fallidos en la cuenta de ${who}. Quedó frenada ${step[1] >= 60 ? `${step[1] / 60} h` : `${step[1]} min`}.`, go: "auditoria" }).catch(() => {});
+      } catch { /* sin avisos */ }
+      if (subjectId) securityPush(kind, subjectId, "🔒 Intentaron entrar a tu cuenta", `${n} intentos fallidos. Si no fuiste vos, cambiá tu PIN o tu contraseña.`);
+    }
+  }
+
   function clearCookie(res: ServerResponse) {
     res.setHeader("Set-Cookie", `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${cfg.secureCookies ? "; Secure" : ""}`);
   }
@@ -260,10 +315,12 @@ export function createApp(cfg: AppConfig): App {
     if (s.kind === "staff") {
       const u = st.staff[s.subjectId];
       if (!u || !u.active) return {};
+      if (now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now());
       return { actor: { id: u.id, role: u.role }, session: s };
     }
     const c = st.customers[s.subjectId];
     if (!c) return {};
+    if (now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now());
     return { actor: { id: `web:${c.id}`, role: c.kind === "reseller" ? "reseller" : "customer", customerId: c.id }, session: s };
   }
 
@@ -323,18 +380,27 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/auth/staff/login", "public", (c) => {
     const username = String(c.body?.username ?? "").toLowerCase();
     if (!loginLimiter.take(`${c.ip}|${username}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
+    // Freno por usuario, aunque cambie la IP (14/11/2026): antes se podía saltar mandando otra IP en la cabecera.
+    const lockKey = `staff:${username}`;
+    const wait = lockWait(lockKey);
+    if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const u = store.admin.findStaffForLogin(username);
-    if (!verifyPassword(String(c.body?.password ?? ""), u?.passwordHash) || !u?.active) throw new HttpError(401, "BAD_LOGIN", "Usuario o contraseña incorrectos");
+    if (!verifyPassword(String(c.body?.password ?? ""), u?.passwordHash) || !u?.active) {
+      failOnce(lockKey, "staff", u?.id, u?.name ?? username);
+      if (u) logAccess(c, "staff", u.id, "login_fail", false);
+      throw new HttpError(401, "BAD_LOGIN", "Usuario o contraseña incorrectos");
+    }
     // Verificación en dos pasos (si el usuario la activó).
     const totp = db.getSecret(`totp:${u.id}`);
     if (totp) {
       if (!c.body?.code) throw new HttpError(401, "TOTP_REQUIRED", "Escribí el código de 6 dígitos de tu app de verificación");
       const step = verifyTotp(totp, String(c.body.code), now());
-      if (step === null || usedTotp.get(u.id) === step) throw new HttpError(401, "BAD_TOTP", "Código incorrecto o vencido. Probá con el código nuevo de tu app");
+      if (step === null || usedTotp.get(u.id) === step) { failOnce(lockKey, "staff", u.id, u.name); logAccess(c, "staff", u.id, "login_fail", false, "código de 2 pasos"); throw new HttpError(401, "BAD_TOTP", "Código incorrecto o vencido. Probá con el código nuevo de tu app"); }
       usedTotp.set(u.id, step);
     }
     loginLimiter.reset(`${c.ip}|${username}`);
-    startSession(c.res, "staff", u.id);
+    db.failClear(lockKey);
+    startSession(c, "staff", u.id);
     return { id: u.id, name: u.name, role: u.role };
   });
 
@@ -363,7 +429,7 @@ export function createApp(cfg: AppConfig): App {
       cust = store.catalog.selfRegister({ name: p.name, phone, whatsappConsent: p.whatsappConsent });
       pendingSignup.delete(phone);
     }
-    startSession(c.res, "customer", cust.id);
+    startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
@@ -382,14 +448,18 @@ export function createApp(cfg: AppConfig): App {
     const phone = normalizePhone(c.body?.phone);
     const k = `${phone}|${c.ip}`;
     if (pinLoginLimiter.blocked(k) || pinPhoneLimiter.blocked(phone)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos o pedile un PIN nuevo a la tienda.");
+    const lockKey = `pin:${phone}`, wait = lockWait(lockKey);
+    if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const cust = phone.replace(/\D/g, "").length >= 7 ? store.catalog.findCustomerByPhone(phone) : undefined;
     const stored = cust ? db.getSecret(`loginpin:${cust.id}`) : undefined;
     if (!cust || !verifyPassword(loginPinKey(cust.id, String(c.body?.pin ?? "")), stored)) {
       pinLoginLimiter.take(k); pinPhoneLimiter.take(phone);
+      if (cust && stored) { failOnce(lockKey, "customer", cust.id, cust.name); logAccess(c, "customer", cust.id, "login_fail", false); }
       throw new HttpError(401, "BAD_PIN", cust && !stored ? "Todavía no tenés PIN. Pedíselo a la tienda por WhatsApp." : "Número o PIN incorrecto");
     }
     pinLoginLimiter.reset(k);
-    startSession(c.res, "customer", cust.id);
+    db.failClear(lockKey);
+    startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
   // Atención (seller) no entrega llaves de cuentas con plata: ni a revendedores ni a quien tiene saldo.
@@ -403,7 +473,11 @@ export function createApp(cfg: AppConfig): App {
     sellerKeyGuard(A(c), cust);
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
-    store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id));
+    // 14/11/2026: el PIN nuevo deja afuera a quien haya entrado con el viejo (antes seguía adentro hasta 30 días).
+    const closed = db.deleteSessionsOf(cust.id);
+    store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id, closed ? { sessionsClosed: closed } : undefined));
+    logAccess(c, "customer", cust.id, "pin_reset", true, "la tienda");
+    securityPush("customer", cust.id, "🔑 Se cambió tu PIN", "La tienda te generó un PIN nuevo. Si no lo pediste, avisale a la tienda.");
     return { pin, phone: cust.phone, loginUrl: `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/hub` };
   });
   route("POST", "/api/me/login-pin", "customer", (c) => {
@@ -411,9 +485,60 @@ export function createApp(cfg: AppConfig): App {
     const stored = db.getSecret(`loginpin:${id}`);
     if (stored && !verifyPassword(loginPinKey(id, String(c.body?.current ?? "")), stored)) throw new HttpError(401, "BAD_PIN", "El PIN actual no es correcto");
     setLoginPin(id, String(c.body?.pin ?? "").trim());
+    // Cambiar el PIN deja afuera a los otros aparatos (este sigue adentro).
+    const closed = db.deleteSessionsOf(id, c.session?.tokenHash);
     store.engine.tx(() => store.engine.audit(c.actor!, "customer.login_pin_self", "customer", id));
-    return { ok: true };
+    logAccess(c, "customer", id, "pin_change", true, "");
+    return { ok: true, closed };
   });
+  /* ---- «Seguridad de mi cuenta» (14/11/2026): mis aparatos y mis últimos ingresos; igual para clientes, revendedores y equipo ---- */
+  const sessionView = (s: { tokenHash: string; createdAt: number; lastSeen?: number; ua?: string; via?: string; ip?: string }, current?: string) => ({
+    id: s.tokenHash.slice(0, 12), current: s.tokenHash === current, device: deviceOf(s.ua ?? ""), via: s.via || "", since: s.createdAt, lastSeen: s.lastSeen || s.createdAt,
+    // Solo los primeros números de la IP: alcanza para reconocer «es mi casa» sin exponer la dirección completa.
+    place: (s.ip ?? "").split(/[.:]/).slice(0, 2).join(".") || "",
+  });
+  const accessView = (a: { at: number; event: string; via?: string; ok: boolean; ua?: string; ip?: string }) => ({ at: a.at, event: a.event, via: a.via ?? "", ok: a.ok, device: deviceOf(a.ua ?? ""), place: (a.ip ?? "").split(/[.:]/).slice(0, 2).join(".") });
+  const securityOf = (subjectId: string, current?: string) => ({
+    sessions: db.sessionsOf(subjectId, now()).map((s) => sessionView(s, current)),
+    log: db.accessOf(subjectId, 20).map(accessView),
+  });
+  const closeOne = (subjectId: string, id: unknown) => {
+    const s = db.sessionsOf(subjectId, now()).find((x) => x.tokenHash.slice(0, 12) === String(id ?? ""));
+    if (!s) throw new HttpError(404, "NOT_FOUND", "Esa sesión ya no está abierta");
+    db.deleteSession(s.tokenHash);
+  };
+  route("GET", "/api/me/security", "customer", (c) => securityOf(c.actor!.customerId!, c.session?.tokenHash));
+  route("POST", "/api/me/security/logout-others", "customer", (c) => {
+    const id = c.actor!.customerId!, closed = db.deleteSessionsOf(id, c.session?.tokenHash);
+    logAccess(c, "customer", id, "logout_others", true, "");
+    return { closed };
+  });
+  route("POST", "/api/me/security/logout", "customer", (c) => { closeOne(c.actor!.customerId!, c.body?.id); logAccess(c, "customer", c.actor!.customerId!, "logout_one", true, ""); return { ok: true }; });
+  route("GET", "/api/admin/my-security", "staff", (c) => securityOf(A(c).id, c.session?.tokenHash));
+  route("POST", "/api/admin/my-security/logout-others", "staff", (c) => {
+    const closed = db.deleteSessionsOf(A(c).id, c.session?.tokenHash);
+    logAccess(c, "staff", A(c).id, "logout_others", true, "");
+    return { closed };
+  });
+  route("POST", "/api/admin/my-security/logout", "staff", (c) => { closeOne(A(c).id, c.body?.id); logAccess(c, "staff", A(c).id, "logout_one", true, ""); return { ok: true }; });
+  // El dueño/admin ve los ingresos de un cliente o revendedor y puede sacarlo de todos lados (queda en la auditoría).
+  const reviewGuard = (c: Ctx) => { if (A(c).role !== "owner" && A(c).role !== "admin") throw new HttpError(403, "FORBIDDEN", "Solo el dueño o un admin"); };
+  route("GET", "/api/admin/customers/:id/security", "staff", (c) => {
+    reviewGuard(c);
+    if (!store.engine.s.customers[c.params.id]) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    return securityOf(c.params.id);
+  });
+  route("POST", "/api/admin/customers/:id/logout-all", "staff", (c) => {
+    reviewGuard(c);
+    const cust = store.engine.s.customers[c.params.id];
+    if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
+    const closed = db.deleteSessionsOf(cust.id);
+    store.engine.tx(() => store.engine.audit(A(c), "customer.logout_all", "customer", cust.id, { sessionsClosed: closed }));
+    logAccess(c, "customer", cust.id, "logout_all", true, "la tienda");
+    securityPush("customer", cust.id, "🚪 La tienda cerró tus sesiones", "Por seguridad se cerró tu cuenta en todos los aparatos. Volvé a entrar con tu número y tu PIN.");
+    return { closed };
+  });
+
   route("GET", "/api/me/login-pin", "customer", (c) => ({ hasPin: !!db.getSecret(`loginpin:${c.actor!.customerId!}`) }));
 
   // ---- Cuentas de clientes con correo + contrasena (registro, login, recuperar) ----
@@ -446,7 +571,7 @@ export function createApp(cfg: AppConfig): App {
     if (custByEmail(email)) throw new DomainError("VALIDATION", "Ya hay una cuenta con ese correo. Entrá con tu número y PIN, o tocá \"Olvidé mi contraseña\" para crear una clave.");
     const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
     db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
-    startSession(c.res, "customer", cust.id);
+    startSession(c, "customer", cust.id);
     sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta esta lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podes comprar e iniciar sesion con tu correo y contrasena.</p>`)).catch(() => undefined);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
@@ -455,11 +580,18 @@ export function createApp(cfg: AppConfig): App {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const k = `loginem|${c.ip}|${email}`;
     if (loginLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Proba en 15 minutos.");
+    const lockKey = `pw:${email}`, wait = lockWait(lockKey);
+    if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const cust = custByEmail(email);
     const stored = cust ? db.getSecret(`custpw:${cust.id}`) : undefined;
-    if (!cust || !verifyPassword(String(c.body?.password ?? ""), stored)) { loginLimiter.take(k); throw new HttpError(401, "BAD_LOGIN", "Correo o contrasena incorrectos"); }
+    if (!cust || !verifyPassword(String(c.body?.password ?? ""), stored)) {
+      loginLimiter.take(k);
+      if (cust && stored) { failOnce(lockKey, "customer", cust.id, cust.name); logAccess(c, "customer", cust.id, "login_fail", false); }
+      throw new HttpError(401, "BAD_LOGIN", "Correo o contrasena incorrectos");
+    }
     loginLimiter.reset(k);
-    startSession(c.res, "customer", cust.id);
+    db.failClear(lockKey);
+    startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
@@ -474,7 +606,7 @@ export function createApp(cfg: AppConfig): App {
     if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
     db.setSecret(`custpw:${id}`, hashSecret(next), now());
     db.deleteSessionsOf?.(id);
-    startSession(c.res, "customer", id);
+    startSession(c, "customer", id);
     return { ok: true };
   });
   route("GET", "/api/me/has-password", "customer", (c) => ({ hasPassword: !!db.getSecret(`custpw:${c.actor!.customerId!}`) }));
@@ -513,7 +645,7 @@ export function createApp(cfg: AppConfig): App {
     db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
     db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
     db.deleteSessionsOf?.(data.id);
-    startSession(c.res, "customer", data.id);
+    startSession(c, "customer", data.id);
     return { ok: true };
   });
 
@@ -526,12 +658,12 @@ export function createApp(cfg: AppConfig): App {
     db.deleteSession(s.tokenHash); // un solo uso
     const cust = store.engine.s.customers[s.subjectId];
     if (!cust) throw new HttpError(401, "BAD_LINK", "Cliente inexistente");
-    startSession(c.res, "customer", cust.id);
+    startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
 
   route("POST", "/api/auth/logout", "public", (c) => {
-    if (c.session) db.deleteSession(c.session.tokenHash);
+    if (c.session) { db.deleteSession(c.session.tokenHash); if (c.session.kind === "staff" || c.session.kind === "customer") logAccess(c, c.session.kind, c.session.subjectId, "logout", true, ""); }
     clearCookie(c.res);
     return { ok: true };
   });
@@ -668,7 +800,7 @@ export function createApp(cfg: AppConfig): App {
     const tk = renewCfg().enabled ? renewTokenOf(c.params.token) : null;
     if (!tk) throw new HttpError(404, "BAD_LINK", "El link venció o ya se usó");
     if (renewCfg().access !== "full") throw new HttpError(403, "FORBIDDEN", "Este link solo sirve para renovar");
-    startSession(c.res, "customer", tk.customerId);
+    startSession(c, "customer", tk.customerId);
     return { ok: true };
   });
 
@@ -1017,6 +1149,7 @@ export function createApp(cfg: AppConfig): App {
     if (!cust) throw new HttpError(404, "NOT_FOUND", "Cliente inexistente");
     sellerKeyGuard(A(c), cust);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_link", "customer", cust.id));
+    logAccess(c, "customer", cust.id, "access_link", true, "la tienda");
     return { url: makeLoginLink(cust.id, cfg.publicOrigin ?? `http://${c.req.headers.host}`), expiresAt: now() + LINK_MS };
   });
 
@@ -1119,7 +1252,7 @@ export function createApp(cfg: AppConfig): App {
     if (!verifyPassword(String(c.body?.current ?? ""), me.passwordHash)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no coincide");
     store.admin.setStaffPassword(A(c), me.id, hashOrThrow(c.body?.next));
     db.deleteSessionsOf(me.id);
-    startSession(c.res, "staff", me.id);
+    startSession(c, "staff", me.id);
     return { ok: true };
   });
 
