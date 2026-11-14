@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 14/11/2026 · GaboHub: «Cerrar sesión» en «Más» (rama `salir-hub`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Revendedor en 360 px: «Más» muestra «🚪 Cerrar sesión» (≥ 44 px), el buscador lo encuentra con «salir», al tocarlo avisa «Cerraste sesión» y `/api/me` ya no tiene sesión | `test/hub-cerrar-sesion.test.mjs`, Playwright, datos ficticios | pasa |
+| Suite completa | `npm test` | **602 pasan, 0 fallan, 64 s** |
+
 ## 14/11/2026 · Direcciones con mayúsculas (publicado el 14/11, PR #62)
 | Qué | Cómo | Resultado |
 |---|---|---|
