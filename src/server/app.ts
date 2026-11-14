@@ -37,6 +37,7 @@ import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
 import { registerAlquilerRoutes, checkAccountChangePush as accountChangePush } from "./alquilerRoutes.js";
 import { registerPerfilRoutes } from "./perfilRoutes.js";
+import { attendHours, createPayOutcomePush } from "./avisoPago.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
@@ -388,6 +389,7 @@ export function createApp(cfg: AppConfig): App {
       footerText: st.footerText ?? "", instagram: st.instagram ?? "", tiktok: st.tiktok ?? "", facebook: st.facebook ?? "", seoTitle: st.seoTitle ?? "", seoDescription: st.seoDescription ?? "",
       testimonials: (st.testimonials ?? []).map((t) => ({ name: t.name, text: t.text, ...(t.business ? { business: t.business } : {}), ...(t.rating ? { rating: t.rating } : {}) })),
       faq: (st.faq ?? []).map((f) => ({ q: f.q, a: f.a })),
+      attendHours: attendHours(store), // horario de atención (el del bot): «Te respondemos desde las 8:00» (hablar.js)
     };
   });
   route("GET", "/api/products/:id/image", "public", (c) => sendImage(c, store.engine.s.products[c.params.id]?.imageFileRef, "Sin imagen"));
@@ -1169,19 +1171,21 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
   route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));
-  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => store.orders.approvePayment(A(c), c.params.id, {
+  // Aviso al celular del cliente de la tienda al aprobar o rechazar su pago (avisoPago.ts).
+  const payPush = createPayOutcomePush({ store, push: (cid, m) => customerPush(cid, m) });
+  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => payPush(store.orders.approvePayment(A(c), c.params.id, {
     confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey,
     force: c.body?.force === true, forceReason: c.body?.forceReason === undefined ? undefined : String(c.body.forceReason),
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
-  }));
+  })));
   route("GET", "/api/admin/order-groups", "staff", (c) => store.rmes.groups(A(c)));
   route("POST", "/api/admin/order-groups/approve", "staff", (c) => store.rmes.approveGroup(A(c), { orderIds: c.body?.orderIds, confirmedReference: c.body?.confirmedReference, amount: c.body?.amount, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/trials", "staff", (c) => {
     const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
     return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
   });
-  route("POST", "/api/admin/orders/:id/reject", "staff", (c) => store.orders.rejectPayment(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/orders/:id/reject", "staff", (c) => payPush(store.orders.rejectPayment(A(c), c.params.id, String(c.body?.reason ?? ""))));
   route("GET", "/api/admin/orders/:id/evidence", "staff", (c) => {
     const ev = store.admin.evidence(A(c), c.params.id);
     const file = join(uploads, ev.fileRef);
