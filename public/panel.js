@@ -1049,9 +1049,11 @@ const V = {
     const vivosOf = (a) => a.slots.filter((s) => s.status !== "retired");
     const af = P.tab.accf ?? "todas";
     const prov7 = (a) => a.status !== "retired" && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * 86400000;
-    const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter(fn).length, 0);
-    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt((s) => s.status === "available")], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Cliente vence (3 días)", cnt((s) => slotState(s) === "soon")], ["vencidas", "Cliente vencido", cnt((s) => slotState(s) === "exp")], ["cuarentena", "En cuarentena", cnt((s) => s.status === "quarantined")], ["prov7", "📅 Proveedor ≤ 7 días", accs.filter(prov7).length]];
-    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => s.status === "available")) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")) || (af === "cuarentena" && sv.some((s) => s.status === "quarantined")) || (af === "prov7" && prov7(a)); };
+    const cnt = (fn) => accs.reduce((n, a) => n + vivosOf(a).filter((s) => fn(s, a)).length, 0);
+    // «Disponibles» = a la venta de verdad: no cuentan los de una cuenta caída, «No vender», vencida o un perfil suelto vencido.
+    const forSale = (s, a) => s.status === "available" && a.status === "active" && !a.sellBlock && a.supplierExpiresAt > now && !(s.loose && (s.loose.down || s.loose.until <= now));
+    const fchips = [["todas", "Todas", cnt(() => true)], ["libres", "Disponibles", cnt(forSale)], ["ocupadas", "Ocupadas", cnt((s) => s.status === "assigned")], ["vencer", "Cliente vence (3 días)", cnt((s) => slotState(s) === "soon")], ["vencidas", "Cliente vencido", cnt((s) => slotState(s) === "exp")], ["cuarentena", "En cuarentena", cnt((s) => s.status === "quarantined")], ["prov7", "📅 Proveedor ≤ 7 días", accs.filter(prov7).length]];
+    const matchF = (a) => { const sv = vivosOf(a); return af === "todas" || (af === "libres" && sv.some((s) => forSale(s, a))) || (af === "ocupadas" && sv.some((s) => s.status === "assigned")) || (af === "vencer" && sv.some((s) => slotState(s) === "soon")) || (af === "vencidas" && sv.some((s) => slotState(s) === "exp")) || (af === "cuarentena" && sv.some((s) => s.status === "quarantined")) || (af === "prov7" && prov7(a)); };
     const aq = (P.tab.accq ?? "").trim().toLowerCase();
     const matchQ = (a) => !aq || `${a.email} ${pname(a.productId)} ${a.slots.map((s) => s.customerName || "").join(" ")}`.toLowerCase().includes(aq);
     const shownAccs = accs.filter(matchF).filter(matchQ);
@@ -1146,7 +1148,7 @@ const V = {
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    return `${pfCard}${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
