@@ -929,11 +929,13 @@ export function createApp(cfg: AppConfig): App {
     const bsn = (v: number) => Math.round(v) / 100;
     const rows: (string | number | null)[][] = [
       ["Cierre de mes", d.label], [],
-      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)], ["· pagos del fiado", bsn(d.delFiado)],
+      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)], ["· pagos del fiado", bsn(d.delFiado)], ["· devuelto a clientes (resta)", bsn(-d.devueltoClientes)],
       ["Ventas", d.ventas], ["Renovaciones", d.renovaciones], ["Cobros del Control", d.cobrosControl],
-      ["Gastos", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["Te quedó", bsn(d.ganancia)],
-      ["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", d.sinCostos ? "sin costos anotados" : bsn(d.gananciaEstimada)],
-      [], ["Mes anterior", d.prev.label], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Cuentas sin anotar (estimado)", bsn(d.prev.cuentasEstimado)], ["Te quedó (estimado)", d.prev.sinCostos ? "sin costos anotados" : bsn(d.prev.gananciaEstimada)],
+      // 15/11/2026: una sola fila «Te quedó» (entró − gastos − lo estimado); antes había dos y no se sabía cuál era.
+      ["Gastos (ya restadas las devoluciones)", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["· te devolvieron proveedores", bsn(d.devueltoProveedores)],
+      ["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Gastos fijos sin anotar (estimado)", bsn(d.fijosEstimado)],
+      ["Te quedó", bsn(d.gananciaEstimada), d.sinCostos ? "sin costos anotados: no es ganancia real" : "entró − gastos − estimados"],
+      [], ["Mes anterior", d.prev.label], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Estimados (cuentas y fijos)", bsn(d.prev.cuentasEstimado + d.prev.fijosEstimado)], ["Te quedó", bsn(d.prev.gananciaEstimada), d.prev.sinCostos ? "sin costos anotados" : ""],
       ["Variación de ingresos", d.vs.ingresosPct === null ? "—" : `${d.vs.ingresosPct} %`],
       [], ["Apps que más dejaron", "Entró", "Unidades", "Costo", "Ganancia"],
       ...d.topApps.map((a) => [a.name, bsn(a.ingresos), a.units, bsn(a.costo), bsn(a.gana)]),
@@ -943,8 +945,19 @@ export function createApp(cfg: AppConfig): App {
     store.engine.tx(() => store.engine.audit(A(c), "export", "export", "cierre", { month: d.month }));
     return sendFile(c, writeXlsx([{ name: `Cierre ${d.label}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
   });
-  route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
+  // Gastos con fecha, moneda, categoría y proveedor; editar; ver otros meses; devoluciones; gastos fijos (gastos.ts).
+  route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpenseFull(A(c), c.body ?? {}));
+  route("GET", "/api/admin/expenses", "staff", (c) => store.finance.monthExpenses(A(c), c.query.get("month") ?? undefined));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
+  route("POST", "/api/admin/expenses/:id", "staff", (c) => store.finance.updateExpense(A(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/admin/finance/refunds", "staff", (c) => { const b = c.body ?? {}; return store.finance.addRefund(A(c), { amount: b.amount, currency: b.currency, rate: b.rate, supplierId: b.supplierId, accountId: b.accountId, note: b.note, at: b.at }); });
+  route("GET", "/api/admin/finance/fixed", "staff", (c) => store.finance.listFixed(A(c)));
+  route("POST", "/api/admin/finance/fixed", "staff", (c) => store.finance.upsertFixed(A(c), c.body ?? {}));
+  route("POST", "/api/admin/finance/fixed/:id/remove", "staff", (c) => store.finance.removeFixed(A(c), c.params.id));
+  route("POST", "/api/admin/finance/fixed/:id/pay", "staff", (c) => store.finance.payFixed(A(c), c.params.id, { amount: c.body?.amount, month: c.body?.month, date: c.body?.date }));
+  route("GET", "/api/admin/finance/proveedores", "staff", (c) => store.finance.suppliersMonth(A(c), c.query.get("month") ?? undefined));
+  route("POST", "/api/admin/orders/:id/amend", "staff", (c) => store.finance.amendOrder(A(c), c.params.id, { total: c.body?.total, reason: c.body?.reason }));
+  route("GET", "/api/admin/assignments/:id/sale-to-fix", "staff", (c) => store.finance.saleToFix(A(c), c.params.id));
   route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));
   route("POST", "/api/admin/finance/min-margin", "staff", (c) => store.finance.setMinMargin(A(c), c.body?.pct));
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
@@ -1076,7 +1089,7 @@ export function createApp(cfg: AppConfig): App {
     const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
     // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
-    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
+    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id, { months: b.paidMonths, amount: b.paidAmount });
     return r;
   });
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
@@ -1102,7 +1115,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/assignments/:id/test", "staff", (c) => store.orders.markTest(A(c), c.params.id, c.body?.reason));
-  route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
+  route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason, cash: c.body?.cash === true, slotFallen: c.body?.slotFallen === true }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
   // "Mi secretaria": todo lo pendiente en una pantalla (solo lee).
@@ -1116,7 +1129,7 @@ export function createApp(cfg: AppConfig): App {
     try { return await reviewOrder(c.params.id); }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
-  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
+  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }));
   route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));

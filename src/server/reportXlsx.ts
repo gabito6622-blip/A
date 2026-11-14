@@ -19,6 +19,8 @@ import { isForeign, listPriceMine, localeOf } from "../store/country.js";
 import { paidTotal } from "../store/usd.js";
 import { effectivePrice } from "../store/admin.js";
 import { accountsEstimateMonth } from "../store/finanzasCostos.js";
+import { CATEGORY_LABEL, pendingFixed, signedAmount } from "../store/gastos.js";
+import { supplierMonth } from "../store/proveedoresMes.js";
 import { writeXlsxPro, type CellStyle, type ProCell, type ProRow, type ProSheet, type Workbook } from "./xlsx.js";
 import { fdate } from "./exportCenter.js";
 
@@ -77,8 +79,8 @@ function storeReport(store: GabrielStore, actor: Actor, per: Period, origin?: st
   const nameOf = (id: Id) => s.customers[id]?.name ?? "—";
   const METHOD: Record<string, string> = { qr: "QR", balance: "Saldo", cash: "Efectivo", usdt: "USDT", binance: "Binance Pay" };
   // Ventas
-  const ventas: ProRow[] = evPer.map((x) => [td(bo(x.at), { numFmt: "dd/mm/yyyy" }), td(nameOf(x.payerId)), td(x.payerId !== x.customerId ? `${nameOf(x.customerId)} (cliente del revendedor)` : ""), td(x.kind === "sale" ? "Venta" : x.kind === "renewal" ? "Renovación" : x.kind === "fiado" ? "Pago del fiado" : "Cobro del Control"),
-    td(x.items.map((i) => `${i.qty} × ${s.products[i.productId]?.name ?? i.productId}`).join(", ")), num(x.amount / 100, fmt), td(x.order ? METHOD[x.order.paymentMethod] ?? x.order.paymentMethod : "Efectivo / QR directo"), td(x.source === "order" ? "Pedido" : x.source === "fiado" ? "Fiado" : "Control")]);
+  const ventas: ProRow[] = evPer.map((x) => [td(bo(x.at), { numFmt: "dd/mm/yyyy" }), td(nameOf(x.payerId)), td(x.payerId !== x.customerId ? `${nameOf(x.customerId)} (cliente del revendedor)` : ""), td(x.kind === "sale" ? "Venta" : x.kind === "renewal" ? "Renovación" : x.kind === "fiado" ? "Pago del fiado" : x.kind === "refund" ? "Devolución a cliente (resta)" : "Cobro del Control"),
+    td(x.items.map((i) => `${i.qty} × ${s.products[i.productId]?.name ?? i.productId}`).join(", ")), num(x.amount / 100, fmt, x.amount < 0 ? { color: C.bad } : {}), td(x.order ? `${METHOD[x.order.paymentMethod] ?? x.order.paymentMethod}${x.order.payLater ? " · fiado, cobrado" : ""}` : x.source === "refund" ? "Devolución" : "Efectivo / QR directo"), td(x.source === "order" ? "Pedido" : x.source === "fiado" ? "Fiado" : x.source === "refund" ? "Devolución" : "Control")]);
   // Por producto
   const by = new Map<Id, { name: string; units: number; amount: Cents }>();
   for (const x of evPer) for (const it of x.items) { const b = by.get(it.productId) ?? { name: s.products[it.productId]?.name ?? it.productId, units: 0, amount: 0 }; b.units += it.qty; b.amount += it.amount; by.set(it.productId, b); }
@@ -89,16 +91,18 @@ function storeReport(store: GabrielStore, actor: Actor, per: Period, origin?: st
   // «Te quedó» con la MISMA regla que Finanzas: ingresos − gastos − costo estimado de las cuentas (finanzasCostos.ts).
   const months: { key: string; ingresos: Cents; pedidos: Cents; control: Cents; fiado: Cents; gastos: Cents; cuentas: Cents; sinCostos: boolean }[] = [];
   const endP = boParts(per.to);
-  for (let i = 5; i >= 0; i--) { const d = new Date(Date.UTC(endP.y, endP.m - i, 1, 12)); const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; const est = accountsEstimateMonth(e, key, now); months.push({ key, ingresos: 0, pedidos: 0, control: 0, fiado: 0, gastos: 0, cuentas: est.amount, sinCostos: est.sinCostos }); }
+  // «Estimado» = cuentas sin anotar + gastos fijos sin anotar (la misma resta que «Te quedó» del panel).
+  for (let i = 5; i >= 0; i--) { const d = new Date(Date.UTC(endP.y, endP.m - i, 1, 12)); const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; const est = accountsEstimateMonth(e, key, now); months.push({ key, ingresos: 0, pedidos: 0, control: 0, fiado: 0, gastos: 0, cuentas: est.amount + pendingFixed(e, key).reduce((t, f) => t + f.amount, 0), sinCostos: est.sinCostos }); }
   const mi = new Map(months.map((m, i) => [m.key, i]));
   for (const x of events) { const i = mi.get(monthKey(x.at)); if (i !== undefined) { months[i].ingresos += x.amount; if (x.source === "order") months[i].pedidos += x.amount; else if (x.source === "fiado") months[i].fiado += x.amount; else months[i].control += x.amount; } }
-  for (const g of s.expenses ?? []) { const i = mi.get(monthKey(g.at)); if (i !== undefined) months[i].gastos += g.amount; }
+  for (const g of s.expenses ?? []) { const i = mi.get(monthKey(g.at)); if (i !== undefined) months[i].gastos += signedAmount(g); }
   const mensual: ProRow[] = months.map((m, i) => [td(monthLabel(m.key)), num(m.ingresos / 100, fmt), num(m.pedidos / 100, fmt), num(m.control / 100, fmt), num(m.fiado / 100, fmt), num(m.gastos / 100, fmt), num(m.cuentas / 100, fmt), { f: `B${5 + i}-F${5 + i}-G${5 + i}`, s: { numFmt: fmt, border: true, align: "right", bold: true } } as ProCell, td(m.sinCostos ? "sin costos anotados" : "", { italic: true, color: C.muted })]);
   // Costo estimado de las cuentas en los meses del período (el mismo número que «🔑 Cuentas (estimado)» de Finanzas).
   const perKeys: string[] = [];
   for (let t = Date.UTC(boParts(per.from).y, boParts(per.from).m, 1, 12); monthKey(t) <= monthKey(per.to); t = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth() + 1, 1, 12)) perKeys.push(monthKey(t));
   const perEst = perKeys.map((k) => accountsEstimateMonth(e, k, now));
   const cuentasPer = perEst.reduce((t, x) => t + x.amount, 0), sinCostosPer = perEst.every((x) => x.sinCostos);
+  const fijosPer = perKeys.reduce((t, k) => t + pendingFixed(e, k).reduce((u, f) => u + f.amount, 0), 0);
   // Cobros y deudas
   const fi = fiadoOverview(e, actor);
   const deudas: ProRow[] = fi.rows.map((r) => [td(r.name), td(r.phone), td(r.kind === "reseller" ? "Revendedor" : "Cliente"), num(r.owed / 100, fmt), num(r.unlinked.amount / 100, fmt), td(r.nextDue ? bo(r.nextDue) : "", { numFmt: "dd/mm/yyyy" }), td(r.overdue ? "Vencido" : r.owed > 0 ? "Pendiente" : "A favor", { color: r.overdue ? C.bad : r.owed > 0 ? C.warn : C.ok, bold: true })]);
@@ -112,14 +116,22 @@ function storeReport(store: GabrielStore, actor: Actor, per: Period, origin?: st
   const activeOf = (id: Id) => asg.filter((a) => a.customerId === id).length;
   const clientes: ProRow[] = custs.map((c) => [td(c.name), td(c.phone ?? ""), td(c.kind === "reseller" ? "Revendedor" : c.resellerId ? `Cliente de ${nameOf(c.resellerId)}` : "Cliente"), num(activeOf(c.id), "0"), td(last[c.id] ? bo(last[c.id]) : "", { numFmt: "dd/mm/yyyy" }), td(bo(c.createdAt), { numFmt: "dd/mm/yyyy" })]);
   // KPIs
-  const gastosPer = (s.expenses ?? []).filter((g) => inPer(g.at)).reduce((t, g) => t + g.amount, 0);
+  const gastosPer = (s.expenses ?? []).filter((g) => inPer(g.at)).reduce((t, g) => t + signedAmount(g), 0);
+  // Gastos del período (con fecha, categoría, dólares y tasa, proveedor) y devoluciones de proveedores (en verde, restan).
+  const supName = (id?: Id) => (id ? s.suppliers[id]?.name ?? "" : "");
+  const gastosRows: ProRow[] = (s.expenses ?? []).filter((g) => inPer(g.at)).sort((a, b) => a.at - b.at).map((g) => [td(bo(g.at), { numFmt: "dd/mm/yyyy" }), td(CATEGORY_LABEL[g.category ?? (g.accountId ? "cuenta" : "otro")]), td(g.note),
+    num(signedAmount(g) / 100, fmt, g.refund ? { color: C.ok, bold: true } : {}), g.usd ? num(g.usd / 100, money("US$", 2)) : td(""), g.rate ? num(g.rate, "0.00##") : td(""),
+    td(supName(g.supplierId ?? (g.accountId ? s.accounts[g.accountId]?.supplierId : undefined))), td(g.refund ? "Devolución (resta)" : g.months && g.months > 1 ? `Gasto · cubre ${g.months} meses` : "Gasto", g.refund ? { color: C.ok, bold: true } : {})]);
+  // Proveedores, mes por mes del período: lo pagado de verdad, lo devuelto, lo estimado y lo que entró por sus cuentas.
+  const provRows: ProRow[] = perKeys.flatMap((k) => supplierMonth(e, actor, k).rows.map((r) => [td(monthLabel(k)), td(r.name), num(r.pagado / 100, fmt), num(r.devuelto / 100, fmt, r.devuelto ? { color: C.ok } : {}), num(r.estimado / 100, fmt), num(r.ingresos / 100, fmt), num(r.ganancia / 100, fmt, { bold: true, color: r.ganancia < 0 ? C.bad : C.ink })]));
   const ventasN = evPer.filter((x) => x.kind === "sale").length, renovN = evPer.filter((x) => x.kind === "renewal").length, controlN = evPer.filter((x) => x.kind === "control").length, fiadoN = evPer.filter((x) => x.kind === "fiado").length;
   const activos = new Set(asg.map((a) => a.customerId)).size, porVencer = asg.filter((a) => a.customerExpiresAt >= now && a.customerExpiresAt - now <= 7 * DAY).length, vencidos = asg.filter((a) => a.customerExpiresAt < now).length;
   const portada = cover(st.storeName, "Reporte del negocio", per, sym, origin, [
     ["Ingresos del período", { f: `SUM(Ventas!F5:F${4 + Math.max(ventas.length, 1)})`, fmt }, "pedidos entregados + cobros del Control + pagos del fiado (sin duplicar)"],
     ["Gastos del período", gastosPer / 100, "anotados en Finanzas", true],
     ["Costo estimado de cuentas", cuentasPer / 100, sinCostosPer ? "sin costos anotados: cargá el costo de tus cuentas para ver la ganancia real" : "cuentas vivas que no anotaste como gasto, a su costo por mes (igual que Finanzas)", true],
-    ["Te quedó", { f: "B6-B7-B8", fmt }, "ingresos − gastos − costo de las cuentas: la misma ganancia que el panel"],
+    ["Gastos fijos sin anotar", fijosPer / 100, "internet, publicidad… que definiste como fijos y ese mes no anotaste (estimado)", true],
+    ["Te quedó", { f: "B6-B7-B8-B9", fmt }, "ingresos − gastos − costo de las cuentas − fijos sin anotar: la misma ganancia que el panel"],
     ["Ventas", ventasN, ""], ["Renovaciones", renovN, ""], ["Cobros del Control", controlN, ""], ["Pagos del fiado", fiadoN, ""],
     ["Clientes con servicio activo", activos, ""], ["Servicios activos", asg.length, ""], ["Vencen en 7 días", porVencer, ""], ["Vencidos sin renovar", vencidos, ""],
     ["Te deben", (fi.totals.owed + fi.totals.unlinked) / 100, "libreta de fiado + servicios marcados sin pagar", true],
@@ -127,12 +139,14 @@ function storeReport(store: GabrielStore, actor: Actor, per: Period, origin?: st
   const n = Math.max(prodRows.length, 1), nm = months.length;
   const book: Workbook = { creator: st.storeName, title: `Reporte ${st.storeName} ${fdate(per.from)} a ${fdate(per.to)}`, sheets: [
     portada,
-    table("Resumen", "Ingresos por mes", "Últimos 6 meses · misma fuente y misma ganancia que Inicio y Finanzas", ["Mes", `Ingresos (${sym})`, "De pedidos", "Del Control", "Del fiado", "Gastos", "Cuentas (estimado)", "Te quedó", "Nota"], mensual, [18, 16, 14, 14, 14, 14, 16, 16, 20], { tab: C.gold, charts: [{ type: "column", title: "Ingresos por mes", categories: `A5:A${4 + nm}`, series: [{ name: "Ingresos", values: `B5:B${4 + nm}`, color: C.gold }, { name: "Gastos", values: `F5:F${4 + nm}`, color: C.bad }], anchor: { col: 10, row: 3, cols: 8, rows: 16 } }] }),
+    table("Resumen", "Ingresos por mes", "Últimos 6 meses · misma fuente y misma ganancia que Inicio y Finanzas", ["Mes", `Ingresos (${sym})`, "De pedidos", "Del Control", "Del fiado", "Gastos (menos devoluciones)", "Cuentas y fijos (estimado)", "Te quedó", "Nota"], mensual, [18, 16, 14, 14, 14, 14, 16, 16, 20], { tab: C.gold, charts: [{ type: "column", title: "Ingresos por mes", categories: `A5:A${4 + nm}`, series: [{ name: "Ingresos", values: `B5:B${4 + nm}`, color: C.gold }, { name: "Gastos", values: `F5:F${4 + nm}`, color: C.bad }], anchor: { col: 10, row: 3, cols: 8, rows: 16 } }] }),
     table("Ventas", "Ventas e ingresos", `${fdate(per.from)} a ${fdate(per.to)} · ${evPer.length} movimiento${evPer.length === 1 ? "" : "s"}`, ["Fecha", "Quién pagó", "Para", "Tipo", "Detalle", `Monto (${sym})`, "Forma de pago", "Origen"], ventas, [12, 24, 26, 16, 36, 14, 14, 10], { totals: { 5: fmt }, tab: "#16a34a" }),
     table("Por producto", "Ventas por producto", `${fdate(per.from)} a ${fdate(per.to)}`, ["Producto", "Unidades", `Ingresos (${sym})`, "% del total"], porProducto, [30, 12, 16, 12], { totals: { 1: "0", 2: fmt }, charts: [{ type: "bar", title: "Ingresos por producto", categories: `A5:A${4 + n}`, series: [{ name: "Ingresos", values: `C5:C${4 + n}`, color: C.navy }], anchor: { col: 5, row: 3, cols: 8, rows: 14 } }, { type: "pie", title: "Participación", categories: `A5:A${4 + n}`, series: [{ name: "Ingresos", values: `C5:C${4 + n}` }], anchor: { col: 5, row: 19, cols: 8, rows: 14 } }] }),
     table("Cobros y deudas", "Quién te debe", `Al ${fdate(now)} · ${fi.totals.people} persona${fi.totals.people === 1 ? "" : "s"}`, ["Cliente", "WhatsApp", "Tipo", `Debe (${sym})`, `Sin pagar en el Control (${sym})`, "Próximo vencimiento", "Estado"], deudas, [26, 16, 12, 14, 18, 16, 12], { totals: { 3: fmt, 4: fmt }, tab: C.bad }),
     table("Vencimientos", "Suscripciones y vencimientos", `Servicios activos al ${fdate(now)} · ${asg.length}`, ["Cliente", "WhatsApp", "Revendedor", "Producto", "Perfil", "Vence", "Días", "Pago", `Precio (${sym})`], venc, [24, 16, 18, 24, 14, 12, 8, 12, 12], { tab: C.warn, note: "Sin correos ni claves de las cuentas: eso queda en el panel." }),
     table("Clientes", "Clientes", `${custs.length} en total`, ["Nombre", "WhatsApp", "Tipo", "Servicios activos", "Última compra", "Alta"], clientes, [28, 16, 26, 14, 14, 12]),
+    table("Gastos", "Gastos y devoluciones", `${fdate(per.from)} a ${fdate(per.to)} · una devolución del proveedor resta (en verde)`, ["Fecha", "Categoría", "En qué", `Monto (${sym})`, "US$", "Tasa", "Proveedor", "Tipo"], gastosRows, [12, 14, 36, 14, 10, 8, 20, 22], { totals: { 3: fmt }, tab: C.bad }),
+    table("Proveedores", "Proveedores mes a mes", "Pagado de verdad, devuelto, estimado sin anotar e ingresos de los clientes que estaban en sus cuentas al pagar", ["Mes", "Proveedor", "Pagado", "Te devolvió", "Estimado sin anotar", "Entró por sus cuentas", "Ganancia"], provRows, [16, 26, 14, 14, 16, 18, 14], { totals: { 2: fmt, 3: fmt, 4: fmt, 5: fmt, 6: fmt }, tab: C.navy }),
   ] };
   return { book, name: `reporte-${slug(st.storeName)}-${monthKey(per.from)}.xlsx` };
 }
@@ -210,7 +224,7 @@ function cover(business: string, kind: string, per: Period, sym: string, origin:
     [cell("Indicadores", SEC), cell("Valor", SEC), cell("Qué es", SEC)],
     ...kpis.map(([k, v, note, isMoney]): ProRow => [cell(k, { ...KL, border: true }), typeof v === "object" ? ({ f: v.f, s: { ...KV, numFmt: v.fmt, border: true, align: "right" } } as ProCell) : typeof v === "number" ? cell(v, { ...KV, numFmt: isMoney ? fmt : "0", border: true, align: "right" }) : cell(v, { ...KV, border: true, align: "right" }), cell(note, { ...KL, italic: true, border: true, wrap: true })]),
     [],
-    [cell("Hojas: Resumen (mes a mes, con gráfico) · Ventas · Por producto (con gráficos) · Cobros y deudas · Vencimientos · Clientes.", SUB)],
+    [cell(`Hojas: Resumen (mes a mes, con gráfico) · Ventas · Por producto (con gráficos) · Cobros y deudas · Vencimientos · Clientes${kind === "Reporte del negocio" ? " · Gastos · Proveedores" : ""}.`, SUB)],
     [cell("Los ingresos siguen la misma regla que el panel: pedidos entregados, cobros del Control y pagos del fiado de la tienda, sin contar dos veces el mismo pago. Ingresos no es ganancia.", { ...SUB, italic: true })],
     ...(origin ? [[cell(origin, { color: "#2563eb" }, { link: origin })]] : []),
   ];

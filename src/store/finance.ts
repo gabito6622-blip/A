@@ -7,6 +7,7 @@ import { DomainError } from "./errors.js";
 import { DAY, boMonthKey, boMonthStart, boParts } from "./time.js";
 import { incomeEvents, type IncomeEvent } from "./income.js";
 import { accountCostBs, accountsEstimateMonth } from "./finanzasCostos.js";
+import { netOf, pendingFixed, signedAmount } from "./gastos.js";
 export { accountCostBs } from "./finanzasCostos.js";
 
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -47,29 +48,31 @@ export function report(e: Engine, actor: Actor, n = 6) {
   const now = e.now();
   const months = Array.from({ length: n }, (_, i) => {
     const start = boMonthStart(now, -(n - 1 - i)), p = boParts(start);
-    return { key: mk(start), label: `${MES[p.m]} ${String(p.y).slice(2)}`, longLabel: `${MES_LARGO[p.m]} ${p.y}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents, delControl: 0 as Cents, delFiado: 0 as Cents };
+    return { key: mk(start), label: `${MES[p.m]} ${String(p.y).slice(2)}`, longLabel: `${MES_LARGO[p.m]} ${p.y}`, ingresos: 0 as Cents, gastos: 0 as Cents, cuentas: 0 as Cents, ganancia: 0 as Cents, delControl: 0 as Cents, delFiado: 0 as Cents, devuelto: 0 as Cents, devueltoClientes: 0 as Cents };
   });
   const idx = new Map(months.map((m, i) => [m.key, i]));
   // Fuente única de ingresos (pedidos entregados + cobros marcados en el Control): la misma que Inicio y Cómo van.
   const events = incomeEvents(e, now);
   for (const x of events) {
     const i = idx.get(mk(x.at));
-    if (i !== undefined) { months[i].ingresos += x.amount; if (x.source === "control") months[i].delControl += x.amount; if (x.source === "fiado") months[i].delFiado += x.amount; }
+    if (i !== undefined) { months[i].ingresos += x.amount; if (x.source === "control") months[i].delControl += x.amount; if (x.source === "fiado") months[i].delFiado += x.amount; if (x.source === "refund") months[i].devueltoClientes -= x.amount; }
   }
+  // Gastos en el mes de SU fecha; una devolución del proveedor resta (gastos.ts).
   for (const x of (e.s.expenses ?? [])) {
     const i = idx.get(mk(x.at));
-    if (i !== undefined) { months[i].gastos += x.amount; if (x.accountId) months[i].cuentas += x.amount; }
+    if (i !== undefined) { months[i].gastos += signedAmount(x); if (x.accountId) months[i].cuentas += signedAmount(x); if (x.refund) months[i].devuelto += x.amount; }
   }
-  // Cada mes resta el costo estimado de sus cuentas (finanzasCostos.ts): los meses cerrados ya no salen con 100 % de ganancia.
+  // Cada mes resta el costo estimado de sus cuentas (finanzasCostos.ts) y los gastos fijos que faltan anotar.
   const meses = months.map((m) => {
     const est = accountsEstimateMonth(e, m.key, now);
+    const fijos = pendingFixed(e, m.key), fijosEstimado = fijos.reduce((t, f) => t + f.amount, 0);
     m.ganancia = m.ingresos - m.gastos;
-    return { ...m, cuentasEstimado: est.amount, sinAnotar: est.count, sinCostos: est.sinCostos, gananciaEstimada: m.ganancia - est.amount };
+    return { ...m, cuentasEstimado: est.amount, sinAnotar: est.count, sinCostos: est.sinCostos, fijosPendientes: fijos, fijosEstimado, gananciaEstimada: m.ganancia - est.amount - fijosEstimado };
   });
   const curKey = mk(now);
   const curExpenses = (e.s.expenses ?? []).filter((x) => mk(x.at) === curKey).sort((a, b) => b.at - a.at);
   const current = meses[meses.length - 1];
-  return { months: meses, current, topApps: topAppsOfMonth(e, events.filter((x) => mk(x.at) === curKey)), expenses: structuredClone(curExpenses) };
+  return { months: meses, current, topApps: topAppsOfMonth(e, events.filter((x) => mk(x.at) === curKey)), expenses: structuredClone(curExpenses), pendientesFijos: current.fijosPendientes };
 }
 
 /**
@@ -94,9 +97,10 @@ export function monthClose(e: Engine, actor: Actor, month?: unknown) {
     for (const x of ev) byPayer.set(x.payerId, (byPayer.get(x.payerId) ?? 0) + x.amount);
     const payers = [...byPayer].map(([id, amount]) => ({ customerId: id, name: e.s.customers[id]?.name ?? "—", kind: e.s.customers[id]?.kind ?? "customer", amount })).sort((a, b) => b.amount - a.amount);
     const ingresos = sum(ev);
-    const g = gastos.reduce((t, x) => t + x.amount, 0), cuentas = gastos.filter((x) => x.accountId).reduce((t, x) => t + x.amount, 0);
+    const g = netOf(gastos), cuentas = netOf(gastos.filter((x) => x.accountId));
     return {
       key: k, ingresos, delControl: sum(ev.filter((x) => x.source === "control")), dePedidos: sum(ev.filter((x) => x.source === "order")), delFiado: sum(ev.filter((x) => x.source === "fiado")),
+      devueltoClientes: -sum(ev.filter((x) => x.source === "refund")), devueltoProveedores: gastos.filter((x) => x.refund).reduce((t, x) => t + x.amount, 0),
       cobrosFiado: ev.filter((x) => x.kind === "fiado").length,
       ventas: ev.filter((x) => x.kind === "sale").length, renovaciones: ev.filter((x) => x.kind === "renewal").length, cobrosControl: ev.filter((x) => x.kind === "control").length,
       gastos: g, cuentas, ganancia: ingresos - g,
@@ -112,15 +116,17 @@ export function monthClose(e: Engine, actor: Actor, month?: unknown) {
   const pct = (a: number, b: number) => (prevIncomplete || b <= 0 ? null : Math.round(((a - b) / b) * 100));
   // La MISMA regla de costo de cuentas para el mes elegido y para el anterior (también si el mes ya cerró).
   const est = accountsEstimateMonth(e, key, now), estPrev = accountsEstimateMonth(e, prevKey, now);
-  const gan = cur.ganancia - est.amount, ganPrev = prev.ganancia - estPrev.amount;
+  const fijos = pendingFixed(e, key), fijosEstimado = fijos.reduce((t, f) => t + f.amount, 0);
+  const fijosPrev = pendingFixed(e, prevKey).reduce((t, f) => t + f.amount, 0);
+  const gan = cur.ganancia - est.amount - fijosEstimado, ganPrev = prev.ganancia - estPrev.amount - fijosPrev;
   const MESL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const months = Array.from({ length: 12 }, (_, i) => { const s = boMonthStart(now, -i), p2 = boParts(s); return { key: mk(s), label: `${MESL[p2.m]} ${p2.y}` }; });
   return {
     month: key, label: `${MESL[m - 1]} ${y}`, closed: key < curKey, start, end, months,
     ...cur,
-    cuentasEstimado: est.amount, sinAnotar: est.count, sinCostos: est.sinCostos, gananciaEstimada: gan,
+    cuentasEstimado: est.amount, sinAnotar: est.count, sinCostos: est.sinCostos, fijosPendientes: fijos, fijosEstimado, gananciaEstimada: gan,
     prev: { key: prevKey, label: `${MESL[Number(prevKey.slice(5, 7)) - 1]} ${prevKey.slice(0, 4)}`, ingresos: prev.ingresos, gastos: prev.gastos, ganancia: prev.ganancia,
-      cuentasEstimado: estPrev.amount, sinCostos: estPrev.sinCostos, gananciaEstimada: ganPrev,
+      cuentasEstimado: estPrev.amount, fijosEstimado: fijosPrev, sinCostos: estPrev.sinCostos, gananciaEstimada: ganPrev,
       delControl: prev.delControl, delFiado: prev.delFiado, incomplete: prevIncomplete, dataSince: Number.isFinite(firstDataAt) ? firstDataAt : null },
     // La comparativa de ganancia usa la misma regla en los dos meses (con el costo estimado de las cuentas).
     vs: { ingresosPct: pct(cur.ingresos, prev.ingresos), ingresos: cur.ingresos - prev.ingresos, gananciaPct: pct(gan, ganPrev), ganancia: gan - ganPrev, gastos: cur.gastos - prev.gastos },
@@ -161,7 +167,10 @@ function topAppsOfMonth(e: Engine, events: IncomeEvent[]) {
       b.ingresos += it.amount; b.units += it.qty; b.costo += costOf(it.productId) * it.qty; // el total ya viene repartido (cupones/descuentos)
     }
   }
-  return Object.values(by).map((b) => ({ ...b, gana: b.ingresos - b.costo })).sort((a, b) => b.gana - a.gana).slice(0, 3);
+  const all = Object.values(by).map((b) => ({ ...b, gana: b.ingresos - b.costo })).sort((a, b) => b.gana - a.gana);
+  // Las 3 que más dejaron y, además, las que dan pérdida (la peor primero), para que no se escondan (hasta 2).
+  const top = all.slice(0, 3), loss = all.filter((b) => b.gana < 0 && !top.includes(b)).sort((a, b) => a.gana - b.gana).slice(0, 2);
+  return [...top, ...loss];
 }
 
 /** Suma `months` meses calendario a una fecha (mismo día; si no existe, el último del mes). */
@@ -202,23 +211,35 @@ export function payAccountRenewal(e: Engine, actor: Actor, accountId: Id, input:
     if (usd !== undefined) acc.costUsd = Math.round(usd / months);
     delete acc.supplierAlertSentFor;
     const usdTxt = usd !== undefined ? ` · US$ ${(usd / 100).toFixed(2)} × ${rate}` : "";
-    const exp: Expense = { id: e.id("exp"), amount, note: `Renovación ${prod} · ${acc.email}${usdTxt}`.slice(0, 120), at: e.now(), accountId: acc.id, ...(usd !== undefined ? { usd, rate: Math.round(rate! * 10_000) / 10_000 } : {}) };
+    // Pago por varios meses: cubre esos meses (finanzasCostos no vuelve a estimar esta cuenta en ellos).
+    const exp: Expense = { id: e.id("exp"), amount, note: `Renovación ${prod} · ${acc.email}${months > 1 ? ` · ${months} meses` : ""}${usdTxt}`.slice(0, 120), at: e.now(), accountId: acc.id, category: "cuenta", supplierId: acc.supplierId,
+      ...(months > 1 ? { months, coversUntil: next } : {}), ...(usd !== undefined ? { usd, rate: Math.round(rate! * 10_000) / 10_000, currency: "USD" as const } : {}) };
     (e.s.expenses ??= []).push(exp);
     e.audit(actor, "account.renew_paid", "account", acc.id, { amount, months, from: before, to: next, ...(usd !== undefined ? { usd, rate } : {}) });
     return { expense: structuredClone(exp), supplierExpiresAt: next, cost: acc.cost };
   });
 }
 
-/** Anota como gasto lo que pagaste por una cuenta recién cargada (opcional al cargarla). */
-export function recordAccountCost(e: Engine, actor: Actor, accountId: Id) {
+/**
+ * Anota como gasto lo que pagaste por una cuenta recién cargada (opcional al cargarla). Si pagaste varios meses
+ * (`months`; la Carga lo propone según cuándo vence), se anota el costo × meses (o lo que pagaste de verdad, `amount`) y
+ * ese pago cubre esos meses (15/11/2026: antes se anotaba un mes y los siguientes se estimaban otra vez).
+ */
+export function recordAccountCost(e: Engine, actor: Actor, accountId: Id, input: { amount?: unknown; months?: unknown } = {}) {
   authorize(actor, "inventory.manage");
   return e.tx(() => {
     const acc = e.get("accounts", accountId);
-    if (acc.cost <= 0) return null;
+    const months = input.months === undefined || input.months === null || input.months === "" ? 1 : Number(input.months);
+    if (!Number.isInteger(months) || months < 1 || months > 12) throw new DomainError("VALIDATION", "Meses pagados: de 1 a 12");
+    const given = input.amount === undefined || input.amount === null || input.amount === "" ? undefined : Math.round(Number(input.amount));
+    if (given !== undefined && (!Number.isInteger(given) || given <= 0)) throw new DomainError("VALIDATION", "Poné cuánto pagaste (mayor a 0)");
+    const amount = given ?? accountCostBs(e, acc) * months;
+    if (!(amount > 0)) return null;
     const prod = e.s.products[acc.productId]?.name ?? acc.productId;
-    const exp: Expense = { id: e.id("exp"), amount: acc.cost, note: `Compra ${prod} · ${acc.email}`.slice(0, 120), at: e.now(), accountId: acc.id };
+    const exp: Expense = { id: e.id("exp"), amount, note: `Compra ${prod} · ${acc.email}${months > 1 ? ` · ${months} meses` : ""}`.slice(0, 120), at: e.now(), accountId: acc.id, category: "cuenta", supplierId: acc.supplierId,
+      ...(months > 1 ? { months, coversUntil: acc.supplierExpiresAt } : {}) };
     (e.s.expenses ??= []).push(exp);
-    e.audit(actor, "expense.add", "expense", exp.id, { amount: acc.cost, accountId: acc.id });
+    e.audit(actor, "expense.add", "expense", exp.id, { amount, accountId: acc.id, ...(months > 1 ? { months } : {}) });
     return structuredClone(exp);
   });
 }
