@@ -1238,3 +1238,26 @@ details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center
 .rdia-left{min-height:1em;font-size:13px}
 .chist .line small{overflow-wrap:anywhere}
 .rdia-k:has(>div:nth-child(2):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* QR de cobro grande (14/11/2026, qr-grande.js): a lo ancho, sin recortar ni estirar (sirve para afiches verticales),
+   con «Ver grande» a pantalla completa y «Guardar QR» para pagar desde la galería del mismo celular. */
+.qrg{display:grid;gap:10px;justify-items:center;text-align:center;background:var(--s-bg);border:1px solid var(--s-line);border-radius:16px;padding:12px}
+.qrg-img{display:block;width:100%;max-width:420px;min-height:120px;padding:0;margin:0;border:0;background:#fff;border-radius:14px;overflow:hidden;cursor:zoom-in;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.qrg-img img{display:block;width:100%;height:auto;object-fit:contain}
+.qrg-amt{margin:0;font-size:16px;color:var(--s-ink)}
+.qrg-amt b{font-size:20px}
+.qrg-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:420px}
+.qrg-btns .sbtn{min-height:48px;justify-content:center;font-size:15px}
+.qrg-how{width:100%;max-width:420px;text-align:left;font-size:14px;color:var(--s-muted)}
+.qrg-how summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600;color:var(--s-ink)}
+.qrg-how ol{margin:4px 0 0;padding-left:20px;display:grid;gap:4px}
+.qrg-note{margin:0;font-size:14px;color:var(--s-ink)}
+.rqrpay .qrg{width:100%;border:0;padding:0;background:transparent}
+.rqrpay .qrg-img img{width:100%;max-width:none;padding:0;aspect-ratio:auto;border-radius:0}
+.qrg-full{position:fixed;inset:0;z-index:9999;background:#fff;display:grid;grid-template-rows:1fr auto auto;gap:12px;padding:16px;justify-items:center;align-items:center;color:#111}
+.qrg-full img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.qrg-fbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:440px}
+.qrg-fbtns .sbtn{min-height:48px;justify-content:center;font-size:16px}
+.qrg-full .sbtn:not(.pri){background:#f1f1f4;color:#111;border-color:#d0d0d8}
+.qrg-full p{margin:0;font-size:13px;color:#444;text-align:center}
+html.qrg-lock,html.qrg-lock body{overflow:hidden}

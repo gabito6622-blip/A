@@ -20,6 +20,7 @@ import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slu
 import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
+import { qrCard, initQrGrande } from "/qr-grande.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -475,18 +476,20 @@ function pendingOrders(skip = null) {
         <label>Hash o número de la transacción<input name="ref" required placeholder="Pegá el hash de Binance"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`
       : `<span class="empty">Falta enviar el comprobante. Pagá ${bs(o.total)} con el QR y subí la foto.</span>
-        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock()}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
+        <form class="inline-form" data-evidence="${esc(o.id)}">${qrBlock(o.total)}<label>Comprobante (foto o PDF)<input type="file" name="file" accept="image/*,application/pdf" required></label>
         <label>Número de operación<input name="ref" required placeholder="Ej.: 123456789"></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn pri sm" type="submit">Enviar comprobante</button><button class="sbtn sm" type="button" data-cancel="${esc(o.id)}">Cancelar pedido</button></div></form>`}</div>`).join("");
 }
 
-function qrBlock() {
+// QR grande con «Ver grande» y «Guardar QR» (qr-grande.js): antes era una miniatura de 120 px al costado del texto.
+function qrBlock(amount) {
   const st = S.settings;
-  return `<div class="qr">${st.hasQr ? `<img src="/api/settings/qr" alt="QR de cobro de ${esc(st.storeName)}">` : ""}<div style="display:grid;gap:6px">${st.hasQr ? "Escaneá con la app de tu banco y pagá el monto exacto." : st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}${st.paymentNote ? `<b style="color:var(--s-ink)">${esc(st.paymentNote)}</b>` : ""}</div></div>`;
+  if (!st.hasQr) return `<div class="qr"><div style="display:grid;gap:6px">${st.whatsapp ? `La tienda todavía no cargó su QR de cobro. <a href="${waLink(st.whatsapp, "Hola, quiero pagar / recargar saldo. ¿Me pasás el QR?")}" target="_blank" rel="noopener">Pedí el QR por WhatsApp</a>.` : "La tienda todavía no cargó su QR de cobro: pedíselo a la tienda."}</div></div>`;
+  return qrCard({ src: "/api/settings/qr", who: st.storeName, amount: amount ? bs(amount) : "", note: st.paymentNote ? `<b>${esc(st.paymentNote)}</b>` : "" });
 }
 /** Cobro por país (Yappy, Tigo Money…): a dónde pagar, con su QR si lo tiene. */
 function localBlock(m, toPay) {
-  return `<div class="qr" style="align-items:flex-start">${m.hasQr ? `<img src="/api/paymethods/${esc(m.id)}/qr" alt="QR de ${esc(m.name)}">` : ""}<div style="display:grid;gap:8px;min-width:0">
+  return `${m.hasQr ? qrCard({ src: `/api/paymethods/${esc(m.id)}/qr`, who: m.holder || m.name, amount: bs(toPay) }) : ""}<div class="qr" style="align-items:flex-start"><div style="display:grid;gap:8px;min-width:0">
     <b style="color:var(--s-ink);font-size:16px">Pagá ${bs(toPay)} por ${esc(m.name)}</b>
     <span class="empty">${m.country ? `${esc(m.country)} · ` : ""}A: <b style="color:var(--s-ink);overflow-wrap:anywhere">${esc(m.account)}</b> <button class="sbtn sm" type="button" data-copy="${esc(m.account)}">Copiar</button></span>
     ${m.holder ? `<span class="empty">A nombre de <b style="color:var(--s-ink)">${esc(m.holder)}</b></span>` : ""}
@@ -2140,7 +2143,7 @@ function renderCartInner(msg = "") {
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
       ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${p.durationDays} días</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b><img src="/api/shops/${esc(SLUG)}/qr" alt="QR para pagar" loading="lazy"><span>Total a pagar: <b>${bs(rshopTotal())}</b></span>${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
+        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()) })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
           + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
@@ -2151,7 +2154,7 @@ function renderCartInner(msg = "") {
     const waMsg = `Hola, quiero pedir:\n${S.cart.map((l) => `• ${l.qty} × ${product(l.productId).name} (${bs(product(l.productId).price * l.qty)})`).join("\n")}\n${cartDiscount() ? `Descuento combo: − ${bs(cartDiscount())}\n` : ""}Total: ${bs(toPay)}`;
     $("#drawer").innerHTML = head
       + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}<div class="total"><span>Total</span><span>${bs(toPay)}</span></div>
-      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock()}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
+      ${S.settings.hasQr ? `<p class="empty" style="margin:0">Pagá con este QR y mandanos el pedido por WhatsApp. Te confirmamos y te pasamos tus accesos.</p>${qrBlock(toPay)}` : S.settings.whatsapp ? `<p class="empty" style="margin:0">Mandanos tu pedido por WhatsApp y coordinamos el pago y la entrega.</p>` : `<p class="empty" style="margin:0">Para hacer tu pedido entrá con tu número: tus accesos quedan guardados en Mis cuentas.</p>`}
       ${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, waMsg)}" target="_blank" rel="noopener">${icon("wa")}Enviar pedido por WhatsApp</a>` : ""}
       <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
@@ -2175,7 +2178,7 @@ function renderCartInner(msg = "") {
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock()}</div>` : ""}
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net)}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
     <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
@@ -3050,6 +3053,7 @@ window.addEventListener("hashchange", () => { if (location.hash.startsWith("#ren
 
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
 initMoneyMask();
+initQrGrande();
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
