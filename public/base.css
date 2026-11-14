@@ -16,7 +16,7 @@ button{cursor:pointer}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--s-sky);outline-offset:2px}
 h1,h2,h3{text-wrap:balance;margin:0}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:#111827;color:#fff;border:1px solid #374151;padding:10px 16px;border-radius:12px;font-weight:600;z-index:90;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:#111827;color:#fff;border:1px solid #374151;padding:10px 16px;border-radius:12px;font-weight:600;z-index:90;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.3);width:max-content;pointer-events:none}
 svg.i{width:1em;height:1em;flex:none;vertical-align:-.125em}
 
 svg.i{width:1em;height:1em;flex:none;vertical-align:-.125em}
