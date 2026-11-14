@@ -1369,6 +1369,8 @@ function hubMas() {
       [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"], [`data-rtool="descargas"`, "📁 Mis descargas", "catalogo pdf whatsapp excel reporte exportar"]]],
     ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
     ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
+    // 14/11/2026: «Cerrar sesión» solo estaba al final de «Cuentas de la tienda» (abajo de todas las cuentas); el dueño no lo encontraba.
+    ["👤 Mi cuenta", [[`data-logout="1"`, "🚪 Cerrar sesión", "salir cerrar sesion logout cambiar cuenta"]]],
   ];
   return `<div class="sec-h"><div><span class="chip">Más</span><h2>Todo tu panel</h2><p>Todo lo que podés hacer, en un solo lugar.</p></div></div>
     <input id="hubFind" class="hubfind" type="search" placeholder="Buscar: página, deuda, códigos…" aria-label="Buscar en tu panel" autocomplete="off">
