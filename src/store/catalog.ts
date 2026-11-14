@@ -44,6 +44,12 @@ export function upsertProduct(e: Engine, actor: Actor, p: Omit<Product, "id"> & 
       if (sn.length > 200) throw new DomainError("VALIDATION", "La regla al vender es demasiado larga (máx. 200)");
       prod.saleNote = sn.trim();
     }
+    // «Para quién / cuántas pantallas»: lo escribe el dueño (la tienda no lo inventa). Vacío = no se muestra.
+    const fw = p.forWhom !== undefined ? p.forWhom : prev?.forWhom;
+    if (typeof fw === "string" && fw.trim()) {
+      if (fw.trim().length > 80) throw new DomainError("VALIDATION", "«Para quién» es demasiado largo (máx. 80)");
+      prod.forWhom = fw.trim().replace(/\s+/g, " ");
+    }
     // "Cómo verlo": guía de instalación que recibe el cliente (app, enlace de descarga, pasos).
     const g = p.guide !== undefined ? p.guide : prev?.guide;
     if (g && typeof g === "object") {
@@ -308,10 +314,10 @@ export function findCustomerByPhone(e: Engine, phone: string) {
 export function registerWithEmail(e: Engine, input: { name: string; email: string }): Customer {
   const system: Actor = { id: "system:registro", role: "system" };
   const email = String(input.email ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new DomainError("VALIDATION", "Correo invalido");
-  if (!input.name?.trim() || input.name.length > 80) throw new DomainError("VALIDATION", "Escribi tu nombre");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
+  if (!input.name?.trim() || input.name.length > 80) throw new DomainError("VALIDATION", "Escribí tu nombre");
   return e.tx(() => {
-    if (Object.values(e.s.customers).some((c) => (c.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ya existe una cuenta con ese correo. Inicia sesion o recupera tu contrasena.");
+    if (Object.values(e.s.customers).some((c) => (c.email ?? "").toLowerCase() === email)) throw new DomainError("VALIDATION", "Ya existe una cuenta con ese correo. Entrá o recuperá tu contraseña.");
     const id = e.id("cus");
     const cust: Customer = { id, name: input.name.trim(), phone: "", email, kind: "customer", priceGroupId: "final", whatsappConsent: false, createdAt: e.now() };
     e.s.customers[id] = cust;
@@ -551,6 +557,7 @@ export function publicCatalog(e: Engine, customerId?: Id) {
       category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, resellersOnly: !!p.resellersOnly,
       price: priceFor(e, customerId, p.id), currency: "USD" as const,
       ...(p.kind === "combo" && p.comboProductIds?.length ? { comboParts: p.comboProductIds } : {}),
+      ...(p.forWhom ? { forWhom: p.forWhom } : {}),
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));
   }
@@ -563,6 +570,7 @@ export function publicCatalog(e: Engine, customerId?: Id) {
       // Tiene precio especial para este cliente (revendedor): sale en su lista de precios.
       ...(customerId && e.s.priceGroups[e.s.customers[customerId]?.priceGroupId]?.prices[p.id] !== undefined ? { wholesale: true, publicPrice: p.price } : {}),
       ...(p.kind === "combo" && p.comboProductIds?.length ? { comboParts: p.comboProductIds } : {}),
+      ...(p.forWhom ? { forWhom: p.forWhom } : {}),
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));
 }
