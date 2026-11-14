@@ -8,6 +8,7 @@
 // Las contraseñas se guardan cifradas con GS_DATA_KEY igual que las de la tienda (src/server/db.ts
 // reconoce las cuentas propias por `own: true`).
 // Plata: todo va en la moneda del revendedor (country.ts), enteros ×100.
+import { ownCategory } from "./categoriaPropia.js";
 import { randomBytes } from "node:crypto";
 import type { Actor, Cents, Customer, Id } from "./types.js";
 import type { Engine } from "./engine.js";
@@ -754,7 +755,7 @@ export function pageCards(e: Engine, c: Customer) {
   if (!b) return [];
   return b.products.filter((p) => p.onPage && p.price > 0).map((p) => {
     const free = b.accounts.filter((a) => a.productId === p.id).reduce((t, a) => t + sellableSlots(b, a, e.now()).length, 0);
-    return { id: `op_${p.id}`, name: p.name, category: "Mis servicios", description: p.emoji ?? "", color: "#0ea5e9", hasImage: false, kind: "own" as const, durationDays: p.durationDays, price: p.price, available: Math.min(free, 20) };
+    return { id: `op_${p.id}`, name: p.name, category: ownCategory(p.name, p.kind), description: p.emoji ?? "", color: "#0ea5e9", hasImage: false, kind: "own" as const, durationDays: p.durationDays, price: p.price, available: Math.min(free, 20) };
   });
 }
 
