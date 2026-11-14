@@ -112,7 +112,7 @@ export async function renewFlow(id, { beyondOk = false } = {}) {
   const ask = (e) => confirm(`${e.message}\n\nTocá «Aceptar» solo si te pagó OTRO mes.`);
   const viaPay = async (confirmOther = false) => {
     try {
-      const r = await api("POST", `/api/admin/assignments/${id}/pay`, { periods: 1, idempotencyKey: key, ...(confirmOther ? { confirmOther: true } : {}) });
+      const r = await api("POST", `/api/admin/assignments/${id}/pay`, { periods: 1, idempotencyKey: key, renew: true, ...(confirmOther ? { confirmOther: true } : {}) });
       return { to: r.saved.to, supplierWarn: r.saved.supplierWarn };
     } catch (e) {
       if (e.code === "DOUBLE_CHARGE" && !confirmOther) return ask(e) ? viaPay(true) : null;

@@ -1111,7 +1111,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
-  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }));
   route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("GET", "/api/admin/assignments/:id/switch-preview", "staff", (c) => store.dia.switchPreview(A(c), c.params.id, { toProductId: c.query.get("to") ?? undefined, toSlotId: c.query.get("toSlotId") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/switch", "staff", (c) => store.dia.switchPlatform(A(c), c.params.id, { toProductId: c.body?.toProductId, toSlotId: c.body?.toSlotId, adjust: c.body?.adjust, reason: c.body?.reason, idempotencyKey: c.body?.idempotencyKey }));

@@ -44,7 +44,7 @@ export interface PriorCharge { at: number; amount: Cents; to: number; text: stri
  * fecha donde está ahora. Solo cuenta mientras falta más de una semana para el vencimiento: cobrar el mes siguiente
  * unos días antes es lo normal.
  */
-export function doubleChargeOf(e: Engine, a: Assignment): PriorCharge | undefined {
+export function doubleChargeOf(e: Engine, a: Assignment, opts: { sale?: boolean } = {}): PriorCharge | undefined {
   const now = e.now(), exp = a.customerExpiresAt;
   const dur = (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
   const win = Math.min(EARLY_PAY_DAYS * DAY, dur / 4);
@@ -58,6 +58,13 @@ export function doubleChargeOf(e: Engine, a: Assignment): PriorCharge | undefine
     const log = (a.control?.paidLog ?? []).find((p) => near(p.at, lc.at));
     const ord = Object.values(e.s.orders).find((o) => o.kind === "renewal" && o.status === "fulfilled" && !o.trial && o.renewal?.assignmentId === a.id && (near(o.updatedAt, lc.at) || near(o.createdAt, lc.at)));
     found.push({ at: lc.at, amount: log?.amount ?? ord?.total });
+  }
+  // La venta pagada cubre su primer período (revisión de 3 meses como Gabriel, 16/11/2026): «Me pagó» a los 6 días de
+  // venderle volvía a cobrar y le regalaba 30 días. Una venta fiada que todavía no pagó no cuenta (ese cobro es la deuda).
+  // Solo para «Me pagó» (`sale`): «Renovar» justo después de vender es pagar por adelantado y no se frena.
+  const sale = !opts.sale ? undefined : Object.values(e.s.orders).find((o) => o.kind === "sale" && o.status === "fulfilled" && !o.trial && o.channel !== "import" && o.assignmentIds.includes(a.id));
+  if (sale && !lc && near(a.startsAt + dur * (sale.periods ?? 1), exp) && (!sale.payLater || sale.payLater.paid?.[a.id])) {
+    found.push({ at: sale.payLater?.paid?.[a.id]?.at ?? sale.updatedAt, amount: sale.assignmentIds.length === 1 ? sale.total : undefined });
   }
   if (!found.length) return undefined;
   const last = found.sort((x, y) => y.at - x.at)[0];
