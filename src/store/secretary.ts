@@ -7,7 +7,7 @@ import type { Engine } from "./engine.js";
 import { can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
-import { DAY } from "./time.js";
+import { DAY, boDayStart } from "./time.js";
 import { cutAtOf, noticeOf, preparedReminderOf, todayNumbers, type NoticeVia, type PreparedReminder } from "./dia.js";
 import { reactivableList } from "./diaCobro.js";
 import { supplierPending } from "./cobrarBien.js";
@@ -55,7 +55,8 @@ export interface SecretaryGroup {
   totalUsd?: Cents;
 }
 
-const dayStart = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+// El día de Bolivia (no el del servidor: en UTC, a las 21:00 de La Paz ya era «mañana» y «vence hoy» salía mal).
+const dayStart = (t: number) => boDayStart(t);
 const has = (txt: string | undefined, re: RegExp) => !!txt && re.test(txt);
 const RE_CORTAR = /POR CORTAR/i;
 const RE_COBRO = /EN COBRO/i;
