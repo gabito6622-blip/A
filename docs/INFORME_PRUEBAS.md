@@ -13,6 +13,15 @@
 | Revendedor: «Pedir renovación» en cuenta que renueva la tienda; «No renovar» no cambia la fecha y «Sí, ya me pagó» renueva; cupo sin cliente elegido no guarda; independiente sin formulario de compra | `test/revendedor-arreglos.test.mjs` | pasa |
 | Cliente: «Olvidé mi contraseña» igual respuesta con o sin cuenta; contraseña tapada, «Ver» y «Ocultar»; Seguridad de mi cuenta en la tienda | `test/cliente-seguro.test.mjs` | pasa |
 | Suite completa | `npm test` | **608 pasan, 0 fallan, 72 s** |
+## 14/11/2026 · Panel del dueño ordenado (rama `revision-panel`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Revisión (datos de ejemplo, 390 px): 7 áreas, 33 pantallas, lo del día en 4 lugares; automatizaciones de la tienda real (solo lectura): recordatorios prendidos 2 días antes de 9 a 20 h, sin WhatsApp de Meta | capturas + API | anotado |
+| «Abrir Mi secretaria · 1 para hoy» dentro del saludo, ≥ 44 px, lleva a Mi secretaria; ya no hay barra aparte | `test/panel-dia.test.mjs`, Playwright, datos ficticios | pasa |
+| «Lo que tenés pendiente» después de los accesos | ídem | pasa |
+| Menú del dueño: 6 áreas; Clientes y revendedores = clientes, revendedores, comovan; Herramientas con separador «⚙️ Ajustes»; el buscador no muestra separadores | ídem | pasa |
+| Mismas pantallas por rol (dueño, admin, atención), botones ≥ 44 px, sin desborde | `test/panel-ordenado.test.mjs` | pasa |
+| Suite completa | `npm test` | **605 pasan, 0 fallan, 69 s** |
 
 ## 14/11/2026 · Revendedores de confianza e independientes (publicado el 14/11, PR #64)
 | Qué | Cómo | Resultado |

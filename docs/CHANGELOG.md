@@ -14,6 +14,11 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Revendedor:** al dar un cupo ya no viene un cliente elegido; las cuentas que renueva la tienda tienen «Pedir renovación» y dicen hasta cuándo andan; renovar un perfil repartido tiene tres botones claros y «No renovar» no renueva; el independiente no ve el formulario de compra a la tienda; botones chicos llevados a 44 px.
 - **Cliente final:** la contraseña de la cuenta sale tapada con «Ver»; «Olvidé mi contraseña» responde igual exista o no el correo (y avisa al dueño si el correo de la tienda no está conectado).
 - Pruebas nuevas: `seguridad-cuentas`, `seguridad-pantallas`, `revendedor-arreglos`, `cliente-seguro`.
+## 2026-11-14 · Panel del dueño: Mi secretaria como pantalla del día y menú en 6 áreas (**sin publicar**, rama `revision-panel`)
+- **Por qué:** el dueño preguntó si su panel estaba bien estructurado. Revisión: lo del día estaba repetido en 4 lugares y el menú tenía 7 áreas con 33 pantallas.
+- **Inicio:** el botón «🗂️ Abrir Mi secretaria · N para hoy» va dentro del saludo (antes era una barra aparte arriba). «Lo que tenés pendiente» (avisos de configuración) baja debajo de los accesos rápidos. Los contadores, los 9 accesos, «Tu mes» y «Mi semana» siguen igual.
+- **Menú:** «Clientes y revendedores» en un área (Clientes, Revendedores, Cómo van). «Herramientas y ajustes»: arriba lo de todos los días (Mis descargas, WhatsApp, Mi oficina, Excel, Guía) y bajo «⚙️ Ajustes» lo de configuración (Configuración, Apariencia, Usuarios, Auditoría). Las mismas 33 pantallas, con su misma dirección; el buscador no cambia.
+- Prueba nueva: `test/panel-dia.test.mjs`.
 
 ## 2026-11-14 · Revendedores «🤝 De confianza» e «🆕 Independiente» (**publicado el 14/11, PR #64**)
 - **Por qué:** el dueño: «mis cuentas están destinadas para mis revendedores de confianza; los nuevos no me van a comprar y no les tengo confianza con los códigos».

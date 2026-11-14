@@ -9,6 +9,11 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - **El freno de la contraseña del panel es por usuario**, además del de IP: así no importa qué IP diga la cabecera. No se cambió cómo se lee la IP (si el proxy de Railway tiene varios saltos, usar la última dejaría a todos con la misma IP).
 - **Cerrar sesiones de otros** solo dueño o admin; Atención no.
 - **Descartado por ahora:** PIN de 6 números (cambiaría lo que ya usan los 25 revendedores; el freno escalonado ya lo cubre) y 2FA obligatorio (decide el dueño).
+## 2026-11-14 · Panel del dueño: ordenar sin quitar
+- **Qué se decidió:** Mi secretaria como entrada principal del día (dentro del saludo) y el menú en 6 áreas con un separador «Ajustes».
+- **Por qué:** lo de «hoy» estaba en 4 lugares (Mi secretaria, pendientes, accesos Cobrar/Control/Por día, campanita) y el menú tenía 7 áreas.
+- **Sin quitar nada** (regla del dueño): los 9 accesos rápidos y las 33 pantallas siguen; solo cambian de lugar o de agrupación. `test/panel-ordenado` comprueba que las pantallas son las mismas.
+- **Pendiente:** la automatización grande (recordatorios que salen solos) depende de conectar WhatsApp de Meta, que necesita una cuenta del dueño.
 
 ## 2026-11-14 · Dos tipos de revendedor; el bloqueo va en el servidor
 - **Qué se decidió:** `Customer.trust` = sin valor («De confianza», como siempre) o `"independent"`. Los que entran por la solicitud quedan independientes; los 25 de hoy, de confianza. Lo cambia el dueño.

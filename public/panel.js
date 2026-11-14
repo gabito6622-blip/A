@@ -29,11 +29,12 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
 const AREAS = [
   ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
-  ["a-clientes", "users", "Clientes", [["clientes", "Clientes"]]],
+  // 14/11/2026: Clientes y Revendedores en un área (6 áreas en vez de 7). Las mismas pantallas, con su #clave.
+  ["a-clientes", "users", "Clientes y revendedores", [["clientes", "Clientes"], ["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["cortes", "✂️ Cortes", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
-  ["a-revendedores", "userplus", "Revendedores", [["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
-  ["a-herramientas", "gear", "Herramientas", [["descargas", "📁 Mis descargas"], ["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["apariencia", "Apariencia de la tienda", "review"], ["configuracion", "Configuración"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"]]],
+  // Lo de todos los días arriba; lo de configuración junto bajo «Ajustes» (separador, no es pantalla).
+  ["a-herramientas", "gear", "Herramientas y ajustes", [["descargas", "📁 Mis descargas"], ["whatsapp", "WhatsApp"], ["oficina", "🏢 Mi oficina", "review"], ["excel", "Excel: exportar e importar"], ["ayuda", "Guía"], ["-", "⚙️ Ajustes"], ["configuracion", "Configuración"], ["apariencia", "Apariencia de la tienda", "review"], ["usuarios", "Usuarios", "owner"], ["auditoria", "Auditoría", "owner"]]],
 ];
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
@@ -635,9 +636,12 @@ const V = {
       ${notif.items.length ? `<div class="notis">${notif.items.map((n) => `<button type="button" class="notirow noti-${sevcls[n.sev] ?? "ok"}" data-go="${esc(n.go)}">
         <span class="notiic">${n.icon}</span><span class="notitx"><b>${esc(n.text)}</b></span><span class="notigo">${icon("arrow")}</span></button>`).join("")}</div>`
       : `<div class="emptybox">🎉 Todo al día. No tenés nada pendiente ahora mismo.</div>`}</section>` : "";
-    const secBtn = canReview() ? `<button type="button" class="pbtn dark sec-cta" data-go="secretaria">🗂️ Mi secretaria · ¿qué hay pendiente?</button>` : "";
-    return secBtn + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
+    const hoyN = hoy.length + vencidos.length + espera.length + pend + sinPago.length;
+    const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy` : " · todo al día"}</span></button>` : "";
+    return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${hoy.length + vencidos.length + espera.length ? `Hoy tenés <b>${hoy.length + vencidos.length + espera.length}</b> pendiente(s) de cobro o fecha.` : "Hoy no tenés cobros pendientes. ✨"}${(() => { const n = deRev.filter((a) => dayStart(a.customerExpiresAt) <= today).length; return n ? ` <small>(+${n} de clientes de tus revendedores: les avisás a ellos)</small>` : ""; })()}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
+      ${secBtn}
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
       <section class="hm-alerts">
         ${alert(hoy.length, "Vencen hoy", "today", "control:today:mios")}
@@ -645,7 +649,6 @@ const V = {
         ${alert(pronto.length, "Vencen en 3 días", "warn", "control:warn:mios")}
         ${alert(pend, "Pagos por revisar", "pay", "aprobacion")}
         ${alert(sinPago.length, "Sin pagar", "nopay", "control:nopay:mios")}</section>
-      ${pendCard}
       <section class="hm-grid">
         ${tile("control", "📊", "Control", "Tu Excel de alquileres")}
         ${tile("control:cobrar:mios", "💰", "Cobrar", "Vencidos y de hoy")}
@@ -656,6 +659,7 @@ const V = {
         ${tile("aprobacion", "✅", "Aprobar pagos", "Comprobantes por QR")}
         ${tile("vender", "🛒", "Vender", "Venta rápida")}
         ${canReview() ? tile("configuracion", "⚙️", "Ajustes", "QR, respaldos, contraseña") : tile("renovar", "🔄", "Renovar", "Renovar servicios")}</section>
+      ${pendCard}
       ${await rateCard()}${invCard}${await winbackHomeCard()}${tuMes}
 
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
@@ -2310,16 +2314,18 @@ function groupTabs() {
 function menuHtml(pend) {
   const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
   const cnt = (k) => (k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : k === "notificaciones" && P.notifTotal ? `<span class="count">${P.notifTotal > 99 ? "99+" : P.notifTotal}</span>` : "");
-  const btn = ([k, t]) => `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`;
-  const areas = AREAS.map(([id, ic, t, items]) => [id, ic, t, items.filter((x) => roleOk(x[2]))]).filter((x) => x[3].length);
+  const btn = ([k, t]) => (k === "-" ? `<p class="menusep">${t}</p>` : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`);
+  // Un separador («-») solo va si debajo hay alguna pantalla que este rol ve.
+  const keep = (items) => items.filter((x, i) => x[0] !== "-" || items.slice(i + 1).some((y) => y[0] !== "-"));
+  const areas = AREAS.map(([id, ic, t, items]) => [id, ic, t, keep(items.filter((x) => roleOk(x[2])))]).filter((x) => x[3].some((y) => y[0] !== "-"));
   const q = norm(P.menuQ).trim();
   if (q) {
-    const hits = areas.flatMap((x) => x[3]).filter(([k, t]) => norm(`${t} ${TITLE[k]?.[1] ?? ""} ${MENU_WORDS[k] ?? ""}`).includes(q));
+    const hits = areas.flatMap((x) => x[3]).filter(([k]) => k !== "-").filter(([k, t]) => norm(`${t} ${TITLE[k]?.[1] ?? ""} ${MENU_WORDS[k] ?? ""}`).includes(q));
     return hits.length ? hits.map(btn).join("") : `<p class="muted menunone">No encontré esa pantalla. Probá con otra palabra.</p>`;
   }
   const open = menuOpenGet();
   return areas.map(([id, ic, t, items]) => {
-    if (items.length === 1) { const [k] = items[0]; return `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(ic)}${t}${cnt(k)}</button>`; }
+    if (items.length === 1 && items[0][0] !== "-") { const [k] = items[0]; return `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(ic)}${t}${cnt(k)}</button>`; }
     const here = items.some((x) => x[0] === P.view);
     const sum = items.some((x) => x[0] === "aprobacion") ? pend : 0;
     return `<details data-area="${id}" ${here || open.includes(id) ? "open" : ""}><summary>${icon(ic)}${t}${sum ? `<span class="count">${sum}</span>` : ""}${icon("chev", "i chev")}</summary><div class="sub">${items.map(btn).join("")}</div></details>`;
