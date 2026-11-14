@@ -151,10 +151,12 @@ export function myEarnings(e: Engine, actor: Actor) {
   const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
   const compare = prevComplete ? { revenuePct: pct(thisMonth.revenue, prev.revenue), profitPct: thisMonth.profit !== null && prev.profit !== null ? pct(thisMonth.profit, prev.profit) : null, salesDiff: thisMonth.sales - prev.sales } : null;
   // Sus alquileres con la tienda (cuentas completas que reparte): lo que pagó este mes y lo que cobra por los perfiles.
-  const rentals = rentalsThisMonth(e, me, now);
-  const real = split ? null : { revenue: thisMonth.revenue + rentals.revenue, cost: thisMonth.cost + rentals.cost, profit: thisMonth.revenue + rentals.revenue - thisMonth.cost - rentals.cost };
+  // Ganancia real (14/11): lo que de verdad le pagaron este mes − sus alquileres por los días que cubren − lo que le costaron
+  // las ventas (gananciaReal.ts). Mes a mes, con los meses cerrados como quedaron.
+  const { month: rm, history, ...rentals } = rentalsThisMonth(e, me, now);
+  const real = split ? null : { revenue: rm.cobros, cost: rm.alquileres + rm.ventas, profit: rm.ganancia, cobrosPerfiles: rm.cobrosPerfiles, cobrosClientes: rm.cobrosClientes, alquileres: rm.alquileres, ventas: rm.ventas, owed: rentals.owed };
   return {
-    month: thisMonth, months: list, rentals, real,
+    month: thisMonth, months: list, rentals, real, history: split ? [] : history.map((h) => ({ ...h, label: label(h.key) })),
     prev, compare, prevNote: compare ? null : pm.sales > 0 ? "incompleto" : "sin_ventas",
     topClients: [...clients.values()].sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name, "es")).slice(0, 5),
     byApp: [...apps.values()].map((p) => ({ ...p, profit: gain(p.revenue, p.cost) })).sort((a, b) => (b.profit ?? b.revenue) - (a.profit ?? a.revenue)),

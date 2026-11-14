@@ -1,8 +1,9 @@
 // «Mi día» del revendedor (13/11/2026): la secretaria del dueño con SUS clientes y SUS perfiles repartidos.
 // Fórmulas, no agentes. Datos ficticios; reloj controlado; nada real.
-//  - Grupos: cobrar (vencidos hasta 30 días o vencen hoy), avisar (1 a 3 días), me deben (sin pagar, más lejos).
+//  - Grupos (14/11): «Cobrar hoy» = todo lo que le deben (la misma lista que Quién me debe y Repartir perfiles);
+//    «Avisar» = perfiles que vencen en 1 a 3 días y clientes registrados que vencen pronto o ya vencieron (renovar).
 //  - Solo lo suyo: nada de otro revendedor ni de clientes directos de la tienda.
-//  - «Me pagó»: perfil repartido que vence → corre la fecha y queda pagado; cliente registrado → pagado en Mi control
+//  - «Me pagó»: perfil repartido vencido → corre la fecha desde su vencimiento (sin días gratis) y queda pagado; cliente registrado → pagado en Mi control
 //    y, si él quiere, renovado con su saldo en el mismo toque (misma renovación de siempre, con sus frenos). Idempotente.
 //  - API con sesión de revendedor; plan Básico → 402; navegador a 360 px.
 import { test, describe, before, after } from "node:test";
@@ -56,23 +57,24 @@ function world() {
 }
 
 describe("Mi día del revendedor · fórmulas", () => {
-  test("grupos: cobrar (vencidos/hoy), avisar (1 a 3 días), me deben; solo lo suyo; totales en su moneda", () => {
+  test("grupos: cobrar = todo lo que le deben, avisar (vencen pronto / clientes por renovar); solo lo suyo; totales en su moneda", () => {
     const { s, ana, otro, ids } = world();
     const d = s.rtools.day(ana.A);
-    assert.deepEqual(d.counts, { cobrar: 2, avisar: 1, deben: 2 });
+    assert.deepEqual(d.counts, { cobrar: 3, avisar: 2, deben: 0, people: 3 });
     const names = (l) => l.map((g) => g.client);
-    assert.deepEqual(names(d.cobrar), ["Marisel Rojas", "Lucía Rojas"], "primero el que venció antes: Marisel hace 2 días, la mamá del reparto ayer");
-    assert.deepEqual(names(d.avisar), ["Ruthy Mamani"]);
-    assert.deepEqual(names(d.deben).sort(), ["José Vargas", "Mario Rojas"]);
-    assert.equal(d.totals.cobrar, 1500 + 4000); assert.equal(d.totals.avisar, 4000); assert.equal(d.totals.deben, 4500 + 1500);
-    const m = d.cobrar.find((g) => g.client === "Marisel Rojas").items[0];
+    // Lo más viejo primero: Mario debe su período (desde hace 20 días), la mamá venció ayer sin renovar, José fió hoy.
+    assert.deepEqual(names(d.cobrar), ["Mario Rojas", "Lucía Rojas", "José Vargas"]);
+    assert.deepEqual(names(d.avisar), ["Marisel Rojas", "Ruthy Mamani"], "clientes registrados: renovar (vencido sin cortar y el que vence en 2 días)");
+    assert.equal(d.totals.cobrar, 1500 + 1500 + 4500); assert.equal(d.totals.avisar, 4000 + 4000);
+    assert.equal(d.totals.cobrar, s.cuaderno.debts(ana.A).total, "el mismo número que «Te deben»");
+    const m = d.avisar.find((g) => g.client === "Marisel Rojas").items[0];
     assert.equal(m.kind, "client"); assert.equal(m.days, -2); assert.equal(m.price, 4000); assert.equal(m.cost, 2500, "lo que le cuesta renovar con su saldo"); assert.equal(m.canRenew, true);
     const l = d.cobrar.find((g) => g.client === "Lucía Rojas").items[0];
-    assert.equal(l.kind, "sub"); assert.equal(l.label, "Mamá"); assert.ok(l.linkToken, "trae su link de cobro para el mensaje");
+    assert.equal(l.kind, "sub"); assert.equal(l.label, "Mamá"); assert.ok(l.linkToken, "trae su link de cobro para el mensaje"); assert.equal(l.owed, 1500);
     const txt = JSON.stringify(d);
     assert.ok(!txt.includes("Ajeno") && !txt.includes("Directo Tienda"), "nada de otros revendedores ni de la tienda");
     assert.ok(!txt.includes("@x.lat") && !txt.includes("Clave#"), "sin correos ni claves");
-    assert.equal(s.rtools.day(otro.A).counts.cobrar, 1, "el otro ve solo lo suyo");
+    assert.equal(s.rtools.day(otro.A).counts.avisar, 1, "el otro ve solo lo suyo");
     assert.throws(() => s.rtools.day(owner), err("FORBIDDEN"));
     assert.throws(() => s.rtools.dayPreview(otro.A, ids.marisel), err("NOT_FOUND"), "no puede ni mirar un servicio ajeno");
   });
@@ -82,21 +84,22 @@ describe("Mi día del revendedor · fórmulas", () => {
     const E = () => s.engine.s;
     const idM = `${ids.aidD}|${ids.mama}`, idP = `${ids.aidD}|${ids.papa}`;
     const pv = s.rtools.dayPreview(ana.A, idM);
-    assert.equal(pv.moves, true); assert.equal(pv.to, NOW + 30 * DAY, "venció ayer: el período nuevo arranca hoy");
+    // 14/11: el período nuevo sigue donde terminaba el anterior (el día que no renovó, igual usó el perfil): sin días gratis.
+    assert.equal(pv.moves, true); assert.equal(pv.to, NOW - DAY + 30 * DAY, "venció ayer: el período sigue desde el vencimiento");
     const r1 = s.rtools.dayPay(ana.A, idM, { idempotencyKey: "m1" });
-    assert.equal(r1.to, NOW + 30 * DAY);
+    assert.equal(r1.to, NOW - DAY + 30 * DAY);
     const subM = () => E().assignments[ids.aidD].subs.find((x) => x.id === ids.mama);
-    assert.equal(subM().pay, "pagado"); assert.equal(subM().expiresAt, NOW + 30 * DAY);
+    assert.equal(subM().pay, "pagado"); assert.equal(subM().expiresAt, NOW - DAY + 30 * DAY);
     s.rtools.dayPay(ana.A, idM, { idempotencyKey: "m1" });
-    assert.equal(subM().expiresAt, NOW + 30 * DAY, "misma llave: no corre dos veces");
-    assert.equal(s.rtools.day(ana.A).counts.cobrar, 1, "Lucía salió de Cobrar");
+    assert.equal(subM().expiresAt, NOW - DAY + 30 * DAY, "misma llave: no corre dos veces");
+    assert.equal(s.rtools.day(ana.A).counts.cobrar, 2, "Lucía salió de Cobrar (quedan Mario y José)");
     // Papá debe pero vence en 10 días: queda pagado, la fecha no se toca; precio corregido.
     const pvP = s.rtools.dayPreview(ana.A, idP);
     assert.equal(pvP.moves, false);
     s.rtools.dayPay(ana.A, idP, { price: 1800 });
     const subP = E().assignments[ids.aidD].subs.find((x) => x.id === ids.papa);
     assert.deepEqual([subP.pay, subP.expiresAt, subP.price], ["pagado", NOW + 10 * DAY, 1800]);
-    assert.equal(s.rtools.day(ana.A).counts.deben, 1, "Mario salió de Me deben (queda José)");
+    assert.equal(s.rtools.day(ana.A).counts.cobrar, 1, "Mario salió de Cobrar (queda José)");
   });
 
   test("«Me pagó» en un cliente registrado: pagado en Mi control y, si quiere, renovado con su saldo (con sus frenos)", () => {
@@ -162,7 +165,7 @@ describe("Mi día del revendedor · API y navegador", () => {
   test("GET /api/me/dia con sesión de revendedor; sin sesión 401; el dueño (staff) 401/403; plan Básico 402", async () => {
     assert.equal((await get("/api/me/dia")).status, 401);
     const d = (await get("/api/me/dia", rck)).json;
-    assert.deepEqual(d.counts, { cobrar: 1, avisar: 0, deben: 0 }); assert.equal(d.cobrar[0].client, "Marisel Rojas");
+    assert.deepEqual(d.counts, { cobrar: 0, avisar: 1, deben: 0, people: 0 }); assert.equal(d.avisar[0].client, "Marisel Rojas");
     const pv = (await get(`/api/me/dia/preview/${encodeURIComponent(ids.marisel)}`, rck)).json;
     assert.equal(pv.renew.offered, true);
     // Plan Básico: Mi día es del plan Completo (como Mi control).
@@ -190,7 +193,7 @@ describe("Mi día del revendedor · API y navegador", () => {
       await p.locator('[data-rtab="dia"][aria-selected="true"]').waitFor();
       await p.waitForSelector("[data-rdpay]", { timeout: 20_000 });
       const txt = (await p.locator("#sout").innerText()).replace(/\s+/g, " ");
-      assert.match(txt, /Mi día/); assert.match(txt, /Cobrar hoy 1/); assert.match(txt, /Marisel Rojas/); assert.match(txt, /Venció hace 2 d/); assert.match(txt, /Bs 40\b/);
+      assert.match(txt, /Mi día/); assert.match(txt, /Avisar 1/); assert.match(txt, /Marisel Rojas ·…001/); assert.match(txt, /Venció hace 2 d/); assert.match(txt, /Bs 40\b/);
       assert.ok(!txt.includes("nf@x.lat"), "sin correo de la cuenta");
       assert.ok((await p.evaluate(() => document.documentElement.scrollWidth)) <= 360, "sin scroll horizontal");
       const h = await p.evaluate(() => Math.round(document.querySelector("[data-rdpay]").getBoundingClientRect().height)); assert.ok(h >= 44, `botón de ${h}px`);
@@ -200,7 +203,7 @@ describe("Mi día del revendedor · API y navegador", () => {
       assert.match(pvTxt, /Renovar ahora con mi saldo/); assert.match(pvTxt, /Bs 25\b/);
       assert.equal(await p.locator('[name="renew"]').isChecked(), true);
       await p.locator("[data-rdpayok]").click();
-      await p.waitForFunction(() => /Todo al día acá/.test(document.body.innerText) && /Cobrar hoy\s*0/.test(document.body.innerText.replace(/\s+/g, " ")), null, { timeout: 20_000 });
+      await p.waitForFunction(() => /Avisar\s*0/.test(document.body.innerText.replace(/\s+/g, " ")), null, { timeout: 20_000 });
       const a = app.store.engine.s.assignments[ids.marisel];
       assert.equal(a.rcontrol.payStatus, "pagado"); assert.equal(a.customerExpiresAt, NOW - 2 * DAY + 30 * DAY, "renovado un período desde el vencimiento (decisión (a), sin días gratis)");
       assert.equal(app.store.wallet.balance(ana.c.id), 100000 - 2500 - 2500, "la venta y la renovación, una vez cada una");

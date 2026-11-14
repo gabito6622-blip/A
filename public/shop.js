@@ -12,6 +12,7 @@ import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes,
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
 import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox, qrBoxIds } from "/hub-mes.js";
+import { cuadernoInit, tail, who, owedText, payButtons, undoBar, subsNav, cutsBox, subsDebtBox, subPayButtons, historyBox } from "/cuaderno.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox, accChangesBanner } from "/cambio-cuenta.js";
@@ -746,6 +747,8 @@ initPropiasPlata({ render: () => render(), store: () => myStore() });
 initSelfCodes(() => render());
 initAfuera(() => refresh());
 hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
+// Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
+cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
 async function loadRTab(tab) {
   if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock()]);
   if (tab === "descargas") await descargasEnsure();
@@ -792,18 +795,18 @@ function rDiaView() {
   if (D.error) return `<div class="sbox"><div class="err">${esc(D.error)}</div></div>`;
   const pill = (it) => `<span class="rcest ${it.days < 0 ? "rc-bad" : it.days === 0 ? "rc-today" : it.days <= 3 ? "rc-week" : ""}">${it.days < 0 ? `Venció hace ${-it.days} d` : it.days === 0 ? "Vence hoy" : `${it.days} d`}</span>`;
   const payPill = (it) => (it.pay === "pagado" ? "" : `<span class="rcest rc-bad">${it.pay === "no_pago" ? "No pagó" : "Debe"}</span>`);
-  const item = (it) => `<li class="rdia-i" data-diaitem="${esc(it.id)}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
-      <div class="rdia-act"><button class="sbtn sm pri" type="button" data-rdpay="${esc(it.id)}">💵 Me pagó</button></div><div class="rdia-pv" hidden></div></li>`;
-  const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(g.client)}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
+  const item = (it, kind) => `<li class="rdia-i" data-diaitem="${esc(it.id)}" data-who="${esc(who(it.client, it.phone))}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${kind === "cobrar" ? `<span class="bad">${esc(owedText(it))}</span>${it.cut ? " · ✂️ cuenta cortada" : ""}` : `${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}`}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
+      <div class="rdia-act">${payButtons(it, kind)}</div><div class="rdia-pv" hidden></div></li>`;
+  const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(who(g.client, g.phone))}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
       ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
-      <ul class="rdia-l">${g.items.map(item).join("")}</ul></article>`;
+      <ul class="rdia-l">${g.items.map((it) => item(it, kind)).join("")}</ul></article>`;
   const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : ownDayNote(kind) ?? `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
   const k = D.counts;
   return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
-    <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${k.cobrar}</b><small>${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen en 1 a 3 días</small></div><div class="${k.deben ? "bad" : ""}"><span>💸 Me deben</span><b>${k.deben}</b><small>${esc(mine(D.totals.deben))}</small></div></div></div>
-    ${sec("cobrar", "💵 Cobrar hoy", "Vencieron (hasta 30 días atrás) o vencen hoy. Si te pagan, tocá «Me pagó».", D.cobrar)}
-    ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días: un mensaje a tiempo evita el corte.", D.avisar)}
-    ${sec("deben", "💸 Me deben", "Los marcaste sin pagar en Mi control o en Repartir perfiles.", D.deben)}
+    <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${D.cobrar.length}</b><small>te deben ${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen pronto</small></div></div></div>
+    ${undoBar()}
+    ${sec("cobrar", "💵 Cobrar hoy", "Todo lo que te deben: vencieron y no renovaron, o te pagaron una parte. Es la misma lista de «Quién me debe». Si te pagan lo justo, un toque en «Me pagó»; si es otra plata, «Otro monto».", D.cobrar)}
+    ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días (o tus clientes registrados ya vencieron): un mensaje a tiempo evita el corte.", D.avisar)}
     ${ownDayHtml()}
     ${rBackBox()}${ownBackHtml()}`;
 }
@@ -816,17 +819,6 @@ function rBackBox() {
     <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
       <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
-}
-/** Vista previa de «Me pagó»: qué va a pasar, precio editable y, si corresponde, renovar con su saldo en el mismo toque. */
-function diaPreviewHtml(pv, key) {
-  const it = pv.item, price = pv.price;
-  const what = it.kind === "sub"
-    ? (pv.moves ? `El perfil <b>${esc(it.label || it.product)}</b> de ${esc(diaFirst(it.client))} pasa a vencer el <b>${fdate(pv.to)}</b> y queda pagado.` : `Queda marcado <b>pagado</b>. La fecha no cambia (todavía no vence).`)
-    : `Queda <b>pagado</b> en tu control.${pv.renew?.offered ? "" : pv.renew?.blocked ? ` ${esc(pv.renew.blocked)}` : " La fecha no cambia (todavía no vence)."}`;
-  const renew = it.kind === "client" && pv.renew?.offered ? `<label class="rdia-ren"><input type="checkbox" name="renew" ${pv.renew.enough ? "checked" : "disabled"}><span>🔄 Renovar ahora con mi saldo: te cuesta <b>${esc(bs(pv.renew.cost))}</b> (tenés ${esc(bs(pv.renew.balance))}).${pv.renew.enough ? ` Pasa a vencer el <b>${fdate(pv.renew.to)}</b>.` : ` <a href="#recargas">Te falta saldo</a>.`}</span></label>` : "";
-  return `<div class="rdia-pvbox"><p style="margin:0">${what}</p>
-    <div class="rdia-pvact"><label>Me pagó (${esc(mySym())})<input name="price" inputmode="decimal" value="${price !== null ? (price / 100).toFixed(2) : ""}" placeholder="0.00"></label>${renew}</div>
-    <div class="rbtns"><button class="sbtn sm pri" type="button" data-rdpayok="${esc(it.id)}" data-key="${esc(key)}">✅ Confirmar: me pagó</button><button class="sbtn sm" type="button" data-rdpayno="1">Cancelar</button></div></div>`;
 }
 function rControlView() { return rControlBase() + ownControlBox(); }
 function rControlBase() {
@@ -884,7 +876,7 @@ const hubLockCard = (need) => { const r = S.data.shop?.rent ?? {}, today = PLAN_
     : [need, need === "seller" ? "business" : null].filter(Boolean).map((p, i) => `<button class="sbtn ${i === 0 ? "pri" : ""}" type="button" data-hubplan="${p}">Pasar a ${PLAN_NAME[p]} (${planPrice(r, p)}/mes)</button>`).join("");
   return `<div class="sbox hublock"><h2 style="margin:0">🔒 Esta herramienta es del plan ${PLAN_NAME[need]}</h2><p class="empty" style="margin:0">${why} El plan ${PLAN_NAME[need]} (${planPrice(r, need)} por mes) suma ${PLAN_WHAT[need]}. ${r.suspended ? "Recargá saldo y pagá: vuelve al instante." : "Se cobra de tu saldo y se activa al instante."}</p><div class="hrow">${btns}<button class="sbtn" type="button" data-s="recargas">Recargar saldo</button></div></div>`; };
 function rDebeView() {
-  const own = ownDebeBox(), subsOwed = (S.data.rsubs?.summary?.unpaid ?? []).length;
+  const own = ownDebeBox(), subsOwed = (S.data.rsubs?.debts?.items ?? []).filter((x) => x.kind === "sub").length;
   // Si le deben por perfiles o por cuentas propias, no decir "Nadie te debe nada": solo que no hay fiados anotados.
   const base = own || subsOwed ? rDebeBase().replace("Nadie te debe nada 🎉", "No tenés fiados anotados en tu libreta.") : rDebeBase();
   return base + own;
@@ -895,13 +887,13 @@ function rDebeBase() {
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const pend = ov.rows.filter((r) => r.unlinked.count);
-  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>
         <label>Monto (${esc(mySym())})<input name="amount" inputmode="decimal" required></label><label>¿Qué le fiaste?<input name="note" maxlength="120"></label><label>Cobrar el<input type="date" name="due"></label><button class="sbtn pri" type="submit">Guardar</button></form></details></div>
     ${det ? `<div class="sbox"><h3 style="margin:0">📜 Movimientos · debe ${bs(det.owed)} <button class="sbtn sm" type="button" data-rfdet="">Cerrar</button></h3>${det.entries.map((x) => `<div class="line"><span>${x.kind === "cargo" ? "➕ Le fiaste" : "💵 Te pagó"} <small class="empty">${esc(x.note || "")} · ${fdate(x.at)}</small></span><span><b style="color:${x.kind === "cargo" ? "var(--s-bad)" : "var(--s-ok)"}">${bs(x.amount)}</b> <button class="sbtn sm" type="button" data-rfdel="${esc(x.id)}" aria-label="Borrar movimiento">🗑️</button></span></div>`).join("") || `<p class="empty">Sin movimientos.</p>`}</div>` : ""}
-    ${(S.data.rsubs?.summary?.unpaid ?? []).length ? `<div class="sbox"><h3 style="margin:0">🧩 Perfiles sin pagar · ${bs(S.data.rsubs.summary.owed)}</h3>${S.data.rsubs.summary.unpaid.map((u) => `<div class="line">${am(S.data.rsubs.list.find((x) => x.assignmentId === u.assignmentId)?.productId, u.product)}<span class="lgrow"><b>${esc(u.name)}</b><br><small class="empty">${esc(u.product)}${u.label ? ` · ${esc(u.label)}` : ""}${u.price != null ? ` · ${bs(u.price)}` : ""}</small></span><span class="rbtns">${u.phone ? `<a class="sbtn sm" href="${waLink(u.phone, subCobrar(u, u.product))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}<button class="sbtn sm pri" type="button" data-subpaid="${esc(u.assignmentId)}|${esc(u.id)}">💵 Me pagó</button></span></div>`).join("")}</div>` : ""}
+    ${subsDebtBox(S.data.rsubs?.debts)}
     <div class="rclist">${ov.rows.map((r) => `<article class="rcard ${r.overdue ? "rc-bad" : "rc-week"}"><header><div><b>${esc(r.name)}</b>${appsRow(S.catalog, r.apps)}<small>${r.nextDue ? `${r.overdue ? "⏰ Ya tenía que pagar" : "📅 Cobrar"} el ${fdate(r.nextDue)}` : "Sin fecha de cobro"}</small></div><b class="bad" style="font-size:20px">${bs(r.owed)}</b></header>
       ${r.unlinked.count ? `<div class="rcrow"><span class="empty">${r.unlinked.count} sin pagar en Mi control</span><button class="sbtn sm" type="button" data-rffrom="${esc(r.customerId)}">➕ Pasar</button></div>` : ""}
       <footer>${r.phone && r.owed ? `<a class="sbtn sm pri" href="${waLink(r.phone, msg(r))}" target="_blank" rel="noopener">💬 Cobrar</a>` : ""}
@@ -933,7 +925,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
-    ${earnRealBox(g)}
+    ${earnRealBox(g, S.data.rsubs?.debts?.total)}${historyBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
@@ -1185,7 +1177,7 @@ function pasteBox(r) {
 function rSubsView() {
   const d = S.data.rsubs;
   if (!d) return `<div class="sbox"><p class="empty" style="margin:0">Cargando…</p></div>`;
-  if (!d.list.length) return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2><p class="empty" style="margin:0">Cuando le alquiles a la tienda una <b>cuenta completa</b> (Disney, Prime, HBO…), aparece acá para que anotes a quién le diste cada perfil, cuándo le vence y si te pagó.</p><button class="sbtn pri" type="button" data-s="precios" style="justify-self:start">Ver cuentas para alquilar</button></div>`;
+  if (!d.list.length) return `${cutsBox(d.cuts)}<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2><p class="empty" style="margin:0">Cuando le alquiles a la tienda una <b>cuenta completa</b> (Disney, Prime, HBO…), aparece acá para que anotes a quién le diste cada perfil, cuándo le vence y si te pagó.</p><button class="sbtn pri" type="button" data-s="precios" style="justify-self:start">Ver cuentas para alquilar</button></div>`;
   const sm = d.summary, soon = allSubs().filter((s) => daysLeft(s.expiresAt) >= -3 && daysLeft(s.expiresAt) <= 7).sort((a, b) => a.expiresAt - b.expiresAt);
   const pill = (t) => { const n = daysLeft(t); return `<span class="rcest rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}">${n < 0 ? `Venció hace ${-n} d` : n === 0 ? "Vence hoy" : `${n} d`}</span>`; };
   const PAY = { pagado: "Pagado", pendiente: "Pendiente", no_pago: "No pagó" };
@@ -1197,20 +1189,21 @@ function rSubsView() {
       <label class="rcnote">Nota<input name="note" maxlength="120" value="${esc(s?.note ?? "")}" placeholder="Ej.: paga los lunes"></label>
       <div class="rbtns"><button class="sbtn sm pri" type="submit">${s ? "Guardar" : "➕ Agregar perfil"}</button>${s ? `<button class="sbtn sm" type="button" data-subrenew="${esc(aid)}|${esc(s.id)}">🔄 Renovó +30 días</button><button class="sbtn sm" type="button" data-subdel="${esc(aid)}|${esc(s.id)}">🗑️ Quitar</button>` : ""}</div></form>`;
   return `<div class="sbox"><h2 style="margin:0">🧩 Repartir perfiles</h2>
-      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${sm.owed ? "bad" : ""}">${mine(sm.owed)}</b></div></div>
-      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${selfCodesHead()}${alertsSummary()}</div>
+      <div class="rkpis"><div><small>Cuentas alquiladas</small><b>${sm.accounts}</b></div><div><small>Perfiles anotados</small><b>${sm.profiles}</b></div><div><small>Por mes cobrás</small><b>${mine(sm.revenue)}</b><small>te cuestan ${bs(sm.cost)}</small></div><div><small>Te deben</small><b class="${d.debts?.total ? "bad" : ""}">${mine(d.debts?.total ?? sm.owed)}</b>${d.debts?.total ? `<small>${d.debts.people} persona(s)</small>` : ""}</div></div>
+      <p class="empty" style="margin:0">Tu cuaderno: anotá a quién le diste cada perfil. Solo vos lo ves.</p>${subsNav()}${selfCodesHead()}${alertsSummary()}</div>
+    ${undoBar()}${cutsBox(d.cuts)}
     ${(() => { const due = d.list.filter((r) => r.canRenew && r.renewableNow !== false && daysLeft(r.expiresAt) <= 7); if (!due.length) return "";
       const tot = due.reduce((t, r) => t + r.cost, 0);
       return `<div class="sbox rcwarn"><h3 style="margin:0">🔄 Tus cuentas que vencen esta semana</h3><p class="empty" style="margin:0">${due.map((r) => `${esc(r.product)} (${fdate(r.expiresAt)})`).join(" · ")}</p>
         <div class="rbtns"><button class="sbtn pri" type="button" data-rentrenewall="1">🔄 Renovar las ${due.length} · ${bs(tot)}</button><small class="empty">Tu saldo: ${bs(S.me?.balance ?? 0)}</small></div></div>`; })()}
     ${soon.length ? `<div class="sbox rcwarn"><h3 style="margin:0">📣 Avisar a los que vencen esta semana (${soon.filter(subSeen).length}/${soon.length})</h3>
-      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(s.name)}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
+      <div class="rcsoon">${soon.map((s) => `<div class="rcsoon-r ${subSeen(s) ? "done" : ""}">${am(s.productId, s.product)}<span><b>${esc(who(s.name, s.phone))}</b><small>${esc(s.product)}${s.label ? ` · ${esc(s.label)}` : ""} · ${pill(s.expiresAt)}</small></span>${s.phone ? `<button class="sbtn sm ${subSeen(s) ? "" : "pri"}" type="button" data-subavisar="${esc(s.aid)}|${esc(s.id)}">${subSeen(s) ? "✓ Avisado" : "💬 Avisar"}</button>` : `<small class="empty">sin WhatsApp</small>`}</div>`).join("")}</div></div>` : ""}
     <div class="rclist">${d.list.map((r) => { const n = daysLeft(r.expiresAt), late = r.subs.filter((s) => !r.holdOpen && s.expiresAt > r.expiresAt).length;
       return `<article class="rcard subacc rc-${n < 0 ? "bad" : n <= 7 ? "week" : "ok"}"><header>${am(r.productId, r.product, "")}<div><b>${esc(r.product)}</b><small>${esc(r.email)} · tu alquiler vence ${fdate(r.expiresAt)} · ${bs(r.cost)}/mes</small></div>${pill(r.expiresAt)}</header>
         <div class="rbtns">${!r.canRenew ? "" : r.renewableNow === false ? askRenewHtml({ assignmentId: r.assignmentId, product: r.product, expiresAt: r.expiresAt, price: r.cost }) : `<button class="sbtn sm pri" type="button" data-rentrenew="${esc(r.assignmentId)}">🔄 Renovar cuenta · ${bs(r.cost)}</button>`}</div>
         ${accChangeBox(r)}${selfCodesRental(r.assignmentId)}${late ? `<p class="rcinline">⚠️ ${late} perfil(es) vencen después que tu alquiler: renová esta cuenta a tiempo.</p>` : ""}
-        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
-          ${open === s.id ? subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
+        <div class="sublist">${r.subs.map((s) => `<div class="subrow"><button type="button" class="rcopen" data-subopen="${esc(s.id)}" aria-expanded="${open === s.id}"><span><b>${esc(who(s.name, s.phone))}</b><small>${esc(s.label)}${s.price != null ? ` · ${mine(s.price)}` : ""}${s.owed ? ` · <span class="bad">Debe ${mine(s.owed)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">${PAY[s.pay]}</span>` : ""}${subAlertTag(r.assignmentId, s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open === s.id ? "▴" : "▾"}</i></button>
+          ${open === s.id ? (s.owed ? `<div class="rbtns cpay"><small class="empty">${esc(owedText({ ...s, unit: s.price }))}</small>${subPayButtons(r.assignmentId, s, s.owed)}</div>` : "") + subForm(r.assignmentId, s) + (s.phone ? `<div class="rbtns"><a class="sbtn sm" href="${waLink(s.phone, subAvisar(s, r.product))}" target="_blank" rel="noopener">💬 Recordar renovación</a>${s.pay !== "pagado" ? `<a class="sbtn sm" href="${waLink(s.phone, subCobrar(s, r.product))}" target="_blank" rel="noopener">💸 Cobrar</a>` : ""}</div>` : "") + subLinkBox(r.assignmentId, s, r.product, myStore()) : ""}</div>`).join("") || `<p class="empty" style="margin:0">Todavía no anotaste perfiles en esta cuenta.</p>`}</div>
         <div class="rbtns"><details class="subadd" ${r.subs.length || S.data.paste?.aid === r.assignmentId ? "" : "open"}><summary class="sbtn sm">➕ Anotar un perfil</summary>${subForm(r.assignmentId, null)}</details>
         <button class="sbtn sm" type="button" data-paste="${esc(r.assignmentId)}">📋 Pegar mi lista</button></div>
         ${S.data.paste?.aid === r.assignmentId ? pasteBox(r) : ""}</article>`; }).join("")}</div>`;
@@ -1576,7 +1569,7 @@ function resellerHome() {
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
-    <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
+    <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"${v === "clientes" ? ` data-gotab="ventas"` : ""}`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
     ${isReseller() && usesDay ? todayCard() : ""}
     ${isReseller() && foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
     <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>${canPage ? "Mi página, " : ""}Mi control, ganancias, afiches, mi PIN…</small></summary>
@@ -2409,6 +2402,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.invsee !== undefined) { S.data.mq = d.invsee; S.data.mf = "all"; return setView("cuentas"); }
+  if (d.gotab) S.data.rtab = d.gotab; // «Mis clientes» de Inicio abre la lista de clientes (no la última pestaña)
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
   if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", "", $("#login [name=email]")?.value?.trim() ?? "");
@@ -2509,7 +2503,7 @@ document.addEventListener("click", async (ev) => {
           <button class="sbtn" type="button" data-close="1">No renovar</button></div><p style="display:none">`);
       }
       if (d.subrenewgo) { closeAll(); const paid = d.paid === "1"; const r = await api("POST", `/api/me/subs/${aid}/${sid}/renew`, { paid }); toast(`🔄 ${sub.name} renovado hasta ${fdate(r.sub.expiresAt)}${r.afterRental ? " · ⚠️ renová tu cuenta antes" : ""}`); }
-      if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
+      if (d.subdel) { if (!confirm(`¿Quitar a ${sub.name} de esta cuenta?${sub.owed ? ` Te debe ${mine(sub.owed)} y eso también se borra.` : ""}`)) return; await api("POST", `/api/me/subs/${aid}/${sid}/delete`, {}); S.data.subOpen = ""; toast("Perfil liberado"); }
       if (d.subpaid) { await api("POST", `/api/me/subs/${aid}`, { ...sub, pay: "pagado" }); toast(`💵 ${sub.name} ya no te debe`); }
     } catch (e) { toast(e.message); }
     S.data.rsubs = await api("GET", "/api/me/subs").catch(() => S.data.rsubs);
@@ -2605,27 +2599,7 @@ document.addEventListener("click", async (ev) => {
     catch (e) { toast(e.message); el.disabled = false; }
     return;
   }
-  if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
-  if (d.rdpay) {
-    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
-    el.disabled = true;
-    try { const pv = await api("GET", `/api/me/dia/preview/${encodeURIComponent(d.rdpay)}`); box.innerHTML = diaPreviewHtml(pv, newKey()); box.hidden = false; box.scrollIntoView({ block: "nearest" }); }
-    catch (e) { toast(e.message); } finally { el.disabled = false; }
-    return;
-  }
-  if (d.rdpayok) {
-    const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
-    const price = box.querySelector('[name="price"]')?.value.trim(); const renew = !!box.querySelector('[name="renew"]')?.checked;
-    el.disabled = true;
-    try {
-      const r = await api("POST", `/api/me/dia/pay/${encodeURIComponent(d.rdpayok)}`, { ...(price ? { price: toCents(price) } : {}), renew, idempotencyKey: el.dataset.key });
-      toast(r.renewed ? `💵 Cobrado y renovado hasta el ${fdate(r.to)} ✓` : r.renewError ? `💵 Cobro anotado. No se renovó: ${r.renewError}` : r.kind === "sub" ? `💵 Cobrado ✓ (vence el ${fdate(r.to)})` : "💵 Cobro anotado ✓");
-      S.data.rdia = await api("GET", "/api/me/dia").catch((e) => ({ error: e.message }));
-      S.me = await api("GET", "/api/me").catch(() => S.me);
-      render();
-    } catch (e) { toast(e.message); el.disabled = false; }
-    return;
-  }
+  // «Me pagó» de Mi día (rdpay, rdpayok, rdpayno, rdfast) vive en cuaderno.js.
   if (d.ravisar) {
     const r = (S.data.rctl ?? []).find((x) => x.id === d.ravisar);
     if (!r) return;

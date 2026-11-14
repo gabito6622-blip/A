@@ -124,7 +124,8 @@ test("Revendedores un mes entero: rutas, separación y pantallas a 360 px", { ti
       await p.evaluate(() => { const x = document.createElement("button"); x.dataset.rtool = "ganancias"; x.id = "goGan"; document.body.append(x); });
       await p.locator("#goGan").dispatchEvent("click");
       await p.locator(".rmreal").waitFor();
-      assert.match(await p.locator(".rmreal").innerText(), /tus alquileres Bs 208[\s\S]*Ganancia real[\s\S]*Bs -128/);
+      // 14/11: cobraste = lo que de verdad le pagaron (4 perfiles de Bs 20); los alquileres van por los días de este mes que cubren.
+      assert.match(await p.locator(".rmreal").innerText(), /Cobraste\s*Bs 80[\s\S]*tus alquileres Bs [\d.,]+[\s\S]*Ganancia real/);
       assert.equal(await over(p), 0);
       assert.deepEqual(errs, []);
       await ctx.close();

@@ -82,15 +82,8 @@ function qrBox() {
     <div class="hrow"><button class="sbtn pri" type="button" data-rmsend="1">Enviar comprobante · ${bs(total)}</button></div></div>`;
 }
 
-/** «Mis ganancias»: cobra − lo que le cuesta (incluye sus alquileres con la tienda). */
-export function earnRealBox(g) {
-  if (!g?.real || !g.rentals || (!g.rentals.cost && !g.rentals.revenue)) return "";
-  const r = g.real, x = g.rentals;
-  return `<div class="sbox rmreal"><h3 style="margin:0">💡 Tu ganancia real este mes</h3>
-    <div class="rkpis"><div><small>Cobrás</small><b>${bs(r.revenue)}</b><small>ventas ${bs(g.month.revenue)} + perfiles ${bs(x.revenue)}</small></div><div><small>Te cuesta</small><b>${bs(r.cost)}</b><small>ventas ${bs(g.month.cost)} + tus alquileres ${bs(x.cost)}</small></div><div><small>Ganancia real</small><b class="${r.profit < 0 ? "bad" : "ok"}">${bs(r.profit)}</b></div></div>
-    ${r.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Este mes todavía no cubrís lo que te cuestan tus cuentas de la tienda: anotá todos los perfiles que repartiste o revisá tus precios.</p>` : ""}
-    ${x.owed ? `<p class="empty" style="margin:0">Te deben ${bs(x.owed)} de perfiles: cuando te paguen, ganás eso.</p>` : ""}</div>`;
-}
+/** «Mis ganancias»: tu ganancia real (14/11: con lo que de verdad te pagaron y el mensaje según lo que te deben; cuaderno.js). */
+export { gananciaRealBox as earnRealBox } from "/cuaderno.js";
 
 async function pay(method, ids) {
   let pv = await api("POST", "/api/me/renew-many/preview", { ids });

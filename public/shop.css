@@ -1227,3 +1227,12 @@ details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center
 .rmtot{font-size:14px}
 .rmqrimg{width:min(220px,100%);height:auto;border-radius:12px;background:#fff;padding:8px;justify-self:start}
 .rmqr label{display:grid;gap:4px;font-size:14px}
+/* Plata del cuaderno (cuaderno.js, 14/11/2026): Me pagó de un toque, deudas por período, cuenta cortada, historial. */
+.cnav{margin-top:2px}.cnav .sbtn,.cpay .sbtn,.cdebt .sbtn,.ccut .sbtn,.cundo .sbtn{min-height:44px}
+.cundo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:14px}
+.ccut .rdia-i{grid-template-columns:minmax(0,1fr)}
+.cdebt .rbtns{flex-basis:100%}
+.cother{flex-basis:auto}.cother[open]{flex-basis:100%}.cother form{display:grid;gap:6px}
+.rdia-left{min-height:1em;font-size:13px}
+.chist .line small{overflow-wrap:anywhere}
+.rdia-k:has(>div:nth-child(2):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}

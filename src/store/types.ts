@@ -627,6 +627,10 @@ export interface SubRental {
   createdAt: number;
   /** Link de cobro para SU cliente (/c/<token>): lo crea y lo cambia solo el revendedor (subLinks.ts). */
   link?: { token: string; by: Id; at: number };
+  /** Períodos que debe (pagos parciales o «me paga después»), uno por período (cuadernoPlata.ts). */
+  debts?: import("./cuadernoPlata.js").SubDebt[];
+  /** Lo que pagó de más: se usa en el próximo período. */
+  credit?: Cents;
 }
 
 export interface FiadoEntry {
@@ -857,6 +861,9 @@ export interface State {
   selfCodes?: SelfCodesState;
   /** «Pasar a otro» (traspaso.ts): la libreta del dueño anterior de un alquiler, guardada por `alquiler|cliente`. Nadie más la ve. */
   transferBooks?: Record<string, TransferBook>;
+  /** Cobros de perfiles repartidos y cierres de mes de cada revendedor (cuadernoPlata.ts, gananciaReal.ts). Solo los ve él. */
+  rcobros?: import("./cuadernoPlata.js").ResellerCobro[];
+  rcierres?: Record<Id, Record<string, import("./gananciaReal.js").MonthClose>>;
   seq: number;
 }
 

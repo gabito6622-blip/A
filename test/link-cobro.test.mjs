@@ -248,7 +248,8 @@ describe("link de cobro (API)", () => {
     assert.equal(ren.status, 200);
     const after = (await call("GET", `/api/cobro/${token}`)).json;
     assert.equal(after.expiresAt, before + 30 * DAY, "mismo link, nueva fecha");
-    assert.equal(after.pay, "pagado");
+    // 14/11: «Renovó y ya me pagó» cobra el período nuevo; el que debía de antes sigue debiendo (las deudas se acumulan).
+    assert.equal(after.pay, "pendiente");
     // Editar el perfil tampoco lo cambia.
     assert.equal((await call("POST", `/api/me/subs/${aidRosa}`, { id: ana.id, name: "Ana Pérez", phone: "72223344", label: "Mamá", expiresAt: after.expiresAt, price: 1500, pay: "pagado" }, "rosa")).status, 200);
     assert.equal((await call("GET", `/api/cobro/${token}`)).status, 200);
