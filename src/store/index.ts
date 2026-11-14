@@ -9,6 +9,7 @@ import * as wallet from "./wallet.js";
 import * as orders from "./orders.js";
 import * as portal from "./portal.js";
 import * as rshop from "./resellerShop.js";
+import * as arranque from "./arranque.js";
 import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
@@ -221,6 +222,9 @@ export function createStore(opts: EngineOptions = {}) {
       apply: (input: { name: unknown; phone: unknown; note?: unknown; ref?: unknown }) => rshop.applyReseller(e, input),
       apps: bind(e, rshop.listApps),
       approve: bind(e, rshop.approveApp),
+      /** Primeros pasos del revendedor nuevo y la dirección de su página desde el nombre de su tienda (arranque.ts). */
+      firstSteps: bind(e, arranque.firstSteps),
+      suggestSlug: bind(e, arranque.suggestSlug),
       reject: bind(e, rshop.rejectApp),
       resellers: bind(e, rshop.resellersOverview),
       program: () => rshop.programInfo(e),
@@ -252,6 +256,7 @@ export function createStore(opts: EngineOptions = {}) {
       setLink: bind(e, codes.setCodeLink),
       linkOwner: (token: string) => codes.codeLinkOwner(e, token),
       of: (customerId: string) => codes.codesOf(e, customerId),
+      platforms: (customerId: string) => arranque.codePlatforms(e, customerId),
     },
     notify: {
       outbox: (actor: Actor) => {

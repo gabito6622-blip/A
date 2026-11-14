@@ -14,9 +14,13 @@ import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox 
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox } from "/cambio-cuenta.js";
+import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/arranque.js";
+import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 initAccChanges(() => render()); // «Cambió la cuenta: avisá a tus N clientes» (cambio-cuenta.js)
+initArranque(() => ({ settings: S.settings, me: S.me })); // primeros pasos del revendedor nuevo (arranque.js)
+initMarcaPropia(() => (MODE === "rshop" ? S.settings : null)); // su página sin marca ajena (marca-propia.js)
 /** Página propia de un revendedor: /r/<slug>. Es una vitrina: los pedidos van al WhatsApp del revendedor. */
 const KLABEL = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 // La página de un revendedor: /r/<slug>, o su subdominio (daniel.gabostore.lat), donde el servidor marca de quién es en <meta name="gs-shop">.
@@ -118,8 +122,9 @@ function footer() {
   $("#footWa").innerHTML = [
     ...links.map(([h, t]) => `<a href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`),
     MODE === "store" ? `<a href="/hub">¿Sos revendedor? Entrá a ${esc(st.platformName || "GaboHub")}</a>` : MODE === "hub" ? `<a href="/tienda/">Tienda ${esc(S.storeName || "")}</a>` : "",
-    `<a href="/terminos">Términos</a>`, MODE === "rshop" ? "" : `<a href="/privacidad">Privacidad</a>`,
-    `<a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`,
+    // La página de un revendedor: solo sus condiciones, neutras (sin los términos ni el nombre de la tienda mayorista).
+    ...(MODE === "rshop" ? rshopFootLinks() : [`<a href="/terminos">Términos</a>`, `<a href="/privacidad">Privacidad</a>`,
+      `<a href="/terminos#software">© ${new Date().getFullYear()} GaboHub · software protegido</a>`]),
   ].filter(Boolean).join(" · ");
   softwareNotice();
 }
@@ -211,7 +216,7 @@ async function loadPrivate() {
       api("GET", "/api/me/control").catch(() => null), api("GET", "/api/me/fiado").catch(() => null), api("GET", "/api/me/earnings").catch(() => null)]);
     [S.data.rsubs, S.data.ownSoon] = await Promise.all([api("GET", "/api/me/subs").catch(() => null), api("GET", "/api/me/own/soon").catch(() => null)]);
   }
-  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null)]);
+  if (S.view === "inicio" && hubPanel()) [S.data.shop, S.data.prices, S.data.referrals, S.data.pasos] = await Promise.all([api("GET", "/api/me/shop"), api("GET", "/api/me/prices"), api("GET", "/api/me/referrals").catch(() => null), api("GET", "/api/me/primeros-pasos").catch(() => null)]);
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
@@ -278,7 +283,7 @@ function brandStrip() {
 function trustBand() {
   const n = (S.catalog ?? []).length;
   const st = S.settings;
-  const it = [
+  const it = SLUG ? rshopTrust(st, n) : [
     ["⚡", n ? `${n}+` : "24/7", n ? "servicios al toque" : "siempre abierto"],
     st.hasQr && ["💳", "QR", "pago fácil y seguro"],
     ["🕒", "con saldo", "entrega al instante"],
@@ -304,7 +309,7 @@ const FAQ_DEFAULT = [
 ];
 function faqSection() {
   const custom = (S.settings.faq ?? []).filter((f) => f && f.q && f.a);
-  const list = custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
+  const list = SLUG ? rshopFaq(S.settings) : custom.length ? custom.map((f) => [f.q, f.a]) : FAQ_DEFAULT;
   return `<section class="faq"><div class="sec-h"><div><span class="chip">Ayuda</span><h2>Preguntas frecuentes</h2><p>Lo que más nos preguntan antes de comprar.</p></div></div>
     <div class="faqlist">${list.map(([q, a]) => `<details class="faqi"><summary>${esc(q)}<span class="faqp">+</span></summary><p>${esc(a)}</p></details>`).join("")}</div>
     ${S.settings.whatsapp ? `<div class="faqcta"><div><b>¿Te quedó una duda?</b><span class="empty">Escribinos y te ayudamos a elegir tu plan.</span></div><a class="sbtn pri" href="${waLink(S.settings.whatsapp, "Hola, quiero que me ayuden a elegir un plan 🙌")}" target="_blank" rel="noopener">${icon("wa")}Escribir por WhatsApp</a></div>` : ""}</section>`;
@@ -420,7 +425,7 @@ function ticketCatalog(pub, hero) {
       <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
     ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : `<p class="empty">No encontramos productos con “${esc(S.q)}”.</p>`}`;
 }
-const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV" })[k] ?? k;
+const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV", own: "Suscripción" })[k] ?? "Suscripción";
 /** Filas de credenciales IPTV (como <div><dt>..</dt><dd>..</dd></div>). */
 function iptvCredRows(ac) {
   const v = ac.iptv, rows = [];
@@ -550,6 +555,9 @@ function buildNav() {
   if (acc) acc.hidden = MODE === "rshop";
   const cartBtn = $(".shead [data-cart]");
   if (cartBtn) cartBtn.hidden = MODE === "hub" && !hubPanel();
+  // 🙈 Tapar montos: solo para el revendedor que entró (un visitante no tiene montos que tapar).
+  const mb = $(".mnybtn");
+  if (mb) mb.hidden = !(MODE === "hub" && hubPanel());
 }
 
 function render() {
@@ -694,7 +702,7 @@ function renderInner() {
     inventario: () => !isReseller() ? needLogin("tu inventario") : hubInventario(),
     mas: () => !isReseller() ? needLogin("tu panel") : hubMas(),
     revendedores: () => programView(),
-    precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : (() => {
+    precios: () => !S.me?.loggedIn ? needLogin("los precios para revendedores") : !isReseller() ? notReseller() : isIndep() ? indepCatalog({ settings: S.settings, me: S.me }) : (() => {
       const list = pub.filter((p) => p.resellersOnly || p.wholesale).sort((a, b) => Number(!!b.resellersOnly) - Number(!!a.resellersOnly) || a.name.localeCompare(b.name));
       return `<div class="sec-h"><div><span class="chip">Revendedor</span><h2>Precios para revendedores</h2><p>Comprá con tu saldo y la cuenta se entrega al instante. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
         ${list.length ? `<div class="pgrid">${list.map((p) => card(p)).join("")}</div>` : `<div class="sbox"><p class="empty" style="margin:0">Todavía no hay productos para revendedores. Escribinos por WhatsApp.</p></div>`}`;
@@ -715,7 +723,8 @@ function renderInner() {
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/hub#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
-  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour")) setTimeout(() => { if (S.view === "inicio" && !guideSeen()) startTour(); }, 700);
+  // Con «🚀 Primeros pasos» a la vista la guía no arranca sola (tiene su botón 📖 en la tarjeta).
+  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour") && !document.querySelector(".arr-pasos")) setTimeout(() => { if (S.view === "inicio" && !guideSeen() && !S.data.wiz && S.data.pasos !== undefined && !document.querySelector(".arr-pasos")) startTour(); }, 700);
 }
 
 /* ---------------- revendedor ---------------- */
@@ -1352,7 +1361,8 @@ function directoryView(standalone) {
 /* ---------------- Referí y ganá: trae otros revendedores y ganá saldo ---------------- */
 function referralCard(r) {
   if (!r) return "";
-  const link = `${location.origin}/?ref=${encodeURIComponent(r.code)}`;
+  // A la página para revendedores (en el dominio propio, «/» es la tienda de clientes).
+  const link = `${location.origin}/revendedores?ref=${encodeURIComponent(r.code)}`;
   const premio = r.enabled ? `Ganás <b>${bs(r.bonus)}</b> de saldo por cada revendedor que traigas y la tienda apruebe.` : "Compartí tu link: cuando la tienda active el premio, ganás saldo por cada revendedor que traigas.";
   const list = r.people?.length ? `<div class="reflist">${r.people.slice(0, 8).map((p) => `<div class="refrow"><b>${esc(p.name)}</b><small>${fdate(p.at)}</small></div>`).join("")}</div>` : `<p class="empty" style="margin:0">Todavía no trajiste a nadie. Mandá tu link por WhatsApp a quien quiera revender. 😉</p>`;
   const waMsg = encodeURIComponent(`¡Volvete revendedor conmigo! Registrate acá y empezá a vender: ${link}`);
@@ -1388,6 +1398,7 @@ function hubMas() {
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
       ...(canPage && sh?.couponsAllowed ? [[`data-rtool="cupones"`, "🏷️ Mis cupones", "descuento codigo"]] : []),
+      ...(canPage ? [] : [pageAskItem()]),
       [`data-rtool="afiches"`, "🖼️ Afiches", "estados tiktok imagen precios"], [`data-rtool="descargas"`, "📁 Mis descargas", "catalogo pdf whatsapp excel reporte exportar"]]],
     ["💰 Saldo y compras", [[`data-s="precios"`, "🛒 Comprar a la tienda", "precios catalogo"], [`data-s="recargas"`, "💰 Saldo y recargas", "recargar qr comprobante"]]],
     ["🛟 Ayuda", [[`data-s="fallas"`, "⚠️ Reportar falla", "problema soporte"], [`data-tour="1"`, "📖 Guía de los botones", "ayuda tutorial"], [`data-afuera="pais"`, "🌎 Mi país y moneda", "dolares pais moneda"], [`data-s="inicio"`, "🏠 Inicio", "inicio pin app instalar contraseña"]]],
@@ -1564,13 +1575,15 @@ function resellerHome() {
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
   return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${rentAlertBanner()}
+    ${indep ? indepLine({ settings: S.settings, me }) : ""}
+    ${firstStepsCard(S.data.pasos, { settings: S.settings, me, pageBtnAttr: sh?.saved ? `data-gopage="1"` : `data-wiz="1"` })}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
     <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
     ${isReseller() && usesDay ? todayCard() : ""}
     ${isReseller() && foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
-    <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>Mi página, Mi control, ganancias, afiches, mi PIN…</small></summary>
+    <details class="sbox hmore"${S.data.hmoreOpen ? " open" : ""}><summary>🧰 Todas mis herramientas <small>${canPage ? "Mi página, " : ""}Mi control, ganancias, afiches, mi PIN…</small></summary>
     ${isReseller() && !usesDay ? todayCard() : ""}
     ${isReseller() && !foreign ? countryHomeCard(S.data.prices, { usd: usdMode() }) : ""}
     ${setupR}
@@ -1590,8 +1603,9 @@ const roundBs = (c) => Math.max(100, Math.round(c / 100) * 100);
 function wizardView() {
   const w = S.data.wiz, sh = S.data.shop, m = sh?.marginPct ?? 30;
   const steps = `<div class="wsteps">${["Tu tienda", "Qué vendés", "¡Listo!"].map((t, i) => `<span class="${w.step > i ? "on" : ""}">${i + 1} · ${t}</span>`).join("")}</div>`;
-  if (w.step === 1) return `${steps}<form class="sbox sform wiz" id="wiz1"><h2>¿Cómo se llama tu tienda?</h2>
+  if (w.step === 1) return `${steps}<form class="sbox sform wiz" id="wiz1" data-saved="${sh.saved ? 1 : 0}"><h2>¿Cómo se llama tu tienda?</h2>
       <label>Nombre de tu tienda<input name="title" required maxlength="40" value="${esc(w.title ?? sh.title)}" placeholder="Ej.: Ari Streaming"></label>
+      ${slugField(w, sh, location.origin)}
       <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" required inputmode="tel" value="${esc(w.whatsapp ?? sh.whatsapp)}"></label>
       <label>Tu logo (opcional)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label>
       <div class="hrow"><button class="sbtn" type="button" data-wizexit="1">Ahora no</button><button class="sbtn pri" type="submit">Siguiente ${icon("arrow")}</button></div></form>`;
@@ -1603,6 +1617,7 @@ function wizardView() {
       <p class="empty" style="margin:0">Marcá lo que querés mostrar. Ya te pusimos un precio de venta sugerido (tu costo + ${m}%): cambialo si querés.</p>
       <div class="hrow"><button class="sbtn sm" type="button" data-wizall="1">Marcar todo</button><button class="sbtn sm" type="button" data-wizall="0">Desmarcar todo</button><span class="empty" style="font-size:13px">${on} elegido(s)</span></div>
       <div class="wlist">${list.map((p) => { const k = w.picks[p.productId]; return `<label class="witem ${k.on ? "on" : ""}"><input type="checkbox" data-wpick="${esc(p.productId)}" ${k.on ? "checked" : ""}><span><b>${esc(p.name)}</b><small>Te cuesta ${bs(p.cost)} · ganás ${bs(Math.max(0, k.sell - p.cost))}</small></span><span class="wprice">${esc(buySym())} <input inputmode="decimal" data-wsell="${esc(p.productId)}" value="${k.sell / 100}"></span></label>`; }).join("")}</div>
+      ${slugConfirm(shopUrl(sh.slug))}
       <div class="hrow"><button class="sbtn" type="button" data-wizback="1">Atrás</button><button class="sbtn pri" type="submit" ${on ? "" : "disabled"}>Publicar mi página ${icon("arrow")}</button></div></form>`;
   }
   const url = shopUrl(sh.slug), txt = `¡Mirá mi tienda! 🛍️ ${url}`;
@@ -1628,14 +1643,14 @@ function tourStepList() {
   steps.push(
     ['.hsmall [data-s="clientes"]', "Mis clientes 👥", "Si querés, anotá a quién le revendés y te avisamos cuándo cobrarles."],
     ['.hsmall [data-s="fallas"]', "Ayuda 🆘", "¿Una cuenta no anda o tenés una duda? Contalo acá y te respondemos."],
-    [".hmore > summary", "Todas tus herramientas 🧰", "Mi página, Mi control, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites."],
+    [".hmore > summary", "Todas tus herramientas 🧰", `${S.me?.pageAllowed ? "Mi página, Mi control" : "Mi control"}, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites.`],
   );
   // La barra de abajo (celular): Vender, Inventario y Más (GaboHub etapas 1 y 2).
   const bn = document.querySelector(".bnav");
   if (bn && getComputedStyle(bn).display !== "none" && bn.querySelector('[data-s="mas"]')) steps.push(
     ['.bnav [data-s="vender"]', "Vender 🛒", "Elegí qué vendés: una cuenta de la tienda, una tuya o un perfil. Te llevo directo."],
     ['.bnav [data-s="inventario"]', "Inventario 📦", "Todo tu stock por plataforma: lo que compraste, las cuentas completas y tus cuentas propias."],
-    ['.bnav [data-s="mas"]', "Más ☰", "Todo tu panel en un menú: Mi página, combos, afiches, ganancias… con buscador."],
+    ['.bnav [data-s="mas"]', "Más ☰", `Todo tu panel en un menú: ${S.me?.pageAllowed ? "Mi página, combos, " : ""}afiches, ganancias… con buscador.`],
   );
   steps.push(
     ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
@@ -1911,7 +1926,8 @@ function shopEditor() {
     <div class="sbox"><h2>💳 Tu QR de cobro</h2><p class="empty" style="margin:0">Tus clientes te pagan <b>directo a vos</b>: cuando arman su pedido en tu página, ven tu QR con el total y te mandan el comprobante por WhatsApp.</p>
       <div class="rimgs"><form class="sform" id="shopQr">${sh.hasQr ? `<img class="rqrimg" src="/api/shops/${esc(sh.slug)}/qr?v=${Date.now() % 1e6}" alt="Tu QR de cobro">` : `<span class="empty">Todavía no subiste tu QR.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de tu QR"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasQr ? "Cambiar" : "Subir"} QR</button>${sh.hasQr ? `<button class="sbtn sm" type="button" data-rmimg="qr">Quitar</button>` : ""}</div><small class="empty">La captura del QR de tu banco o billetera.</small></form>
-      <form class="sform" id="shopPayNote"><label>Datos para pagarte (opcional)<input name="payNote" maxlength="160" value="${esc(sh.payNote ?? "")}" placeholder="Ej.: Banco Unión · a nombre de Juan Pérez"></label><button class="sbtn sm" type="submit">Guardar</button></form></div></div>`;
+      <form class="sform" id="shopPayNote"><label>Datos para pagarte (opcional)<input name="payNote" maxlength="160" value="${esc(sh.payNote ?? "")}" placeholder="Ej.: Banco Unión · a nombre de Juan Pérez"></label><button class="sbtn sm" type="submit">Guardar</button></form></div></div>
+    ${shopFaqBox(sh)}`;
 }
 
 /** Lee el formulario del editor como objeto de estilo. */
@@ -2907,7 +2923,7 @@ document.addEventListener("submit", async (ev) => {
       toast("Comprobante enviado: lo revisamos en 10–30 minutos");
     } else if (f.id === "applyForm") {
       const r = await api("POST", "/api/resellers/apply", { name: f.name.value, phone: f.phone.value, note: f.note.value, ...(REF ? { ref: REF } : {}) });
-      $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "Te escribimos por WhatsApp con tu acceso apenas la aprobemos."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
+      $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800">${r.already === "reseller" ? "¡Ya sos revendedor!" : "¡Solicitud enviada! 🎉"}</h2><p class="empty">${r.already === "reseller" ? "Entrá con tu número y tu PIN." : r.already === "pending" ? "Ya teníamos tu solicitud: en breve te escribimos." : "La tienda te va a escribir por WhatsApp con tu acceso cuando apruebe tu solicitud."}</p><button class="sbtn pri" type="button" data-close="1" ${r.already === "reseller" ? 'data-login="1"' : ""}>Listo</button></div>`;
       return;
     } else if (f.id === "pwdform") {
       await api("POST", "/api/me/password", { current: f.current?.value ?? "", password: f.password.value, email: f.email.value.trim() });
@@ -2921,7 +2937,8 @@ document.addEventListener("submit", async (ev) => {
       if (S.view === "seguridad") { S.data.sec = await api("GET", "/api/me/security").catch(() => S.data.sec); render(); }
     } else if (f.id === "wiz1") {
       S.data.wiz.title = f.title.value.trim(); S.data.wiz.whatsapp = f.whatsapp.value;
-      S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value });
+      S.data.wiz.slug = f.slug.value.trim().toLowerCase(); S.data.wiz.slugTouched = !!f.slug.dataset.touched; // dirección desde el nombre de su tienda (arranque.js)
+      S.data.shop = await api("PUT", "/api/me/shop", { title: S.data.wiz.title, whatsapp: f.whatsapp.value, slug: S.data.wiz.slug });
       if (f.logo.files[0]) S.data.shop = await api("POST", "/api/me/shop/logo", { contentBase64: await fileToBase64(f.logo.files[0]) });
       S.data.wiz.step = 2;
       render(); scrollTo(0, 0);
@@ -3005,6 +3022,9 @@ document.addEventListener("submit", async (ev) => {
       body.products = [...f.querySelectorAll('input[name="prod"]:checked')].map((x) => x.value);
       S.data.shop = await api("PUT", "/api/me/shop", body);
       toast(S.data.shop.enabled ? "Guardado: tus clientes ya ven los cambios" : "Guardado. Activá “Publicar” para que tus clientes la vean");
+    } else if (f.id === "shopFaq") {
+      S.data.shop = await saveShopFaq(f); // sus preguntas frecuentes (marca-propia.js)
+      toast("Preguntas guardadas: ya las ven tus clientes");
     } else if (f.id === "shopLogo" || f.id === "shopBanner") {
       S.data.shop = await api("POST", `/api/me/shop/${f.id === "shopLogo" ? "logo" : "banner"}`, { contentBase64: await fileToBase64(f.file.files[0]) });
       toast(f.id === "shopLogo" ? "Logo actualizado" : "Portada actualizada");
@@ -3053,7 +3073,6 @@ descargasBind(document);
 window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
 // 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
-if (MODE === "hub") { const mb = document.querySelector(".mnybtn"); if (mb) mb.hidden = false; }
 initMoneyMask();
 (async () => {
   if (SLUG) {
@@ -3119,7 +3138,7 @@ function openApply(msg = "") {
     <form class="sform" id="applyForm"><label>Tu nombre<input name="name" required maxlength="80" autocomplete="name"></label>
     <label>Tu WhatsApp<input name="phone" required inputmode="tel" value="+591 " autocomplete="tel"></label>
     <label>¿Ya vendés? Contanos algo (opcional)<input name="note" maxlength="300" placeholder="Ej.: vendo Netflix hace 1 año"></label>
-    <button class="sbtn pri" type="submit">Enviar solicitud</button><p class="empty" style="margin:0;font-size:13px">Te escribimos por WhatsApp con tu acceso.</p></form></div>`;
+    <button class="sbtn pri" type="submit">Enviar solicitud</button><p class="empty" style="margin:0;font-size:13px">La tienda te va a escribir por WhatsApp con tu acceso.</p></form></div>`;
   $("#modal").hidden = false;
   $("#scrim").hidden = false;
   $("#modal input")?.focus();

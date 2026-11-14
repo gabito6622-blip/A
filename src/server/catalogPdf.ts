@@ -212,7 +212,7 @@ function contactBox(c: Ctx) {
 
 /** El catálogo en PDF. `logo` es el archivo del logo (PNG/JPEG) si existe. */
 export function catalogPdf(d: CatalogData, design: CatalogDesign, logo?: Buffer, images: Map<string, Buffer> = new Map()): Buffer {
-  const p = new Pdf({ title: `Catálogo ${d.business.name}`, author: d.business.name, subject: `Catálogo de suscripciones · ${fdate(d.generatedAt)}` });
+  const p = new Pdf({ title: `Catálogo ${d.business.name}`, author: d.business.name, producer: d.business.name, subject: `Catálogo de suscripciones · ${fdate(d.generatedAt)}` });
   const bg = d.business.background || "#070b16";
   const acc = d.business.accent || "#fcc42d";
   const c: Ctx = { p, d, design, logo, images, y: 0, page: 0, acc, accInk: inkAccent(acc), bg, onDark: lum(bg) < 0.5 };

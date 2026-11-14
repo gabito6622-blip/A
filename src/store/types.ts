@@ -409,6 +409,8 @@ export interface ResellerShop extends Look {
   coupons?: ResellerCoupon[];
   /** "Armá tu combo" en SU página: descuento para 2, 3 y 4+ apps sueltas (centavos). El revendedor elige los montos. */
   comboDiscounts?: [Cents, Cents, Cents];
+  /** Sus preguntas frecuentes (paginaNeutra.ts). Vacío = las de fábrica, neutras. */
+  faq?: { q: string; a: string }[];
 }
 
 export type OrderKind = "sale" | "renewal" | "topup";
