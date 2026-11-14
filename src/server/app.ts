@@ -312,7 +312,7 @@ export function createApp(cfg: AppConfig): App {
     const chk = assistKeyCheck(k, now());
     if (chk.expired) {
       if (now() - assistExpiredLogAt > HOUR) { assistExpiredLogAt = now(); try { db.logAccess({ at: now(), kind: "staff", subjectId: u.id, event: "key_expired", via: "llave del asistente", ok: false, ip: "", ua: uaOf(req) }); } catch { /* sin registro */ } }
-      throw new HttpError(401, "KEY_EXPIRED", "La llave del asistente venció (dura 7 días). Pedile al dueño que cree una nueva en Usuarios.");
+      throw new HttpError(401, "KEY_EXPIRED", "La llave del asistente venció. Pedile al dueño que cree una nueva en Usuarios.");
     }
     if (!k.lastUsedAt || now() - k.lastUsedAt > HOUR) { try { db.logAccess({ at: now(), kind: "staff", subjectId: u.id, event: "key_use", via: "llave del asistente", ok: true, ip: "", ua: uaOf(req) }); } catch { /* sin registro */ } }
     if (chk.patch || !k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, ...chk.patch, lastUsedAt: now() }), now());
@@ -1245,7 +1245,7 @@ export function createApp(cfg: AppConfig): App {
     if (!u) u = st.staff[store.admin.createStaff(A(c), { username: "asistente", name: "Claude (asistente)", role: "admin", passwordHash: hashPassword(randomBytes(24).toString("hex")) }).id];
     else if (!u.active) store.admin.setStaffActive(A(c), u.id, true);
     const token = "gsa_" + randomBytes(24).toString("base64url");
-    const key: AssistKey = { hash: sha256(token), staffId: u.id, createdAt: now(), expiresAt: now() + 7 * 24 * HOUR };
+    const key: AssistKey = { hash: sha256(token), staffId: u.id, createdAt: now() }; // no vence: se apaga o se cambia desde Usuarios
     db.setSecret("assistant_key", JSON.stringify(key), now());
     store.engine.tx(() => store.engine.audit(A(c), "assistant.key", "staff", u!.id, {}));
     return { token, username: u.username, expiresAt: key.expiresAt };

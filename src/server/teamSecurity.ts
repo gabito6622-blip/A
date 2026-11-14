@@ -1,37 +1,27 @@
-// Seguridad del EQUIPO (revisión del 14/11/2026, «arreglá todo»): llave del asistente con poder limitado y que vence,
+// Seguridad del EQUIPO (revisión del 14/11/2026, «arreglá todo»): llave del asistente (admin sin acceso a usuarios),
 // filtros de la Auditoría (persona y período), ingresos del equipo en la Auditoría y avisos al dueño cuando alguien
 // del equipo hace algo delicado (exportar clientes, mirar muchas contraseñas, dar acceso a un revendedor).
 import type { Actor, AuditEvent, Role } from "../store/types.js";
 import type { Engine } from "../store/engine.js";
-import { boDayStart, DAY, HOUR } from "../store/time.js";
+import { boDayStart, HOUR } from "../store/time.js";
 
 /* ---------------- llave del asistente ---------------- */
 
-/** Días que dura una llave del asistente. Después se crea una nueva («🔁 Crear llave nueva» en Usuarios). */
-export const ASSISTANT_KEY_DAYS = 7;
 export type AssistKey = { hash: string; staffId: string; createdAt: number; lastUsedAt?: number; expiresAt?: number };
 
-/**
- * ¿La llave sigue valiendo? Las llaves creadas antes de este cambio no tienen vencimiento: toman 7 días desde su
- * primer uso después del cambio (así no se corta una llave en uso apenas se publica). `patch` es lo que hay que guardar.
- */
+/** ¿La llave sigue valiendo? Sin fecha guardada no vence; si alguna vez se guardó una fecha, se respeta. */
 export function assistKeyCheck(k: AssistKey, now: number): { expired: boolean; patch?: Partial<AssistKey> } {
-  if (!k.expiresAt) return { expired: false, patch: { expiresAt: now + ASSISTANT_KEY_DAYS * DAY } };
-  return { expired: now >= k.expiresAt };
+  return { expired: !!k.expiresAt && now >= k.expiresAt };
 }
 
-const NO_ACCESS = "La llave del asistente no genera PIN ni links de acceso: los da el dueño o su equipo desde el panel";
-const NO_EXPORT = "La llave del asistente no descarga Excel con datos de clientes: lo descarga el dueño desde su panel";
 const NO_USERS = "La llave del asistente no cambia usuarios, contraseñas ni permisos";
-/** Rutas que la llave del asistente no puede usar aunque entre como admin. La matriz de permisos frena el resto (auth.ts). */
+/**
+ * Rutas que la llave del asistente no usa aunque entre como admin: usuarios, contraseñas y permisos son solo del dueño.
+ * Lo demás lo puede como un admin (decisión del dueño, 14/11/2026), y todo queda en la Auditoría.
+ */
 const ASSISTANT_BLOCK: [method: string, re: RegExp, why: string][] = [
-  ["POST", /^\/api\/admin\/customers\/[^/]+\/(login-pin|login-link|code-link)$/, NO_ACCESS],
-  ["POST", /^\/api\/admin\/assignments\/[^/]+\/renew-link$/, NO_ACCESS],
-  ["POST", /^\/api\/admin\/reseller-apps\/[^/]+\/approve$/, "La llave del asistente no aprueba revendedores (al aprobar se genera su PIN): lo hace el dueño"],
-  ["GET", /^\/api\/admin\/(export\/|descargas\/reporte\.xlsx$|finance\/cierre\.xlsx$)/, NO_EXPORT],
   ["*", /^\/api\/admin\/(staff|assistant)(\/|$)/, NO_USERS],
   ["POST", /^\/api\/admin\/me\/(password|2fa)/, NO_USERS],
-  ["GET", /^\/api\/admin\/codes$/, "La llave del asistente no ve los códigos de acceso de las cuentas"],
 ];
 /** Mensaje de por qué la llave del asistente no puede usar esta ruta, o null si puede. */
 export function assistantBlocked(method: string, path: string): string | null {
@@ -95,6 +85,7 @@ export function createTeamWatch(o: { engine: Engine; now: () => number; notify: 
     if (t !== undefined && o.now() - t < HOUR) return;
     last.set(k, o.now());
     try { o.engine.tx(() => o.engine.audit({ id: "system:equipo", role: "system" }, "team.alert", "staff", actor.id, { kind, title })); } catch { /* el aviso nunca frena nada */ }
+    if (actor.assistant) return; // el asistente trabaja a pedido del dueño: queda en la Auditoría, sin avisos al celular
     try { o.notify(title, body); } catch { /* sin avisos */ }
   };
   return {

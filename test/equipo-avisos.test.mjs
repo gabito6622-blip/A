@@ -42,7 +42,7 @@ async function boot() {
   assert.equal((await call("POST", "/api/admin/push/subscribe", { subscription: { endpoint: FCM, keys: { p256dh: "a", auth: "b" } }, label: "Celular" }, ock)).status, 200);
   const settle = () => new Promise((r) => setTimeout(r, 60));
   const latest = async () => (await call("GET", "/api/admin/push/latest", null, ock)).json;
-  return { app, dir, clock, sent, call, login, ock, ana, rosa, aid, settle, latest, stop: async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); } };
+  return { app, dir, base, clock, sent, call, login, ock, ana, rosa, aid, settle, latest, stop: async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); } };
 }
 
 describe("Avisos al dueño por lo que hace el equipo", () => {
@@ -150,4 +150,22 @@ describe("Atención no cambia el precio de un alquiler ya cobrado", () => {
     const aud = (await t.call("GET", "/api/admin/audit?action=assignment.control", null, t.ock)).json;
     assert.deepEqual({ price: aud[0].data.price, priceFrom: aud[0].data.priceFrom }, { price: 2800, priceFrom: 2500 });
   });
+});
+
+// El asistente trabaja a pedido del dueño (decisión del 14/11/2026: «como un admin»): lo que hace queda en la
+// Auditoría, pero no le llena el celular de avisos.
+test("el asistente exporta y da PIN sin mandar avisos al celular, pero queda en la Auditoría", async () => {
+  const t = await boot();
+  try {
+    const key = (await t.call("POST", "/api/admin/assistant", {}, t.ock)).json.token;
+    const asis = (url, method = "GET") => fetch(t.base + url, { method, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) });
+    const n0 = t.sent.length;
+    assert.equal((await asis("/api/admin/export/clientes")).status, 200);
+    assert.equal((await asis(`/api/admin/customers/${t.rosa.id}/login-pin`, "POST")).status, 200);
+    await t.settle();
+    assert.equal(t.sent.length, n0, "ningún aviso al celular");
+    const aud = (await t.call("GET", "/api/admin/audit", null, t.ock)).json;
+    const list = Array.isArray(aud) ? aud : aud.list ?? aud.events ?? [];
+    assert.ok(list.some((a) => a.action === "team.alert"), "queda anotado en la Auditoría");
+  } finally { await t.stop(); }
 });

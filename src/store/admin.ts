@@ -232,8 +232,8 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const expiresText = new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(a.customerExpiresAt));
   const storeName = e.s.settings.storeName || "la tienda";
   const first = (cust?.name ?? "").split(" ")[0] || "";
-  // La llave del asistente no ve contraseñas ni PIN de perfiles: el mensaje sale con «te la paso aparte».
-  const hide = !!actor.assistant;
+  // El asistente entrega como un admin (decisión del dueño, 14/11/2026). `hide` queda para un rol sin contraseñas.
+  const hide = false;
   const pin = hide ? "" : slot.pin ?? "";
   const secret = hide ? "" : acc.password;
   const message = (acc.iptv

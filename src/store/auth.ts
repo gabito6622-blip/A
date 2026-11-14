@@ -53,11 +53,11 @@ const MATRIX: Record<Permission, Role[]> = {
 };
 
 /**
- * La llave del asistente entra como admin, pero con poder limitado (revisión de seguridad del equipo, 14/11/2026):
- * no ve contraseñas de cuentas ni cambia usuarios o permisos. Las rutas que generan PIN, links de acceso o
- * exportaciones con datos de clientes se frenan aparte (src/server/teamSecurity.ts).
+ * La llave del asistente entra como un admin (decisión del dueño, 14/11/2026: «vos sos mi asistente de todo mi panel,
+ * sí tenés derecho»). Lo único que no toca son los usuarios y permisos, que se frenan por ruta en
+ * src/server/teamSecurity.ts. La lista queda por si el dueño quiere quitarle algún permiso más adelante.
  */
-export const ASSISTANT_DENY: readonly Permission[] = ["inventory.view_secrets", "wallet.adjust", "audit.view", "codes.configure", "reseller.manage"];
+export const ASSISTANT_DENY: readonly Permission[] = [];
 
 export function can(actor: Actor, perm: Permission): boolean {
   if (actor.assistant && ASSISTANT_DENY.includes(perm)) return false;
