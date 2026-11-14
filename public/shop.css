@@ -1227,6 +1227,8 @@ details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center
 .rmtot{font-size:14px}
 .rmqrimg{width:min(220px,100%);height:auto;border-radius:12px;background:#fff;padding:8px;justify-self:start}
 .rmqr label{display:grid;gap:4px;font-size:14px}
+/* 15/11: el número de operación del QR de «Renovar varias» medía 27 px de alto: ahora 44 px, como todos los campos. */
+.rmqr input:not([type=file]){min-height:44px;background:var(--s-bg);color:inherit;border:1px solid var(--s-line);border-radius:12px;padding:11px 12px;font-size:16px;width:100%;min-width:0}
 /* Plata del cuaderno (cuaderno.js, 14/11/2026): Me pagó de un toque, deudas por período, cuenta cortada, historial. */
 .cnav{margin-top:2px}.cnav .sbtn,.cpay .sbtn,.cdebt .sbtn,.ccut .sbtn,.cundo .sbtn{min-height:44px}
 .cundo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:14px}
