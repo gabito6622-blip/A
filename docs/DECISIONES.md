@@ -2,6 +2,19 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-14 · Dos tipos de revendedor; el bloqueo va en el servidor
+- **Qué se decidió:** `Customer.trust` = sin valor («De confianza», como siempre) o `"independent"`. Los que entran por la solicitud quedan independientes; los 25 de hoy, de confianza. Lo cambia el dueño.
+- **Dónde se corta:** en `visibleTo` (catálogo, precios, compras y renovaciones pasan por ahí), en la página pública, en el catálogo para descargar y en las etiquetas del directorio. Esconder botones solo no alcanza (regla de aislamiento).
+- **El dueño eligió:** el independiente nunca le compra (no hay «pedir y aprobar»). Si le agarra confianza, lo pasa con un toque.
+- **Si un revendedor de confianza pasa a independiente:** lo que ya tiene sigue visible hasta que venza, pero no lo puede renovar desde su panel.
+
+## 2026-11-14 · GaboHub: inicio de 4 botones y el resto plegado
+- **Qué se decidió:** el inicio del revendedor muestra solo lo de todos los días (cuentas, código, renovar, comprar) y pliega lo demás en «Todas mis herramientas».
+- **Por qué:** solo 2 de 25 revendedores entraron alguna vez; el dueño contó que «ven demasiadas cosas a la vez». Lo que más hacen (mirar sus cuentas, sacar el código de Disney, renovar) estaba mezclado con página, combos, ganancias y planes.
+- **Sin quitar nada:** regla del dueño. Todo sigue a un toque (plegado en el inicio) y en «Más».
+- **Link de un toque sin cambiar el PIN:** «Nuevo PIN y acceso» deja afuera al revendedor hasta que le llega el PIN nuevo; para invitar a los 25 hacía falta algo que no rompa nada. El link es de un solo uso y por 24 h (lo que ya hacía el sistema), va en el `#` (WhatsApp no lo «gasta» al armar la vista previa).
+- **Descartado:** un «modo simple» que se prenda o apague (dos inicios para mantener); un video (no hay cómo grabarlo sin el dueño: queda en el backlog).
+
 ## 2026-11-13 · Colores puestos por el servidor (no esconder la página)
 - **Qué se decidió:** el HTML sale con las variables de color del dueño (o del revendedor) en `<html style>`, en vez de esconder la página hasta que cargue.
 - **Por qué:** esconder deja la pantalla vacía más tiempo; con los colores puestos, el primer cuadro ya es el definitivo. No se puede leer la preferencia con un `<script>` en línea porque la política de seguridad (CSP) no lo permite, y un `style` sí.

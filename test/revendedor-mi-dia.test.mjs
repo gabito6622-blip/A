@@ -184,6 +184,7 @@ describe("Mi día del revendedor · API y navegador", () => {
       const p = await ctx.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message));
       await p.goto(base + "/hub#inicio");
       await p.locator(".htiles").waitFor();
+      await p.locator(".hmore > summary").click(); // inicio simple: «Tu negocio» quedó en «Todas mis herramientas»
       await p.locator('.hqrow [data-rtool="dia"]').click();
       await p.locator('[data-rtab="dia"][aria-selected="true"]').waitFor();
       await p.waitForSelector("[data-rdpay]", { timeout: 20_000 });

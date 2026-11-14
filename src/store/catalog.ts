@@ -508,9 +508,15 @@ export function canActFor(e: Engine, actor: Actor, customerId: Id): boolean {
   return actor.role === "reseller" && !!c && c.resellerId === actor.customerId;
 }
 
+/** Revendedor independiente: no compra el stock de la tienda (ver Customer.trust). */
+export const isIndependent = (c?: { kind?: string; trust?: string }): boolean => c?.kind === "reseller" && c.trust === "independent";
+
 /** ¿Este cliente puede ver/comprar/renovar este producto desde la tienda? */
+
 export function visibleTo(e: Engine, p: { id?: Id; published: boolean; resellersOnly?: boolean }, customerId?: Id): boolean {
   if (!p.published) return false;
+  // Independiente: ningún producto de la tienda (ni comprar, ni renovar, ni precios). Se aplica en el servidor.
+  if (customerId && isIndependent(e.s.customers[customerId])) return false;
   // Cliente en dólares: solo ve lo que tiene precio en su lista (nunca un precio en Bs).
   if (customerId && isUsd(e, customerId)) {
     const g = e.s.priceGroups[e.s.customers[customerId].priceGroupId];
@@ -550,4 +556,18 @@ export function publicCatalog(e: Engine, customerId?: Id) {
       ...(p.kind === "combo" && p.comboProductIds?.length ? { comboParts: p.comboProductIds } : {}),
       available: Object.values(e.s.slots).filter((s) => s.productId === p.id && s.status === "available").length,
     }));
+}
+
+/** El dueño (o admin) marca a un revendedor como «De confianza» o «Independiente». */
+export function setResellerTrust(e: Engine, actor: Actor, customerId: Id, trust: unknown) {
+  authorize(actor, "reseller.manage");
+  if (trust !== "trusted" && trust !== "independent") throw new DomainError("VALIDATION", "Tipo: trusted o independent");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (c.kind !== "reseller") throw new DomainError("VALIDATION", "Solo para revendedores");
+    const before = c.trust ?? "trusted";
+    if (trust === "independent") c.trust = "independent"; else delete c.trust;
+    e.audit(actor, "reseller.trust", "customer", c.id, { before, after: trust });
+    return { id: c.id, trust };
+  });
 }

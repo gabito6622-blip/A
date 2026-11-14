@@ -11,7 +11,7 @@ import { DomainError } from "./errors.js";
 import { cleanLook } from "./look.js";
 import { balance, post } from "./wallet.js";
 import { DAY } from "./time.js";
-import { normalizePhone } from "./catalog.js";
+import { normalizePhone, isIndependent } from "./catalog.js";
 import { localeOf, localeView, money, toMine } from "./country.js";
 import { bsToUsd, isUsd, rateNow } from "./usd.js";
 import { ownCounts, pageCards, pagePrice as ownPagePrice } from "./ownStock.js";
@@ -230,6 +230,9 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
       c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true, createdAt: e.now() } as Customer;
       e.s.customers[c.id] = c;
     }
+    // Los que se suman por la solicitud entran como «Independiente» (14/11/2026): el dueño todavía no les tiene
+    // confianza para sus cuentas. Si ya era revendedor, se queda como estaba.
+    if (!wasReseller) c.trust = "independent";
     if (!e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
     a.status = "approved"; a.customerId = c.id; a.decidedBy = actor.id; a.decidedAt = e.now();
     e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id });
@@ -387,7 +390,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
       // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
       locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil, trial: !!billRead(c).trial },
-      plan: chosenPlan(c), planToday: planOf(e, c),
+      plan: chosenPlan(c), planToday: planOf(e, c), trust: c.trust ?? "trusted",
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -553,14 +556,16 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   // Precios en la moneda del revendedor: lo que cargó en Bs se convierte con SU tipo de cambio.
   // Si es de otro país y no puso tipo de cambio, los productos de la tienda no salen (no se muestran Bs).
   const mine = (bs: Cents | undefined) => toMine(e, c, bs);
+  // Independiente: su página muestra solo lo suyo (cuentas propias marcadas «en mi página»), nunca el stock de la tienda.
+  const indep = isIndependent(c);
   const products = Object.values(e.s.products)
-    .filter((p) => p.published && mine(c!.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)))
+    .filter((p) => !indep && p.published && mine(c!.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)))
     .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: mine(c!.resellerPrices![p.id])!, available: Math.min(stock[p.id] ?? 0, 20) }));
   const look: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
   const nameOf = (id: Id) => e.s.products[id]?.name ?? id;
-  const comboCards = (s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
+  const comboCards = (indep ? [] : s.combos ?? []).filter((cb) => cb.productIds.every((id) => c!.resellerPrices?.[id] !== undefined) && mine(cb.price) !== undefined).map((cb) => ({
     id: `rc_${cb.id}`, name: cb.name, category: "Combos", description: cb.note || cb.productIds.map(nameOf).join(" + "), color: "#7c5cff",
     hasImage: false, kind: "combo" as const, durationDays: 30, price: mine(cb.price)!, available: 99, items: cb.productIds.map(nameOf),
   }));
@@ -614,7 +619,7 @@ export function programInfo(e: Engine) {
     .map((c) => {
       const sh = c.shop!;
       const show = sh.products?.length ? new Set(sh.products) : null;
-      const cats = [...new Set(published.filter((p) => c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
+      const cats = [...new Set(published.filter((p) => !isIndependent(c) && c.resellerPrices?.[p.id] !== undefined && (!show || show.has(p.id))).map((p) => p.category ?? "Otros"))].slice(0, 4);
       return {
         slug: sh.slug, title: sh.title, featured: !!sh.featured, hasLogo: !!sh.logoFileRef, hasBanner: !!sh.bannerFileRef, tagline: (sh.heroChip || sh.heroText || "").slice(0, 90), tags: cats,
         accentColor: sh.accentColor, accent2Color: sh.accent2Color, backgroundColor: sh.backgroundColor, headingFont: sh.headingFont,

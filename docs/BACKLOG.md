@@ -4,6 +4,10 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- **[P2] GaboHub: video de 1 minuto en el inicio** (14/11). «Así sacás tu código, así renovás». Necesita que el dueño lo grabe (o elegir capturas). Hoy está la «📖 Guía» de la pantalla.
+- **[P2] GaboHub: aviso de vencimiento con el link de un toque** (14/11). Que el recordatorio al revendedor («te vencen 3 cuentas el 16/11») traiga el link para entrar y renovar. Con WhatsApp manual se puede ya desde «🔗 Link para entrar»; automático necesita WhatsApp de Meta.
+- **[Decide el dueño] Invitar a los 25 revendedores con «🔗 Link para entrar»** (14/11). Empezar por 3 de confianza (Ari, oby, rodbol) y preguntarles qué les cuesta.
+
 - **[Baja] GaboHub: interruptor claro/oscuro personal para revendedores** (Premium 2.0, etapa 3). Hoy el aspecto del hub lo define el dueño en Apariencia; un interruptor por persona tendría que convivir con las páginas `/r/<slug>` y con `lookColors`. Anotado el 12/11.
 
 - **[Decide el dueño] Subdominios de revendedores** (13/11). Falta: permiso para crear `*.gabostore.lat` en Railway, los registros en Namecheap, «Publicá» y la variable `GS_SHOP_SUBDOMAINS=1`. La página de Daniel (`cus_00717`) está apagada y su nombre es `dani-strem-daniel-quispe-quisp`: para `daniel.gabostore.lat` hay que prenderla y cambiar el nombre a `daniel` (el dueño decide).

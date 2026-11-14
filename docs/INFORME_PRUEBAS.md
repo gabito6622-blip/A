@@ -1,5 +1,28 @@
 # Informe de pruebas
 
+## 14/11/2026 · Revendedores de confianza e independientes (publicado el 14/11, PR #64)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Solicitud aprobada → «independent»; creado por el dueño → de confianza; `/api/admin/resellers` y `/api/me` dicen el tipo | `test/revendedor-independiente.test.mjs` (API, datos ficticios) | pasa |
+| Independiente: catálogo vacío, sin precios, comprar Netflix o el Disney de revendedores falla («no disponible») y no se le cobra; su página y su catálogo para descargar muestran solo su Flujo TV | ídem | pasa |
+| De confianza: ve el Disney de revendedores y compra | ídem | pasa |
+| Un revendedor no puede cambiar su tipo; un tipo inválido da 400 | ídem | pasa |
+| 360 px: inicio del independiente (Mis cuentas, Mis códigos, Cobrar, Mi página), sin «Comprar» ni el nombre del dueño; Más y Vender sin lo de la tienda | ídem, Playwright | pasa |
+| Dueño: la tarjeta dice «Independiente», «Pasar a De confianza» funciona y después compra | ídem | pasa |
+| Revisión de aislamiento (`/gabostore-aislamiento`): se encontró y cerró que el catálogo para descargar y las etiquetas del directorio usaban sus precios sobre productos de la tienda | lectura del código + prueba | cerrado |
+| Suite completa | `npm test` | **604 pasan, 0 fallan, 76 s** |
+
+## 14/11/2026 · GaboHub simple (publicado el 14/11, PR #64)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Uso real (solo lectura): 25 revendedores, 22 con cuentas, 9 con PIN, 2 entraron alguna vez, 1 anotó clientes, 0 compras desde el panel en 30 días | API con la llave del asistente | anotado |
+| Inicio 360 px: 4 botones grandes en orden (Mis cuentas, Sacar código, Renovar, Comprar), sin el nombre del dueño, «2 cuentas» por renovar, botones ≥ 44 px, sin scroll de costado; herramientas plegadas (PIN y Mi control no se ven hasta abrir) | `test/hub-inicio-simple.test.mjs`, Playwright, datos ficticios | pasa |
+| «💳 Renovar» abre Mis cuentas con el filtro «Vencidas» | ídem | pasa |
+| Dueño: «🔗 Link para entrar» arma el link `/hub#acceso=…` y el WhatsApp «Tocá acá y entrás directo»; el link deja adentro en otro navegador y el PIN de antes sigue sirviendo | ídem | pasa |
+| Paraguay y Panamá siguen viendo su moneda arriba; Bolivia la ve en «Todas mis herramientas» | `test/afuera-completo.test.mjs` (ajustada) | pasa |
+| Capturas antes/después (390 px, datos de ejemplo): alto del inicio 3.025 px → 1.243 px | Playwright | revisadas |
+| Suite completa | `npm test` | **603 pasan, 0 fallan, 68 s** |
+
 ## 14/11/2026 · GaboHub: «Cerrar sesión» en «Más» (publicado el 14/11, PR #63)
 | Qué | Cómo | Resultado |
 |---|---|---|

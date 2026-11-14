@@ -107,6 +107,7 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Mi día"));
     // Los atajos del Inicio siguen funcionando (Mi control → su pestaña, dentro de Mi negocio).
     await page.locator('.bnav [data-s="inicio"]').click();
+    await page.locator(".hmore > summary").click(); // inicio simple: «Tu negocio» quedó en «Todas mis herramientas»
     await page.locator('.hqrow [data-rtool="control"]').click();
     await page.waitForFunction(() => document.querySelector('.rtabs [aria-selected="true"]')?.textContent.includes("Mi control"));
     assert.deepEqual(errs, []);

@@ -168,6 +168,8 @@ test("en el celular (360 px): en Gratis, Mi día muestra el candado del plan Neg
       await page.screenshot({ path: join(process.env.GS_SHOTS ?? t.dir, "niveles-candado-360.png"), fullPage: true });
       // Inicio: dice que está en Gratis y ofrece los otros dos planes (el cambio de # no recarga: se vuelve a cargar la página).
       await page.goto(base + "/hub#inicio"); await page.reload();
+      // Desde el 14/11 el plan (si no hay nada urgente) está en «Todas mis herramientas».
+      await page.locator(".hmore > summary").click();
       await page.locator("text=plan Gratis").first().waitFor();
       assert.equal(await page.locator('[data-hubplan="seller"]').count() + await page.locator('[data-hubplan="business"]').count(), 2, "botones Vendedor y Negocio");
       await page.screenshot({ path: join(process.env.GS_SHOTS ?? t.dir, "niveles-inicio-360.png"), fullPage: true });
