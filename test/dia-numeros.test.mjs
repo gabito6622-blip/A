@@ -109,6 +109,13 @@ test("6) «Ya le avisé» y el último recordatorio son la misma marca, por los 
     const a = s.engine.s.assignments;
     assert.equal(a[ids.caro].lastReminderAt, undefined, "ya le avisaste hoy: no se le prepara otro");
     assert.equal(a[ids.bea].reminderFor, a[ids.bea].customerExpiresAt);
+    // 14/11 (revisión de 3 meses): preparado NO es avisado. Cuenta recién cuando el mensaje sale (bot o «enviado» a mano).
+    assert.equal(item(ids.bea).noticedAt, undefined, "preparado pero sin enviar: no figura avisado");
+    assert.ok(item(ids.bea).prepared, "queda «preparado, mandalo vos»");
+    const msg = s.engine.s.outbox.find((m) => m.id === a[ids.bea].reminderMsgId);
+    if (msg.status === "skipped_no_consent") s.notify.markSentManually(owner, msg.id, { force: true, reason: "me lo pidió por WhatsApp" });
+    else s.notify.markSentManually(owner, msg.id);
+    assert.equal(item(ids.bea).prepared, undefined);
     assert.equal(item(ids.bea).noticedVia, "recordatorio");
     assert.equal(item(ids.bea).noticedAt, a[ids.bea].lastReminderAt);
     assert.equal(s.stats.secretary(owner).counts.avisar, 0, "los dos ya figuran avisados");

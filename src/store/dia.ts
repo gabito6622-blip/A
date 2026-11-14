@@ -6,7 +6,7 @@
 //   - `noticeOf` / `lastNoticeAny`: la marca de «ya le avisé», venga de Mi secretaria o de Recordatorios.
 //   - `supplierRenewHint`: si «Me pagó» choca con la fecha del proveedor, cuánto y hasta cuándo habría que renovarle.
 // Solo leen: no cambian nada.
-import type { Account, Actor, Assignment, Cents, Id } from "./types.js";
+import type { Account, Actor, Assignment, Cents, Id, OutboxMessage } from "./types.js";
 import type { Engine } from "./engine.js";
 import { isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
@@ -26,30 +26,68 @@ export function cutAtOf(a: Pick<Assignment, "status" | "holdOpen" | "customerExp
 export type NoticeVia = "secretaria" | "recordatorio";
 export interface Notice { at: number; via: NoticeVia }
 
+type ReminderSrc = Pick<Assignment, "customerId" | "lastReminderAt" | "reminderMsgId">;
+/** Índice de la bandeja por id y por (cliente, momento) — se rehace solo si la bandeja cambió de tamaño. */
+const outboxIdx = new WeakMap<OutboxMessage[], { n: number; byId: Map<Id, OutboxMessage>; byAt: Map<string, OutboxMessage> }>();
+function idx(e: Engine) {
+  const box = e.s.outbox;
+  let x = outboxIdx.get(box);
+  if (!x || x.n !== box.length) {
+    x = { n: box.length, byId: new Map(), byAt: new Map() };
+    for (const m of box) { x.byId.set(m.id, m); if (m.template === "expiry_reminder") x.byAt.set(`${m.customerId}:${m.createdAt}`, m); }
+    outboxIdx.set(box, x);
+  }
+  return x;
+}
+/** El mensaje del último recordatorio (por su id; en datos viejos, por cliente y momento). */
+export function reminderMsgOf(e: Engine, a: ReminderSrc): OutboxMessage | undefined {
+  if (a.lastReminderAt === undefined) return undefined;
+  const x = idx(e);
+  return (a.reminderMsgId ? x.byId.get(a.reminderMsgId) : undefined) ?? x.byAt.get(`${a.customerId}:${a.lastReminderAt}`);
+}
+/** ¿El recordatorio salió de verdad? (lo mandó el bot, o el dueño lo marcó «enviado» a mano). */
+const reminderSent = (e: Engine, a: ReminderSrc) => { const m = reminderMsgOf(e, a); return !!m && (m.status === "sent" || m.status === "sent_manually"); };
+
+export interface PreparedReminder { at: number; status: OutboxMessage["status"]; why: "bot" | "permiso" | "sin_numero" | "fallo"; error?: string }
 /**
- * La marca de «ya le avisé» que vale para el vencimiento ACTUAL: «✅ Ya le avisé» de Mi secretaria o un recordatorio
- * preparado desde Recordatorios (manual o automático). Si se renueva o cambia la fecha, deja de contar.
+ * Recordatorio de ESTE vencimiento que quedó «preparado» y no salió (bot apagado, sin permiso del cliente, sin número o
+ * falló): hay que mandarlo a mano. `undefined` si no hay o si ya salió.
  */
-export function noticeOf(a: Pick<Assignment, "control" | "customerExpiresAt" | "lastReminderAt" | "reminderFor">): Notice | undefined {
+export function preparedReminderOf(e: Engine, a: ReminderSrc & Pick<Assignment, "customerExpiresAt" | "reminderFor">): PreparedReminder | undefined {
+  if (a.lastReminderAt === undefined || a.reminderFor !== a.customerExpiresAt) return undefined;
+  const m = reminderMsgOf(e, a);
+  if (!m || m.status === "sent" || m.status === "sent_manually") return undefined;
+  const why = m.status === "skipped_no_consent" ? (m.to ? "permiso" : "sin_numero") : m.status === "failed" ? "fallo" : "bot";
+  return { at: a.lastReminderAt, status: m.status, why, ...(m.error ? { error: m.error } : {}) };
+}
+
+/**
+ * La marca de «ya le avisé» que vale para el vencimiento ACTUAL: «✅ Ya le avisé» de Mi secretaria o un recordatorio de
+ * Recordatorios (manual o automático) QUE SALIÓ: si quedó en la bandeja sin enviarse (bot apagado, sin permiso), no
+ * cuenta (revisión de 3 meses, 14/11). Si se renueva o cambia la fecha, deja de contar. Sin `e` (solo para comparar
+ * fechas) cuenta el recordatorio preparado como antes.
+ */
+export function noticeOf(a: Pick<Assignment, "control" | "customerExpiresAt" | "lastReminderAt" | "reminderFor" | "customerId" | "reminderMsgId">, e?: Engine): Notice | undefined {
   const out: Notice[] = [];
   const n = a.control?.noticed;
   if (n && n.for === a.customerExpiresAt) out.push({ at: n.at, via: "secretaria" });
-  if (a.lastReminderAt !== undefined && a.reminderFor === a.customerExpiresAt) out.push({ at: a.lastReminderAt, via: "recordatorio" });
+  if (a.lastReminderAt !== undefined && a.reminderFor === a.customerExpiresAt && (!e || reminderSent(e, a))) out.push({ at: a.lastReminderAt, via: "recordatorio" });
   return out.sort((x, y) => y.at - x.at)[0];
 }
 
-/** El último aviso de cualquiera de los dos lados, sea del vencimiento que sea (columna «Último recordatorio»). */
-export function lastNoticeAny(a: Pick<Assignment, "control" | "lastReminderAt">): Notice | undefined {
+/** El último aviso de cualquiera de los dos lados, sea del vencimiento que sea (columna «Último recordatorio»). Solo los que salieron. */
+export function lastNoticeAny(a: Pick<Assignment, "control" | "lastReminderAt" | "customerId" | "reminderMsgId">, e?: Engine): Notice | undefined {
   const out: Notice[] = [];
   if (a.control?.noticed) out.push({ at: a.control.noticed.at, via: "secretaria" });
-  if (a.lastReminderAt !== undefined) out.push({ at: a.lastReminderAt, via: "recordatorio" });
+  if (a.lastReminderAt !== undefined && (!e || reminderSent(e, a))) out.push({ at: a.lastReminderAt, via: "recordatorio" });
   return out.sort((x, y) => y.at - x.at)[0];
 }
 
 /** Campos extra de cada alquiler para el panel (Control, Recordatorios). */
-export function diaFields(a: Assignment) {
+export function diaFields(a: Assignment, e?: Engine) {
   const cutAt = cutAtOf(a);
-  return { cutAt: cutAt ?? null, notice: noticeOf(a) ?? null, lastNotice: lastNoticeAny(a) ?? null };
+  const prepared = e ? preparedReminderOf(e, a) : undefined;
+  return { cutAt: cutAt ?? null, notice: noticeOf(a, e) ?? null, lastNotice: lastNoticeAny(a, e) ?? null, reminder: prepared ?? null };
 }
 
 export interface Split { mine: number; rev: number; total: number }

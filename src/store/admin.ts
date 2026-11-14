@@ -6,6 +6,7 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { isUsd, rateNow, usdToBs } from "./usd.js";
 import { diaFields } from "./dia.js";
+import { matchesQuery } from "./buscar.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -139,7 +140,8 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
   const digits = needle.replace(/\D/g, "");
   const tail = digits.length >= 6 ? digits.slice(-8) : "";
   return Object.values(e.s.customers)
-    .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle) || (!!tail && c.phone.replace(/\D/g, "").includes(tail)))
+    // Sin tildes y en cualquier orden («maria», «quispe ana», «7100»): buscar.ts.
+    .filter((c) => !needle || matchesQuery(`${c.name} ${c.phone} ${c.email ?? ""}`, needle) || (!!tail && c.phone.replace(/\D/g, "").includes(tail)))
     .map((c) => {
       const mine = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
       const priceOf = (a: typeof mine[number]) => effectivePrice(e, a);
@@ -185,7 +187,7 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         ...(isUsd(e, payerOf(e, a.customerId)) ? { payCurrency: "USD" as const, payUsd: payUsdOf(e, a) ?? null } : {}),
         resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
         // Día a día: cuándo se corta solo y la marca de «ya le avisé» (la misma en Mi secretaria y Recordatorios).
-        ...diaFields(a),
+        ...diaFields(a, e),
       };
     });
 }

@@ -65,15 +65,16 @@ describe("optimización 1 · «Me pagó» desde la secretaria", () => {
     const pv = s.cobro.preview(owner, asg);
     assert.equal(pv.ok, true, pv.blockers.join());
     assert.deepEqual([pv.customer.name, pv.payer.isReseller, pv.email, pv.product, pv.price, pv.currency, pv.periods, pv.days], ["ARIt", true, "dis1@x.lat", "Disney (alquiler revendedores)", 6600, "BOB", 1, 30]);
-    assert.equal(pv.from, NOW, "venció: el período nuevo arranca hoy"); assert.equal(pv.to, NOW + 30 * DAY); assert.equal(pv.expiredDays, 2);
+    // Decisión (a), 14/11: pago atrasado antes del corte → el período arranca en el vencimiento (sin días gratis).
+    assert.equal(pv.from, NOV1 + 10 * DAY, "venció hace 2 días y no se cortó: arranca en el vencimiento"); assert.equal(pv.to, NOV1 + 40 * DAY); assert.equal(pv.expiredDays, 2);
     assert.throws(() => s.cobro.preview(seller, asg), err("FORBIDDEN"), "Atención no cobra");
     assert.throws(() => s.cobro.preview(owner, asg, { periods: 13 }), err("VALIDATION"));
     // Guardar (con llave): corre la fecha, marca pagado, limpia la nota, audita.
     const ing0 = s.finance.report(owner, 1).current.ingresos;
     const r1 = s.cobro.apply(owner, asg, { idempotencyKey: "k1" });
-    assert.deepEqual([r1.saved.from, r1.saved.to, r1.saved.price], [NOV1 + 10 * DAY, NOW + 30 * DAY, 6600]);
+    assert.deepEqual([r1.saved.from, r1.saved.to, r1.saved.price], [NOV1 + 10 * DAY, NOV1 + 40 * DAY, 6600]);
     const a = E().assignments[asg];
-    assert.equal(a.customerExpiresAt, NOW + 30 * DAY);
+    assert.equal(a.customerExpiresAt, NOV1 + 40 * DAY);
     assert.equal(a.control.payStatus, "pagado");
     assert.ok(!/EN COBRO/.test(a.control.note) && /💵 pagado 13\/11/.test(a.control.note), a.control.note);
     assert.equal(a.control.paidLog.length, 1);
@@ -82,21 +83,21 @@ describe("optimización 1 · «Me pagó» desde la secretaria", () => {
     // Doble toque con la misma llave: misma respuesta, sin segundo cobro.
     const r2 = s.cobro.apply(owner, asg, { idempotencyKey: "k1" });
     assert.equal(r2.saved.to, r1.saved.to); assert.equal(E().assignments[asg].control.paidLog.length, 1);
-    // Otra llave 1 minuto después: freno por cobro reciente; y al rato, el período siguiente sí se puede.
+    // Otra llave 1 minuto después (y también horas después, no solo 10 minutos): pide confirmar «¿Es otro mes?».
     at(NOW + 60_000);
     const pv2 = s.cobro.preview(owner, asg);
-    assert.equal(pv2.ok, false); assert.match(pv2.blockers[0], /hace 1 min/);
-    assert.throws(() => s.cobro.apply(owner, asg, { idempotencyKey: "k2" }), err("VALIDATION"));
+    assert.equal(pv2.ok, true); assert.match(pv2.doubleCharge.text, /Ya anotaste un cobro el 13\/11 \(Bs 66\).*¿Es otro mes\?/);
+    assert.throws(() => s.cobro.apply(owner, asg, { idempotencyKey: "k2" }), err("DOUBLE_CHARGE"));
     at(NOW + 2 * HOUR);
     const pv3 = s.cobro.preview(owner, asg);
-    assert.equal(pv3.ok, true); assert.equal(pv3.from, NOW + 30 * DAY, "el siguiente período arranca donde termina el pagado");
-    // Freno por proveedor: 3 períodos pasan la fecha del proveedor (NOV1 + 100 d).
+    assert.ok(pv3.doubleCharge, "2 horas después sigue pidiendo confirmar"); assert.equal(pv3.from, NOV1 + 40 * DAY, "el siguiente período arranca donde termina el pagado");
+    // 3 períodos pasan la fecha del proveedor (NOV1 + 50 d): ya no frena, avisa (decisión (b)); sin confirmar «otro mes», 409.
     const pv4 = s.cobro.preview(owner, asg, { periods: 3 });
-    assert.equal(pv4.ok, false); assert.match(pv4.blockers[0], /vence con el proveedor/);
-    assert.throws(() => s.cobro.apply(owner, asg, { periods: 3, idempotencyKey: "k3" }), err("VALIDATION"));
-    assert.equal(E().assignments[asg].customerExpiresAt, NOW + 30 * DAY, "no se tocó la fecha");
-    // Precio corregido por el dueño al guardar.
-    const r3 = s.cobro.apply(owner, asg, { price: 6500, idempotencyKey: "k4" });
+    assert.equal(pv4.ok, true); assert.match(pv4.supplierWarn.text, /Renová el proveedor antes del/);
+    assert.throws(() => s.cobro.apply(owner, asg, { periods: 3, idempotencyKey: "k3" }), err("DOUBLE_CHARGE"));
+    assert.equal(E().assignments[asg].customerExpiresAt, NOV1 + 40 * DAY, "no se tocó la fecha");
+    // Precio corregido por el dueño al guardar (confirmando que es otro mes).
+    const r3 = s.cobro.apply(owner, asg, { price: 6500, idempotencyKey: "k4", confirmOther: true });
     assert.deepEqual([r3.saved.price, E().assignments[asg].control.price, E().assignments[asg].control.paidLog.length], [6500, 6500, 2]);
     assert.equal(s.finance.report(owner, 1).current.ingresos - ing0, 6600 + 6500);
     // La secretaria ya no la lista en cobrar.
@@ -151,7 +152,8 @@ describe("optimización 1 · por la API y en el navegador", () => {
     const r2 = await (await post(`/api/admin/assignments/${asg}/pay`, { periods: 1, idempotencyKey: "a1" }, ownerCk)).json();
     assert.equal(r2.saved.to, j1.saved.to, "misma llave: no se cobra dos veces");
     const r3 = await post(`/api/admin/assignments/${asg}/pay`, { periods: 1, idempotencyKey: "a2" }, ownerCk);
-    assert.equal(r3.status, 400, "cobro hace segundos: frena");
+    assert.equal(r3.status, 409, "cobro hace segundos: pide confirmar que es otro mes");
+    assert.equal((await r3.json()).error, "DOUBLE_CHARGE");
     assert.equal((await get(`/api/admin/assignments/${asg}/pay-preview`)).status, 401);
   });
 

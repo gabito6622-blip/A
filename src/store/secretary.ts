@@ -8,8 +8,10 @@ import { can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { DAY } from "./time.js";
-import { cutAtOf, noticeOf, todayNumbers, type NoticeVia } from "./dia.js";
+import { cutAtOf, noticeOf, preparedReminderOf, todayNumbers, type NoticeVia, type PreparedReminder } from "./dia.js";
 import { reactivableList } from "./diaCobro.js";
+import { supplierPending } from "./cobrarBien.js";
+import { reminderSettings } from "./orders.js";
 
 /** Días hacia adelante que la secretaria mira para "avisar antes de que venza". */
 export const SECRETARY_AHEAD_DAYS = 3;
@@ -37,6 +39,8 @@ export interface SecretaryItem {
   noticedVia?: NoticeVia;
   /** Cuándo se corta solo si no renueva (vencimiento + días de gracia). No viene si está «esperando fecha». */
   cutAt?: number;
+  /** Recordatorio de este vencimiento que quedó preparado y NO salió (bot apagado, sin permiso…): mandalo vos. */
+  prepared?: PreparedReminder;
 }
 export interface SecretaryGroup {
   customerId: Id;
@@ -65,7 +69,7 @@ const RE_DEBITO = /D[EÉ]BITO|SE DEBITA|AUTOPAGO|AUTOPAY|TARJETA/i;
 /** Débitos: cuentas con autopago que vencen con el proveedor desde ayer hasta dentro de estos días. */
 export const DEBIT_AHEAD_DAYS = 3;
 
-export function secretaryReport(e: Engine, actor: Actor) {
+export function secretaryReport(e: Engine, actor: Actor, opts: { botOn?: boolean } = {}) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo el panel");
   const now = e.now(), today = dayStart(now);
   const daysTo = (t: number) => Math.round((dayStart(t) - today) / DAY);
@@ -88,7 +92,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
   // aparecer (segundo aviso, como pide la regla de «3 días antes y otra vez 1 día antes»).
   // La marca es la misma que la de Recordatorios (dia.ts → noticeOf): si le avisaste por un lado, el otro lo muestra.
   const noticeFresh = (a: Assignment) => {
-    const n = noticeOf(a);
+    const n = noticeOf(a, e);
     if (!n) return undefined;
     return daysTo(a.customerExpiresAt) >= 2 || daysTo(n.at) >= -1 ? n : undefined;
   };
@@ -97,7 +101,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
     const slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
     const c = a.control ?? {};
     const usd = payUsdOf(e, a);
-    const nt = noticeFresh(a), cutAt = cutAtOf(a);
+    const nt = noticeFresh(a), cutAt = cutAtOf(a), prep = nt ? undefined : preparedReminderOf(e, a);
     const item: SecretaryItem = {
       assignmentId: a.id, email: acc?.email ?? "", product: e.s.products[a.productId]?.name ?? a.productId,
       expiresAt: a.customerExpiresAt, days: daysTo(a.customerExpiresAt), price: effectivePrice(e, a),
@@ -105,6 +109,7 @@ export function secretaryReport(e: Engine, actor: Actor) {
       ...(e.s.customers[a.customerId]?.resellerId ? { viaReseller: true } : {}),
       ...(nt ? { noticedAt: nt.at, noticedVia: nt.via } : {}),
       ...(cutAt !== undefined ? { cutAt } : {}),
+      ...(prep ? { prepared: prep } : {}),
     };
     if (has(c.note, RE_CORTAR)) put(groups.cortar, a, item);
     else if (has(c.note, RE_COBRO)) put(groups.cobrar, a, item);
@@ -120,7 +125,16 @@ export function secretaryReport(e: Engine, actor: Actor) {
   const desenlazar: { accountId: Id; email: string; product: string; note: string; free: number }[] = [];
   const listas: { accountId: Id; email: string; product: string; free: number; note?: string }[] = [];
   const faltaFecha: { accountId: Id; email: string; product: string; free: number; supplierExpiresAt: number; note?: string }[] = [];
-  const apartadas: { accountId: Id; email: string; product: string; count: number; note?: string }[] = [];
+  const apartadas: { accountId: Id; email: string; product: string; count: number; note?: string; slots: { slotId: Id; label: string; exName?: string; exAt?: number }[] }[] = [];
+  // Quién estaba antes en cada perfil (el último cliente que lo usó), para «⏸️ Apartadas»: «era de Ana · 12/10».
+  const exOf = new Map<Id, { name: string; at: number }>();
+  for (const a of Object.values(e.s.assignments)) {
+    for (const h of a.history ?? []) {
+      if (a.status === "active" && h.slotId === a.slotId) continue;
+      const cur = exOf.get(h.slotId);
+      if (!cur || h.at >= cur.at) exOf.set(h.slotId, { name: e.s.customers[a.customerId]?.name ?? "—", at: h.at });
+    }
+  }
   const claves: { accountId: Id; email: string; product: string; note: string; passwordChangedAt: number | null; clients: number }[] = [];
   const debitos: { accountId: Id; email: string; product: string; supplierExpiresAt: number; cost: number; costUsd: number | null; note: string }[] = [];
   const slotsOf = new Map<Id, (typeof e.s.slots)[string][]>();
@@ -137,7 +151,8 @@ export function secretaryReport(e: Engine, actor: Actor) {
       if (acc.supplierExpiresAt > now) listas.push({ accountId: acc.id, email: acc.email, product, free, ...(note ? { note } : {}) });
       else faltaFecha.push({ accountId: acc.id, email: acc.email, product, free, supplierExpiresAt: acc.supplierExpiresAt, ...(note ? { note } : {}) });
     }
-    if (quarantined) apartadas.push({ accountId: acc.id, email: acc.email, product, count: quarantined, ...(note ? { note } : {}) });
+    if (quarantined) apartadas.push({ accountId: acc.id, email: acc.email, product, count: quarantined, ...(note ? { note } : {}),
+      slots: slots.filter((s) => s.status === "quarantined").map((s) => { const ex = exOf.get(s.id); return { slotId: s.id, label: s.label, ...(ex ? { exName: ex.name, exAt: ex.at } : {}) }; }) });
     if (has(acc.notes, RE_DEBITO) && acc.supplierExpiresAt >= now - DAY && acc.supplierExpiresAt <= now + DEBIT_AHEAD_DAYS * DAY) {
       debitos.push({ accountId: acc.id, email: acc.email, product, supplierExpiresAt: acc.supplierExpiresAt, cost: acc.cost, costUsd: acc.costUsd ?? null, note: acc.notes ?? "" });
     }
@@ -167,6 +182,10 @@ export function secretaryReport(e: Engine, actor: Actor) {
     dia: todayNumbers(e, actor),
     // Se cortaron solos hace poco (≤ 30 días): todavía se puede anotar «Me pagó» y reactivarlos.
     cortados: can(actor, "payment.review") ? reactivableList(e, actor) : [],
+    // Decisión (b): cobros anotados que pasan la fecha del proveedor → hay que renovarle antes de esa fecha.
+    proveedores: supplierPending(e),
+    // Avisos automáticos: ¿salen de verdad? (el bot lo sabe el servidor; acá llega `botOn`).
+    avisosAuto: { enabled: reminderSettings(e).enabled, bot: opts.botOn ?? null },
   };
   const n = (gs: SecretaryGroup[]) => gs.reduce((s, g) => s + g.items.length, 0);
   // Por avisar = los que todavía no marcaste «Ya le avisé»; los ya avisados se cuentan aparte y van al final.
@@ -177,6 +196,8 @@ export function secretaryReport(e: Engine, actor: Actor) {
     ...out,
     counts: {
       cobrar: n(out.cobrar), cortar: n(out.cortar), deben: n(out.deben), sinAnotar: n(out.sinAnotar), avisar: pend(out.avisar), avisados: n(out.avisar) - pend(out.avisar),
+      preparados: [...out.cobrar, ...out.cortar, ...out.deben, ...out.sinAnotar, ...out.avisar].reduce((s, g) => s + g.items.filter((i) => i.prepared).length, 0),
+      proveedores: out.proveedores.length,
       desenlazar: desenlazar.length, libres: listas.length, faltaFecha: faltaFecha.length, apartadas: apartadas.length, claves: claves.length, debitos: debitos.length,
     },
   };
