@@ -1,6 +1,7 @@
 // Panel del vendedor conectado al servidor.
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { comoVanView } from "/panel-comovan.js";
+import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
 import { loadFicha } from "/ficha.js";
@@ -3758,6 +3759,7 @@ $("#menu").addEventListener("toggle", (ev) => {
 $("#sscrim").onclick = () => $("#app").classList.remove("open");
 const tick = () => ($("#clock").textContent = new Date().toLocaleString("es-BO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }));
 tick(); setInterval(tick, 30_000);
+initMoneyMask(); // 🙈 Tapar montos: arranca como lo dejó el dueño en este celular
 start();
 
 // Cobro por país: subir el QR de un método apenas se elige la imagen.

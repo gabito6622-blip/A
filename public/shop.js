@@ -10,6 +10,7 @@ import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js"
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
+import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
@@ -3042,6 +3043,9 @@ initDescargas({ base: "/api/me/descargas", btn: "sbtn", render });
 descargasBind(document);
 window.addEventListener("hashchange", () => { if (location.hash.startsWith("#renovar=")) { useRenewLink(); S.view = "renovar"; refresh(); return; } if (location.hash.startsWith("#acceso=")) useAccessLink().then(refresh).then(() => { if (S.linkExpired) { S.linkExpired = false; openLogin("pin", "", `<div class="err">Ese link ya no sirve. Entrá con tu número y tu PIN.</div>`); } }); else { const v = location.hash.slice(1); if (v !== S.view) setView(v); } });
 
+// 🙈 Tapar montos en GaboHub (saldo, ganancias, precios): el botón va en el encabezado.
+if (MODE === "hub") { const mb = document.querySelector(".mnybtn"); if (mb) mb.hidden = false; }
+initMoneyMask();
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
