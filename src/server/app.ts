@@ -2930,7 +2930,7 @@ export function createApp(cfg: AppConfig): App {
   function ownerSnapshot(): string {
     const st = store.engine.s, t = now(), sym = st.settings.currencySymbol || "Bs";
     const money = (c: number) => `${sym} ${(c / 100).toFixed(2)}`;
-    const fd = (x: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x));
+    const fd = (x: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x)); // «13/01»
     const sys = { id: "system:ai", role: "owner" } as const;
     const pname = (id: string) => st.products[id]?.name ?? id;
     const cname = (id: string) => st.customers[id]?.name ?? id;

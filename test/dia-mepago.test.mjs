@@ -198,7 +198,7 @@ test("2) En el panel: «se corta solo» en Mi secretaria y en el Control, y «Me
     const { base, p, errs } = await login(t.app, b, 360);
     await p.goto(base + "/panel#secretaria");
     await p.locator("#sec-cortados").waitFor();
-    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 2 * DAY).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 2 * DAY).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
     assert.match(await p.locator(".sec-card").filter({ hasText: "Ema Ficticia" }).first().innerText(), new RegExp(`se corta solo el ${cut}`));
     await p.locator("[data-secreact]").click();
     await p.locator(".sec-pvbox").waitFor();

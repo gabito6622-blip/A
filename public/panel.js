@@ -112,7 +112,7 @@ const SEC_EVENT = {
   login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerró una sesión", logout_others: "Cerró las otras sesiones",
   logout_all: "Le cerraron todas las sesiones", pin_reset: "La tienda le generó un PIN nuevo", pin_change: "Cambió su PIN", access_link: "La tienda generó un link para entrar",
 };
-const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const hhmm = (t) => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); // «03/01, 15:00» (es-BO daba «3/1, 03:00 p. m.»)
 const secSessRows = (list, mine) => list.map((s) => `<div class="secrow"><div><b>${esc(s.device)}${s.current ? ` ${pill("Este aparato", "ok")}` : ""}</b><small class="muted">Entró el ${hhmm(s.since)}${s.via ? ` con ${esc(s.via)}` : ""} · último uso ${hhmm(s.lastSeen)}${s.place ? ` · red ${esc(s.place)}…` : ""}</small></div>${mine && !s.current ? `<button class="pbtn sm" type="button" data-mysecout="${esc(s.id)}">Cerrar</button>` : ""}</div>`).join("");
 const secLogRows = (log) => log.map((a) => `<div class="secrow"><div><b>${a.ok ? "✅" : "⛔"} ${esc(SEC_EVENT[a.event] ?? a.event)}</b><small class="muted">${hhmm(a.at)}${a.event.startsWith("login") || a.event === "logout" ? ` · ${esc(a.device)}` : ""}${a.via && a.via !== "la tienda" ? ` · con ${esc(a.via)}` : ""}</small></div></div>`).join("");
 
@@ -690,8 +690,8 @@ const V = {
       ${await rateCard()}${invCard}${await winbackHomeCard()}
 
       <section class="card hm-week"><h2>📅 Mi semana <small>· cuántas cuentas vencen cada día</small></h2>
-        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
-          <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" })}</small>
+        <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
+          <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}</small>
           <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b><span class="hd-w"> vence${w.n > 1 ? "n" : ""}</span>` : "Libre"}</span>${w.amount ? `<small class="hd-amt">${bs(w.amount)}</small>` : ""}</button>`).join("")}</div>
         <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> si todos renuevan (con el precio que te pagan)` : ""}.</p></section>`;
   },

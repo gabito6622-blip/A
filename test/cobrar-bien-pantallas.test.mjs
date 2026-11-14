@@ -18,7 +18,7 @@ let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
 const DAY = 864e5;
 const PASS = "clave-del-dueño-123";
-const dm = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" }); // «13/01» (es-BO sin año daba «13/1»)
 
 async function setup() {
   const dir = mkdtempSync(join(tmpdir(), "gs-eq2-"));

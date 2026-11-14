@@ -1467,7 +1467,7 @@ const SEC_EVENT = {
   login: "Entró", login_fail: "Intento fallido", logout: "Salió", logout_one: "Cerraste una sesión", logout_others: "Cerraste las otras sesiones",
   logout_all: "La tienda cerró todas tus sesiones", pin_reset: "La tienda te generó un PIN nuevo", pin_change: "Cambiaste tu PIN", access_link: "La tienda generó un link para que entres",
 };
-const hhmm = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const hhmm = (t) => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); // «03/01, 15:00» (es-BO daba «3/1, 03:00 p. m.»)
 function securityView() {
   const sec = S.data.sec;
   if (!sec) return `<div class="sbox"><p class="empty">No se pudo cargar la seguridad de tu cuenta. Probá de nuevo.</p></div>`;
