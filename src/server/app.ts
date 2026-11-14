@@ -540,7 +540,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id) } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -781,6 +781,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
   route("POST", "/api/admin/faq", "staff", (c) => store.shops.setFaq(A(c), c.body?.items));
   route("POST", "/api/admin/customers/:id/shop-block", "staff", (c) => store.shops.setBlocked(A(c), c.params.id, !!c.body?.blocked));
+  route("POST", "/api/admin/customers/:id/trust", "staff", (c) => store.catalog.setResellerTrust(A(c), c.params.id, c.body?.trust));
   route("POST", "/api/admin/customers/:id/reseller-page", "staff", (c) => store.shops.setPage(A(c), c.params.id, !!c.body?.allowed));
   route("PUT", "/api/me/prices", "customer", (c) => store.portal.setPrices(c.actor!, c.body?.prices ?? {}));
 

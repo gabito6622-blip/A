@@ -84,7 +84,7 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   const one = await api("POST", `/api/admin/customers/${id}/login-link`, {}).then((r) => r.url).catch(() => "");
   const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n`
     + (one ? `👉 *Tocá acá y entrás directo* (sin escribir nada):\n${one}\n\nLas próximas veces entrás en ${location.origin}/hub con:\n` : `👉 Entrá acá: ${location.origin}/hub\n`)
-    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.`;
+    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones grandes con lo de todos los días: tus cuentas, tus códigos y lo que te toca cobrar o renovar.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
     : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
@@ -92,19 +92,26 @@ async function resellerKit(id, name, phone, slug, pinIn) {
 }
 
 /** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
-function guideMsg(name, plat, origin, slug, pageAllowed) {
+function guideMsg(name, plat, origin, slug, pageAllowed, trust) {
   const n = (name || "").split(" ")[0] || "";
   const page = pageAllowed && slug ? shopLink(slug, origin) : "";
   return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
     + `*1) Cómo entrar*\n`
     + `• Entrá a: ${origin}/hub\n`
     + `• Poné tu *número* y tu *PIN* (o tu correo y contraseña si te la diste).\n\n`
-    + `*2) Los 4 botones grandes* (lo de todos los días)\n`
+    + (trust === "independent"
+      ? `*2) Los 4 botones grandes* (lo de todos los días)\n`
+        + `• 📦 *Mis cuentas*: cargás tus cuentas (Netflix, IPTV, lo que vendas) y a quién se las diste.\n`
+        + `• 🔑 *Mis códigos*: conectás tu correo y los códigos de tus cuentas te llegan solos.\n`
+        + `• 💰 *Cobrar*: a quién le vence hoy y quién te debe, con el mensaje listo.\n`
+        + `• 🏪 *Mi página* (o 💸 *Quién me debe*): tu tienda para tus clientes.\n`
+        + `• Más abajo: 💰 *Saldo* y 🆘 *Ayuda*. Lo demás está en «🧰 Todas mis herramientas».\n`
+      : `*2) Los 4 botones grandes* (lo de todos los días)\n`
     + `• 📺 *Mis cuentas*: tus accesos con correo, clave y vencimiento. «📋 Copiar datos» y se los pegás a tu cliente.\n`
     + `• 🔑 *Sacar código*: cuando Disney, Netflix o HBO piden código, te aparece ahí solo.\n`
     + `• 💳 *Renovar*: lo que vence esta semana o ya venció, para renovarlo con saldo o QR.\n`
     + `• 🛒 *Comprar*: elegís y pagás con saldo o QR; la cuenta te llega al instante.\n`
-    + `• Más abajo: 💰 *Saldo*, 👥 *Mis clientes* y 🆘 *Ayuda* (si algo no anda). Lo demás está en «🧰 Todas mis herramientas».\n`
+    + `• Más abajo: 💰 *Saldo*, 👥 *Mis clientes* y 🆘 *Ayuda* (si algo no anda). Lo demás está en «🧰 Todas mis herramientas».\n`)
     + (page
         ? `• 🛍️ *Mi página*: tu tienda propia para tus clientes.\n\n`
           + `*3) Armá tu página*\n`
@@ -113,7 +120,9 @@ function guideMsg(name, plat, origin, slug, pageAllowed) {
           + `• Cuando esté lista, tocás *Publicar* y ya la podés compartir.\n\n`
         : `\n`)
     + `*4) Saldo*\n`
-    + `• Para comprar necesitás saldo. Me pedís una recarga y te la cargo; también podés pagar por QR en el momento.\n\n`
+    + (trust === "independent"
+      ? `• Tu saldo sirve para pagar tu plan de ${plat}. Lo recargás por QR desde «💰 Saldo».\n\n`
+      : `• Para comprar necesitás saldo. Me pedís una recarga y te la cargo; también podés pagar por QR en el momento.\n\n`)
     + `Cualquier cosa me escribís por acá. 🚀`;
 }
 
@@ -1514,7 +1523,7 @@ const V = {
       <div class="tabs ctl-chips" role="tablist" aria-label="Actividad">${[["todos", `Todos (${list.length})`], ["activos", `Activos (${list.filter((r) => !dormido(r)).length})`], ["dormidos", `💤 Sin comprar +14 días (${list.filter(dormido).length})`]].map(([k, t]) => `<button type="button" role="tab" data-tab="rf:${k}" aria-selected="${rf === k}">${t}</button>`).join("")}</div>
       <p class="muted" style="margin:0">Ordenados por lo que te compraron en los últimos 30 días.</p>
       ${shown2.length ? `<div class="rgrid">${shown2.map((r) => `<div class="rcard${dormido(r) ? " rsleep" : ""}">
-        <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}</div>
+        <div class="rtop"><span class="ravatar">${esc(r.name[0] ?? "?")}</span><div><b>${esc(r.name)}</b><small class="muted">${esc(r.phone || "sin WhatsApp")}</small></div>${!r.pageAllowed ? pill("Solo panel", "mute") : r.shop.suspended ? pill("Sin pagar alquiler", "bad") : r.shop.enabled && !r.shop.blocked ? pill("Página publicada", "ok") : r.shop.blocked ? pill("Bloqueada", "bad") : pill("Página apagada", "mute")}${r.trust === "independent" ? pill("🆕 Independiente", "warn") : pill("🤝 De confianza", "ok")}</div>
         ${rent.enabled && rent.scope === "all" ? `<small class="muted">${r.shop.suspended ? `<b style="color:var(--bad)">⚠️ Suscripción GaboHub sin pagar (herramientas pausadas)</b>` : r.shop.paidUntil ? `Suscripción GaboHub pagada hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Suscripción GaboHub: se cobra en la próxima revisión"}</small>`
           : r.pageAllowed && rent.enabled && r.shop.enabled ? `<small class="muted">${r.shop.paidUntil ? `Alquiler pagado hasta <b>${fdate(r.shop.paidUntil)}</b>` : "Alquiler: se cobra en la próxima revisión"}</small>` : ""}
         <div class="rstats"><div title="Plata que te dejó a cuenta: se la debés en servicios"><span>Saldo (le debés)</span><b>${wal(r.balance, r.currency)}</b></div><div><span>Te compró (30 d)</span><b>${bs(r.spent30)}</b></div><div><span>Servicios</span><b>${r.services}</b></div><div><span>Sus clientes</span><b>${r.clients}</b></div>${r.referrals ? `<div><span>🎁 Trajo</span><b>${r.referrals}</b></div>` : ""}</div>
@@ -1526,8 +1535,9 @@ const V = {
         ${r.pageAllowed ? `<div class="linkbar sm"><a href="${esc(shopLink(r.shop.slug, o))}" target="_blank" rel="noopener">${esc(shopLink(r.shop.slug, o).replace(/^https?:\/\//, ""))}</a><button class="pbtn sm" type="button" data-copy="${esc(shopLink(r.shop.slug, o))}" aria-label="Copiar link">${icon("copy")}</button></div>` : ""}
         <div class="inline">
           ${canReview() && r.phone ? `<button class="pbtn sm green" type="button" data-rone="${esc(r.id)}">🔗 Link para entrar</button>` : ""}
+          ${canReview() ? `<button class="pbtn sm" type="button" data-rtrust="${esc(r.id)}" data-to="${r.trust === "independent" ? "trusted" : "independent"}" data-name="${esc(r.name)}">${r.trust === "independent" ? "🤝 Pasar a De confianza" : "🆕 Pasar a Independiente"}</button>` : ""}
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
-          <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
+          <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed, r.trust))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
           ${!canReview() ? "" : r.pageAllowed
             ? `<button class="pbtn sm" type="button" data-rpub="${esc(r.id)}" data-on="${r.shop.enabled ? "" : "1"}">${r.shop.enabled ? "Apagar página" : "Publicar página"}</button>
                <button class="pbtn sm" type="button" data-redit="${esc(r.id)}">${icon("edit")}Dirección</button>
@@ -2757,12 +2767,21 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.roneclose) { P.tab.rone = null; return render(); }
+  // Tipo de revendedor (14/11/2026): De confianza compra/alquila tus cuentas; Independiente solo maneja las suyas.
+  if (d.rtrust) {
+    const toTrusted = d.to === "trusted";
+    if (!confirm(toTrusted
+      ? `¿Pasar a ${d.name} a «De confianza»?\n\nVa a ver tus precios de revendedor y va a poder comprar y alquilar tus cuentas.`
+      : `¿Pasar a ${d.name} a «Independiente»?\n\nDeja de ver tus precios y no puede comprar ni renovar tus cuentas desde su panel. Lo que ya tiene sigue igual hasta que venza.`)) return;
+    try { await api("POST", `/api/admin/customers/${d.rtrust}/trust`, { trust: d.to }); toast(toTrusted ? "🤝 Ahora es de confianza" : "🆕 Ahora es independiente"); await render(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.rone) {
     const r = (await api("GET", "/api/admin/resellers")).list.find((x) => x.id === d.rone);
     if (!r) return toast("No encontré a ese revendedor");
     try {
       const { url } = await api("POST", `/api/admin/customers/${r.id}/login-link`, {});
-      const msg = `¡Hola ${r.name.split("·").pop().trim().split(" ")[0]}! 👋 Te dejo tu acceso a ${P.settings?.platformName || "GaboHub"}.\n\n👉 *Tocá acá y entrás directo* (sin escribir nada):\n${url}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.\n\n(El link sirve una vez. Después entrás en ${location.origin}/hub con tu número y tu PIN.)`;
+      const msg = `¡Hola ${r.name.split("·").pop().trim().split(" ")[0]}! 👋 Te dejo tu acceso a ${P.settings?.platformName || "GaboHub"}.\n\n👉 *Tocá acá y entrás directo* (sin escribir nada):\n${url}\n\nAdentro tenés 4 botones grandes con lo de todos los días: tus cuentas, tus códigos y lo que te toca cobrar o renovar.\n\n(El link sirve una vez. Después entrás en ${location.origin}/hub con tu número y tu PIN.)`;
       P.tab.rone = { name: r.name, phone: r.phone, url, msg };
       await render(); scrollTo(0, 0); $("#ronecard")?.scrollIntoView({ block: "start" });
     } catch (e) { toast(e.message); }

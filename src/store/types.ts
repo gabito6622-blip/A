@@ -304,6 +304,12 @@ export interface Customer {
   resellerPrices?: Record<Id, Cents>;
   /** Plan del revendedor: si `true`, puede tener su página propia (premium). Sin definir = según si ya tiene página. */
   pageAllowed?: boolean;
+  /**
+   * Tipo de revendedor (14/11/2026). Sin valor = «De confianza»: compra/alquila las cuentas de la tienda, como siempre.
+   * "independent" = usa GaboHub para SUS cuentas y SUS clientes: no ve ni compra el stock de la tienda (ni precios
+   * de revendedor, ni productos solo para revendedores, ni los pone en su página). Lo cambia el dueño.
+   */
+  trust?: "independent";
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */

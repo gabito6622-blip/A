@@ -515,10 +515,14 @@ const HUB_GROUPS = {
   inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
   vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"], ["descargas", "📁 Mis descargas"]],
 };
+/** Revendedor independiente (14/11/2026): usa GaboHub para SUS cuentas; no ve ni compra el stock de la tienda. */
+const isIndep = () => S.me?.trust === "independent";
+// Lo que es «de la tienda» y un independiente no usa (el servidor igual se lo niega).
+const STORE_ONLY = ['data-s="precios"', 'data-s="cuentas"', 'data-rtool="perfiles"'];
 const groupOf = (tab) => Object.keys(HUB_GROUPS).find((g) => HUB_GROUPS[g].some(([k]) => k === tab)) ?? "negocio";
 const groupTabs = (g, sel) => {
   const canPage = !!S.me?.pageAllowed, coupons = !!S.data.shop?.couponsAllowed;
-  const l = HUB_GROUPS[g].filter(([, , need]) => !need || need === "view" || (need === "page" && canPage) || (need === "coupons" && canPage && coupons));
+  const l = HUB_GROUPS[g].filter(([k, , need]) => !(isIndep() && ["cuentas", "perfiles"].includes(k)) && (!need || need === "view" || (need === "page" && canPage) || (need === "coupons" && canPage && coupons)));
   return `<div class="rtabs hubtabs" role="tablist">${l.map(([k, t, need]) => need === "view" ? `<button type="button" role="tab" data-s="${k}" aria-selected="${sel === k}">${t}</button>` : `<button type="button" role="tab" ${S.view !== "clientes" ? `data-rtool="${k}"` : `data-rtab="${k}"`} aria-selected="${sel === k}">${t}</button>`).join("")}</div>`;
 };
 function buildNav() {
@@ -1354,6 +1358,8 @@ function hubVender() {
     [`data-rtool="control"`, "🔁", "Renovar a un cliente", "Los que vencen, con su precio. Podés renovar varios juntos."],
     [`data-s="precios"`, "💰", "Ver precios y comprar", "Todo lo que podés comprar a la tienda con tu saldo."],
   ];
+  // «Una cuenta de la tienda» (data-rtool="ventas") tampoco va: se paga con saldo del stock de la tienda.
+  if (isIndep()) for (let i = op.length - 1; i >= 0; i--) if ([...STORE_ONLY, 'data-rtool="ventas"'].includes(op[i][0])) op.splice(i, 1);
   return `<div class="sec-h"><div><span class="chip">Vender</span><h2>¿Qué vas a vender?</h2><p>Elegí y te llevo directo. Tu saldo: <b>${bs(S.me.balance)}</b></p></div><button class="sbtn" type="button" data-s="recargas">${icon("coins")}Recargar saldo</button></div>
     <div class="hubpick">${op.map(([a, e, t, d]) => `<button type="button" class="hubpick-i" ${a}><span>${e}</span><div><b>${t}</b><small>${d}</small></div>${icon("arrow")}</button>`).join("")}</div>`;
 }
@@ -1372,6 +1378,7 @@ function hubMas() {
     // 14/11/2026: «Cerrar sesión» solo estaba al final de «Cuentas de la tienda» (abajo de todas las cuentas); el dueño no lo encontraba.
     ["👤 Mi cuenta", [[`data-logout="1"`, "🚪 Cerrar sesión", "salir cerrar sesion logout cambiar cuenta"]]],
   ];
+  if (isIndep()) for (const a of areas) a[1] = a[1].filter(([attr]) => !STORE_ONLY.includes(attr));
   return `<div class="sec-h"><div><span class="chip">Más</span><h2>Todo tu panel</h2><p>Todo lo que podés hacer, en un solo lugar.</p></div></div>
     <input id="hubFind" class="hubfind" type="search" placeholder="Buscar: página, deuda, códigos…" aria-label="Buscar en tu panel" autocomplete="off">
     ${areas.filter(([, l]) => l.length).map(([t, l]) => `<section class="sbox hubarea"><b>${t}</b><div class="hubarea-l">${l.map(([a, txt, kw]) => `<button type="button" class="hubarea-i" ${a} data-kw="${esc(kw)}">${txt}${icon("arrow")}</button>`).join("")}</div></section>`).join("")}
@@ -1491,7 +1498,14 @@ function resellerHome() {
   // Nada se quitó: todo lo demás está en «🧰 Todas mis herramientas» (abajo, plegado) y en «Más».
   const urgentRent = rentBox.includes('class="hbox');
   const toRenew = venc + week;
-  const big = [
+  const indep = isIndep();
+  const big = indep ? [
+    // Independiente: su negocio, con sus cuentas. Nada del stock de la tienda.
+    [`data-rtool="propias"`, "📦", "Mis cuentas", "Las tuyas: Netflix, IPTV…"],
+    [`data-s="codigos"`, "🔑", "Mis códigos", "De tus propios correos"],
+    [`data-rtool="dia"`, "💰", "Cobrar", "A quién le vence hoy"],
+    canPage ? [sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪", "Mi página", sh?.enabled ? "Publicada" : "Armala en 3 pasos"] : [`data-rtool="debe"`, "💸", "Quién me debe", "Fiados y pagos"],
+  ] : [
     [`data-s="cuentas"`, "📺", "Mis cuentas", sv.length ? (toRenew ? `${sv.length} · ${toRenew} por renovar` : `${sv.length} al día`) : "Tus accesos"],
     [`data-s="codigos"`, "🔑", "Sacar código", "Disney, Netflix, HBO"],
     [`data-renewgo="${venc ? "bad" : "week"}"`, "💳", "Renovar", toRenew ? `${toRenew} ${toRenew === 1 ? "cuenta" : "cuentas"}` : "Nada por ahora ✓"],
@@ -1499,7 +1513,7 @@ function resellerHome() {
     [`data-s="precios"`, "🛒", "Comprar", "Cuentas al instante"],
   ];
   // Fila chica: lo que no entra en los 4 grandes, y «🆘 Ayuda» (Reportar falla, dentro de la app, sin nombres).
-  const small = [...tiles.filter(([v]) => !["cuentas", "codigos", "precios"].includes(v)), ["fallas", "🆘", "Ayuda", ""]];
+  const small = [...tiles.filter(([v]) => !["cuentas", "codigos", "precios", ...(indep && canPage ? ["pagina"] : [])].includes(v)), ["fallas", "🆘", "Ayuda", ""]];
   // «Tu día» y «Mi país y moneda» arriba solo cuando le sirven: si anota clientes o cuentas propias, o si vende desde
   // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
   const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
@@ -1581,7 +1595,12 @@ function tourStepList() {
   steps.push(
     ['[data-tour]', "¿Listo? 🎉", "Eso es todo. Podés volver a ver esta guía con este botón 📖 cuando quieras."],
   );
-  return steps.map(([sel, title, text]) => ({ sel, title, text }));
+  // Independiente: sus 4 botones (no los de la tienda). Y solo los pasos cuyo botón está en pantalla.
+  if (isIndep()) steps.splice(2, 0,
+    ['.hsimple [data-rtool="propias"]', "Mis cuentas 📦", "Tus cuentas (Netflix, IPTV, lo que vendas): cargás la cuenta y a quién se la diste."],
+    ['.hsimple [data-s="codigos"]', "Mis códigos 🔑", "Conectá tu correo y los códigos de tus cuentas te llegan acá solos."],
+    ['.hsimple [data-rtool="dia"]', "Cobrar 💰", "A quién le vence hoy y quién te debe, con el mensaje listo para mandar."]);
+  return steps.filter(([sel]) => document.querySelector(sel)).map(([sel, title, text]) => ({ sel, title, text }));
 }
 function buildTourDom() {
   let t = document.getElementById("tour");
