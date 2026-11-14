@@ -17,6 +17,8 @@ export interface Actor {
   id: Id;
   role: Role;
   customerId?: Id;
+  /** Entra con la llave del asistente: admin con poder limitado (ver `ASSISTANT_DENY` en auth.ts). */
+  assistant?: boolean;
 }
 
 export type ProductKind = "profile" | "full_account" | "invite" | "combo" | "iptv";

@@ -52,12 +52,20 @@ const MATRIX: Record<Permission, Role[]> = {
   "notify.flush": ["system", "owner", "admin"],
 };
 
+/**
+ * La llave del asistente entra como admin, pero con poder limitado (revisión de seguridad del equipo, 14/11/2026):
+ * no ve contraseñas de cuentas ni cambia usuarios o permisos. Las rutas que generan PIN, links de acceso o
+ * exportaciones con datos de clientes se frenan aparte (src/server/teamSecurity.ts).
+ */
+export const ASSISTANT_DENY: readonly Permission[] = ["inventory.view_secrets", "wallet.adjust", "audit.view", "codes.configure", "reseller.manage"];
+
 export function can(actor: Actor, perm: Permission): boolean {
+  if (actor.assistant && ASSISTANT_DENY.includes(perm)) return false;
   return MATRIX[perm].includes(actor.role);
 }
 
 export function authorize(actor: Actor, perm: Permission): void {
-  if (!can(actor, perm)) throw new DomainError("FORBIDDEN", `El rol ${actor.role} no puede ${perm}`);
+  if (!can(actor, perm)) throw new DomainError("FORBIDDEN", actor.assistant ? "La llave del asistente no puede hacer esto: lo hace el dueño desde su panel" : `El rol ${actor.role} no puede ${perm}`);
 }
 
 export const isStaff = (a: Actor) => a.role === "owner" || a.role === "admin" || a.role === "seller";

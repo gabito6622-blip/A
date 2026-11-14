@@ -44,6 +44,7 @@ import { findBySlug as findShopBySlug, RESERVED as SHOP_RESERVED, type HubFeatur
 import { businessReport, parsePeriod } from "./reportXlsx.js";
 import { injectEarlyLook } from "./earlyLook.js";
 import { deviceOf } from "./device.js";
+import { accessAsAudit, assistantBlocked, assistKeyCheck, auditRange, createTeamWatch, type AssistKey } from "./teamSecurity.js";
 
 /** Content-Security-Policy: qué puede cargar el navegador en la tienda y el panel.
  *  - script-src 'self': solo nuestros .js (ningún <script> en línea ni onclick=).
@@ -251,6 +252,10 @@ export function createApp(cfg: AppConfig): App {
       } else void pushSend(pushSubs().filter((x) => x.staffId === subjectId), { title, body, go: "configuracion" }).catch(() => {});
     } catch { /* sin avisos */ }
   };
+  /** Avisos al dueño por lo delicado que hace el equipo (exportar clientes, muchas contraseñas, accesos de revendedores). */
+  const teamWatch = createTeamWatch({ engine: store.engine, now, notify: (title, body) => {
+    if (pushOn()) void pushSend(pushSubs().filter((x) => store.engine.s.staff[x.staffId]?.role === "owner"), { title, body, go: "auditoria" }).catch(() => {});
+  } });
   function startSession(c: { req: IncomingMessage; res: ServerResponse; ip: string }, kind: "staff" | "customer", subjectId: string) {
     const res = c.res;
     const token = newToken();
@@ -292,7 +297,8 @@ export function createApp(cfg: AppConfig): App {
   }
   // Llave del asistente: el dueño la crea en Usuarios y la apaga cuando quiere. Entra como un Admin
   // propio ("asistente"), nunca como dueño; todo lo que hace queda en la Auditoría con su nombre.
-  type AssistKey = { hash: string; staffId: string; createdAt: number; lastUsedAt?: number };
+  // 14/11/2026: poder limitado (teamSecurity.ts + ASSISTANT_DENY en auth.ts) y vence a los 7 días.
+  let assistExpiredLogAt = 0;
   const assistGet = (): AssistKey | null => { try { return JSON.parse(db.getSecret("assistant_key") ?? "null"); } catch { return null; } };
   function resolveAssistant(req: IncomingMessage): { actor?: Actor } {
     const h = req.headers.authorization ?? "";
@@ -302,8 +308,14 @@ export function createApp(cfg: AppConfig): App {
     if (!k || !timingSafeEqualStr(sha256(m[1]), k.hash)) return {};
     const u = store.engine.s.staff[k.staffId];
     if (!u || !u.active || u.role === "owner") return {};
-    if (!k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, lastUsedAt: now() }), now());
-    return { actor: { id: u.id, role: u.role } };
+    const chk = assistKeyCheck(k, now());
+    if (chk.expired) {
+      if (now() - assistExpiredLogAt > HOUR) { assistExpiredLogAt = now(); try { db.logAccess({ at: now(), kind: "staff", subjectId: u.id, event: "key_expired", via: "llave del asistente", ok: false, ip: "", ua: uaOf(req) }); } catch { /* sin registro */ } }
+      throw new HttpError(401, "KEY_EXPIRED", "La llave del asistente venció (dura 7 días). Pedile al dueño que cree una nueva en Usuarios.");
+    }
+    if (!k.lastUsedAt || now() - k.lastUsedAt > HOUR) { try { db.logAccess({ at: now(), kind: "staff", subjectId: u.id, event: "key_use", via: "llave del asistente", ok: true, ip: "", ua: uaOf(req) }); } catch { /* sin registro */ } }
+    if (chk.patch || !k.lastUsedAt || now() - k.lastUsedAt > 10 * 60_000) db.setSecret("assistant_key", JSON.stringify({ ...k, ...chk.patch, lastUsedAt: now() }), now());
+    return { actor: { id: u.id, role: u.role, assistant: true } };
   }
   function resolveActor(req: IncomingMessage): { actor?: Actor; session?: Ctx["session"] } {
     if (req.headers.authorization) { const a = resolveAssistant(req); if (a.actor) return a; }
@@ -316,7 +328,8 @@ export function createApp(cfg: AppConfig): App {
       const u = st.staff[s.subjectId];
       if (!u || !u.active) return {};
       if (now() - (s.lastSeen || s.createdAt) > 5 * 60_000) db.touchSession(s.tokenHash, now());
-      return { actor: { id: u.id, role: u.role }, session: s };
+      // El usuario «asistente» tiene el mismo poder limitado aunque entre con contraseña.
+      return { actor: { id: u.id, role: u.role, ...(u.username === "asistente" ? { assistant: true } : {}) }, session: s };
     }
     const c = st.customers[s.subjectId];
     if (!c) return {};
@@ -1008,7 +1021,17 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/dashboard", "staff", (c) => store.stats.dashboard(A(c), Number(c.query.get("days") ?? 30)));
   route("GET", "/api/admin/stats", "staff", (c) => store.stats.summary(A(c), { from: Number(c.query.get("from") ?? now() - 30 * 24 * HOUR), to: Number(c.query.get("to") ?? now() + HOUR) }));
   route("GET", "/api/admin/suppliers-report", "staff", (c) => store.stats.suppliers(A(c)));
-  route("GET", "/api/admin/audit", "staff", (c) => store.stats.audit(A(c), { action: c.query.get("action") ?? undefined, limit: Number(c.query.get("limit") ?? 200) }));
+  route("GET", "/api/admin/audit", "staff", (c) => {
+    // Filtros (14/11/2026): persona (who) y período (hoy/ayer/7d/todo); con access=1 suma los ingresos del equipo.
+    const action = c.query.get("action") ?? undefined, limit = Number(c.query.get("limit") ?? 200), who = c.query.get("who") || undefined;
+    const range = auditRange(c.query.get("period"), now());
+    const list = store.stats.audit(A(c), { action, limit, actorId: who, ...range });
+    if (c.query.get("access") !== "1") return list;
+    const st = store.engine.s.staff;
+    const acc = db.accessRange({ kind: "staff", subjectId: who, ...range, limit: Math.max(1, Math.min(limit || 200, 1000)) })
+      .map((r, i) => accessAsAudit(r, st[r.subjectId]?.role ?? "seller", deviceOf(r.ua ?? ""), i)).filter((a) => !action || a.action.startsWith(action));
+    return [...list, ...acc].sort((a, b) => b.at - a.at).slice(0, Math.max(1, limit || 200));
+  });
   route("GET", "/api/admin/stock", "staff", () => store.inventory.stock());
   route("GET", "/api/admin/outbox", "staff", (c) => store.notify.outbox(A(c)).slice(-200).reverse());
 
@@ -1196,7 +1219,7 @@ export function createApp(cfg: AppConfig): App {
   }));
   route("POST", "/api/admin/reminders", "staff", (c) => ({ queued: store.orders.queueExpiryReminders(A(c), Number(c.body?.withinDays ?? 3)) }));
 
-  route("GET", "/api/admin/staff", "staff", (c) => store.admin.listStaff(A(c)));
+  route("GET", "/api/admin/staff", "staff", (c) => store.admin.listStaff(A(c)).map((u) => ({ ...u, twoFactor: !!db.getSecret(`totp:${u.id}`) })));
   route("POST", "/api/admin/staff", "staff", (c) => store.admin.createStaff(A(c), { username: c.body?.username, name: c.body?.name, role: c.body?.role, passwordHash: hashOrThrow(c.body?.password) }));
   route("POST", "/api/admin/staff/:id/active", "staff", (c) => {
     const u = store.admin.setStaffActive(A(c), c.params.id, !!c.body?.active);
@@ -1207,7 +1230,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/assistant", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
     const k = assistGet(), u = k ? store.engine.s.staff[k.staffId] : undefined;
-    return { enabled: !!(k && u?.active), username: u?.username ?? null, createdAt: k?.createdAt ?? null, lastUsedAt: k?.lastUsedAt ?? null };
+    return { enabled: !!(k && u?.active), username: u?.username ?? null, createdAt: k?.createdAt ?? null, lastUsedAt: k?.lastUsedAt ?? null, expiresAt: k?.expiresAt ?? null, expired: !!(k?.expiresAt && now() >= k.expiresAt) };
   });
   route("POST", "/api/admin/assistant", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño crea el acceso del asistente");
@@ -1217,9 +1240,10 @@ export function createApp(cfg: AppConfig): App {
     if (!u) u = st.staff[store.admin.createStaff(A(c), { username: "asistente", name: "Claude (asistente)", role: "admin", passwordHash: hashPassword(randomBytes(24).toString("hex")) }).id];
     else if (!u.active) store.admin.setStaffActive(A(c), u.id, true);
     const token = "gsa_" + randomBytes(24).toString("base64url");
-    db.setSecret("assistant_key", JSON.stringify({ hash: sha256(token), staffId: u.id, createdAt: now() }), now());
+    const key: AssistKey = { hash: sha256(token), staffId: u.id, createdAt: now(), expiresAt: now() + 7 * 24 * HOUR };
+    db.setSecret("assistant_key", JSON.stringify(key), now());
     store.engine.tx(() => store.engine.audit(A(c), "assistant.key", "staff", u!.id, {}));
-    return { token, username: u.username };
+    return { token, username: u.username, expiresAt: key.expiresAt };
   });
   route("POST", "/api/admin/assistant/off", "staff", (c) => {
     if (A(c).role !== "owner") throw new HttpError(403, "FORBIDDEN", "Solo el dueño");
@@ -1426,7 +1450,7 @@ export function createApp(cfg: AppConfig): App {
     return publicPdf(c, `r:${owner.id}`, { id: "public:catalogo", role: "reseller", customerId: owner.id });
   });
   const descargasXlsx = (c: Ctx, actor: Actor) => { const { file, name } = businessReport(store, actor, parsePeriod(c.query.get("from"), c.query.get("to"), now()), originOf(c.req)); return sendFile(c, file, name); };
-  route("GET", "/api/admin/descargas/reporte.xlsx", "staff", (c) => descargasXlsx(c, A(c)));
+  route("GET", "/api/admin/descargas/reporte.xlsx", "staff", (c) => { const out = descargasXlsx(c, A(c)); store.engine.tx(() => store.engine.audit(A(c), "export", "export", "reporte", {})); return out; });
   route("GET", "/api/me/descargas/reporte.xlsx", "customer", (c) => { needPlan("excel")(c); return descargasXlsx(c, c.actor!); });
   route("GET", "/api/me/descargas/catalogo.pdf", "customer", (c) => { hubPaid(c); return descargasPdf(c, c.actor!); });
   route("GET", "/api/me/descargas/catalogo", "customer", (c) => { hubPaid(c); return descargasCatalogo(c, c.actor!); });
@@ -2499,8 +2523,12 @@ export function createApp(cfg: AppConfig): App {
       const { actor, session } = resolveActor(req);
       if (r.who === "staff" && !(actor && !actor.customerId)) throw new HttpError(actor ? 403 : 401, actor ? "FORBIDDEN" : "LOGIN_REQUIRED", actor ? "Solo el equipo de la tienda" : "Iniciá sesión");
       if (r.who === "customer" && !actor?.customerId) throw new HttpError(401, "LOGIN_REQUIRED", "Iniciá sesión");
+      const why = actor?.assistant ? assistantBlocked(req.method ?? "", url.pathname) : null;
+      if (why) throw new HttpError(403, "FORBIDDEN", why);
       const { body, raw } = await readJson(req, r.maxBody);
+      const auditFrom = store.engine.s.audit.length;
       const out = await r.handler({ req, res, params, query: url.searchParams, body, raw, actor, session, ip });
+      if (actor && !actor.customerId) teamWatch.after(actor, auditFrom);
       if (out !== RAW) send(res, 200, out ?? { ok: true });
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.code, message: e.message });

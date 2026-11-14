@@ -295,10 +295,12 @@ export function supplierReport(e: Engine, actor: Actor) {
   });
 }
 
-export function auditLog(e: Engine, actor: Actor, filter: { entityId?: Id; action?: string; limit?: number } = {}) {
+/** Auditoría del dueño. Filtros (14/11/2026): por persona (`actorId`) y por período (`from` incluido, `to` excluido). */
+export function auditLog(e: Engine, actor: Actor, filter: { entityId?: Id; action?: string; limit?: number; actorId?: Id; from?: number; to?: number } = {}) {
   authorize(actor, "audit.view");
   return e.s.audit
-    .filter((a) => (!filter.entityId || a.entityId === filter.entityId) && (!filter.action || a.action.startsWith(filter.action)))
+    .filter((a) => (!filter.entityId || a.entityId === filter.entityId) && (!filter.action || a.action.startsWith(filter.action))
+      && (!filter.actorId || a.actorId === filter.actorId) && (filter.from === undefined || a.at >= filter.from) && (filter.to === undefined || a.at < filter.to))
     .slice(-(filter.limit ?? 200))
     .reverse();
 }
