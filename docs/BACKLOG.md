@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- **[P1] Revisión «3 meses en el lugar del dueño» (14/11): pendientes** (4 revisores, datos ficticios, reloj simulado; evidencia en el informe de la sesión):
+- ✅ **[P1] Revisión «3 meses en el lugar del dueño» (14/11): HECHA** (rama `ocultar-montos`; 14 corridas hasta 0 problemas). Lo que sigue abierto va debajo de «Quedan». Lista original (4 revisores, datos ficticios, reloj simulado; evidencia en el informe de la sesión):
   - **Plata que no cierra:**
     - una venta o renovación fiada («Pendiente») cuenta como plata que entró, y al cobrarla se vuelve a contar (`income.ts:46`, `orders.ts:178`, `panel.js:3430/2783/3170`);
     - «Pasar al fiado» usa el precio de la tienda, no el del revendedor (`fiado.ts:145` → `effectivePrice`);
@@ -48,6 +48,12 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
     - fila de avisos que no se pierda al volver de WhatsApp;
     - pagar varias renovaciones de proveedor juntas.
 
+- **Quedan de la revisión de 3 meses:**
+  - [Decide el dueño] renovación desde GaboHub cuando la cuenta del proveedor vence antes (hoy está frenada);
+  - [Decide el dueño] «Me pagó» de un fiado paga primero la deuda: ¿o preferís que corra la fecha?;
+  - [P3] título de la barra cortado a 360 px («Mi secretaria», «Proveedores»);
+  - [P3] avisar en Mi secretaria cuando el bot está prendido pero hay mensajes en cola sin salir;
+  - [P3] aviso automático (por correo) cuando un proveedor corta, para acortar los días que la tienda no se entera.
 - ✅ **Revisión del súper administrador (14/11): hecha** (rama `ocultar-montos`, 3 equipos, sin publicar). Lo que quedó de ahí:
   - **[P2] Reactivar lo que se cortó solo también desde el Control** (hoy solo desde Mi secretaria), y botón del proveedor al reactivar.
   - **[P2] Atención puede desmarcar «pagado», cambiar el precio y volver a marcar.** Queda en la Auditoría con el precio anterior; falta aviso o freno (decide el dueño).

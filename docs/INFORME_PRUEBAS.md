@@ -1,5 +1,15 @@
 # Informe de pruebas
 
+## 14/11/2026 · «3 meses en el lugar del dueño» (rama `ocultar-montos`, sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total antes / después | `npm test` | 656 → **753 pasan, 0 fallan** (~100 s) |
+| 4 revisores de 3 meses (vender, revendedores, reponer, gastos) | reloj simulado, datos ficticios, 360 px | hallazgos en BACKLOG |
+| 4 equipos de arreglo | simulación propia antes/después | días regalados 68→0; avisos «falsos» 144→0; clientes sin marca 8→0; cuentas pagadas cortadas 3→0; plata 0 de diferencia |
+| Un agente, 14 corridas de agosto a octubre (API + 161 capturas de pantalla) | `scratchpad/solo3m/sim.mjs`, `ui.mjs` | última corrida (run14): **0 problemas**; Entró, Salió, Te quedó y Fiado iguales a la cuenta real los 3 meses; 0 errores de consola, desbordes, botones de menos de 44 px o fechas fuera de dd/mm |
+| Pruebas nuevas | `plata-coincide`, `cobrar-bien(-pantallas)`, `caidas-sin-sorpresas`, `caidas-pantallas`, `revendedor-mes(-pantallas)`, `perfil-suelto(-pantallas)`, `tres-meses-solo`, `pendientes-solo3m` | pasan |
+| No probado | WhatsApp real, avisos en un celular físico, Binance real, axe (falta axe-core) | — |
+
 ## 14/11/2026 · Arreglos de la revisión del súper administrador (rama `ocultar-montos`, sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

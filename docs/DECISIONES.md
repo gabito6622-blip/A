@@ -2,6 +2,17 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-14 · Revisión de 3 meses: reglas tomadas (las podés cambiar)
+- **Pago atrasado antes del corte:** el período nuevo arranca en el vencimiento, sin días gratis. Después del corte, o con más de 30 días de atraso, arranca hoy.
+- **Cobro que pasa la fecha del proveedor:** se anota igual, con el aviso «Renová el proveedor antes del dd/mm» y en la lista «Proveedores por renovar». La renovación que hace el cliente o el revendedor solo desde GaboHub sigue frenada (pendiente de decisión).
+- **La plata se cuenta en caja:** entra cuando se cobra y sale cuando se devuelve. Lo olvidado (cuentas y gastos fijos) se resta como estimado.
+- **Cobro doble:** si el período ya tiene un cobro y faltan más de 7 días para el vencimiento, el sistema pregunta «¿Es otro mes?».
+- **«Me pagó» de un cliente fiado:** primero paga la deuda.
+- **Cliente cortado debiendo:** la deuda pasa al Fiado.
+- **Elección de cuenta:** la que alcanza la fecha del cliente y vence antes, para no desperdiciar las cuentas cortas ya pagadas.
+- **Cuenta caída:** sigue activa pero no se vende, y sus perfiles van a cuarentena.
+- **Perfil suelto:** el costo es por perfil, y la cuenta suma sus perfiles vivos.
+
 ## 2026-11-14 · Revisión del súper administrador: cómo se arregló
 - **Llave del asistente: como un admin, sin vencimiento.** Primero se limitó (sin contraseñas, PIN, Excel ni páginas de revendedores, y vencía a los 7 días). El dueño decidió: «vos sos mi asistente de todo mi panel, sí tenés derecho» → «Como un admin». Solo queda fuera lo de usuarios, contraseñas del equipo y permisos, que es exclusivo del dueño. El asistente no dispara avisos al celular porque trabaja a pedido del dueño, pero queda en la Auditoría. El mecanismo de límites (`ASSISTANT_DENY` y la tabla en `teamSecurity.ts`) quedó, por si el dueño cambia de idea.
 - **Números del día con un solo cálculo en el servidor** (`dia.ts`), con el día de Bolivia y cada alquiler contado una vez.
