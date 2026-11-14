@@ -42,7 +42,9 @@ describe("inventario: arreglos del dueño", () => {
     await call(`/api/admin/accounts/${accC.id}`, owner, "POST", { supplierExpiresAt: Date.now() + 36500 * DAY });
     // Clientes en la cuenta A (para «Mover todos»).
     const cli = (await call("/api/admin/customers", owner, "POST", { name: "Ana Prueba", phone: "+59170000011" })).json;
-    app.store.orders.create(OWNER, { customerId: cli.id, items: [{ productId: "netflix", qty: 2 }], paymentMethod: "cash" });
+    // Elegidos a mano en A (desde el 14/11 la venta automática elige una cuenta que alcance los 30 días del cliente, y A dura 20).
+    const enA = Object.values(app.store.engine.s.slots).filter((x) => x.accountId === accA.id).map((x) => x.id).slice(0, 2);
+    app.store.orders.create(OWNER, { customerId: cli.id, items: [{ productId: "netflix", qty: 2 }], paymentMethod: "cash", preferredSlotIds: enA });
   });
   after(async () => { await app?.close(); rmSync(dir, { recursive: true, force: true }); });
 

@@ -15,6 +15,7 @@ import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
 import * as inventario from "./inventario.js";
+import * as caidas from "./caidas.js";
 import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
@@ -107,6 +108,18 @@ export function createStore(opts: EngineOptions = {}) {
     inventario: {
       cuts: bind(e, inventario.cutsReport),
       rotatePassword: bind(e, inventario.rotatePassword),
+    },
+    /** Cuentas caídas sin sorpresas (revisión de 3 meses): marcar caída, no vender, Reubicar exacto, pagar varias. */
+    caidas: {
+      markFallen: bind(e, caidas.markFallen),
+      unmarkFallen: bind(e, caidas.unmarkFallen),
+      setNoSell: bind(e, caidas.setNoSell),
+      retire: bind(e, caidas.retireAccount),
+      down: bind(e, caidas.downAccount),
+      relocate: bind(e, caidas.relocate),
+      payMany: bind(e, caidas.payRenewalMany),
+      changes: bind(e, caidas.accountChanges),
+      changeSeen: bind(e, caidas.accountChangeSeen),
     },
     inventory: {
       addAccount: bind(e, inventory.addAccount),
