@@ -15,6 +15,7 @@ import { secretaryView } from "/secretaria.js";
 import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint } from "/dia.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 import { cargaVenceCosto, cargaOk, costRow, moveDestLabel, editSecretRow, mesCorto } from "/panel-inventario.js";
+import { gastoFormCard, gastosListCard, proveedoresMesCard, gastoHomeBtn, offerFixSale, paidNowExtra, paidNowBody, initPlata } from "/panel-plata.js";
 
 // Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
 const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
@@ -385,7 +386,7 @@ const V = {
   },
   async finanzas() {
     const fm = P.tab.fm || "";
-    const [d, mg, accsT, usdtT, cz] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null), api("GET", `/api/admin/finance/cierre${fm ? `?month=${encodeURIComponent(fm)}` : ""}`).catch(() => null)]);
+    const [d, mg, accsT, usdtT, cz, gx] = await Promise.all([api("GET", "/api/admin/finance?months=6"), api("GET", "/api/admin/finance/margins").catch(() => null), api("GET", "/api/admin/accounts").catch(() => []), api("GET", "/api/admin/usdt").catch(() => null), api("GET", `/api/admin/finance/cierre${fm ? `?month=${encodeURIComponent(fm)}` : ""}`).catch(() => null), api("GET", `/api/admin/expenses${P.tab.gm ? `?month=${encodeURIComponent(P.tab.gm)}` : ""}`).catch(() => null)]);
     // 📒 Cierre de mes (Premium 2.0, etapa 9): el mes elegido con la misma fuente que Inicio, comparado con el anterior.
     const pctTxt = (v) => (cz.prev?.incomplete ? `mes anterior incompleto (datos desde el ${fdate(cz.prev.dataSince)})` : v === null ? "sin mes anterior" : `${v > 0 ? "▲ +" : v < 0 ? "▼ " : "="} ${v}% vs. mes anterior`);
     const cierre = cz ? `<section class="card cierre"><h2>📒 Cierre de mes <small>${esc(cz.label)}${cz.closed ? "" : " · en curso"}</small></h2>
@@ -394,8 +395,10 @@ const V = {
         <div class="finkpi in"><span>💵 Entró</span><b>${bs(cz.ingresos)}</b><small>${pctTxt(cz.vs.ingresosPct)}</small></div>
         <div class="finkpi"><span>🧾 Por pedidos / 💵 Control</span><b>${bs(cz.dePedidos)}</b><small>+ ${bs(cz.delControl)} marcados cobrados${cz.delFiado ? ` + ${bs(cz.delFiado)} del fiado` : ""}</small></div>
         <div class="finkpi out"><span>📤 Gastos</span><b>${bs(cz.gastos)}</b><small>${cz.vs.gastos > 0 ? "+" : ""}${bs(cz.vs.gastos)} vs. mes anterior</small></div>
-        <div class="finkpi net ${cz.sinCostos ? "" : cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.sinCostos ? "⚠️ sin costos anotados: no es ganancia real" : cz.cuentasEstimado ? `ya resta ${bs(cz.cuentasEstimado)} de cuentas (estimado)` : `${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es)`}</small></div>
+        <div class="finkpi net ${cz.sinCostos ? "" : cz.gananciaEstimada >= 0 ? "up" : "down"}"><span>✅ Te quedó${cz.cuentasEstimado || cz.fijosEstimado ? " (estimado)" : ""}</span><b>${bs(cz.gananciaEstimada)}</b><small>${cz.sinCostos ? "⚠️ sin costos anotados: no es ganancia real" : cz.cuentasEstimado || cz.fijosEstimado ? `ya resta ${bs((cz.cuentasEstimado ?? 0) + (cz.fijosEstimado ?? 0))} estimado (cuentas y fijos sin anotar)` : `${cz.ventas} venta(s) · ${cz.renovaciones} renovación(es)`}</small></div>
       </div>
+      ${cz.fijosPendientes?.length ? `<div class="finwarn">📌 Falta anotar: ${cz.fijosPendientes.map((p) => `${esc(p.name)} ${bs(p.amount)}`).join(" · ")} <small class="muted">(ya restado como estimado)</small></div>` : ""}
+      ${cz.devueltoClientes || cz.devueltoProveedores ? `<p class="muted" style="margin:6px 0 0">${cz.devueltoClientes ? `↩️ Devolviste a clientes ${bs(cz.devueltoClientes)} (ya restado de «Entró»). ` : ""}${cz.devueltoProveedores ? `💚 Te devolvieron proveedores ${bs(cz.devueltoProveedores)} (ya restado de los gastos).` : ""}</p>` : ""}
       ${cz.sinCostos ? `<div class="finwarn">⚠️ En ${esc(cz.label)} no hay cuentas con costo ni gastos de cuentas anotados: «Te quedó» sería casi todo lo que entró. Cargá el costo de tus cuentas en Cuentas → Editar para ver tu ganancia real.</div>` : ""}
       <div class="dgrid">
         <div><h3 style="margin:8px 0 4px;font-size:14px">🏆 Quién te pagó más</h3>${cz.topPayers.length ? `<ol class="of-log" style="padding-left:0">${cz.topPayers.map((p) => `<li class="of-t-ok"><b>${esc(p.name)}</b> <small class="muted">${p.kind === "reseller" ? "revendedor" : "cliente"}</small><span style="float:right"><b>${bs(p.amount)}</b></span></li>`).join("")}</ol><small class="muted">${cz.payers} persona(s) te pagaron este mes.</small>` : `<p class="muted" style="margin:0">Nadie todavía.</p>`}</div>
@@ -429,7 +432,7 @@ const V = {
         <b class="${m.sinCostos ? "" : gcls(gan)}">${bs(gan)}</b><small>${esc(mesCorto(m))}${m.sinCostos ? `<br><span class="finsc">sin costos</span>` : ""}</small></div>`;
     }).join("");
     const rows = d.expenses.map((x) => `<tr><td>${x.accountId ? `<span class="pp pp-mute">🔁 cuenta</span> ` : ""}<b>${esc(x.note)}</b></td><td class="num">${bs(x.amount)}</td><td><small class="muted">${fdt(x.at)}</small></td><td><button class="pbtn sm danger" type="button" data-rmexp="${esc(x.id)}" title="Quitar este gasto">Quitar</button></td></tr>`);
-    return `${cierre}${tarjeta}<div class="fin">
+    return `${gx ? gastoFormCard(gx) : ""}${cierre}${tarjeta}<div class="fin">
       <section class="card finhero">
         <h2 style="margin:0 0 4px">Finanzas de ${esc(c.longLabel ?? c.label)}</h2>
         <p class="muted" style="margin:0 0 14px">Lo que entró por ventas y renovaciones, lo que saliste gastando, lo que te cuestan las cuentas y lo que te quedó este mes (del día 1 a hoy).</p>
@@ -439,6 +442,7 @@ const V = {
           ${c.cuentasEstimado ? `<div class="finkpi out est"><span>🔑 Cuentas (estimado)</span><b>${bs(c.cuentasEstimado)}</b><small>${c.sinAnotar} cuenta(s) sin anotar: lo que te cuestan por mes</small></div>` : ""}
           <div class="finkpi net ${gcls(c.gananciaEstimada)}"><span>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</span><b>${bs(c.gananciaEstimada)}</b><small>${c.gananciaEstimada >= 0 ? "ganancia del mes" : "estás en rojo este mes"}</small></div>
         </div>
+        ${c.fijosPendientes?.length ? `<div class="finwarn">📌 Falta anotar: ${c.fijosPendientes.map((p) => `${esc(p.name)} ${bs(p.amount)}`).join(" · ")}. Lo restamos como estimado; anotalo abajo con «✅ Lo pagué».</div>` : ""}
         ${c.cuentasEstimado ? `<div class="finwarn">⚠️ Tenés <b>${c.sinAnotar} cuenta(s) sin anotar como gasto</b> este mes. Las contamos con su costo mensual (${bs(c.cuentasEstimado)}) para que “Te quedó” no te muestre de más. Cuando pagues una, anotala en Cuentas → <b>“Pagué la renovación”</b> y deja de ser estimado.${c.ganancia !== c.gananciaEstimada ? ` <small class="muted">Sin contar las cuentas te quedaría ${bs(c.ganancia)}.</small>` : ""}</div>` : ""}
       </section>
       ${mg ? marginsCard(mg) : ""}
@@ -447,16 +451,7 @@ const V = {
         <div class="finlegend"><span><i class="inb"></i>Entró</span><span><i class="exb"></i>Salió</span></div>
         <div class="finchart">${bars}</div>
       </section>
-      <section class="card">
-        <h2>Gastos de ${esc(c.longLabel ?? c.label)}</h2>
-        <p class="muted" style="margin:0 0 10px">Anotá lo que pagás (publicidad, cuentas al mayorista, lo que sea). Se descuenta de la ganancia del mes.</p>
-        <form id="expenseForm" class="finform" autocomplete="off">
-          <label>Monto (${currencySym()})<input name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required></label>
-          <label class="grow">¿En qué? <input name="note" maxlength="120" placeholder="Ej: publicidad en Facebook" required></label>
-          <button class="pbtn blue" type="submit">Agregar gasto</button>
-        </form>
-        ${table(["Gasto", "Monto", "Cuándo", ""], rows, "Todavía no cargaste gastos este mes.")}
-      </section>
+      ${gx ? gastosListCard(gx) : `<section class="card"><h2>Gastos de ${esc(c.longLabel ?? c.label)}</h2>${table(["Gasto", "Monto", "Cuándo", ""], rows, "Todavía no cargaste gastos este mes.")}</section>`}
     </div>`;
   },
   async reubicar() {
@@ -664,7 +659,7 @@ const V = {
     const dailyCard = daily && Date.now() - daily.at < 36 * 3600_000 ? `<section class="card dailyai"><h2>📋 Tu reporte del día <small>armado por Claude · ${fdt(daily.at)}</small></h2><div class="dailytext">${esc(daily.text).replace(/\n/g, "<br>")}</div></section>` : "";
     // "Tu mes": cuánto entró, lo que te cuestan las cuentas (estimado) y lo que te quedó, con las 3 apps que más te dejan.
     const c = fin?.current;
-    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></div>
+    const tuMes = c ? `<section class="card tumes"><div class="tumes-h"><h2>💼 Tu mes <small>${esc(c.longLabel ?? c.label)}</small></h2><span class="inline">${gastoHomeBtn()}<button class="pbtn sm" type="button" data-go="finanzas">Ver Finanzas ${icon("arrow")}</button></span></div>
       <div class="tumes-k"><div><small>💵 Entró</small><b>${bs(c.ingresos)}</b></div><div><small>🧾 ${c.gastos ? "Gastos y cuentas" : "Cuentas"}${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gastos + c.cuentasEstimado)}</b></div><div class="${c.gananciaEstimada < 0 ? "down" : "up"}"><small>✅ Te quedó${c.cuentasEstimado ? " (estimado)" : ""}</small><b>${bs(c.gananciaEstimada)}</b></div></div>
       ${fin.topApps?.length ? `<ol class="tumes-top">${fin.topApps.map((x) => `<li><b>${esc(x.name)}</b><span>te dejó <b class="${x.gana < 0 ? "down" : "up"}">${bs(x.gana)}</b> <small class="muted">(${x.units} venta${x.units === 1 ? "" : "s"})</small></span></li>`).join("")}</ol>` : ""}
       ${c.sinAnotar ? `<small class="muted">Estimado: ${c.sinAnotar} cuenta(s) que todavía no anotaste como gasto este mes.</small>` : ""}</section>` : "";
@@ -848,7 +843,7 @@ const V = {
           ${((rn) => `<button class="pbtn sm dark" type="button" data-renew="${esc(r.id)}" data-renewinfo="${esc(rn.confirm)}">${esc(rn.label)}</button>${rn.warn ? `<small class="ctl-renwarn">${esc(rn.warn)}</small>` : ""}`)(controlRenew(r, payText(r, r.price)))}
           <details class="more"><summary>📅 Fecha</summary><form class="inline" data-expiry="${esc(r.id)}"><input type="date" name="date" required value="${dateInput(canReview() ? Math.max(r.customerExpiresAt, Date.now()) : r.customerExpiresAt)}"${canReview() ? "" : ` max="${dateInput(r.customerExpiresAt)}"`} aria-label="Nueva fecha"><button class="pbtn sm" type="submit">Guardar</button></form>${canReview() ? "" : `<small class="muted">Para alargarla usá ✅ Renovar (queda anotado el cobro).</small>`}</details>
           ${swapForm(r)}
-          ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button>` : ""}
+          ${canReview() ? `<button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio y devolver al cliente la parte proporcional por los días que faltan">↩️ Devolver</button><button class="pbtn sm" type="button" data-refund="${esc(r.id)}" data-cash="1" data-name="${esc(r.customerName || "")}" title="Cerrar este servicio: le devolviste la plata en efectivo (no va a su saldo)">💵 Le devolví en efectivo</button>` : ""}
           ${canReview() ? `<button class="pbtn sm" type="button" data-wastest="${esc(r.id)}" data-name="${esc(r.customerName || "")}" title="La venta no fue real: se libera el perfil y sale de tus números">🧪 Era una prueba</button>` : ""}
           ${canReview() ? transferForm(r) : ""}</footer></article>`).join("") || `<div class="emptybox">Nada con esos filtros.</div>`}</section>
       <div class="ctl-bar" id="ctlBar" hidden><b><span id="ctlN">0</span> ✓</b>
@@ -1161,14 +1156,14 @@ const V = {
         <label style="grid-column:1/-1">Contraseña<input name="password" required placeholder="clave de la cuenta" autocomplete="off"></label>
         ${cargaVenceCosto(currencySym(), last.cost)}
         <label style="grid-column:1/-1">Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
-        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>${paidNowExtra()}
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
       <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
-      ${cargaVenceCosto(currencySym())}<label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>
+      ${cargaVenceCosto(currencySym())}<label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>${paidNowExtra()}
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: correo, contraseña, perfiles, vence (dd/mm/aaaa)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
@@ -1242,8 +1237,8 @@ const V = {
   },
 
   async proveedores() {
-    const [list, report] = await Promise.all([api("GET", "/api/admin/suppliers"), canReview() ? api("GET", "/api/admin/suppliers-report") : Promise.resolve([])]);
-    return `<section class="card"><h2>Nuevo proveedor</h2><form class="form" id="supForm"><label>Nombre<input name="name" required></label><label>Contacto (opcional)<input name="contact"></label><button class="pbtn dark" type="submit">${icon("plus")}Agregar</button></form></section>
+    const [list, report, pmes] = await Promise.all([api("GET", "/api/admin/suppliers"), canReview() ? api("GET", "/api/admin/suppliers-report") : Promise.resolve([]), canReview() ? api("GET", `/api/admin/finance/proveedores${P.tab.pm ? `?month=${encodeURIComponent(P.tab.pm)}` : ""}`).catch(() => null) : Promise.resolve(null)]);
+    return `${proveedoresMesCard(pmes)}<section class="card"><h2>Nuevo proveedor</h2><form class="form" id="supForm"><label>Nombre<input name="name" required></label><label>Contacto (opcional)<input name="contact"></label><button class="pbtn dark" type="submit">${icon("plus")}Agregar</button></form></section>
       <section class="card"><h2>Proveedores <small>costo, ingreso y margen de los últimos 30 días</small></h2>
       <p class="muted" style="margin:0 0 10px">Ingreso: ventas y renovaciones de los últimos 30 días hechas con perfiles de ese proveedor (los combos se reparten por app). Costo: un mes de sus cuentas. Así los dos son del mismo período.</p>
       ${table(["Proveedor", "Cuentas", "Vendidos", "Cuarentena", "Costo (30 d)", "Ingreso (30 d)", "Margen (30 d)", "Por vencer (7 d)", ""], list.map((s) => {
@@ -2649,6 +2644,8 @@ function sellSummary() {
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
 // Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
 initSellNew({ getMap: () => P.tab.custMap, onCreated: (label, c) => { (P.tab.custMap ??= {})[label] = c.id; P.tab.sellCustomer = label; } });
+// Gastos, devoluciones, fijos y Proveedores por mes (panel-plata.js).
+initPlata({ act, render, toast, go });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
 // Filtro con lista desplegable (p. ej. «Persona» en Auditoría): guarda la elección y vuelve a dibujar.
 document.addEventListener("change", (ev) => { const k = ev.target?.dataset?.tabsel; if (k) { P.tab[k] = ev.target.value; render(); } });
@@ -3137,8 +3134,9 @@ document.addEventListener("click", async (ev) => {
     return act(() => api("POST", `/api/admin/assignments/${d.wastest}/test`, {}), (r) => `🧪 Listo: venta de ${bs(r.total)} marcada como prueba · ${r.closed} perfil(es) libre(s)${r.refundedUsd ? ` · ${usd(r.refundedUsd)} vuelven a su saldo en dólares` : r.refunded ? ` · ${bs(r.refunded)} vuelven al saldo` : ""}`);
   }
   if (d.refund) {
-    if (!confirm(`¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
-    return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, {}), (r) => `↩️ Devueltos ${wal(r.amount, r.currency)} al saldo (${r.remaining} días que faltaban)`);
+    // «Le devolví en efectivo»: no va a su saldo; las dos restan de «Entró» hoy (no se cuenta dos veces).
+    if (!confirm(d.cash ? `¿Le devolviste en efectivo a ${el.dataset.name || "este cliente"} la parte por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y se resta de «Entró» de hoy (no va a su saldo).` : `¿Devolver a ${el.dataset.name || "este cliente"} la parte proporcional por los días que faltan?\n\nSe cierra el servicio, se libera el cupo y la plata va a su saldo.`)) return;
+    return act(() => api("POST", `/api/admin/assignments/${d.refund}/refund`, d.cash ? { cash: true } : {}), (r) => r.via === "efectivo" ? `💵 Anotado: le devolviste ${wal(r.amount, r.currency)} en efectivo (${r.remaining} días que faltaban)` : `↩️ Devueltos ${wal(r.amount, r.currency)} al saldo (${r.remaining} días que faltaban)`);
   }
   if (d.pmedit !== undefined) { P.tab.pmEdit = d.pmedit || null; return render(); }
   if (d.pmqrdel) return act(() => api("POST", `/api/admin/paymethods/${d.pmqrdel}/qr`, { remove: true }), "QR quitado");
@@ -3314,7 +3312,7 @@ document.addEventListener("change", async (ev) => {
     const f = t.dataset.f;
     let v = t.value.trim();
     if (f === "price" || f === "cost" || f === "priceUsd") { v = v === "" ? null : toCents(v); if (v !== null && Number.isNaN(v)) return toast("Solo números"); }
-    try { await api("POST", `/api/admin/assignments/${t.dataset.ctl}/control`, { [f]: v }); toast("Guardado"); if (f !== "note" && f !== "seller") render(); }
+    try { await api("POST", `/api/admin/assignments/${t.dataset.ctl}/control`, { [f]: v }); toast("Guardado"); if (f === "price" && v !== null && canReview() && await offerFixSale(t.dataset.ctl, v).catch((e) => { toast(e.message); return false; })) toast("Venta corregida ✓"); if (f !== "note" && f !== "seller") render(); }
     catch (e) { toast(e.message); }
     return;
   }
@@ -3427,7 +3425,8 @@ document.addEventListener("submit", async (ev) => {
       const months = Math.max(1, +f.periodMonths.value || 1), payStatus = f.payStatus.value || "pagado";
       if (btn) btn.disabled = true;
       try {
-        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}), ...(months > 1 ? { periods: months } : {}) });
+        // «⏳ Pendiente» = venta fiada: no cuenta como «Entró» hasta que la cobres (plata.ts).
+        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(payStatus === "pendiente" && f.paymentMethod.value === "cash" ? { payLater: true } : {}), ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}), ...(months > 1 ? { periods: months } : {}) });
         for (const id of (o.assignmentIds ?? [])) {
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
         }
@@ -3622,7 +3621,7 @@ document.addEventListener("submit", async (ev) => {
       try { localStorage.setItem("gs-carga", JSON.stringify({ productId: f.productId.value, supplierId: f.supplierId.value, cost: f.cost.value })); } catch { /* sin almacenamiento */ }
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked, ...paidNowBody(f),
         profiles: (() => { const defs = P.tab.prodDefaults?.[f.productId.value] ?? []; return Array.from({ length: n }, (_, i) => defs[i] ? { label: defs[i].label, ...(defs[i].pin ? { pin: defs[i].pin } : {}) } : { label: `Perfil ${i + 1}` }); })(),
       }), `✅ Cuenta agregada con ${n} perfiles libres`);
     } else if (f.id === "trialForm") {
@@ -3658,7 +3657,7 @@ document.addEventListener("submit", async (ev) => {
       const pin = f.pin.value.trim() || undefined;
       await act(() => api("POST", "/api/admin/accounts", {
         productId: f.productId.value, supplierId: f.supplierId.value, email: f.email.value.trim(), password: f.password.value,
-        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked,
+        supplierExpiresAt: new Date(f.exp.value + "T23:59:00").getTime(), cost: toCents(f.cost.value || 0), paidNow: !!f.paidNow?.checked, ...paidNowBody(f),
         profiles: n === 1 ? [{ label: "Cuenta completa", pin }] : Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}`, pin })),
       }), `Cuenta cargada con ${n} perfil(es)`);
     } else if (f.id === "bulkForm") {
