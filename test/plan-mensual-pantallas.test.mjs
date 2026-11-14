@@ -90,8 +90,8 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
 
   const b = await chromium.launch();
   try {
-    const ctxFor = async (ck, scheme = "light") => {
-      const ctx = await b.newContext({ viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true, colorScheme: scheme });
+    const ctxFor = async (ck, scheme = "light", w = 360) => {
+      const ctx = await b.newContext({ viewport: { width: w, height: 800 }, isMobile: true, hasTouch: true, colorScheme: scheme });
       await ctx.route(/wa\.me|whatsapp\.com|fonts\.(googleapis|gstatic)/, (x) => x.abort());
       if (ck) { const [k, v] = ck.split("="); await ctx.addCookies([{ name: k, value: v, url: base }]); }
       return ctx;
@@ -180,6 +180,13 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     await shot(dp, "c3-fallas-oscuro");
     assert.deepEqual(derrs, []);
     await dctx.close();
+    // Y a 390 px (otro celular común), oscuro: tampoco se sale nada.
+    const wctx = await ctxFor(ack, "dark", 390);
+    const wp = await wctx.newPage();
+    await wp.goto(base + "/tienda/#cuentas");
+    await wp.locator(".plancard").waitFor();
+    assert.equal(await over(wp), 0);
+    await wctx.close();
 
     // ---- Bea: Max que primero renueva la tienda; sin candado ni «proveedor» ----
     const bctx = await ctxFor(bck);
