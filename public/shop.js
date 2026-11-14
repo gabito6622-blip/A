@@ -10,6 +10,7 @@ import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js"
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
+import { hubMesInit, loadRentAlerts, rentAlertBanner, renewManyBox, earnRealBox } from "/hub-mes.js";
 import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 
@@ -194,6 +195,7 @@ async function loadPrivate() {
   const [services, orders] = await Promise.all([api("GET", "/api/me/services"), api("GET", "/api/me/orders")]);
   S.data.services = services;
   S.data.orders = orders;
+  if (isReseller() && (S.view === "inicio" || S.view === "cuentas")) await loadRentAlerts(); // ⏰ sus alquileres antes del corte
   if (S.view === "codigos") {
     S.data.codes = await api("GET", "/api/me/codes");
     if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
@@ -631,7 +633,9 @@ function renderInner() {
     seguridad: () => !S.me?.loggedIn ? needLogin("la seguridad de tu cuenta") : securityView(),
     renovar: () => renovarView(),
     cuentas: () => !S.me?.loggedIn ? needLogin("tus servicios") : MODE === "hub" && !isReseller() ? notReseller() : `${hubPanel() ? groupTabs("inventario", "cuentas") : ""}<div class="sec-h"><div><span class="chip">Área privada</span><h2>Mis cuentas y pedidos</h2><p>${isReseller() ? "Estos son los accesos tuyos y de tus clientes. Mandáselos solo a ellos." : "Tus accesos están solo acá: nunca mandamos contraseñas por WhatsApp."}</p></div>${isReseller() ? `<button class="sbtn" type="button" data-s="clientes">Mis clientes</button>` : ""}</div>
+      ${isReseller() ? rentAlertBanner() : ""}
       ${pendingOrders()}
+      ${isReseller() ? renewManyBox(services) : ""}
       ${services.length ? (() => {
         const venc = services.filter((a) => a.daysLeft < 0).length, hoy = services.filter((a) => a.daysLeft === 0).length;
         const semana = services.filter((a) => a.daysLeft >= 1 && a.daysLeft <= 7).length;
@@ -722,6 +726,7 @@ const RT_TABS = [["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis c
 initOwnStock(() => render());
 initSelfCodes(() => render());
 initAfuera(() => refresh());
+hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
 async function loadRTab(tab) {
   if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null)]);
   if (tab === "descargas") await descargasEnsure();
@@ -928,6 +933,7 @@ function rEarnBase() {
       <div class="rkpis"><div><small>Vendiste por</small><b>${bs(m.revenue)}</b><small>${m.sales} venta(s)</small></div><div><small>Ya cobraste</small><b class="ok">${bs(m.collected ?? m.revenue)}</b></div><div><small>Te deben</small><b class="${m.unpaid ? "bad" : ""}">${bs(m.unpaid ?? 0)}</b></div><div><small>Te costó</small><b>${bs(m.cost)}</b></div></div>
       <div class="rgain"><span>Ganancia ya cobrada</span><b class="${(m.profitCollected ?? m.profit) < 0 ? "bad" : "ok"}">${bs(m.profitCollected ?? m.profit)}</b>${m.unpaid ? `<small>Cuando te paguen lo que te deben: ${bs(m.profit)}</small>` : ""}</div>
       ${m.noPrice ? `<p class="empty" style="margin:0">⚠️ ${m.noPrice} venta(s) sin tu precio: para esas se tomó lo que te costó. Poné tus precios en “Mi lista de precios” o en “Mi control”.</p>` : ""}</div>
+    ${earnRealBox(g)}
     ${earnCloseBox(g)}
     ${S.data.rsubs?.summary?.accounts ? (() => { const sm = S.data.rsubs.summary; return `<div class="sbox"><h3 style="margin:0">🧩 Tus cuentas alquiladas (por mes)</h3><div class="rkpis"><div><small>Te cuestan</small><b>${bs(sm.cost)}</b><small>${sm.accounts} cuenta(s)</small></div><div><small>Cobrás por perfiles</small><b>${bs(sm.revenue)}</b><small>${sm.profiles} perfil(es)</small></div><div><small>Ganás</small><b class="${sm.profit < 0 ? "bad" : "ok"}">${bs(sm.profit)}</b></div></div>${sm.profit < 0 ? `<p class="empty" style="margin:0">⚠️ Todavía no cubrís lo que te cuestan: anotá todos los perfiles que repartiste o subí tu precio.</p>` : ""}</div>`; })() : ""}
     ${g.byApp.length ? `<div class="sbox"><h3 style="margin:0">Por app (este mes)</h3>${g.byApp.map((p) => `<div class="line">${am(p.productId, p.name)}<span class="lgrow"><b>${esc(p.name)}</b><br><small class="empty">${p.sales} venta(s) · vendiste por ${bs(p.revenue)}${p.unpaid ? ` (te deben ${bs(p.unpaid)})` : ""} · te costó ${bs(p.cost)}</small></span><b style="color:var(--s-ok)">+${bs(p.profit)}</b></div>`).join("")}</div>` : ""}
@@ -1555,6 +1561,7 @@ function resellerHome() {
   const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
   return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+    ${rentAlertBanner()}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
@@ -2457,13 +2464,10 @@ document.addEventListener("click", async (ev) => {
     if (total > (S.me?.balance ?? 0)) { toast(`Te falta saldo: necesitás ${bs(total)} y tenés ${bs(S.me?.balance ?? 0)}. Recargá o pagá por QR.`); return setView("recargas"); }
     if (!confirm(rows.length === 1 ? `¿Renovar ${rows[0].product} (${rows[0].email}) por ${bs(total)} con tu saldo?` : `¿Renovar ${rows.length} cuentas por ${bs(total)} con tu saldo?`)) return;
     el.disabled = true;
-    let ok = 0; const bad = [];
-    for (const r of rows) {
-      try { await api("POST", "/api/me/renew", { assignmentId: r.assignmentId, paymentMethod: "balance", idempotencyKey: newKey() }); ok++; }
-      catch (e) { bad.push(`${r.product}: ${e.code === "SUPPLIER_EXPIRY_EXCEEDED" ? "la renueva la tienda" : e.message}`); }
-    }
+    // Todo junto o nada (14/11/2026): si una no se puede, no se descuenta ninguna y se dice cuál.
+    try { const r = await api("POST", "/api/me/renew-many", { ids: rows.map((r) => r.assignmentId), paymentMethod: "balance", idempotencyKey: newKey() }); toast(`🔄 ¡Listo! ${r.count} cuenta(s) renovada(s) por 30 días`); }
+    catch (e) { el.disabled = false; toast(e.message); }
     await refresh();
-    toast(bad.length ? `🔄 Renovaste ${ok} · no se pudo: ${bad.join(" · ")}` : `🔄 ¡Listo! ${ok} cuenta(s) renovada(s) por 30 días`);
     return;
   }
   if (d.avisos) return void await alertsClick(d, render);
@@ -2730,6 +2734,9 @@ document.addEventListener("click", async (ev) => {
     return renderCart();
   }
   if (d.renew) {
+    // «Renovar con saldo · Bs X» pide confirmación con el total antes de descontar (14/11/2026).
+    const sv = (S.data.services ?? []).find((a) => a.assignmentId === d.renew);
+    if (d.method === "balance" && sv && !confirm(`¿Renovar ${sv.product.replace(/ \(alquiler revendedores\)/, "")} por ${bs(sv.renewPrice ?? 0)} con tu saldo?\nTe quedan ${bs((S.me?.balance ?? 0) - (sv.renewPrice ?? 0))}.`)) return;
     el.disabled = true;
     try {
       const r = await api("POST", "/api/me/renew", { assignmentId: d.renew, paymentMethod: d.method, idempotencyKey: newKey() });

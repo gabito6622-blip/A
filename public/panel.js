@@ -15,6 +15,7 @@ import { secretaryView } from "/secretaria.js";
 import { splitTxt, cutTxt, controlRenew, swapOptionsHtml, confirmSwap, initSellNew, sellNewHint } from "/dia.js";
 import { selfCodesCard } from "/panel-codigos-solos.js";
 import { cargaVenceCosto, cargaOk, costRow, moveDestLabel, editSecretRow, mesCorto } from "/panel-inventario.js";
+import { initRevMes, groupCard, approveAppDialog, transferExtras, confirmTransfer, transferMsg, paidAllBtn, confirmBulkRenew, storeRenewBtn } from "/panel-revmes.js";
 
 // Premium 2.0: oscuro por defecto; quien ya eligió claro o sistema lo conserva (queda guardado en el aparato).
 const P = { me: null, view: "inicio", tab: {}, theme: "dark", settings: null };
@@ -588,13 +589,13 @@ const V = {
   async aprobacion() {
     const tab = P.tab.aprob ?? "payment_review";
     if (canReview() && !P.ai) P.ai = await api("GET", "/api/admin/ai").then((a) => ({ receipts: a.hasKey && a.enabled.receipts })).catch(() => ({}));
-    const [orders, bfail] = await Promise.all([api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`)), canReview() ? api("GET", "/api/admin/binance/failed").catch(() => []) : []]);
+    const [orders, bfail, groups] = await Promise.all([api("GET", "/api/admin/orders" + (tab === "all" ? "" : `?status=${tab}`)), canReview() ? api("GET", "/api/admin/binance/failed").catch(() => []) : [], groupCard(canReview())]);
     const tabs = [["payment_review", "Por revisar"], ["awaiting_payment", "Esperando pago"], ["all", "Todos"]];
     const bfailCard = bfail.length ? `<section class="card"><h2>🟡 Pagos de Binance cobrados pero sin entregar <small>${bfail.length}</small></h2>
       <p class="muted" style="margin:0">Binance avisó que el pago llegó, pero la tienda no pudo entregar el pedido (por ejemplo, sin stock). La plata está cobrada: reintentá cuando lo arregles.</p>
       ${bfail.map((f) => `<div class="inline" style="flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><b>${esc(f.orderId ?? "sin pedido")}</b><span class="muted">${esc(f.amount)} · ${fdt(f.at)} · ${f.tries} intento${f.tries === 1 ? "" : "s"}</span><span class="bad" style="flex-basis:100%">${esc(f.error)}</span>
         ${f.orderId ? `<button class="pbtn sm green" type="button" data-bretry="${esc(f.merchantTradeNo)}">🔄 Reintentar la entrega</button>` : ""}${isOwner() ? `<button class="pbtn sm" type="button" data-bdismiss="${esc(f.merchantTradeNo)}">Ya lo resolví a mano</button>` : ""}</div>`).join("")}</section>` : "";
-    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}${bfailCard}
+    return `${canReview() ? "" : `<div class="pok">Solo el dueño o un admin pueden aprobar pagos. Vos podés ver los pedidos.</div>`}${bfailCard}${groups}
       <section class="card"><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" type="button" data-tab="aprob:${k}" aria-selected="${k === tab}">${t}</button>`).join("")}</div>
       ${table(["Pedido", "Cliente", "Tipo", "Total", "Pago", "Estado", "Fecha", "Acciones"], orders.map((o) => `<tr>
         <td>${esc(o.id)}</td><td>${esc(o.customerName)}</td><td>${KIND_TEXT[o.kind]}${o.items?.length ? `<br><small class="muted">${o.items.map((i) => `${i.qty}× ${esc(i.productName)}`).join(", ")}</small>` : ""}${o.backorder?.length ? `<br>${pill("A pedido", "warn")} <small class="muted">Cargá la cuenta en Carga de Cuentas y después aprobá: se entrega sola.</small>` : ""}</td>
@@ -785,7 +786,7 @@ const V = {
       : `<a class="pbtn sm" href="${waLink(r.customerPhone, msg(r))}" target="_blank" rel="noopener"${title ? ` title="${title}"` : ""}>💰 Cobrar</a>`;
     const dlvBtn = (r) => `<button class="pbtn sm" type="button" data-deliver="${esc(r.id)}" title="Correo, contraseña, perfil y PIN listos para mandar">📲 Reenviar accesos</button>`;
     const acc = (r) => `*${r.product.replace(/ \(alquiler revendedores\)/, "")}*\nCorreo: ${r.email}\nPerfil: ${r.profile}\nVence: ${fdate(r.customerExpiresAt)}`;
-    const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required><button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos.</small></details>`;
+    const transferForm = (r) => `<details class="more"><summary>👤 Pasar a otro</summary><form class="inline" data-transfer="${esc(r.id)}" style="margin-top:6px"><select name="to" required aria-label="Nuevo dueño"><option value="">Pasar a…</option>${customers.filter((c) => c.id !== r.customerId).map((c) => opt(c.id, c.name)).join("")}</select><input name="reason" placeholder="Motivo (no renovó)" required>${transferExtras()}<button class="pbtn sm" type="submit">Pasar y avisar</button></form><small class="muted">Queda con el mismo perfil y la misma fecha. Al anterior le dejan de llegar los códigos. Lo que debía queda en SU fiado y su libreta se guarda.</small></details>`;
     // «📲 Fila de envíos» (13/11): después de «Mover todos a otra cuenta», abre el WhatsApp de cada cliente con sus
     // accesos nuevos, uno tras otro. Nada se manda solo: cada envío es un toque del dueño.
     const sq = T.sendq;
@@ -828,7 +829,7 @@ const V = {
         const r0 = mine[0];
         return `<section class="card ctl-client"><div><b>${esc(r0.customerName)}</b> <span class="muted">${r0.customerPhone ? esc(r0.customerPhone) : "sin WhatsApp"}</span><br>
           <small>${mine.length} alquiler(es) · ${mine.filter((r) => r.d <= 7).length} vencen en 7 días · total ${bs(mine.reduce((t, r) => t + r.price, 0))}</small>${mine.length < view.length ? `<br><small class="muted">+ ${view.length - mine.length} donde figura como revendedor o en la nota</small>` : ""}</div>
-          <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
+          <div class="inline"><button class="pbtn sm dark" type="button" data-cselall="${esc(names[0])}">Seleccionar sus ${mine.length}</button>${r0.customerKind === "reseller" ? paidAllBtn({ id: r0.customerId, name: r0.customerName }, canReview()) : ""}${r0.customerPhone ? `<a class="pbtn sm" href="${waLink(r0.customerPhone, `Hola ${r0.customerName} 👋`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a>` : ""}</div></section>`;
       })()}
       <section class="ctl-cards${xl ? " off" : ""}">${view.map((r) => `<article class="ccard rv-${r.est[1]} k-${r.kind}">
         <header><label class="ccheck selbox"><input type="checkbox" class="csel" value="${esc(r.id)}" aria-label="Seleccionar ${esc(r.customerName)}"></label>
@@ -1607,6 +1608,7 @@ const V = {
         <div class="inline">
           ${canReview() && r.phone ? `<button class="pbtn sm green" type="button" data-rone="${esc(r.id)}">🔗 Link para entrar</button>` : ""}
           ${canReview() ? `<button class="pbtn sm" type="button" data-rsec="${esc(r.id)}" data-name="${esc(r.name)}">🔐 Seguridad</button>` : ""}
+          ${paidAllBtn(r, canReview())}${storeRenewBtn(r, canReview())}
           ${canReview() ? `<button class="pbtn sm" type="button" data-rtrust="${esc(r.id)}" data-to="${r.trust === "independent" ? "trusted" : "independent"}" data-name="${esc(r.name)}">${r.trust === "independent" ? "🤝 Pasar a De confianza" : "🆕 Pasar a Independiente"}</button>` : ""}
           ${canReview() ? `<button class="pbtn sm dark" type="button" data-rsend="${esc(r.id)}" data-name="${esc(r.name)}">${icon("wa")}Nuevo PIN y acceso</button>` : ""}
           <a class="pbtn sm green" href="${waLink(r.phone, guideMsg(r.name, set.platformName || "GaboHub", o, r.shop.slug, r.pageAllowed, r.trust))}" target="_blank" rel="noopener">📖 Mandarle la guía</a>
@@ -2648,6 +2650,7 @@ function sellSummary() {
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
 // Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
+initRevMes({ render: () => render(), custMap: () => P.tab.custMap });
 initSellNew({ getMap: () => P.tab.custMap, onCreated: (label, c) => { (P.tab.custMap ??= {})[label] = c.id; P.tab.sellCustomer = label; } });
 document.addEventListener("change", (ev) => { if (ev.target.form?.id === "sellForm") sellSummary(); });
 // Filtro con lista desplegable (p. ej. «Persona» en Auditoría): guarda la elección y vuelve a dibujar.
@@ -2781,6 +2784,7 @@ document.addEventListener("click", async (ev) => {
     if (d.cbulk === "clear") { $$(".csel").forEach((c) => (c.checked = false)); return updateCtlBar(); }
     if (!ids.length) return toast("Marcá al menos una");
     if (d.cbulk === "renew") {
+      if (!confirmBulkRenew(ids, P.controlView)) return; // confirma el total antes de anotar (14/11/2026)
       return act(() => api("POST", "/api/admin/assignments/renew-many", { ids, paymentMethod: "cash", batchKey: newKey(), allowBeyondSupplier: !!$("#cbBeyond")?.checked }), (r) => {
         const bad = r.filter((x) => !x.ok);
         return bad.length ? `${r.length - bad.length} renovadas; ${bad.length} no: ${bad[0].error}` : `✅ ${r.length} renovadas`;
@@ -2857,7 +2861,8 @@ document.addEventListener("click", async (ev) => {
   if (d.appok) {
     el.disabled = true;
     try {
-      const r = await api("POST", `/api/admin/reseller-apps/${d.appok}/approve`, {});
+      const r = await approveAppDialog(d.appok, el.closest(".rcard,.card")?.querySelector("b")?.textContent ?? ""); // tipo y lista (14/11/2026)
+      if (!r) { el.disabled = false; return; }
       P.tab.rlink = await resellerKit(r.customerId, r.name, r.phone, r.slug, r.pin);
       toast("Aprobado: mandale su acceso");
       await render(); scrollTo(0, 0);
@@ -3571,7 +3576,9 @@ document.addEventListener("submit", async (ev) => {
       const to = f.to.options[f.to.selectedIndex]?.textContent ?? "";
       await act(() => api("POST", `/api/admin/assignments/${f.dataset.swapacc}/replace`, { toSlotId: f.to.value, reason: f.reason.value.trim() || "Reemplazo de cuenta", oldSlot: "quarantined" }), `✅ Pasado a ${to}: misma fecha. Tocá «Reenviar accesos» para mandarle los datos nuevos`);
     } else if (f.dataset.transfer) {
-      await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value }), "Servicio transferido: misma fecha y mismo perfil");
+      const extra = await confirmTransfer(f); // explica deuda, libreta y cobro antes de pasar (14/11/2026)
+      if (!extra) return done();
+      await act(() => api("POST", `/api/admin/assignments/${f.dataset.transfer}/transfer`, { toCustomerId: f.to.value, reason: f.reason.value, ...extra }), transferMsg);
     } else if (f.dataset.renewpaid) {
       const amount = toCents(f.amount.value);
       if (!amount || amount <= 0) return toast("Poné cuánto pagaste");
