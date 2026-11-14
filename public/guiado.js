@@ -6,23 +6,24 @@
 //     (inventory.ts → reserveSlots: cuenta activa, proveedor no vencido, desempate por id).
 //   - Reemplazar: cuántos perfiles libres hay de ese producto (stock que se puede vender ahora).
 // No cambia nada por sí solo: los botones siguen siendo los mismos de siempre.
-import { fdate } from "/common.js";
+import { fdate, addPeriods, periodText } from "/common.js";
 
 const DAY = 86_400_000;
 
-/** Vista previa de "Renovar +1 período". */
+/** Vista previa de "Renovar +1 período" (orders.ts → extend con mesModo.ts). */
 export function renewPreview(a, now = Date.now()) {
   const days = (a.durationDays ?? 30);
   // Igual que el servidor (cobrarBien.ts → renewStart): atrasado sin cortar, desde el vencimiento (sin días gratis).
   const exp = a.customerExpiresAt, from = exp >= now || (!a.holdOpen && now - exp <= 30 * DAY) ? exp : now;
-  const next = from + days * DAY;
+  const next = addPeriods(from, days);
   const ok = !(a.supplierExpiresAt && next > a.supplierExpiresAt);
+  const per = periodText(days); // «1 mes» o «30 días», como cuenta la tienda
   return {
     ok, next, days,
-    line: ok ? `Si renovás: vence el ${fdate(next)} (+${days} días)` : `⚠️ +${days} días se pasaría de la fecha del proveedor (${fdate(a.supplierExpiresAt)}): renová la cuenta con el proveedor o reemplazá el perfil`,
+    line: ok ? `Si renovás: vence el ${fdate(next)} (+${per})` : `⚠️ +${per} se pasaría de la fecha del proveedor (${fdate(a.supplierExpiresAt)}): renová la cuenta con el proveedor o reemplazá el perfil`,
     confirm: ok
-      ? `¿Renovar ${a.product} de ${a.customerName ?? "este cliente"} (${a.profile ?? ""})?\nVence: ${fdate(a.customerExpiresAt)} → ${fdate(next)} (+${days} días, cobrado en efectivo/QR).`
-      : `⚠️ ${a.product} de ${a.customerName ?? "este cliente"}: +${days} días llegaría al ${fdate(next)}, después de que la cuenta vence con el proveedor (${fdate(a.supplierExpiresAt)}).\nLa fecha nueva pasa la del proveedor: si te pagó, se anota igual y la cuenta queda en «Proveedores por renovar» (Mi secretaria). ¿Anotar el cobro?`,
+      ? `¿Renovar ${a.product} de ${a.customerName ?? "este cliente"} (${a.profile ?? ""})?\nVence: ${fdate(a.customerExpiresAt)} → ${fdate(next)} (+${per}, cobrado en efectivo/QR).`
+      : `⚠️ ${a.product} de ${a.customerName ?? "este cliente"}: +${per} llegaría al ${fdate(next)}, después de que la cuenta vence con el proveedor (${fdate(a.supplierExpiresAt)}).\nLa fecha nueva pasa la del proveedor: si te pagó, se anota igual y la cuenta queda en «Proveedores por renovar» (Mi secretaria). ¿Anotar el cobro?`,
   };
 }
 

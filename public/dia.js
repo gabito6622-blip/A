@@ -6,7 +6,7 @@
 //   - «Cambiar de cuenta»: primero los perfiles libres, después los apartados (con confirmación);
 //   - Vender: crear el cliente ahí mismo si lo que escribiste no es un cliente.
 // Nada se manda solo: los botones guardan en el panel y, a lo sumo, abren un WhatsApp que manda el dueño.
-import { api, esc, bs, fdate, toast, toCents, newKey } from "/common.js";
+import { api, esc, bs, fdate, toast, toCents, newKey, addPeriods, periodText } from "/common.js";
 import { matchCustomers, resolveCustomer } from "/buscar.js";
 
 const DAY = 86_400_000;
@@ -66,7 +66,7 @@ function reactPreviewHtml(pv, key) {
     : "—";
   const rows = [["Cliente", `${esc(pv.customer.name)}${pv.payer.id !== pv.customer.id ? ` · paga ${esc(pv.payer.name)}` : ""}`],
     ["Perfil", slotRow],
-    ["Monto", `<b>${pv.priceUsd !== undefined ? usdTxt(pv.priceUsd) : bs(pv.price)}</b> por 1 período (${pv.days} días)`],
+    ["Monto", `<b>${pv.priceUsd !== undefined ? usdTxt(pv.priceUsd) : bs(pv.price)}</b> por ${esc(pv.period ?? `${pv.days} días`)}`],
     ["Fecha nueva", `del <b>${fdate(pv.from)}</b> al <b>${fdate(pv.to)}</b> <small class="muted">(arranca hoy)</small>`]];
   return `<div class="sec-pvbox">
     <table class="sec-pvt">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>
@@ -88,16 +88,17 @@ export function renewFrom(r, now = Date.now()) {
 }
 export function controlRenew(r, moneyTxt, now = Date.now()) {
   const days = r.durationDays ?? 30;
-  const next = renewFrom(r, now) + days * DAY;
+  const next = addPeriods(renewFrom(r, now), days);
   const ok = !(r.supplierExpiresAt && next > r.supplierExpiresAt);
+  const per = periodText(days); // «1 mes» o «30 días», como cuenta la tienda
   const who = `${r.customerName || "este cliente"} (${r.email}${r.profile && !/completa/i.test(r.profile) ? ` · ${r.profile}` : ""})`;
   return {
     ok, next,
     label: ok ? `✅ Renovar · ${dm(next)}` : "✅ Renovar · ⚠️ ver proveedor",
-    warn: ok ? "" : `⚠️ La cuenta vence con el proveedor el ${dm(r.supplierExpiresAt)}: +${days} días llegaría al ${dm(next)}. Se puede anotar igual: renová el proveedor antes del ${dm(r.supplierExpiresAt)} o cambiala de cuenta.`,
+    warn: ok ? "" : `⚠️ La cuenta vence con el proveedor el ${dm(r.supplierExpiresAt)}: +${per} llegaría al ${dm(next)}. Se puede anotar igual: renová el proveedor antes del ${dm(r.supplierExpiresAt)} o cambiala de cuenta.`,
     confirm: ok
-      ? `¿Renovar a ${who}?\n\n💵 Cobrás: ${moneyTxt} (efectivo/QR)\n📅 Vence: ${fdate(r.customerExpiresAt)} → ${fdate(next)} (+${days} días)`
-      : `⚠️ La fecha nueva pasa la del proveedor: la cuenta vence con el proveedor el ${fdate(r.supplierExpiresAt)} y +${days} días llegaría al ${fdate(next)}.\n\n💵 Monto: ${moneyTxt}\n\nSi te pagó, se anota igual y la cuenta queda en «Proveedores por renovar» (Mi secretaria): renová el proveedor antes del ${dm(r.supplierExpiresAt)}. ¿Anotar el cobro?`,
+      ? `¿Renovar a ${who}?\n\n💵 Cobrás: ${moneyTxt} (efectivo/QR)\n📅 Vence: ${fdate(r.customerExpiresAt)} → ${fdate(next)} (+${per})`
+      : `⚠️ La fecha nueva pasa la del proveedor: la cuenta vence con el proveedor el ${fdate(r.supplierExpiresAt)} y +${per} llegaría al ${fdate(next)}.\n\n💵 Monto: ${moneyTxt}\n\nSi te pagó, se anota igual y la cuenta queda en «Proveedores por renovar» (Mi secretaria): renová el proveedor antes del ${dm(r.supplierExpiresAt)}. ¿Anotar el cobro?`,
   };
 }
 

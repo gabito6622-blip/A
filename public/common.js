@@ -76,6 +76,25 @@ export const toCents = (v) => {
 
 export const fdate = (t) => new Date(t).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" });
 export const fdt = (t) => new Date(t).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+/* ¿Cómo cuenta un mes? (la misma cuenta que src/store/time.ts → addPeriods; el ajuste vive en mesModo.ts).
+   "calendar": 13/12 → 13/01 (la tienda, por defecto); "days": 30 días justos (13/12 → 12/01). Solo los productos de
+   30, 60, 90… días; los de 7 o 15 días cuentan días siempre. Hora de Bolivia (UTC−4), como el servidor. */
+let MONTH_MODE = "calendar";
+export const setMonthMode = (m) => { if (m === "calendar" || m === "days") MONTH_MODE = m; };
+export const monthMode = () => MONTH_MODE;
+const BO = 4 * 3_600_000;
+export function addPeriods(from, durationDays, periods = 1, mode = MONTH_MODE) {
+  if (!(durationDays > 0) || !(periods > 0)) return from;
+  if (mode !== "calendar" || durationDays % 30 !== 0) return from + durationDays * periods * 86_400_000;
+  const l = new Date(from - BO), y = l.getUTCFullYear(), m = l.getUTCMonth() + (durationDays / 30) * periods, d = l.getUTCDate();
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(d, last), l.getUTCHours(), l.getUTCMinutes(), l.getUTCSeconds(), l.getUTCMilliseconds()) + BO;
+}
+/** «1 mes», «3 meses», «15 días» (o «30 días» si se cuenta por días). */
+export function periodText(durationDays, periods = 1, mode = MONTH_MODE) {
+  if (mode === "calendar" && durationDays > 0 && durationDays % 30 === 0) { const n = (durationDays / 30) * periods; return n === 1 ? "1 mes" : `${n} meses`; }
+  const n = durationDays * periods; return n === 1 ? "1 día" : `${n} días`;
+}
 /** Días de calendario que faltan (0 = vence hoy, -1 = venció ayer), con la fecha del celular. */
 export const daysLeft = (t) => {
   const a = new Date(t), b = new Date();

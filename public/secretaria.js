@@ -138,7 +138,7 @@ const money = (pv) => (pv.priceUsd !== undefined ? `${usdTxt(pv.priceUsd)} (≈ 
 function previewHtml(pv, key) {
   const rows = [["Cliente", `${esc(pv.customer.name)}${pv.payer.id !== pv.customer.id ? ` · paga ${esc(pv.payer.name)}${pv.payer.isReseller ? " (revendedor)" : ""}` : ""}`],
     ["Cuenta", `<span class="sec-mail">${esc(pv.email)}</span>${pv.profile ? ` · ${esc(pv.profile)}` : ""} · ${esc(pv.product)}`],
-    ["Monto", `<b>${money(pv)}</b> por ${pv.periods} período${pv.periods === 1 ? "" : "s"} (${pv.days} días)`],
+    ["Monto", `<b>${money(pv)}</b> por ${esc(pv.period ?? `${pv.days} días`)}`],
     ["Período", `del <b>${fdate(pv.from)}</b> al <b>${fdate(pv.to)}</b>${pv.expiredDays ? ` <small class="muted">(venció hace ${pv.expiredDays} d: arranca hoy)</small>` : ""}`],
     ["Fecha nueva", `<b>${fdate(pv.to)}</b> <small class="muted">· proveedor: ${pv.supplierNoDate ? "sin fecha" : fdate(pv.supplierExpiresAt)}</small>`]];
   return `<div class="sec-pvbox">

@@ -5,7 +5,7 @@
 //  - En la ficha de cada producto, «💬 Preguntar por este» con el nombre del producto.
 //  - Fuera del horario configurado: «Te respondemos desde las 8:00» (horario.js), sin prometer que alguien contesta ya.
 // Solo en la tienda y en la página de un revendedor (con SU WhatsApp). Nunca en GaboHub ni en el panel.
-import { esc, bs, waLink, icon } from "/common.js";
+import { esc, bs, waLink, icon, periodText } from "/common.js";
 import { hoursOf, closedText } from "/horario.js";
 
 if (typeof document !== "undefined" && !document.querySelector('link[href="/hablar.css"]')) {
@@ -36,7 +36,7 @@ export function startMessage(c) {
 
 /** Mensaje para «Preguntar por este» en la ficha de un producto. */
 export function askMessage(p) {
-  const what = `${p.name}${p.price ? ` (${bs(p.price)}${p.durationDays ? ` · ${p.durationDays} días` : ""})` : ""}`;
+  const what = `${p.name}${p.price ? ` (${bs(p.price)}${p.durationDays ? ` · ${periodText(p.durationDays)}` : ""})` : ""}`;
   return `Hola 👋 Quiero preguntar por ${what}. ¿Me contás cómo funciona?`;
 }
 
