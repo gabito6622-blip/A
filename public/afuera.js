@@ -122,9 +122,12 @@ export const countryMenuBtn = () => `<button class="sbtn" type="button" data-afu
 export function ownTodayRow(soon) {
   const n = soon?.clients?.length ?? 0, m = soon?.provider?.length ?? 0;
   if (!n && !m) return "";
-  const who = [n ? `${n === 1 ? "1 cliente vence" : `${n} clientes vencen`}` : "", m ? `${m === 1 ? "1 cuenta vence" : `${m} cuentas vencen`} con tu proveedor` : ""].filter(Boolean).join(" · ");
+  // 14/11: lo ya vencido (`late`) se dice como vencido, no como «vence».
+  const lc = (soon.clients ?? []).filter((c) => c.late).length, lp = (soon.provider ?? []).filter((a) => a.late || a.down).length;
+  const who = [lc ? `${lc === 1 ? "1 cliente ya venció" : `${lc} clientes ya vencieron`}` : "", n - lc ? `${n - lc === 1 ? "1 cliente vence" : `${n - lc} clientes vencen`}` : "",
+    lp ? `${lp === 1 ? "1 cuenta vencida o caída" : `${lp} cuentas vencidas o caídas`} con tu proveedor` : "", m - lp ? `${m - lp === 1 ? "1 cuenta vence" : `${m - lp} cuentas vencen`} con tu proveedor` : ""].filter(Boolean).join(" · ");
   const names = [...(soon.clients ?? []).slice(0, 3).map((c) => c.name.split(" ")[0]), ...(soon.provider ?? []).slice(0, 2).map((a) => a.user)].join(", ");
-  return `<button type="button" class="tday-own" data-rtool="propias"><span aria-hidden="true">📦</span><span><b>Cuentas propias: ${esc(who)}</b><small>En ${soon.days ?? 3} días o menos · ${esc(names)}</small></span><i aria-hidden="true">›</i></button>`;
+  return `<button type="button" class="tday-own${lc + lp ? " late" : ""}" data-rtool="propias"><span aria-hidden="true">📦</span><span><b>Cuentas propias: ${esc(who)}</b><small>${lc + lp ? "Ya vencidos o vencen" : "Vencen"} en ${soon.days ?? 3} días o menos · ${esc(names)}</small></span><i aria-hidden="true">›</i></button>`;
 }
 
 /* ---------------- su moneda en afiches, lista y ganancias ---------------- */

@@ -43,3 +43,8 @@
 .os-undo .sbtn{background:var(--s-bg);color:var(--s-ink);flex:0 0 auto}
 .os-notify .rcsoon-r.done{opacity:.7}
 .os-sheet .sbtn{white-space:normal;text-align:center}
+/* Filas de «Vencen esta semana», «Se fueron debiendo» y avisos: en 360 px los botones bajan en vez de salirse. */
+#sout .rcsoon-r{flex-wrap:wrap}
+#sout .rcsoon-r>span:first-child{flex:1 1 150px}
+#sout .rcsoon-r>.rbtns{display:flex;flex-wrap:wrap;gap:6px;flex:0 1 auto;justify-content:flex-end;max-width:100%}
+#sout .rcsoon-r .sbtn{min-height:44px}
