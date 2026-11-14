@@ -83,6 +83,18 @@ export function guestPayHtml({ lines, total, discount = 0, qr = "" }) {
 }
 
 /** Dónde llegan los datos (el mismo texto en toda la tienda). */
+/**
+ * Paso «3 · Listo» del cliente con cuenta: qué compró y cuánto (antes decía solo «Pedido ord_00297»). El número de
+ * pedido queda abajo, chico, para reclamar. `what`: los nombres del carrito; `total`: lo cobrado (con cupón y combo).
+ */
+export function pedidoListoHtml({ what, total, status, id }) {
+  const ok = status === "fulfilled";
+  return `<div class="sbox"><h2>${esc(what || "Tu pedido")} · ${bs(total)} <span class="spill ${ok ? "sp-ok" : "sp-warn"}">${esc(STATUS_TEXT[status] ?? "")}</span></h2>
+      <p class="empty">${ok ? "Tus accesos ya están en Mis cuentas." : "Verificamos tu pago en 10–30 minutos y te avisamos. Lo podés seguir en Mis cuentas."}</p>
+      <small class="empty">Nro. de pedido ${esc(id)}</small>
+      <button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button></div>`;
+}
+
 export const datosText = () => "Tus datos quedan en Mis cuentas; si compraste sin cuenta, te los pasamos por WhatsApp.";
 
 /** Paso 3 del invitado, después de tocar «Ya pagué». */

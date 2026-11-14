@@ -23,9 +23,9 @@ import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-se
 import { qrCard, initQrGrande } from "/qr-grande.js";
 import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent } from "/catalogo-claro.js";
 import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
-import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText } from "/despues-pago.js";
+import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText, pedidoListoHtml } from "/despues-pago.js";
 import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
-import { fallasHelp, faqExtra, recoverHtml, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
+import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
@@ -676,7 +676,7 @@ function renderInner() {
         // Con muchos servicios (revendedores) los datos van plegados: la lista entra en pocas pantallas.
         const fold = isReseller() || services.length > 5;
         return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b>${MODE === "store" && !isReseller() ? svcTags(a) : ""}<br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
-        <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} d` : d === 0 ? "Vence hoy" : `Vence en ${d} d`} · ${fdate(a.expiresAt)}</span></div>
+        <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : d === 0 ? "Vence hoy" : `Vence en ${d} ${d === 1 ? "día" : "días"}`} · ${fdate(a.expiresAt)}</span></div>
         ${a.storeOwed ? `<div class="svc-owed" role="status"><span>💸 Le debés a la tienda <b>${bs(a.storeOwed)}</b> por esta cuenta</span>${S.settings.whatsapp ? `<a class="sbtn sm" href="${waLink(S.settings.whatsapp, `Hola, te pago los ${bs(a.storeOwed)} que debo de ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email}).`)}" target="_blank" rel="noopener">${icon("wa")}Pagar / avisar</a>` : ""}</div>` : ""}
         ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
@@ -684,7 +684,7 @@ function renderInner() {
           ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }, isReseller() ? {} : { client: true, daysLeft: a.daysLeft })
           : a.canRenew === false
           ? (S.settings.whatsapp ? `<a class="sbtn sm pri" href="${waLink(S.settings.whatsapp, `Hola, quiero renovar mi ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email} · ${a.access.profile}), vence el ${fdate(a.expiresAt)}.`)}" target="_blank" rel="noopener">${icon("wa")}Renovar por WhatsApp</a>` : `<span class="empty">La renovación la hace la tienda.</span>`)
-          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button>${MODE === "store" && !isReseller() ? svcComboNote(a) : ""}</div></div>`;
+          : `<button class="sbtn sm pri" type="button" data-renew="${esc(a.assignmentId)}" data-method="balance">${icon("renew")}Renovar con saldo${a.renewPrice ? ` · ${bs(a.renewPrice)}` : ""}</button>${usdMode() ? (S.settings.usdt ? `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="usdt">Renovar con USDT</button>` : "") : `<button class="sbtn sm" type="button" data-renew="${esc(a.assignmentId)}" data-method="qr">Renovar con QR</button>`}`}${svcCodes(a)}<button class="sbtn sm" type="button" data-falla="${esc(a.assignmentId)}">⚠️ Reportar falla</button>${MODE === "store" && !isReseller() ? switchLink(a, S.me, S.settings) + svcComboNote(a) : ""}</div></div>`;
       }).join("") || `<p class="empty">Ninguna cuenta con ese filtro.</p>` : `<p class="empty">Todavía no tenés servicios activos.</p><button class="sbtn" type="button" data-s="catalogo" style="justify-self:start">Ir al catálogo</button>`}</div>
       ${MODE === "store" && !isReseller() ? alertsCard() : ""}
       <div class="sbox"><h2>Historial de pedidos</h2>${(S.data.orders ?? []).length ? (S.data.orders).map(historialLinea).join("") : `<p class="empty">Sin pedidos todavía.</p>`}</div>
@@ -2034,6 +2034,7 @@ function markSheet() { if (!history.state?.sheet) history.pushState({ sheet: 1 }
 window.addEventListener("popstate", () => { if (!$("#drawer").hidden || !$("#modal").hidden) closeAll(true); });
 function openDrawer() {
   markSheet();
+  $("#toast").hidden = true; // «… agregado al carrito» ya se ve en el carrito: no tapa el pago
   $("#modal").hidden = true;
   $("#drawer").hidden = false;
   $("#scrim").hidden = false;
@@ -2243,13 +2244,12 @@ async function submitCheckout(form) {
         return;
       }
     }
+    const what = S.cart.map((l) => `${l.qty > 1 ? `${l.qty} × ` : ""}${product(l.productId)?.name ?? ""}`).join(" + ");
     S.cart = []; saveCart();
     S.step = 3;
     $("#drawer").innerHTML = `<h2>${pm === "balance" ? "¡Listo!" : "Pedido enviado"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
       <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span class="on">3 · Listo</span></div>
-      <div class="sbox"><h2>Pedido ${esc(final.id)} <span class="spill ${final.status === "fulfilled" ? "sp-ok" : "sp-warn"}">${STATUS_TEXT[final.status]}</span></h2>
-      <p class="empty">${final.status === "fulfilled" ? "Tus accesos ya están en Mis cuentas." : "Verificamos tu pago en 10–30 minutos y te avisamos. Lo podés seguir en Mis cuentas."}</p>
-      <button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button></div>`;
+      ${pedidoListoHtml({ what, total: final.total ?? order.total, status: final.status, id: final.id })}`;
     await refresh();
   } catch (e) {
     btn.disabled = false;
@@ -2263,8 +2263,9 @@ async function submitCheckout(form) {
 }
 
 /* ---------------- acceso ---------------- */
-function openLogin(step, phone = "", msg = "", email = "") {
+function openLogin(step, phone = "", msg = "", email = "", why = "") {
   if (!step) step = "pin"; // toda la tienda dice "entrá con tu número": el correo queda como alternativa
+  if (step === "phone" && noLoginCode(S.settings)) step = "link"; // sin código por WhatsApp: directo a pedir el PIN
   $("#drawer").hidden = true;
   const st = S.settings;
   const body = {
@@ -2288,10 +2289,10 @@ function openLogin(step, phone = "", msg = "", email = "") {
       <button class="sbtn pri" type="submit">Entrar</button>
       ${ccLoginAlt()}`,
     phone: `<label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label><button class="sbtn pri" type="submit">Recibir código</button><button class="sbtn" type="button" data-loginstep="recover">Cambié de número / no me llega</button>`,
-    recover: recoverHtml(st, phone, pinGiver(st)),
+    recover: recoverHtml(st, phone, pinGiver(st), why),
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label>${ccConsent()}<button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
-    link: `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${pinGiver(st)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${recoverHtml(st, phone, pinGiver(st))}`,
+    link: pinHelpHtml(st, phone, pinGiver(st), why),
   }[step];
   markSheet();
   $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
@@ -2413,7 +2414,7 @@ document.addEventListener("click", async (ev) => {
   if (d.gotab) S.data.rtab = d.gotab; // «Mis clientes» de Inicio abre la lista de clientes (no la última pestaña)
   if (d.s) { ev.preventDefault(); setView(d.s); return; }
   if (comboClick(d)) return;
-  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", ccLoginWhy(d.loginwhy), $("#login [name=email]")?.value?.trim() ?? "");
+  if (d.loginstep) return openLogin(d.loginstep, $("#login [name=phone]")?.value?.trim() ?? "", ccLoginWhy(d.loginwhy), $("#login [name=email]")?.value?.trim() ?? "", d.loginwhy ?? "");
   if (d.tour) { ev.preventDefault(); return startTour(); }
   if (d.wiz) { S.data.wiz = { step: 1 }; return render(); }
   if (d.wizexit) { S.data.wiz = null; return setView("inicio"); }

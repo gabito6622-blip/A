@@ -28,10 +28,12 @@ export function faqExtra(a) {
 const valuesOf = (f) => ({
   name: f.querySelector("[name=rname]")?.value.trim() ?? "", phone: f.querySelector("[name=rphone]")?.value.trim() ?? "",
   changed: !!f.querySelector("[name=rchanged]")?.checked, prev: f.querySelector("[name=rprev]")?.value.trim() ?? "",
+  isNew: f.querySelector("#recWa")?.dataset.why === "new",
 });
 /** El mensaje de WhatsApp: sirve para quien olvidó el PIN, quien es nuevo y quien cambió de número. */
 export function recoverText(v, st) {
   const phone = String(v.phone ?? "").replace(/^\+591\s*$/, "").trim();
+  if (v.isNew) return `Hola${v.name ? `, soy ${v.name}` : ""}. Soy cliente nuevo y quiero crear mi cuenta en ${st?.storeName || "la tienda"}.${phone ? ` Mi número es ${phone}.` : ""}`;
   return `Hola${v.name ? `, soy ${v.name}` : ""}. Necesito mi PIN para entrar a ${st?.storeName || "la tienda"}.${phone ? ` Mi número es ${phone}.` : ""}${v.changed ? ` Cambié de número: mi número anterior era ${v.prev || "…"}.` : ""}`;
 }
 
@@ -39,7 +41,14 @@ export function recoverText(v, st) {
  * Paso «recover» de la ventana Acceder: nombre, número y «cambié de número» con el anterior. El botón abre WhatsApp con
  * todo escrito. `who`: a quién se le pide (la tienda o el revendedor).
  */
-export function recoverHtml(st, phone = "", who = "la tienda") {
+export function recoverHtml(st, phone = "", who = "la tienda", why = "") {
+  if (why === "new") {
+    if (!st?.whatsapp) return `<p class="empty">Para crear tu cuenta escribile a ${esc(who)}: te da tu PIN de 4 números.</p><button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`;
+    return `<label>Tu nombre<input name="rname" autocomplete="name" maxlength="80" data-recover="1"></label>
+    <label>Tu número de WhatsApp<input name="rphone" inputmode="tel" autocomplete="tel" value="${esc(phone || "+591 ")}" data-recover="1"></label>
+    <a class="sbtn pri" id="recWa" data-why="new" href="${waLink(st.whatsapp, recoverText({ phone, isNew: true }, st))}" target="_blank" rel="noopener">${icon("wa")}Pedir mi PIN por WhatsApp</a>
+    <button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`;
+  }
   if (!st?.whatsapp) return `<p class="empty">Para recuperar tu acceso escribile a ${esc(who)}. Te va a pedir un dato de tu compra para confirmar que sos vos.</p><button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`;
   return `<p class="empty">Te ayudamos por WhatsApp. <b>Te pediremos un dato de tu compra para confirmar que sos vos.</b></p>
     <label>Tu nombre<input name="rname" autocomplete="name" maxlength="80" data-recover="1"></label>
@@ -48,6 +57,29 @@ export function recoverHtml(st, phone = "", who = "la tienda") {
     <label data-recprev hidden>Mi número anterior era<input name="rprev" inputmode="tel" placeholder="+591 7…" data-recover="1"></label>
     <a class="sbtn pri" id="recWa" href="${waLink(st.whatsapp, recoverText({ phone }, st))}" target="_blank" rel="noopener">${icon("wa")}Pedir ayuda por WhatsApp</a>
     <button class="sbtn" type="button" data-loginstep="pin">Ya tengo PIN</button>`;
+}
+
+/**
+ * Sin ingreso por código (la tienda todavía no tiene el WhatsApp oficial): «Soy nuevo» y «Olvidé mi PIN» van directo a
+ * pedir el PIN por WhatsApp, sin un «Recibir código» que nunca llega. El servidor dice si hay código (`loginCode`).
+ */
+export const noLoginCode = (st) => st?.loginCode === false;
+/** Paso «link»: cómo conseguir el PIN. Al nuevo no se le pide «un dato de tu compra» (todavía no compró). */
+export function pinHelpHtml(st, phone = "", who = "la tienda", why = "") {
+  if (why === "new") return `<p class="empty">Para entrar necesitás un PIN de 4 números. Te lo da ${esc(who)} por WhatsApp: escribí tu nombre y tu número y mandá el mensaje.</p>${recoverHtml(st, phone, who, "new")}`;
+  return `<p class="empty">Para entrar necesitás tu PIN de 4 números. Te lo da ${esc(who)} por WhatsApp (una sola vez; después lo podés cambiar).</p>${recoverHtml(st, phone, who)}`;
+}
+
+/* ---------------- Cambiarme a otro servicio ---------------- */
+/** Mensaje para pedir pasar un servicio a otro (p. ej. de Netflix a Disney+). Solo pregunta: el dueño decide cómo queda. */
+export function switchText(a, me, st) {
+  const prod = String(a?.product ?? "").replace(/ \(alquiler revendedores\)/, "");
+  return `Hola${me?.name ? `, soy ${me.name}` : ""}. Quiero cambiar mi ${prod}${a?.access?.email ? ` (${a.access.email})` : ""} por otro servicio de ${st?.storeName || "la tienda"}. ¿Se puede y cómo me queda la fecha?`;
+}
+/** Botón «🔀 Cambiarme a otro servicio» de la tarjeta (cliente de la tienda; lo de un revendedor lo ve su revendedor). */
+export function switchLink(a, me, st) {
+  if (!st?.whatsapp || a?.viaReseller) return "";
+  return `<a class="sbtn sm" href="${waLink(st.whatsapp, switchText(a, me, st))}" target="_blank" rel="noopener">🔀 Cambiarme a otro servicio</a>`;
 }
 
 let STORE = () => ({});
