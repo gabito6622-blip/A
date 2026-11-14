@@ -939,6 +939,11 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
     const c: RentalControl = { ...(a.control ?? {}) };
+    // Atención (seller) no cambia el precio de un alquiler que ya figura como cobrado (revisión de seguridad del equipo,
+    // 14/11/2026): así nadie baja el precio después de cobrar. El dueño y los admin sí pueden.
+    const priceBefore = c.price;
+    const priceMoves = (price !== undefined && price !== (c.price ?? null)) || (priceUsd !== undefined && priceUsd !== (c.priceUsd ?? null));
+    if (actor.role === "seller" && c.payStatus === "pagado" && priceMoves) throw new DomainError("FORBIDDEN", "Este alquiler ya figura como cobrado: el precio lo cambia el dueño o un admin");
     // Precio acordado en US$: solo si quien paga este servicio está en la lista en dólares (si no, va en Bs).
     if (priceUsd !== undefined && priceUsd !== null && !isUsd(e, agreedPayerOf(e, a.customerId))) throw new DomainError("VALIDATION", "Este cliente paga en Bs: anotá el precio en Bs");
     if (priceUsd !== undefined) { if (priceUsd === null) delete c.priceUsd; else c.priceUsd = priceUsd; }
@@ -959,7 +964,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
       if (!c.paidLog.length) delete c.paidLog;
     }
     a.control = c;
-    e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(",") });
+    e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(","), ...(priceMoves && price !== undefined && price !== null ? { price, ...(priceBefore !== undefined ? { priceFrom: priceBefore } : {}) } : {}) });
     return structuredClone(c);
   });
 }
