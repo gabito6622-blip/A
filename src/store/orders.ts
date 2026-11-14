@@ -22,7 +22,7 @@ import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
-import { noticeOf } from "./dia.js";
+import { noticeOf, reminderMsgOf } from "./dia.js";
 import { assertNotDouble, renewStart } from "./cobrarBien.js";
 import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
 import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
@@ -926,6 +926,10 @@ export function markNoticed(e: Engine, actor: Actor, ids: unknown, off = false) 
       // «No le avisé» borra las dos marcas de este vencimiento (la de Mi secretaria y la de Recordatorios).
       if (off) { delete c.noticed; delete a.reminderFor; } else c.noticed = { at: e.now(), for: a.customerExpiresAt };
       a.control = c;
+      // «Ya le avisé»: el recordatorio preparado de este vencimiento que todavía no salió queda como «enviado a mano»,
+      // así el bot no le manda después uno viejo (revisión de 3 meses, 16/11/2026).
+      const prep = !off && a.reminderFor === a.customerExpiresAt ? reminderMsgOf(e, a) : undefined;
+      if (prep && (prep.status === "queued" || prep.status === "failed" || prep.status === "skipped_no_consent")) prep.status = "sent_manually";
       e.audit(actor, off ? "assignment.notice_off" : "assignment.noticed", "assignment", a.id, { customerId: a.customerId });
       done.push(a.id);
     }
