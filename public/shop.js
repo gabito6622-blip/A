@@ -7,7 +7,7 @@ import { subLinkBox, subLinkClick, cobroLine, clientLinkBox, clientLinkClick } f
 import { initDescargas, descargasEnsure, descargasView, descargasClick, descargasBind } from "/descargas.js";
 import { mine, mySym, setMine, sellText, findPhone, findPrice, myPhoneDefault, myPhoneHint, earnSplitView, myLocale } from "/country.js";
 import { ownStockView, initOwnStock, loadOwnStock, ownData } from "/ownstock.js";
-import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
+import { initPropiasPlata, loadOwnDay, loadOwnBack, loadOwnEarn, ownDayHtml, ownBackHtml, ownControlHtml, ownDebeHtml, ownOwed, ownEarnHtml, ownDayMerge, ownDayNote, ownTodayNums, ownComboPicks } from "/propias-plata.js";
 import { initSelfCodes, loadSelfCodes, selfCodesHead, selfCodesRental, svcCodes, ownCodesNote } from "/codigos-solos.js";
 import { initAfuera, countryHomeCard, countryMenuBtn, ownTodayRow, splitGainText, needsRate, posterMoney, posterRateBox, posterPhone, listNote, sellHint, buySym } from "/afuera.js";
 import { appMark, appsRow } from "/applogo.js";
@@ -887,7 +887,11 @@ function rDebeBase() {
   const clients = S.data.customers ?? [];
   const msg = (r) => `Hola ${r.name.split(" ")[0]} 👋 te paso tu cuenta: me debés *${bs(r.owed)}*${r.nextDue ? ` (para el ${fdate(r.nextDue)})` : ""}. ¿Me podés pagar hoy? ¡Gracias! 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
   const pend = ov.rows.filter((r) => r.unlinked.count);
-  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0)}</b></div><div><small>Personas</small><b>${S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
+  // 15/11: el número de arriba es TODO lo que le deben: perfiles, clientes registrados y sus cuentas propias.
+  const own = ownOwed(), subsPeople = new Set((S.data.rsubs?.debts?.items ?? []).map((x) => `${String(x.client ?? "").trim().toLowerCase()}|${String(x.phone ?? "").replace(/\D/g, "")}`));
+  const owedAll = (S.data.rsubs?.debts?.total ?? ov.totals.owed ?? 0) + own.owed;
+  const peopleAll = (S.data.rsubs?.debts?.people ?? ov.totals.people ?? 0) + own.keys.filter((k) => !subsPeople.has(k)).length;
+  return `<div class="sbox"><h2 style="margin:0">💸 Quién me debe</h2><div class="rkpis"><div><small>Te deben</small><b class="bad">${bs(owedAll)}</b>${own.owed ? `<small>${bs(own.owed)} de tus cuentas propias</small>` : ""}</div><div><small>Personas</small><b>${peopleAll}</b></div><div><small>Ya tenían que pagar</small><b>${ov.totals.overdue ?? 0}</b></div></div>
       <p class="empty" style="margin:0">Anotá lo que fiás y lo que te van pagando (puede ser de a poco). Es tu libreta: solo la ves vos.</p>
       ${pend.length ? `<div class="rcwarn rcinline"><span>📋 En “Mi control” marcaste ${pend.reduce((t, r) => t + r.unlinked.count, 0)} servicio(s) sin pagar (${bs(ov.totals.unlinked)}).</span><button class="sbtn sm pri" type="button" data-rffromall="1">➕ Pasarlos acá</button></div>` : ""}
       <details ${ov.rows.length ? "" : "open"}><summary><b>➕ Anotar un fiado</b></summary><form class="sform" id="rfNew" style="margin-top:8px"><label>Cliente<select name="who" required>${clients.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label>

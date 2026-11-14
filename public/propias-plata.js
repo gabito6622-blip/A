@@ -90,6 +90,15 @@ export function ownControlHtml() {
 }
 
 /* ---------------- 💸 Quién me debe ---------------- */
+/** Lo que le deben por sus cuentas propias (activos y liberados), para sumarlo arriba de «Quién me debe» (15/11). */
+export function ownOwed() {
+  const d = ownData();
+  if (!d) return { owed: 0, people: 0, keys: [] };
+  const l = [...(d.sales ?? []).filter((x) => x.debt > 0), ...(d.gone ?? []).filter((g) => g.debt > 0)];
+  const keys = [...new Set(l.map((x) => `${String(x.name ?? "").trim().toLowerCase()}|${String(x.phone ?? "").replace(/\D/g, "")}`))];
+  return { owed: l.reduce((t, x) => t + x.debt, 0), people: keys.length, keys };
+}
+
 export function ownDebeHtml() {
   const d = ownData();
   if (!d) return "";
