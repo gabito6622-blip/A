@@ -32,6 +32,7 @@ import { paidInReview } from "./avisoAlquiler.js";
 import { assertNoPendingRenewal, renewRequestHold, staleRenewal } from "./renovarSinTrabas.js";
 import { transferAssignment as transferWithBooks } from "./traspaso.js";
 import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
+import { markCombo } from "./planMensual.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -284,11 +285,12 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
       e.s.assignments[a.id] = a;
       order.assignmentIds.push(a.id);
     }
+    markCombo(e, order); // comprado en combo: renovado junto conserva el descuento (planMensual.ts)
     queue(e, order.customerId, "order_confirmed", { order: order.id });
   } else if (order.kind === "renewal") {
     const r = order.renewal!;
     r.prevExpiresAt = e.s.assignments[r.assignmentId]?.customerExpiresAt;
-    extend(e, actor, r.assignmentId, r.periods, false);
+    extend(e, actor, r.assignmentId, r.periods, false, r.until);
   } else {
     // Recarga en dólares: se acreditan los US$ que mandó (20 USDT → US$ 20), no los Bs.
     if (order.usd !== undefined) {
@@ -557,14 +559,16 @@ export function renewableNow(e: Engine, a: Assignment): boolean {
   return renewStart(a, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
 }
 
-export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
+export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean, until?: number): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
   const fallen = renewBlockOf(e, a); // sigue en una cuenta caída: primero moverlo (vendible.ts)
   if (fallen) throw new DomainError("INVALID_STATE", fallen);
   const days = e.s.products[a.productId].durationDays * periods;
   // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
-  const next = renewStart(a, e.now()) + days * DAY;
+  // Plan mensual (planMensual.ts): hasta una fecha fija, con los días proporcionales ya cobrados. Nunca la acorta.
+  if (until !== undefined && until <= a.customerExpiresAt) throw new DomainError("INVALID_STATE", `Ya está renovado hasta el ${fdate(a.customerExpiresAt)}: revisá antes de aprobar`);
+  const next = until ?? renewStart(a, e.now()) + days * DAY;
   const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
   if (next > acc.supplierExpiresAt && !allowBeyondSupplier) {
     throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renová con el proveedor o reemplazá el perfil`);
@@ -572,7 +576,7 @@ export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: numbe
   a.customerExpiresAt = next; // supplierExpiresAt NO se toca
   a.lastCharge = { at: e.now(), to: next };
   delete a.holdOpen;
-  a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: `+${days} días` });
+  a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: until !== undefined ? `hasta el ${fdate(next)} (plan mensual)` : `+${days} días` });
   queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
   return a;
 }
@@ -585,6 +589,11 @@ export interface RenewInput {
   idempotencyKey?: string;
   /** El staff confirmó que es otro mes aunque ya hay un cobro anotado en este período (cobrarBien.ts). */
   confirmOther?: boolean;
+  /**
+   * Interno (planMensual.ts, nunca viene del cliente): renovación del combo o del plan mensual. `total` ya trae el
+   * descuento del combo y, con `until`, los días proporcionales hasta esa fecha. Solo en Bs y de a 1 período.
+   */
+  deal?: { total: Cents; discount: Cents; until?: number };
 }
 
 export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInput): { order: Order; assignment: Assignment } {
@@ -610,7 +619,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     // «renová con el proveedor o reemplazá el perfil», que es para el dueño).
     if (!isStaff(actor)) {
       const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
-      if (accN && prodN && !input.allowBeyondSupplier && renewStart(a, e.now()) + prodN.durationDays * periods * DAY > accN.supplierExpiresAt) {
+      if (accN && prodN && !input.allowBeyondSupplier && (input.deal?.until ?? renewStart(a, e.now()) + prodN.durationDays * periods * DAY) > accN.supplierExpiresAt) {
         throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: para renovarla, la tienda primero renueva con su proveedor. Tocá «📩 Pedir renovación» y no se corta mientras tanto (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
       }
     }
@@ -620,6 +629,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     // Solo estos métodos: uno con comprobante queda esperando el pago; nunca se renueva gratis.
     if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
     const usdPay = isUsd(e, payerId);
+    if (input.deal && (usdPay || periods !== 1)) throw new DomainError("VALIDATION", "El combo y el plan se renuevan en Bs y de a un mes");
     const rate = usdPay ? usdCheckout(e, actor, input.paymentMethod) : 0;
     assertNoPendingRenewal(e, actor, a.id, input.paymentMethod); // ya hay una renovación esperando pago: no pagar dos veces
     // Si el alquiler tiene un precio acordado (Control de alquileres), se cobra ese: en Bs `price`, en
@@ -633,10 +643,11 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       id: e.id("ord"), kind: "renewal", customerId: a.customerId, payerId, createdBy: actor.id,
       channel: isStaff(actor) ? "panel" : actor.role === "reseller" ? "reseller" : "store",
       items: [usdPay ? { productId: a.productId, qty: periods, unitPrice: usdToBs(unit, rate), usd: unit } : { productId: a.productId, qty: periods, unitPrice: unit }],
-      total: usdPay ? usdToBs(unit * periods, rate) : unit * periods,
+      total: input.deal ? input.deal.total : usdPay ? usdToBs(unit * periods, rate) : unit * periods,
       ...(usdPay ? { usd: unit * periods, usdtQuote: { usdt: (unit * periods) / 100, rate } } : {}),
+      ...(input.deal?.discount ? { discount: input.deal.discount } : {}),
       status: "awaiting_payment", paymentMethod: input.paymentMethod, reservedSlotIds: [], assignmentIds: [a.id],
-      renewal: { assignmentId: a.id, periods }, createdAt: now, updatedAt: now,
+      renewal: { assignmentId: a.id, periods, ...(input.deal?.until !== undefined ? { until: input.deal.until } : {}) }, createdAt: now, updatedAt: now,
     };
     lockUsdt(e, order);
     e.s.orders[order.id] = order;
@@ -644,13 +655,13 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (input.paymentMethod === "qr" || input.paymentMethod === "usdt") {
       // Se valida ya contra el proveedor para no cobrar algo que no se puede entregar.
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
-      const next = renewStart(a, now) + e.s.products[a.productId].durationDays * periods * DAY;
+      const next = input.deal?.until ?? renewStart(a, now) + e.s.products[a.productId].durationDays * periods * DAY;
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: order.id, total: fmtOrder(order) });
     } else {
       if (input.paymentMethod === "balance") post(e, actor, payerId, -paidTotal(order), "renewal", order.id);
       order.renewal!.prevExpiresAt = a.customerExpiresAt;
-      extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
+      extend(e, actor, a.id, periods, !!input.allowBeyondSupplier, input.deal?.until);
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
       // «Renovar» de un alquiler que figura sin pagar en el Control: la renovación queda fiada (plata.ts).

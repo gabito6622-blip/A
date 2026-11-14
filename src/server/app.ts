@@ -40,6 +40,7 @@ import { registerPerfilRoutes } from "./perfilRoutes.js";
 import { attendHours, createPayOutcomePush } from "./avisoPago.js";
 import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
+import { registerPlanRoutes } from "./planRoutes.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { writeXlsx } from "./xlsx.js";
@@ -872,7 +873,7 @@ export function createApp(cfg: AppConfig): App {
   // 🔎 Buscador del panel (searchRoutes.ts): clientes, revendedores, servicios, cuentas y pedidos, según permisos.
   registerSearchRoutes({ route, store });
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
-  route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!) }));
+  route("GET", "/api/me/tickets", "customer", (c) => ({ kinds: store.tickets.kinds, list: store.tickets.mine(c.actor!), hours: store.tickets.hours() }));
   route("POST", "/api/me/tickets", "customer", (c) => store.tickets.report(c.actor!, { assignmentId: String(c.body?.assignmentId ?? ""), kind: c.body?.kind, note: c.body?.note }));
   route("GET", "/api/admin/tickets", "staff", (c) => store.tickets.list(A(c)));
   // Premium 2.0 (etapa 8): lo que el dueño configuró para soporte (respuestas guardadas y mensajes de la secretaria).
@@ -881,7 +882,9 @@ export function createApp(cfg: AppConfig): App {
     const r = store.tickets.setStatus(A(c), c.params.id, { status: c.body?.status, reply: c.body?.reply });
     if (r.notify) {
       const t = r.ticket, st = { recibido: "📥 Recibimos tu reporte", revisando: "🔧 Estamos revisando", solucionado: "✅ Falla solucionada" }[t.status];
-      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url: "/hub#fallas" }).catch(() => {});
+      // El cliente de la tienda sigue su falla en la tienda; el revendedor, en GaboHub.
+      const url = store.engine.s.customers[r.notify]?.kind === "reseller" ? "/hub#fallas" : "/tienda/#fallas";
+      customerPush(r.notify, { title: `${st}: ${t.product}`, body: `${t.client}${t.reply ? ` · ${t.reply}` : ""}`.slice(0, 160), url }).catch(() => {});
     }
     return r.ticket;
   });
@@ -1046,6 +1049,7 @@ export function createApp(cfg: AppConfig): App {
     catch (e) { dropUpload(file); throw e; }
   }, MAX_UPLOAD_JSON);
   route("GET", "/api/me/store-rentals", "customer", (c) => store.rmes.rentAlerts(c.actor!));
+  registerPlanRoutes({ route, store }); // cliente de la tienda: renovar todo junto, combos y plan mensual
 
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
