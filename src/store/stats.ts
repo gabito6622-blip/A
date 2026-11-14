@@ -3,6 +3,7 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, boDayKey, boDayStart, boMonthStart, boParts } from "./time.js";
 import { incomeBetween, incomeEvents, sumIncome } from "./income.js";
+import { owedFor } from "./plata.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { stockByProduct } from "./inventory.js";
@@ -226,7 +227,8 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   }
   return {
     days: nDays,
-    alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: amt(unpaidList) } },
+    // «Sin pagar»: lo que de verdad te deben (una venta fiada de 3 meses son 3 meses; plata.ts), igual que el Fiado.
+    alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: unpaidList.reduce((t, a) => t + owedFor(e, a), 0) } },
     months,
     kpi: {
       revenue: sum(cur), prevRevenue: sum(prev), orders: cur.filter((x) => x.source === "order").length, prevOrders: prev.filter((x) => x.source === "order").length,

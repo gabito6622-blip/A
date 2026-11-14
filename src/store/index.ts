@@ -14,6 +14,9 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
+import * as gastos from "./gastos.js";
+import * as plata from "./plata.js";
+import * as proveedoresMes from "./proveedoresMes.js";
 import * as inventario from "./inventario.js";
 import * as cobro from "./cobro.js";
 import * as fiado from "./fiado.js";
@@ -289,6 +292,18 @@ export function createStore(opts: EngineOptions = {}) {
       recordAccountCost: bind(e, finance.recordAccountCost),
       margins: bind(e, finance.productMargins),
       setMinMargin: bind(e, finance.setMinMargin),
+      // La plata como la maneja un humano (gastos.ts, plata.ts, proveedoresMes.ts).
+      addExpenseFull: bind(e, gastos.addExpenseFull),
+      updateExpense: bind(e, gastos.updateExpense),
+      addRefund: bind(e, gastos.addRefund),
+      monthExpenses: bind(e, gastos.monthExpenses),
+      listFixed: bind(e, gastos.listFixed),
+      upsertFixed: bind(e, gastos.upsertFixed),
+      removeFixed: bind(e, gastos.removeFixed),
+      payFixed: bind(e, gastos.payFixed),
+      amendOrder: bind(e, plata.amendOrderTotal),
+      saleToFix: bind(e, plata.saleToFix),
+      suppliersMonth: bind(e, proveedoresMes.supplierMonth),
     },
     fiado: {
       overview: bind(e, fiado.overview),

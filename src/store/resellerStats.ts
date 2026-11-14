@@ -168,7 +168,7 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       if (ev.source === "control") r.fromControlMonth += ev.amount;
       if (ev.source === "fiado") r.fromFiadoMonth += ev.amount;
     }
-    if (ev.source === "fiado") continue;
+    if (ev.source === "fiado" || ev.source === "refund") continue;
     if (ev.source === "control") { if (ev.at > w30) r.fromControl30 += ev.amount; continue; }
     const o = ev.order!;
     if (ev.at > (r.lastOrderAt ?? 0)) r.lastOrderAt = ev.at;

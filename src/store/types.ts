@@ -471,8 +471,20 @@ export interface Order {
   localPay?: { id: Id; name: string };
   /** Cupón usado (copia del código por si después se borra) y cuánto descontó. */
   coupon?: { id: Id; code: string; amount: Cents };
+  /** Fiada (entregada sin cobrar): no cuenta como «Entró» hasta que se cobra. Ver plata.ts. */
+  payLater?: PayLater;
+  /** Correcciones del monto (dueño/admin, con motivo). `total` ya es el corregido. */
+  amended?: { at: number; by: Id; from: Cents; to: Cents; reason: string }[];
   createdAt: number;
   updatedAt: number;
+}
+
+/** Venta o renovación fiada: cuándo se cobró cada servicio (y de qué período), y cuáles pasaron al fiado. */
+export interface PayLater {
+  at: number;
+  paid?: Record<Id, { at: number; from: number }>;
+  /** Servicios cuya deuda pasó a la libreta del fiado: la plata entra por el fiado, no por el pedido. */
+  fiado?: Id[];
 }
 
 export type AssignmentStatus = "active" | "replaced" | "revoked";
@@ -760,6 +772,9 @@ export interface State {
   expenses: Expense[];
   /** Fiado: lo que te deben (cargos y pagos por cliente). */
   fiado?: FiadoEntry[];
+  /** Gastos fijos mensuales y devoluciones a clientes (plata.ts, gastos.ts). */
+  fixedExpenses?: FixedExpense[];
+  customerRefunds?: CustomerRefund[];
   /** Fallas reportadas (soporte). */
   tickets?: Record<Id, Ticket>;
   /** Cupones de descuento. */
@@ -793,7 +808,27 @@ export interface Expense {
   /** Si se pagó en dólares: cuánto (centavos de US$) y a qué tasa (Bs por US$) se pasó a bolivianos. */
   usd?: number;
   rate?: number;
+  /** Moneda en que se pagó (sin dato = Bs). USDT se guarda igual que US$ (`usd` y `rate`). */
+  currency?: "BOB" | "USD" | "USDT";
+  category?: ExpenseCategory;
+  supplierId?: Id;
+  /** Pago por varios meses: cuántos cubre (desde el mes del gasto) y hasta cuándo. Ver gastos.ts. */
+  months?: number;
+  coversUntil?: number;
+  /** «Me devolvió plata»: devolución de un proveedor. Resta de los gastos del mes. */
+  refund?: boolean;
+  /** Si es el pago de un gasto fijo mensual: cuál. */
+  fixedId?: Id;
+  editedAt?: number;
 }
+
+export type ExpenseCategory = "cuenta" | "perfil" | "publicidad" | "internet" | "comision" | "otro";
+
+/** Gasto fijo mensual (internet, publicidad…): cada mes aparece pendiente hasta que lo anotás. */
+export interface FixedExpense { id: Id; name: string; amount: Cents; category: ExpenseCategory; supplierId?: Id; active: boolean; createdAt: number }
+
+/** Plata devuelta a un cliente («↩️ Devolver»): a su saldo o en efectivo. Resta de «Entró» el día que se devolvió. */
+export interface CustomerRefund { id: Id; at: number; by: Id; customerId: Id; assignmentId?: Id; amount: Cents; via: "saldo" | "efectivo"; usd?: number; note?: string }
 
 /** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */
 export interface Coupon {

@@ -91,7 +91,7 @@ describe("6 · meses cerrados con el costo de las cuentas", () => {
     assert.equal(rep.months.at(-1).longLabel, "noviembre 2026");
   });
 
-  test("una cuenta retirada cuenta en los meses en que estaba viva, no después", () => {
+  test("una cuenta retirada cuenta en los meses en que estaba viva (también el de su retiro), no después", () => {
     const w = world(SEP1 + DAY);
     const { s, at } = w;
     const a = w.acc("netflix", "caida@x.lat", 3000, [{ label: "P1" }]);
@@ -99,7 +99,8 @@ describe("6 · meses cerrados con el costo de las cuentas", () => {
     at(NOW);
     assert.equal(s.engine.s.accounts[a.account.id].status, "retired");
     assert.equal(accountsEstimateMonth(s.engine, "2026-09").amount, 3000, "en septiembre estaba viva");
-    assert.equal(accountsEstimateMonth(s.engine, "2026-10").amount, 0, "se retiró en octubre");
+    // 15/11/2026 (equipo 1): el mes en que se retiró también cuesta (ese mes ya la habías pagado).
+    assert.equal(accountsEstimateMonth(s.engine, "2026-10").amount, 3000, "se retiró en octubre: octubre cuesta");
     assert.equal(accountsEstimateMonth(s.engine, "2026-11").amount, 0);
   });
 });
@@ -232,7 +233,7 @@ describe("7 y 10 · Excel del negocio = panel", () => {
     const { file } = businessReport(s, owner, { from: NOV1, to: NOW });
     const raw = file.toString("utf8");
     assert.ok(raw.includes("Costo estimado de cuentas"), "fila del costo de las cuentas en la portada");
-    assert.ok(raw.includes("B6-B7-B8"), "Te quedó = ingresos − gastos − costo de las cuentas");
+    assert.ok(raw.includes("B6-B7-B8-B9"), "Te quedó = ingresos − gastos − costo de las cuentas − fijos sin anotar");
     assert.ok(raw.includes("noviembre 2026") && raw.includes("octubre 2026"), "meses con nombre largo");
     assert.ok(!/>(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic) \d{2,4}</.test(raw), "nunca «nov 26»");
     if (!hasPy) return;
@@ -249,7 +250,7 @@ res = [[c.value for c in x] for x in r.iter_rows(min_row=5, max_row=r.max_row)]
 vsum = sum((x[5] or 0) for x in ve.iter_rows(min_row=5, max_row=ve.max_row-1, values_only=True) if isinstance(x[5], (int, float)))
 print(json.dumps({"kp": kp, "venc": rows, "res": res, "vsum": vsum}, default=str))`;
       const out = JSON.parse(execFileSync("python3", ["-I", "-c", py, f], { encoding: "utf8" }));
-      assert.equal(out.kp["Te quedó"], "=B6-B7-B8");
+      assert.equal(out.kp["Te quedó"], "=B6-B7-B8-B9");
       const ingresos = Math.round(out.vsum * 100), gastos = Math.round(out.kp["Gastos del período"] * 100), cuentas = Math.round(out.kp["Costo estimado de cuentas"] * 100);
       assert.equal(ingresos, cur.ingresos); assert.equal(gastos, cur.gastos); assert.equal(cuentas, cur.cuentasEstimado);
       assert.equal(ingresos - gastos - cuentas, cur.gananciaEstimada, "la misma ganancia que «Te quedó» del panel");

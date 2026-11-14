@@ -16,10 +16,16 @@
 //     en parte), la marca «pagado» de ese mismo período en el Control ya no suma: la plata entró por el fiado.
 //     Mismo período = el vencimiento del cargo está a menos de DEDUPE_DAYS días del fin del período marcado.
 //     La libreta de cada revendedor (lo que le deben SUS clientes) no es plata de la tienda: no cuenta.
+//  4. (15/11/2026) Venta o renovación FIADA (`order.payLater`, plata.ts): no cuenta al entregarse; cuenta su parte de
+//     cada servicio el día que ese servicio pasó a «Pagado» en el Control (y esa marca del Control no suma aparte).
+//     Si la deuda pasó al Fiado, cuenta el pago del fiado y el pedido no.
+//  5. (15/11/2026) Plata devuelta a un cliente («↩️ Devolver», a su saldo o en efectivo): resta, el día que se devolvió.
+//     Así lo que el cliente paga después con ese saldo no se cuenta dos veces.
 import type { Cents, FiadoEntry, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
 import { effectivePrice, payerOf } from "./admin.js";
+import { servicesOf, sharesOf } from "./plata.js";
 
 /** Un cobro del Control a menos de estos días de un pedido del mismo servicio es el mismo pago. */
 export const DEDUPE_DAYS = 20;
@@ -28,8 +34,8 @@ export interface IncomeItem { productId: Id; qty: number; amount: Cents }
 export interface IncomeEvent {
   at: number;
   amount: Cents;
-  source: "order" | "control" | "fiado";
-  kind: "sale" | "renewal" | "control" | "fiado";
+  source: "order" | "control" | "fiado" | "refund";
+  kind: "sale" | "renewal" | "control" | "fiado" | "refund";
   /** Quién pagó: el revendedor si el servicio es de un cliente suyo; si no, el cliente. */
   payerId: Id;
   customerId: Id;
@@ -49,13 +55,28 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
   const out: IncomeEvent[] = [];
   /** Cuándo se pagó cada servicio con un pedido (para no contar además su marca del Control). */
   const orderTimes = new Map<Id, number[]>();
+  /** Períodos cobrados de pedidos fiados, por servicio (esa marca del Control ya está en el pedido). */
+  const laterFrom = new Map<Id, number[]>();
   for (const o of Object.values(e.s.orders)) {
     if (!countsAsIncome(o)) continue;
-    for (const id of o.renewal ? [o.renewal.assignmentId] : o.assignmentIds ?? []) orderTimes.set(id, [...(orderTimes.get(id) ?? []), o.updatedAt]);
-    if (o.updatedAt > now) continue;
     const sub = o.items.reduce((t, it) => t + it.qty * it.unitPrice, 0);
-    const items = o.items.map((it) => ({ productId: it.productId, qty: it.qty, amount: sub > 0 ? Math.round((o.total * it.qty * it.unitPrice) / sub) : 0 }));
-    out.push({ at: o.updatedAt, amount: o.total, source: "order", kind: o.kind === "renewal" ? "renewal" : "sale", payerId: o.payerId ?? o.customerId, customerId: o.customerId, orderId: o.id, order: o, items });
+    const itemsFor = (amount: Cents, withQty: boolean) => o.items.map((it) => ({ productId: it.productId, qty: withQty ? it.qty : 0, amount: sub > 0 ? Math.round((amount * it.qty * it.unitPrice) / sub) : 0 }));
+    const base = { source: "order" as const, kind: o.kind === "renewal" ? "renewal" as const : "sale" as const, payerId: o.payerId ?? o.customerId, customerId: o.customerId, orderId: o.id, order: o };
+    if (o.payLater) {
+      // Fiada: cuenta lo cobrado de cada servicio, el día del cobro (las unidades, con el primer cobro).
+      const shares = sharesOf(e, o);
+      const paid = Object.entries(o.payLater.paid ?? {}).filter(([id]) => shares.has(id) && !o.payLater!.fiado?.includes(id)).sort((x, y) => x[1].at - y[1].at);
+      paid.forEach(([id, p], i) => {
+        laterFrom.set(id, [...(laterFrom.get(id) ?? []), p.from]);
+        if (p.at > now) return;
+        const amount = shares.get(id) ?? 0;
+        out.push({ ...base, at: p.at, amount, assignmentId: id, items: itemsFor(amount, i === 0) });
+      });
+      continue;
+    }
+    for (const id of servicesOf(o)) orderTimes.set(id, [...(orderTimes.get(id) ?? []), o.updatedAt]);
+    if (o.updatedAt > now) continue;
+    out.push({ ...base, at: o.updatedAt, amount: o.total, items: itemsFor(o.total, true) });
   }
   const fiado = fiadoPayments(e, now);
   for (const a of Object.values(e.s.assignments)) {
@@ -71,6 +92,8 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
       // La fecha del cobro: cuando lo marcaste; en las marcas viejas, cuando empezó el período.
       const t = c.paidLog?.length ? m.at : Math.min(m.from, now);
       if (t > now || !(m.amount > 0)) continue;
+      // Ese período se cobró como pedido fiado: ya cuenta el pedido (con su monto de verdad).
+      if ((laterFrom.get(a.id) ?? []).includes(m.from)) continue;
       if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
       // Ese período se pagó por el fiado: ya cuenta el pago del fiado.
       if ((fiado.paidCharges.get(a.id) ?? []).some((ch) => ch.dueAt !== undefined ? Math.abs(ch.dueAt - (m.from + dur)) < DEDUPE_DAYS * DAY : Math.abs(ch.at - t) < DEDUPE_DAYS * DAY || Math.abs(ch.at - m.from) < DEDUPE_DAYS * DAY)) continue;
@@ -78,6 +101,13 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
     }
   }
   out.push(...fiado.events);
+  // Plata devuelta a clientes (a su saldo o en efectivo): resta el día que se devolvió.
+  for (const r of e.s.customerRefunds ?? []) {
+    if (r.at > now || !(r.amount > 0)) continue;
+    const a = r.assignmentId ? e.s.assignments[r.assignmentId] : undefined;
+    out.push({ at: r.at, amount: -r.amount, source: "refund", kind: "refund", payerId: payerOf(e, r.customerId)?.id ?? r.customerId, customerId: r.customerId,
+      ...(r.assignmentId ? { assignmentId: r.assignmentId } : {}), items: a ? [{ productId: a.productId, qty: 0, amount: -r.amount }] : [] });
+  }
   return out.sort((x, y) => x.at - y.at);
 }
 
