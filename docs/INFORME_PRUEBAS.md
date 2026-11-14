@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 14/11/2026 · Seguridad de cuentas y arreglos de las 3 revisiones (rama `seguridad-cuentas`, sin publicar)
+## 14/11/2026 · Seguridad de cuentas y arreglos de las 3 revisiones (publicado el 14/11, PR #65)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Revisiones con datos ficticios: dueño y seguridad (puertos 8093/8094), revendedor (8095), cliente final (8096) | 3 revisores en paralelo, solo lectura | informes recibidos |
@@ -13,7 +13,7 @@
 | Revendedor: «Pedir renovación» en cuenta que renueva la tienda; «No renovar» no cambia la fecha y «Sí, ya me pagó» renueva; cupo sin cliente elegido no guarda; independiente sin formulario de compra | `test/revendedor-arreglos.test.mjs` | pasa |
 | Cliente: «Olvidé mi contraseña» igual respuesta con o sin cuenta; contraseña tapada, «Ver» y «Ocultar»; Seguridad de mi cuenta en la tienda | `test/cliente-seguro.test.mjs` | pasa |
 | Suite completa | `npm test` | **608 pasan, 0 fallan, 72 s** |
-## 14/11/2026 · Panel del dueño ordenado (rama `revision-panel`, sin publicar)
+## 14/11/2026 · Panel del dueño ordenado (publicado el 14/11, PR #65)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Revisión (datos de ejemplo, 390 px): 7 áreas, 33 pantallas, lo del día en 4 lugares; automatizaciones de la tienda real (solo lectura): recordatorios prendidos 2 días antes de 9 a 20 h, sin WhatsApp de Meta | capturas + API | anotado |
