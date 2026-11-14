@@ -19,6 +19,23 @@ export interface SessionRow {
   subjectId: string;
   createdAt: number;
   expiresAt: number;
+  /** Seguridad de la cuenta (14/11/2026): desde qué aparato, cómo entró y cuándo la usó por última vez. */
+  ua?: string;
+  ip?: string;
+  via?: string;
+  lastSeen?: number;
+}
+
+/** Un ingreso, un intento fallido o un cambio de acceso (PIN, link, cierre de sesiones). Solo se agrega. */
+export interface AccessRow {
+  at: number;
+  kind: "staff" | "customer";
+  subjectId: string;
+  event: string;
+  via?: string;
+  ok: boolean;
+  ip?: string;
+  ua?: string;
 }
 
 /**
@@ -69,7 +86,29 @@ export class Db {
         value TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS access_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        event TEXT NOT NULL,
+        via TEXT NOT NULL DEFAULT '',
+        ok INTEGER NOT NULL,
+        ip TEXT NOT NULL DEFAULT '',
+        ua TEXT NOT NULL DEFAULT ''
+      );
+      CREATE INDEX IF NOT EXISTS access_log_subject ON access_log(subject_id, at);
+      CREATE TABLE IF NOT EXISTS login_fail (
+        key TEXT PRIMARY KEY,
+        n INTEGER NOT NULL,
+        until INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
     `);
+    // Sesiones con aparato, IP, forma de ingreso y último uso (14/11/2026). Solo se agregan columnas: lo de antes queda.
+    const scols = (this.db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[]).map((c) => c.name);
+    for (const [col, def] of [["ua", "TEXT NOT NULL DEFAULT ''"], ["ip", "TEXT NOT NULL DEFAULT ''"], ["via", "TEXT NOT NULL DEFAULT ''"], ["last_seen", "INTEGER NOT NULL DEFAULT 0"]] as const)
+      if (!scols.includes(col)) this.db.exec(`ALTER TABLE sessions ADD COLUMN ${col} ${def}`);
     // Multiempresa: cada empresa (tenant) guarda su propio estado. Las filas viejas quedan como "main".
     const cols = (this.db.prepare("PRAGMA table_info(state_versions)").all() as { name: string }[]).map((c) => c.name);
     if (!cols.includes("tenant")) {
@@ -185,11 +224,12 @@ export class Db {
   }
 
   putSession(s: SessionRow): void {
-    this.db.prepare("INSERT INTO sessions (token_hash, kind, subject_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").run(s.tokenHash, s.kind, s.subjectId, s.createdAt, s.expiresAt);
+    this.db.prepare("INSERT INTO sessions (token_hash, kind, subject_id, created_at, expires_at, ua, ip, via, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(s.tokenHash, s.kind, s.subjectId, s.createdAt, s.expiresAt, s.ua ?? "", s.ip ?? "", s.via ?? "", s.lastSeen ?? s.createdAt);
   }
 
   getSession(tokenHash: string, now: number): SessionRow | undefined {
-    const r = this.db.prepare("SELECT token_hash AS tokenHash, kind, subject_id AS subjectId, created_at AS createdAt, expires_at AS expiresAt FROM sessions WHERE token_hash = ?").get(tokenHash) as SessionRow | undefined;
+    const r = this.db.prepare("SELECT token_hash AS tokenHash, kind, subject_id AS subjectId, created_at AS createdAt, expires_at AS expiresAt, ua, ip, via, last_seen AS lastSeen FROM sessions WHERE token_hash = ?").get(tokenHash) as SessionRow | undefined;
     if (!r) return undefined;
     if (r.expiresAt <= now) {
       this.deleteSession(tokenHash);
@@ -202,9 +242,48 @@ export class Db {
     this.db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
   }
 
-  /** Cierra todas las sesiones de alguien (p. ej. al cambiar la contraseña o desactivarlo). */
-  deleteSessionsOf(subjectId: string): void {
-    this.db.prepare("DELETE FROM sessions WHERE subject_id = ?").run(subjectId);
+  /** Cierra todas las sesiones de alguien (p. ej. al cambiar la contraseña o desactivarlo). `except`: la de este aparato. */
+  deleteSessionsOf(subjectId: string, except?: string): number {
+    const r = except
+      ? this.db.prepare("DELETE FROM sessions WHERE subject_id = ? AND kind IN ('staff','customer') AND token_hash <> ?").run(subjectId, except)
+      : this.db.prepare("DELETE FROM sessions WHERE subject_id = ?").run(subjectId); // como siempre: también los links pendientes
+    return Number(r.changes);
+  }
+
+  /** Sesiones abiertas de alguien (sin links de un uso), la usada más recientemente primero. */
+  sessionsOf(subjectId: string, now: number): SessionRow[] {
+    return this.db.prepare("SELECT token_hash AS tokenHash, kind, subject_id AS subjectId, created_at AS createdAt, expires_at AS expiresAt, ua, ip, via, last_seen AS lastSeen FROM sessions WHERE subject_id = ? AND kind IN ('staff','customer') AND expires_at > ? ORDER BY last_seen DESC, created_at DESC").all(subjectId, now) as unknown as SessionRow[];
+  }
+
+  /** Marca el último uso de una sesión (se llama como mucho cada pocos minutos). */
+  touchSession(tokenHash: string, at: number): void {
+    this.db.prepare("UPDATE sessions SET last_seen = ? WHERE token_hash = ?").run(at, tokenHash);
+  }
+
+  private accessWrites = 0;
+  /** Anota un ingreso o cambio de acceso. Se guardan 180 días. */
+  logAccess(a: AccessRow): void {
+    this.db.prepare("INSERT INTO access_log (at, kind, subject_id, event, via, ok, ip, ua) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(a.at, a.kind, a.subjectId, a.event, a.via ?? "", a.ok ? 1 : 0, (a.ip ?? "").slice(0, 64), (a.ua ?? "").slice(0, 300));
+    if (++this.accessWrites % 200 === 0) this.db.prepare("DELETE FROM access_log WHERE at < ?").run(a.at - 180 * 86_400_000);
+  }
+
+  /** Los últimos ingresos y cambios de acceso de alguien (lo más nuevo primero). */
+  accessOf(subjectId: string, limit = 20): AccessRow[] {
+    type Raw = Omit<AccessRow, "ok"> & { ok: number };
+    const rows = this.db.prepare("SELECT at, kind, subject_id AS subjectId, event, via, ok, ip, ua FROM access_log WHERE subject_id = ? ORDER BY at DESC, id DESC LIMIT ?").all(subjectId, limit) as unknown as Raw[];
+    return rows.map((r) => ({ ...r, ok: !!r.ok }));
+  }
+
+  /** Intentos fallidos guardados en la base: sobreviven a reinicios y publicaciones (el freno en memoria no). */
+  failGet(key: string): { n: number; until: number } | undefined {
+    return this.db.prepare("SELECT n, until FROM login_fail WHERE key = ?").get(key) as { n: number; until: number } | undefined;
+  }
+  failSet(key: string, n: number, until: number, at: number): void {
+    this.db.prepare("INSERT INTO login_fail (key, n, until, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET n = excluded.n, until = excluded.until, updated_at = excluded.updated_at").run(key, n, until, at);
+  }
+  failClear(key: string): void {
+    this.db.prepare("DELETE FROM login_fail WHERE key = ?").run(key);
   }
 
   purgeExpiredSessions(now: number): void {

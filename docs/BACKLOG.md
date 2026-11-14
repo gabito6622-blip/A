@@ -4,6 +4,14 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- **[Decide el dueño] 2FA obligatorio para dueño y admin** (14/11, revisión de seguridad). Hoy es opcional y viene apagado; no hay códigos de respaldo.
+- **[P2] Atención ve contraseñas de cuentas al entregar** (14/11). `deliveryInfo` solo pide «ser del equipo». Mostrar solo al entregar un pedido suyo.
+- **[P2] «Novedades en mis cuentas» para el revendedor** (14/11, revisión del revendedor): aviso cuando la tienda cambia perfil, contraseña o mueve una cuenta caída, con el mensaje para su cliente.
+- **[P2] Link de cobro para clientes atrasados** (14/11, revisión del cliente): deja de servir cuando el servicio se cierra por vencido; que siga para pagar durante la gracia.
+- **[Decide el dueño] Teléfono y horario en Términos y Privacidad** (14/11): tienen fijo +591 69047715 y «8 a 22», distinto de lo que muestra la tienda. ¿Cuál es el correcto? Pasarlos a la configuración.
+- **[P3] Página del revendedor: línea fija «Vende X · servicio de Gabriel Store · garantía según Términos»** y link a Privacidad (14/11).
+- **[P3] Detalles de la revisión:** «Mis códigos» del independiente sin explicación de cómo conectar su correo; PIN se ve al escribirlo y no pide repetirlo; «Publicar» la página sin confirmación; textos sin tildes y «Compra ord_…»; mensaje de renovación por link sin motivo (14/11).
+
 - **[P2] GaboHub: video de 1 minuto en el inicio** (14/11). «Así sacás tu código, así renovás». Necesita que el dueño lo grabe (o elegir capturas). Hoy está la «📖 Guía» de la pantalla.
 - **[P2] GaboHub: aviso de vencimiento con el link de un toque** (14/11). Que el recordatorio al revendedor («te vencen 3 cuentas el 16/11») traiga el link para entrar y renovar. Con WhatsApp manual se puede ya desde «🔗 Link para entrar»; automático necesita WhatsApp de Meta.
 - **[Decide el dueño] Invitar a los 25 revendedores con «🔗 Link para entrar»** (14/11). Empezar por 3 de confianza (Ari, oby, rodbol) y preguntarles qué les cuesta.

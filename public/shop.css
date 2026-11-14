@@ -1206,3 +1206,13 @@ input[type=color]{min-width:44px;min-height:44px}
 .hnote{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:10px 14px}
 .hnote b{font-size:14px}.hnote .sbtn{margin-left:auto;min-height:44px}
 .hhead-s .hbal span,.hhead-s .hbal b{white-space:nowrap}
+/* Seguridad de mi cuenta (14/11/2026) */
+.secrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--s-line)}
+.secrow:first-of-type{border-top:0}
+.secrow>div{display:grid;gap:2px;min-width:0}
+.secrow b{font-size:15px}.secrow small{font-size:13px;color:var(--s-muted)}
+.secrow .sbtn{min-height:44px;flex:none}
+.secrow.cur b{color:var(--s-ink)}
+/* 14/11/2026: botones que medían menos de 44 px (revisión del revendedor). */
+#tour .tour-x{min-width:44px;min-height:44px;display:grid;place-items:center;margin:-10px -10px -10px 0}
+details.sbox:not(.hmore)>summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
