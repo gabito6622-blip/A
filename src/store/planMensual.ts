@@ -294,7 +294,10 @@ export function planView(e: Engine, actor: Actor) {
     const ids = members.map((a) => a.id);
     const q = quote(ids, !aligned);
     const nextAt = Math.min(...members.map((a) => a.customerExpiresAt));
-    plan = { ids, names: members.map((a) => nameOf(e, a.productId)), nextAt, aligned, total: q?.total ?? null, ok: !!q?.ok, ...(q && !q.ok ? { why: q.rows.find((r) => !r.ok)?.why } : {}), since: me.plan!.since };
+    // Si algún servicio todavía no se puede renovar desde acá, el total de los que sí NO es «el próximo pago»: no se
+    // muestra un monto a medias (decía «Bs 17» por un plan de Bs 90) y el aviso dice cuál es (revisión «solo clientes»).
+    const bad = q && !q.ok ? q.rows.find((r) => !r.ok) : undefined;
+    plan = { ids, names: members.map((a) => nameOf(e, a.productId)), nextAt, aligned, total: q?.ok ? q.total : null, ok: !!q?.ok, ...(bad ? { why: `${bad.product}: ${bad.why}` } : {}), since: me.plan!.since };
   }
   return { ...base, available: true, groups, plan };
 }
