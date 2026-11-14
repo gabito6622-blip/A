@@ -66,9 +66,11 @@ export function render(template: TemplateId, params: Record<string, string>): st
 export function queue(e: Engine, customerId: Id, template: TemplateId, params: Record<string, string>): OutboxMessage {
   const c = e.get("customers", customerId);
   const text = render(template, params);
-  // Defensa extra: si por error el texto incluye una contraseña conocida, se bloquea.
-  for (const a of Object.values(e.s.accounts)) {
-    if (a.password && text.includes(a.password)) throw new DomainError("SENSITIVE_DATA", "El mensaje contiene una contraseña");
+  // Defensa extra: si por error el texto incluye una contraseña conocida, se bloquea. Solo las claves de las cuentas de
+  // ESTE cliente y de 6 letras o más (revisión de 3 meses, 14/11/2026): la clave «2027» de una línea IPTV de otro
+  // aparecía en «vence el 01/01/2027» y frenaba los avisos de todos y las tareas automáticas.
+  for (const pw of passwordsOf(e, customerId)) {
+    if (text.includes(pw)) throw new DomainError("SENSITIVE_DATA", "El mensaje contiene una contraseña");
   }
   const m: OutboxMessage = {
     id: e.id("msg"), customerId, to: c.phone, template, params, text,
@@ -77,6 +79,19 @@ export function queue(e: Engine, customerId: Id, template: TemplateId, params: R
   };
   e.s.outbox.push(m);
   return m;
+}
+
+/** Largo mínimo de una clave para buscarla dentro de un mensaje (las cortas aparecen en fechas y números). */
+export const MIN_PASSWORD_CHECK = 6;
+/** Claves (de 6 letras o más) de las cuentas donde el cliente tiene un servicio activo. */
+export function passwordsOf(e: Engine, customerId: Id): string[] {
+  const out = new Set<string>();
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.customerId !== customerId || a.status !== "active") continue;
+    const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""];
+    if (acc?.password && acc.password.length >= MIN_PASSWORD_CHECK) out.add(acc.password);
+  }
+  return [...out];
 }
 
 export const DEFAULT_STAFF_ALERTS: StaffAlertSettings = { phone: "", payments: true, supplierExpiry: true, supplierDaysBefore: 2 };

@@ -15,6 +15,7 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
+import { relocationRows, sellBlock, slotFreeStatus } from "./vendible.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
@@ -670,8 +671,10 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
       if (fresh.productId !== a.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
       if (!["available", "quarantined"].includes(fresh.status) || Object.values(e.s.assignments).some((x) => x.status === "active" && x.slotId === fresh.id)) throw new DomainError("INVALID_STATE", "Ese perfil no está libre");
       if (!acc || acc.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+      if (sellBlock(acc)) throw new DomainError("INVALID_STATE", `Esa cuenta no se usa para clientes (${sellBlock(acc) === "caída" ? "está caída" : "está marcada «No vender»"}): elegí otra`);
     } else {
-      [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : []);
+      // La cuenta nueva tiene que durar con el proveedor hasta la fecha del cliente (si hay alguna que alcance).
+      [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : [], [], a.customerExpiresAt);
     }
     fresh.status = "assigned";
     delete fresh.reservedUntil;
@@ -722,27 +725,9 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
  */
 export function relocationQueue(e: Engine, actor: Actor) {
   authorize(actor, "assignment.replace");
-  const now = e.now();
-  const freeOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId && s.status === "available").length;
-  const healthy = Object.values(e.s.accounts).filter((t) => t.status === "active" && t.supplierExpiresAt > now && freeOf(t.id) > 0);
-  const rows: unknown[] = [];
-  for (const a of Object.values(e.s.assignments)) {
-    if (a.status !== "active") continue;
-    const slot = e.s.slots[a.slotId]; if (!slot) continue;
-    const acc = e.s.accounts[slot.accountId];
-    const down = slot.status === "quarantined" ? "cuarentena" : acc?.status !== "active" ? "cuenta retirada" : acc.supplierExpiresAt <= now ? "venció con el proveedor" : null;
-    if (!down) continue;
-    const cust = e.s.customers[a.customerId];
-    const target = healthy.find((t) => t.id !== acc?.id && t.productId === a.productId);
-    rows.push({
-      assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "",
-      productId: a.productId, product: e.s.products[a.productId]?.name ?? a.productId, profile: slot.label,
-      currentEmail: acc?.email ?? "", reason: down, expiresAt: a.customerExpiresAt,
-      daysLeft: Math.ceil((a.customerExpiresAt - now) / DAY),
-      suggest: target ? { email: target.email, free: freeOf(target.id) } : null,
-    });
-  }
-  return rows;
+  // Revisión de 3 meses (14/11/2026): incluye las cuentas marcadas caídas, sugiere una cuenta que alcance la fecha del
+  // cliente y no promete dos veces el mismo perfil libre. La regla vive en vendible.ts.
+  return relocationRows(e);
 }
 
 export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: string) {
@@ -781,6 +766,7 @@ export function moveAccountClients(e: Engine, actor: Actor, fromAccountId: Id, i
     if (from.id === to.id) throw new DomainError("VALIDATION", "Elegí otra cuenta, no la misma");
     if (from.productId !== to.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
     if (to.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+    if (sellBlock(to)) throw new DomainError("INVALID_STATE", `Esa cuenta no se usa para clientes (${sellBlock(to) === "caída" ? "está caída" : "está marcada «No vender»"}): elegí otra`);
     const slotsOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId).sort((x, y) => x.label.localeCompare(y.label));
     const busy = new Set(Object.values(e.s.assignments).filter((a) => a.status === "active").map((a) => a.slotId));
     const moving = Object.values(e.s.assignments).filter((a) => a.status === "active" && e.s.slots[a.slotId]?.accountId === from.id);
@@ -811,7 +797,7 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
-      e.s.slots[a.slotId].status = a.trial ? "available" : "quarantined";
+      e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -834,7 +820,7 @@ export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string)
       }
     }
     delete slot.reservedByOrder; delete slot.reservedUntil;
-    slot.status = "available";
+    slot.status = slotFreeStatus(e, slot); // en una cuenta caída queda en cuarentena, no a la venta
     e.audit(actor, "slot.freed", "slot", slotId, { reason });
     return { ok: true } as const;
   });
@@ -865,7 +851,7 @@ export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason
         x.status = "revoked";
         x.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: x.slotId, note });
         const slot = e.s.slots[x.slotId];
-        if (slot && slot.status === "assigned") slot.status = "available";
+        if (slot && slot.status === "assigned") slot.status = slotFreeStatus(e, slot);
         closed.push(id);
       }
     }
@@ -913,7 +899,7 @@ export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, inpu
     a.status = "revoked";
     a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${cash ? "en efectivo " : ""}${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
     const slot = e.s.slots[a.slotId];
-    if (slot && slot.status === "assigned") slot.status = input.slotFallen === true ? "quarantined" : "available";
+    if (slot && slot.status === "assigned") slot.status = input.slotFallen === true ? "quarantined" : slotFreeStatus(e, slot);
     e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(cash ? { via: "efectivo" } : {}), ...(input.slotFallen ? { slotFallen: true } : {}), ...(usdW ? { currency: "USD" } : {}) });
     return { amount, remaining, suggested, via: cash ? "efectivo" as const : "saldo" as const, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
   });
@@ -1128,7 +1114,8 @@ export function supplierExpiryAlerts(e: Engine, actor: Actor): number {
   const h = localHour(e.now(), rs.timeZone);
   if (h < rs.fromHour || h >= rs.toHour) return 0;
   const limit = e.now() + cfg.supplierDaysBefore * DAY;
-  const due = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= limit
+  // Una cuenta caída no se renueva con el proveedor: no se pide (caidas.ts).
+  const due = Object.values(e.s.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt <= limit
     && a.supplierExpiresAt > e.now() - DAY && a.supplierAlertSentFor !== a.supplierExpiresAt);
   if (!due.length) return 0;
   return e.tx(() => {

@@ -9,6 +9,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY } from "./time.js";
+import { sellBlock } from "./vendible.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { payAccountRenewal } from "./finance.js";
 import { payApply, payPreview } from "./cobro.js";
@@ -73,7 +74,7 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
   const old = e.s.slots[a.slotId], oldAcc = old ? e.s.accounts[old.accountId] : undefined;
   const okSlot = (s: Slot | undefined, statuses: Slot["status"][]) => {
     const acc = s ? e.s.accounts[s.accountId] : undefined;
-    return !!s && !!acc && acc.status === "active" && s.productId === a.productId && statuses.includes(s.status) && !usedByActive(e, s.id);
+    return !!s && !!acc && acc.status === "active" && !sellBlock(acc) && s.productId === a.productId && statuses.includes(s.status) && !usedByActive(e, s.id);
   };
   const covers = (slotId: Id) => { const acc = e.s.accounts[e.s.slots[slotId]?.accountId]; return !!acc && to <= acc.supplierExpiresAt; };
   const sameFree = okSlot(old, ["quarantined", "available"]);

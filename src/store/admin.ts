@@ -223,7 +223,7 @@ function iptvLines(iptv: NonNullable<Account["iptv"]>, user: string, secret: str
   return out;
 }
 
-export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
+export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id, opts: { change?: boolean } = {}) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
   const a = e.s.assignments[assignmentId];
   if (!a || a.status !== "active") throw new DomainError("NOT_FOUND", "No se encontró ese alquiler activo");
@@ -238,18 +238,21 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const hide = false;
   const pin = hide ? "" : slot.pin ?? "";
   const secret = hide ? "" : acc.password;
+  // Después de mover al cliente de cuenta (fila de envíos): «Cambiamos tu cuenta…», no «¡Gracias por tu compra!».
+  const hello = opts.change ? `¡Hola ${first}! 👋 Cambiamos tu cuenta de *${prod?.name ?? (acc.iptv ? "IPTV" : "servicio")}*, estos son tus datos nuevos:` : "";
+  const bye = opts.change ? `Tu fecha sigue igual. Cualquier cosa me escribís 🙌` : `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`;
   const message = (acc.iptv
     ? [
-      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
+      hello || `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
       ``,
       ...iptvLines(acc.iptv, acc.email, secret),
       `📅 Vence: ${expiresText}`,
       ...guideLines(prod),
       ``,
-      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+      bye,
     ]
     : [
-      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
+      hello || `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
       ``,
       `📧 Correo: ${acc.email}`,
       `🔑 Contraseña: ${secret || "(te la paso aparte)"}`,
@@ -257,7 +260,7 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
       ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
       `📅 Vence: ${expiresText}`,
       ``,
-      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+      bye,
     ]).join("\n");
   e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId, ...(hide ? { hidden: true } : {}) });
   return {

@@ -257,6 +257,10 @@ export interface Account {
   supplierAlertSentFor?: number;
   /** Última vez que se cambió la clave con «Cambié la clave» (etapa 4). */
   passwordChangedAt?: number;
+  /** «Cuenta caída» (vendible.ts / caidas.ts): no se vende, no pide renovación al proveedor; sus clientes van a Reubicar. */
+  fallen?: { at: number; by: Id; reason: string };
+  /** «🚫 No vender más»: sale de la venta sin tocar a sus clientes actuales. */
+  noSell?: boolean;
   createdAt: number;
 }
 
@@ -529,6 +533,8 @@ export interface Assignment {
   rlink?: { token: string; by: Id; at: number };
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
+  /** El revendedor ya avisó a sus clientes del cambio/caída de esta cuenta (caidas.ts). */
+  changeSeenAt?: number;
 }
 
 /** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */

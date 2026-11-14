@@ -34,6 +34,8 @@ import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
+import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
@@ -193,7 +195,7 @@ export interface App {
   /** Manda ahora los avisos pendientes por WhatsApp (si el bot está configurado). */
   flushWhatsApp(): Promise<{ sent: number; failed: number; pending: number }>;
   /** Ejecuta las tareas periódicas una vez (para pruebas o cron externo). */
-  runJobs(): { expired: number; reminders: number; closed: number };
+  runJobs(): { expired: number; reminders: number; closed: number; failed?: string[] };
 }
 
 export function createApp(cfg: AppConfig): App {
@@ -1083,6 +1085,7 @@ export function createApp(cfg: AppConfig): App {
   // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
+  registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
   route("POST", "/api/admin/accounts", "staff", (c) => {
@@ -1107,7 +1110,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
-  route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.caidas.down(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/accounts/:id/move-all", "staff", (c) => store.orders.moveAll(A(c), c.params.id, { toAccountId: String(c.body?.toAccountId ?? ""), reason: String(c.body?.reason ?? "") }));
   route("POST", "/api/admin/accounts/:id", "staff", (c) => {
     const b = c.body ?? {};
@@ -1124,7 +1127,7 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
   // "Mi secretaria": todo lo pendiente en una pantalla (solo lee).
   route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c), { botOn: botOn() }));
-  route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
+  route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.caidas.relocate(A(c), c.params.id, { toAccountId: c.body?.toAccountId, reason: c.body?.reason }));
 
   route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined })
     .map((o) => { const ai = o.evidence ? aiCheckOf(o.id) : null; return ai ? { ...o, aiCheck: ai } : o; }));
@@ -1226,7 +1229,7 @@ export function createApp(cfg: AppConfig): App {
     customerId: c.query.get("customerId") ?? undefined, productId: c.query.get("productId") ?? undefined,
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
-  route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
+  route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id, { change: c.query.get("cambio") === "1" }));
   route("POST", "/api/admin/assignments/notified", "staff", (c) => store.orders.markNoticed(A(c), c.body?.ids, c.body?.off === true));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
@@ -2892,7 +2895,7 @@ export function createApp(cfg: AppConfig): App {
     const riskAcc = new Set((st.accountAlerts ?? []).filter((x) => !x.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(x.kind)).map((x) => x.accountId));
     const svcs = Object.values(st.assignments).filter((a) => a.customerId === customerId && a.status === "active").map((a) => {
       const sl = st.slots[a.slotId], acc = sl ? st.accounts[sl.accountId] : undefined;
-      const problem = !acc || acc.status !== "active" || sl?.status === "quarantined" || acc.supplierExpiresAt <= t || riskAcc.has(acc.id);
+      const problem = !acc || acc.status !== "active" || !!acc.fallen || sl?.status === "quarantined" || acc.supplierExpiresAt <= t || riskAcc.has(acc.id);
       const d = Math.ceil((a.customerExpiresAt - t) / 86_400_000);
       return `- ${st.products[a.productId]?.name ?? a.productId}: ${d < 0 ? `vencido hace ${-d} día(s)` : d === 0 ? "vence hoy" : `vence en ${d} día(s)`}${problem ? "; la cuenta tiene un problema (la estamos revisando)" : "; la cuenta está bien"}`;
     });
@@ -2931,7 +2934,7 @@ export function createApp(cfg: AppConfig): App {
       return `- ${c.name}: saldo ${usdW ? `US$ ${(bal / 100).toFixed(2)}` : money(bal)}, ${clients} cliente(s), última compra ${last ? fd(last.updatedAt) : "nunca"}`;
     });
     const pend = Object.values(st.orders).filter((o) => o.status === "payment_review").slice(0, 20).map((o) => `- ${o.id}: ${cname(o.customerId)}, ${money(o.total)}${o.evidence?.duplicateOf ? " (¡comprobante repetido!)" : ""}`);
-    const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);
+    const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);
     const alerts = store.watch.list(sys, { unseenOnly: true }).slice(0, 20).map((a) => `- ${a.product} ${a.email}: ${a.text} (${fd(a.at)}, ${a.clients} cliente(s) en esa cuenta)`);
     const fin = store.finance.report(sys, 2);
     const mg = store.finance.margins(sys).products.filter((p) => p.public).map((p) => `- ${p.name}: te cuesta ${p.unitCost === null ? "?" : money(p.unitCost)}, ganás ${money(p.public!.gain)} (${p.public!.pct}%)`);
@@ -3018,22 +3021,27 @@ export function createApp(cfg: AppConfig): App {
   const usdtFor = (totalCents: number) => Math.max(0.01, Math.ceil((totalCents / 100) / binCfg().rate * 100) / 100);
 
   let lastRentRun = 0;
+  // Cada tarea por separado: si una falla, las demás (y el respaldo) siguen y el dueño se entera (tareas.ts).
+  const tasks = createTaskRunner({ now, log, onFail: (name, error) => {
+    store.engine.tx(() => store.engine.audit(system, "jobs.failed", "job", name, { error }));
+    if (pushOn()) void pushSend(pushSubs().filter((x) => store.engine.s.staff[x.staffId]?.role === "owner"), { title: "⚠️ Una tarea automática falló", body: `«${name}»: ${error}`.slice(0, 160), go: "auditoria" }).catch(() => {});
+  } });
   function runJobs() {
-    const expired = store.orders.expireReservations(system);
-    const reminders = store.orders.autoReminders(system);
-    const supplierAlerts = store.orders.supplierExpiryAlerts(system);
-    const closed = store.orders.closeExpired(system, CORTE_GRACE_DAYS);
-    db.purgeExpiredSessions(now());
-    let backup: string | undefined;
-    try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }
+    const expired = tasks.run("vencer reservas", () => store.orders.expireReservations(system));
+    const reminders = tasks.run("recordatorios", () => store.orders.autoReminders(system));
+    const supplierAlerts = tasks.run("avisos del proveedor", () => store.orders.supplierExpiryAlerts(system));
+    const closed = tasks.run("cortar vencidos", () => store.orders.closeExpired(system, CORTE_GRACE_DAYS));
+    tasks.run("sesiones vencidas", () => db.purgeExpiredSessions(now()));
+    const backup: string | undefined = tasks.run("respaldo", () => backups.daily()?.name);
     // Alquiler de páginas de revendedores: se revisa una vez por hora.
     let rents: ReturnType<typeof store.shops.chargeRents> | undefined;
-    if (now() - lastRentRun > 3_600_000) { lastRentRun = now(); try { rents = store.shops.chargeRents(system); } catch (e) { log(`alquileres fallaron: ${(e as Error).message}`); } }
+    if (now() - lastRentRun > 3_600_000) { lastRentRun = now(); rents = tasks.run("alquileres de páginas", () => store.shops.chargeRents(system)); }
     if (rents && (rents.charged || rents.suspended || rents.free)) log(`alquileres: ${JSON.stringify(rents)}`);
     // Una vez por día, la copia también va al Gmail (si está activada).
     const off = offsiteCfg();
     if (off.enabled && (!off.lastAt || now() - off.lastAt > 23 * 3_600_000)) sendOffsite().catch((e) => log(`copia al Gmail falló: ${(e as Error).message}`));
-    return { expired, reminders, closed, supplierAlerts, ...(backup ? { backup } : {}) };
+    const failed = tasks.take();
+    return { expired: expired ?? 0, reminders: reminders ?? 0, closed: closed ?? 0, supplierAlerts: supplierAlerts ?? 0, ...(backup ? { backup } : {}), ...(failed.length ? { failed } : {}) };
   }
   const timers: NodeJS.Timeout[] = [];
   if (cfg.jobs !== false) {
