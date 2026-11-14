@@ -72,9 +72,12 @@ describe("Revendedor · Que vuelvan y cierre de mes · fórmulas", () => {
     assert.deepEqual(b.items.map((x) => [x.client, x.product, x.days, x.price, x.kind]), [
       ["José Vargas", "Max perfil", 6, 3000, "client"],
       ["Marisel Rojas", "Netflix perfil", 10, 4000, "client"],
-      ["Pedro Lejano", "Disney+", 45, 1500, "sub"],
     ], "ordenados del más reciente al más viejo; Ruthy no (volvió a comprar), Lucía Cerca no (no venció)");
-    assert.deepEqual([b.items[0].key, b.items[2].key, b.written, b.quietDays], [`c:${ids.jose}`, `s:${ids.viejo}`, 0, 7]);
+    // 15/11 (simulación de 3 meses): Pedro Lejano sigue anotado en una cuenta que anda, así que debe sus períodos
+    // (cuadernoPlata.ts): está en «Cobrar hoy» y ya no se repite en «Que vuelvan» (se cuenta en `owing`).
+    assert.deepEqual([b.items[0].key, b.written, b.quietDays, b.owing], [`c:${ids.jose}`, 0, 7, 1]);
+    assert.ok(s.rtools.day(ana.A).cobrar.some((g) => g.client === "Pedro Lejano"));
+    void ids.viejo;
     const txt = JSON.stringify(b);
     for (const x of ["Cliente Ajeno", "Directo Tienda", "secreto.lat", "Clave#Secreta1", "9999", "2500", "1800"]) assert.ok(!txt.includes(x), `no debe salir ${x}`);
     // El otro revendedor ve solo el suyo; el dueño y un cliente no usan esta lista.
@@ -86,12 +89,12 @@ describe("Revendedor · Que vuelvan y cierre de mes · fórmulas", () => {
     const m = s.rtools.markBack(ana.A, `c:${ids.jose}`);
     assert.equal(m.until, NOW + 7 * DAY);
     let b2 = s.rtools.winback(ana.A);
-    assert.deepEqual([b2.items.map((x) => x.client), b2.written], [["Marisel Rojas", "Pedro Lejano"], 1]);
+    assert.deepEqual([b2.items.map((x) => x.client), b2.written], [["Marisel Rojas"], 1]);
     clock.t = NOW + 8 * DAY;
     assert.ok(s.rtools.winback(ana.A).items.some((x) => x.client === "José Vargas"), "a los 8 días vuelve");
     clock.t = NOW;
     s.rtools.markBack(ana.A, `c:${ids.jose}`); s.rtools.markBack(ana.A, `c:${ids.jose}`, true);
-    assert.equal(s.rtools.winback(ana.A).items.length, 3, "deshacer");
+    assert.equal(s.rtools.winback(ana.A).items.length, 2, "deshacer");
   });
 
   test("cierre de mes: contra el mes anterior, quién pagó más y app que más dejó; sin % cuando no corresponde", () => {
@@ -144,13 +147,14 @@ test("en el celular (360 px): Mi día muestra «Que vuelvan» con mensaje listo 
     await page.goto(base + "/hub#dia");
     const box = page.locator("#rback");
     await box.waitFor({ timeout: 20_000 });
-    assert.match(await box.innerText(), /Que vuelvan[\s\S]*3 clientes[\s\S]*José Vargas[\s\S]*Marisel Rojas[\s\S]*Pedro Lejano/);
+    assert.match(await box.innerText(), /Que vuelvan[\s\S]*2 clientes[\s\S]*1 que todavía te debe no sale acá[\s\S]*José Vargas[\s\S]*Marisel Rojas/);
+    assert.doesNotMatch(await box.innerText(), /Pedro Lejano/, "Pedro debe: está en «Cobrar hoy», no se repite");
     const href = decodeURIComponent(await box.locator("a.sbtn").first().getAttribute("href"));
     assert.match(href, /wa\.me\/59175000003\?text=Hola José 👋 ¿Cómo estás\? Hace 6 días se venció tu Max perfil\. ¿Querés que te lo active de nuevo\? Te sale Bs 30\./);
     assert.equal(await page.evaluate(() => [...document.querySelectorAll("#rback .sbtn")].filter((x) => x.getBoundingClientRect().height < 44).length), 0, "botones de 44 px");
     await box.getByRole("button", { name: "✅ Ya le escribí" }).first().click();
     await page.waitForFunction(() => !document.querySelector("#rback")?.innerText.includes("José Vargas"), null, { timeout: 15_000 });
-    assert.match(await box.innerText(), /2 clientes[\s\S]*1 ya escrito/);
+    assert.match(await box.innerText(), /1 cliente[\s\S]*1 ya escrito/);
     // Mis ganancias: el cierre.
     await page.goto(base + "/hub#mas");
     await page.locator('.hubarea-i[data-rtool="ganancias"]').click();

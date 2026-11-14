@@ -814,9 +814,9 @@ function rDiaView() {
 const backMsg = (it) => `Hola ${diaFirst(it.client)} 👋 ¿Cómo estás? Hace ${it.days} días se venció tu ${it.product}${it.label ? ` (${it.label})` : ""}. ¿Querés que te lo active de nuevo?${it.price ? ` Te sale ${mine(it.price)}.` : ""} Me avisás y te lo dejo listo hoy 🙌${myStore() ? `\n— ${myStore()}` : ""}`;
 function rBackBox() {
   const B = S.data.rback;
-  if (!B || (!B.items.length && !B.written)) return "";
+  if (!B || (!B.items.length && !B.written && !B.owing)) return "";
   return `<section class="sbox rdia-s" id="rback"><h3 style="margin:0">🔁 Que vuelvan <small class="empty">· ${B.items.length ? `${B.items.length} cliente${B.items.length === 1 ? "" : "s"}` : "nadie por ahora"}</small></h3>
-    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}</p>
+    <p class="empty" style="margin:0">Se les venció y no renovaron. Un mensaje a tiempo los trae de vuelta. Cuando le escribas, tocá «Ya le escribí» y no te lo muestro por ${B.quietDays} días.${B.written ? ` (${B.written} ya escrito${B.written === 1 ? "" : "s"})` : ""}${B.owing ? ` ${B.owing === 1 ? "1 que todavía te debe no sale acá: está" : `${B.owing} que todavía te deben no salen acá: están`} en «💵 Cobrar hoy», para cobrarle primero.` : ""}</p>
     ${B.items.length ? `<ul class="rdia-l">${B.items.map((it) => `<li class="rdia-i">${am("", it.product)}<span class="rdia-it"><b>${esc(it.client)}</b><small>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""} · venció el ${fdate(it.expiredAt)} (hace ${it.days} d)${it.price ? ` · ${esc(mine(it.price))}` : ""}</small></span>
       <div class="rdia-act">${it.phone ? `<a class="sbtn sm pri" href="${waLink(it.phone, backMsg(it))}" target="_blank" rel="noopener">💬 Mensaje listo</a>` : `<small class="empty">Sin número</small>`}<button class="sbtn sm" type="button" data-rback="${esc(it.key)}">✅ Ya le escribí</button></div></li>`).join("")}</ul>` : ""}</section>`;
 }

@@ -207,6 +207,12 @@ describe("su día, aviso al celular, ganancias, deshacer, renovar tarde y que vu
   test("Que vuelvan: vencidos hace más de 30 días y liberados; «Ya le escribí» los calla 7 días", () => {
     s.own.release(R, fede.id, { debt: "fiado" });
     clock.t = Date.UTC(2026, 9, 15, 14); // 15/10
+    // 15/11: mientras debe, Fede está en «Te deben» de Mi día y no se repite en Que vuelvan (se cuenta en `owing`).
+    const b0 = s.own.back(R);
+    assert.ok(!b0.items.some((x) => x.name === "Fede Lima"));
+    assert.ok(b0.owing >= 1);
+    assert.ok(s.own.day(R).deben.some((x) => x.name === "Fede Lima"));
+    s.own.forgive(R, fede.id); // le perdona la deuda: ahora sí, para que vuelva
     const b = s.own.back(R);
     assert.ok(b.items.some((x) => x.name === "Fede Lima" && x.released));
     s.own.markBack(R, `g:${fede.id}`);

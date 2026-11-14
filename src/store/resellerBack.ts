@@ -11,6 +11,7 @@ import { DAY, boDayStart } from "./time.js";
 import { currencyOf, listPriceMine } from "./country.js";
 import { listMine } from "./subRentals.js";
 import { DAY_BACK_DAYS } from "./resellerDay.js";
+import { myDebts, personKey } from "./deudas.js";
 
 /** Clientes registrados: cerrados por vencido en los últimos N días. */
 export const BACK_CLIENT_DAYS = 60;
@@ -73,9 +74,13 @@ function allItems(e: Engine, actor: Actor): BackItem[] {
 export function myWinback(e: Engine, actor: Actor) {
   const me = reseller(e, actor);
   const now = e.now(), quiet = me.backQuiet ?? {};
-  const all = allItems(e, actor);
+  // 15/11: quien todavía le debe no sale acá (ya está en «Cobrar hoy» con su mensaje para cobrar): antes salía en las dos
+  // listas y el mensaje de «Que vuelvan» le ofrecía activarlo de nuevo sin decir nada de la deuda.
+  const owing = new Set(myDebts(e, actor).items.map((d) => personKey(d.client, d.phone)));
+  const all = allItems(e, actor).filter((it) => !owing.has(personKey(it.client, it.phone)));
   const items = all.filter((it) => !((quiet[it.key] ?? 0) > now));
-  return { currency: currencyOf(e, me), items, written: all.length - items.length, quietDays: BACK_QUIET_DAYS };
+  const owingN = new Set(allItems(e, actor).filter((it) => owing.has(personKey(it.client, it.phone))).map((it) => personKey(it.client, it.phone))).size;
+  return { currency: currencyOf(e, me), items, written: all.length - items.length, quietDays: BACK_QUIET_DAYS, owing: owingN };
 }
 
 /** «✅ Ya le escribí»: saca ese renglón de la lista por 7 días (o lo devuelve con `off`). Solo sobre lo suyo. */
