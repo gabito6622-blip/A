@@ -574,7 +574,7 @@ export function publicShop(e: Engine, slug: string, viewer?: Actor) {
   const indep = isIndependent(c);
   const products = Object.values(e.s.products)
     .filter((p) => !indep && p.published && mine(c!.resellerPrices?.[p.id]) !== undefined && (!show || show.has(p.id)))
-    .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: mine(c!.resellerPrices![p.id])!, available: Math.min(stock[p.id] ?? 0, 20) }));
+    .map((p) => ({ id: p.id, name: p.name, category: p.category ?? "Otros", description: p.description ?? "", color: p.color ?? "#3984ff", hasImage: !!p.imageFileRef, kind: p.kind, durationDays: p.durationDays, price: mine(c!.resellerPrices![p.id])!, available: Math.min(stock[p.id] ?? 0, 20), ...(p.forWhom ? { forWhom: p.forWhom } : {}) }));
   const look: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) if (!["slug", "enabled", "blocked", "logoFileRef", "bannerFileRef", "qrFileRef", "payNote", "products", "whatsapp", "title", "combos", "comboDiscounts", "coupons"].includes(k)) look[k] = v;
   // Los combos propios del revendedor se muestran como tarjetas de catálogo.
@@ -617,6 +617,15 @@ export function listShops(e: Engine, actor: Actor) {
   return Object.values(e.s.customers).filter((c) => c.shop).map((c) => ({ customerId: c.id, name: c.name, slug: c.shop!.slug, title: c.shop!.title, enabled: c.shop!.enabled, blocked: !!c.shop!.blocked, featured: !!c.shop!.featured }));
 }
 
+/** El directorio (/tiendas) solo muestra páginas que un cliente puede usar: con algo para comprar y sin «prueba» ni
+ *  «demo» en el nombre (revisión «en el lugar de ~30 clientes», 14/11/2026: las vacías y las de prueba restan confianza). */
+export const TEST_SHOP = /\b(prueba|pruebas|demo|test)\b/i;
+function listable(e: Engine, c: Customer): boolean {
+  const sh = c.shop!;
+  if (TEST_SHOP.test(`${sh.title ?? ""} ${sh.slug}`.replace(/[-_]/g, " "))) return false;
+  try { return publicShop(e, sh.slug).products.length > 0; } catch { return false; }
+}
+
 /**
  * Datos públicos para la página /revendedores (la que convence a nuevos revendedores).
  * Todo sale de datos reales: catálogo, precio de revendedor (si el dueño lo permite) y páginas publicadas.
@@ -632,7 +641,7 @@ export function programInfo(e: Engine) {
   const showPrices = st.resellerProgramPrices !== false && !!group;
   const shopsOn = st.resellerShops !== false;
   const shops = shopsOn ? Object.values(e.s.customers)
-    .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked && !c.shop.suspended && pageAllowed(e, c))
+    .filter((c) => c.kind === "reseller" && c.shop?.enabled && !c.shop.blocked && !c.shop.suspended && pageAllowed(e, c) && listable(e, c))
     .sort((a, b) => Number(!!b.shop!.featured) - Number(!!a.shop!.featured))
     .slice(0, 60)
     .map((c) => {

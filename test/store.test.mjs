@@ -1106,6 +1106,8 @@ describe("14. Página /revendedores", () => {
     assert.equal(pg.stats.products, 2, "solo publicados");
     assert.equal(pg.shops.length, 0);
     s.shops.update(as(carla), { slug: "carla-tv", enabled: true });
+    assert.equal(s.shops.program().shops.length, 0, "sin productos no se lista (revisión de clientes 14/11)");
+    s.portal.setPrices(as(carla), { netflix: 4000 });
     pg = s.shops.program();
     assert.deepEqual(pg.shops.map((x) => x.slug), ["carla-tv"]);
     assert.ok(!JSON.stringify(pg.shops).includes(carla.phone), "no expone el teléfono del revendedor");
@@ -1137,6 +1139,7 @@ describe("15. Opiniones y tiendas destacadas", () => {
     s.shops.setPage(owner, otro.id, true);
     s.shops.update(as(carla), { slug: "carla-tv", enabled: true });
     s.shops.update(as(otro), { slug: "otro-tv", enabled: true });
+    for (const r of [carla, otro]) s.portal.setPrices(as(r), { netflix: 4000 }); // el directorio solo lista páginas con algo para comprar
     s.shops.setFeatured(admin, otro.id, true);
     const shops = s.shops.program().shops;
     assert.deepEqual(shops.map((x) => [x.slug, x.featured]), [["otro-tv", true], ["carla-tv", false]]);
