@@ -2214,6 +2214,8 @@ export function createApp(cfg: AppConfig): App {
     return html;
   }
 
+  /** Páginas que se pueden escribir con cualquier mezcla de mayúsculas (los nombres de revendedor también van en minúsculas). */
+  const PAGE_CASE = /^\/(panel|hub|tienda|revendedores|tiendas|codigos|recuperar|privacidad|terminos|r)(\/[a-z0-9-]*\/?)?$/i;
   /** El dominio propio de la tienda (gabostore.lat), o null si se usa la dirección de Railway o la máquina local. */
   function customDomain(): string | null {
     if (!cfg.publicOrigin?.startsWith("https://")) return null;
@@ -2317,6 +2319,12 @@ export function createApp(cfg: AppConfig): App {
       if (!url.pathname.startsWith("/api/")) {
         // Dominio propio (GS_PUBLIC_ORIGIN): www → dominio principal, y la portada del dominio es la tienda.
         // GaboHub (revendedores) queda en /hub. El link de Railway sigue igual que siempre.
+        // Direcciones escritas con mayúsculas (14/11/2026): «gabostore.lat/PANEL» mostraba la portada de GaboHub
+        // porque solo existía /panel. Las páginas conocidas llevan a su versión en minúsculas, conservando el resto.
+        // No toca /api/, archivos ni links con códigos (/c/…), que sí distinguen mayúsculas.
+        if ((req.method === "GET" || req.method === "HEAD") && /[A-Z]/.test(url.pathname) && PAGE_CASE.test(url.pathname)) {
+          res.writeHead(301, { Location: url.pathname.toLowerCase() + url.search, "Cache-Control": "no-cache" }); res.end(); return;
+        }
         const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
         if (go && "code" in go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
         const path = go && "rewrite" in go ? go.rewrite : url.pathname;
