@@ -199,7 +199,8 @@ for key, f in [("tienda", sys.argv[1]), ("ana", sys.argv[2])]:
       "kpi1": [wb["Portada"].cell(6,1).value, wb["Portada"].cell(6,2).value], "ventasTotal": rows[-1], "ventas": rows[:-1], "text": " ".join(str(c.value) for ws in wb.worksheets for r in ws.iter_rows() for c in r if c.value is not None) }
 print(json.dumps(out, default=str))`;
     const out = JSON.parse(execFileSync("python3", ["-I", "-c", py, fS, fA], { encoding: "utf8" }));
-    assert.deepEqual(out.tienda.sheets, ["Portada", "Resumen", "Ventas", "Por producto", "Cobros y deudas", "Vencimientos", "Clientes"]);
+    // 15/11/2026: la tienda suma «Gastos» y «Proveedores» (plata del dueño); el revendedor sigue con sus 7 hojas.
+    assert.deepEqual(out.tienda.sheets, ["Portada", "Resumen", "Ventas", "Por producto", "Cobros y deudas", "Vencimientos", "Clientes", "Gastos", "Proveedores"]);
     assert.equal(out.tienda.charts.Resumen, 1); assert.equal(out.tienda.charts["Por producto"], 2); assert.match(out.tienda.filters.Ventas, /^A4:H\d+$/);
     assert.deepEqual(out.tienda.kpi1, ["Ingresos del período", "=SUM(Ventas!F5:F6)"], "la portada suma la hoja Ventas con una fórmula");
     // Cifras = sistema: los ingresos de noviembre según income.ts.
@@ -209,7 +210,7 @@ print(json.dumps(out, default=str))`;
     assert.ok(out.tienda.text.includes("Ana TV") || out.tienda.text.includes("Ana Flores"), "la tienda ve a sus revendedores");
     assert.ok(!out.tienda.text.includes("secreto-nf@x.lat") && !out.tienda.text.includes("Clave#"), "sin correos ni claves de cuentas");
     // Ana: solo lo suyo.
-    assert.deepEqual(out.ana.sheets, out.tienda.sheets);
+    assert.deepEqual(out.ana.sheets, out.tienda.sheets.slice(0, 7));
     assert.equal(out.ana.ventas.length, 1); assert.equal(out.ana.ventas[0][1], "Lucía Benítez"); assert.equal(out.ana.ventas[0][4], 45, "vendió a su precio"); assert.equal(out.ana.ventas[0][5], 30, "le pagó a la tienda su costo de revendedor");
     for (const x of ["Directo Pérez", "Beto", "Gabriel Store", "secreto-nf", "2000"]) assert.ok(!out.ana.text.includes(x), `Ana ve ${x}`);
     }
