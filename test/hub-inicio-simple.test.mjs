@@ -1,6 +1,6 @@
 // Inicio simple de GaboHub (14/11/2026). El dueño: «ven demasiadas cosas a la vez» y casi ningún revendedor entraba
-// (2 de 25). Ahora el inicio tiene 4 botones grandes (Mis cuentas, Sacar código, Renovar, Hablar con la tienda), una fila
-// chica (Comprar, Saldo, Mis clientes…) y todo lo demás plegado en «Todas mis herramientas» (nada se quitó).
+// (2 de 25). Ahora el inicio tiene 4 botones grandes (Mis cuentas, Sacar código, Renovar, Comprar), una fila
+// chica (Saldo, Mis clientes, Ayuda…) y todo lo demás plegado en «Todas mis herramientas» (nada se quitó).
 // Y el dueño tiene «🔗 Link para entrar»: un link de un toque que no cambia el PIN. Datos ficticios, 360 px.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -53,16 +53,16 @@ test("GaboHub: inicio con 4 botones, Renovar filtra, herramientas plegadas y lin
     await page.goto(base + "/hub#inicio");
     await page.locator(".htiles.hsimple").waitFor();
     const big = (await page.locator(".hsimple .htile b").allInnerTexts()).map((x) => x.trim());
-    assert.deepEqual(big, ["Mis cuentas", "Sacar código", "Renovar", "Hablar con Gabriel"]);
+    assert.deepEqual(big, ["Mis cuentas", "Sacar código", "Renovar", "Comprar"]);
+    assert.doesNotMatch(await page.locator(".hsimple").innerText(), /Gabriel/, "sin el nombre del dueño: muchos revendedores no lo conocen");
     assert.match(await page.locator(".hsimple [data-renewgo]").innerText(), /2 cuentas/, "1 vencida + 1 esta semana");
     assert.match(await page.locator(".hsimple .htile").first().innerText(), /3 · 2 por renovar/);
-    assert.match(await page.locator(".hsimple .htile").last().getAttribute("data-href"), /wa\.me\/59170000001/);
     for (const h of await page.locator(".hsimple .htile, .hsmall .sbtn").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) assert.ok(h >= 44, `botón de ${h}px`);
     // Lo demás está, pero plegado: no se ve hasta que lo abre.
     assert.equal(await page.locator(".hmore").evaluate((d) => d.open), false);
     assert.equal(await page.locator("#myPin").isVisible(), false);
     assert.equal(await page.locator('.hqrow [data-rtool="control"]').isVisible(), false);
-    assert.deepEqual((await page.locator(".hsmall .sbtn").allInnerTexts()).map((x) => x.replace(/\s+/g, " ").trim().split(" · ")[0]), ["🛒 Comprar", "💰 Saldo", "👥 Mis clientes"]);
+    assert.deepEqual((await page.locator(".hsmall .sbtn").allInnerTexts()).map((x) => x.replace(/\s+/g, " ").trim().split(" · ")[0]), ["💰 Saldo", "👥 Mis clientes", "🆘 Ayuda"]);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false);
     // «Renovar» abre Mis cuentas filtrada en las vencidas.
     await page.locator(".hsimple [data-renewgo]").click();

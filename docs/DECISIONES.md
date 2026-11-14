@@ -3,7 +3,7 @@
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
 ## 2026-11-14 · GaboHub: inicio de 4 botones y el resto plegado
-- **Qué se decidió:** el inicio del revendedor muestra solo lo de todos los días (cuentas, código, renovar, hablar con la tienda) y pliega lo demás en «Todas mis herramientas».
+- **Qué se decidió:** el inicio del revendedor muestra solo lo de todos los días (cuentas, código, renovar, comprar) y pliega lo demás en «Todas mis herramientas».
 - **Por qué:** solo 2 de 25 revendedores entraron alguna vez; el dueño contó que «ven demasiadas cosas a la vez». Lo que más hacen (mirar sus cuentas, sacar el código de Disney, renovar) estaba mezclado con página, combos, ganancias y planes.
 - **Sin quitar nada:** regla del dueño. Todo sigue a un toque (plegado en el inicio) y en «Más».
 - **Link de un toque sin cambiar el PIN:** «Nuevo PIN y acceso» deja afuera al revendedor hasta que le llega el PIN nuevo; para invitar a los 25 hacía falta algo que no rompa nada. El link es de un solo uso y por 24 h (lo que ya hacía el sistema), va en el `#` (WhatsApp no lo «gasta» al armar la vista previa).

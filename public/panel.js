@@ -84,7 +84,7 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   const one = await api("POST", `/api/admin/customers/${id}/login-link`, {}).then((r) => r.url).catch(() => "");
   const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n`
     + (one ? `👉 *Tocá acá y entrás directo* (sin escribir nada):\n${one}\n\nLas próximas veces entrás en ${location.origin}/hub con:\n` : `👉 Entrá acá: ${location.origin}/hub\n`)
-    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 💬 Hablar con nosotros.`;
+    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
     : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
@@ -103,8 +103,8 @@ function guideMsg(name, plat, origin, slug, pageAllowed) {
     + `• 📺 *Mis cuentas*: tus accesos con correo, clave y vencimiento. «📋 Copiar datos» y se los pegás a tu cliente.\n`
     + `• 🔑 *Sacar código*: cuando Disney, Netflix o HBO piden código, te aparece ahí solo.\n`
     + `• 💳 *Renovar*: lo que vence esta semana o ya venció, para renovarlo con saldo o QR.\n`
-    + `• 💬 *Hablar con nosotros*: un toque y nos escribís.\n`
-    + `• Más abajo: 🛒 *Comprar*, 💰 *Saldo* y 👥 *Mis clientes*. Lo demás está en «🧰 Todas mis herramientas».\n`
+    + `• 🛒 *Comprar*: elegís y pagás con saldo o QR; la cuenta te llega al instante.\n`
+    + `• Más abajo: 💰 *Saldo*, 👥 *Mis clientes* y 🆘 *Ayuda* (si algo no anda). Lo demás está en «🧰 Todas mis herramientas».\n`
     + (page
         ? `• 🛍️ *Mi página*: tu tienda propia para tus clientes.\n\n`
           + `*3) Armá tu página*\n`
@@ -2762,7 +2762,7 @@ document.addEventListener("click", async (ev) => {
     if (!r) return toast("No encontré a ese revendedor");
     try {
       const { url } = await api("POST", `/api/admin/customers/${r.id}/login-link`, {});
-      const msg = `¡Hola ${r.name.split("·").pop().trim().split(" ")[0]}! 👋 Te dejo tu acceso a ${P.settings?.platformName || "GaboHub"}.\n\n👉 *Tocá acá y entrás directo* (sin escribir nada):\n${url}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 💬 Hablar con nosotros.\n\n(El link sirve una vez. Después entrás en ${location.origin}/hub con tu número y tu PIN.)`;
+      const msg = `¡Hola ${r.name.split("·").pop().trim().split(" ")[0]}! 👋 Te dejo tu acceso a ${P.settings?.platformName || "GaboHub"}.\n\n👉 *Tocá acá y entrás directo* (sin escribir nada):\n${url}\n\nAdentro tenés 4 botones: 📺 Mis cuentas · 🔑 Sacar código · 💳 Renovar · 🛒 Comprar.\n\n(El link sirve una vez. Después entrás en ${location.origin}/hub con tu número y tu PIN.)`;
       P.tab.rone = { name: r.name, phone: r.phone, url, msg };
       await render(); scrollTo(0, 0); $("#ronecard")?.scrollIntoView({ block: "start" });
     } catch (e) { toast(e.message); }

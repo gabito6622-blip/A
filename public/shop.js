@@ -1490,15 +1490,16 @@ function resellerHome() {
   // Arriba, solo lo de todos los días: 4 botones grandes (cuentas, código, renovar, hablar con la tienda) y lo urgente.
   // Nada se quitó: todo lo demás está en «🧰 Todas mis herramientas» (abajo, plegado) y en «Más».
   const urgentRent = rentBox.includes('class="hbox');
-  const waStore = S.settings.whatsapp ? waLink(S.settings.whatsapp, `Hola, soy ${me.name.split(" ")[0]} (revendedor). `) : "";
   const toRenew = venc + week;
   const big = [
     [`data-s="cuentas"`, "📺", "Mis cuentas", sv.length ? (toRenew ? `${sv.length} · ${toRenew} por renovar` : `${sv.length} al día`) : "Tus accesos"],
     [`data-s="codigos"`, "🔑", "Sacar código", "Disney, Netflix, HBO"],
     [`data-renewgo="${venc ? "bad" : "week"}"`, "💳", "Renovar", toRenew ? `${toRenew} ${toRenew === 1 ? "cuenta" : "cuentas"}` : "Nada por ahora ✓"],
-    [waStore ? `data-href="${esc(waStore)}"` : `data-s="fallas"`, "💬", waStore ? `Hablar con ${esc((S.storeName || "la tienda").split(" ")[0])}` : "Pedir ayuda", "Por WhatsApp"],
+    // 14/11: era «Hablar con Gabriel», pero muchos revendedores no conocen al dueño. «Comprar» es lo que más usan después.
+    [`data-s="precios"`, "🛒", "Comprar", "Cuentas al instante"],
   ];
-  const small = tiles.filter(([v]) => !["cuentas", "codigos"].includes(v));
+  // Fila chica: lo que no entra en los 4 grandes, y «🆘 Ayuda» (Reportar falla, dentro de la app, sin nombres).
+  const small = [...tiles.filter(([v]) => !["cuentas", "codigos", "precios"].includes(v)), ["fallas", "🆘", "Ayuda", ""]];
   // «Tu día» y «Mi país y moneda» arriba solo cuando le sirven: si anota clientes o cuentas propias, o si vende desde
   // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
   const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length);
@@ -1563,11 +1564,11 @@ function tourStepList() {
     ['.hsimple [data-s="cuentas"]', "Mis cuentas 📺", "Tus accesos con correo, clave y cuándo vence cada uno. «📋 Copiar datos» los deja listos para tu cliente."],
     ['.hsimple [data-s="codigos"]', "Sacar código 🔑", "Cuando Disney, Netflix o HBO te piden un código, aparece acá solo. Sin escribirle a nadie."],
     ['.hsimple [data-renewgo]', "Renovar 💳", "Te muestra lo que vence o ya venció, para renovarlo con tu saldo o por QR."],
-    ['.hsimple .htile:last-child', "Hablar con la tienda 💬", "Si algo no anda, un toque y nos escribís por WhatsApp."],
-    ['.hsmall [data-s="precios"]', "Comprar 🛒", "Elegí las cuentas que querés y pagá con tu saldo o por QR. Te llegan al instante."],
+    ['.hsimple [data-s="precios"]', "Comprar 🛒", "Elegí las cuentas que querés y pagá con tu saldo o por QR. Te llegan al instante."],
   ];
   steps.push(
     ['.hsmall [data-s="clientes"]', "Mis clientes 👥", "Si querés, anotá a quién le revendés y te avisamos cuándo cobrarles."],
+    ['.hsmall [data-s="fallas"]', "Ayuda 🆘", "¿Una cuenta no anda o tenés una duda? Contalo acá y te respondemos."],
     [".hmore > summary", "Todas tus herramientas 🧰", "Mi página, Mi control, ganancias, afiches y tu PIN están acá adentro, para cuando los necesites."],
   );
   // La barra de abajo (celular): Vender, Inventario y Más (GaboHub etapas 1 y 2).
@@ -2492,7 +2493,6 @@ document.addEventListener("click", async (ev) => {
   if (d.mf) { S.data.mf = d.mf; return render(); }
   // Inicio simple: «💳 Renovar» abre Mis cuentas filtrada en lo que hay que renovar (vencidas primero).
   if (d.renewgo) { S.data.mf = d.renewgo; S.data.mq = ""; return setView("cuentas"); }
-  if (d.href) return void window.open(d.href, "_blank", "noopener");
   if (d.rtab) {
     S.data.rtab = d.rtab; if (d.rtab !== "combos") S.data.cdraft = null;
     if (d.rtab === "cupones") S.data.rcoupons = (await api("GET", "/api/me/shop/coupons").catch(() => null))?.coupons ?? [];
