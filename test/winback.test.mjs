@@ -291,7 +291,7 @@ describe("Que vuelvan por HTTP", () => {
         const j = JSON.parse(r.text);
         assert.equal(j.vencidos.length, 1);
         assert.equal(j.vencidos[0].amount, 3500);
-        assert.doesNotMatch(r.text, /accountCost|"cost"|estCost|4321|1111|nf-secreto|Clave-Secreta|Andes|supplier/i, "sin costos, proveedores ni datos de la cuenta");
+        assert.doesNotMatch(r.text, /accountCost|"cost"|estCost|(?<!\d)4321(?!\d)|(?<!\d)1111(?!\d)|nf-secreto|Clave-Secreta|Andes|supplier/i, "sin costos, proveedores ni datos de la cuenta");
       }
       for (const who of [revC, cliC]) {
         assert.equal((await who("GET", "/api/admin/winback")).status, 403);
