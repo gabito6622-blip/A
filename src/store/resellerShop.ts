@@ -3,6 +3,7 @@
 // - Es una vitrina: sus clientes le piden por WhatsApp al revendedor; él vende desde su panel con su saldo.
 // - Nunca muestra el costo del revendedor, solo SU precio de venta. Sin precio cargado, el producto no aparece.
 // - La tienda puede apagar todas las páginas o bloquear una en particular.
+import { pickResellerGroup } from "./listaPrecios.js";
 import type { Actor, Cents, Customer, Id, ResellerApp, ResellerCombo, ResellerCoupon, ResellerShop, ShopRent, Testimonial } from "./types.js";
 import { normCode } from "./coupons.js";
 import type { Engine } from "./engine.js";
@@ -217,22 +218,25 @@ export function listApps(e: Engine, actor: Actor) {
 }
 
 /** Aprueba: crea el revendedor (o pasa a revendedor al cliente que ya existía) y devuelve su id. */
-export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; name: string; phone: string } {
+export function approveApp(e: Engine, actor: Actor, id: Id, opts: { trust?: unknown; priceGroupId?: unknown } = {}): { customerId: Id; name: string; phone: string; trust: "trusted" | "independent"; priceGroupId: Id } {
   authorize(actor, "reseller.manage");
+  // 14/11/2026: el dueño elige el tipo y la lista al aprobar (listaPrecios.ts). Sin elegir: independiente y la lista de los demás.
+  if (opts.trust !== undefined && opts.trust !== "trusted" && opts.trust !== "independent") throw new DomainError("VALIDATION", "Tipo: de confianza o independiente");
   return e.tx(() => {
+    const gid = pickResellerGroup(e, opts.priceGroupId);
     const a = e.get("resellerApps", id);
     if (a.status !== "pending") throw new DomainError("INVALID_STATE", "Esa solicitud ya se resolvió");
     let c = Object.values(e.s.customers).find((x) => x.phone === a.phone);
     const wasReseller = c?.kind === "reseller";
     // Un cliente en dólares sigue en su lista: cambiarla movería la moneda de su saldo.
-    if (c) { c.kind = "reseller"; if (!isUsd(e, c)) c.priceGroupId = "revendedor"; }
+    if (c) { c.kind = "reseller"; if (!isUsd(e, c)) c.priceGroupId = gid; }
     else {
-      c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: "revendedor", whatsappConsent: true, createdAt: e.now() } as Customer;
+      c = { id: e.id("cus"), name: a.name, phone: a.phone, kind: "reseller", priceGroupId: gid, whatsappConsent: true, createdAt: e.now() } as Customer;
       e.s.customers[c.id] = c;
     }
     // Los que se suman por la solicitud entran como «Independiente» (14/11/2026): el dueño todavía no les tiene
     // confianza para sus cuentas. Si ya era revendedor, se queda como estaba.
-    if (!wasReseller) c.trust = "independent";
+    if (!wasReseller) { if (opts.trust === "trusted") delete c.trust; else c.trust = "independent"; }
     if (!e.s.priceGroups.revendedor) e.s.priceGroups.revendedor = { id: "revendedor", name: "Revendedor", prices: {} };
     a.status = "approved"; a.customerId = c.id; a.decidedBy = actor.id; a.decidedAt = e.now();
     e.audit(actor, "reseller.approve", "reseller_app", a.id, { customerId: c.id });
@@ -250,7 +254,7 @@ export function approveApp(e: Engine, actor: Actor, id: Id): { customerId: Id; n
         e.audit(actor, "reseller.referral_paid", "customer", ref, { referred: c.id, amount, ...(rt ? { currency: "USD", bonusBs: bonus, rate: rt } : {}) });
       } else if (bonus > 0) e.audit(actor, "reseller.referral_skipped", "customer", ref, { referred: c.id, reason: "sin tasa del dólar" });
     }
-    return { customerId: c.id, name: c.name, phone: c.phone };
+    return { customerId: c.id, name: c.name, phone: c.phone, trust: c.trust ?? "trusted", priceGroupId: c.priceGroupId };
   });
 }
 
@@ -390,7 +394,7 @@ export function resellersOverview(e: Engine, actor: Actor) {
       // País y moneda, y cuántos productos/cuentas propias tiene (nunca cuáles ni de quién).
       locale: (({ country, flag, name, dial, symbol, decimals, rate }) => ({ country, flag, name, dial, symbol, decimals, rate: rate ?? null }))(localeView(e, c)), ownStock: ownCounts(e, c.id),
       shop: { slug: s.slug, title: s.title, enabled: !!c.shop?.enabled, saved: !!c.shop, blocked: !!c.shop?.blocked, suspended: !!billRead(c).suspended, paidUntil: billRead(c).paidUntil, trial: !!billRead(c).trial },
-      plan: chosenPlan(c), planToday: planOf(e, c), trust: c.trust ?? "trusted",
+      plan: chosenPlan(c), planToday: planOf(e, c), trust: c.trust ?? "trusted", storeRenew: c.storeRenew !== false,
     };
   }).sort((a, b) => b.createdAt - a.createdAt);
 }

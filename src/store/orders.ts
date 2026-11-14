@@ -15,14 +15,22 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { agreedPayerOf, canActFor, priceFor, visibleTo } from "./catalog.js";
 import { freeCount, releaseSlots, reserveSlots } from "./inventory.js";
+import { relocationRows, renewBlockOf, sellBlock, slotFreeStatus } from "./vendible.js";
 import { balance, post } from "./wallet.js";
 import { queue, queueStaff, staffAlertSettings } from "./notify.js";
 import { couponFor } from "./coupons.js";
 import { methodsFor, qrAllowedFor } from "./payMethods.js";
 import { effectivePrice } from "./admin.js";
 import { resellerOf } from "./myReseller.js";
-import { noticeOf } from "./dia.js";
-import { bsToUsd, isUsd, paidTotal, refundToWallet, requireRate, usdToBs } from "./usd.js";
+import { noticeOf, reminderMsgOf } from "./dia.js";
+import { assertNotDouble, renewStart } from "./cobrarBien.js";
+import { bsToUsd, isUsd, paidTotal, rateNow, refundToWallet, requireRate, usdToBs } from "./usd.js";
+import { markPayLater, payLaterFromControl, payLaterIfPending, recordCustomerRefund, settlePayLater, unsettlePayLater } from "./plata.js";
+import { ownStoreRenewOk } from "./renovarVarias.js";
+import { missingListPrices } from "./listaPrecios.js";
+import { paidInReview } from "./avisoAlquiler.js";
+import { transferAssignment as transferWithBooks } from "./traspaso.js";
+import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -70,6 +78,8 @@ export interface CreateOrderInput {
   localMethodId?: Id;
   /** Solo staff: cuántos períodos (meses) se venden de una vez, 1 a 12. Cobra precio × períodos. */
   periods?: number;
+  /** Solo staff, en efectivo: venta FIADA («⏳ Pendiente»): no cuenta como «Entró» hasta que se cobra (plata.ts). */
+  payLater?: boolean;
 }
 
 /** Períodos de una venta: el staff puede vender de 1 a 12 juntos; los clientes, siempre 1. */
@@ -177,6 +187,7 @@ export function createOrder(e: Engine, actor: Actor, input: CreateOrderInput): O
     } else if (input.paymentMethod === "cash") {
       order.approvedBy = actor.id;
       fulfill(e, actor, order);
+      if (input.payLater === true && isStaff(actor)) markPayLater(e, actor, order);
     } else {
       // El aviso con el monto va a quien paga: el cliente final de un revendedor nunca ve lo que pagó su revendedor.
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: id, total: fmtOrder(order) });
@@ -216,7 +227,9 @@ export function quoteOrder(e: Engine, actor: Actor, input: { customerId: Id; ite
     try { const r = couponFor(e, input.couponCode, payerId, items, gross - discount); coupon = { code: r.coupon.code, amount: r.amount }; }
     catch (err) { if (err instanceof DomainError) couponError = err.message; else throw err; }
   }
-  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0) };
+  // Revendedor sin precio en su lista para algo de esto: se le cobraría el de la tienda. Se avisa antes de vender (listaPrecios.ts).
+  const missingListPrice = missingListPrices(e, payerId, items.map((it) => it.productId));
+  return { gross, discount, coupon, couponError, total: gross - discount - (coupon?.amount ?? 0), ...(missingListPrice.length ? { missingListPrice } : {}) };
 }
 
 /** Prueba gratis: entrega una línea/perfil por unas horas, sin cobrar. No cuenta como venta. */
@@ -336,8 +349,10 @@ function referenceSeenIn(e: Engine, ref: string, exceptId: Id): Id | undefined {
   return Object.values(e.s.orders).find((x) => x.id !== exceptId && (normRef(x.confirmedReference) === n || normRef(x.evidence?.declaredReference) === n))?.id;
 }
 
-function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
-  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && x.confirmedReference && normRef(x.confirmedReference) === normRef(ref));
+function settle(e: Engine, actor: Actor, o: Order, ref: string, shared?: Set<Id>): void {
+  const reused = Object.values(e.s.orders).find((x) => x.id !== o.id && !shared?.has(x.id) && x.confirmedReference && normRef(x.confirmedReference) === normRef(ref));
+  // Misma persona: casi siempre un solo QR por varias renovaciones (renovarVarias.ts → «Aprobar juntos»).
+  if (reused && (reused.payerId ?? reused.customerId) === (o.payerId ?? o.customerId)) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id} de la misma persona. Si pagó todo junto con un solo QR, usá «Aprobar juntos» con el total que llegó.`);
   if (reused) throw new DomainError("ALREADY_PROCESSED", `La referencia ${ref} ya se usó en el pedido ${reused.id}`);
   // Si la reserva se liberó, se intenta reservar de nuevo antes de entregar.
   if (o.kind === "sale" && o.reservedSlotIds.some((id) => e.s.slots[id].reservedByOrder !== o.id || e.s.slots[id].status !== "reserved")) {
@@ -361,6 +376,9 @@ function settle(e: Engine, actor: Actor, o: Order, ref: string): void {
   e.audit(actor, "payment.approve", "order", o.id, { confirmedReference: ref, total: o.total });
   fulfill(e, actor, o);
 }
+
+/** Aprobar dentro de un grupo pagado con un solo comprobante (renovarVarias.approveGroup): la referencia se comparte. */
+export const settleShared = (e: Engine, actor: Actor, o: Order, ref: string, shared: Set<Id>): void => settle(e, actor, o, ref, shared);
 
 export interface ApproveInput {
   confirmedReference: string;
@@ -397,7 +415,10 @@ export function approvePayment(e: Engine, actor: Actor, orderId: Id, input: Appr
     // lo revise y diga por qué es otro pago (por ejemplo, un comprobante por dos pedidos).
     const dup = duplicateStillCounts(e, o);
     if (dup) {
-      if (!input.force) throw new DomainError("DUPLICATE_EVIDENCE", `Este comprobante ya se usó en el pedido ${dup.id}. Revisá los dos; si de verdad es otro pago, el dueño puede aprobarlo igual diciendo por qué.`);
+      const same = (dup.payerId ?? dup.customerId) === (o.payerId ?? o.customerId);
+      if (!input.force) throw new DomainError("DUPLICATE_EVIDENCE", same
+        ? `Este comprobante ya se usó en el pedido ${dup.id} de la misma persona. Si pagó todo junto con un solo QR, usá «Aprobar juntos» con el total que llegó.`
+        : `Este comprobante ya se usó en el pedido ${dup.id}. Revisá los dos; si de verdad es otro pago, el dueño puede aprobarlo igual diciendo por qué.`);
       if (actor.role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño puede aprobar un comprobante repetido");
       const why = String(input.forceReason ?? "").trim();
       if (why.length < 4) throw new DomainError("VALIDATION", "Decí por qué es un pago distinto (queda en la auditoría)");
@@ -531,19 +552,23 @@ export function pubAssignment(a: Assignment, staff = true): Assignment {
 export function renewableNow(e: Engine, a: Assignment): boolean {
   const prod = e.s.products[a.productId], slot = e.s.slots[a.slotId], acc = slot ? e.s.accounts[slot.accountId] : undefined;
   if (!prod || !acc || a.status !== "active") return false;
-  return Math.max(a.customerExpiresAt, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
+  return renewStart(a, e.now()) + prod.durationDays * DAY <= acc.supplierExpiresAt;
 }
 
 export function extend(e: Engine, actor: Actor, assignmentId: Id, periods: number, allowBeyondSupplier: boolean): Assignment {
   const a = e.get("assignments", assignmentId);
   if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se renuevan servicios activos");
+  const fallen = renewBlockOf(e, a); // sigue en una cuenta caída: primero moverlo (vendible.ts)
+  if (fallen) throw new DomainError("INVALID_STATE", fallen);
   const days = e.s.products[a.productId].durationDays * periods;
-  const next = Math.max(a.customerExpiresAt, e.now()) + days * DAY;
+  // Pago atrasado antes del corte: desde el vencimiento, sin días gratis (cobrarBien.ts → renewStart).
+  const next = renewStart(a, e.now()) + days * DAY;
   const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
   if (next > acc.supplierExpiresAt && !allowBeyondSupplier) {
     throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `La cuenta vence con el proveedor el ${fdate(acc.supplierExpiresAt)}; renová con el proveedor o reemplazá el perfil`);
   }
   a.customerExpiresAt = next; // supplierExpiresAt NO se toca
+  a.lastCharge = { at: e.now(), to: next };
   delete a.holdOpen;
   a.history.push({ at: e.now(), by: actor.id, event: "renewed", slotId: a.slotId, note: `+${days} días` });
   queue(e, a.customerId, "renewal_confirmed", { product: e.s.products[a.productId].name, date: fdate(next) });
@@ -556,6 +581,8 @@ export interface RenewInput {
   /** Solo el dueño: permite que el cliente venza después que la cuenta del proveedor. */
   allowBeyondSupplier?: boolean;
   idempotencyKey?: string;
+  /** El staff confirmó que es otro mes aunque ya hay un cobro anotado en este período (cobrarBien.ts). */
+  confirmOther?: boolean;
 }
 
 export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInput): { order: Order; assignment: Assignment } {
@@ -566,6 +593,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
   const key = input.idempotencyKey ? `renew:${assignmentId}:${input.idempotencyKey}` : undefined;
   return e.tx(() => e.idempotent(key, () => {
     const a = e.get("assignments", assignmentId);
+    { const fallen = renewBlockOf(e, a); if (fallen) throw new DomainError("INVALID_STATE", fallen); } // cuenta caída: moverlo primero
     if (isStaff(actor)) authorize(actor, "assignment.renew_any");
     else {
       requireActFor(e, actor, a.customerId);
@@ -573,9 +601,20 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       const via = actor.customerId === a.customerId ? resellerOf(e, a.customerId) : undefined;
       if (via) throw new DomainError("FORBIDDEN", `Este servicio lo renueva tu revendedor: escribile a ${via.shop?.title || via.name}`);
       const prod = e.s.products[a.productId];
-      if (!prod || !visibleTo(e, prod, payerFor(e, actor, a.customerId))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+      // Independiente: sus propios alquileres de la tienda sí, si el dueño no se lo apagó (renovarVarias.ts).
+      if (!prod || !(visibleTo(e, prod, payerFor(e, actor, a.customerId)) || ownStoreRenewOk(e, actor.customerId, a))) throw new DomainError("FORBIDDEN", "Este servicio lo renueva la tienda: escribinos por WhatsApp");
+    }
+    // Cliente o revendedor: si la fecha nueva pasa la de la cuenta con el proveedor, se le dice qué hacer (antes leía
+    // «renová con el proveedor o reemplazá el perfil», que es para el dueño).
+    if (!isStaff(actor)) {
+      const accN = e.s.accounts[e.s.slots[a.slotId]?.accountId ?? ""], prodN = e.s.products[a.productId];
+      if (accN && prodN && !input.allowBeyondSupplier && renewStart(a, e.now()) + prodN.durationDays * periods * DAY > accN.supplierExpiresAt) {
+        throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", `Todavía no se puede renovar desde acá: la tienda está renovando esta cuenta. Escribile a la tienda por WhatsApp y te la renueva (tu servicio sigue hasta el ${fdate(a.customerExpiresAt)}).`);
+      }
     }
     const payerId = payerFor(e, actor, a.customerId);
+    // El staff anota a mano (efectivo o saldo): si ya hay un cobro en este período, pide confirmar que es otro mes.
+    if (isStaff(actor) && (input.paymentMethod === "cash" || input.paymentMethod === "balance")) assertNotDouble(e, a, input.confirmOther);
     // Solo estos métodos: uno con comprobante queda esperando el pago; nunca se renueva gratis.
     if (!["balance", "cash", "qr", "usdt"].includes(input.paymentMethod)) throw new DomainError("VALIDATION", "Elegí cómo pagás la renovación: saldo, QR o USDT");
     const usdPay = isUsd(e, payerId);
@@ -602,7 +641,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     if (input.paymentMethod === "qr" || input.paymentMethod === "usdt") {
       // Se valida ya contra el proveedor para no cobrar algo que no se puede entregar.
       const acc = e.s.accounts[e.s.slots[a.slotId].accountId];
-      const next = Math.max(a.customerExpiresAt, now) + e.s.products[a.productId].durationDays * periods * DAY;
+      const next = renewStart(a, now) + e.s.products[a.productId].durationDays * periods * DAY;
       if (next > acc.supplierExpiresAt && !input.allowBeyondSupplier) throw new DomainError("SUPPLIER_EXPIRY_EXCEEDED", "La cuenta del proveedor vence antes; no se puede renovar este perfil");
       queue(e, payerId, "order_received", { name: e.s.customers[payerId].name, order: order.id, total: fmtOrder(order) });
     } else {
@@ -611,6 +650,8 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
       extend(e, actor, a.id, periods, !!input.allowBeyondSupplier);
       order.status = "fulfilled";
       order.approvedBy = input.paymentMethod === "cash" ? actor.id : undefined;
+      // «Renovar» de un alquiler que figura sin pagar en el Control: la renovación queda fiada (plata.ts).
+      if (isStaff(actor)) { payLaterIfPending(e, actor, order, a); fiadaRenewalToBook(e, actor, order, a); }
     }
     return { order: structuredClone(order), assignment: pubAssignment(e.s.assignments[a.id], isStaff(actor)) };
   }));
@@ -657,8 +698,10 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
       if (fresh.productId !== a.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
       if (!["available", "quarantined"].includes(fresh.status) || Object.values(e.s.assignments).some((x) => x.status === "active" && x.slotId === fresh.id)) throw new DomainError("INVALID_STATE", "Ese perfil no está libre");
       if (!acc || acc.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+      if (sellBlock(acc)) throw new DomainError("INVALID_STATE", `Esa cuenta no se usa para clientes (${sellBlock(acc) === "caída" ? "está caída" : "está marcada «No vender»"}): elegí otra`);
     } else {
-      [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : []);
+      // La cuenta nueva tiene que durar con el proveedor hasta la fecha del cliente (si hay alguna que alcance).
+      [fresh] = reserveSlots(e, a.productId, 1, `replace:${a.id}`, input.otherAccount ? [old.accountId] : [], [], a.customerExpiresAt);
     }
     fresh.status = "assigned";
     delete fresh.reservedUntil;
@@ -680,25 +723,10 @@ export function replaceAssignment(e: Engine, actor: Actor, assignmentId: Id, inp
  * Transfiere un servicio activo a otro cliente (mismo perfil, misma fecha de vencimiento).
  * Útil cuando el perfil lo usa otra persona o se cargó al cliente equivocado.
  */
-export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, toCustomerId: Id, reason: string): Assignment {
-  authorize(actor, "assignment.replace");
-  if (!reason?.trim()) throw new DomainError("VALIDATION", "Indicá el motivo de la transferencia");
-  return e.tx(() => {
-    const a = e.get("assignments", assignmentId);
-    if (a.status !== "active") throw new DomainError("INVALID_STATE", "Solo se transfieren servicios activos");
-    const to = e.get("customers", toCustomerId);
-    if (to.id === a.customerId) throw new DomainError("VALIDATION", "El servicio ya es de ese cliente");
-    const from = e.s.customers[a.customerId];
-    // El cuaderno del revendedor (a quién le dio cada perfil) y su control son del dueño anterior:
-    // no viajan con la cuenta, así el nuevo dueño nunca ve los clientes de otro revendedor.
-    const dropped = a.subs?.length ?? 0;
-    delete a.subs; delete a.rcontrol;
-    a.customerId = to.id;
-    a.history.push({ at: e.now(), by: actor.id, event: "transferred", slotId: a.slotId, note: `de ${from?.name ?? "?"} a ${to.name}: ${reason.trim()}` });
-    queue(e, to.id, "access_transferred", { product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
-    e.audit(actor, "assignment.transfer", "assignment", a.id, { from: from?.id, to: to.id, reason, ...(dropped ? { subsDropped: dropped } : {}) });
-    return pubAssignment(a);
-  });
+export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, toCustomerId: Id, reason: string, opts: { moveCharge?: boolean } = {}): Assignment {
+  // «Pasar a otro» (traspaso.ts, 14/11/2026): el Control arranca de cero para el nuevo, la deuda queda del anterior y
+  // la libreta del anterior se guarda (vuelve si la cuenta vuelve a él). «Fue un error» lleva también el cobro.
+  return transferWithBooks(e, actor, assignmentId, toCustomerId, reason, opts);
 }
 
 /** Cuenta caída: mueve a todos sus clientes a otras cuentas y la retira si quedó vacía. */
@@ -709,27 +737,9 @@ export function transferAssignment(e: Engine, actor: Actor, assignmentId: Id, to
  */
 export function relocationQueue(e: Engine, actor: Actor) {
   authorize(actor, "assignment.replace");
-  const now = e.now();
-  const freeOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId && s.status === "available").length;
-  const healthy = Object.values(e.s.accounts).filter((t) => t.status === "active" && t.supplierExpiresAt > now && freeOf(t.id) > 0);
-  const rows: unknown[] = [];
-  for (const a of Object.values(e.s.assignments)) {
-    if (a.status !== "active") continue;
-    const slot = e.s.slots[a.slotId]; if (!slot) continue;
-    const acc = e.s.accounts[slot.accountId];
-    const down = slot.status === "quarantined" ? "cuarentena" : acc?.status !== "active" ? "cuenta retirada" : acc.supplierExpiresAt <= now ? "venció con el proveedor" : null;
-    if (!down) continue;
-    const cust = e.s.customers[a.customerId];
-    const target = healthy.find((t) => t.id !== acc?.id && t.productId === a.productId);
-    rows.push({
-      assignmentId: a.id, customerId: a.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "",
-      productId: a.productId, product: e.s.products[a.productId]?.name ?? a.productId, profile: slot.label,
-      currentEmail: acc?.email ?? "", reason: down, expiresAt: a.customerExpiresAt,
-      daysLeft: Math.ceil((a.customerExpiresAt - now) / DAY),
-      suggest: target ? { email: target.email, free: freeOf(target.id) } : null,
-    });
-  }
-  return rows;
+  // Revisión de 3 meses (14/11/2026): incluye las cuentas marcadas caídas, sugiere una cuenta que alcance la fecha del
+  // cliente y no promete dos veces el mismo perfil libre. La regla vive en vendible.ts.
+  return relocationRows(e);
 }
 
 export function replaceAccount(e: Engine, actor: Actor, accountId: Id, reason: string) {
@@ -768,6 +778,7 @@ export function moveAccountClients(e: Engine, actor: Actor, fromAccountId: Id, i
     if (from.id === to.id) throw new DomainError("VALIDATION", "Elegí otra cuenta, no la misma");
     if (from.productId !== to.productId) throw new DomainError("VALIDATION", "Esa cuenta es de otra plataforma");
     if (to.status !== "active") throw new DomainError("INVALID_STATE", "Esa cuenta no está activa");
+    if (sellBlock(to)) throw new DomainError("INVALID_STATE", `Esa cuenta no se usa para clientes (${sellBlock(to) === "caída" ? "está caída" : "está marcada «No vender»"}): elegí otra`);
     const slotsOf = (accId: Id) => Object.values(e.s.slots).filter((s) => s.accountId === accId).sort((x, y) => x.label.localeCompare(y.label));
     const busy = new Set(Object.values(e.s.assignments).filter((a) => a.status === "active").map((a) => a.slotId));
     const moving = Object.values(e.s.assignments).filter((a) => a.status === "active" && e.s.slots[a.slotId]?.accountId === from.id);
@@ -796,9 +807,12 @@ export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
       if (a.status !== "active" || a.holdOpen) continue;
       // Una prueba gratis vence sin período de gracia y deja el perfil libre (no hubo problema).
       if (a.customerExpiresAt + (a.trial ? 0 : graceDays * DAY) > e.now()) continue;
+      // Ya mandó el comprobante de la renovación y está por revisarse: no se corta algo pagado (avisoAlquiler.ts).
+      if (paidInReview(e, a)) continue;
       a.status = "revoked";
       a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: a.trial ? "prueba vencida" : "vencido" });
-      e.s.slots[a.slotId].status = a.trial ? "available" : "quarantined";
+      e.s.slots[a.slotId].status = a.trial ? slotFreeStatus(e, e.s.slots[a.slotId]) : "quarantined";
+      debtToFiadoOnCut(e, actor, a); // se cortó debiendo: lo fiado pasa a su libreta (no desaparece)
       e.audit(actor, "assignment.expire", "assignment", a.id);
       n++;
     }
@@ -821,7 +835,7 @@ export function releaseSlot(e: Engine, actor: Actor, slotId: Id, reason: string)
       }
     }
     delete slot.reservedByOrder; delete slot.reservedUntil;
-    slot.status = "available";
+    slot.status = slotFreeStatus(e, slot); // en una cuenta caída queda en cuarentena, no a la venta
     e.audit(actor, "slot.freed", "slot", slotId, { reason });
     return { ok: true } as const;
   });
@@ -852,7 +866,7 @@ export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason
         x.status = "revoked";
         x.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: x.slotId, note });
         const slot = e.s.slots[x.slotId];
-        if (slot && slot.status === "assigned") slot.status = "available";
+        if (slot && slot.status === "assigned") slot.status = slotFreeStatus(e, slot);
         closed.push(id);
       }
     }
@@ -874,8 +888,12 @@ export function markSaleAsTest(e: Engine, actor: Actor, assignmentId: Id, reason
   });
 }
 
-/** Devolución proporcional: cierra un servicio activo y acredita al cliente por los días que le faltaban. */
-export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string } = {}) {
+/**
+ * Devolución proporcional: cierra un servicio activo y le devuelve al cliente por los días que le faltaban: a su saldo
+ * o, con `cash`, en efectivo (no toca el saldo). Las dos restan de «Entró» el día de hoy (plata.ts), así lo que pague
+ * después con ese saldo no cuenta dos veces. Con `slotFallen` (el perfil se cayó) el perfil va a cuarentena, no a libres.
+ */
+export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, input: { amount?: number; reason?: string; cash?: boolean; slotFallen?: boolean } = {}) {
   authorize(actor, "assignment.replace");
   return e.tx(() => {
     const a = e.get("assignments", assignmentId);
@@ -889,13 +907,16 @@ export function refundAssignment(e: Engine, actor: Actor, assignmentId: Id, inpu
     const suggested = Math.round(base * Math.min(remaining, total) / total);
     const amount = input.amount !== undefined ? Number(input.amount) : suggested;
     if (!Number.isInteger(amount) || amount < 0 || amount > base) throw new DomainError("VALIDATION", "Monto de devolución inválido");
-    if (amount > 0) post(e, actor, a.customerId, amount, "refund", a.id, (input.reason || "").trim() || `Devolución de ${prod.name}`);
+    const cash = input.cash === true;
+    const note = (input.reason || "").trim() || `Devolución de ${prod.name}`;
+    if (amount > 0 && !cash) post(e, actor, a.customerId, amount, "refund", a.id, note);
+    recordCustomerRefund(e, actor, { customerId: a.customerId, assignmentId: a.id, amountBs: usdW ? usdToBs(amount, rateNow(e)) : amount, via: cash ? "efectivo" : "saldo", ...(usdW ? { usd: amount } : {}), note });
     a.status = "revoked";
-    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
+    a.history.push({ at: e.now(), by: actor.id, event: "revoked", slotId: a.slotId, note: `devolución ${cash ? "en efectivo " : ""}${usdW ? "US$ " : ""}${(amount / 100).toFixed(2)}` });
     const slot = e.s.slots[a.slotId];
-    if (slot && slot.status === "assigned") slot.status = "available";
-    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(usdW ? { currency: "USD" } : {}) });
-    return { amount, remaining, suggested, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
+    if (slot && slot.status === "assigned") slot.status = input.slotFallen === true ? "quarantined" : slotFreeStatus(e, slot);
+    e.audit(actor, "assignment.refund", "assignment", a.id, { amount, remaining, ...(cash ? { via: "efectivo" } : {}), ...(input.slotFallen ? { slotFallen: true } : {}), ...(usdW ? { currency: "USD" } : {}) });
+    return { amount, remaining, suggested, via: cash ? "efectivo" as const : "saldo" as const, balance: balance(e, a.customerId), ...(usdW ? { currency: "USD" as const } : {}) };
   });
 }
 
@@ -915,6 +936,10 @@ export function markNoticed(e: Engine, actor: Actor, ids: unknown, off = false) 
       // «No le avisé» borra las dos marcas de este vencimiento (la de Mi secretaria y la de Recordatorios).
       if (off) { delete c.noticed; delete a.reminderFor; } else c.noticed = { at: e.now(), for: a.customerExpiresAt };
       a.control = c;
+      // «Ya le avisé»: el recordatorio preparado de este vencimiento que todavía no salió queda como «enviado a mano»,
+      // así el bot no le manda después uno viejo (revisión de 3 meses, 16/11/2026).
+      const prep = !off && a.reminderFor === a.customerExpiresAt ? reminderMsgOf(e, a) : undefined;
+      if (prep && (prep.status === "queued" || prep.status === "failed" || prep.status === "skipped_no_consent")) prep.status = "sent_manually";
       e.audit(actor, off ? "assignment.notice_off" : "assignment.noticed", "assignment", a.id, { customerId: a.customerId });
       done.push(a.id);
     }
@@ -951,7 +976,7 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     if (priceUsd !== undefined) { if (priceUsd === null) delete c.priceUsd; else c.priceUsd = priceUsd; }
     if (price !== undefined) { if (price === null) delete c.price; else c.price = price; }
     if (cost !== undefined) { if (cost === null) delete c.cost; else c.cost = cost; }
-    const wasPaid = c.payStatus === "pagado";
+    const wasPaid = c.payStatus === "pagado", wasPaidish = (c.payStatus ?? "pagado") === "pagado";
     if (patch.payStatus !== undefined) c.payStatus = patch.payStatus;
     if (patch.note !== undefined) { const t = String(patch.note).trim(); if (t) c.note = t; else delete c.note; }
     if (patch.seller !== undefined) { const t = String(patch.seller).trim(); if (t) c.seller = t; else delete c.seller; }
@@ -960,11 +985,14 @@ export function setRentalControl(e: Engine, actor: Actor, assignmentId: Id, patc
     // Un período se cuenta una sola vez; si lo volvés a "pendiente" (te equivocaste), se borra ese cobro.
     const from = a.customerExpiresAt - (e.s.products[a.productId]?.durationDays ?? 30) * DAY;
     if (c.payStatus === "pagado" && !wasPaid && !(c.paidLog ?? []).some((p) => p.from === from)) {
-      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }) }].slice(-24);
+      c.paidLog = [...(c.paidLog ?? []), { at: e.now(), from, amount: effectivePrice(e, { ...a, control: c }), customerId: a.customerId }].slice(-24);
     } else if (wasPaid && c.payStatus !== "pagado" && c.paidLog?.length) {
       c.paidLog = c.paidLog.filter((p) => p.from !== from);
       if (!c.paidLog.length) delete c.paidLog;
     }
+    // Ventas o renovaciones fiadas de este alquiler: se cobraron hoy (o se deshace, si volvió a «pendiente»).
+    if (c.payStatus === "pagado" && !wasPaid) settlePayLater(e, a.id, from);
+    else if (wasPaidish && patch.payStatus !== undefined && c.payStatus !== "pagado") { unsettlePayLater(e, a.id, from); payLaterFromControl(e, actor, a, from); }
     a.control = c;
     e.audit(actor, "assignment.control", "assignment", a.id, { fields: Object.keys(patch).join(","), ...(priceMoves && price !== undefined && price !== null ? { price, ...(priceBefore !== undefined ? { priceFrom: priceBefore } : {}) } : {}) });
     return structuredClone(c);
@@ -1006,10 +1034,11 @@ export function queueExpiryReminders(e: Engine, actor: Actor, withinDays = 3): n
       if (left > withinDays * DAY) continue;
       if (a.lastReminderAt && e.now() - a.lastReminderAt < DAY) continue;
       // Si ya le avisaste desde Mi secretaria hoy («✅ Ya le avisé»), no se le prepara otro.
-      const nt = noticeOf(a);
+      const nt = noticeOf(a, e);
       if (nt && e.now() - nt.at < DAY) continue;
       const c = e.s.customers[a.customerId];
-      queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+      // Queda «preparado»: cuenta como avisado solo cuando el mensaje sale de verdad (dia.ts → noticeOf).
+      a.reminderMsgId = queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) }).id;
       a.lastReminderAt = e.now();
       a.reminderFor = a.customerExpiresAt;
       n++;
@@ -1053,13 +1082,13 @@ export function autoReminders(e: Engine, actor: Actor): number {
       const key = `${a.customerExpiresAt}:${days}`;
       if (a.remindersSent?.includes(key)) continue;
       // Si ya se mandó uno a mano en las últimas 20 h, no se repite.
-      const nt = noticeOf(a);
+      const nt = noticeOf(a, e);
       if ((a.lastReminderAt && e.now() - a.lastReminderAt < 20 * 3_600_000) || (nt && e.now() - nt.at < 20 * 3_600_000)) {
         (a.remindersSent ??= []).push(key);
         continue;
       }
       const c = e.s.customers[a.customerId];
-      queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) });
+      a.reminderMsgId = queue(e, a.customerId, "expiry_reminder", { name: c.name, product: e.s.products[a.productId].name, date: fdate(a.customerExpiresAt) }).id;
       a.lastReminderAt = e.now();
       a.reminderFor = a.customerExpiresAt;
       a.remindersSent = [...(a.remindersSent ?? []).slice(-10), key];
@@ -1104,7 +1133,8 @@ export function supplierExpiryAlerts(e: Engine, actor: Actor): number {
   const h = localHour(e.now(), rs.timeZone);
   if (h < rs.fromHour || h >= rs.toHour) return 0;
   const limit = e.now() + cfg.supplierDaysBefore * DAY;
-  const due = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= limit
+  // Una cuenta caída no se renueva con el proveedor: no se pide (caidas.ts).
+  const due = Object.values(e.s.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt <= limit
     && a.supplierExpiresAt > e.now() - DAY && a.supplierAlertSentFor !== a.supplierExpiresAt);
   if (!due.length) return 0;
   return e.tx(() => {

@@ -77,7 +77,7 @@ const ago = (t, now) => {
   return `el ${ddmm(t)}`;
 };
 const hhmm = (t) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(t));
-const ddmm = (t) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
+const ddmm = (t) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t)); // «13/01» (es-BO sin año daba «13/1»)
 
 function bubble(a, st, now, owner) {
   const c = CREW[a.id];

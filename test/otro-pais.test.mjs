@@ -60,7 +60,10 @@ describe("teléfonos", () => {
     assert.equal(a.phone, "+595981123456");
     assert.equal(a.resellerId, py.id);
     assert.throws(() => s.catalog.createCustomer(asR(py), { name: "Lucía otra vez", phone: "981-123-456" }), err("VALIDATION", /ya existe/i));
-    assert.throws(() => s.catalog.createCustomer(asR(bo), { name: "Copia", phone: "+595 981 123 456" }), err("VALIDATION", /ya existe/i));
+    // Otro revendedor con el mismo número: tiene su propia ficha y no se entera de que ese número es cliente de otro (B18, 14/11/2026).
+    const copia = s.catalog.createCustomer(asR(bo), { name: "Copia", phone: "+595 981 123 456" });
+    assert.equal(copia.resellerId, bo.id);
+    assert.ok(!JSON.stringify(copia).includes("Lucía"));
     // Un boliviano +591 71234567 y un paraguayo 0971 234 567 son dos personas distintas.
     s.catalog.createCustomer(asR(bo), { name: "Boliviano", phone: "71234567" });
     const pyc = s.catalog.createCustomer(asR(py), { name: "Paraguayo", phone: "0971 234 567" });

@@ -1,0 +1,35 @@
+/* Gastos, devoluciones, gastos fijos y Proveedores por mes (panel-plata.js). Celular primero: campos y botones de 44 px. */
+.plcard .plform{display:grid;gap:10px;margin:0 0 12px}
+.plrow{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.plform label,.plfix label,.plpaid label{display:grid;gap:4px;font-size:13px;font-weight:600;flex:1 1 140px;min-width:0}
+.plform label.plamt{flex:1 1 120px}
+.plform input,.plform select,.plfix input,.plpaid input{min-height:44px;width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit;font:inherit;font-size:16px}
+.plcard .pbtn,.plcard .pbtn.sm,.plpaid .pbtn{min-height:44px}
+.pldate label{flex:1 1 170px}
+.plerr{margin:0;color:var(--bad);font-size:13px;font-weight:600}
+.plconv{margin:0;font-size:13px;min-height:0}
+.plconv:empty{display:none}
+.plsum{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0;font-size:14px}
+.plok,.plok b{color:var(--ok)}
+.pllist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.plitem{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.plitem .plmain{display:grid;gap:2px;min-width:0}
+.plitem .plmain b{overflow-wrap:anywhere}
+.plitem .plmain small{font-size:12px}
+.plitem .plamt{font-size:15px;white-space:nowrap}
+.plitem .plact{grid-column:1/-1;justify-content:flex-end;gap:8px}
+.plitem.refund{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.plitem.refund .plamt{color:var(--ok)}
+.plitem.editing{display:block}
+.plpend{display:grid;gap:8px}
+.plfix{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.plfix label{flex:1 1 150px}
+.plfixed,.pldev{margin-top:12px}
+.plfixed summary,.pldev summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;font-weight:600}
+.plprov{display:grid;gap:8px}
+.plprow{display:flex;flex-wrap:wrap;gap:4px 14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:14px}
+.plprow>b:first-child{flex:1 0 100%}
+.plpaid{display:grid;gap:6px}
+.plpaid[hidden]{display:none}
+.plpaidtxt{font-size:12px}
+@media (min-width:700px){.plitem{grid-template-columns:1fr auto auto}.plitem .plact{grid-column:auto}}

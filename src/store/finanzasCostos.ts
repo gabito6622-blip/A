@@ -9,17 +9,31 @@
 //  - si ese mes ya anotaste un gasto de esa cuenta («Ya la pagué» / «Pagué la renovación»), no se cuenta de nuevo;
 //  - si ese mes no había ninguna cuenta con costo ni gastos de cuentas, el mes queda marcado «sin costos
 //    anotados» (`sinCostos`) en vez de mostrar una ganancia del 100 % que no es real.
+// 15/11/2026 (equipo 1, «la plata coincide»):
+//  - un pago por VARIOS meses («Pagué la renovación» con 3 meses, o «Ya la pagué» de una cuenta que vence en 3 meses)
+//    cubre esos meses: la cuenta no se vuelve a estimar en ellos (antes salía Bs 210 + 70 + 70);
+//  - una devolución del proveedor no cuenta como «ya la pagué»;
+//  - una cuenta en dólares se estima con la ÚLTIMA tasa que anotaste al pagarla (la de tu tarjeta), no la del USDT.
 import type { Account, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { boMonthKey } from "./time.js";
 import { rateNow, usdToBs } from "./usd.js";
+import { coversMonth } from "./gastos.js";
+
+/** La última tasa que anotaste al pagar esa cuenta en dólares (si nunca la anotaste, `undefined`). */
+export function lastPaidRate(e: Engine, accountId: Id | undefined): number | undefined {
+  if (!accountId) return undefined;
+  let best: { at: number; rate: number } | undefined;
+  for (const x of e.s.expenses ?? []) if (x.accountId === accountId && !x.refund && x.usd && x.rate && (!best || x.at >= best.at)) best = { at: x.at, rate: x.rate };
+  return best?.rate;
+}
 
 /**
  * Lo que cuesta una cuenta por mes, en Bs. Si la pagás en dólares con la tarjeta (`costUsd`), vale lo
- * que son esos dólares a la tasa de hoy; si no, el costo en Bs que anotaste.
+ * que son esos dólares a la última tasa que anotaste al pagarla (si no hay, la de hoy); si no, el costo en Bs.
  */
-export function accountCostBs(e: Engine, a: Pick<Account, "cost" | "costUsd">): Cents {
-  const r = rateNow(e);
+export function accountCostBs(e: Engine, a: Pick<Account, "cost" | "costUsd"> & { id?: Id }): Cents {
+  const r = a.costUsd ? lastPaidRate(e, a.id) ?? rateNow(e) : 0;
   return a.costUsd && r ? usdToBs(a.costUsd, r) : a.cost;
 }
 
@@ -43,23 +57,45 @@ export interface CostEstimate {
   count: number;
   /** Ese mes no había cuentas con costo ni gastos de cuentas: no se puede decir cuánto ganaste de verdad. */
   sinCostos: boolean;
+  /** Cuánto se estimó de cada cuenta (para «Proveedores»). */
+  byAccount: { accountId: Id; amount: Cents }[];
 }
 
 /** Costo ESTIMADO de las cuentas de un mes («AAAA-MM»), con la misma regla para el mes en curso y los cerrados. */
 export function accountsEstimateMonth(e: Engine, key: string, now: number = e.now()): CostEstimate {
   const { start, end } = monthBounds(key);
   const delMes = (e.s.expenses ?? []).filter((x) => x.accountId && boMonthKey(x.at) === key);
-  const paid = new Set(delMes.map((x) => x.accountId));
+  // Pagada ese mes: un gasto de ese mes o un pago anterior por varios meses que lo cubre.
+  const paid = new Set((e.s.expenses ?? []).filter((x) => coversMonth(x, key)).map((x) => x.accountId));
   const retired = retiredAt(e);
   let amount = 0, count = 0, conCosto = 0;
+  const byAccount: { accountId: Id; amount: Cents }[] = [];
   for (const a of Object.values(e.s.accounts)) {
     if (a.createdAt >= end || a.createdAt > now || a.supplierExpiresAt < start) continue;
-    if (a.status === "retired") { const r = retired.get(a.id); if (r === undefined || r < end) continue; }
+    // Una cuenta retirada cuesta en los meses en que estuvo viva, también el mes en que se retiró (15/11/2026: ese
+    // mes ya la habías pagado; antes desaparecía del costo y el mes salía con más ganancia).
+    // Cuenta de perfiles sueltos (perfilSuelto.ts): cada perfil tiene su costo, su fecha y su pago.
+    if (a.loose) {
+      let accAmt = 0;
+      for (const s of Object.values(e.s.slots)) {
+        const l = s.loose;
+        if (s.accountId !== a.id || !l || l.boughtAt >= end || l.until < start || (l.down && l.down.at < start) || !(l.cost > 0)) continue;
+        conCosto++;
+        if ((e.s.expenses ?? []).some((x) => coversMonth(x, key) && (x.slotId === s.id || (!!l.prev && x.slotId === l.prev) || (x.accountId === a.id && !x.slotId)))) continue;
+        // Se cayó en este mes: no se le va a volver a pagar (lo que quedaba ya estaba pago), no se estima.
+        if (l.down && l.down.at < end) continue;
+        accAmt += l.cost; count++;
+      }
+      if (accAmt) { amount += accAmt; byAccount.push({ accountId: a.id, amount: accAmt }); }
+      continue;
+    }
+    if (a.status === "retired") { const r = retired.get(a.id); if (r === undefined || r < start) continue; }
     const cost = accountCostBs(e, a);
     if (!(cost > 0)) continue;
     conCosto++;
     if (paid.has(a.id)) continue;
     amount += cost; count++;
+    byAccount.push({ accountId: a.id, amount: cost });
   }
-  return { amount, count, sinCostos: conCosto === 0 && delMes.length === 0 };
+  return { amount, count, sinCostos: conCosto === 0 && delMes.length === 0, byAccount };
 }

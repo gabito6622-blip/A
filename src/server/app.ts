@@ -12,6 +12,7 @@ import { createStore, DomainError, normalizePhone, systemClock, type Actor, type
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { CORTE_GRACE_DAYS } from "../store/dia.js";
+import { renewStart } from "../store/cobrarBien.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
 import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
 import { buildMail, emailsIn, parseMail } from "./mail.js";
@@ -33,6 +34,9 @@ import { metaTemplateBody, templateParamOrder, TEMPLATES, type TemplateId } from
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
+import { registerCaidasRoutes } from "./caidasRoutes.js";
+import { registerPerfilRoutes } from "./perfilRoutes.js";
+import { createTaskRunner } from "./tareas.js";
 import { createExpiryPush } from "./expiryPush.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
@@ -117,7 +121,7 @@ const MAX_FILE = 5 * 1024 * 1024;
 
 const STATUS: Record<string, number> = {
   FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, OUT_OF_STOCK: 409, INSUFFICIENT_BALANCE: 409,
-  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400,
+  INVALID_STATE: 409, ALREADY_PROCESSED: 409, SUPPLIER_EXPIRY_EXCEEDED: 409, NO_CONSENT: 409, DUPLICATE_EVIDENCE: 409, SENSITIVE_DATA: 400, DOUBLE_CHARGE: 409,
 };
 
 class HttpError extends Error {
@@ -192,7 +196,7 @@ export interface App {
   /** Manda ahora los avisos pendientes por WhatsApp (si el bot está configurado). */
   flushWhatsApp(): Promise<{ sent: number; failed: number; pending: number }>;
   /** Ejecuta las tareas periódicas una vez (para pruebas o cron externo). */
-  runJobs(): { expired: number; reminders: number; closed: number };
+  runJobs(): { expired: number; reminders: number; closed: number; failed?: string[] };
 }
 
 export function createApp(cfg: AppConfig): App {
@@ -798,7 +802,7 @@ export function createApp(cfg: AppConfig): App {
     const bal = store.wallet.balance(cust.id);
     const pending = Object.values(e.orders).find((o) => o.kind === "renewal" && o.renewal?.assignmentId === a.id && (o.status === "awaiting_payment" || o.status === "payment_review"));
     const days = prod?.durationDays ?? 30;
-    const from = Math.max(a.customerExpiresAt, now()), to = from + days * 86_400_000;
+    const from = renewStart(a, now()), to = from + days * 86_400_000;
     const st = e.settings;
     return {
       name: String(cust.name).split(" ")[0], product: prod?.name ?? "", profile: slot?.label ?? "", expiresAt: a.customerExpiresAt, from, to, days,
@@ -929,11 +933,13 @@ export function createApp(cfg: AppConfig): App {
     const bsn = (v: number) => Math.round(v) / 100;
     const rows: (string | number | null)[][] = [
       ["Cierre de mes", d.label], [],
-      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)], ["· pagos del fiado", bsn(d.delFiado)],
+      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)], ["· pagos del fiado", bsn(d.delFiado)], ["· devuelto a clientes (resta)", bsn(-d.devueltoClientes)],
       ["Ventas", d.ventas], ["Renovaciones", d.renovaciones], ["Cobros del Control", d.cobrosControl],
-      ["Gastos", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["Te quedó", bsn(d.ganancia)],
-      ["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", d.sinCostos ? "sin costos anotados" : bsn(d.gananciaEstimada)],
-      [], ["Mes anterior", d.prev.label], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Cuentas sin anotar (estimado)", bsn(d.prev.cuentasEstimado)], ["Te quedó (estimado)", d.prev.sinCostos ? "sin costos anotados" : bsn(d.prev.gananciaEstimada)],
+      // 15/11/2026: una sola fila «Te quedó» (entró − gastos − lo estimado); antes había dos y no se sabía cuál era.
+      ["Gastos (ya restadas las devoluciones)", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["· te devolvieron proveedores", bsn(d.devueltoProveedores)],
+      ["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Gastos fijos sin anotar (estimado)", bsn(d.fijosEstimado)],
+      ["Te quedó", bsn(d.gananciaEstimada), d.sinCostos ? "sin costos anotados: no es ganancia real" : "entró − gastos − estimados"],
+      [], ["Mes anterior", d.prev.label], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Estimados (cuentas y fijos)", bsn(d.prev.cuentasEstimado + d.prev.fijosEstimado)], ["Te quedó", bsn(d.prev.gananciaEstimada), d.prev.sinCostos ? "sin costos anotados" : ""],
       ["Variación de ingresos", d.vs.ingresosPct === null ? "—" : `${d.vs.ingresosPct} %`],
       [], ["Apps que más dejaron", "Entró", "Unidades", "Costo", "Ganancia"],
       ...d.topApps.map((a) => [a.name, bsn(a.ingresos), a.units, bsn(a.costo), bsn(a.gana)]),
@@ -943,8 +949,19 @@ export function createApp(cfg: AppConfig): App {
     store.engine.tx(() => store.engine.audit(A(c), "export", "export", "cierre", { month: d.month }));
     return sendFile(c, writeXlsx([{ name: `Cierre ${d.label}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
   });
-  route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
+  // Gastos con fecha, moneda, categoría y proveedor; editar; ver otros meses; devoluciones; gastos fijos (gastos.ts).
+  route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpenseFull(A(c), c.body ?? {}));
+  route("GET", "/api/admin/expenses", "staff", (c) => store.finance.monthExpenses(A(c), c.query.get("month") ?? undefined));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
+  route("POST", "/api/admin/expenses/:id", "staff", (c) => store.finance.updateExpense(A(c), c.params.id, c.body ?? {}));
+  route("POST", "/api/admin/finance/refunds", "staff", (c) => { const b = c.body ?? {}; return store.finance.addRefund(A(c), { amount: b.amount, currency: b.currency, rate: b.rate, supplierId: b.supplierId, accountId: b.accountId, note: b.note, at: b.at }); });
+  route("GET", "/api/admin/finance/fixed", "staff", (c) => store.finance.listFixed(A(c)));
+  route("POST", "/api/admin/finance/fixed", "staff", (c) => store.finance.upsertFixed(A(c), c.body ?? {}));
+  route("POST", "/api/admin/finance/fixed/:id/remove", "staff", (c) => store.finance.removeFixed(A(c), c.params.id));
+  route("POST", "/api/admin/finance/fixed/:id/pay", "staff", (c) => store.finance.payFixed(A(c), c.params.id, { amount: c.body?.amount, month: c.body?.month, date: c.body?.date }));
+  route("GET", "/api/admin/finance/proveedores", "staff", (c) => store.finance.suppliersMonth(A(c), c.query.get("month") ?? undefined));
+  route("POST", "/api/admin/orders/:id/amend", "staff", (c) => store.finance.amendOrder(A(c), c.params.id, { total: c.body?.total, reason: c.body?.reason }));
+  route("GET", "/api/admin/assignments/:id/sale-to-fix", "staff", (c) => store.finance.saleToFix(A(c), c.params.id));
   route("GET", "/api/admin/finance/margins", "staff", (c) => store.finance.margins(A(c)));
   route("POST", "/api/admin/finance/min-margin", "staff", (c) => store.finance.setMinMargin(A(c), c.body?.pct));
   route("GET", "/api/admin/faq", "staff", () => store.engine.s.settings.faq ?? []);
@@ -1002,6 +1019,16 @@ export function createApp(cfg: AppConfig): App {
 
   route("POST", "/api/me/renew", "customer", (c) =>
     store.orders.renew(c.actor!, String(c.body?.assignmentId), { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey }));
+
+  // Revendedores un mes entero (14/11/2026): varias renovaciones juntas, un comprobante para todas, aviso antes del corte.
+  route("POST", "/api/me/renew-many/preview", "customer", (c) => store.rmes.renewPreview(c.actor!, c.body?.ids));
+  route("POST", "/api/me/renew-many", "customer", (c) => store.rmes.renewMany(c.actor!, { ids: c.body?.ids, paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/me/renew-many/evidence", "customer", (c) => {
+    const file = saveUpload(c.body);
+    try { return store.rmes.evidenceMany(c.actor!, c.body?.orderIds, { fileRef: file, declaredReference: String(c.body?.declaredReference ?? ""), hash: fileHash(file) }); }
+    catch (e) { dropUpload(file); throw e; }
+  }, MAX_UPLOAD_JSON);
+  route("GET", "/api/me/store-rentals", "customer", (c) => store.rmes.rentAlerts(c.actor!));
 
   route("POST", "/api/me/topups", "customer", (c) => {
     const file = saveUpload(c.body);
@@ -1069,6 +1096,8 @@ export function createApp(cfg: AppConfig): App {
   // Borrar un proveedor: sus cuentas pasan a "Propias" (las tuyas). No se pierde nada.
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
+  registerCaidasRoutes({ route, store }); // cuentas caídas sin sorpresas (antes de /accounts/:id)
+  registerPerfilRoutes({ route, store }); // perfiles sueltos comprados a terceros (perfilSuelto.ts)
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
   route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
   route("POST", "/api/admin/accounts", "staff", (c) => {
@@ -1076,21 +1105,24 @@ export function createApp(cfg: AppConfig): App {
     const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, profiles: b.profiles ?? [], notes: b.notes,
       passwordPending: b.passwordPending === true, allowPastSupplierExpiry: b.allowPastSupplierExpiry === true, iptv: b.iptv });
     // "Ya la pagué": el costo entra como gasto de este mes (para la ganancia real).
-    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id);
+    if (b.paidNow === true) store.finance.recordAccountCost(A(c), r.account.id, { months: b.paidMonths, amount: b.paidAmount });
     return r;
   });
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
-  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }));
+  route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("GET", "/api/admin/assignments/:id/switch-preview", "staff", (c) => store.dia.switchPreview(A(c), c.params.id, { toProductId: c.query.get("to") ?? undefined, toSlotId: c.query.get("toSlotId") ?? undefined }));
+  route("POST", "/api/admin/assignments/:id/switch", "staff", (c) => store.dia.switchPlatform(A(c), c.params.id, { toProductId: c.body?.toProductId, toSlotId: c.body?.toSlotId, adjust: c.body?.adjust, reason: c.body?.reason, idempotencyKey: c.body?.idempotencyKey }));
   // Día a día (14/11): «Me pagó» de lo que se cortó solo (reactivar) y «Renovar proveedor y anotar».
   route("GET", "/api/admin/assignments/:id/reactivate-preview", "staff", (c) => store.dia.reactivatePreview(A(c), c.params.id, { toSlotId: c.query.get("toSlotId") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/reactivate", "staff", (c) => store.dia.reactivate(A(c), c.params.id, { toSlotId: c.body?.toSlotId, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
-  route("POST", "/api/admin/assignments/:id/pay-with-supplier", "staff", (c) => store.dia.payWithSupplier(A(c), c.params.id, { months: c.body?.months, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/assignments/:id/pay-with-supplier", "staff", (c) => store.dia.payWithSupplier(A(c), c.params.id, { months: c.body?.months, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
   route("POST", "/api/admin/accounts/:id/password", "staff", (c) => store.inventario.rotatePassword(A(c), c.params.id, c.body?.password));
   route("POST", "/api/admin/accounts/:id/renew-paid", "staff", (c) => store.finance.payRenewal(A(c), c.params.id, { amount: c.body?.amount, months: c.body?.months, usd: c.body?.usd, rate: c.body?.rate }));
   route("POST", "/api/admin/accounts/bulk", "staff", (c) => store.inventory.addAccountsBulk(A(c), c.body?.rows ?? []), 2 * 1024 * 1024);
-  route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.orders.replaceAccount(A(c), c.params.id, String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/accounts/:id/replace", "staff", (c) => store.caidas.down(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/accounts/:id/move-all", "staff", (c) => store.orders.moveAll(A(c), c.params.id, { toAccountId: String(c.body?.toAccountId ?? ""), reason: String(c.body?.reason ?? "") }));
   route("POST", "/api/admin/accounts/:id", "staff", (c) => {
     const b = c.body ?? {};
@@ -1102,12 +1134,12 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
   route("POST", "/api/admin/assignments/:id/test", "staff", (c) => store.orders.markTest(A(c), c.params.id, c.body?.reason));
-  route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason }));
+  route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason, cash: c.body?.cash === true, slotFallen: c.body?.slotFallen === true }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));
   route("GET", "/api/admin/notifications", "staff", (c) => store.stats.notifications(A(c)));
   // "Mi secretaria": todo lo pendiente en una pantalla (solo lee).
-  route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c)));
-  route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? "Reubicación: cuenta caída"), oldSlot: "retired", otherAccount: true }));
+  route("GET", "/api/admin/secretaria", "staff", (c) => store.stats.secretary(A(c), { botOn: botOn() }));
+  route("POST", "/api/admin/assignments/:id/relocate", "staff", (c) => store.caidas.relocate(A(c), c.params.id, { toAccountId: c.body?.toAccountId, reason: c.body?.reason }));
 
   route("GET", "/api/admin/orders", "staff", (c) => store.admin.orders(A(c), { status: (c.query.get("status") ?? undefined) as never, customerId: c.query.get("customerId") ?? undefined })
     .map((o) => { const ai = o.evidence ? aiCheckOf(o.id) : null; return ai ? { ...o, aiCheck: ai } : o; }));
@@ -1116,7 +1148,7 @@ export function createApp(cfg: AppConfig): App {
     try { return await reviewOrder(c.params.id); }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
-  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
+  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }));
   route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
@@ -1127,6 +1159,8 @@ export function createApp(cfg: AppConfig): App {
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
   }));
+  route("GET", "/api/admin/order-groups", "staff", (c) => store.rmes.groups(A(c)));
+  route("POST", "/api/admin/order-groups/approve", "staff", (c) => store.rmes.approveGroup(A(c), { orderIds: c.body?.orderIds, confirmedReference: c.body?.confirmedReference, amount: c.body?.amount, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/trials", "staff", (c) => {
     const r = store.orders.createTrial(A(c), { customerId: c.body?.customerId, productId: c.body?.productId, hours: c.body?.hours, preferredSlotId: c.body?.preferredSlotId });
     return { ...r, delivery: store.admin.delivery(A(c), r.assignment.id) };
@@ -1179,8 +1213,9 @@ export function createApp(cfg: AppConfig): App {
     const list = store.shops.resellers(A(c)).map((r) => ({ ...r, hasPin: !!db.getSecret(`loginpin:${r.id}`), lastLoginAt: Number(db.getSecret(`lastlogin:${r.id}`) ?? 0) || null }));
     return { list, apps: store.shops.apps(A(c)), rent: st.shopRent ?? { enabled: false, price: 3000, freeIfSpent: 20000, graceDays: 3 }, marginPct: st.resellerMarginPct ?? 30, referralBonus: st.referralBonus ?? 0 };
   });
+  route("GET", "/api/admin/reseller-apps/options", "staff", (c) => store.rmes.approveOptions(A(c)));
   route("POST", "/api/admin/reseller-apps/:id/approve", "staff", (c) => {
-    const r = store.shops.approve(A(c), c.params.id);
+    const r = store.shops.approve(A(c), c.params.id, { trust: c.body?.trust, priceGroupId: c.body?.priceGroupId });
     // Por defecto entra con plan "solo panel"; si pedís la página, se la habilitás después.
     const pin = randomPin();
     setLoginPin(r.customerId, pin);
@@ -1209,15 +1244,19 @@ export function createApp(cfg: AppConfig): App {
     customerId: c.query.get("customerId") ?? undefined, productId: c.query.get("productId") ?? undefined,
     expiringWithinDays: c.query.has("days") ? Number(c.query.get("days")) : undefined,
   }));
-  route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id));
+  route("GET", "/api/admin/assignments/:id/delivery", "staff", (c) => store.admin.delivery(A(c), c.params.id, { change: c.query.get("cambio") === "1" }));
   route("POST", "/api/admin/assignments/notified", "staff", (c) => store.orders.markNoticed(A(c), c.body?.ids, c.body?.off === true));
   route("POST", "/api/admin/assignments/:id/control", "staff", (c) => store.orders.setControl(A(c), c.params.id, {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
-  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey }));
-  route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true }));
-  route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? "")));
+  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? ""), { moveCharge: c.body?.moveCharge === true }));
+  route("GET", "/api/admin/assignments/:id/transfer-preview", "staff", (c) => store.rmes.transferPreview(A(c), c.params.id, String(c.query.get("to") ?? "")));
+  route("GET", "/api/admin/resellers/:id/due", "staff", (c) => store.rmes.due(A(c), c.params.id));
+  route("POST", "/api/admin/resellers/:id/paid-all", "staff", (c) => store.rmes.paidAll(A(c), c.params.id, { ids: c.body?.ids, total: c.body?.total, idempotencyKey: c.body?.idempotencyKey }));
+  route("POST", "/api/admin/customers/:id/store-renew", "staff", (c) => store.rmes.setStoreRenew(A(c), c.params.id, c.body?.allowed));
   route("POST", "/api/admin/assignments/:id/replace", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? ""), oldSlot: c.body?.oldSlot, otherAccount: !!c.body?.otherAccount, ...(c.body?.toSlotId ? { toSlotId: String(c.body.toSlotId) } : {}) }));
   route("GET", "/api/admin/reminders/settings", "staff", () => store.orders.reminderSettings());
   route("POST", "/api/admin/reminders/settings", "staff", (c) => store.orders.updateReminderSettings(A(c), {
@@ -2750,6 +2789,9 @@ export function createApp(cfg: AppConfig): App {
     for (const cid of new Set(subs.map((x) => x.customerId))) {
       const me = s.customers[cid];
       if (!me || me.kind !== "reseller") continue;
+      // Sus alquileres con la tienda: 3 días antes y el día del vencimiento, cuándo se corta (avisoAlquiler.ts).
+      const sr = store.rmes.rentPush(cid, t);
+      if (sr) await customerPush(cid, sr).catch(() => {});
       // «Mi día» (13/11): un solo aviso con lo de hoy (cobrar / avisar / te deben) que abre la pestaña. Si su GaboHub está
       // pausado o en un plan sin Mi día (Gratis o Vendedor), sigue el aviso de siempre de «vence mañana».
       if (!store.shops.planGate(cid, "tito")) {
@@ -2875,7 +2917,7 @@ export function createApp(cfg: AppConfig): App {
     const riskAcc = new Set((st.accountAlerts ?? []).filter((x) => !x.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(x.kind)).map((x) => x.accountId));
     const svcs = Object.values(st.assignments).filter((a) => a.customerId === customerId && a.status === "active").map((a) => {
       const sl = st.slots[a.slotId], acc = sl ? st.accounts[sl.accountId] : undefined;
-      const problem = !acc || acc.status !== "active" || sl?.status === "quarantined" || acc.supplierExpiresAt <= t || riskAcc.has(acc.id);
+      const problem = !acc || acc.status !== "active" || !!acc.fallen || sl?.status === "quarantined" || acc.supplierExpiresAt <= t || riskAcc.has(acc.id);
       const d = Math.ceil((a.customerExpiresAt - t) / 86_400_000);
       return `- ${st.products[a.productId]?.name ?? a.productId}: ${d < 0 ? `vencido hace ${-d} día(s)` : d === 0 ? "vence hoy" : `vence en ${d} día(s)`}${problem ? "; la cuenta tiene un problema (la estamos revisando)" : "; la cuenta está bien"}`;
     });
@@ -2888,7 +2930,7 @@ export function createApp(cfg: AppConfig): App {
   function ownerSnapshot(): string {
     const st = store.engine.s, t = now(), sym = st.settings.currencySymbol || "Bs";
     const money = (c: number) => `${sym} ${(c / 100).toFixed(2)}`;
-    const fd = (x: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x));
+    const fd = (x: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(x)); // «13/01»
     const sys = { id: "system:ai", role: "owner" } as const;
     const pname = (id: string) => st.products[id]?.name ?? id;
     const cname = (id: string) => st.customers[id]?.name ?? id;
@@ -2914,7 +2956,7 @@ export function createApp(cfg: AppConfig): App {
       return `- ${c.name}: saldo ${usdW ? `US$ ${(bal / 100).toFixed(2)}` : money(bal)}, ${clients} cliente(s), última compra ${last ? fd(last.updatedAt) : "nunca"}`;
     });
     const pend = Object.values(st.orders).filter((o) => o.status === "payment_review").slice(0, 20).map((o) => `- ${o.id}: ${cname(o.customerId)}, ${money(o.total)}${o.evidence?.duplicateOf ? " (¡comprobante repetido!)" : ""}`);
-    const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);
+    const supSoon = Object.values(st.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt <= t + 7 * 86_400_000).slice(0, 30).map((a) => `- ${pname(a.productId)} ${a.email}: vence con el proveedor ${fd(a.supplierExpiresAt)}`);
     const alerts = store.watch.list(sys, { unseenOnly: true }).slice(0, 20).map((a) => `- ${a.product} ${a.email}: ${a.text} (${fd(a.at)}, ${a.clients} cliente(s) en esa cuenta)`);
     const fin = store.finance.report(sys, 2);
     const mg = store.finance.margins(sys).products.filter((p) => p.public).map((p) => `- ${p.name}: te cuesta ${p.unitCost === null ? "?" : money(p.unitCost)}, ganás ${money(p.public!.gain)} (${p.public!.pct}%)`);
@@ -3001,22 +3043,27 @@ export function createApp(cfg: AppConfig): App {
   const usdtFor = (totalCents: number) => Math.max(0.01, Math.ceil((totalCents / 100) / binCfg().rate * 100) / 100);
 
   let lastRentRun = 0;
+  // Cada tarea por separado: si una falla, las demás (y el respaldo) siguen y el dueño se entera (tareas.ts).
+  const tasks = createTaskRunner({ now, log, onFail: (name, error) => {
+    store.engine.tx(() => store.engine.audit(system, "jobs.failed", "job", name, { error }));
+    if (pushOn()) void pushSend(pushSubs().filter((x) => store.engine.s.staff[x.staffId]?.role === "owner"), { title: "⚠️ Una tarea automática falló", body: `«${name}»: ${error}`.slice(0, 160), go: "auditoria" }).catch(() => {});
+  } });
   function runJobs() {
-    const expired = store.orders.expireReservations(system);
-    const reminders = store.orders.autoReminders(system);
-    const supplierAlerts = store.orders.supplierExpiryAlerts(system);
-    const closed = store.orders.closeExpired(system, CORTE_GRACE_DAYS);
-    db.purgeExpiredSessions(now());
-    let backup: string | undefined;
-    try { backup = backups.daily()?.name; } catch (e) { log(`respaldo falló: ${(e as Error).message}`); }
+    const expired = tasks.run("vencer reservas", () => store.orders.expireReservations(system));
+    const reminders = tasks.run("recordatorios", () => store.orders.autoReminders(system));
+    const supplierAlerts = tasks.run("avisos del proveedor", () => store.orders.supplierExpiryAlerts(system));
+    const closed = tasks.run("cortar vencidos", () => store.orders.closeExpired(system, CORTE_GRACE_DAYS));
+    tasks.run("sesiones vencidas", () => db.purgeExpiredSessions(now()));
+    const backup: string | undefined = tasks.run("respaldo", () => backups.daily()?.name);
     // Alquiler de páginas de revendedores: se revisa una vez por hora.
     let rents: ReturnType<typeof store.shops.chargeRents> | undefined;
-    if (now() - lastRentRun > 3_600_000) { lastRentRun = now(); try { rents = store.shops.chargeRents(system); } catch (e) { log(`alquileres fallaron: ${(e as Error).message}`); } }
+    if (now() - lastRentRun > 3_600_000) { lastRentRun = now(); rents = tasks.run("alquileres de páginas", () => store.shops.chargeRents(system)); }
     if (rents && (rents.charged || rents.suspended || rents.free)) log(`alquileres: ${JSON.stringify(rents)}`);
     // Una vez por día, la copia también va al Gmail (si está activada).
     const off = offsiteCfg();
     if (off.enabled && (!off.lastAt || now() - off.lastAt > 23 * 3_600_000)) sendOffsite().catch((e) => log(`copia al Gmail falló: ${(e as Error).message}`));
-    return { expired, reminders, closed, supplierAlerts, ...(backup ? { backup } : {}) };
+    const failed = tasks.take();
+    return { expired: expired ?? 0, reminders: reminders ?? 0, closed: closed ?? 0, supplierAlerts: supplierAlerts ?? 0, ...(backup ? { backup } : {}), ...(failed.length ? { failed } : {}) };
   }
   const timers: NodeJS.Timeout[] = [];
   if (cfg.jobs !== false) {

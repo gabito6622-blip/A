@@ -20,7 +20,7 @@ export interface SearchGroup { key: string; label: string; items: SearchItem[]; 
 
 const PER_GROUP = 6;
 export const normq = (x: unknown) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-const ddmm = (t: number) => new Intl.DateTimeFormat("es-BO", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t));
+const ddmm = (t: number) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/La_Paz", day: "2-digit", month: "2-digit" }).format(new Date(t)); // «13/01» (es-BO sin año daba «13/1»)
 const STATUS: Record<string, string> = { awaiting_payment: "Esperando pago", payment_review: "Por revisar", fulfilled: "Entregado", rejected: "Rechazado", expired: "Vencido", cancelled: "Cancelado" };
 
 export function search(store: GabrielStore, actor: { role: string }, raw: string): { q: string; groups: SearchGroup[] } {

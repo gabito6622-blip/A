@@ -4,6 +4,56 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- ✅ **[P1] Revisión «3 meses en el lugar del dueño» (14/11): HECHA** (rama `ocultar-montos`; 14 corridas hasta 0 problemas). Lo que sigue abierto va debajo de «Quedan». Lista original (4 revisores, datos ficticios, reloj simulado; evidencia en el informe de la sesión):
+  - **Plata que no cierra:**
+    - una venta o renovación fiada («Pendiente») cuenta como plata que entró, y al cobrarla se vuelve a contar (`income.ts:46`, `orders.ts:178`, `panel.js:3430/2783/3170`);
+    - «Pasar al fiado» usa el precio de la tienda, no el del revendedor (`fiado.ts:145` → `effectivePrice`);
+    - un pago de 3 meses al proveedor se resta otra vez los meses siguientes: Bs 350 por Bs 210 (`finance.ts:201`, `finanzasCostos.ts:52`);
+    - el gasto no tiene fecha ni moneda, y no se editan ni se ven los de meses anteriores (`finance.ts:18/70`);
+    - lo que devuelve un proveedor no se puede anotar;
+    - devolver al cliente cuenta dos veces lo que entró y deja el perfil caído como «Libre» (`orders.ts:878-905`);
+    - «Pasar a otro» le pasa la deuda al nuevo y borra la libreta del revendedor anterior (`orders.ts:683-708`);
+    - corregir el precio de una venta no corrige Finanzas.
+  - **Días regalados:**
+    - «Me pagó» de una deuda corre 30 días más (`secretary.ts:112`, `cobro.ts:48`);
+    - anotar el mismo cobro en Mi secretaria y en el Control da 2 meses sin aviso;
+    - pagar tarde arranca desde hoy (decide el dueño: ¿desde el vencimiento?).
+  - **Cliente sin servicio sin aviso:**
+    - el recordatorio figura «avisado» aunque no salió (bot apagado o sin permiso; `dia.ts:37`, `orders.ts:1024/1062`);
+    - el corte automático no le avisa al revendedor de sus propios alquileres;
+    - «Cuenta caída» a medias deja clientes fuera de toda alerta (falta el estado «caída»; `orders.ts:735-761`);
+    - después de «Mover todos», la cuenta muerta sigue vendible y el panel pide renovarla;
+    - la nota «NO VENDER» no saca la cuenta de la venta (`inventory.ts:108`);
+    - una fecha mal cargada (395 días) entra sin preguntar.
+  - **Cuentas mal elegidas:**
+    - «Reubicar» y «Cuenta caída» mueven a otra cuenta distinta de la que muestran;
+    - la venta elige la cuenta que vence antes con el proveedor (`inventory.ts:124`), y eso frena el 30 % de los cobros por la fecha del proveedor.
+  - **[Grave técnico] Una clave corta (p. ej. «2027») que aparece en un aviso frena todas las tareas automáticas, incluido el respaldo** (`notify.ts:71`, `app.ts:3006`). Hoy en producción las tareas sí corren: 0 vencidos sin cortar salvo 1 en «esperando fecha».
+  - **Revendedores:**
+    - un QR para varias renovaciones solo deja aprobar 1, porque la referencia ya se usó (`orders.ts:341`);
+    - al aprobar una solicitud queda «independiente» y con la lista de precios vacía;
+    - falta «me pagó todo» por revendedor;
+    - «Renovar con saldo» y «Renovar +1» del Control no piden confirmación;
+    - «Mis ganancias» no incluye sus alquileres.
+  - **Vender:**
+    - escribir el nombre sin tocar la sugerencia traba Vender;
+    - vende la misma plataforma dos veces al mismo cliente sin aviso;
+    - buscar sin tilde no encuentra en el Control ni en Clientes;
+    - no se puede cambiar de plataforma en un paso.
+  - **Falta del todo:**
+    - **perfil suelto comprado a otra persona**: comprar, vender, se cayó → repuso, devolvió o perdido; y resumen por vendedor;
+    - gastos fijos mensuales;
+    - hojas «Gastos» y «Proveedores» en el Excel;
+    - botón «➕ Gasto» en Inicio;
+    - fila de avisos que no se pierda al volver de WhatsApp;
+    - pagar varias renovaciones de proveedor juntas.
+
+- **Quedan de la revisión de 3 meses:**
+  - [Decide el dueño] renovación desde GaboHub cuando la cuenta del proveedor vence antes (hoy está frenada);
+  - [Decide el dueño] «Me pagó» de un fiado paga primero la deuda: ¿o preferís que corra la fecha?;
+  - [P3] título de la barra cortado a 360 px («Mi secretaria», «Proveedores»);
+  - [P3] avisar en Mi secretaria cuando el bot está prendido pero hay mensajes en cola sin salir;
+  - [P3] aviso automático (por correo) cuando un proveedor corta, para acortar los días que la tienda no se entera.
 - ✅ **Revisión del súper administrador (14/11): hecha** (rama `ocultar-montos`, 3 equipos, sin publicar). Lo que quedó de ahí:
   - **[P2] Reactivar lo que se cortó solo también desde el Control** (hoy solo desde Mi secretaria), y botón del proveedor al reactivar.
   - **[P2] Atención puede desmarcar «pagado», cambiar el precio y volver a marcar.** Queda en la Auditoría con el precio anterior; falta aviso o freno (decide el dueño).

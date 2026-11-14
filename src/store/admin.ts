@@ -6,6 +6,7 @@ import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { isUsd, rateNow, usdToBs } from "./usd.js";
 import { diaFields } from "./dia.js";
+import { matchesQuery } from "./buscar.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -139,7 +140,8 @@ export function listCustomers(e: Engine, actor: Actor, q = "") {
   const digits = needle.replace(/\D/g, "");
   const tail = digits.length >= 6 ? digits.slice(-8) : "";
   return Object.values(e.s.customers)
-    .filter((c) => !needle || `${c.name} ${c.phone} ${c.email ?? ""}`.toLowerCase().includes(needle) || (!!tail && c.phone.replace(/\D/g, "").includes(tail)))
+    // Sin tildes y en cualquier orden («maria», «quispe ana», «7100»): buscar.ts.
+    .filter((c) => !needle || matchesQuery(`${c.name} ${c.phone} ${c.email ?? ""}`, needle) || (!!tail && c.phone.replace(/\D/g, "").includes(tail)))
     .map((c) => {
       const mine = Object.values(e.s.assignments).filter((a) => a.customerId === c.id && a.status === "active");
       const priceOf = (a: typeof mine[number]) => effectivePrice(e, a);
@@ -185,7 +187,7 @@ export function listAssignments(e: Engine, actor: Actor, f: { customerId?: Id; p
         ...(isUsd(e, payerOf(e, a.customerId)) ? { payCurrency: "USD" as const, payUsd: payUsdOf(e, a) ?? null } : {}),
         resellerId: rev?.id ?? null, resellerName: rev?.name ?? null, resellerPhone: rev?.phone ?? "",
         // Día a día: cuándo se corta solo y la marca de «ya le avisé» (la misma en Mi secretaria y Recordatorios).
-        ...diaFields(a),
+        ...diaFields(a, e),
       };
     });
 }
@@ -221,7 +223,7 @@ function iptvLines(iptv: NonNullable<Account["iptv"]>, user: string, secret: str
   return out;
 }
 
-export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
+export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id, opts: { change?: boolean } = {}) {
   if (!isStaff(actor)) throw new DomainError("FORBIDDEN", "Solo staff");
   const a = e.s.assignments[assignmentId];
   if (!a || a.status !== "active") throw new DomainError("NOT_FOUND", "No se encontró ese alquiler activo");
@@ -236,18 +238,21 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
   const hide = false;
   const pin = hide ? "" : slot.pin ?? "";
   const secret = hide ? "" : acc.password;
+  // Después de mover al cliente de cuenta (fila de envíos): «Cambiamos tu cuenta…», no «¡Gracias por tu compra!».
+  const hello = opts.change ? `¡Hola ${first}! 👋 Cambiamos tu cuenta de *${prod?.name ?? (acc.iptv ? "IPTV" : "servicio")}*, estos son tus datos nuevos:` : "";
+  const bye = opts.change ? `Tu fecha sigue igual. Cualquier cosa me escribís 🙌` : `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`;
   const message = (acc.iptv
     ? [
-      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
+      hello || `¡Hola ${first}! 👋 Tu *${prod?.name ?? "IPTV"}* ya está lista:`,
       ``,
       ...iptvLines(acc.iptv, acc.email, secret),
       `📅 Vence: ${expiresText}`,
       ...guideLines(prod),
       ``,
-      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+      bye,
     ]
     : [
-      `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
+      hello || `¡Hola ${first}! 👋 Tu *${prod?.name ?? "cuenta"}* ya está lista:`,
       ``,
       `📧 Correo: ${acc.email}`,
       `🔑 Contraseña: ${secret || "(te la paso aparte)"}`,
@@ -255,7 +260,7 @@ export function deliveryInfo(e: Engine, actor: Actor, assignmentId: Id) {
       ...(pin ? [`🔢 PIN del perfil: ${pin}`] : []),
       `📅 Vence: ${expiresText}`,
       ``,
-      `Cualquier cosa me escribís. ¡Gracias por tu compra! 🙌`,
+      bye,
     ]).join("\n");
   e.audit(actor, "assignment.deliver", "assignment", a.id, { customer: a.customerId, ...(hide ? { hidden: true } : {}) });
   return {

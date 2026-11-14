@@ -3,9 +3,11 @@ import type { Actor, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY, boDayKey, boDayStart, boMonthStart, boParts } from "./time.js";
 import { incomeBetween, incomeEvents, sumIncome } from "./income.js";
+import { owedFor } from "./plata.js";
 import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { stockByProduct } from "./inventory.js";
+import { missingProfiles } from "./vendible.js";
 import { balance } from "./wallet.js";
 import { effectivePrice } from "./admin.js";
 import { accountCostBs, marginsData } from "./finance.js";
@@ -55,11 +57,13 @@ export function notificationItems(e: Engine) {
   add("reseller", "👤", apps === 1 ? "1 solicitud de revendedor" : `${apps} solicitudes de revendedor`, apps, "revendedores", "info");
 
   // Cuentas caídas con clientes (perfil en cuarentena, cuenta retirada o vencida con el proveedor).
-  const down = new Set(Object.values(e.s.accounts).filter((a) => a.status !== "active" || a.supplierExpiresAt <= now).map((a) => a.id));
+  const down = new Set(Object.values(e.s.accounts).filter((a) => a.status !== "active" || a.supplierExpiresAt <= now || a.fallen).map((a) => a.id));
   const reloc = Object.values(e.s.assignments).filter((a) => { if (a.status !== "active") return false; const s = e.s.slots[a.slotId]; return s && (s.status === "quarantined" || down.has(s.accountId)); }).length;
   add("reloc", "🔀", reloc === 1 ? "1 cliente en una cuenta caída (reubicar)" : `${reloc} clientes en cuentas caídas (reubicar)`, reloc, "reubicar", "bad");
+  // Sin lugar para moverlos: hay que cargar una cuenta (vendible.ts).
+  for (const m of missingProfiles(e, now)) add("missing", "🆘", `Faltan ${m.n} perfil${m.n === 1 ? "" : "es"} de ${m.product}: cargá una cuenta`, m.n, "carga", "bad");
 
-  const supplierSoon = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + 7 * DAY).length;
+  const supplierSoon = Object.values(e.s.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + 7 * DAY).length;
   add("supplier", "📅", supplierSoon === 1 ? "1 cuenta vence con el proveedor (7 días)" : `${supplierSoon} cuentas vencen con el proveedor (7 días)`, supplierSoon, "cuentas", "warn");
 
   const risky = new Set((e.s.accountAlerts ?? []).filter((a) => !a.seen && ["password_changed", "email_changed", "payment_failed", "cancelled"].includes(a.kind)).map((a) => a.accountId)).size;
@@ -67,7 +71,7 @@ export function notificationItems(e: Engine) {
   const dupPay = Object.values(e.s.orders).filter((o) => o.status === "payment_review" && o.evidence?.duplicateOf).length;
   add("dupReceipt", "🔁", dupPay === 1 ? "1 comprobante repetido por revisar" : `${dupPay} comprobantes repetidos por revisar`, dupPay, "aprobacion", "bad");
 
-  const sup1 = Object.values(e.s.accounts).filter((a) => a.status === "active" && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + DAY).length;
+  const sup1 = Object.values(e.s.accounts).filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt > now && a.supplierExpiresAt <= now + DAY).length;
   add("supplier1d", "⚠️", sup1 === 1 ? "1 cuenta vence MAÑANA con el proveedor" : `${sup1} cuentas vencen MAÑANA con el proveedor`, sup1, "cuentas", "bad");
 
   // Stock bajo: productos publicados (no combos) que ya tuvieron cuentas y les quedan pocos perfiles libres.
@@ -226,7 +230,8 @@ export function dashboard(e: Engine, actor: Actor, days: number) {
   }
   return {
     days: nDays,
-    alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: amt(unpaidList) } },
+    // «Sin pagar»: lo que de verdad te deben (una venta fiada de 3 meses son 3 meses; plata.ts), igual que el Fiado.
+    alerts: { overdue: { count: overdueList.length, amount: amt(overdueList) }, due3: { count: due3List.length, amount: amt(due3List) }, unpaid: { count: unpaidList.length, amount: unpaidList.reduce((t, a) => t + owedFor(e, a), 0) } },
     months,
     kpi: {
       revenue: sum(cur), prevRevenue: sum(prev), orders: cur.filter((x) => x.source === "order").length, prevOrders: prev.filter((x) => x.source === "order").length,
@@ -290,7 +295,7 @@ export function supplierReport(e: Engine, actor: Actor) {
       slots: slots.length, assigned: slots.filter((s) => s.status === "assigned").length,
       quarantined: slots.filter((s) => s.status === "quarantined").length,
       cost, revenue, margin: revenue - cost,
-      expiringIn7Days: accs.filter((a) => a.status === "active" && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * DAY).map((a) => ({ accountId: a.id, email: a.email, expiresAt: a.supplierExpiresAt })),
+      expiringIn7Days: accs.filter((a) => a.status === "active" && !a.fallen && a.supplierExpiresAt >= now && a.supplierExpiresAt - now <= 7 * DAY).map((a) => ({ accountId: a.id, email: a.email, expiresAt: a.supplierExpiresAt })),
     };
   });
 }

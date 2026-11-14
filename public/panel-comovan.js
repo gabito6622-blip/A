@@ -78,12 +78,14 @@ export async function comoVanView(T) {
     const dt = r.debt ?? { total: 0, fiado: 0, pending: 0 };
     return `<li><details class="cv-row" data-cv="${esc(r.id)}">
       <summary><span class="cv-top"><b class="cv-name">${esc(r.name)}</b>${chip(r.status)}<b class="cv-amt">${bs(r.thisMonth)}</b></span>
+        ${r.topupsMonth !== undefined ? `<small class="cv-topup">💰 recargó ${bs(r.topupsMonth)} este mes</small>` : ""}
         <span class="cv-bar" aria-hidden="true"><i style="width:${r.thisMonth ? Math.max(w, 2) : 0}%"></i></span>
         <small class="muted cv-mix">${mix(r)}${dt.total ? ` · <b class="down">te debe ${bs(dt.total)}</b>` : ""}</small></summary>
       <div class="cv-det">
         <small class="muted">Todo es de este mes (del día 1 a hoy), salvo lo que te debe, que es a hoy.</small>
         <dl class="cv-grid">
           <div><dt>Te pagó</dt><dd>${bs(r.thisMonth)} ${r.thisMonth || r.prevMonthToDate ? delta(r.change, r.changePct) : ""}</dd></div>
+          ${r.topupsMonth !== undefined ? `<div><dt>Recargó este mes</dt><dd>${bs(r.topupsMonth)}<br><small class="muted">lo que te mandó a su saldo</small></dd></div>` : ""}
           <div><dt>Ganancia estimada</dt><dd class="${m.profit > 0 ? "up" : m.profit < 0 ? "down" : ""}">${m.profit === null ? "—" : bs(m.profit)}</dd></div>
           <div><dt>Te debe</dt><dd class="${dt.total ? "down" : ""}">${bs(dt.total)}${dt.total ? `<br><small class="muted">fiado ${bs(dt.fiado)} · Control ${bs(dt.pending)}</small>` : ""}</dd></div>
           <div><dt>Renovó a tiempo</dt><dd>${m.renewalsOnTime}</dd></div>
@@ -102,6 +104,6 @@ export async function comoVanView(T) {
     ${chips}
     ${shown.length ? `<ul class="cv-list">${shown.map(row).join("")}</ul>` : `<div class="emptybox">${d.list.length ? "Ninguno en este estado." : "Todavía no tenés revendedores."}</div>`}
     <details class="cv-rules"><summary>¿Cómo se calcula?</summary>
-      <p class="muted">Todos los montos son de <b>este mes</b> (del día 1 a hoy). Lo que te pagaron son sus compras y renovaciones entregadas (sin recargas de saldo, para no contarlas dos veces) <b>más los alquileres que marcás 💵 cobrado en el Control y los pagos que anotás en el Fiado</b>. La <b>ganancia estimada</b> resta lo que te cuestan esos perfiles o cuentas, según el costo que cargaste en tus cuentas. <b>Te debe</b> es su fiado más los alquileres marcados «Pendiente» o «No pagó» en el Control, a hoy. Los cobros que ya habías marcado antes cuentan en el día que empezó ese mes de alquiler. Si ese mes ya tiene un pedido de renovación, la marca no se suma de nuevo. El estado de cada uno compara los últimos 30 días con los 30 anteriores: <b>Creciendo</b>: en 30 días te pagó ${d.rules.growPct} % más que en los 30 anteriores (y al menos ${bs(d.rules.minChange)}). <b>Bajando</b>: ${d.rules.dropPct} % menos, o se le cayeron más alquileres de los que renovó. <b>Dormido</b>: sin compras ni alquileres activos en 30 días. <b>Nuevo</b>: lo creaste hace menos de ${d.rules.newDays} días. Lo que tus revendedores anotan de sus clientes no se ve acá.</p></details>
+      <p class="muted">Todos los montos son de <b>este mes</b> (del día 1 a hoy). Lo que te pagaron son sus compras y renovaciones entregadas (sin recargas de saldo, para no contarlas dos veces; lo que <b>recargó</b> este mes, la plata que de verdad te mandó a su saldo, va aparte al lado de cada uno) <b>más los alquileres que marcás 💵 cobrado en el Control y los pagos que anotás en el Fiado</b>. La <b>ganancia estimada</b> resta lo que te cuestan esos perfiles o cuentas, según el costo que cargaste en tus cuentas. <b>Te debe</b> es su fiado más los alquileres marcados «Pendiente» o «No pagó» en el Control, a hoy. Los cobros que ya habías marcado antes cuentan en el día que empezó ese mes de alquiler. Si ese mes ya tiene un pedido de renovación, la marca no se suma de nuevo. El estado de cada uno compara los últimos 30 días con los 30 anteriores: <b>Creciendo</b>: en 30 días te pagó ${d.rules.growPct} % más que en los 30 anteriores (y al menos ${bs(d.rules.minChange)}). <b>Bajando</b>: ${d.rules.dropPct} % menos, o se le cayeron más alquileres de los que renovó. <b>Dormido</b>: sin compras ni alquileres activos en 30 días. <b>Nuevo</b>: lo creaste hace menos de ${d.rules.newDays} días. Lo que tus revendedores anotan de sus clientes no se ve acá.</p></details>
   </section>`;
 }

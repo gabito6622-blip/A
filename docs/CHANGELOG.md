@@ -3,6 +3,53 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · Revisión «3 meses en el lugar del dueño» y perfil suelto (sin publicar, rama `ocultar-montos`)
+- **Por qué:** el dueño pidió «trabajá 3 meses como yo, hasta corregir todos los errores». Primero lo revisaron 4 revisores, después lo arreglaron 4 equipos y al final un solo agente simuló 14 veces de agosto a octubre, hasta tener 0 problemas.
+- **La plata coincide con la caja real** (0 de diferencia en los 3 meses, en Finanzas, Cierre, Tu mes, el Excel y Cómo van):
+  - lo fiado entra el día que se cobra;
+  - los gastos tienen fecha, moneda, categoría y proveedor, y se pueden editar en meses anteriores;
+  - «Me devolvió plata» para lo que devuelve un proveedor;
+  - gastos fijos con «Lo pagué»;
+  - un pago de varios meses no se vuelve a estimar;
+  - se puede corregir el monto de una venta;
+  - Proveedores por mes, y el Excel con las hojas Gastos y Proveedores.
+- **Cobrar sin regalar días:**
+  - el que paga atrasado antes del corte, paga desde el vencimiento;
+  - «Me pagó lo que debía» no corre la fecha;
+  - «¿Es otro mes?» en cualquier pantalla;
+  - el proveedor ya no frena el cobro: avisa y lo lista en «Proveedores por renovar»;
+  - los avisos que el bot no mandó figuran como «preparados»;
+  - Vender busca sin tildes, avisa si el cliente ya tiene esa plataforma y permite cambiar de plataforma en un paso.
+- **Cuentas caídas:**
+  - estado «caída» (con o sin mover a los clientes);
+  - «No vender más»;
+  - Reubicar a la cuenta exacta y que alcance la fecha del cliente;
+  - «Faltan N perfiles»;
+  - la fila de avisos sobrevive al recargar;
+  - «Pagué la renovación» y «Pagar varias» en la tarjeta;
+  - «¿Pagaste N meses?» al cargar;
+  - una clave corta ya no frena las tareas automáticas ni el respaldo.
+- **Revendedores:**
+  - un QR para varias renovaciones, aprobadas juntas;
+  - aviso 3 días antes del corte;
+  - «Me pagó todo»: unos 78 toques a fin de mes en vez de 246;
+  - «Pasar a otro» sin deudas heredadas y con la libreta guardada;
+  - tipo y lista de precios al aprobar;
+  - ganancia real con sus alquileres;
+  - recargas en Cómo van;
+  - un teléfono repetido no delata a otro revendedor;
+  - el independiente renueva sus alquileres.
+- **Perfil suelto comprado a otra persona:**
+  - «➕ Compré un perfil»;
+  - ficha con lo que costó, a cuánto se vendió y lo que se ganó;
+  - «⚠️ Se cayó» con 3 salidas: me lo repuso, me devolvió plata o lo perdí;
+  - «Le pagué a …»;
+  - resumen por vendedor.
+- **Detalles:**
+  - fechas siempre dd/mm con dos cifras;
+  - desplegables y buscadores de 44 px;
+  - Mi secretaria y Control plegables en el celular.
+
 ## 2026-11-14 · Arreglos de la revisión del súper administrador (sin publicar, rama `ocultar-montos`)
 - **Por qué:** el dueño: «arreglá todo» lo que encontraron 4 revisores en su lugar (día a día, equipo, inventario, finanzas).
 - **Día a día:**

@@ -168,7 +168,7 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       if (ev.source === "control") r.fromControlMonth += ev.amount;
       if (ev.source === "fiado") r.fromFiadoMonth += ev.amount;
     }
-    if (ev.source === "fiado") continue;
+    if (ev.source === "fiado" || ev.source === "refund") continue;
     if (ev.source === "control") { if (ev.at > w30) r.fromControl30 += ev.amount; continue; }
     const o = ev.order!;
     if (ev.at > (r.lastOrderAt ?? 0)) r.lastOrderAt = ev.at;
@@ -177,6 +177,13 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
       l.push(o);
       renewalsByAsg.set(o.renewal.assignmentId, l);
     }
+  }
+  // 1b) Recargas de saldo aprobadas este mes (14/11/2026): lo que de verdad te mandó para su saldo. No suma a «te pagó»
+  //     (eso son sus compras; si se sumaran las dos, la plata contaría dos veces): se muestra al lado.
+  const topups = new Map<Id, Cents>();
+  for (const o of Object.values(s.orders)) {
+    if (o.kind !== "topup" || o.status !== "fulfilled" || o.updatedAt < m0 || o.updatedAt > now || !rows.has(o.customerId)) continue;
+    topups.set(o.customerId, (topups.get(o.customerId) ?? 0) + o.total);
   }
   // 2) Renovaciones de los últimos 30 días: a tiempo o tarde.
   for (const [asgId, list] of renewalsByAsg) {
@@ -243,6 +250,8 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
         fromControl: r.fromControlMonth, fromFiado: r.fromFiadoMonth,
         renewalsOnTime: r.renewalsOnTimeMonth, renewalsLate: r.renewalsLateMonth, dropped: r.droppedMonth, droppedAmount: r.droppedAmountMonth,
       },
+      /** Recargas de saldo aprobadas este mes, en Bs (lo que te mandó; no se suma a «te pagó»). */
+      topupsMonth: topups.get(r.id) ?? 0,
       /** Lo que te debe hoy: fiado anotado + alquileres sin pagar en el Control (sin pasar al fiado). */
       debt: { fiado: r.debtFiado, pending: r.debtPending, pendingCount: r.debtPendingCount, total: r.debtFiado + r.debtPending },
     };
@@ -279,6 +288,7 @@ export function overview(e: Engine, actor: Actor, now: number = e.now()) {
         dropped: { count: sum((r) => r.droppedMonth), amount: sum((r) => r.droppedAmountMonth) },
         concentration: { topN: topM.length, pct: thisMonth > 0 ? Math.round((topMAmt / thisMonth) * 100) : null, amount: topMAmt, names: topM.map((r) => r.name) },
       },
+      topupsMonth: [...topups.values()].reduce((t, x) => t + x, 0),
       debt: { fiado: sum((r) => r.debtFiado), pending: sum((r) => r.debtPending), total: sum((r) => r.debtFiado + r.debtPending), people: list.filter((r) => r.debt.total > 0).length },
       byStatus,
       resellers: list.length,

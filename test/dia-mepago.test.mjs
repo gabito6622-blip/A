@@ -198,7 +198,7 @@ test("2) En el panel: «se corta solo» en Mi secretaria y en el Control, y «Me
     const { base, p, errs } = await login(t.app, b, 360);
     await p.goto(base + "/panel#secretaria");
     await p.locator("#sec-cortados").waitFor();
-    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 2 * DAY).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 2 * DAY).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
     assert.match(await p.locator(".sec-card").filter({ hasText: "Ema Ficticia" }).first().innerText(), new RegExp(`se corta solo el ${cut}`));
     await p.locator("[data-secreact]").click();
     await p.locator(".sec-pvbox").waitFor();
@@ -226,9 +226,10 @@ test("3) «💳 Renovar proveedor y anotar»: anota la renovación del proveedor
   const A = t.addAcc("corta@ejemplo.lat", 10, ["P1"], 3500); // el proveedor vence en 10 días
   const aid = t.sell(ana, t.slotsOf(A.id)[0].id, -1);
   try {
-    // Vista previa: el freno del proveedor trae la sugerencia (1 mes, Bs 35, nueva fecha).
+    // Vista previa: la fecha del proveedor ya no frena (decisión (b), 14/11): avisa y trae la sugerencia (1 mes, Bs 35, nueva fecha).
     const pv = s.cobro.preview(owner, aid);
-    assert.equal(pv.ok, false);
+    assert.equal(pv.ok, true);
+    assert.match(pv.supplierWarn.text, /Renová el proveedor antes del/);
     assert.equal(pv.supplierRenew.months, 1);
     assert.equal(pv.supplierRenew.amount, 3500);
     assert.ok(pv.supplierRenew.to >= pv.to);

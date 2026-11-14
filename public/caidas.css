@@ -1,0 +1,25 @@
+/* Cuentas caídas sin sorpresas (revisión de 3 meses, 14/11/2026). Celular primero: botones de 44 px, texto ≥ 12 px. */
+.cx-ban{margin:0;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;border:1px solid var(--line);background:var(--soft)}
+.cx-ban.bad{border-color:var(--bad);color:var(--ink);background:var(--bad-soft)}
+.cx-ban.warn{border-color:var(--warn);color:var(--ink);background:var(--warn-soft)}
+.cx-note{margin:0;font-size:14px;font-weight:600;color:var(--ok)}
+.cx-ask{display:grid;gap:6px;padding:10px;border:1px solid var(--warn);border-radius:12px;background:var(--card)}
+.cx-ask b{font-size:15px}.cx-ask small{font-size:12.5px;overflow-wrap:anywhere}
+.cx-ask .inline{flex-wrap:wrap}
+.cx-many-list{display:grid;gap:8px}
+.cx-many-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px}
+.cx-many-row .chk{align-items:flex-start;min-height:44px}
+.cx-many-row .chk span{min-width:0;overflow-wrap:anywhere}
+.cx-amt{display:flex;align-items:center;gap:6px;font-size:13px}
+.cx-amt input{min-width:0;width:100%;min-height:44px}
+.cx-total{margin:0;font-weight:700;font-size:14px}
+.cx-expq{display:grid;gap:4px;grid-column:1/-1}
+.cx-expq .chk{min-height:44px;font-size:14px}
+.relwarn{color:var(--warn);font-weight:600;font-size:12.5px;overflow-wrap:anywhere}
+/* Cortes: cada cuenta se pliega (en el celular arranca cerrada). */
+details.cx-cut>summary{list-style:none;cursor:pointer;min-height:44px}
+details.cx-cut>summary::-webkit-details-marker{display:none}
+details.cx-cut>summary small{font-size:12.5px}
+details.cx-cut:not([open])>summary{margin:0}
+details.cx-cut[open]>summary{padding-bottom:4px;border-bottom:1px solid var(--line)}
+@media (max-width:600px){.cx-many-row{grid-template-columns:1fr}}

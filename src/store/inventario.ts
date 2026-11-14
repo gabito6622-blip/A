@@ -53,6 +53,12 @@ export function riskOf(e: Engine, acc: Account, now: number = e.now()): Risk {
   if (!slots.length && Object.values(e.s.slots).some((s) => s.accountId === acc.id)) return { level: "ok", reasons: [], inactive: true };
   const clients = slots.filter((s) => s.status === "assigned").length;
   const bad: string[] = [], warn: string[] = [];
+  // «Cuenta caída» (caidas.ts): los clientes que quedan adentro no tienen servicio. Ya no se pide renovar al proveedor.
+  if (acc.fallen) {
+    if (clients) return { level: "bad", reasons: [`cuenta caída: ${clients} cliente${clients === 1 ? "" : "s"} adentro sin servicio, movelos (Reubicar)`] };
+    return { level: "warn", reasons: ["cuenta caída sin clientes: retirala si no vuelve"] };
+  }
+  if (acc.noSell) warn.push("🚫 no se vende más (sus clientes siguen)");
   const dLeft = Math.ceil((acc.supplierExpiresAt - now) / DAY);
   if (acc.supplierExpiresAt <= now && clients) bad.push(`venció con el proveedor y tiene ${clients} cliente${clients === 1 ? "" : "s"} adentro`);
   else if (dLeft <= 2 && clients) bad.push(`vence con el proveedor en ${Math.max(dLeft, 0)} día${dLeft === 1 ? "" : "s"}`);
@@ -79,7 +85,7 @@ export function cutsReport(e: Engine, actor: Actor, now: number = e.now()) {
   authorize(actor, "inventory.manage");
   const out = [];
   for (const acc of Object.values(e.s.accounts)) {
-    if (acc.status !== "active") continue;
+    if (acc.status !== "active" || acc.fallen) continue;
     const prod = e.s.products[acc.productId];
     if (!prod || prod.kind !== "profile") continue;
     const slots = Object.values(e.s.slots).filter((s) => s.accountId === acc.id && s.status !== "retired");
@@ -92,14 +98,19 @@ export function cutsReport(e: Engine, actor: Actor, now: number = e.now()) {
     if (!dated.length) continue;
     const byDay = new Map<string, { day: number; n: number }>();
     for (const r of dated) { const k = boDayKey(r.expiresAt); const b = byDay.get(k) ?? { day: boDayStart(r.expiresAt), n: 0 }; b.n++; byDay.set(k, b); }
-    const best = [...byDay.values()].sort((x, y) => y.n - x.n || y.day - x.day)[0];
-    const suggestedCut = best.day;
+    // La fecha de corte no puede pasar la del proveedor (revisión de 3 meses): se elige entre las que caen antes o ese
+    // mismo día; si todos vencen después, el corte es el día que vence con el proveedor.
+    const supDay = boDayStart(acc.supplierExpiresAt);
+    const fits = [...byDay.values()].filter((b) => b.day <= supDay);
+    const best = fits.sort((x, y) => y.n - x.n || y.day - x.day)[0];
+    const suggestedCut = best ? best.day : supDay;
+    const cappedBySupplier = !best || [...byDay.values()].some((b) => b.day > supDay);
     const days = dated.map((r) => boDayStart(r.expiresAt));
     const spreadDays = Math.round((Math.max(...days) - Math.min(...days)) / DAY);
     out.push({
       accountId: acc.id, email: acc.email, productId: acc.productId, product: prod.name, supplierExpiresAt: acc.supplierExpiresAt,
       passwordChangedAt: acc.passwordChangedAt ?? null, risk: riskOf(e, acc, now),
-      suggestedCut, spreadDays, aligned: spreadDays === 0, clients: dated.length, free: rows.filter((r) => r.status === "available").length,
+      suggestedCut, cappedBySupplier, spreadDays, aligned: spreadDays === 0 && !cappedBySupplier, clients: dated.length, free: rows.filter((r) => r.status === "available").length,
       profiles: rows.map((r) => ({ ...r, ...(typeof r.expiresAt === "number" ? { diffDays: Math.round((boDayStart(r.expiresAt) - suggestedCut) / DAY) } : {}) }))
         .sort((x, y) => (x.expiresAt ?? Infinity) - (y.expiresAt ?? Infinity) || x.label.localeCompare(y.label)),
     });

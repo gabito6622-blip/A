@@ -131,7 +131,9 @@ describe("lista en dólares (núcleo)", () => {
     const r = s.orders.renew(as(pa), a.assignmentIds[0], { paymentMethod: "balance" });
     assert.deepEqual([r.order.usd, r.order.total, r.order.items[0].usd, r.order.status], [350, usdToBs(350, 9.85), 350, "fulfilled"]);
     assert.equal(s.wallet.balance(pa.id), 4450 - 350);
-    const many = s.orders.renewMany(owner, [a.assignmentIds[0], b.assignmentIds[0]], { paymentMethod: "balance", periods: 2 });
+    // Disney ya se renovó recién (lo hizo el revendedor): el dueño confirma que es otro cobro (14/11: si no, frena «¿Es otro mes?»).
+    assert.equal(s.orders.renewMany(owner, [a.assignmentIds[0]], { paymentMethod: "balance", periods: 2 })[0].code, "DOUBLE_CHARGE");
+    const many = s.orders.renewMany(owner, [a.assignmentIds[0], b.assignmentIds[0]], { paymentMethod: "balance", periods: 2, confirmOther: true });
     assert.ok(many.every((x) => x.ok), JSON.stringify(many));
     assert.equal(s.wallet.balance(pa.id), 4100 - 700 - 400, "2 meses de Disney (US$ 7) + 2 de HBO (US$ 4)");
     const renewals = Object.values(s.engine.s.orders).filter((o) => o.kind === "renewal");

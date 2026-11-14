@@ -1,0 +1,20 @@
+/* Perfiles sueltos comprados a otras personas (16/11/2026). Celular primero: botones y opciones de 44 px, texto ≥ 12 px. */
+.pf-ok{margin:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ok);font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.pf-err{margin:0;color:var(--bad);font-weight:600;font-size:14px;grid-column:1/-1}
+.pf-err[hidden]{display:none}
+.pf-ficha{margin:0;font-size:15px;overflow-wrap:anywhere}
+.pf-slot h2{overflow-wrap:anywhere}
+.pf-more{border:1px solid var(--line);border-radius:12px;padding:0 10px}
+.pf-more>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;font-size:15px}
+.pf-more[open]{padding-bottom:10px}
+.pf-opts{grid-column:1/-1;border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
+.pf-opts[hidden]{display:none}
+.pf-opts legend{font-weight:700;font-size:14px;margin-bottom:6px}
+.pf-opt,.form .pf-opt{color:var(--ink);display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+.pf-opt input,.form .pf-opt input{width:22px;height:22px;flex:none;margin:0;padding:0;accent-color:var(--blue)}
+.pf-opt:has(input:checked){border-color:var(--ink);background:var(--soft)}
+.pf-rep,.pf-cliback{grid-column:1/-1;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+.pf-rep[hidden],.pf-cliback[hidden],.pf-dev[hidden],.pf-rate[hidden]{display:none}
+.pf-mes{flex:1 0 100%;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.pf-mes b{color:var(--ink)}
+.pf-mes .up{color:var(--ok)}.pf-mes .down{color:var(--bad)}

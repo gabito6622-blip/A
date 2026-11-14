@@ -14,8 +14,15 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as finance from "./finance.js";
+import * as gastos from "./gastos.js";
+import * as plata from "./plata.js";
+import * as proveedoresMes from "./proveedoresMes.js";
 import * as inventario from "./inventario.js";
+import * as caidas from "./caidas.js";
+import * as perfilSuelto from "./perfilSuelto.js";
 import * as cobro from "./cobro.js";
+import * as cobrarBien from "./cobrarBien.js";
+import * as cambioPlataforma from "./cambioPlataforma.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as rday from "./resellerDay.js";
@@ -37,6 +44,11 @@ import * as secretary from "./secretary.js";
 import * as dia from "./dia.js";
 import * as diaCobro from "./diaCobro.js";
 import * as bulkAssign from "./bulkAssign.js";
+import * as renovarVarias from "./renovarVarias.js";
+import * as traspaso from "./traspaso.js";
+import * as cobrarTodo from "./cobrarTodo.js";
+import * as avisoAlquiler from "./avisoAlquiler.js";
+import * as listaPrecios from "./listaPrecios.js";
 
 export * from "./types.js";
 export { DomainError, type ErrorCode } from "./errors.js";
@@ -102,11 +114,35 @@ export function createStore(opts: EngineOptions = {}) {
       reactivatePreview: bind(e, diaCobro.reactivatePreview),
       reactivate: bind(e, diaCobro.reactivate),
       payWithSupplier: bind(e, diaCobro.payWithSupplier),
+      /** Revisión de 3 meses (14/11): «Me pagó lo que debía» (sin correr la fecha) y «🔀 Cambiar de plataforma». */
+      payDebt: bind(e, cobrarBien.payDebt),
+      switchPreview: bind(e, cambioPlataforma.switchPreview),
+      switchPlatform: bind(e, cambioPlataforma.switchPlatform),
     },
     /** Inventario inteligente (etapa 4): cortes, cambio de clave guiado. */
     inventario: {
       cuts: bind(e, inventario.cutsReport),
       rotatePassword: bind(e, inventario.rotatePassword),
+    },
+    /** Cuentas caídas sin sorpresas (revisión de 3 meses): marcar caída, no vender, Reubicar exacto, pagar varias. */
+    /** Perfiles sueltos comprados a otras personas (perfilSuelto.ts). */
+    perfiles: {
+      buy: bind(e, perfilSuelto.buyProfile),
+      down: bind(e, perfilSuelto.looseDown),
+      pay: bind(e, perfilSuelto.payLoose),
+      card: bind(e, perfilSuelto.looseCard),
+      vendors: bind(e, perfilSuelto.looseVendors),
+    },
+    caidas: {
+      markFallen: bind(e, caidas.markFallen),
+      unmarkFallen: bind(e, caidas.unmarkFallen),
+      setNoSell: bind(e, caidas.setNoSell),
+      retire: bind(e, caidas.retireAccount),
+      down: bind(e, caidas.downAccount),
+      relocate: bind(e, caidas.relocate),
+      payMany: bind(e, caidas.payRenewalMany),
+      changes: bind(e, caidas.accountChanges),
+      changeSeen: bind(e, caidas.accountChangeSeen),
     },
     inventory: {
       addAccount: bind(e, inventory.addAccount),
@@ -289,6 +325,18 @@ export function createStore(opts: EngineOptions = {}) {
       recordAccountCost: bind(e, finance.recordAccountCost),
       margins: bind(e, finance.productMargins),
       setMinMargin: bind(e, finance.setMinMargin),
+      // La plata como la maneja un humano (gastos.ts, plata.ts, proveedoresMes.ts).
+      addExpenseFull: bind(e, gastos.addExpenseFull),
+      updateExpense: bind(e, gastos.updateExpense),
+      addRefund: bind(e, gastos.addRefund),
+      monthExpenses: bind(e, gastos.monthExpenses),
+      listFixed: bind(e, gastos.listFixed),
+      upsertFixed: bind(e, gastos.upsertFixed),
+      removeFixed: bind(e, gastos.removeFixed),
+      payFixed: bind(e, gastos.payFixed),
+      amendOrder: bind(e, plata.amendOrderTotal),
+      saleToFix: bind(e, plata.saleToFix),
+      suppliersMonth: bind(e, proveedoresMes.supplierMonth),
     },
     fiado: {
       overview: bind(e, fiado.overview),
@@ -352,6 +400,21 @@ export function createStore(opts: EngineOptions = {}) {
     bulk: {
       preview: bind(e, bulkAssign.preview),
       apply: bind(e, bulkAssign.apply),
+    },
+    /** Revendedores un mes entero sin perder plata ni cuentas (revisión de 3 meses, 14/11/2026). */
+    rmes: {
+      renewPreview: bind(e, renovarVarias.renewManyPreview),
+      renewMany: bind(e, renovarVarias.renewMany),
+      evidenceMany: bind(e, renovarVarias.evidenceMany),
+      groups: bind(e, renovarVarias.paymentGroups),
+      approveGroup: bind(e, renovarVarias.approveGroup),
+      setStoreRenew: bind(e, renovarVarias.setStoreRenew),
+      transferPreview: bind(e, traspaso.transferPreview),
+      due: bind(e, cobrarTodo.resellerDue),
+      paidAll: bind(e, cobrarTodo.resellerPaidAll),
+      rentAlerts: bind(e, avisoAlquiler.myStoreRentAlerts),
+      rentPush: (customerId: Id, now?: number) => avisoAlquiler.storeRentPush(e, customerId, now),
+      approveOptions: bind(e, listaPrecios.approveOptions),
     },
     rtools: {
       control: bind(e, rtools.myControl),

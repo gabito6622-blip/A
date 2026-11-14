@@ -1,11 +1,13 @@
 // Inventario transaccional de cuentas y perfiles (slots).
 import type { Account, Actor, Cents, Id, Slot } from "./types.js";
 import type { Engine } from "./engine.js";
-import { MINUTE } from "./time.js";
+import { DAY, MINUTE } from "./time.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { queue } from "./notify.js";
 import { duplicateAccount, emailTypo, normEmail, riskOf } from "./inventario.js";
+import { accountSellable, byCoverage, looseOk, sellBlock, slotFreeStatus } from "./vendible.js";
+import { looseInfo } from "./perfilInfo.js";
 
 export interface NewAccount {
   productId: Id;
@@ -105,10 +107,9 @@ export function addAccountsBulk(e: Engine, actor: Actor, rows: NewAccount[]) {
   });
 }
 
-const sellable = (e: Engine, s: Slot) => {
-  const acc = e.s.accounts[s.accountId];
-  return s.status === "available" && acc?.status === "active" && acc.supplierExpiresAt > e.now();
-};
+// Caída, «No vender más» o nota CAÍDA / NO VENDER: no se vende (vendible.ts).
+// Un perfil suelto vencido con quien te lo vendió tampoco (perfilSuelto.ts).
+const sellable = (e: Engine, s: Slot) => s.status === "available" && accountSellable(e.s.accounts[s.accountId], e.now()) && looseOk(s, e.now());
 
 /** Reserva `qty` slots del producto. Todo o nada; debe llamarse dentro de `tx`. */
 /** Perfiles libres que se pueden vender ahora mismo. */
@@ -116,15 +117,21 @@ export function freeCount(e: Engine, productId: Id): number {
   return Object.values(e.s.slots).filter((s) => s.productId === productId && sellable(e, s)).length;
 }
 
-export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = [], prefer: Id[] = []): Slot[] {
+/**
+ * `needUntil`: hasta cuándo tiene que durar la cuenta con el proveedor (la fecha del cliente). Si no se da, un período
+ * del producto desde hoy. Primero las cuentas que alcanzan esa fecha (vendible.ts → byCoverage).
+ */
+export function reserveSlots(e: Engine, productId: Id, qty: number, orderId: Id, exclude: Id[] = [], prefer: Id[] = [], needUntil?: number): Slot[] {
   const pref = new Map(prefer.map((id, i) => [id, i]));
+  const order = byCoverage(needUntil ?? e.now() + (e.s.products[productId]?.durationDays ?? 30) * DAY);
   const free = Object.values(e.s.slots)
     .filter((s) => s.productId === productId && sellable(e, s) && !exclude.includes(s.accountId))
-    // Si el staff eligió perfiles, esos van primero (en su orden); si no, los que vencen antes con el proveedor.
+    // Si el staff eligió perfiles, esos van primero (en su orden); si no, las cuentas que alcanzan la fecha del cliente
+    // (de esas, la que vence antes con el proveedor) y después las que no alcanzan (la que más dura).
     .sort((a, b) => {
       const pa = pref.has(a.id) ? pref.get(a.id)! : Infinity, pb = pref.has(b.id) ? pref.get(b.id)! : Infinity;
       if (pa !== pb) return pa - pb;
-      return e.s.accounts[a.accountId].supplierExpiresAt - e.s.accounts[b.accountId].supplierExpiresAt || a.id.localeCompare(b.id);
+      return order(e.s.accounts[a.accountId], e.s.accounts[b.accountId]) || a.id.localeCompare(b.id);
     });
   if (free.length < qty) throw new DomainError("OUT_OF_STOCK", `Sin stock suficiente de ${productId}: pedidos ${qty}, libres ${free.length}`);
   const until = e.now() + e.opts.reservationMinutes * MINUTE;
@@ -140,7 +147,7 @@ export function releaseSlots(e: Engine, slotIds: Id[]): void {
   for (const id of slotIds) {
     const s = e.s.slots[id];
     if (s && s.status === "reserved") {
-      s.status = "available";
+      s.status = slotFreeStatus(e, s); // en una cuenta caída vuelve a cuarentena, no a «Libre»
       delete s.reservedByOrder;
       delete s.reservedUntil;
     }
@@ -258,6 +265,8 @@ export function setSlotStatus(e: Engine, actor: Actor, slotId: Id, status: "avai
   e.tx(() => {
     const s = e.get("slots", slotId);
     if (s.status === "assigned" || s.status === "reserved") throw new DomainError("INVALID_STATE", "No se puede cambiar un perfil reservado o asignado; usá reemplazo");
+    // «Liberar en cuarentena» en una cuenta caída volvía a vender un perfil muerto (revisión de 3 meses).
+    if (status === "available" && e.s.accounts[s.accountId]?.fallen) throw new DomainError("INVALID_STATE", "Esa cuenta está marcada como caída: si volvió a funcionar, tocá «✅ Volvió a funcionar» en la cuenta");
     s.status = status;
     e.audit(actor, "slot.status", "slot", slotId, { status, note });
   });
@@ -287,10 +296,12 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
     ...structuredClone(a),
     password: !a.password ? "(pendiente)" : opts.withSecrets ? a.password : "••••••",
     risk: riskOf(e, a),
+    ...(a.status === "active" && sellBlock(a) ? { sellBlock: sellBlock(a) } : {}),
     slots: Object.values(e.s.slots).filter((s) => s.accountId === a.id).map((s) => {
       const asg = s.status === "assigned" ? Object.values(e.s.assignments).find((x) => x.slotId === s.id && x.status === "active") : undefined;
       const cust = asg ? e.s.customers[asg.customerId] : undefined;
       return { id: s.id, label: s.label, status: s.status, pin: opts.withSecrets ? s.pin ?? "" : undefined,
+        ...(s.loose ? { loose: looseInfo(e, s) } : {}),
         ...(asg ? { assignmentId: asg.id, customerId: asg.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "", expiresAt: asg.customerExpiresAt } : {}) };
     }),
   }));

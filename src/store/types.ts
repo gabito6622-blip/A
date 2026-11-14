@@ -257,6 +257,12 @@ export interface Account {
   supplierAlertSentFor?: number;
   /** Última vez que se cambió la clave con «Cambié la clave» (etapa 4). */
   passwordChangedAt?: number;
+  /** «Cuenta caída» (vendible.ts / caidas.ts): no se vende, no pide renovación al proveedor; sus clientes van a Reubicar. */
+  fallen?: { at: number; by: Id; reason: string };
+  /** «🚫 No vender más»: sale de la venta sin tocar a sus clientes actuales. */
+  noSell?: boolean;
+  /** Cuenta de perfiles sueltos comprados a otra persona (perfilSuelto.ts): el costo y la fecha van por perfil. */
+  loose?: boolean;
   createdAt: number;
 }
 
@@ -272,7 +278,28 @@ export interface Slot {
   status: SlotStatus;
   reservedByOrder?: Id;
   reservedUntil?: number;
+  /** Perfil suelto comprado a otra persona (perfilSuelto.ts): a quién, cuánto, hasta cuándo y si se cayó. */
+  loose?: LooseProfile;
 }
+
+/** Datos de un perfil suelto comprado (perfilSuelto.ts). Plata en centavos de Bs (`usd` en centavos de US$). */
+export interface LooseProfile {
+  supplierId: Id;
+  /** Lo que pagaste por un período (Bs). */
+  cost: Cents;
+  usd?: number;
+  rate?: number;
+  /** Hasta cuándo te lo vendió (vence con el vendedor). */
+  until: number;
+  boughtAt: number;
+  /** «Me lo repuso» en otro perfil: el perfil de antes (su pago cubre a este; no se vuelve a estimar). */
+  prev?: Id;
+  /** «⚠️ Se cayó» y este perfil ya no sirve: cuándo y qué pasó (lo repuso en otro, devolvió plata o se perdió). */
+  down?: LooseFall;
+  /** Todas las veces que se cayó (también las que el vendedor arregló cambiando la clave): para el resumen del mes. */
+  falls?: LooseFall[];
+}
+export interface LooseFall { at: number; outcome: "repuso" | "devolvio" | "perdi"; refund?: Cents }
 
 /** Por dónde llegó el permiso de avisos: el cliente al registrarse o en su cuenta, por WhatsApp (ALTA/BAJA), el panel, su revendedor o el Excel. */
 export type ConsentVia = "registro" | "cliente" | "whatsapp" | "panel" | "revendedor" | "importado";
@@ -312,6 +339,10 @@ export interface Customer {
    * de revendedor, ni productos solo para revendedores, ni los pone en su página). Lo cambia el dueño.
    */
   trust?: "independent";
+  /** Independiente: `false` = el dueño no lo deja renovar sus alquileres de la tienda desde GaboHub (renovarVarias.ts). Sin valor = sí. */
+  storeRenew?: false;
+  /** Ficha que un revendedor cargó con un teléfono que ya tenía otra persona: no se usa para entrar con ese número. */
+  phoneShared?: true;
   /** Página propia del revendedor (/r/slug). */
   shop?: ResellerShop;
   /** Suscripción GaboHub de un revendedor SIN página (con página, va en `shop`): pagada hasta y pausada por falta de pago. */
@@ -426,6 +457,8 @@ export interface PaymentEvidence {
   duplicateOf?: Id;
   /** Si el número de operación declarado ya figura en otro pedido (declarado o confirmado): cuál. */
   referenceSeenIn?: Id;
+  /** Un solo comprobante para varios pedidos del mismo cliente (renovarVarias.ts): los pedidos del grupo. */
+  group?: Id[];
 }
 
 export interface Order {
@@ -471,8 +504,20 @@ export interface Order {
   localPay?: { id: Id; name: string };
   /** Cupón usado (copia del código por si después se borra) y cuánto descontó. */
   coupon?: { id: Id; code: string; amount: Cents };
+  /** Fiada (entregada sin cobrar): no cuenta como «Entró» hasta que se cobra. Ver plata.ts. */
+  payLater?: PayLater;
+  /** Correcciones del monto (dueño/admin, con motivo). `total` ya es el corregido. */
+  amended?: { at: number; by: Id; from: Cents; to: Cents; reason: string }[];
   createdAt: number;
   updatedAt: number;
+}
+
+/** Venta o renovación fiada: cuándo se cobró cada servicio (y de qué período), y cuáles pasaron al fiado. */
+export interface PayLater {
+  at: number;
+  paid?: Record<Id, { at: number; from: number }>;
+  /** Servicios cuya deuda pasó a la libreta del fiado: la plata entra por el fiado, no por el pedido. */
+  fiado?: Id[];
 }
 
 export type AssignmentStatus = "active" | "replaced" | "revoked";
@@ -501,6 +546,10 @@ export interface Assignment {
   reminderFor?: number;
   /** Recordatorios automáticos ya enviados: "vencimiento:días" (se reinicia al renovar). */
   remindersSent?: string[];
+  /** Mensaje de la bandeja (outbox) del último recordatorio: solo cuenta como «avisado» si salió de verdad (cobrarBien.ts). */
+  reminderMsgId?: Id;
+  /** Último movimiento de fecha por un cobro (`extend`): cuándo y hasta qué fecha quedó. Frena anotar dos veces el mismo mes. */
+  lastCharge?: { at: number; to: number };
   /** Importado ya vencido: no se cierra solo hasta que el staff le ponga fecha. */
   holdOpen?: boolean;
   /** Datos de control (como en el Excel del dueño). */
@@ -513,6 +562,8 @@ export interface Assignment {
   rlink?: { token: string; by: Id; at: number };
   /** Prueba gratis (línea de cortesía por horas). No cuenta como venta. */
   trial?: boolean;
+  /** El revendedor ya avisó a sus clientes del cambio/caída de esta cuenta (caidas.ts). */
+  changeSeenAt?: number;
 }
 
 /** Un movimiento del fiado: "cargo" = le fiaste; "pago" = te pagó (puede ser parcial). */
@@ -584,7 +635,7 @@ export interface RentalControl {
    * Cobros marcados a mano ("💵 Marcar cobrado"): cuándo, de qué período y cuánto.
    * Se anota al pasar a "pagado"; sirve para que "Cómo van" cuente lo que te pagan por el Control.
    */
-  paidLog?: { at: number; from: number; amount: Cents }[];
+  paidLog?: { at: number; from: number; amount: Cents; customerId?: Id }[];
   /**
    * «📣 Ya le avisé» (Mi secretaria): cuándo le avisó el dueño y para qué vencimiento. Solo vale mientras el alquiler
    * siga con ese vencimiento: al renovar o cambiar la fecha, el aviso deja de contar.
@@ -760,6 +811,9 @@ export interface State {
   expenses: Expense[];
   /** Fiado: lo que te deben (cargos y pagos por cliente). */
   fiado?: FiadoEntry[];
+  /** Gastos fijos mensuales y devoluciones a clientes (plata.ts, gastos.ts). */
+  fixedExpenses?: FixedExpense[];
+  customerRefunds?: CustomerRefund[];
   /** Fallas reportadas (soporte). */
   tickets?: Record<Id, Ticket>;
   /** Cupones de descuento. */
@@ -772,7 +826,21 @@ export interface State {
   ownStock?: Record<Id, OwnStockBook>;
   /** "📩 Ver mi código de acceso" (codigosSolos.ts): permiso del dueño, interruptores y contador. Sin tokens. */
   selfCodes?: SelfCodesState;
+  /** «Pasar a otro» (traspaso.ts): la libreta del dueño anterior de un alquiler, guardada por `alquiler|cliente`. Nadie más la ve. */
+  transferBooks?: Record<string, TransferBook>;
   seq: number;
+}
+
+/** Lo que el dueño anterior tenía anotado en un alquiler que se pasó a otro: vuelve si el alquiler vuelve a él. */
+export interface TransferBook {
+  at: number;
+  subs?: SubRental[];
+  rcontrol?: RentalControl;
+  rlink?: Assignment["rlink"];
+  /** Precio acordado con él en el Control del dueño. */
+  price?: Cents;
+  priceUsd?: Cents;
+  seller?: string;
 }
 
 /** Marca de "Que vuelvan": cuándo se le escribió por última vez y cuándo pidió que no lo molesten. */
@@ -793,7 +861,30 @@ export interface Expense {
   /** Si se pagó en dólares: cuánto (centavos de US$) y a qué tasa (Bs por US$) se pasó a bolivianos. */
   usd?: number;
   rate?: number;
+  /** Moneda en que se pagó (sin dato = Bs). USDT se guarda igual que US$ (`usd` y `rate`). */
+  currency?: "BOB" | "USD" | "USDT";
+  category?: ExpenseCategory;
+  supplierId?: Id;
+  /** Pago por varios meses: cuántos cubre (desde el mes del gasto) y hasta cuándo. Ver gastos.ts. */
+  months?: number;
+  coversUntil?: number;
+  /** «Me devolvió plata»: devolución de un proveedor. Resta de los gastos del mes. */
+  refund?: boolean;
+  /** Si es el pago de un gasto fijo mensual: cuál. */
+  fixedId?: Id;
+  /** Perfil suelto (perfilSuelto.ts): de qué perfil es y si fue la compra o una renovación. */
+  slotId?: Id;
+  looseKind?: "compra" | "renovacion";
+  editedAt?: number;
 }
+
+export type ExpenseCategory = "cuenta" | "perfil" | "publicidad" | "internet" | "comision" | "otro";
+
+/** Gasto fijo mensual (internet, publicidad…): cada mes aparece pendiente hasta que lo anotás. */
+export interface FixedExpense { id: Id; name: string; amount: Cents; category: ExpenseCategory; supplierId?: Id; active: boolean; createdAt: number }
+
+/** Plata devuelta a un cliente («↩️ Devolver»): a su saldo o en efectivo. Resta de «Entró» el día que se devolvió. */
+export interface CustomerRefund { id: Id; at: number; by: Id; customerId: Id; assignmentId?: Id; amount: Cents; via: "saldo" | "efectivo"; usd?: number; note?: string }
 
 /** Cupón de descuento. `value`: porcentaje (1–90) o monto fijo en centavos. */
 export interface Coupon {
