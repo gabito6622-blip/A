@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-14 · Direcciones con mayúsculas: gabostore.lat/PANEL entra al panel (**publicado el 14/11, PR #62**)
+- **Por qué:** el dueño escribió `gabostore.lat/PANEL` y le salió la portada de GaboHub («Streaming hub»): solo existía `/panel` en minúsculas.
+- **Qué hay ahora:** las páginas conocidas (`/panel`, `/hub`, `/tienda/`, `/revendedores`, `/tiendas`, `/codigos`, `/recuperar`, `/privacidad`, `/terminos`, `/r/<nombre>`) escritas con mayúsculas llevan a su versión en minúsculas, con lo que venga después del `?`. No toca la API, los archivos ni los links de cobro (`/c/…`), que sí distinguen mayúsculas.
+- Prueba: `test/dominio.test.mjs` (2 nuevas).
+
 ## 2026-11-13 · Sin destello azul al entrar; atajos panel.gabostore.lat y hub.gabostore.lat (**publicado el 13/11, PR #61**)
 - **Por qué:** el dueño veía «un destello azul al principio» al entrar a gabostore.lat. La página arrancaba con los colores de fábrica (azul `#3984ff`) y recién al llegar la configuración pasaba a su dorado (`#fcc42d`). El panel arrancaba claro con la barra del celular azul y después pasaba a oscuro.
 - **Qué hay ahora:** el servidor manda la tienda, GaboHub y cada página de revendedor con sus colores ya puestos (fondo, color principal, tarjetas, botones, barra del celular y estilo de fondo). El panel arranca oscuro (su tema por defecto).

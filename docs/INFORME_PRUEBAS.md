@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 14/11/2026 · Direcciones con mayúsculas (publicado el 14/11, PR #62)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Causa: foto del dueño con `gabostore.lat/PANEL` mostrando la portada de GaboHub | lectura del enrutado: solo `/panel` | confirmado |
+| `/PANEL`, `/Panel`, `/HUB`, `/Tienda/`, `/R/MauMau`, `/Codigos?x=1` → 301 a minúsculas; `/panel` responde el panel | `test/dominio.test.mjs` | pasa |
+| `/c/AbC123xyz`, `/Shop.js`, `/api/Settings` no se redirigen | ídem | pasa |
+| Suite completa | `npm test` | **601 pasan, 0 fallan, 71 s** |
+
 ## 13/11/2026 · Sin destello azul (publicado el 13/11, PR #61)
 | Qué | Cómo | Resultado |
 |---|---|---|

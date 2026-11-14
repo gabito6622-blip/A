@@ -79,3 +79,24 @@ test("en el celular, gabostore.lat abre la tienda al toque, sin pasar por GaboHu
     assert.deepEqual(errs, []);
   } finally { await b.close(); await s.stop(); }
 });
+
+describe("Direcciones con mayúsculas (14/11/2026)", () => {
+  let s;
+  before(async () => { s = await boot("https://gabostore.lat"); });
+  after(() => s.stop());
+  test("gabostore.lat/PANEL lleva al panel (antes mostraba la portada de GaboHub)", async () => {
+    for (const [from, to] of [["/PANEL", "/panel"], ["/Panel", "/panel"], ["/HUB", "/hub"], ["/Tienda/", "/tienda/"], ["/R/MauMau", "/r/maumau"], ["/Codigos?x=1", "/codigos?x=1"]]) {
+      const r = await get(s.port, "gabostore.lat", from);
+      assert.equal(r.status, 301, from);
+      assert.equal(r.location, to, from);
+    }
+    const p = await get(s.port, "gabostore.lat", "/panel");
+    assert.equal(p.status, 200);
+    assert.match(p.body, /<title>Panel/);
+  });
+  test("no toca lo que distingue mayúsculas: API, archivos y links de cobro", async () => {
+    assert.notEqual((await get(s.port, "gabostore.lat", "/c/AbC123xyz")).status, 301);
+    assert.notEqual((await get(s.port, "gabostore.lat", "/Shop.js")).status, 301);
+    assert.notEqual((await get(s.port, "gabostore.lat", "/api/Settings")).status, 301);
+  });
+});
