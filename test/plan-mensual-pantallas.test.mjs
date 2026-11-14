@@ -17,6 +17,15 @@ try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch 
 const DAY = 86_400_000;
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const SHOTS = process.env.GS_SHOTS || "";
+// Con GS_AXE=<ruta a axe.min.js> (axe-core no es dependencia del proyecto) también revisa WCAG A/AA de lo nuevo.
+const AXE = process.env.GS_AXE ? readFileSync(process.env.GS_AXE, "utf8") : "";
+async function axeCheck(page, include) {
+  if (!AXE) return;
+  await page.evaluate(AXE);
+  const v = await page.evaluate(async (inc) => (await window.axe.run({ include: inc.filter((x) => document.querySelector(x)).map((x) => [x]) }, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } })).violations
+    .map((x) => `${x.id}: ${x.nodes.map((n) => n.target.join(" ")).join(" | ")}`), include);
+  assert.deepEqual(v, [], `axe: ${include.join(", ")}`);
+}
 
 test("códigos: la misma línea de qué hacer en las cuatro pantallas", async () => {
   const { kindHelp } = await import("../public/codigos-ayuda.js");
@@ -121,6 +130,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.equal(bal0 - s.wallet.balance(ana.id), 6000);
     assert.match(await p.locator(".plancard").innerText(), /Tu plan: Disney\+ \+ Netflix \+ Spotify[\s\S]*Próximo pago \d\d\/\d\d\/\d{4} · Bs 60[\s\S]*Nada se cobra solo/);
     await shot(p, "c3-plan-claro");
+    await axeCheck(p, [".plancard", "#rabox", ".combostrip", ".svc"]);
     // El toque del aviso del plan abre «Pagar este mes» con el total (sin pagar todavía).
     await p.goto(base + "/tienda/?pagar=plan#cuentas");
     await p.locator("#rabox[open] .ratot").waitFor();
@@ -149,6 +159,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.match(await p.locator(".fhelp a").getAttribute("href"), /^https:\/\/wa\.me\/59170000000\?text=/);
     assert.equal(await over(p), 0);
     await shot(p, "c3-fallas-claro");
+    await axeCheck(p, [".fhelp"]);
     // Al cambiar de pantalla, el foco va al título y se anuncia.
     await p.locator('.bnav [data-s="cuentas"]').click();
     await p.waitForFunction(() => document.activeElement?.matches?.("#sout h1, #sout h2"));
@@ -185,6 +196,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.doesNotMatch(txt, /proveedor|🔒/);
     assert.equal(await over(bp), 0);
     await shot(bp, "c3-aviso-sin-candado");
+    await axeCheck(bp, [".svc"]);
     await bctx.close();
 
     // ---- Sin sesión: Acceder (foco atrapado, Escape) y «Olvidé mi PIN» con el número anterior ----
@@ -217,6 +229,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.match(href, /soy Rosa Quispe\. Necesito mi PIN para entrar a Tienda Prueba\. Mi número es \+591 70000299\. Cambié de número: mi número anterior era \+591 71112222\./);
     assert.equal(await over(gp), 0);
     await shot(gp, "c3-olvide-pin");
+    await axeCheck(gp, ["#modal"]);
     assert.deepEqual(gerrs, []);
     await gctx.close();
   } finally {
