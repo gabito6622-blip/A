@@ -222,13 +222,13 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     await gp.keyboard.press("Escape");
     await gp.waitForFunction(() => document.getElementById("modal").hidden);
     assert.equal(await gp.evaluate(() => document.activeElement?.dataset?.login), "1", "el foco vuelve al botón Acceder");
-    // Olvidé mi PIN → (sin código por WhatsApp) → ayuda con el número anterior.
+    // Olvidé mi PIN → (sin código por WhatsApp: directo, sin un «Recibir código» que nunca llega) → ayuda con el número anterior.
     await gp.locator("#sout [data-login]").click();
     await gp.locator('[data-loginwhy="forgot"]').click();
-    await gp.locator("#login [name=phone]").fill("+591 70000299");
-    await gp.locator('#login [type="submit"]').click();
     await gp.locator("#recWa").waitFor();
+    assert.doesNotMatch(await gp.locator("#modal").innerText(), /Recibir código/);
     assert.match(await gp.locator("#modal").innerText(), /Te pediremos un dato de tu compra para confirmar que sos vos/);
+    await gp.locator("[name=rphone]").fill("+591 70000299");
     await gp.locator("[name=rname]").fill("Rosa Quispe");
     await gp.locator("[name=rchanged]").check();
     await gp.locator("[name=rprev]").fill("+591 71112222");
@@ -237,6 +237,16 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.equal(await over(gp), 0);
     await shot(gp, "c3-olvide-pin");
     await axeCheck(gp, ["#modal"]);
+    // Soy nuevo (sin código): pide su PIN por WhatsApp como cliente nuevo, sin «un dato de tu compra» (todavía no compró).
+    await gp.locator("#modal [data-loginstep=\"pin\"]").click();
+    await gp.locator('[data-loginwhy="new"]').click();
+    await gp.locator("#recWa").waitFor();
+    const nuevo = await gp.locator("#modal").innerText();
+    assert.doesNotMatch(nuevo, /Recibir código|dato de tu compra|Cambié de número/);
+    await gp.locator("[name=rname]").fill("Luis Nuevo");
+    await gp.locator("[name=rphone]").fill("+591 70000300");
+    assert.match(decodeURIComponent(await gp.locator("#recWa").getAttribute("href")), /soy Luis Nuevo\. Soy cliente nuevo y quiero crear mi cuenta en Tienda Prueba\. Mi número es \+591 70000300\./);
+    assert.equal(await over(gp), 0);
     assert.deepEqual(gerrs, []);
     await gctx.close();
   } finally {
