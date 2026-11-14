@@ -929,11 +929,11 @@ export function createApp(cfg: AppConfig): App {
     const bsn = (v: number) => Math.round(v) / 100;
     const rows: (string | number | null)[][] = [
       ["Cierre de mes", d.label], [],
-      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)],
+      ["Entró (total)", bsn(d.ingresos)], ["· por pedidos", bsn(d.dePedidos)], ["· cobros marcados en el Control", bsn(d.delControl)], ["· pagos del fiado", bsn(d.delFiado)],
       ["Ventas", d.ventas], ["Renovaciones", d.renovaciones], ["Cobros del Control", d.cobrosControl],
       ["Gastos", bsn(d.gastos)], ["· de cuentas", bsn(d.cuentas)], ["Te quedó", bsn(d.ganancia)],
-      ...(d.cuentasEstimado ? [["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", bsn(d.gananciaEstimada)]] : []),
-      [], ["Mes anterior", d.prev.key], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Te quedó", bsn(d.prev.ganancia)],
+      ["Cuentas sin anotar (estimado)", bsn(d.cuentasEstimado)], ["Te quedó (estimado)", d.sinCostos ? "sin costos anotados" : bsn(d.gananciaEstimada)],
+      [], ["Mes anterior", d.prev.label], ["Entró", bsn(d.prev.ingresos)], ["Gastos", bsn(d.prev.gastos)], ["Cuentas sin anotar (estimado)", bsn(d.prev.cuentasEstimado)], ["Te quedó (estimado)", d.prev.sinCostos ? "sin costos anotados" : bsn(d.prev.gananciaEstimada)],
       ["Variación de ingresos", d.vs.ingresosPct === null ? "—" : `${d.vs.ingresosPct} %`],
       [], ["Apps que más dejaron", "Entró", "Unidades", "Costo", "Ganancia"],
       ...d.topApps.map((a) => [a.name, bsn(a.ingresos), a.units, bsn(a.costo), bsn(a.gana)]),
@@ -941,7 +941,7 @@ export function createApp(cfg: AppConfig): App {
       ...d.topPayers.map((p) => [p.name, p.kind === "reseller" ? "Revendedor" : "Cliente", bsn(p.amount)]),
     ];
     store.engine.tx(() => store.engine.audit(A(c), "export", "export", "cierre", { month: d.month }));
-    return sendFile(c, writeXlsx([{ name: `Cierre ${d.month}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
+    return sendFile(c, writeXlsx([{ name: `Cierre ${d.label}`, widths: [34, 16, 12, 12, 12], rows }]), `cierre-${d.month}.xlsx`);
   });
   route("POST", "/api/admin/expenses", "staff", (c) => store.finance.addExpense(A(c), c.body?.amount, c.body?.note));
   route("POST", "/api/admin/expenses/:id/remove", "staff", (c) => store.finance.removeExpense(A(c), c.params.id));
@@ -1070,6 +1070,7 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/suppliers/:id/delete", "staff", (c) => store.catalog.deleteSupplier(A(c), c.params.id));
 
   route("GET", "/api/admin/accounts", "staff", (c) => store.inventory.listAccounts(A(c), { withSecrets: c.query.get("secrets") === "1" }));
+  route("GET", "/api/admin/accounts/:id/secret", "staff", (c) => store.inventory.accountSecret(A(c), c.params.id));
   route("POST", "/api/admin/accounts", "staff", (c) => {
     const b = c.body ?? {};
     const r = store.inventory.addAccount(A(c), { productId: b.productId, supplierId: b.supplierId, email: b.email, password: b.password, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, profiles: b.profiles ?? [], notes: b.notes,

@@ -27,6 +27,9 @@ export interface NewAccount {
   iptv?: import("./types.js").IptvLine;
 }
 
+/** Error cuando una cuenta nueva llega sin «Vence con el proveedor». */
+export const NO_SUPPLIER_DATE = "Poné cuándo vence la cuenta con el proveedor (si no sabés, 30 días desde hoy)";
+
 export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: Account; slots: Slot[] } {
   authorize(actor, "inventory.manage");
   const prod = e.s.products[a.productId];
@@ -64,8 +67,10 @@ export function addAccount(e: Engine, actor: Actor, a: NewAccount): { account: A
     const supplierId = a.supplierId || ensurePropias(e);
     const sup = e.get("suppliers", supplierId);
     if (!sup.active) throw new DomainError("INVALID_STATE", "El proveedor está inactivo");
-    // Vencimiento con el proveedor opcional: sin fecha => muy a futuro (no molesta).
-    const supplierExpiresAt = Number.isFinite(a.supplierExpiresAt) && (a.supplierExpiresAt ?? 0) > 0 ? a.supplierExpiresAt! : e.now() + 36500 * 864e5;
+    // Vencimiento con el proveedor OBLIGATORIO en una cuenta nueva (14/11/2026): antes, sin fecha, se inventaba
+    // «vence en 100 años» y la cuenta nunca avisaba ni contaba bien su costo. Las cuentas viejas sin fecha no se tocan.
+    if (!(Number.isFinite(a.supplierExpiresAt) && (a.supplierExpiresAt ?? 0) > 0)) throw new DomainError("VALIDATION", NO_SUPPLIER_DATE);
+    const supplierExpiresAt = a.supplierExpiresAt!;
     if (supplierExpiresAt <= e.now() && !a.allowPastSupplierExpiry) throw new DomainError("VALIDATION", "La cuenta ya venció con el proveedor");
     const id = e.id("acc");
     const account: Account = {
@@ -289,6 +294,20 @@ export function listAccounts(e: Engine, actor: Actor, opts: { withSecrets?: bool
         ...(asg ? { assignmentId: asg.id, customerId: asg.customerId, customerName: cust?.name ?? "", customerPhone: cust?.phone ?? "", expiresAt: asg.customerExpiresAt } : {}) };
     }),
   }));
+}
+
+/**
+ * La contraseña y los PIN de UNA sola cuenta, para «Editar» (14/11/2026). Antes «Editar» destapaba las
+ * contraseñas de TODAS las cuentas y quedaban a la vista al salir. Queda en la auditoría como cualquier vista de claves.
+ */
+export function accountSecret(e: Engine, actor: Actor, accountId: Id) {
+  authorize(actor, "inventory.manage");
+  authorize(actor, "inventory.view_secrets");
+  const acc = e.get("accounts", accountId);
+  e.tx(() => e.audit(actor, "secrets.view", "account", acc.id));
+  const pins: Record<Id, string> = {};
+  for (const s of Object.values(e.s.slots)) if (s.accountId === acc.id) pins[s.id] = s.pin ?? "";
+  return { id: acc.id, password: acc.password || "", passwordPending: !acc.password, pins };
 }
 
 /** "Propias": las cuentas que son tuyas (vos sos el proveedor). Se crea sola la primera vez. */

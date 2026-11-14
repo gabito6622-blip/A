@@ -1345,11 +1345,13 @@ describe("Nombre y PIN por defecto del servicio", () => {
 });
 
 describe("Cuentas sin proveedor (opcional)", () => {
-  test("addAccount sin proveedor usa 'Propias' y no exige fecha", () => {
+  test("addAccount sin proveedor usa 'Propias'; la fecha con el proveedor ya es obligatoria (14/11/2026)", () => {
     const { s } = setup();
-    const r = s.inventory.addAccount(admin, { productId: "netflix", email: "propia1@correo.com", password: "Clave#9", cost: 0, profiles: [{ label: "Cuenta" }] });
+    // Antes, sin fecha, se inventaba «vence en 100 años». Ahora es un error claro.
+    assert.throws(() => s.inventory.addAccount(admin, { productId: "netflix", email: "propia1@correo.com", password: "Clave#9", cost: 0, profiles: [{ label: "Cuenta" }] }), /vence la cuenta con el proveedor/);
+    const r = s.inventory.addAccount(admin, { productId: "netflix", email: "propia1@correo.com", password: "Clave#9", cost: 0, supplierExpiresAt: T0 + 30 * DAY, profiles: [{ label: "Cuenta" }] });
     assert.equal(r.account.supplierId, "propias");
-    assert.ok(r.account.supplierExpiresAt > Date.now() + 365 * DAY, "vence muy a futuro");
+    assert.equal(r.account.supplierExpiresAt, T0 + 30 * DAY);
     assert.equal(s.inventory.stock().netflix.available >= 1, true);
   });
 });

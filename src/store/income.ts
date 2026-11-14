@@ -11,7 +11,12 @@
 //       (vencimiento − duración), con el precio del Control.
 //     Para no contar dos veces el mismo mes: si ese servicio tiene un pedido que cuenta a menos de
 //     DEDUPE_DAYS días del cobro marcado, la marca no suma (ya está el pedido).
-import type { Cents, Id, Order } from "./types.js";
+//  3. (14/11/2026) Un pago del FIADO del dueño («💵 Me pagó» en Fiado), el día que lo anotaste. Para no contar dos
+//     veces el mismo alquiler: si un cargo del fiado que vino del Control (con `assignmentId`) quedó pagado (aunque sea
+//     en parte), la marca «pagado» de ese mismo período en el Control ya no suma: la plata entró por el fiado.
+//     Mismo período = el vencimiento del cargo está a menos de DEDUPE_DAYS días del fin del período marcado.
+//     La libreta de cada revendedor (lo que le deben SUS clientes) no es plata de la tienda: no cuenta.
+import type { Cents, FiadoEntry, Id, Order } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DAY } from "./time.js";
 import { effectivePrice, payerOf } from "./admin.js";
@@ -23,13 +28,15 @@ export interface IncomeItem { productId: Id; qty: number; amount: Cents }
 export interface IncomeEvent {
   at: number;
   amount: Cents;
-  source: "order" | "control";
-  kind: "sale" | "renewal" | "control";
+  source: "order" | "control" | "fiado";
+  kind: "sale" | "renewal" | "control" | "fiado";
   /** Quién pagó: el revendedor si el servicio es de un cliente suyo; si no, el cliente. */
   payerId: Id;
   customerId: Id;
   orderId?: Id;
   assignmentId?: Id;
+  /** El pago del fiado (solo `source: "fiado"`). */
+  fiadoEntryId?: Id;
   order?: Order;
   /** El total repartido entre los productos del pedido (los cupones y combos se reparten por precio). */
   items: IncomeItem[];
@@ -50,6 +57,7 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
     const items = o.items.map((it) => ({ productId: it.productId, qty: it.qty, amount: sub > 0 ? Math.round((o.total * it.qty * it.unitPrice) / sub) : 0 }));
     out.push({ at: o.updatedAt, amount: o.total, source: "order", kind: o.kind === "renewal" ? "renewal" : "sale", payerId: o.payerId ?? o.customerId, customerId: o.customerId, orderId: o.id, order: o, items });
   }
+  const fiado = fiadoPayments(e, now);
   for (const a of Object.values(e.s.assignments)) {
     const c = a.control;
     if (!c || a.trial) continue;
@@ -64,10 +72,46 @@ export function incomeEvents(e: Engine, now: number = e.now()): IncomeEvent[] {
       const t = c.paidLog?.length ? m.at : Math.min(m.from, now);
       if (t > now || !(m.amount > 0)) continue;
       if (near.some((ot) => Math.abs(ot - t) < DEDUPE_DAYS * DAY || Math.abs(ot - m.from) < DEDUPE_DAYS * DAY)) continue;
+      // Ese período se pagó por el fiado: ya cuenta el pago del fiado.
+      if ((fiado.paidCharges.get(a.id) ?? []).some((ch) => ch.dueAt !== undefined ? Math.abs(ch.dueAt - (m.from + dur)) < DEDUPE_DAYS * DAY : Math.abs(ch.at - t) < DEDUPE_DAYS * DAY || Math.abs(ch.at - m.from) < DEDUPE_DAYS * DAY)) continue;
       out.push({ at: t, amount: m.amount, source: "control", kind: "control", payerId, customerId: a.customerId, assignmentId: a.id, items: [{ productId: a.productId, qty: 1, amount: m.amount }] });
     }
   }
+  out.push(...fiado.events);
   return out.sort((x, y) => x.at - y.at);
+}
+
+/**
+ * Pagos del fiado del dueño como ingresos, y qué cargos que vinieron del Control quedaron pagados (para no contar
+ * además su marca del Control). Los pagos cubren primero el cargo más viejo, igual que la pantalla Fiado. Si un pago
+ * termina de cubrir el cargo de un alquiler, ese producto suma una unidad (para «Por producto» y el costo estimado).
+ */
+function fiadoPayments(e: Engine, now: number): { events: IncomeEvent[]; paidCharges: Map<Id, FiadoEntry[]> } {
+  const events: IncomeEvent[] = [];
+  const paidCharges = new Map<Id, FiadoEntry[]>();
+  const byCustomer = new Map<Id, FiadoEntry[]>();
+  for (const x of e.s.fiado ?? []) if (!x.creditorId && x.at <= now) byCustomer.set(x.customerId, [...(byCustomer.get(x.customerId) ?? []), x]);
+  for (const [customerId, list] of byCustomer) {
+    const charges = list.filter((x) => x.kind === "cargo").sort((a, b) => a.at - b.at).map((c) => ({ c, left: c.amount }));
+    let i = 0;
+    for (const p of list.filter((x) => x.kind === "pago").sort((a, b) => a.at - b.at)) {
+      let rem = p.amount;
+      const items: IncomeItem[] = [];
+      while (rem > 0 && i < charges.length) {
+        const ch = charges[i], take = Math.min(rem, ch.left);
+        ch.left -= take; rem -= take;
+        const asg = ch.c.assignmentId ? e.s.assignments[ch.c.assignmentId] : undefined;
+        if (asg) {
+          items.push({ productId: asg.productId, qty: ch.left === 0 ? 1 : 0, amount: take });
+          const l = paidCharges.get(asg.id) ?? [];
+          if (!l.includes(ch.c)) paidCharges.set(asg.id, [...l, ch.c]);
+        }
+        if (ch.left === 0) i++;
+      }
+      events.push({ at: p.at, amount: p.amount, source: "fiado", kind: "fiado", payerId: customerId, customerId, fiadoEntryId: p.id, items });
+    }
+  }
+  return { events, paidCharges };
 }
 
 /** Suma de lo que entró entre dos fechas (`from` incluido, `to` excluido). */
