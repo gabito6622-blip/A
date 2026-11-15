@@ -2425,7 +2425,13 @@ async function render() {
     if (P.view === "clientes") $$("details.rcli[open]").forEach(fichaOpen);
   } catch (e) {
     if (e.status === 401) return showLogin();
-    $("#pout").innerHTML = `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
+    // 15/11: «Failed to fetch» (sin respuesta: se cortó internet o el servidor se estaba reiniciando) se reintenta
+    // solo una vez y, si sigue, se explica en castellano con un botón «Reintentar».
+    const net = e instanceof TypeError || /failed to fetch|networkerror|load failed|network request failed/i.test(String(e?.message));
+    if (net && !render.retried) { render.retried = true; setTimeout(() => render().finally(() => { render.retried = false; }), 1500); return; }
+    $("#pout").innerHTML = net
+      ? `<div class="perr">📶 No hay conexión con la tienda en este momento. Revisá tu internet y probá de nuevo. <button class="pbtn sm" type="button" data-reload="1">🔄 Reintentar</button></div>`
+      : `<div class="perr">No se pudo cargar: ${esc(e.message)}</div>`;
   }
 }
 function go(v) {
@@ -2692,6 +2698,7 @@ document.addEventListener("keydown", (ev) => {
   const c = ev.target.closest?.('[role="button"][data-editprod]');
   if (c && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); c.click(); }
 });
+document.addEventListener("click", (ev) => { if (ev.target.closest?.("[data-reload]")) render(); });
 document.addEventListener("click", async (ev) => {
   const el = ev.target.closest('button, [role="button"][data-editprod]');
   if (!el) return;
