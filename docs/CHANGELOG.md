@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · 📗 Mis hojas, también sin internet (sin publicar)
+## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
 - **Mis hojas** (Inicio → 📗 Mis hojas): una hoja por plataforma (Disney, Netflix…) con pestañas abajo como el Excel, más «👥 Revendedores» (agrupados, con «📋 Su lista» por WhatsApp) y «💸 Me deben». Cada fila: correo, quién, vence y precio, con la raya de color (rojo vencida, naranja vence en 7 días, verde al día, azul libre, gris apartada). Buscador y resumen arriba.
 - **Tocar una fila:** «💵 Me pagó · renovar 1 mes» (el mismo Renovar de Cuentas, con el aviso «quedó renovada»), «📅 Cambiar fecha», «📝 Nota», «📲 Cobrar por WhatsApp», «✂️ Cortar: no renovó» y «🔎 Ver en Cuentas».
