@@ -80,7 +80,7 @@ describe("catálogo claro · servidor y textos", () => {
     r = await post("/api/auth/customer/register", { name: "Ana", email: "no-es-correo", password: "una-clave-larga" });
     assert.equal((await r.json()).message, "Correo inválido");
     r = await post("/api/auth/customer/register", { name: "Ana", email: "ana@x.lat", password: "corta" });
-    assert.equal((await r.json()).message, "La contraseña necesita al menos 8 caracteres");
+    assert.equal((await r.json()).message, "La contraseña necesita al menos 6 caracteres");
     r = await post("/api/auth/customer/reset", { token: "no-existe", password: "una-clave-larga" });
     assert.equal((await r.json()).message, "El enlace venció o ya se usó. Pedí uno nuevo.");
     const src = readFileSync(resolve("src/server/app.ts"), "utf8");

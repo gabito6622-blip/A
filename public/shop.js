@@ -22,7 +22,7 @@ import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, save
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
-import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent, dispoMessage, ccSignup } from "/catalogo-claro.js";
+import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent, dispoMessage, ccSignup, ccSignupTabs } from "/catalogo-claro.js";
 import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
 import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText, pedidoListoHtml } from "/despues-pago.js";
 import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
@@ -2298,14 +2298,14 @@ function openLogin(step, phone = "", msg = "", email = "", why = "") {
   const st = S.settings;
   const body = {
     email: `<label>Tu correo<input name="email" type="email" required value="${esc(email)}" autocomplete="email" placeholder="vos@correo.com"></label>
-      <label>Tu contraseña<input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="••••••••"></label>
+      <label>Tu contraseña<input name="password" type="password" required minlength="6" autocomplete="current-password" placeholder="••••••••"></label>
       <button class="sbtn pri" type="submit">Entrar</button>
       <div class="loginalt"><button class="sbtn sm" type="button" data-loginstep="register">Crear cuenta</button><button class="sbtn sm" type="button" data-loginstep="forgot">Olvidé mi contraseña</button></div>
       <button class="sbtn" type="button" data-loginstep="pin">Entrar con número y PIN</button>`,
-    register: `<p class="empty">Creá tu cuenta con tu correo y una contraseña. Después entrás cuando quieras.</p>
+    register: `${MODE === "store" ? ccSignupTabs("email") : ""}<p class="empty">Creá tu cuenta con tu correo y una contraseña. Si te la olvidás, te mandamos un enlace a tu correo para poner una nueva.</p>
       <label>Tu nombre<input name="name" required autocomplete="name" maxlength="80"></label>
       <label>Tu correo<input name="email" type="email" required value="${esc(email)}" autocomplete="email" placeholder="vos@correo.com"></label>
-      <label>Contraseña (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
+      <label>Contraseña (mínimo 6)<input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="••••••••"></label>
       <button class="sbtn pri" type="submit">Crear mi cuenta</button>
       <button class="sbtn" type="button" data-loginstep="email">Ya tengo cuenta</button>`,
     forgot: `<p class="empty">Ponemos un enlace en tu correo para que elijas una contraseña nueva (vale 1 hora).</p>
@@ -2324,7 +2324,7 @@ function openLogin(step, phone = "", msg = "", email = "", why = "") {
     signup: ccSignup(phone),
   }[step];
   markSheet();
-  $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${step === "signup" ? "Crear mi cuenta" : "Acceder"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
+  $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${step === "signup" || step === "register" ? "Crear mi cuenta" : "Acceder"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
   $("#modal").hidden = false;
   $("#scrim").hidden = false;
   $("#modal input:not([type=hidden])")?.focus();
@@ -2611,7 +2611,7 @@ document.addEventListener("click", async (ev) => {
     $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${h.hasPassword ? "Cambiar mi contraseña" : "Crear mi contraseña"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
       <form class="sform" id="pwdform">${h.hasPassword ? `<label>Contraseña actual<input name="current" type="password" required autocomplete="current-password" placeholder="••••••••"></label>` : `<p class="empty">Poné tu correo y una contraseña para entrar con ellos la próxima vez.</p>`}
       <label>Tu correo<input name="email" type="email" required value="${esc(S.me?.email ?? "")}" autocomplete="email" placeholder="vos@correo.com"></label>
-      <label>Contraseña nueva (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
+      <label>Contraseña nueva (mínimo 6)<input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="••••••••"></label>
       <button class="sbtn pri" type="submit">Guardar</button></form></div>`;
     $("#modal").hidden = false; $("#scrim").hidden = false;
     $("#modal input")?.focus();

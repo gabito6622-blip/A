@@ -325,7 +325,9 @@ export function ccLoginWhy(why) {
 export const ccLoginAlt = () => `<div class="cclogin"><button class="sbtn" type="button" ${C().MODE === "store" ? 'data-loginstep="signup"' : 'data-loginstep="phone" data-loginwhy="new"'}>🆕 Soy nuevo: crear cuenta</button><button class="sbtn" type="button" data-loginstep="phone" data-loginwhy="forgot">🔑 Olvidé mi PIN</button></div>
       <button class="sbtn ccghost" type="button" data-loginstep="email">Entrar con correo y contraseña</button>`;
 /** «Crear mi cuenta» (15/11, el dueño): nombre, número de WhatsApp y un PIN que elige el cliente. Sin códigos. */
-export const ccSignup = (phone = "") => `<p class="cchint">👋 <b>Creá tu cuenta en 1 minuto.</b> Con tu cuenta subís el comprobante acá mismo y tus accesos quedan guardados en «Mis cuentas».</p>
+/** Dos formas de crear la cuenta (15/11, el dueño): con el número (PIN) o con el correo (contraseña de 6 o más). */
+export const ccSignupTabs = (cur) => `<div class="cctabs" role="group" aria-label="Cómo crear tu cuenta"><button type="button" class="ccopt" data-loginstep="signup" aria-pressed="${cur === "phone"}"><b>📱 Con mi número</b></button><button type="button" class="ccopt" data-loginstep="register" aria-pressed="${cur === "email"}"><b>✉️ Con mi correo</b></button></div>`;
+export const ccSignup = (phone = "") => `${ccSignupTabs("phone")}<p class="cchint">👋 <b>Creá tu cuenta en 1 minuto.</b> Con tu cuenta subís el comprobante acá mismo y tus accesos quedan guardados en «Mis cuentas».</p>
       <label>Tu nombre<input name="name" required autocomplete="name" maxlength="80" placeholder="Ej.: Ana Quispe"></label>
       <label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
       <label>Elegí un PIN de 4 números<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="new-password" class="pinbox" placeholder="••••"></label>

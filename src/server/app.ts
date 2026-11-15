@@ -647,13 +647,13 @@ export function createApp(cfg: AppConfig): App {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const password = String(c.body?.password ?? "");
     if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
-    if (password.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
+    if (password.length < 6) throw new DomainError("VALIDATION", "La contraseña necesita al menos 6 caracteres"); // el dueño, 15/11: mínimo 6
     // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
     // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
     // que manda el enlace a ese correo y así prueba que es suyo.
     if (custByEmail(email)) throw new DomainError("VALIDATION", "Ya hay una cuenta con ese correo. Entrá con tu número y PIN, o tocá \"Olvidé mi contraseña\" para crear una clave.");
     const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
-    db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
+    db.setSecret(`custpw:${cust.id}`, hashSecret(password, 6), now());
     startSession(c, "customer", cust.id);
     sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta está lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podés comprar y entrar con tu correo y tu contraseña.</p>`)).catch(() => undefined);
     return { id: cust.id, name: cust.name, kind: cust.kind };
@@ -682,12 +682,12 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`custpw:${id}`);
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 8 caracteres");
+    if (next.length < 6) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 6 caracteres");
     if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no es correcta");
     // Para revendedores (y clientes sin correo): pueden fijar su correo de acceso acá.
     if (c.body?.email !== undefined && String(c.body.email).trim()) store.catalog.setOwnEmail(c.actor!, String(c.body.email));
     if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
-    db.setSecret(`custpw:${id}`, hashSecret(next), now());
+    db.setSecret(`custpw:${id}`, hashSecret(next, 6), now());
     db.deleteSessionsOf?.(id);
     startSession(c, "customer", id);
     return { ok: true };
@@ -727,8 +727,8 @@ export function createApp(cfg: AppConfig): App {
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
     if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
-    db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
+    if (next.length < 6) throw new DomainError("VALIDATION", "La contraseña necesita al menos 6 caracteres");
+    db.setSecret(`custpw:${data.id}`, hashSecret(next, 6), now());
     db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
     db.deleteSessionsOf?.(data.id);
     startSession(c, "customer", data.id);

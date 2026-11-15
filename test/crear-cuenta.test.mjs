@@ -67,6 +67,15 @@ test("API: crear cuenta con nombre, número y PIN; número repetido, PIN débil 
     assert.deepEqual(await err({ name: "Beto", phone: "+59176543210", pin: "12a4" }), [400, "El PIN tiene que ser de 4 números"]);
     assert.deepEqual(await err({ name: "", phone: "+59176543210", pin: "4826" }), [400, "Escribí tu nombre"]);
     assert.equal((await err({ name: "Beto", phone: "123", pin: "4826" }))[0], 400);
+    // Con correo y contraseña (15/11, el dueño: «mínimo 6»): 5 no, 6 sí; después entra con correo y contraseña.
+    assert.equal((await (await post("/api/auth/customer/register", { name: "Luz", email: "luz@ficticio.lat", password: "12ab5" })).json()).message, "La contraseña necesita al menos 6 caracteres");
+    const reg = await post("/api/auth/customer/register", { name: "Luz Correo", email: "luz@ficticio.lat", password: "luz123" });
+    assert.equal(reg.status, 200);
+    assert.ok(reg.headers.get("set-cookie"), "queda adentro");
+    assert.equal((await post("/api/auth/customer/login-email", { email: "luz@ficticio.lat", password: "luz123" })).status, 200);
+    // «Olvidé mi contraseña» sin Gmail conectado: misma respuesta (no delata si el correo existe).
+    assert.equal((await post("/api/auth/customer/forgot", { email: "luz@ficticio.lat" })).status, 200);
+    assert.equal((await post("/api/auth/customer/forgot", { email: "nadie@ficticio.lat" })).status, 200);
     // Límite: 5 cuentas nuevas por hora desde el mismo lugar (ya van 1 creada + 1 repetida = 2 contadas).
     const codes = [];
     for (let i = 0; i < 4; i++) codes.push((await post("/api/auth/customer/signup", { name: `Persona ${i}`, phone: `+5917654321${i}`, pin: "4826" })).status);
@@ -88,6 +97,15 @@ test("pantalla: «Crear mi cuenta» desde el pago y desde «Soy nuevo» (360 px)
     await p.locator('#login [data-loginstep="signup"]').click();
     await p.locator('#login[data-step="signup"]').waitFor();
     assert.match(await p.locator("#modal h2").innerText(), /Crear mi cuenta/);
+    // Dos formas: «📱 Con mi número» (marcada) y «✉️ Con mi correo».
+    assert.equal(await p.locator('#login .cctabs [data-loginstep="signup"]').getAttribute("aria-pressed"), "true");
+    await p.locator('#login .cctabs [data-loginstep="register"]').click();
+    await p.locator('#login[data-step="register"]').waitFor();
+    assert.match(await p.locator("#modal h2").innerText(), /Crear mi cuenta/);
+    assert.match(await p.locator("#modal").innerText(), /Contraseña \(mínimo 6\)/);
+    assert.match(await p.locator("#modal").innerText(), /te mandamos un enlace a tu correo/);
+    await p.locator('#login .cctabs [data-loginstep="signup"]').click();
+    await p.locator('#login[data-step="signup"]').waitFor();
     await p.locator("#modal [data-close]").first().click();
     // Desde el pago del carrito.
     await p.locator(".tk [data-add]").first().click();
