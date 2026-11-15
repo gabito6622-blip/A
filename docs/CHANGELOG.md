@@ -3,6 +3,9 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-15 · Panel sin conexión (PR #78 publicado)
+- «No se pudo cargar: Failed to fetch» (se cortó la conexión un momento) ahora se reintenta solo una vez y, si sigue, dice «📶 No hay conexión con la tienda en este momento» con «🔄 Reintentar». Prueba nueva: `panel-sin-conexion`. 884 pruebas pasan.
+
 ## 2026-11-15 · Tienda en la computadora más cómoda (PR #77 publicado)
 - **Por qué:** el dueño: «en la computadora ya no se ve tan cómodo como antes» y los logos de los combos chiquitos. Con los textos nuevos cada tarjeta medía 351 px (antes, la tira medía 112 px) y los logos de las etiquetas, 10 px.
 - **Desde 900 px:** vuelve la tira tipo boleto con el talón a la derecha (precio, «Agregar», «Ver qué incluye»), en 2 columnas de 182 px de alto. El cuadro del combo mide 68 px (cada logo 31 px, antes 20) y los logos de las etiquetas 24 px (antes 10). El combo dice «1 dispositivo c/u». El celular no cambia.
