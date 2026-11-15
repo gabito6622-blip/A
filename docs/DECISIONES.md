@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-15 · «Crear mi cuenta» sin códigos
+- **Sin verificar el número por WhatsApp:** la tienda no tiene WhatsApp oficial para mandar códigos. Una cuenta nueva no ve nada ajeno y no recibe accesos sin que la tienda apruebe un pago, así que el riesgo es bajo. Si alguien registra un número ajeno, el dueño real de ese número pide «Olvidé mi PIN» y la tienda le da un PIN nuevo.
+- **Número repetido:** no se crea otra cuenta ni se entra. Se compara de forma tolerante («70012345» es lo mismo que «+59170012345»).
+- **Descartado:** el registro por correo (ya existe, pero casi nadie lo usa) y pedir el PIN por WhatsApp (era el paso de más que hacía perder ventas).
+
 ## 2026-11-15 · Tienda en el celular
 - **El botón de WhatsApp se esconde cuando taparía algo.** No hay en la pantalla un lugar fijo libre de precios y botones (la tarjeta tipo boleto tiene el precio a la izquierda y «Agregar» a la derecha). Por eso el botón se esconde mientras estaría encima de un precio, «Agregar», «Ver qué incluye», los planes o la barra de abajo. En la prueba se ve en 73 de 142 posiciones al recorrer la página y nunca tapa nada. Descartado: sacarlo (el dueño lo quiere) o ponerlo en la barra de abajo (no entra un sexto botón).
 - **«1 perfil asignado · <duración>»:** la duración sale del ajuste del mes. Con «mismo día» dice «1 mes»; con «30 días» dice «30 días». Es la duración real del plan elegido.
