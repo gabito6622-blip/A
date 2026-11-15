@@ -3,7 +3,23 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · Tienda más clara en el celular (sin publicar)
+## 2026-11-15 · «Crear mi cuenta» sin códigos (sin publicar)
+- **Por qué:** el dueño: «alguna opción para que mis clientes creen su cuenta fácil». Hasta ahora un cliente nuevo tenía que pedir el PIN por WhatsApp.
+- **Cómo funciona:**
+  - «🆕 Soy nuevo» (en Acceder) y «🆕 Crear mi cuenta» (en el pago del carrito) abren una sola pantalla: nombre, número de WhatsApp y un PIN de 4 números que elige el cliente, escrito dos veces;
+  - la casilla de avisos viene sin marcar;
+  - al crearla queda adentro y sigue con el pago en la tienda.
+- **Seguridad:**
+  - si el número ya es de alguien, aunque esté escrito distinto, no crea nada ni deja entrar: «Entrá con tu PIN o tocá Olvidé mi PIN»;
+  - no acepta 1234 ni 4 números iguales;
+  - se pueden crear hasta 5 cuentas por hora desde el mismo lugar;
+  - una cuenta nueva no recibe accesos sin que la tienda apruebe un pago.
+- **Solo en la tienda:** GaboHub y las páginas de los revendedores siguen como antes.
+- **También con correo:** pestañas «📱 Con mi número» y «✉️ Con mi correo». Con correo pide nombre, correo y una contraseña de 6 o más (antes 8); vale para clientes, el staff sigue igual. Si la olvidan, el enlace sale por el Gmail conectado en el Panel de códigos; si no hay ninguno conectado, al dueño le llega un aviso para ayudar.
+- **Con WhatsApp oficial:** si algún día se activa, «Soy nuevo» vuelve al camino con código, que prueba que el número es del cliente.
+- **Descripciones de productos (cambio en datos reales, 15/11):** 9 descripciones decían «Tu perfil propio…». Ahora dicen «1 perfil asignado…». Hubo respaldo y primero se cambió 1 solo producto; cambió solo el texto.
+
+## 2026-11-15 · Tienda más clara en el celular (PR #75 publicado)
 - **Por qué:** pedido del dueño. Que en el celular se vean antes el buscador y los planes, que el botón de WhatsApp no tape precios, que los perfiles no prometan «con tu nombre» y que lo «a pedido» se consulte antes de pagar.
 - **Portada compacta (≤ 560 px):**
   - mismo fondo, acentos amarillos, logo y tarjetas tipo boleto;

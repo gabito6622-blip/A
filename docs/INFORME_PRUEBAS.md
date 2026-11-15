@@ -1,5 +1,14 @@
 # Informe de pruebas
 
+## 15/11/2026 · «Crear mi cuenta» (sin publicar) y #75 publicado
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | 882: **881 pasan**; 1 falla por tiempo de espera (`hub-inicio-simple`, GaboHub, no relacionada), que sola pasa 2 de 2 |
+| Prueba nueva `crear-cuenta` | API y pantalla a 360 px, sin WhatsApp oficial (como en producción) | pasa: número repetido escrito distinto → 409 sin sesión; PIN débil; límite 5 por hora; desde el pago queda adentro y sigue pagando |
+| Con WhatsApp oficial | `catalogo-claro` (con códigos) | «Soy nuevo» sigue el camino con código |
+| Producción después de #75 | instantánea antes y después, curl y captura a 390 px | datos idénticos; buscador a 285 px y primer plan a 453 px; «1 perfil asignado · 1 mes» |
+| Descripciones (datos reales) | respaldo, 1 producto de prueba y después 8 más | solo cambió `description` en 9 productos; los 40 productos siguen |
+
 ## 15/11/2026 · Tienda más clara en el celular (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|

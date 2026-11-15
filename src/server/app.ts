@@ -9,7 +9,7 @@ const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && ti
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
-import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
+import { createStore, DomainError, normalizePhone, phoneWithCountry, samePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { CORTE_GRACE_DAYS } from "../store/dia.js";
@@ -501,6 +501,30 @@ export function createApp(cfg: AppConfig): App {
     startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
+  // «Crear mi cuenta» (15/11/2026, el dueño: «alguna opción para que mis clientes creen su cuenta fácil»). Nombre, número
+  // de WhatsApp y un PIN de 4 números que elige el cliente, sin códigos (la tienda no manda códigos por WhatsApp).
+  // - Si el número ya es de alguien (cliente, revendedor o cliente de un revendedor), NO se crea otra cuenta ni se entra:
+  //   «Entrá con tu PIN o tocá Olvidé mi PIN» (el PIN nuevo lo da la tienda, que conoce al dueño del número).
+  // - Una cuenta nueva no ve nada ajeno y no recibe accesos sin que la tienda apruebe un pago.
+  const signupIpLimiter = new RateLimiter(5, 60 * 60_000, now);
+  const weakPin = (p: string) => /^(\d)\1{3}$/.test(p) || "0123456789".includes(p) || "9876543210".includes(p);
+  route("POST", "/api/auth/customer/signup", "public", (c) => {
+    const name = String(c.body?.name ?? "").trim().replace(/\s+/g, " ");
+    const phone = phoneWithCountry(String(c.body?.phone ?? ""));
+    const pin = String(c.body?.pin ?? "").trim();
+    if (name.length < 2 || name.length > 80) throw new DomainError("VALIDATION", "Escribí tu nombre");
+    if (phone.replace(/\D/g, "").length < 8) throw new DomainError("VALIDATION", "Revisá tu número de WhatsApp (con el código de país, por ejemplo +591)");
+    if (!/^\d{4}$/.test(pin)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
+    if (weakPin(pin)) throw new DomainError("VALIDATION", "Elegí un PIN más difícil: no 1234 ni 4 números iguales");
+    if (!signupIpLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas cuentas nuevas desde este celular. Probá en un rato o escribinos por WhatsApp.");
+    const taken = Object.values(store.engine.s.customers).some((x) => !!x.phone && samePhone(x.phone, phone));
+    if (taken) throw new HttpError(409, "PHONE_TAKEN", "Ese número ya tiene una cuenta. Entrá con tu PIN o tocá «Olvidé mi PIN».");
+    const cust = store.catalog.selfRegister({ name, phone, whatsappConsent: c.body?.whatsappConsent === true });
+    setLoginPin(cust.id, pin);
+    logAccess(c, "customer", cust.id, "signup", true);
+    startSession(c, "customer", cust.id);
+    return { id: cust.id, name: cust.name, kind: cust.kind };
+  });
   // Atención (seller) no entrega llaves de cuentas con plata: ni a revendedores ni a quien tiene saldo.
   const sellerKeyGuard = (actor: Actor, cust: { id: string; kind: string }) => {
     if (actor.role === "seller" && (cust.kind === "reseller" || store.wallet.balance(cust.id) > 0)) throw new HttpError(403, "FORBIDDEN", "El acceso de un revendedor o de un cliente con saldo lo da el dueño o un admin");
@@ -623,13 +647,13 @@ export function createApp(cfg: AppConfig): App {
     const email = String(c.body?.email ?? "").trim().toLowerCase();
     const password = String(c.body?.password ?? "");
     if (!EMAILRE.test(email)) throw new DomainError("VALIDATION", "Correo inválido");
-    if (password.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
+    if (password.length < 6) throw new DomainError("VALIDATION", "La contraseña necesita al menos 6 caracteres"); // el dueño, 15/11: mínimo 6
     // Si el correo ya es de alguien (tenga o no contraseña), NO se abre sesión: sería tomar una cuenta ajena
     // con solo saber el correo. Para ponerle contraseña a una cuenta existente está "Olvidé mi contraseña",
     // que manda el enlace a ese correo y así prueba que es suyo.
     if (custByEmail(email)) throw new DomainError("VALIDATION", "Ya hay una cuenta con ese correo. Entrá con tu número y PIN, o tocá \"Olvidé mi contraseña\" para crear una clave.");
     const cust = store.catalog.registerWithEmail({ name: String(c.body?.name ?? "").trim(), email });
-    db.setSecret(`custpw:${cust.id}`, hashSecret(password), now());
+    db.setSecret(`custpw:${cust.id}`, hashSecret(password, 6), now());
     startSession(c, "customer", cust.id);
     sendStoreEmail(email, "Bienvenido", emailWrap("Tu cuenta está lista.", `<p>Hola ${escH(cust.name.split(" ")[0])}, ya podés comprar y entrar con tu correo y tu contraseña.</p>`)).catch(() => undefined);
     return { id: cust.id, name: cust.name, kind: cust.kind };
@@ -658,12 +682,12 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`custpw:${id}`);
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 8 caracteres");
+    if (next.length < 6) throw new DomainError("VALIDATION", "La contraseña nueva necesita al menos 6 caracteres");
     if (stored && !verifyPassword(String(c.body?.current ?? ""), stored)) throw new HttpError(401, "BAD_LOGIN", "La contraseña actual no es correcta");
     // Para revendedores (y clientes sin correo): pueden fijar su correo de acceso acá.
     if (c.body?.email !== undefined && String(c.body.email).trim()) store.catalog.setOwnEmail(c.actor!, String(c.body.email));
     if (!store.engine.s.customers[id].email) throw new DomainError("VALIDATION", "Necesitás un correo para poder entrar con contraseña. Escribilo arriba.");
-    db.setSecret(`custpw:${id}`, hashSecret(next), now());
+    db.setSecret(`custpw:${id}`, hashSecret(next, 6), now());
     db.deleteSessionsOf?.(id);
     startSession(c, "customer", id);
     return { ok: true };
@@ -703,8 +727,8 @@ export function createApp(cfg: AppConfig): App {
     const data = raw ? (JSON.parse(raw) as { id: string; exp: number }) : null;
     if (!data || data.exp < now() || !store.engine.s.customers[data.id]) throw new HttpError(404, "BAD_TOKEN", "El enlace venció o ya se usó. Pedí uno nuevo.");
     const next = String(c.body?.password ?? "");
-    if (next.length < 8) throw new DomainError("VALIDATION", "La contraseña necesita al menos 8 caracteres");
-    db.setSecret(`custpw:${data.id}`, hashSecret(next), now());
+    if (next.length < 6) throw new DomainError("VALIDATION", "La contraseña necesita al menos 6 caracteres");
+    db.setSecret(`custpw:${data.id}`, hashSecret(next, 6), now());
     db.setSecret(`pwreset:${String(c.body?.token)}`, null, now());
     db.deleteSessionsOf?.(data.id);
     startSession(c, "customer", data.id);

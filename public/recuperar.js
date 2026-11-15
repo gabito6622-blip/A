@@ -21,8 +21,8 @@ function done(email) {
 function form(info) {
   $("#app").innerHTML = `<div><h1>Nueva contraseña</h1><p class="muted">Hola <span class="who">${esc((info.name || "").split(" ")[0] || "")}</span>, elegí una contraseña nueva para <b>${esc(info.email)}</b>.</p></div>
     <form class="card" id="f">
-      <label>Contraseña nueva (mínimo 8)<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
-      <label>Repetir contraseña<input name="confirm" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••"></label>
+      <label>Contraseña nueva (mínimo 6)<input name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="••••••••"></label>
+      <label>Repetir contraseña<input name="confirm" type="password" required minlength="6" autocomplete="new-password" placeholder="••••••••"></label>
       <p class="err" id="e"></p>
       <button type="submit">Guardar contraseña</button>
     </form>`;
@@ -31,7 +31,7 @@ function form(info) {
     ev.preventDefault();
     const f = ev.target;
     if (f.password.value !== f.confirm.value) return ($("#e").textContent = "Las dos contraseñas no coinciden");
-    if (f.password.value.length < 8) return ($("#e").textContent = "Necesita al menos 8 caracteres");
+    if (f.password.value.length < 6) return ($("#e").textContent = "Necesita al menos 6 caracteres");
     const btn = f.querySelector("button");
     btn.disabled = true;
     try { await api("POST", "/api/auth/customer/reset", { token, password: f.password.value }); done(info.email); }
