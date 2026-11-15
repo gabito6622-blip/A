@@ -89,7 +89,9 @@ export function buyBtn(p, big = false, n = 1) {
 /* ---------------- ¿Qué recibís? ---------------- */
 // Del TIPO de producto que eligió el dueño (no se adivina nada de la plataforma).
 const KIND = {
-  profile: ["👤", "Perfil propio con tu nombre"],
+  // «Perfil propio con tu nombre» prometía de más (el dueño, 15/11): los perfiles se cargan «Perfil 1, Perfil 2…» y la
+  // web no les cambia el nombre. Es 1 perfil asignado; en la entrega se dice cuál.
+  profile: ["👤", "1 perfil asignado"],
   // «Cuenta completa» confundía (el dueño, 14/11: «ChatGPT es 1 dispositivo»): es un acceso con correo y clave.
   full_account: ["🔑", "Acceso con correo y contraseña"],
   invite: ["✉️", "Invitación a tu correo"],
@@ -108,7 +110,8 @@ export function comboList(p) {
   const head = (p.description || "").split("·")[0];
   return head.includes(" + ") ? head.split(/\s\+\s/).map((x) => x.trim().replace(/\.$/, "")).filter(Boolean) : [];
 }
-/** «Perfil propio con tu nombre · 1 mes», «3 plataformas en un solo pago · 1 mes». */
+/** «1 perfil asignado · 1 mes» (o «· 30 días» si la tienda cuenta por días), «3 plataformas en un solo pago · 1 mes».
+ *  La duración es la del plan elegido (Mensual / 3 meses cambian el producto). */
 export function getLine(p) {
   const n = comboList(p).length;
   const what = p.kind === "combo" ? (n ? `${n} plataformas en un solo pago` : "Combo en un solo pago") : (KIND[p.kind] ?? KIND.own)[1];
@@ -148,7 +151,7 @@ export function devPicker(p) {
   const w = unitWord(p);
   return `<h3 class="ccfsub" id="ccdevT">¿En cuántos dispositivos lo vas a usar?</h3>
     <div class="ccdur ccdevs" role="group" aria-labelledby="ccdevT">${[1, 2, 3].map(opt).join("")}</div>
-    <p class="empty ccdevnote">Cada dispositivo es un ${w} más${p.kind === "profile" ? ", con su nombre" : ""} (${bs(p.price)} c/u).${max < 3 ? ` Ahora hay ${max === 1 ? "1 solo" : max}.` : ""} ¿Más de 3? Escribinos.</p>`;
+    <p class="empty ccdevnote">Cada dispositivo es ${p.kind === "profile" ? "1 perfil asignado más" : `un ${w} más`} (${bs(p.price)} c/u).${max < 3 ? ` Ahora hay ${max === 1 ? "1 solo" : max}.` : ""} ¿Más de 3? Escribinos.</p>`;
 }
 
 /* ---------------- Duración: Mensual / 3 meses con «ahorrás» ---------------- */
@@ -207,13 +210,16 @@ export function ccFicha(p) {
   const url = `${location.origin}${location.pathname}#p=${encodeURIComponent(p.id)}`;
   const rows = [
     [kindIcon(p), getLine(p).split(" · ")[0]],
-    p.kind === "profile" && ["💡", `Un perfil es tu propio espacio dentro de ${appName(p)}, con tu nombre.`],
+    p.kind === "profile" && ["👉", `En la entrega te decimos cuál es tu perfil de ${appName(p)} (por ejemplo «Perfil 3»): entrá siempre a ese. La web no le cambia el nombre.`],
     apps.length && ["📋", `Incluye: ${apps.join(" + ")}.`],
     devLine(p) && [p.forWhom ? "👥" : "📱", devLine(p)],
     ["🗓️", `Dura ${durText(p.durationDays)}${p.durationDays % 30 === 0 && durText(p.durationDays).includes("mes") ? " (del mismo día al mismo día)" : ""}. La fecha de vencimiento te queda en Mis cuentas.`],
-    ["📲", c.SLUG ? "Te lo pasamos por WhatsApp cuando confirmes tu pedido." : st === "now" ? "Te llega a Mis cuentas: con saldo, al instante; con QR, apenas revisamos tu pago." : "Te llega a Mis cuentas apenas lo confirmamos, y te avisamos."],
+    ["📲", c.SLUG ? "Te lo pasamos por WhatsApp cuando confirmes tu pedido."
+      : st === "now" ? "En la tienda: con saldo aparece al instante en «Mis cuentas»; con QR, apenas revisamos tu comprobante. Sin cuenta: te lo pasamos por WhatsApp."
+      : "A pedido: primero consultá si hay. Cuando te confirmemos y pagues, aparece en «Mis cuentas» (sin cuenta: por WhatsApp)."],
   ].filter(Boolean);
-  const ask = (st === "order" || st === "ask") && wa ? `<a class="sbtn" href="${waLink(wa, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Me confirmás si hay antes de pagar?`)}" target="_blank" rel="noopener">${icon("wa")}Preguntar si hay</a>` : "";
+  // A pedido (15/11): «Consultar disponibilidad» va primero y grande; «Agregar al carrito» queda como segunda opción.
+  const ask = (st === "order" || st === "ask") && wa ? `<a class="sbtn pri ccdispo" data-dispo="${esc(p.id)}" href="${waLink(wa, dispoMessage([{ p, qty: devN(p) }]))}" target="_blank" rel="noopener">${icon("wa")}Consultar disponibilidad</a>` : "";
   return `<div role="dialog" aria-modal="true" aria-labelledby="ccfT" class="ccficha">
     <div class="ccfhead"><span class="ccflogo">${p.kind === "combo" && c.comboApps(p).length ? c.comboIcon(c.comboApps(p)) : c.mark(p)}</span><h2 id="ccfT">${esc(p.name)}</h2><button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></div>
     ${stockTag(p)}
@@ -223,7 +229,7 @@ export function ccFicha(p) {
     ${durPicker(g, p, "det")}
     ${devPicker(p)}
     <div class="price">${bs(p.price * devN(p))}<small>/ ${durText(p.durationDays)}${devN(p) > 1 ? ` · ${devN(p)} dispositivos` : ""}</small>${c.usdtHint(p.price * devN(p))}</div>
-    <div class="ccfbtns">${buyBtn(p, true, devN(p))}${ask}<button class="sbtn" type="button" data-close="1">Cerrar</button></div>
+    <div class="ccfbtns">${ask ? `${ask}${buyBtn(p, true, devN(p)).replace('class="sbtn pri"', 'class="sbtn"')}` : buyBtn(p, true, devN(p))}<button class="sbtn" type="button" data-close="1">Cerrar</button></div>
     <button class="sbtn ccshare" type="button" data-copy="${esc(url)}">🔗 Copiar el link de este producto</button></div>`;
 }
 /** Abre la ficha en la ventana de siempre (#modal). «Atrás» del celular la cierra. */
@@ -260,9 +266,16 @@ export function ccOpenFromHash() {
   return openFicha(p.id);
 }
 
+/** Mensaje de «Consultar disponibilidad»: qué plan, cuánto y por cuánto tiempo. `items`: [{ p, qty }]. */
+export function dispoMessage(items) {
+  const L = items.map(({ p, qty = 1 }) => `• ${qty > 1 ? `${qty} × ` : ""}${p.name} · ${durText(p.durationDays)} · ${bs(p.price * qty)}`);
+  return `Hola 👋 Antes de pagar, ¿tienen disponible?\n${L.join("\n")}\n¿Cuándo me lo podrían pasar?`;
+}
+
 /* ---------------- Carrito: aviso de «a pedido» ANTES de pagar ---------------- */
 export function ccCartNotice() {
   const c = C();
+  if (c.MODE === "store") return ""; // en la tienda, lo a pedido va en su propia sección del carrito (shop.js)
   const items = (c.S.cart ?? []).map((l) => ({ l, p: (c.S.catalog ?? []).find((x) => x.id === l.productId) })).filter(({ l, p }) => p && l.qty > (p.available ?? 0) && c.onDemand(p));
   if (!items.length) return "";
   const names = items.map(({ p }) => p.name);

@@ -60,7 +60,7 @@ test("tarjeta «Para 1 dispositivo» y ficha para elegir 2 o 3 dispositivos", { 
       const opts = f.locator("[data-devn]");
       assert.deepEqual((await opts.allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim()), ["1 dispositivo Bs 40", "2 dispositivos Bs 80", "3 dispositivos Bs 120"]);
       assert.equal(await opts.nth(2).isDisabled(), true, "solo hay 2 perfiles: el 3 no se puede elegir");
-      assert.match(await f.innerText(), /Cada dispositivo es un perfil más, con su nombre \(Bs 40 c\/u\)\. Ahora hay 2\./);
+      assert.match(await f.innerText(), /Cada dispositivo es 1 perfil asignado más \(Bs 40 c\/u\)\. Ahora hay 2\./);
       await opts.nth(1).click();
       await p.waitForFunction(() => document.querySelector('.ccficha [data-devn="2"]')?.getAttribute("aria-pressed") === "true");
       assert.match(await f.locator(".price").innerText(), /Bs 80[\s\S]*2 dispositivos/);

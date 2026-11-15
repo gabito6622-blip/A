@@ -249,7 +249,8 @@ describe("C1 · en el celular (360 px, claro y oscuro)", { skip: !chromium && "P
       // 1. El botón verde, fijo, de 44 px o más, sin tapar la barra de abajo ni el carrito.
       const fab = p.locator("#hablar");
       await fab.waitFor();
-      assert.match(await fab.innerText(), /Hablar con una persona/);
+      assert.equal((await fab.innerText()).trim(), "WhatsApp", "ícono + «WhatsApp» (15/11)");
+      assert.match(await fab.getAttribute("aria-label"), /Hablar con una persona por WhatsApp/);
       const fb = await fab.boundingBox(), nav = await p.locator(".bnav").boundingBox(), cart = await p.locator(".shead [data-cart]").boundingBox();
       assert.ok(fb.height >= 44, `${scheme}: el botón mide ${fb.height}px`);
       const hit = (a, c) => a.x < c.x + c.width && c.x < a.x + a.width && a.y < c.y + c.height && c.y < a.y + a.height;
@@ -312,8 +313,10 @@ describe("C1 · en el celular (360 px, claro y oscuro)", { skip: !chromium && "P
       // Fuera de horario: lo dice el botón (sin prometer que alguien contesta ya).
       await p.clock.setFixedTime(new Date(LPZ(6)));
       await p.goto("about:blank"); await p.goto(base + "/tienda/#inicio");
-      await p.locator("#hablar small").waitFor();
-      assert.equal(await p.locator("#hablar small").innerText(), "Te respondemos desde las 8:00");
+      // 15/11: el botón dice solo «WhatsApp»; el horario va en su descripción (y en la barra de arriba).
+      await p.locator("#hablar").waitFor();
+      await p.waitForFunction(() => /Te respondemos desde las 8:00/.test(document.querySelector("#hablar")?.getAttribute("aria-label") ?? ""));
+      assert.equal((await p.locator("#hablar").innerText()).trim(), "WhatsApp");
       assert.ok((await p.locator("#hablar").boundingBox()).height >= 44);
       await ctx.close();
     }
