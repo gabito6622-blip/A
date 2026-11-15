@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 15/11/2026 · Tablero de revendedores, «Cortar: no renovó» y aviso de renovada (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (174 s) | 886: **885 pasan**; 1 falla por tamaño medido en medio de una animación (`revendedor-cuaderno-pantallas`, GaboHub, no tocada), que sola pasa 1 de 1 |
+| Prueba `tablero-revendedores` | 1366 y 390 px, datos ficticios | orden por urgencia, colores, «Cobrar» con total, filtros, botones ≥ 44 px, sin desborde; «✂️ Cortar» deja la cuenta `quarantined` y al revendedor solo con su otra cuenta; «Me pagó todo» y «Renovar» muestran el aviso con las fechas nuevas y el link de WhatsApp (no se abre) |
+| Capturas | `TB_SHOTS` | fuera del repositorio, en el scratchpad de la sesión |
+
 ## 15/11/2026 · Tienda en la computadora (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
