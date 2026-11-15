@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 15/11/2026 · 📗 Mis hojas sin internet
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (184 s) | **887 pasan, 0 fallan** |
+| Prueba nueva `mis-hojas` | 1366 y 390 px, datos ficticios, Chromium con el service worker y `setOffline` | pestañas (Disney 4, Netflix 4, Revendedores 2, Me deben 1) de 44 px; orden rojo→naranja→verde→azul; la tabla entra en el celular; búsqueda; «Su lista»; «Me pagó» con internet renueva en el servidor y muestra el aviso; la copia guardada no tiene contraseñas; **sin internet** el panel abre en Mis hojas, anota «Me pagó» y «Cambiar fecha» con ⏳; al volver la señal sube el «Me pagó» y pregunta por la fecha que había cambiado en la tienda (respondiendo que no, no se pisa) |
+| Menú | `panel-ordenado`, `panel-dia` | «Mis hojas» se suma para dueño y admin; nada se quitó |
+
 ## 15/11/2026 · Tablero de revendedores, «Cortar: no renovó» y aviso de renovada (PR #80 publicado)
 | Qué | Cómo | Resultado |
 |---|---|---|
