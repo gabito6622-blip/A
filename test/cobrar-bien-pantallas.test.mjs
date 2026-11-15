@@ -21,7 +21,7 @@ let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
 const DAY = 864e5;
 const PASS = "clave-del-dueño-123";
-const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" }); // «13/01» (es-BO sin año daba «13/1»)
+const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", timeZone: "America/La_Paz" }); // «13/01» (es-BO sin año daba «13/1»)
 
 async function setup() {
   const dir = mkdtempSync(join(tmpdir(), "gs-eq2-"));
@@ -43,7 +43,7 @@ async function setup() {
   const ck = (await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "gabriel", password: PASS }) })).headers.get("set-cookie").split(";")[0];
   const b = chromium ? await chromium.launch() : null;
   const page = async (width = 360, colorScheme = "light") => {
-    const ctx = await b.newContext({ viewport: { width, height: 780 }, colorScheme, isMobile: true, hasTouch: true });
+    const ctx = await b.newContext({ viewport: { width, height: 780 }, colorScheme, isMobile: true, hasTouch: true, timezoneId: "America/La_Paz" }); // un celular en Bolivia (sin esto, cerca de la medianoche UTC las fechas salían un día corridas)
     await ctx.route(/wa\.me|whatsapp\.com|fonts\.(googleapis|gstatic)/, (r) => r.abort());
     const [n, v] = ck.split("="); await ctx.addCookies([{ name: n, value: v, url: base }]);
     const p = await ctx.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message));
