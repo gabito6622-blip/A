@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 15/11/2026 · Tienda en la computadora (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | **883 pasan, 0 fallan** |
+| Prueba nueva `tienda-computadora` | 1366 y 1920 px, y 390 px para el celular | 2 columnas; tarjeta ≤ 260 px (medida: 182; antes 351); talón a la derecha; logos de combo ≥ 28 px y de etiqueta ≥ 20 px; el celular sigue en 1 columna |
+| Comparación | réplica local de la versión del 14/11 (#71) contra la actual, con el aspecto y el catálogo públicos | capturas en `scratchpad/pc/` |
+
 ## 15/11/2026 · «Crear mi cuenta» (sin publicar) y #75 publicado
 | Qué | Cómo | Resultado |
 |---|---|---|
