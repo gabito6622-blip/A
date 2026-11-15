@@ -3,6 +3,9 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-15 · Datos reales: 2 cuentas Disney liberadas (con respaldo)
+- A pedido del dueño (ya les había cambiado la clave): opajg12+7ped y opajg12+k7z estaban apartadas (corte automático). Se guardó la clave nueva (no tenían clave cargada) y quedaron libres para vender. Respaldo previo sin contraseñas en el scratchpad de la sesión.
+
 ## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (PR #82 publicado)
 - **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
 - **Revendedor (GaboHub → Códigos):** debajo de su link, «🔐 PIN por cuenta (opcional)» con cada correo de sus cuentas: poner, cambiar o quitar un PIN de 4 números. Al ponerlo, el texto para su cliente (link, correo y PIN) queda copiado y hay «Mandárselo a tu cliente».
