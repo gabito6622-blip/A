@@ -15,6 +15,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
   - se pueden crear hasta 5 cuentas por hora desde el mismo lugar;
   - una cuenta nueva no recibe accesos sin que la tienda apruebe un pago.
 - **Solo en la tienda:** GaboHub y las páginas de los revendedores siguen como antes.
+- **También con correo:** pestañas «📱 Con mi número» y «✉️ Con mi correo». Con correo pide nombre, correo y una contraseña de 6 o más (antes 8); vale para clientes, el staff sigue igual. Si la olvidan, el enlace sale por el Gmail conectado en el Panel de códigos; si no hay ninguno conectado, al dueño le llega un aviso para ayudar.
+- **Con WhatsApp oficial:** si algún día se activa, «Soy nuevo» vuelve al camino con código, que prueba que el número es del cliente.
 - **Descripciones de productos (cambio en datos reales, 15/11):** 9 descripciones decían «Tu perfil propio…». Ahora dicen «1 perfil asignado…». Hubo respaldo y primero se cambió 1 solo producto; cambió solo el texto.
 
 ## 2026-11-15 · Tienda más clara en el celular (PR #75 publicado)

@@ -105,6 +105,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 ## Tienda en el celular (15/11/2026)
 - ✅ Portada compacta, botón «WhatsApp» chico que no tapa, «1 perfil asignado», compra en tienda vs WhatsApp, «Consultar disponibilidad» y pagar solo lo disponible (rama `ocultar-montos`, sin publicar).
 - ✅ **«Crear mi cuenta» sin códigos** (nombre, número y PIN que elige el cliente), sin publicar. Pendiente: si alguien registra un número ajeno, el dueño de ese número pide «Olvidé mi PIN» y la tienda le da uno nuevo.
+- **[P1] Lo hace el dueño · conectar un Gmail en el Panel de códigos** (con contraseña de aplicación). Sin eso, «Olvidé mi contraseña» no puede mandar el enlace: el cliente ve el mismo mensaje y al dueño le llega un aviso al celular para ayudarlo por WhatsApp. Revisado el 15/11: hoy no hay ninguno conectado.
 - **[P2] Decide el dueño · casilla «¿Querés tu nombre en el perfil?»** al comprar, que te llegue como tarea.
 - **[P3] Decide el dueño · precio especial para 2 dispositivos.** Hoy se cobra el doble.
 - ✅ **Descripciones de productos:** 9 pasaron de «Tu perfil propio…» a «1 perfil asignado…» (15/11, con respaldo, el dueño dijo «depende de vos»).
