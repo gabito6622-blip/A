@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 15/11/2026 · Título de la página de códigos sin etiqueta (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | **888 pasan, 0 fallan** |
+| `codigos-pin-cuenta` ampliada | revendedor con título de tienda copiado de su nombre («beto · Beto Revende») | la página dice «📺 Beto Revende» |
+
 ## 15/11/2026 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
