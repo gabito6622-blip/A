@@ -1688,8 +1688,14 @@ export function createApp(cfg: AppConfig): App {
   });
   route("GET", "/api/me/code-link", "customer", (c) => {
     const cl = store.engine.s.customers[c.actor!.customerId!]?.codeLink;
-    return cl ? { url: codeLinkUrl(cl.token, c), mode: linkMode(c.actor!.customerId!) } : { url: null };
+    return cl ? { url: codeLinkUrl(cl.token, c), mode: linkMode(c.actor!.customerId!), title: store.engine.s.customers[c.actor!.customerId!]?.codeTitle ?? "" } : { url: null };
   });
+  // Título propio de la página de códigos (15/11/2026): el revendedor elige qué dice arriba («Códigos», etc.).
+  route("POST", "/api/me/code-title", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    return store.codes.setTitle(c.actor!, c.actor!.customerId!, c.body?.title);
+  });
+  route("POST", "/api/admin/customers/:id/code-title", "staff", (c) => store.codes.setTitle(A(c), c.params.id, c.body?.title));
   route("POST", "/api/me/code-link", "customer", (c) => {
     if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
     if (c.body?.off) { store.codes.setLink(c.actor!, c.actor!.customerId!, null); db.setSecret(`codepin:${c.actor!.customerId!}`, null, now()); return { ok: true }; }
@@ -1721,7 +1727,7 @@ export function createApp(cfg: AppConfig): App {
   };
   route("GET", "/api/admin/customers/:id/code-pins", "staff", (c) => {
     if (!store.engine.s.customers[c.params.id]) throw new DomainError("NOT_FOUND", "Cliente inexistente");
-    return { accounts: accPins(c.params.id) };
+    return { accounts: accPins(c.params.id), title: store.engine.s.customers[c.params.id]?.codeTitle ?? "" };
   });
   route("POST", "/api/admin/customers/:id/code-pins", "staff", (c) => setAccPin(A(c), c.params.id, c.body));
   route("GET", "/api/me/code-pins", "customer", (c) => {

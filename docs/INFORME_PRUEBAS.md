@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 15/11/2026 · Página de códigos: título sin etiqueta y título propio
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | **888 pasan, 0 fallan** |
+| `codigos-pin-cuenta` ampliada | revendedor con título de tienda copiado de su nombre («beto · Beto Revende») | la página dice «📺 Beto Revende» |
+| Título propio | API (revendedor y dueño) y GaboHub a 390 px | «  Códigos   TV » se guarda «Códigos TV»; 41 letras → 400; vacío vuelve al nombre; desde GaboHub queda «Mis códigos». Total final: **888 de 888** (195 s) |
+
 ## 15/11/2026 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
 | Qué | Cómo | Resultado |
 |---|---|---|
