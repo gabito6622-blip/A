@@ -22,7 +22,7 @@ import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, save
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
-import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent, dispoMessage } from "/catalogo-claro.js";
+import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent, dispoMessage, ccSignup } from "/catalogo-claro.js";
 import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
 import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText, pedidoListoHtml } from "/despues-pago.js";
 import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
@@ -2178,7 +2178,7 @@ function renderCartInner(msg = "") {
     const names = pay.map((l) => product(l.productId).name).join(" + ");
     $("#drawer").innerHTML = head + waitNote
       + `<div class="cmodos"><b>¿Cómo querés comprar?</b>
-          <div class="cmodo"><b>🛒 En la tienda, con tu cuenta</b><span>Entrás con tu número y PIN → pagás con QR → <b>subís el comprobante acá</b> → apenas lo revisamos, el acceso aparece en «Mis cuentas». Con saldo, aparece al instante.</span><button class="sbtn pri" type="button" data-login="1">Entrar y comprar en la tienda</button></div>
+          <div class="cmodo"><b>🛒 En la tienda, con tu cuenta</b><span>Entrás con tu número y PIN (si es tu primera vez, creás tu cuenta en 1 minuto) → pagás con QR → <b>subís el comprobante acá</b> → apenas lo revisamos, el acceso aparece en «Mis cuentas». Con saldo, aparece al instante.</span><div class="cmodobtns"><button class="sbtn pri" type="button" data-loginstep="signup">🆕 Crear mi cuenta</button><button class="sbtn" type="button" data-login="1">Ya tengo cuenta</button></div></div>
           <div class="cmodo"><b>💬 Sin cuenta, por WhatsApp</b><span>Pagás con el QR de abajo → <b>mandás el comprobante por WhatsApp</b> → te pasamos el acceso por WhatsApp.</span></div></div>`
       + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}${ccCartNotice()}${guestPayHtml({ lines: pay.map((l) => ({ name: product(l.productId).name, qty: l.qty, price: product(l.productId).price })), total: toPay, discount: cartDiscount(), qr: S.settings.hasQr ? qrBlock(toPay, names) : "" })}
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
@@ -2318,9 +2318,10 @@ function openLogin(step, phone = "", msg = "", email = "", why = "") {
     name: `<p class="empty">Es tu primera compra. ¿Cómo te llamás?</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Nombre<input name="name" required autocomplete="name"></label>${ccConsent()}<button class="sbtn pri" type="submit">Recibir código</button>`,
     code: `<p class="empty">Te mandamos un código de 6 números por WhatsApp a ${esc(phone)}.</p><input type="hidden" name="phone" value="${esc(phone)}"><label>Código<input name="code" required inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="sbtn pri" type="submit">Entrar</button>`,
     link: pinHelpHtml(st, phone, pinGiver(st), why),
+    signup: ccSignup(phone),
   }[step];
   markSheet();
-  $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">Acceder<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
+  $("#modal").innerHTML = `<div role="dialog" aria-modal="true"><h2 style="font-size:22px;font-weight:800;display:flex;justify-content:space-between">${step === "signup" ? "Crear mi cuenta" : "Acceder"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>${msg}<form class="sform" id="login" data-step="${step}">${body}</form></div>`;
   $("#modal").hidden = false;
   $("#scrim").hidden = false;
   $("#modal input:not([type=hidden])")?.focus();
@@ -2349,6 +2350,19 @@ async function submitLogin(form) {
       await api("POST", "/api/auth/customer/pin", { phone, pin: form.pin.value.trim() });
       return afterLogin();
     }
+    if (step === "signup") {
+      const pin = form.pin.value.trim();
+      if (pin !== form.pin2.value.trim()) throw Object.assign(new Error("Los dos PIN no coinciden. Escribilo igual las dos veces."), { keep: true });
+      try {
+        await api("POST", "/api/auth/customer/signup", { name: form.name.value.trim(), phone, pin, whatsappConsent: !!form.consent?.checked });
+      } catch (e) {
+        // Ese número ya tiene cuenta: al ingreso con PIN, con el número puesto (y «Olvidé mi PIN» a mano).
+        if (e.code === "PHONE_TAKEN") return openLogin("pin", phone, `<div class="err">${esc(e.message)}</div>`);
+        throw Object.assign(e, { keep: true });
+      }
+      toast("¡Cuenta creada! 🎉");
+      return afterLogin();
+    }
     if (step === "phone" || step === "name") {
       const r = await api("POST", "/api/auth/customer/request-code", step === "name" ? { phone, name: form.name.value, whatsappConsent: form.consent.checked } : { phone });
       if (r.needsName) return openLogin("name", phone);
@@ -2360,7 +2374,9 @@ async function submitLogin(form) {
     }
   } catch (e) {
     if (e.code === "OTP_DISABLED") return openLogin("link", phone);
+    const name = form.name?.value ?? "";
     openLogin(step === "code" ? "code" : step, phone, `<div class="err">${esc(e.message)}</div>`, form.email?.value?.trim() ?? "");
+    if (step === "signup" && name) { const n = $("#login [name=name]"); if (n) n.value = name; }
   }
 }
 

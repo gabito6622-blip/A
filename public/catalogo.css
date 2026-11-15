@@ -184,3 +184,6 @@
 .ccdispo{justify-content:center}
 .cwait .line{flex-wrap:nowrap;gap:8px}
 .cwait .line>div:first-child{min-width:0}
+.cmodobtns{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:8px}
+.cmodobtns .sbtn{min-height:48px;justify-content:center;text-align:center;white-space:normal}
+.ccpinhint{margin:0;font-size:13px}

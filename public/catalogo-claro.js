@@ -321,7 +321,18 @@ export function ccLoginWhy(why) {
   return "";
 }
 /** Botones de abajo del ingreso con número y PIN. */
-export const ccLoginAlt = () => `<div class="cclogin"><button class="sbtn" type="button" data-loginstep="phone" data-loginwhy="new">🆕 Soy nuevo: crear cuenta</button><button class="sbtn" type="button" data-loginstep="phone" data-loginwhy="forgot">🔑 Olvidé mi PIN</button></div>
+// En la tienda, «Soy nuevo» abre «Crear mi cuenta» (nombre + número + PIN, sin códigos; 15/11). En otras páginas, como antes.
+export const ccLoginAlt = () => `<div class="cclogin"><button class="sbtn" type="button" ${C().MODE === "store" ? 'data-loginstep="signup"' : 'data-loginstep="phone" data-loginwhy="new"'}>🆕 Soy nuevo: crear cuenta</button><button class="sbtn" type="button" data-loginstep="phone" data-loginwhy="forgot">🔑 Olvidé mi PIN</button></div>
       <button class="sbtn ccghost" type="button" data-loginstep="email">Entrar con correo y contraseña</button>`;
+/** «Crear mi cuenta» (15/11, el dueño): nombre, número de WhatsApp y un PIN que elige el cliente. Sin códigos. */
+export const ccSignup = (phone = "") => `<p class="cchint">👋 <b>Creá tu cuenta en 1 minuto.</b> Con tu cuenta subís el comprobante acá mismo y tus accesos quedan guardados en «Mis cuentas».</p>
+      <label>Tu nombre<input name="name" required autocomplete="name" maxlength="80" placeholder="Ej.: Ana Quispe"></label>
+      <label>Tu número de WhatsApp<input name="phone" required inputmode="tel" value="${esc(phone || "+591 ")}" autocomplete="tel"></label>
+      <label>Elegí un PIN de 4 números<input name="pin" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="new-password" class="pinbox" placeholder="••••"></label>
+      <label>Repetí el PIN<input name="pin2" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="new-password" class="pinbox" placeholder="••••"></label>
+      <p class="empty ccpinhint">Con tu número y este PIN entrás desde cualquier celular. No uses 1234 ni 4 números iguales, y no se lo pases a nadie.</p>
+      ${ccConsent()}
+      <button class="sbtn pri" type="submit">Crear mi cuenta</button>
+      <button class="sbtn" type="button" data-loginstep="pin">Ya tengo cuenta: entrar</button>`;
 /** Casilla de avisos: NUNCA marcada sola, y dice para qué es. */
 export const ccConsent = () => `<label class="chk ccconsent"><input type="checkbox" name="consent"> <span>Quiero avisos por WhatsApp de mi pedido y de cuándo vence.<small>Solo para tu pedido. Nada de publicidad. <a href="/privacidad" target="_blank" rel="noopener">Privacidad</a></small></span></label>`;

@@ -9,7 +9,7 @@ const timingSafeEqualStr = (a: string, b: string) => a.length === b.length && ti
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
-import { createStore, DomainError, normalizePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
+import { createStore, DomainError, normalizePhone, phoneWithCountry, samePhone, systemClock, type Actor, type Clock, type GabrielStore } from "../store/index.js";
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { CORTE_GRACE_DAYS } from "../store/dia.js";
@@ -498,6 +498,30 @@ export function createApp(cfg: AppConfig): App {
     }
     pinLoginLimiter.reset(k);
     db.failClear(lockKey);
+    startSession(c, "customer", cust.id);
+    return { id: cust.id, name: cust.name, kind: cust.kind };
+  });
+  // «Crear mi cuenta» (15/11/2026, el dueño: «alguna opción para que mis clientes creen su cuenta fácil»). Nombre, número
+  // de WhatsApp y un PIN de 4 números que elige el cliente, sin códigos (la tienda no manda códigos por WhatsApp).
+  // - Si el número ya es de alguien (cliente, revendedor o cliente de un revendedor), NO se crea otra cuenta ni se entra:
+  //   «Entrá con tu PIN o tocá Olvidé mi PIN» (el PIN nuevo lo da la tienda, que conoce al dueño del número).
+  // - Una cuenta nueva no ve nada ajeno y no recibe accesos sin que la tienda apruebe un pago.
+  const signupIpLimiter = new RateLimiter(5, 60 * 60_000, now);
+  const weakPin = (p: string) => /^(\d)\1{3}$/.test(p) || "0123456789".includes(p) || "9876543210".includes(p);
+  route("POST", "/api/auth/customer/signup", "public", (c) => {
+    const name = String(c.body?.name ?? "").trim().replace(/\s+/g, " ");
+    const phone = phoneWithCountry(String(c.body?.phone ?? ""));
+    const pin = String(c.body?.pin ?? "").trim();
+    if (name.length < 2 || name.length > 80) throw new DomainError("VALIDATION", "Escribí tu nombre");
+    if (phone.replace(/\D/g, "").length < 8) throw new DomainError("VALIDATION", "Revisá tu número de WhatsApp (con el código de país, por ejemplo +591)");
+    if (!/^\d{4}$/.test(pin)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
+    if (weakPin(pin)) throw new DomainError("VALIDATION", "Elegí un PIN más difícil: no 1234 ni 4 números iguales");
+    if (!signupIpLimiter.take(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas cuentas nuevas desde este celular. Probá en un rato o escribinos por WhatsApp.");
+    const taken = Object.values(store.engine.s.customers).some((x) => !!x.phone && samePhone(x.phone, phone));
+    if (taken) throw new HttpError(409, "PHONE_TAKEN", "Ese número ya tiene una cuenta. Entrá con tu PIN o tocá «Olvidé mi PIN».");
+    const cust = store.catalog.selfRegister({ name, phone, whatsappConsent: c.body?.whatsappConsent === true });
+    setLoginPin(cust.id, pin);
+    logAccess(c, "customer", cust.id, "signup", true);
     startSession(c, "customer", cust.id);
     return { id: cust.id, name: cust.name, kind: cust.kind };
   });
