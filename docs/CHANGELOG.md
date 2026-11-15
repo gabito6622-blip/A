@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · «Crear mi cuenta» sin códigos (sin publicar)
+## 2026-11-15 · «Crear mi cuenta» con número o correo (PR #76 publicado)
 - **Por qué:** el dueño: «alguna opción para que mis clientes creen su cuenta fácil». Hasta ahora un cliente nuevo tenía que pedir el PIN por WhatsApp.
 - **Cómo funciona:**
   - «🆕 Soy nuevo» (en Acceder) y «🆕 Crear mi cuenta» (en el pago del carrito) abren una sola pantalla: nombre, número de WhatsApp y un PIN de 4 números que elige el cliente, escrito dos veces;
