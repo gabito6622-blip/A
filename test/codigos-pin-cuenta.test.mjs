@@ -35,6 +35,7 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
   // Códigos que llegaron recién (como si los leyera el Panel de códigos).
   for (const [to, code] of [["ana1@ficticio.lat", "111111"], ["ana2@ficticio.lat", "222222"], ["beto1@ficticio.lat", "333333"]]) s.engine.s.codes.push({ id: "c" + code, mailboxId: "m", to, subject: "Tu código de acceso único", code, kind: "login", receivedAt: Date.now() });
   const base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
+  try {
   const call = async (ck, m, p, body) => { const r = await fetch(base + p, { method: m, headers: { "content-type": "application/json", ...(ck ? { cookie: ck } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, json: await r.json().catch(() => ({})), r }; };
   const staff = (await call(null, "POST", "/api/auth/staff/login", { username: "gabriel", password: "clave-del-dueño-123" })).r.headers.get("set-cookie").split(";")[0];
   // Link de Ana (modo correo) y su sesión de revendedora.
@@ -141,15 +142,18 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
       assert.match(await h.locator(".accpins").innerText(), /ana2@ficticio\.lat[\s\S]*🔒 con PIN/);
       if (shots) await h.screenshot({ path: `${shots}/hub-pin-por-cuenta.png`, fullPage: true });
       // Su título desde GaboHub.
+      await h.waitForLoadState("networkidle"); // que termine de redibujar después de guardar el PIN
       await h.locator('#codeTitle input[name="title"]').fill("Mis códigos");
+      assert.equal(await h.locator('#codeTitle input[name="title"]').inputValue(), "Mis códigos");
       await h.locator('#codeTitle [type="submit"]').click();
-      await h.waitForFunction(() => document.querySelector('#codeTitle input[name="title"]')?.value === "Mis códigos");
-      assert.equal((await call(null, "GET", `/api/code-link/${token}`)).json.name, "Mis códigos");
+      let nombre = "";
+      for (let i = 0; i < 60 && nombre !== "Mis códigos"; i++) { nombre = (await call(null, "GET", `/api/code-link/${token}`)).json.name; if (nombre !== "Mis códigos") await new Promise((r) => setTimeout(r, 500)); }
+      assert.equal(nombre, "Mis códigos");
       assert.equal(await h.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, "sin desborde");
       assert.deepEqual(herrs, []);
       await hc.close();
       assert.equal((await call(null, "POST", `/api/code-link/${token}`, { email: "ana2@ficticio.lat" })).json.error, "PIN_NEEDED");
     } finally { await b.close(); }
   }
-  await app.close(); rmSync(dir, { recursive: true, force: true });
+  } finally { await app.close(); rmSync(dir, { recursive: true, force: true }); }
 });
