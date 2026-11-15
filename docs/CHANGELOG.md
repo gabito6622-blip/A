@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-15 · Tienda en la computadora más cómoda (sin publicar)
+- **Por qué:** el dueño: «en la computadora ya no se ve tan cómodo como antes» y los logos de los combos chiquitos. Con los textos nuevos cada tarjeta medía 351 px (antes, la tira medía 112 px) y los logos de las etiquetas, 10 px.
+- **Desde 900 px:** vuelve la tira tipo boleto con el talón a la derecha (precio, «Agregar», «Ver qué incluye»), en 2 columnas de 182 px de alto. El cuadro del combo mide 68 px (cada logo 31 px, antes 20) y los logos de las etiquetas 24 px (antes 10). El combo dice «1 dispositivo c/u». El celular no cambia.
+
 ## 2026-11-15 · «Crear mi cuenta» con número o correo (PR #76 publicado)
 - **Por qué:** el dueño: «alguna opción para que mis clientes creen su cuenta fácil». Hasta ahora un cliente nuevo tenía que pedir el PIN por WhatsApp.
 - **Cómo funciona:**
