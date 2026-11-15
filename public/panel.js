@@ -3,6 +3,7 @@ import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColor
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
 import { tableroView, avisoRenovada } from "/panel-tablero.js";
+import { hojasView, hojasInit, hojasSnapshot, hojasLogout, hojasRefresh, hojasCheckUser, netErr } from "/panel-hojas.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
@@ -41,7 +42,7 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
    cada una conserva su dirección (#clave) y su permiso ("review" = dueño y admin, "owner" = solo dueño). Un área con
    una sola pantalla visible para ese rol se muestra como botón directo; un área vacía no se muestra. */
 const AREAS = [
-  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
+  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["hojas", "📗 Mis hojas", "review"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   // 14/11/2026: Clientes y Revendedores en un área (6 áreas en vez de 7). Las mismas pantallas, con su #clave.
   ["a-clientes", "users", "Clientes y revendedores", [["clientes", "Clientes"], ["revendedores", "Revendedores"], ["tablero", "🗂️ Tablero de revendedores", "review"], ["comovan", "📈 Cómo van", "review"]]],
@@ -57,7 +58,7 @@ const MENU_WORDS = {
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
   codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
-  revendedores: "revendedor pin tienda saldo", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
+  revendedores: "revendedor pin tienda saldo", hojas: "excel planilla hojas pestañas sin internet offline cuentas fechas", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
   dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
@@ -66,7 +67,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -200,6 +201,8 @@ const V = {
   },
   comovan: () => comoVanView(P.tab),
   // 15/11: una fila por revendedor con sus cuentas como etiquetas (panel-tablero.js).
+  // 15/11: «📗 Mis hojas», como el Excel y también sin internet (panel-hojas.js).
+  async hojas() { return hojasView(P.tab); },
   async tablero() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño y los admins.</div></section>`;
     return tableroView(P.tab, { paidAllBtn, canReview });
@@ -2530,7 +2533,14 @@ function showLogin(msg) {
   $("#loginForm").username.focus();
 }
 async function start() {
-  const me = await api("GET", "/api/me").catch(() => ({ loggedIn: false }));
+  let me;
+  try { me = await api("GET", "/api/me"); } catch (e) {
+    // 15/11 «Mis hojas»: sin internet, el panel abre con la copia de las hojas guardada en este aparato.
+    const snap = netErr(e) ? hojasSnapshot() : null;
+    if (snap?.me && snap.settings) return startOffline(snap);
+    me = { loggedIn: false };
+  }
+  if (me.loggedIn && me.kind === "staff") hojasCheckUser(me);
   if (!me.loggedIn || me.kind !== "staff") return showLogin(me.kind === "customer" ? "Estás con una sesión de cliente. Entrá con tu usuario del panel." : "");
   P.me = me;
   P.settings = await api("GET", "/api/settings");
@@ -2546,9 +2556,25 @@ async function start() {
   initDescargas({ base: "/api/admin/descargas", btn: "pbtn", render });
   descargasBind(document);
   go(location.hash.slice(1) || "inicio");
+  setTimeout(hojasRefresh, 2500); // si ya usa «Mis hojas», la copia del aparato se pone al día sola
   // Logos y portadas JPG/WEBP: este navegador arma su versión chica para la tienda (imagenes-chicas.js), una vez y en silencio.
   if (canReview()) setTimeout(() => import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/admin/imagenes")).catch(() => {}), 1500);
 }
+
+/** Sin internet: el panel abre en «Mis hojas» con la copia guardada; al volver la señal, se recarga solo. */
+function startOffline(snap) {
+  P.me = snap.me; P.settings = snap.settings; P.offline = true;
+  setCurrency(P.settings.currencySymbol); applyStoreMonthMode(P.settings);
+  $("#login").hidden = true;
+  $("#app").hidden = false;
+  $("#pName").textContent = P.me.name;
+  $("#pRole").textContent = (STAFF_ROLE[P.me.role] ?? "").toUpperCase();
+  $("#pStore").textContent = P.settings.storeName;
+  applyTheme();
+  addEventListener("online", () => location.reload(), { once: true });
+  go("hojas");
+}
+hojasInit({ me: () => P.me, settings: () => P.settings, render: () => render(), view: () => P.view });
 
 /* ---------------- eventos ---------------- */
 /** Arma un mensaje de WhatsApp con los accesos (uno o varios, mismo cliente). */
@@ -2742,7 +2768,7 @@ document.addEventListener("click", async (ev) => {
     return render();
   }
   if (d.th) { P.theme = d.th; try { localStorage.setItem("gs-panel-theme", P.theme); } catch { /* */ } return applyTheme(); }
-  if (d.logout) { await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
+  if (d.logout) { if (!hojasLogout()) return; await api("POST", "/api/auth/logout", {}); P.me = null; return showLogin(); }
   if (d.dlvclose) { document.getElementById("dlvScrim")?.remove(); return; }
   if (d.dlvcopy) { const s = document.getElementById("dlvScrim"); if (s) { try { await navigator.clipboard.writeText(s.dataset.msg); toast("Datos copiados ✓"); } catch { toast("No se pudo copiar"); } } return; }
   if (d.cobrolink) {
