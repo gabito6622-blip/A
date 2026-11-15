@@ -237,15 +237,14 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     assert.equal(await over(gp), 0);
     await shot(gp, "c3-olvide-pin");
     await axeCheck(gp, ["#modal"]);
-    // Soy nuevo (sin código): pide su PIN por WhatsApp como cliente nuevo, sin «un dato de tu compra» (todavía no compró).
+    // Soy nuevo (sin código): 15/11 crea su cuenta ahí mismo (nombre, número y PIN), sin «un dato de tu compra».
     await gp.locator("#modal [data-loginstep=\"pin\"]").click();
-    await gp.locator('[data-loginwhy="new"]').click();
-    await gp.locator("#recWa").waitFor();
+    await gp.locator('#login button', { hasText: "Soy nuevo" }).click();
+    await gp.locator('#login[data-step="signup"]').waitFor();
     const nuevo = await gp.locator("#modal").innerText();
     assert.doesNotMatch(nuevo, /Recibir código|dato de tu compra|Cambié de número/);
-    await gp.locator("[name=rname]").fill("Luis Nuevo");
-    await gp.locator("[name=rphone]").fill("+591 70000300");
-    assert.match(decodeURIComponent(await gp.locator("#recWa").getAttribute("href")), /soy Luis Nuevo\. Soy cliente nuevo y quiero crear mi cuenta en Tienda Prueba\. Mi número es \+591 70000300\./);
+    assert.match(nuevo, /Creá tu cuenta en 1 minuto/);
+    for (const n of ["name", "phone", "pin", "pin2"]) assert.equal(await gp.locator(`#login [name=${n}]`).count(), 1);
     assert.equal(await over(gp), 0);
     assert.deepEqual(gerrs, []);
     await gctx.close();

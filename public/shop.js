@@ -2290,6 +2290,9 @@ async function submitCheckout(form) {
 /* ---------------- acceso ---------------- */
 function openLogin(step, phone = "", msg = "", email = "", why = "") {
   if (!step) step = "pin"; // toda la tienda dice "entrá con tu número": el correo queda como alternativa
+  // «Crear mi cuenta» (nombre + número + PIN) es para cuando la tienda NO manda códigos (hoy). Con el WhatsApp oficial
+  // activo, el cliente nuevo sigue el camino con código, que además prueba que el número es suyo.
+  if (step === "signup" && !noLoginCode(S.settings)) { step = "phone"; why = "new"; msg = msg || ccLoginWhy("new"); }
   if (step === "phone" && noLoginCode(S.settings)) step = "link"; // sin código por WhatsApp: directo a pedir el PIN
   $("#drawer").hidden = true;
   const st = S.settings;

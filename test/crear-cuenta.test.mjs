@@ -19,7 +19,8 @@ const DAY = 864e5;
 
 async function setup() {
   const dir = mkdtempSync(join(tmpdir(), "gs-signup-"));
-  const app = createApp({ dataDir: dir, staticDir: resolve("public"), jobs: false, log: () => {}, otpSender: () => {} });
+  // Como hoy en la tienda real: sin WhatsApp oficial que mande códigos (sin otpSender).
+  const app = createApp({ dataDir: dir, staticDir: resolve("public"), jobs: false, log: () => {} });
   app.bootstrapOwner("gabriel", "Gabriel", "clave-del-dueño-123");
   const base = `http://127.0.0.1:${await app.listen(0, "127.0.0.1")}`;
   const post = (p, body, ck) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json", ...(ck ? { cookie: ck } : {}) }, body: JSON.stringify(body) });
