@@ -3,7 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · Tablero de revendedores, «Cortar: no renovó» y «Avisarle: quedó renovada» (sin publicar)
+## 2026-11-15 · 📗 Mis hojas, también sin internet (sin publicar)
+- **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
+- **Mis hojas** (Inicio → 📗 Mis hojas): una hoja por plataforma (Disney, Netflix…) con pestañas abajo como el Excel, más «👥 Revendedores» (agrupados, con «📋 Su lista» por WhatsApp) y «💸 Me deben». Cada fila: correo, quién, vence y precio, con la raya de color (rojo vencida, naranja vence en 7 días, verde al día, azul libre, gris apartada). Buscador y resumen arriba.
+- **Tocar una fila:** «💵 Me pagó · renovar 1 mes» (el mismo Renovar de Cuentas, con el aviso «quedó renovada»), «📅 Cambiar fecha», «📝 Nota», «📲 Cobrar por WhatsApp», «✂️ Cortar: no renovó» y «🔎 Ver en Cuentas».
+- **Sin internet:** el panel instalado abre igual en Mis hojas con la última copia (dice de qué hora es). «Me pagó», «Cambiar fecha» y «Nota» quedan con ⏳ y se suben solos al volver la señal; si esa cuenta cambió mientras tanto, pregunta antes de guardar. La copia **no** tiene contraseñas. Cortar y Ver en Cuentas piden internet.
+- No se quitó nada: Cuentas, Tablero, Control, Mi secretaria y todos sus botones siguen igual.
+
+## 2026-11-15 · Tablero de revendedores, «Cortar: no renovó» y «Avisarle: quedó renovada» (PR #80 publicado)
 - **Tablero de revendedores** (Clientes y revendedores → 🗂️ Tablero): una fila por revendedor, primero el que tiene algo vencido, después el que vence en 7 días, el que debe y el que está al día. Cada cuenta es una etiqueta con color (rojo vencida, naranja vence pronto, amarillo esta semana, verde al día); tocarla abre esa cuenta en Cuentas con sus botones. Arriba: cuántas cuentas, vencidas, por vencer y «Para cobrar Bs X». Por fila: «📲 Cobrar» (WhatsApp con lo que vence y el total) y «💵 Me pagó todo». Filtros y buscador.
 - **✂️ Cortar: no renovó** (en la cuenta ocupada, junto a «Liberar»): termina el alquiler y deja la cuenta **apartada** (no se vende) hasta que el dueño cambie la clave; después la libera en Mi secretaria → Apartadas. Pide confirmar. Antes había que elegir entre «Liberar» (quedaba a la venta con la clave vieja) o esperar el corte automático.
 - **📲 Avisarle: quedó renovada:** después de «💵 Me pagó todo» o de «Renovar» aparece el mensaje listo («Hola Beto ✅ Listo, renové tus cuentas: • Disney ESPN (correo) hasta el 16/12/2026 …») con «Avisarle por WhatsApp». No se manda solo: lo manda el dueño.

@@ -108,8 +108,8 @@ export function controlRenew(r, moneyTxt, now = Date.now()) {
  * si la fecha pasa la del proveedor, lo anota igual como «Me pagó» (decisión (b)), con el aviso. Devuelve
  * `{ to, supplierWarn? }` o `null` si el dueño dijo que no. `beyondOk`: ya confirmó lo del proveedor.
  */
-export async function renewFlow(id, { beyondOk = false } = {}) {
-  const key = newKey();
+// `key`: «Mis hojas» guarda la misma llave cuando se anota sin internet, así reintentar no cobra dos veces.
+export async function renewFlow(id, { beyondOk = false, key = newKey() } = {}) {
   const ask = (e) => confirm(`${e.message}\n\nTocá «Aceptar» solo si te pagó OTRO mes.`);
   const viaPay = async (confirmOther = false) => {
     try {

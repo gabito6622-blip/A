@@ -2,6 +2,14 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-15 · Mis hojas sin internet
+- **Otra vista, los mismos datos y botones:** «Me pagó» usa el mismo camino que «Renovar» de Cuentas; Cortar y Ver en Cuentas son los del Tablero. Así todo llega a Mi secretaria, Finanzas, el Tablero y el asistente sin duplicar reglas.
+- **La copia del aparato no lleva contraseñas ni PIN:** solo correos de las cuentas, nombres y teléfonos de clientes, fechas y precios. Al cerrar sesión se borra (si hay cambios sin subir, pregunta antes). Si entra otra persona del equipo en ese aparato, la copia anterior se borra.
+- **Sin internet se anota, no se hace a ciegas:** cada cambio guarda cómo estaba la cuenta al anotarlo; al volver la señal se compara y, si cambió (la cortaron, otra persona movió la fecha, ya figura pagada), se pregunta. «Me pagó» se reintenta con la misma llave, así una señal que se corta en el medio no cobra dos veces.
+- **Cortar y Ver en Cuentas solo con internet:** cortar sin señal podía chocar con un pago que entró por la tienda.
+- **Archivos del panel en el aparato (service worker):** siempre se pide primero a internet (cada publicación se ve al toque) y la copia se usa solo si no hay respuesta. Nunca guarda respuestas de /api. Se activa recién cuando alguien abre Mis hojas.
+- **Descartado:** dejar todo el panel funcionando sin internet (Finanzas, Vender, aprobar pagos dependen de datos de todos al momento).
+
 ## 2026-11-15 · Tablero y corte manual
 - **Tablero aparte de «Revendedores»:** la ficha de cada revendedor sigue igual; el tablero es una vista de todos juntos para no entrar uno por uno. Usa los mismos botones (Me pagó todo, Renovar, Liberar), no los reemplaza.
 - **«Cortar» deja la cuenta apartada, no libre:** el revendedor que no renovó todavía sabe la clave. Venderla así a otro sería riesgoso. La clave la cambia el dueño en la plataforma (el sistema no entra a Disney ni a Netflix).

@@ -45,3 +45,45 @@ self.addEventListener("notificationclick", (ev) => {
     return self.clients.openWindow(url);
   })());
 });
+
+// 📗 «Mis hojas» sin internet (15/11/2026): los ARCHIVOS del panel (pantalla, código, estilos e íconos; nunca /api ni
+// datos) quedan guardados en el aparato para poder abrirlo sin señal. Siempre se pide primero a internet (así cada
+// publicación se ve al toque); la copia guardada se usa solo si no hay respuesta.
+const PANEL_CACHE = "gs-panel-v1";
+const STATIC = /\.(?:js|css|svg|png|webp|ico|webmanifest|woff2?)$/i;
+const panelPage = (u) => u.pathname === "/panel" || u.pathname.startsWith("/panel.") || u.pathname.startsWith("/panel/");
+async function netFirst(req, fallbackPage) {
+  const cache = await caches.open(PANEL_CACHE);
+  try {
+    const res = await fetch(req);
+    if (res.ok && res.type === "basic") cache.put(req, res.clone()).catch(() => {});
+    return res;
+  } catch (err) {
+    const hit = (await cache.match(req, { ignoreSearch: true })) || (fallbackPage && ((await cache.match("/panel.html")) || (await cache.match("/panel"))));
+    if (hit) return hit;
+    throw err;
+  }
+}
+self.addEventListener("fetch", (ev) => {
+  const req = ev.request;
+  if (req.method !== "GET") return;
+  const u = new URL(req.url);
+  if (u.origin !== self.location.origin || u.pathname.startsWith("/api/")) return;
+  if (req.mode === "navigate") { if (panelPage(u)) ev.respondWith(netFirst(req, true)); return; }
+  if (STATIC.test(u.pathname)) ev.respondWith(netFirst(req, false));
+});
+// El panel avisa qué archivos ya cargó (la primera vez todavía no pasaban por acá) para guardarlos.
+self.addEventListener("message", (ev) => {
+  if (ev.data?.type !== "gs-guardar" || !Array.isArray(ev.data.urls)) return;
+  ev.waitUntil((async () => {
+    const cache = await caches.open(PANEL_CACHE);
+    for (const raw of ev.data.urls.slice(0, 300)) {
+      try {
+        const u = new URL(raw, self.location.origin);
+        if (u.origin !== self.location.origin || u.pathname.startsWith("/api/") || !(STATIC.test(u.pathname) || panelPage(u))) continue;
+        const res = await fetch(u.pathname + u.search, { credentials: "same-origin" });
+        if (res.ok && res.type === "basic") await cache.put(u.pathname + u.search, res);
+      } catch { /* sin señal: se guarda la próxima vez */ }
+    }
+  })());
+});
