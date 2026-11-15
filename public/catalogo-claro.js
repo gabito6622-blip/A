@@ -77,9 +77,11 @@ export function stockTag(p) {
   return `<p class="ccstock cc-${k}"><span aria-hidden="true">${STOCK[k][0]}</span> ${t}</p>`;
 }
 /** Botón de compra según el stock. `big`: el de la ficha. */
-export function buyBtn(p, big = false) {
+export function buyBtn(p, big = false, n = 1) {
   const st = stockOf(p), cls = big ? "sbtn pri" : "tkbtn";
-  if (st === "now" || st === "order") return `<button class="${cls}" type="button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)} al carrito">Agregar${big ? " al carrito" : ""}</button>`;
+  if (st === "now" || st === "order") return n > 1
+    ? `<button class="${cls}" type="button" data-add="${esc(p.id)}" data-n="${n}" aria-label="Agregar ${esc(p.name)} para ${n} dispositivos al carrito">Agregar ${n} al carrito · ${bs(p.price * n)}</button>`
+    : `<button class="${cls}" type="button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)} al carrito">Agregar${big ? " al carrito" : ""}</button>`;
   if (st === "ask") return `<a class="${cls}" href="${C().askWa(p)}" target="_blank" rel="noopener">${icon("wa")}Preguntar</a>`;
   return `<button class="${cls}" type="button" disabled>Agotado</button>`;
 }
@@ -88,7 +90,8 @@ export function buyBtn(p, big = false) {
 // Del TIPO de producto que eligió el dueño (no se adivina nada de la plataforma).
 const KIND = {
   profile: ["👤", "Perfil propio con tu nombre"],
-  full_account: ["🔑", "Cuenta completa"],
+  // «Cuenta completa» confundía (el dueño, 14/11: «ChatGPT es 1 dispositivo»): es un acceso con correo y clave.
+  full_account: ["🔑", "Acceso con correo y contraseña"],
   invite: ["✉️", "Invitación a tu correo"],
   iptv: ["📺", "TV en vivo por internet"],
   combo: ["🎁", "Combo"],
@@ -114,7 +117,39 @@ export function getLine(p) {
 const kindIcon = (p) => (KIND[p.kind] ?? KIND.own)[0];
 /** Nombre corto de la plataforma para explicar el perfil: «Netflix Premium HD 4K» → «Netflix». */
 export const appName = (p) => p.name.replace(/^Amazon\s+/i, "").split(/\s*(?:·|\s-\s)\s*|\s+(?=(?:Premium|Perfil|con|sin|Plan)\b)/i)[0].trim() || p.name;
-const forWhom = (p) => (p.forWhom ? `<p class="ccfor"><span aria-hidden="true">👥</span> ${esc(p.forWhom)}</p>` : "");
+/* ---------------- ¿Para cuántos dispositivos? ---------------- */
+// Casi todo lo de la tienda es para 1 dispositivo (el dueño, 14/11/2026). Si cargó «Para quién / cuántas pantallas»
+// en el panel, se muestra eso; si no, «Para 1 dispositivo». Las invitaciones van a tu correo: no se dice nada.
+export function devLine(p) {
+  if (p.forWhom) return p.forWhom;
+  if (p.kind === "invite") return "";
+  return p.kind === "combo" ? "Para 1 dispositivo en cada plataforma" : "Para 1 dispositivo";
+}
+/** Cuántos puede llevar de una vez (hasta 3): lo que hay, o 3 si es a pedido. */
+const devMax = (p) => Math.min(3, stockOf(p) === "order" ? 3 : Math.max(0, p.available ?? 0));
+const canMore = (p) => p.kind !== "invite" && (stockOf(p) === "now" || stockOf(p) === "order");
+/** Línea de la tarjeta: «📱 Para 1 dispositivo · ¿Para 2 o más?» (abre la ficha, donde elige cuántos). */
+const forWhom = (p) => {
+  const t = devLine(p);
+  if (!t) return "";
+  const ico = p.forWhom ? "👥" : "📱";
+  return canMore(p)
+    ? `<button class="ccfor ccdev" type="button" data-det="${esc(p.id)}" aria-label="${esc(t)}. Elegir para 2 o más dispositivos"><span aria-hidden="true">${ico}</span> ${esc(t)} · <u>¿Para 2 o más?</u></button>`
+    : `<p class="ccfor"><span aria-hidden="true">${ico}</span> ${esc(t)}</p>`;
+};
+/** Cuántos eligió en la ficha (1 si no tocó nada). */
+export const devN = (p) => Math.max(1, Math.min(devMax(p) || 1, C().S.devn?.[p.id] ?? 1));
+const unitWord = (p) => (p.kind === "profile" ? "perfil" : p.kind === "combo" ? "combo" : "acceso");
+/** Botones «1 dispositivo Bs 40» / «2 dispositivos Bs 80» / «3 dispositivos Bs 120» en la ficha. */
+export function devPicker(p) {
+  if (!canMore(p)) return "";
+  const n = devN(p), max = devMax(p);
+  const opt = (k) => `<button type="button" class="ccopt" data-devn="${k}" data-id="${esc(p.id)}" aria-pressed="${k === n}"${k > max ? " disabled" : ""}><b>${k} dispositivo${k > 1 ? "s" : ""}</b><small class="ccdevp">${bs(p.price * k)}</small></button>`;
+  const w = unitWord(p);
+  return `<h3 class="ccfsub" id="ccdevT">¿En cuántos dispositivos lo vas a usar?</h3>
+    <div class="ccdur ccdevs" role="group" aria-labelledby="ccdevT">${[1, 2, 3].map(opt).join("")}</div>
+    <p class="empty ccdevnote">Cada dispositivo es un ${w} más${p.kind === "profile" ? ", con su nombre" : ""} (${bs(p.price)} c/u).${max < 3 ? ` Ahora hay ${max === 1 ? "1 solo" : max}.` : ""} ¿Más de 3? Escribinos.</p>`;
+}
 
 /* ---------------- Duración: Mensual / 3 meses con «ahorrás» ---------------- */
 /** Mismo producto en otras duraciones (misma categoría y mismo nombre sin «· 3 meses»). */
@@ -174,7 +209,7 @@ export function ccFicha(p) {
     [kindIcon(p), getLine(p).split(" · ")[0]],
     p.kind === "profile" && ["💡", `Un perfil es tu propio espacio dentro de ${appName(p)}, con tu nombre.`],
     apps.length && ["📋", `Incluye: ${apps.join(" + ")}.`],
-    p.forWhom && ["👥", p.forWhom],
+    devLine(p) && [p.forWhom ? "👥" : "📱", devLine(p)],
     ["🗓️", `Dura ${durText(p.durationDays)}${p.durationDays % 30 === 0 && durText(p.durationDays).includes("mes") ? " (del mismo día al mismo día)" : ""}. La fecha de vencimiento te queda en Mis cuentas.`],
     ["📲", c.SLUG ? "Te lo pasamos por WhatsApp cuando confirmes tu pedido." : st === "now" ? "Te llega a Mis cuentas: con saldo, al instante; con QR, apenas revisamos tu pago." : "Te llega a Mis cuentas apenas lo confirmamos, y te avisamos."],
   ].filter(Boolean);
@@ -186,8 +221,9 @@ export function ccFicha(p) {
     <ul class="ccinc">${rows.map(([e, t]) => `<li><span aria-hidden="true">${e}</span><span>${esc(t)}</span></li>`).join("")}</ul>
     ${p.description ? `<p class="empty">${esc(p.description)}</p>` : ""}
     ${durPicker(g, p, "det")}
-    <div class="price">${bs(p.price)}<small>/ ${durText(p.durationDays)}</small>${c.usdtHint(p.price)}</div>
-    <div class="ccfbtns">${buyBtn(p, true)}${ask}<button class="sbtn" type="button" data-close="1">Cerrar</button></div>
+    ${devPicker(p)}
+    <div class="price">${bs(p.price * devN(p))}<small>/ ${durText(p.durationDays)}${devN(p) > 1 ? ` · ${devN(p)} dispositivos` : ""}</small>${c.usdtHint(p.price * devN(p))}</div>
+    <div class="ccfbtns">${buyBtn(p, true, devN(p))}${ask}<button class="sbtn" type="button" data-close="1">Cerrar</button></div>
     <button class="sbtn ccshare" type="button" data-copy="${esc(url)}">🔗 Copiar el link de este producto</button></div>`;
 }
 /** Abre la ficha en la ventana de siempre (#modal). «Atrás» del celular la cierra. */

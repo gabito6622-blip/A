@@ -2148,7 +2148,7 @@ function renderCartInner(msg = "") {
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps" ${SLUG ? "hidden" : ""}><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
     $("#drawer").innerHTML = head + (S.cart.length
-      ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${periodText(p.durationDays)}</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
+      ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${periodText(p.durationDays)}${l.qty > 1 && p.kind !== "invite" ? ` · para ${l.qty} dispositivos` : ""}</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
         + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal(), share: { what: S.cart.map((l) => product(l.productId).name).join(" + ") } })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
           + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `${ccCartNotice()}<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
@@ -2703,9 +2703,18 @@ document.addEventListener("click", async (ev) => {
     const p = product(d.add);
     const l = S.cart.find((x) => x.productId === d.add);
     if ((l?.qty ?? 0) >= maxQty(p)) return toast(maxQty(p) ? "No hay más unidades disponibles" : `${p.name} está agotado por ahora`);
-    l ? l.qty++ : S.cart.push({ productId: d.add, qty: 1 });
+    // «Para 2 dispositivos» en la ficha (catalogo-claro.js): suma esa cantidad, sin pasar lo que hay.
+    const n = Math.max(1, Math.min(+d.n || 1, maxQty(p) - (l?.qty ?? 0)));
+    l ? (l.qty += n) : S.cart.push({ productId: d.add, qty: n });
+    if (S.devn) delete S.devn[d.add];
     saveCart(); closeAll(); render();
-    return toast(`${p.name} agregado al carrito`);
+    return toast(n > 1 ? `${p.name} para ${n} dispositivos agregado al carrito` : `${p.name} agregado al carrito`);
+  }
+  if (d.devn) { // ¿En cuántos dispositivos? (ficha): vuelve a dibujar la ficha con el total
+    (S.devn ??= {})[d.id] = +d.devn;
+    if (openFicha(d.id) !== false) hablarFicha($("#modal"), product(d.id));
+    $(`#modal [data-devn="${d.devn}"]`)?.focus({ preventScroll: true });
+    return;
   }
   if (d.det) { if (openFicha(d.det) !== false) hablarFicha($("#modal"), product(d.det)); return; } // «Qué incluye» (catalogo-claro.js) + «💬 Preguntar por este» (hablar.js)
   if (d.tkpick) { (S.tkv ??= {})[d.tkpick] = d.id; return render(); } // Mensual / 3 meses en la fila

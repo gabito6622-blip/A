@@ -156,7 +156,7 @@ describe("catálogo claro · navegador", () => {
       assert.match(await nf.innerText(), /Hay: entrega al instante/);
       assert.doesNotMatch(await dis.innerText(), /Para 1 persona/, "sin dato no se inventa");
       assert.match(await dis.innerText(), /A pedido: te confirmamos antes de que pagues/);
-      assert.match(await row(p, "Spotify Premium").innerText(), /Cuenta completa · 1 mes/);
+      assert.match(await row(p, "Spotify Premium").innerText(), /Acceso con correo y contraseña · 1 mes/);
       assert.match(await row(p, "Trío Netflix + Disney+ + Crunchyroll").innerText(), /3 plataformas en un solo pago · 1 mes/);
       // Duración: dos botones visibles; «ahorrás» solo con ahorro real (Netflix 3 × 40 − 110 = 10; Disney 3 × 17 = 51, sin ahorro).
       const opts = nf.locator(".ccopt");
