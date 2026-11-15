@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P2] 🏪👔 Revendedores sin entrar uno por uno (15/11):** Tablero de revendedores, «✂️ Cortar: no renovó» y «📲 Avisarle: quedó renovada». Prueba `tablero-revendedores`. Sin publicar.
+- ✅ **[P2] 🏪👔 Revendedores sin entrar uno por uno (15/11):** Tablero de revendedores, «✂️ Cortar: no renovó» y «📲 Avisarle: quedó renovada». Prueba `tablero-revendedores`. Publicado (#80).
   - 🧑 Pendiente del dueño: cambiar la clave de las cuentas cortadas y después liberarlas en Mi secretaria → Apartadas.
 - **[P1] Revisión «en el lugar de ~30 clientes» (14/11)** (4 revisores: mayores, familias/niños, jóvenes, después de comprar). ✅ ya arreglado: link de códigos con PIN que daba error.
   - **Hablar con una persona:** WhatsApp solo al final de la página (~10 pantallas): botón verde fijo «💬 Hablar con Gabriel» y «Preguntar» en cada producto.

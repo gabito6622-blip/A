@@ -1,6 +1,6 @@
 # Informe de pruebas
 
-## 15/11/2026 · Tablero de revendedores, «Cortar: no renovó» y aviso de renovada (sin publicar)
+## 15/11/2026 · Tablero de revendedores, «Cortar: no renovó» y aviso de renovada (PR #80 publicado)
 | Qué | Cómo | Resultado |
 |---|---|---|
 | Total | `npm test` (174 s) | 886: **885 pasan**; 1 falla por tamaño medido en medio de una animación (`revendedor-cuaderno-pantallas`, GaboHub, no tocada), que sola pasa 1 de 1 |
