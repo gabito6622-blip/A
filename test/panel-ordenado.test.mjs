@@ -20,7 +20,8 @@ const BEFORE = {
 };
 // Pantallas NUEVAS agregadas después de la foto (se suman; ninguna reemplaza a otra).
 // 12/11/2026: "Mi secretaria" (todo lo pendiente en una pantalla) para el dueño y el admin.
-const ADDED = { owner: "secretaria cortes", admin: "secretaria cortes", seller: "" };
+// 15/11/2026: «Tablero de revendedores» para el dueño y el admin.
+const ADDED = { owner: "secretaria cortes tablero", admin: "secretaria cortes tablero", seller: "" };
 const USERS = { owner: ["gabriel", "clave-del-dueño-123"], admin: ["ada", "clave-de-ada-123"], seller: ["lucia", "clave-de-lucia-123"] };
 
 test("menú en 6 áreas: cada rol conserva exactamente sus pantallas, todas abren, buscador, barra de abajo y pendientes en Inicio", { skip: !chromium, timeout: 240_000 }, async () => {
