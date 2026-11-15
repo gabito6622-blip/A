@@ -88,6 +88,8 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
     const b = await chromium.launch();
     const shots = process.env.CP_SHOTS;
     try {
+      // Beto tiene página y su título se copió de su nombre (como pasa en producción): igual sale sin la etiqueta.
+      s.engine.s.customers[beto.id].shop = { ...(s.engine.s.customers[beto.id].shop ?? {}), title: beto.name };
       // Otro link (otro revendedor no bloqueado): Beto con PIN en su cuenta.
       const bl = (await call(staff, "POST", `/api/admin/customers/${beto.id}/code-link`, {})).json.url.split("/codigos/")[1];
       await call(staff, "POST", `/api/admin/customers/${beto.id}/code-pins`, { email: "beto1@ficticio.lat", pin: "5555" });

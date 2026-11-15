@@ -173,7 +173,9 @@ export const publicName = (name: string) => { const m = /^[^·]{1,40}·\s*(.+)$/
 export function codeLinkOwner(e: Engine, token: string): { customerId: Id; name: string } | null {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
   const c = Object.values(e.s.customers).find((x) => x.codeLink?.token === token);
-  return c ? { customerId: c.id, name: c.shop?.title || publicName(c.name) } : null;
+  // Si el título de su tienda es una copia de su nombre (se arma solo al crear la página), también va sin la etiqueta.
+  const t = c?.shop?.title && c.shop.title.trim() !== c.name.trim() ? c.shop.title : publicName(c?.name ?? "");
+  return c ? { customerId: c.id, name: t } : null;
 }
 
 /** Correos de las cuentas activas que muestra el link de un cliente/revendedor (las suyas y las de sus clientes). */

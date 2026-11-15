@@ -3,12 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
+## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (PR #82 publicado)
 - **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
 - **Revendedor (GaboHub → Códigos):** debajo de su link, «🔐 PIN por cuenta (opcional)» con cada correo de sus cuentas: poner, cambiar o quitar un PIN de 4 números. Al ponerlo, el texto para su cliente (link, correo y PIN) queda copiado y hay «Mandárselo a tu cliente».
 - **Dueño (Revendedores → ficha):** «🔐 PIN por cuenta en su link de códigos», lo mismo para cualquier revendedor.
 - **Página de códigos:** si la cuenta tiene PIN, pide el PIN después del correo; sin el PIN correcto no muestra nada. 5 intentos fallidos bloquean 15 minutos. Las cuentas sin PIN siguen como antes.
 - **Título:** la página ya no muestra la etiqueta interna del dueño («aneliz · Aneliz Contreras» → «Aneliz Contreras»), si el revendedor no tiene título de tienda.
+- **Arreglo después de publicar (sin publicar):** en producción 9 de 27 revendedores tienen como título de tienda una copia de su nombre con la etiqueta, y la página seguía mostrando «aneliz · Aneliz Contreras». Ahora, si el título es igual al nombre, también sale sin la etiqueta.
 
 ## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
