@@ -2,7 +2,7 @@
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
-import { tableroView } from "/panel-tablero.js";
+import { tableroView, avisoRenovada } from "/panel-tablero.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
@@ -1008,8 +1008,8 @@ const V = {
         if (sl.status === "assigned") {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>
             <p class="muted" style="margin:0">Ocupado por <b>${esc(sl.customerName || "—")}</b>${sl.customerPhone ? ` · ${esc(sl.customerPhone)}` : ""}${sl.expiresAt ? ` · vence ${fdate(sl.expiresAt)}` : ""}.</p>
-            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-renew="${esc(sl.assignmentId)}" data-renewinfo="¿Renovar este alquiler un período más?">${icon("renew")}Renovar</button><button class="pbtn" type="button" data-paid="${esc(sl.assignmentId)}">💵 Cobrado</button><button class="pbtn" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋, te recuerdo el pago de tu ${esc(pname(acc.productId))}${sl.expiresAt ? ` que vence el ${fdate(sl.expiresAt)}` : ""}. ¿Lo renovamos? 🙌`)}" target="_blank" rel="noopener">${icon("wa")}Cobrar por WA</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
-            <p class="muted" style="margin:0;font-size:12.5px">Al liberar, deja de contar para ese cliente (y sus códigos) y queda libre para vender a otro.</p></section>`;
+            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-renew="${esc(sl.assignmentId)}" data-renewinfo="¿Renovar este alquiler un período más?" data-rnphone="${esc(sl.customerPhone ?? "")}" data-rnwho="${esc(sl.customerName ?? "")}" data-rnwhat="${esc(pname(acc.productId))}" data-rnmail="${esc(acc.email)}">${icon("renew")}Renovar</button><button class="pbtn" type="button" data-paid="${esc(sl.assignmentId)}">💵 Cobrado</button><button class="pbtn" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotcut="${esc(sl.id)}" data-who="${esc(sl.customerName ?? "")}">✂️ Cortar: no renovó</button><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋, te recuerdo el pago de tu ${esc(pname(acc.productId))}${sl.expiresAt ? ` que vence el ${fdate(sl.expiresAt)}` : ""}. ¿Lo renovamos? 🙌`)}" target="_blank" rel="noopener">${icon("wa")}Cobrar por WA</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
+            <p class="muted" style="margin:0;font-size:12.5px">✂️ <b>Cortar</b>: termina su alquiler y la cuenta queda apartada (no se vende) hasta que cambies la clave. 🔓 <b>Liberar</b>: queda libre para vender a otro enseguida.</p></section>`;
         } else if (sl.status === "available" && slotBlocked(acc)) {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>${slotBlocked(acc)}<div class="inline"><button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div></section>`;
         } else if (sl.status === "available") {
@@ -3086,6 +3086,11 @@ document.addEventListener("click", async (ev) => {
   // Tablero de revendedores: la etiqueta de una cuenta abre esa cuenta en Cuentas con sus botones.
   if (d.tbslot) { P.tab.slotAct = d.tbslot; P.tab.accq = d.q || ""; go("cuentas"); return; }
   if (d.tbf) { P.tab.tbf = d.tbf; await render(); return; }
+  if (d.slotcut) {
+    if (!confirm(`¿Cortar ${d.who ? `a ${d.who}` : "este alquiler"}?\n\nSe termina su alquiler y la cuenta queda APARTADA (no se vende) hasta que cambies la clave. Después la liberás en Mi secretaria → Apartadas.`)) return;
+    try { await api("POST", `/api/admin/slots/${d.slotcut}/cut`, { reason: "No renovó: cortado" }); P.tab.slotAct = null; toast("✂️ Cortado. Cambiá la clave y después liberala en Mi secretaria → Apartadas"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.slotrelease) {
     if (!confirm("¿Liberar este perfil? Deja de contar para ese cliente y queda libre para vender.")) return;
     try { await api("POST", `/api/admin/slots/${d.slotrelease}/free`, { reason: "liberado desde Cuentas" }); P.tab.slotAct = null; toast("Perfil liberado ✓"); } catch (e) { toast(e.message); }
@@ -3196,7 +3201,10 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
-    return act(() => renewFlow(d.renew, { beyondOk: /pasa la del proveedor/.test(el.dataset.renewinfo ?? "") }), (r) => (r ? `✅ Renovado hasta ${fdate(r.to)}${r.supplierWarn ? " · ⚠️ renová el proveedor antes de esa fecha" : ""}` : "No se anotó nada"));
+    const r = await act(() => renewFlow(d.renew, { beyondOk: /pasa la del proveedor/.test(el.dataset.renewinfo ?? "") }), (r) => (r ? `✅ Renovado hasta ${fdate(r.to)}${r.supplierWarn ? " · ⚠️ renová el proveedor antes de esa fecha" : ""}` : "No se anotó nada"));
+    // 15/11: desde la cuenta, «📲 Avisarle que quedó renovada» con la fecha nueva.
+    if (r?.to && d.rnmail) avisoRenovada(d.rnphone, d.rnwho, [{ product: d.rnwhat, email: d.rnmail, to: r.to }]);
+    return r;
   }
   if (d.renewsel) {
     const ids = $$(".sel:checked").map((x) => x.value);

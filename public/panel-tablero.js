@@ -91,3 +91,28 @@ export async function tableroView(T, { paidAllBtn, canReview }) {
     <div class="tblist">${shown.length ? shown.map(row).join("") : `<div class="emptybox">Nadie con ese filtro.</div>`}</div>
   </section>`;
 }
+
+/* ---------------- 📲 Avisarle que quedó renovada (15/11) ---------------- */
+/** «Hola Beto ✅ Listo, renové: • Disney ESPN (correo) hasta el 16/12/2026». `items`: [{ product, email, to }]. */
+export function renovadaMsg(name, items) {
+  const n = String(name || "").split(" · ").pop().split(" ")[0] || "";
+  const L = items.map((x) => `• ${shortProduct(x.product)} (${x.email}) hasta el ${fdate(x.to)}`);
+  return `Hola ${n} ✅ Listo, ${items.length === 1 ? "renové tu cuenta" : "renové tus cuentas"}:\n${L.join("\n")}\n¡Gracias! 🙌`;
+}
+/** Ventanita con el botón de WhatsApp listo (nada se manda solo). */
+export function avisoRenovada(phone, name, items) {
+  if (!items?.length) return;
+  document.getElementById("tbAviso")?.remove();
+  const el = document.createElement("div");
+  el.id = "tbAviso"; el.className = "dlv-scrim";
+  const msg = renovadaMsg(name, items);
+  el.innerHTML = `<div class="dlv-card" role="dialog" aria-modal="true" aria-label="Avisarle que quedó renovada">
+    <div class="dlv-top"><h3>✅ Renovado</h3><button class="pbtn sm" type="button" data-tbavclose="1" aria-label="Cerrar">✕</button></div>
+    <pre class="cobpre" style="white-space:pre-wrap;margin:0">${esc(msg)}</pre>
+    ${phone ? `<a class="pbtn green big" href="${esc(waLink(phone, msg))}" target="_blank" rel="noopener" data-tbavwa="1">${icon("wa")}Avisarle por WhatsApp</a>` : `<p class="muted" style="margin:0">No tiene WhatsApp cargado: copiá el mensaje.</p>`}
+    <button class="pbtn big" type="button" data-tbavclose="1">Listo</button></div>`;
+  const close = () => el.remove();
+  el.addEventListener("click", (ev) => { if (ev.target === el || ev.target.closest("[data-tbavclose]") || ev.target.closest("[data-tbavwa]")) setTimeout(close, 0); });
+  (document.getElementById("app") ?? document.body).appendChild(el);
+  el.querySelector("[data-tbavwa], [data-tbavclose]")?.focus();
+}

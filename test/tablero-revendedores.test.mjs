@@ -93,5 +93,45 @@ test("tablero: una fila por revendedor, ordenado por urgencia, con cobrar, me pa
       assert.deepEqual(errs, []);
       await ctx.close();
     }
+    // ---- Acciones (una sola vez, en la computadora) ----
+    const ctx = await b.newContext({ viewport: { width: 1366, height: 900 }, deviceScaleFactor: shots ? 2 : 1, timezoneId: "America/La_Paz" });
+    const [n, v] = ck.split("="); await ctx.addCookies([{ name: n, value: v, url: base }]);
+    await ctx.route(/wa\.me|whatsapp\.com/, (r) => r.abort());
+    const p = await ctx.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message));
+    p.on("dialog", (dl) => dl.accept());
+    const A = () => Object.values(s.engine.s.assignments);
+    // 1. «✂️ Cortar: no renovó» (Carla, la vencida): termina el alquiler y la cuenta queda apartada, no a la venta.
+    await p.goto(base + "/panel.html#tablero");
+    await p.locator(".tbrow").first().waitFor();
+    const carlaChip = p.locator(".tbrow").nth(0).locator(".tbchip.tbc-exp");
+    const carlaSlot = await carlaChip.getAttribute("data-tbslot");
+    await carlaChip.click();
+    await p.locator("[data-slotcut]").waitFor();
+    if (shots) await p.screenshot({ path: `${shots}/tablero-cortar.png` });
+    await p.locator("[data-slotcut]").click();
+    await p.waitForFunction(() => /Cortado/.test(document.body.innerText));
+    assert.equal(s.engine.s.slots[carlaSlot].status, "quarantined", "apartada, no a la venta");
+    assert.equal(A().filter((a) => a.customerId === vencido.id && a.status === "active").length, 1, "le queda solo la otra cuenta");
+    // 2. «Me pagó todo» (Beto) → «📲 Avisarle que quedó renovada» con las 2 fechas nuevas.
+    await p.goto(base + "/panel.html#tablero"); await p.reload();
+    const beto = p.locator(".tbrow", { hasText: "Beto Pronto" });
+    await beto.locator("[data-rmpaid]").click();
+    await p.locator(".rmcard [data-rmpaidok]").click();
+    const av = p.locator("#tbAviso");
+    await av.waitFor();
+    const avText = await av.innerText();
+    assert.match(avText, /Hola Beto ✅ Listo, renové tus cuentas:\n• Disney ESPN \(madre.\+c\d@ficticio\.lat\) hasta el \d{2}\/\d{2}\/\d{4}\n• Disney ESPN .* hasta el \d{2}\/\d{2}\/\d{4}\n¡Gracias!/);
+    assert.match(waText(await av.locator("[data-tbavwa]").getAttribute("href")), /renové tus cuentas/);
+    if (shots) await p.screenshot({ path: `${shots}/tablero-aviso-renovada.png` });
+    await av.locator("[data-tbavclose]").first().click();
+    await av.waitFor({ state: "detached" });
+    // 3. Renovar UNA cuenta desde su etiqueta (Ana) → aviso con esa cuenta.
+    await p.goto(base + "/panel.html#tablero"); await p.reload();
+    await p.locator(".tbrow", { hasText: "Ana Al Día" }).locator(".tbchip").first().click();
+    await p.locator("[data-renew]").first().click();
+    await av.waitFor();
+    assert.match(await av.innerText(), /Hola Ana ✅ Listo, renové tu cuenta:\n• Disney ESPN/);
+    assert.deepEqual(errs, []);
+    await ctx.close();
   } finally { await b.close(); await app.close(); rmSync(dir, { recursive: true, force: true }); }
 });
