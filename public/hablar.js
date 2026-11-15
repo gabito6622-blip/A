@@ -47,7 +47,9 @@ export function hablarSync() {
   let a = document.getElementById("hablar");
   if (!on(c)) { a?.remove(); document.body.classList.remove("con-hablar"); return; }
   const late = closedText(hours(c));
-  const html = `${icon("wa", "i hablar-ico")}<span class="hablar-t"><b>Hablar con una persona</b>${late ? `<small>${esc(late)}</small>` : ""}</span>`;
+  // 15/11 (el dueño): ícono + «WhatsApp», ancho justo y 44 px de alto. El horario va en la barra de arriba y en el
+  // texto para lectores de pantalla.
+  const html = `${icon("wa", "i hablar-ico")}<b class="hablar-t">WhatsApp</b>`;
   if (!a) {
     a = document.createElement("a");
     a.id = "hablar"; a.className = "hablar"; a.target = "_blank"; a.rel = "noopener";
@@ -55,8 +57,36 @@ export function hablarSync() {
   }
   a.href = waLink(c.settings.whatsapp, startMessage(c));
   a.setAttribute("aria-label", `Hablar con una persona por WhatsApp${late ? `. ${late}` : ""}`);
+  a.title = late ? `Hablar con una persona · ${late}` : "Hablar con una persona";
   if (a.dataset.html !== html) { a.innerHTML = html; a.dataset.html = html; }
   document.body.classList.add("con-hablar");
+  watchDodge();
+  dodge();
+}
+
+/* Que nunca tape un precio, «Agregar» ni la barra de abajo: si al desplazarse queda encima de uno, se esconde
+   (sin poder tocarlo por error) y vuelve apenas hay lugar libre. */
+const CRIT = "[data-add], .tkbtn, .ccmore, .tkend > b, .price, .pbtns .sbtn, .ccopt, .ccdev, .bnav, .cbar, .cbanner";
+export function hablarTapa(a = document.getElementById("hablar")) {
+  if (!a) return [];
+  const r = a.getBoundingClientRect();
+  return [...document.querySelectorAll(CRIT)].filter((x) => {
+    const b = x.getBoundingClientRect();
+    return b.width > 0 && b.height > 0 && b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top && getComputedStyle(x).visibility !== "hidden";
+  });
+}
+function dodge() {
+  const a = document.getElementById("hablar");
+  if (a) a.classList.toggle("hablar-fuera", hablarTapa(a).length > 0);
+}
+let watching = false, raf = 0;
+function watchDodge() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+  const tick = () => { raf = 0; dodge(); };
+  const later = () => { if (!raf) raf = requestAnimationFrame(tick); };
+  window.addEventListener("scroll", later, { passive: true });
+  window.addEventListener("resize", later);
 }
 
 /** Agrega «💬 Preguntar por este» a la ficha (modal) de un producto ya abierta. */
@@ -64,7 +94,8 @@ export function hablarFicha(modal, p) {
   const c = get();
   if (!modal || !p || !on(c)) return;
   const box = modal.querySelector(".pbtns") ?? modal.querySelector('[role="dialog"]');
-  if (!box || modal.querySelector("[data-preguntar]")) return;
+  // A pedido: la ficha ya tiene «Consultar disponibilidad» con el plan y el precio (catalogo-claro.js); no se repite.
+  if (!box || modal.querySelector("[data-preguntar], [data-dispo]")) return;
   const late = closedText(hours(c));
   box.insertAdjacentHTML(box.matches(".pbtns") ? "beforebegin" : "beforeend", `<div class="hablar-ficha"><a class="sbtn hablar-pre" data-preguntar="${esc(p.id)}" href="${esc(waLink(c.settings.whatsapp, askMessage(p)))}" target="_blank" rel="noopener">${icon("wa")}Preguntar por este</a>${late ? `<small class="empty">${esc(late)}</small>` : ""}</div>`);
 }

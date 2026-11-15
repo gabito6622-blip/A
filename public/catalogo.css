@@ -136,3 +136,51 @@
 .drawer .qrg-btns>*{min-width:0}
 /* El nombre completo, sin «…» (antes se cortaba a 2 renglones y se perdía «· 3 meses») */
 .pc.cc .pbody h3{display:block;-webkit-line-clamp:unset;overflow:visible}
+/* ¿Para cuántos dispositivos? (14/11/2026): la línea de la tarjeta abre la ficha; ahí se eligen 1, 2 o 3. */
+.ccdev{display:block;width:100%;min-height:44px;padding:4px 0;border:0;background:transparent;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+.ccdev u{color:var(--s-blue);font-weight:700;text-underline-offset:3px}
+.ccdev:focus-visible{outline:2px solid var(--s-blue);outline-offset:2px;border-radius:8px}
+.ccdevs .ccopt:disabled{opacity:.45;cursor:not-allowed}
+.ccdevs .ccopt small.ccdevp{color:var(--s-ink)}
+.ccdevnote{margin:0;font-size:13px}
+
+/* ---- 15/11 · Portada compacta en el celular: el buscador y los primeros planes aparecen antes ----
+   Se conservan el fondo oscuro, los acentos amarillos, el logo y las tarjetas tipo boleto; solo se achican espacios. */
+@media (max-width:560px){
+  .smain:has(.tkhero){padding-top:10px;gap:14px}
+  .smain:has(.tkhero) .cctrust{font-size:12px;line-height:1.4}
+  .tkhero{padding-top:0;gap:4px}
+  .tkhero h1{font-size:24px;line-height:1.12}
+  .tkhero p{font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tkhero.withban{gap:10px}
+  .tkhero.withban .tkban{width:64px}
+  .tktools{gap:8px}
+  .tktools #q{padding:11px 14px}
+  .tkcats button{min-height:44px;padding:8px 14px}
+  .tkbar{font-size:13px}
+}
+
+/* ---- 15/11 · Carrito: lo que hay se paga; lo a pedido se consulta antes del QR ---- */
+.cgh{margin:4px 0 0;font-size:15px;color:var(--s-ink)}
+.cwait{display:grid;gap:10px;border:1px solid color-mix(in srgb,var(--s-blue) 55%,var(--s-line));background:color-mix(in srgb,var(--s-blue) 8%,transparent);border-radius:14px;padding:12px}
+.cwait h3{margin:0;font-size:15px;color:var(--s-ink)}
+.cwait p{margin:0;font-size:14px;line-height:1.45;color:var(--s-muted)}
+.cwait p b{color:var(--s-ink)}
+.cwait .line{border:0;padding:0}
+.cwaitask{justify-content:center;min-height:48px}
+.cwaitok{display:grid;gap:8px}
+.cwaitok .sbtn{min-height:44px;white-space:normal;text-align:center;justify-content:center;line-height:1.25}
+.cwaitnote{margin:0;padding:10px 12px;border-radius:12px;border:1px dashed var(--s-line);font-size:14px;line-height:1.45;color:var(--s-ink)}
+.cmodos{display:grid;gap:10px}
+.cmodos>b{font-size:15px;color:var(--s-ink)}
+.cmodo{display:grid;gap:8px;padding:12px;border-radius:14px;border:1px solid var(--s-line);background:var(--s-card)}
+.cmodo>b{font-size:15px;color:var(--s-ink)}
+.cmodo>span{font-size:14px;line-height:1.45;color:var(--s-muted)}
+.cmodo>span b{color:var(--s-ink)}
+.cmodo .sbtn{min-height:48px;justify-content:center}
+.cnext{margin:0;font-size:14px;line-height:1.45;color:var(--s-muted)}
+.cnext b{color:var(--s-ink)}
+.cprof{display:block;font-size:13px;margin-top:2px}
+.ccdispo{justify-content:center}
+.cwait .line{flex-wrap:nowrap;gap:8px}
+.cwait .line>div:first-child{min-width:0}

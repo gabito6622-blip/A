@@ -22,7 +22,7 @@ import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, save
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
 import { qrCard, initQrGrande } from "/qr-grande.js";
-import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent } from "/catalogo-claro.js";
+import { initCatalogoClaro, ccCard, ccTicketRow, ccMatch, ccSearchText, ccNoResults, openFicha, ccOpenFromHash, ccCartNotice, ccTrustTop, ccSteps, ccLoginWhy, ccLoginAlt, ccConsent, dispoMessage } from "/catalogo-claro.js";
 import { initHablar, hablarSync, hablarFicha } from "/hablar.js"; // 💬 «Hablar con una persona» siempre a mano
 import { initDespuesPago, guestPayHtml, revisionHtml, rechazosArriba, historialLinea, pedidoNombre, pagoAutoRefresh, datosText, pedidoListoHtml } from "/despues-pago.js";
 import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTags, svcComboNote, planAfterRender } from "/plan-mensual.js";
@@ -64,7 +64,13 @@ const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(S.c
 const guideSeen = () => { try { return !!localStorage.getItem("gs-guide-" + (S.me?.id || "")); } catch { return false; } };
 const markGuideSeen = () => { try { localStorage.setItem("gs-guide-" + (S.me?.id || ""), "1"); } catch { /* sin almacenamiento */ } };
 const product = (id) => S.catalog.find((p) => p.id === id);
-const cartTotal = () => S.cart.reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
+// Tienda (el dueño, 15/11): lo «a pedido» se consulta ANTES del QR y lo que hay se puede pagar por separado. Una línea
+// a pedido queda fuera del cobro hasta que el cliente toque «Ya me confirmaron que hay» (l.ok). En GaboHub (alquileres
+// de revendedores, siempre a pedido) y en la página de un revendedor (todo por WhatsApp) no cambia nada.
+const waitLine = (l) => { const p = product(l.productId); return MODE === "store" && !l.ok && !!p && onDemand(p) && l.qty > (p.available ?? 0); };
+const payCart = () => S.cart.filter((l) => !waitLine(l));
+const waitCart = () => S.cart.filter(waitLine);
+const cartTotal = () => payCart().reduce((s, l) => s + (product(l.productId)?.price ?? 0) * l.qty, 0);
 const isReseller = () => S.me?.role === "reseller";
 /* ---- Armá tu combo: mismo cálculo que el servidor (orders.comboDiscount) ---- */
 const comboOn = () => (MODE === "store" ? !isReseller() : MODE === "rshop") && (S.settings?.comboDiscounts ?? []).some((v) => v > 0);
@@ -84,7 +90,7 @@ const discountFor = (ids) => {
   const n = new Set(comp).size, d = S.settings.comboDiscounts;
   return n >= 4 ? d[2] : n === 3 ? d[1] : n === 2 ? d[0] : 0;
 };
-const cartDiscount = () => Math.min(discountFor(S.cart.map((l) => l.productId)), cartTotal());
+const cartDiscount = () => Math.min(discountFor(payCart().map((l) => l.productId)), cartTotal());
 /** Familia del servicio (Netflix, Disney+…): las variantes de una misma app son alternativas. */
 const family = (p) => p.name.toLowerCase().replace(/^(invitación|cuenta|perfil)\s+/, "").split(/\s+/)[0];
 /** El panel de GaboHub es para revendedores. */
@@ -286,7 +292,7 @@ const askWa = (p) => (S.settings?.whatsapp ? waLink(S.settings.whatsapp, `Hola, 
 const onDemand = (p) => (!!p?.resellersOnly && isReseller()) || (!!S.settings?.alwaysAvailable && !!p && (!!SLUG || p.kind !== "combo" || !!p.comboParts?.length));
 const maxQty = (p) => (onDemand(p) ? 10 : p.available);
 /** En el carrito hay algo sin stock (a pedido): solo se paga con QR. */
-const cartBackorder = () => S.cart.some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
+const cartBackorder = () => payCart().some((l) => onDemand(product(l.productId)) && l.qty > product(l.productId).available);
 /* Reseñas de clientes con estrellas (confianza en la portada). */
 function reviewsSection() {
   const ts = (S.settings.testimonials ?? []).filter((t) => t && t.name && t.text);
@@ -679,7 +685,7 @@ function renderInner() {
         return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b>${MODE === "store" && !isReseller() ? svcTags(a) : ""}<br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : d === 0 ? "Vence hoy" : `Vence en ${d} ${d === 1 ? "día" : "días"}`} · ${fdate(a.expiresAt)}</span></div>
         ${a.storeOwed ? `<div class="svc-owed" role="status"><span>💸 Le debés a la tienda <b>${bs(a.storeOwed)}</b> por esta cuenta</span>${S.settings.whatsapp ? `<a class="sbtn sm" href="${waLink(S.settings.whatsapp, `Hola, te pago los ${bs(a.storeOwed)} que debo de ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email}).`)}" target="_blank" rel="noopener">${icon("wa")}Pagar / avisar</a>` : ""}</div>` : ""}
-        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}${product(a.productId)?.kind === "profile" ? `<small class="empty cprof">Entrá siempre a este perfil: es el tuyo.</small>` : ""}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
         ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
           ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }, isReseller() ? {} : { client: true, daysLeft: a.daysLeft })
@@ -2113,13 +2119,13 @@ function comboClick(d) {
 }
 
 /* Cupón: se pide al servidor cuánto descuenta; vale mientras el carrito no cambie. */
-const cartKey = () => JSON.stringify(S.cart.map((l) => [l.productId, l.qty]));
+const cartKey = () => JSON.stringify(payCart().map((l) => [l.productId, l.qty]));
 const couponNow = () => (S.coupon && S.coupon.key === cartKey() && S.coupon.amount ? S.coupon : null);
 async function applyCoupon(code) {
   code = String(code || "").trim().toUpperCase();
   if (!code) { S.coupon = null; return; }
   try {
-    const q = await api("POST", "/api/orders/quote", { items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), couponCode: code });
+    const q = await api("POST", "/api/orders/quote", { items: payCart().map((l) => ({ productId: l.productId, qty: l.qty })), couponCode: code });
     S.coupon = q.coupon ? { key: cartKey(), code: q.coupon.code, amount: q.coupon.amount } : { key: cartKey(), code, amount: 0, error: q.couponError };
   } catch (e) { S.coupon = { key: cartKey(), code, amount: 0, error: e.message }; }
 }
@@ -2147,20 +2153,34 @@ function renderCartInner(msg = "") {
   const tot = cartTotal();
   const head = `<h2>Tu carrito<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="steps" ${SLUG ? "hidden" : ""}><span class="on">1 · Carrito</span><span class="${S.step >= 2 ? "on" : ""}">2 · Pago</span><span class="${S.step >= 3 ? "on" : ""}">3 · Listo</span></div>${msg}`;
   if (S.step === 1) {
+    const lineHtml = (l) => { const k = S.cart.indexOf(l), p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${periodText(p.durationDays)}${l.qty > 1 && p.kind !== "invite" ? ` · para ${l.qty} dispositivos` : ""}${l.ok ? " · 📦 a pedido, ya confirmado" : ""}</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; };
+    const wait = waitCart(), pay = payCart();
+    // Mezcla de lo que hay y lo a pedido: dos grupos, y se paga solo lo que hay (lo a pedido, después de consultar).
+    const waitBox = wait.length ? `<section class="cwait" aria-labelledby="cwaitT"><h3 id="cwaitT">📦 A pedido · consultá antes de pagar</h3>
+        ${wait.map(lineHtml).join("")}
+        <p>Ahora no lo tenemos listo para entregar. Escribinos y te confirmamos si hay y cuándo te lo pasamos. <b>No se cobra todavía${wait.length === 1 ? "" : ": ninguno de estos"}.</b></p>
+        ${S.settings.whatsapp ? `<a class="sbtn pri cwaitask" href="${waLink(S.settings.whatsapp, dispoMessage(wait.map((l) => ({ p: product(l.productId), qty: l.qty }))))}" target="_blank" rel="noopener">${icon("wa")}Consultar disponibilidad</a>` : ""}
+        <div class="cwaitok">${wait.map((l) => `<button class="sbtn sm" type="button" data-cartok="${esc(l.productId)}">✅ Ya me confirmaron que hay${wait.length > 1 ? ` ${esc(product(l.productId).name)}` : ""}: sumarlo al pago</button>`).join("")}</div></section>` : "";
     $("#drawer").innerHTML = head + (S.cart.length
-      ? S.cart.map((l, k) => { const p = product(l.productId); return `<div class="line"><div style="display:flex;gap:10px;align-items:center">${miniMark(p)}<div><b>${esc(p.name)}</b><br><small class="empty">${bs(p.price)} · ${periodText(p.durationDays)}</small></div></div><div class="qty"><button type="button" data-dec="${k}" aria-label="Quitar uno">−</button>${l.qty}<button type="button" data-inc="${k}" aria-label="Sumar uno">+</button></div></div>`; }).join("")
-        + `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>Total</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal(), share: { what: S.cart.map((l) => product(l.productId).name).join(" + ") } })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
-          + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `${ccCartNotice()}<button class="sbtn pri" type="button" data-step="2">Continuar al pago ${icon("arrow")}</button>`}`
+      ? (wait.length && pay.length ? `<h3 class="cgh">✅ Listo para entregar</h3>` : "") + pay.map(lineHtml).join("") + waitBox
+        + (pay.length ? `${cartDiscount() ? `<div class="total sub"><span>Subtotal</span><span>${bs(tot)}</span></div><div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : comboOn() && S.cart.length === 1 ? `<button class="cbanner sm" type="button" data-close="1" data-s="combo"><span>Sumá otro servicio y ahorrá ${bs(S.settings.comboDiscounts[0])}</span>${icon("arrow")}</button>` : ""}${SLUG ? "" : `<div class="total"><span>${wait.length ? "Total a pagar ahora" : "Total"}</span><span>${bs(tot - cartDiscount())}</span></div>`}${SLUG ? rshopCouponBox() + `<div class="total"><span>Total</span><span>${bs(rshopTotal())}</span></div>` + ccCartNotice() + (S.settings.hasQr ? `<div class="rqrpay"><b>💳 Pagá con QR</b>${qrCard({ src: `/api/shops/${esc(SLUG)}/qr`, who: S.settings.storeName, amount: bs(rshopTotal()), amountValue: rshopTotal(), share: { what: S.cart.map((l) => product(l.productId).name).join(" + ") } })}${S.settings.payNote ? `<small class="empty">${esc(S.settings.payNote)}</small>` : ""}${S.settings.whatsapp ? `<a class="sbtn pri" href="${waLink(S.settings.whatsapp, `${rshopWaMsg()}\n\nYa te pagué por QR ✅ te mando el comprobante.`)}" target="_blank" rel="noopener">${icon("wa")}Ya pagué: mandar comprobante</a>` : ""}</div>` : "")
+          + (S.settings.whatsapp ? `<a class="sbtn ${S.settings.hasQr ? "" : "pri"}" href="${waLink(S.settings.whatsapp, rshopWaMsg())}" target="_blank" rel="noopener">${icon("wa")}${S.settings.hasQr ? "Prefiero coordinar por WhatsApp" : "Pedir por WhatsApp"}</a><p class="empty" style="margin:0">${S.settings.hasQr ? "Después de pagar, mandame el comprobante y te paso tus accesos." : "Te respondo por WhatsApp para coordinar el pago y pasarte tus accesos."}</p>` : "") : `${ccCartNotice()}<button class="sbtn pri" type="button" data-step="2">${wait.length ? `Pagar solo lo disponible (${bs(tot - cartDiscount())})` : "Continuar al pago"} ${icon("arrow")}</button>`}` : "")
       : `<p class="empty">Tu carrito está vacío.</p><button class="sbtn" type="button" data-close="1" data-s="catalogo">Ver catálogo</button>`);
     return;
   }
   const toPay = tot - cartDiscount();
+  const pay = payCart(), wait = waitCart();
+  // Lo a pedido que quedó en el carrito: se ve que NO entra en este pago.
+  const waitNote = wait.length ? `<p class="cwaitnote" role="note">📦 ${esc(wait.map((l) => product(l.productId).name).join(", "))} ${wait.length === 1 ? "queda" : "quedan"} en tu carrito: no se ${wait.length === 1 ? "cobra" : "cobran"} ahora. Primero consultá si hay.</p>` : "";
   if (!S.me?.loggedIn) {
-    // Invitado (sin cuenta): QR, «Ya pagué» / «Todavía no pagué» por WhatsApp y USDT si hay (despues-pago.js).
-    const names = S.cart.map((l) => product(l.productId).name).join(" + ");
-    $("#drawer").innerHTML = head
-      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}${ccCartNotice()}${guestPayHtml({ lines: S.cart.map((l) => ({ name: product(l.productId).name, qty: l.qty, price: product(l.productId).price })), total: toPay, discount: cartDiscount(), qr: S.settings.hasQr ? qrBlock(toPay, names) : "" })}
-      <div class="sbox" style="gap:8px;padding:14px"><b>¿Ya sos cliente? Pagá con tu saldo ⚡</b><span class="empty">Entrá y comprás al instante con tus créditos, sin esperar la confirmación.</span><button class="sbtn sm pri" type="button" data-login="1" style="justify-self:start">Acceder y pagar con saldo</button></div>
+    // Invitado (sin cuenta). Dos caminos bien separados (15/11): comprar en la tienda con tu cuenta (el comprobante se
+    // sube acá y el acceso aparece en «Mis cuentas») o por WhatsApp sin cuenta (comprobante y acceso por WhatsApp).
+    const names = pay.map((l) => product(l.productId).name).join(" + ");
+    $("#drawer").innerHTML = head + waitNote
+      + `<div class="cmodos"><b>¿Cómo querés comprar?</b>
+          <div class="cmodo"><b>🛒 En la tienda, con tu cuenta</b><span>Entrás con tu número y PIN → pagás con QR → <b>subís el comprobante acá</b> → apenas lo revisamos, el acceso aparece en «Mis cuentas». Con saldo, aparece al instante.</span><button class="sbtn pri" type="button" data-login="1">Entrar y comprar en la tienda</button></div>
+          <div class="cmodo"><b>💬 Sin cuenta, por WhatsApp</b><span>Pagás con el QR de abajo → <b>mandás el comprobante por WhatsApp</b> → te pasamos el acceso por WhatsApp.</span></div></div>`
+      + `${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}${ccCartNotice()}${guestPayHtml({ lines: pay.map((l) => ({ name: product(l.productId).name, qty: l.qty, price: product(l.productId).price })), total: toPay, discount: cartDiscount(), qr: S.settings.hasQr ? qrBlock(toPay, names) : "" })}
       <button class="sbtn" type="button" data-step="1">Volver</button>`;
     return;
   }
@@ -2170,7 +2190,7 @@ function renderCartInner(msg = "") {
   const pmx = S.data.payMethods ?? { qr: true, methods: [] };
   const anyPay = canBalance || pmx.qr || pmx.methods.length || S.settings.usdt || (S.settings.binance && !usdMode());
   const firstPm = canBalance ? "balance" : abroad() ? "usdt" : pmx.qr ? "qr" : pmx.methods[0] ? `local:${pmx.methods[0].id}` : S.settings.usdt ? "usdt" : "qr";
-  $("#drawer").innerHTML = head + `<form class="sform" id="checkout">
+  $("#drawer").innerHTML = head + waitNote + `<form class="sform" id="checkout">
     ${cartDiscount() ? `<div class="total disc"><span>Descuento combo</span><span>− ${bs(cartDiscount())}</span></div>` : ""}
     ${usdMode() ? "" : cup ? `<div class="total disc"><span>Cupón ${esc(cup.code)} <button class="cupx" type="button" data-coupon="off" aria-label="Quitar el cupón ${esc(cup.code)}">Quitar</button></span><span>− ${bs(cup.amount)}</span></div>`
       : `<div class="cupbox"><label for="cupIn">¿Tenés un cupón de descuento?</label><div class="cuprow"><input id="cupIn" name="coupon" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="Ej.: VERANO10" value="${esc(cupErr?.code ?? "")}"><button class="sbtn sm" type="button" data-coupon="apply">Aplicar</button></div>${cupErr ? `<div class="err" role="alert">${esc(cupErr.error)}</div>` : ""}</div>`}
@@ -2182,10 +2202,10 @@ function renderCartInner(msg = "") {
     ${S.settings.usdt ? `<label><input type="radio" name="pm" value="usdt"><span>USDT (manual)<small>Mandás USDT a nuestra billetera y subís el comprobante.</small></span></label>` : ""}
     ${S.settings.binance && !usdMode() ? `<label><input type="radio" name="pm" value="binance"><span>Binance Pay (USDT)<small>Pagás en cripto y se activa solo, al instante.</small></span></label>` : ""}</div>
     ${cartBackorder() ? `<p class="empty" style="margin:0">📦 Hay productos <b>a pedido</b>: pagá con QR, subí el comprobante y te entregamos la cuenta apenas confirmemos el pago. Te avisamos por WhatsApp y aparece en Mis cuentas.</p>` : ""}
-    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net, S.cart.map((l) => product(l.productId).name).join(" + "))}</div>` : ""}
+    ${pmx.qr ? `<div id="qrInfo" ${firstPm === "qr" ? "" : "hidden"}>${qrBlock(net, pay.map((l) => product(l.productId).name).join(" + "))}</div>` : ""}
     ${pmx.methods.map((m) => `<div class="lpInfo" data-lp="${esc(m.id)}" ${firstPm === `local:${m.id}` ? "" : "hidden"}>${localBlock(m, net)}</div>`).join("")}
     ${S.settings.usdt ? `<div id="usdtInfo" hidden>${usdtBlock(net)}</div>` : ""}
-    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
+    <div id="proofPart" style="display:grid;gap:12px" ${firstPm === "balance" ? "hidden" : ""}><p class="cnext">🧾 <b>Cómo sigue:</b> pagás, subís acá la foto del comprobante y tocás «Finalizar pedido». No hace falta mandarlo por WhatsApp. Apenas lo revisamos, el acceso aparece en «Mis cuentas» y te avisamos.</p><label>Comprobante (foto o captura)<input type="file" name="file" accept="image/*,application/pdf"></label><label>Número de operación (está en tu comprobante)<input name="ref" placeholder="Ej.: 123456789"></label></div>
     ${anyPay ? "" : usdMode() ? usdNoPay() : `<div class="err" role="alert">Tu saldo no alcanza y la tienda todavía no cargó otra forma de pago. ${S.settings.whatsapp ? `<a href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>` : "Recargá saldo o volvé en un rato."}</div>`}
     <button class="sbtn pri" type="submit" ${anyPay ? "" : "disabled"}>Finalizar pedido</button><button class="sbtn" type="button" data-step="1">Volver</button></form>`;
 }
@@ -2205,7 +2225,7 @@ async function submitCheckout(form) {
       file = await fileToBase64(form.file.files[0]);
     }
     const order = await api("POST", "/api/orders", {
-      items: S.cart.map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
+      items: payCart().map((l) => ({ productId: l.productId, qty: l.qty })), paymentMethod: pm,
       customerId: form.customerId?.value || undefined, idempotencyKey: S.checkoutKey,
       ...(couponNow() ? { couponCode: couponNow().code } : {}),
       ...(localId ? { localMethodId: localId } : {}),
@@ -2215,12 +2235,12 @@ async function submitCheckout(form) {
       try {
         pay = await api("POST", `/api/orders/${order.id}/binance`, {});
       } catch (e) {
-        S.cart = []; saveCart(); S.step = 3;
+        S.cart = waitCart(); saveCart(); S.step = 3;
         $("#drawer").innerHTML = `<h2>Pedido ${esc(order.id)}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="err">El pedido quedó reservado, pero no se pudo abrir el pago con Binance: ${esc(e.message)}</div><button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Ver mis cuentas</button>`;
         await refresh();
         return;
       }
-      S.cart = []; saveCart(); S.step = 3;
+      S.cart = waitCart(); saveCart(); S.step = 3;
       $("#drawer").innerHTML = `<h2>Pagá con Binance<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
         <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span>3 · Listo</span></div>
         <div class="sbox" style="text-align:center;gap:10px">
@@ -2240,15 +2260,17 @@ async function submitCheckout(form) {
         final = await api("POST", `/api/orders/${order.id}/evidence`, { contentBase64: file, declaredReference: ref });
       } catch (e) {
         // El pedido quedó creado y reservado: se puede reintentar desde Mis cuentas.
-        S.cart = []; saveCart();
+        S.cart = waitCart(); saveCart();
         S.step = 3;
         $("#drawer").innerHTML = `<h2>Pedido ${esc(order.id)}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2><div class="err">El pedido quedó reservado, pero el comprobante no se pudo enviar: ${esc(e.message)}</div><button class="sbtn pri" type="button" data-close="1" data-s="cuentas">Subirlo desde Mis cuentas</button>`;
         await refresh();
         return;
       }
     }
-    const what = S.cart.map((l) => `${l.qty > 1 ? `${l.qty} × ` : ""}${product(l.productId)?.name ?? ""}`).join(" + ");
-    S.cart = []; saveCart();
+    const what = payCart().map((l) => `${l.qty > 1 ? `${l.qty} × ` : ""}${product(l.productId)?.name ?? ""}`).join(" + ");
+    const left = waitCart();
+    S.cart = left; saveCart(); // lo a pedido sigue en el carrito para consultarlo
+    if (left.length) setTimeout(() => toast(`${left.map((l) => product(l.productId)?.name).join(", ")} sigue en tu carrito: consultá si hay`), 600);
     S.step = 3;
     $("#drawer").innerHTML = `<h2>${pm === "balance" ? "¡Listo!" : "Pedido enviado"}<button class="x" type="button" data-close="1" aria-label="Cerrar">×</button></h2>
       <div class="steps"><span class="on">1 · Carrito</span><span class="on">2 · Pago</span><span class="on">3 · Listo</span></div>
@@ -2347,7 +2369,7 @@ async function afterLogin() {
   toast("¡Bienvenido!");
   await refresh();
   if (MODE === "hub") { if (isReseller()) setView("inicio"); else location.href = "/tienda/#cuentas"; return; }
-  if (S.cart.length) { openDrawer(); S.step = 2; S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null); renderCart(); }
+  if (S.cart.length) { openDrawer(); S.step = payCart().length ? 2 : 1; S.data.payMethods = await api("GET", "/api/me/paymethods").catch(() => null); renderCart(); }
 }
 
 /** Link de renovación: /tienda/#renovar=TOKEN → guarda el token y deja el hash en #renovar (el token no queda en el historial). */
@@ -2703,9 +2725,23 @@ document.addEventListener("click", async (ev) => {
     const p = product(d.add);
     const l = S.cart.find((x) => x.productId === d.add);
     if ((l?.qty ?? 0) >= maxQty(p)) return toast(maxQty(p) ? "No hay más unidades disponibles" : `${p.name} está agotado por ahora`);
-    l ? l.qty++ : S.cart.push({ productId: d.add, qty: 1 });
+    // «Para 2 dispositivos» en la ficha (catalogo-claro.js): suma esa cantidad, sin pasar lo que hay.
+    const n = Math.max(1, Math.min(+d.n || 1, maxQty(p) - (l?.qty ?? 0)));
+    l ? (l.qty += n) : S.cart.push({ productId: d.add, qty: n });
+    if (S.devn) delete S.devn[d.add];
     saveCart(); closeAll(); render();
-    return toast(`${p.name} agregado al carrito`);
+    return toast(n > 1 ? `${p.name} para ${n} dispositivos agregado al carrito` : `${p.name} agregado al carrito`);
+  }
+  if (d.cartok) { // «Ya me confirmaron que hay»: la línea a pedido entra al cobro
+    const l = S.cart.find((x) => x.productId === d.cartok);
+    if (l) { l.ok = true; saveCart(); renderCart(); toast(`${product(l.productId)?.name ?? "El producto"} se suma al pago`); }
+    return;
+  }
+  if (d.devn) { // ¿En cuántos dispositivos? (ficha): vuelve a dibujar la ficha con el total
+    (S.devn ??= {})[d.id] = +d.devn;
+    if (openFicha(d.id) !== false) hablarFicha($("#modal"), product(d.id));
+    $(`#modal [data-devn="${d.devn}"]`)?.focus({ preventScroll: true });
+    return;
   }
   if (d.det) { if (openFicha(d.det) !== false) hablarFicha($("#modal"), product(d.det)); return; } // «Qué incluye» (catalogo-claro.js) + «💬 Preguntar por este» (hablar.js)
   if (d.tkpick) { (S.tkv ??= {})[d.tkpick] = d.id; return render(); } // Mensual / 3 meses en la fila
@@ -3056,7 +3092,7 @@ initMoneyMask();
 initQrGrande();
 initHablar(() => ({ mode: MODE, settings: S.settings, cart: S.cart.map((l) => ({ name: product(l.productId)?.name, qty: l.qty, price: product(l.productId)?.price })) }));
 initDespuesPago({ mode: MODE, settings: () => S.settings, orders: () => S.data.orders, view: () => S.view, loggedIn: () => !!S.me?.loggedIn,
-  clearCart: () => { S.cart = []; saveCart(); render(); }, refresh: () => refresh(), render: () => render() });
+  clearCart: () => { S.cart = waitCart(); saveCart(); render(); }, /* lo a pedido sin confirmar no se pagó: queda */ refresh: () => refresh(), render: () => render() });
 (async () => {
   if (SLUG) {
     S.view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";

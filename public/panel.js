@@ -1188,7 +1188,7 @@ const V = {
       <label>Color de la tarjeta<span class="colorrow"><input name="color" type="color" value="${esc(f.color ?? "#3984ff")}"><output class="hex">${esc(f.color ?? "#3984ff")}</output></span></label>
       <label style="grid-column:1/-1">Descripción corta<input name="description" maxlength="200" value="${esc(f.description ?? "")}"></label>
       <label style="grid-column:1/-1">📌 Regla al vender <small class="muted">(opcional · aparece cuando vas a vender este servicio)</small><input name="saleNote" maxlength="200" value="${esc(f.saleNote ?? "")}" placeholder="Ej.: Disney pide PIN al entrar · este panel tarda 10 min"></label>
-      <label style="grid-column:1/-1">👥 Para quién / cuántas pantallas <small class="muted">(opcional · lo ve el cliente en la tarjeta; si lo dejás vacío no sale nada)</small><input name="forWhom" maxlength="80" value="${esc(f.forWhom ?? "")}" placeholder="Ej.: Para 1 persona · 1 pantalla a la vez"></label>
+      <label style="grid-column:1/-1">👥 Para quién / cuántas pantallas <small class="muted">(opcional · lo ve el cliente en la tarjeta; si lo dejás vacío dice «Para 1 dispositivo»)</small><input name="forWhom" maxlength="80" value="${esc(f.forWhom ?? "")}" placeholder="Ej.: Para 1 persona · 1 pantalla a la vez"></label>
       <div style="grid-column:1/-1" class="pdefs"><div class="selbl">📲 Cómo verlo <small class="muted">opcional · el cliente recibe esto al comprar (ideal para IPTV)</small></div>
         <div style="display:grid;gap:10px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">

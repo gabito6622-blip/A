@@ -151,12 +151,12 @@ describe("catálogo claro · navegador", () => {
     try {
       const { ctx, p, errs } = await open(b);
       const nf = row(p, "Netflix Premium HD 4K"), dis = row(p, "Disney+ sin ESPN");
-      assert.match(await nf.innerText(), /Perfil propio con tu nombre · 1 mes/);
+      assert.match(await nf.innerText(), /1 perfil asignado · 1 mes/, "los perfiles se cargan «Perfil 1, 2…»: no se promete el nombre (15/11)");
       assert.match(await nf.innerText(), /Para 1 persona · 1 pantalla a la vez/, "el dato del panel se ve");
       assert.match(await nf.innerText(), /Hay: entrega al instante/);
       assert.doesNotMatch(await dis.innerText(), /Para 1 persona/, "sin dato no se inventa");
       assert.match(await dis.innerText(), /A pedido: te confirmamos antes de que pagues/);
-      assert.match(await row(p, "Spotify Premium").innerText(), /Cuenta completa · 1 mes/);
+      assert.match(await row(p, "Spotify Premium").innerText(), /Acceso con correo y contraseña · 1 mes/);
       assert.match(await row(p, "Trío Netflix + Disney+ + Crunchyroll").innerText(), /3 plataformas en un solo pago · 1 mes/);
       // Duración: dos botones visibles; «ahorrás» solo con ahorro real (Netflix 3 × 40 − 110 = 10; Disney 3 × 17 = 51, sin ahorro).
       const opts = nf.locator(".ccopt");
@@ -172,9 +172,10 @@ describe("catálogo claro · navegador", () => {
       await f.waitFor();
       const ft = (await f.innerText()).replace(/\s+/g, " ");
       assert.match(ft, /A pedido: te confirmamos antes de que pagues/);
-      assert.match(ft, /Un perfil es tu propio espacio dentro de Disney\+, con tu nombre\./);
+      assert.match(ft, /En la entrega te decimos cuál es tu perfil de Disney\+ \(por ejemplo «Perfil 3»\): entrá siempre a ese\. La web no le cambia el nombre\./);
+      assert.doesNotMatch(ft, /con tu nombre/);
       assert.match(ft, /Dura 1 mes \(del mismo día al mismo día\)/, "«1 mes» ya no son «30 días» (mesModo.ts)");
-      assert.match(ft, /Preguntar si hay/);
+      assert.match(ft, /Consultar disponibilidad/);
       assert.equal(await f.locator('[data-add="disney"]').innerText(), "Agregar al carrito");
       const m = await measure(p, "#modal");
       assert.deepEqual([m.small, m.tiny, m.over], [[], [], false], "ficha a 360 px");
@@ -192,19 +193,22 @@ describe("catálogo claro · navegador", () => {
       await row(p, "Netflix Premium HD 4K").locator("[data-add]").click();
       await p.locator('.bnav [data-cart]').click();
       await p.locator("#drawer:not([hidden]) .line").first().waitFor();
-      assert.equal(await p.locator("#drawer .ccorder").count(), 0, "lo que hay en stock no lleva aviso");
+      assert.equal(await p.locator("#drawer .cwait").count(), 0, "lo que hay en stock no lleva aviso");
       await p.locator("#drawer [data-close]").first().click();
       await row(p, "Disney+ sin ESPN").locator("[data-add]").click();
       await p.locator('.bnav [data-cart]').click();
-      const notice = p.locator("#drawer .ccorder");
+      // 15/11: lo a pedido va en su sección, con «Consultar disponibilidad», y no entra al cobro.
+      const notice = p.locator("#drawer .cwait");
       await notice.waitFor();
-      assert.match(await notice.innerText(), /A pedido: Disney\+ sin ESPN/);
+      assert.match(await notice.innerText(), /A pedido · consultá antes de pagar[\s\S]*Disney\+ sin ESPN[\s\S]*No se cobra todavía/);
       assert.doesNotMatch(await notice.innerText(), /Netflix/);
-      // El aviso está ANTES del botón de pagar.
-      assert.ok(await p.evaluate(() => { const n = document.querySelector("#drawer .ccorder"), b = document.querySelector('#drawer [data-step="2"]'); return !!(n.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+      assert.match(await p.locator("#drawer").innerText(), /Total a pagar ahora\s*Bs 40/);
+      assert.equal((await p.locator('#drawer [data-step="2"]').innerText()).trim(), "Pagar solo lo disponible (Bs 40)");
+      assert.ok(await p.evaluate(() => { const n = document.querySelector("#drawer .cwait"), b = document.querySelector('#drawer [data-step="2"]'); return !!(n.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }), "el aviso va antes del botón de pagar");
       await p.locator('#drawer [data-step="2"]').click();
-      await p.locator("#drawer .ccorder").waitFor();
-      assert.ok(await p.evaluate(() => { const n = document.querySelector("#drawer .ccorder"), q = document.querySelector("#drawer .qrg"); return !q || !!(n.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING); }), "el aviso va antes del QR");
+      await p.locator("#drawer .cwaitnote").waitFor();
+      assert.match(await p.locator("#drawer .cwaitnote").innerText(), /Disney\+ sin ESPN queda en tu carrito: no se cobra ahora/);
+      assert.ok(await p.evaluate(() => { const n = document.querySelector("#drawer .cwaitnote"), q = document.querySelector("#drawer .qrg"); return !q || !!(n.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING); }), "el aviso va antes del QR");
       const m = await measure(p, "#drawer");
       assert.deepEqual([m.over, m.small, m.tiny], [false, [], []]);
       assert.deepEqual(errs, []);

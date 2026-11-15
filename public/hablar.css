@@ -1,14 +1,15 @@
 /* 💬 «Hablar con una persona» (hablar.js) y lo de después de pagar (despues-pago.js). Celular primero. */
 /* Verde de WhatsApp oscurecido para que la letra blanca se lea (5:1). */
-.hablar{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;align-items:center;gap:10px;
-  min-height:52px;max-width:calc(100% - 24px);padding:8px 16px 8px 12px;border-radius:999px;background:#15803d;color:#fff;text-decoration:none;font-family:var(--f-shop,inherit);
-  border:2px solid rgba(255,255,255,.85);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+/* 15/11: ícono + «WhatsApp», ancho justo al texto y 44 px de alto (antes «Hablar con una persona», 52 px, tapaba precios). */
+.hablar{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:35;display:inline-flex;align-items:center;gap:8px;
+  width:max-content;height:44px;min-height:44px;box-sizing:border-box;padding:0 14px 0 11px;border-radius:999px;background:#15803d;color:#fff;text-decoration:none;font-family:var(--f-shop,inherit);
+  border:1.5px solid rgba(255,255,255,.8);box-shadow:0 8px 22px rgba(0,0,0,.35);transition:opacity .15s ease,visibility .15s ease}
+/* Si al desplazarse quedaría encima de un precio, «Agregar» o la barra de abajo, se esconde (hablar.js). */
+.hablar.hablar-fuera{opacity:0;visibility:hidden;pointer-events:none}
 .hablar:hover{background:#166534}
 .hablar:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #15803d}
-.hablar-ico{width:26px;height:26px;flex:none}
-.hablar-t{display:grid;line-height:1.2;min-width:0}
-.hablar-t b{font-size:15px;font-weight:800;white-space:nowrap}
-.hablar-t small{font-size:12px;font-weight:600;opacity:.95}
+.hablar-ico{width:22px;height:22px;flex:none}
+.hablar-t{font-size:15px;font-weight:800;white-space:nowrap;line-height:1}
 /* En el celular la barra de abajo mide ~64 px: el botón va justo arriba, sin taparla. */
 @media (max-width:800px){.hablar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
 /* Con la barra del combo («2 en tu combo · Ver») el botón sube más. */
@@ -64,4 +65,4 @@ body.con-hablar .shop{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px
 .qrg-share{width:100%;max-width:420px;min-height:48px;justify-content:center;font-size:15px;font-weight:700}
 .qrg-sharenote{margin:0;font-size:13px;color:var(--s-muted);max-width:420px}
 /* Pantalla muy angosta o letra gigante (zoom 200 %): solo el ícono redondo, sin texto que se salga (el nombre queda en aria-label). */
-@media (max-width:300px){.hablar{padding:0;width:52px;height:52px;justify-content:center;border-radius:50%}.hablar-t{display:none}}
+@media (max-width:300px){.hablar{padding:0;width:44px;height:44px;justify-content:center;border-radius:50%}.hablar-t{display:none}}
