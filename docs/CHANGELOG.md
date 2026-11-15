@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
+- **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
+- **Revendedor (GaboHub → Códigos):** debajo de su link, «🔐 PIN por cuenta (opcional)» con cada correo de sus cuentas: poner, cambiar o quitar un PIN de 4 números. Al ponerlo, el texto para su cliente (link, correo y PIN) queda copiado y hay «Mandárselo a tu cliente».
+- **Dueño (Revendedores → ficha):** «🔐 PIN por cuenta en su link de códigos», lo mismo para cualquier revendedor.
+- **Página de códigos:** si la cuenta tiene PIN, pide el PIN después del correo; sin el PIN correcto no muestra nada. 5 intentos fallidos bloquean 15 minutos. Las cuentas sin PIN siguen como antes.
+- **Título:** la página ya no muestra la etiqueta interna del dueño («aneliz · Aneliz Contreras» → «Aneliz Contreras»), si el revendedor no tiene título de tienda.
+
 ## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
 - **Mis hojas** (Inicio → 📗 Mis hojas): una hoja por plataforma (Disney, Netflix…) con pestañas abajo como el Excel, más «👥 Revendedores» (agrupados, con «📋 Su lista» por WhatsApp) y «💸 Me deben». Cada fila: correo, quién, vence y precio, con la raya de color (rojo vencida, naranja vence en 7 días, verde al día, azul libre, gris apartada). Buscador y resumen arriba.
