@@ -9,8 +9,8 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Dueño (Revendedores → ficha):** «🔐 PIN por cuenta en su link de códigos», lo mismo para cualquier revendedor.
 - **Página de códigos:** si la cuenta tiene PIN, pide el PIN después del correo; sin el PIN correcto no muestra nada. 5 intentos fallidos bloquean 15 minutos. Las cuentas sin PIN siguen como antes.
 - **Título:** la página ya no muestra la etiqueta interna del dueño («aneliz · Aneliz Contreras» → «Aneliz Contreras»), si el revendedor no tiene título de tienda.
-- **🏷️ Título propio (sin publicar):** cada revendedor elige qué dice arriba su página de códigos («Códigos», «Soporte TV»… hasta 40 letras) desde GaboHub → Códigos, sin tocar el nombre de su tienda; el dueño también desde la ficha. Vacío = el nombre de su tienda o su nombre.
-- **Arreglo después de publicar (sin publicar):** en producción 9 de 27 revendedores tienen como título de tienda una copia de su nombre con la etiqueta, y la página seguía mostrando «aneliz · Aneliz Contreras». Ahora, si el título es igual al nombre, también sale sin la etiqueta.
+- **🏷️ Título propio (PR #83 publicado):** cada revendedor elige qué dice arriba su página de códigos («Códigos», «Soporte TV»… hasta 40 letras) desde GaboHub → Códigos, sin tocar el nombre de su tienda; el dueño también desde la ficha. Vacío = el nombre de su tienda o su nombre.
+- **Arreglo después de publicar (PR #83 publicado):** en producción 9 de 27 revendedores tienen como título de tienda una copia de su nombre con la etiqueta, y la página seguía mostrando «aneliz · Aneliz Contreras». Ahora, si el título es igual al nombre, también sale sin la etiqueta.
 
 ## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.

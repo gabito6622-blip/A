@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P2] 🏪🔒 PIN por cuenta en el link de códigos (15/11):** prueba `codigos-pin-cuenta`. Publicado (#82); el arreglo del título, sin publicar.
+- ✅ **[P2] 🏪🔒 PIN por cuenta en el link de códigos (15/11):** prueba `codigos-pin-cuenta`. Publicado (#82 y #83: título propio y sin etiqueta).
 - ✅ **[P2] 👔 Mis hojas como el Excel, también sin internet (15/11):** prueba `mis-hojas` (con internet, sin internet, cambio que chocó, sin contraseñas en la copia). Publicado (#81).
   - ⏳ [P3] Lo mismo para los revendedores en su panel (GaboHub): sus hojas con sus clientes, sin internet.
 - ✅ **[P2] 🏪👔 Revendedores sin entrar uno por uno (15/11):** Tablero de revendedores, «✂️ Cortar: no renovó» y «📲 Avisarle: quedó renovada». Prueba `tablero-revendedores`. Publicado (#80).
