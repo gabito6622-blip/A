@@ -6,6 +6,7 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 - **Opcional y por correo:** el link sigue siendo uno solo por revendedor; cada cuenta puede pedir su PIN. Así no cambia nada para quien no lo usa.
 - **Por revendedor:** el PIN de un correo es del revendedor que lo puso (si dos revendedores comparten una cuenta de perfiles, cada uno tiene el suyo). Solo puede proteger correos de sus cuentas activas.
 - **Guardado con scrypt fuera del estado**, como el PIN del link; nadie (ni el dueño) lo puede leer después: si se olvida, se pone otro.
+- **Título de la página de códigos aparte del nombre de la tienda:** el dueño: algunos revendedores no quieren que diga su nombre ni el de su tienda. Si lo dejan vacío, se usa el de la tienda (o su nombre, sin la etiqueta interna «xxx ·»).
 - **Descartado:** un link por cliente (exige cargar cada cliente del revendedor en el sistema) y obligar el PIN en todas las cuentas (más pasos para todos).
 
 ## 2026-11-15 · Mis hojas sin internet

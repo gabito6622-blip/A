@@ -79,6 +79,17 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
   assert.deepEqual((await pub({ email: "ana2@ficticio.lat" })).json.codes.map((c) => c.code), ["222222"]);
   const audits = s.engine.s.audit.filter((x) => /customer\.code_pin/.test(x.action)).map((x) => x.action);
   assert.deepEqual(audits, ["customer.code_pin", "customer.code_pin", "customer.code_pin_off"]);
+  // 🏷️ Título propio de la página de códigos: lo que quiera (sin tocar el nombre de su tienda); vacío = como antes.
+  const title = () => call(null, "GET", `/api/code-link/${token}`).then((r) => r.json.name);
+  assert.equal((await call(anaCk, "POST", "/api/me/code-title", { title: "  Códigos   TV " })).json.title, "Códigos TV");
+  assert.equal(await title(), "Códigos TV");
+  assert.equal((await call(anaCk, "GET", "/api/me/code-link")).json.title, "Códigos TV");
+  assert.equal((await call(anaCk, "POST", "/api/me/code-title", { title: "x".repeat(41) })).status, 400, "hasta 40 letras");
+  assert.equal((await call(anaCk, "POST", "/api/me/code-title", { title: "" })).json.title, "");
+  assert.equal(await title(), "Ana Revende");
+  assert.equal((await call(staff, "POST", `/api/admin/customers/${ana.id}/code-title`, { title: "Soporte" })).status, 200, "el dueño también");
+  assert.equal(await title(), "Soporte");
+  assert.equal((await call(staff, "GET", `/api/admin/customers/${ana.id}/code-pins`)).json.title, "Soporte");
   // Probar PINs: a los 5 intentos fallidos se bloquea (ya hubo 1).
   for (let i = 0; i < 4; i++) assert.equal((await pub({ email: "ana1@ficticio.lat", pin: String(1000 + i) })).status, 401);
   assert.equal((await pub({ email: "ana1@ficticio.lat", pin: "4321" })).status, 429, "bloqueado por 15 minutos");
@@ -129,6 +140,11 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
       await h.locator(".accpins [role=status]").waitFor();
       assert.match(await h.locator(".accpins").innerText(), /ana2@ficticio\.lat[\s\S]*🔒 con PIN/);
       if (shots) await h.screenshot({ path: `${shots}/hub-pin-por-cuenta.png`, fullPage: true });
+      // Su título desde GaboHub.
+      await h.locator('#codeTitle input[name="title"]').fill("Mis códigos");
+      await h.locator('#codeTitle [type="submit"]').click();
+      await h.waitForFunction(() => document.querySelector('#codeTitle input[name="title"]')?.value === "Mis códigos");
+      assert.equal((await call(null, "GET", `/api/code-link/${token}`)).json.name, "Mis códigos");
       assert.equal(await h.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, "sin desborde");
       assert.deepEqual(herrs, []);
       await hc.close();

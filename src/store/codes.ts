@@ -174,8 +174,21 @@ export function codeLinkOwner(e: Engine, token: string): { customerId: Id; name:
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
   const c = Object.values(e.s.customers).find((x) => x.codeLink?.token === token);
   // Si el título de su tienda es una copia de su nombre (se arma solo al crear la página), también va sin la etiqueta.
-  const t = c?.shop?.title && c.shop.title.trim() !== c.name.trim() ? c.shop.title : publicName(c?.name ?? "");
+  const t = c?.codeTitle?.trim() || (c?.shop?.title && c.shop.title.trim() !== c.name.trim() ? c.shop.title : publicName(c?.name ?? ""));
   return c ? { customerId: c.id, name: t } : null;
+}
+
+/** Título propio de la página de códigos (vacío = el de su tienda o su nombre). El revendedor el suyo; el equipo, cualquiera. */
+export function setCodeTitle(e: Engine, actor: Actor, customerId: Id, title: unknown) {
+  if (!(actor.role === "reseller" && actor.customerId === customerId)) authorize(actor, "customer.manage");
+  const t = String(title ?? "").replace(/\s+/g, " ").trim();
+  if (t.length > 40) throw new DomainError("VALIDATION", "El título puede tener hasta 40 letras");
+  return e.tx(() => {
+    const c = e.get("customers", customerId);
+    if (t) c.codeTitle = t; else delete c.codeTitle;
+    e.audit(actor, "customer.code_title", "customer", c.id, { title: t });
+    return { title: t };
+  });
 }
 
 /** Correos de las cuentas activas que muestra el link de un cliente/revendedor (las suyas y las de sus clientes). */

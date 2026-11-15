@@ -267,6 +267,7 @@ export function createStore(opts: EngineOptions = {}) {
       linkOwner: (token: string) => codes.codeLinkOwner(e, token),
       linkAccounts: (customerId: string) => codes.linkAccountsOf(e, customerId),
       checkAccountPin: bind(e, codes.checkAccountPin),
+      setTitle: bind(e, codes.setCodeTitle),
       of: (customerId: string) => codes.codesOf(e, customerId),
       platforms: (customerId: string) => arranque.codePlatforms(e, customerId),
     },

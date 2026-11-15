@@ -1504,7 +1504,8 @@ const V = {
         <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
           <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
           ${debe.length || fs.owed ? `<button class="pbtn" type="button" data-fgo="${esc(fs.name)}">💸 Ver su fiado</button>` : ""}
-          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>${fpins?.accounts?.length ? `<details class="rpins"${T.rpinOpen ? " open" : ""}><summary>🔐 PIN por cuenta en su link de códigos (${fpins.accounts.filter((a) => a.pin).length} de ${fpins.accounts.length} con PIN)</summary>
+          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>${fpins ? `<details class="rpins"${T.rpinOpen ? " open" : ""}><summary>🔗 Su página de códigos: título${fpins.accounts.length ? ` y PIN por cuenta (${fpins.accounts.filter((a) => a.pin).length} de ${fpins.accounts.length} con PIN)` : ""}</summary>
+            <form class="inline rpinf" data-rcodetitle="${esc(fs.id)}"><label style="display:grid;gap:4px;flex:1;min-width:200px">🏷️ Título que ven sus clientes<input name="title" maxlength="40" value="${esc(fpins.title || "")}" placeholder="Vacío = el nombre de su tienda"></label><button class="pbtn" type="submit">Guardar título</button></form>
             <p class="muted" style="margin:6px 0">Si una cuenta tiene PIN, sus clientes escriben el correo <b>y</b> el PIN. Así nadie ve el código de otra cuenta aunque sepa el correo. También lo puede poner ${esc(fs.name.replace(/^[^·]*·\s*/, "").split(" ")[0])} desde su panel.</p>
             ${fpins.accounts.map((a) => `<form class="inline rpinf" data-rcodepin="${esc(fs.id)}" data-email="${esc(a.email)}"><span class="mono" style="overflow-wrap:anywhere">${esc(a.email)}</span>${a.pin ? pill("🔒 con PIN", "ok") : pill("sin PIN", "mute")}
               <input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="${a.pin ? "PIN nuevo" : "1234"}" aria-label="PIN para ${esc(a.email)}" style="max-width:110px"><button class="pbtn" type="submit">${a.pin ? "Cambiar" : "Poner PIN"}</button>${a.pin ? `<button class="pbtn sm" type="button" data-rcodepinoff="${esc(fs.id)}" data-email="${esc(a.email)}">Quitar</button>` : ""}</form>`).join("")}</details>` : ""}${cargarCard(fs, canReview(), render)}
@@ -3441,6 +3442,10 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target;
   const btn = f.querySelector('[type="submit"]');
+  if (f.dataset.rcodetitle) {
+    P.tab.rpinOpen = true;
+    return act(() => api("POST", `/api/admin/customers/${f.dataset.rcodetitle}/code-title`, { title: f.elements.namedItem("title").value }), (r) => (r.title ? `🏷️ Su página de códigos dice «${r.title}»` : "🏷️ Su página de códigos usa el nombre de su tienda"));
+  }
   if (f.dataset.rcodepin) {
     const pin = f.pin.value.trim();
     P.tab.rpinOpen = true;

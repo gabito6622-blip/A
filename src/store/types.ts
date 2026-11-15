@@ -320,6 +320,8 @@ export interface Customer {
   referredBy?: Id;
   /** Link de códigos para compartir (/codigos/<token>), protegido con un PIN que guarda el servidor. */
   codeLink?: { token: string; createdAt: number };
+  /** Título propio de su página de códigos (15/11/2026), aparte del nombre de su tienda: «Códigos», «Soporte TV»… */
+  codeTitle?: string;
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
