@@ -126,7 +126,7 @@ export const appName = (p) => p.name.replace(/^Amazon\s+/i, "").split(/\s*(?:·|
 export function devLine(p) {
   if (p.forWhom) return p.forWhom;
   if (p.kind === "invite") return "";
-  return p.kind === "combo" ? "Para 1 dispositivo en cada plataforma" : "Para 1 dispositivo";
+  return p.kind === "combo" ? "1 dispositivo c/u" : "Para 1 dispositivo";
 }
 /** Cuántos puede llevar de una vez (hasta 3): lo que hay, o 3 si es a pedido. */
 const devMax = (p) => Math.min(3, stockOf(p) === "order" ? 3 : Math.max(0, p.available ?? 0));

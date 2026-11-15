@@ -189,3 +189,36 @@
 .ccpinhint{margin:0;font-size:13px}
 .cctabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cctabs .ccopt{justify-items:center;text-align:center}
+
+/* ---- 15/11 · Computadora (≥ 900 px): la tira compacta de antes, sin perder lo nuevo ----
+   El dueño: «en la computadora ya no se ve tan cómodo como antes» (cada tarjeta medía 351 px y entraban 3 productos
+   por pantalla). Logo a la izquierda, datos en el medio y el talón del boleto a la derecha (precio, «Agregar» y
+   «Ver qué incluye») con la línea punteada; 2 columnas para que el texto entre en un renglón. El celular no cambia. */
+@media (min-width:900px){
+  .tklist:has(.tk.cc){grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .tk.cc{grid-template-columns:auto minmax(0,1fr) 132px;grid-template-areas:"logo mid end" "logo dur end";align-items:start;padding:14px 0 14px 14px;gap:8px 14px}
+  .tk.cc .tkmid{gap:4px}
+  .tk.cc .tkmid h3{font-size:17px}
+  .tk.cc .ccdur{display:flex;flex-wrap:wrap;gap:8px}
+  .tk.cc .ccopt{min-height:44px;padding:4px 12px;flex:0 1 auto;max-width:100%}
+  .tk.cc .ccopt b,.tk.cc .ccopt small{white-space:nowrap}
+  .tk.cc .ccdev{min-height:30px;padding:0}
+  .tk.cc .tkend{grid-area:end;align-self:stretch;margin:-14px 0;padding:12px 10px;border-top:0;border-left:2px dashed var(--s-line);grid-template-columns:minmax(0,1fr);justify-items:stretch;align-content:center;gap:8px}
+  .tk.cc .tkend::before,.tk.cc .tkend::after{left:-9px;right:auto}
+  .tk.cc .tkend::before{top:-9px}.tk.cc .tkend::after{top:auto;bottom:-9px}
+  .tk.cc .tkend b{justify-self:center;font-size:22px}
+  .tk.cc .tkend .tkbtn{width:100%;min-width:0;padding:0 10px}
+  .tk.cc .tkend .ccmore{grid-column:auto;grid-row:auto;border-color:transparent;color:var(--s-muted);font-size:13px;text-decoration:underline;text-underline-offset:3px;padding:0 4px}
+  .tk.cc .tkend .ccmore:hover{color:var(--s-ink)}
+  .tk.cc .tkend .tkbtn,.tk.cc .tkend a.tkbtn{order:1}.tk.cc .tkend .ccmore{order:2;white-space:nowrap}
+  .tk.cc .tkend b{order:0}
+  .tk.cc .ccstock{font-size:13px}
+  .tk.cc .tksave{justify-self:start;width:max-content}
+  .smain:has(.tkhero)>.cctrust{margin-bottom:-14px}
+  /* Logos de los combos más grandes (antes 20 px en el cuadro y 10 px en las etiquetas). */
+  .tk.cc .tklogo,.tk.cc .tklogo .plogo,.tk.cc .tklogo .lt{width:64px;height:64px}
+  .tk.cc .tklogo:has(.tkgrid){width:68px;height:68px}
+  .tk.cc .tkgrid{width:68px;height:68px;padding:3px;gap:3px}
+}
+/* Etiquetas de cada plataforma del combo: el logo ocupa su cuadrito (antes quedaba de 10 px). */
+.tkapp .mini.mimg{padding:1px;width:24px;height:24px;min-width:24px}
