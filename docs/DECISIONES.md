@@ -2,6 +2,15 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-15 · Tienda en el celular
+- **El botón de WhatsApp se esconde cuando taparía algo.** No hay en la pantalla un lugar fijo libre de precios y botones (la tarjeta tipo boleto tiene el precio a la izquierda y «Agregar» a la derecha). Por eso el botón se esconde mientras estaría encima de un precio, «Agregar», «Ver qué incluye», los planes o la barra de abajo. En la prueba se ve en 73 de 142 posiciones al recorrer la página y nunca tapa nada. Descartado: sacarlo (el dueño lo quiere) o ponerlo en la barra de abajo (no entra un sexto botón).
+- **«1 perfil asignado · <duración>»:** la duración sale del ajuste del mes. Con «mismo día» dice «1 mes»; con «30 días» dice «30 días». Es la duración real del plan elegido.
+- **Lo a pedido no entra al cobro** hasta que el cliente marque «Ya me confirmaron que hay». Así nadie paga por QR algo que después no hay. Solo en la tienda: en GaboHub los alquileres de revendedores son siempre a pedido y se pagan así a propósito.
+- **«Preguntar por este» no se repite en lo a pedido:** «Consultar disponibilidad» ya manda el plan, la duración y el precio.
+
+## 2026-11-15 · Cómo cuenta un mes
+- Un «mes» depende de quién vende. La tienda decide para lo suyo y para los alquileres a revendedores; cada revendedor decide para su cuaderno y sus cuentas propias. Lo proporcional y el costo por mes usan los días reales del período.
+
 ## 2026-11-14 · Revisión de 3 meses: reglas tomadas (las podés cambiar)
 - **Pago atrasado antes del corte:** el período nuevo arranca en el vencimiento, sin días gratis. Después del corte, o con más de 30 días de atraso, arranca hoy.
 - **Cobro que pasa la fecha del proveedor:** se anota igual, con el aviso «Renová el proveedor antes del dd/mm» y en la lista «Proveedores por renovar». La renovación que hace el cliente o el revendedor solo desde GaboHub sigue frenada (pendiente de decisión).

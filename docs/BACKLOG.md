@@ -102,6 +102,13 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 - **[P2] Productos IPTV publicados con líneas sueltas:** MASTV y FLUJOTV están publicados; una línea cargada sin asignar puede venderla la tienda web. Al cargar líneas de clientes que ya existen, asignarlas en el mismo paso (13/11).
 - **[P3] GaboHub: prorrateo al cambiar entre Vendedor y Negocio.** Hoy el cambio rige desde el próximo cobro (subir a Negocio a mitad de mes no cuesta más hasta entonces). Si se prende el cobro y alguien abusa, cobrar la diferencia proporcional.
 
+## Tienda en el celular (15/11/2026)
+- ✅ Portada compacta, botón «WhatsApp» chico que no tapa, «1 perfil asignado», compra en tienda vs WhatsApp, «Consultar disponibilidad» y pagar solo lo disponible (rama `ocultar-montos`, sin publicar).
+- **[P2] Decide el dueño · «Crear mi cuenta» sin códigos** (nombre, número y PIN que elige el cliente). Hoy un cliente nuevo tiene que pedir el PIN por WhatsApp para comprar en la tienda.
+- **[P2] Decide el dueño · casilla «¿Querés tu nombre en el perfil?»** al comprar, que te llegue como tarea.
+- **[P3] Decide el dueño · precio especial para 2 dispositivos.** Hoy se cobra el doble.
+- **[P3] Descripciones de productos:** algunas dicen «Tu perfil propio por 30 días» (las escribió el dueño en el panel). No se tocaron porque son datos reales.
+
 ## Decisiones del dueño
 | # | Pendiente | Prioridad | Estado |
 |---|---|---|---|

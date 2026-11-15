@@ -1,5 +1,23 @@
 # Informe de pruebas
 
+## 15/11/2026 · Tienda más clara en el celular (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Prueba nueva `tienda-compacta` | 390 px, Disney+ sin ESPN con stock y Netflix a pedido, invitado y con cuenta | pasa |
+| Portada | posición a 390 px | buscador 450 → 312 px; primer plan 646 → 480 px |
+| Botón WhatsApp | recorrido de toda la página cada 89–97 px | 129 × 44 px; 0 veces encima de precio, «Agregar» o barra; visible en 73 de 142 posiciones |
+| Carrito mezclado | invitado y con cuenta (QR + comprobante) | se paga Bs 17 (solo Disney+); el pedido lleva solo Disney+; Netflix queda en el carrito; «Ya me confirmaron» lo suma |
+| Capturas | réplica local con el aspecto y catálogo públicos de gabostore.lat (cuentas, QR y WhatsApp ficticios) | `scratchpad/tienda2/despues/` |
+| Pruebas ajustadas | `catalogo-claro`, `hablar-pago`, `dispositivos` | textos nuevos («1 perfil asignado», «Consultar disponibilidad», «WhatsApp») |
+| No probado | iPhone/Safari, lector de pantalla real | — |
+
+## 15/11/2026 · «1 mes» = mismo día (PR #74)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` | **878 pasan, 0 fallan** |
+| Prueba de Mi secretaria | navegador en hora de Bolivia | fallaba solo entre las 20:00 y la medianoche de Bolivia; arreglada |
+| Producción después de #72, #73 y #74 | instantánea antes y después, curl | datos idénticos; páginas 200 |
+
 ## 14/11/2026 · 3 meses en el lugar de los revendedores
 | Qué | Cómo | Resultado |
 |---|---|---|

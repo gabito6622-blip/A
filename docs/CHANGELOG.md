@@ -3,6 +3,38 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-15 · Tienda más clara en el celular (sin publicar)
+- **Por qué:** pedido del dueño. Que en el celular se vean antes el buscador y los planes, que el botón de WhatsApp no tape precios, que los perfiles no prometan «con tu nombre» y que lo «a pedido» se consulte antes de pagar.
+- **Portada compacta (≤ 560 px):**
+  - mismo fondo, acentos amarillos, logo y tarjetas tipo boleto;
+  - a 390 px el buscador sube de 450 a 312 px y el primer plan de 646 a 480 px.
+- **Botón flotante:**
+  - ícono + «WhatsApp», ancho justo (129 px) y 44 px de alto;
+  - si al desplazarse quedaría encima de un precio, de «Agregar» o de la barra de abajo, se esconde y vuelve cuando hay lugar;
+  - el horario va en su descripción.
+- **Perfiles:**
+  - «1 perfil asignado · 1 mes», con la duración real del plan elegido (3 meses → «3 meses»);
+  - en «Qué recibís»: «En la entrega te decimos cuál es tu perfil (por ejemplo «Perfil 3»): entrá siempre a ese. La web no le cambia el nombre.»;
+  - en «Mis cuentas»: «Entrá siempre a este perfil: es el tuyo».
+- **Comprar en la tienda o por WhatsApp:**
+  - el invitado ve «¿Cómo querés comprar?»;
+  - **en la tienda:** el comprobante se sube acá y el acceso aparece en «Mis cuentas»; con saldo, al instante;
+  - **sin cuenta, por WhatsApp:** el comprobante y el acceso van por WhatsApp;
+  - con cuenta, «Cómo sigue» aclara que no hace falta mandar el comprobante por WhatsApp.
+- **A pedido:**
+  - la ficha muestra primero «Consultar disponibilidad», con plan, duración y precio en el mensaje;
+  - en el carrito va en su propia sección y no se cobra;
+  - se paga «solo lo disponible», y lo a pedido queda en el carrito hasta «Ya me confirmaron que hay».
+  - Solo en la tienda; GaboHub y las páginas de revendedores no cambian.
+- **También en esta rama, sin publicar:** «Para 1 dispositivo» y elegir 2 o 3 dispositivos desde la ficha.
+
+## 2026-11-15 · «1 mes» = mismo día del mes siguiente (PR #74 publicado)
+- La tienda cuenta «1 mes» del 12/01 al 12/02; cada revendedor elige en GaboHub entre «mismo día» y «30 días» (por defecto, 30 días). El link de renovar muestra el correo de la cuenta. Lo ya vendido no se migra.
+
+## 2026-11-14 · Clientes (PR #72 y #73 publicados)
+- #72: hablar con una persona, catálogo claro, planes, velocidad, link de códigos con PIN y la deuda del revendedor en la tarjeta de su cuenta.
+- #73: entrar sin un código que no llega, «Cambiarme a otro servicio», pedido terminado con qué compró y cuánto, plazo real de noche.
+
 ## 2026-11-14 · 3 meses en el lugar de los revendedores (PR #69 publicado; lo de la última corrida, sin publicar)
 - **Por qué:** el dueño: «hacé lo mismo pero poniéndote desde un revendedor». Lo revisaron 3 revisores (de confianza, independiente, nuevo y sus clientes), lo arreglaron 4 equipos y un agente hizo 7 corridas hasta tener 0 problemas en 17 categorías.
 - **Urgente (publicado en #69):** el link de códigos con mayúsculas daba «Link no válido» en 2 de cada 3 casos.
