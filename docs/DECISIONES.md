@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-15 · PIN por cuenta en el link de códigos
+- **Opcional y por correo:** el link sigue siendo uno solo por revendedor; cada cuenta puede pedir su PIN. Así no cambia nada para quien no lo usa.
+- **Por revendedor:** el PIN de un correo es del revendedor que lo puso (si dos revendedores comparten una cuenta de perfiles, cada uno tiene el suyo). Solo puede proteger correos de sus cuentas activas.
+- **Guardado con scrypt fuera del estado**, como el PIN del link; nadie (ni el dueño) lo puede leer después: si se olvida, se pone otro.
+- **Descartado:** un link por cliente (exige cargar cada cliente del revendedor en el sistema) y obligar el PIN en todas las cuentas (más pasos para todos).
+
 ## 2026-11-15 · Mis hojas sin internet
 - **Otra vista, los mismos datos y botones:** «Me pagó» usa el mismo camino que «Renovar» de Cuentas; Cortar y Ver en Cuentas son los del Tablero. Así todo llega a Mi secretaria, Finanzas, el Tablero y el asistente sin duplicar reglas.
 - **La copia del aparato no lleva contraseñas ni PIN:** solo correos de las cuentas, nombres y teléfonos de clientes, fechas y precios. Al cerrar sesión se borra (si hay cambios sin subir, pregunta antes). Si entra otra persona del equipo en ese aparato, la copia anterior se borra.

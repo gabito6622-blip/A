@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 15/11/2026 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (200 s) | **888 pasan, 0 fallan** |
+| Prueba nueva `codigos-pin-cuenta` | API + pantalla a 390 px, datos ficticios | título «Ana Revende» sin etiqueta; sin PIN alcanza el correo; el revendedor solo protege sus cuentas (la ajena → 400); PIN de 4 números; el PIN no queda en el estado ni en respuestas; sin PIN → «Esta cuenta tiene PIN»; PIN mal → «PIN incorrecto»; bien → solo el código de esa cuenta; el dueño pone y quita; auditoría; 5 intentos → bloqueo 15 min; en GaboHub la tarjeta con 2 cuentas, sin desborde |
+
 ## 15/11/2026 · 📗 Mis hojas sin internet
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -3,12 +3,20 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-15 · 📗 Mis hojas, también sin internet (sin publicar)
+## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (sin publicar)
+- **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
+- **Revendedor (GaboHub → Códigos):** debajo de su link, «🔐 PIN por cuenta (opcional)» con cada correo de sus cuentas: poner, cambiar o quitar un PIN de 4 números. Al ponerlo, el texto para su cliente (link, correo y PIN) queda copiado y hay «Mandárselo a tu cliente».
+- **Dueño (Revendedores → ficha):** «🔐 PIN por cuenta en su link de códigos», lo mismo para cualquier revendedor.
+- **Página de códigos:** si la cuenta tiene PIN, pide el PIN después del correo; sin el PIN correcto no muestra nada. 5 intentos fallidos bloquean 15 minutos. Las cuentas sin PIN siguen como antes.
+- **Título:** la página ya no muestra la etiqueta interna del dueño («aneliz · Aneliz Contreras» → «Aneliz Contreras»), si el revendedor no tiene título de tienda.
+
+## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
 - **Mis hojas** (Inicio → 📗 Mis hojas): una hoja por plataforma (Disney, Netflix…) con pestañas abajo como el Excel, más «👥 Revendedores» (agrupados, con «📋 Su lista» por WhatsApp) y «💸 Me deben». Cada fila: correo, quién, vence y precio, con la raya de color (rojo vencida, naranja vence en 7 días, verde al día, azul libre, gris apartada). Buscador y resumen arriba.
 - **Tocar una fila:** «💵 Me pagó · renovar 1 mes» (el mismo Renovar de Cuentas, con el aviso «quedó renovada»), «📅 Cambiar fecha», «📝 Nota», «📲 Cobrar por WhatsApp», «✂️ Cortar: no renovó» y «🔎 Ver en Cuentas».
 - **Sin internet:** el panel instalado abre igual en Mis hojas con la última copia (dice de qué hora es). «Me pagó», «Cambiar fecha» y «Nota» quedan con ⏳ y se suben solos al volver la señal; si esa cuenta cambió mientras tanto, pregunta antes de guardar. La copia **no** tiene contraseñas. Cortar y Ver en Cuentas piden internet.
 - No se quitó nada: Cuentas, Tablero, Control, Mi secretaria y todos sus botones siguen igual.
+- Datos reales (15/11, con respaldo sin contraseñas): Aneliz Contreras renovó. Se guardó la clave nueva de gabito6619+uwb (la cuenta no tenía clave cargada), se liberó y se le volvió a dar con una venta nueva hasta el 15/12/2026 (pedido ord_02618, alquiler asg_02620). El sistema cobró el precio de lista Bs 69; antes tenía acordado Bs 65 (pendiente: lo confirma el dueño).
 
 ## 2026-11-15 · Tablero de revendedores, «Cortar: no renovó» y «Avisarle: quedó renovada» (PR #80 publicado)
 - **Tablero de revendedores** (Clientes y revendedores → 🗂️ Tablero): una fila por revendedor, primero el que tiene algo vencido, después el que vence en 7 días, el que debe y el que está al día. Cada cuenta es una etiqueta con color (rojo vencida, naranja vence pronto, amarillo esta semana, verde al día); tocarla abre esa cuenta en Cuentas con sus botones. Arriba: cuántas cuentas, vencidas, por vencer y «Para cobrar Bs X». Por fila: «📲 Cobrar» (WhatsApp con lo que vence y el total) y «💵 Me pagó todo». Filtros y buscador.

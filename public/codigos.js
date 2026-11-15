@@ -5,7 +5,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const KLABEL = { login: "🔓 Código de inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Código de acceso temporal", verificacion: "🛡️ Código de verificación", otro: "✉️ Código" };
 const token = location.pathname.split("/").filter(Boolean)[1];
 const KEY = "gh-pin-" + token;
-const EKEY = "gh-mail-" + token;
+const EKEY = "gh-mail-" + token, PKEY = "gh-mailpin-" + token;
+let epin = null; // 🔐 PIN de esa cuenta (si el revendedor le puso uno)
 let pin = null, email = null, mode = "pin", name = "", timer = null, q = "", last = [], minutes = 30, platforms = [];
 /** Las plataformas reales de sus cuentas (Netflix, Disney+, Max…), no siempre «Disney+». */
 const plat = (fallback = "tus cuentas") => !platforms.length ? fallback : platforms.length === 1 ? platforms[0] : `${platforms.slice(0, -1).join(", ")} y ${platforms[platforms.length - 1]}`;
@@ -14,24 +15,28 @@ const keep = (data) => { if (Array.isArray(data?.platforms)) platforms = data.pl
 async function call(method, body) {
   const r = await fetch(`/api/code-link/${encodeURIComponent(token)}`, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(j.message || "Error"), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(j.message || "Error"), { status: r.status, code: j.error });
   return j;
 }
 
-function askEmail(msg = "") {
+function askEmail(msg = "", needPin = false) {
   clearInterval(timer);
   $("#app").innerHTML = `<div><h1>📺 ${esc(name)}</h1><p class="muted">Escribí el correo de tu cuenta y mirá tu código al toque.</p></div>
     <form class="card" id="fe"><label style="display:grid;gap:8px;color:var(--muted);font-weight:600;font-size:14px">Correo de tu cuenta
       <input class="search" id="em" type="email" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="tucuenta@correo.com" value="${esc(email || "")}" required></label>
+    ${needPin ? `<label style="display:grid;gap:8px;color:var(--muted);font-weight:600;font-size:14px">🔒 PIN de esa cuenta (4 números)
+      <input class="search" id="pn" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="off" placeholder="1234" required></label>` : ""}
     <p class="err" id="e">${esc(msg)}</p><button type="submit">Ver mi código</button></form>
     <p class="muted" style="text-align:center">El código sirve solo con tu contraseña. Si no aparece, pedilo en ${esc(plat("la app"))} y esperá unos segundos.</p>`;
-  $("#em").focus();
+  (needPin && email ? $("#pn") : $("#em")).focus();
   $("#fe").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const v = $("#em").value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return ($("#e").textContent = "Escribí un correo válido");
-    try { await loadEmail(v); email = v; try { sessionStorage.setItem(EKEY, v); } catch { /* */ } }
-    catch (e) { $("#e").textContent = e.message; }
+    const p = $("#pn")?.value.trim() || null;
+    if ($("#pn") && !/^\d{4}$/.test(p || "")) return ($("#e").textContent = "El PIN son 4 números");
+    try { await loadEmail(v, p); try { sessionStorage.setItem(EKEY, v); if (p) sessionStorage.setItem(PKEY, p); else sessionStorage.removeItem(PKEY); } catch { /* */ } }
+    catch (e) { email = v; if (e.code === "PIN_NEEDED" || e.code === "BAD_PIN") askEmail(e.message, true); else $("#e").textContent = e.message; }
   });
 }
 
@@ -100,13 +105,14 @@ function showEmail(data) {
     <button class="ghost" type="button" id="chg">Usar otro correo</button>`;
 }
 
-async function loadEmail(v) {
-  const data = await call("POST", { email: v });
-  email = v; showEmail(data);
+async function loadEmail(v, p = null) {
+  const data = await call("POST", { email: v, ...(p ? { pin: p } : {}) });
+  email = v; epin = p; showEmail(data);
   clearInterval(timer);
   timer = setInterval(async () => {
     if (document.hidden) return;
-    try { showEmail(await call("POST", { email })); } catch { /* reintenta luego */ }
+    try { showEmail(await call("POST", { email, ...(epin ? { pin: epin } : {}) })); }
+    catch (e) { if (e.code === "PIN_NEEDED" || e.code === "BAD_PIN") { try { sessionStorage.removeItem(PKEY); } catch { /* */ } askEmail("El PIN de esta cuenta cambió: pedíselo a quien te vendió.", true); } }
   }, 20_000);
 }
 
@@ -115,7 +121,7 @@ document.addEventListener("click", async (ev) => {
   if (!b) return;
   if (b.dataset.copy) { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "¡Copiado! ✓"; } catch { b.textContent = b.dataset.copy; } setTimeout(() => (b.textContent = "Copiar código"), 1500); }
   if (b.id === "out") { try { sessionStorage.removeItem(KEY); } catch { /* */ } pin = null; askPin(); }
-  if (b.id === "chg") { try { sessionStorage.removeItem(EKEY); } catch { /* */ } email = null; clearInterval(timer); askEmail(); }
+  if (b.id === "chg") { try { sessionStorage.removeItem(EKEY); sessionStorage.removeItem(PKEY); } catch { /* */ } email = null; epin = null; clearInterval(timer); askEmail(); }
 });
 document.addEventListener("input", (ev) => { if (ev.target.id === "q") { q = ev.target.value.trim(); show({ name, codes: last, minutes, platforms }); } });
 
@@ -124,9 +130,9 @@ document.addEventListener("input", (ev) => { if (ev.target.id === "q") { q = ev.
   try { info = await call("GET"); name = info.name; mode = info.mode || "pin"; keep(info); } catch (e) { $("#app").innerHTML = `<div class="card"><h1>Link no válido</h1><p class="muted">${esc(e.message)}. Pedile el link nuevo a tu proveedor.</p></div>`; return; }
   document.title = `Códigos · ${name}`;
   if (mode === "email") {
-    let saved = null;
-    try { saved = sessionStorage.getItem(EKEY); } catch { /* */ }
-    if (saved) { try { await loadEmail(saved); return; } catch { /* pedir de nuevo */ } }
+    let saved = null, savedPin = null;
+    try { saved = sessionStorage.getItem(EKEY); savedPin = sessionStorage.getItem(PKEY); } catch { /* */ }
+    if (saved) { try { await loadEmail(saved, savedPin); return; } catch (e) { email = saved; if (e.code === "PIN_NEEDED" || e.code === "BAD_PIN") { askEmail("", true); return; } } }
     askEmail();
     return;
   }
