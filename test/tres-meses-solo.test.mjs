@@ -114,7 +114,7 @@ describe("Fiado que no se pierde", () => {
 
   test("«Me pagó» en el Fiado de un revendedor con alquileres «Pendiente»: el pago los cubre (no queda «debe» y «a favor» a la vez)", () => {
     const { s, E, acc, cust, clock, A, owed } = setup();
-    acc();
+    acc(92); // 3 meses de calendario desde el 04/08 llegan al 04/11 (92 días; con «30 días» eran 90)
     const pedro = cust("Pedro", { kind: "reseller", priceGroupId: "rev" });
     const ids = [0, 1].map(() => s.orders.create(owner, { customerId: pedro.id, items: [{ productId: "nf", qty: 1 }], paymentMethod: "cash" }).assignmentIds[0]);
     for (const id of ids) s.orders.setControl(owner, id, { payStatus: "pendiente" });

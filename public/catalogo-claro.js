@@ -4,7 +4,7 @@
 // opiniones). Nada inventado: si un dato no está, no se muestra.
 //
 // shop.js le pasa sus ayudantes con initCatalogoClaro(() => ({ … })): este archivo solo arma HTML y no guarda estado.
-import { esc, bs, waLink, icon } from "/common.js";
+import { esc, bs, waLink, icon, periodText } from "/common.js";
 import { norm } from "/buscar.js";
 
 let C = () => ({ S: { settings: {}, catalog: [] } });
@@ -94,7 +94,8 @@ const KIND = {
   combo: ["🎁", "Combo"],
   own: ["⭐", "Suscripción"],
 };
-export const durText = (d) => (d % 30 === 0 ? (d === 30 ? "1 mes" : `${d / 30} meses`) : `${d} días`);
+/** «1 mes» / «3 meses» o, si la tienda cuenta por días, «30 días» (mesModo.ts). */
+export const durText = (d) => periodText(d);
 /** Plataformas de un combo: las que cargó el dueño, las de la página del revendedor, o las del texto («A + B · …»). */
 export function comboList(p) {
   if (p?.kind !== "combo") return [];
@@ -174,7 +175,7 @@ export function ccFicha(p) {
     p.kind === "profile" && ["💡", `Un perfil es tu propio espacio dentro de ${appName(p)}, con tu nombre.`],
     apps.length && ["📋", `Incluye: ${apps.join(" + ")}.`],
     p.forWhom && ["👥", p.forWhom],
-    ["🗓️", `Dura ${durText(p.durationDays)}${p.durationDays % 30 === 0 ? ` (${p.durationDays} días)` : ""}. La fecha de vencimiento te queda en Mis cuentas.`],
+    ["🗓️", `Dura ${durText(p.durationDays)}${p.durationDays % 30 === 0 && durText(p.durationDays).includes("mes") ? " (del mismo día al mismo día)" : ""}. La fecha de vencimiento te queda en Mis cuentas.`],
     ["📲", c.SLUG ? "Te lo pasamos por WhatsApp cuando confirmes tu pedido." : st === "now" ? "Te llega a Mis cuentas: con saldo, al instante; con QR, apenas revisamos tu pago." : "Te llega a Mis cuentas apenas lo confirmamos, y te avisamos."],
   ].filter(Boolean);
   const ask = (st === "order" || st === "ask") && wa ? `<a class="sbtn" href="${waLink(wa, `Hola, quiero ${p.name} (${bs(p.price)}). ¿Me confirmás si hay antes de pagar?`)}" target="_blank" rel="noopener">${icon("wa")}Preguntar si hay</a>` : "";

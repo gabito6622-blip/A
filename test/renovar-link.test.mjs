@@ -13,6 +13,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+import { addPeriods } from "../dist/store/time.js";
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
@@ -69,7 +70,7 @@ describe("renovar por link (apagado por defecto)", () => {
     assert.equal((await get("/api/settings")).json.renewLink, undefined, "el ajuste no se publica a la tienda");
   });
 
-  test("prendido: el link muestra el servicio sin correo ni clave; sin sesión 401 para generarlo; clientes de revendedor 409", async () => {
+  test("prendido: el link muestra el servicio y el correo de la cuenta (nunca la clave), «1 mes»; sin sesión 401 para generarlo; clientes de revendedor 409", async () => {
     assert.equal((await post(`/api/admin/assignments/${asg}/renew-link`, {})).status, 401);
     const r = await post(`/api/admin/assignments/${rasg}/renew-link`, {}, ownerCk);
     assert.equal(r.status, 409); assert.equal((await r.json()).error, "VIA_RESELLER");
@@ -78,10 +79,13 @@ describe("renovar por link (apagado por defecto)", () => {
     assert.ok(link.expiresAt > clock.t + 47 * HOUR && link.expiresAt <= clock.t + 48 * HOUR);
     const v = (await get(`/api/renovar/${tokenOf(link.url)}`)).json;
     assert.equal(v.name, "Marisel"); assert.equal(v.product, "Netflix perfil"); assert.equal(v.price, 3500); assert.equal(v.currency, "BOB");
-    assert.equal(v.days, 30); assert.equal(v.to - v.from, 30 * DAY); assert.equal(v.supplierOk, true); assert.equal(v.access, "renew");
+    // Pedido del dueño (14/11/2026): «1 mes» = mismo día del mes siguiente, y el link dice «1 mes», no «30 días».
+    assert.equal(v.days, 30); assert.equal(v.period, "1 mes"); assert.equal(v.to, addPeriods(v.from, 30, 1, "calendar")); assert.equal(v.supplierOk, true); assert.equal(v.access, "renew");
     assert.equal(v.canBalance, false); assert.equal(v.balance, 0); assert.equal(v.pending, null);
     const txt = JSON.stringify(v);
-    assert.ok(!txt.includes("nf1@x.lat") && !txt.includes("Clave-Larga"), "no muestra correo ni clave");
+    // El dueño pidió que el link muestre el correo de la cuenta (para que el cliente sepa cuál renueva). La clave, nunca.
+    assert.equal(v.email, "nf1@x.lat");
+    assert.ok(!txt.includes("Clave-Larga"), "no muestra la clave");
     assert.ok(!txt.includes(cli.phone), "no muestra el teléfono");
   });
 

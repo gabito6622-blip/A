@@ -153,7 +153,9 @@ describe("Pulido panel · Proveedores: mismo período", () => {
     const { s, clock, noe } = withSales();
     clock.t += 5 * DAY;
     const a = s.admin.assignments(owner).find((x) => x.customerId === noe.id);
-    const ren = s.orders.renew(owner, a.id, { periods: 1, paymentMethod: "cash" });
+    // Con meses de calendario (mesModo.ts) la fecha nueva pasa apenas la del proveedor de esta prueba (10/01): el dueño
+    // la anota igual (lo que se prueba acá es la plata del período, no el freno del proveedor).
+    const ren = s.orders.renew(owner, a.id, { periods: 1, paymentMethod: "cash", allowBeyondSupplier: true });
     assert.equal(ren.order.status, "fulfilled");
     const rep = s.stats.suppliers(owner);
     const total = rep.reduce((t, x) => t + x.revenue, 0);

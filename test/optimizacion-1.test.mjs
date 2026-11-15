@@ -58,7 +58,7 @@ describe("optimización 1 · «Me pagó» desde la secretaria", () => {
     const { s, at, rev } = w;
     const E = () => s.engine.s;
     w.add("disney-alq", "dis1@x.lat", { supplierExpiresAt: NOV1 + 100 * DAY });
-    const o = w.buy(rev.id, "disney-alq", NOV1 - 20 * DAY); // venció el 11/11 (NOV1 + 10 d)
+    const o = w.buy(rev.id, "disney-alq", NOV1 - 21 * DAY); // 11/10 → venció el 11/11 (NOV1 + 10 d): un mes de calendario
     const asg = o.assignmentIds[0];
     at(NOV1 + 11 * DAY); s.orders.setControl(owner, asg, { note: "🔔 EN COBRO desde 12/11 (venció 11/11). Ya avisada", payStatus: "pendiente" });
     at(NOW);

@@ -10,7 +10,8 @@
 import type { Actor, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
-import { DAY, boDayStart } from "./time.js";
+import { DAY, addPeriods, boDayStart } from "./time.js";
+import { resellerMonthMode } from "./mesModo.js";
 import { currencyOf } from "./country.js";
 import {
   type OwnAccount, type OwnGone, type OwnSale, type OwnStockBook,
@@ -155,7 +156,7 @@ export function providerPay(e: Engine, actor: Actor, accountId: Id, raw: { amoun
     const now = e.now();
     let to: number | undefined;
     if (raw.extend !== false) {
-      to = renewFrom(a.providerExpiresAt ?? now, now) + months * (p?.durationDays ?? 30) * DAY;
+      to = addPeriods(renewFrom(a.providerExpiresAt ?? now, now), p?.durationDays ?? 30, months, resellerMonthMode(e, c.id));
       a.providerExpiresAt = to;
     }
     if (a.cost === undefined) a.cost = Math.round(amt / months);

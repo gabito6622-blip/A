@@ -1,5 +1,6 @@
 // Panel del vendedor conectado al servidor.
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
+import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
@@ -1716,6 +1717,7 @@ const V = {
       <label>Nombre de la plataforma (revendedores)<input name="platformName" maxlength="40" value="${esc(s.platformName ?? "GaboHub")}"></label>
       <label>WhatsApp de ventas (con código de país)<input name="whatsapp" inputmode="numeric" placeholder="59170000000" value="${esc(s.whatsapp)}"></label>
       <label>Símbolo de la moneda <small class="muted">· cómo se muestran los precios</small><input name="currencySymbol" maxlength="6" list="curlist" value="${esc(s.currencySymbol ?? "Bs")}" placeholder="Bs"><datalist id="curlist"><option value="Bs"><option value="US$"><option value="$"><option value="₲"></datalist></label>
+      ${monthModeField(s.monthMode ?? "calendar", { help: "Vale para lo que vende y renueva la tienda (clientes y alquileres a revendedores): la fecha nueva, las vistas previas y si dice «1 mes» o «30 días». Cada revendedor elige el suyo para sus clientes." })}
       <label style="grid-column:1/-1">Nota de pago (banco, titular, instrucciones)<input name="paymentNote" maxlength="300" value="${esc(s.paymentNote)}" placeholder="Banco Unión · Gabriel Pérez · Cta. 1-234567"></label><button class="pbtn dark" type="submit">Guardar</button></form></section>
       ${supCard}
       <section class="card"><h2>${icon("plus")}Armá tu combo <small>descuento en la tienda cuando el cliente lleva varios servicios sueltos</small></h2>
@@ -2520,7 +2522,7 @@ async function start() {
   if (!me.loggedIn || me.kind !== "staff") return showLogin(me.kind === "customer" ? "Estás con una sesión de cliente. Entrá con tu usuario del panel." : "");
   P.me = me;
   P.settings = await api("GET", "/api/settings");
-  setCurrency(P.settings.currencySymbol);
+  setCurrency(P.settings.currencySymbol); applyStoreMonthMode(P.settings);
   $("#login").hidden = true;
   $("#app").hidden = false;
   $("#pName").textContent = me.name;
@@ -3801,9 +3803,9 @@ document.addEventListener("submit", async (ev) => {
       const replies = f.replies.value.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 10);
       await act(() => api("POST", "/api/admin/settings", { ticketReplies: replies, secretaryMsg: { cobrar: f.mCobrar.value.trim(), avisar: f.mAvisar.value.trim(), deben: f.mDeben.value.trim() }, renewLink: { enabled: f.rlOn.checked, access: f.rlAccess.value, hours: Number(f.rlHours.value || 48) } }), "Soporte y mensajes guardados");
     } else if (f.id === "setForm") {
-      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined }), "Configuración guardada");
+      await act(() => api("POST", "/api/admin/settings", { storeName: f.storeName.value, platformName: f.platformName.value.trim() || "GaboHub", whatsapp: f.whatsapp.value.replace(/\D/g, "") || undefined, paymentNote: f.paymentNote.value, currencySymbol: f.currencySymbol?.value.trim() || undefined, monthMode: monthModeOf(f) || undefined }), "Configuración guardada");
       P.settings = await api("GET", "/api/settings");
-      setCurrency(P.settings.currencySymbol);
+      setCurrency(P.settings.currencySymbol); applyStoreMonthMode(P.settings);
       $("#pStore").textContent = P.settings.storeName;
     } else if (f.id === "lookForm") {
       const color = (n) => f.querySelector(`input[name="${n}"]:checked`)?.value || f[n + "Custom"].value;

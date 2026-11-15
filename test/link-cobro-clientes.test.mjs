@@ -30,7 +30,7 @@ function world(clock = { t: NOW - 40 * DAY, now() { return this.t; } }, s = crea
   const ana = mk("Ana Flores", "+59171000001"), otro = mk("Otro Revendedor", "+59171000002");
   s.shops.setupFor(owner, ana.c.id, { slug: "ana-tv", title: "Ana TV", whatsapp: "59171000001", enabled: true });
   const marisel = s.catalog.createCustomer(ana.A, { name: "Marisel Rojas", phone: "+59175000001", whatsappConsent: true });
-  at(NOW - 32 * DAY); const o = s.orders.create(ana.A, { customerId: marisel.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }); at(NOW);
+  at(NOW - 33 * DAY); /* 11/10 → vence 11/11: un mes de calendario */ const o = s.orders.create(ana.A, { customerId: marisel.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "balance" }); at(NOW);
   s.rtools.setControl(ana.A, o.assignmentIds[0], { price: 4000 });
   const directo = s.catalog.createCustomer(owner, { name: "Directo Tienda", phone: "+59175008888" });
   const oD = s.orders.create(owner, { customerId: directo.id, items: [{ productId: "netflix", qty: 1 }], paymentMethod: "cash" });

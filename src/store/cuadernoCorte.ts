@@ -10,7 +10,7 @@ import type { Actor, Assignment, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { DomainError } from "./errors.js";
 import { DAY, boDayStart } from "./time.js";
-import { normalizeSub, periodOf, runsUntil, subMoney } from "./cuadernoPlata.js";
+import { normalizeSub, perOf, runsUntil, subMoney } from "./cuadernoPlata.js";
 import { MAX_PROFILES } from "./subRentals.js";
 
 const short = (n: string) => n.replace(/ \(alquiler revendedores\)/, "");
@@ -52,14 +52,14 @@ export function moveCut(e: Engine, actor: Actor, fromId: Id, toId: Id) {
     const subs = from.subs ?? [];
     if (!subs.length) throw new DomainError("VALIDATION", "No hay clientes para pasar");
     if ((to.subs?.length ?? 0) + subs.length > MAX_PROFILES) throw new DomainError("VALIDATION", `En esa cuenta entran ${MAX_PROFILES - (to.subs?.length ?? 0)} y son ${subs.length}: quitá a alguien antes`);
-    const now = e.now(), cutAt = runsUntil(from, now), P = periodOf(e, from);
+    const now = e.now(), cutAt = runsUntil(from, now), P = perOf(e, from);
     const gapDays = Math.max(0, Math.floor((boDayStart(now) - boDayStart(cutAt)) / DAY));
     for (const s of subs) {
       normalizeSub(e, from, s);
       // Lo que ya debía hasta el corte queda guardado (en la cuenta nueva se sigue contando desde su fecha).
       while (boDayStart(s.expiresAt) <= boDayStart(cutAt)) {
-        if ((s.price ?? 0) > 0) (s.debts ??= []).push({ from: s.expiresAt, to: s.expiresAt + P, amount: s.price!, paid: 0 });
-        s.expiresAt += P;
+        if ((s.price ?? 0) > 0) (s.debts ??= []).push({ from: s.expiresAt, to: P.next(s.expiresAt), amount: s.price!, paid: 0 });
+        s.expiresAt = P.next(s.expiresAt);
       }
       if (s.debts?.length) s.pay = s.pay === "no_pago" ? "no_pago" : "pendiente";
       if (gapDays) s.expiresAt += gapDays * DAY;

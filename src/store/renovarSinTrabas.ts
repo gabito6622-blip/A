@@ -18,6 +18,7 @@ import type { Engine } from "./engine.js";
 import { authorize, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY, boParts } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
 import { canActFor, renewPriceFor } from "./catalog.js";
 import { canRenewHere } from "./renovarVarias.js";
 import { renew, renewableNow } from "./orders.js";
@@ -131,7 +132,7 @@ function view(e: Engine, r: RenewRequest, staff: boolean) {
   if (!staff) return base;
   const payer = e.s.customers[r.payerId];
   const prod = a ? e.s.products[a.productId] : undefined;
-  const to = a && prod ? renewStart(a, e.now()) + prod.durationDays * DAY : 0;
+  const to = a && prod ? storeAddPeriods(e, renewStart(a, e.now()), prod.durationDays) : 0;
   const hint = acc && to > acc.supplierExpiresAt ? supplierRenewHint(e, acc, to) : undefined;
   const bal = balance(e, r.payerId);
   return {
@@ -232,7 +233,7 @@ export function resolveRequest(e: Engine, actor: Actor, id: Id, input: { idempot
     const fallen = renewBlockOf(e, a);
     if (fallen) throw new DomainError("INVALID_STATE", fallen);
     const acc = e.s.accounts[e.s.slots[a.slotId].accountId], prod = e.s.products[a.productId];
-    const to = renewStart(a, e.now()) + prod.durationDays * DAY;
+    const to = storeAddPeriods(e, renewStart(a, e.now()), prod.durationDays);
     let supplier: { months: number; amount: Cents; supplierExpiresAt: number } | undefined;
     if (to > acc.supplierExpiresAt) {
       const hint = supplierRenewHint(e, acc, to);

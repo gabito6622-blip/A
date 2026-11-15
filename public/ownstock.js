@@ -2,7 +2,7 @@
 // Sus productos (Flujo TV y similares), sus cuentas con contraseña o PIN, y a qué cliente le dio cada
 // cupo. Todo en SU moneda. Solo lo ve él: el dueño de la tienda no ve nada de esto.
 // shop.js solo agrega la pestaña y llama a ownStockView(); la lógica y los eventos están acá.
-import { api, esc, fdate, daysLeft, toCents, toast, waLink, fileToBase64 } from "/common.js";
+import { api, esc, fdate, daysLeft, toCents, toast, waLink, fileToBase64, addPeriods, periodText } from "/common.js";
 import { money, myLocale, myPhoneHint } from "/country.js";
 import { countryForm, formOpen, onLocaleSaved } from "/afuera.js";
 import { selfCodesOwn } from "/codigos-solos.js";
@@ -62,7 +62,7 @@ function saleRow(s) {
   return `<div class="subrow"><button type="button" class="rcopen" data-os="sale" data-id="${esc(s.id)}" aria-expanded="${open}"><span><b>${esc(s.name)}${s.trial ? ` <span class="os-trial">🎁 Prueba</span>` : ""}</b><small>${esc(s.product)}${s.slot > 1 || (OS.data.products.find((p) => p.id === s.productId)?.kind === "profiles") ? ` · cupo ${s.slot}` : ""}${s.trial ? " · gratis" : s.price != null ? ` · ${$m(s.price)}` : ""}${s.debt ? ` · <span class="bad">Debe ${$m(s.debt)}</span>` : s.pay !== "pagado" ? ` · <span class="bad">Pendiente</span>` : ""}${s.blocked ? ` · <span class="bad">${s.blocked === "caida" ? "⚠️ cuenta caída" : "⚠️ cuenta vencida"}</span>` : ""}${s.back ? " · 🔁 Volvió" : ""}${ownAlertTag(s.id)}</small></span>${pill(s.expiresAt)}<i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
     ${open ? `<div class="os-sale">${s.back ? `<p class="empty" style="margin:0">🔁 Volvió${s.back.n > 1 ? ` (${s.back.n} veces)` : ""} · cliente desde ${fdate(s.since ?? s.createdAt)}${s.before ? ` · antes te pagó ${$m(s.before.paid)} en ${s.before.periods} ${s.before.periods === 1 ? "período" : "períodos"}` : ""}</p>` : ""}
       <div class="rbtns">${s.phone ? `<a class="sbtn sm pri" href="${waLink(s.phone, accessText(s))}" target="_blank" rel="noopener">🔑 Mandar acceso por WhatsApp</a><a class="sbtn sm" href="${waLink(s.phone, remindText(s))}" target="_blank" rel="noopener">💬 Recordar renovación</a>` : `<small class="empty">Sin WhatsApp</small>`}</div>
-      <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"} +${OS.data.products.find((p) => p.id === s.productId)?.durationDays ?? 30} días</button>
+      <div class="rbtns"><button class="sbtn sm" type="button" data-os="renew" data-id="${esc(s.id)}">${s.trial ? "✅ Compró" : "🔄 Renovó"} +${periodText(durOf(s), 1, myMode())}</button>
         <button class="sbtn sm" type="button" data-os="pay" data-id="${esc(s.id)}" data-pay="${s.debt || s.pay !== "pagado" ? "pagado" : "pendiente"}">${s.debt || s.pay !== "pagado" ? "💵 Me pagó" : "⏳ Marcar pendiente"}</button>
         <button class="sbtn sm" type="button" data-os="move" data-id="${esc(s.id)}">↔️ Mover a otra cuenta</button>
         <button class="sbtn sm" type="button" data-os="release" data-id="${esc(s.id)}">🗑️ Liberar cupo</button></div>
@@ -79,7 +79,7 @@ function assignForm(a) {
     <label class="os-wide">Cliente<select name="who" data-oswho="1" required>${OS.customers.length ? `<option value="" selected disabled>Elegí un cliente…</option>` : ""}${OS.customers.slice().sort((x, y) => x.name.localeCompare(y.name)).map((c) => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.phone)}</option>`).join("")}<option value="__new" ${OS.customers.length ? "" : "selected"}>➕ Cliente nuevo</option></select></label>
     <div class="os-new os-grid os-wide" ${OS.customers.length ? "hidden" : ""}><label>Nombre<input name="name" maxlength="80" placeholder="Ej.: Rosa Pérez"></label><label>WhatsApp<input name="phone" inputmode="tel" placeholder="${esc(myPhoneHint())}"></label></div>
     ${p?.kind === "profiles" ? `<label>Cupo<select name="slot">${a.free.map((n) => `<option>${n}</option>`).join("")}</select></label>` : ""}
-    <label>Le vence<input type="date" name="exp" required value="${ymd(Date.now() + (p?.durationDays ?? 30) * 86_400_000)}"></label>
+    <label>Le vence<input type="date" name="exp" required value="${ymd(addPeriods(Date.now(), p?.durationDays ?? 30, 1, myMode()))}"></label>
     <label>Le cobro (${esc(cur().symbol)})<input name="price" inputmode="decimal" value="${p ? p.price / 100 : ""}"></label>
     <label>Pago<select name="pay"><option value="pagado">Pagado</option><option value="pendiente">Pendiente</option></select></label>
     ${errBox("assign:" + a.id)}<button class="sbtn sm pri" type="submit">Guardar</button><button class="sbtn sm" type="button" data-os="trial" data-id="${esc(a.id)}" title="Le das la cuenta 24 horas gratis; si la renueva, pasa a venta">🎁 Prueba gratis 24 h</button></form>`;
@@ -143,7 +143,7 @@ function productCard(p) {
   const open = OS.open.product === p.id;
   const accs = OS.data.accounts.filter((a) => a.productId === p.id);
   const logo = p.hasLogo ? `<img class="os-logo" src="/api/me/own/products/${encodeURIComponent(p.id)}/logo?v=${OS.logoV}" alt="" width="40" height="40">` : `<span class="os-logo os-emoji" aria-hidden="true">${esc(p.emoji || "📦")}</span>`;
-  return `<article class="rcard os-prod"><header><button type="button" class="rcopen" data-os="product" data-id="${esc(p.id)}" aria-expanded="${open}">${logo}<span><b>${esc(p.name)}</b><small>${$m(p.price)} · ${p.durationDays} días · ${esc(KINDS[p.kind])}</small><small>${p.accounts} cuenta(s) · ${p.used} cliente(s) · ${p.free} cupo(s) libre(s)${p.onPage ? " · en tu página" : ""}</small></span><i aria-hidden="true">${open ? "▴" : "▾"}</i></button></header>
+  return `<article class="rcard os-prod"><header><button type="button" class="rcopen" data-os="product" data-id="${esc(p.id)}" aria-expanded="${open}">${logo}<span><b>${esc(p.name)}</b><small>${$m(p.price)} · ${esc(p.period ?? `${p.durationDays} días`)} · ${esc(KINDS[p.kind])}</small><small>${p.accounts} cuenta(s) · ${p.used} cliente(s) · ${p.free} cupo(s) libre(s)${p.onPage ? " · en tu página" : ""}</small></span><i aria-hidden="true">${open ? "▴" : "▾"}</i></button></header>
     ${open ? `<div class="rbtns"><button class="sbtn sm pri" type="button" data-os="paste" data-id="${esc(p.id)}">📋 Pegar cuentas</button><details class="os-inline"><summary class="sbtn sm">➕ Una cuenta</summary><form class="sform os-grid" data-osf="account" data-product="${esc(p.id)}"><label>Usuario o correo<input name="user" required maxlength="120" autocomplete="off"></label><label>Contraseña o PIN<input name="password" required maxlength="120" autocomplete="off"></label><label>Vence con tu proveedor<input type="date" name="prov"></label><label>Te cuesta por período (${esc(cur().symbol)})<input name="cost" inputmode="decimal" placeholder="Ej.: 80"></label><label class="os-wide">Nota<input name="note" maxlength="120"></label>${errBox("account:new")}<button class="sbtn sm pri os-wide" type="submit">Guardar cuenta</button></form></details></div>
       ${OS.paste?.productId === p.id ? pasteBox(p) : ""}
       <div class="sublist">${accs.map(accountRow).join("") || `<p class="empty" style="margin:0">Todavía no cargaste cuentas de ${esc(p.name)}.</p>`}</div>
@@ -227,7 +227,9 @@ const cancelBtn = `<button class="sbtn" type="button" data-os="sheetno">Cancelar
 const findSale = (id) => OS.data?.sales.find((x) => x.id === id) ?? (OS.data?.gone ?? []).find((x) => x.id === id);
 const durOf = (s) => OS.data?.products.find((p) => p.id === s.productId)?.durationDays ?? 30;
 /** Mismo plazo que el servidor: si venció hace 30 días o menos, corre desde el vencimiento. */
-const renewTo = (s) => { const now = Date.now(), from = s.trial ? Math.max(s.expiresAt, now) : s.expiresAt >= now || now - s.expiresAt <= 30 * 86_400_000 ? s.expiresAt : now; return from + durOf(s) * 86_400_000; };
+const renewTo = (s) => { const now = Date.now(), from = s.trial ? Math.max(s.expiresAt, now) : s.expiresAt >= now || now - s.expiresAt <= 30 * 86_400_000 ? s.expiresAt : now; return addPeriods(from, durOf(s), 1, myMode()); };
+/** Cómo cuenta un mes este revendedor para SUS clientes (mesModo.ts): la misma cuenta que después guarda el servidor. */
+const myMode = () => OS.data?.monthMode ?? "days";
 
 /** Barra «Deshacer» por 10 segundos. */
 function undoBar(text, saleId, op) {

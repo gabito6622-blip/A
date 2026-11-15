@@ -12,6 +12,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
 import { isUsd } from "./usd.js";
 import { assignWithoutCharge } from "./importer.js";
 
@@ -152,7 +153,7 @@ function plan(e: Engine, r: Customer, raw: unknown): Planned[] {
     const { a: account, s: slot } = free[0];
     const product = st.products[account.productId];
     if (!product) return bad("no_existe", "El servicio de esa cuenta ya no existe");
-    const expiresAt = exp ?? now + (product.durationDays || 30) * DAY;
+    const expiresAt = exp ?? storeAddPeriods(e, now, product.durationDays || 30);
     Object.assign(row, { ok: true, status: "nueva", product: product.name, profile: slot!.label, expiresAt, ...(exp === undefined ? { defaultDate: true } : {}) });
     if (expiresAt < now) row.warnings.push("Ya venció: queda abierta hasta que le pongas fecha o la renueves");
     if (expiresAt > account.supplierExpiresAt) row.warnings.push("Vence después que la cuenta con el proveedor");

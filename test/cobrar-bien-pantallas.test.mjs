@@ -12,13 +12,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+import { addPeriods } from "../dist/store/time.js";
+/** «1 mes» de la tienda = mismo día del mes siguiente (mesModo.ts, por defecto). */
+const mes = (t) => addPeriods(t, 30, 1, "calendar");
 import { matches, matchCustomers, resolveCustomer } from "../public/buscar.js";
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
 const DAY = 864e5;
 const PASS = "clave-del-dueño-123";
-const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" }); // «13/01» (es-BO sin año daba «13/1»)
+const dm = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", timeZone: "America/La_Paz" }); // «13/01» (es-BO sin año daba «13/1»)
 
 async function setup() {
   const dir = mkdtempSync(join(tmpdir(), "gs-eq2-"));
@@ -40,7 +43,7 @@ async function setup() {
   const ck = (await fetch(base + "/api/auth/staff/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "gabriel", password: PASS }) })).headers.get("set-cookie").split(";")[0];
   const b = chromium ? await chromium.launch() : null;
   const page = async (width = 360, colorScheme = "light") => {
-    const ctx = await b.newContext({ viewport: { width, height: 780 }, colorScheme, isMobile: true, hasTouch: true });
+    const ctx = await b.newContext({ viewport: { width, height: 780 }, colorScheme, isMobile: true, hasTouch: true, timezoneId: "America/La_Paz" }); // un celular en Bolivia (sin esto, cerca de la medianoche UTC las fechas salían un día corridas)
     await ctx.route(/wa\.me|whatsapp\.com|fonts\.(googleapis|gstatic)/, (r) => r.abort());
     const [n, v] = ck.split("="); await ctx.addCookies([{ name: n, value: v, url: base }]);
     const p = await ctx.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message));
@@ -139,7 +142,7 @@ test("Mi secretaria a 360 px: avisos que no salen, deuda sin correr la fecha, «
     await ig.locator('[name="otro"]').check();
     await ig.locator("[data-secpayok]").click();
     await p.waitForFunction(() => !/Iván Callisaya/.test(document.querySelector("#sec-cobrar")?.innerText ?? ""), null, { timeout: 15_000 });
-    assert.equal(A(ivan).customerExpiresAt, ivanExp + 30 * DAY);
+    assert.equal(A(ivan).customerExpiresAt, mes(ivanExp));
     // Proveedores por renovar: la cuenta corta con Fabio.
     const prov = p.locator("#sec-proveedores");
     if ((await prov.getAttribute("open")) === null) await prov.locator("summary").click();
@@ -209,7 +212,7 @@ test("Vender a 360 px: «quispe ana» sin tocar la sugerencia, «maria» con bot
     await dup.locator("[data-selldupren]").click();
     await p.waitForFunction(() => !document.querySelector("#sellDup"), null, { timeout: 15_000 });
     assert.match(msg, /Ya anotaste un cobro/);
-    assert.equal(A(anaNf).customerExpiresAt, exp0 + 30 * DAY, "renovó su Netflix");
+    assert.equal(A(anaNf).customerExpiresAt, mes(exp0), "renovó su Netflix");
     // «Es otro perfil»: vende.
     await p.locator("#sellBtn").click();
     await p.locator("#sellDup [data-selldupok]").click();

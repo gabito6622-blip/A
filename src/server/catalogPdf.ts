@@ -3,7 +3,7 @@
 //  - Clásico: blanco, letras grandes y precios claros, para quien compra por WhatsApp y lee en el celular o impreso.
 // Siempre: fecha de generación, «los precios pueden cambiar», WhatsApp y link del negocio (clicable). Nada privado.
 import { Pdf, type PdfFont } from "./pdf.js";
-import { fdate, money, type CatalogData } from "./exportCenter.js";
+import { durText, fdate, money, type CatalogData } from "./exportCenter.js";
 
 export type CatalogDesign = "premium" | "clasico";
 
@@ -13,7 +13,6 @@ const toHex = (rgb: number[]) => "#" + rgb.map((v) => Math.max(0, Math.min(255, 
 const mix = (a: string, b: string, t: number) => toHex(hex(a).map((v, i) => v + (hex(b)[i] - v) * t));
 /** Un acento legible sobre blanco: si es muy claro (amarillo), se oscurece. */
 const inkAccent = (acc: string) => (lum(acc) > 0.55 ? mix(acc, "#000000", 0.45) : acc);
-const dur = (days: number) => (days === 30 ? "1 mes" : days === 90 ? "3 meses" : days === 180 ? "6 meses" : days === 365 ? "1 año" : days === 1 ? "1 día" : `${days} días`);
 const waPretty = (w: string) => (w ? `+${w.replace(/^(\d{3})(\d+)$/, "$1 $2")}` : "");
 
 interface Ctx { p: Pdf; d: CatalogData; design: CatalogDesign; logo?: Buffer; images: Map<string, Buffer>; y: number; page: number; acc: string; accInk: string; bg: string; onDark: boolean }
@@ -47,12 +46,12 @@ function comboLogos(c: Ctx, it: Item, x: number, y: number, size: number): numbe
   return step * (parts.length - 1) + size;
 }
 /** Texto chico de un ítem: duración, qué incluye (si la descripción no lo dice ya) y la descripción. */
-function subText(it: Item): string {
+function subText(it: Item, mode: CatalogData["monthMode"]): string {
   const incl = it.items?.length ? `Incluye ${it.items.join(" + ")}` : "";
   const desc = it.description || "";
   // Si la descripción ya enumera las apps («Prime Video + Disney+ · Ahorrás…»), no se repite el «Incluye».
   const dup = !!incl && !!desc && (desc.includes(" + ") || it.items!.every((n) => desc.toLowerCase().includes(n.toLowerCase().split(" ")[0])));
-  return [it.kind === "own" || it.kind === "combo" ? "" : dur(it.durationDays), dup ? "" : incl, desc].filter(Boolean).join(" · ");
+  return [it.kind === "own" || it.kind === "combo" ? "" : durText(it.durationDays, mode), dup ? "" : incl, desc].filter(Boolean).join(" · ");
 }
 const M = 40, W = 595.28, H = 841.89;
 
@@ -142,7 +141,7 @@ function categoryTitle(c: Ctx, name: string, count: number) {
 
 function itemPremium(c: Ctx, it: Item) {
   const { p, d } = c;
-  const sub = subText(it);
+  const sub = subText(it, c.d.monthMode);
   const priceTxt = money(it.price, d.currency), pw = p.textWidth(priceTxt, 13, "bold") + 22;
   const isCombo = (it.partIds?.length ?? 0) > 1;
   const logoW = isCombo ? 34 * 0.72 * (Math.min(4, it.partIds!.length) - 1) + 34 : 34;
@@ -170,7 +169,7 @@ function itemClasico(c: Ctx, it: Item) {
   const logoW = isCombo ? 30 * 0.72 * (Math.min(4, it.partIds!.length) - 1) + 30 : 30;
   const tx = M + logoW + 10;
   const textW = W - M - pw - 12 - tx;
-  const sub = subText(it);
+  const sub = subText(it, c.d.monthMode);
   const subLines = sub ? p.wrap(sub, 11, textW, "regular").slice(0, 2) : [];
   const h = Math.max(40, 26 + subLines.length * 14);
   ensure(c, h + 4);

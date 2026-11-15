@@ -78,7 +78,7 @@ function comboStrip() {
 
 function rowsHtml(pv) {
   return `<ul class="ralist">${pv.rows.map((r) => `<li class="${r.ok ? "" : "bad"}"><span><b>${esc(r.product)}</b>${r.combo ? ` <span class="spill sp-mute">🎁 combo</span>` : ""}
-    <small>${r.ok ? (P.align ? `${fmtDays(r.days)}: del ${fdate(r.from)} al ${fdate(r.to)}` : `hasta el ${fdate(r.to)}`) : `⚠️ ${esc(r.why)}`}</small></span>
+    <small>${r.ok ? (P.align ? `${esc(r.period ?? fmtDays(r.days))}: del ${fdate(r.from)} al ${fdate(r.to)}` : `hasta el ${fdate(r.to)}`) : `⚠️ ${esc(r.why)}`}</small></span>
     ${r.ok ? `<span class="raprice">${r.price !== r.list ? `<s>${bs(r.list)}</s> ` : ""}<b>${bs(r.price)}</b></span>` : ""}</li>`).join("")}</ul>`;
 }
 const fmtDays = (d) => `${Number.isInteger(d) ? d : d.toFixed(1).replace(".", ",")} ${d === 1 ? "día" : "días"}`;
@@ -154,7 +154,7 @@ async function pay(method) {
   P.pv = pv; P.pvKey = `${ids.sort().join(",")}|${P.align}`;
   const bad = pv.rows.find((r) => !r.ok);
   if (bad) { ctx.render(); return toast(`${bad.product}: ${bad.why}`); }
-  const lines = pv.rows.map((r) => `• ${r.product}: ${bs(r.price)}${P.align ? ` (${fmtDays(r.days)}, hasta el ${fdate(r.to)})` : ""}`).join("\n");
+  const lines = pv.rows.map((r) => `• ${r.product}: ${bs(r.price)}${P.align ? ` (${r.period ?? fmtDays(r.days)}, hasta el ${fdate(r.to)})` : ""}`).join("\n");
   const head = `${pv.discount ? `Con el descuento de tu combo (−${bs(pv.discount)}).\n` : ""}${lines}\nTotal: ${bs(pv.total)}`;
   if (method === "balance") {
     if (pv.total > pv.balance) { toast(`Te falta saldo: necesitás ${bs(pv.total)} y tenés ${bs(pv.balance)}`); return ctx.setView("recargas"); }

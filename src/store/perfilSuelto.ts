@@ -16,6 +16,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY, boMonthKey } from "./time.js";
+import { storeAddPeriods } from "./mesModo.js";
 import { normEmail } from "./inventario.js";
 import { addAccount, updateAccount } from "./inventory.js";
 import { addExpenseFull, addRefund, parseWhen, suggestedRate } from "./gastos.js";
@@ -116,7 +117,7 @@ export function buyProfile(e: Engine, actor: Actor, input: BuyInput) {
   const money = moneyOf(e, input);
   const now = e.now();
   const paidAt = parseWhen(e, undefined, input.date);
-  const until = parseUntil(input.until, paidAt + PERIOD);
+  const until = parseUntil(input.until, storeAddPeriods(e, paidAt, 30)); // un mes, como cuenta la tienda (mesModo.ts)
   if (until <= now) throw new DomainError("VALIDATION", "La fecha «hasta cuándo» ya pasó: revisala");
   if (until - paidAt > 400 * DAY) throw new DomainError("VALIDATION", "La fecha «hasta cuándo» está a más de un año: revisala");
   return e.tx(() => {
@@ -306,7 +307,7 @@ export function looseDown(e: Engine, actor: Actor, slotId: Id, input: DownInput)
 
 export interface PayInput extends Money { months?: unknown; date?: unknown; until?: unknown; confirmOther?: unknown }
 
-/** «Le pagué a Juan»: renovar ese perfil. Sugiere lo mismo de la última vez; corre «hasta cuándo» 30 días por mes. */
+/** «Le pagué a Juan»: renovar ese perfil. Sugiere lo mismo de la última vez; corre «hasta cuándo» un mes por mes pagado (como cuenta la tienda: mesModo.ts). */
 export function payLoose(e: Engine, actor: Actor, slotId: Id, input: PayInput) {
   authorize(actor, "inventory.manage");
   const months = input.months === undefined || input.months === null || input.months === "" ? 1 : Number(input.months);
@@ -324,7 +325,7 @@ export function payLoose(e: Engine, actor: Actor, slotId: Id, input: PayInput) {
     const prev = (e.s.expenses ?? []).filter((x) => x.slotId === slot.id && !x.refund && x.looseKind === "renovacion").sort((a, b) => b.at - a.at)[0];
     if (prev && Math.abs(paidAt - prev.at) < 10 * DAY && input.confirmOther !== true) throw new DomainError("DOUBLE_CHARGE", `Ya le pagaste a ${sup?.name ?? "tu vendedor"} este perfil el ${fdate(prev.at).slice(0, 5)} (${fbs(prev.amount)}). ¿Es otro mes?`);
     const base = slot.loose!.until < e.now() - 3 * DAY ? e.now() : slot.loose!.until;
-    const until = parseUntil(input.until, base + months * PERIOD);
+    const until = parseUntil(input.until, storeAddPeriods(e, base, 30, months));
     if (until <= e.now()) throw new DomainError("VALIDATION", "La fecha nueva ya pasó: revisala");
     const exp = addExpenseFull(e, actor, {
       amount: m.usd ?? m.cost, currency: m.currency, ...(m.rate ? { rate: m.rate } : {}),

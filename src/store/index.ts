@@ -43,6 +43,7 @@ import * as payMethods from "./payMethods.js";
 import * as watch from "./watch.js";
 import * as winback from "./winback.js";
 import * as country from "./country.js";
+import * as mesModo from "./mesModo.js";
 import * as ownStock from "./ownStock.js";
 import * as ownPlata from "./ownPlata.js";
 import * as usd from "./usd.js";
@@ -403,6 +404,11 @@ export function createStore(opts: EngineOptions = {}) {
     winback: {
       list: bind(e, winback.list),
       mark: bind(e, winback.mark),
+    },
+    /** Cómo cuenta un mes el revendedor para SUS clientes (mesModo.ts). */
+    monthMode: {
+      mine: bind(e, mesModo.myMonthMode),
+      setMine: bind(e, mesModo.setMyMonthMode),
     },
     /** País y moneda del revendedor (country.ts). */
     locale: {

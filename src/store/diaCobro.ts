@@ -9,6 +9,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY } from "./time.js";
+import { storeAddPeriods, storePeriodText } from "./mesModo.js";
 import { sellBlock } from "./vendible.js";
 import { effectivePrice, payUsdOf, payerOf } from "./admin.js";
 import { payAccountRenewal } from "./finance.js";
@@ -61,7 +62,7 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
   authorize(actor, "payment.review");
   const a = e.get("assignments", assignmentId);
   const now = e.now(), prod = e.s.products[a.productId];
-  const days = prod?.durationDays ?? 30, from = now, to = now + days * DAY;
+  const days = prod?.durationDays ?? 30, from = now, to = storeAddPeriods(e, now, days);
   const at = closedAt(a);
   const blockers: string[] = [], warnings: string[] = [];
   if (a.status === "active") blockers.push("Este servicio sigue activo: usá «Me pagó» de siempre");
@@ -109,7 +110,7 @@ export function reactivatePreview(e: Engine, actor: Actor, assignmentId: Id, inp
     customer: { id: c?.id ?? a.customerId, name: c?.name ?? "—", phone: c?.phone ?? "" },
     payer: { id: payer?.id ?? a.customerId, name: payer?.name ?? "—", isReseller: payer?.kind === "reseller" },
     product: prod?.name ?? a.productId, price, ...(usd !== undefined ? { priceUsd: usd } : {}),
-    days, from, to, expiredAt: a.customerExpiresAt, closedAt: at ?? null,
+    days, period: storePeriodText(e, days), from, to, expiredAt: a.customerExpiresAt, closedAt: at ?? null,
     previous: { slotId: a.slotId, email: oldAcc?.email ?? "", label: old?.label ?? "", free: sameFree },
     mode, slot: chosen ?? null, options,
     blockers, warnings, ok: blockers.length === 0, ...(supplierWarn ? { supplierWarn } : {}),

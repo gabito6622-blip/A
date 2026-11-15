@@ -111,7 +111,7 @@ describe("plan mensual y combos del cliente de la tienda", () => {
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
     assert.equal(ok.json.total, 6000);
     assert.equal(bal(ana), 4000);
-    assert.deepEqual(ids.map(exp), before.map((t) => t + 30 * D));
+    assert.deepEqual(ids.map(exp), before.map((t) => t + 31 * D), "01/01 → 01/02: un mes de calendario (mesModo.ts)");
     const orders = ok.json.orders.map((o) => s.engine.s.orders[o.id]);
     assert.equal(orders.reduce((t, o) => t + o.discount, 0), 2500);
     assert.ok(orders.every((o) => o.status === "fulfilled" && o.kind === "renewal"));
@@ -142,7 +142,7 @@ describe("plan mensual y combos del cliente de la tienda", () => {
     assert.equal(g.total, 6000);
     assert.equal((await call("POST", "/api/admin/order-groups/approve", { orderIds: oids, confirmedReference: "BEA-77", amount: 6500 }, "owner")).status, 400, "precio de lista no coincide");
     assert.equal((await call("POST", "/api/admin/order-groups/approve", { orderIds: oids, confirmedReference: "BEA-77", amount: 6000 }, "owner")).status, 200);
-    assert.deepEqual(ids.map(exp), before.map((t) => t + 30 * D));
+    assert.deepEqual(ids.map(exp), before.map((t) => t + 31 * D), "01/01 → 01/02: un mes de calendario");
   });
 
   test("un solo día de pago: se emparejan las fechas y se cobran solo los días que faltan", async () => {
@@ -154,41 +154,47 @@ describe("plan mensual y combos del cliente de la tienda", () => {
     const [dp, nf, sp] = mine(dani);
     const ids = [nf.id, dp.id, sp.id];
     const pv = (await call("POST", "/api/me/renew-all/preview", { ids, align: true }, "dani")).json;
-    assert.equal(pv.until, T0 + 60 * D, "todos hasta un mes después del que vence primero");
+    // Meses de calendario (mesModo.ts): Netflix vence el 01/01 → todos hasta el 01/02 (T0 + 62 días). Disney+ (vence el
+    // 11/01) y Spotify (21/01) pagan solo los días que faltan, al precio por día de SU mes (enero: 31 días). Con
+    // «30 días» eran 20 y 10 días sobre 30 (Bs 20 y Bs 6,66, total Bs 61,66); ahora cubren 21 y 11 días sobre 31:
+    // 3000 × 21/31 = 2032,25 → 2032 y 2000 × 11/31 = 709,67 → 709 (siempre hacia abajo: nunca un centavo de más).
+    assert.equal(pv.until, T0 + 62 * D, "todos hasta un mes después del que vence primero");
     const by = Object.fromEntries(pv.rows.map((r) => [r.product, r]));
-    assert.deepEqual([by.Netflix.days, by["Disney+"].days, by.Spotify.days], [30, 20, 10]);
-    assert.deepEqual([by.Netflix.price, by["Disney+"].price, by.Spotify.price], [3500, 2000, 666], "proporcional, redondeado hacia abajo al centavo");
+    assert.deepEqual([by.Netflix.days, by["Disney+"].days, by.Spotify.days], [31, 21, 11]);
+    assert.deepEqual([by.Netflix.period, by["Disney+"].period, by.Spotify.period], ["1 mes", "21 días", "11 días"]);
+    assert.deepEqual([by.Netflix.price, by["Disney+"].price, by.Spotify.price], [3500, 2032, 709], "proporcional, redondeado hacia abajo al centavo");
     const b0 = bal(dani);
     const r = await call("POST", "/api/me/renew-all", { ids, align: true, plan: true, paymentMethod: "balance", idempotencyKey: "al1" }, "dani");
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.equal(b0 - bal(dani), 6166);
-    assert.ok(ids.every((id) => exp(id) === T0 + 60 * D), "mismo día para los tres");
+    assert.equal(b0 - bal(dani), 6241, "lo mismo que mostró la vista previa");
+    assert.ok(ids.every((id) => exp(id) === T0 + 62 * D), "mismo día para los tres");
     const v = (await call("GET", "/api/me/plan", null, "dani")).json;
     assert.equal(v.plan.aligned, true);
-    assert.equal(v.plan.nextAt, T0 + 60 * D);
+    assert.equal(v.plan.nextAt, T0 + 62 * D);
     assert.equal(v.plan.total, 8500, "el mes que viene: mes entero de cada uno");
     assert.deepEqual(v.plan.names.sort(), ["Disney+", "Netflix", "Spotify"]);
     // Ya emparejado: «Pagar este mes» es un mes entero para todos.
     const next = (await call("POST", "/api/me/renew-all/preview", { ids, align: true }, "dani")).json;
-    assert.deepEqual(next.rows.map((x) => x.days), [30, 30, 30]);
+    assert.deepEqual(next.rows.map((x) => x.days), [28, 28, 28], "01/02 → 01/03: febrero tiene 28 días");
+    assert.deepEqual(next.rows.map((x) => x.period), ["1 mes", "1 mes", "1 mes"]);
     assert.equal(next.total, 8500);
     // Apagar el plan no cobra ni cambia nada.
     const off = (await call("POST", "/api/me/plan", { on: false }, "dani")).json;
     assert.equal(off.plan, null);
-    assert.ok(ids.every((id) => exp(id) === T0 + 60 * D));
+    assert.ok(ids.every((id) => exp(id) === T0 + 62 * D));
     assert.equal((await call("POST", "/api/me/plan", { on: true, ids }, "dani")).json.plan.ids.length, 3);
   });
 
   test("aviso del plan: 3 días, 1 día y el día, con el toque a «Pagar este mes» y sin montos", async () => {
     assert.equal((await call("POST", "/api/me/push/subscribe", { subscription: { endpoint: FCM + "dani", keys: KEYS } }, "dani")).status, 200);
     const seen = [];
-    for (const day of [57, 59, 60]) {
+    for (const day of [59, 61, 62]) { // el plan vence el 01/02 (T0 + 62 días)
       clock.t = T0 + day * D; // 10:00 de Bolivia de ese día
       await relogin();
       await app.checkExpiryPush();
       seen.push((await call("GET", "/api/me/push/latest", null, "dani")).json);
     }
-    assert.deepEqual(seen.map((m) => m.title), ["🔔 Tu plan vence en 3 días (30/01)", "🔔 Tu plan vence mañana (30/01)", "🔔 Tu plan vence hoy (30/01)"]);
+    assert.deepEqual(seen.map((m) => m.title), ["🔔 Tu plan vence en 3 días (01/02)", "🔔 Tu plan vence mañana (01/02)", "🔔 Tu plan vence hoy (01/02)"]);
     assert.ok(seen.every((m) => m.url === "/tienda/?pagar=plan#cuentas" && /Tocá para pagar este mes/.test(m.body) && !/Bs|\d{2,}\.\d{2}/.test(m.body)));
   });
 
