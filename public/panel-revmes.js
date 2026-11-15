@@ -8,6 +8,7 @@
 //  - Vender: aviso si la lista del revendedor no tiene precio para ese producto.
 // Nada se manda solo. El servidor decide montos y permisos; acá solo se muestra y se confirma.
 import { api, esc, bs, fdate, toast, newKey, toCents } from "/common.js";
+import { avisoRenovada } from "/panel-tablero.js";
 
 let ctx = { render: async () => {} };
 export function initRevMes(c) { ctx = { ...ctx, ...c }; }
@@ -104,8 +105,8 @@ export function transferMsg(r) {
 }
 
 /* ---------------- 6 · Me pagó todo ---------------- */
-export const paidAllBtn = (r, canReview) => (canReview ? `<button class="pbtn sm green" type="button" data-rmpaid="${esc(r.id)}" data-name="${esc(r.name)}">💵 Me pagó todo</button>` : "");
-async function paidAll(id, name) {
+export const paidAllBtn = (r, canReview) => (canReview ? `<button class="pbtn sm green" type="button" data-rmpaid="${esc(r.id)}" data-name="${esc(r.name)}" data-phone="${esc(r.phone ?? "")}">💵 Me pagó todo</button>` : "");
+async function paidAll(id, name, phone) {
   const d = await api("GET", `/api/admin/resellers/${id}/due`);
   const ok = d.rows.filter((x) => !x.blocked);
   const row = (x) => `<li class="${x.blocked ? "muted" : ""}"><span><b>${esc(x.product)}</b>${x.client ? ` · ${esc(x.client)}` : ""}<br><small class="muted">${x.action === "debt" ? "Debía este mes (no corre la fecha)" : `Vence ${fdate(x.expiresAt)} → queda hasta ${fdate(x.to)}`}${x.blocked ? ` · ⛔ ${esc(x.blocked)}` : ""}</small></span><b>${bs(x.price)}</b></li>`;
@@ -120,6 +121,13 @@ async function paidAll(id, name) {
     try {
       const r = await api("POST", `/api/admin/resellers/${id}/paid-all`, { ids: ok.map((x) => x.assignmentId), total: d.total, idempotencyKey: newKey() });
       m.close(); toast(`✅ ${name}: ${r.count} anotado(s) · ${bs(r.total)}`); await ctx.render();
+      // 15/11: «📲 Avisarle que quedó renovada» con las fechas nuevas (solo las que se renovaron).
+      const ren = ok.filter((x) => x.action !== "debt").map((x) => x.assignmentId);
+      if (ren.length) {
+        const now = await api("GET", "/api/admin/assignments").catch(() => []);
+        const items = now.filter((a) => ren.includes(a.id)).map((a) => ({ product: a.product, email: a.email, to: a.customerExpiresAt }));
+        avisoRenovada(phone, name, items);
+      }
     } catch (e) { ev.target.disabled = false; errBox(m.el, e.message); }
   });
 }
@@ -166,7 +174,7 @@ document.addEventListener("click", async (ev) => {
   el.disabled = true;
   try {
     if (d.rmgok !== undefined) { groupsCache = null; await approveGroup(+d.rmgok, el.closest(".rmgroup")); }
-    if (d.rmpaid) await paidAll(d.rmpaid, d.name);
+    if (d.rmpaid) await paidAll(d.rmpaid, d.name, d.phone);
     if (d.rmstore) {
       await api("POST", `/api/admin/customers/${d.rmstore}/store-renew`, { allowed: d.on === "1" });
       toast(d.on === "1" ? "Ahora renueva sus alquileres desde GaboHub" : "Sus alquileres los renovás vos");

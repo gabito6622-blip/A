@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-15 · Tablero y corte manual
+- **Tablero aparte de «Revendedores»:** la ficha de cada revendedor sigue igual; el tablero es una vista de todos juntos para no entrar uno por uno. Usa los mismos botones (Me pagó todo, Renovar, Liberar), no los reemplaza.
+- **«Cortar» deja la cuenta apartada, no libre:** el revendedor que no renovó todavía sabe la clave. Venderla así a otro sería riesgoso. La clave la cambia el dueño en la plataforma (el sistema no entra a Disney ni a Netflix).
+- **El aviso de renovada no se manda solo:** la tienda no tiene WhatsApp oficial; se arma el texto y se abre WhatsApp con un toque. Las fechas salen del sistema después de renovar, no se calculan aparte.
+
 ## 2026-11-15 · «Crear mi cuenta» sin códigos
 - **Sin verificar el número por WhatsApp:** la tienda no tiene WhatsApp oficial para mandar códigos. Una cuenta nueva no ve nada ajeno y no recibe accesos sin que la tienda apruebe un pago, así que el riesgo es bajo. Si alguien registra un número ajeno, el dueño real de ese número pide «Olvidé mi PIN» y la tienda le da un PIN nuevo.
 - **Número repetido:** no se crea otra cuenta ni se entra. Se compara de forma tolerante («70012345» es lo mismo que «+59170012345»).

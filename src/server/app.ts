@@ -1203,6 +1203,14 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
+  // 15/11/2026 «✂️ Cortar: no renovó»: termina el alquiler y deja el perfil APARTADO (no a la venta) hasta que el dueño
+  // cambie la clave y lo libere en Mi secretaria → Apartadas. Las dos cosas juntas, sin un momento «libre» en el medio.
+  route("POST", "/api/admin/slots/:id/cut", "staff", (c) => {
+    const note = String(c.body?.reason ?? "").trim().slice(0, 200) || "No renovó: cortado";
+    store.orders.releaseSlot(A(c), c.params.id, note);
+    store.inventory.setSlotStatus(A(c), c.params.id, "quarantined", `${note} · cambiar la clave y después liberar`);
+    return { ok: true };
+  });
   route("POST", "/api/admin/assignments/:id/test", "staff", (c) => store.orders.markTest(A(c), c.params.id, c.body?.reason));
   route("POST", "/api/admin/assignments/:id/refund", "staff", (c) => store.orders.refundAssignment(A(c), c.params.id, { amount: c.body?.amount, reason: c.body?.reason, cash: c.body?.cash === true, slotFallen: c.body?.slotFallen === true }));
   route("GET", "/api/admin/relocations", "staff", (c) => store.orders.relocationQueue(A(c)));

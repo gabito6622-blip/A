@@ -2,6 +2,7 @@
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
+import { tableroView, avisoRenovada } from "/panel-tablero.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
 import { initSearch, openSearch } from "/buscador.js";
@@ -43,7 +44,7 @@ const AREAS = [
   ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   // 14/11/2026: Clientes y Revendedores en un área (6 áreas en vez de 7). Las mismas pantallas, con su #clave.
-  ["a-clientes", "users", "Clientes y revendedores", [["clientes", "Clientes"], ["revendedores", "Revendedores"], ["comovan", "📈 Cómo van", "review"]]],
+  ["a-clientes", "users", "Clientes y revendedores", [["clientes", "Clientes"], ["revendedores", "Revendedores"], ["tablero", "🗂️ Tablero de revendedores", "review"], ["comovan", "📈 Cómo van", "review"]]],
   ["a-inventario", "box", "Inventario", [["cuentas", "Cuentas", "review"], ["cortes", "✂️ Cortes", "review"], ["carga", "Carga de cuentas", "review"], ["reubicar", "Reubicar perfiles", "review"], ["codigos", "Panel de códigos", "owner"], ["productos", "Productos y precios", "review"], ["cupones", "Cupones de descuento", "review"], ["proveedores", "Proveedores", "review"]]],
   ["a-finanzas", "coins", "Finanzas", [["finanzas", "Finanzas", "owner"], ["fiado", "Fiado (lo que te deben)"], ["dashboard", "Dashboard y reportes", "review"]]],
   // Lo de todos los días arriba; lo de configuración junto bajo «Ajustes» (separador, no es pantalla).
@@ -56,7 +57,7 @@ const MENU_WORDS = {
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
   codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
-  revendedores: "revendedor pin tienda saldo", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
+  revendedores: "revendedor pin tienda saldo", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
   dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
@@ -65,7 +66,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -198,6 +199,11 @@ const V = {
     return cortesView(list, P.tab.cutOnly ?? "des", { table, pill, riskPill }); // plegado por cuenta en el celular (panel-caidas.js)
   },
   comovan: () => comoVanView(P.tab),
+  // 15/11: una fila por revendedor con sus cuentas como etiquetas (panel-tablero.js).
+  async tablero() {
+    if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño y los admins.</div></section>`;
+    return tableroView(P.tab, { paidAllBtn, canReview });
+  },
   oficina: () => officeView(),
   async secretaria() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño.</div></section>`;
@@ -1002,8 +1008,8 @@ const V = {
         if (sl.status === "assigned") {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>
             <p class="muted" style="margin:0">Ocupado por <b>${esc(sl.customerName || "—")}</b>${sl.customerPhone ? ` · ${esc(sl.customerPhone)}` : ""}${sl.expiresAt ? ` · vence ${fdate(sl.expiresAt)}` : ""}.</p>
-            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-renew="${esc(sl.assignmentId)}" data-renewinfo="¿Renovar este alquiler un período más?">${icon("renew")}Renovar</button><button class="pbtn" type="button" data-paid="${esc(sl.assignmentId)}">💵 Cobrado</button><button class="pbtn" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋, te recuerdo el pago de tu ${esc(pname(acc.productId))}${sl.expiresAt ? ` que vence el ${fdate(sl.expiresAt)}` : ""}. ¿Lo renovamos? 🙌`)}" target="_blank" rel="noopener">${icon("wa")}Cobrar por WA</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
-            <p class="muted" style="margin:0;font-size:12.5px">Al liberar, deja de contar para ese cliente (y sus códigos) y queda libre para vender a otro.</p></section>`;
+            <div class="inline">${sl.assignmentId ? `<button class="pbtn green" type="button" data-renew="${esc(sl.assignmentId)}" data-renewinfo="¿Renovar este alquiler un período más?" data-rnphone="${esc(sl.customerPhone ?? "")}" data-rnwho="${esc(sl.customerName ?? "")}" data-rnwhat="${esc(pname(acc.productId))}" data-rnmail="${esc(acc.email)}">${icon("renew")}Renovar</button><button class="pbtn" type="button" data-paid="${esc(sl.assignmentId)}">💵 Cobrado</button><button class="pbtn" type="button" data-deliver="${esc(sl.assignmentId)}">📲 Enviar accesos</button>` : ""}<button class="pbtn dark" type="button" data-slotcut="${esc(sl.id)}" data-who="${esc(sl.customerName ?? "")}">✂️ Cortar: no renovó</button><button class="pbtn dark" type="button" data-slotrelease="${esc(sl.id)}">🔓 Liberar</button>${sl.customerPhone ? `<a class="pbtn" href="${waLink(sl.customerPhone, `Hola ${(sl.customerName || "").split(" ")[0]} 👋, te recuerdo el pago de tu ${esc(pname(acc.productId))}${sl.expiresAt ? ` que vence el ${fdate(sl.expiresAt)}` : ""}. ¿Lo renovamos? 🙌`)}" target="_blank" rel="noopener">${icon("wa")}Cobrar por WA</a>` : ""}<button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div>
+            <p class="muted" style="margin:0;font-size:12.5px">✂️ <b>Cortar</b>: termina su alquiler y la cuenta queda apartada (no se vende) hasta que cambies la clave. 🔓 <b>Liberar</b>: queda libre para vender a otro enseguida.</p></section>`;
         } else if (sl.status === "available" && slotBlocked(acc)) {
           slotCard = `<section class="card ok-card"><h2>${head}</h2>${slotBlocked(acc)}<div class="inline"><button class="pbtn" type="button" data-tab="slotAct:">Cerrar</button></div></section>`;
         } else if (sl.status === "available") {
@@ -3077,6 +3083,14 @@ document.addEventListener("click", async (ev) => {
   if (d.editcus !== undefined) { P.tab.editCus = d.editcus || null; await render(); return scrollTo(0, 0); }
   if (d.slotfree) { if (!confirm("¿Poner este perfil libre para vender? Deja de contar para el cliente que lo tenía.")) return; return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender"); }
   if (d.slotact !== undefined) { P.tab.slotAct = d.slotact || null; await render(); return scrollTo(0, 0); }
+  // Tablero de revendedores: la etiqueta de una cuenta abre esa cuenta en Cuentas con sus botones.
+  if (d.tbslot) { P.tab.slotAct = d.tbslot; P.tab.accq = d.q || ""; go("cuentas"); return; }
+  if (d.tbf) { P.tab.tbf = d.tbf; await render(); return; }
+  if (d.slotcut) {
+    if (!confirm(`¿Cortar ${d.who ? `a ${d.who}` : "este alquiler"}?\n\nSe termina su alquiler y la cuenta queda APARTADA (no se vende) hasta que cambies la clave. Después la liberás en Mi secretaria → Apartadas.`)) return;
+    try { await api("POST", `/api/admin/slots/${d.slotcut}/cut`, { reason: "No renovó: cortado" }); P.tab.slotAct = null; toast("✂️ Cortado. Cambiá la clave y después liberala en Mi secretaria → Apartadas"); } catch (e) { toast(e.message); }
+    return render();
+  }
   if (d.slotrelease) {
     if (!confirm("¿Liberar este perfil? Deja de contar para ese cliente y queda libre para vender.")) return;
     try { await api("POST", `/api/admin/slots/${d.slotrelease}/free`, { reason: "liberado desde Cuentas" }); P.tab.slotAct = null; toast("Perfil liberado ✓"); } catch (e) { toast(e.message); }
@@ -3187,7 +3201,10 @@ document.addEventListener("click", async (ev) => {
   }
   if (d.renew) {
     if (el.dataset.renewinfo && !confirm(el.dataset.renewinfo)) return;
-    return act(() => renewFlow(d.renew, { beyondOk: /pasa la del proveedor/.test(el.dataset.renewinfo ?? "") }), (r) => (r ? `✅ Renovado hasta ${fdate(r.to)}${r.supplierWarn ? " · ⚠️ renová el proveedor antes de esa fecha" : ""}` : "No se anotó nada"));
+    const r = await act(() => renewFlow(d.renew, { beyondOk: /pasa la del proveedor/.test(el.dataset.renewinfo ?? "") }), (r) => (r ? `✅ Renovado hasta ${fdate(r.to)}${r.supplierWarn ? " · ⚠️ renová el proveedor antes de esa fecha" : ""}` : "No se anotó nada"));
+    // 15/11: desde la cuenta, «📲 Avisarle que quedó renovada» con la fecha nueva.
+    if (r?.to && d.rnmail) avisoRenovada(d.rnphone, d.rnwho, [{ product: d.rnwhat, email: d.rnmail, to: r.to }]);
+    return r;
   }
   if (d.renewsel) {
     const ids = $$(".sel:checked").map((x) => x.value);
@@ -3295,6 +3312,10 @@ document.addEventListener("input", (ev) => {
   if (t.id === "rq") {
     P.tab.rq = t.value; clearTimeout(rqTimer);
     rqTimer = setTimeout(async () => { await render(); const f = $("#rq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
+  }
+  if (t.id === "tbq") {
+    P.tab.tbq = t.value; clearTimeout(accqTimer);
+    accqTimer = setTimeout(async () => { await render(); const f = $("#tbq"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 300);
   }
   if (t.id === "accq") {
     P.tab.accq = t.value; clearTimeout(accqTimer);
