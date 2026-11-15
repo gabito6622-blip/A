@@ -6,6 +6,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 ## 2026-11-15 · Datos reales: cuentas Disney liberadas y renovaciones (con respaldo)
 - A pedido del dueño (ya les había cambiado la clave): opajg12+7ped y opajg12+k7z estaban apartadas (corte automático). Se guardó la clave nueva (no tenían clave cargada) y quedaron libres para vender. Respaldo previo sin contraseñas en el scratchpad de la sesión.
 - Robin Sardán renovó netgb117+pg19 (a pedido del dueño): «Me pagó» de 1 mes a Bs 69 (antes Bs 70), vence 15/12/2026. Respaldo previo del alquiler.
+- Dani strem renovó netgb117+efp (a pedido del dueño): «Me pagó» de 1 mes a su precio de siempre Bs 69, del 14/11 al 14/12/2026 (ya no se corta). Respaldo previo del alquiler.
 
 ## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (PR #82 publicado)
 - **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
