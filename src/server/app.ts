@@ -1708,6 +1708,30 @@ export function createApp(cfg: AppConfig): App {
     if (c.body?.off) { store.codes.setLink(c.actor!, cl.id, null); db.setSecret(`codepin:${cl.id}`, null, now()); return { ok: true }; }
     return makeAnyLink(cl.id, c.actor!, c);
   });
+  // 🔐 PIN por cuenta (15/11/2026): en el link «escribí tu correo», cada correo puede tener su PIN de 4 números. Así un
+  // cliente que sepa el correo de OTRA cuenta del mismo revendedor no ve ese código. Se guarda con scrypt, por revendedor.
+  const accPinKey = (customerId: string, email: string) => `codeacc:${customerId}|${email}`;
+  const accPins = (customerId: string) => store.codes.linkAccounts(customerId).map((x) => ({ ...x, pin: !!db.getSecret(accPinKey(customerId, x.email)) }));
+  const setAccPin = (actor: Actor, customerId: string, body: { email?: unknown; pin?: unknown } | undefined) => {
+    const p = String(body?.pin ?? "").trim();
+    if (p && !/^\d{4}$/.test(p)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
+    const em = store.codes.checkAccountPin(actor, customerId, String(body?.email ?? ""), !!p);
+    db.setSecret(accPinKey(customerId, em), p ? hashPassword(pinKey(`${customerId}|${em}`, p)) : null, now());
+    return { email: em, pin: !!p, accounts: accPins(customerId) };
+  };
+  route("GET", "/api/admin/customers/:id/code-pins", "staff", (c) => {
+    if (!store.engine.s.customers[c.params.id]) throw new DomainError("NOT_FOUND", "Cliente inexistente");
+    return { accounts: accPins(c.params.id) };
+  });
+  route("POST", "/api/admin/customers/:id/code-pins", "staff", (c) => setAccPin(A(c), c.params.id, c.body));
+  route("GET", "/api/me/code-pins", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    return { accounts: accPins(c.actor!.customerId!) };
+  });
+  route("POST", "/api/me/code-pins", "customer", (c) => {
+    if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
+    return setAccPin(c.actor!, c.actor!.customerId!, c.body);
+  });
   const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
   const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
   // Modo "escribí tu correo" (sin PIN): se limita por si prueban muchos correos distintos.
@@ -1729,6 +1753,15 @@ export function createApp(cfg: AppConfig): App {
       const kl = `${c.params.token}|${c.ip}`;
       if (emailLookupLimiter.blocked(kl)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
       emailLookupLimiter.take(kl);
+      // Esa cuenta tiene su PIN: sin el PIN correcto no se ve nada (aunque sepan el correo).
+      const accHash = db.getSecret(accPinKey(o.customerId, email));
+      if (accHash) {
+        const p = String(c.body?.pin ?? "").trim();
+        if (!p) throw new HttpError(401, "PIN_NEEDED", "Esta cuenta tiene PIN: escribí el PIN de 4 números que te pasaron");
+        const kp = `${c.params.token}|${c.ip}`;
+        if (pinLimiter.blocked(kp) || pinTokenLimiter.blocked(c.params.token)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
+        if (!verifyPassword(pinKey(`${o.customerId}|${email}`, p), accHash)) { pinLimiter.take(kp); pinTokenLimiter.take(c.params.token); throw new HttpError(401, "BAD_PIN", "PIN incorrecto"); }
+      }
       const codes = store.codes.of(o.customerId).filter((x) => x.to === email);
       return { name: o.name, email, codes, minutes, platforms: store.codes.platforms(o.customerId) };
     }

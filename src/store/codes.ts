@@ -163,11 +163,41 @@ export function setCodeLink(e: Engine, actor: Actor, customerId: Id, token: stri
   });
 }
 
+/**
+ * Nombre que ven los clientes en /codigos/<token>: el título de su tienda o su nombre, SIN la etiqueta interna del dueño
+ * («aneliz · Aneliz Contreras» → «Aneliz Contreras», 15/11/2026).
+ */
+export const publicName = (name: string) => { const m = /^[^·]{1,40}·\s*(.+)$/.exec(String(name ?? "").trim()); return (m ? m[1] : String(name ?? "")).trim(); };
+
 /** Para la página pública /codigos/<token>: de quién es el link (el PIN lo verifica el servidor). */
 export function codeLinkOwner(e: Engine, token: string): { customerId: Id; name: string } | null {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
   const c = Object.values(e.s.customers).find((x) => x.codeLink?.token === token);
-  return c ? { customerId: c.id, name: c.shop?.title || c.name } : null;
+  return c ? { customerId: c.id, name: c.shop?.title || publicName(c.name) } : null;
+}
+
+/** Correos de las cuentas activas que muestra el link de un cliente/revendedor (las suyas y las de sus clientes). */
+export function linkAccountsOf(e: Engine, customerId: Id): { email: string; product: string }[] {
+  const out = new Map<string, string>();
+  for (const a of Object.values(e.s.assignments)) {
+    if (a.status !== "active" || !(a.customerId === customerId || e.s.customers[a.customerId]?.resellerId === customerId)) continue;
+    const acc = e.s.accounts[e.s.slots[a.slotId]?.accountId];
+    if (acc && !out.has(acc.email.toLowerCase())) out.set(acc.email.toLowerCase(), e.s.products[a.productId]?.name ?? "");
+  }
+  return [...out].map(([email, product]) => ({ email, product })).sort((x, y) => x.email.localeCompare(y.email));
+}
+
+/**
+ * 🔐 PIN por cuenta (15/11/2026): quién puede ponerlo y la auditoría. El PIN (con scrypt) lo guarda el servidor afuera
+ * del estado. El revendedor pone el de SUS cuentas; el dueño o un admin, el de cualquiera.
+ */
+export function checkAccountPin(e: Engine, actor: Actor, customerId: Id, email: string, on: boolean) {
+  const own = actor.role === "reseller" && actor.customerId === customerId;
+  if (!own) authorize(actor, "customer.manage");
+  const em = String(email ?? "").trim().toLowerCase();
+  if (!linkAccountsOf(e, customerId).some((x) => x.email === em)) throw new DomainError("VALIDATION", "Ese correo no es de una cuenta activa de este revendedor");
+  e.tx(() => e.audit(actor, on ? "customer.code_pin" : "customer.code_pin_off", "customer", customerId, { email: em }));
+  return em;
 }
 
 /** Códigos de las cuentas activas del cliente (y de los clientes del revendedor). Uso interno, sin permisos. */

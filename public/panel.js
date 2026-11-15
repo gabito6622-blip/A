@@ -1481,6 +1481,8 @@ const V = {
     const sent = T.rlink;
     // Ficha del revendedor: sus perfiles por cuenta, lo que debe y su lista lista para mandarle.
     const fs = T.rficha ? await api("GET", `/api/admin/resellers/${T.rficha}/sheet`).catch((e) => { toast(e.message); T.rficha = ""; return null; }) : null;
+    // 🔐 PIN por cuenta de su link de códigos (15/11/2026).
+    const fpins = fs?.codeLink ? await api("GET", `/api/admin/customers/${fs.id}/code-pins`).catch(() => null) : null;
     const ficha = (() => {
       if (!fs) return "";
       const pn = (x) => x.replace(/ \(alquiler revendedores\)/, "");
@@ -1502,7 +1504,10 @@ const V = {
         <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
           <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
           ${debe.length || fs.owed ? `<button class="pbtn" type="button" data-fgo="${esc(fs.name)}">💸 Ver su fiado</button>` : ""}
-          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>${cargarCard(fs, canReview(), render)}
+          ${fs.codeLink ? "" : `<button class="pbtn" type="button" data-rcode="${esc(fs.id)}">🔗 Crear su link de códigos</button>`}</div>${fpins?.accounts?.length ? `<details class="rpins"${T.rpinOpen ? " open" : ""}><summary>🔐 PIN por cuenta en su link de códigos (${fpins.accounts.filter((a) => a.pin).length} de ${fpins.accounts.length} con PIN)</summary>
+            <p class="muted" style="margin:6px 0">Si una cuenta tiene PIN, sus clientes escriben el correo <b>y</b> el PIN. Así nadie ve el código de otra cuenta aunque sepa el correo. También lo puede poner ${esc(fs.name.replace(/^[^·]*·\s*/, "").split(" ")[0])} desde su panel.</p>
+            ${fpins.accounts.map((a) => `<form class="inline rpinf" data-rcodepin="${esc(fs.id)}" data-email="${esc(a.email)}"><span class="mono" style="overflow-wrap:anywhere">${esc(a.email)}</span>${a.pin ? pill("🔒 con PIN", "ok") : pill("sin PIN", "mute")}
+              <input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="${a.pin ? "PIN nuevo" : "1234"}" aria-label="PIN para ${esc(a.email)}" style="max-width:110px"><button class="pbtn" type="submit">${a.pin ? "Cambiar" : "Poner PIN"}</button>${a.pin ? `<button class="pbtn sm" type="button" data-rcodepinoff="${esc(fs.id)}" data-email="${esc(a.email)}">Quitar</button>` : ""}</form>`).join("")}</details>` : ""}${cargarCard(fs, canReview(), render)}
         ${byAcc.length ? byAcc.map(([k, l]) => `<div class="racc"><div class="racc-h"><b>${esc(k.split("|")[0])}</b> <span class="mono">${esc(k.split("|")[1])}</span> <small class="muted">${l.length} perfil(es)</small></div>
           ${l.map((x) => `<div class="racc-r"><span><b>${esc(x.profile)}</b>${x.client ? ` · ${esc(x.client)}` : ` · <small class="muted">para él</small>`}</span><span>${x.holdOpen ? "" : fdate(x.expiresAt)} ${st(x)}</span><span>${fsm(x.price || 0)}${x.pay !== "pagado" ? ` ${pill(x.pay === "no_pago" ? "No pagó" : "Pendiente", "bad")}` : ""}</span></div>`).join("")}</div>`).join("") : `<div class="emptybox">Todavía no tiene perfiles${app ? ` de ${esc(app)}` : ""}.</div>`}</section>`;
     })();
@@ -3110,6 +3115,11 @@ document.addEventListener("click", async (ev) => {
   if (d.slotfree) { if (!confirm("¿Poner este perfil libre para vender? Deja de contar para el cliente que lo tenía.")) return; return act(() => api("POST", `/api/admin/slots/${d.slotfree}/status`, { status: "available", note: "revisado desde el panel" }), "Perfil liberado: ya se puede vender"); }
   if (d.slotact !== undefined) { P.tab.slotAct = d.slotact || null; await render(); return scrollTo(0, 0); }
   // Tablero de revendedores: la etiqueta de una cuenta abre esa cuenta en Cuentas con sus botones.
+  if (d.rcodepinoff) {
+    if (!confirm(`¿Quitar el PIN de ${d.email}?\n\nDesde ahora alcanza con escribir el correo para ver el código.`)) return;
+    P.tab.rpinOpen = true;
+    return act(() => api("POST", `/api/admin/customers/${d.rcodepinoff}/code-pins`, { email: d.email, pin: "" }), "PIN quitado");
+  }
   if (d.tbslot) { P.tab.slotAct = d.tbslot; P.tab.accq = d.q || ""; go("cuentas"); return; }
   if (d.tbf) { P.tab.tbf = d.tbf; await render(); return; }
   if (d.slotcut) {
@@ -3431,6 +3441,13 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target;
   const btn = f.querySelector('[type="submit"]');
+  if (f.dataset.rcodepin) {
+    const pin = f.pin.value.trim();
+    P.tab.rpinOpen = true;
+    const r = await act(() => api("POST", `/api/admin/customers/${f.dataset.rcodepin}/code-pins`, { email: f.dataset.email, pin }), `🔒 ${f.dataset.email} ahora pide el PIN ${pin}`);
+    if (r) try { await navigator.clipboard.writeText(`Correo: ${f.dataset.email}\nPIN de códigos: ${pin}`); } catch { /* sin portapapeles */ }
+    return;
+  }
   if (f.id === "loginForm") {
     btn.disabled = true;
     try {

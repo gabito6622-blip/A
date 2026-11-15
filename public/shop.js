@@ -230,7 +230,7 @@ async function loadPrivate() {
   if (isReseller() && (S.view === "inicio" || S.view === "cuentas")) await loadRentAlerts(); // ⏰ sus alquileres antes del corte
   if (S.view === "codigos") {
     S.data.codes = await api("GET", "/api/me/codes");
-    if (isReseller()) S.data.codeLink = await api("GET", "/api/me/code-link").catch(() => ({ url: null }));
+    if (isReseller()) [S.data.codeLink, S.data.codePins] = await Promise.all([api("GET", "/api/me/code-link").catch(() => ({ url: null })), api("GET", "/api/me/code-pins").catch(() => null)]);
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "seguridad") S.data.sec = await api("GET", "/api/me/security").catch(() => null);
@@ -461,6 +461,21 @@ function iptvAccessText(a) {
 }
 
 const notReseller = () => `<div class="sbox"><h2>Esta área es para revendedores</h2><p class="empty">Tus compras y cuentas están en la tienda.</p><a class="sbtn pri" href="/tienda/#cuentas" style="justify-self:start">Ir a la tienda ${icon("arrow")}</a></div>`;
+/** 🔐 PIN por cuenta (15/11/2026): cada correo de su link puede pedir un PIN, así un cliente no ve el código de otra cuenta. */
+function accPinsCard() {
+  const l = S.data.codePins?.accounts ?? [];
+  if (!l.length) return "";
+  const done = S.data.lastAccPin;
+  const msg = done ? `Mirá tu código acá 👇\n${S.data.codeLink?.url}\nCorreo: ${done.email}\nPIN: ${done.pin}` : "";
+  return `<div class="accpins"><h3 style="margin:10px 0 4px;font-size:15px">🔐 PIN por cuenta (opcional)</h3>
+    <p class="empty" style="margin:0;font-size:13px">Si una cuenta tiene PIN, tu cliente escribe su correo <b>y</b> el PIN. Así, aunque sepa el correo de otra cuenta tuya, no ve ese código. Si alguien deja de pagarte, cambiale el PIN.</p>
+    ${done ? `<div class="linkrow" role="status"><span>🔒 Listo: <b>${esc(done.email)}</b> con PIN ${esc(done.pin)}</span><a class="sbtn sm pri" href="${waLink("", msg)}" target="_blank" rel="noopener">${icon("wa")}Mandárselo a tu cliente</a></div>` : ""}
+    ${l.map((a) => `<form class="sform" data-accpin="${esc(a.email)}" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:8px">
+      <label><span style="overflow-wrap:anywhere">${esc(a.email)} <small class="empty">${esc(a.product)}</small> · ${a.pin ? "🔒 con PIN" : "sin PIN"}</span>
+        <input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="${a.pin ? "PIN nuevo" : "1234"}" aria-label="PIN de 4 números para ${esc(a.email)}"></label>
+      <button class="sbtn pri" type="submit">${a.pin ? "Cambiar" : "Poner PIN"}</button>
+      ${a.pin ? `<button class="sbtn sm" type="button" data-accpinoff="${esc(a.email)}" style="grid-column:1/-1;justify-self:start">Quitar el PIN</button>` : ""}</form>`).join("")}</div>`;
+}
 const needLogin = (what) => `<div class="sbox"><h2>Ingresá a tu cuenta</h2><p class="empty">Para ver ${what} entrá con tu número de WhatsApp.</p><button class="sbtn pri" type="button" data-login="1" style="justify-self:start">Acceder</button></div>`;
 
 function pendingOrders(skip = null) {
@@ -703,7 +718,7 @@ function renderInner() {
         ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
           <p class="empty" style="margin:0;font-size:13px">Seguridad actual: <b>${S.data.codeLink.mode === "pin" ? "🔒 Con PIN de 4 números" : "✉️ Escribí tu correo (sin PIN)"}</b></p>
           <div class="rbtns"><a class="sbtn sm pri" href="${waLink("", `Mirá tu código acá 👇 ${S.data.codeLink.mode === "pin" ? "Entrá con el PIN que te pasé:" : "Escribí el correo de tu cuenta:"}\n${S.data.codeLink.url}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a>${S.data.codeLink.mode === "pin" ? `<button class="sbtn sm" type="button" data-makecodelink="1">Quitar PIN (modo correo)</button>` : ""}</div>
-          <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end;margin-top:8px"><label>🔒 ${S.data.codeLink.mode === "pin" ? "Cambiar el PIN" : "Proteger con un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn pri" type="submit">Poner PIN</button></form>`
+          <form class="sform" id="codePin" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end;margin-top:8px"><label>🔒 ${S.data.codeLink.mode === "pin" ? "Cambiar el PIN" : "Proteger con un PIN de 4 números"}<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="1111"></label><button class="sbtn pri" type="submit">Poner PIN</button></form>${S.data.codeLink.mode !== "pin" ? accPinsCard() : ""}`
           : `<button class="sbtn pri" type="button" data-makecodelink="1" style="justify-self:start">Crear mi link de códigos</button>`}</div>` : ""}
       <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small>${kindHelp(c.kind)}</div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
@@ -2600,6 +2615,11 @@ document.addEventListener("click", async (ev) => {
     toast(n ? `Listo: ${n} precio(s) con +${m}% de ganancia. Revisá y tocá Guardar.` : "Ya tenés todos los precios puestos.");
     return;
   }
+  if (d.accpinoff) {
+    if (!confirm(`¿Quitar el PIN de ${d.accpinoff}?\n\nDesde ahora alcanza con escribir el correo para ver el código.`)) return;
+    try { S.data.codePins = await api("POST", "/api/me/code-pins", { email: d.accpinoff, pin: "" }); S.data.lastAccPin = null; toast("PIN quitado"); render(); } catch (e) { toast(e.message); }
+    return;
+  }
   if (d.makecodelink) {
     el.disabled = true;
     try { const k = await api("POST", "/api/me/code-link", { keepLink: true }); S.data.codeLink = { url: k.url, mode: "email" }; toast("Tu link quedó listo (modo correo)"); render(); }
@@ -2985,6 +3005,13 @@ document.addEventListener("submit", async (ev) => {
       S.data.wiz.step = 3;
       render(); scrollTo(0, 0);
       return;
+    } else if (f.dataset.accpin) {
+      const pin = f.pin.value.trim();
+      S.data.codePins = await api("POST", "/api/me/code-pins", { email: f.dataset.accpin, pin });
+      S.data.lastAccPin = { email: f.dataset.accpin, pin };
+      try { await navigator.clipboard.writeText(`${S.data.codeLink?.url}\nCorreo: ${f.dataset.accpin}\nPIN: ${pin}`); } catch { /* sin portapapeles */ }
+      toast("🔒 Listo: esa cuenta pide PIN (copiado para tu cliente)");
+      render();
     } else if (f.id === "codePin") {
       const k = await api("POST", "/api/me/code-link", { pin: f.pin.value.trim(), keepLink: true });
       S.data.codeLink = { url: k.url, mode: "pin" };
