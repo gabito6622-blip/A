@@ -4,6 +4,7 @@
 // Primero los que tienen algo vencido, después los que vencen en 7 días, los que deben y al final los que están al día.
 // Tocar una etiqueta abre esa cuenta en Inventario → Cuentas con sus botones (Renovar, Liberar, Enviar accesos…).
 // Nada se manda solo: «Cobrar» abre el WhatsApp de UNA persona con el mensaje escrito.
+import { cobrarConLink } from "/panel-cobrolink.js";
 import { api, esc, bs, fdate, waLink, icon } from "/common.js";
 
 const DAY = 864e5;
@@ -57,10 +58,18 @@ export function cobrarMsg(r, now = Date.now()) {
 const FILTERS = [["todos", "Todos"], ["urgente", "⚠️ Para cobrar"], ["deben", "💸 Deben"], ["aldia", "✅ Al día"], ["sin", "💤 Sin cuentas"]];
 const pass = (f, r) => f === "todos" || (f === "urgente" ? r.urg <= 1 : f === "deben" ? r.debt > 0 : f === "aldia" ? r.urg === 3 : r.urg === 4);
 
+let lastRows = new Map();
+/** «🔗 Con link de pago» de una fila: un link por cuenta que vence (panel-cobrolink.js). */
+export function tableroLink(id) {
+  const r = lastRows.get(id);
+  if (!r) return;
+  return cobrarConLink(r.phone, r.name, r.due.map((a) => ({ id: a.id, product: a.product, email: a.email, expiresAt: a.customerExpiresAt, price: a.effectivePrice ?? 0 })));
+}
 export async function tableroView(T, { paidAllBtn, canReview }) {
   const [ov, as] = await Promise.all([api("GET", "/api/admin/resellers/overview"), api("GET", "/api/admin/assignments")]);
   const now = Date.now();
   const all = buildRows(ov.list, as, now);
+  lastRows = new Map(all.map((r) => [r.id, r])); // para «🔗 Con link de pago»
   const f = FILTERS.some(([k]) => k === T.tbf) ? T.tbf : "todos";
   const q = String(T.tbq ?? "").trim().toLowerCase();
   const shown = all.filter((r) => pass(f, r) && (!q || `${r.name} ${r.items.map((a) => a.email).join(" ")}`.toLowerCase().includes(q)));
@@ -78,7 +87,7 @@ export async function tableroView(T, { paidAllBtn, canReview }) {
     return `<article class="tbrow tb-u${r.urg}" data-tbrow="${esc(r.id)}">
       <div class="tbh"><div class="tbname"><b>${esc(r.name)}</b><small class="muted">${r.items.length} cuenta${r.items.length === 1 ? "" : "s"}${r.next ? ` · próxima: ${fdate(r.next.customerExpiresAt).slice(0, 5)}` : ""}</small></div><div class="tbpills">${pills}</div></div>
       ${r.items.length ? `<div class="tbchips">${r.items.map(chip).join("")}</div>` : ""}
-      ${cobrar || (r.due.length || r.debt > 0) ? `<div class="tbact">${cobrar}${r.due.length || r.debt > 0 ? paidAllBtn(r, canReview()) : ""}</div>` : ""}
+      ${cobrar || (r.due.length || r.debt > 0) ? `<div class="tbact">${cobrar}${r.due.length && r.phone ? `<button class="pbtn sm" type="button" data-tblink="${esc(r.id)}">🔗 Con link de pago</button>` : ""}${r.due.length || r.debt > 0 ? paidAllBtn(r, canReview()) : ""}</div>` : ""}
     </article>`;
   };
   return `<section class="card tbcard">
