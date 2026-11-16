@@ -3,6 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-16 · 💲 Precios del día para revendedores (sin publicar)
+- **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».
+- **Productos y precios → «💲 Precios del día (revendedores)»:** por cada alquiler, «Nueva» (lo que paga un revendedor por una cuenta nueva; es la lista revendedor) y «Renovación».
+- **«👀 Ver qué cambia»** muestra, antes de aplicar, cada revendedor con sus cuentas y de cuánto a cuánto pasa («Aracely: Bs 65 → Bs 69»), con «📌 mantener su precio» para quien siga con el suyo.
+- **No cambian:** los clientes finales (su precio acordado, p. ej. Daniel Choque Bs 50) ni los que pagan en dólares (su lista en US$).
+- Una cuenta nueva de un revendedor se vende a «Nueva» y después renueva a «Renovación». Todo queda en la auditoría (de cuánto a cuánto).
+
 ## 2026-11-15 · Datos reales: cuentas Disney liberadas y renovaciones (con respaldo)
 - A pedido del dueño (ya les había cambiado la clave): opajg12+7ped y opajg12+k7z estaban apartadas (corte automático). Se guardó la clave nueva (no tenían clave cargada) y quedaron libres para vender. Respaldo previo sin contraseñas en el scratchpad de la sesión.
 - Robin Sardán renovó netgb117+pg19 (a pedido del dueño): «Me pagó» de 1 mes a Bs 69 (antes Bs 70), vence 15/12/2026. Respaldo previo del alquiler.

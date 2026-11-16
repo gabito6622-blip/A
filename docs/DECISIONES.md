@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-16 · Precios del día
+- **El precio del día se guarda en cada alquiler (precio acordado del Control)**, no se calcula aparte: así Mis hojas, Tablero, Cobrar, Me pagó, Finanzas y el Control muestran el mismo número sin cambiar cada pantalla.
+- **Con vista previa y 📌 precio fijo:** hoy cada revendedor paga distinto (35 a 70 por la misma Disney + ESPN); subirles a todos sin mirar podía romper acuerdos. El dueño decide en la vista previa.
+- **Solo revendedores que pagan en Bs:** el cliente final acordó su precio con el dueño (el dueño: Daniel Choque se queda en 50); los extranjeros tienen su lista en US$.
+- **Descartado:** aplicar solo a cuentas nuevas (casi todas tienen precio acordado del Excel, no cambiaría nada).
+
 ## 2026-11-15 · PIN por cuenta en el link de códigos
 - **Opcional y por correo:** el link sigue siendo uno solo por revendedor; cada cuenta puede pedir su PIN. Así no cambia nada para quien no lo usa.
 - **Por revendedor:** el PIN de un correo es del revendedor que lo puso (si dos revendedores comparten una cuenta de perfiles, cada uno tiene el suyo). Solo puede proteger correos de sus cuentas activas.
