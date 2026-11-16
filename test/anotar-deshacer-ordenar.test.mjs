@@ -21,8 +21,11 @@ test("anotar rápido, deshacer, ordenar mis datos e inicio simple", { timeout: 3
   const s = app.store, e = s.engine, owner = { id: Object.keys(e.s.staff)[0], role: "owner" };
   s.catalog.upsertProduct(owner, { id: "dis", name: "Disney Premium + ESPN (alquiler revendedores)", kind: "full_account", durationDays: 30, price: 7000, published: true, resellersOnly: true });
   s.catalog.upsertSupplier(owner, { id: "p", name: "Prov", active: true });
-  const emails = ["obyacc+liz@ficticio.lat", "obyacc+c16@ficticio.lat", "robin+pg19@ficticio.lat", "dani+efp@ficticio.lat", "libre+1@ficticio.lat", "mal+tm3@gmai.com"];
+  const emails = ["iptv+1@ficticio.lat", "netflix+dal@ficticio.lat", "obyacc+liz@ficticio.lat", "obyacc+c16@ficticio.lat", "robin+pg19@ficticio.lat", "dani+efp@ficticio.lat", "libre+1@ficticio.lat", "mal+tm3@gmai.com"];
   for (const em of emails) s.inventory.addAccount(owner, { productId: "dis", supplierId: "p", email: em, password: "Clave-Larga#1", supplierExpiresAt: em.startsWith("libre") ? Date.now() + 36500 * DAY : Date.now() + 300 * DAY, cost: 0, profiles: [{ label: "Cuenta completa" }] });
+  // Una Netflix con la nota de que falta la fecha (como las de Dalster), y una línea IPTV con usuario (no es un correo mal escrito).
+  for (const acc of Object.values(e.s.accounts)) if (acc.email === "iptv+1@ficticio.lat") acc.email = "usuario-iptv";
+  for (const acc of Object.values(e.s.accounts)) if (acc.email === "netflix+dal@ficticio.lat") acc.notes = "Sin fecha del proveedor: falta que el dueño diga cómo la paga y cuándo vence.";
   // Cuentas cargadas sin clave (como las que vinieron del Excel).
   for (const acc of Object.values(e.s.accounts)) if (/^(libre|mal)\+/.test(acc.email)) acc.password = "";
   const rev = (name, phone) => s.catalog.createCustomer(owner, { name, phone, kind: "reseller", priceGroupId: "revendedor" });
@@ -98,6 +101,7 @@ test("anotar rápido, deshacer, ordenar mis datos e inicio simple", { timeout: 3
     assert.deepEqual(o1.apartadas.map((a) => a.email), ["libre+1@ficticio.lat"]);
     assert.deepEqual(o1.sinClave.map((a) => a.email), ["mal+tm3@gmai.com"]);
     assert.ok(o1.sinFecha.some((a) => a.email === "libre+1@ficticio.lat"));
+    assert.ok(o1.sinFecha.some((a) => a.email === "netflix+dal@ficticio.lat"), "la de la nota «falta que el dueño diga»");
     assert.deepEqual(o1.correos.map((a) => [a.email, a.suggestion]), [["mal+tm3@gmai.com", "mal+tm3@gmail.com"]]);
     assert.equal(o1.gmail.total, 0);
     assert.doesNotMatch(JSON.stringify(o1), /Clave-Larga/);

@@ -3,13 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-16 · ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar mis datos e Inicio con 3 botones (sin publicar)
+## 2026-11-16 · ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar mis datos e Inicio con 3 botones (PR #85 publicado)
 - **Por qué:** el dueño preguntó qué faltaba para que su panel sea fácil. Anotaba los pagos escribiéndole a Claude, una vez confundió a Robin con Dani y deshacer un cobro a mano dejó un cobro de más.
 - **Inicio:** arriba, 3 botones grandes: «💵 Cobrar hoy» (Tablero filtrado en «Para cobrar»), «📗 Mis hojas» y «🧹 Ordenar datos» (con cuántos pendientes).
 - **✍️ Anotar rápido (en Inicio):** pegás «netgb117+liz · Oby pagó 69 · vence 15 dic». Te muestra de quién es la cuenta, el monto, de qué fecha a qué fecha y **avisa si el nombre del texto no es el dueño de la cuenta**. Recién con «Confirmar» se anota (el mismo «Me pagó» de siempre). Entiende el correo sin «@gmail.com», «2 meses», «15/12», «15 de diciembre». Si dice «no pagó», no anota nada.
 - **↩️ Deshacer:** después de cada «Me pagó» o «Renovar» (desde cualquier pantalla) aparece «Deshacer» arriba y en «Cobros recientes» de Inicio, por 30 minutos. Deja todo exactamente como estaba (fecha, cobro, aviso pendiente); el pedido queda «cancelado» con la marca de deshecho (no se borra). Si el alquiler cambió después, no se deshace.
 - **🧹 Ordenar mis datos (Inicio → Ordenar mis datos):** apartadas («Guardar y liberar» con la clave nueva), cuentas sin clave, sin fecha del proveedor, correos mal escritos (con la corrección sugerida) y Gmail para los códigos. Las cuentas con nota «NO ALQUILAR / PAGAR PROVEEDOR / clientes finales del dueño» solo guardan la clave, no se liberan solas.
 - No se quitó ninguna pantalla ni botón.
+- **Arreglo después de publicar (sin publicar):** con los datos reales, «Correos mal escritos» marcaba usuarios de IPTV («mar2026»), que no son correos; ahora solo revisa correos. Y «Sin fecha del proveedor» suma las cuentas con la nota «falta que el dueño diga…» (las 3 Netflix de Dalster).
 
 ## 2026-11-16 · 💲 Precios del día para revendedores (PR #84 publicado)
 - **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».
