@@ -5,7 +5,7 @@ Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide 
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
 - ✅ **[P2] 👔 Cobrar con link de pago (Tablero y Mis hojas) y días de regalo al aprobar (16/11):** prueba `cobro-link-regalo`. Publicado (#87): datos iguales antes y después, páginas 200.
-  - 🧑 Pendiente del dueño: prender los links de renovación (Configuración → Soporte) y decir si Paz aprueba pagos (hoy solo dueño o administrador pueden aprobar).
+  - 🧑 Pendiente del dueño: decir si Paz aprueba pagos (los links de renovación ya estaban prendidos en la tienda: la lectura anterior de Configuración no los mostraba) (hoy solo dueño o administrador pueden aprobar).
 - ✅ **[P1] 👔 Anotar rápido, Deshacer cobro, Ordenar mis datos e Inicio con 3 botones (16/11):** prueba `anotar-deshacer-ordenar`. Publicado (#85 y #86).
   - ⏳ [P3] «Deshacer» también para «Me pagó todo» del Tablero (varias cuentas juntas).
   - ⏳ [P3] Prueba `ficha` («sumó un período») falla a veces con la máquina cargada, también en la versión publicada: revisar la espera.
