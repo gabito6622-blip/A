@@ -25,8 +25,11 @@ export function ordenarView(e: Engine, actor: Actor) {
     .sort((x, y) => Number(x.noFree) - Number(y.noFree) || x.email.localeCompare(y.email));
   const aparts = new Set(apartadas.map((x) => x.accountId));
   const sinClave = live.filter((a) => !a.password && !aparts.has(a.id)).map(row).sort((x, y) => x.email.localeCompare(y.email));
-  const sinFecha = live.filter((a) => a.supplierExpiresAt - e.now() > YEARS_20 && !a.supplierId?.startsWith("propias")).map(row).sort((x, y) => x.email.localeCompare(y.email));
-  const correos = live.filter((a) => !VALID.test(a.email) || BAD_DOMAIN.test(a.email))
+  // Sin fecha: cargada «sin vencimiento» con un proveedor (no las propias), o con la nota «falta que el dueño diga…».
+  const sinFecha = live.filter((a) => (a.supplierExpiresAt - e.now() > YEARS_20 && !a.supplierId?.startsWith("propias")) || /sin fecha del proveedor:\s*falta/i.test(a.notes ?? ""))
+    .map(row).sort((x, y) => x.email.localeCompare(y.email));
+  // Solo correos (con @): las líneas de IPTV usan un usuario, no un correo, y no son un error.
+  const correos = live.filter((a) => a.email.includes("@") && (!VALID.test(a.email) || BAD_DOMAIN.test(a.email)))
     .map((a) => ({ ...row(a), suggestion: a.email.replace(/@(gmai|gmial|gmal|gamil|gmil|gnail)\.com$/i, "@gmail.com").replace(/@gmail\.co$/i, "@gmail.com").replace(/@gmailcom$/i, "@gmail.com").replace(/@hotm(ial|ai)\.com$/i, "@hotmail.com") }));
   const boxes = Object.values(e.s.mailboxes ?? {});
   return {
