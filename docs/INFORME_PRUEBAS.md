@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 16/11/2026 · 💲 Precios del día
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (182 s) | **889 pasan, 0 fallan** |
+| Prueba nueva `precios-del-dia` | API + pantalla a 390 px, datos ficticios (revendedores a 35/65/69, uno en US$, un cliente final a 50) | vista previa sin cambiar nada; aplicar: 65→69, Oby queda en 69, Marco con 📌 conserva 35, cliente final 50 y US$ 7 sin cambio; lista revendedor = «Nueva»; cuenta nueva se vende a 70 y renueva a 69; auditoría de cuánto a cuánto; en pantalla: campos y botones ≥ 44 px, sin desborde |
+
 ## 15/11/2026 · Página de códigos: título sin etiqueta y título propio
 | Qué | Cómo | Resultado |
 |---|---|---|
