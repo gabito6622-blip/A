@@ -1181,7 +1181,19 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/cortes", "staff", (c) => store.inventario.cuts(A(c)));
   // «Me pagó» desde Mi secretaria: primero la vista previa, después el guardado (idempotente por idempotencyKey).
   route("GET", "/api/admin/assignments/:id/pay-preview", "staff", (c) => store.cobro.preview(A(c), c.params.id, { periods: c.query.get("periods") ?? undefined }));
-  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }));
+  // ↩️ Cada «Me pagó» / «Renovar» del panel guarda cómo estaba el alquiler, para «Deshacer» por 30 minutos (deshacer.ts).
+  const withUndo = <T>(c: Ctx, id: string, fn: () => T, label: (r: T) => string): T => {
+    const before = store.undo.snapshot(id);
+    const r = fn();
+    try { store.undo.record(A(c), id, before, label(r)); } catch { /* deshacer es una ayuda: nunca frena el cobro */ }
+    return r;
+  };
+  const undoLabel = (id: string, to: number | undefined, price?: number) => {
+    const a = store.engine.s.assignments[id], acc = a ? store.engine.s.accounts[store.engine.s.slots[a.slotId]?.accountId] : undefined;
+    const who = a ? (store.engine.s.customers[a.customerId]?.name ?? "").replace(/^[^·]*·\s*/, "") : "";
+    return `${who} · ${acc?.email ?? ""}${price ? ` · Bs ${price / 100}` : ""}${to ? ` · hasta ${new Date(to).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", timeZone: "America/La_Paz" })}` : ""}`;
+  };
+  route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => withUndo(c, c.params.id, () => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }), (r) => undoLabel(c.params.id, r.saved?.to, r.saved?.price)));
   route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
   route("GET", "/api/admin/assignments/:id/switch-preview", "staff", (c) => store.dia.switchPreview(A(c), c.params.id, { toProductId: c.query.get("to") ?? undefined, toSlotId: c.query.get("toSlotId") ?? undefined }));
   route("POST", "/api/admin/assignments/:id/switch", "staff", (c) => store.dia.switchPlatform(A(c), c.params.id, { toProductId: c.body?.toProductId, toSlotId: c.body?.toSlotId, adjust: c.body?.adjust, reason: c.body?.reason, idempotencyKey: c.body?.idempotencyKey }));
@@ -1330,7 +1342,18 @@ export function createApp(cfg: AppConfig): App {
     price: c.body?.price, priceUsd: c.body?.priceUsd, cost: c.body?.cost, payStatus: c.body?.payStatus, note: c.body?.note, seller: c.body?.seller, startedAt: c.body?.startedAt,
   }));
   route("POST", "/api/admin/assignments/:id/expiry", "staff", (c) => store.orders.setExpiry(A(c), c.params.id, Number(c.body?.expiresAt), c.body?.note));
-  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true }));
+  route("POST", "/api/admin/assignments/:id/renew", "staff", (c) => {
+    const run = () => store.orders.renew(A(c), c.params.id, { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", allowBeyondSupplier: c.body?.allowBeyondSupplier, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true });
+    // Solo en efectivo (con saldo, deshacer tendría que devolver plata: eso se hace a mano).
+    return (c.body?.paymentMethod ?? "cash") === "cash" ? withUndo(c, c.params.id, run, (r) => undoLabel(c.params.id, r.assignment.customerExpiresAt, r.order.total)) : run();
+  });
+  route("GET", "/api/admin/undo-pay", "staff", (c) => store.undo.list(A(c)));
+  route("POST", "/api/admin/assignments/:id/undo-pay", "staff", (c) => store.undo.pay(A(c), c.params.id));
+  // ✍️ Anotar rápido (16/11/2026): pegar «correo · pagó 69 · vence 15 dic» → vista previa → Confirmar.
+  route("POST", "/api/admin/quick/parse", "staff", (c) => store.rapido.parse(A(c), c.body?.text));
+  route("POST", "/api/admin/quick/apply", "staff", (c) => store.rapido.apply(A(c), c.body?.text, { key: c.body?.key, confirmOther: c.body?.confirmOther === true }));
+  // 🧹 Ordenar mis datos (16/11/2026).
+  route("GET", "/api/admin/ordenar", "staff", (c) => store.ordenar.view(A(c)));
   route("POST", "/api/admin/assignments/renew-many", "staff", (c) => store.orders.renewMany(A(c), c.body?.ids ?? [], { periods: c.body?.periods, paymentMethod: c.body?.paymentMethod ?? "cash", batchKey: c.body?.batchKey, allowBeyondSupplier: c.body?.allowBeyondSupplier === true, confirmOther: c.body?.confirmOther === true }));
   route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? ""), { moveCharge: c.body?.moveCharge === true }));
   route("GET", "/api/admin/assignments/:id/transfer-preview", "staff", (c) => store.rmes.transferPreview(A(c), c.params.id, String(c.query.get("to") ?? "")));

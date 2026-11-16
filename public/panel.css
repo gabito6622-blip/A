@@ -1457,3 +1457,28 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 .dpp.same{opacity:.75}
 .dpkeep{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:13.5px;cursor:pointer}
 .dpkeep input{width:22px;height:22px}
+
+/* ---- Inicio: 3 botones grandes, ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar (16/11/2026) ---- */
+.qbig{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.qbtn{display:grid;justify-items:center;gap:2px;min-height:88px;padding:10px 6px;border:1px solid var(--line);border-radius:14px;background:var(--soft);color:var(--ink);font:inherit;font-size:24px;cursor:pointer;text-align:center}
+.qbtn b{font-size:14.5px}.qbtn small{font-size:12px;color:var(--muted)}
+.qbtn.warn{border-color:#f59e0b;background:color-mix(in srgb,#f59e0b 12%,var(--soft))}
+.qrap{display:grid;gap:8px}.qrap h2{margin:0}
+.qrap textarea{min-height:76px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:inherit;font-size:15px;resize:vertical}
+.qrap .pbtn{justify-self:start;min-height:44px}
+#qrPrev{display:grid;gap:8px}
+.qact{padding:10px 12px;border:1px solid var(--line);border-left:5px solid #10b981;border-radius:12px;background:var(--soft);display:grid;gap:4px;font-size:14px}
+.qact.warn{border-left-color:#f59e0b}.qact.bad{border-left-color:#ef4444}
+.qline{font-size:14px}
+.qwarn{color:var(--warn);font-size:13.5px;font-weight:600}.qerr{color:var(--bad);font-size:13.5px;font-weight:600;margin:0}.qnote{margin:0;font-size:14px}
+label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
+.qundo{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:8px}.qundo h3{margin:0;font-size:14px}
+.qurow{display:flex;flex-wrap:wrap;gap:6px 10px;justify-content:space-between;align-items:center;font-size:13.5px}
+.qurow .pbtn,.qundobar .pbtn{min-height:40px}
+.qundobar{position:fixed;left:50%;transform:translateX(-50%);top:calc(72px + env(safe-area-inset-top,0px));z-index:65;display:flex;gap:8px;align-items:center;padding:8px 10px 8px 14px;border-radius:14px;background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.35);font-weight:600;max-width:calc(100vw - 24px);white-space:nowrap}
+@media (min-width:900px){.qundobar{top:84px}}
+.ordsec summary{display:flex;justify-content:space-between;align-items:center;min-height:44px;cursor:pointer;gap:8px}
+.ordrow{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}.ordrow:last-child{border-bottom:0}
+.ordrow .mono{overflow-wrap:anywhere}.ordnote{display:block}
+.ordf{display:flex;flex-wrap:wrap;gap:8px}.ordf input{flex:1;min-width:150px;min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:inherit;font-size:15px}
+.ordf .pbtn,.ordrow>.pbtn{min-height:44px}

@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-16 · Anotar rápido y Deshacer
+- **El texto lo entiende el servidor y se vuelve a leer al confirmar:** lo que se anota es lo mismo que se mostró; nunca se anota sin la vista previa.
+- **Aviso de nombre, no bloqueo:** si el texto nombra a otra persona se avisa en amarillo (el dueño puede tener razón y la cuenta estar a nombre de otro).
+- **Deshacer guarda una foto del alquiler antes del cobro** y solo deshace si nada cambió después; los pedidos se cancelan (no se borran) para que quede rastro. Solo efectivo: un cobro con saldo devuelve plata y eso se hace a mano.
+- **Ordenar mis datos solo usa los botones de siempre** (cambiar clave, liberar, fecha, correo): no hay reglas nuevas que mantener.
+
 ## 2026-11-16 · Precios del día
 - **El precio del día se guarda en cada alquiler (precio acordado del Control)**, no se calcula aparte: así Mis hojas, Tablero, Cobrar, Me pagó, Finanzas y el Control muestran el mismo número sin cambiar cada pantalla.
 - **Con vista previa y 📌 precio fijo:** hoy cada revendedor paga distinto (35 a 70 por la misma Disney + ESPN); subirles a todos sin mirar podía romper acuerdos. El dueño decide en la vista previa.
