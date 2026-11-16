@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-16 · 💲 Precios del día para revendedores (sin publicar)
+## 2026-11-16 · 💲 Precios del día para revendedores (PR #84 publicado)
 - **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».
 - **Productos y precios → «💲 Precios del día (revendedores)»:** por cada alquiler, «Nueva» (lo que paga un revendedor por una cuenta nueva; es la lista revendedor) y «Renovación».
 - **«👀 Ver qué cambia»** muestra, antes de aplicar, cada revendedor con sus cuentas y de cuánto a cuánto pasa («Aracely: Bs 65 → Bs 69»), con «📌 mantener su precio» para quien siga con el suyo.
