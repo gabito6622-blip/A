@@ -10,6 +10,7 @@
 import { api, apiCacheClear, esc, bs, fdate, daysLeft, waLink, newKey, brandBadge, toast } from "/common.js";
 import { renewFlow } from "/dia.js";
 import { avisoRenovada, shortProduct } from "/panel-tablero.js";
+import { cobrarConLink } from "/panel-cobrolink.js";
 
 const SNAP = "gs-hojas-v1", COLA = "gs-hojas-cola-v1";
 const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
@@ -284,6 +285,7 @@ function sheetHtml(r) {
       <button class="pbtn" type="button" data-hjdate="${esc(r.a)}">📅 Cambiar fecha</button>
       <button class="pbtn" type="button" data-hjnote="${esc(r.a)}">📝 Nota</button>
       ${p.phone ? `<a class="pbtn" href="${esc(waLink(p.phone, cobrarMsg(r)))}" target="_blank" rel="noopener">📲 Cobrar por WhatsApp</a>` : ""}
+      ${p.phone ? `<button class="pbtn" type="button" data-hjlink="${esc(r.a)}"${off ? " disabled" : ""}>🔗 Cobrar con link de pago</button>` : ""}
       <button class="pbtn" type="button" data-slotcut="${esc(r.slot)}" data-who="${esc(r.cn)}"${off ? " disabled" : ""}>✂️ Cortar: no renovó</button>
       <button class="pbtn" type="button" data-tbslot="${esc(r.slot)}" data-q="${esc(r.e)}"${off ? " disabled" : ""}>🔎 Ver en Cuentas</button>`
     : `<button class="pbtn" type="button" data-tbslot="${esc(r.slot)}" data-q="${esc(r.e)}"${off ? " disabled" : ""}>🔎 Ver en Cuentas</button>`;
@@ -339,14 +341,15 @@ async function runOrQueue(r, t, v) {
 if (typeof document !== "undefined") {
   document.addEventListener("click", async (ev) => {
     if (ev.target.id === "hjsheet") return closeSheet();
-    const el = ev.target.closest("[data-hjtab], [data-hjrow], [data-hjpay], [data-hjdate], [data-hjnote], [data-hjclose], [data-hjdrop]");
+    const el = ev.target.closest("[data-hjtab], [data-hjrow], [data-hjpay], [data-hjdate], [data-hjnote], [data-hjclose], [data-hjdrop], [data-hjlink]");
     if (!el || !el.closest("#hj")) return;
     const d = el.dataset;
     if (d.hjtab) { ST.t = d.hjtab; paint(); document.querySelector("#hj .hjtop")?.scrollIntoView({ block: "start" }); return; }
     if (d.hjclose) return closeSheet();
     if (d.hjdrop) { saveQ(queue().filter((o) => o.k !== d.hjdrop)); return paint(); }
     if (d.hjrow) return openSheet(d.hjrow);
-    const r = D?.rows.find((x) => x.a === (d.hjpay || d.hjdate || d.hjnote));
+    const r = D?.rows.find((x) => x.a === (d.hjpay || d.hjdate || d.hjnote || d.hjlink));
+    if (d.hjlink && r) { const p = payer(r); closeSheet(); return cobrarConLink(p.phone, p.name, [{ id: r.a, product: r.p, email: r.e, expiresAt: r.x, price: r.m }]); }
     if (!r) return;
     if (d.hjpay) {
       if (offline() && !confirm(`Sin internet: «Me pagó» de ${r.cn} queda anotado en este aparato y se renueva 1 mes cuando vuelva la señal.\n\n¿Anotarlo?`)) return;

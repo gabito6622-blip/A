@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 16/11/2026 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (169 s) | **891 pasan, 0 fallan** |
+| Prueba nueva `cobro-link-regalo` | API + pantalla a 390 px, datos ficticios | +40 días → rechazado (máximo 31); +3 → 1 mes y 3 días, anotado; links apagados → aviso y mensaje sin link; prendidos → 2 links, «Total: Bs 138», «Abrir WhatsApp» con el número del revendedor (no se abre ni se manda); el link abre la renovación con Disney y Bs 69; botón en Mis hojas; selector 🎁 en Aprobar pagos; sin desborde ni errores |
+
 ## 16/11/2026 · ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar mis datos, Inicio con 3 botones
 | Qué | Cómo | Resultado |
 |---|---|---|

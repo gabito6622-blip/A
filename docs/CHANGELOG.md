@@ -3,6 +3,15 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-16 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar (sin publicar)
+- **Por qué:** el dueño: «en la hoja de cálculo… yo aprieto el link… el cliente paga con el QR… le llega a mi secretaria, le da a aprobar y… la opción de aumentarle días».
+- **Tablero de revendedores:** en cada revendedor, «🔗 Con link de pago». Arma el WhatsApp con sus cuentas por vencer, el precio de cada una, el total y **un link por cuenta**: el cliente lo abre, ve su cuenta y el precio, paga con el QR y sube el comprobante.
+- **Mis hojas:** al tocar una fila, «🔗 Cobrar con link de pago» para esa cuenta (necesita internet).
+- **Nada se manda solo:** se muestra el mensaje con «Abrir WhatsApp» y «Copiar mensaje».
+- **Links apagados:** si los links de renovación están apagados en Configuración → Soporte, el mensaje sale sin link y avisa cómo prenderlos.
+- **Aprobar pagos:** junto a «Ya me pagó», «🎁 sin días extra / +1 / +2 / +3 / +7 días». Al aprobar, la cuenta se renueva y suma esos días de regalo; queda anotado en la cuenta («🎁 +N días de regalo al aprobar el pago»).
+- No se quitó ninguna pantalla ni botón.
+
 ## 2026-11-16 · ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar mis datos e Inicio con 3 botones (PR #85 publicado)
 - **Por qué:** el dueño preguntó qué faltaba para que su panel sea fácil. Anotaba los pagos escribiéndole a Claude, una vez confundió a Robin con Dani y deshacer un cobro a mano dejó un cobro de más.
 - **Inicio:** arriba, 3 botones grandes: «💵 Cobrar hoy» (Tablero filtrado en «Para cobrar»), «📗 Mis hojas» y «🧹 Ordenar datos» (con cuántos pendientes).
@@ -10,7 +19,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **↩️ Deshacer:** después de cada «Me pagó» o «Renovar» (desde cualquier pantalla) aparece «Deshacer» arriba y en «Cobros recientes» de Inicio, por 30 minutos. Deja todo exactamente como estaba (fecha, cobro, aviso pendiente); el pedido queda «cancelado» con la marca de deshecho (no se borra). Si el alquiler cambió después, no se deshace.
 - **🧹 Ordenar mis datos (Inicio → Ordenar mis datos):** apartadas («Guardar y liberar» con la clave nueva), cuentas sin clave, sin fecha del proveedor, correos mal escritos (con la corrección sugerida) y Gmail para los códigos. Las cuentas con nota «NO ALQUILAR / PAGAR PROVEEDOR / clientes finales del dueño» solo guardan la clave, no se liberan solas.
 - No se quitó ninguna pantalla ni botón.
-- **Arreglo después de publicar (sin publicar):** con los datos reales, «Correos mal escritos» marcaba usuarios de IPTV («mar2026»), que no son correos; ahora solo revisa correos. Y «Sin fecha del proveedor» suma las cuentas con la nota «falta que el dueño diga…» (las 3 Netflix de Dalster).
+- **Arreglo después de publicar (PR #86 publicado):** con los datos reales, «Correos mal escritos» marcaba usuarios de IPTV («mar2026»), que no son correos; ahora solo revisa correos. Y «Sin fecha del proveedor» suma las cuentas con la nota «falta que el dueño diga…» (las 3 Netflix de Dalster).
 
 ## 2026-11-16 · 💲 Precios del día para revendedores (PR #84 publicado)
 - **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».

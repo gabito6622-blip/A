@@ -1245,12 +1245,26 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/coupons/:id/delete", "staff", (c) => store.coupons.remove(A(c), c.params.id));
   // Aviso al celular del cliente de la tienda al aprobar o rechazar su pago (avisoPago.ts).
   const payPush = createPayOutcomePush({ store, push: (cid, m) => customerPush(cid, m) });
-  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => payPush(store.orders.approvePayment(A(c), c.params.id, {
+  route("POST", "/api/admin/orders/:id/approve", "staff", (c) => {
+    // 🎁 Días de regalo al aprobar (16/11/2026): se suman a la fecha que le tocó (0 a 31).
+    const bonus = Math.trunc(Number(c.body?.bonusDays ?? 0));
+    if (!Number.isFinite(bonus) || bonus < 0 || bonus > 31) throw new HttpError(400, "VALIDATION", "Días de regalo: de 0 a 31");
+    const o = payPush(store.orders.approvePayment(A(c), c.params.id, {
     confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey,
     force: c.body?.force === true, forceReason: c.body?.forceReason === undefined ? undefined : String(c.body.forceReason),
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
-  })));
+  }));
+    if (bonus > 0 && o.status === "fulfilled") {
+      const ids = o.renewal?.assignmentId ? [o.renewal.assignmentId] : (o.assignmentIds ?? []);
+      for (const id of ids) {
+        const a = store.engine.s.assignments[id];
+        if (a?.status === "active") store.orders.setExpiry(A(c), id, a.customerExpiresAt + bonus * 86_400_000, `🎁 +${bonus} día${bonus === 1 ? "" : "s"} de regalo al aprobar el pago`);
+      }
+      return { ...o, bonusDays: bonus };
+    }
+    return o;
+  });
   route("GET", "/api/admin/order-groups", "staff", (c) => store.rmes.groups(A(c)));
   route("POST", "/api/admin/order-groups/approve", "staff", (c) => store.rmes.approveGroup(A(c), { orderIds: c.body?.orderIds, confirmedReference: c.body?.confirmedReference, amount: c.body?.amount, idempotencyKey: c.body?.idempotencyKey }));
   route("POST", "/api/admin/trials", "staff", (c) => {

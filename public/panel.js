@@ -2,7 +2,7 @@
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
-import { tableroView, avisoRenovada } from "/panel-tablero.js";
+import { tableroView, avisoRenovada, tableroLink } from "/panel-tablero.js";
 import { dayPricesCard, initDayPrices } from "/panel-precios.js";
 import { inicioTop, initRapido, ordenarView } from "/panel-rapido.js";
 import { hojasView, hojasInit, hojasSnapshot, hojasLogout, hojasRefresh, hojasCheckUser, netErr } from "/panel-hojas.js";
@@ -72,6 +72,8 @@ const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.str
 const TITLE = { ordenar: ["box", "Ordenar mis datos"], hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
+// 16/11: al aprobar un pago, «+ días de regalo» (por ejemplo si le compensás un corte). Se suman a la fecha que le toca.
+const bonusSel = (o) => (o.kind === "topup" ? "" : `<label class="vamt">🎁 <select name="bonus" aria-label="Días de regalo al aprobar"><option value="0">sin días extra</option><option value="1">+1 día</option><option value="2">+2 días</option><option value="3">+3 días</option><option value="7">+7 días</option></select></label>`);
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
 const orderPill = (s) => pill(STATUS_TEXT[s] ?? s, { fulfilled: "ok", payment_review: "warn", awaiting_payment: "mute", rejected: "bad", expired: "bad", cancelled: "mute" }[s] ?? "mute");
 /** En el celular cada fila se vuelve una tarjeta: a cada celda le pone el nombre de su columna. */
@@ -605,9 +607,9 @@ const V = {
           ${o.evidence?.duplicateOf ? `<div class="aibox aibox-bad"><b>🔁 Comprobante repetido</b><small>Esta misma imagen ya se usó en el pedido ${esc(o.evidence.duplicateOf)}. No se aprueba salvo que el dueño lo revise y diga por qué es otro pago.</small></div>` : ""}
           ${o.evidence?.referenceSeenIn ? `<div class="aibox aibox-warn"><b>⚠️ Número de operación ya visto</b><small>El número ${esc(o.evidence.declaredReference)} figura también en el pedido ${esc(o.evidence.referenceSeenIn)}. Fijate que no sea el mismo pago.</small></div>` : ""}
           ${o.aiCheck ? aiCheckBox(o.aiCheck) : o.evidence && o.status === "payment_review" && canReview() && P.ai?.receipts ? `<button class="pbtn sm" type="button" data-aicheck="${esc(o.id)}">🤖 Revisar con IA</button>` : ""}
-          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px;flex-wrap:wrap"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada">${o.kind === "topup" ? o.usd !== undefined ? `<label class="vamt">Llegaron US$ <input name="vusd" inputmode="decimal" value="${(o.usd / 100).toFixed(2)}" aria-label="Monto verificado en US$" title="Lo que de verdad llegó, en US$"></label>` : `<label class="vamt">Llegaron Bs <input name="vbs" inputmode="decimal" value="${(o.topupAmount / 100).toFixed(2)}" aria-label="Monto verificado en Bs" title="Lo que de verdad llegó al banco, en Bs"></label>` : ""}${o.evidence?.duplicateOf && isOwner() ? `<label class="chk" style="flex-basis:100%"><input type="checkbox" name="force"> Lo revisé: es un pago distinto</label><input name="forceReason" placeholder="Por qué (queda en la auditoría)" aria-label="Por qué es un pago distinto" style="flex-basis:100%">` : ""}<button class="pbtn sm green" type="submit">Aprobar</button></form>
+          ${o.status === "payment_review" && canReview() ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px;flex-wrap:wrap"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada">${bonusSel(o)}${o.kind === "topup" ? o.usd !== undefined ? `<label class="vamt">Llegaron US$ <input name="vusd" inputmode="decimal" value="${(o.usd / 100).toFixed(2)}" aria-label="Monto verificado en US$" title="Lo que de verdad llegó, en US$"></label>` : `<label class="vamt">Llegaron Bs <input name="vbs" inputmode="decimal" value="${(o.topupAmount / 100).toFixed(2)}" aria-label="Monto verificado en Bs" title="Lo que de verdad llegó al banco, en Bs"></label>` : ""}${o.evidence?.duplicateOf && isOwner() ? `<label class="chk" style="flex-basis:100%"><input type="checkbox" name="force"> Lo revisé: es un pago distinto</label><input name="forceReason" placeholder="Por qué (queda en la auditoría)" aria-label="Por qué es un pago distinto" style="flex-basis:100%">` : ""}<button class="pbtn sm green" type="submit">Aprobar</button></form>
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo del rechazo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Rechazar</button></form>` : ""}
-          ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada"><button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
+          ${o.status === "awaiting_payment" && canReview() ? `${["qr", "local", "usdt"].includes(o.paymentMethod) ? `<form class="inline" data-approve="${esc(o.id)}" style="margin-top:6px"><input name="ref" placeholder="Referencia del banco" required aria-label="Referencia bancaria verificada">${bonusSel(o)}<button class="pbtn sm green" type="submit">✅ Ya me pagó</button></form>
             <small class="muted">¿Te mandó el comprobante por WhatsApp? Mirá la plata en tu banco, escribí la referencia y se entrega solo.</small>` : ""}
             <form class="inline" data-reject="${esc(o.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required aria-label="Motivo"><button class="pbtn sm" type="submit">Anular</button></form>` : ""}</td></tr>`),
         tab === "payment_review" ? "No hay pagos por revisar." : "No hay pedidos.")}
@@ -3127,6 +3129,7 @@ document.addEventListener("click", async (ev) => {
     P.tab.rpinOpen = true;
     return act(() => api("POST", `/api/admin/customers/${d.rcodepinoff}/code-pins`, { email: d.email, pin: "" }), "PIN quitado");
   }
+  if (d.tblink) return tableroLink(d.tblink);
   if (d.tbslot) { P.tab.slotAct = d.tbslot; P.tab.accq = d.q || ""; go("cuentas"); return; }
   if (d.tbf) { P.tab.tbf = d.tbf; await render(); return; }
   if (d.slotcut) {
@@ -3546,7 +3549,8 @@ document.addEventListener("submit", async (ev) => {
       if (f.vbs) extra.verifiedAmount = toCents(f.vbs.value);
       if (f.vusd) extra.verifiedUsd = toCents(f.vusd.value);
       if (f.force?.checked) { extra.force = true; extra.forceReason = f.forceReason?.value ?? ""; }
-      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey(), ...extra }), "Pago aprobado y servicio entregado");
+      if (Number(f.bonus?.value) > 0) extra.bonusDays = Number(f.bonus.value);
+      await act(() => api("POST", `/api/admin/orders/${f.dataset.approve}/approve`, { confirmedReference: f.ref.value, idempotencyKey: newKey(), ...extra }), (r) => `Pago aprobado y servicio entregado${r?.bonusDays ? ` · 🎁 +${r.bonusDays} día${r.bonusDays === 1 ? "" : "s"} de regalo` : ""}`);
     } else if (f.dataset.reject) {
       await act(() => api("POST", `/api/admin/orders/${f.dataset.reject}/reject`, { reason: f.reason.value }), "Pedido rechazado: el stock volvió a estar libre");
     } else if (f.dataset.replace) {

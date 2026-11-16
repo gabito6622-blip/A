@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-16 · Cobrar con link de pago y días de regalo
+- **Se usan los links de renovación que ya existían** (los de Control y Mi secretaria): mismo vencimiento, mismo bloqueo para clientes de revendedores, mismo camino a Aprobar pagos. No hay un cobro nuevo que mantener.
+- **Un link por cuenta**, no uno por revendedor: así cada pago llega con su cuenta y al aprobar se renueva esa.
+- **Días de regalo solo al aprobar y hasta 31:** un número chico evita errores de dedo; se suma después de renovar y queda en el historial de la cuenta.
+- **Descartado:** prender los links solo (es una decisión del dueño: hoy están apagados en su tienda).
+
 ## 2026-11-16 · Anotar rápido y Deshacer
 - **El texto lo entiende el servidor y se vuelve a leer al confirmar:** lo que se anota es lo mismo que se mostró; nunca se anota sin la vista previa.
 - **Aviso de nombre, no bloqueo:** si el texto nombra a otra persona se avisa en amarillo (el dueño puede tener razón y la cuenta estar a nombre de otro).
