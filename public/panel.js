@@ -3,6 +3,7 @@ import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColor
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
 import { tableroView, avisoRenovada } from "/panel-tablero.js";
+import { dayPricesCard, initDayPrices } from "/panel-precios.js";
 import { hojasView, hojasInit, hojasSnapshot, hojasLogout, hojasRefresh, hojasCheckUser, netErr } from "/panel-hojas.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
@@ -1189,7 +1190,7 @@ const V = {
     // Aviso arriba: productos que tus revendedores pagan a precio público porque no tienen precio de revendedor.
     const sinRev = products.filter((p) => (p.published || p.resellersOnly) && rev?.prices[p.id] === undefined);
     const revNote = sinRev.length ? `<section class="card warncard"><b>🏷️ ${sinRev.length} producto(s) sin precio de revendedor:</b> ${sinRev.slice(0, 6).map((p) => esc(p.name)).join(", ")}${sinRev.length > 6 ? "…" : ""}. Tus revendedores los pagan al precio público. Ponelos uno por uno (Editar → “Precio revendedor”) o todos juntos acá abajo.</section>` : "";
-    return `${revNote}${isOwner() ? bulkResForm() : ""}<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
+    return `${canReview() ? await dayPricesCard() : ""}${revNote}${isOwner() ? bulkResForm() : ""}<section class="card"><h2>${edit ? `Editar ${esc(edit.name)}` : "Nuevo producto"}</h2><form class="form" id="prodForm" data-id="${esc(edit?.id ?? "")}">
       <label>Nombre<input name="name" required maxlength="60" value="${esc(f.name)}"></label><label>Categoría<input name="category" maxlength="40" value="${esc(f.category ?? "")}" placeholder="Streaming, IA, Educación…"></label>
       <label>Tipo<select name="kind">${[["profile", "Perfil"], ["full_account", "Cuenta completa"], ["invite", "Invitación"], ["combo", "Combo"], ["iptv", "IPTV (TV en vivo)"]].map(([v, t]) => opt(v, t, v === f.kind)).join("")}</select></label>
       <label>Duración (días)<input name="durationDays" type="number" min="1" value="${f.durationDays}"></label><label>Precio (${currencySym()})<input name="price" inputmode="decimal" required value="${f.price / 100}"></label>
@@ -2580,6 +2581,7 @@ function startOffline(snap) {
   addEventListener("online", () => location.reload(), { once: true });
   go("hojas");
 }
+initDayPrices(() => render());
 hojasInit({ me: () => P.me, settings: () => P.settings, render: () => render(), view: () => P.view });
 
 /* ---------------- eventos ---------------- */

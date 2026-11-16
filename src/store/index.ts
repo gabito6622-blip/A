@@ -14,6 +14,7 @@ import * as codes from "./codes.js";
 import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
+import * as precioDia from "./precioDia.js";
 import * as finance from "./finance.js";
 import * as gastos from "./gastos.js";
 import * as plata from "./plata.js";
@@ -270,6 +271,12 @@ export function createStore(opts: EngineOptions = {}) {
       setTitle: bind(e, codes.setCodeTitle),
       of: (customerId: string) => codes.codesOf(e, customerId),
       platforms: (customerId: string) => arranque.codePlatforms(e, customerId),
+    },
+    // 💲 Precios del día (nuevas y renovación) para revendedores (precioDia.ts).
+    precioDia: {
+      view: bind(e, precioDia.dayPricesView),
+      preview: (actor: Actor, input: unknown) => precioDia.dayPricesPreview(e, actor, input, (a) => admin.effectivePrice(e, a)),
+      apply: (actor: Actor, input: unknown, keep: unknown) => precioDia.applyDayPrices(e, actor, input, keep, (a) => admin.effectivePrice(e, a)),
     },
     notify: {
       outbox: (actor: Actor) => {

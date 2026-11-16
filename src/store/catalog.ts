@@ -6,6 +6,7 @@ import { authorize, can, isStaff } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { dialFor } from "./country.js";
 import { groupCurrency, isUsd, pendingOrdersOf } from "./usd.js";
+import { dayRenewFor } from "./precioDia.js";
 import { parseMonthMode } from "./mesModo.js";
 
 const money = (n: number, what: string) => {
@@ -238,7 +239,7 @@ export function agreedPayerOf(e: Engine, customerId: Id): Id {
 export function renewPriceFor(e: Engine, payerId: Id, a: { customerId?: Id; productId: Id; control?: { price?: Cents; priceUsd?: Cents } }): Cents {
   const agreed = !a.customerId || agreedPayerOf(e, a.customerId) === payerId ? a.control : undefined;
   if (isUsd(e, payerId)) return agreed?.priceUsd ?? e.s.priceGroups[e.s.customers[payerId].priceGroupId]?.prices[a.productId] ?? 0;
-  return agreed?.price ?? priceFor(e, payerId, a.productId);
+  return agreed?.price ?? dayRenewFor(e, e.s.customers[payerId], a.productId) ?? priceFor(e, payerId, a.productId);
 }
 
 export function upsertSupplier(e: Engine, actor: Actor, s: Omit<Supplier, "id"> & { id?: Id }): Supplier {

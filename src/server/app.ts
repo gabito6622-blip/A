@@ -1654,6 +1654,10 @@ export function createApp(cfg: AppConfig): App {
     return { ok: true };
   });
   route("GET", "/api/admin/codes", "staff", (c) => store.codes.recent(A(c), 60));
+  // 💲 Precios del día (16/11/2026): nuevas y renovación para revendedores, con vista previa de quién cambia.
+  route("GET", "/api/admin/day-prices", "staff", (c) => store.precioDia.view(A(c)));
+  route("POST", "/api/admin/day-prices/preview", "staff", (c) => store.precioDia.preview(A(c), c.body?.prices));
+  route("POST", "/api/admin/day-prices", "staff", (c) => store.precioDia.apply(A(c), c.body?.prices, c.body?.keep));
 
   // ---- Link de códigos con PIN (para revendedores y sus clientes): /codigos/<token> ----
   const codeLinkUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/codigos/${token}`;

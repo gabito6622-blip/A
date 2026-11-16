@@ -1443,3 +1443,17 @@ form[data-approve] .vamt input{max-width:110px;min-height:44px}
 @media (max-width:900px){.hjtabs{bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
 @media (max-width:560px){.hjt td{padding:8px 5px;font-size:13.5px}.hjt th{padding:7px 5px}.hjt th:nth-child(1){width:31%}.hjt th:nth-child(3){width:18%}.hjt th:nth-child(4){width:17%}.hjmail span{font-size:12.5px}}
 @media (min-width:900px){.hjscrim{align-items:center}.hjsheet{border-radius:18px}}
+
+/* ---- 💲 Precios del día (16/11/2026) ---- */
+.dpform{display:grid;gap:6px}
+.dphead,.dprow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(70px,1fr) minmax(70px,1fr);gap:8px;align-items:center}
+.dphead{font-size:12px;color:var(--muted);font-weight:600}
+.dprow b{font-size:14px;overflow-wrap:anywhere}
+.dprow input{min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:inherit;font-size:15px;width:100%;box-sizing:border-box}
+.dpform .pbtn{justify-self:start;min-height:44px;margin-top:4px}
+.dpprev{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.dpprev h3{margin:0;font-size:15px}
+.dpp{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft);font-size:14px}
+.dpp.same{opacity:.75}
+.dpkeep{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:13.5px;cursor:pointer}
+.dpkeep input{width:22px;height:22px}

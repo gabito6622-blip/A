@@ -322,6 +322,8 @@ export interface Customer {
   codeLink?: { token: string; createdAt: number };
   /** Título propio de su página de códigos (15/11/2026), aparte del nombre de su tienda: «Códigos», «Soporte TV»… */
   codeTitle?: string;
+  /** 📌 Precio fijo (16/11/2026): el «precio del día» de renovación no le cambia su precio acordado. */
+  fixedPrice?: boolean;
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;
@@ -854,6 +856,8 @@ export interface State {
   expenses: Expense[];
   /** Fiado: lo que te deben (cargos y pagos por cliente). */
   fiado?: FiadoEntry[];
+  /** 💲 Precio del día de renovación por producto de alquiler (precioDia.ts). El de «nueva» es la lista «revendedor». */
+  dayPrices?: Record<Id, { renew: Cents; at: number; by: Id }>;
   /** Gastos fijos mensuales y devoluciones a clientes (plata.ts, gastos.ts). */
   fixedExpenses?: FixedExpense[];
   customerRefunds?: CustomerRefund[];
