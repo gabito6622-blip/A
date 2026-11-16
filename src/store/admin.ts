@@ -7,6 +7,7 @@ import { DomainError } from "./errors.js";
 import { isUsd, rateNow, usdToBs } from "./usd.js";
 import { diaFields } from "./dia.js";
 import { matchesQuery } from "./buscar.js";
+import { dayRenewFor } from "./precioDia.js";
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
@@ -98,6 +99,9 @@ export function effectivePrice(e: Engine, a: Pick<Assignment, "customerId" | "pr
   if (usd !== undefined && r) return usdToBs(usd, r);
   if (a.control?.price !== undefined && a.control?.price !== null) return a.control.price;
   const payer = payerOf(e, a.customerId);
+  // 💲 Sin precio acordado: un revendedor renueva al precio del día (si el dueño lo puso).
+  const day = dayRenewFor(e, payer ?? undefined, a.productId);
+  if (day !== undefined) return day;
   const gid = payer?.priceGroupId ?? (payer?.kind === "reseller" ? "revendedor" : undefined);
   return (gid ? e.s.priceGroups[gid]?.prices[a.productId] : undefined) ?? e.s.products[a.productId]?.price ?? 0;
 }

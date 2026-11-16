@@ -34,6 +34,7 @@ import { assertNoPendingRenewal, renewRequestHold, staleRenewal } from "./renova
 import { transferAssignment as transferWithBooks } from "./traspaso.js";
 import { debtToFiadoOnCut, fiadaRenewalToBook } from "./deudaCorte.js";
 import { markCombo } from "./planMensual.js";
+import { dayRenewFor } from "./precioDia.js";
 
 const fmt = (c: Cents) => `Bs ${(c / 100).toFixed(2)}`;
 const fmtUsd = (c: Cents) => `US$ ${(c / 100).toFixed(2)}`;
@@ -638,7 +639,7 @@ export function renew(e: Engine, actor: Actor, assignmentId: Id, input: RenewInp
     // revendedor de ese cliente, o el propio cliente): si el cliente final de un revendedor renueva
     // por su cuenta, paga su propio precio, nunca el costo de su revendedor.
     const agreed = isStaff(actor) || payerId === agreedPayerOf(e, a.customerId) ? a.control : undefined;
-    const unit = usdPay ? agreed?.priceUsd ?? priceFor(e, payerId, a.productId) : agreed?.price ?? priceFor(e, payerId, a.productId);
+    const unit = usdPay ? agreed?.priceUsd ?? priceFor(e, payerId, a.productId) : agreed?.price ?? dayRenewFor(e, e.s.customers[payerId], a.productId) ?? priceFor(e, payerId, a.productId);
     const now = e.now();
     const order: Order = {
       id: e.id("ord"), kind: "renewal", customerId: a.customerId, payerId, createdBy: actor.id,

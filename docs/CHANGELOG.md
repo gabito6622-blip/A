@@ -3,14 +3,26 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-16 · 💲 Precios del día para revendedores (sin publicar)
+- **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».
+- **Productos y precios → «💲 Precios del día (revendedores)»:** por cada alquiler, «Nueva» (lo que paga un revendedor por una cuenta nueva; es la lista revendedor) y «Renovación».
+- **«👀 Ver qué cambia»** muestra, antes de aplicar, cada revendedor con sus cuentas y de cuánto a cuánto pasa («Aracely: Bs 65 → Bs 69»), con «📌 mantener su precio» para quien siga con el suyo.
+- **No cambian:** los clientes finales (su precio acordado, p. ej. Daniel Choque Bs 50) ni los que pagan en dólares (su lista en US$).
+- Una cuenta nueva de un revendedor se vende a «Nueva» y después renueva a «Renovación». Todo queda en la auditoría (de cuánto a cuánto).
+
+## 2026-11-15 · Datos reales: cuentas Disney liberadas y renovaciones (con respaldo)
+- A pedido del dueño (ya les había cambiado la clave): opajg12+7ped y opajg12+k7z estaban apartadas (corte automático). Se guardó la clave nueva (no tenían clave cargada) y quedaron libres para vender. Respaldo previo sin contraseñas en el scratchpad de la sesión.
+- Robin Sardán renovó netgb117+pg19 (a pedido del dueño): «Me pagó» de 1 mes a Bs 69 (antes Bs 70), vence 15/12/2026. Respaldo previo del alquiler.
+- Dani strem renovó netgb117+efp (a pedido del dueño): «Me pagó» de 1 mes a su precio de siempre Bs 69, del 14/11 al 14/12/2026 (ya no se corta). Respaldo previo del alquiler.
+
 ## 2026-11-15 · 🔐 PIN por cuenta en el link de códigos (PR #82 publicado)
 - **Por qué:** el dueño: «que ella decida un PIN por cada cuenta… para evitar que sus clientes vean los códigos de otro». En el link «escribí tu correo», alguien que supiera el correo de OTRA cuenta del mismo revendedor podía ver ese código.
 - **Revendedor (GaboHub → Códigos):** debajo de su link, «🔐 PIN por cuenta (opcional)» con cada correo de sus cuentas: poner, cambiar o quitar un PIN de 4 números. Al ponerlo, el texto para su cliente (link, correo y PIN) queda copiado y hay «Mandárselo a tu cliente».
 - **Dueño (Revendedores → ficha):** «🔐 PIN por cuenta en su link de códigos», lo mismo para cualquier revendedor.
 - **Página de códigos:** si la cuenta tiene PIN, pide el PIN después del correo; sin el PIN correcto no muestra nada. 5 intentos fallidos bloquean 15 minutos. Las cuentas sin PIN siguen como antes.
 - **Título:** la página ya no muestra la etiqueta interna del dueño («aneliz · Aneliz Contreras» → «Aneliz Contreras»), si el revendedor no tiene título de tienda.
-- **🏷️ Título propio (sin publicar):** cada revendedor elige qué dice arriba su página de códigos («Códigos», «Soporte TV»… hasta 40 letras) desde GaboHub → Códigos, sin tocar el nombre de su tienda; el dueño también desde la ficha. Vacío = el nombre de su tienda o su nombre.
-- **Arreglo después de publicar (sin publicar):** en producción 9 de 27 revendedores tienen como título de tienda una copia de su nombre con la etiqueta, y la página seguía mostrando «aneliz · Aneliz Contreras». Ahora, si el título es igual al nombre, también sale sin la etiqueta.
+- **🏷️ Título propio (PR #83 publicado):** cada revendedor elige qué dice arriba su página de códigos («Códigos», «Soporte TV»… hasta 40 letras) desde GaboHub → Códigos, sin tocar el nombre de su tienda; el dueño también desde la ficha. Vacío = el nombre de su tienda o su nombre.
+- **Arreglo después de publicar (PR #83 publicado):** en producción 9 de 27 revendedores tienen como título de tienda una copia de su nombre con la etiqueta, y la página seguía mostrando «aneliz · Aneliz Contreras». Ahora, si el título es igual al nombre, también sale sin la etiqueta.
 
 ## 2026-11-15 · 📗 Mis hojas, también sin internet (PR #81 publicado)
 - **Por qué:** el dueño extrañaba del Excel las hojas bonitas, pasar de una a otra al toque y anotar aunque no haya internet.
