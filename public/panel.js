@@ -679,7 +679,7 @@ const V = {
     // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
     const hoyN = D.total;
     const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy${D.rev ? ` <small>(${splitTxt(D)})</small>` : ""}` : " · todo al día"}</span></button>` : "";
-    return (canReview() ? await inicioTop() : "") + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    return (canReview() ? await inicioTop(ini) : "") + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${D.cobroFecha.total ? `Hoy tenés <b>${D.cobroFecha.total}</b> pendiente(s) de cobro o fecha.${D.cobroFecha.rev ? ` <small>(${splitTxt(D.cobroFecha)}: a los de revendedores les avisás a ellos)</small>` : ""}` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       ${secBtn}
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>

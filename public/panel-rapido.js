@@ -9,9 +9,9 @@ export function initRapido(c) { ctx = { ...ctx, ...c }; }
 let last = null; // { text, key, actions }
 
 /* ---------------- Inicio: 3 botones grandes + anotar rápido ---------------- */
-export async function inicioTop() {
-  const [ord, undo] = await Promise.all([api("GET", "/api/admin/ordenar").catch(() => null), api("GET", "/api/admin/undo-pay").catch(() => [])]);
-  const n = ord?.total ?? 0;
+export async function inicioTop(ini) {
+  // Viene en la misma lectura de Inicio (/api/admin/inicio): no suma pedidos.
+  const n = ini?.ordenarTotal ?? 0, undo = ini?.undo ?? [];
   return `<section class="card qtop"><div class="qbig">
       <button class="qbtn" type="button" data-qgo="cobrar">💵<b>Cobrar hoy</b><small>a quién y cuánto</small></button>
       <button class="qbtn" type="button" data-qgo="hojas">📗<b>Mis hojas</b><small>como el Excel</small></button>

@@ -1191,7 +1191,7 @@ export function createApp(cfg: AppConfig): App {
   const undoLabel = (id: string, to: number | undefined, price?: number) => {
     const a = store.engine.s.assignments[id], acc = a ? store.engine.s.accounts[store.engine.s.slots[a.slotId]?.accountId] : undefined;
     const who = a ? (store.engine.s.customers[a.customerId]?.name ?? "").replace(/^[^·]*·\s*/, "") : "";
-    return `${who} · ${acc?.email ?? ""}${price ? ` · Bs ${price / 100}` : ""}${to ? ` · hasta ${new Date(to).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", timeZone: "America/La_Paz" })}` : ""}`;
+    return `${who} · ${acc?.email ?? ""}${price ? ` · Bs ${price / 100}` : ""}${to ? ` · hasta ${new Date(to).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/La_Paz" })}` : ""}`;
   };
   route("POST", "/api/admin/assignments/:id/pay", "staff", (c) => withUndo(c, c.params.id, () => store.cobro.apply(A(c), c.params.id, { periods: c.body?.periods, price: c.body?.price, idempotencyKey: c.body?.idempotencyKey, confirmOther: c.body?.confirmOther === true, renew: c.body?.renew === true }), (r) => undoLabel(c.params.id, r.saved?.to, r.saved?.price)));
   route("POST", "/api/admin/assignments/:id/pay-debt", "staff", (c) => store.dia.payDebt(A(c), c.params.id, { price: c.body?.price, idempotencyKey: c.body?.idempotencyKey }));
@@ -2141,6 +2141,9 @@ export function createApp(cfg: AppConfig): App {
       assignments: store.admin.assignments(a, {}),
       pendingReview: t(() => store.admin.orders(a, { status: "payment_review" as never }).length) ?? 0,
       finance: a.role === "owner" ? t(() => store.finance.report(a, 1)) : null,
+      // 16/11: los 3 botones de arriba y «Cobros recientes» (en la misma lectura: Inicio no hace pedidos de más).
+      ordenarTotal: review ? t(() => store.ordenar.view(a).total) : null,
+      undo: review ? t(() => store.undo.list(a)) ?? [] : [],
       ai: review ? t(() => ({ hasKey: agents.hasKey, keyShape: agents.keyShape, ...agents.cfg(), daily: a.role === "owner" ? aiDaily() : null })) : null,
       sinPin: review ? t(() => store.shops.resellers(a).filter((r) => !db.getSecret(`loginpin:${r.id}`)).length) ?? 0 : 0,
       notifications: t(() => store.stats.notifications(a)),

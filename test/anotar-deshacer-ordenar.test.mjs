@@ -69,7 +69,7 @@ test("anotar rápido, deshacer, ordenar mis datos e inicio simple", { timeout: 3
     // ---- ↩️ Deshacer: vuelve exactamente a como estaba ----
     const lista = (await call(staff, "GET", "/api/admin/undo-pay")).json;
     assert.equal(lista[0].assignmentId, liz);
-    assert.match(lista[0].label, /Ovidio Nina · obyacc\+liz@ficticio\.lat · Bs 69 · hasta/);
+    assert.match(lista[0].label, /Ovidio Nina · obyacc\+liz@ficticio\.lat · Bs 69 · hasta \d{2}\/\d{2}\/\d{4}/);
     const un = await P(`/api/admin/assignments/${liz}/undo-pay`, {});
     assert.equal(un.status, 200, JSON.stringify(un.json));
     assert.equal(JSON.stringify(A(liz)), antesLiz, "idéntico a antes del cobro");
