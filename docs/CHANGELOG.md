@@ -10,7 +10,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **↩️ Deshacer:** después de cada «Me pagó» o «Renovar» (desde cualquier pantalla) aparece «Deshacer» arriba y en «Cobros recientes» de Inicio, por 30 minutos. Deja todo exactamente como estaba (fecha, cobro, aviso pendiente); el pedido queda «cancelado» con la marca de deshecho (no se borra). Si el alquiler cambió después, no se deshace.
 - **🧹 Ordenar mis datos (Inicio → Ordenar mis datos):** apartadas («Guardar y liberar» con la clave nueva), cuentas sin clave, sin fecha del proveedor, correos mal escritos (con la corrección sugerida) y Gmail para los códigos. Las cuentas con nota «NO ALQUILAR / PAGAR PROVEEDOR / clientes finales del dueño» solo guardan la clave, no se liberan solas.
 - No se quitó ninguna pantalla ni botón.
-- **Arreglo después de publicar (sin publicar):** con los datos reales, «Correos mal escritos» marcaba usuarios de IPTV («mar2026»), que no son correos; ahora solo revisa correos. Y «Sin fecha del proveedor» suma las cuentas con la nota «falta que el dueño diga…» (las 3 Netflix de Dalster).
+- **Arreglo después de publicar (PR #86 publicado):** con los datos reales, «Correos mal escritos» marcaba usuarios de IPTV («mar2026»), que no son correos; ahora solo revisa correos. Y «Sin fecha del proveedor» suma las cuentas con la nota «falta que el dueño diga…» (las 3 Netflix de Dalster).
 
 ## 2026-11-16 · 💲 Precios del día para revendedores (PR #84 publicado)
 - **Por qué:** el dueño: «quiero poner el precio de las cuentas nuevas y de la renovación… el precio actualizado del día; en dólares se mantiene a 7».
