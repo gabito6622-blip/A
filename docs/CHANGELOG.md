@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-16 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar (sin publicar)
+## 2026-11-16 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar (PR #87 publicado)
 - **Por qué:** el dueño: «en la hoja de cálculo… yo aprieto el link… el cliente paga con el QR… le llega a mi secretaria, le da a aprobar y… la opción de aumentarle días».
 - **Tablero de revendedores:** en cada revendedor, «🔗 Con link de pago». Arma el WhatsApp con sus cuentas por vencer, el precio de cada una, el total y **un link por cuenta**: el cliente lo abre, ve su cuenta y el precio, paga con el QR y sube el comprobante.
 - **Mis hojas:** al tocar una fila, «🔗 Cobrar con link de pago» para esa cuenta (necesita internet).
