@@ -4,7 +4,10 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P2] 👔 Precios del día (nuevas y renovación) para revendedores (16/11):** prueba `precios-del-dia`. Sin publicar.
+- ✅ **[P1] 👔 Anotar rápido, Deshacer cobro, Ordenar mis datos e Inicio con 3 botones (16/11):** prueba `anotar-deshacer-ordenar`. Sin publicar.
+  - ⏳ [P3] «Deshacer» también para «Me pagó todo» del Tablero (varias cuentas juntas).
+  - ⏳ [P3] Prueba `ficha` («sumó un período») falla a veces con la máquina cargada, también en la versión publicada: revisar la espera.
+- ✅ **[P2] 👔 Precios del día (nuevas y renovación) para revendedores (16/11):** prueba `precios-del-dia`. Publicado (#84); los precios los aplica el dueño desde el panel.
 - ✅ **[P2] 🏪🔒 PIN por cuenta en el link de códigos (15/11):** prueba `codigos-pin-cuenta`. Publicado (#82 y #83: título propio y sin etiqueta).
 - ✅ **[P2] 👔 Mis hojas como el Excel, también sin internet (15/11):** prueba `mis-hojas` (con internet, sin internet, cambio que chocó, sin contraseñas en la copia). Publicado (#81).
   - ⏳ [P3] Lo mismo para los revendedores en su panel (GaboHub): sus hojas con sus clientes, sin internet.

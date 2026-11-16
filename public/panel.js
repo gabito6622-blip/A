@@ -4,6 +4,7 @@ import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js";
 import { comoVanView } from "/panel-comovan.js";
 import { tableroView, avisoRenovada } from "/panel-tablero.js";
 import { dayPricesCard, initDayPrices } from "/panel-precios.js";
+import { inicioTop, initRapido, ordenarView } from "/panel-rapido.js";
 import { hojasView, hojasInit, hojasSnapshot, hojasLogout, hojasRefresh, hojasCheckUser, netErr } from "/panel-hojas.js";
 import { initMoneyMask } from "/montos.js";
 import { officeView, officeMount } from "/oficina.js";
@@ -43,7 +44,7 @@ const tagChip = (t) => (t && CTAGS[t]) ? `<span class="tagp tagp-${CTAGS[t][1]}"
    cada una conserva su dirección (#clave) y su permiso ("review" = dueño y admin, "owner" = solo dueño). Un área con
    una sola pantalla visible para ese rol se muestra como botón directo; un área vacía no se muestra. */
 const AREAS = [
-  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["hojas", "📗 Mis hojas", "review"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
+  ["a-inicio", "home", "Inicio", [["inicio", "Inicio"], ["hojas", "📗 Mis hojas", "review"], ["ordenar", "🧹 Ordenar mis datos", "review"], ["secretaria", "🗂️ Mi secretaria", "review"], ["notificaciones", "Notificaciones"], ["fallas", "Fallas reportadas"]]],
   ["a-ventas", "cart", "Ventas", [["vender", "Vender"], ["renovar", "Renovar"], ["control", "Control de alquileres"], ["aprobacion", "Aprobar pagos"], ["recordatorios", "Recordatorios"], ["quevuelvan", "💸 Que vuelvan"]]],
   // 14/11/2026: Clientes y Revendedores en un área (6 áreas en vez de 7). Las mismas pantallas, con su #clave.
   ["a-clientes", "users", "Clientes y revendedores", [["clientes", "Clientes"], ["revendedores", "Revendedores"], ["tablero", "🗂️ Tablero de revendedores", "review"], ["comovan", "📈 Cómo van", "review"]]],
@@ -59,7 +60,7 @@ const MENU_WORDS = {
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
   clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
   codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
-  revendedores: "revendedor pin tienda saldo", hojas: "excel planilla hojas pestañas sin internet offline cuentas fechas", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
+  revendedores: "revendedor pin tienda saldo", hojas: "excel planilla hojas pestañas sin internet offline cuentas fechas", ordenar: "pendientes datos clave contraseña fecha proveedor correo gmail apartadas", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
   dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",
@@ -68,7 +69,7 @@ const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
-const TITLE = { hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
+const TITLE = { ordenar: ["box", "Ordenar mis datos"], hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
 const KLABEL_P = { login: "🔓 Inicio de sesión", hogar: "🏠 Actualizar hogar", temporal: "⏱️ Acceso temporal", verificacion: "🛡️ Verificación", otro: "✉️ Código" };
 const pill = (t, k) => `<span class="pp pp-${k}">${esc(t)}</span>`;
@@ -204,6 +205,8 @@ const V = {
   // 15/11: una fila por revendedor con sus cuentas como etiquetas (panel-tablero.js).
   // 15/11: «📗 Mis hojas», como el Excel y también sin internet (panel-hojas.js).
   async hojas() { return hojasView(P.tab); },
+  // 16/11: «🧹 Ordenar mis datos» (panel-rapido.js).
+  async ordenar() { return ordenarView(); },
   async tablero() {
     if (!canReview()) return `<section class="card"><div class="emptybox">Esta pantalla es del dueño y los admins.</div></section>`;
     return tableroView(P.tab, { paidAllBtn, canReview });
@@ -676,7 +679,7 @@ const V = {
     // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
     const hoyN = D.total;
     const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy${D.rev ? ` <small>(${splitTxt(D)})</small>` : ""}` : " · todo al día"}</span></button>` : "";
-    return dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    return (canReview() ? await inicioTop(ini) : "") + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${D.cobroFecha.total ? `Hoy tenés <b>${D.cobroFecha.total}</b> pendiente(s) de cobro o fecha.${D.cobroFecha.rev ? ` <small>(${splitTxt(D.cobroFecha)}: a los de revendedores les avisás a ellos)</small>` : ""}` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       ${secBtn}
       <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
@@ -2582,6 +2585,7 @@ function startOffline(snap) {
   go("hojas");
 }
 initDayPrices(() => render());
+initRapido({ render: () => render(), go: (v) => go(v), tab: () => P.tab });
 hojasInit({ me: () => P.me, settings: () => P.settings, render: () => render(), view: () => P.view });
 
 /* ---------------- eventos ---------------- */

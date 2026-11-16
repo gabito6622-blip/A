@@ -858,6 +858,8 @@ export interface State {
   fiado?: FiadoEntry[];
   /** 💲 Precio del día de renovación por producto de alquiler (precioDia.ts). El de «nueva» es la lista «revendedor». */
   dayPrices?: Record<Id, { renew: Cents; at: number; by: Id }>;
+  /** ↩️ Deshacer el último cobro de cada alquiler (deshacer.ts): cómo estaba antes, por 30 minutos. */
+  payUndo?: Record<Id, { at: number; by: Id; label: string; before: string; after: string }>;
   /** Gastos fijos mensuales y devoluciones a clientes (plata.ts, gastos.ts). */
   fixedExpenses?: FixedExpense[];
   customerRefunds?: CustomerRefund[];

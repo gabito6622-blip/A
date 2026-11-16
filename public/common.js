@@ -9,7 +9,13 @@ export const CACHE_MS = 20_000;
 const CACHEABLE = /^\/api\/admin\/(assignments|customers|products|price-groups|stock|suppliers|inicio)(\?|$)/;
 export function apiCacheClear() { GET_CACHE.clear(); }
 export async function api(method, path, body) {
-  if (method !== "GET") { GET_CACHE.clear(); tempranoFuera(); return apiRaw(method, path, body); }
+  if (method !== "GET") {
+    GET_CACHE.clear(); tempranoFuera();
+    // ↩️ Panel: un «Me pagó» / «Renovar» anotado avisa, para mostrar «Deshacer» (panel-rapido.js).
+    const paid = /^\/api\/admin\/assignments\/([^/]+)\/(pay|renew)$/.exec(path);
+    if (!paid) return apiRaw(method, path, body);
+    return apiRaw(method, path, body).then((r) => { try { if (r && (r.saved || r.order?.status === "fulfilled")) window.dispatchEvent(new CustomEvent("gs-paid", { detail: { id: decodeURIComponent(paid[1]) } })); } catch { /* sin ventana */ } return r; });
+  }
   const pre = temprano(path);
   if (pre) return pre;
   if (!CACHEABLE.test(path)) return apiRaw(method, path, body);

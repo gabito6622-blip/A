@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 16/11/2026 · ✍️ Anotar rápido, ↩️ Deshacer, 🧹 Ordenar mis datos, Inicio con 3 botones
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (168 s) | 890: **889 pasan**; 1 falla por tiempo (`ficha`, «sumó un período») que sola pasa y que **también falla igual en la versión publicada** con la máquina cargada (4 corridas en paralelo: 1 de 4 en las dos versiones) → no es de este cambio; queda en el BACKLOG |
+| Prueba nueva `anotar-deshacer-ordenar` | API + pantalla a 390 px, datos ficticios | entiende «obyacc+liz · Oby pagó 69bs · vence dd/mm» (correo sin @, monto, fecha); avisa «nombra a Robin, pero la cuenta es de Dani»; «no pagó» no anota; correo inexistente; Confirmar anota con Me pagó y la fecha escrita; **Deshacer deja el alquiler idéntico** (comparado byte a byte), una sola vez, con auditoría; Renovar en efectivo: el pedido queda «cancelado» con marca de deshecho y se saca el aviso pendiente; si cambió después no se deshace; Ordenar: apartadas, sin clave, sin fecha, correo «@gmai.com» → «@gmail.com», Gmail; en pantalla: 3 botones, vista previa con aviso, barra Deshacer, corregir correo y «Guardar y liberar» |
+| Velocidad de Inicio | `panel-rapido` | sigue en 7 pedidos o menos (lo nuevo viene dentro de /api/admin/inicio) |
+
 ## 16/11/2026 · 💲 Precios del día
 | Qué | Cómo | Resultado |
 |---|---|---|

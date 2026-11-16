@@ -15,6 +15,9 @@ import * as notify from "./notify.js";
 import * as stats from "./stats.js";
 import * as admin from "./admin.js";
 import * as precioDia from "./precioDia.js";
+import * as deshacer from "./deshacer.js";
+import * as anotarRapido from "./anotarRapido.js";
+import * as ordenar from "./ordenar.js";
 import * as finance from "./finance.js";
 import * as gastos from "./gastos.js";
 import * as plata from "./plata.js";
@@ -272,6 +275,15 @@ export function createStore(opts: EngineOptions = {}) {
       of: (customerId: string) => codes.codesOf(e, customerId),
       platforms: (customerId: string) => arranque.codePlatforms(e, customerId),
     },
+    // ↩️ Deshacer un cobro, ✍️ Anotar rápido y 🧹 Ordenar mis datos (16/11/2026).
+    undo: {
+      snapshot: (assignmentId: string) => deshacer.undoSnapshot(e, assignmentId),
+      record: (actor: Actor, assignmentId: string, before: string, label: string) => deshacer.undoRecord(e, actor, assignmentId, before, label),
+      list: bind(e, deshacer.undoList),
+      pay: bind(e, deshacer.undoPay),
+    },
+    rapido: { parse: bind(e, anotarRapido.quickParse), apply: bind(e, anotarRapido.quickApply) },
+    ordenar: { view: bind(e, ordenar.ordenarView) },
     // 💲 Precios del día (nuevas y renovación) para revendedores (precioDia.ts).
     precioDia: {
       view: bind(e, precioDia.dayPricesView),
