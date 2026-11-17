@@ -1,5 +1,13 @@
 # Informe de pruebas
 
+## 17/11/2026 · Códigos: buzones en paralelo y Disney siempre
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Buzón que no contesta | `codigos-buzones-paralelo`: IMAP de prueba que no responde al LOGIN | la vuelta tarda < 4 s, el código del otro buzón llega, el lento queda con error |
+| Disney/MyDisney con buzón estricto | mismo archivo: asuntos «passcode», portugués, remitente ajeno | pasan los 3 de Disney, el ajeno sigue filtrado |
+| Pruebas de códigos | `codes`, `codigos-*`, `emailauth` | 17/17 |
+| Completo | `npm test` | 911 de 912; falló `hub-inventario` por carga de la máquina y pasó 2 veces sola |
+
 ## 17/11/2026 · GaboHub: paridad con el panel del dueño (4 equipos)
 | Qué | Cómo | Resultado |
 |---|---|---|

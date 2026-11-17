@@ -12,7 +12,7 @@ import { canActFor } from "./catalog.js";
 /** Asuntos que se leen por defecto (en minúsculas, se busca que el asunto los contenga). */
 export const DEFAULT_SUBJECTS = [
   "código", "codigo", "code", "acceso", "access", "inicio de sesión", "iniciar sesión", "sign in", "sign-in", "login",
-  "verific", "verify", "hogar", "household", "temporal", "temporary", "one-time", "único", "contraseña", "password",
+  "verific", "verify", "passcode", "hogar", "household", "temporal", "temporary", "one-time", "único", "contraseña", "password",
 ];
 
 export interface MailboxInput {
@@ -112,8 +112,11 @@ export function extractCode(text: string, html = ""): { code: string; link?: str
 export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string; subject: string; body: string; html?: string; receivedAt: number; from?: string }): CodeMessage | null {
   authorize(actor, "codes.ingest");
   const box = e.get("mailboxes", mailboxId);
-  if (box.senderAllowlist?.length && !box.senderAllowlist.some((s) => (msg.from ?? "").toLowerCase().includes(s))) return null;
-  const allowed = box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
+  // Disney+ y MyDisney pasan siempre (17/11/2026, pedido del dueño): sus asuntos cambian seguido («passcode», «MyDisney»…)
+  // y los buzones viejos guardaron una lista de asuntos que no los cubría. Igual hace falta que el correo traiga un código.
+  const esDisney = /disney/i.test(msg.from ?? "");
+  if (!esDisney && box.senderAllowlist?.length && !box.senderAllowlist.some((s) => (msg.from ?? "").toLowerCase().includes(s))) return null;
+  const allowed = esDisney || box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
   const { code, link } = extractCode(msg.body, msg.html);
   if (!allowed || (!code && !link)) return null;
   return e.tx(() => {
