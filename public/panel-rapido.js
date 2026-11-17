@@ -77,10 +77,22 @@ function undoBar(id) {
   clearTimeout(undoBar.t); undoBar.t = setTimeout(() => el.remove(), 90_000);
 }
 
+/** Después de «Me pagó todo»: una sola barra para deshacer los N juntos. */
+function undoBarMany(ids, name) {
+  document.getElementById("qUndoBar")?.remove();
+  const el = document.createElement("div");
+  el.id = "qUndoBar"; el.className = "qundobar"; el.setAttribute("role", "status");
+  const n = ids.length, who = String(name || "").split(" · ").pop();
+  el.innerHTML = `<span>✅ ${esc(who)}: ${n} anotado${n === 1 ? "" : "s"}</span><button class="pbtn sm" type="button" data-qundomany="${esc(ids.join(","))}">↩️ Deshacer ${n === 1 ? "" : `los ${n}`}</button><button class="pbtn sm" type="button" data-qundoclose="1" aria-label="Cerrar">✕</button>`;
+  (document.getElementById("app") ?? document.body).appendChild(el);
+  clearTimeout(undoBar.t); undoBar.t = setTimeout(() => el.remove(), 90_000);
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("gs-paid", (ev) => { if (ev.detail?.id) undoBar(ev.detail.id); });
+  window.addEventListener("gs-paid-many", (ev) => { if (ev.detail?.ids?.length) undoBarMany(ev.detail.ids, ev.detail.name); });
   document.addEventListener("click", async (ev) => {
-    const b = ev.target.closest?.("[data-qgo], [data-qparse], [data-qapply], [data-qundo], [data-qundoclose], [data-ordfree]");
+    const b = ev.target.closest?.("[data-qgo], [data-qparse], [data-qapply], [data-qundo], [data-qundomany], [data-qundoclose], [data-ordfree]");
     if (!b) return;
     const d = b.dataset;
     if (d.qgo === "cobrar") { const t = ctx.tab(); t.tbf = "urgente"; return ctx.go("tablero"); }
@@ -105,6 +117,18 @@ if (typeof window !== "undefined") {
         last = null;
         if (r.failed.length) toast(`⚠️ ${r.failed.map((x) => x.error).join(" · ")}`);
         if (r.done.length) { toast(`✅ Anotado: ${r.done.map((x) => x.label).join(" · ")}`); undoBar(r.done[r.done.length - 1].assignmentId); }
+        await ctx.render();
+      } catch (e) { b.disabled = false; toast(e.message); }
+      return;
+    }
+    if (d.qundomany) {
+      const ids = d.qundomany.split(",");
+      if (!confirm(`¿Deshacer los ${ids.length} cobros de «Me pagó todo»?\n\nCada alquiler vuelve exactamente a como estaba antes (fecha, pago y aviso).`)) return;
+      b.disabled = true;
+      try {
+        const r = await api("POST", "/api/admin/undo-pay-many", { ids });
+        document.getElementById("qUndoBar")?.remove();
+        toast(`↩️ Deshechos ${r.count} cobro${r.count === 1 ? "" : "s"}`);
         await ctx.render();
       } catch (e) { b.disabled = false; toast(e.message); }
       return;

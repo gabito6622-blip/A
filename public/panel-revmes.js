@@ -121,6 +121,8 @@ async function paidAll(id, name, phone) {
     try {
       const r = await api("POST", `/api/admin/resellers/${id}/paid-all`, { ids: ok.map((x) => x.assignmentId), total: d.total, idempotencyKey: newKey() });
       m.close(); toast(`✅ ${name}: ${r.count} anotado(s) · ${bs(r.total)}`); await ctx.render();
+      // ↩️ 17/11: «Deshacer los N» arriba (panel-rapido.js), por 30 minutos.
+      if (r.undoIds?.length) window.dispatchEvent(new CustomEvent("gs-paid-many", { detail: { ids: r.undoIds, name } }));
       // 15/11: «📲 Avisarle que quedó renovada» con las fechas nuevas (solo las que se renovaron).
       const ren = ok.filter((x) => x.action !== "debt").map((x) => x.assignmentId);
       if (ren.length) {

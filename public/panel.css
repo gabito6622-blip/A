@@ -1482,3 +1482,5 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .ordrow .mono{overflow-wrap:anywhere}.ordnote{display:block}
 .ordf{display:flex;flex-wrap:wrap;gap:8px}.ordf input{flex:1;min-width:150px;min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:inherit;font-size:15px}
 .ordf .pbtn,.ordrow>.pbtn{min-height:44px}
+/* ▶ Cobrar uno por uno (17/11/2026) */
+.tbseq{width:100%;white-space:normal;text-align:center;line-height:1.3}

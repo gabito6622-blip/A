@@ -1372,7 +1372,22 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/assignments/:id/transfer", "staff", (c) => store.orders.transfer(A(c), c.params.id, String(c.body?.toCustomerId ?? ""), String(c.body?.reason ?? ""), { moveCharge: c.body?.moveCharge === true }));
   route("GET", "/api/admin/assignments/:id/transfer-preview", "staff", (c) => store.rmes.transferPreview(A(c), c.params.id, String(c.query.get("to") ?? "")));
   route("GET", "/api/admin/resellers/:id/due", "staff", (c) => store.rmes.due(A(c), c.params.id));
-  route("POST", "/api/admin/resellers/:id/paid-all", "staff", (c) => store.rmes.paidAll(A(c), c.params.id, { ids: c.body?.ids, total: c.body?.total, idempotencyKey: c.body?.idempotencyKey }));
+  // ↩️ 17/11/2026: «Me pagó todo» guarda cómo estaba cada alquiler, para «Deshacer» los N juntos (o de a uno en Inicio).
+  route("POST", "/api/admin/resellers/:id/paid-all", "staff", (c) => {
+    const ids: string[] = Array.isArray(c.body?.ids) ? c.body.ids.map(String).filter((id: string) => store.engine.s.assignments[id]) : [];
+    const before = new Map<string, string>();
+    for (const id of ids) { try { before.set(id, store.undo.snapshot(id)); } catch { /* sin foto: ese no se podrá deshacer */ } }
+    const keysBefore = new Set(Object.keys(store.engine.s.idempotency));
+    const r = store.rmes.paidAll(A(c), c.params.id, { ids: c.body?.ids, total: c.body?.total, idempotencyKey: c.body?.idempotencyKey });
+    // Un reintento con la misma llave no cobra de nuevo: tampoco pisa el «Deshacer» del primero.
+    const fresh = !c.body?.idempotencyKey || Object.keys(store.engine.s.idempotency).some((k) => !keysBefore.has(k));
+    const undoIds: string[] = [];
+    if (fresh) for (const [id, snap] of before) {
+      try { const a = store.engine.s.assignments[id]; store.undo.record(A(c), id, snap, undoLabel(id, a?.customerExpiresAt, a?.control?.price)); undoIds.push(id); } catch { /* deshacer es una ayuda: nunca frena el cobro */ }
+    }
+    return { ...r, undoIds };
+  });
+  route("POST", "/api/admin/undo-pay-many", "staff", (c) => store.undo.payMany(A(c), c.body?.ids));
   route("POST", "/api/admin/customers/:id/store-renew", "staff", (c) => store.rmes.setStoreRenew(A(c), c.params.id, c.body?.allowed));
   route("POST", "/api/admin/assignments/:id/replace", "staff", (c) => store.orders.replace(A(c), c.params.id, { reason: String(c.body?.reason ?? ""), oldSlot: c.body?.oldSlot, otherAccount: !!c.body?.otherAccount, ...(c.body?.toSlotId ? { toSlotId: String(c.body.toSlotId) } : {}) }));
   route("GET", "/api/admin/reminders/settings", "staff", () => store.orders.reminderSettings());

@@ -80,3 +80,20 @@ export function undoPay(e: Engine, actor: Actor, assignmentId: Id) {
     return { ok: true, label: rec.label, expiresAt: (b.a as { customerExpiresAt: number }).customerExpiresAt };
   });
 }
+
+/**
+ * ↩️ Deshacer «Me pagó todo» (17/11/2026): deshace varios cobros juntos. Es todo o nada: si uno de los alquileres
+ * cambió después (o pasaron los 30 minutos), no se deshace ninguno y se avisa cuál.
+ */
+export function undoPayMany(e: Engine, actor: Actor, ids: unknown) {
+  authorize(actor, "payment.review");
+  const list = Array.isArray(ids) ? [...new Set(ids.map(String))].slice(0, 200) : [];
+  if (!list.length) throw new DomainError("VALIDATION", "No hay cobros para deshacer");
+  return e.tx(() => {
+    const done = list.map((id) => {
+      try { return undoPay(e, actor, id); }
+      catch (err) { const lb = e.s.payUndo?.[id]?.label ?? id; throw new DomainError((err as DomainError).code ?? "VALIDATION", `${lb}: ${(err as Error).message}. No se deshizo ninguno.`); }
+    });
+    return { ok: true as const, count: done.length, labels: done.map((d) => d.label) };
+  });
+}

@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo»
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (197 s) | **893 pasan, 0 fallan** |
+| Prueba nueva `cobrar-uno-deshacer` | API + pantalla a 390 px, datos ficticios | «Me pagó todo» de 3 cuentas devuelve las 3 para deshacer; reintento con la misma llave no cobra ni pisa el Deshacer; aparecen en Cobros recientes; deshacer deja las 3 idénticas (byte a byte) con auditoría; no se deshace dos veces; si una cambió después, no se deshace ninguna; en pantalla: «Cobrar uno por uno» con 2 revendedores (no el de 12 días ni el sin WhatsApp), link de pago en el mensaje, «Abrir WhatsApp» marca avisado, Siguiente → 2 de 2 → Listo; «Me pagó todo» → barra «Deshacer» → vuelve a como estaba; sin desborde ni errores |
+| `cobro-link-regalo` | otra vez, con el mensaje armado de nuevo | pasa |
+
 ## 17/11/2026 · 📄 Botón del catálogo PDF para el cliente
 | Qué | Cómo | Resultado |
 |---|---|---|
