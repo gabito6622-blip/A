@@ -54,7 +54,7 @@ test("GaboHub: barra de abajo, pestañas por grupo, Vender y Más llegan a todo"
     // Clientes: solo "Mi negocio" (5 pestañas desde el 13/11: primero «Mi día»), en filas que se ven completas.
     await page.locator('.bnav [data-s="clientes"]').click();
     await page.locator(".rtabs.hubtabs").waitFor();
-    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["☀️ Mi día", "👥 Clientes y ventas", "📊 Mi control", "💸 Quién me debe", "📈 Mis ganancias"]);
+    assert.deepEqual((await page.locator(".rtabs [role=tab]").allInnerTexts()).map((x) => x.trim()), ["☀️ Mi día", "👥 Clientes y ventas", "📊 Mi control", "📒 Mis hojas", "💸 Quién me debe", "📈 Mis ganancias"]);
     assert.deepEqual(await small(page, ".rtabs [role=tab]"), []);
     assert.equal(await over(page), false);
 
