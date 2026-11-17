@@ -346,7 +346,9 @@ export function importStockFile(s: GabrielStore, a: Actor, file: Buffer, opts: {
 /** Plantilla con ejemplos de TUS productos y una hoja «Productos» con los nombres exactos para copiar. */
 export function stockTemplate(s: GabrielStore) {
   const prods = Object.values(s.engine.s.products).filter((p) => p.kind !== "combo").sort((a, b) => a.name.localeCompare(b.name, "es"));
-  const pick = (re: RegExp, kind?: string) => prods.find((p) => re.test(`${p.id} ${p.name}`.toLowerCase()) && (!kind || p.kind === kind) && !/3 ?m|meses/.test(`${p.id} ${p.name}`.toLowerCase()));
+  // El ejemplo usa el producto «principal»: ni «Perfil Extra» ni los de 3 meses; primero el de id más corto (netflix antes que netflix-extra).
+  const pick = (re: RegExp, kind?: string) => prods.filter((p) => re.test(`${p.id} ${p.name}`.toLowerCase()) && (!kind || p.kind === kind) && !/3 ?m|meses|extra/.test(`${p.id} ${p.name}`.toLowerCase()))
+    .sort((a, b) => a.id.length - b.id.length)[0];
   const d = (days: number) => { const t = new Date(Date.now() + days * 86_400_000); return `${String(t.getDate()).padStart(2, "0")}/${String(t.getMonth() + 1).padStart(2, "0")}/${t.getFullYear()}`; };
   const ex: (string | number)[][] = [];
   const add = (p: (typeof prods)[number] | undefined, n: number | string, cost: number, pin = "") => { if (p) ex.push([p.name, `ejemplo${ex.length + 1}@correo.com`, "Clave-Ejemplo#1", n, pin, d(30), cost, "Mi proveedor", ""]); };
