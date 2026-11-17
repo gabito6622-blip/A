@@ -9,7 +9,7 @@
 //  - Si una función que dibuja se llamara antes de cargar (no debería pasar), devuelve "" y se vuelve a dibujar
 //    cuando termina de cargar.
 // Para agregar un nombre: exportalo acá con el mismo tipo de puente (init, espera o dibujo).
-export const MODULOS_HUB = ["/ownstock.js", "/propias-plata.js", "/hub-mes.js", "/cuaderno.js", "/sublinks.js", "/cambio-cuenta.js", "/arranque.js", "/descargas.js"];
+export const MODULOS_HUB = ["/ownstock.js", "/propias-plata.js", "/hub-mes.js", "/cuaderno.js", "/sublinks.js", "/cambio-cuenta.js", "/arranque.js", "/descargas.js", "/hub-secretaria.js"];
 
 const M = {};
 let listo = false, carga = null, redibujar = null;
@@ -66,3 +66,6 @@ export const initAccChanges = init("initAccChanges"), accChangeBox = dibujo("acc
 export const initArranque = init("initArranque");
 export const firstStepsCard = dibujo("firstStepsCard"), indepLine = dibujo("indepLine"), indepCatalog = dibujo("indepCatalog");
 export const pageAskItem = dibujo("pageAskItem"), slugField = dibujo("slugField"), slugConfirm = dibujo("slugConfirm");
+// hub-secretaria.js (17/11): 🤵 Mi secretaria y 📈 Cómo van del revendedor
+export const initHubSecretaria = init("initHubSecretaria"), loadHubSecretaria = espera("loadHubSecretaria"), loadHubComoVan = espera("loadHubComoVan");
+export const hubSecretariaView = dibujo("hubSecretariaView"), hubComoVanView = dibujo("hubComoVanView");

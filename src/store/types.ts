@@ -882,6 +882,8 @@ export interface State {
   /** Cobros de perfiles repartidos y cierres de mes de cada revendedor (cuadernoPlata.ts, gananciaReal.ts). Solo los ve él. */
   rcobros?: import("./cuadernoPlata.js").ResellerCobro[];
   rcierres?: Record<Id, Record<string, import("./gananciaReal.js").MonthClose>>;
+  /** 🤵 Plantillas de «Mi secretaria» de cada revendedor (hubSecretaria.ts). Solo las ve él. */
+  hubSecretaria?: Record<Id, Partial<Record<"avisar" | "cobrar" | "renovo", string>>>;
   seq: number;
 }
 

@@ -30,6 +30,7 @@ import * as cobrarBien from "./cobrarBien.js";
 import * as cambioPlataforma from "./cambioPlataforma.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
+import * as hubSec from "./hubSecretaria.js";
 import * as rday from "./resellerDay.js";
 import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
@@ -518,6 +519,10 @@ export function createStore(opts: EngineOptions = {}) {
       /** «Que vuelvan» (13/11): sus clientes vencidos sin renovar, con «Ya le escribí». */
       winback: bind(e, rback.myWinback),
       markBack: bind(e, rback.markBack),
+      /** 🤵 Mi secretaria y 📈 Cómo van del revendedor (17/11): solo lo suyo. */
+      secretary: bind(e, hubSec.mySecretary),
+      setSecretaryTemplate: bind(e, hubSec.setSecretaryTemplate),
+      comoVan: bind(e, hubSec.myComoVan),
     },
   };
 }
