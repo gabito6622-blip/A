@@ -142,7 +142,7 @@ describe("3 · aviso antes del corte de sus alquileres", () => {
     const a = s.rmes.rentAlerts(R(mamani));
     assert.equal(a.list.length, 1);
     assert.match(a.list[0].text, /^Tu Disney\+ Premium de la tienda vence el \d\d\/\d\d y se corta el \d\d\/\d\d$/);
-    assert.equal(a.list[0].cutAt, exp + 2 * DAY);
+    assert.equal(a.list[0].cutAt, exp + 1 * DAY);
     assert.equal(a.total, 6900);
     assert.match(s.rmes.rentPush(mamani.id).title, /vence el/);
     clock.t = exp - 2 * DAY;

@@ -131,8 +131,8 @@ describe("3 · aviso el día del corte", () => {
     const exp = s.engine.s.assignments[hbo].customerExpiresAt;
     clock.t = exp - 3 * DAY; assert.ok(s.rmes.rentPush(marta.id));
     clock.t = exp; assert.ok(s.rmes.rentPush(marta.id));
-    clock.t = exp + DAY; assert.equal(s.rmes.rentPush(marta.id), null);
-    clock.t = exp + 2 * DAY - 3600_000; // el día del corte, antes de la hora del corte
+    // Con 1 día de gracia (17/11/2026) el día siguiente al vencimiento ya es el día del corte.
+    clock.t = exp + 1 * DAY - 3600_000; // el día del corte, antes de la hora del corte
     const p = s.rmes.rentPush(marta.id);
     assert.equal(p.title, "✂️ Hoy se corta tu HBO Max de la tienda");
     const al = s.rmes.rentAlerts(R(marta));

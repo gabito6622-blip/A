@@ -2,6 +2,9 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Corte a 1 día
+- El dueño eligió 1 día de gracia (antes 2): menos uso gratis de quien no paga; quien paga tarde ese mismo día sigue sin corte. Las pruebas que suponían 2 días se movieron a 1.
+
 ## 2026-11-17 · Códigos: Disney pasa siempre
 - El dueño pidió que lleguen todos los de Disney y MyDisney. Un remitente con «disney» saltea las listas de asuntos y remitentes del buzón; igual tiene que traer un código o link.
 - Buzones en paralelo con tope de 45 s cada uno, cada 20 s; las demás tareas siguen cada minuto.

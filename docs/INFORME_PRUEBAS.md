@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · Corte a 1 día y ficha con precio de renovación
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Ficha: solo por vencer y precio | `ficha-renovar-pantalla` (360 px, Playwright) | pasa; no cambia precios guardados |
+| Corte a 1 día | `dia-mepago`, `revendedor-mes`, `revendedor-r2`, `solo-revendedor`, `link-cobro-clientes`, `plan-mensual-simulacion` ajustadas a la regla nueva | pasan |
+| Completo | `npm test` | 913 de 914; `perfil-suelto-pantallas` falló por carga y pasó sola |
+
 ## 17/11/2026 · Códigos: buzones en paralelo y Disney siempre
 | Qué | Cómo | Resultado |
 |---|---|---|

@@ -815,7 +815,7 @@ export function moveAccountClients(e: Engine, actor: Actor, fromAccountId: Id, i
 }
 
 /** Cierra servicios vencidos (+ días de gracia) y pone el perfil en cuarentena para cambiar la clave. */
-export function closeExpired(e: Engine, actor: Actor, graceDays = 2): number {
+export function closeExpired(e: Engine, actor: Actor, graceDays = 1): number {
   if (actor.role !== "system") authorize(actor, "assignment.replace");
   return e.tx(() => {
     let n = 0;

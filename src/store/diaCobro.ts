@@ -1,4 +1,4 @@
-// Cobros del día a día (14/11/2026), sin cambiar la regla de cuándo se corta un vencido (closeExpired: vencimiento + 2 días).
+// Cobros del día a día (14/11/2026), sin cambiar la regla de cuándo se corta un vencido (closeExpired: vencimiento + 1 día).
 //   1) «Me pagó» de un servicio que ya se cortó solo por vencido (hasta 30 días después): se reactiva y se anota el
 //      cobro. Si su perfil ya no está libre (lo tiene otro cliente o se retiró), se ofrece OTRO perfil libre de la misma
 //      plataforma; si no hay, se avisa claro y no se guarda nada. Nunca se vende dos veces un perfil.
