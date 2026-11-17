@@ -92,6 +92,8 @@ const LINK_RE = /https:\/\/(?:www\.)?netflix\.com\/(?:account\/(?:travel|update-
 /** Clasifica el tipo de código de Netflix/Disney por el asunto y el texto (español e inglés). */
 export function classifyCode(subject: string, text: string): string {
   const s = `${subject} ${text}`.toLowerCase();
+  // 17/11/2026 (pedido del dueño): el código para cambiar el correo NO lo ve el cliente final; se marca aparte.
+  if (/cambiar (tu |el )?(correo|e-?mail)|cambio de (correo|e-?mail)|change (your )?(e-?mail|email)|email change/.test(s)) return "cambio_correo";
   // 17/11/2026: también portugués, francés, italiano y alemán (llegan cuentas configuradas en otros idiomas).
   if (/hogar|household|resid[eê]ncia|domic[ií]lio|foyer|haushalt|nucleo domestico/.test(s)) return "hogar";
   if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta|entrar|connexion|accedi|anmeld/.test(s)) return "login";
@@ -234,6 +236,8 @@ export function codesOf(e: Engine, customerId: Id) {
     .map((a) => ({ email: e.s.accounts[e.s.slots[a.slotId].accountId].email.toLowerCase(), since: a.startsAt }));
   return e.s.codes
     .filter((c) => e.now() - c.receivedAt <= windowMs && mine.some((m) => m.email === c.to && c.receivedAt >= m.since))
+    // El cliente no ve el código para cambiar el correo (sí ve hogar, inicio de sesión y acceso temporal).
+    .filter((c) => c.kind !== "cambio_correo" && classifyCode(c.subject, "") !== "cambio_correo")
     .sort((a, b) => b.receivedAt - a.receivedAt)
     .map((c) => {
       const acc = Object.values(e.s.accounts).find((a) => a.email.toLowerCase() === c.to);
