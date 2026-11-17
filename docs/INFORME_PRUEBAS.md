@@ -1,5 +1,11 @@
 # Informe de pruebas
 
+## 17/11/2026 · 📬 Correos que faltan conectar
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (240 s) | 897: **896 pasan**; 1 falla por tiempo con la máquina cargada (`anotar-deshacer-ordenar`). Sola pasa 2 de 2 |
+| Prueba nueva `correos-madre` | API + pantalla a 390 px, datos ficticios | correo madre sin «+» y sin puntos en Gmail; 4 estados (falta, error, reenvío, conectado) con cuentas y en uso; primero lo que falta; nunca contraseñas; admin ve la lista y no la configuración; Atención 403; dueño y admin la ven en el panel; «Ver los 4» muestra todos; sin desborde |
+
 ## 17/11/2026 · Plantilla de cuentas: ejemplo con el producto principal
 | Qué | Cómo | Resultado |
 |---|---|---|

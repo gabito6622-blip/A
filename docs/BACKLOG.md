@@ -4,6 +4,8 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- ✅ **[P2] 👔 Correos que faltan conectar para los códigos (17/11):** prueba `correos-madre`. Sin publicar.
+  - 🧑 Pendiente del dueño: crear una llave nueva del asistente (Usuarios) y guardarla en el formulario seguro; la llave guardada dejó de valer el 17/11.
 - ✅ **[P1] 👔 Cargar cuentas para vender desde Excel (17/11):** prueba `importar-cuentas-excel`. Publicado (#91): datos iguales antes y después. Arreglo del ejemplo de Netflix en la plantilla: publicado (#92), verificado en la plantilla real.
 - ✅ **[P1] 🏪 Revendedores más fácil: bienvenida de 4 pasos, guía con fotos e invitación clara (17/11):** prueba `guia-revendedor`. Publicado (#90): datos iguales antes y después; la guía abre en gabostore.lat/guia-revendedor con sus 4 fotos.
   - 🧑 Pendiente del dueño: invitar a los 12 revendedores sin PIN desde Inicio → «▶ Invitarlos ahora» (empezar por los que ya entraron) y revisar el Gmail con error del Panel de códigos.

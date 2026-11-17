@@ -2,6 +2,10 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Correos que faltan conectar
+- **Lista aparte, de solo lectura:** la configuración de los buzones (contraseñas de aplicación) sigue siendo del dueño; la lista de qué falta no tiene secretos y la puede leer un admin o el asistente.
+- **«Por reenvío» por evidencia:** si a un correo madre no conectado le llegó algún código en 7 días, se toma como reenviado a uno conectado. No se adivina por el nombre.
+
 ## 2026-11-17 · Cargar cuentas desde Excel
 - **Usa la misma carga de siempre (una cuenta a la vez por dentro):** las mismas reglas de correos repetidos y fecha del proveedor obligatoria; no hay reglas nuevas que mantener.
 - **Vista previa = la carga real deshecha al final:** lo que se muestra es exactamente lo que va a pasar.

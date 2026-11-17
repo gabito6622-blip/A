@@ -1683,6 +1683,8 @@ export function createApp(cfg: AppConfig): App {
   const imapOf = (box: { host: string; port?: number; user?: string; address: string }, pass: string): ImapConfig => ({ host: box.host, port: box.port ?? 993, user: box.user ?? box.address, pass, ...(cfg.imapTest ?? {}) });
   const passOf = (id: string) => { const v = db.getSecret(`imap:${id}`); return v ? db.unseal(v) : ""; };
   const mailOwner = (c: Ctx) => { if (A(c).role !== "owner") throw new DomainError("FORBIDDEN", "Solo el dueño conecta correos"); };
+  // 📬 17/11/2026: qué correos madre faltan conectar (solo lee, sin contraseñas; dueño, admin y llave del asistente).
+  route("GET", "/api/admin/mailboxes/coverage", "staff", (c) => store.codes.coverage(A(c)));
   route("GET", "/api/admin/mailboxes", "staff", (c) => store.codes.list(A(c)).map((m) => ({ ...m, hasPassword: !!db.getSecret(`imap:${m.id}`) })));
   route("POST", "/api/admin/mailboxes/test", "staff", async (c) => {
     mailOwner(c);

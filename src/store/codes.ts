@@ -229,3 +229,49 @@ export function codesOf(e: Engine, customerId: Id) {
       return { to: c.to, subject: c.subject, code: c.code, link: c.link, kind: c.kind ?? classifyCode(c.subject, ""), receivedAt: c.receivedAt, product: acc ? e.s.products[acc.productId]?.name ?? "" : "" };
     });
 }
+
+/**
+ * 📬 Correos que faltan conectar (17/11/2026). El dueño: «decime qué correos faltan añadir en las cuentas madres».
+ * Agrupa las cuentas activas por su correo madre (lo de antes del «+»; en Gmail los puntos no cuentan) y dice, para cada
+ * uno, si está conectado al lector de códigos, si está con error, si le llegan códigos igual (reenvío a otro conectado)
+ * o si falta. Solo lee y nunca devuelve contraseñas: la puede ver un admin y la llave del asistente. Conectar o borrar
+ * un correo sigue siendo solo del dueño.
+ */
+export function motherOf(email: string): string {
+  const [local = "", domain = ""] = email.trim().toLowerCase().split("@");
+  if (!domain) return "";
+  const base = local.split("+")[0];
+  return `${/^(gmail|googlemail)\.com$/.test(domain) ? base.replace(/\./g, "") : base}@${domain === "googlemail.com" ? "gmail.com" : domain}`;
+}
+
+export function mailboxCoverage(e: Engine, actor: Actor) {
+  authorize(actor, "inventory.manage");
+  const now = e.now();
+  const boxes = Object.values(e.s.mailboxes ?? {});
+  const boxByMother = new Map<string, (typeof boxes)[number]>();
+  for (const b of boxes) for (const a of [b.address, b.user ?? ""]) { const m = motherOf(a); if (m && !boxByMother.has(m)) boxByMother.set(m, b); }
+  const codesTo = new Map<string, number>();
+  for (const c of e.s.codes ?? []) if (now - c.receivedAt < 7 * DAY) { const m = motherOf(c.to); codesTo.set(m, Math.max(codesTo.get(m) ?? 0, c.receivedAt)); }
+  const groups = new Map<string, { mother: string; accounts: number; inUse: number; products: Set<string> }>();
+  const used = new Set(Object.values(e.s.slots).filter((s) => s.status === "assigned").map((s) => s.accountId));
+  for (const a of Object.values(e.s.accounts)) {
+    if (a.status !== "active" || !a.email.includes("@")) continue;
+    const m = motherOf(a.email);
+    const g = groups.get(m) ?? { mother: m, accounts: 0, inUse: 0, products: new Set<string>() };
+    g.accounts++; if (used.has(a.id)) g.inUse++;
+    g.products.add((e.s.products[a.productId]?.name ?? a.productId).replace(/\s*\(alquiler revendedores\)/i, ""));
+    groups.set(m, g);
+  }
+  const rows = [...groups.values()].map((g) => {
+    const box = boxByMother.get(g.mother), lastCode = codesTo.get(g.mother);
+    const state = box ? (box.lastError ? "error" : "ok") : lastCode ? "forwarded" : "missing";
+    return { mother: g.mother, accounts: g.accounts, inUse: g.inUse, products: [...g.products].slice(0, 4), state, ...(box?.lastError ? { error: box.lastError.slice(0, 160) } : {}), ...(lastCode ? { lastCodeAt: lastCode } : {}) };
+  });
+  const order = { missing: 0, error: 1, forwarded: 2, ok: 3 } as const;
+  rows.sort((x, y) => order[x.state as keyof typeof order] - order[y.state as keyof typeof order] || y.inUse - x.inUse || y.accounts - x.accounts || x.mother.localeCompare(y.mother));
+  return {
+    rows,
+    mailboxes: boxes.map((b) => ({ address: b.address, ok: !b.lastError, ...(b.lastError ? { error: b.lastError.slice(0, 160) } : {}), lastOkAt: b.lastOkAt ?? null })),
+    counts: { missing: rows.filter((r) => r.state === "missing").length, error: rows.filter((r) => r.state === "error").length, forwarded: rows.filter((r) => r.state === "forwarded").length, ok: rows.filter((r) => r.state === "ok").length },
+  };
+}
