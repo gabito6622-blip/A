@@ -1,0 +1,66 @@
+/* Editor de «Mi página» (editor-pagina.js): secciones plegables, paletas, barra fija y vista previa.
+   Celular: una columna, barra «Guardar» fija abajo, vista previa a pantalla completa con un botón.
+   PC (≥1024 px): editor a la izquierda y vista previa en vivo a la derecha. Usa --s-* (claro y oscuro). */
+.reditor{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;min-width:0}
+.edcol{display:grid;gap:12px;min-width:0}
+.edcol>form{display:grid;gap:12px;min-width:0}
+.edsec{border:1px solid var(--s-line);background:var(--s-card);border-radius:16px;min-width:0}
+.edsec>summary{list-style:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;min-height:56px;padding:8px 14px;cursor:pointer}
+.edsec>summary::-webkit-details-marker{display:none}
+.edsec>summary:focus-visible{outline:2px solid var(--s-blue);outline-offset:2px;border-radius:16px}
+.edsec-i{font-size:22px}
+.edsec-t b{display:block;font-size:16px;color:var(--s-ink)}
+.edsec-t small{display:block;font-size:12px;color:var(--s-muted);overflow-wrap:anywhere}
+.edsec-c{font-style:normal;font-size:22px;color:var(--s-muted);transition:transform .15s}
+.edsec[open]>summary .edsec-c{transform:rotate(90deg)}
+.edsec-b{display:grid;gap:12px;padding:4px 14px 16px;min-width:0;border-top:1px solid var(--s-line)}
+.edsec-b h3{margin:8px 0 0;font-size:14px;color:var(--s-ink)}
+.edsec-b label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--s-muted)}
+.edsec-b :is(input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select,textarea){background:var(--s-bg);border:1px solid var(--s-line);border-radius:12px;padding:11px 12px;min-width:0;width:100%;min-height:44px;color:var(--s-ink)}
+.edsec-b .sbtn{min-height:44px}
+.edsec-b .ropts span{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px}
+.edsec-b .rimgs{grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+.edsec-b .rgrid{grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))}
+.edsec-b .tpgrid{min-width:0}
+.edsec-b .sbox{margin:0}
+.rcolor span{min-height:44px}
+.rcolor input[type=color]{width:44px;height:36px;cursor:pointer}
+/* paletas sugeridas */
+.edpal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(140px,100%),1fr));gap:8px}
+.edpal-b{display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 10px;border:1px solid var(--s-line);border-radius:12px;background:var(--s-card2,var(--s-card));color:var(--s-ink);font:inherit;font-size:13px;font-weight:700;text-align:left;cursor:pointer;min-width:0}
+.edpal-b>span:last-child{min-width:0;overflow-wrap:anywhere}
+.edpal-b small{display:block;font-size:12px;font-weight:600;color:var(--s-warn,#b45309)}
+.edpal-b[aria-pressed="true"]{border-color:var(--s-blue);box-shadow:0 0 0 2px var(--s-blue)}
+.edpal-b:focus-visible{outline:2px solid var(--s-blue);outline-offset:2px}
+.edpal-s{flex:none;display:flex;gap:3px;align-items:center;justify-content:center;width:40px;height:32px;border-radius:8px;border:1px solid var(--s-line)}
+.edpal-s i{width:12px;height:12px;border-radius:50%}
+/* estado arriba */
+.edtop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--s-line);background:var(--s-card);border-radius:14px;padding:10px 14px;font-size:14px}
+.edtop .rlink{font-size:13px}
+/* barra Guardar fija abajo (celular) */
+.rsave{position:fixed;left:0;right:0;bottom:0;z-index:40;margin:0;border-radius:16px 16px 0 0;padding:10px max(12px,env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:color-mix(in srgb,var(--s-card) 96%,transparent);border:1px solid var(--s-line);box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+.rsave .sbtn{flex:1 1 140px;min-height:48px;justify-content:center}
+.rsave .edhint{flex:1 1 100%;font-size:12px;margin:0}
+.reditor{padding-bottom:120px}
+.eddirty{font-weight:800;color:var(--s-ink)}
+/* vista previa: en celular, oculta hasta tocar «Ver cómo queda» */
+.edpv-close{display:none}
+#edPreview{display:none}
+#edPreview.full{display:block;position:fixed;inset:0;z-index:60;background:var(--s-bg);padding:8px;overflow:auto}
+#edPreview.full .sbox{margin:0;padding:10px;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px}
+#edPreview.full h2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:16px;margin:0}
+#edPreview.full .edpv-close{display:inline-flex;min-height:44px}
+#edPreview.full .pvwrap{padding:4px;min-height:0}
+#edPreview.full .pvwrap iframe,#edPreview.full .pvwrap[data-mode="cel"] iframe{width:100%;max-width:430px;height:100%;min-height:60vh;border-radius:14px;box-shadow:none}
+#edPreview.full .pvwrap[data-mode="pc"] iframe{max-width:none}
+html.edpv-lock,html.edpv-lock body{overflow:hidden}
+#edPreview .rbtns .sbtn{min-height:44px}
+@media (min-width:1024px){
+  .reditor{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:20px;padding-bottom:0}
+  #edPreview{display:block;position:sticky;top:76px}
+  #edPreview .pvwrap iframe{height:calc(100vh - 200px);min-height:520px}
+  #edPreview .pvwrap[data-mode="cel"] iframe{height:calc(100vh - 200px);max-height:760px}
+  .rsave{position:sticky;bottom:12px;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+  .rsave .edpv-open{display:none}
+  .rsave .edhint{flex:1 1 200px}
+}
