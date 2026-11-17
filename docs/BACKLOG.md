@@ -6,7 +6,7 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - ✅ **[P2] 🛒 Botón del catálogo PDF para el cliente en el diseño «boleto» (17/11):** prueba `catalogo-pdf-boleto`. Sin publicar.
 - ✅ **[P2] 👔 Cobrar con link de pago (Tablero y Mis hojas) y días de regalo al aprobar (16/11):** prueba `cobro-link-regalo`. Publicado (#87): datos iguales antes y después, páginas 200.
-  - 🧑 Pendiente del dueño: decir si Paz aprueba pagos (los links de renovación ya estaban prendidos en la tienda: la lectura anterior de Configuración no los mostraba) (hoy solo dueño o administrador pueden aprobar).
+  - 🧑 Pendiente del dueño: decir si alguien de su equipo, además de él, va a aprobar pagos (hoy solo dueño o administrador pueden). «Paz» fue un malentendido: no hay ninguna Paz en el equipo. Los links de renovación ya estaban prendidos en la tienda.
 - ✅ **[P1] 👔 Anotar rápido, Deshacer cobro, Ordenar mis datos e Inicio con 3 botones (16/11):** prueba `anotar-deshacer-ordenar`. Publicado (#85 y #86).
   - ⏳ [P3] «Deshacer» también para «Me pagó todo» del Tablero (varias cuentas juntas).
   - ⏳ [P3] Prueba `ficha` («sumó un período») falla a veces con la máquina cargada, también en la versión publicada: revisar la espera.
