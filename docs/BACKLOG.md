@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P1] 🏪 Revendedores más fácil: bienvenida de 4 pasos, guía con fotos e invitación clara (17/11):** prueba `guia-revendedor`. Sin publicar.
+- ✅ **[P1] 🏪 Revendedores más fácil: bienvenida de 4 pasos, guía con fotos e invitación clara (17/11):** prueba `guia-revendedor`. Publicado (#90): datos iguales antes y después; la guía abre en gabostore.lat/guia-revendedor con sus 4 fotos.
   - 🧑 Pendiente del dueño: invitar a los 12 revendedores sin PIN desde Inicio → «▶ Invitarlos ahora» (empezar por los que ya entraron) y revisar el Gmail con error del Panel de códigos.
 - ✅ **[P2] 👔 Cobrar uno por uno con link de pago y Deshacer «Me pagó todo» (17/11):** prueba `cobrar-uno-deshacer`. Publicado (#89): datos iguales antes y después, páginas 200.
 - ✅ **[P2] 🛒 Botón del catálogo PDF para el cliente en el diseño «boleto» (17/11):** prueba `catalogo-pdf-boleto`. Publicado (#88): datos iguales antes y después, botón visible en la tienda real.

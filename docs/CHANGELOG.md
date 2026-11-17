@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · 📖 Revendedores más fácil: bienvenida corta, guía con fotos e invitación clara (sin publicar)
+## 2026-11-17 · 📖 Revendedores más fácil: bienvenida corta, guía con fotos e invitación clara (PR #90 publicado)
 - **Por qué:** el dueño: «todavía no entienden cómo entrar, ver sus cuentas, pagar y ver sus códigos». De 21 revendedores con cuentas, solo 7 entraron alguna vez y 12 no tienen PIN.
 - **Bienvenida de 4 pasos:** la primera vez que entran, solo los 4 botones grandes (Mis cuentas, Sacar código, Renovar con un solo QR, Comprar). Antes eran 13 pasos. La guía completa sigue en «📖 Guía».
 - **Guía con fotos** en `/guia-revendedor`: 1) Entrá, 2) Mirá tus cuentas, 3) Renová con QR, 4) Sacá tu código, con fotos de ejemplo y el botón de WhatsApp de la tienda. Se abre sin entrar.
