@@ -37,6 +37,7 @@ import { createPrecarga } from "./precarga.js";
 import { registerImagenesRoutes } from "./imagenesRoutes.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
 import { registerHubCobrosRoutes } from "./hubCobrosRoutes.js";
+import { registerHubHojasRoutes } from "./hubHojasRoutes.js"; // 📒 Mis hojas del revendedor
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
@@ -784,6 +785,7 @@ export function createApp(cfg: AppConfig): App {
     throw new HttpError(402, "HUB_PLAN", `Esta herramienta es del plan ${name} de GaboHub: pasate desde tu Inicio y se activa al instante`);
   };
   const hubGuard = needPlan("control"), sellerGuard = needPlan("links");
+  registerHubHojasRoutes({ route, store, guard: hubGuard }); // 📒 Mis hojas del revendedor (plan como Mi control)
   route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // «Mi día» del revendedor: misma suscripción que Mi control (plan Completo).

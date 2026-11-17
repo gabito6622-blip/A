@@ -9,7 +9,7 @@
 //  - Si una función que dibuja se llamara antes de cargar (no debería pasar), devuelve "" y se vuelve a dibujar
 //    cuando termina de cargar.
 // Para agregar un nombre: exportalo acá con el mismo tipo de puente (init, espera o dibujo).
-export const MODULOS_HUB = ["/ownstock.js", "/propias-plata.js", "/hub-mes.js", "/cuaderno.js", "/sublinks.js", "/cambio-cuenta.js", "/arranque.js", "/descargas.js", "/hub-secretaria.js", "/hub-cobros.js"];
+export const MODULOS_HUB = ["/ownstock.js", "/propias-plata.js", "/hub-mes.js", "/cuaderno.js", "/sublinks.js", "/cambio-cuenta.js", "/arranque.js", "/descargas.js", "/hub-secretaria.js", "/hub-cobros.js", "/hub-hojas.js"];
 
 const M = {};
 let listo = false, carga = null, redibujar = null;
@@ -72,3 +72,8 @@ export const hubSecretariaView = dibujo("hubSecretariaView"), hubComoVanView = d
 // hub-cobros.js (17/11/2026): Anotar rápido, Me pagó todo, Deshacer y comprobantes de los links
 export const initHubCobros = init("initHubCobros"), loadHubCobros = espera("loadHubCobros");
 export const hubCobrosHome = dibujo("hubCobrosHome"), hubCobrosDia = dibujo("hubCobrosDia"), payAllBtn = dibujo("payAllBtn");
+// hub-hojas.js (📒 Mis hojas)
+export const hubHojasInit = init("hubHojasInit"), hubHojasCheckUser = init("hubHojasCheckUser");
+export const hubHojasLoad = espera("hubHojasLoad"), hubHojasView = dibujo("hubHojasView");
+/** Al salir: devuelve false solo si eligió no salir (sin cargar todavía devuelve "" y se sale). */
+export const hubHojasLogout = dibujo("hubHojasLogout");

@@ -32,6 +32,7 @@ import { kindHelp } from "/codigos-ayuda.js";
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 import { initHubSecretaria, loadHubSecretaria, loadHubComoVan, hubSecretariaView, hubComoVanView } from "/hub-perezoso.js"; // hub-secretaria.js: 🤵 Mi secretaria y 📈 Cómo van
 import { initHubCobros, loadHubCobros, hubCobrosHome, hubCobrosDia, payAllBtn } from "/hub-perezoso.js"; // hub-cobros.js: Anotar rápido, Me pagó todo, comprobantes
+import { hubHojasInit, hubHojasLoad, hubHojasView, hubHojasCheckUser, hubHojasLogout } from "/hub-perezoso.js"; // 📒 Mis hojas (hub-hojas.js)
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -247,7 +248,7 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
-    if (["dia", "secretaria", "comovan", "control", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    if (["dia", "secretaria", "comovan", "control", "hojas", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
     if (["ventas", "combos"].includes(S.data.rtab ?? "ventas")) await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen; combos: sus productos propios
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
@@ -263,11 +264,14 @@ async function refresh() {
   try {
     await loadBase();
     if (MODE === "hub" || isReseller()) await cargarHub(); // funciones del revendedor (hub-perezoso.js)
+    if (hubPanel()) hubHojasCheckUser(S.me); // la copia de las hojas de otra persona se borra
     // Su logo y portada JPG/WEBP: este navegador arma la versión chica para su página (imagenes-chicas.js), una vez.
     if (MODE === "hub" && isReseller()) import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/me/shop/imagenes")).catch(() => {});
     await loadPrivate();
     if (S.view === "renovar") await loadRenovar();
   } catch (e) {
+    // 📒 Sin internet: GaboHub abre con las hojas guardadas en este aparato (si las hay).
+    if (MODE === "hub" && (e instanceof TypeError || /failed to fetch|networkerror|load failed|network request failed/i.test(String(e?.message)) || navigator.onLine === false) && await import("/hub-hojas.js").then((m) => m.hubHojasOffline($("#sout"))).catch(() => false)) return;
     $("#sout").innerHTML = `<div class="err">No pudimos cargar la tienda: ${esc(e.message)}. Revisá tu conexión y recargá.</div>`;
     return;
   }
@@ -555,7 +559,7 @@ const HUB_LABEL = { clientes: ["user", "Clientes"] };
 const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
 // Las 10 pestañas de "Mis clientes" se reparten en 3 grupos; cada grupo muestra solo sus pestañas (ninguna se pierde).
 const HUB_GROUPS = {
-  negocio: [["dia", "☀️ Mi día"], ["secretaria", "🤵 Mi secretaria"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["comovan", "📈 Cómo van"]],
+  negocio: [["dia", "☀️ Mi día"], ["secretaria", "🤵 Mi secretaria"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["hojas", "📒 Mis hojas"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["comovan", "📈 Cómo van"]],
   inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
   vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"], ["descargas", "📁 Mis descargas"]],
 };
@@ -750,12 +754,12 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
       let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
-      if (!canPage && !["dia", "secretaria", "comovan", "ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias", "descargas"].includes(tab)) tab = "ventas";
+      if (!canPage && !["dia", "secretaria", "comovan", "ventas", "perfiles", "control", "hojas", "debe", "ganancias", "afiches", "propias", "descargas"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
       if (hubTabNeeds(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard(hubTabNeeds(tab))}`;
-      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "secretaria" ? hubSecretariaView() : tab === "comovan" ? hubComoVanView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "hojas" ? hubHojasView() : tab === "dia" ? rDiaView() : tab === "secretaria" ? hubSecretariaView() : tab === "comovan" ? hubComoVanView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -782,6 +786,7 @@ planInit({ refresh: () => refresh(), render: () => render(), setView: (v) => set
 initClienteAyuda({ settings: () => S.settings });
 initA11y();
 initHubSecretaria({ render: () => render(), goVentas: () => { S.data.rtab = "ventas"; setView("clientes"); let n = 0; const t = setInterval(() => { const f = document.querySelector("#myPrices"); if (f || ++n > 40) { clearInterval(t); f?.scrollIntoView({ block: "start" }); } }, 100); } });
+hubHojasInit({ me: () => S.me, render: () => render(), isOn: () => S.view === "clientes" && S.data.rtab === "hojas" }); // 📒 Mis hojas
 // Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
 cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
 initHubCobros({ render: () => render(), refresh: async () => { if (S.view !== "inicio") await loadRTab(S.data.rtab ?? "dia"); render(); } });
@@ -790,6 +795,7 @@ async function loadRTab(tab) {
   if (tab === "descargas") await descargasEnsure();
   if (tab === "secretaria") await loadHubSecretaria();
   if (tab === "comovan") await loadHubComoVan();
+  if (tab === "hojas") await hubHojasLoad();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
@@ -898,7 +904,7 @@ function rControlBase() {
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
 // Tres niveles de GaboHub: qué plan pide cada pestaña. Gratis = comprar, cuentas, códigos, fallas, recargas y Mis descargas (catálogo).
-const HUB_TAB_PLAN = { dia: "business", secretaria: "business", comovan: "business", control: "business", debe: "business", ganancias: "business", pagina: "seller", combos: "seller", cupones: "seller", afiches: "seller", perfiles: "seller" };
+const HUB_TAB_PLAN = { dia: "business", secretaria: "business", comovan: "business", control: "business", hojas: "business", debe: "business", ganancias: "business", pagina: "seller", combos: "seller", cupones: "seller", afiches: "seller", perfiles: "seller" };
 const PLAN_RANK = { free: 0, seller: 1, business: 2 };
 const PLAN_NAME = { free: "Gratis", seller: "Vendedor", business: "Negocio" };
 const PLAN_WHAT = { free: "comprar, tus cuentas, los códigos, las fallas, recargar y tu catálogo en WhatsApp y PDF", seller: "tu página con QR, combos, cupones, afiches, repartir perfiles y links de cobro", business: "Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito" };
@@ -1424,7 +1430,7 @@ function hubVender() {
 function hubMas() {
   const canPage = !!S.me?.pageAllowed, sh = S.data.shop;
   const areas = [
-    ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"], [`data-rtool="secretaria"`, "🤵 Mi secretaria", "mensajes whatsapp avisar cobrar plantilla renovar"], [`data-rtool="comovan"`, "📈 Cómo van", "resumen mes nuevos renovaron se fueron pagaron"], [`data-hsecprecios="1"`, "💲 Mis precios de venta", "precios lista vender cuanto cobro precio del dia"]]],
+    ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="hojas"`, "📒 Mis hojas", "excel planilla hojas pestanas sin internet offline clientes fechas"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"], [`data-rtool="secretaria"`, "🤵 Mi secretaria", "mensajes whatsapp avisar cobrar plantilla renovar"], [`data-rtool="comovan"`, "📈 Cómo van", "resumen mes nuevos renovaron se fueron pagaron"], [`data-hsecprecios="1"`, "💲 Mis precios de venta", "precios lista vender cuanto cobro precio del dia"]]],
     ["📦 Inventario", [[`data-s="inventario"`, "🗂️ Por plataforma", "inventario resumen stock libres plataformas"], [`data-s="cuentas"`, "📺 Cuentas de la tienda", "accesos correos contraseñas pedidos"], [`data-rtool="perfiles"`, "🧩 Repartir perfiles", "cuenta completa alquiler"], [`data-rtool="propias"`, "📦 Mis cuentas propias", "flujo proveedor stock cupos"], [`data-s="codigos"`, "🔑 Códigos y link de códigos", "verificacion disney netflix"]]],
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
@@ -2857,7 +2863,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.reload) { await loadPrivate(); return render(); }
-  if (d.logout) { await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
+  if (d.logout) { if (hubHojasLogout() === false) return; await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
 });
 
 // Tocar un campo de solo lectura (ej. tu link de referido) lo selecciona entero, para copiarlo fácil.
