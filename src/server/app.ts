@@ -792,6 +792,10 @@ export function createApp(cfg: AppConfig): App {
   // «Que vuelvan» del revendedor: va con Mi día (plan Negocio). Solo lo suyo.
   route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
   route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
+  // 🤵 Mi secretaria (va con Mi día) y 📈 Cómo van (va con Mis ganancias): plan Negocio, solo lo suyo. Nada se manda solo.
+  route("GET", "/api/me/secretaria", "customer", (c) => { needPlan("dia")(c); return store.rtools.secretary(c.actor!, originOf(c.req)); });
+  route("PUT", "/api/me/secretaria/plantilla", "customer", (c) => { needPlan("dia")(c); return store.rtools.setSecretaryTemplate(c.actor!, c.body ?? {}); });
+  route("GET", "/api/me/como-van", "customer", (c) => { needPlan("ganancias")(c); return store.rtools.comoVan(c.actor!); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   // Con «Te deben» de todo (el mismo número que Mi día y Quién me debe) y los cuadernos de cuentas cortadas (14/11).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!), debts: store.cuaderno.debts(c.actor!), cuts: store.cuaderno.cuts(c.actor!) }));
