@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · 📄 Botón del catálogo PDF para el cliente
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (204 s) | 892: **891 pasan**; 1 falla por tiempo con la máquina cargada (`hub-inicio-simple`, ya conocida). Sola pasa 2 de 2 |
+| Prueba nueva `catalogo-pdf-boleto` | pantalla a 360 px, datos ficticios | diseño boleto en la tienda y página de revendedor: el botón se ve, mide 44 px o más, no desborda, baja un PDF de verdad (tienda → /api/catalogo.pdf; revendedor → su propio PDF) |
+| Tienda real (solo mirar) | celular 390 px en gabostore.lat | antes del cambio: ningún botón de PDF a la vista (diseño boleto) |
+
 ## 16/11/2026 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar
 | Qué | Cómo | Resultado |
 |---|---|---|

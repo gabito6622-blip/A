@@ -3,7 +3,13 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-16 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar (sin publicar)
+## 2026-11-17 · 📄 Botón «Descargar catálogo en PDF» para los clientes (sin publicar)
+- **Por qué:** el dueño: «mis clientes finales deberían ver algún botoncito para descargarlo». Su tienda usa el diseño «boleto», y ese diseño no mostraba el botón (los otros diseños sí).
+- **Tienda (diseño boleto):** debajo de «Ordenar», el botón «📄 Descargar catálogo en PDF», con sus precios públicos y su WhatsApp.
+- **Página de cada revendedor y los otros diseños:** el mismo botón, con el mismo nombre. En la página de un revendedor salen sus precios.
+- No se quitó ninguna pantalla ni botón.
+
+## 2026-11-16 · 🔗 Cobrar con link de pago y 🎁 días de regalo al aprobar (PR #87 publicado)
 - **Por qué:** el dueño: «en la hoja de cálculo… yo aprieto el link… el cliente paga con el QR… le llega a mi secretaria, le da a aprobar y… la opción de aumentarle días».
 - **Tablero de revendedores:** en cada revendedor, «🔗 Con link de pago». Arma el WhatsApp con sus cuentas por vencer, el precio de cada una, el total y **un link por cuenta**: el cliente lo abre, ve su cuenta y el precio, paga con el QR y sube el comprobante.
 - **Mis hojas:** al tocar una fila, «🔗 Cobrar con link de pago» para esa cuenta (necesita internet).
