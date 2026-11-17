@@ -1158,7 +1158,8 @@ const V = {
     const cards = plat ? groups.map(grpHtml).join("") : shownAccs.map(cardOf).join("");
     const cxPay = canReview() ? await payCard(accs, P.tab, pname, currencySym()) + payManyCard(accs, suppliers, P.tab, pname, currencySym()) : "";
     setTimeout(caidasAfter);
-    return `${alertsCard}${caidasCard}${slotCard}${editCard}${cxPay}<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button><button class="pbtn sm" type="button" data-cxmany="1">💳 Pagar varias</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button>${canReview() ? perfilBtn() : ""}<button class="pbtn sm acc-viewbtn" type="button" data-accview="${accView() === "plat" ? "clasica" : "plat"}">${accView() === "plat" ? "📋 Vista clásica" : "🗂️ Por plataforma"}</button><span class="muted">${accs.length} cuentas</span></div>
+    // Primero las cuentas; los avisos, las caídas y los cobros van debajo (antes te tapaban la lista).
+    return `<section class="card"><div class="inline">${canReview() ? `<button class="pbtn sm" type="button" data-secrets="1">${icon("eye")}${show ? "Ocultar contraseñas" : "Mostrar contraseñas"}</button><button class="pbtn sm" type="button" data-cxmany="1">💳 Pagar varias</button>` : ""}<button class="pbtn sm" type="button" data-go="carga">${icon("plus")}Cargar cuenta</button>${canReview() ? perfilBtn() : ""}<button class="pbtn sm acc-viewbtn" type="button" data-accview="${accView() === "plat" ? "clasica" : "plat"}">${accView() === "plat" ? "📋 Vista clásica" : "🗂️ Por plataforma"}</button><span class="muted">${accs.length} cuentas</span></div>
       <input id="accq" class="rsearch" placeholder="🔍 Buscar por correo, servicio o cliente" value="${esc(P.tab.accq ?? "")}" aria-label="Buscar cuenta" style="margin-top:8px">
       <div class="tabs ctl-chips accf-chips" role="tablist">${fchips.map(([k, t, c]) => `<button type="button" role="tab" data-tab="accf:${k}" aria-selected="${af === k}">${t} <span class="chipn">${c}</span></button>`).join("")}</div>
       <div class="pleg"><span><i class="p-free"></i>Libre</span><span><i class="p-busy"></i>Ocupado</span><span><i class="p-soon"></i>Por vencer</span><span><i class="p-exp"></i>Vencido</span></div>
@@ -1171,7 +1172,7 @@ const V = {
           <td>${a.status === "active" ? pill("Activa", "ok") : pill("Retirada", "mute")}</td>
           <td>${canReview() ? `<button class="pbtn sm" type="button" data-editaccopen="${esc(a.id)}">${icon("edit")}Editar</button>` : ""}
           ${a.status === "active" && canReview() ? `<details class="more"><summary>Cuenta caída</summary><form class="inline" data-down="${esc(a.id)}" style="margin-top:6px"><input name="reason" placeholder="Motivo" required><button class="pbtn sm" type="submit">Mover clientes y retirar</button></form>${fallOnlyBtn(a)}</details>` : ""}</td></tr>`;
-      }), "Todavía no cargaste cuentas.")}</div></section>`;
+      }), "Todavía no cargaste cuentas.")}</div></section>${alertsCard}${caidasCard}${slotCard}${editCard}${cxPay}`;
   },
 
   async carga() {

@@ -70,7 +70,9 @@ export function createOffice(d: OfficeDeps) {
       const prod = acc ? e.s.products[acc.productId]?.name ?? "Una cuenta" : "Una cuenta";
       const severe = al.kind !== "new_device" && al.kind !== "other";
       // La alarma suena solo mientras no lo viste en Notificaciones.
-      out.push({ a: "watch", at: al.at, text: `${prod}: ${ALERT_TEXT[al.kind]}.${al.seen ? " (Ya lo viste.)" : " ¡Miralo!"}`, tone: al.seen ? "info" : severe ? "bad" : "warn" });
+      // Lleva el correo de la cuenta: el dueño ve de cuál habla el aviso sin abrir Notificaciones.
+      const who = acc?.email ? `${prod} (${acc.email})` : prod;
+      out.push({ a: "watch", at: al.at, text: `${who}: ${ALERT_TEXT[al.kind]}.${al.seen ? " (Ya lo viste.)" : " ¡Miralo!"}`, tone: al.seen ? "info" : severe ? "bad" : "warn" });
     }
     for (const c of e.s.codes ?? []) {
       if (t - c.receivedAt > KEEP_MS) continue;

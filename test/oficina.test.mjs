@@ -103,7 +103,7 @@ describe("mi oficina", () => {
     app.watchMail({ to: "nf@x.lat", from: "Netflix <info@account.netflix.com>", subject: "Se cambió la contraseña de tu cuenta", body: "Te confirmamos que se cambió la contraseña.", at: Date.now() });
     let v = ag((await office()).json, "watch");
     assert.equal(v.last.tone, "bad");
-    assert.equal(v.last.text, "Netflix: le cambiaron la contraseña. ¡Miralo!");
+    assert.equal(v.last.text, "Netflix (nf@x.lat): le cambiaron la contraseña. ¡Miralo!");
     const al = (await call("GET", "/api/admin/account-alerts")).json[0];
     await call("POST", `/api/admin/account-alerts/${al.id}/seen`, {});
     v = ag((await office()).json, "watch");
