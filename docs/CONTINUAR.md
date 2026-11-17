@@ -37,5 +37,7 @@ no hace falta el historial de la sesión anterior.
 - Aplicar los precios del día (Productos → «💲 Precios del día»), cambiar claves de las cuentas apartadas.
 
 ## Avisos diarios programados
-«Avisos diarios de vencimientos» y «Secretaria: resumen del mediodía»: solo leen la tienda real y arman mensajes de
-WhatsApp sin mandarlos.
+«Avisos diarios de vencimientos» (17:54) y «Secretaria: resumen del mediodía» (12:24), hora de Bolivia: desde el 17/11
+cada aviso abre una sesión nueva y corta (antes iban a la sesión larga y releían todo el historial). Solo leen la tienda
+real y arman mensajes de WhatsApp sin mandarlos; avisan al celular del dueño. Las dos versiones viejas quedaron apagadas,
+no borradas.
