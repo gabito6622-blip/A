@@ -56,7 +56,7 @@ export function cortadosSection(list) {
     <span class="sec-meta">venció ${dm(i.expiredAt)} · <span class="sec-cut">se cortó solo el ${dm(i.closedAt)}</span> · ${i.priceUsd !== undefined ? usdTxt(i.priceUsd) : bs(i.price)}</span>
     <button type="button" class="pbtn sm green sec-pay" data-secreact="${esc(i.assignmentId)}">💵 Me pagó · reactivar</button><div class="sec-pv" hidden></div></li>`).join("");
   return `<section class="card sec-card" id="sec-cortados"><h2>✂️ Se cortaron solos <small>· últimos 30 días</small></h2>
-    <p class="muted" style="margin:0">Vencieron y el sistema los cortó (2 días después del vencimiento). Si te pagan igual, tocá «Me pagó»: vuelve a su perfil si sigue libre, o te ofrezco otro.</p>
+    <p class="muted" style="margin:0">Vencieron y el sistema los cortó (1 día después del vencimiento). Si te pagan igual, tocá «Me pagó»: vuelve a su perfil si sigue libre, o te ofrezco otro.</p>
     <ul class="sec-items">${items}</ul></section>`;
 }
 

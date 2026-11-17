@@ -3,6 +3,10 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-17 · ✂️ Corte con 1 día de gracia y ficha con precio de renovación (sin publicar)
+- **Corte automático:** un servicio vencido se corta **1 día** después del vencimiento (antes eran 2). Lo decidió el dueño. Los avisos «Hoy se corta» y «se corta el dd/mm» ya dicen la fecha nueva.
+- **Ficha del revendedor:** «⏳ Solo lo que vence este mes» y «Precio de renovación para el mensaje» (por ejemplo Bs 67 c/u). Solo cambia el mensaje de «💬 Mandarle su lista», no los precios guardados.
+
 ## 2026-11-17 · 🔐 Códigos más rápidos y Disney siempre (sin publicar)
 - **Por qué:** a Cabezas los códigos de Disney le llegaban tarde o no le llegaban.
 - Los buzones se leen **todos a la vez** y **cada 20 s** (antes de a uno y cada minuto). Un buzón lento o caído ya no frena a los demás: tiene 45 s por vuelta y queda con el error «tardó demasiado».

@@ -255,7 +255,7 @@ test("Aviso al celular del revendedor antes del corte de su alquiler: 3 días an
     assert.equal((await call("POST", "/api/me/push/subscribe", { subscription: { endpoint: "https://fcm.googleapis.com/fcm/send/mamani", keys: { p256dh: "a", auth: "b" } } }, mck)).status, 200);
     await app.checkResellerPush();
     const latest = (await call("GET", "/api/me/push/latest", null, mck)).json;
-    assert.match(latest.title, /Tu Disney\+ Premium de la tienda vence el 05\/11 y se corta el 07\/11/);
+    assert.match(latest.title, /Tu Disney\+ Premium de la tienda vence el 05\/11 y se corta el 06\/11/);
     assert.equal(latest.url, "/hub#cuentas");
     const n = sent.length;
     assert.ok(n >= 1);
