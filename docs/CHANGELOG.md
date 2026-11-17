@@ -10,7 +10,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **La plantilla trae TUS productos:** ejemplos con tus nombres reales, una hoja «Productos» con los nombres exactos para copiar y una hoja «Cómo llenar».
 - **Vista previa antes de guardar:** cuántas cuentas y perfiles entran por producto, y cada fila con error dice por qué (producto que no existe o que puede ser dos, correo ya cargado o repetido, fecha mal escrita, falta la fecha del proveedor o la contraseña). Las filas con error no se cargan; las demás sí. Subir el mismo archivo dos veces no duplica nada.
 - Solo dueño y administrador. Queda en la auditoría. No se quitó ninguna pantalla ni botón.
-- **Arreglo después de publicar (sin publicar):** en la plantilla real, el ejemplo de Netflix salía con «Netflix Perfil Extra Premium» (va primero en orden alfabético). Ahora los ejemplos usan el producto principal (ni «Perfil Extra» ni los de 3 meses).
+- **Arreglo después de publicar (PR #92 publicado):** en la plantilla real, el ejemplo de Netflix salía con «Netflix Perfil Extra Premium» (va primero en orden alfabético). Ahora los ejemplos usan el producto principal (ni «Perfil Extra» ni los de 3 meses).
 
 ## 2026-11-17 · 📖 Revendedores más fácil: bienvenida corta, guía con fotos e invitación clara (PR #90 publicado)
 - **Por qué:** el dueño: «todavía no entienden cómo entrar, ver sus cuentas, pagar y ver sus códigos». De 21 revendedores con cuentas, solo 7 entraron alguna vez y 12 no tienen PIN.
