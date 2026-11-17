@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · 📄 Botón «Descargar catálogo en PDF» para los clientes (sin publicar)
+## 2026-11-17 · 📄 Botón «Descargar catálogo en PDF» para los clientes (PR #88 publicado)
 - **Por qué:** el dueño: «mis clientes finales deberían ver algún botoncito para descargarlo». Su tienda usa el diseño «boleto», y ese diseño no mostraba el botón (los otros diseños sí).
 - **Tienda (diseño boleto):** debajo de «Ordenar», el botón «📄 Descargar catálogo en PDF», con sus precios públicos y su WhatsApp.
 - **Página de cada revendedor y los otros diseños:** el mismo botón, con el mismo nombre. En la página de un revendedor salen sus precios.
