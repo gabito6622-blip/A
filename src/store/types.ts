@@ -882,6 +882,8 @@ export interface State {
   /** Cobros de perfiles repartidos y cierres de mes de cada revendedor (cuadernoPlata.ts, gananciaReal.ts). Solo los ve él. */
   rcobros?: import("./cuadernoPlata.js").ResellerCobro[];
   rcierres?: Record<Id, Record<string, import("./gananciaReal.js").MonthClose>>;
+  /** Cobros del revendedor en GaboHub (hubCobros.ts): sus datos de pago, comprobantes de sus links y «Deshacer». */
+  hubCobros?: import("./hubCobros.js").HubCobrosState;
   seq: number;
 }
 

@@ -30,6 +30,7 @@ import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
+import { initHubCobros, loadHubCobros, hubCobrosHome, hubCobrosDia, payAllBtn } from "/hub-perezoso.js"; // hub-cobros.js: Anotar rápido, Me pagó todo, comprobantes
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -781,8 +782,9 @@ initClienteAyuda({ settings: () => S.settings });
 initA11y();
 // Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
 cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
+initHubCobros({ render: () => render(), refresh: async () => { if (S.view !== "inicio") await loadRTab(S.data.rtab ?? "dia"); render(); } });
 async function loadRTab(tab) {
-  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock()]);
+  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock(), loadHubCobros()]);
   if (tab === "descargas") await descargasEnsure();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
@@ -830,13 +832,13 @@ function rDiaView() {
   const item = (it, kind) => `<li class="rdia-i" data-diaitem="${esc(it.id)}" data-who="${esc(who(it.client, it.phone))}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${kind === "cobrar" ? `<span class="bad">${esc(owedText(it))}</span>${it.cut ? " · ✂️ cuenta cortada" : ""}` : `${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}`}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
       <div class="rdia-act">${payButtons(it, kind)}</div><div class="rdia-pv" hidden></div></li>`;
   const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(who(g.client, g.phone))}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
-      ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
+      ${kind === "cobrar" ? payAllBtn(g) : ""}${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
       <ul class="rdia-l">${g.items.map((it) => item(it, kind)).join("")}</ul></article>`;
   const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : ownDayNote(kind) ?? `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
   const k = D.counts;
   return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
     <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${D.cobrar.length}</b><small>te deben ${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen pronto</small></div></div></div>
-    ${undoBar()}
+    ${undoBar()}${hubCobrosDia()}
     ${sec("cobrar", "💵 Cobrar hoy", "Todo lo que te deben: vencieron y no renovaron, o te pagaron una parte. Es la misma lista de «Quién me debe». Si te pagan lo justo, un toque en «Me pagó»; si es otra plata, «Otro monto».", D.cobrar)}
     ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días (o tus clientes registrados ya vencieron): un mensaje a tiempo evita el corte.", D.avisar)}
     ${ownDayHtml()}
@@ -1604,6 +1606,7 @@ function resellerHome() {
     ${indep ? indepLine({ settings: S.settings, me }) : ""}
     ${firstStepsCard(S.data.pasos, { settings: S.settings, me, pageBtnAttr: sh?.saved ? `data-gopage="1"` : `data-wiz="1"` })}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${isReseller() ? hubCobrosHome() : ""}
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
     <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"${v === "clientes" ? ` data-gotab="ventas"` : ""}`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>

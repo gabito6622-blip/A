@@ -42,3 +42,9 @@ dd{margin:0;font-weight:600;overflow-wrap:anywhere}
 .ok-big{text-align:center;gap:6px}
 .ok-big b{font-size:24px}
 .foot{font-size:13px;color:var(--muted);text-align:center}
+.ch2{font-size:18px;margin:0}
+.cup{display:grid;gap:8px;min-width:0}
+.cup .btn{width:100%}
+.cup input[type=file]{min-height:44px;font:inherit;font-size:15px;width:100%;min-width:0}
+.cerr{color:var(--bad);font-size:14px;min-height:0}
+.cpago .pill{white-space:normal;border-radius:12px}

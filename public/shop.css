@@ -1270,3 +1270,15 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 /* 📄 Catálogo en PDF en el diseño «boleto» (17/11/2026) */
 .tkpdf{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:10px 14px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-bg);color:var(--s-ink);font-size:14px;font-weight:600;text-decoration:none}
 .tkpdf:hover{border-color:var(--s-accent,var(--s-line))}
+/* hub-cobros.js (17/11/2026): Anotar rápido, Me pagó todo y comprobantes de los links */
+.hcob{display:grid;gap:8px}
+.hcob textarea,.hcob input{width:100%;min-height:44px;font-size:16px}
+.hcob-l{display:grid;gap:4px;font-size:13px}
+.hcob-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hcob-list li{display:grid;gap:6px;padding:10px;border:1px solid var(--line,rgba(127,127,127,.3));border-radius:12px;overflow-wrap:anywhere}
+.hcob-ok{border-left:4px solid #1f9d55!important}.hcob-bad{border-left:4px solid #d64545!important}
+.hcob-undo{display:grid;gap:6px}.hcob-ur{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.hcob .sbtn,.hcob a.sbtn{min-height:44px}
+.hcob-msg{font-size:13px;margin-left:8px}
+.hcob summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+.rdia-g header{flex-wrap:wrap;gap:6px}
