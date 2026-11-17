@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · 🔑 Códigos de Netflix en más idiomas y link de códigos para clientes finales (sin publicar)
+## 2026-11-17 · 🔑 Códigos de Netflix en más idiomas y link de códigos para clientes finales (PR #97 publicado)
 - **Por qué:** el dueño: «que salgan los códigos de Disney… en todos los idiomas… y los de Netflix para mis clientes finales, para sacar link para ellos».
 - **Netflix pasa siempre** (como Disney), aunque el buzón tenga una lista de asuntos vieja, **si trae un código junto a la palabra «código» o un link de Netflix** (hogar, acceso temporal). Una promoción con números no se toma como código. Si en un buzón elegiste «solo Disney», Netflix sigue sin entrar ahí.
 - **Más idiomas:** la palabra «código» en español, inglés, portugués, francés, italiano, alemán, holandés, polaco, turco, checo, finés, ruso, griego, japonés, coreano y chino; y el tipo (hogar, inicio de sesión, acceso temporal, verificación) también en portugués, francés, italiano y alemán.

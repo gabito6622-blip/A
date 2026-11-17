@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P2] 🛒 Códigos de Netflix en más idiomas y link de códigos para clientes finales (17/11):** prueba `codigos-netflix-idiomas`. Sin publicar.
+- ✅ **[P2] 🛒 Códigos de Netflix en más idiomas y link de códigos para clientes finales (17/11):** prueba `codigos-netflix-idiomas`. Publicado (#97): páginas 200 y botón en la ficha; sin foto de datos (la llave del asistente no vale; el cambio no escribe datos).
 - ✅ **[P2] 👔 Correos que faltan conectar para los códigos (17/11):** prueba `correos-madre`. Publicado (#96): páginas 200 y ruta nueva activa; sin foto de datos antes y después porque la llave del asistente no vale (solo agrega una lectura).
   - 🧑 Pendiente del dueño: crear una llave nueva del asistente (Usuarios) y guardarla en el formulario seguro; la llave guardada dejó de valer el 17/11.
 - ✅ **[P1] 🏪 GaboHub igual al panel del dueño (17/11):** editor de Mi página, Mis hojas, cobros (Anotar rápido, Cobrar hoy, link de cobro con comprobante) y Mi secretaria + Cómo van. Pruebas `editor-mi-pagina`, `hub-hojas`, `hub-cobros`, `hub-secretaria`. Publicado (#93) el 17/11 con respaldo bajado por el dueño; páginas 200 antes y después (sin llave del asistente en esa sesión: no hubo foto de datos por API). V8 y V9 hechos.
