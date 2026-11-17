@@ -36,6 +36,7 @@ import { createImagenes, type ComoServir } from "./imagenes.js";
 import { createPrecarga } from "./precarga.js";
 import { registerImagenesRoutes } from "./imagenesRoutes.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
+import { registerHubCobrosRoutes } from "./hubCobrosRoutes.js";
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
@@ -910,6 +911,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   // "📩 Ver mi código de acceso" en /c/<token> + interruptores del revendedor y del dueño.
   registerSelfCodesRoutes({ route, store, cobro, now, tooMany: (m) => { throw new HttpError(429, "RATE_LIMIT", m); } });
+  // Cobros del revendedor (hubCobrosRoutes.ts): Anotar rápido, Me pagó todo, Deshacer y comprobantes de sus links.
+  registerHubCobrosRoutes({ route, store, saveUpload, dropUpload, fileHash, sendImage, needPlan, cobro, now, maxUpload: MAX_UPLOAD_JSON, tooMany: (m) => { throw new HttpError(429, "RATE_LIMIT", m); } });
   // 🔎 Buscador del panel (searchRoutes.ts): clientes, revendedores, servicios, cuentas y pedidos, según permisos.
   registerSearchRoutes({ route, store });
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
@@ -2786,7 +2789,7 @@ export function createApp(cfg: AppConfig): App {
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.code, message: e.message });
       if (e instanceof DomainError) return send(res, STATUS[e.code] ?? 400, { error: e.code, message: e.message });
-      log(`error ${req.method} ${url.pathname}: ${(e as Error).stack ?? e}`);
+      log(`error ${req.method} ${url.pathname.replace(/^\/(api\/cobro|c)\/[^/]+/, "/$1/…")}: ${(e as Error).stack ?? e}`);
       send(res, 500, { error: "INTERNAL", message: "Error interno. Probá de nuevo." });
     }
   });

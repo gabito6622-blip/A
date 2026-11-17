@@ -7,6 +7,8 @@
 //  - «Tu ganancia real» con lo que de verdad te pagaron, y el historial mes a mes.
 //  - Atajos: desde Repartir perfiles a Mi día, Quién me debe y Mis ganancias.
 // Todo pasa por el servidor, que decide qué es tuyo y cuánto debe cada uno.
+// 17/11: «Me pagó» de Mi día va por /api/me/cobros-hub/pay (hubCobros.ts): el mismo cobro, con «Deshacer» también
+// para clientes registrados y fiados (antes solo perfiles).
 import { api, esc, fdate, toast, newKey, toCents } from "/common.js";
 import { mine, mySym } from "/country.js";
 
@@ -53,7 +55,7 @@ export function subPayButtons(aid, s, amt) {
 /** Cartel de «Deshacer» el último cobro de un toque. */
 export function undoBar() {
   if (!last || Date.now() - last.at > UNDO_MS) return "";
-  return `<div class="sbox rdone cundo" role="status"><span>💵 ${esc(last.text)}</span><div class="rbtns">${last.cobroId ? `<button class="sbtn sm" type="button" data-cundo="1">↩️ Deshacer</button>` : ""}<button class="sbtn sm" type="button" data-cundox="1">Listo</button></div></div>`;
+  return `<div class="sbox rdone cundo" role="status"><span>💵 ${esc(last.text)}</span><div class="rbtns">${last.cobroId || last.undoId ? `<button class="sbtn sm" type="button" data-cundo="1">↩️ Deshacer</button>` : ""}<button class="sbtn sm" type="button" data-cundox="1">Listo</button></div></div>`;
 }
 
 /** Texto de lo que queda después de un pago (en vivo, mientras escribe el monto). */
@@ -135,7 +137,7 @@ export function historyBox(g) {
 }
 
 async function done(r, name) {
-  last = { at: Date.now(), cobroId: r.cobroId ?? null, text: `${name} te pagó ${mine(r.paid)}${r.left ? ` · debe ${mine(r.left)}` : " · al día"}` };
+  last = { at: Date.now(), cobroId: r.cobroId ?? null, undoId: r.undoId ?? null, text: `${name} te pagó ${mine(r.paid)}${r.left ? ` · debe ${mine(r.left)}` : " · al día"}` };
   toast(r.left ? `💵 Anotado. Queda debiendo ${mine(r.left)}` : `💵 Cobrado ✓${r.to ? ` (vence el ${dm(r.to)})` : ""}`);
   await ctx.refresh();
 }
@@ -168,9 +170,9 @@ document.addEventListener("click", async (ev) => {
   if (d.rdpayno) { const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (box) { box.hidden = true; box.innerHTML = ""; } return; }
   el.disabled = true;
   try {
-    if (d.rdfast) return await done(await api("POST", `/api/me/dia/pay/${encodeURIComponent(d.rdfast)}`, { amount: Number(d.amt), idempotencyKey: d.key }), nameNear(el));
+    if (d.rdfast) return await done(await api("POST", `/api/me/cobros-hub/pay/${encodeURIComponent(d.rdfast)}`, { amount: Number(d.amt), idempotencyKey: d.key }), nameNear(el));
     if (d.subfast) { const [aid, sid] = d.subfast.split("|"); return await done(await api("POST", `/api/me/subs/${aid}/${sid}/pay`, { amount: Number(d.amt) }), nameNear(el)); }
-    if (d.cundo) { await api("POST", `/api/me/cobros/${encodeURIComponent(last.cobroId)}/undo`, {}); last = null; toast("↩️ Listo, lo deshice"); return await ctx.refresh(); }
+    if (d.cundo) { await api("POST", last.undoId ? `/api/me/cobros-hub/undo/${encodeURIComponent(last.undoId)}` : `/api/me/cobros/${encodeURIComponent(last.cobroId)}/undo`, {}); last = null; toast("↩️ Listo, lo deshice"); return await ctx.refresh(); }
     if (d.rdpay) {
       const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
       const pv = await api("GET", `/api/me/dia/preview/${encodeURIComponent(d.rdpay)}`);
@@ -182,7 +184,7 @@ document.addEventListener("click", async (ev) => {
       const box = el.closest(".rdia-i")?.querySelector(".rdia-pv"); if (!box) return;
       const v = box.querySelector('[name="amount"]')?.value.trim(); const renew = !!box.querySelector('[name="renew"]')?.checked;
       if (v && !(toCents(v) > 0)) { const o = box.querySelector(".rdia-left"); if (o) o.textContent = "Escribí cuánto te pagó"; return; }
-      const r = await api("POST", `/api/me/dia/pay/${encodeURIComponent(d.rdpayok)}`, { ...(v ? { amount: toCents(v) } : {}), renew, idempotencyKey: d.key });
+      const r = await api("POST", `/api/me/cobros-hub/pay/${encodeURIComponent(d.rdpayok)}`, { ...(v ? { amount: toCents(v) } : {}), renew, idempotencyKey: d.key });
       if (r.renewError) toast(`💵 Cobro anotado. No se renovó: ${r.renewError}`);
       else if (r.renewed) toast(`💵 Cobrado y renovado hasta el ${fdate(r.to)} ✓`);
       return await done(r, nameNear(el));

@@ -884,6 +884,8 @@ export interface State {
   rcierres?: Record<Id, Record<string, import("./gananciaReal.js").MonthClose>>;
   /** 🤵 Plantillas de «Mi secretaria» de cada revendedor (hubSecretaria.ts). Solo las ve él. */
   hubSecretaria?: Record<Id, Partial<Record<"avisar" | "cobrar" | "renovo", string>>>;
+  /** Cobros del revendedor en GaboHub (hubCobros.ts): sus datos de pago, comprobantes de sus links y «Deshacer». */
+  hubCobros?: import("./hubCobros.js").HubCobrosState;
   seq: number;
 }
 

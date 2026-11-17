@@ -32,6 +32,7 @@ import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
 import * as hubSec from "./hubSecretaria.js";
 import * as rday from "./resellerDay.js";
+import * as hubCobros from "./hubCobros.js";
 import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
@@ -503,6 +504,16 @@ export function createStore(opts: EngineOptions = {}) {
       resolve: bind(e, renovarSinTrabas.resolveRequest),
       reject: bind(e, renovarSinTrabas.rejectRequest),
       changePush: (customerId: Id, since: number) => avisoCambios.changePushText(e, customerId, since),
+    },
+    /** Herramientas de cobro del dueño, para el revendedor (hubCobros.ts, 17/11/2026). */
+    hubCobros: {
+      payInfo: bind(e, hubCobros.myPayInfo), setPayInfo: bind(e, hubCobros.setMyPayInfo),
+      pay: bind(e, hubCobros.payWithUndo), payMany: bind(e, hubCobros.payMany), undo: bind(e, hubCobros.undo), undoList: bind(e, hubCobros.undoList),
+      quickParse: bind(e, hubCobros.quickParse), quickApply: bind(e, hubCobros.quickApply),
+      proofs: bind(e, hubCobros.myProofs), proofFile: bind(e, hubCobros.proofFile), approve: bind(e, hubCobros.approveProof), reject: bind(e, hubCobros.rejectProof),
+      summary: bind(e, hubCobros.summary),
+      publicPay: (token: unknown) => hubCobros.publicPay(e, token),
+      submitProof: (token: unknown, input: { fileRef: string; hash: string }) => hubCobros.submitProof(e, token, input),
     },
     rtools: {
       control: bind(e, rtools.myControl),
