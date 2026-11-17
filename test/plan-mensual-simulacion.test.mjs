@@ -89,7 +89,7 @@ for (const mode of ["days", "calendar"]) test(`3 meses (${mode === "days" ? "30 
         s.rmes.approveGroup(owner, { orderIds: r.orders.map((o) => o.id), confirmedReference: "VAR-0001", amount: r.total });
         dues.vargas.push(day); log.push(`día ${day}: Vargas paga con un QR ${r.total / 100} Bs`);
       }
-      if (day === due[1] + 1) { // se olvidó: paga un día tarde (antes del corte)
+      if (day === due[1]) { // se olvidó del aviso: paga el mismo día que vence (con 1 día de gracia, al día siguiente ya se cortó)
         const r = s.plan.renewAll(asC(fam.vargas), { ids: active("vargas").map((a) => a.id), paymentMethod: "balance", idempotencyKey: `v${day}` });
         dues.vargas.push(day); log.push(`día ${day}: Vargas paga tarde ${r.total / 100} Bs`);
       }

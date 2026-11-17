@@ -2,7 +2,7 @@
 // (simulación de 3 meses en el lugar del revendedor, 15/11/2026).
 //
 // Antes el aviso del día del corte (avisoAlquiler.ts) miraba solo los alquileres del revendedor con la tienda, y solo el
-// día del corte normal (vencimiento + 2 días):
+// día del corte normal (vencimiento + 1 día):
 //  - el Netflix que el revendedor le compró a SU cliente registrado (Pedro, Carmen) se cortaba sin ningún aviso ese día;
 //  - si había pedido la renovación y el dueño no la resolvía, la espera (5 días más) se terminaba y el servicio se cortaba
 //    esa mañana sin aviso: el «Hoy se corta» nunca salía porque el día del corte normal ya había pasado.

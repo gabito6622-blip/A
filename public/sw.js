@@ -52,6 +52,8 @@ self.addEventListener("notificationclick", (ev) => {
 const PANEL_CACHE = "gs-panel-v1";
 const STATIC = /\.(?:js|css|svg|png|webp|ico|webmanifest|woff2?)$/i;
 const panelPage = (u) => u.pathname === "/panel" || u.pathname.startsWith("/panel.") || u.pathname.startsWith("/panel/");
+// 📒 Mis hojas del revendedor (17/11): GaboHub (/hub) también abre sin internet con sus hojas guardadas.
+const hubPage = (u) => u.pathname === "/hub" || u.pathname === "/hub/";
 async function netFirst(req, fallbackPage) {
   const cache = await caches.open(PANEL_CACHE);
   try {
@@ -59,7 +61,7 @@ async function netFirst(req, fallbackPage) {
     if (res.ok && res.type === "basic") cache.put(req, res.clone()).catch(() => {});
     return res;
   } catch (err) {
-    const hit = (await cache.match(req, { ignoreSearch: true })) || (fallbackPage && ((await cache.match("/panel.html")) || (await cache.match("/panel"))));
+    const hit = (await cache.match(req, { ignoreSearch: true })) || (fallbackPage === "hub" ? await cache.match("/hub") : fallbackPage && ((await cache.match("/panel.html")) || (await cache.match("/panel"))));
     if (hit) return hit;
     throw err;
   }
@@ -69,7 +71,7 @@ self.addEventListener("fetch", (ev) => {
   if (req.method !== "GET") return;
   const u = new URL(req.url);
   if (u.origin !== self.location.origin || u.pathname.startsWith("/api/")) return;
-  if (req.mode === "navigate") { if (panelPage(u)) ev.respondWith(netFirst(req, true)); return; }
+  if (req.mode === "navigate") { if (panelPage(u)) ev.respondWith(netFirst(req, true)); else if (hubPage(u)) ev.respondWith(netFirst(req, "hub")); return; }
   if (STATIC.test(u.pathname)) ev.respondWith(netFirst(req, false));
 });
 // El panel avisa qué archivos ya cargó (la primera vez todavía no pasaban por acá) para guardarlos.
@@ -80,7 +82,9 @@ self.addEventListener("message", (ev) => {
     for (const raw of ev.data.urls.slice(0, 300)) {
       try {
         const u = new URL(raw, self.location.origin);
-        if (u.origin !== self.location.origin || u.pathname.startsWith("/api/") || !(STATIC.test(u.pathname) || panelPage(u))) continue;
+        if (u.origin !== self.location.origin || u.pathname.startsWith("/api/") || !(STATIC.test(u.pathname) || panelPage(u) || hubPage(u))) continue;
+        // Ya guardado: no se vuelve a bajar (las páginas abiertas con este service worker lo renuevan solas al pedirlo).
+        if (await cache.match(u.pathname + u.search)) continue;
         const res = await fetch(u.pathname + u.search, { credentials: "same-origin" });
         if (res.ok && res.type === "basic") await cache.put(u.pathname + u.search, res);
       } catch { /* sin señal: se guarda la próxima vez */ }

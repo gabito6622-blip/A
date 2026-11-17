@@ -8,6 +8,22 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **Panel de códigos → «📬 Correos que faltan conectar»:** agrupa las cuentas activas por su correo madre (lo de antes del «+»; en Gmail sin puntos) y dice para cada uno: ⚠️ falta conectar, ⛔ conectado con error, 📨 llegan por reenvío (llegó algún código en 7 días) o ✅ conectado; con cuántas cuentas dependen y cuántas están en uso. Primero lo que falta.
 - **También la ven un admin y la llave del asistente**, sin contraseñas. Conectar, cambiar o borrar un correo sigue siendo solo del dueño.
 - No se quitó ninguna pantalla ni botón.
+## 2026-11-17 · ✂️ Corte con 1 día de gracia y ficha con precio de renovación (sin publicar)
+- **Corte automático:** un servicio vencido se corta **1 día** después del vencimiento (antes eran 2). Lo decidió el dueño. Los avisos «Hoy se corta» y «se corta el dd/mm» ya dicen la fecha nueva.
+- **Ficha del revendedor:** «⏳ Solo lo que vence este mes» y «Precio de renovación para el mensaje» (por ejemplo Bs 67 c/u). Solo cambia el mensaje de «💬 Mandarle su lista», no los precios guardados.
+
+## 2026-11-17 · 🔐 Códigos más rápidos y Disney siempre (sin publicar)
+- **Por qué:** a Cabezas los códigos de Disney le llegaban tarde o no le llegaban.
+- Los buzones se leen **todos a la vez** y **cada 20 s** (antes de a uno y cada minuto). Un buzón lento o caído ya no frena a los demás: tiene 45 s por vuelta y queda con el error «tardó demasiado».
+- Los correos de **Disney+ y MyDisney pasan siempre**, aunque el buzón tenga una lista vieja de asuntos o remitentes. Se sumó «passcode» a los asuntos por defecto, y el código se lee también en portugués, francés, italiano, alemán y otros idiomas.
+
+## 2026-11-17 · 🏪 GaboHub: los revendedores tienen lo del panel del dueño (PR #93 publicado)
+- **Por qué:** el dueño: «todo lo que yo tengo en mi panel tiene que tenerlo mis revendedores para que estén cómodos», y el editor de su página «más bonito, cómodo y práctico en el teléfono y en la computadora».
+- **Mi página:** editor por secciones plegables (Marca, Colores y diseño, Portada, Productos, Publicar y cobrar), paletas sugeridas con aviso «se lee poco», vista previa en vivo sin guardar (pantalla completa en celular, al lado en PC) y «Guardar mi página» fijo encima del menú. No se quitó ninguna opción.
+- **📒 Mis hojas:** sus clientes (tienda, cuentas propias y perfiles) como en el Excel, por plataforma y «Me deben»; también sin internet, con cambios que se suben solos y aviso si chocan.
+- **Cobros:** «✍️ Anotar rápido» en Inicio, «📋 Cobrar hoy» (Mi día) con «Me pagó todo» y «Deshacer» (30 min), link de cobro con los datos de pago y QR del revendedor (V8); el cliente sube comprobante y lo aprueba el revendedor. El log ya no guarda tokens de cobro (V9).
+- **🤵 Mi secretaria y 📈 Cómo van:** mensajes listos de cobrar, avisar y renovado con plantilla propia (se mandan a mano por WhatsApp) y su mes contra el anterior. Acceso «💲 Mis precios de venta» en Más.
+- Cada revendedor ve solo lo suyo. Lo nuevo respeta la suscripción GaboHub.
 
 ## 2026-11-17 · 📦 Cargar cuentas para vender desde Excel (PR #91 publicado)
 - **Por qué:** el dueño: «mañana voy a meter más cuentas… completas y con perfiles desde un Excel, de manera masiva». Había importación de clientes y de servicios, pero no de cuentas nuevas para vender.

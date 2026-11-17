@@ -33,9 +33,8 @@ describe("«✂️ Hoy se corta» también por los clientes del revendedor y al 
     const carmen = s.catalog.createCustomer(R(marta), { name: "Carmen Gutiérrez", phone: "+59171200010" });
     const aid = buy(marta, "net", carmen.id);
     const exp = s.engine.s.assignments[aid].customerExpiresAt;
-    clock.t = exp + DAY; // vencido, se corta mañana
-    assert.equal(s.rmes.rentPush(marta.id), null);
-    clock.t = exp + 2 * DAY - 3_600_000; // el día del corte, antes de la hora
+    // Con 1 día de gracia (17/11/2026) el día siguiente al vencimiento ya es el día del corte.
+    clock.t = exp + 1 * DAY - 3_600_000; // el día del corte, antes de la hora
     const p = s.rmes.rentPush(marta.id);
     assert.equal(p.title, "✂️ Hoy se corta el Netflix 1 perfil de Carmen");
     assert.match(p.body, /Renovalo hoy/);
@@ -50,11 +49,11 @@ describe("«✂️ Hoy se corta» también por los clientes del revendedor y al 
     s.inventory.updateAccount(owner, accOf(hbo).id, { supplierExpiresAt: exp + 5 * DAY }); // el proveedor vence antes
     clock.t = exp - DAY;
     s.rsin.request(R(marta), hbo);
-    clock.t = exp + 2 * DAY - 3_600_000; // día del corte normal: el pedido lo frena
+    clock.t = exp + 1 * DAY - 3_600_000; // día del corte normal: el pedido lo frena
     assert.doesNotMatch(s.rmes.rentPush(marta.id)?.title ?? "", /Hoy se corta/);
     const al = s.rmes.rentAlerts(R(marta)).list[0];
     assert.equal(al.cutDaysLeft, 5, "el cartel dice el día en que de verdad se corta");
-    clock.t = exp + 7 * DAY - 3_600_000; // último día de la espera
+    clock.t = exp + 6 * DAY - 3_600_000; // último día de la espera (con 1 día de gracia)
     const p = s.rmes.rentPush(marta.id);
     assert.equal(p.title, "✂️ Hoy se corta tu HBO Max de la tienda");
     assert.match(p.body, /pedido de renovación sigue sin resolverse/);

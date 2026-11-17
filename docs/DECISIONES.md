@@ -5,6 +5,19 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 ## 2026-11-17 · Correos que faltan conectar
 - **Lista aparte, de solo lectura:** la configuración de los buzones (contraseñas de aplicación) sigue siendo del dueño; la lista de qué falta no tiene secretos y la puede leer un admin o el asistente.
 - **«Por reenvío» por evidencia:** si a un correo madre no conectado le llegó algún código en 7 días, se toma como reenviado a uno conectado. No se adivina por el nombre.
+## 2026-11-17 · Corte a 1 día
+- El dueño eligió 1 día de gracia (antes 2): menos uso gratis de quien no paga; quien paga tarde ese mismo día sigue sin corte. Las pruebas que suponían 2 días se movieron a 1.
+
+## 2026-11-17 · Códigos: Disney pasa siempre
+- El dueño pidió que lleguen todos los de Disney y MyDisney. Un remitente con «disney» saltea las listas de asuntos y remitentes del buzón; igual tiene que traer un código o link.
+- Buzones en paralelo con tope de 45 s cada uno, cada 20 s; las demás tareas siguen cada minuto.
+
+## 2026-11-17 · GaboHub igual al panel del dueño
+- **Reutilizar antes que duplicar:** «Cobrar hoy» es Mi día; Mis hojas usa las mismas funciones de siempre por una sola ruta; Mi secretaria usa los datos de Mi día y cuentas propias; precios del día = su lista de precios de venta.
+- **Lo que es solo del dueño no se pasa:** aprobar pagos de la tienda, proveedores, costos, otros revendedores.
+- **Comprobantes del revendedor guardados aparte** de los pedidos de la tienda, para que nunca se mezclen.
+- **Paletas del editor no guardan solas:** se prueban en la vista previa y se guardan con «Guardar mi página».
+- **Cómo van** compara con el mes pasado completo; % solo con base de Bs 30 o más.
 
 ## 2026-11-17 · Cargar cuentas desde Excel
 - **Usa la misma carga de siempre (una cuenta a la vez por dentro):** las mismas reglas de correos repetidos y fecha del proveedor obligatoria; no hay reglas nuevas que mantener.

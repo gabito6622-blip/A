@@ -6,6 +6,12 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 
 - ✅ **[P2] 👔 Correos que faltan conectar para los códigos (17/11):** prueba `correos-madre`. Sin publicar.
   - 🧑 Pendiente del dueño: crear una llave nueva del asistente (Usuarios) y guardarla en el formulario seguro; la llave guardada dejó de valer el 17/11.
+- ✅ **[P1] 🏪 GaboHub igual al panel del dueño (17/11):** editor de Mi página, Mis hojas, cobros (Anotar rápido, Cobrar hoy, link de cobro con comprobante) y Mi secretaria + Cómo van. Pruebas `editor-mi-pagina`, `hub-hojas`, `hub-cobros`, `hub-secretaria`. Publicado (#93) el 17/11 con respaldo bajado por el dueño; páginas 200 antes y después (sin llave del asistente en esa sesión: no hubo foto de datos por API). V8 y V9 hechos.
+  - ⏳ [P2] Aviso al revendedor cuando le llega un comprobante (hoy lo ve al entrar).
+  - ⏳ [P3] Deshacer al aprobar un comprobante de cuenta propia; pruebas de link con comprobante para cuentas propias y clientes registrados.
+  - ⏳ [P3] Cómo van: comparar con el mes pasado «a la misma altura».
+  - ⏳ [P3] Revisar a ojo el modo claro real de GaboHub y medir los demás botones de Mis hojas.
+
 - ✅ **[P1] 👔 Cargar cuentas para vender desde Excel (17/11):** prueba `importar-cuentas-excel`. Publicado (#91): datos iguales antes y después. Arreglo del ejemplo de Netflix en la plantilla: publicado (#92), verificado en la plantilla real.
 - ✅ **[P1] 🏪 Revendedores más fácil: bienvenida de 4 pasos, guía con fotos e invitación clara (17/11):** prueba `guia-revendedor`. Publicado (#90): datos iguales antes y después; la guía abre en gabostore.lat/guia-revendedor con sus 4 fotos.
   - 🧑 Pendiente del dueño: invitar a los 12 revendedores sin PIN desde Inicio → «▶ Invitarlos ahora» (empezar por los que ya entraron) y revisar el Gmail con error del Panel de códigos.

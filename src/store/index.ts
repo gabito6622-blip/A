@@ -30,7 +30,9 @@ import * as cobrarBien from "./cobrarBien.js";
 import * as cambioPlataforma from "./cambioPlataforma.js";
 import * as fiado from "./fiado.js";
 import * as rtools from "./resellerTools.js";
+import * as hubSec from "./hubSecretaria.js";
 import * as rday from "./resellerDay.js";
+import * as hubCobros from "./hubCobros.js";
 import * as rback from "./resellerBack.js";
 import * as clientLinks from "./clientLinks.js";
 import * as subs from "./subRentals.js";
@@ -504,6 +506,16 @@ export function createStore(opts: EngineOptions = {}) {
       reject: bind(e, renovarSinTrabas.rejectRequest),
       changePush: (customerId: Id, since: number) => avisoCambios.changePushText(e, customerId, since),
     },
+    /** Herramientas de cobro del dueño, para el revendedor (hubCobros.ts, 17/11/2026). */
+    hubCobros: {
+      payInfo: bind(e, hubCobros.myPayInfo), setPayInfo: bind(e, hubCobros.setMyPayInfo),
+      pay: bind(e, hubCobros.payWithUndo), payMany: bind(e, hubCobros.payMany), undo: bind(e, hubCobros.undo), undoList: bind(e, hubCobros.undoList),
+      quickParse: bind(e, hubCobros.quickParse), quickApply: bind(e, hubCobros.quickApply),
+      proofs: bind(e, hubCobros.myProofs), proofFile: bind(e, hubCobros.proofFile), approve: bind(e, hubCobros.approveProof), reject: bind(e, hubCobros.rejectProof),
+      summary: bind(e, hubCobros.summary),
+      publicPay: (token: unknown) => hubCobros.publicPay(e, token),
+      submitProof: (token: unknown, input: { fileRef: string; hash: string }) => hubCobros.submitProof(e, token, input),
+    },
     rtools: {
       control: bind(e, rtools.myControl),
       setControl: bind(e, rtools.setMyControl),
@@ -519,6 +531,10 @@ export function createStore(opts: EngineOptions = {}) {
       /** «Que vuelvan» (13/11): sus clientes vencidos sin renovar, con «Ya le escribí». */
       winback: bind(e, rback.myWinback),
       markBack: bind(e, rback.markBack),
+      /** 🤵 Mi secretaria y 📈 Cómo van del revendedor (17/11): solo lo suyo. */
+      secretary: bind(e, hubSec.mySecretary),
+      setSecretaryTemplate: bind(e, hubSec.setSecretaryTemplate),
+      comoVan: bind(e, hubSec.myComoVan),
     },
   };
 }

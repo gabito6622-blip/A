@@ -4,6 +4,7 @@ import { money as fmtMoney } from "/country.js";
 import { waDigits } from "/common.js";
 import { codesCard } from "/cobro-codigos.js";
 import { mountAlerts } from "/avisos-cobro.js";
+import { mountComprobante } from "/cobro-comprobante.js"; // 🏦 datos de pago escritos y 📤 comprobante (17/11)
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const token = location.pathname.split("/").filter(Boolean)[1] ?? "";
@@ -80,7 +81,8 @@ async function load() {
     if (r.status === 404) return fail("Este link ya no sirve", "Pedile uno nuevo a quien te vendió.");
     if (!r.ok) return fail("No pudimos abrirlo", j.message || "Probá de nuevo en un rato.", true);
     view(j);
-    mountAlerts($("#app"), token, j).catch(() => {}); // 🔔 avisos automáticos (avisos-cobro.js)
+    mountAlerts($("#app"), token, j).catch(() => {});
+    mountComprobante($("#app"), token, j.seller || "quien te vendió").catch(() => {}); // 🔔 avisos automáticos (avisos-cobro.js)
   } catch {
     fail("No pudimos abrirlo", "Revisá tu conexión a internet y probá de nuevo.", true);
   }

@@ -27,7 +27,7 @@ const fbs = (c: Cents) => `Bs ${(c / 100).toLocaleString("es-BO", { minimumFract
 
 /**
  * Desde cuándo corre el período que se cobra ahora. Si todavía no venció: desde el vencimiento. Si venció pero sigue
- * activo (no se cortó: está en los 2 días de gracia): también desde el vencimiento, así no se regalan los días que ya
+ * activo (no se cortó: está en el día de gracia): también desde el vencimiento, así no se regalan los días que ya
  * usó. Si está cortado, «esperando fecha» o el atraso pasa de 30 días, arranca hoy.
  */
 export function renewStart(a: Pick<Assignment, "status" | "customerExpiresAt" | "holdOpen">, now: number): number {

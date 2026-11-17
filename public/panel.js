@@ -1532,19 +1532,27 @@ const V = {
       const pn = (x) => x.replace(/ \(alquiler revendedores\)/, "");
       const apps = [...new Set(fs.rows.map((x) => pn(x.product)))];
       const app = apps.includes(T.rfp) ? T.rfp : "";
-      const rows = fs.rows.filter((x) => !app || pn(x.product) === app).sort((a, b) => a.email.localeCompare(b.email) || a.expiresAt - b.expiresAt);
+      // «Solo por vencer» (17/11/2026): los vencidos ya cortados no van en la lista de renovación.
+      const soloVence = T.rfv === "1";
+      // Precio de renovación del mensaje (Bs): si el dueño lo escribe, la lista usa ese precio para cada perfil.
+      const ren = Number.isFinite(+T.rfren) && +T.rfren > 0 ? Math.round(+T.rfren * 100) : 0;
+      const rows = fs.rows.filter((x) => (!app || pn(x.product) === app) && (!soloVence || (!x.holdOpen && daysLeft(x.expiresAt) >= 0 && daysLeft(x.expiresAt) <= 31))).sort((a, b) => a.email.localeCompare(b.email) || a.expiresAt - b.expiresAt);
       const byAcc = Object.entries(rows.reduce((m, x) => ((m[`${pn(x.product)}|${x.email}`] ??= []).push(x), m), {}));
       const dl = (x) => daysLeft(x.expiresAt);
       const venc = rows.filter((x) => dl(x) < 0 || x.holdOpen).length, semana = rows.filter((x) => dl(x) >= 0 && dl(x) <= 7).length;
       const fsm = fs.currency === "USD" ? usd : bs; // revendedor en dólares: su lista y su resumen en US$
-      const total = rows.reduce((t, x) => t + (x.price || 0), 0), debe = rows.filter((x) => x.pay !== "pagado");
+      const precio = (x) => ren || x.price || 0;
+      const total = rows.reduce((t, x) => t + precio(x), 0), debe = rows.filter((x) => x.pay !== "pagado");
       const st = (x) => (x.holdOpen ? pill("Esperando fecha", "mute") : dl(x) < 0 ? pill(`Venció hace ${-dl(x)} d`, "bad") : dl(x) === 0 ? pill("Vence hoy", "warn") : dl(x) <= 7 ? pill(`${dl(x)} d`, "warn") : pill(`${dl(x)} d`, "ok"));
       const PAYT = { pagado: "", pendiente: " · ⏳ pendiente", no_pago: " · ❌ no pagó" };
-      const msg = `Hola ${fs.name.split(" ")[0]} 👋 tu resumen${app ? ` de *${app}*` : ""}:\n\n` + byAcc.map(([k, l]) => `*${k.split("|")[0]}* · ${k.split("|")[1]}\n` + l.map((x) => `• ${x.profile}${x.client ? ` – ${x.client}` : ""} – ${x.holdOpen ? "esperando fecha" : `vence ${fdate(x.expiresAt)}`} – ${fsm(x.price || 0)}${PAYT[x.pay] ?? ""}`).join("\n")).join("\n\n")
-        + `\n\nTotal: ${rows.length} perfil(es) · ${fsm(total)}${semana ? `\nVencen esta semana: ${semana}` : ""}${venc ? `\nYa vencidos: ${venc}` : ""}${fs.owed ? `\n💸 Me debés: ${bs(fs.owed)}` : ""}${fs.codeLink ? `\n\n🔗 Códigos de tus cuentas: ${fs.codeLink}` : ""}`;
+      const msg = `Hola ${fs.name.split(" ")[0]} 👋 ${soloVence ? "tus cuentas que vencen este mes" : "tu resumen"}${app ? ` de *${app}*` : ""}:\n\n` + byAcc.map(([k, l]) => `*${k.split("|")[0]}* · ${k.split("|")[1]}\n` + l.map((x) => `• ${x.profile}${x.client ? ` – ${x.client}` : ""} – ${x.holdOpen ? "esperando fecha" : `vence ${fdate(x.expiresAt)}`} – ${fsm(precio(x))}${soloVence ? "" : PAYT[x.pay] ?? ""}`).join("\n")).join("\n\n")
+        + `${ren ? `\n\nRenovación: *${fsm(ren)} c/u*` : ""}\n\nTotal: ${rows.length} perfil(es) · ${fsm(total)}${semana ? `\nVencen esta semana: ${semana}` : ""}${venc ? `\nYa vencidos: ${venc}` : ""}${fs.owed ? `\n💸 Me debés: ${bs(fs.owed)}` : ""}${fs.codeLink ? `\n\n🔗 Códigos de tus cuentas: ${fs.codeLink}` : ""}`;
       return `<section class="card rficha"><h2>📋 Ficha de ${esc(fs.name)} <button class="pbtn sm" type="button" data-rficha="">Cerrar</button></h2>
         <div class="ctl-kpis"><div><small>Perfiles</small><b>${rows.length}</b></div><div><small>Vencen en 7 días</small><b>${semana}</b></div><div><small>Vencidos</small><b class="${venc ? "down" : ""}">${venc}</b></div><div><small>Te debe (fiado)</small><b class="${fs.owed ? "down" : ""}">${bs(fs.owed)}</b></div><div><small>Su saldo</small><b>${wal(fs.balance, fs.currency)}</b></div></div>
         ${apps.length > 1 ? `<div class="tabs ctl-chips" role="tablist">${["", ...apps].map((a) => `<button type="button" role="tab" data-tab="rfp:${esc(a)}" aria-selected="${app === a}">${a ? esc(a) : `Todas (${fs.rows.length})`}</button>`).join("")}</div>` : ""}
+        <div class="tabs ctl-chips" role="tablist" aria-label="Qué mandarle"><button type="button" role="tab" data-tab="rfv:" aria-selected="${!soloVence}">Todo su resumen</button><button type="button" role="tab" data-tab="rfv:1" aria-selected="${soloVence}">⏳ Solo lo que vence este mes</button></div>
+        <form class="inline" data-rfren="1"><label style="display:grid;gap:4px;min-width:180px">Precio de renovación para el mensaje (${fs.currency === "USD" ? "US$" : "Bs"})<input name="ren" inputmode="decimal" value="${ren ? esc(String(ren / 100)) : ""}" placeholder="Vacío = el precio de cada cuenta"></label><button class="pbtn" type="submit">Usar este precio</button>${ren ? `<button class="pbtn" type="button" data-tab="rfren:">Quitar</button>` : ""}</form>
+        <p class="muted" style="margin:0">Este precio solo cambia el mensaje. No cambia lo que tiene guardado cada cuenta.</p>
         <div class="inline">${fs.phone ? `<a class="pbtn green" href="${waLink(fs.phone, msg)}" target="_blank" rel="noopener">💬 Mandarle su lista</a>` : `<span class="pp pp-warn">Sin WhatsApp</span>`}
           <button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar lista</button>
           ${debe.length || fs.owed ? `<button class="pbtn" type="button" data-fgo="${esc(fs.name)}">💸 Ver su fiado</button>` : ""}
@@ -3501,6 +3509,7 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target;
   const btn = f.querySelector('[type="submit"]');
+  if (f.dataset.rfren) { P.tab.rfren = String(f.elements.namedItem("ren").value).replace(",", ".").trim(); return render(); }
   if (f.dataset.rcodetitle) {
     P.tab.rpinOpen = true;
     return act(() => api("POST", `/api/admin/customers/${f.dataset.rcodetitle}/code-title`, { title: f.elements.namedItem("title").value }), (r) => (r.title ? `🏷️ Su página de códigos dice «${r.title}»` : "🏷️ Su página de códigos usa el nombre de su tienda"));

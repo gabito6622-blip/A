@@ -2,7 +2,7 @@
 //   1) La vista previa de «Me pagó» entra en 360 y 390 px: «Confirmar» y «Cancelar» visibles y de 44 px o más.
 //   2) Corte automático: se ve «se corta solo el dd/mm» y se puede anotar «Me pagó» de lo que ya se cortó (≤ 30 días)
 //      sin vender dos veces un perfil: vuelve a su perfil si sigue libre, si no se ofrece otro, y si no hay se avisa claro.
-//      La regla del corte no cambia (vencimiento + 2 días).
+//      La regla del corte no cambia (vencimiento + 1 día).
 //   3) «💳 Renovar proveedor y anotar»: cuando «Me pagó» choca con la fecha del proveedor, anota «Pagué la renovación» y
 //      después el cobro, con una confirmación que dice el monto y la nueva fecha del proveedor.
 // Datos ficticios, carpetas temporales, ningún WhatsApp real (wa.me bloqueado en el navegador).
@@ -93,22 +93,22 @@ test("2) Corte automático: «se corta solo el dd/mm», la regla no cambia y «M
   const { s, owner } = t;
   const system = { id: "system:jobs", role: "system" };
   try {
-    assert.equal(CORTE_GRACE_DAYS, 2, "la regla del corte sigue siendo vencimiento + 2 días");
+    assert.equal(CORTE_GRACE_DAYS, 1, "la regla del corte es vencimiento + 1 día (el dueño la bajó de 2 a 1 el 17/11)");
     const ana = s.catalog.createCustomer(owner, { name: "Ana Ficticia", phone: "+59170000001" });
     const beto = s.catalog.createCustomer(owner, { name: "Beto Ficticio", phone: "+59170000002" });
     const ceci = s.catalog.createCustomer(owner, { name: "Ceci Ficticia", phone: "+59170000003" });
     const dani = s.catalog.createCustomer(owner, { name: "Dani Ficticio", phone: "+59170000004" });
     const A = t.addAcc("a@ejemplo.lat", 120, ["P1", "P2"]);
     const [a1, a2] = t.slotsOf(A.id);
-    const idAna = t.sell(ana, a1.id, -1);   // venció ayer: se corta mañana (vencimiento + 2 días)
-    const idBeto = t.sell(beto, a2.id, -1);
+    const idAna = t.sell(ana, a1.id, -0.9);   // venció hace casi un día: todavía no se corta (vencimiento + 1 día)
+    const idBeto = t.sell(beto, a2.id, -0.9);
     // «se corta solo el dd/mm» en Mi secretaria y en el Control (la misma fecha).
     let r = s.stats.secretary(owner);
     const it = r.sinAnotar.flatMap((g) => g.items).find((i) => i.assignmentId === idAna);
-    assert.equal(it.cutAt, s.engine.s.assignments[idAna].customerExpiresAt + 2 * DAY);
+    assert.equal(it.cutAt, s.engine.s.assignments[idAna].customerExpiresAt + 1 * DAY);
     const row = s.admin.assignments(owner, {}).find((x) => x.id === idAna);
     assert.equal(row.cutAt, it.cutAt);
-    // Hoy no se corta nada (vencido hace 1 día < 2 de gracia); pasado el plazo, sí: la regla de siempre.
+    // Hoy no se corta nada (vencido hace menos de 1 día de gracia); pasado el plazo, sí: la regla de siempre.
     assert.equal(s.orders.closeExpired(system, CORTE_GRACE_DAYS), 0);
     clock.t += 2 * DAY;
     assert.equal(s.orders.closeExpired(system, CORTE_GRACE_DAYS), 2);
@@ -198,7 +198,7 @@ test("2) En el panel: «se corta solo» en Mi secretaria y en el Control, y «Me
     const { base, p, errs } = await login(t.app, b, 360);
     await p.goto(base + "/panel#secretaria");
     await p.locator("#sec-cortados").waitFor();
-    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 2 * DAY).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
+    const cut = new Date(s.engine.s.assignments[Object.keys(s.engine.s.assignments).find((k) => k !== idAna)].customerExpiresAt + 1 * DAY).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
     assert.match(await p.locator(".sec-card").filter({ hasText: "Ema Ficticia" }).first().innerText(), new RegExp(`se corta solo el ${cut}`));
     await p.locator("[data-secreact]").click();
     await p.locator(".sec-pvbox").waitFor();

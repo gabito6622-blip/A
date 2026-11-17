@@ -127,8 +127,8 @@ describe("link de cobro y recordatorio por la API", () => {
     await app.checkResellerPush();
     assert.equal(sent.filter((u) => u.includes("ana-cel")).length, 1, "un solo aviso");
     const m = (await get("/api/me/push/latest", rck)).json;
-    // 15/11: el servicio de Marisel se corta hoy (corteHoy.ts): el único aviso lo dice primero y trae el resumen del día.
-    assert.equal(m.title, "✂️ Hoy se corta el Netflix perfil de Marisel"); assert.match(m.body, /^Tu día: 1 por renovar · Renovalo hoy/); assert.equal(m.url, "/hub#dia");
+    // 17/11: con 1 día de gracia, el servicio de Marisel (vencido hace 2 días) ya se cortó ayer: el aviso es el resumen del día.
+    assert.match(m.title, /^☀️ Tu día: 1 por renovar/); assert.equal(m.url, "/hub#dia");
     // Mismo día: no repite.
     await app.checkResellerPush();
     assert.equal(sent.filter((u) => u.includes("ana-cel")).length, 1);

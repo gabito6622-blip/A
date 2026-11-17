@@ -5,6 +5,31 @@
 |---|---|---|
 | Total | `npm test` (240 s) | 897: **896 pasan**; 1 falla por tiempo con la máquina cargada (`anotar-deshacer-ordenar`). Sola pasa 2 de 2 |
 | Prueba nueva `correos-madre` | API + pantalla a 390 px, datos ficticios | correo madre sin «+» y sin puntos en Gmail; 4 estados (falta, error, reenvío, conectado) con cuentas y en uso; primero lo que falta; nunca contraseñas; admin ve la lista y no la configuración; Atención 403; dueño y admin la ven en el panel; «Ver los 4» muestra todos; sin desborde |
+## 17/11/2026 · Corte a 1 día y ficha con precio de renovación
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Ficha: solo por vencer y precio | `ficha-renovar-pantalla` (360 px, Playwright) | pasa; no cambia precios guardados |
+| Corte a 1 día | `dia-mepago`, `revendedor-mes`, `revendedor-r2`, `solo-revendedor`, `link-cobro-clientes`, `plan-mensual-simulacion` ajustadas a la regla nueva | pasan |
+| Completo | `npm test` | 913 de 914; `perfil-suelto-pantallas` falló por carga y pasó sola |
+
+## 17/11/2026 · Códigos: buzones en paralelo y Disney siempre
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Buzón que no contesta | `codigos-buzones-paralelo`: IMAP de prueba que no responde al LOGIN | la vuelta tarda < 4 s, el código del otro buzón llega, el lento queda con error |
+| Disney/MyDisney con buzón estricto | mismo archivo: asuntos «passcode», portugués, remitente ajeno | pasan los 3 de Disney, el ajeno sigue filtrado |
+| Pruebas de códigos | `codes`, `codigos-*`, `emailauth` | 17/17 |
+| Completo | `npm test` | 911 de 912; falló `hub-inventario` por carga de la máquina y pasó 2 veces sola |
+
+## 17/11/2026 · GaboHub: paridad con el panel del dueño (4 equipos)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Antes | `npm test` | 894 de 895 (falla `cargar-vendidas` 360 px: necesita red externa, no disponible en esta máquina) |
+| Editor de Mi página | `editor-mi-pagina` (360/390/768/1280 px, claro y oscuro, aislamiento) | pasa |
+| Mis hojas | `hub-hojas` (con y sin internet, choque, sin contraseñas, aislamiento, plan vencido) | 3/3 |
+| Cobros | `hub-cobros` (anotar/deshacer, comprobante → aprobación, aislamiento, plan) | 8/8 |
+| Secretaria y Cómo van | `hub-secretaria` (mensajes, plantilla, wa.me, números conocidos, aislamiento, plan) | 2/2 |
+| Integrado | `npm test` (~12 min en esta máquina) | **909 de 910**; la única que falla es `cargar-vendidas` 360 px (red externa) |
+| No revisado | modo claro real de GaboHub a ojo; `revision-accesibilidad.cjs` | pendiente |
 
 ## 17/11/2026 · Plantilla de cuentas: ejemplo con el producto principal
 | Qué | Cómo | Resultado |

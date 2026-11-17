@@ -2,7 +2,7 @@
 // para que una misma cosa diga lo mismo en todas las pantallas:
 //   - `todayNumbers`: los números del día (un solo cálculo para el saludo, el botón de Mi secretaria y los contadores),
 //     separados en «tuyos» y «de revendedores».
-//   - `cutAtOf`: cuándo se corta solo un servicio vencido (la misma regla que `closeExpired`: vencimiento + 2 días).
+//   - `cutAtOf`: cuándo se corta solo un servicio vencido (la misma regla que `closeExpired`: vencimiento + 1 día).
 //   - `noticeOf` / `lastNoticeAny`: la marca de «ya le avisé», venga de Mi secretaria o de Recordatorios.
 //   - `supplierRenewHint`: si «Me pagó» choca con la fecha del proveedor, cuánto y hasta cuándo habría que renovarle.
 // Solo leen: no cambian nada.
@@ -14,8 +14,8 @@ import { DAY, boDayStart } from "./time.js";
 import { resellerOf } from "./myReseller.js";
 import { accountCostBs } from "./finance.js";
 
-/** Días de gracia antes de que la tarea periódica corte un servicio vencido (`closeExpired`). No cambiar sin el dueño. */
-export const CORTE_GRACE_DAYS = 2;
+/** Días de gracia antes de que la tarea periódica corte un servicio vencido (`closeExpired`). El dueño lo bajó de 2 a 1 el 17/11/2026. No cambiar sin el dueño. */
+export const CORTE_GRACE_DAYS = 1;
 
 /** Cuándo se corta solo este servicio (si sigue sin renovarse). `undefined` si no se corta solo (esperando fecha o ya cerrado). */
 export function cutAtOf(a: Pick<Assignment, "status" | "holdOpen" | "customerExpiresAt" | "trial">, graceDays = CORTE_GRACE_DAYS): number | undefined {
