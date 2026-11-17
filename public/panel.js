@@ -147,6 +147,20 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   return { name, phone, url: `${location.origin}/hub`, page: page || "Solo panel (sin página)", msg, pin };
 }
 
+/** 📬 Correos que faltan conectar (17/11/2026): cuentas agrupadas por su correo madre y si les llegan los códigos. */
+async function coverageCard() {
+  const c = await api("GET", "/api/admin/mailboxes/coverage").catch(() => null);
+  if (!c || !c.rows.length) return "";
+  const ST = { missing: ["⚠️ Falta conectar", "bad"], error: ["⛔ Conectado con error", "bad"], forwarded: ["📨 Llegan por reenvío", "ok"], ok: ["✅ Conectado", "ok"] };
+  const open = P.tab.covAll ? c.rows : c.rows.filter((r) => r.state === "missing" || r.state === "error");
+  const row = (r) => `<li class="covrow"><span><b class="mono">${esc(r.mother)}</b><br><small class="muted">${r.accounts} cuenta${r.accounts === 1 ? "" : "s"}${r.inUse ? ` · ${r.inUse} en uso` : ""} · ${esc(r.products.join(", "))}${r.error ? ` · ${esc(r.error)}` : ""}${r.state === "forwarded" && r.lastCodeAt ? ` · último código ${fdt(r.lastCodeAt)}` : ""}</small></span>${pill(ST[r.state][0], ST[r.state][1])}</li>`;
+  return `<section class="card" id="covCard"><h2>📬 Correos que faltan conectar <small>· para que lleguen los códigos</small></h2>
+    <p class="muted" style="margin:0">Tus cuentas agrupadas por su correo madre (micorreo+1 y micorreo+2 son de micorreo@gmail.com). Si el correo madre no está conectado acá abajo ni reenvía a uno conectado, los códigos de esas cuentas no llegan solos.</p>
+    <div class="inline">${pill(`${c.counts.missing} falta${c.counts.missing === 1 ? "" : "n"} conectar`, c.counts.missing ? "bad" : "mute")} ${pill(`${c.counts.error} con error`, c.counts.error ? "bad" : "mute")} ${pill(`${c.counts.ok} conectado${c.counts.ok === 1 ? "" : "s"}`, "ok")} ${c.counts.forwarded ? pill(`${c.counts.forwarded} por reenvío`, "ok") : ""}</div>
+    ${open.length ? `<ul class="covlist">${open.map(row).join("")}</ul>` : `<p class="pok" style="margin:0">✅ Todos los correos madre están conectados o reenvían.</p>`}
+    <button class="pbtn sm" type="button" data-covall="1" style="justify-self:start">${P.tab.covAll ? "Ver solo los que faltan" : `Ver los ${c.rows.length} correos madre`}</button></section>`;
+}
+
 /** 📦 Cargar cuentas para vender desde Excel (17/11/2026): plantilla con tus productos, vista previa y guardar. */
 function stockImportCard() {
   const r = P.tab.importStock?.result;
@@ -1691,15 +1705,15 @@ const V = {
   },
 
   async codigos() {
-    if (!isOwner()) return `<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
-    const [boxes, codes, selfCodes] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes"), selfCodesCard(render)]);
+    if (!isOwner()) return `${canReview() ? await coverageCard() : ""}<section class="card"><div class="emptybox">Solo el dueño conecta correos.</div></section>`;
+    const [boxes, codes, selfCodes, cov] = await Promise.all([api("GET", "/api/admin/mailboxes"), api("GET", "/api/admin/codes"), selfCodesCard(render), coverageCard()]);
     const T = P.tab;
     const ed = T.mbEdit === "new" ? { kind: T.mbKind ?? "gmail" } : boxes.find((b) => b.id === T.mbEdit);
     const kind = ed ? (T.mbKind ?? ed.kind ?? "gmail") : "gmail";
     const st = (b) => !b.hasPassword ? pill("Sin contraseña", "bad") : b.lastError ? pill("Error", "bad") : b.lastOkAt ? pill("Conectado", "ok") : pill("Conectando…", "warn");
     const ago = (t) => { if (!t) return "nunca"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "recién" : m < 60 ? `hace ${m} min` : fdt(t); };
     const shop = location.origin + "/tienda/#codigos";
-    return `<section class="card"><h2>${icon("mailbox")}Cómo funciona</h2>
+    return `${cov}<section class="card"><h2>${icon("mailbox")}Cómo funciona</h2>
       <p class="muted" style="margin:0">Conectás el correo donde te llegan los códigos (Disney, Netflix, Prime…). Cada minuto la plataforma lee los correos nuevos, saca el código y se lo muestra <b>solo</b> al cliente o revendedor que tiene esa cuenta, durante 30 minutos. Un correo sirve para todas las cuentas cuyos códigos llegan ahí. Si usás Hotmail, reenviá esos correos a un Gmail y conectá el Gmail.</p>
       <div class="inline"><span class="muted">Link para tus clientes:</span><code>${esc(shop)}</code><button class="pbtn sm" type="button" data-copy="${esc(shop)}">${icon("copy")}Copiar</button></div></section>
     ${ed ? `<section class="card"><h2>${icon("mailbox")}${T.mbEdit === "new" ? "Conectar un correo" : "Editar correo"}</h2>
@@ -3132,6 +3146,7 @@ document.addEventListener("click", async (ev) => {
   if (d.waback) { P.tab.waOpen = false; return render(); }
   if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
   if (d.waflush) return act(() => api("POST", "/api/admin/whatsapp/flush", {}), (r) => `Enviados ${r.sent}, fallidos ${r.failed}, reintentando ${r.pending}`);
+  if (d.covall) { P.tab.covAll = !P.tab.covAll; return render(); }
   if (d.importstockcancel) { P.tab.importStock = null; return render(); }
   if (d.importstockgo) {
     el.disabled = true;

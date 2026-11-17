@@ -1,5 +1,17 @@
 # Informe de pruebas
 
+## 17/11/2026 · 🔑 Códigos de Netflix en más idiomas y link para clientes finales
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (265 s) | 918: **917 pasan**; 1 falla por tiempo con la máquina cargada (`anotar-deshacer-ordenar`). Sola pasa 2 de 2 |
+| Prueba nueva `codigos-netflix-idiomas` | funciones + API + pantalla a 390 px, datos ficticios | código junto a «código» en 9 idiomas; número suelto no es seguro; tipos en pt/fr/de; Netflix en portugués pasa con un buzón de asuntos viejos; promoción con números no; link de hogar sin código sí; Disney sigue; otro remitente no; ficha del cliente → link /codigos/…, WhatsApp con su número; la clienta escribe su correo y ve el código y el link |
+| `codes` (ya existía) | API | con el filtro «solo Disney», el correo de Netflix sigue sin guardarse |
+
+## 17/11/2026 · 📬 Correos que faltan conectar
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (240 s) | 897: **896 pasan**; 1 falla por tiempo con la máquina cargada (`anotar-deshacer-ordenar`). Sola pasa 2 de 2 |
+| Prueba nueva `correos-madre` | API + pantalla a 390 px, datos ficticios | correo madre sin «+» y sin puntos en Gmail; 4 estados (falta, error, reenvío, conectado) con cuentas y en uso; primero lo que falta; nunca contraseñas; admin ve la lista y no la configuración; Atención 403; dueño y admin la ven en el panel; «Ver los 4» muestra todos; sin desborde |
 ## 17/11/2026 · Corte a 1 día y ficha con precio de renovación
 | Qué | Cómo | Resultado |
 |---|---|---|

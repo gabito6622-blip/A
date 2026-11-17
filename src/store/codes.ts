@@ -92,20 +92,22 @@ const LINK_RE = /https:\/\/(?:www\.)?netflix\.com\/(?:account\/(?:travel|update-
 /** Clasifica el tipo de código de Netflix/Disney por el asunto y el texto (español e inglés). */
 export function classifyCode(subject: string, text: string): string {
   const s = `${subject} ${text}`.toLowerCase();
-  if (/hogar|household/.test(s)) return "hogar";
-  if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta/.test(s)) return "login";
-  if (/acceso temporal|temporary access|c[oó]digo temporal|temporary code/.test(s)) return "temporal";
-  if (/verificaci[oó]n|verify|verification|one.?time|[uú]nico|passcode/.test(s)) return "verificacion";
+  // 17/11/2026: también portugués, francés, italiano y alemán (llegan cuentas configuradas en otros idiomas).
+  if (/hogar|household|resid[eê]ncia|domic[ií]lio|foyer|haushalt|nucleo domestico/.test(s)) return "hogar";
+  if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta|entrar|connexion|accedi|anmeld/.test(s)) return "login";
+  if (/acceso temporal|temporary access|c[oó]digo temporal|temporary code|acesso tempor[aá]rio|acc[eè]s temporaire|accesso temporaneo|vor[uü]bergehend/.test(s)) return "temporal";
+  if (/verificaci[oó]n|verify|verification|one.?time|[uú]nico|passcode|verifica[cç][aã]o|v[eé]rification|verifica|best[aä]tig/.test(s)) return "verificacion";
   return "otro";
 }
 
-export function extractCode(text: string, html = ""): { code: string; link?: string } {
+export function extractCode(text: string, html = ""): { code: string; link?: string; sure?: boolean } {
   const t = text.replace(/ /g, " ");
-  const near = /(?:c[oó]digo|code|codice|kod|kode|pin|passcode|senha|clave temporal|mot de passe)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
+  // La palabra «código» en los idiomas que más llegan (es, en, pt, fr, it, de, nl, pl, tr, cs, fi, ru, el, ja, ko, zh).
+  const near = /(?:c[oó]digo|code|codice|kod|kode|kód|koodi|kodu|код|κωδικ|コード|코드|验证码|代码|pin|passcode|senha|clave temporal|mot de passe)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
   const alone = /^\s*(\d{3}[ -]?\d{3}|\d{4,8})\s*$/m.exec(t)?.[1];
   const any = t.split("\n").map((l) => CODE_RE.exec(l)?.[1]).find((c) => c && !/^(19|20)\d{2}$/.test(c));
   const link = LINK_RE.exec(html)?.[0]?.replace(/&amp;/g, "&") ?? LINK_RE.exec(t)?.[0];
-  return { code: near ?? alone ?? any ?? "", ...(link ? { link } : {}) };
+  return { code: near ?? alone ?? any ?? "", ...(link ? { link } : {}), sure: !!(near ?? alone) };
 }
 
 /** Guarda un mensaje solo si el asunto está permitido y trae un código o enlace. Devuelve null si se descarta. */
@@ -115,9 +117,15 @@ export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string
   // Disney+ y MyDisney pasan siempre (17/11/2026, pedido del dueño): sus asuntos cambian seguido («passcode», «MyDisney»…)
   // y los buzones viejos guardaron una lista de asuntos que no los cubría. Igual hace falta que el correo traiga un código.
   const esDisney = /disney/i.test(msg.from ?? "");
+  // Netflix también pasa siempre (17/11/2026, pedido del dueño: sus clientes finales sacan el código con su link), pero
+  // solo si el número está junto a la palabra «código» (en cualquier idioma) o trae un link de Netflix: así una
+  // promoción con números no se muestra como código.
+  const esNetflix = /netflix/i.test(msg.from ?? "");
+  // Si el dueño eligió remitentes para este buzón (p. ej. «solo Disney»), Netflix respeta ese filtro.
   if (!esDisney && box.senderAllowlist?.length && !box.senderAllowlist.some((s) => (msg.from ?? "").toLowerCase().includes(s))) return null;
-  const allowed = esDisney || box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
-  const { code, link } = extractCode(msg.body, msg.html);
+  const bySubject = box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
+  const ex = extractCode(msg.body, msg.html), code = ex.code, link = ex.link;
+  const allowed = esDisney || bySubject || (esNetflix && (ex.sure || !!link));
   if (!allowed || (!code && !link)) return null;
   return e.tx(() => {
     const c: CodeMessage = { id: e.id("cod"), mailboxId, to: msg.to.toLowerCase(), subject: msg.subject.slice(0, 200), code, ...(link ? { link } : {}), kind: classifyCode(msg.subject, msg.body), receivedAt: msg.receivedAt };
@@ -231,4 +239,50 @@ export function codesOf(e: Engine, customerId: Id) {
       const acc = Object.values(e.s.accounts).find((a) => a.email.toLowerCase() === c.to);
       return { to: c.to, subject: c.subject, code: c.code, link: c.link, kind: c.kind ?? classifyCode(c.subject, ""), receivedAt: c.receivedAt, product: acc ? e.s.products[acc.productId]?.name ?? "" : "" };
     });
+}
+
+/**
+ * 📬 Correos que faltan conectar (17/11/2026). El dueño: «decime qué correos faltan añadir en las cuentas madres».
+ * Agrupa las cuentas activas por su correo madre (lo de antes del «+»; en Gmail los puntos no cuentan) y dice, para cada
+ * uno, si está conectado al lector de códigos, si está con error, si le llegan códigos igual (reenvío a otro conectado)
+ * o si falta. Solo lee y nunca devuelve contraseñas: la puede ver un admin y la llave del asistente. Conectar o borrar
+ * un correo sigue siendo solo del dueño.
+ */
+export function motherOf(email: string): string {
+  const [local = "", domain = ""] = email.trim().toLowerCase().split("@");
+  if (!domain) return "";
+  const base = local.split("+")[0];
+  return `${/^(gmail|googlemail)\.com$/.test(domain) ? base.replace(/\./g, "") : base}@${domain === "googlemail.com" ? "gmail.com" : domain}`;
+}
+
+export function mailboxCoverage(e: Engine, actor: Actor) {
+  authorize(actor, "inventory.manage");
+  const now = e.now();
+  const boxes = Object.values(e.s.mailboxes ?? {});
+  const boxByMother = new Map<string, (typeof boxes)[number]>();
+  for (const b of boxes) for (const a of [b.address, b.user ?? ""]) { const m = motherOf(a); if (m && !boxByMother.has(m)) boxByMother.set(m, b); }
+  const codesTo = new Map<string, number>();
+  for (const c of e.s.codes ?? []) if (now - c.receivedAt < 7 * DAY) { const m = motherOf(c.to); codesTo.set(m, Math.max(codesTo.get(m) ?? 0, c.receivedAt)); }
+  const groups = new Map<string, { mother: string; accounts: number; inUse: number; products: Set<string> }>();
+  const used = new Set(Object.values(e.s.slots).filter((s) => s.status === "assigned").map((s) => s.accountId));
+  for (const a of Object.values(e.s.accounts)) {
+    if (a.status !== "active" || !a.email.includes("@")) continue;
+    const m = motherOf(a.email);
+    const g = groups.get(m) ?? { mother: m, accounts: 0, inUse: 0, products: new Set<string>() };
+    g.accounts++; if (used.has(a.id)) g.inUse++;
+    g.products.add((e.s.products[a.productId]?.name ?? a.productId).replace(/\s*\(alquiler revendedores\)/i, ""));
+    groups.set(m, g);
+  }
+  const rows = [...groups.values()].map((g) => {
+    const box = boxByMother.get(g.mother), lastCode = codesTo.get(g.mother);
+    const state = box ? (box.lastError ? "error" : "ok") : lastCode ? "forwarded" : "missing";
+    return { mother: g.mother, accounts: g.accounts, inUse: g.inUse, products: [...g.products].slice(0, 4), state, ...(box?.lastError ? { error: box.lastError.slice(0, 160) } : {}), ...(lastCode ? { lastCodeAt: lastCode } : {}) };
+  });
+  const order = { missing: 0, error: 1, forwarded: 2, ok: 3 } as const;
+  rows.sort((x, y) => order[x.state as keyof typeof order] - order[y.state as keyof typeof order] || y.inUse - x.inUse || y.accounts - x.accounts || x.mother.localeCompare(y.mother));
+  return {
+    rows,
+    mailboxes: boxes.map((b) => ({ address: b.address, ok: !b.lastError, ...(b.lastError ? { error: b.lastError.slice(0, 160) } : {}), lastOkAt: b.lastOkAt ?? null })),
+    counts: { missing: rows.filter((r) => r.state === "missing").length, error: rows.filter((r) => r.state === "error").length, forwarded: rows.filter((r) => r.state === "forwarded").length, ok: rows.filter((r) => r.state === "ok").length },
+  };
 }

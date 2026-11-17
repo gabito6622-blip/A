@@ -2,6 +2,9 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Correos que faltan conectar
+- **Lista aparte, de solo lectura:** la configuración de los buzones (contraseñas de aplicación) sigue siendo del dueño; la lista de qué falta no tiene secretos y la puede leer un admin o el asistente.
+- **«Por reenvío» por evidencia:** si a un correo madre no conectado le llegó algún código en 7 días, se toma como reenviado a uno conectado. No se adivina por el nombre.
 ## 2026-11-17 · Corte a 1 día
 - El dueño eligió 1 día de gracia (antes 2): menos uso gratis de quien no paga; quien paga tarde ese mismo día sigue sin corte. Las pruebas que suponían 2 días se movieron a 1.
 

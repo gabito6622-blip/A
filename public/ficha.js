@@ -58,7 +58,9 @@ export async function loadFicha(slot, { id, name, phone, canReview }) {
   const tab = slot.dataset.tab || "svc";
   slot.innerHTML = `<div class="fx">
     <div class="fx-top">${phone ? `<a class="pbtn sm fx-wa" href="${esc(waLink(phone, `Hola ${String(name).split(" ")[0]} 👋`))}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ""}
-      <button class="pbtn sm" type="button" data-ledger="${esc(id)}">💰 Saldo y movimientos</button></div>
+      <button class="pbtn sm" type="button" data-ledger="${esc(id)}">💰 Saldo y movimientos</button>
+      <button class="pbtn sm" type="button" data-fxcode="${esc(id)}" data-name="${esc(name)}" data-phone="${esc(phone ?? "")}">🔑 Link de códigos</button></div>
+    <div class="fx-codebox" hidden></div>
     <div class="tabs fx-tabs" role="tablist">
       <button type="button" role="tab" data-fxtab="svc" aria-selected="${tab === "svc"}">Servicios (${svcs.length})</button>
       <button type="button" role="tab" data-fxtab="pay" aria-selected="${tab === "pay"}">Pedidos (${orders.length})</button>
@@ -68,6 +70,26 @@ export async function loadFicha(slot, { id, name, phone, canReview }) {
     <div class="fx-pane" data-pane="bug" ${tab === "bug" ? "" : "hidden"}>${tickets.length ? `<ul class="fx-list">${tickets.map((t) => `<li><span>${esc(t.kindText)} · ${esc(t.product)}<br><small class="muted">${fdate(t.createdAt)}${t.note ? ` · ${esc(t.note)}` : ""}</small></span><span class="fx-r">${chip(...(TSTATUS[t.status] ?? [t.status, "mute"]))}</span></li>`).join("")}</ul><button class="pbtn sm" type="button" data-go="fallas">Ir a Fallas reportadas</button>` : `<p class="muted">No reportó fallas.</p>`}</div>
   </div>`;
 }
+
+/* 🔑 Link de códigos para un cliente final (17/11/2026): el mismo link de los revendedores; el cliente escribe el correo
+ * de su cuenta y ve el código (Netflix, Disney…). Nada se manda solo: se muestra el mensaje y «Mandárselo por WhatsApp». */
+if (typeof document !== "undefined") document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-fxcode]");
+  if (!b) return;
+  const box = b.closest(".fx")?.querySelector(".fx-codebox");
+  if (!box) return;
+  b.disabled = true;
+  try {
+    const k = await api("POST", `/api/admin/customers/${encodeURIComponent(b.dataset.fxcode)}/code-link`, { keepLink: true });
+    const first = String(b.dataset.name || "").split(" · ").pop().split(" ")[0];
+    const msg = `Hola ${first} 👋 Este es tu link para ver los códigos de tu cuenta (Netflix, Disney y más):\n${k.url}\n\nEscribí el correo de tu cuenta y te aparece el código al toque. Guardalo para la próxima vez. 🙌`;
+    box.innerHTML = `<p style="margin:0"><b>🔑 Su link de códigos</b></p><code class="mono" style="overflow-wrap:anywhere">${esc(k.url)}</code>
+      <pre class="cobpre" style="white-space:pre-wrap;margin:0">${esc(msg)}</pre>
+      <div class="inline">${b.dataset.phone ? `<a class="pbtn green" href="${esc(waLink(b.dataset.phone, msg))}" target="_blank" rel="noopener" data-fxcodewa="1">${icon("wa")}Mandárselo por WhatsApp</a>` : ""}<button class="pbtn" type="button" data-copy="${esc(msg)}">${icon("copy")}Copiar mensaje</button></div>`;
+    box.hidden = false;
+  } catch (e) { box.innerHTML = `<p class="bad" style="margin:0">⛔ ${esc(e.message)}</p>`; box.hidden = false; }
+  b.disabled = false;
+});
 
 if (typeof document !== "undefined") document.addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-fxtab]");

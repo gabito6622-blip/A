@@ -1484,3 +1484,8 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .ordf .pbtn,.ordrow>.pbtn{min-height:44px}
 /* ▶ Cobrar uno por uno (17/11/2026) */
 .tbseq{width:100%;white-space:normal;text-align:center;line-height:1.3}
+/* 📬 Correos que faltan conectar (17/11/2026) */
+.covlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.covrow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.covrow > .pp,.covrow > span:last-child{flex-shrink:0;white-space:nowrap}
+.covrow > span:first-child{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
