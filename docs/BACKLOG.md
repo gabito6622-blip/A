@@ -4,6 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
+- ✅ **[P2] 🛒 Botón del catálogo PDF para el cliente en el diseño «boleto» (17/11):** prueba `catalogo-pdf-boleto`. Sin publicar.
 - ✅ **[P2] 👔 Cobrar con link de pago (Tablero y Mis hojas) y días de regalo al aprobar (16/11):** prueba `cobro-link-regalo`. Publicado (#87): datos iguales antes y después, páginas 200.
   - 🧑 Pendiente del dueño: decir si Paz aprueba pagos (los links de renovación ya estaban prendidos en la tienda: la lectura anterior de Configuración no los mostraba) (hoy solo dueño o administrador pueden aprobar).
 - ✅ **[P1] 👔 Anotar rápido, Deshacer cobro, Ordenar mis datos e Inicio con 3 botones (16/11):** prueba `anotar-deshacer-ordenar`. Publicado (#85 y #86).

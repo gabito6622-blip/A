@@ -1267,3 +1267,6 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .svc-owed .sbtn{min-height:44px}
 /* Revisión «solo clientes» (15/11): «Abrir enlace» de los códigos no se parte en dos renglones ni queda angosto. */
 .code .sbtn{white-space:nowrap;min-width:44px}
+/* 📄 Catálogo en PDF en el diseño «boleto» (17/11/2026) */
+.tkpdf{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:10px 14px;border-radius:12px;border:1px solid var(--s-line);background:var(--s-bg);color:var(--s-ink);font-size:14px;font-weight:600;text-decoration:none}
+.tkpdf:hover{border-color:var(--s-accent,var(--s-line))}

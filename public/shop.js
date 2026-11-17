@@ -419,6 +419,9 @@ function comboCompare(pub) {
     <div class="cmpsel"><label>Primer combo${sel("cmpA", a, b)}</label><span class="cmpvs">vs</span><label>Segundo combo${sel("cmpB", b, a)}</label></div>
     <div class="cmpgrid">${col(a)}${col(b)}</div></section>`;
 }
+/** 📄 Catálogo en PDF para el cliente (17/11/2026): el diseño «boleto» no lo mostraba. Tienda o página del revendedor; nunca en GaboHub. */
+const pdfHref = () => SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf";
+const pdfLink = (cls) => MODE === "hub" ? "" : `<a class="${cls}" href="${pdfHref()}" download data-catpdf="1">📄 Descargar catálogo en PDF</a>`;
 function ticketCatalog(pub, hero) {
   const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
   const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && ccMatch(S.q, ccSearchText(p)));
@@ -432,7 +435,7 @@ function ticketCatalog(pub, hero) {
   return `${hero ? `${ccTrustTop()}<section class="tkhero${S.settings.bannerUrl ? " withban" : ""}"><div><h1>${title}</h1><p>${esc(S.settings.heroText || "Pagás con QR y te activamos por WhatsApp")}</p></div>${S.settings.bannerUrl ? `<img class="tkban" src="${esc(S.settings.bannerUrl)}" srcset="${esc(conAncho(S.settings.bannerUrl, 540))} 540w, ${esc(S.settings.bannerUrl)} 1080w" sizes="(max-width: 420px) 104px, 260px" alt="${esc(S.settings.storeName || "")}">` : ""}</section>` : `<div class="sec-h"><div><h2>Catálogo</h2><p>Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div></div>`}
     <div class="tktools"><input id="q" placeholder="Buscar: Netflix, Spotify, combo…" value="${esc(S.q)}" aria-label="Buscar productos">
       <div class="cats tkcats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
-      <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div></div>
+      <div class="tkbar"><span>${groups.length} producto${groups.length === 1 ? "" : "s"}</span><label>Ordenar <select id="tksort" aria-label="Ordenar productos">${[["", "Recomendados"], ["asc", "Menor precio"], ["desc", "Mayor precio"]].map(([v, t]) => `<option value="${v}" ${(S.sort ?? "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>${pdfLink("tkpdf")}</div>
     ${groups.length ? `<div class="tklist">${groups.map(ticketRow).join("")}</div>` : ccNoResults(S.q)}`;
 }
 const kindText = (k) => ({ profile: "Perfil", full_account: "Cuenta completa", invite: "Invitación", combo: "Combo", iptv: "IPTV", own: "Suscripción" })[k] ?? "Suscripción";
@@ -644,7 +647,7 @@ function renderInner() {
         ${S.settings.heroChip ? `<span class="chip">${esc(S.settings.heroChip)}</span>` : ""}
         <h1>${esc(S.settings.heroTitle)}<br><span>${esc(S.settings.heroHighlight)}</span></h1>
         <p>${esc(S.settings.heroText)}</p>
-        <div class="herobtns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">${SLUG ? "Ver precios" : "Explorar productos"} ${icon("arrow")}</button>${MODE !== "hub" ? `<a class="sbtn" href="${SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf"}" download>📄 Catálogo en PDF</a>` : ""}${SLUG ? (S.settings.whatsapp ? `<a class="sbtn" href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">${icon("wa")}Escribime por WhatsApp</a>` : "") : `<button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button>`}</div>
+        <div class="herobtns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="sbtn pri" type="button" data-s="catalogo">${SLUG ? "Ver precios" : "Explorar productos"} ${icon("arrow")}</button>${pdfLink("sbtn")}${SLUG ? (S.settings.whatsapp ? `<a class="sbtn" href="${waLink(S.settings.whatsapp, "Hola, quiero hacer un pedido")}" target="_blank" rel="noopener">${icon("wa")}Escribime por WhatsApp</a>` : "") : `<button class="sbtn" type="button" data-s="cuentas">Consultar mis servicios</button>`}</div>
         <div class="ticks">${(S.settings.heroTicks || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("")}</div></div>
       ${heroRight}</section>
       ${brandStrip()}
@@ -662,7 +665,7 @@ function renderInner() {
       if ((S.settings.layout || "") === "ticket") return ticketCatalog(pub, false);
       const cats = ["Todos", ...new Set(pub.map((p) => p.category))];
       const list = pub.filter((p) => (S.cat === "Todos" || p.category === S.cat) && ccMatch(S.q, ccSearchText(p)));
-      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div>${MODE !== "hub" ? `<a class="sbtn" href="${SLUG ? `/api/shops/${encodeURIComponent(SLUG)}/catalogo.pdf` : "/api/catalogo.pdf"}" download>📄 Catálogo en PDF</a>` : ""}</div>
+      return `<div class="sec-h"><div><span class="chip">Nuestros productos</span><h2>Catálogo</h2><p>Suscripciones, combos y herramientas. Todos los precios en ${preciosEn()}${isReseller() ? " (precio de revendedor)" : ""}.</p></div>${pdfLink("sbtn")}</div>
       <div class="search"><input id="q" placeholder="Buscar por producto, combo o servicio" value="${esc(S.q)}" aria-label="Buscar"><button class="sbtn" type="button" data-cart="1">${icon("cart")}Mi carrito (${S.cart.length})</button></div>
       <div class="cats">${cats.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join("")}</div>
       ${comboOn() ? `<button class="cbanner" type="button" data-s="combo"><b>✦ Armá tu combo</b><span>Combiná 2 o más servicios y ahorrá hasta ${bs(Math.max(...S.settings.comboDiscounts))}</span>${icon("arrow")}</button>` : ""}

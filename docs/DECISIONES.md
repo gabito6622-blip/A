@@ -2,6 +2,10 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Catálogo PDF para el cliente
+- **Se usa el PDF público que ya existía** (el mismo generador del panel, guardado 5 minutos y con límite por persona); solo faltaba el botón en el diseño «boleto».
+- **Un solo botón para todos los diseños**, con el mismo texto, para que no vuelva a faltar en uno.
+
 ## 2026-11-16 · Cobrar con link de pago y días de regalo
 - **Se usan los links de renovación que ya existían** (los de Control y Mi secretaria): mismo vencimiento, mismo bloqueo para clientes de revendedores, mismo camino a Aprobar pagos. No hay un cobro nuevo que mantener.
 - **Un link por cuenta**, no uno por revendedor: así cada pago llega con su cuenta y al aprobar se renueva esa.
