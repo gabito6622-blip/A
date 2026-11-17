@@ -126,3 +126,18 @@ test("Disney y MyDisney pasan siempre, aunque el buzón filtre asuntos o remiten
   } finally { await app.close(); imap.srv.close(); }
 });
 
+
+test("el código se lee en cualquier idioma de Disney", async () => {
+  const { extractCode } = await import("../dist/store/codes.js");
+  const casos = {
+    "Your one-time passcode is 482913. It expires in 15 minutes.": "482913",
+    "Tu código de acceso único es: 482913": "482913",
+    "Seu código de acesso único é 482 913": "482 913",
+    "Voici votre code d'accès unique : 482913": "482913",
+    "Il tuo codice di accesso monouso è 482913": "482913",
+    "Dein einmaliger Code lautet 482913": "482913",
+    "Twój jednorazowy kod: 482913": "482913",
+    "Engangskode: 482913": "482913",
+  };
+  for (const [txt, code] of Object.entries(casos)) assert.equal(extractCode(`© 2026 Disney\n${txt}\n`).code, code, txt);
+});

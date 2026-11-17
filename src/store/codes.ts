@@ -101,7 +101,7 @@ export function classifyCode(subject: string, text: string): string {
 
 export function extractCode(text: string, html = ""): { code: string; link?: string } {
   const t = text.replace(/ /g, " ");
-  const near = /(?:c[oó]digo|code|pin|passcode|clave temporal)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
+  const near = /(?:c[oó]digo|code|codice|kod|kode|pin|passcode|senha|clave temporal|mot de passe)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
   const alone = /^\s*(\d{3}[ -]?\d{3}|\d{4,8})\s*$/m.exec(t)?.[1];
   const any = t.split("\n").map((l) => CODE_RE.exec(l)?.[1]).find((c) => c && !/^(19|20)\d{2}$/.test(c));
   const link = LINK_RE.exec(html)?.[0]?.replace(/&amp;/g, "&") ?? LINK_RE.exec(t)?.[0];
