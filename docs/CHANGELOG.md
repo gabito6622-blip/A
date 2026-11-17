@@ -3,7 +3,7 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo» (sin publicar)
+## 2026-11-17 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo» (PR #89 publicado)
 - **Por qué:** el dueño pidió que su panel le ahorre tiempo. De 21 revendedores con cuentas, solo 7 entraron alguna vez a GaboHub: a los demás los persigue por WhatsApp uno por uno.
 - **Tablero → «▶ Cobrar uno por uno con link de pago»:** junta a todos los que tienen cuentas vencidas o que vencen en 3 días (y WhatsApp cargado). Muestra el mensaje de cada uno con un link de pago por cuenta; «Abrir WhatsApp» lo abre y lo marca como avisado (igual que «✅ Ya le avisé»); «Siguiente» pasa al próximo. Nada se manda solo.
 - **«Me pagó todo» ahora se puede deshacer:** arriba aparece «↩️ Deshacer los N» por 30 minutos; también figuran de a uno en «Cobros recientes» de Inicio. Es todo o nada: si una de las cuentas cambió después, no se deshace ninguna y avisa cuál.
