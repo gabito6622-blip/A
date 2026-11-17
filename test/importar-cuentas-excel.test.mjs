@@ -21,6 +21,7 @@ test("cuentas para vender desde Excel: plantilla, vista previa, errores claros y
   const s = app.store, e = s.engine, owner = { id: Object.keys(e.s.staff)[0], role: "owner" };
   const P = (id, name, kind) => s.catalog.upsertProduct(owner, { id, name, kind, durationDays: 30, price: 3500, published: true });
   P("netflix", "Netflix Premium HD 4K", "profile"); P("disney-espn", "Disney+ con ESPN", "profile"); P("disney", "Disney+ sin ESPN", "profile");
+  P("netflix-extra", "Netflix Perfil Extra Premium", "profile"); P("netflix-3m", "Netflix Premium HD 4K · 3 meses", "profile");
   P("prime", "Amazon Prime Video", "profile"); P("hbo", "HBO Max", "profile"); P("netflix-alq", "Netflix completa (alquiler revendedores)", "full_account");
   s.catalog.upsertSupplier(owner, { id: "andes", name: "Proveedor Andes", active: true });
   s.inventory.addAccount(owner, { productId: "netflix", supplierId: "andes", email: "ya.cargada@ficticio.lat", password: "x", supplierExpiresAt: Date.now() + 30 * DAY, cost: 0, profiles: [{ label: "Perfil 1" }] });

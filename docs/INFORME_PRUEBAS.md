@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · Plantilla de cuentas: ejemplo con el producto principal
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Plantilla real (solo leer) | bajada de la tienda con la llave del asistente | el ejemplo de Netflix decía «Netflix Perfil Extra Premium» |
+| `importar-cuentas-excel` con «Perfil Extra» y «3 meses» en el catálogo | API | el ejemplo usa «Netflix Premium HD 4K»; la plantilla tal cual entra sin errores |
+| Total | `npm test` (207 s) | **895 pasan, 0 fallan** |
+
 ## 17/11/2026 · 📦 Cargar cuentas para vender desde Excel
 | Qué | Cómo | Resultado |
 |---|---|---|
