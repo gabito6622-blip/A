@@ -4,7 +4,7 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- 🔧 **[P1] 🏪 GaboHub igual al panel del dueño (17/11):** editor de Mi página, Mis hojas, cobros (Anotar rápido, Cobrar hoy, link de cobro con comprobante) y Mi secretaria + Cómo van. Pruebas `editor-mi-pagina`, `hub-hojas`, `hub-cobros`, `hub-secretaria`. Sin publicar: espera «Publicá». V8 y V9 hechos.
+- ✅ **[P1] 🏪 GaboHub igual al panel del dueño (17/11):** editor de Mi página, Mis hojas, cobros (Anotar rápido, Cobrar hoy, link de cobro con comprobante) y Mi secretaria + Cómo van. Pruebas `editor-mi-pagina`, `hub-hojas`, `hub-cobros`, `hub-secretaria`. Publicado (#93) el 17/11 con respaldo bajado por el dueño; páginas 200 antes y después (sin llave del asistente en esa sesión: no hubo foto de datos por API). V8 y V9 hechos.
   - ⏳ [P2] Aviso al revendedor cuando le llega un comprobante (hoy lo ve al entrar).
   - ⏳ [P3] Deshacer al aprobar un comprobante de cuenta propia; pruebas de link con comprobante para cuentas propias y clientes registrados.
   - ⏳ [P3] Cómo van: comparar con el mes pasado «a la misma altura».

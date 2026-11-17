@@ -3,7 +3,12 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · 🏪 GaboHub: los revendedores tienen lo del panel del dueño (sin publicar)
+## 2026-11-17 · 🔐 Códigos más rápidos y Disney siempre (sin publicar)
+- **Por qué:** a Cabezas los códigos de Disney le llegaban tarde o no le llegaban.
+- Los buzones se leen **todos a la vez** y **cada 20 s** (antes de a uno y cada minuto). Un buzón lento o caído ya no frena a los demás: tiene 45 s por vuelta y queda con el error «tardó demasiado».
+- Los correos de **Disney+ y MyDisney pasan siempre**, aunque el buzón tenga una lista vieja de asuntos o remitentes. Se sumó «passcode» a los asuntos por defecto, y el código se lee también en portugués, francés, italiano, alemán y otros idiomas.
+
+## 2026-11-17 · 🏪 GaboHub: los revendedores tienen lo del panel del dueño (PR #93 publicado)
 - **Por qué:** el dueño: «todo lo que yo tengo en mi panel tiene que tenerlo mis revendedores para que estén cómodos», y el editor de su página «más bonito, cómodo y práctico en el teléfono y en la computadora».
 - **Mi página:** editor por secciones plegables (Marca, Colores y diseño, Portada, Productos, Publicar y cobrar), paletas sugeridas con aviso «se lee poco», vista previa en vivo sin guardar (pantalla completa en celular, al lado en PC) y «Guardar mi página» fijo encima del menú. No se quitó ninguna opción.
 - **📒 Mis hojas:** sus clientes (tienda, cuentas propias y perfiles) como en el Excel, por plataforma y «Me deben»; también sin internet, con cambios que se suben solos y aviso si chocan.

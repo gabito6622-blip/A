@@ -96,6 +96,10 @@ export interface AppConfig {
   clock?: Clock;
   /** Tareas periódicas (vencer reservas, recordatorios). Por defecto activadas. */
   jobs?: boolean;
+  /** Cada cuánto se revisan los buzones de códigos (ms). Por defecto 20 s. */
+  mailEveryMs?: number;
+  /** Tiempo máximo por buzón en cada vuelta (ms). Por defecto 45 s. */
+  mailBoxTimeoutMs?: number;
   log?: (msg: string) => void;
   /** Solo pruebas: conectar a un servidor IMAP local en vez del real. */
   imapTest?: { host: string; port: number; tls: ImapConfig["tls"] };
@@ -2858,13 +2862,20 @@ export function createApp(cfg: AppConfig): App {
     if (polling) return polling.then((): Promise<PollResult> | PollResult => (only ? pollMail(only) : { checked: 0, found: 0, errors: 0 }));
     polling = (async () => {
       let checked = 0, found = 0, errors = 0;
-      for (const box of Object.values(store.engine.s.mailboxes)) {
-        if (only && box.id !== only) continue;
+      // Todos los buzones a la vez (17/11/2026): antes se leían de a uno y un buzón lento o caído frenaba hasta 2 min
+      // a los demás, y los códigos llegaban tarde. Cada buzón tiene su propio límite de tiempo.
+      const boxLimitMs = cfg.mailBoxTimeoutMs ?? 45_000;
+      const conTope = <T,>(p: Promise<T>): Promise<T> => new Promise<T>((ok, fail) => {
+        const t = setTimeout(() => fail(new Error("El buzón tardó demasiado; se vuelve a intentar en la próxima vuelta")), boxLimitMs);
+        p.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); fail(e); });
+      });
+      await Promise.all(Object.values(store.engine.s.mailboxes).map(async (box) => {
+        if (only && box.id !== only) return;
         const pass = passOf(box.id);
-        if (!pass) continue;
+        if (!pass) return;
         checked++;
         try {
-          const r = await fetchNew(imapOf(box, pass), { afterUid: box.lastUid, uidValidity: box.uidValidity, since: now() - 86_400_000, max: 40 });
+          const r = await conTope(fetchNew(imapOf(box, pass), { afterUid: box.lastUid, uidValidity: box.uidValidity, since: now() - 86_400_000, max: 40 }));
           const known = store.codes.accountEmails();
           let n = 0;
           for (const m of r.mails) {
@@ -2881,7 +2892,7 @@ export function createApp(cfg: AppConfig): App {
           errors++;
           store.codes.setStatus(system, box.id, { error: (e as Error).message });
         }
-      }
+      }));
       return { checked, found, errors };
     })().finally(() => { polling = null; });
     return polling;
@@ -3286,6 +3297,10 @@ export function createApp(cfg: AppConfig): App {
   }
   const timers: NodeJS.Timeout[] = [];
   if (cfg.jobs !== false) {
+    // Códigos: se revisan los buzones cada 20 s (antes, cada minuto junto con las demás tareas).
+    timers.push(setInterval(() => {
+      pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
+    }, cfg.mailEveryMs ?? 20_000));
     timers.push(setInterval(() => {
       try {
         const r = runJobs();
@@ -3294,7 +3309,6 @@ export function createApp(cfg: AppConfig): App {
         log(`tareas fallaron: ${(e as Error).message}`);
       }
       flushWhatsApp().then((r) => { if (r.sent || r.failed) log(`whatsapp: ${JSON.stringify(r)}`); }, (e) => log(`whatsapp falló: ${(e as Error).message}`));
-      pollMail().then((r) => { if (r.found) log(`códigos: ${JSON.stringify(r)}`); }, (e) => log(`códigos falló: ${(e as Error).message}`));
       checkTelegramAlerts().catch((e) => log(`telegram falló: ${(e as Error).message}`));
       checkPushAlerts().catch((e) => log(`avisos al celular fallaron: ${(e as Error).message}`));
       checkDailyReport().catch((e) => log(`reporte del día falló: ${(e as Error).message}`));

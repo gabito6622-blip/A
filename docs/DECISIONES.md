@@ -2,6 +2,10 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Códigos: Disney pasa siempre
+- El dueño pidió que lleguen todos los de Disney y MyDisney. Un remitente con «disney» saltea las listas de asuntos y remitentes del buzón; igual tiene que traer un código o link.
+- Buzones en paralelo con tope de 45 s cada uno, cada 20 s; las demás tareas siguen cada minuto.
+
 ## 2026-11-17 · GaboHub igual al panel del dueño
 - **Reutilizar antes que duplicar:** «Cobrar hoy» es Mi día; Mis hojas usa las mismas funciones de siempre por una sola ruta; Mi secretaria usa los datos de Mi día y cuentas propias; precios del día = su lista de precios de venta.
 - **Lo que es solo del dueño no se pasa:** aprobar pagos de la tienda, proveedores, costos, otros revendedores.
