@@ -1251,7 +1251,7 @@ export function createApp(cfg: AppConfig): App {
     try { return await reviewOrder(c.params.id); }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
-  route("POST", "/api/admin/orders", "staff", (c) => store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }));
+  route("POST", "/api/admin/orders", "staff", (c) => autoLink(store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }), A(c), c));
   route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));
@@ -1262,12 +1262,12 @@ export function createApp(cfg: AppConfig): App {
     // 🎁 Días de regalo al aprobar (16/11/2026): se suman a la fecha que le tocó (0 a 31).
     const bonus = Math.trunc(Number(c.body?.bonusDays ?? 0));
     if (!Number.isFinite(bonus) || bonus < 0 || bonus > 31) throw new HttpError(400, "VALIDATION", "Días de regalo: de 0 a 31");
-    const o = payPush(store.orders.approvePayment(A(c), c.params.id, {
+    const o = payPush(autoLink(store.orders.approvePayment(A(c), c.params.id, {
     confirmedReference: String(c.body?.confirmedReference ?? ""), idempotencyKey: c.body?.idempotencyKey,
     force: c.body?.force === true, forceReason: c.body?.forceReason === undefined ? undefined : String(c.body.forceReason),
     verifiedAmount: c.body?.verifiedAmount === undefined || c.body?.verifiedAmount === null || c.body?.verifiedAmount === "" ? undefined : Number(c.body.verifiedAmount),
     verifiedUsd: c.body?.verifiedUsd === undefined || c.body?.verifiedUsd === null || c.body?.verifiedUsd === "" ? undefined : Number(c.body.verifiedUsd),
-  }));
+  }), A(c), c));
     if (bonus > 0 && o.status === "fulfilled") {
       const ids = o.renewal?.assignmentId ? [o.renewal.assignmentId] : (o.assignmentIds ?? []);
       for (const id of ids) {
@@ -1758,6 +1758,13 @@ export function createApp(cfg: AppConfig): App {
     store.codes.setLink(actor, customerId, token);
     db.setSecret(`codepin:${customerId}`, null, now());
     return { url: codeLinkUrl(token, c), mode: "email" };
+  };
+  // Al aprobar o crear una venta cobrada, el cliente ya tiene su link de códigos (sin mandar nada: solo se genera).
+  const autoLink = (o: { status: string; customerId: string } | undefined, actor: Actor, c: Ctx) => {
+    if (o && o.status === "fulfilled" && o.customerId && !store.engine.s.customers[o.customerId]?.codeLink) {
+      try { makeEmailLink(o.customerId, actor, c); } catch { /* sin link: se puede crear a mano */ }
+    }
+    return o as any;
   };
   // Con PIN si lo mandan; si no, modo correo (lo más simple).
   const makeAnyLink = (customerId: string, actor: Actor, c: Ctx) =>
