@@ -268,6 +268,7 @@ export function createStore(opts: EngineOptions = {}) {
       ingest: bind(e, codes.ingest),
       remove: bind(e, codes.removeMailbox),
       list: bind(e, codes.listMailboxes),
+      coverage: bind(e, codes.mailboxCoverage),
       setStatus: bind(e, codes.setMailboxStatus),
       recent: bind(e, codes.recentCodes),
       accountEmails: () => codes.accountEmails(e),

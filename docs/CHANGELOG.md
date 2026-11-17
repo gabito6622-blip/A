@@ -3,6 +3,11 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-17 · 📬 Correos que faltan conectar (sin publicar)
+- **Por qué:** el dueño: «decime qué correos faltan añadir en las cuentas madres» para que lleguen los códigos. La lista de Gmail conectados solo la veía el dueño y no decía qué faltaba.
+- **Panel de códigos → «📬 Correos que faltan conectar»:** agrupa las cuentas activas por su correo madre (lo de antes del «+»; en Gmail sin puntos) y dice para cada uno: ⚠️ falta conectar, ⛔ conectado con error, 📨 llegan por reenvío (llegó algún código en 7 días) o ✅ conectado; con cuántas cuentas dependen y cuántas están en uso. Primero lo que falta.
+- **También la ven un admin y la llave del asistente**, sin contraseñas. Conectar, cambiar o borrar un correo sigue siendo solo del dueño.
+- No se quitó ninguna pantalla ni botón.
 ## 2026-11-17 · ✂️ Corte con 1 día de gracia y ficha con precio de renovación (sin publicar)
 - **Corte automático:** un servicio vencido se corta **1 día** después del vencimiento (antes eran 2). Lo decidió el dueño. Los avisos «Hoy se corta» y «se corta el dd/mm» ya dicen la fecha nueva.
 - **Ficha del revendedor:** «⏳ Solo lo que vence este mes» y «Precio de renovación para el mensaje» (por ejemplo Bs 67 c/u). Solo cambia el mensaje de «💬 Mandarle su lista», no los precios guardados.
