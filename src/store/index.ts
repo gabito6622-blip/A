@@ -281,6 +281,7 @@ export function createStore(opts: EngineOptions = {}) {
       record: (actor: Actor, assignmentId: string, before: string, label: string) => deshacer.undoRecord(e, actor, assignmentId, before, label),
       list: bind(e, deshacer.undoList),
       pay: bind(e, deshacer.undoPay),
+      payMany: bind(e, deshacer.undoPayMany),
     },
     rapido: { parse: bind(e, anotarRapido.quickParse), apply: bind(e, anotarRapido.quickApply) },
     ordenar: { view: bind(e, ordenar.ordenarView) },

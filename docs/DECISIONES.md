@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Cobrar uno por uno y Deshacer «Me pagó todo»
+- **3 días o ya vencidas:** las mismas fichas rojas y naranjas del Tablero; el dueño avisa 1 a 3 días antes según el revendedor.
+- **«Abrir WhatsApp» marca «avisado»:** no hay forma de saber si el mensaje salió de verdad; se usa la misma marca que «✅ Ya le avisé» (se puede quitar en Mi secretaria).
+- **Deshacer todo o nada:** deshacer solo una parte dejaría el cobro a medias y confundiría las cuentas. Cada cuenta usa la misma foto de «Deshacer» de siempre.
+- **Un reintento del mismo cobro (misma llave) no pisa el Deshacer** del primero.
+
 ## 2026-11-17 · Catálogo PDF para el cliente
 - **Se usa el PDF público que ya existía** (el mismo generador del panel, guardado 5 minutos y con límite por persona); solo faltaba el botón en el diseño «boleto».
 - **Un solo botón para todos los diseños**, con el mismo texto, para que no vuelva a faltar en uno.

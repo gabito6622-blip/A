@@ -2,7 +2,7 @@
 import { api, apiCacheClear, $, $$, esc, bs, setCurrency, currencySym, lookColors, contrastNote, softwareNotice, toCents, fdate, fdt, daysLeft, icon, toast, fileToBase64, waLink, newKey, brandBadge, enhanceFiles, STATUS_TEXT, KIND_TEXT, FONT_LIST, BG_LIST, CARD_LIST, LAYOUT_LIST, THEMES, themeSwatch } from "/common.js";
 import { monthModeField, monthModeOf, applyStoreMonthMode } from "/mes-modo.js"; // 📅 ¿Cómo cuenta un mes la tienda?
 import { comoVanView } from "/panel-comovan.js";
-import { tableroView, avisoRenovada, tableroLink } from "/panel-tablero.js";
+import { tableroView, avisoRenovada, tableroLink, tableroSeq } from "/panel-tablero.js";
 import { dayPricesCard, initDayPrices } from "/panel-precios.js";
 import { inicioTop, initRapido, ordenarView } from "/panel-rapido.js";
 import { hojasView, hojasInit, hojasSnapshot, hojasLogout, hojasRefresh, hojasCheckUser, netErr } from "/panel-hojas.js";
@@ -3130,6 +3130,7 @@ document.addEventListener("click", async (ev) => {
     return act(() => api("POST", `/api/admin/customers/${d.rcodepinoff}/code-pins`, { email: d.email, pin: "" }), "PIN quitado");
   }
   if (d.tblink) return tableroLink(d.tblink);
+  if (d.tbseq) return tableroSeq(render);
   if (d.tbslot) { P.tab.slotAct = d.tbslot; P.tab.accq = d.q || ""; go("cuentas"); return; }
   if (d.tbf) { P.tab.tbf = d.tbf; await render(); return; }
   if (d.slotcut) {

@@ -4,7 +4,7 @@
 // Primero los que tienen algo vencido, después los que vencen en 7 días, los que deben y al final los que están al día.
 // Tocar una etiqueta abre esa cuenta en Inventario → Cuentas con sus botones (Renovar, Liberar, Enviar accesos…).
 // Nada se manda solo: «Cobrar» abre el WhatsApp de UNA persona con el mensaje escrito.
-import { cobrarConLink } from "/panel-cobrolink.js";
+import { cobrarConLink, cobrarUnoPorUno } from "/panel-cobrolink.js";
 import { api, esc, bs, fdate, waLink, icon } from "/common.js";
 
 const DAY = 864e5;
@@ -65,11 +65,21 @@ export function tableroLink(id) {
   if (!r) return;
   return cobrarConLink(r.phone, r.name, r.due.map((a) => ({ id: a.id, product: a.product, email: a.email, expiresAt: a.customerExpiresAt, price: a.effectivePrice ?? 0 })));
 }
+/** ▶ Cobrar uno por uno: los que tienen cuentas vencidas o que vencen en 3 días (las mismas fichas rojas y naranjas). */
+const SEQ_DAYS = 3;
+export function seqPeople(rows, now = Date.now()) {
+  return rows.map((r) => ({ id: r.id, phone: r.phone, name: r.name, items: r.items.filter((a) => !a.holdOpen && daysTo(a.customerExpiresAt, now) <= SEQ_DAYS)
+    .map((a) => ({ id: a.id, product: a.product, email: a.email, expiresAt: a.customerExpiresAt, price: a.effectivePrice ?? 0 })) }))
+    .filter((p) => p.items.length && p.phone);
+}
+let lastSeq = [];
+export function tableroSeq(render) { return cobrarUnoPorUno(lastSeq, () => render?.()); }
 export async function tableroView(T, { paidAllBtn, canReview }) {
   const [ov, as] = await Promise.all([api("GET", "/api/admin/resellers/overview"), api("GET", "/api/admin/assignments")]);
   const now = Date.now();
   const all = buildRows(ov.list, as, now);
   lastRows = new Map(all.map((r) => [r.id, r])); // para «🔗 Con link de pago»
+  lastSeq = seqPeople(all, now);
   const f = FILTERS.some(([k]) => k === T.tbf) ? T.tbf : "todos";
   const q = String(T.tbq ?? "").trim().toLowerCase();
   const shown = all.filter((r) => pass(f, r) && (!q || `${r.name} ${r.items.map((a) => a.email).join(" ")}`.toLowerCase().includes(q)));
@@ -94,6 +104,7 @@ export async function tableroView(T, { paidAllBtn, canReview }) {
     <h2>${icon("users")}Tablero de revendedores</h2>
     <p class="muted" style="margin:0">Una fila por revendedor. Arriba, los que tienen algo para cobrar. Tocá una cuenta para renovarla, liberarla o mandar accesos.</p>
     <div class="tbsum"><span><b>${all.filter((r) => r.items.length).length}</b> revendedores con cuentas</span><span><b>${cuentas}</b> cuentas</span><span class="${venc ? "bad" : ""}"><b>${venc}</b> vencidas</span><span class="${pronto ? "warn" : ""}"><b>${pronto}</b> vencen en 7 días</span><span>Para cobrar <b>${bs(porCobrar)}</b></span><span class="${deben ? "bad" : ""}">Te deben <b>${bs(deben)}</b></span></div>
+    ${lastSeq.length ? `<button class="pbtn green big tbseq" type="button" data-tbseq="1">▶ Cobrar uno por uno con link de pago · ${lastSeq.length} revendedor${lastSeq.length === 1 ? "" : "es"} (vencen en ${SEQ_DAYS} días o ya vencieron)</button>` : ""}
     <input class="rsearch" id="tbq" placeholder="🔍 Buscar revendedor o correo" value="${esc(T.tbq ?? "")}" aria-label="Buscar revendedor o correo">
     <div class="tabs ctl-chips" role="tablist">${FILTERS.map(([k, t]) => `<button type="button" role="tab" data-tbf="${k}" aria-selected="${f === k}">${t} <span class="chipn">${all.filter((r) => pass(k, r)).length}</span></button>`).join("")}</div>
     <div class="tbleg"><span><i class="tbc-exp"></i>Vencida</span><span><i class="tbc-soon"></i>Vence en 3 días</span><span><i class="tbc-week"></i>Vence en 7 días</span><span><i class="tbc-ok"></i>Al día</span><span><i class="tbc-wait"></i>Sin fecha</span></div>
