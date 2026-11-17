@@ -45,7 +45,15 @@ function closeFull() {
   return true;
 }
 
+/** La barra «Guardar» va justo encima del menú de abajo de GaboHub (en celular), sin taparlo. */
+function syncBnav() {
+  const n = document.querySelector(".bnav"), h = n && getComputedStyle(n).display !== "none" ? n.getBoundingClientRect().height : 0;
+  document.documentElement.style.setProperty("--ed-bnav", `${Math.round(h)}px`);
+}
 if (typeof document !== "undefined") {
+  syncBnav();
+  addEventListener("resize", syncBnav);
+  document.addEventListener("toggle", (ev) => { if (ev.target?.dataset?.edsec) syncBnav(); }, true);
   document.addEventListener("toggle", (ev) => {
     const d = ev.target;
     if (d?.dataset?.edsec) OPEN[d.dataset.edsec] = d.open;

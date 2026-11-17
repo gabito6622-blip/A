@@ -38,10 +38,11 @@
 .edtop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--s-line);background:var(--s-card);border-radius:14px;padding:10px 14px;font-size:14px}
 .edtop .rlink{font-size:13px}
 /* barra Guardar fija abajo (celular) */
-.rsave{position:fixed;left:0;right:0;bottom:0;z-index:40;margin:0;border-radius:16px 16px 0 0;padding:10px max(12px,env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:color-mix(in srgb,var(--s-card) 96%,transparent);border:1px solid var(--s-line);box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+.rsave{position:fixed;left:0;right:0;bottom:var(--ed-bnav,0px);z-index:29;margin:0;border-radius:16px 16px 0 0;padding:10px max(12px,env(safe-area-inset-left));display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:color-mix(in srgb,var(--s-card) 96%,transparent);border:1px solid var(--s-line);box-shadow:0 -6px 20px rgba(0,0,0,.18)}
 .rsave .sbtn{flex:1 1 140px;min-height:48px;justify-content:center}
 .rsave .edhint{flex:1 1 100%;font-size:12px;margin:0}
-.reditor{padding-bottom:120px}
+.reditor{padding-bottom:calc(130px + var(--ed-bnav,0px))}
+@media (min-width:801px){.rsave{padding-bottom:calc(10px + env(safe-area-inset-bottom))}}
 .eddirty{font-weight:800;color:var(--s-ink)}
 /* vista previa: en celular, oculta hasta tocar «Ver cómo queda» */
 .edpv-close{display:none}

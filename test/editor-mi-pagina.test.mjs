@@ -80,7 +80,13 @@ for (const width of (process.env.GS_EDITOR_WIDTHS || "360,1280").split(",").map(
         assert.deepEqual(tiny, [], "texto de 12 px o más");
         // Guardar fijo abajo.
         const bar = await page.locator(".rsave").boundingBox();
-        if (width < 1024) assert.ok(bar.y + bar.height >= 780 - 2, "Guardar pegado abajo");
+        if (width < 1024) {
+          // Pegado abajo, justo encima del menú de abajo de GaboHub (si se ve), sin taparlo.
+          const nav = await page.locator(".bnav").boundingBox().catch(() => null);
+          const floor = nav && nav.height ? nav.y : 780;
+          assert.ok(Math.abs(bar.y + bar.height - floor) <= 2, `Guardar pegado abajo (${bar.y + bar.height} vs ${floor})`);
+          if (nav && nav.height) await page.locator('.bnav [data-s="mas"]').click({ trial: true, timeout: 3000 });
+        }
         const frame = page.frameLocator("#shopPreview");
         await frame.locator("body").waitFor({ state: "attached" });
         const fr = page.frame({ url: /\/r\/daniel/ });
