@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · 📖 Revendedores más fácil
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Recorrido como revendedor | GaboHub a 390 px con datos de prueba (3 cuentas Disney: vencida, por vencer, al día) | entra con el link sin escribir nada; ve el aviso y los 4 botones; «Renovar las 2 · Bs 138» arma un solo QR con un comprobante; Códigos explica y ofrece el link; sin errores. Lo que trababa: la bienvenida de 13 pasos |
+| Total | `npm test` (213 s) | 894: **893 pasan**; 1 falla por tiempo con la máquina cargada (`codigos-solos`). Sola pasa 2 de 2; en otra corrida completa, **894 de 894** |
+| Prueba nueva `guia-revendedor` | pantalla 390 y 360 px, datos ficticios | bienvenida «1 / 4» con el nombre de la plataforma, paso 3 dice «un solo QR», el último lleva a «📖 Guía»; no vuelve a salir; «📖 Guía» sigue con todos los pasos; `/guia-revendedor` abre sin entrar, las 4 fotos cargan, sin desborde, WhatsApp de la tienda, botones ≥ 44 px; la invitación lleva link directo, cómo pagar, cómo sacar código y la guía |
+
 ## 17/11/2026 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo»
 | Qué | Cómo | Resultado |
 |---|---|---|
