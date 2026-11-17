@@ -760,7 +760,7 @@ function renderInner() {
   const resNote = MODE === "store" && isReseller() ? `<div class="sbox resnote"><span>Sos revendedor: tus cuentas, precios y clientes están en <b>${esc(S.settings.platformName || "GaboHub")}</b>.</span><a class="sbtn sm pri" href="/hub#cuentas">Ir a mi panel ${icon("arrow")}</a></div>` : "";
   $("#sout").innerHTML = resNote + V[S.view]();
   // Con «🚀 Primeros pasos» a la vista la guía no arranca sola (tiene su botón 📖 en la tarjeta).
-  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour") && !document.querySelector(".arr-pasos")) setTimeout(() => { if (S.view === "inicio" && !guideSeen() && !S.data.wiz && S.data.pasos !== undefined && !document.querySelector(".arr-pasos")) startTour(); }, 700);
+  if (MODE === "hub" && hubPanel() && S.view === "inicio" && !guideSeen() && !document.getElementById("tour") && !document.querySelector(".arr-pasos")) setTimeout(() => { if (S.view === "inicio" && !guideSeen() && !S.data.wiz && S.data.pasos !== undefined && !document.querySelector(".arr-pasos")) startTour(true); }, 700);
 }
 
 /* ---------------- revendedor ---------------- */
@@ -1657,6 +1657,24 @@ function wizardView() {
 
 /* ---------------- Tour guiado (spotlight, estilo juego) ---------------- */
 let tourSteps = [], tourIdx = 0, tourReposition = null;
+/** 17/11/2026: la primera vez, solo 4 pasos (los 4 botones grandes). El dueño: 13 pasos era largo para sus revendedores.
+ * La guía completa sigue en «📖 Guía». */
+function tourShortList() {
+  const plat = S.settings.platformName || S.storeName || "la plataforma";
+  const more = "Lo demás está en «🧰 Todas mis herramientas». Y esta guía completa, en «📖 Guía».";
+  const steps = isIndep() ? [
+    ['.hsimple [data-rtool="propias"]', `¡Bienvenido a ${plat}! 👋 1 · Mis cuentas 📦`, "Tus cuentas (Netflix, IPTV, lo que vendas): cargás la cuenta y a quién se la diste."],
+    ['.hsimple [data-s="codigos"]', "2 · Mis códigos 🔑", "Conectá tu correo y los códigos de tus cuentas te llegan acá solos."],
+    ['.hsimple [data-rtool="dia"]', "3 · Cobrar 💰", "A quién le vence hoy y quién te debe, con el mensaje listo para mandar."],
+    ['[data-tour]', "4 · ¿Una duda? 📖", more],
+  ] : [
+    ['.hsimple [data-s="cuentas"]', `¡Bienvenido a ${plat}! 👋 1 · Mis cuentas 📺`, "Tus cuentas con correo, clave y cuándo vence cada una. «📋 Copiar datos» y se las pasás a tu cliente."],
+    ['.hsimple [data-s="codigos"]', "2 · Sacar código 🔑", "Cuando Disney, Netflix o HBO piden un código, aparece acá solo, en segundos."],
+    ['.hsimple [data-renewgo]', "3 · Renovar 💳", "Cuando algo vence, tocás acá: pagás todo junto con un solo QR y subís la foto del comprobante. Apenas lo aprueban, queda renovado."],
+    ['.hsimple [data-s="precios"]', "4 · Comprar 🛒", `Elegí cuentas nuevas y pagá con QR o saldo. ${more}`],
+  ];
+  return steps.filter(([sel]) => document.querySelector(sel)).map(([sel, title, text]) => ({ sel, title, text }));
+}
 function tourStepList() {
   const plat = S.settings.platformName || S.storeName || "la plataforma";
   const steps = [
@@ -1704,10 +1722,10 @@ function buildTourDom() {
   t.querySelector(".tour-next").onclick = () => goTour(tourIdx + 1);
   return t;
 }
-function startTour() {
+function startTour(short = false) {
   if (!(MODE === "hub" && hubPanel())) return;
-  if (S.view !== "inicio") { setView("inicio"); setTimeout(startTour, 400); return; }
-  tourSteps = tourStepList();
+  if (S.view !== "inicio") { setView("inicio"); setTimeout(() => startTour(short), 400); return; }
+  tourSteps = short ? tourShortList() : tourStepList();
   if (!tourSteps.length) return;
   buildTourDom();
   tourReposition = () => { const s = tourSteps[tourIdx]; const el = s && document.querySelector(s.sel); if (el) placeTour(el, s); };

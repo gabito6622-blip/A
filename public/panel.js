@@ -136,7 +136,11 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   const one = await api("POST", `/api/admin/customers/${id}/login-link`, {}).then((r) => r.url).catch(() => "");
   const base = `¡Hola ${name.split(" ")[0]}! 👋 Ya sos revendedor de ${plat}.\n\n`
     + (one ? `👉 *Tocá acá y entrás directo* (sin escribir nada):\n${one}\n\nLas próximas veces entrás en ${location.origin}/hub con:\n` : `👉 Entrá acá: ${location.origin}/hub\n`)
-    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones grandes con lo de todos los días: tus cuentas, tus códigos y lo que te toca cobrar o renovar.`;
+    + `📱 Tu número: ${phone}\n🔑 Tu PIN: ${pin}\n\nAdentro tenés 4 botones grandes con lo de todos los días: tus cuentas, tus códigos y lo que te toca cobrar o renovar.`
+    // 17/11/2026: cómo se paga y cómo se saca un código, claro desde el primer mensaje, y la guía con fotos.
+    + `\n\n💳 *Cuando te aviso que vence una cuenta:* entrás, tocás *Renovar*, pagás todo junto con un solo QR y subís la foto del comprobante. Apenas lo apruebo, queda renovada.`
+    + `\n🔑 *Si Disney o Netflix te piden un código:* tocás *Sacar código* y aparece solo.`
+    + `\n\n📖 Guía con fotos (2 minutos): ${location.origin}/guia-revendedor`;
   const msg = page
     ? `${base}\n\n🛍️ Tu página para tus clientes:\n${page}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`
     : `${base}\n\n(Guardá tu PIN. Lo podés cambiar adentro.)`;
@@ -147,7 +151,7 @@ async function resellerKit(id, name, phone, slug, pinIn) {
 function guideMsg(name, plat, origin, slug, pageAllowed, trust) {
   const n = (name || "").split(" ")[0] || "";
   const page = pageAllowed && slug ? shopLink(slug, origin) : "";
-  return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n\n`
+  return `📖 *Guía rápida de ${plat}* — ¡Hola ${n}! 👋\n🖼️ Con fotos: ${origin}/guia-revendedor\n\n`
     + `*1) Cómo entrar*\n`
     + `• Entrá a: ${origin}/hub\n`
     + `• Poné tu *número* y tu *PIN* (o tu correo y contraseña si te la diste).\n\n`

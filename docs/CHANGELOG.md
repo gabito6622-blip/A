@@ -3,7 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
-## 2026-11-17 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo» (sin publicar)
+## 2026-11-17 · 📖 Revendedores más fácil: bienvenida corta, guía con fotos e invitación clara (sin publicar)
+- **Por qué:** el dueño: «todavía no entienden cómo entrar, ver sus cuentas, pagar y ver sus códigos». De 21 revendedores con cuentas, solo 7 entraron alguna vez y 12 no tienen PIN.
+- **Bienvenida de 4 pasos:** la primera vez que entran, solo los 4 botones grandes (Mis cuentas, Sacar código, Renovar con un solo QR, Comprar). Antes eran 13 pasos. La guía completa sigue en «📖 Guía».
+- **Guía con fotos** en `/guia-revendedor`: 1) Entrá, 2) Mirá tus cuentas, 3) Renová con QR, 4) Sacá tu código, con fotos de ejemplo y el botón de WhatsApp de la tienda. Se abre sin entrar.
+- **Invitación por WhatsApp** («▶ Invitarlos ahora» y el acceso de cada revendedor): además del link directo, dice cómo se paga («tocás Renovar, pagás todo junto con un solo QR y subís la foto») y cómo se saca un código, con el link de la guía con fotos. La guía rápida por texto también lleva ese link.
+- No se quitó ninguna pantalla ni botón.
+
+## 2026-11-17 · ▶ Cobrar uno por uno y ↩️ Deshacer «Me pagó todo» (PR #89 publicado)
 - **Por qué:** el dueño pidió que su panel le ahorre tiempo. De 21 revendedores con cuentas, solo 7 entraron alguna vez a GaboHub: a los demás los persigue por WhatsApp uno por uno.
 - **Tablero → «▶ Cobrar uno por uno con link de pago»:** junta a todos los que tienen cuentas vencidas o que vencen en 3 días (y WhatsApp cargado). Muestra el mensaje de cada uno con un link de pago por cuenta; «Abrir WhatsApp» lo abre y lo marca como avisado (igual que «✅ Ya le avisé»); «Siguiente» pasa al próximo. Nada se manda solo.
 - **«Me pagó todo» ahora se puede deshacer:** arriba aparece «↩️ Deshacer los N» por 30 minutos; también figuran de a uno en «Cobros recientes» de Inicio. Es todo o nada: si una de las cuentas cambió después, no se deshace ninguna y avisa cuál.

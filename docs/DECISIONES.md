@@ -2,6 +2,11 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Revendedores más fácil
+- **El problema era entrar, no la página:** recorrimos GaboHub como un revendedor de prueba y todo anduvo (link directo, cuentas, renovar con un QR, códigos); lo que falta es que entren. Por eso: bienvenida corta, guía con fotos y una invitación que explique cómo se paga.
+- **Guía como página, no como archivo:** se abre con un link en WhatsApp, sin descargar nada, y las fotos se rehacen con `scripts/guia-capturas.mjs` (datos de ejemplo) si cambian las pantallas.
+- **Fotos con datos de ejemplo:** nunca datos reales; el QR de la foto es un dibujo y la guía lo aclara.
+
 ## 2026-11-17 · Cobrar uno por uno y Deshacer «Me pagó todo»
 - **3 días o ya vencidas:** las mismas fichas rojas y naranjas del Tablero; el dueño avisa 1 a 3 días antes según el revendedor.
 - **«Abrir WhatsApp» marca «avisado»:** no hay forma de saber si el mensaje salió de verdad; se usa la misma marca que «✅ Ya le avisé» (se puede quitar en Mi secretaria).
