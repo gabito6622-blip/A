@@ -92,20 +92,22 @@ const LINK_RE = /https:\/\/(?:www\.)?netflix\.com\/(?:account\/(?:travel|update-
 /** Clasifica el tipo de código de Netflix/Disney por el asunto y el texto (español e inglés). */
 export function classifyCode(subject: string, text: string): string {
   const s = `${subject} ${text}`.toLowerCase();
-  if (/hogar|household/.test(s)) return "hogar";
-  if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta/.test(s)) return "login";
-  if (/acceso temporal|temporary access|c[oó]digo temporal|temporary code/.test(s)) return "temporal";
-  if (/verificaci[oó]n|verify|verification|one.?time|[uú]nico|passcode/.test(s)) return "verificacion";
+  // 17/11/2026: también portugués, francés, italiano y alemán (llegan cuentas configuradas en otros idiomas).
+  if (/hogar|household|resid[eê]ncia|domic[ií]lio|foyer|haushalt|nucleo domestico/.test(s)) return "hogar";
+  if (/inicio de sesi[oó]n|iniciar sesi[oó]n|inicie sesi[oó]n|sign.?in|log.?in|accede a tu cuenta|entrar|connexion|accedi|anmeld/.test(s)) return "login";
+  if (/acceso temporal|temporary access|c[oó]digo temporal|temporary code|acesso tempor[aá]rio|acc[eè]s temporaire|accesso temporaneo|vor[uü]bergehend/.test(s)) return "temporal";
+  if (/verificaci[oó]n|verify|verification|one.?time|[uú]nico|passcode|verifica[cç][aã]o|v[eé]rification|verifica|best[aä]tig/.test(s)) return "verificacion";
   return "otro";
 }
 
-export function extractCode(text: string, html = ""): { code: string; link?: string } {
+export function extractCode(text: string, html = ""): { code: string; link?: string; sure?: boolean } {
   const t = text.replace(/ /g, " ");
-  const near = /(?:c[oó]digo|code|codice|kod|kode|pin|passcode|senha|clave temporal|mot de passe)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
+  // La palabra «código» en los idiomas que más llegan (es, en, pt, fr, it, de, nl, pl, tr, cs, fi, ru, el, ja, ko, zh).
+  const near = /(?:c[oó]digo|code|codice|kod|kode|kód|koodi|kodu|код|κωδικ|コード|코드|验证码|代码|pin|passcode|senha|clave temporal|mot de passe)[^0-9\n]{0,80}\n?\s*(\d{3}[ -]?\d{3}|\d{4,8})\b/i.exec(t)?.[1];
   const alone = /^\s*(\d{3}[ -]?\d{3}|\d{4,8})\s*$/m.exec(t)?.[1];
   const any = t.split("\n").map((l) => CODE_RE.exec(l)?.[1]).find((c) => c && !/^(19|20)\d{2}$/.test(c));
   const link = LINK_RE.exec(html)?.[0]?.replace(/&amp;/g, "&") ?? LINK_RE.exec(t)?.[0];
-  return { code: near ?? alone ?? any ?? "", ...(link ? { link } : {}) };
+  return { code: near ?? alone ?? any ?? "", ...(link ? { link } : {}), sure: !!(near ?? alone) };
 }
 
 /** Guarda un mensaje solo si el asunto está permitido y trae un código o enlace. Devuelve null si se descarta. */
@@ -115,9 +117,15 @@ export function ingest(e: Engine, actor: Actor, mailboxId: Id, msg: { to: string
   // Disney+ y MyDisney pasan siempre (17/11/2026, pedido del dueño): sus asuntos cambian seguido («passcode», «MyDisney»…)
   // y los buzones viejos guardaron una lista de asuntos que no los cubría. Igual hace falta que el correo traiga un código.
   const esDisney = /disney/i.test(msg.from ?? "");
+  // Netflix también pasa siempre (17/11/2026, pedido del dueño: sus clientes finales sacan el código con su link), pero
+  // solo si el número está junto a la palabra «código» (en cualquier idioma) o trae un link de Netflix: así una
+  // promoción con números no se muestra como código.
+  const esNetflix = /netflix/i.test(msg.from ?? "");
+  // Si el dueño eligió remitentes para este buzón (p. ej. «solo Disney»), Netflix respeta ese filtro.
   if (!esDisney && box.senderAllowlist?.length && !box.senderAllowlist.some((s) => (msg.from ?? "").toLowerCase().includes(s))) return null;
-  const allowed = esDisney || box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
-  const { code, link } = extractCode(msg.body, msg.html);
+  const bySubject = box.subjectAllowlist.some((s) => msg.subject.toLowerCase().includes(s.toLowerCase()));
+  const ex = extractCode(msg.body, msg.html), code = ex.code, link = ex.link;
+  const allowed = esDisney || bySubject || (esNetflix && (ex.sure || !!link));
   if (!allowed || (!code && !link)) return null;
   return e.tx(() => {
     const c: CodeMessage = { id: e.id("cod"), mailboxId, to: msg.to.toLowerCase(), subject: msg.subject.slice(0, 200), code, ...(link ? { link } : {}), kind: classifyCode(msg.subject, msg.body), receivedAt: msg.receivedAt };
