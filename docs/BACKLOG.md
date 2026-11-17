@@ -4,7 +4,13 @@ Prioridad: P1 = frena ventas o es un riesgo · P2 = molesta todos los días · P
 Estado: ⏳ pendiente · 🔧 en curso · ✅ hecho (con prueba) · 🧑 decide el dueño.
 Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒 seguridad (auditoría del 11/11/2026).
 
-- ✅ **[P1] 👔 Cargar cuentas para vender desde Excel (17/11):** prueba `importar-cuentas-excel`. Publicado (#91): datos iguales antes y después. Arreglo del ejemplo de Netflix en la plantilla: sin publicar.
+- 🔧 **[P1] 🏪 GaboHub igual al panel del dueño (17/11):** editor de Mi página, Mis hojas, cobros (Anotar rápido, Cobrar hoy, link de cobro con comprobante) y Mi secretaria + Cómo van. Pruebas `editor-mi-pagina`, `hub-hojas`, `hub-cobros`, `hub-secretaria`. Sin publicar: espera «Publicá». V8 y V9 hechos.
+  - ⏳ [P2] Aviso al revendedor cuando le llega un comprobante (hoy lo ve al entrar).
+  - ⏳ [P3] Deshacer al aprobar un comprobante de cuenta propia; pruebas de link con comprobante para cuentas propias y clientes registrados.
+  - ⏳ [P3] Cómo van: comparar con el mes pasado «a la misma altura».
+  - ⏳ [P3] Revisar a ojo el modo claro real de GaboHub y medir los demás botones de Mis hojas.
+
+- ✅ **[P1] 👔 Cargar cuentas para vender desde Excel (17/11):** prueba `importar-cuentas-excel`. Publicado (#91): datos iguales antes y después. Arreglo del ejemplo de Netflix en la plantilla: publicado (#92), verificado en la plantilla real.
 - ✅ **[P1] 🏪 Revendedores más fácil: bienvenida de 4 pasos, guía con fotos e invitación clara (17/11):** prueba `guia-revendedor`. Publicado (#90): datos iguales antes y después; la guía abre en gabostore.lat/guia-revendedor con sus 4 fotos.
   - 🧑 Pendiente del dueño: invitar a los 12 revendedores sin PIN desde Inicio → «▶ Invitarlos ahora» (empezar por los que ya entraron) y revisar el Gmail con error del Panel de códigos.
 - ✅ **[P2] 👔 Cobrar uno por uno con link de pago y Deshacer «Me pagó todo» (17/11):** prueba `cobrar-uno-deshacer`. Publicado (#89): datos iguales antes y después, páginas 200.

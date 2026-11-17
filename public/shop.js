@@ -18,6 +18,7 @@ import { initMoneyMask } from "/montos.js";
 import { loadAlertsCard, alertsCard, alertsClick, loadLinkAlerts, subAlertTag, alertsSummary } from "/avisos.js";
 import { initAccChanges, accChangeBox, accChangesBanner } from "/hub-perezoso.js"; // cambio-cuenta.js: se carga solo en GaboHub
 import { initArranque, firstStepsCard, indepLine, indepCatalog, pageAskItem, slugField, slugConfirm } from "/hub-perezoso.js"; // arranque.js: se carga solo en GaboHub
+import { edSec, paletteRow, previewBtn, previewClose } from "/editor-pagina.js"; // editor de «Mi página» por secciones
 import { initMarcaPropia, rshopFaq, rshopTrust, rshopFootLinks, shopFaqBox, saveShopFaq } from "/marca-propia.js";
 import { initAskRenew, askRenewHtml, pendingRenewFlow } from "/pedir-renovacion.js";
 import { rememberHubUser, forgetHubUser, pinGiver, expiredNotice } from "/hub-sesion.js";
@@ -30,6 +31,9 @@ import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
+import { initHubSecretaria, loadHubSecretaria, loadHubComoVan, hubSecretariaView, hubComoVanView } from "/hub-perezoso.js"; // hub-secretaria.js: 🤵 Mi secretaria y 📈 Cómo van
+import { initHubCobros, loadHubCobros, hubCobrosHome, hubCobrosDia, payAllBtn } from "/hub-perezoso.js"; // hub-cobros.js: Anotar rápido, Me pagó todo, comprobantes
+import { hubHojasInit, hubHojasLoad, hubHojasView, hubHojasCheckUser, hubHojasLogout } from "/hub-perezoso.js"; // 📒 Mis hojas (hub-hojas.js)
 
 const S = { me: null, settings: null, catalog: [], cart: [], view: "inicio", cat: "Todos", q: "", step: 1, data: {} };
 // «Cambió la cuenta / la clave: avisá a tus N clientes» (cambio-cuenta.js): la clave nueva sale de «Mis cuentas».
@@ -245,7 +249,7 @@ async function loadPrivate() {
   if (S.view === "clientes" && isReseller()) [S.data.customers, S.data.prices, S.data.shop] = await Promise.all([api("GET", "/api/me/customers"), api("GET", "/api/me/prices"), api("GET", "/api/me/shop")]);
   if (S.view === "clientes" && isReseller()) {
     await loadLinkAlerts(); // quiénes de sus clientes reciben avisos solos
-    if (["dia", "control", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
+    if (["dia", "secretaria", "comovan", "control", "hojas", "debe", "ganancias", "perfiles", "descargas"].includes(S.data.rtab)) await loadRTab(S.data.rtab);
     else S.data.rsubs = await api("GET", "/api/me/subs").catch(() => null);
     if (["ventas", "combos"].includes(S.data.rtab ?? "ventas")) await loadOwnStock(); // etapa 4: sus clientes con todo lo que tienen; combos: sus productos propios
     // Cupones abiertos desde "Más" o Inicio (no desde su pestaña): se cargan igual que al tocar la pestaña.
@@ -261,11 +265,14 @@ async function refresh() {
   try {
     await loadBase();
     if (MODE === "hub" || isReseller()) await cargarHub(); // funciones del revendedor (hub-perezoso.js)
+    if (hubPanel()) hubHojasCheckUser(S.me); // la copia de las hojas de otra persona se borra
     // Su logo y portada JPG/WEBP: este navegador arma la versión chica para su página (imagenes-chicas.js), una vez.
     if (MODE === "hub" && isReseller()) import("/imagenes-chicas.js").then((m) => m.achicarPendientes("/api/me/shop/imagenes")).catch(() => {});
     await loadPrivate();
     if (S.view === "renovar") await loadRenovar();
   } catch (e) {
+    // 📒 Sin internet: GaboHub abre con las hojas guardadas en este aparato (si las hay).
+    if (MODE === "hub" && (e instanceof TypeError || /failed to fetch|networkerror|load failed|network request failed/i.test(String(e?.message)) || navigator.onLine === false) && await import("/hub-hojas.js").then((m) => m.hubHojasOffline($("#sout"))).catch(() => false)) return;
     $("#sout").innerHTML = `<div class="err">No pudimos cargar la tienda: ${esc(e.message)}. Revisá tu conexión y recargá.</div>`;
     return;
   }
@@ -553,7 +560,7 @@ const HUB_LABEL = { clientes: ["user", "Clientes"] };
 const navLabel = (v) => (hubPanel() && HUB_LABEL[v]) || NAV[v];
 // Las 10 pestañas de "Mis clientes" se reparten en 3 grupos; cada grupo muestra solo sus pestañas (ninguna se pierde).
 const HUB_GROUPS = {
-  negocio: [["dia", "☀️ Mi día"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"]],
+  negocio: [["dia", "☀️ Mi día"], ["secretaria", "🤵 Mi secretaria"], ["ventas", "👥 Clientes y ventas"], ["control", "📊 Mi control"], ["hojas", "📒 Mis hojas"], ["debe", "💸 Quién me debe"], ["ganancias", "📈 Mis ganancias"], ["comovan", "📈 Cómo van"]],
   inventario: [["inventario", "🗂️ Por plataforma", "view"], ["cuentas", "📺 Cuentas de la tienda", "view"], ["perfiles", "🧩 Repartir perfiles"], ["propias", "📦 Mis cuentas propias"]],
   vitrina: [["pagina", "🏪 Mi página", "page"], ["combos", "🎁 Mis combos y descuentos", "page"], ["cupones", "🏷️ Mis cupones", "coupons"], ["afiches", "🖼️ Afiches"], ["descargas", "📁 Mis descargas"]],
 };
@@ -748,12 +755,12 @@ function renderInner() {
       const canPage = !!S.me?.pageAllowed;
       // Quien alquila cuentas completas arranca en "Repartir perfiles": es su trabajo de todos los días.
       let tab = S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas");
-      if (!canPage && !["dia", "ventas", "perfiles", "control", "debe", "ganancias", "afiches", "propias", "descargas"].includes(tab)) tab = "ventas";
+      if (!canPage && !["dia", "secretaria", "comovan", "ventas", "perfiles", "control", "hojas", "debe", "ganancias", "afiches", "propias", "descargas"].includes(tab)) tab = "ventas";
       const tabs = canPage ? [["ventas", "Clientes y ventas"], ...RT_TABS, ["pagina", "✦ Mi página"], ["combos", "🎁 Mis combos y descuentos"], ...(S.data.shop?.couponsAllowed ? [["cupones", "🏷️ Mis cupones"]] : [])] : [["ventas", "Clientes y ventas"], ...RT_TABS];
       if (tab === "cupones" && !S.data.shop?.couponsAllowed) tab = "ventas";
       void tabs; // (lista completa de antes; ahora se muestra por grupos)
       if (hubTabNeeds(tab)) return `${groupTabs(groupOf(tab), tab)}${hubLockCard(hubTabNeeds(tab))}`;
-      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "dia" ? rDiaView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
+      return `${groupTabs(groupOf(tab), tab)}${tab === "perfiles" ? rSubsView() : tab === "propias" ? ownStockView() : tab === "control" ? rControlView() : tab === "hojas" ? hubHojasView() : tab === "dia" ? rDiaView() : tab === "secretaria" ? hubSecretariaView() : tab === "comovan" ? hubComoVanView() : tab === "descargas" ? descargasView() : tab === "afiches" ? postersView() : tab === "debe" ? rDebeView() : tab === "ganancias" ? rEarnView() : tab === "pagina" ? shopEditor() : tab === "combos" ? combosEditor() : tab === "cupones" ? rcouponsEditor() : resellerView()}`;
     })(),
   };
   if (MODE === "hub") V.inicio = hubPanel() ? resellerHome : programView;
@@ -779,11 +786,17 @@ hubMesInit({ refresh: () => refresh(), render: () => render(), setView: (v) => s
 planInit({ refresh: () => refresh(), render: () => render(), setView: (v) => setView(v), me: () => S.me, settings: () => S.settings, services: () => S.data.services });
 initClienteAyuda({ settings: () => S.settings });
 initA11y();
+initHubSecretaria({ render: () => render(), goVentas: () => { S.data.rtab = "ventas"; setView("clientes"); let n = 0; const t = setInterval(() => { const f = document.querySelector("#myPrices"); if (f || ++n > 40) { clearInterval(t); f?.scrollIntoView({ block: "start" }); } }, 100); } });
+hubHojasInit({ me: () => S.me, render: () => render(), isOn: () => S.view === "clientes" && S.data.rtab === "hojas" }); // 📒 Mis hojas
 // Plata del cuaderno (cuaderno.js): después de cobrar, recarga la pestaña abierta y el saldo.
 cuadernoInit({ render: () => render(), refresh: async () => { await loadRTab(S.data.rtab ?? (S.data.rsubs?.list?.length ? "perfiles" : "ventas")); S.me = await api("GET", "/api/me").catch(() => S.me); render(); } });
+initHubCobros({ render: () => render(), refresh: async () => { if (S.view !== "inicio") await loadRTab(S.data.rtab ?? "dia"); render(); } });
 async function loadRTab(tab) {
-  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock()]);
+  if (tab === "dia") [S.data.rdia, S.data.rback] = await Promise.all([api("GET", "/api/me/dia").catch((e) => ({ error: e.message })), api("GET", "/api/me/vuelvan").catch(() => null), loadOwnDay(), loadOwnBack(), loadOwnStock(), loadHubCobros()]);
   if (tab === "descargas") await descargasEnsure();
+  if (tab === "secretaria") await loadHubSecretaria();
+  if (tab === "comovan") await loadHubComoVan();
+  if (tab === "hojas") await hubHojasLoad();
   if (tab === "control") [S.data.rctl, S.data.codeLink] = await Promise.all([api("GET", "/api/me/control").catch(() => []), api("GET", "/api/me/code-link").catch(() => ({ url: null }))]);
   if (tab === "debe") {
     S.data.rfiado = await api("GET", "/api/me/fiado").catch(() => ({ rows: [], totals: {} }));
@@ -830,13 +843,13 @@ function rDiaView() {
   const item = (it, kind) => `<li class="rdia-i" data-diaitem="${esc(it.id)}" data-who="${esc(who(it.client, it.phone))}">${am(it.productId, it.product)}<span class="rdia-it"><b>${esc(it.product)}${it.label ? ` · ${esc(it.label)}` : ""}</b><small>${kind === "cobrar" ? `<span class="bad">${esc(owedText(it))}</span>${it.cut ? " · ✂️ cuenta cortada" : ""}` : `${fdate(it.expiresAt)} · ${pill(it)} ${payPill(it)}`}${it.note ? ` · 📝 ${esc(it.note)}` : ""}</small></span><b class="rdia-p">${it.price !== null ? esc(mine(it.price)) : "—"}</b>
       <div class="rdia-act">${payButtons(it, kind)}</div><div class="rdia-pv" hidden></div></li>`;
   const group = (kind, g) => `<article class="rdia-g"><header><div><b>${esc(who(g.client, g.phone))}</b><small>${g.items.length === 1 ? "1 cuenta" : `${g.items.length} cuentas`} · ${esc(mine(g.total))}</small></div>
-      ${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
+      ${kind === "cobrar" ? payAllBtn(g) : ""}${g.phone ? `<a class="sbtn sm ${g.items.every(diaSeen) ? "" : "pri"}" href="${waLink(g.phone, diaMsg(kind, g))}" target="_blank" rel="noopener" data-rdwa="${esc(g.items.map((x) => x.id).join(","))}">💬 ${g.items.every(diaSeen) ? "Escrito ✓" : "Mensaje listo"}</a>` : `<small class="empty">Sin WhatsApp</small>`}</header>
       <ul class="rdia-l">${g.items.map((it) => item(it, kind)).join("")}</ul></article>`;
   const sec = (kind, title, help, list) => `<section class="sbox rdia-s"><h3 style="margin:0">${title} <small class="empty">· ${list.length ? `${esc(mine(D.totals[kind]))}` : "nada"}</small></h3><p class="empty" style="margin:0">${help}</p>${list.length ? list.map((g) => group(kind, g)).join("") : ownDayNote(kind) ?? `<p class="rdia-ok">Todo al día acá ✅</p>`}</section>`;
   const k = D.counts;
   return `<div class="sbox"><h2 style="margin:0">☀️ Mi día</h2><p class="empty" style="margin:0">Lo que hay que hacer hoy con tus clientes, en una sola lista. Tocá «Me pagó» cuando te paguen, o «Mensaje listo» para escribirles por WhatsApp. Nada se manda solo.</p>
     <div class="rkpis rdia-k"><div class="${k.cobrar ? "bad" : ""}"><span>💵 Cobrar hoy</span><b>${D.cobrar.length}</b><small>te deben ${esc(mine(D.totals.cobrar))}</small></div><div class="${k.avisar ? "warn" : ""}"><span>📣 Avisar</span><b>${k.avisar}</b><small>vencen pronto</small></div></div></div>
-    ${undoBar()}
+    ${undoBar()}${hubCobrosDia()}
     ${sec("cobrar", "💵 Cobrar hoy", "Todo lo que te deben: vencieron y no renovaron, o te pagaron una parte. Es la misma lista de «Quién me debe». Si te pagan lo justo, un toque en «Me pagó»; si es otra plata, «Otro monto».", D.cobrar)}
     ${sec("avisar", "📣 Avisar", "Vencen en 1 a 3 días (o tus clientes registrados ya vencieron): un mensaje a tiempo evita el corte.", D.avisar)}
     ${ownDayHtml()}
@@ -892,7 +905,7 @@ function rControlBase() {
 }
 /** Suscripción GaboHub vencida: en vez de la herramienta, cómo reactivarla (el servidor tampoco entrega esos datos). */
 // Tres niveles de GaboHub: qué plan pide cada pestaña. Gratis = comprar, cuentas, códigos, fallas, recargas y Mis descargas (catálogo).
-const HUB_TAB_PLAN = { dia: "business", control: "business", debe: "business", ganancias: "business", pagina: "seller", combos: "seller", cupones: "seller", afiches: "seller", perfiles: "seller" };
+const HUB_TAB_PLAN = { dia: "business", secretaria: "business", comovan: "business", control: "business", hojas: "business", debe: "business", ganancias: "business", pagina: "seller", combos: "seller", cupones: "seller", afiches: "seller", perfiles: "seller" };
 const PLAN_RANK = { free: 0, seller: 1, business: 2 };
 const PLAN_NAME = { free: "Gratis", seller: "Vendedor", business: "Negocio" };
 const PLAN_WHAT = { free: "comprar, tus cuentas, los códigos, las fallas, recargar y tu catálogo en WhatsApp y PDF", seller: "tu página con QR, combos, cupones, afiches, repartir perfiles y links de cobro", business: "Mi día, Mi control, Quién me debe, Mis ganancias, el Excel y el recordatorio diario de Tito" };
@@ -1418,7 +1431,7 @@ function hubVender() {
 function hubMas() {
   const canPage = !!S.me?.pageAllowed, sh = S.data.shop;
   const areas = [
-    ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"]]],
+    ["📒 Mi negocio", [[`data-rtool="ventas"`, "👥 Clientes y ventas", "vender renovar clientes"], [`data-rtool="control"`, "📊 Mi control", "excel vencen avisar renovar"], [`data-rtool="hojas"`, "📒 Mis hojas", "excel planilla hojas pestanas sin internet offline clientes fechas"], [`data-rtool="debe"`, "💸 Quién me debe", "fiado deuda cobrar"], [`data-rtool="ganancias"`, "📈 Mis ganancias", "plata ganancia mes"], [`data-rtool="secretaria"`, "🤵 Mi secretaria", "mensajes whatsapp avisar cobrar plantilla renovar"], [`data-rtool="comovan"`, "📈 Cómo van", "resumen mes nuevos renovaron se fueron pagaron"], [`data-hsecprecios="1"`, "💲 Mis precios de venta", "precios lista vender cuanto cobro precio del dia"]]],
     ["📦 Inventario", [[`data-s="inventario"`, "🗂️ Por plataforma", "inventario resumen stock libres plataformas"], [`data-s="cuentas"`, "📺 Cuentas de la tienda", "accesos correos contraseñas pedidos"], [`data-rtool="perfiles"`, "🧩 Repartir perfiles", "cuenta completa alquiler"], [`data-rtool="propias"`, "📦 Mis cuentas propias", "flujo proveedor stock cupos"], [`data-s="codigos"`, "🔑 Códigos y link de códigos", "verificacion disney netflix"]]],
     ["🏪 Mi vitrina", [
       ...(canPage ? [[sh?.saved ? `data-gopage="1"` : `data-wiz="1"`, "🏪 Mi página", "tienda colores letras diseño logo portada qr"], [`data-rtool="combos"`, "🎁 Mis combos y descuentos", "combo promo"]] : []),
@@ -1604,6 +1617,7 @@ function resellerHome() {
     ${indep ? indepLine({ settings: S.settings, me }) : ""}
     ${firstStepsCard(S.data.pasos, { settings: S.settings, me, pageBtnAttr: sh?.saved ? `data-gopage="1"` : `data-wiz="1"` })}
     <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${isReseller() ? hubCobrosHome() : ""}
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
     <div class="hsmall">${small.map(([v, e, tt, d]) => `<button type="button" class="sbtn" ${v === "pagina" ? (sh?.saved ? `data-gopage="1"` : `data-wiz="1"`) : `data-s="${v}"${v === "clientes" ? ` data-gotab="ventas"` : ""}`}><span aria-hidden="true">${e}</span>${v === "recargas" ? "Saldo" : tt}</button>`).join("")}</div>
@@ -1651,7 +1665,7 @@ function wizardView() {
   return `${steps}<div class="sbox wiz done"><div class="wbig">🎉</div><h2>¡Tu página está lista!</h2><p class="empty" style="margin:0">Compartila con tus clientes: te piden directo a tu WhatsApp.</p>
     <div class="linkrow"><code>${esc(url)}</code><button class="sbtn sm" type="button" data-copy="${esc(url)}">Copiar</button></div>
     <div class="hrow"><a class="sbtn pri" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a><a class="sbtn" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Facebook</a><a class="sbtn" href="/r/${esc(sh.slug)}" target="_blank" rel="noopener">Ver mi página</a></div>
-    <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> y bajá hasta <b>Colores</b> y <b>Letras</b>.</p>
+    <p class="empty" style="margin:0;font-size:13px">¿Querés cambiar colores, fondo o letras? Entrá a <b>Mi página</b> y abrí <b>Colores y diseño</b>.</p>
     <button class="sbtn" type="button" data-wizexit="1">Volver al inicio</button></div>`;
 }
 
@@ -1897,20 +1911,33 @@ function shopEditor() {
   const tplOn = (sh, t) => sh.layout === t.look.layout && (sh.backgroundColor || "").toLowerCase() === t.look.backgroundColor.toLowerCase() && sh.heroTitle === t.look.heroTitle;
   const color = (name, label, cur) => `<label class="rcolor">${label}<span><input type="color" name="${name}" value="${esc(cur || "#7c5cff")}"><code>${esc(cur || "")}</code></span></label>`;
   const u = S.data.shopUndo;
-  return `<div class="sec-h"><div><span class="chip">Tu marca</span><h2>Mi página</h2><p>Armá tu propia tienda con tu logo, tus colores y tus precios. Tus clientes te piden directo por WhatsApp.</p></div></div>
-    ${u ? `<div class="sbox rundo"><span>✨ Aplicaste <b>${esc(u.name)}</b>. ¿No te gustó?</span><button class="sbtn sm" type="button" data-shopundo="1">↩️ Deshacer</button><button class="sbtn sm" type="button" data-shopundo="ok">Me gusta</button></div>` : ""}
-    <button class="rpvfab" type="button" data-pvgo="1">👀 Ver cómo queda</button>
-    ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
-    <div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
-      <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
-      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="${esc(shopUrl(sh.slug))}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
-      <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
-    ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
-
-    <div class="sbox"><h2>1 · Elegí una página lista</h2><p class="empty" style="margin:0">Con un toque tu página queda armada: colores, letras, forma de mostrar los productos y los textos de la portada. Tu nombre, tu logo, tu WhatsApp y tus precios no cambian.</p>
+  const nProd = chosen.size ? `${chosen.size} elegidos` : "Todos los que tienen precio";
+  const marca = `<div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
+        <label>${S.settings?.shopDomain ? `Tu dirección (lo que va antes de .${esc(S.settings.shopDomain)})` : "Dirección (después de /r/)"}<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="slugPrev">
+          <small id="slugPrev" class="slugprev">Tu link: <b>${esc(shopUrl(sh.slug))}</b><br>Solo minúsculas, números y guiones. Si la cambiás, el link viejo deja de andar.</small></label>
+        <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
+      <div class="rimgs"><div class="sform"><b>Logo</b>${sh.hasLogo ? `<img class="rlogo" src="/api/shops/${esc(sh.slug)}/logo?v=${Date.now() % 1e6}" alt="Tu logo">` : `<span class="empty">Sin logo: se ve la inicial de tu tienda.</span>`}
+        <input type="file" name="file" form="shopLogo" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><div class="rbtns"><button class="sbtn sm pri" type="submit" form="shopLogo">${sh.hasLogo ? "Cambiar" : "Subir"} logo</button>${sh.hasLogo ? `<button class="sbtn sm" type="button" data-rmimg="logo">Quitar</button>` : ""}</div><small class="empty">Cuadrado, 512×512 ideal. Hasta 5 MB.</small></div></div>
+      <h3>Redes</h3>
+      <div class="rgrid"><label>Instagram<input name="instagram" maxlength="80" value="${esc(sh.instagram ?? "")}" placeholder="tu.usuario"></label>
+        <label>TikTok<input name="tiktok" maxlength="80" value="${esc(sh.tiktok ?? "")}" placeholder="tu.usuario"></label>
+        <label>Facebook<input name="facebook" maxlength="80" value="${esc(sh.facebook ?? "")}" placeholder="tu.pagina"></label></div>`;
+  const colores = `<h3>Paletas sugeridas</h3><p class="empty" style="margin:0;font-size:13px">Tocá una y mirá la vista previa: cambia al instante. Se guarda recién con «Guardar mi página».</p>
+      ${paletteRow(sh)}
+      <h3>O elegí cada color</h3>
+      <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
+      <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>
+      <h3>🏪 Tipo de tienda</h3>
+      ${radios("layout", LAYOUT_LIST.map(([v, t]) => [v, t]), sh.layout || "clasico")}
+      <b class="rsub">Fondo</b>${radios("bgStyle", BG_LIST, sh.bgStyle)}
+      <b class="rsub">Tarjetas</b>${radios("cardStyle", CARD_LIST, sh.cardStyle)}
+      <b class="rsub">Bordes</b>${radios("corners", [["round", "Redondeados"], ["soft", "Suaves"], ["square", "Rectos"]], sh.corners)}
+      <h3>Letras</h3>
+      <div class="rgrid"><label>Letra de los títulos${fontSel("headingFont", sh.headingFont)}</label><label>Letra del texto${fontSel("fontFamily", sh.fontFamily)}</label></div>
+      <h3>✨ Páginas listas (se aplican y guardan con un toque)</h3><p class="empty" style="margin:0">Colores, letras, forma de mostrar los productos y los textos de la portada. Tu nombre, tu logo, tu WhatsApp y tus precios no cambian.</p>
       <div class="tpgrid">${PAGE_TEMPLATES.map((t) => `<article class="tpcard${tplOn(sh, t) ? " on" : ""}">${templateSwatch(t)}<div><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div><button type="button" class="sbtn sm ${tplOn(sh, t) ? "" : "pri"}" data-tpl="${t.id}">${tplOn(sh, t) ? "✓ La estás usando" : "Usar esta"}</button></article>`).join("")}</div>
       <details class="tponly" ${S.data.mixOpen ? "open" : ""}><summary>🧩 O combiná vos: forma + colores + textos <small class="empty">(${LAYOUT_LIST.length * THEMES.length * (PAGE_TEMPLATES.length + 1)} combinaciones)</small></summary>
-        <p class="empty" style="margin:6px 0 0">Cada toque se aplica al instante; miralo con “Abrir”. Podés mezclar, por ejemplo, la forma <b>Ticket</b> con los colores <b>Rosa Pastel</b> y los textos de <b>Oro Premium</b>.</p>
+        <p class="empty" style="margin:6px 0 0">Cada toque se aplica y se guarda al instante. Podés mezclar, por ejemplo, la forma <b>Ticket</b> con los colores <b>Rosa Pastel</b> y los textos de <b>Oro Premium</b>.</p>
         <button type="button" class="sbtn sm pri" data-mixrand="1" style="justify-self:start;margin-top:8px">🎲 Sorprendeme con una combinación</button>
         <h3 class="mixh">a · Forma de mostrar</h3>
         <div class="mixrow">${LAYOUT_LIST.map(([v, t, d]) => `<button type="button" class="mixopt" data-mixl="${v}" aria-pressed="${(sh.layout || "clasico") === v}" title="${esc(d)}">${templateSwatch({ look: { ...sh, backgroundColor: sh.backgroundColor || "#0d0a1a", accentColor: sh.accentColor || "#8b5cf6", accent2Color: sh.accent2Color || "#ec4899", layout: v } })}<span>${esc(t)}</span></button>`).join("")}</div>
@@ -1918,29 +1945,9 @@ function shopEditor() {
         <div class="tgrid">${THEMES.map((t) => `<button type="button" class="tcard" data-theme="${t.id}" aria-pressed="${(sh.backgroundColor || "").toLowerCase() === t.look.backgroundColor.toLowerCase() && (sh.accentColor || "").toLowerCase() === t.look.accentColor.toLowerCase()}">${themeSwatch(t)}<span>${esc(t.name)}</span></button>`).join("")}</div>
         <h3 class="mixh">c · Textos de la portada</h3>
         <div class="mixtexts">${PAGE_TEMPLATES.map((t) => `<button type="button" class="mixtxt" data-mixt="${t.id}" aria-pressed="${sh.heroTitle === t.look.heroTitle}"><b>${esc(t.look.heroTitle)} <span>${esc(t.look.heroHighlight)}</span></b><small>${esc(t.look.heroText)}</small></button>`).join("")}</div>
-        <small class="empty">¿Querés tus propios textos? Escribilos abajo en “Tu marca”.</small></details>
-      <p class="empty" style="margin:0">👇 <b>O armá la tuya a tu gusto</b> con todo lo de abajo: logo, portada, colores, letras y textos.</p></div>
-
-    <div class="reditor">
-    <form class="sbox sform" id="shopForm">
-      <h2>2 · Tu marca</h2>
-      <div class="rgrid"><label>Nombre de tu tienda<input name="title" maxlength="40" required value="${esc(sh.title)}"></label>
-        <label>${S.settings?.shopDomain ? `Tu dirección (lo que va antes de .${esc(S.settings.shopDomain)})` : "Dirección (después de /r/)"}<input name="slug" maxlength="30" required pattern="[a-z0-9\\-]{3,30}" value="${esc(sh.slug)}" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="slugPrev">
-          <small id="slugPrev" class="slugprev">Tu link: <b>${esc(shopUrl(sh.slug))}</b><br>Solo minúsculas, números y guiones. Si la cambiás, el link viejo deja de andar.</small></label>
-        <label>Tu WhatsApp (ahí te llegan los pedidos)<input name="whatsapp" inputmode="tel" required value="${esc(sh.whatsapp)}"></label></div>
-      <h2>3 · Colores</h2><p class="empty" style="margin:0;font-size:13px">👆 Mirá la vista previa de arriba: cambia al instante cuando tocás un color.</p>
-      <div id="shopWarn" class="lookwarn" role="status" aria-live="polite"></div>
-      <div class="rgrid">${color("accentColor", "Color principal", sh.accentColor)}${color("accent2Color", "Segundo color (degradados)", sh.accent2Color)}${color("backgroundColor", "Fondo", sh.backgroundColor)}</div>
-      <h2>🏪 Tipo de tienda</h2>
-      <p class="empty" style="margin:0;font-size:13px">El diseño de tu página. Cambia la vista previa de arriba al instante.</p>
-      ${radios("layout", LAYOUT_LIST.map(([v, t]) => [v, t]), sh.layout || "clasico")}
-      <h2>4 · Fondo y tarjetas</h2>
-      <b class="rsub">Fondo</b>${radios("bgStyle", BG_LIST, sh.bgStyle)}
-      <b class="rsub">Tarjetas</b>${radios("cardStyle", CARD_LIST, sh.cardStyle)}
-      <b class="rsub">Bordes</b>${radios("corners", [["round", "Redondeados"], ["soft", "Suaves"], ["square", "Rectos"]], sh.corners)}
-      <h2>5 · Letras</h2>
-      <div class="rgrid"><label>Letra de los títulos${fontSel("headingFont", sh.headingFont)}</label><label>Letra del texto${fontSel("fontFamily", sh.fontFamily)}</label></div>
-      <h2>6 · Textos de tu portada</h2>
+        <small class="empty">¿Querés tus propios textos? Escribilos en “Portada”.</small></details>`;
+  const portada = `<div class="rimgs"><div class="sform"><b>Imagen de portada</b>${sh.hasBanner ? `<img class="rbanner" src="/api/shops/${esc(sh.slug)}/banner?v=${Date.now() % 1e6}" alt="Tu portada">` : `<span class="empty">Sin portada: se ve una tarjeta con tus precios.</span>`}
+        <input type="file" name="file" form="shopBanner" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de portada"><div class="rbtns"><button class="sbtn sm pri" type="submit" form="shopBanner">${sh.hasBanner ? "Cambiar" : "Subir"} portada</button>${sh.hasBanner ? `<button class="sbtn sm" type="button" data-rmimg="banner">Quitar</button>` : ""}</div><small class="empty">Horizontal, 1600×1000 ideal (tus flyers o un collage de plataformas).</small></div></div>
       <div class="rgrid"><label>Etiqueta de arriba<input name="heroChip" maxlength="40" value="${esc(sh.heroChip ?? "")}"></label>
         <label>Título<input name="heroTitle" maxlength="40" value="${esc(sh.heroTitle ?? "")}"></label>
         <label>Parte en color<input name="heroHighlight" maxlength="40" value="${esc(sh.heroHighlight ?? "")}"></label>
@@ -1948,31 +1955,38 @@ function shopEditor() {
         <label class="rwide">Ventajas (hasta 3, separadas por coma)<input name="heroTicks" maxlength="120" value="${esc(sh.heroTicks ?? "")}"></label>
         <label class="rwide">Aviso arriba de todo (promos)<input name="announcement" maxlength="140" value="${esc(sh.announcement ?? "")}" placeholder="${myLocale()?.foreign ? "Ej.: 🔥 Netflix con descuento solo hoy" : "Ej.: 🔥 Netflix a Bs 30 solo hoy"}"></label>
         <label class="rwide">Horario de atención (franja de arriba)<input name="storeHours" maxlength="60" value="${esc(sh.storeHours ?? "")}" placeholder="Ej.: Atención 8:00 a 22:00"></label>
-        <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en ${preciosEn()}"></label></div>
-      <h2>7 · Redes</h2>
-      <div class="rgrid"><label>Instagram<input name="instagram" maxlength="80" value="${esc(sh.instagram ?? "")}" placeholder="tu.usuario"></label>
-        <label>TikTok<input name="tiktok" maxlength="80" value="${esc(sh.tiktok ?? "")}" placeholder="tu.usuario"></label>
-        <label>Facebook<input name="facebook" maxlength="80" value="${esc(sh.facebook ?? "")}" placeholder="tu.pagina"></label></div>
-      <h2>8 · Productos que mostrás</h2>
-      <p class="empty" style="margin:0">Sin marcar ninguno, se muestran todos los que tienen precio.</p>
+        <label class="rwide">Texto del pie<input name="footerText" maxlength="120" value="${esc(sh.footerText ?? "")}" placeholder="Precios en ${preciosEn()}"></label></div>`;
+  const productos = `<p class="empty" style="margin:0">Sin marcar ninguno, se muestran todos los que tienen precio.</p>
+      ${priced.length ? "" : `<div class="err">Todavía no pusiste precios: en tu página solo aparecen los productos con precio. Cargalos en <b>Clientes y ventas → Mi lista de precios</b>.</div>`}
       <div class="ropts">${priced.map((p) => `<label><input type="checkbox" name="prod" value="${esc(p.productId)}" ${chosen.has(p.productId) ? "checked" : ""}><span>${esc(p.name)} · ${bs(p.sell)}</span></label>`).join("")}
-        ${unpriced.map((p) => `<label class="off" title="Poné tu precio en Mi lista de precios"><input type="checkbox" disabled><span>${esc(p.name)} · sin precio</span></label>`).join("")}</div>
-      <div class="rsave"><button class="sbtn pri" type="submit">Guardar mi página</button><span class="empty">La vista previa cambia mientras editás. Guardá para que la vean tus clientes.</span></div>
-    </form>
-    <div class="rpreview"><div class="sbox"><h2>👀 Vista previa <small style="font-weight:400;color:var(--s-muted)">· cambia en vivo</small> <span class="rbtns" style="margin-left:auto"><button class="sbtn sm" type="button" data-pv="pc">PC</button><button class="sbtn sm" type="button" data-pv="cel">Celular</button></span></h2>
-      <div class="pvwrap" data-mode="${S.data.pv ?? "cel"}">${sh.saved ? `<iframe id="shopPreview" src="/r/${esc(sh.slug)}" title="Vista previa de tu página"></iframe>` : `<p class="empty" style="padding:20px">Elegí un estilo arriba o guardá para ver tu página acá.</p>`}</div></div></div>
-    </div>
-
-    <div class="sbox"><h2>Logo y portada</h2>
-      <div class="rimgs"><form class="sform" id="shopLogo"><b>Logo</b>${sh.hasLogo ? `<img class="rlogo" src="/api/shops/${esc(sh.slug)}/logo?v=${Date.now() % 1e6}" alt="Tu logo">` : `<span class="empty">Sin logo: se ve la inicial de tu tienda.</span>`}
-        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen del logo"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasLogo ? "Cambiar" : "Subir"} logo</button>${sh.hasLogo ? `<button class="sbtn sm" type="button" data-rmimg="logo">Quitar</button>` : ""}</div><small class="empty">Cuadrado, 512×512 ideal. Hasta 5 MB.</small></form>
-      <form class="sform" id="shopBanner"><b>Portada</b>${sh.hasBanner ? `<img class="rbanner" src="/api/shops/${esc(sh.slug)}/banner?v=${Date.now() % 1e6}" alt="Tu portada">` : `<span class="empty">Sin portada: se ve una tarjeta con tus precios.</span>`}
-        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de portada"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasBanner ? "Cambiar" : "Subir"} portada</button>${sh.hasBanner ? `<button class="sbtn sm" type="button" data-rmimg="banner">Quitar</button>` : ""}</div><small class="empty">Horizontal, 1600×1000 ideal (tus flyers o un collage de plataformas).</small></form></div></div>
+        ${unpriced.map((p) => `<label class="off" title="Poné tu precio en Mi lista de precios"><input type="checkbox" disabled><span>${esc(p.name)} · sin precio</span></label>`).join("")}</div>`;
+  const publicar = `<div class="sbox rstatus"><div><h2>${sh.enabled ? "🟢 Tu página está publicada" : "⚪ Tu página está apagada"}</h2><p class="empty" style="margin:0">Tu dirección: <b class="rlink">${esc(shopUrl(sh.slug))}</b></p></div>
+      <div class="rbtns"><label class="chk rswitch"><input type="checkbox" id="shopOn" ${sh.enabled ? "checked" : ""} ${sh.allowed ? "" : "disabled"}> Publicar</label>
+      <button class="sbtn sm" type="button" data-copy="${esc(shopUrl(sh.slug))}">Copiar link</button><a class="sbtn sm" href="${esc(shopUrl(sh.slug))}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a>
+      <a class="sbtn sm" href="https://wa.me/?text=${encodeURIComponent(`¡Mirá mi tienda! ${shopUrl(sh.slug)}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir</a></div></div>
     <div class="sbox"><h2>💳 Tu QR de cobro</h2><p class="empty" style="margin:0">Tus clientes te pagan <b>directo a vos</b>: cuando arman su pedido en tu página, ven tu QR con el total y te mandan el comprobante por WhatsApp.</p>
       <div class="rimgs"><form class="sform" id="shopQr">${sh.hasQr ? `<img class="rqrimg" src="/api/shops/${esc(sh.slug)}/qr?v=${Date.now() % 1e6}" alt="Tu QR de cobro">` : `<span class="empty">Todavía no subiste tu QR.</span>`}
         <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required aria-label="Imagen de tu QR"><div class="rbtns"><button class="sbtn sm pri" type="submit">${sh.hasQr ? "Cambiar" : "Subir"} QR</button>${sh.hasQr ? `<button class="sbtn sm" type="button" data-rmimg="qr">Quitar</button>` : ""}</div><small class="empty">La captura del QR de tu banco o billetera.</small></form>
       <form class="sform" id="shopPayNote"><label>Datos para pagarte (opcional)<input name="payNote" maxlength="160" value="${esc(sh.payNote ?? "")}" placeholder="Ej.: Banco Unión · a nombre de Juan Pérez"></label><button class="sbtn sm" type="submit">Guardar</button></form></div></div>
     ${shopFaqBox(sh)}`;
+  return `<div class="sec-h"><div><span class="chip">Tu marca</span><h2>Mi página</h2><p>Armá tu propia tienda con tu logo, tus colores y tus precios. Tus clientes te piden directo por WhatsApp.</p></div></div>
+    ${u ? `<div class="sbox rundo"><span>✨ Aplicaste <b>${esc(u.name)}</b>. ¿No te gustó?</span><button class="sbtn sm" type="button" data-shopundo="1">↩️ Deshacer</button><button class="sbtn sm" type="button" data-shopundo="ok">Me gusta</button></div>` : ""}
+    ${sh.allowed ? "" : `<div class="err">La tienda todavía no habilitó las páginas de revendedores. Podés armarla igual y publicarla cuando la habiliten.</div>`}
+    <div class="edtop"><span>${sh.enabled ? "🟢 Publicada" : "⚪ Apagada"} · <b class="rlink">${esc(shopUrl(sh.slug))}</b></span><a class="sbtn sm" href="${esc(shopUrl(sh.slug))}" target="_blank" rel="noopener">${icon("arrow")}Abrir</a></div>
+    <div class="reditor"><div class="edcol">
+    <form class="sform" id="shopForm">
+      ${edSec("marca", "🏷️", "Marca", "Nombre, dirección, WhatsApp, logo y redes", marca)}
+      ${edSec("colores", "🎨", "Colores y diseño", "Paletas, colores, forma, letras y páginas listas", colores)}
+      ${edSec("portada", "🖼️", "Portada", "Imagen y textos de arriba de tu página", portada)}
+      ${edSec("productos", "📦", "Productos", nProd, productos)}
+      <div class="rsave"><button class="sbtn pri" type="submit">Guardar mi página</button>${previewBtn()}<p class="empty edhint"><span id="edDirty" class="eddirty" hidden>● Tenés cambios sin guardar. </span>La vista previa cambia mientras editás. Guardá para que la vean tus clientes.</p></div>
+    </form>
+    <form id="shopLogo" hidden></form><form id="shopBanner" hidden></form>
+    ${edSec("publicar", "🚀", "Publicar y cobrar", sh.enabled ? "Publicada · QR de cobro y preguntas" : "Apagada · QR de cobro y preguntas", publicar)}
+    </div>
+    <div class="rpv" id="edPreview" aria-label="Vista previa"><div class="sbox"><h2>${previewClose()}👀 Vista previa <small style="font-weight:400;color:var(--s-muted)">· cambia en vivo, sin guardar</small> <span class="rbtns" style="margin-left:auto"><button class="sbtn sm" type="button" data-pv="pc">PC</button><button class="sbtn sm" type="button" data-pv="cel">Celular</button></span></h2>
+      <div class="pvwrap" data-mode="${S.data.pv ?? "cel"}">${sh.saved ? `<iframe id="shopPreview" src="/r/${esc(sh.slug)}" title="Vista previa de tu página"></iframe>` : `<p class="empty" style="padding:20px">Elegí un estilo arriba o guardá para ver tu página acá.</p>`}</div></div></div>
+    </div>`;
 }
 
 /** Lee el formulario del editor como objeto de estilo. */
@@ -2850,7 +2864,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (d.reload) { await loadPrivate(); return render(); }
-  if (d.logout) { await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
+  if (d.logout) { if (hubHojasLogout() === false) return; await api("POST", "/api/auth/logout", {}); forgetHubUser(); S.data = {}; toast("Cerraste sesión"); await refresh(); return setView("inicio"); }
 });
 
 // Tocar un campo de solo lectura (ej. tu link de referido) lo selecciona entero, para copiarlo fácil.
@@ -2943,7 +2957,7 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   if (f.id === "checkout") return submitCheckout(f);
   if (f.id === "login") return submitLogin(f);
-  const btn = f.querySelector('[type="submit"]');
+  const btn = f.querySelector('[type="submit"]') ?? [...f.elements].find((x) => x.type === "submit"); // logo y portada: botón con form=""
   btn.disabled = true;
   try {
     if (f.dataset.subform) {

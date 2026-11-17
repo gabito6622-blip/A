@@ -2,6 +2,13 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · GaboHub igual al panel del dueño
+- **Reutilizar antes que duplicar:** «Cobrar hoy» es Mi día; Mis hojas usa las mismas funciones de siempre por una sola ruta; Mi secretaria usa los datos de Mi día y cuentas propias; precios del día = su lista de precios de venta.
+- **Lo que es solo del dueño no se pasa:** aprobar pagos de la tienda, proveedores, costos, otros revendedores.
+- **Comprobantes del revendedor guardados aparte** de los pedidos de la tienda, para que nunca se mezclen.
+- **Paletas del editor no guardan solas:** se prueban en la vista previa y se guardan con «Guardar mi página».
+- **Cómo van** compara con el mes pasado completo; % solo con base de Bs 30 o más.
+
 ## 2026-11-17 · Cargar cuentas desde Excel
 - **Usa la misma carga de siempre (una cuenta a la vez por dentro):** las mismas reglas de correos repetidos y fecha del proveedor obligatoria; no hay reglas nuevas que mantener.
 - **Vista previa = la carga real deshecha al final:** lo que se muestra es exactamente lo que va a pasar.

@@ -1,0 +1,35 @@
+/* 📒 Mis hojas del revendedor (hub-hojas.js). Colores del tema de GaboHub (claro y oscuro). */
+.hh{position:relative;display:flex;flex-direction:column;gap:10px;padding-bottom:0}
+.hhtop h2{margin:0;font-size:20px}.hhtop small,.hhinfo,.hhhint{color:var(--s-muted);font-size:13px}
+.hhsr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hhq{width:100%;min-height:44px;border:1px solid var(--s-line);border-radius:12px;padding:8px 12px;background:var(--s-card);color:var(--s-ink);font-size:16px}
+.hhnet{border-radius:10px;padding:8px 10px;font-size:13px;background:color-mix(in srgb,var(--s-blue) 12%,transparent);color:var(--s-ink);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hhnet.ok{background:color-mix(in srgb,var(--s-ok) 12%,transparent)}.hhnet.off{background:color-mix(in srgb,var(--s-warn) 18%,transparent)}.hhnet.bad{background:color-mix(in srgb,var(--s-bad) 15%,transparent)}
+.hhchips{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}.hhchips span{border:1px solid var(--s-line);border-radius:99px;padding:3px 9px;background:var(--s-card)}
+.hhscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.hht{width:100%;border-collapse:collapse;font-size:14px}
+.hht th{position:sticky;top:0;text-align:left;font-size:12px;color:var(--s-muted);padding:6px;border-bottom:2px solid var(--s-line);background:var(--s-card)}
+.hht td{padding:8px 6px;border-bottom:1px solid var(--s-line);vertical-align:top;color:var(--s-ink)}
+.hht tr[data-hhrow]{cursor:pointer}.hht tr[data-hhrow]:hover td{background:color-mix(in srgb,var(--s-blue) 7%,transparent)}
+.hht tr[data-hhrow]:focus-visible{outline:3px solid var(--s-blue);outline-offset:-3px}
+.hht td small{display:block;font-size:12px;color:var(--s-muted)}
+.hhwho b{display:block;max-width:40vw;overflow:hidden;text-overflow:ellipsis}
+.hhmail{max-width:30vw;overflow:hidden}.hhmail small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hhdate,.hhm{white-space:nowrap}.hhm{text-align:right}
+.hh-r td:first-child{box-shadow:inset 4px 0 var(--s-bad)}.hh-o td:first-child{box-shadow:inset 4px 0 var(--s-warn)}.hh-g td:first-child{box-shadow:inset 4px 0 var(--s-ok)}
+.hh-wait td{background:color-mix(in srgb,var(--s-warn) 8%,transparent)}
+.hht small.hhpend,.hhpend{color:var(--s-ink);font-size:12px}
+.hhempty{color:var(--s-muted);padding:16px 0;margin:0}
+.hhtabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;-webkit-overflow-scrolling:touch}
+.hhtabs button{flex:0 0 auto;min-height:44px;border:1px solid var(--s-line);border-radius:10px;padding:6px 12px;background:var(--s-card2,var(--s-card));color:var(--s-ink);font-weight:700;font-size:14px}
+.hhtabs button[aria-pressed="true"]{background:var(--s-blue);color:var(--s-on-blue,#fff);border-color:var(--s-blue)}
+.hhtabs i{font-style:normal;font-size:12px;opacity:.85}
+.hhscrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.hhsheet{background:var(--s-card);color:var(--s-ink);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+.hhsheet-h{display:flex;justify-content:space-between;align-items:center;gap:8px}.hhsheet-h b{font-size:18px}
+.hhsheet .sbtn,.hhsheet-h .sbtn{min-height:44px;min-width:44px}
+.hhbtns{display:grid;gap:8px;margin:10px 0}.hhbtns .sbtn{width:100%;white-space:normal}
+.hhnote{background:color-mix(in srgb,var(--s-warn) 12%,transparent);border-radius:10px;padding:8px;margin:6px 0}
+.hhf{display:grid;gap:8px}.hhf label{display:grid;gap:4px;font-size:14px}
+.hhf input,.hhf textarea{min-height:44px;border:1px solid var(--s-line);border-radius:10px;padding:8px;background:var(--s-bg);color:var(--s-ink);font-size:16px}
+.hhcold{background:color-mix(in srgb,var(--s-warn) 18%,transparent);border-radius:12px;padding:10px;margin:0 0 10px;color:var(--s-ink)}
+@media (min-width:900px){.hhscrim{align-items:center}.hhsheet{border-radius:18px}.hhwho b,.hhmail{max-width:none}}

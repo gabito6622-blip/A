@@ -36,6 +36,8 @@ import { createImagenes, type ComoServir } from "./imagenes.js";
 import { createPrecarga } from "./precarga.js";
 import { registerImagenesRoutes } from "./imagenesRoutes.js";
 import { registerOwnStockRoutes } from "./ownStockRoutes.js";
+import { registerHubCobrosRoutes } from "./hubCobrosRoutes.js";
+import { registerHubHojasRoutes } from "./hubHojasRoutes.js"; // 📒 Mis hojas del revendedor
 import { registerSelfCodesRoutes } from "./selfCodesRoutes.js";
 import { registerSearchRoutes } from "./searchRoutes.js";
 import { registerCaidasRoutes } from "./caidasRoutes.js";
@@ -783,6 +785,7 @@ export function createApp(cfg: AppConfig): App {
     throw new HttpError(402, "HUB_PLAN", `Esta herramienta es del plan ${name} de GaboHub: pasate desde tu Inicio y se activa al instante`);
   };
   const hubGuard = needPlan("control"), sellerGuard = needPlan("links");
+  registerHubHojasRoutes({ route, store, guard: hubGuard }); // 📒 Mis hojas del revendedor (plan como Mi control)
   route("POST", "/api/me/hub/plan", "customer", (c) => store.shops.setPlan(c.actor!, c.actor!.customerId!, c.body?.plan));
   route("GET", "/api/me/control", "customer", (c) => { hubGuard(c); return store.rtools.control(c.actor!); });
   // «Mi día» del revendedor: misma suscripción que Mi control (plan Completo).
@@ -792,6 +795,10 @@ export function createApp(cfg: AppConfig): App {
   // «Que vuelvan» del revendedor: va con Mi día (plan Negocio). Solo lo suyo.
   route("GET", "/api/me/vuelvan", "customer", (c) => { needPlan("dia")(c); return store.rtools.winback(c.actor!); });
   route("POST", "/api/me/vuelvan/escrito", "customer", (c) => { needPlan("dia")(c); return store.rtools.markBack(c.actor!, c.body?.key, c.body?.off === true); });
+  // 🤵 Mi secretaria (va con Mi día) y 📈 Cómo van (va con Mis ganancias): plan Negocio, solo lo suyo. Nada se manda solo.
+  route("GET", "/api/me/secretaria", "customer", (c) => { needPlan("dia")(c); return store.rtools.secretary(c.actor!, originOf(c.req)); });
+  route("PUT", "/api/me/secretaria/plantilla", "customer", (c) => { needPlan("dia")(c); return store.rtools.setSecretaryTemplate(c.actor!, c.body ?? {}); });
+  route("GET", "/api/me/como-van", "customer", (c) => { needPlan("ganancias")(c); return store.rtools.comoVan(c.actor!); });
   // Repartir perfiles de las cuentas completas alquiladas (cuaderno del revendedor).
   // Con «Te deben» de todo (el mismo número que Mi día y Quién me debe) y los cuadernos de cuentas cortadas (14/11).
   route("GET", "/api/me/subs", "customer", (c) => ({ list: store.subs.list(c.actor!), summary: store.subs.summary(c.actor!), debts: store.cuaderno.debts(c.actor!), cuts: store.cuaderno.cuts(c.actor!) }));
@@ -906,6 +913,8 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/cobro/:token/logo", "public", (c) => cobro(c, () => sendImage(c, store.subs.publicLogo(c.params.token), "Sin logo")));
   // "📩 Ver mi código de acceso" en /c/<token> + interruptores del revendedor y del dueño.
   registerSelfCodesRoutes({ route, store, cobro, now, tooMany: (m) => { throw new HttpError(429, "RATE_LIMIT", m); } });
+  // Cobros del revendedor (hubCobrosRoutes.ts): Anotar rápido, Me pagó todo, Deshacer y comprobantes de sus links.
+  registerHubCobrosRoutes({ route, store, saveUpload, dropUpload, fileHash, sendImage, needPlan, cobro, now, maxUpload: MAX_UPLOAD_JSON, tooMany: (m) => { throw new HttpError(429, "RATE_LIMIT", m); } });
   // 🔎 Buscador del panel (searchRoutes.ts): clientes, revendedores, servicios, cuentas y pedidos, según permisos.
   registerSearchRoutes({ route, store });
   route("POST", "/api/me/control/:id", "customer", (c) => store.rtools.setControl(c.actor!, c.params.id, c.body ?? {}));
@@ -2782,7 +2791,7 @@ export function createApp(cfg: AppConfig): App {
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.code, message: e.message });
       if (e instanceof DomainError) return send(res, STATUS[e.code] ?? 400, { error: e.code, message: e.message });
-      log(`error ${req.method} ${url.pathname}: ${(e as Error).stack ?? e}`);
+      log(`error ${req.method} ${url.pathname.replace(/^\/(api\/cobro|c)\/[^/]+/, "/$1/…")}: ${(e as Error).stack ?? e}`);
       send(res, 500, { error: "INTERNAL", message: "Error interno. Probá de nuevo." });
     }
   });

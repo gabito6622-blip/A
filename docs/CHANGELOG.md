@@ -3,6 +3,14 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-17 · 🏪 GaboHub: los revendedores tienen lo del panel del dueño (sin publicar)
+- **Por qué:** el dueño: «todo lo que yo tengo en mi panel tiene que tenerlo mis revendedores para que estén cómodos», y el editor de su página «más bonito, cómodo y práctico en el teléfono y en la computadora».
+- **Mi página:** editor por secciones plegables (Marca, Colores y diseño, Portada, Productos, Publicar y cobrar), paletas sugeridas con aviso «se lee poco», vista previa en vivo sin guardar (pantalla completa en celular, al lado en PC) y «Guardar mi página» fijo encima del menú. No se quitó ninguna opción.
+- **📒 Mis hojas:** sus clientes (tienda, cuentas propias y perfiles) como en el Excel, por plataforma y «Me deben»; también sin internet, con cambios que se suben solos y aviso si chocan.
+- **Cobros:** «✍️ Anotar rápido» en Inicio, «📋 Cobrar hoy» (Mi día) con «Me pagó todo» y «Deshacer» (30 min), link de cobro con los datos de pago y QR del revendedor (V8); el cliente sube comprobante y lo aprueba el revendedor. El log ya no guarda tokens de cobro (V9).
+- **🤵 Mi secretaria y 📈 Cómo van:** mensajes listos de cobrar, avisar y renovado con plantilla propia (se mandan a mano por WhatsApp) y su mes contra el anterior. Acceso «💲 Mis precios de venta» en Más.
+- Cada revendedor ve solo lo suyo. Lo nuevo respeta la suscripción GaboHub.
+
 ## 2026-11-17 · 📦 Cargar cuentas para vender desde Excel (PR #91 publicado)
 - **Por qué:** el dueño: «mañana voy a meter más cuentas… completas y con perfiles desde un Excel, de manera masiva». Había importación de clientes y de servicios, pero no de cuentas nuevas para vender.
 - **Más → Excel → «📦 Cargar cuentas para vender»** (y un atajo en Inventario): bajás la plantilla, la llenás y la subís. Una fila por cuenta: Producto, Correo, Contraseña, Perfiles, PIN, Vence proveedor, Costo, Proveedor, Nota (y «Costo US$» si la pagás en dólares).
@@ -10,7 +18,7 @@ Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo 
 - **La plantilla trae TUS productos:** ejemplos con tus nombres reales, una hoja «Productos» con los nombres exactos para copiar y una hoja «Cómo llenar».
 - **Vista previa antes de guardar:** cuántas cuentas y perfiles entran por producto, y cada fila con error dice por qué (producto que no existe o que puede ser dos, correo ya cargado o repetido, fecha mal escrita, falta la fecha del proveedor o la contraseña). Las filas con error no se cargan; las demás sí. Subir el mismo archivo dos veces no duplica nada.
 - Solo dueño y administrador. Queda en la auditoría. No se quitó ninguna pantalla ni botón.
-- **Arreglo después de publicar (sin publicar):** en la plantilla real, el ejemplo de Netflix salía con «Netflix Perfil Extra Premium» (va primero en orden alfabético). Ahora los ejemplos usan el producto principal (ni «Perfil Extra» ni los de 3 meses).
+- **Arreglo después de publicar (PR #92 publicado):** en la plantilla real, el ejemplo de Netflix salía con «Netflix Perfil Extra Premium» (va primero en orden alfabético). Ahora los ejemplos usan el producto principal (ni «Perfil Extra» ni los de 3 meses).
 
 ## 2026-11-17 · 📖 Revendedores más fácil: bienvenida corta, guía con fotos e invitación clara (PR #90 publicado)
 - **Por qué:** el dueño: «todavía no entienden cómo entrar, ver sus cuentas, pagar y ver sus códigos». De 21 revendedores con cuentas, solo 7 entraron alguna vez y 12 no tienen PIN.
