@@ -147,6 +147,24 @@ async function resellerKit(id, name, phone, slug, pinIn) {
   return { name, phone, url: `${location.origin}/hub`, page: page || "Solo panel (sin página)", msg, pin };
 }
 
+/** 📦 Cargar cuentas para vender desde Excel (17/11/2026): plantilla con tus productos, vista previa y guardar. */
+function stockImportCard() {
+  const r = P.tab.importStock?.result;
+  const res = (x) => x.status === "ok" ? pill(r.dryRun ? "Entra" : "Cargada", "ok") : `<span class="pp pp-bad" style="white-space:normal;display:inline-block;max-width:340px">${esc(x.error || "Error")}</span>`;
+  return `<section class="card" id="stockImport"><h2>📦 Cargar cuentas para vender <small>· muchas juntas, desde Excel</small></h2>
+    <p class="muted" style="margin:0">Una fila por cuenta: <b>Producto</b>, <b>Correo</b>, <b>Contraseña</b>, <b>Perfiles</b> (5 = cinco perfiles; 1 o «completa» = cuenta completa), <b>PIN</b>, <b>Vence proveedor</b> (15/12/2026), <b>Costo</b> y <b>Proveedor</b>. La plantilla trae ejemplos con tus productos y una hoja con sus nombres exactos.</p>
+    <div class="inline"><a class="pbtn" href="/api/admin/import/template?type=stock" download>${icon("ext")}Descargar plantilla de cuentas</a></div>
+    <form id="importStockForm"><label class="dropzone"><input type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required aria-label="Archivo de cuentas" hidden><span class="dztext">📄 Arrastrá tu Excel acá, o <b>tocá para elegir</b></span><small class="dzname"></small></label><button class="pbtn dark" type="submit" style="margin-top:8px">👀 Ver qué entra</button></form>
+    ${r ? `<div style="display:grid;gap:10px">
+      <div class="inline">${pill(`${r.summary.ok} cuenta${r.summary.ok === 1 ? "" : "s"} · ${r.summary.perfiles} perfiles ${r.dryRun ? "listos" : "cargados"}`, "ok")} ${pill(`${r.summary.errores} con error`, r.summary.errores ? "bad" : "mute")} ${r.summary.avisos ? pill(`${r.summary.avisos} aviso${r.summary.avisos === 1 ? "" : "s"}`, "warn") : ""}</div>
+      ${Object.keys(r.byProduct).length ? `<p style="margin:0">${Object.entries(r.byProduct).map(([n, b]) => `<b>${esc(n)}</b>: ${b.cuentas} cuenta${b.cuentas === 1 ? "" : "s"}, ${b.perfiles} perfil${b.perfiles === 1 ? "" : "es"}`).join(" · ")}</p>` : ""}
+      ${table(["Fila", "Producto", "Correo", "Perfiles", "Vence proveedor", "Resultado"], r.rows.slice(0, 300).map((x) => `<tr><td>${x.row}</td><td>${esc(x.product)}</td><td class="mono">${esc(x.account)}</td><td>${x.profiles || ""}</td><td>${x.expiresAt ? fdate(x.expiresAt) : ""}</td><td>${res(x)}${(x.warnings ?? []).map((w) => `<br><small style="color:var(--warn)">⚠ ${esc(w)}</small>`).join("")}</td></tr>`))}
+      ${r.rows.length > 300 ? `<p class="muted" style="margin:0">Mostrando 300 de ${r.rows.length} filas.</p>` : ""}
+      ${r.dryRun && r.summary.ok ? `<div class="inline"><button class="pbtn green" type="button" data-importstockgo="1">✅ Cargar ${r.summary.ok} cuenta${r.summary.ok === 1 ? "" : "s"} (${r.summary.perfiles} perfiles)</button><button class="pbtn" type="button" data-importstockcancel="1">Cancelar</button>${r.summary.errores ? `<span class="muted">Las filas con error no se cargan: corregilas y subilas después.</span>` : ""}</div>` : ""}
+      ${!r.dryRun ? `<div class="pok">Listo: ${r.summary.ok} cuenta${r.summary.ok === 1 ? "" : "s"} con ${r.summary.perfiles} perfiles libres, listos para vender. Ya las ves en Inventario.</div>` : ""}</div>` : ""}
+  </section>`;
+}
+
 /** Mini-guía de uso lista para mandar por WhatsApp a un revendedor. */
 function guideMsg(name, plat, origin, slug, pageAllowed, trust) {
   const n = (name || "").split(" ")[0] || "";
@@ -385,7 +403,7 @@ const V = {
       ["WhatsApp", "El bot que atiende solo y los avisos automáticos a tus clientes.", "whatsapp"],
       ["Apariencia", "El diseño de tu tienda: estilo, colores, fuentes, horario y preguntas frecuentes.", "apariencia"],
       ["Recordatorios", "Avisos automáticos de vencimiento para que no se te escape ninguno.", "recordatorios"],
-      ["Excel", "Exportás e importás tus clientes y servicios con una planilla.", "excel"],
+      ["Excel", "Exportás e importás tus clientes, servicios y cuentas para vender con una planilla.", "excel"],
       ["Configuración", "Nombre, WhatsApp, QR de cobro, verificación en dos pasos y respaldo.", "configuracion"],
     ];
     return `${setupCard}
@@ -1185,6 +1203,7 @@ const V = {
       <label>Cantidad de perfiles<input name="n" type="number" min="1" max="20" value="5"></label><label>PIN (opcional, mismo para todos)<input name="pin" inputmode="numeric" maxlength="8"></label>
       ${cargaVenceCosto(currencySym())}<label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>${paidNowExtra()}
       <button class="pbtn dark" type="submit">${icon("plus")}Guardar cuenta</button></form></section>
+      <section class="card ok-card"><h2>📦 ¿Muchas cuentas? <small>· cargalas desde un Excel</small></h2><p class="muted" style="margin:0">Completas o con perfiles, de varios productos juntos. Bajás la plantilla, la llenás y la subís: antes de guardar te muestra qué entra.</p><button class="pbtn dark" type="button" data-go="excel" style="justify-self:start">📄 Cargar desde Excel</button></section>
       <section class="card"><h2>Carga por lista <small>· una cuenta por línea: correo, contraseña, perfiles, vence (dd/mm/aaaa)</small></h2><form class="form" id="bulkForm" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label><label>Costo por cuenta (${currencySym()})<input name="cost" inputmode="decimal" value="0"></label>
       <textarea name="rows" rows="5" style="grid-column:1/-1" placeholder="cuenta1@correo.com, Clave#1, 5, 31/12/2026&#10;cuenta2@correo.com, Clave#2, 5, 31/12/2026" aria-label="Lista de cuentas"></textarea>
@@ -1340,6 +1359,7 @@ const V = {
       ${canReview() ? dl("movimientos", "Movimientos de saldo", "Recargas, compras, renovaciones y ajustes de cada cliente") : ""}
       ${canReview() ? dl("cuentas", "Cuentas y perfiles", "Inventario completo (contraseñas ocultas)") + `<p class="muted" style="margin:0">¿Necesitás las contraseñas? <a href="/api/admin/export/cuentas?secrets=1" download>Descargar con contraseñas</a>. Queda registrado en la auditoría; guardá ese archivo en un lugar seguro.</p>` : ""}
       </section>
+      ${canReview() ? stockImportCard() : ""}
       <section class="card"><h2>Importar clientes desde Excel</h2>
         <p class="muted" style="margin:0">Subí tu Excel (.xlsx) o un .csv. La primera fila tiene que tener los títulos: <b>Nombre</b> y <b>WhatsApp</b> (o Teléfono / Celular) son obligatorios; <b>Email</b>, <b>Notas</b> y <b>Tipo</b> son opcionales. Los números sin código de país se toman como de Bolivia (+591). Los que ya son clientes no se tocan.</p>
         <div class="inline"><a class="pbtn" href="/api/admin/import/template" download>${icon("ext")}Descargar plantilla</a></div>
@@ -3103,6 +3123,16 @@ document.addEventListener("click", async (ev) => {
   if (d.waback) { P.tab.waOpen = false; return render(); }
   if (d.human) return act(() => api("POST", `/api/admin/whatsapp/chats/${encodeURIComponent(d.human)}/human`, { on: d.on === "1" }), d.on === "1" ? "Atendés vos: el bot no contesta en esta charla" : "El bot vuelve a contestar en esta charla");
   if (d.waflush) return act(() => api("POST", "/api/admin/whatsapp/flush", {}), (r) => `Enviados ${r.sent}, fallidos ${r.failed}, reintentando ${r.pending}`);
+  if (d.importstockcancel) { P.tab.importStock = null; return render(); }
+  if (d.importstockgo) {
+    el.disabled = true;
+    try {
+      const result = await api("POST", "/api/admin/import/stock", { contentBase64: P.tab.importStock.b64, dryRun: false });
+      P.tab.importStock = { b64: null, result };
+      toast(`✅ ${result.summary.ok} cuenta(s) cargadas · ${result.summary.perfiles} perfiles`);
+    } catch (e) { el.disabled = false; toast(e.message); }
+    return render();
+  }
   if (d.importsvccancel) { P.tab.importSvc = null; return render(); }
   if (d.importsvcgo) {
     el.disabled = true;
@@ -3658,6 +3688,12 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "usdtForm") {
       const usdt = { enabled: f.enabled.checked, address: f.address.value.trim(), network: f.network.value.trim(), payId: f.payId.value.trim(), rate: f.rate.value.trim().replace(",", "."), note: f.note.value.trim() };
       await act(() => api("POST", "/api/admin/settings", { usdt }), "Cobro en USDT guardado");
+    } else if (f.id === "importStockForm") {
+      const b64 = await fileToBase64(f.file.files[0]);
+      const result = await api("POST", "/api/admin/import/stock", { contentBase64: b64, dryRun: true });
+      P.tab.importStock = { b64, result };
+      await render();
+      document.getElementById("stockImport")?.scrollIntoView({ block: "start" });
     } else if (f.id === "importSvcForm") {
       const b64 = await fileToBase64(f.file.files[0]);
       const result = await api("POST", "/api/admin/import/services", { contentBase64: b64, dryRun: true });

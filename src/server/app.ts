@@ -48,7 +48,7 @@ import { registerPlanRoutes } from "./planRoutes.js";
 import { createOffice, firstName } from "./office.js";
 import { ownSoonFor, ownPushText, withOwnSuffix } from "../store/ownAlerts.js";
 import { writeXlsx } from "./xlsx.js";
-import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, servicesTemplate, type ExportKind } from "./exports.js";
+import { buildExport, customersTemplate, EXPORT_KINDS, importCustomers, importServicesFile, importStockFile, servicesTemplate, stockTemplate, type ExportKind } from "./exports.js";
 import { catalogData, catalogImageRefs, filterCatalog, whatsappCatalog, type CatalogFilter } from "./exportCenter.js";
 import { catalogPdf, type CatalogDesign } from "./catalogPdf.js";
 import { shrinkPng } from "./pdf.js";
@@ -1641,7 +1641,9 @@ export function createApp(cfg: AppConfig): App {
     const { file, name } = buildExport(store, A(c), kind, { withSecrets: c.query.get("secrets") === "1" });
     return sendFile(c, file, name);
   });
-  route("GET", "/api/admin/import/template", "staff", (c) => c.query.get("type") === "services"
+  route("GET", "/api/admin/import/template", "staff", (c) => c.query.get("type") === "stock"
+    ? sendFile(c, stockTemplate(store), "plantilla-cuentas.xlsx")
+    : c.query.get("type") === "services"
     ? sendFile(c, servicesTemplate(), "plantilla-servicios.xlsx")
     : sendFile(c, customersTemplate(), "plantilla-clientes.xlsx"));
   route("POST", "/api/admin/import/services", "staff", (c) => {
@@ -1649,6 +1651,13 @@ export function createApp(cfg: AppConfig): App {
     const buf = Buffer.from(c.body.contentBase64, "base64");
     if (!buf.length || buf.length > MAX_FILE) throw new HttpError(400, "VALIDATION", "El archivo debe pesar hasta 5 MB");
     return importServicesFile(store, A(c), buf, { dryRun: c.body?.dryRun !== false });
+  }, MAX_UPLOAD_JSON);
+  // 📦 17/11/2026: cuentas nuevas para vender (completas o por perfiles) desde Excel, con vista previa.
+  route("POST", "/api/admin/import/stock", "staff", (c) => {
+    if (typeof c.body?.contentBase64 !== "string") throw new HttpError(400, "VALIDATION", "Falta el archivo");
+    const buf = Buffer.from(c.body.contentBase64, "base64");
+    if (!buf.length || buf.length > MAX_FILE) throw new HttpError(400, "VALIDATION", "El archivo debe pesar hasta 5 MB");
+    return importStockFile(store, A(c), buf, { dryRun: c.body?.dryRun !== false });
   }, MAX_UPLOAD_JSON);
   route("POST", "/api/admin/import/customers", "staff", (c) => {
     if (typeof c.body?.contentBase64 !== "string") throw new HttpError(400, "VALIDATION", "Falta el archivo");
