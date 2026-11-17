@@ -1,5 +1,12 @@
 # Informe de pruebas
 
+## 17/11/2026 · 📦 Cargar cuentas para vender desde Excel
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Total | `npm test` (223 s) | 895: **894 pasan**; 1 falla por tiempo con la máquina cargada (`mes-calendario`, «entra en 360 px»). Sola pasa 2 de 2 |
+| Prueba nueva `importar-cuentas-excel` | API + pantalla a 390 px, datos ficticios | plantilla con 3 hojas y ejemplos de los productos de la tienda; la plantilla tal cual entra sin errores; Excel con 13 filas: 5 entran (5 perfiles con PIN, completa, nombres, vacío = 7 en Disney, «Prime» → Amazon Prime Video) y 8 con el motivo (Disney ambiguo, producto inexistente, correo ya cargado, repetido en el archivo, 31/02, sin fecha, sin contraseña, 30 perfiles); la vista previa no guarda nada; Atención → 403; al cargar: perfiles libres con nombres y PIN, proveedor nuevo, costo en Bs y en US$, fecha, nota, auditoría; el mismo archivo otra vez no duplica; en pantalla: bajar plantilla, subir, vista previa, «Cargar 2 cuentas (6 perfiles)», «Listo», atajo desde Inventario, sin desborde |
+| Pantalla Vender | 390 px con datos de prueba | 2 pasos (cliente y producto, con perfiles libres por producto): ya es simple, sin cambios |
+
 ## 17/11/2026 · 📖 Revendedores más fácil
 | Qué | Cómo | Resultado |
 |---|---|---|

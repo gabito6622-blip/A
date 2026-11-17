@@ -2,6 +2,12 @@
 
 Cada decisión: fecha · qué se decidió · por qué · alternativas descartadas. Lo nuevo va arriba.
 
+## 2026-11-17 · Cargar cuentas desde Excel
+- **Usa la misma carga de siempre (una cuenta a la vez por dentro):** las mismas reglas de correos repetidos y fecha del proveedor obligatoria; no hay reglas nuevas que mantener.
+- **Vista previa = la carga real deshecha al final:** lo que se muestra es exactamente lo que va a pasar.
+- **«Vence proveedor» obligatorio:** el 14/11 se decidió no inventar fechas (antes quedaban «100 años» y no avisaban). Si falta, la fila no entra y dice por qué.
+- **Producto por nombre parcial solo si hay uno:** «Prime» → «Amazon Prime Video»; «Disney» pregunta cuál (con o sin ESPN) en vez de adivinar.
+
 ## 2026-11-17 · Revendedores más fácil
 - **El problema era entrar, no la página:** recorrimos GaboHub como un revendedor de prueba y todo anduvo (link directo, cuentas, renovar con un QR, códigos); lo que falta es que entren. Por eso: bienvenida corta, guía con fotos y una invitación que explique cómo se paga.
 - **Guía como página, no como archivo:** se abre con un link en WhatsApp, sin descargar nada, y las fotos se rehacen con `scripts/guia-capturas.mjs` (datos de ejemplo) si cambian las pantallas.

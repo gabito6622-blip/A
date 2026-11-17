@@ -58,6 +58,7 @@ import * as bulkAssign from "./bulkAssign.js";
 import * as renovarVarias from "./renovarVarias.js";
 import * as traspaso from "./traspaso.js";
 import * as cobrarTodo from "./cobrarTodo.js";
+import * as importarStock from "./importarStock.js";
 import * as avisoAlquiler from "./avisoAlquiler.js";
 import * as renovarSinTrabas from "./renovarSinTrabas.js";
 import * as avisoCambios from "./avisoCambios.js";
@@ -167,6 +168,7 @@ export function createStore(opts: EngineOptions = {}) {
       updateSlot: bind(e, inventory.updateSlot),
       addSlot: bind(e, inventory.addSlot),
       importServices: bind(e, importer.importServices),
+      importStock: bind(e, importarStock.importStock),
       listAccounts: bind(e, inventory.listAccounts),
       accountSecret: bind(e, inventory.accountSecret),
       stock: () => inventory.stockByProduct(e),

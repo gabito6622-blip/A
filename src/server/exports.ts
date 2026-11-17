@@ -1,6 +1,7 @@
 // Exportar a Excel e importar clientes desde Excel/CSV.
 // Los permisos los vuelve a validar el núcleo en cada función que se llama.
 import { authorize, DomainError, normalizePhone, type Actor, type GabrielStore, type ServiceResult, type ServiceRow } from "../store/index.js";
+import { defaultProfiles, type StockResult, type StockRow } from "../store/importarStock.js";
 import { normHeader, readSheet, writeXlsx, type Cell, type Sheet } from "./xlsx.js";
 
 const bsNum = (c: number) => Math.round(c) / 100;
@@ -286,6 +287,82 @@ export function importServicesFile(s: GabrielStore, a: Actor, file: Buffer, opts
   res.rows = [...res.rows, ...parseErrors].sort((x, y) => x.row - y.row);
   res.summary.errores += parseErrors.length;
   return res;
+}
+
+/* ---------------- 📦 Cuentas para vender (stock) desde Excel (17/11/2026) ---------------- */
+const KCOLS = {
+  product: ["producto", "plataforma", "servicio"],
+  email: ["correo", "cuenta", "email", "correo de la cuenta", "usuario", "mail"],
+  password: ["contrasena", "clave", "password", "pass"],
+  profiles: ["perfiles", "cantidad de perfiles", "pantallas", "perfil"],
+  pin: ["pin"],
+  supExpires: ["vence proveedor", "vence", "vencimiento", "vencimiento proveedor", "pagada hasta", "hasta"],
+  cost: ["costo", "costo bs", "costo cuenta", "precio compra"],
+  costUsd: ["costo us", "costo usd", "costo dolares", "costo us$", "costo en dolares"],
+  supplier: ["proveedor"],
+  note: ["nota", "notas", "observacion", "observaciones"],
+} as const;
+
+export function importStockFile(s: GabrielStore, a: Actor, file: Buffer, opts: { dryRun: boolean }) {
+  authorize(a, "inventory.manage");
+  let rows: string[][];
+  try { rows = readSheet(file); } catch (e) { throw new DomainError("VALIDATION", (e as Error).message); }
+  if (rows.length < 2) throw new DomainError("VALIDATION", "El archivo no tiene cuentas (la primera fila tiene que ser el encabezado)");
+  const header = rows[0].map(normHeader);
+  const used = new Set<number>();
+  const find = (names: readonly string[]) => { const i = header.findIndex((h, k) => !used.has(k) && names.includes(h)); if (i >= 0) used.add(i); return i; };
+  // «Costo US$» antes que «Costo»; «Vence proveedor» antes que «Vence».
+  const idx = { costUsd: find(KCOLS.costUsd), cost: find(KCOLS.cost), supExpires: find(KCOLS.supExpires), product: find(KCOLS.product), email: find(KCOLS.email),
+    password: find(KCOLS.password), profiles: find(KCOLS.profiles), pin: find(KCOLS.pin), supplier: find(KCOLS.supplier), note: find(KCOLS.note) };
+  const missing = [["Producto", idx.product], ["Correo", idx.email], ["Contraseña", idx.password], ["Vence proveedor", idx.supExpires]].filter(([, i]) => (i as number) < 0).map(([n]) => n);
+  if (missing.length) throw new DomainError("VALIDATION", `Faltan columnas: ${missing.join(", ")}. Encabezados leídos: ${rows[0].join(", ")}. Descargá la plantilla de cuentas para ver el formato.`);
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
+  const money = (v: string) => { const t = v.replace(/^(bs|us\$|\$)\.?\s*/i, "").replace(",", "."); return t && Number.isFinite(+t) && +t >= 0 ? Math.round(+t * 100) : t ? NaN : undefined; };
+  const parseErrors: StockResult[] = [];
+  const valid: StockRow[] = [];
+  for (let k = 1; k < rows.length; k++) {
+    const r = rows[k];
+    const base: StockResult = { row: k + 1, status: "error", product: cell(r, idx.product), account: cell(r, idx.email), profiles: 0, created: [], warnings: [] };
+    const fail = (error: string) => parseErrors.push({ ...base, error });
+    if (!base.product) { fail("Falta el producto"); continue; }
+    if (!base.account) { fail("Falta el correo de la cuenta"); continue; }
+    if (!cell(r, idx.password)) { fail("Falta la contraseña"); continue; }
+    const supRaw = cell(r, idx.supExpires), supExp = supRaw ? parseDate(supRaw) : null;
+    if (supRaw && !supExp) { fail(`Fecha del proveedor inválida: «${supRaw}» (usá 15/12/2026)`); continue; }
+    const pin = cell(r, idx.pin).replace(/\.0+$/, "");
+    if (pin && !/^\d{1,8}$/.test(pin)) { fail(`PIN inválido: «${pin}» (solo números)`); continue; }
+    const cost = money(cell(r, idx.cost)), costUsd = money(cell(r, idx.costUsd));
+    if (Number.isNaN(cost)) { fail(`Costo inválido: «${cell(r, idx.cost)}»`); continue; }
+    if (Number.isNaN(costUsd)) { fail(`Costo en US$ inválido: «${cell(r, idx.costUsd)}»`); continue; }
+    valid.push({ row: k + 1, product: base.product, email: base.account, password: cell(r, idx.password), profiles: cell(r, idx.profiles), pin: pin || undefined,
+      supplierExpiresAt: supExp ?? undefined, cost, costUsd, supplier: cell(r, idx.supplier) || undefined, note: cell(r, idx.note) || undefined });
+  }
+  const res = valid.length ? s.inventory.importStock(a, valid, opts) : { dryRun: opts.dryRun, summary: { ok: 0, errores: 0, perfiles: 0, avisos: 0 }, byProduct: {}, rows: [] as StockResult[] };
+  res.rows = [...res.rows, ...parseErrors].sort((x, y) => x.row - y.row);
+  res.summary.errores += parseErrors.length;
+  return res;
+}
+
+/** Plantilla con ejemplos de TUS productos y una hoja «Productos» con los nombres exactos para copiar. */
+export function stockTemplate(s: GabrielStore) {
+  const prods = Object.values(s.engine.s.products).filter((p) => p.kind !== "combo").sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const pick = (re: RegExp, kind?: string) => prods.find((p) => re.test(`${p.id} ${p.name}`.toLowerCase()) && (!kind || p.kind === kind) && !/3 ?m|meses/.test(`${p.id} ${p.name}`.toLowerCase()));
+  const d = (days: number) => { const t = new Date(Date.now() + days * 86_400_000); return `${String(t.getDate()).padStart(2, "0")}/${String(t.getMonth() + 1).padStart(2, "0")}/${t.getFullYear()}`; };
+  const ex: (string | number)[][] = [];
+  const add = (p: (typeof prods)[number] | undefined, n: number | string, cost: number, pin = "") => { if (p) ex.push([p.name, `ejemplo${ex.length + 1}@correo.com`, "Clave-Ejemplo#1", n, pin, d(30), cost, "Mi proveedor", ""]); };
+  add(pick(/netflix/, "profile"), 5, 60, "1234");
+  add(pick(/disney/, "profile"), 7, 45);
+  add(pick(/prime|amazon/, "profile"), 6, 30);
+  add(pick(/hbo|max/, "profile"), 5, 35);
+  add(pick(/netflix/, "full_account"), "completa", 60);
+  add(pick(/disney/, "full_account"), 1, 45);
+  if (!ex.length) ex.push(["Netflix", "ejemplo1@correo.com", "Clave-Ejemplo#1", 5, "1234", d(30), 60, "Mi proveedor", ""]);
+  const kindTxt: Record<string, string> = { profile: "Por perfiles", full_account: "Cuenta completa", invite: "Invitación", iptv: "IPTV", own: "Propia" };
+  return writeXlsx([
+    { name: "Cuentas", widths: [40, 28, 18, 10, 8, 16, 9, 18, 24], rows: [["Producto", "Correo", "Contraseña", "Perfiles", "PIN", "Vence proveedor", "Costo", "Proveedor", "Nota"], ...ex] },
+    { name: "Productos", widths: [44, 18, 16], rows: [["Producto (copiá el nombre tal cual)", "Tipo", "Perfiles si lo dejás vacío"], ...prods.map((p) => [p.name, kindTxt[p.kind] ?? p.kind, defaultProfiles(p)])] },
+    { name: "Cómo llenar", widths: [100], rows: [["Cómo llenar la hoja «Cuentas»"], ["Una fila = una cuenta. Borrá las filas de ejemplo antes de subir."], ["Producto: copiá el nombre de la hoja «Productos»."], ["Perfiles: 5 = cinco perfiles (Perfil 1 a 5). 1 o «completa» = cuenta completa. Vacío = lo de siempre para ese producto. También podés escribir nombres: Ana, Beto, Caro."], ["PIN: opcional, el mismo para todos los perfiles de esa cuenta."], ["Vence proveedor: hasta cuándo pagaste la cuenta (15/12/2026). Obligatorio."], ["Costo: lo que te cuesta por mes en Bs (opcional). Si la pagás en dólares, agregá una columna «Costo US$»."], ["Proveedor: opcional; si no existe se crea. Vacío = tus cuentas propias."], ["Antes de guardar, el panel te muestra qué va a entrar y qué fila tiene un error."]] },
+  ]);
 }
 
 export const servicesTemplate = () => writeXlsx([{
