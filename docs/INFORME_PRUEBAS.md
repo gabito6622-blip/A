@@ -1,5 +1,16 @@
 # Informe de pruebas
 
+## 17/11/2026 · GaboHub: paridad con el panel del dueño (4 equipos)
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Antes | `npm test` | 894 de 895 (falla `cargar-vendidas` 360 px: necesita red externa, no disponible en esta máquina) |
+| Editor de Mi página | `editor-mi-pagina` (360/390/768/1280 px, claro y oscuro, aislamiento) | pasa |
+| Mis hojas | `hub-hojas` (con y sin internet, choque, sin contraseñas, aislamiento, plan vencido) | 3/3 |
+| Cobros | `hub-cobros` (anotar/deshacer, comprobante → aprobación, aislamiento, plan) | 8/8 |
+| Secretaria y Cómo van | `hub-secretaria` (mensajes, plantilla, wa.me, números conocidos, aislamiento, plan) | 2/2 |
+| Integrado | `npm test` (~12 min en esta máquina) | **909 de 910**; la única que falla es `cargar-vendidas` 360 px (red externa) |
+| No revisado | modo claro real de GaboHub a ojo; `revision-accesibilidad.cjs` | pendiente |
+
 ## 17/11/2026 · Plantilla de cuentas: ejemplo con el producto principal
 | Qué | Cómo | Resultado |
 |---|---|---|
