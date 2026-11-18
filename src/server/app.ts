@@ -1225,6 +1225,7 @@ export function createApp(cfg: AppConfig): App {
       email: b.email, password: b.password, supplierId: b.supplierId, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, notes: b.notes,
     });
   });
+  route("POST", "/api/admin/accounts/:id/slots", "staff", (c) => store.inventory.addSlot(A(c), c.params.id, { label: String(c.body?.label ?? ""), pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
   route("POST", "/api/admin/slots/:id/free", "staff", (c) => store.orders.releaseSlot(A(c), c.params.id, String(c.body?.reason ?? "")));
