@@ -1505,3 +1505,7 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .menu .mitem>.favb[aria-pressed="true"]{color:#f5b400}
 .menu .favbox{display:grid;gap:4px;padding-bottom:4px}
 .favbox{padding-bottom:4px}
+/* 🏠 Hoy en Inicio (19/11/2026) */
+.hm-hoy{display:grid;gap:12px;margin-top:12px}.hm-hoy-t{margin:4px 2px 0;font-size:18px}
+.hm-more>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;list-style:none}
+.hm-more>summary::-webkit-details-marker{display:none}.hm-more[open]>summary{margin-bottom:10px}

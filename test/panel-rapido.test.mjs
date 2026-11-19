@@ -87,7 +87,8 @@ describe("etapa 3 · panel rápido y oscuro", () => {
       const totalInicio = reqs.length;
       // Antes: 12 pedidos (me, settings, pagos ×2, notificaciones ×2, assignments, finance, ai, resellers, usdt, winback).
       // Ahora: me, settings, pagos (campanita), notificaciones (campanita), inicio, usdt, winback = 7.
-      assert.ok(totalInicio <= 7, `Inicio hizo ${totalInicio} pedidos (${reqs.join(", ")}); se esperaban 7 o menos`);
+      // 19/11/2026: + la lista «🏠 Para hacer hoy» (secretaria) arriba en Inicio = 8.
+      assert.ok(totalInicio <= 8, `Inicio hizo ${totalInicio} pedidos (${reqs.join(", ")}); se esperaban 8 o menos`);
 
       // 2) Tema: oscuro por defecto, con los colores de tema.css; elegir claro se recuerda al recargar.
       const theme = () => p.evaluate(() => ({ dark: document.getElementById("app").classList.contains("dark"), gs: document.documentElement.dataset.gsTheme, bg: getComputedStyle(document.getElementById("app")).getPropertyValue("--bg").trim(), stored: (() => { try { return localStorage.getItem("gs-panel-theme"); } catch { return null; } })() }));
