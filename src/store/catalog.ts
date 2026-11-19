@@ -103,6 +103,12 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
     if (!s) throw new DomainError("VALIDATION", "Poné el símbolo de la moneda (ej.: US$, Bs)");
     patch.currencySymbol = s;
   }
+  if (patch.usdCostRate !== undefined) {
+    const r = Number(patch.usdCostRate);
+    if (patch.usdCostRate === null || r === 0) patch.usdCostRate = undefined;
+    else if (!(r > 0) || r > 1000) throw new DomainError("VALIDATION", "Poné cuántos Bs te cuesta 1 dólar (ej. 12)");
+    else patch.usdCostRate = Math.round(r * 100) / 100;
+  }
   if (patch.usdt !== undefined) {
     const u = patch.usdt as Record<string, unknown>;
     if (!u || typeof u !== "object") throw new DomainError("VALIDATION", "Configuración de USDT inválida");
@@ -176,6 +182,7 @@ export function updateSettings(e: Engine, actor: Actor, patch: Partial<Omit<Stor
   const look = cleanLook(patch as Record<string, unknown>);
   return e.tx(() => {
     const allowed = (["storeName", "whatsapp", "qrFileRef", "paymentNote", "logoFileRef", "bannerFileRef", "resellerShops", "resellerProgramPrices", "alwaysAvailable", "resellerOnlyCatalog", "platformName", "comboDiscounts", "shopRent", "resellerMarginPct", "referralBonus", "usdt", "currencySymbol", "ticketReplies", "secretaryMsg", "renewLink", "monthMode"] as const).filter((k) => patch[k] !== undefined);
+    if ("usdCostRate" in patch) { if (patch.usdCostRate) e.s.settings.usdCostRate = patch.usdCostRate; else delete e.s.settings.usdCostRate; }
     for (const k of allowed) (e.s.settings as unknown as Record<string, unknown>)[k] = typeof patch[k] === "string" ? (patch[k] as string).trim() : patch[k];
     Object.assign(e.s.settings, look);
     allowed.push(...(Object.keys(look) as never[]));

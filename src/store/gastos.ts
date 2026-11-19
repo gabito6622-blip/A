@@ -12,7 +12,7 @@ import type { Engine } from "./engine.js";
 import { authorize } from "./auth.js";
 import { DomainError } from "./errors.js";
 import { DAY, boMonthKey, boParts } from "./time.js";
-import { rateNow, usdToBs } from "./usd.js";
+import { costRate, usdToBs } from "./usd.js";
 
 export const CATEGORIES: ExpenseCategory[] = ["cuenta", "perfil", "publicidad", "internet", "comision", "otro"];
 export const CATEGORY_LABEL: Record<ExpenseCategory, string> = { cuenta: "Cuenta", perfil: "Perfil suelto", publicidad: "Publicidad", internet: "Internet", comision: "Comisión", otro: "Otro" };
@@ -43,7 +43,7 @@ export function coversMonth(x: Expense, key: string): boolean {
 /** La tasa que se sugiere al anotar en dólares: la última que anotaste en un gasto, si no la de la tienda. */
 export function suggestedRate(e: Engine): number {
   const last = (e.s.expenses ?? []).filter((x) => x.rate).sort((a, b) => b.at - a.at)[0];
-  return last?.rate ?? rateNow(e) ?? 0;
+  return last?.rate ?? costRate(e) ?? 0;
 }
 
 /** Fecha del gasto: hoy (ahora) por defecto; un día «AAAA-MM-DD» va a las 12:00 de Bolivia. Nunca en el futuro. */
