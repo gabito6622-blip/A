@@ -524,6 +524,7 @@ const V = {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), (canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([]))]);
     P.tab.sellAccts = accounts;
     P.tab.custMap = Object.fromEntries(customers.map((c) => [`${c.name} · ${c.phone}`.trim(), c.id]));
+    P.tab.custKind = Object.fromEntries(customers.map((c) => [c.id, c.kind])); // para mostrar solo los productos que le corresponden
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
     P.tab.sellPrice = Object.fromEntries(products.map((p) => [p.id, p.price]));
     const comboParts = Object.fromEntries(products.filter((p) => p.kind === "combo").map((p) => [p.id, (p.comboProductIds ?? []).map((id) => products.find((x) => x.id === id)?.name).filter(Boolean)]));
@@ -532,11 +533,11 @@ const V = {
       const combo = p.kind === "combo";
       const face = combo ? `<i class="selcombo">🎁</i>` : p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`;
       const sub = combo ? `<em class="selparts">${esc((comboParts[p.id] ?? []).join(" + ") || "combo")}</em>` : "";
-      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-price="${p.price}" data-rule="${esc(p.saleNote ?? "")}" ${n ? "" : "disabled"} aria-pressed="false">
-        ${face}<b>${esc(p.name)}</b>${sub}<span class="selprice">${bs(p.price)}</span>
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-price="${p.price}" data-rule="${esc(p.saleNote ?? "")}" data-ronly="${p.resellersOnly ? 1 : 0}" ${n ? "" : "disabled"} aria-pressed="false">
+        ${face}<b>${esc(p.name.replace(/ \(alquiler revendedores\)/i, ""))}</b>${sub}<em class="selaud ${p.resellersOnly ? "rev" : "cli"}">${p.resellersOnly ? "👥 Revendedor" : "👤 Cliente"}</em><span class="selprice">${bs(p.price)}</span>
         <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
     };
-    const pub = products.filter((p) => p.published !== false);
+    const pub = products.filter((p) => p.published !== false || p.resellersOnly);
     const apps = pub.filter((p) => p.kind !== "combo");
     const combos = pub.filter((p) => p.kind === "combo");
     const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
@@ -568,6 +569,10 @@ const V = {
         </div></div>
         <div id="sellNote" class="sellnote">👆 Tocá un producto de arriba.</div>
         <div id="profPick" class="profpick" hidden></div>
+        <div class="sellquick">
+          <label>💵 Cobrás (Bs)<input name="priceBs" type="number" inputmode="decimal" min="0" step="0.5" placeholder="precio normal" autocomplete="off"></label>
+          <label>📅 Vence el <small class="muted">(opcional)</small><input name="until" type="date"></label>
+        </div>
         <details class="selladv"><summary>⚙️ Más opciones <small>por defecto: 1 mes · pagado · efectivo/QR</small></summary>
           <div class="seladvgrid">
             <div><span class="selbl">⏳ Período</span><div class="seg periodseg">${[[1, "1 mes"], [3, "3 meses"], [6, "6 meses"], [12, "1 año"]].map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${v === 1}">${t}</button>`).join("")}</div></div>
@@ -2726,7 +2731,11 @@ function sellSummary() {
   const cname = f.customerName.value.trim();
   const who = sellCustomer(cname); // el elegido o el único que coincide (dia.js → buscar.js)
   const cid = who?.id || "";
-  const ready = !!tile && !!cid;
+  // Cliente final: solo productos para clientes. Revendedor: todos (primero los suyos).
+  const kind = cid ? P.tab.custKind?.[cid] : "";
+  document.querySelectorAll(".selp[data-ronly]").forEach((b) => { b.hidden = kind !== "reseller" && !!cid && b.dataset.ronly === "1"; if (b.hidden && b.getAttribute("aria-pressed") === "true") { b.setAttribute("aria-pressed", "false"); f.productId.value = ""; } });
+  const grid = document.querySelector(".selgrid"); if (grid) grid.classList.toggle("revfirst", kind === "reseller");
+  const ready = !!document.querySelector('.selp[aria-pressed="true"]') && !!cid;
   if (btn) btn.disabled = !ready;
   if (!ready) { if (box) box.hidden = true; if (btn) btn.innerHTML = `${icon("cart")}Registrar venta`; return; }
   const name = tile.dataset.name, first = (who?.label ?? cname).split(" · ")[0];
@@ -2738,11 +2747,14 @@ function sellSummary() {
   const code = (f.couponCode?.value || "").trim().toUpperCase();
   const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
   if (code && !q) quoteSell(cid, f.productId.value, qty, code, months);
-  const total = q?.coupon ? q.total : price * qty * months;
+  const custom = f.priceBs?.value !== "" && f.priceBs?.value != null ? Math.round(+f.priceBs.value * 100) : null;
+  const total = custom !== null && custom >= 0 ? custom : q?.coupon ? q.total : price * qty * months;
+  const until = f.until?.value ? f.until.value.split("-").reverse().join("/") : "";
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
     <div class="sumline"><span>${combo ? "🎁 Combo" : "Producto"}</span><b>${esc(name)}${extra}</b></div>
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
+    ${until ? `<div class="sumline"><span>📅 Vence el</span><b>${until}</b></div>` : ""}
     ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
     <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
   btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
@@ -3591,6 +3603,9 @@ document.addEventListener("submit", async (ev) => {
         for (const id of (o.assignmentIds ?? [])) {
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
         }
+        // Precio distinto al normal y fecha a mano, en el mismo paso (antes había que corregirlo después).
+        if (f.priceBs.value !== "" && o.id && Math.round(+f.priceBs.value * 100) !== o.total) await api("POST", `/api/admin/orders/${o.id}/amend`, { total: Math.round(+f.priceBs.value * 100), reason: "Precio acordado al vender" }).catch((e) => toast(`Venta hecha, pero el precio no se pudo cambiar: ${e.message}`));
+        if (f.until.value) { const at = new Date(`${f.until.value}T23:00:00-04:00`).getTime(); for (const id of (o.assignmentIds ?? [])) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: at, note: "Fecha puesta al vender" }).catch((e) => toast(`Venta hecha, pero la fecha no se pudo cambiar: ${e.message}`)); }
         const deliveries = [];
         for (const id of (o.assignmentIds ?? [])) { const info = await api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null); if (info) deliveries.push(info); }
         toast(`✅ Venta registrada: ${pname}`);

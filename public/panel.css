@@ -1489,3 +1489,10 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .covrow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .covrow > .pp,.covrow > span:last-child{flex-shrink:0;white-space:nowrap}
 .covrow > span:first-child{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+
+/* Vender (19/11/2026): para quién es cada producto, precio y fecha en el mismo paso */
+.selaud{font-style:normal;font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;justify-self:start}
+.selaud.rev{background:rgba(124,92,255,.16);color:#8b6cff}.selaud.cli{background:rgba(31,170,89,.14);color:#1a9a50}
+.selgrid.revfirst .selp[data-ronly="1"]{order:-1}
+.sellquick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+.sellquick input{min-height:44px;font-size:16px}
