@@ -1297,3 +1297,4 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .mchip small{opacity:.7}
 .mchip[aria-pressed="true"]{background:var(--s-accent,#ffc400);color:#111;border-color:transparent}
 .alrow{border-top:1px solid var(--s-line);padding:10px 0;display:grid;gap:8px}.altop{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.alppl{display:grid;gap:4px;font-size:13px}.alppl select{min-height:44px;font-size:15px;border-radius:10px;padding:0 10px;background:transparent;color:inherit;border:1px solid var(--s-line)}

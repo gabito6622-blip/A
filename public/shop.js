@@ -633,13 +633,25 @@ function accLinksHtml() {
   const L = S.data.accLinks?.accounts ?? [];
   if (!L.length) return "";
   const warn = L.filter((a) => a.over);
-  return `<div class="sbox"><h2>🔗 Link de códigos por cuenta</h2><p class="empty" style="margin:0 0 8px">Mandale a cada cliente el link de SU cuenta: lo abre y ve su código, sin escribir nada. Máximo <b>${S.data.accLinks.cap} códigos por día</b> por cuenta; si llega al tope, te avisamos acá.</p>
+  return `<div class="sbox"><h2>🔗 Link de códigos por cuenta</h2><p class="empty" style="margin:0 0 8px">Mandale a cada cliente el link de SU cuenta: lo abre y ve su código, sin escribir nada. Máximo <b>${S.data.accLinks.cap} códigos por día por persona</b>: si una cuenta la usan varias personas, elegí cuántas y el tope sube solo. Si llega al tope, te avisamos acá.</p>
     ${warn.length ? `<div class="svc-owed" role="status"><span>⚠️ ${warn.map((a) => `<b>${esc(a.email.split("@")[0])}</b>`).join(", ")} ${warn.length === 1 ? "llegó" : "llegaron"} al tope de códigos de hoy. Fijate si no está compartiendo la cuenta.</span></div>` : ""}
     ${L.map((a) => `<div class="alrow"><div class="altop"><div style="min-width:0"><b style="overflow-wrap:anywhere">${esc(a.email.split("@")[0])}</b><br><small class="empty">${esc((a.product || "").replace(/ \(alquiler revendedores\)/, ""))}</small></div><span class="spill ${a.over ? "sp-bad" : a.today ? "sp-warn" : "sp-mute"}">Hoy ${a.today}/${a.cap}${a.paused ? " · ⏸️ pausado" : ""}</span></div>
+      <label class="alppl">👥 ¿Cuántas personas la usan?<select data-accppl="${esc(a.email)}" aria-label="Personas que usan ${esc(a.email)}">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${(a.people ?? 1) === n ? " selected" : ""}>${n}${n === 1 ? " persona" : " personas"} · ${n * S.data.accLinks.cap} por día</option>`).join("")}</select></label>
       <div class="rbtns">${a.url ? `<button class="sbtn sm pri" type="button" data-copy="${esc(a.url)}">Copiar link</button><a class="sbtn sm" href="${waLink("", `Tu código de ${(a.product || "tu cuenta").replace(/ \(alquiler revendedores\)/, "")} aparece acá solo, sin escribir nada 👇\n${a.url}`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="${a.paused ? "play" : "pause"}">${a.paused ? "▶️ Activar" : "⏸️ Pausar"}</button><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="reset">Cambiar link</button>`
         : `<button class="sbtn sm pri" type="button" data-acclink="${esc(a.email)}" data-accdo="make">Crear link</button>`}</div>
       ${a.log.length ? `<details class="howto"><summary>🕒 Códigos que vio (${a.log.length})</summary><div style="display:grid;gap:2px;padding-top:6px">${a.log.map((x) => `<small class="empty">${hhmm(x.at)} · ${KLABEL[x.kind] || "Código"}</small>`).join("")}</div></details>` : ""}</div>`).join("")}</div>`;
 }
+document.addEventListener("change", async (ev) => {
+  const sel = ev.target.closest?.("[data-accppl]");
+  if (!sel) return;
+  sel.disabled = true;
+  try {
+    const r = await api("POST", "/api/me/acc-links", { email: sel.dataset.accppl, people: +sel.value });
+    const L = S.data.accLinks?.accounts ?? []; const i = L.findIndex((x) => x.email === r.email); if (i >= 0) L[i] = { ...L[i], ...r };
+    toast(`Listo: ${r.people} ${r.people === 1 ? "persona" : "personas"}, hasta ${r.cap} códigos por día`);
+    render();
+  } catch (e) { toast(e.message); sel.disabled = false; }
+}, true);
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest?.("[data-acclink]");
   if (!b) return;

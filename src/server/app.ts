@@ -1832,7 +1832,9 @@ export function createApp(cfg: AppConfig): App {
   // bandeja de ESA cuenta, sin escribir nada. Para que no saquen códigos «al montón»: historial de cada código visto,
   // tope de ACC_DAY_CAP códigos nuevos por día (hora de Bolivia), aviso al revendedor y botón Pausar. Se guarda en
   // secretos (fuera del estado): acclink:<token> → {c,e,p}; acclinkof:<cliente>|<correo> → token; accview:… → historial.
-  const ACC_DAY_CAP = 3;
+  const ACC_DAY_CAP = 3; // por persona: una cuenta completa repartida entre 7 personas tiene 21 por día (19/11/2026)
+  const accPeople = (cid: string, em: string) => Math.min(7, Math.max(1, Number(db.getSecret(`accppl:${cid}|${em}`) ?? 1) || 1));
+  const accCap = (cid: string, em: string) => ACC_DAY_CAP * accPeople(cid, em);
   const boDay = (t: number) => new Date(t - 4 * 36e5).toISOString().slice(0, 10);
   type AccLink = { c: string; e: string; p?: boolean };
   type AccView = { day: string; seen: string[]; log: { at: number; kind: string }[] };
@@ -1840,7 +1842,8 @@ export function createApp(cfg: AppConfig): App {
   const accViewGet = (cid: string, em: string): AccView => { try { return JSON.parse(db.getSecret(`accview:${cid}|${em}`) ?? "null") ?? { day: "", seen: [], log: [] }; } catch { return { day: "", seen: [], log: [] }; } };
   const accInfo = (cid: string, em: string, c: Ctx) => {
     const token = db.getSecret(`acclinkof:${cid}|${em}`), l = token ? accLinkGet(token) : null, v = accViewGet(cid, em), today = v.day === boDay(now()) ? v.seen.length : 0;
-    return { email: em, url: token && l ? codeLinkUrl(token, c) : null, paused: !!l?.p, today, cap: ACC_DAY_CAP, over: today >= ACC_DAY_CAP, log: v.log.slice(-10).reverse() };
+    const cap = accCap(cid, em);
+    return { email: em, url: token && l ? codeLinkUrl(token, c) : null, paused: !!l?.p, today, people: accPeople(cid, em), cap, over: today >= cap, log: v.log.slice(-10).reverse() };
   };
   const accOwnEmail = (cid: string, email: unknown) => {
     const em = String(email ?? "").trim().toLowerCase();
@@ -1849,6 +1852,13 @@ export function createApp(cfg: AppConfig): App {
   };
   const accLinkAct = (actor: Actor, cid: string, body: Record<string, unknown> | undefined, c: Ctx) => {
     const em = accOwnEmail(cid, body?.email);
+    if (body && "people" in body) { // «¿Cuántas personas la usan?» (1 a 7): sube el tope del día
+      const n = Math.round(Number(body.people));
+      if (!(n >= 1 && n <= 7)) throw new DomainError("VALIDATION", "Elegí entre 1 y 7 personas");
+      db.setSecret(`accppl:${cid}|${em}`, String(n), now());
+      store.engine.tx(() => store.engine.audit(actor, "customer.acc_code_people", "customer", cid, { email: em, people: n }));
+      return accInfo(cid, em, c);
+    }
     let token = db.getSecret(`acclinkof:${cid}|${em}`);
     const cur = token ? accLinkGet(token) : null;
     if (body?.reset || !token || !cur) { // link nuevo: el viejo deja de andar
@@ -1882,18 +1892,18 @@ export function createApp(cfg: AppConfig): App {
     if (accLinkLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
     accLinkLimiter.take(k);
     const all = store.codes.of(l.c).filter((x) => x.to === l.e);
-    const day = boDay(now()), v = accViewGet(l.c, l.e);
+    const day = boDay(now()), v = accViewGet(l.c, l.e), cap = accCap(l.c, l.e);
     if (v.day !== day) { v.day = day; v.seen = []; }
     const sig = (x: { receivedAt: number; code?: string; link?: string }) => `${x.receivedAt}|${x.code ?? ""}|${x.link ?? ""}`;
     const shown: typeof all = []; let held = 0, changed = false;
     for (const x of all.slice().sort((a, b) => a.receivedAt - b.receivedAt)) {
       const sg = sig(x);
       if (v.seen.includes(sg)) { shown.push(x); continue; }
-      if (v.seen.length >= ACC_DAY_CAP) { held++; continue; }
+      if (v.seen.length >= cap) { held++; continue; }
       v.seen.push(sg); v.log.push({ at: now(), kind: x.kind || "otro" }); shown.push(x); changed = true;
     }
     if (changed) { v.log = v.log.slice(-50); db.setSecret(`accview:${l.c}|${l.e}`, JSON.stringify(v), now()); }
-    return { mode: "account", name, email: l.e, codes: shown.reverse(), minutes, platforms, held, cap: ACC_DAY_CAP };
+    return { mode: "account", name, email: l.e, codes: shown.reverse(), minutes, platforms, held, cap };
   };
   const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
   const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
