@@ -1502,6 +1502,7 @@ export function createApp(cfg: AppConfig): App {
     if (Array.isArray(b.comboDiscounts)) pick.comboDiscounts = b.comboDiscounts;
     if (b.shopRent && typeof b.shopRent === "object") pick.shopRent = b.shopRent;
     if (Array.isArray(b.ticketReplies)) pick.ticketReplies = b.ticketReplies;
+    if ("usdCostRate" in b) pick.usdCostRate = b.usdCostRate === "" ? 0 : b.usdCostRate; // tasa de tu tarjeta, solo para costos
     if (b.secretaryMsg && typeof b.secretaryMsg === "object") pick.secretaryMsg = b.secretaryMsg;
     if (b.renewLink && typeof b.renewLink === "object") pick.renewLink = b.renewLink;
     if (b.resellerMarginPct !== undefined) pick.resellerMarginPct = b.resellerMarginPct;

@@ -17,7 +17,7 @@
 import type { Account, Cents, Id } from "./types.js";
 import type { Engine } from "./engine.js";
 import { boMonthKey } from "./time.js";
-import { rateNow, usdToBs } from "./usd.js";
+import { costRate, usdToBs } from "./usd.js";
 import { coversMonth } from "./gastos.js";
 
 /** La última tasa que anotaste al pagar esa cuenta en dólares (si nunca la anotaste, `undefined`). */
@@ -33,7 +33,7 @@ export function lastPaidRate(e: Engine, accountId: Id | undefined): number | und
  * que son esos dólares a la última tasa que anotaste al pagarla (si no hay, la de hoy); si no, el costo en Bs.
  */
 export function accountCostBs(e: Engine, a: Pick<Account, "cost" | "costUsd"> & { id?: Id }): Cents {
-  const r = a.costUsd ? lastPaidRate(e, a.id) ?? rateNow(e) : 0;
+  const r = a.costUsd ? lastPaidRate(e, a.id) ?? costRate(e) : 0;
   return a.costUsd && r ? usdToBs(a.costUsd, r) : a.cost;
 }
 

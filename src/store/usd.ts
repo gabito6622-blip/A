@@ -36,6 +36,12 @@ export const rateNow = (e: Engine): number => {
   return Number.isFinite(r) && r > 0 ? r : 0;
 };
 
+/** Bs que cuesta 1 dólar para tus COSTOS (tarjeta del banco). Si no la pusiste, la de USDT. No toca lo que pagan los clientes. */
+export const costRate = (e: Engine): number => {
+  const r = Number(e.s.settings.usdCostRate ?? 0);
+  return Number.isFinite(r) && r > 0 ? r : rateNow(e);
+};
+
 /** Tasa de hoy o error claro: un cliente en dólares no compra ni recarga sin tasa. */
 export function requireRate(e: Engine): number {
   const r = rateNow(e);
