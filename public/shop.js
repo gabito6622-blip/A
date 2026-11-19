@@ -234,7 +234,7 @@ async function loadPrivate() {
   if (isReseller() && (S.view === "inicio" || S.view === "cuentas")) await loadRentAlerts(); // ⏰ sus alquileres antes del corte
   if (S.view === "codigos") {
     S.data.codes = await api("GET", "/api/me/codes");
-    if (isReseller()) [S.data.codeLink, S.data.codePins] = await Promise.all([api("GET", "/api/me/code-link").catch(() => ({ url: null })), api("GET", "/api/me/code-pins").catch(() => null)]);
+    if (isReseller()) [S.data.codeLink, S.data.codePins, S.data.accLinks] = await Promise.all([api("GET", "/api/me/code-link").catch(() => ({ url: null })), api("GET", "/api/me/code-pins").catch(() => null), api("GET", "/api/me/acc-links").catch(() => null)]);
   }
   if (S.view === "recargas") S.data.ledger = await api("GET", "/api/me/ledger");
   if (S.view === "seguridad") S.data.sec = await api("GET", "/api/me/security").catch(() => null);
@@ -624,6 +624,53 @@ function codesAutoRefresh() {
     try { const l = await api("GET", "/api/me/codes"); const sig = codesSigOf(l); if (sig !== codesSig) { codesSig = sig; S.data.codes = l; render(); } } catch { /* sin conexión: se reintenta en 10 s */ }
   }, 10_000);
 }
+// Bandeja de códigos tipo correo (como yopmail): lo más nuevo arriba, buscador por correo, código grande y
+// «hace X min». Se actualiza sola cada 10 s (codesAutoRefresh). Solo trae los correos de las cuentas de quien entró.
+const agoTxt = (t) => { const m = Math.max(0, Math.floor((Date.now() - t) / 6e4)); return m < 1 ? "recién" : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`; };
+// 🔗 Links por cuenta (18/11/2026): un link para cada cliente, que abre directo la bandeja de SU cuenta. El revendedor
+// ve cuántos códigos sacó hoy (tope por día), el historial con la hora, y puede pausar o cambiar el link.
+function accLinksHtml() {
+  const L = S.data.accLinks?.accounts ?? [];
+  if (!L.length) return "";
+  const warn = L.filter((a) => a.over);
+  return `<div class="sbox"><h2>🔗 Link de códigos por cuenta</h2><p class="empty" style="margin:0 0 8px">Mandale a cada cliente el link de SU cuenta: lo abre y ve su código, sin escribir nada. Máximo <b>${S.data.accLinks.cap} códigos por día</b> por cuenta; si llega al tope, te avisamos acá.</p>
+    ${warn.length ? `<div class="svc-owed" role="status"><span>⚠️ ${warn.map((a) => `<b>${esc(a.email.split("@")[0])}</b>`).join(", ")} ${warn.length === 1 ? "llegó" : "llegaron"} al tope de códigos de hoy. Fijate si no está compartiendo la cuenta.</span></div>` : ""}
+    ${L.map((a) => `<div class="alrow"><div class="altop"><div style="min-width:0"><b style="overflow-wrap:anywhere">${esc(a.email.split("@")[0])}</b><br><small class="empty">${esc((a.product || "").replace(/ \(alquiler revendedores\)/, ""))}</small></div><span class="spill ${a.over ? "sp-bad" : a.today ? "sp-warn" : "sp-mute"}">Hoy ${a.today}/${a.cap}${a.paused ? " · ⏸️ pausado" : ""}</span></div>
+      <div class="rbtns">${a.url ? `<button class="sbtn sm pri" type="button" data-copy="${esc(a.url)}">Copiar link</button><a class="sbtn sm" href="${waLink("", `Tu código de ${(a.product || "tu cuenta").replace(/ \(alquiler revendedores\)/, "")} aparece acá solo, sin escribir nada 👇\n${a.url}`)}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="${a.paused ? "play" : "pause"}">${a.paused ? "▶️ Activar" : "⏸️ Pausar"}</button><button class="sbtn sm" type="button" data-acclink="${esc(a.email)}" data-accdo="reset">Cambiar link</button>`
+        : `<button class="sbtn sm pri" type="button" data-acclink="${esc(a.email)}" data-accdo="make">Crear link</button>`}</div>
+      ${a.log.length ? `<details class="howto"><summary>🕒 Códigos que vio (${a.log.length})</summary><div style="display:grid;gap:2px;padding-top:6px">${a.log.map((x) => `<small class="empty">${hhmm(x.at)} · ${KLABEL[x.kind] || "Código"}</small>`).join("")}</div></details>` : ""}</div>`).join("")}</div>`;
+}
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest?.("[data-acclink]");
+  if (!b) return;
+  ev.stopPropagation();
+  const doit = b.dataset.accdo;
+  if (doit === "reset" && !confirm("¿Cambiar el link? El link viejo deja de funcionar y tenés que mandarle el nuevo a tu cliente.")) return;
+  b.disabled = true;
+  try {
+    const r = await api("POST", "/api/me/acc-links", { email: b.dataset.acclink, ...(doit === "reset" ? { reset: true } : doit === "pause" ? { paused: true } : doit === "play" ? { paused: false } : {}) });
+    const L = S.data.accLinks?.accounts ?? []; const i = L.findIndex((x) => x.email === r.email); if (i >= 0) L[i] = { ...L[i], ...r };
+    toast(doit === "pause" ? "Link pausado" : doit === "play" ? "Link activado" : doit === "reset" ? "Link nuevo listo" : "Link creado");
+    render();
+  } catch (e) { toast(e.message); b.disabled = false; }
+}, true);
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest?.("[data-cbox]");
+  if (!b) return;
+  ev.stopPropagation();
+  S.data.cbox = b.dataset.cbox; render();
+}, true);
+function inboxHtml() {
+  const all = (S.data.codes ?? []).slice().sort((a, b) => b.receivedAt - a.receivedAt), q = (S.data.cq ?? "").trim().toLowerCase();
+  // Botones con las cuentas (sin teclear): las de Mis cuentas y las que ya trajeron correo. El nombre corto es lo de antes de la @.
+  const mails = [...new Set([...(S.data.services ?? []).map((a) => a.access?.email), ...all.map((c) => c.to)].filter(Boolean).map((e) => e.toLowerCase()))];
+  const pick = (S.data.cbox ?? "").toLowerCase();
+  const list = all.filter((c) => (!pick || (c.to ?? "").toLowerCase() === pick) && (!q || `${c.to} ${c.product ?? ""}`.toLowerCase().includes(q)));
+  const chip = (e, label) => `<button class="mchip" type="button" data-cbox="${esc(e)}" aria-pressed="${pick === e}">${esc(label)}${e ? ` <small>${all.filter((c) => (c.to ?? "").toLowerCase() === e).length || ""}</small>` : ""}</button>`;
+  const chips = mails.length > 1 ? `<div class="mchips" role="group" aria-label="Elegí la cuenta">${chip("", "📥 Todas")}${mails.map((e) => chip(e, e.split("@")[0])).join("")}</div>` : "";
+  const row = (c) => `<div class="mrow${Date.now() - c.receivedAt < 5 * 6e4 ? " mnew" : ""}"><span class="mav" aria-hidden="true">${esc((c.product || c.to || "?").trim()[0].toUpperCase())}</span><div class="mbody"><div class="mtop"><b>${esc((c.product || "Código").replace(/ \(alquiler revendedores\)/, ""))}</b><small>${agoTxt(c.receivedAt)}</small></div><small class="mto">${esc(c.to)}</small><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span>${kindHelp(c.kind)}</div><div class="mact">${c.code ? `<b class="mcode">${esc(c.code)}</b><button class="sbtn sm pri" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`;
+  return `<div class="sbox minbox"><h2>${icon("mailbox")}Bandeja de entrada <span class="spill sp-mute">${all.length}</span></h2><p class="empty mlive">🟢 Se actualiza sola · no hace falta recargar</p>${chips}${mails.length > 12 ? `<input id="cq" class="rsearch" placeholder="Buscar por correo (ej. netscz108)" value="${esc(S.data.cq ?? "")}" aria-label="Buscar correo">` : ""}${list.length ? list.map(row).join("") : `<p class="empty">${all.length ? "Todavía no llegó nada a esta cuenta. Pedí el código en la app y aparece acá solo." : "Bandeja vacía. Pedí el código en la app y aparece acá solo, en unos segundos."}</p>`}</div>`;
+}
 function renderInner() {
   buildNav();
   const navOn = MODE === "hub" && S.view === "clientes" ? { negocio: "clientes", inventario: "inventario", vitrina: "mas" }[groupOf(S.data.rtab ?? "ventas")] : MODE === "hub" && S.view === "cuentas" ? "inventario" : S.view;
@@ -710,8 +757,8 @@ function renderInner() {
         return `<div class="svc"><div class="top"><div class="who">${am(a.productId, a.product, "")}<div><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b>${MODE === "store" && !isReseller() ? svcTags(a) : ""}<br><small class="empty">${esc(a.access.profile)}${isReseller() && a.customerName !== S.me.name ? " · " + esc(a.customerName) : ""}</small></div></div>
         <span class="spill ${d < 0 ? "sp-bad" : d <= 3 ? "sp-warn" : "sp-ok"}">${d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : d === 0 ? "Vence hoy" : `Vence en ${d} ${d === 1 ? "día" : "días"}`} · ${fdate(a.expiresAt)}</span></div>
         ${a.storeOwed ? `<div class="svc-owed" role="status"><span>💸 Le debés a la tienda <b>${bs(a.storeOwed)}</b> por esta cuenta</span>${S.settings.whatsapp ? `<a class="sbtn sm" href="${waLink(S.settings.whatsapp, `Hola, te pago los ${bs(a.storeOwed)} que debo de ${a.product.replace(/ \(alquiler revendedores\)/, "")} (${a.access.email}).`)}" target="_blank" rel="noopener">${icon("wa")}Pagar / avisar</a>` : ""}</div>` : ""}
-        ${fold ? `<details class="credbox"><summary>👁️ Ver correo y contraseña</summary>` : ""}<dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}${product(a.productId)?.kind === "profile" ? `<small class="empty cprof">Entrá siempre a este perfil: es el tuyo.</small>` : ""}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
-        ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}${fold ? "</details>" : ""}
+        <dl class="cred" style="margin:0">${a.access.iptv ? iptvCredRows(a.access) : `<div><dt>Correo</dt><dd>${esc(a.access.email)} <button class="cpy" type="button" data-copy="${esc(a.access.email)}" aria-label="Copiar correo">Copiar</button></dd></div><div><dt>Contraseña</dt><dd><span class="pwmask" data-pw="${esc(a.access.password)}">••••••••</span> <button class="cpy" type="button" data-pwshow="1" aria-label="Ver contraseña">Ver</button> <button class="cpy" type="button" data-copy="${esc(a.access.password)}" aria-label="Copiar contraseña">Copiar</button></dd></div><div><dt>Perfil</dt><dd>${esc(a.access.profile)}${product(a.productId)?.kind === "profile" ? `<small class="empty cprof">Entrá siempre a este perfil: es el tuyo.</small>` : ""}</dd></div>${a.access.pin ? `<div><dt>PIN</dt><dd>${esc(a.access.pin)}</dd></div>` : ""}`}</dl>
+        ${a.guide && (a.guide.app || a.guide.link || a.guide.steps) ? `<details class="howto"><summary>📲 Cómo verlo</summary><div style="display:grid;gap:4px;padding-top:6px">${a.guide.app ? `<span class="empty">App: <b style="color:var(--s-ink)">${esc(a.guide.app)}</b></span>` : ""}${a.guide.link ? `<a class="sbtn sm" href="${esc(a.guide.link)}" target="_blank" rel="noopener">${icon("ext")}Descargar la app</a>` : ""}${a.guide.steps ? `<span class="empty">${esc(a.guide.steps)}</span>` : ""}</div></details>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn sm" type="button" data-copy="${esc(accessText(a))}">📋 Copiar datos</button>${a.viaReseller ? viaResellerBtns(a) : a.renewableNow === false
           ? askRenewHtml({ assignmentId: a.assignmentId, product: a.product, expiresAt: a.expiresAt, price: a.renewPrice }, isReseller() ? {} : { client: true, daysLeft: a.daysLeft })
           : a.canRenew === false
@@ -723,8 +770,8 @@ function renderInner() {
       <div class="sbox"><h2>Avisos por WhatsApp</h2><label class="chk"><input type="checkbox" id="consent" ${S.me.whatsappConsent ? "checked" : ""}> Quiero recibir avisos de mis pedidos y vencimientos por WhatsApp.</label></div>
       ${MODE === "store" ? `<div class="sbox"><h2>🔑 Mi contraseña</h2><p class="empty" style="margin:0">Con tu correo y una contraseña entrás cuando quieras, sin pedir código.</p><button class="sbtn" type="button" data-pwd="1" style="justify-self:start">Cambiar / crear contraseña</button></div>` : ""}
       <div class="hrow"><button class="sbtn" type="button" data-s="seguridad">🔐 Seguridad de mi cuenta</button><button class="sbtn" type="button" data-logout="1">Cerrar sesión</button></div>`,
-    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>${isIndep() ? ownCodesNote() : ""}
-      ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos</h2><p class="empty" style="margin:0">Un solo link para tus clientes. Elegí la seguridad: <b>sin PIN</b> (escriben el correo de su cuenta) o <b>con PIN de 4 números</b> que vos elegís y les pasás.</p>
+    codigos: () => !S.me?.loggedIn ? needLogin("tus códigos") : `<div class="sec-h"><div><span class="chip">Verificación</span><h2>Códigos de acceso</h2><p>Si la plataforma te pide un código para entrar, aparece acá solo, en unos segundos. Solo ves los de tus cuentas y duran 30 minutos.</p></div><button class="sbtn" type="button" data-reload="1">${icon("renew")}Actualizar</button></div>${inboxHtml()}${isReseller() ? accLinksHtml() : ""}${isIndep() ? ownCodesNote() : ""}
+      ${isReseller() ? `<div class="sbox"><h2>🔗 Tu link de códigos para clientes</h2><p class="empty" style="margin:0">Un solo link para tus clientes. Elegí la seguridad: <b>sin PIN</b> (escriben el correo de su cuenta) o <b>con PIN de 4 números</b> que vos elegís y les pasás.</p>
         ${S.data.codeLink?.url ? `<div class="linkrow"><code style="overflow-wrap:anywhere">${esc(S.data.codeLink.url)}</code><button class="sbtn sm" type="button" data-copy="${esc(S.data.codeLink.url)}">Copiar</button></div>
           <p class="empty" style="margin:0;font-size:13px">Seguridad actual: <b>${S.data.codeLink.mode === "pin" ? "🔒 Con PIN de 4 números" : "✉️ Escribí tu correo (sin PIN)"}</b></p>
           <div class="rbtns"><a class="sbtn sm pri" href="${waLink("", `Mirá tu código acá 👇 ${S.data.codeLink.mode === "pin" ? "Entrá con el PIN que te pasé:" : "Escribí el correo de tu cuenta:"}\n${S.data.codeLink.url}`)}" target="_blank" rel="noopener">${icon("wa")}Compartir por WhatsApp</a>${S.data.codeLink.mode === "pin" ? `<button class="sbtn sm" type="button" data-makecodelink="1">Quitar PIN (modo correo)</button>` : ""}</div>
@@ -732,7 +779,7 @@ function renderInner() {
           <form class="sform" id="codeTitle" style="grid-template-columns:1fr auto;display:grid;gap:8px;align-items:end;margin-top:8px"><label>🏷️ Título de tu página de códigos<input name="title" maxlength="40" value="${esc(S.data.codeLink.title ?? "")}" placeholder="Ej.: Códigos · vacío = el nombre de tu tienda"></label><button class="sbtn" type="submit">Guardar título</button></form>
           ${S.data.codeLink.mode !== "pin" ? accPinsCard() : ""}`
           : `<button class="sbtn pri" type="button" data-makecodelink="1" style="justify-self:start">Crear mi link de códigos</button>`}</div>` : ""}
-      <div class="sbox"><h2>${icon("mailbox")}Bandeja</h2>${(S.data.codes ?? []).length ? S.data.codes.map((c) => `<div class="code"><div style="min-width:0"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><br><small style="overflow-wrap:anywhere">${esc(c.product || c.to)} · ${new Date(c.receivedAt).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}</small>${kindHelp(c.kind)}</div><div style="display:grid;gap:6px;justify-items:end">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.link ? `<a class="sbtn sm pri" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}${c.code ? `<button class="sbtn sm" type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar</button>` : ""}</div></div>`).join("") : `<p class="empty">No hay códigos nuevos. Si acabás de pedir uno, esperá unos segundos: aparece solo (o tocá Actualizar).</p>`}</div>`,
+      </div>`,
     recargas: () => !S.me?.loggedIn ? needLogin("tu saldo") : `<div class="sec-h"><div><span class="chip">Saldo</span><h2>Saldo y recargas</h2><p>Recargá saldo y comprá o renová al instante, sin esperar la verificación del pago.</p></div></div>
       <div class="balance"><div><span class="empty">Tu saldo</span><br><b>${bs(S.me.balance)}</b></div><span class="spill sp-mute">${esc(S.me.phone)}</span></div>
       ${pendingOrders()}
@@ -2926,6 +2973,12 @@ document.addEventListener("input", (ev) => {
     const v = pi.value.trim() ? toCents(pi.value) : null, out = $(`[data-profit="${pi.name.slice(2)}"]`);
     const pr = v === null || Number.isNaN(v) ? null : v - +pi.dataset.cost;
     out.innerHTML = pr === null ? "" : `<b style="color:${pr < 0 ? "var(--s-bad)" : "var(--s-ok)"}">${pr < 0 ? "−" : "+"}${bs(Math.abs(pr))}</b>`;
+    return;
+  }
+  if (ev.target.id === "cq") {
+    S.data.cq = ev.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { render(); const f = $("#cq"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }, 250);
     return;
   }
   if (ev.target.id === "mq") {

@@ -1282,3 +1282,18 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .hcob-msg{font-size:13px;margin-left:8px}
 .hcob summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
 .rdia-g header{flex-wrap:wrap;gap:6px}
+
+/* Bandeja de códigos tipo correo (18/11/2026) */
+.minbox .mlive{margin:0 0 8px;font-size:13px}
+.mrow{display:grid;grid-template-columns:40px 1fr;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--s-line)}
+.mrow.mnew{background:linear-gradient(90deg,rgba(255,200,0,.10),transparent);border-radius:10px;padding-left:6px}
+.mav{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--s-line)}
+.mbody{min-width:0;display:grid;gap:4px;justify-items:start}.mtop{display:flex;justify-content:space-between;gap:8px}.mtop small{white-space:nowrap}
+.mto{overflow-wrap:anywhere;opacity:.8;font-size:13px}
+.mact{grid-column:1/-1;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--s-line);border-radius:12px;padding:6px 6px 6px 14px}.mcode{font-size:22px;letter-spacing:2px}
+.mact .sbtn{min-height:44px}
+.mchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.mchip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--s-line);background:transparent;color:inherit;font:inherit;font-weight:700;font-size:14px}
+.mchip small{opacity:.7}
+.mchip[aria-pressed="true"]{background:var(--s-accent,#ffc400);color:#111;border-color:transparent}
+.alrow{border-top:1px solid var(--s-line);padding:10px 0;display:grid;gap:8px}.altop{display:flex;justify-content:space-between;gap:8px;align-items:center}

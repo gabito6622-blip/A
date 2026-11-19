@@ -46,7 +46,7 @@ test("Cliente: contraseña tapada con «Ver» y «Olvidé mi contraseña» sin d
         await p.goto(base + "/tienda/#cuentas");
         await p.locator(".svc").first().waitFor();
         const svc = p.locator(".svc").first();
-        if (await svc.locator("details.credbox").count()) await svc.locator("details.credbox summary").click();
+        
         assert.doesNotMatch(await svc.innerText(), /Clave-Secreta#9/, "tapada al abrir");
         await svc.locator('[data-pwshow]').click();
         assert.match(await svc.innerText(), /Clave-Secreta#9/, "se ve al tocar «Ver»");
