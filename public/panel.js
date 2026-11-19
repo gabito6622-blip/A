@@ -717,10 +717,21 @@ const V = {
     // 14/11/2026: Mi secretaria es LA pantalla del día. Su botón va dentro del saludo, con cuántas cosas hay hoy.
     const hoyN = D.total;
     const secBtn = canReview() ? `<button type="button" class="pbtn sec-cta" data-go="secretaria"><span>🗂️ Abrir Mi secretaria${hoyN ? ` · <b>${hoyN}</b> para hoy${D.rev ? ` <small>(${splitTxt(D)})</small>` : ""}` : " · todo al día"}</span></button>` : "";
-    return (canReview() ? await inicioTop(ini) : "") + dailyCard + askCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
+    // 19/11/2026 «🏠 Hoy»: el dueño abría Inicio, Mi secretaria y Notificaciones para saber qué hacer. Ahora Inicio
+    // empieza con lo urgente y la lista del día (la de Mi secretaria, con su botón en cada renglón); los números, la
+    // semana y los atajos quedan plegados abajo en «📊 Más de tu día».
+    let hoyTop = "";
+    if (canReview()) {
+      let lista = "";
+      try { lista = await secretaryView((l) => `<div class="sec-act">${l.map((a) => { const t = auditText(a, null); return `<div class="audrow"><div class="audtxt"><b>${esc(t.who)}</b> ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div><small class="muted">${fdt(a.at)}</small></div>`; }).join("")}</div>`); } catch { lista = ""; } // si falla, Inicio sigue igual (el botón «Abrir Mi secretaria» del saludo está)
+      hoyTop = !lista ? "" : `<div class="hm-hoy"><h2 class="hm-hoy-t">🏠 Para hacer hoy</h2>${notif?.items?.some((n) => n.sev === "bad") ? pendCard.replace("📋 Lo que tenés pendiente", "🔴 Urgente").replace("card hm-pend", "card hm-urg") : ""}${lista}</div>`;
+    }
+    const topCards = canReview() ? await inicioTop(ini) : "";
+    return dailyCard + `<section class="hm-hero"><div><small>${DN[now.getDay()]}, ${now.toLocaleDateString("es-BO", { day: "numeric", month: "long" })}</small><h2>Hola, ${esc((P.me?.name ?? "").split(" ")[0])} 👋</h2>
         <p>${D.cobroFecha.total ? `Hoy tenés <b>${D.cobroFecha.total}</b> pendiente(s) de cobro o fecha.${D.cobroFecha.rev ? ` <small>(${splitTxt(D.cobroFecha)}: a los de revendedores les avisás a ellos)</small>` : ""}` : "Hoy no tenés cobros pendientes. ✨"}${libres.length >= 5 ? " Semana tranquila ✨" : libres.length ? ` Días libres: <b>${libres.slice(0, 3).join(", ")}</b>.` : ""}</p></div>
       ${secBtn}
-      <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>
+      <form class="hm-search" id="hmSearch"><input name="q" placeholder="🔍 Buscar cliente o número…" aria-label="Buscar" autocomplete="off"><button class="pbtn dark" type="submit">Buscar</button></form></section>${hoyTop}${topCards}${askCard}
+      <details class="card hm-more"${(() => { try { return localStorage.getItem("gs-hm-more") === "0" ? "" : " open"; } catch { return " open"; } })()}><summary><b>📊 Más de tu día</b> <small class="muted">· números, tu mes, tu semana y atajos</small></summary>
       <section class="hm-alerts">
         ${alert(D.hoy, "Vencen hoy", "today", "control:today:mios")}
         ${alert(sum2(D.vencidos, D.espera), "Vencidos / esperando fecha", "bad", D.espera.total && !D.vencidos.total ? "control:hold:mios" : "control:bad:mios")}
@@ -745,7 +756,7 @@ const V = {
         <div class="hm-days">${week.map((w) => `<button type="button" class="hm-day hm-${w.lvl[1]}${w.i === 0 ? " hm-ishoy" : ""}" data-hgo="control:fecha:${w.t}" aria-label="${w.i === 0 ? "Hoy" : ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(w.t).getDay()]} ${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}: ${w.n ? w.n + " vencen" : "ninguna vence"}">
           <span class="hd-dow">${w.i === 0 ? "Hoy" : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(w.t).getDay()]}</span><small class="hd-date">${new Date(w.t).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}</small>
           <b class="hd-emoji">${w.lvl[2]}</b><span class="hd-count">${w.n ? `<b>${w.n}</b><span class="hd-w"> vence${w.n > 1 ? "n" : ""}</span>` : "Libre"}</span>${w.amount ? `<small class="hd-amt">${bs(w.amount)}</small>` : ""}</button>`).join("")}</div>
-        <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> si todos renuevan (con el precio que te pagan)` : ""}.</p></section>`;
+        <p class="muted hm-weekhint" style="margin:0">👆 Tocá un día para ver quién vence y cobrar. Esta semana vencen <b>${week.reduce((x, w) => x + w.n, 0)}</b> cuenta(s)${weekAmount ? ` · <b>${bs(weekAmount)}</b> si todos renuevan (con el precio que te pagan)` : ""}.</p></section></details>`;
   },
 
   async control() {
@@ -4058,3 +4069,6 @@ document.addEventListener("change", async (ev) => {
   const m = a?.models.find((x) => x.id === ev.target.value);
   const out = $("#aiPrice"); if (out && m) out.textContent = `US$ ${m.input} / ${m.output} por millón de tokens`;
 });
+
+// «📊 Más de tu día» en Inicio: si lo cerrás, queda cerrado la próxima vez (en este celular).
+document.addEventListener("toggle", (ev) => { if (ev.target?.classList?.contains("hm-more")) { try { localStorage.setItem("gs-hm-more", ev.target.open ? "1" : "0"); } catch { /* sin almacenamiento */ } } }, true);

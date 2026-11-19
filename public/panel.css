@@ -1489,3 +1489,8 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .covrow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .covrow > .pp,.covrow > span:last-child{flex-shrink:0;white-space:nowrap}
 .covrow > span:first-child{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+
+/* 🏠 Hoy en Inicio (19/11/2026) */
+.hm-hoy{display:grid;gap:12px;margin-top:12px}.hm-hoy-t{margin:4px 2px 0;font-size:18px}
+.hm-more>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;list-style:none}
+.hm-more>summary::-webkit-details-marker{display:none}.hm-more[open]>summary{margin-bottom:10px}
