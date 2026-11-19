@@ -96,6 +96,8 @@ export interface StoreSettings extends Look {
   qrFileRef?: string;
   /** Texto bajo el QR: banco, titular, instrucciones. */
   paymentNote?: string;
+  /** Bs que te cuesta 1 dólar al pagar cuentas con la tarjeta (venta del banco). Solo para costos y ganancia; vacío = la tasa de USDT. */
+  usdCostRate?: number;
   /** Pago en USDT manual (plan B sin API): el cliente manda a esta dirección/Pay ID y sube el comprobante. */
   usdt?: {
     enabled: boolean;
