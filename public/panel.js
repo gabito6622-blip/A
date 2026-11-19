@@ -68,6 +68,10 @@ const MENU_WORDS = {
 const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
+// ⭐ Mis atajos (19/11/2026): el dueño marca las pantallas que usa todos los días y van primero en el menú.
+const FAV_DEF = ["inicio", "vender", "control", "secretaria", "clientes"];
+const favsGet = () => { try { const l = JSON.parse(localStorage.getItem("gs-favs") ?? "null"); return Array.isArray(l) ? l : FAV_DEF; } catch { return FAV_DEF; } };
+const favsSet = (l) => { try { localStorage.setItem("gs-favs", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const TITLE = { ordenar: ["box", "Ordenar mis datos"], hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
@@ -524,6 +528,7 @@ const V = {
     const [customers, products, stock, accounts] = await Promise.all([api("GET", "/api/admin/customers"), api("GET", "/api/admin/products"), api("GET", "/api/admin/stock"), (canReview() ? api("GET", "/api/admin/accounts").catch(() => []) : Promise.resolve([]))]);
     P.tab.sellAccts = accounts;
     P.tab.custMap = Object.fromEntries(customers.map((c) => [`${c.name} · ${c.phone}`.trim(), c.id]));
+    P.tab.custKind = Object.fromEntries(customers.map((c) => [c.id, c.kind])); // para mostrar solo los productos que le corresponden
     P.tab.sellDur = Object.fromEntries(products.map((p) => [p.id, p.durationDays]));
     P.tab.sellPrice = Object.fromEntries(products.map((p) => [p.id, p.price]));
     const comboParts = Object.fromEntries(products.filter((p) => p.kind === "combo").map((p) => [p.id, (p.comboProductIds ?? []).map((id) => products.find((x) => x.id === id)?.name).filter(Boolean)]));
@@ -532,11 +537,11 @@ const V = {
       const combo = p.kind === "combo";
       const face = combo ? `<i class="selcombo">🎁</i>` : p.imageFileRef ? `<img src="/api/products/${esc(p.id)}/image" alt="" loading="lazy">` : `<i style="background:${esc(p.color ?? "#3984ff")}">${esc((p.name[0] || "?").toUpperCase())}</i>`;
       const sub = combo ? `<em class="selparts">${esc((comboParts[p.id] ?? []).join(" + ") || "combo")}</em>` : "";
-      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-price="${p.price}" data-rule="${esc(p.saleNote ?? "")}" ${n ? "" : "disabled"} aria-pressed="false">
-        ${face}<b>${esc(p.name)}</b>${sub}<span class="selprice">${bs(p.price)}</span>
+      return `<button type="button" class="selp${n ? "" : " out"}" data-pick="${esc(p.id)}" data-name="${esc(p.name)}" data-kind="${esc(p.kind)}" data-stock="${n}" data-price="${p.price}" data-rule="${esc(p.saleNote ?? "")}" data-ronly="${p.resellersOnly ? 1 : 0}" ${n ? "" : "disabled"} aria-pressed="false">
+        ${face}<b>${esc(p.name.replace(/ \(alquiler revendedores\)/i, ""))}</b>${sub}<em class="selaud ${p.resellersOnly ? "rev" : "cli"}">${p.resellersOnly ? "👥 Revendedor" : "👤 Cliente"}</em><span class="selprice">${bs(p.price)}</span>
         <em class="selstock ${n ? (n <= 2 ? "low" : "ok") : "no"}">${n ? `${n} libre${n > 1 ? "s" : ""}` : "Sin stock"}</em></button>`;
     };
-    const pub = products.filter((p) => p.published !== false);
+    const pub = products.filter((p) => p.published !== false || p.resellersOnly);
     const apps = pub.filter((p) => p.kind !== "combo");
     const combos = pub.filter((p) => p.kind === "combo");
     const sk = combos.length ? (P.tab.sellKind ?? "apps") : "apps";
@@ -568,6 +573,10 @@ const V = {
         </div></div>
         <div id="sellNote" class="sellnote">👆 Tocá un producto de arriba.</div>
         <div id="profPick" class="profpick" hidden></div>
+        <div class="sellquick">
+          <label>💵 Cobrás (Bs)<input name="priceBs" type="number" inputmode="decimal" min="0" step="0.5" placeholder="precio normal" autocomplete="off"></label>
+          <label>📅 Vence el <small class="muted">(opcional)</small><input name="until" type="date"></label>
+        </div>
         <details class="selladv"><summary>⚙️ Más opciones <small>por defecto: 1 mes · pagado · efectivo/QR</small></summary>
           <div class="seladvgrid">
             <div><span class="selbl">⏳ Período</span><div class="seg periodseg">${[[1, "1 mes"], [3, "3 meses"], [6, "6 meses"], [12, "1 año"]].map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${v === 1}">${t}</button>`).join("")}</div></div>
@@ -2447,7 +2456,10 @@ function groupTabs() {
 function menuHtml(pend) {
   const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
   const cnt = (k) => (k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : k === "notificaciones" && P.notifTotal ? `<span class="count">${P.notifTotal > 99 ? "99+" : P.notifTotal}</span>` : "");
-  const btn = ([k, t]) => (k === "-" ? `<p class="menusep">${t}</p>` : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`);
+  const favs = favsGet();
+  const go = ([k, t]) => `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`;
+  const star = (k, t) => { const on = favs.includes(k); return `<button type="button" class="favb" data-fav="${k}" aria-pressed="${on}" aria-label="${on ? "Quitar de" : "Agregar a"} mis atajos: ${esc(String(t).replace(/<[^>]*>/g, ""))}">${on ? "★" : "☆"}</button>`; };
+  const btn = ([k, t]) => (k === "-" ? `<p class="menusep">${t}</p>` : `<span class="mitem">${go([k, t])}${star(k, t)}</span>`);
   // Un separador («-») solo va si debajo hay alguna pantalla que este rol ve.
   const keep = (items) => items.filter((x, i) => x[0] !== "-" || items.slice(i + 1).some((y) => y[0] !== "-"));
   const areas = AREAS.map(([id, ic, t, items]) => [id, ic, t, keep(items.filter((x) => roleOk(x[2])))]).filter((x) => x[3].some((y) => y[0] !== "-"));
@@ -2457,7 +2469,10 @@ function menuHtml(pend) {
     return hits.length ? hits.map(btn).join("") : `<p class="muted menunone">No encontré esa pantalla. Probá con otra palabra.</p>`;
   }
   const open = menuOpenGet();
-  return areas.map(([id, ic, t, items]) => {
+  const all = Object.fromEntries(areas.flatMap((x) => x[3]).filter(([k]) => k !== "-").map((x) => [x[0], x]));
+  const mine = favs.filter((k) => all[k]).map((k) => all[k]);
+  const favBox = `<div class="favbox"><p class="menusep">⭐ Mis atajos</p>${mine.length ? mine.map(btn).join("") : `<p class="muted menunone">Tocá la ☆ de una pantalla para tenerla acá arriba.</p>`}<p class="menusep">Todo</p></div>`;
+  return favBox + areas.map(([id, ic, t, items]) => {
     if (items.length === 1 && items[0][0] !== "-") { const [k] = items[0]; return `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(ic)}${t}${cnt(k)}</button>`; }
     const here = items.some((x) => x[0] === P.view);
     const sum = items.some((x) => x[0] === "aprobacion") ? pend : 0;
@@ -2469,6 +2484,7 @@ async function render() {
   watch.last = pend;
   showPending(pend);
   refreshNotifCount();
+  P.lastPend = pend;
   $("#menu").innerHTML = menuHtml(pend);
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
@@ -2726,7 +2742,11 @@ function sellSummary() {
   const cname = f.customerName.value.trim();
   const who = sellCustomer(cname); // el elegido o el único que coincide (dia.js → buscar.js)
   const cid = who?.id || "";
-  const ready = !!tile && !!cid;
+  // Cliente final: solo productos para clientes. Revendedor: todos (primero los suyos).
+  const kind = cid ? P.tab.custKind?.[cid] : "";
+  document.querySelectorAll(".selp[data-ronly]").forEach((b) => { b.hidden = kind !== "reseller" && !!cid && b.dataset.ronly === "1"; if (b.hidden && b.getAttribute("aria-pressed") === "true") { b.setAttribute("aria-pressed", "false"); f.productId.value = ""; } });
+  const grid = document.querySelector(".selgrid"); if (grid) grid.classList.toggle("revfirst", kind === "reseller");
+  const ready = !!document.querySelector('.selp[aria-pressed="true"]') && !!cid;
   if (btn) btn.disabled = !ready;
   if (!ready) { if (box) box.hidden = true; if (btn) btn.innerHTML = `${icon("cart")}Registrar venta`; return; }
   const name = tile.dataset.name, first = (who?.label ?? cname).split(" · ")[0];
@@ -2738,11 +2758,14 @@ function sellSummary() {
   const code = (f.couponCode?.value || "").trim().toUpperCase();
   const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
   if (code && !q) quoteSell(cid, f.productId.value, qty, code, months);
-  const total = q?.coupon ? q.total : price * qty * months;
+  const custom = f.priceBs?.value !== "" && f.priceBs?.value != null ? Math.round(+f.priceBs.value * 100) : null;
+  const total = custom !== null && custom >= 0 ? custom : q?.coupon ? q.total : price * qty * months;
+  const until = f.until?.value ? f.until.value.split("-").reverse().join("/") : "";
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
     <div class="sumline"><span>${combo ? "🎁 Combo" : "Producto"}</span><b>${esc(name)}${extra}</b></div>
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
+    ${until ? `<div class="sumline"><span>📅 Vence el</span><b>${until}</b></div>` : ""}
     ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
     <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
   btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
@@ -3591,6 +3614,9 @@ document.addEventListener("submit", async (ev) => {
         for (const id of (o.assignmentIds ?? [])) {
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
         }
+        // Precio distinto al normal y fecha a mano, en el mismo paso (antes había que corregirlo después).
+        if (f.priceBs.value !== "" && o.id && Math.round(+f.priceBs.value * 100) !== o.total) await api("POST", `/api/admin/orders/${o.id}/amend`, { total: Math.round(+f.priceBs.value * 100), reason: "Precio acordado al vender" }).catch((e) => toast(`Venta hecha, pero el precio no se pudo cambiar: ${e.message}`));
+        if (f.until.value) { const at = new Date(`${f.until.value}T23:00:00-04:00`).getTime(); for (const id of (o.assignmentIds ?? [])) await api("POST", `/api/admin/assignments/${id}/expiry`, { expiresAt: at, note: "Fecha puesta al vender" }).catch((e) => toast(`Venta hecha, pero la fecha no se pudo cambiar: ${e.message}`)); }
         const deliveries = [];
         for (const id of (o.assignmentIds ?? [])) { const info = await api("GET", `/api/admin/assignments/${id}/delivery`).catch(() => null); if (info) deliveries.push(info); }
         toast(`✅ Venta registrada: ${pname}`);
@@ -4058,3 +4084,12 @@ document.addEventListener("change", async (ev) => {
   const m = a?.models.find((x) => x.id === ev.target.value);
   const out = $("#aiPrice"); if (out && m) out.textContent = `US$ ${m.input} / ${m.output} por millón de tokens`;
 });
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest?.("[data-fav]");
+  if (!b) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const k = b.dataset.fav, l = favsGet();
+  favsSet(l.includes(k) ? l.filter((x) => x !== k) : [...l, k]);
+  const m = $("#menu"), y = m.scrollTop; m.innerHTML = menuHtml(P.lastPend ?? 0); m.scrollTop = y;
+}, true);
