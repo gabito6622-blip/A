@@ -1292,3 +1292,8 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .mto{overflow-wrap:anywhere;opacity:.8;font-size:13px}
 .mact{grid-column:1/-1;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--s-line);border-radius:12px;padding:6px 6px 6px 14px}.mcode{font-size:22px;letter-spacing:2px}
 .mact .sbtn{min-height:44px}
+.mchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.mchip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--s-line);background:transparent;color:inherit;font:inherit;font-weight:700;font-size:14px}
+.mchip small{opacity:.7}
+.mchip[aria-pressed="true"]{background:var(--s-accent,#ffc400);color:#111;border-color:transparent}
+.alrow{border-top:1px solid var(--s-line);padding:10px 0;display:grid;gap:8px}.altop{display:flex;justify-content:space-between;gap:8px;align-items:center}

@@ -49,9 +49,14 @@ test("Bandeja de códigos tipo correo: lo nuevo arriba, buscador y código para 
         assert.match(await p.locator(".mrow").first().textContent(), /222222/, "lo más nuevo arriba");
         assert.match(await p.locator(".mrow").first().textContent(), /recién/);
         assert.match(await p.locator(".minbox").textContent(), /Se actualiza sola/);
-        await p.fill("#cq", "viejo");
+        // Sin teclear: un botón por cuenta, como abrir esa bandeja en yopmail.
+        assert.equal(await p.locator("#cq").count(), 0, "sin buscador con pocas cuentas");
+        await p.locator(".mchip", { hasText: "viejo" }).click();
         await p.waitForFunction(() => document.querySelectorAll(".mrow").length === 1);
         assert.match(await p.locator(".mrow").textContent(), /111111/);
+        assert.ok((await p.locator(".mchip").first().boundingBox()).height >= 44);
+        await p.locator(".mchip", { hasText: "Todas" }).click();
+        await p.waitForFunction(() => document.querySelectorAll(".mrow").length === 4);
         const btn = p.locator(".mrow .sbtn").first();
         assert.ok((await btn.boundingBox()).height >= 44, "botón Copiar de 44 px");
         assert.deepEqual(errs, []);

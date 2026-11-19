@@ -13,6 +13,7 @@ import { createStore, DomainError, normalizePhone, phoneWithCountry, samePhone, 
 import { Db } from "./db.js";
 import { LOOK_KEYS } from "../store/look.js";
 import { CORTE_GRACE_DAYS } from "../store/dia.js";
+import { authorize } from "../store/auth.js";
 import { renewStart } from "../store/cobrarBien.js";
 import { DEFAULT_COMBO_DISCOUNTS } from "../store/types.js";
 import { appendToFolder, fetchNew, testImap, type ImapConfig } from "./imap.js";
@@ -1826,17 +1827,88 @@ export function createApp(cfg: AppConfig): App {
     if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores");
     return setAccPin(c.actor!, c.actor!.customerId!, c.body);
   });
+  // 🔗 Link de códigos POR CUENTA (18/11/2026, pedido del dueño): como yopmail, el cliente abre el link y ve directo la
+  // bandeja de ESA cuenta, sin escribir nada. Para que no saquen códigos «al montón»: historial de cada código visto,
+  // tope de ACC_DAY_CAP códigos nuevos por día (hora de Bolivia), aviso al revendedor y botón Pausar. Se guarda en
+  // secretos (fuera del estado): acclink:<token> → {c,e,p}; acclinkof:<cliente>|<correo> → token; accview:… → historial.
+  const ACC_DAY_CAP = 3;
+  const boDay = (t: number) => new Date(t - 4 * 36e5).toISOString().slice(0, 10);
+  type AccLink = { c: string; e: string; p?: boolean };
+  type AccView = { day: string; seen: string[]; log: { at: number; kind: string }[] };
+  const accLinkGet = (token: string): AccLink | null => { if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null; try { return JSON.parse(db.getSecret(`acclink:${token}`) ?? "null"); } catch { return null; } };
+  const accViewGet = (cid: string, em: string): AccView => { try { return JSON.parse(db.getSecret(`accview:${cid}|${em}`) ?? "null") ?? { day: "", seen: [], log: [] }; } catch { return { day: "", seen: [], log: [] }; } };
+  const accInfo = (cid: string, em: string, c: Ctx) => {
+    const token = db.getSecret(`acclinkof:${cid}|${em}`), l = token ? accLinkGet(token) : null, v = accViewGet(cid, em), today = v.day === boDay(now()) ? v.seen.length : 0;
+    return { email: em, url: token && l ? codeLinkUrl(token, c) : null, paused: !!l?.p, today, cap: ACC_DAY_CAP, over: today >= ACC_DAY_CAP, log: v.log.slice(-10).reverse() };
+  };
+  const accOwnEmail = (cid: string, email: unknown) => {
+    const em = String(email ?? "").trim().toLowerCase();
+    if (!store.codes.linkAccounts(cid).some((x) => x.email === em)) throw new DomainError("VALIDATION", "Ese correo no es de una cuenta activa tuya");
+    return em;
+  };
+  const accLinkAct = (actor: Actor, cid: string, body: Record<string, unknown> | undefined, c: Ctx) => {
+    const em = accOwnEmail(cid, body?.email);
+    let token = db.getSecret(`acclinkof:${cid}|${em}`);
+    const cur = token ? accLinkGet(token) : null;
+    if (body?.reset || !token || !cur) { // link nuevo: el viejo deja de andar
+      if (token) db.setSecret(`acclink:${token}`, null, now());
+      token = randomBytes(18).toString("base64url");
+      db.setSecret(`acclinkof:${cid}|${em}`, token, now());
+      db.setSecret(`acclink:${token}`, JSON.stringify({ c: cid, e: em, p: false }), now());
+    } else if (body && "paused" in body) db.setSecret(`acclink:${token}`, JSON.stringify({ ...cur, p: !!body.paused }), now());
+    store.engine.tx(() => store.engine.audit(actor, "customer.acc_code_link", "customer", cid, { email: em, reset: !!body?.reset, paused: body && "paused" in body ? !!body.paused : undefined }));
+    return accInfo(cid, em, c);
+  };
+  const resellerOnly = (c: Ctx) => { if (c.actor!.role !== "reseller") throw new HttpError(403, "FORBIDDEN", "Solo para revendedores"); return c.actor!.customerId!; };
+  route("GET", "/api/me/acc-links", "customer", (c) => { const cid = resellerOnly(c); return { cap: ACC_DAY_CAP, accounts: store.codes.linkAccounts(cid).map((a) => ({ ...accInfo(cid, a.email, c), product: a.product })) }; });
+  route("POST", "/api/me/acc-links", "customer", (c) => accLinkAct(c.actor!, resellerOnly(c), c.body, c));
+  route("GET", "/api/admin/customers/:id/acc-links", "staff", (c) => {
+    authorize(A(c), "customer.manage");
+    if (!store.engine.s.customers[c.params.id]) throw new DomainError("NOT_FOUND", "Cliente inexistente");
+    return { cap: ACC_DAY_CAP, accounts: store.codes.linkAccounts(c.params.id).map((a) => ({ ...accInfo(c.params.id, a.email, c), product: a.product })) };
+  });
+  route("POST", "/api/admin/customers/:id/acc-links", "staff", (c) => { authorize(A(c), "customer.manage"); return accLinkAct(A(c), c.params.id, c.body, c); });
+  const accName = (cid: string) => { const cu = store.engine.s.customers[cid]; return cu?.codeTitle?.trim() || cu?.shop?.title?.trim() || "Códigos"; };
+  const accLinkLimiter = new RateLimiter(120, 15 * 60_000, now);
+  /** Lo que ve el cliente con el link de UNA cuenta. Cuenta cada código nuevo que se le muestra y corta al pasar el tope. */
+  const accLinkView = (token: string, l: AccLink, c: Ctx) => {
+    const name = accName(l.c);
+    const minutes = store.engine.opts.codeVisibleMinutes, platforms = store.codes.platforms(l.c);
+    const active = store.codes.linkAccounts(l.c).some((x) => x.email === l.e);
+    if (!active) return { mode: "account", name, email: l.e, codes: [], minutes, platforms, ended: true };
+    if (l.p) return { mode: "account", name, email: l.e, codes: [], minutes, platforms, paused: true };
+    const k = `${token}|${c.ip}`;
+    if (accLinkLimiter.blocked(k)) throw new HttpError(429, "RATE_LIMIT", "Demasiadas consultas. Probá en 15 minutos.");
+    accLinkLimiter.take(k);
+    const all = store.codes.of(l.c).filter((x) => x.to === l.e);
+    const day = boDay(now()), v = accViewGet(l.c, l.e);
+    if (v.day !== day) { v.day = day; v.seen = []; }
+    const sig = (x: { receivedAt: number; code?: string; link?: string }) => `${x.receivedAt}|${x.code ?? ""}|${x.link ?? ""}`;
+    const shown: typeof all = []; let held = 0, changed = false;
+    for (const x of all.slice().sort((a, b) => a.receivedAt - b.receivedAt)) {
+      const sg = sig(x);
+      if (v.seen.includes(sg)) { shown.push(x); continue; }
+      if (v.seen.length >= ACC_DAY_CAP) { held++; continue; }
+      v.seen.push(sg); v.log.push({ at: now(), kind: x.kind || "otro" }); shown.push(x); changed = true;
+    }
+    if (changed) { v.log = v.log.slice(-50); db.setSecret(`accview:${l.c}|${l.e}`, JSON.stringify(v), now()); }
+    return { mode: "account", name, email: l.e, codes: shown.reverse(), minutes, platforms, held, cap: ACC_DAY_CAP };
+  };
   const pinLimiter = new RateLimiter(5, 15 * 60_000, now);
   const pinTokenLimiter = new RateLimiter(20, 15 * 60_000, now);
   // Modo "escribí tu correo" (sin PIN): se limita por si prueban muchos correos distintos.
   const emailLookupLimiter = new RateLimiter(60, 15 * 60_000, now);
   const linkMode = (customerId: string) => (db.getSecret(`codepin:${customerId}`) ? "pin" : "email");
   route("GET", "/api/code-link/:token", "public", (c) => {
+    const al = accLinkGet(c.params.token);
+    if (al) return { mode: "account", name: accName(al.c), platforms: store.codes.platforms(al.c) };
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
     return { name: o.name, mode: linkMode(o.customerId), platforms: store.codes.platforms(o.customerId) };
   });
   route("POST", "/api/code-link/:token", "public", (c) => {
+    const al = accLinkGet(c.params.token);
+    if (al) return accLinkView(c.params.token, al, c);
     const o = store.codes.linkOwner(c.params.token);
     if (!o) throw new HttpError(404, "NOT_FOUND", "Este link no existe o fue cambiado");
     const minutes = store.engine.opts.codeVisibleMinutes;

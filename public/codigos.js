@@ -116,6 +116,26 @@ async function loadEmail(v, p = null) {
   }, 20_000);
 }
 
+// 🔗 Link de UNA cuenta (como yopmail): sin escribir nada, se ve la bandeja de esa cuenta y se actualiza sola.
+function showAcc(data) {
+  keep(data);
+  last = data.codes ?? []; minutes = data.minutes ?? minutes;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(data.name)}</h1>${data.paused || data.ended ? "" : `<span class="live"><i></i>Se actualiza solo</span>`}</div>
+    <p class="muted">Bandeja de <b>${esc(data.email)}</b>. Cada código dura ${minutes} minutos.</p>`;
+  if (data.ended) { $("#app").innerHTML = head + `<div class="card"><div class="empty">⏳ Esta cuenta ya no está activa.<br>Pedile a tu vendedor que la renueve.</div></div>`; return; }
+  if (data.paused) { $("#app").innerHTML = head + `<div class="card"><div class="empty">⏸️ Este link está pausado.<br>Pedile el código a tu vendedor.</div></div>`; return; }
+  $("#app").innerHTML = head + `<div class="card">${last.length ? last.map((c) => `<div class="code"><div class="top"><span class="ktag k-${esc(c.kind || "otro")}">${KLABEL[c.kind] || "Código"}</span><small>${ago(c.receivedAt)}</small></div>${kindHelp(c.kind)}
+      ${c.code ? `<b class="v">${esc(c.code)}</b>` : ""}<small class="ksub">${esc(c.subject)}</small>
+      <div class="row">${c.code ? `<button type="button" data-copy="${esc(c.code.replace(/\D/g, ""))}">Copiar código</button>` : ""}${c.link ? `<a class="btn ghost" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Abrir enlace</a>` : ""}</div></div>`).join("")
+      : `<div class="empty">📭 Todavía no llegó ningún código.<br>Pedí el código en ${esc(plat("la app"))} y esperá unos segundos: aparece solo acá.</div>`}
+    ${data.held ? `<div class="empty" role="status">🚫 Llegaste al máximo de ${data.cap} códigos por hoy.<br>Si necesitás otro, pedíselo a tu vendedor.</div>` : ""}</div>`;
+}
+async function loadAcc() {
+  showAcc(await call("POST", {}));
+  clearInterval(timer);
+  timer = setInterval(async () => { if (document.hidden) return; try { showAcc(await call("POST", {})); } catch { /* sin conexión: reintenta */ } }, 10_000);
+}
+
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("button");
   if (!b) return;
@@ -129,6 +149,7 @@ document.addEventListener("input", (ev) => { if (ev.target.id === "q") { q = ev.
   let info;
   try { info = await call("GET"); name = info.name; mode = info.mode || "pin"; keep(info); } catch (e) { $("#app").innerHTML = `<div class="card"><h1>Link no válido</h1><p class="muted">${esc(e.message)}. Pedile el link nuevo a tu proveedor.</p></div>`; return; }
   document.title = `Códigos · ${name}`;
+  if (mode === "account") { try { await loadAcc(); } catch (e) { $("#app").innerHTML = `<div class="card"><h1>No se pudo abrir</h1><p class="muted">${esc(e.message)}</p></div>`; } return; }
   if (mode === "email") {
     let saved = null, savedPin = null;
     try { saved = sessionStorage.getItem(EKEY); savedPin = sessionStorage.getItem(PKEY); } catch { /* */ }
