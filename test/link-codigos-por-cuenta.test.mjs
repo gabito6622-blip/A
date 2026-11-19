@@ -63,7 +63,15 @@ test("link por cuenta: bandeja sin escribir, tope diario, historial, pausa y cam
     assert.notEqual(nuevo, made.url);
     assert.equal((await call("GET", `/api/code-link/${token}`)).status, 404);
 
+    // Cuenta repartida entre varias personas: el tope sube (3 por persona).
+    assert.equal((await call("POST", "/api/me/acc-links", { email: "una@ficticio.lat", people: 9 }, ack)).status, 400);
+    const p2 = (await call("POST", "/api/me/acc-links", { email: "una@ficticio.lat", people: 2 }, ack)).json;
+    assert.equal(p2.people, 2); assert.equal(p2.cap, 6); assert.equal(p2.over, false);
+    const tok2 = nuevo.split("/codigos/")[1];
+    const v3 = (await call("POST", `/api/code-link/${tok2}`, {})).json;
+    assert.equal(v3.codes.length, 4, "con 2 personas ya entra el 4.º código"); assert.equal(v3.held, 0); assert.equal(v3.cap, 6);
+
     // El dueño también lo ve.
-    assert.equal((await call("GET", `/api/admin/customers/${ana.id}/acc-links`, null, ock)).json.accounts[0].today, 3);
+    assert.equal((await call("GET", `/api/admin/customers/${ana.id}/acc-links`, null, ock)).json.accounts[0].today, 4);
   } finally { await app.close?.(); rmSync(dir, { recursive: true, force: true }); }
 });
