@@ -1496,3 +1496,12 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .selgrid.revfirst .selp[data-ronly="1"]{order:-1}
 .sellquick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
 .sellquick input{min-height:44px;font-size:16px}
+
+/* ⭐ Mis atajos en el menú (19/11/2026) */
+.menu .mitem{display:flex;align-items:center;gap:2px}
+.menu .mitem>button[data-go]{flex:1 1 auto;width:auto;min-width:0}
+.menu .favbox .mitem>button[data-go]{border:1px solid var(--line);background:var(--card)}
+.menu .mitem>.favb{flex:0 0 44px;width:44px;min-height:44px;padding:0;justify-content:center;border:0;background:none;color:var(--muted,#8a93a6);font-size:20px}
+.menu .mitem>.favb[aria-pressed="true"]{color:#f5b400}
+.menu .favbox{display:grid;gap:4px;padding-bottom:4px}
+.favbox{padding-bottom:4px}

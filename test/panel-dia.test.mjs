@@ -50,7 +50,7 @@ test("Panel: Mi secretaria en el saludo, pendientes debajo de los accesos, menú
     assert.ok(areas.includes("Clientes y revendedores") && areas.includes("Herramientas y ajustes"));
     const cl = await p.evaluate(() => [...document.querySelectorAll('#menu details[data-area="a-clientes"] [data-go]')].map((x) => x.dataset.go));
     assert.deepEqual(cl, ["clientes", "revendedores", "tablero", "comovan"]); // 15/11: + Tablero de revendedores
-    const her = await p.evaluate(() => [...document.querySelectorAll('#menu details[data-area="a-herramientas"] .sub > *')].map((x) => x.dataset.go ?? `[${x.textContent.trim()}]`));
+    const her = await p.evaluate(() => [...document.querySelectorAll('#menu details[data-area="a-herramientas"] .sub > *')].map((x) => x.querySelector?.('[data-go]')?.dataset.go ?? `[${x.textContent.trim()}]`));
     assert.deepEqual(her, ["descargas", "whatsapp", "oficina", "excel", "ayuda", "[⚙️ Ajustes]", "configuracion", "apariencia", "usuarios", "auditoria"]);
     await p.evaluate(() => document.getElementById("app").classList.add("open"));
     await p.fill("#menuFind", "ajustes");

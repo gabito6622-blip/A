@@ -68,6 +68,10 @@ const MENU_WORDS = {
 const norm = (x) => String(x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const accView = () => { try { return localStorage.getItem("gs-acc-view") === "clasica" ? "clasica" : "plat"; } catch { return "plat"; } };
 const menuOpenGet = () => { try { return JSON.parse(localStorage.getItem("gs-menu-open") ?? "[]"); } catch { return []; } };
+// ⭐ Mis atajos (19/11/2026): el dueño marca las pantallas que usa todos los días y van primero en el menú.
+const FAV_DEF = ["inicio", "vender", "control", "secretaria", "clientes"];
+const favsGet = () => { try { const l = JSON.parse(localStorage.getItem("gs-favs") ?? "null"); return Array.isArray(l) ? l : FAV_DEF; } catch { return FAV_DEF; } };
+const favsSet = (l) => { try { localStorage.setItem("gs-favs", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const menuOpenSet = (l) => { try { localStorage.setItem("gs-menu-open", JSON.stringify(l)); } catch { /* sin almacenamiento */ } };
 const TITLE = { ordenar: ["box", "Ordenar mis datos"], hojas: ["grid", "Mis hojas"], tablero: ["users", "Tablero"], inicio: ["home", "Inicio"], secretaria: ["bell", "Mi secretaria"], oficina: ["monitor", "Mi oficina"], control: ["grid", "Control"], vender: ["cart", "Vender"], renovar: ["renew", "Renovar"], dashboard: ["monitor", "Dashboard"], finanzas: ["coins", "Finanzas"], fiado: ["flag", "Fiado"], quevuelvan: ["coins", "💸 Que vuelvan"], fallas: ["help", "Fallas reportadas"], notificaciones: ["bell", "Notificaciones"], reubicar: ["renew", "Reubicar perfiles"], aprobacion: ["approve", "Aprobar pagos"], recordatorios: ["bell", "Recordatorios"], codigos: ["mailbox", "Panel de códigos"], revendedores: ["userplus", "Revendedores"], comovan: ["users", "Cómo van tus revendedores"], cuentas: ["user", "Cuentas"], cortes: ["grid", "Cortes"], carga: ["box", "Carga de Cuentas"], productos: ["box", "Productos y precios"], cupones: ["tag", "Cupones"], proveedores: ["truck", "Proveedores"], clientes: ["users", "Clientes"], excel: ["ext", "Excel"], descargas: ["ext", "📁 Mis descargas"], whatsapp: ["wa", "WhatsApp"], usuarios: ["userplus", "Usuarios del panel"], apariencia: ["sun", "Apariencia"], auditoria: ["history", "Auditoría"], configuracion: ["gear", "Configuración"], ayuda: ["help", "Guía del panel"] };
 
@@ -2452,7 +2456,10 @@ function groupTabs() {
 function menuHtml(pend) {
   const roleOk = (r) => !r || (r === "owner" ? isOwner() : r === "review" ? canReview() : true);
   const cnt = (k) => (k === "aprobacion" && pend ? `<span class="count">${pend}</span>` : k === "notificaciones" && P.notifTotal ? `<span class="count">${P.notifTotal > 99 ? "99+" : P.notifTotal}</span>` : "");
-  const btn = ([k, t]) => (k === "-" ? `<p class="menusep">${t}</p>` : `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`);
+  const favs = favsGet();
+  const go = ([k, t]) => `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${t}${cnt(k)}</button>`;
+  const star = (k, t) => { const on = favs.includes(k); return `<button type="button" class="favb" data-fav="${k}" aria-pressed="${on}" aria-label="${on ? "Quitar de" : "Agregar a"} mis atajos: ${esc(String(t).replace(/<[^>]*>/g, ""))}">${on ? "★" : "☆"}</button>`; };
+  const btn = ([k, t]) => (k === "-" ? `<p class="menusep">${t}</p>` : `<span class="mitem">${go([k, t])}${star(k, t)}</span>`);
   // Un separador («-») solo va si debajo hay alguna pantalla que este rol ve.
   const keep = (items) => items.filter((x, i) => x[0] !== "-" || items.slice(i + 1).some((y) => y[0] !== "-"));
   const areas = AREAS.map(([id, ic, t, items]) => [id, ic, t, keep(items.filter((x) => roleOk(x[2])))]).filter((x) => x[3].some((y) => y[0] !== "-"));
@@ -2462,7 +2469,10 @@ function menuHtml(pend) {
     return hits.length ? hits.map(btn).join("") : `<p class="muted menunone">No encontré esa pantalla. Probá con otra palabra.</p>`;
   }
   const open = menuOpenGet();
-  return areas.map(([id, ic, t, items]) => {
+  const all = Object.fromEntries(areas.flatMap((x) => x[3]).filter(([k]) => k !== "-").map((x) => [x[0], x]));
+  const mine = favs.filter((k) => all[k]).map((k) => all[k]);
+  const favBox = `<div class="favbox"><p class="menusep">⭐ Mis atajos</p>${mine.length ? mine.map(btn).join("") : `<p class="muted menunone">Tocá la ☆ de una pantalla para tenerla acá arriba.</p>`}<p class="menusep">Todo</p></div>`;
+  return favBox + areas.map(([id, ic, t, items]) => {
     if (items.length === 1 && items[0][0] !== "-") { const [k] = items[0]; return `<button type="button" data-go="${k}" ${k === P.view ? 'aria-current="page"' : ""}>${icon(ic)}${t}${cnt(k)}</button>`; }
     const here = items.some((x) => x[0] === P.view);
     const sum = items.some((x) => x[0] === "aprobacion") ? pend : 0;
@@ -2474,6 +2484,7 @@ async function render() {
   watch.last = pend;
   showPending(pend);
   refreshNotifCount();
+  P.lastPend = pend;
   $("#menu").innerHTML = menuHtml(pend);
   const [ti, tt] = TITLE[P.view];
   $("#ptitle").innerHTML = icon(ti) + tt;
@@ -4073,3 +4084,12 @@ document.addEventListener("change", async (ev) => {
   const m = a?.models.find((x) => x.id === ev.target.value);
   const out = $("#aiPrice"); if (out && m) out.textContent = `US$ ${m.input} / ${m.output} por millón de tokens`;
 });
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest?.("[data-fav]");
+  if (!b) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const k = b.dataset.fav, l = favsGet();
+  favsSet(l.includes(k) ? l.filter((x) => x !== k) : [...l, k]);
+  const m = $("#menu"), y = m.scrollTop; m.innerHTML = menuHtml(P.lastPend ?? 0); m.scrollTop = y;
+}, true);
