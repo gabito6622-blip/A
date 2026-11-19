@@ -146,7 +146,7 @@ test("cliente de la tienda a 360 px: combo, renovar todo junto, plan, avisos, fa
     s.codes.ingest(owner, mbx, { to: nfEmail, from: "Netflix <info@account.netflix.com>", subject: "Actualizá tu hogar de Netflix", body: "Tocá el enlace https://www.netflix.com/account/update-primary-location?nftoken=abc para actualizar tu hogar", receivedAt: Date.now() });
     assert.equal((await call("GET", "/api/me/codes", null, ack)).json[0]?.kind, "hogar");
     await p.goto(base + "/tienda/#codigos");
-    await p.locator(".code").first().waitFor();
+    await p.locator(".mrow").first().waitFor();
     assert.match(await p.locator("#sout").innerText(), /👉 Tocá «Abrir enlace» y después «Sí, la envié yo», desde la tele o celular donde mirás\./);
     // Y en «📩 Ver códigos» de la tarjeta del servicio.
     await p.goto(base + "/tienda/#cuentas");

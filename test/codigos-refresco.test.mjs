@@ -46,16 +46,16 @@ test("códigos: la bandeja y «Ver códigos» muestran solos el código nuevo a 
 
     // 1) Bandeja vacía → llega un código → aparece solo a los 10 s, sin tocar nada.
     await page.goto(base + "/hub#codigos");
-    await page.locator("text=No hay códigos nuevos").waitFor();
+    await page.locator("text=Bandeja vacía").waitFor();
     const before = polls;
     mail("847 213");
     await page.clock.runFor(10_100);
-    await page.locator(".code b", { hasText: "847 213" }).waitFor({ timeout: 8000 });
+    await page.locator(".mrow .mcode", { hasText: "847 213" }).waitFor({ timeout: 8000 });
     assert.equal(polls, before + 1, "una consulta a los 10 s");
     // Sin novedades no se redibuja: lo escrito en el PIN del link se conserva.
     await page.clock.runFor(10_100);
     await page.waitForFunction((p) => performance.getEntriesByType("resource").filter((e) => e.name.endsWith("/api/me/codes")).length >= p, before + 2, { timeout: 8000 }).catch(() => {});
-    assert.equal(await page.locator(".code b").count(), 1);
+    assert.equal(await page.locator(".mrow .mcode").count(), 1);
 
     // 2) Mis cuentas → «Ver códigos» abierto: el segundo código aparece solo.
     await page.goto(base + "/hub#cuentas"); await page.reload();
