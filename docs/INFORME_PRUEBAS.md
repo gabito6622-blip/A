@@ -1004,3 +1004,9 @@ Rama: `pulido-fix` (sin publicar). Todo con **datos ficticios** en copias locale
 
 ## 4. Pendientes conocidos
 Ver `docs/BACKLOG.md` (estado ⏳): Mis cuentas del revendedor largo, vista previa de Mi página en celular, primer precio lejos en el diseño "clásico", reubicar para Atención, liberar cuarentena por cuenta, "lo que te paga vs lo que cobra" el revendedor.
+
+## 2026-11-20 · Tanda «panel fácil» (#100 a #109 y «Elegí tu PIN»)
+- `npm test`: 921 → **931 pruebas, todas pasan** en la última corrida. Algunas pantallas fallaron sueltas en corridas intermedias (cerrar sesión, inicio, caídas) y pasaron corridas solas.
+- Pruebas nuevas: agregar perfil por API, bandeja de códigos tipo correo, link por cuenta (tope, historial, pausa, cambiar link, personas), links lindos, tasa de costo, vender fácil, cuenta nueva en Vender, menú con atajos, descuento por cantidad, elegir PIN propio.
+- Recorrido «como el dueño» (Playwright, 390 px, datos ficticios): revendedor nuevo (2 datos, 1 toque), venta con precio, fecha y clave (4 datos, 2 toques), renovar desde Control.
+- No probado con datos reales: la vista real de Aracely (no se entró a su panel para no cambiarle el PIN; se usó una copia con sus precios).

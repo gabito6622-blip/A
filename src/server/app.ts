@@ -543,6 +543,7 @@ export function createApp(cfg: AppConfig): App {
     sellerKeyGuard(A(c), cust);
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
+    db.setSecret(`pinby:${cust.id}`, "owner", now()); // 20/11/2026: se lo dio la tienda → su panel le sugiere elegir uno propio
     // 14/11/2026: el PIN nuevo deja afuera a quien haya entrado con el viejo (antes seguía adentro hasta 30 días).
     const closed = db.deleteSessionsOf(cust.id);
     store.engine.tx(() => store.engine.audit(A(c), "customer.login_pin", "customer", cust.id, closed ? { sessionsClosed: closed } : undefined));
@@ -555,6 +556,7 @@ export function createApp(cfg: AppConfig): App {
     const stored = db.getSecret(`loginpin:${id}`);
     if (stored && !verifyPassword(loginPinKey(id, String(c.body?.current ?? "")), stored)) throw new HttpError(401, "BAD_PIN", "El PIN actual no es correcto");
     setLoginPin(id, String(c.body?.pin ?? "").trim());
+    db.setSecret(`pinby:${id}`, "self", now());
     // Cambiar el PIN deja afuera a los otros aparatos (este sigue adentro).
     const closed = db.deleteSessionsOf(id, c.session?.tokenHash);
     store.engine.tx(() => store.engine.audit(c.actor!, "customer.login_pin_self", "customer", id));
@@ -765,7 +767,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), ...(cu.bulkRenew ? { bulkRenew: cu.bulkRenew } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id), monthMode: cu.monthMode ?? "days" } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), ...(cu.bulkRenew ? { bulkRenew: cu.bulkRenew } : {}), ...(db.getSecret(`pinby:${cu.id}`) === "owner" ? { pinFromStore: true } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id), monthMode: cu.monthMode ?? "days" } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };

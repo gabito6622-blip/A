@@ -267,3 +267,9 @@ Origen: 🛒 cliente · 🏪 revendedor · 🎧 atención · 👔 dueño · 🔒
 | O6 | Precio del plan Básico de GaboHub | P2 | ✅ 13/11: el dueño fijó Bs 28; cargado en la tienda real con respaldo del ajuste anterior; el cobro sigue apagado. Mismo día: pasa a ser el plan **Vendedor** de los tres niveles (publicado, PR #57); falta el precio en US$ |
 | R1 | «Mi día» del revendedor: dar el OK con las capturas y después el «PUBLICÁ» | P1 | ✅ publicado el 13/11 (#53) |
 | R2 | Que la tarjeta «Tu día» del Inicio de GaboHub cuente igual que Mi día (hoy cuenta «por avisar» con ventana de 7 días; Mi día usa 3 días + vencidos) | P3 | ⏳ |
+
+## Pendientes del dueño (20/11/2026)
+- Conectar correos madre sin conectar con clientes: netscz101, gabito6617, gabito6622, netgb10, d2025jg, gabito6625, netgb118, paphola40, primeairm1, hbomaxjg.
+- Cancelar ventas mal cargadas: ord_03578 (Ale, Bs 17) y ord_03237 (Jhoel, Bs 17). Sacar Bs 100 de saldo a Aracely.
+- Marcar netgb117+cd como caída. Cargar planes Vendedor Bs 25 / Negocio Bs 49 con el cobro apagado.
+- Si el Bs 67 de renovación era solo por un día, cambiarlo en «💲 Precios del día».

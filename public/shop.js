@@ -1671,11 +1671,14 @@ function resellerHome() {
   // otro país (tipo de cambio). Si no, quedan en «Todas mis herramientas».
   const usesDay = !!(S.data.rctl?.length || S.data.rfiado?.length || S.data.ownSoon?.clients?.length || S.data.ownSoon?.provider?.length || ownTodayNums().has);
   const foreign = (myLocale()?.country ?? "BO") !== "BO";
-  return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
+  // 🔐 20/11/2026: si el PIN se lo dio la tienda, arriba de todo le sugerimos elegir uno propio (y, si quiere, correo y contraseña).
+  const pinAsk = me.pinFromStore && !sessionStorage.getItem("gs-pinask-later") ? `<div class="sbox pinask" role="status"><b>🔐 Elegí tu propio PIN</b><span>El PIN que tenés te lo dio la tienda. Cambialo por uno que solo vos sepas${me.hasPassword ? "" : ", y si querés, creá tu contraseña para entrar con tu correo"}.</span>
+    <div class="hrow"><button class="sbtn pri" type="button" data-pinfocus="1">Elegir mi PIN</button>${me.hasPassword ? "" : `<button class="sbtn" type="button" data-pwd="1">📧 Crear contraseña</button>`}<button class="sbtn" type="button" data-pinlater="1">Después</button></div></div>` : "";
+  return `<section class="hhead hhead-s"><div><span class="chip">Hola, ${esc(me.name.split("·").pop().trim().split(" ")[0])} 👋</span><h2>¿Qué necesitás?</h2></div><div class="hhead-r"><button class="sbtn sm" type="button" data-tour="1">📖 Guía</button><div class="hbal"><span>Tu saldo</span><b>${bs(me.balance)}</b></div></div></section>
     ${rentAlertBanner()}${accChangesBanner()}
     ${indep ? indepLine({ settings: S.settings, me }) : ""}
     ${firstStepsCard(S.data.pasos, { settings: S.settings, me, pageBtnAttr: sh?.saved ? `data-gopage="1"` : `data-wiz="1"` })}
-    <div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
+    ${pinAsk}<div class="htiles hsimple">${big.map(([a, e, tt, d]) => `<button type="button" class="htile" ${a}><span>${e}</span><b>${tt}</b><small>${esc(d)}</small></button>`).join("")}</div>
     ${isReseller() ? hubCobrosHome() : ""}
     ${venc || week || pend ? `<div class="hbox warn hnote">${venc ? `<b>🔴 ${venc === 1 ? "1 vencida" : `${venc} vencidas`}</b>` : ""}${week ? `<b>🟡 ${week === 1 ? "1 vence" : `${week} vencen`} esta semana</b>` : ""}${pend ? `<b>⏳ ${pend} pedido(s) esperando pago</b>` : ""}${isReseller() && (venc || week) ? `<button class="sbtn sm" type="button" data-rtool="control">📣 Avisar a mis clientes</button>` : ""}</div>` : ""}
     ${urgentRent ? rentBox : ""}
@@ -3089,6 +3092,7 @@ document.addEventListener("submit", async (ev) => {
     } else if (f.id === "myPin") {
       const r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
       f.reset();
+      if (S.me) { delete S.me.pinFromStore; render(); }
       toast(r?.closed ? `PIN cambiado ✓ · se cerraron ${r.closed} aparato(s)` : "PIN cambiado ✓");
       if (S.view === "seguridad") { S.data.sec = await api("GET", "/api/me/security").catch(() => S.data.sec); render(); }
     } else if (f.id === "wiz1") {
@@ -3326,3 +3330,15 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.id === "cupIn") { ev.preventDefault(); document.querySelector('[data-coupon="apply"]')?.click(); }
   if (ev.key === "Enter" && ev.target.id === "rcIn") { ev.preventDefault(); document.querySelector('[data-rcoupon="apply"]')?.click(); }
 });
+
+// 🔐 «Elegir mi PIN» lleva al formulario (dentro de «Todas mis herramientas»); «Después» lo esconde hasta que vuelva a entrar.
+document.addEventListener("click", (ev) => {
+  const go = ev.target.closest?.("[data-pinfocus]"), later = ev.target.closest?.("[data-pinlater]");
+  if (!go && !later) return;
+  ev.preventDefault();
+  if (later) { try { sessionStorage.setItem("gs-pinask-later", "1"); } catch { /* sin almacenamiento */ } document.querySelector(".pinask")?.remove(); return; }
+  const f = document.getElementById("myPin");
+  if (!f) return;
+  const d = f.closest("details"); if (d) d.open = true;
+  f.scrollIntoView({ block: "center" }); f.current?.focus();
+}, true);
