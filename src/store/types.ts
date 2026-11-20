@@ -326,6 +326,8 @@ export interface Customer {
   codeTitle?: string;
   /** 📌 Precio fijo (16/11/2026): el «precio del día» de renovación no le cambia su precio acordado. */
   fixedPrice?: boolean;
+  /** 🧮 Descuento por cantidad (20/11/2026): si renueva `min` cuentas o más juntas, cada una a `price` (Bs). */
+  bulkRenew?: { min: number; price: Cents };
   priceGroupId: Id;
   /** Consentimiento explícito para recibir WhatsApp. Sin él no se envía nada. */
   whatsappConsent: boolean;

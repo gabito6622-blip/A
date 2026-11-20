@@ -56,11 +56,11 @@ const AREAS = [
 /** Otras palabras con las que el dueño puede buscar cada pantalla en "Buscar pantalla". */
 const MENU_WORDS = {
   cortes: "corte fechas alinear perfiles clientes finales hbo disney netflix cambiar clave semaforo riesgo", inicio: "principal resumen pendientes", secretaria: "pendientes cobrar cortar avisar deben libres desenlazar que paso resumen asistente", notificaciones: "avisos alertas pendientes", fallas: "reclamos problemas no entra tickets",
-  vender: "venta nueva prueba gratis combo", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
+  vender: "venta nueva prueba gratis combo cuenta nueva cargar precio fecha clave", renovar: "renovacion fecha transferir reemplazar", control: "alquileres excel suscripciones servicios cobrar",
   aprobacion: "aprobacion de ventas pagos comprobantes qr revisar", recordatorios: "avisos vencimientos mensajes", quevuelvan: "recuperar vencidos volver",
-  clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
-  codigos: "codigo correo buzon gmail", productos: "precios listas dolares", cupones: "descuento promo", proveedores: "proveedor costo",
-  revendedores: "revendedor pin tienda saldo", hojas: "excel planilla hojas pestañas sin internet offline cuentas fechas", ordenar: "pendientes datos clave contraseña fecha proveedor correo gmail apartadas", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
+  clientes: "cliente ficha pin saldo", cuentas: "stock perfiles correos inventario caida se cayo clave cambie contraseña libres", carga: "cargar subir cuentas lista", reubicar: "reemplazar mover caida cuarentena",
+  codigos: "codigo correo buzon gmail bot link lindo madre conectar", productos: "precios listas dolares precio del dia renovacion nueva descuento por cantidad juntas 10 rebaja", cupones: "descuento promo", proveedores: "proveedor costo",
+  revendedores: "revendedor pin tienda saldo invitar link acceso entrar nuevo pagina bienvenida", hojas: "excel planilla hojas pestañas sin internet offline cuentas fechas", ordenar: "pendientes datos clave contraseña fecha proveedor correo gmail apartadas", tablero: "revendedores cuentas disney cobrar todos alquileres vencen", comovan: "crecen bajan dormidos", finanzas: "ganancia gastos caja plata", fiado: "deben deuda",
   dashboard: "graficos reportes estadisticas", whatsapp: "bot mensajes meta", oficina: "asistentes agentes ia rocio wali dani vico coco tito",
   apariencia: "tienda colores logo portada", configuracion: "ajustes qr respaldo usdt binance telegram tasa", usuarios: "empleados llave asistente",
   auditoria: "historial quien hizo", excel: "importar exportar planilla", ayuda: "guia ayuda tutorial",

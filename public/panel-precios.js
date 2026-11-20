@@ -23,7 +23,22 @@ export async function dayPricesCard() {
         <input name="r:${esc(p.id)}" inputmode="decimal" value="${esc(plain(p.renov))}" placeholder="—" aria-label="Renovación ${esc(p.name)}"></div>`).join("")}
       <button class="pbtn green" type="submit">👀 Ver qué cambia</button>
     </form>
-    <div id="dpPrev"></div></section>`;
+    <div id="dpPrev"></div></section>${await bulkCard()}`;
+}
+
+// 🧮 Descuento por cantidad (20/11/2026): «si Aracely renueva 10 juntas, Bs 65 cada una». Por revendedor; solo en Bs.
+async function bulkCard() {
+  const L = await api("GET", "/api/admin/bulk-renew").catch(() => null);
+  if (!L?.length) return "";
+  const on = L.filter((x) => x.rule);
+  return `<section class="card" id="bulkCard"><h2>🧮 Descuento por cantidad</h2>
+    <p class="muted" style="margin:0 0 8px">Si el revendedor renueva <b>varias juntas</b> desde su panel, cada una le sale al precio rebajado. Ej.: Aracely, 10 o más → Bs 65 c/u.</p>
+    ${on.length ? `<div class="bulklist">${on.map((x) => `<div class="bulkrow"><span><b>${esc(x.name.replace(/^[^·]*·\s*/, ""))}</b><br><small class="muted">${x.rule.min} o más juntas → ${bs(x.rule.price)} c/u</small></span><button class="pbtn sm" type="button" data-bulkoff="${esc(x.id)}">Quitar</button></div>`).join("")}</div>` : ""}
+    <form id="bulkRenewForm" class="dpform">
+      <label>Revendedor<select name="who">${L.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}</select></label>
+      <div class="dprow"><label>Desde (cuentas)<input name="min" inputmode="numeric" placeholder="10"></label><label>Precio c/u (Bs)<input name="price" inputmode="decimal" placeholder="65"></label></div>
+      <button class="pbtn green" type="submit">Guardar descuento</button>
+    </form></section>`;
 }
 
 function previewHtml(pv) {
@@ -45,6 +60,21 @@ function previewHtml(pv) {
 }
 
 if (typeof document !== "undefined") {
+  document.addEventListener("submit", async (ev) => {
+    const f = ev.target.closest?.("#bulkRenewForm");
+    if (!f) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    const min = Math.round(Number(f.min.value)), price = cents(f.price.value);
+    if (!(min >= 2) || !price || Number.isNaN(price)) return toast("Poné desde cuántas cuentas (2 o más) y el precio de cada una");
+    try { await api("POST", `/api/admin/bulk-renew/${encodeURIComponent(f.who.value)}`, { min, price }); toast("🧮 Descuento guardado"); rerender(); } catch (e) { toast(e.message); }
+  }, true);
+  document.addEventListener("click", async (ev) => {
+    const b = ev.target.closest?.("[data-bulkoff]");
+    if (!b) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    if (!confirm("¿Quitar el descuento por cantidad de este revendedor?")) return;
+    try { await api("POST", `/api/admin/bulk-renew/${encodeURIComponent(b.dataset.bulkoff)}`, {}); toast("Descuento quitado"); rerender(); } catch (e) { toast(e.message); }
+  }, true);
   document.addEventListener("submit", async (ev) => {
     const f = ev.target.closest?.("#dpForm");
     if (!f) return;

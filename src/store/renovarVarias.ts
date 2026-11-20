@@ -82,8 +82,12 @@ export function renewManyPreview(e: Engine, actor: Actor, raw: unknown) {
     return { assignmentId: a.id, product: short(e.s.products[a.productId]?.name ?? ""), expiresAt: a.customerExpiresAt, price: renewPriceFor(e, me.id, a), ok: !why, ...(why ? { why } : {}),
       ...(pend ? { pendingOrderId: pend.id, pendingStatus: pend.status } : {}) };
   });
+  // 🧮 Descuento por cantidad: si renueva juntas la cantidad que puso el dueño, cada una sale al precio rebajado (solo en Bs).
+  const bulk = !isUsd(e, me.id) && me.bulkRenew && rows.filter((r) => r.ok).length >= me.bulkRenew.min ? me.bulkRenew : undefined;
+  if (bulk) for (const r of rows) if (r.ok && bulk.price < r.price) Object.assign(r, { listPrice: r.price, price: bulk.price, bulk: true });
   const total = rows.filter((r) => r.ok).reduce((t, r) => t + r.price, 0);
-  return { rows, total, balance: balance(e, me.id), currency: isUsd(e, me.id) ? "USD" as const : "BOB" as const };
+  return { rows, total, balance: balance(e, me.id), currency: isUsd(e, me.id) ? "USD" as const : "BOB" as const,
+    ...(me.bulkRenew && !isUsd(e, me.id) ? { bulkRule: { ...me.bulkRenew, applied: !!bulk } } : {}) };
 }
 
 /**
@@ -103,7 +107,11 @@ export function renewMany(e: Engine, actor: Actor, input: { ids: unknown; paymen
     if (method === "balance" && pv.total > pv.balance) throw new DomainError("INSUFFICIENT_BALANCE", `Te falta saldo: las ${ids.length} cuestan ${fmt(pv.total)} y tenés ${fmt(pv.balance)}. Recargá o pagá con QR.`);
     const orders: Order[] = [];
     const box0 = e.s.outbox.length;
-    for (const id of ids) orders.push(renew(e, actor, id, { paymentMethod: method as "balance" | "qr" }).order);
+    for (const id of ids) {
+      const r = pv.rows.find((x) => x.assignmentId === id) as { bulk?: boolean; price: number; listPrice?: number } | undefined;
+      const deal = r?.bulk && r.listPrice ? { total: r.price, discount: r.listPrice - r.price } : undefined;
+      orders.push(renew(e, actor, id, { paymentMethod: method as "balance" | "qr", ...(deal ? { deal } : {}) }).order);
+    }
     const total = orders.reduce((t, o) => t + o.total, 0);
     // Un solo aviso por persona (no uno por cuenta): «registramos tus pedidos…» y «renovamos Netflix y Disney».
     mergeQueued(e, box0, "order_received", () => ({ total: fmt(total) }));

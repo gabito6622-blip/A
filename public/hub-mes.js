@@ -55,10 +55,13 @@ export function renewManyBox(services) {
   if (list.length < 2) return "";
   for (const id of [...M.sel]) if (!list.some((a) => a.assignmentId === id)) M.sel.delete(id);
   const chosen = list.filter((a) => M.sel.has(a.assignmentId));
-  const total = chosen.reduce((t, a) => t + (a.renewPrice ?? 0), 0);
+  // 🧮 Descuento por cantidad (20/11/2026): si elige la cantidad que puso el dueño, cada una sale más barata.
+  const rule = ctx.me()?.bulkRenew, hit = rule && chosen.length >= rule.min;
+  const total = chosen.reduce((t, a) => t + (hit ? Math.min(a.renewPrice ?? 0, rule.price) : (a.renewPrice ?? 0)), 0);
   const bal = ctx.me()?.balance ?? 0;
+  const ruleTxt = rule ? `<p class="rmbulk${hit ? " on" : ""}" role="status">🧮 ${hit ? `<b>¡Precio por cantidad!</b> ${chosen.length} cuentas a <b>${bs(rule.price)}</b> cada una` : `Renovando <b>${rule.min} o más juntas</b>, cada una te sale <b>${bs(rule.price)}</b>${chosen.length ? ` (te faltan ${rule.min - chosen.length})` : ""}`}</p>` : "";
   return `<details class="sbox rmbox" ${M.sel.size ? "open" : ""}><summary><b>🔄 Renovar varias juntas</b> <small class="empty">elegís, ves el total y pagás una sola vez</small></summary>
-    <div class="rmlist">${list.map((a) => `<label class="rmrow"><input type="checkbox" data-rmsel="${esc(a.assignmentId)}" ${M.sel.has(a.assignmentId) ? "checked" : ""}><span><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><small class="empty">${esc(a.access?.email ?? "")} · vence ${fdate(a.expiresAt)}</small></span><b>${bs(a.renewPrice ?? 0)}</b></label>`).join("")}</div>
+    ${ruleTxt}<div class="rmlist">${list.map((a) => `<label class="rmrow"><input type="checkbox" data-rmsel="${esc(a.assignmentId)}" ${M.sel.has(a.assignmentId) ? "checked" : ""}><span><b>${esc(a.product.replace(/ \(alquiler revendedores\)/, ""))}</b><small class="empty">${esc(a.access?.email ?? "")} · vence ${fdate(a.expiresAt)}</small></span><b>${(hit && M.sel.has(a.assignmentId) && rule.price < (a.renewPrice ?? 0) ? `<s class="empty">${bs(a.renewPrice ?? 0)}</s> ${bs(rule.price)}` : bs(a.renewPrice ?? 0))}</b></label>`).join("")}</div>
     <div class="hrow"><button class="sbtn sm" type="button" data-rmall="1">${chosen.length === list.length ? "Quitar todas" : `Elegir las ${list.length}`}</button><span class="rmtot">Total: <b>${bs(total)}</b> · ${chosen.length} cuenta(s)</span></div>
     <div class="hrow"><button class="sbtn pri" type="button" data-rmpay="balance" ${chosen.length ? "" : "disabled"}>💰 Con mi saldo · ${bs(total)}</button><button class="sbtn" type="button" data-rmpay="qr" ${chosen.length ? "" : "disabled"}>📲 Con un QR · ${bs(total)}</button></div>
     <small class="empty">Tu saldo: ${bs(bal)}${chosen.length && total > bal ? " · no alcanza: recargá o pagá con QR" : ""}</small></details>`;
