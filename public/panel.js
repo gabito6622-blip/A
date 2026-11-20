@@ -586,6 +586,7 @@ const V = {
         <div class="sellquick">
           <label>💵 Cobrás (Bs)<input name="priceBs" type="number" inputmode="decimal" min="0" step="0.5" placeholder="precio normal" autocomplete="off"></label>
           <label>📅 Vence el <small class="muted">(opcional)</small><input name="until" type="date"></label>
+          ${canReview() ? `<label class="sqfull">🔑 Clave nueva de la cuenta <small class="muted">(opcional: si la cambiaste para este cliente)</small><input name="newPassword" type="text" autocomplete="off" spellcheck="false"></label>` : ""}
         </div>
         <details class="selladv"><summary>⚙️ Más opciones <small>por defecto: 1 mes · pagado · efectivo/QR</small></summary>
           <div class="seladvgrid">
@@ -3631,7 +3632,7 @@ document.addEventListener("submit", async (ev) => {
       if (btn) btn.disabled = true;
       try {
         // «⏳ Pendiente» = venta fiada: no cuenta como «Entró» hasta que la cobres (plata.ts).
-        const o = await api("POST", "/api/admin/orders", { customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(payStatus === "pendiente" && f.paymentMethod.value === "cash" ? { payLater: true } : {}), ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}), ...(months > 1 ? { periods: months } : {}) });
+        const o = await api("POST", "/api/admin/orders", { ...(f.newPassword?.value.trim() ? { newPassword: f.newPassword.value.trim() } : {}), customerId: cid, items: [{ productId: f.productId.value, qty: +f.qty.value }], paymentMethod: f.paymentMethod.value, idempotencyKey: f.dataset.key, ...(payStatus === "pendiente" && f.paymentMethod.value === "cash" ? { payLater: true } : {}), ...(f.slotId.value ? { preferredSlotIds: [f.slotId.value] } : {}), ...(f.couponCode?.value.trim() ? { couponCode: f.couponCode.value.trim() } : {}), ...(months > 1 ? { periods: months } : {}) });
         for (const id of (o.assignmentIds ?? [])) {
           if (payStatus) await api("POST", `/api/admin/assignments/${id}/control`, { payStatus }).catch(() => {});
         }

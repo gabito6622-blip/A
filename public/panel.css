@@ -1515,3 +1515,4 @@ label.qwarn{display:flex;gap:8px;align-items:center;min-height:44px}
 .newacc>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:700}
 .newaccf{display:grid;gap:10px;padding:6px 0 12px}.newaccf label{display:grid;gap:4px;font-size:14px}
 .newaccf input,.newaccf select{min-height:44px;font-size:16px}
+.sellquick .sqfull{grid-column:1/-1}
