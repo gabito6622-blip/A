@@ -95,7 +95,7 @@ test("GaboHub: inicio con 4 botones, Renovar filtra, herramientas plegadas y lin
     const fresh = await newCtx(null);
     await fresh.page.goto(url.replace(/^https?:\/\/[^/]+/, base));
     await fresh.page.locator(".htiles.hsimple").waitFor();
-    assert.match(await fresh.page.locator(".hhead").innerText(), /Hola, ARIt/);
+    assert.match(await fresh.page.locator(".hhead").innerText(), /Hola, (ARIt|Aracely)/); // 20/11: saluda con el nombre después del «·»
     await fresh.ctx.close();
     // …y su PIN de siempre sigue sirviendo.
     assert.equal((await post("/api/auth/customer/pin", { phone: ari.phone, pin })).status, 200);

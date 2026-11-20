@@ -3,6 +3,22 @@
 Formato: fecha · versión publicada (PR) · qué cambió para cada persona. Lo nuevo va arriba.
 "Sin publicar" = listo en una rama, esperando el OK del dueño.
 
+## 2026-11-20 · 🔐 «Elegí tu propio PIN» para revendedores (sin publicar)
+- **Por qué:** el dueño: «yo les doy el número y su PIN; que después lo cambien y se sientan cómodos».
+- Si el PIN se lo dio la tienda, el revendedor ve en su inicio «🔐 Elegí tu propio PIN» (con «Crear contraseña» si no tiene). Al cambiarlo, desaparece; si el dueño le da otro PIN, vuelve.
+- El saludo usa el nombre después del «·» («Hola, Miguel» en vez de «Hola, Cuentas»).
+
+## 2026-11-20 · 🧮 Descuento por cantidad (PR #109 publicado)
+- Regla por revendedor en Productos (debajo de «Precios del día»): desde N cuentas renovadas juntas, cada una a Bs X. Aracely: 10 o más → Bs 65. Lo ve tachado en «Renovar varias juntas» y se cobra lo mismo que ve.
+- «Buscar pantalla» entiende «precio del día», «descuento», «se cayó», «clave», «invitar», «link», «bot».
+
+## 2026-11-19/20 · Vender más fácil y códigos tipo yopmail (PR #100 a #108 publicados)
+- **Vender:** 👤 Cliente / 👥 Revendedor en cada producto; precio cobrado, «Vence el» y «🔑 Clave nueva» en el mismo paso; «➕ cuenta todavía no cargada» sin salir (#103, #106, #108).
+- **Menú:** ⭐ Mis atajos arriba (#103). **Inicio:** «🏠 Para hacer hoy» primero y «📊 Más de tu día» plegable (#104).
+- **Códigos:** bandeja tipo correo con botones por cuenta; link de códigos por cuenta para el cliente final con tope (3 por persona por día, 1 a 7 personas), historial, pausar y cambiar link (#101, #105); links lindos /cod/<nombre>-xxxx (#107).
+- **Costos:** tasa de costo aparte (tarjeta del banco, Bs 12) solo para la ganancia; la de USDT no cambia (#102).
+- **API:** POST /api/admin/accounts/:id/slots para sumar perfiles a una cuenta (#100).
+
 ## 2026-11-17 · 🔑 Códigos de Netflix en más idiomas y link de códigos para clientes finales (sin publicar)
 ## 2026-11-17 · 🔑 Códigos de Netflix en más idiomas y link de códigos para clientes finales (PR #97 publicado)
 - **Por qué:** el dueño: «que salgan los códigos de Disney… en todos los idiomas… y los de Netflix para mis clientes finales, para sacar link para ellos».

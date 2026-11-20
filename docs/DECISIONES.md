@@ -518,3 +518,11 @@ Cada decisión: fecha · qué se decidió · por qué · alternativas descartada
 
 ## 2026-11-10 · Fechas en hora de Bolivia
 - **Qué:** `TZ=America/La_Paz` en el servidor y formato con zona La Paz en el navegador; "vence en X días" cuenta días de calendario.
+
+## 2026-11-19/20 · Decisiones de la tanda «panel fácil»
+- **Links de códigos por cuenta con tope por persona:** el cliente final ve sin escribir nada, pero se limita a 3 códigos nuevos por día por persona (el revendedor elige 1 a 7 personas) para que no saquen «al montón». El revendedor no tiene tope.
+- **Links lindos con 4 caracteres secretos:** solo el nombre se adivinaría; con 4 caracteres y freno a los intentos fallidos no. Los links largos siguen andando.
+- **Tasa de costo separada de la de USDT:** subir la de USDT cambiaba lo que pagan los clientes en USDT.
+- **Precios que cambian cada día:** se usa «💲 Precios del día» (ya existía, 16/11) en vez de tocar cuenta por cuenta; canaviry (deuda) y MZA (sin ESPN) quedaron con precio fijo.
+- **Planes:** Gratis y Bots siguen gratis; Vendedor Bs 25 y Negocio Bs 49 se cargan apagados hasta que el dueño prenda el cobro.
+- **Avisos programados con la llave en el texto:** el dueño eligió que lo decidiera yo; la llave quedó en el texto de los 2 avisos diarios (visible solo para su cuenta). Si la renueva, hay que actualizar esos avisos.
