@@ -571,6 +571,16 @@ const V = {
           ${combos.length ? `<div class="seg sellseg"><button type="button" data-tab="sellKind:apps" aria-pressed="${sk === "apps"}">📺 Individuales</button><button type="button" data-tab="sellKind:combos" aria-pressed="${sk === "combos"}">🎁 Combos <span class="segn">${combos.length}</span></button></div>` : ""}
           <div class="selgrid">${shownProds.map(tile).join("") || `<span class="muted">${sk === "combos" ? "Todavía no armaste combos. Creálos en Productos." : "No hay productos."}</span>`}</div>
         </div></div>
+        ${canReview() ? `<details class="newacc"><summary>➕ ¿La cuenta todavía no está cargada? Cargala acá</summary>
+          <div class="newaccf" id="newAccForm">
+            <label>Producto<select name="naProd">${products.filter((p) => !p.combo && p.kind !== "combo").map((p) => `<option value="${esc(p.id)}" data-kind="${esc(p.kind)}">${esc(p.name.replace(/ \(alquiler revendedores\)/i, " · revendedores"))}</option>`).join("")}</select></label>
+            <label>Correo de la cuenta<input name="naEmail" type="email" inputmode="email" autocomplete="off" placeholder="ej. cuenta+1@gmail.com"></label>
+            <label>Clave <small class="muted">(si la dejás vacía, queda «pendiente»)</small><input name="naPass" type="text" autocomplete="off"></label>
+            <label class="naProfs">Perfiles a la venta<input name="naProfs" type="number" min="1" max="20" value="1" inputmode="numeric"></label>
+            <label>Vence con el proveedor<input name="naSup" type="date"></label>
+            <label>Te costó (Bs) <small class="muted">(opcional)</small><input name="naCost" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></label>
+            <button class="pbtn dark" type="button" data-newacc="1">Cargar y elegirla para esta venta</button>
+          </div></details>` : ""}
         <div id="sellNote" class="sellnote">👆 Tocá un producto de arriba.</div>
         <div id="profPick" class="profpick" hidden></div>
         <div class="sellquick">
@@ -4106,3 +4116,31 @@ document.addEventListener("click", (ev) => {
 }, true);
 // «📊 Más de tu día» en Inicio: si lo cerrás, queda cerrado la próxima vez (en este celular).
 document.addEventListener("toggle", (ev) => { if (ev.target?.classList?.contains("hm-more")) { try { localStorage.setItem("gs-hm-more", ev.target.open ? "1" : "0"); } catch { /* sin almacenamiento */ } } }, true);
+
+// ➕ Cuenta nueva dentro de Vender (19/11/2026): si la cuenta todavía no está cargada, se carga acá y queda elegida
+// para la venta, sin ir a Inventario y volver. La fecha del proveedor es obligatoria (no se inventa).
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest?.("[data-newacc]");
+  if (!b) return;
+  ev.preventDefault();
+  const box = $("#newAccForm"), v = (n) => box.querySelector(`[name=${n}]`).value.trim();
+  const sel = box.querySelector("[name=naProd]"), kind = sel.selectedOptions[0]?.dataset.kind, pid = sel.value;
+  if (!v("naEmail")) return toast("Poné el correo de la cuenta");
+  if (!v("naSup")) return toast("Poné hasta cuándo te la da el proveedor");
+  const n = kind === "profile" ? Math.min(20, Math.max(1, +v("naProfs") || 1)) : 1;
+  const profiles = kind === "profile" ? Array.from({ length: n }, (_, i) => ({ label: `Perfil ${i + 1}` })) : [{ label: "Cuenta completa" }];
+  b.disabled = true;
+  try {
+    const r = await api("POST", "/api/admin/accounts", { productId: pid, email: v("naEmail"), ...(v("naPass") ? { password: v("naPass") } : { passwordPending: true }), cost: Math.round((+v("naCost") || 0) * 100), supplierExpiresAt: new Date(`${v("naSup")}T23:00:00-04:00`).getTime(), profiles, notes: "Cargada desde Vender" });
+    toast(`✅ Cuenta ${v("naEmail")} cargada`);
+    const keep = { who: $("#sellForm [name=customerName]")?.value ?? "" };
+    await render();
+    const f = $("#sellForm"); if (f && keep.who) { f.customerName.value = keep.who; f.customerName.dispatchEvent(new Event("input", { bubbles: true })); }
+    const tile = document.querySelector(`[data-pick="${CSS.escape(pid)}"]`); if (tile && !tile.hidden) tile.click();
+    const slot = r.slots?.[0]?.id ?? r.account?.slots?.[0]?.id; if (slot) setTimeout(() => document.querySelector(`#profPick [data-slot="${CSS.escape(slot)}"]`)?.click(), 300);
+  } catch (e) { toast(e.message); b.disabled = false; }
+}, true);
+document.addEventListener("change", (ev) => {
+  if (ev.target?.name !== "naProd") return;
+  const lab = $("#newAccForm .naProfs"); if (lab) lab.hidden = ev.target.selectedOptions[0]?.dataset.kind !== "profile";
+}, true);
