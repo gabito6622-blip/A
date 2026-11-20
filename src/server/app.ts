@@ -1253,7 +1253,17 @@ export function createApp(cfg: AppConfig): App {
     try { return await reviewOrder(c.params.id); }
     catch (e) { if (e instanceof AiError) throw new HttpError(409, e.code, e.message); throw e; }
   });
-  route("POST", "/api/admin/orders", "staff", (c) => autoLink(store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }), A(c), c));
+  // 🔑 Clave nueva al vender (19/11/2026): el dueño cambia la clave de la cuenta y la vende en el mismo paso.
+  route("POST", "/api/admin/orders", "staff", (c) => {
+    const pw = typeof c.body?.newPassword === "string" ? c.body.newPassword.trim() : "";
+    if (pw && !["owner", "admin"].includes(String(A(c).role))) throw new HttpError(403, "FORBIDDEN", "La clave la cambia el dueño o un admin");
+    const o = autoLink(store.orders.create(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], paymentMethod: c.body?.paymentMethod, idempotencyKey: c.body?.idempotencyKey, preferredSlotIds: Array.isArray(c.body?.preferredSlotIds) ? c.body.preferredSlotIds : undefined, couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods, payLater: c.body?.payLater === true }), A(c), c);
+    if (pw) for (const id of (o as { assignmentIds?: string[] }).assignmentIds ?? []) {
+      const accId = store.engine.s.slots[store.engine.s.assignments[id]?.slotId ?? ""]?.accountId;
+      if (accId && store.engine.s.accounts[accId]?.password !== pw) store.inventory.updateAccount(A(c), accId, { password: pw });
+    }
+    return o;
+  });
   route("POST", "/api/admin/orders/quote", "staff", (c) => store.orders.quote(A(c), { customerId: c.body?.customerId, items: c.body?.items ?? [], couponCode: c.body?.couponCode ? String(c.body.couponCode) : undefined, periods: c.body?.periods }));
   route("GET", "/api/admin/coupons", "staff", (c) => store.coupons.list(A(c)));
   route("POST", "/api/admin/coupons", "staff", (c) => store.coupons.save(A(c), c.body ?? {}));

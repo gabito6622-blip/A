@@ -46,6 +46,7 @@ test("Vender: para quién es cada producto, precio y fecha en el mismo paso", { 
     if (await pick.count()) await pick.click().catch(() => {});
     await f.locator("[name=priceBs]").fill("15");
     await f.locator("[name=until]").fill("2027-01-10");
+    await f.locator("[name=newPassword]").fill("Clave-Nueva#77");
     await p.waitForFunction(() => !document.querySelector("#sellBtn").disabled);
     assert.match(await p.locator("#sellBtn").innerText(), /Bs\.? ?15/);
     assert.match(await p.locator("#sellSummary").innerText(), /10\/01\/2027/);
@@ -56,6 +57,7 @@ test("Vender: para quién es cada producto, precio y fecha en el mismo paso", { 
     const a = Object.values(e.s.assignments).find((x) => x.customerId === ale.id && x.status === "active");
     assert.ok(a, "se vendió");
     assert.equal(e.s.orders[a.orderId].total, 1500, "cobró Bs 15");
+    assert.equal(e.s.accounts[e.s.slots[a.slotId].accountId].password, "Clave-Nueva#77", "cambió la clave en el mismo paso");
     assert.equal(new Date(a.customerExpiresAt).toISOString().slice(0, 10), "2027-01-11", "vence el 10/01 a la noche (hora de Bolivia)");
     // Revendedor: sí ve el de revendedores.
     await p.goto(base + "/panel#vender"); await f.waitFor();
