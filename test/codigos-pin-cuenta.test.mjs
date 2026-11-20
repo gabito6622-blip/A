@@ -11,6 +11,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+// Links lindos (/cod/<nombre>-xxxx, 19/11/2026): se sigue el link hasta /codigos/<token>, como el navegador.
+const tokenOf = async (u) => { if (u.includes("/codigos/")) return u.split("/codigos/")[1]; const r = await fetch(u, { redirect: "manual" }); return (r.headers.get("location") ?? "").split("/codigos/")[1]; };
+
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
@@ -41,7 +44,7 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
   // Link de Ana (modo correo) y su sesión de revendedora.
   const link = (await call(staff, "POST", `/api/admin/customers/${ana.id}/code-link`, {})).json;
   assert.equal(link.mode, "email");
-  const token = link.url.split("/codigos/")[1];
+  const token = (await tokenOf(link.url));
   const pin = (await call(staff, "POST", `/api/admin/customers/${ana.id}/login-pin`, {})).json.pin;
   const anaCk = (await call(null, "POST", "/api/auth/customer/pin", { phone: ana.phone, pin })).r.headers.get("set-cookie").split(";")[0];
   const pub = (body) => call(null, "POST", `/api/code-link/${token}`, body);
@@ -103,7 +106,7 @@ test("PIN por cuenta: cada correo del link puede pedir su PIN; solo las cuentas 
       // Beto tiene página y su título se copió de su nombre (como pasa en producción): igual sale sin la etiqueta.
       s.engine.s.customers[beto.id].shop = { ...(s.engine.s.customers[beto.id].shop ?? {}), title: beto.name };
       // Otro link (otro revendedor no bloqueado): Beto con PIN en su cuenta.
-      const bl = (await call(staff, "POST", `/api/admin/customers/${beto.id}/code-link`, {})).json.url.split("/codigos/")[1];
+      const bl = (await tokenOf((await call(staff, "POST", `/api/admin/customers/${beto.id}/code-link`, {})).json.url));
       await call(staff, "POST", `/api/admin/customers/${beto.id}/code-pins`, { email: "beto1@ficticio.lat", pin: "5555" });
       const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: shots ? 2 : 1 });
       await ctx.route(/fonts\.(googleapis|gstatic)/, (r) => r.abort());

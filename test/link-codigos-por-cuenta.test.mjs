@@ -7,6 +7,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
+// Links lindos (/cod/<nombre>-xxxx, 19/11/2026): se sigue el link hasta /codigos/<token>, como el navegador.
+const tokenOf = async (u) => { if (u.includes("/codigos/")) return u.split("/codigos/")[1]; const r = await fetch(u, { redirect: "manual" }); return (r.headers.get("location") ?? "").split("/codigos/")[1]; };
+
 
 test("link por cuenta: bandeja sin escribir, tope diario, historial, pausa y cambio de link", { timeout: 120_000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "gs-acclink-"));
@@ -34,7 +37,7 @@ test("link por cuenta: bandeja sin escribir, tope diario, historial, pausa y cam
     const list = (await call("GET", "/api/me/acc-links", null, ack)).json;
     assert.deepEqual(list.accounts.map((a) => a.email), ["una@ficticio.lat"], "Ana ve solo su cuenta");
     const made = (await call("POST", "/api/me/acc-links", { email: "una@ficticio.lat" }, ack)).json;
-    const token = made.url.split("/codigos/")[1];
+    const token = (await tokenOf(made.url));
     assert.equal((await call("GET", `/api/code-link/${token}`)).json.mode, "account");
     assert.doesNotMatch(JSON.stringify((await call("GET", `/api/code-link/${token}`)).json), /Ana Revende|\+591/, "no muestra el nombre ni el teléfono del revendedor");
 
@@ -67,7 +70,7 @@ test("link por cuenta: bandeja sin escribir, tope diario, historial, pausa y cam
     assert.equal((await call("POST", "/api/me/acc-links", { email: "una@ficticio.lat", people: 9 }, ack)).status, 400);
     const p2 = (await call("POST", "/api/me/acc-links", { email: "una@ficticio.lat", people: 2 }, ack)).json;
     assert.equal(p2.people, 2); assert.equal(p2.cap, 6); assert.equal(p2.over, false);
-    const tok2 = nuevo.split("/codigos/")[1];
+    const tok2 = (await tokenOf(nuevo));
     const v3 = (await call("POST", `/api/code-link/${tok2}`, {})).json;
     assert.equal(v3.codes.length, 4, "con 2 personas ya entra el 4.º código"); assert.equal(v3.held, 0); assert.equal(v3.cap, 6);
 
