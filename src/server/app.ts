@@ -765,7 +765,7 @@ export function createApp(cfg: AppConfig): App {
     if (!c.actor) return { loggedIn: false };
     if (c.actor.customerId) {
       const cu = store.engine.s.customers[c.actor.customerId];
-      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id), monthMode: cu.monthMode ?? "days" } : {}) };
+      return { loggedIn: true, kind: "customer", role: c.actor.role, id: cu.id, name: cu.name, ...(cu.trust ? { trust: cu.trust } : {}), ...(cu.bulkRenew ? { bulkRenew: cu.bulkRenew } : {}), phone: cu.phone, email: cu.email ?? "", hasPassword: !!db.getSecret(`custpw:${cu.id}`), balance: store.wallet.balance(cu.id), currency: store.usd.currency(cu.id), whatsappConsent: cu.whatsappConsent, ...(cu.kind === "reseller" ? { pageAllowed: store.shops.pageAllowedFor(cu.id), locale: store.locale.of(cu.id), monthMode: cu.monthMode ?? "days" } : {}) };
     }
     const u = store.engine.s.staff[c.actor.id];
     return { loggedIn: true, kind: "staff", role: u.role, id: u.id, name: u.name, username: u.username };
@@ -1745,6 +1745,18 @@ export function createApp(cfg: AppConfig): App {
   route("GET", "/api/admin/codes", "staff", (c) => store.codes.recent(A(c), 60));
   // 💲 Precios del día (16/11/2026): nuevas y renovación para revendedores, con vista previa de quién cambia.
   route("GET", "/api/admin/day-prices", "staff", (c) => store.precioDia.view(A(c)));
+  // 🧮 Descuento por cantidad por revendedor (20/11/2026): { min, price } en Bs; sin min o price = se borra.
+  route("GET", "/api/admin/bulk-renew", "staff", (c) => { authorize(A(c), "catalog.manage"); return Object.values(store.engine.s.customers).filter((x) => x.kind === "reseller").map((x) => ({ id: x.id, name: x.name, rule: x.bulkRenew ?? null })).sort((a, b) => a.name.localeCompare(b.name)); });
+  route("POST", "/api/admin/bulk-renew/:id", "staff", (c) => {
+    authorize(A(c), "catalog.manage");
+    const cu = store.engine.s.customers[c.params.id];
+    if (!cu || cu.kind !== "reseller") throw new DomainError("NOT_FOUND", "Ese revendedor no existe");
+    const min = Math.round(Number(c.body?.min)), price = Math.round(Number(c.body?.price));
+    const clear = !c.body?.min || !c.body?.price;
+    if (!clear && (!(min >= 2 && min <= 100) || !(price > 0 && price < 10_000_000))) throw new DomainError("VALIDATION", "Poné desde cuántas cuentas (2 o más) y el precio de cada una");
+    store.engine.tx(() => { if (clear) delete cu.bulkRenew; else cu.bulkRenew = { min, price }; store.engine.audit(A(c), "customer.bulk_renew", "customer", cu.id, clear ? { cleared: true } : { min, price }); });
+    return { id: cu.id, rule: cu.bulkRenew ?? null };
+  });
   route("POST", "/api/admin/day-prices/preview", "staff", (c) => store.precioDia.preview(A(c), c.body?.prices));
   route("POST", "/api/admin/day-prices", "staff", (c) => store.precioDia.apply(A(c), c.body?.prices, c.body?.keep));
 
