@@ -9,6 +9,9 @@ import { createServer } from "node:tls";
 import { createApp } from "../dist/server/app.js";
 import { parseMail } from "../dist/server/mail.js";
 import { extractCode, classifyCode } from "../dist/store/codes.js";
+// Links lindos (/cod/<nombre>-xxxx, 19/11/2026): se sigue el link hasta /codigos/<token>, como el navegador.
+const tokenOf = async (u) => { if (u.includes("/codigos/")) return u.split("/codigos/")[1]; const r = await fetch(u, { redirect: "manual" }); return (r.headers.get("location") ?? "").split("/codigos/")[1]; };
+
 
 const FIX = new URL("./fixtures/", import.meta.url);
 const cert = readFileSync(new URL("imap-test-cert.pem", FIX));
@@ -181,7 +184,7 @@ describe("Panel de códigos", () => {
       // Link de códigos con PIN para Ana (como si fuera revendedora).
       const lk = await call(`/api/admin/customers/${ana.id}/code-link`, { pin: "4821" });
       assert.equal(lk.status, 200, JSON.stringify(lk.body));
-      const token = lk.body.url.split("/codigos/")[1];
+      const token = (await tokenOf(lk.body.url));
       const pub = (pinv) => fetch(`${base}/api/code-link/${token}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pinv }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
       assert.equal((await fetch(`${base}/api/code-link/${token}`).then((r) => r.json())).name, "Ana");
       assert.equal((await pub("0000")).status, 401);
@@ -200,7 +203,7 @@ describe("Panel de códigos", () => {
       const elk = await call(`/api/admin/customers/${beto.id}/code-link`, {});
       assert.equal(elk.status, 200, JSON.stringify(elk.body));
       assert.equal(elk.body.mode, "email", "sin PIN => modo correo");
-      const etoken = elk.body.url.split("/codigos/")[1];
+      const etoken = (await tokenOf(elk.body.url));
       assert.equal((await fetch(`${base}/api/code-link/${etoken}`).then((r) => r.json())).mode, "email");
       const byEmail = (em) => fetch(`${base}/api/code-link/${etoken}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
       const mine = await byEmail("nf01@gabo.lat");

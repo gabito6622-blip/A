@@ -9,6 +9,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "../dist/server/app.js";
 import { extractCode, classifyCode } from "../dist/store/codes.js";
+// Links lindos (/cod/<nombre>-xxxx, 19/11/2026): se sigue el link hasta /codigos/<token>, como el navegador.
+const tokenOf = async (u) => { if (u.includes("/codigos/")) return u.split("/codigos/")[1]; const r = await fetch(u, { redirect: "manual" }); return (r.headers.get("location") ?? "").split("/codigos/")[1]; };
+
 
 let chromium = null;
 try { chromium = createRequire(import.meta.url)("playwright").chromium; } catch { /* sin navegador */ }
@@ -61,11 +64,11 @@ test("Netflix pasa aunque el buzón tenga asuntos viejos; promociones no; link p
       await btn.click();
       const box = card.locator(".fx-codebox"); await box.locator("code").waitFor();
       const url = (await box.locator("code").innerText()).trim();
-      assert.match(url, /\/codigos\/[\w-]{16,}$/);
+      assert.match(url, /\/cod\/rosa-[a-z2-9]{4}$/, "link lindo: nombre + 4 caracteres");
       assert.match(decodeURIComponent(await box.locator("[data-fxcodewa]").getAttribute("href")), /^https:\/\/wa\.me\/59170000021\?text=Hola Rosa 👋 Este es tu link/);
       assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
       // La clienta abre el link, escribe el correo de su cuenta y ve sus códigos de Netflix.
-      const token = url.split("/codigos/")[1];
+      const token = await tokenOf(url);
       const r = await fetch(`${base}/api/code-link/${token}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "nfcliente@ficticio.lat" }) });
       const j = await r.json();
       assert.equal(r.status, 200, JSON.stringify(j));

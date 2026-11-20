@@ -13,6 +13,9 @@ import { join, resolve } from "node:path";
 import { request } from "node:http";
 import { inflateSync } from "node:zlib";
 import { createApp } from "../dist/server/app.js";
+// Links lindos (/cod/<nombre>-xxxx, 19/11/2026): se sigue el link hasta /codigos/<token>, como el navegador.
+const tokenOf = async (u) => { if (u.includes("/codigos/")) return u.split("/codigos/")[1]; const r = await fetch(u, { redirect: "manual" }); return (r.headers.get("location") ?? "").split("/codigos/")[1]; };
+
 
 const DAY = 86_400_000;
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64").toString("base64");
@@ -179,7 +182,7 @@ test("link de códigos: dice las plataformas reales de sus cuentas, sin correos"
   const fab = s.catalog.createCustomer(owner, { name: "Fabio Choque", phone: "+59171110505" });
   for (const pid of ["nf", "hbo"]) s.orders.create(owner, { customerId: fab.id, items: [{ productId: pid, qty: 1 }], paymentMethod: "cash" });
   const link = (await call("POST", `/api/admin/customers/${fab.id}/code-link`, {}, ock)).json;
-  const token = link.url.split("/codigos/")[1];
+  const token = (await tokenOf(link.url));
   const info = (await call("GET", `/api/code-link/${token}`)).json;
   assert.deepEqual(info.platforms, ["Max", "Netflix"]);
   assert.doesNotMatch(JSON.stringify(info), /@ficticio/);

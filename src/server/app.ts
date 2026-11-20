@@ -1739,7 +1739,37 @@ export function createApp(cfg: AppConfig): App {
   route("POST", "/api/admin/day-prices", "staff", (c) => store.precioDia.apply(A(c), c.body?.prices, c.body?.keep));
 
   // ---- Link de códigos con PIN (para revendedores y sus clientes): /codigos/<token> ----
-  const codeLinkUrl = (token: string, c: Ctx) => `${cfg.publicOrigin ?? `http://${c.req.headers.host}`}/codigos/${token}`;
+  // 🔗 Links lindos (19/11/2026, pedido del dueño: «como en yopmail»): gabostore.lat/cod/aracely-k7q2 en vez del token
+  // largo. El nombre solo se adivina; por eso van 4 caracteres secretos y las búsquedas fallidas se frenan. El link largo
+  // sigue andando. Se guarda en secretos: clalias:<alias> → token; clof:<token> → alias.
+  const codAliasLimiter = new RateLimiter(20, 15 * 60_000, now); // 20 links mal escritos cada 15 min por IP
+  const accLinkOwner = (token: string): string | undefined => { try { return JSON.parse(db.getSecret(`acclink:${token}`) ?? "null")?.c; } catch { return undefined; } };
+  const ALIAS_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
+  const aliasBase = (token: string) => {
+    const cid = accLinkOwner(token) ?? Object.values(store.engine.s.customers).find((x) => x.codeLink?.token === token)?.id;
+    const cu = cid ? store.engine.s.customers[cid] : undefined;
+    const raw = cu?.shop?.slug || (cu?.name ?? "").split("·").pop()!.trim().split(/\s+/)[0] || "codigos";
+    return raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 16) || "codigos";
+  };
+  const aliasFor = (token: string) => {
+    const had = db.getSecret(`clof:${token}`);
+    if (had) return had;
+    const base = aliasBase(token);
+    for (let i = 0; i < 20; i++) {
+      const tail = Array.from(randomBytes(4), (b) => ALIAS_ABC[b % ALIAS_ABC.length]).join("");
+      const al = `${base}-${tail}`;
+      if (db.getSecret(`clalias:${al}`)) continue;
+      db.setSecret(`clalias:${al}`, token, now());
+      db.setSecret(`clof:${token}`, al, now());
+      return al;
+    }
+    return null;
+  };
+  const codeLinkUrl = (token: string, c: Ctx) => {
+    const origin = cfg.publicOrigin ?? `http://${c.req.headers.host}`;
+    const al = aliasFor(token);
+    return al ? `${origin}/cod/${al}` : `${origin}/codigos/${token}`;
+  };
   // El PIN se guarda con scrypt (como las contraseñas), junto con el id para que no sea reutilizable entre clientes.
   const pinKey = (customerId: string, pin: string) => `codepin|${customerId}|${pin}`;
   const linkTokenFor = (customerId: string, keepToken: boolean) => {
@@ -2859,6 +2889,16 @@ export function createApp(cfg: AppConfig): App {
           const first = m[1].toLowerCase(), rest = first === "codigos" ? m[2] : m[2].toLowerCase();
           const to = `/${first}${rest}`;
           if (to !== url.pathname) { res.writeHead(301, { Location: to + url.search, "Cache-Control": "no-cache" }); res.end(); return; }
+        }
+        const cod = /^\/cod\/([a-z0-9-]{3,40})\/?$/i.exec(url.pathname);
+        if (cod && (req.method === "GET" || req.method === "HEAD")) {
+          const k = `cod|${ip}`;
+          const tok = codAliasLimiter.blocked(k) ? null : db.getSecret(`clalias:${cod[1].toLowerCase()}`);
+          if (tok) { res.writeHead(302, { Location: `/codigos/${tok}`, "Cache-Control": "no-store" }); res.end(); return; }
+          codAliasLimiter.take(k);
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Link no encontrado</title><body style="font:16px system-ui;padding:32px;text-align:center"><h1>Link no encontrado</h1><p>Revisá que esté bien escrito o pedile el link a tu vendedor.</p></body>`);
+          return;
         }
         const go = domainRedirect(String(req.headers.host ?? ""), url.pathname, url.search);
         if (go && "code" in go && (req.method === "GET" || req.method === "HEAD")) { res.writeHead(go.code, { Location: go.to, "Cache-Control": "no-cache" }); res.end(); return; }
