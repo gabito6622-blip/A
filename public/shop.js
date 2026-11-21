@@ -30,6 +30,7 @@ import { planInit, loadPlan, planCard, renewAllBox, planQrBox, planQrIds, svcTag
 import { fallasHelp, faqExtra, recoverHtml, pinHelpHtml, noLoginCode, switchLink, initClienteAyuda, REPORT_WHERE } from "/cliente-ayuda.js";
 import { initA11y, a11yView } from "/a11y-tienda.js";
 import { kindHelp } from "/codigos-ayuda.js";
+import { myPinFields, myPinProblem, myPinError } from "/hub-pin.js"; // cambiar PIN: dos veces y error a la vista
 import { accLinksShown } from "/hub-codigos.js"; // el link por cuenta sigue a la cuenta elegida en la bandeja
 import { cargarHub, alCargarHub } from "/hub-perezoso.js";
 import { initHubSecretaria, loadHubSecretaria, loadHubComoVan, hubSecretariaView, hubComoVanView } from "/hub-perezoso.js"; // hub-secretaria.js: 🤵 Mi secretaria y 📈 Cómo van
@@ -1595,7 +1596,7 @@ function securityView() {
     <section class="sbox"><h2>📱 Dónde está abierta (${sec.sessions.length})</h2>${sess || `<p class="empty">No hay sesiones abiertas.</p>`}
       ${others ? `<button class="sbtn pri" type="button" data-secothers="1">🚪 Cerrar todas las demás (${others})</button>` : ""}</section>
     <section class="sbox"><h2>🔑 Cambiar mi PIN</h2><p class="empty" style="margin:0">Al cambiarlo, se cierran solos los otros aparatos.</p>
-      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="current-password"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000" autocomplete="new-password"></label><button class="sbtn" type="submit" style="grid-column:1/-1">Cambiar PIN</button></form></section>
+      <form class="sform mypin" id="myPin">${myPinFields()}</form></section>
     <section class="sbox"><h2>🕘 Últimos movimientos</h2>${log || `<p class="empty">Todavía no hay movimientos.</p>`}</section>
     <p class="empty" style="font-size:13px">Tus datos y los de tus clientes son solo tuyos: nadie más que vos y la tienda los ve. Si perdiste el celular, pedile a la tienda que cierre tu cuenta en todos lados.</p>`;
 }
@@ -1700,7 +1701,7 @@ function resellerHome() {
     ${hubPanel() ? appCard() : ""}
     ${referralCard(S.data.referrals)}
     <div class="sbox"><h2>🔐 Tu acceso</h2><p class="empty" style="margin:0">Entrás con tu número y tu PIN de 4 números${me.email && me.hasPassword ? `, o con tu correo <b>${esc(me.email)}</b> y tu contraseña` : ". Si querés, creá una contraseña para entrar también con tu correo"}.</p>
-      <form class="sform" id="myPin" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end"><label>PIN actual<input name="current" inputmode="numeric" maxlength="4" placeholder="••••"></label><label>PIN nuevo<input name="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="0000"></label><button class="sbtn" type="submit">Cambiar PIN</button></form>
+      <form class="sform mypin" id="myPin">${myPinFields()}</form>
       <button class="sbtn" type="button" data-pwd="1" style="justify-self:start">📧 ${me.hasPassword ? "Cambiar mi correo o contraseña" : "Crear mi contraseña"}</button></div>
     </details>`;
 }
@@ -3094,7 +3095,13 @@ document.addEventListener("submit", async (ev) => {
       toast("Listo: ya podés entrar con tu correo y contraseña ✓");
       await refresh();
     } else if (f.id === "myPin") {
-      const r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() });
+      // PIN nuevo dos veces y el error junto al formulario, no en un aviso que se va (hub-pin.js).
+      const bad = myPinProblem({ current: f.current.value, pin: f.pin.value, pin2: f.pin2?.value ?? f.pin.value });
+      myPinError(f, bad);
+      if (bad) { btn.disabled = false; return (/4 números/.test(bad) ? f.pin : f.pin2 ?? f.pin).focus(); }
+      let r;
+      try { r = await api("POST", "/api/me/login-pin", { current: f.current.value.trim(), pin: f.pin.value.trim() }); }
+      catch (e) { myPinError(f, e.message); btn.disabled = false; return f.current.focus(); }
       f.reset();
       if (S.me) { delete S.me.pinFromStore; render(); }
       toast(r?.closed ? `PIN cambiado ✓ · se cerraron ${r.closed} aparato(s)` : "PIN cambiado ✓");

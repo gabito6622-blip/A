@@ -1305,3 +1305,5 @@ html.qrg-lock,html.qrg-lock body{overflow:hidden}
 .mchip small{font-size:12px}
 .alfilt{margin:4px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .alpaused{font-size:13px;color:var(--s-warn,#f5b400);font-weight:600}
+/* Cambiar mi PIN: actual arriba, el nuevo dos veces al lado, el error y el botón abajo. */
+.mypin{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.mypin>label:first-child,.mypin>.mypinerr,.mypin>button{grid-column:1/-1}.mypinerr{margin:0}
