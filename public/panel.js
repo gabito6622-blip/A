@@ -1887,6 +1887,9 @@ const AUD_VERB = {
 };
 const audNum = (id) => { const m = String(id ?? "").match(/(\d+)$/); return m ? "#" + Number(m[1]) : ""; };
 function auditText(a, maps) {
+  // 20/11: Inicio («🏠 Para hacer hoy») lo llama sin mapas (no pide clientes ni usuarios). Antes eso rompía con
+  // cualquier movimiento de las últimas 24 h y la lista del día no aparecía nunca. Sin mapas: «vos» por tu nombre.
+  maps = maps ?? { staff: P.me?.id ? { [P.me.id]: P.me } : {}, cust: {}, prod: {} };
   // Quién
   let who = "Alguien", role = AUD_ROLE[a.role] ?? a.role ?? "";
   const aid = String(a.actorId ?? "");
