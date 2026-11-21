@@ -1234,7 +1234,9 @@ const V = {
     P.tab.prodKind = Object.fromEntries(products.map((p) => [p.id, p.kind]));
     const guessN = (id) => { const p = products.find((x) => x.id === id); if (p?.profileDefaults?.length) return p.profileDefaults.length; if (p?.kind === "full_account") return 1; const t = `${id} ${p?.name ?? ""}`.toLowerCase(); return /disney/.test(t) ? 7 : /prime|amazon/.test(t) ? 6 : 5; };
     const lastProd = products.some((p) => p.id === last.productId) ? last.productId : products[0].id;
-    return `${pfCard}${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
+    // 20/11: «Cargar cuenta» abría con «Compré un perfil» (un formulario de 1.000 px) y la carga rápida quedaba abajo.
+    // Ahora va primero la carga rápida; «➕ Compré un perfil» sigue igual (su botón baja directo a su formulario).
+    return `${iptvCard}<section class="card ok-card"><h2>${icon("plus")}Carga rápida <small>· pegá correo y clave, recuerda lo demás</small></h2>
       <form class="form" id="quickForm">
         <label>Producto<select name="productId">${products.map((p) => opt(p.id, p.name, p.id === lastProd)).join("")}</select></label>
         <label>Perfiles<input name="n" type="number" min="1" max="20" value="${guessN(lastProd)}"></label>
@@ -1244,7 +1246,7 @@ const V = {
         <label style="grid-column:1/-1">Proveedor<select name="supplierId"><option value="">Propias (sin proveedor)</option>${suppliers.filter((s) => s.active).map((s) => opt(s.id, s.name, s.id === last.supplierId)).join("")}</select></label>
         <label class="chk" style="grid-column:1/-1"><input type="checkbox" name="paidNow"> Ya la pagué: anotar el costo como gasto de este mes</label>${paidNowExtra()}
         <button class="pbtn dark" type="submit" style="grid-column:1/-1">${icon("plus")}Agregar cuenta (${guessN(lastProd)} perfiles libres)</button></form>
-      <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>
+      <p class="muted" style="margin:0">Recuerda el producto, el proveedor y el costo de la última vez. Los perfiles se crean <b>libres</b>, listos para asignar en Cuentas.</p></section>${pfCard}
       <section class="card"><h2>Cargar una cuenta <small>· con todos los detalles</small></h2><form class="form" id="accForm">
       <label>Producto${sel("productId")}</label><label>Proveedor${sel("supplierId")}</label>
       <label>Email de la cuenta<input name="email" type="email" required></label><label>Contraseña<input name="password" required></label>
