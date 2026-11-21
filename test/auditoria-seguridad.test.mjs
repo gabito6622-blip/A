@@ -111,3 +111,39 @@ describe("auditoría · código por WhatsApp", () => {
     assert.equal(sent[2].phone, "+59176543210");
   });
 });
+
+describe("auditoría · «Ver mi código» en el link de cobro", () => {
+  let w, rosa, rck, token, mbx;
+  before(async () => {
+    w = await boot();
+    const s = w.s;
+    s.catalog.upsertProduct(owner, { id: "net-alq", name: "Netflix (alquiler revendedores)", kind: "full_account", durationDays: 30, price: 4000, published: true, resellersOnly: true });
+    s.catalog.upsertSupplier(owner, { id: "andes", name: "Andes", active: true });
+    s.inventory.addAccount(owner, { productId: "net-alq", supplierId: "andes", email: "net-rosa@x.lat", password: "Clave-Secreta#77", supplierExpiresAt: w.clock.t + 90 * DAY, cost: 2500, profiles: [{ label: "Cuenta completa" }] });
+    mbx = s.codes.configureMailbox(owner, { address: "codigos.tienda@gmail.com", host: "imap.gmail.com" }).id;
+    rosa = s.catalog.createCustomer(owner, { name: "Rosa Mamani", phone: "+59171111111", kind: "reseller" });
+    const aid = s.orders.create(owner, { customerId: rosa.id, items: [{ productId: "net-alq", qty: 1 }], paymentMethod: "cash" }).assignmentIds[0];
+    await w.call("POST", `/api/admin/customers/${rosa.id}/login-pin`, { pin: "2468" }, w.ock);
+    rck = (await w.call("POST", "/api/auth/customer/pin", { phone: "+59171111111", pin: "2468" })).ck;
+    w.clock.t += MIN;
+    const sub = (await w.call("POST", `/api/me/subs/${aid}`, { name: "Ana Pérez", phone: "72223344", label: "Mamá", expiresAt: w.clock.t + 10 * DAY, price: 1500 }, rck)).json.sub;
+    token = (await w.call("POST", `/api/me/subs/${aid}/${sub.id}/link`, {}, rck)).json.token;
+    assert.equal((await w.call("POST", "/api/admin/self-codes", { on: true }, w.ock)).status, 200);
+    assert.equal((await w.call("POST", `/api/me/self-codes/rental/${aid}`, { on: true }, rck)).status, 200);
+    w.clock.t += MIN;
+  });
+  after(() => w.stop());
+
+  test("ve el código de inicio de sesión, pero NUNCA el de cambio de correo", async () => {
+    const from = "Netflix <info@account.netflix.com>";
+    w.s.codes.ingest(owner, mbx, { to: "net-rosa@x.lat", from, subject: "Tu código de inicio de sesión", body: "Ingresá este código para iniciar sesión:\n482913", receivedAt: w.clock.t });
+    const cc = w.s.codes.ingest(owner, mbx, { to: "net-rosa@x.lat", from, subject: "Netflix: código para cambiar tu correo electrónico", body: "Tu código para cambiar el correo:\n775511", receivedAt: w.clock.t });
+    assert.equal(cc?.kind, "cambio_correo", "el lector lo guarda (el dueño lo ve en su panel)");
+    const r = await w.call("GET", `/api/cobro/${token}/codes`);
+    assert.equal(r.status, 200);
+    const got = r.json.codes.map((c) => c.code);
+    assert.ok(got.includes("482913"), "el de inicio de sesión sí");
+    assert.ok(!got.includes("775511"), "el de cambio de correo no");
+    assert.ok(r.json.codes.every((c) => c.kind !== "cambio_correo"));
+  });
+});
