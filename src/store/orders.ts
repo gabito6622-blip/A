@@ -256,6 +256,7 @@ export function createTrial(e: Engine, actor: Actor, input: { customerId: Id; pr
     e.s.orders[id] = order;
     slot.status = "assigned";
     delete slot.reservedUntil;
+    delete e.s.accounts[slot.accountId]?.freeCheckedAt; // ✅ «revisada libre» se vence al vender
     delete slot.reservedByOrder;
     const a: Assignment = {
       id: e.id("asg"), slotId: slot.id, productId: input.productId, customerId: input.customerId, orderId: id,
@@ -278,6 +279,7 @@ function fulfill(e: Engine, actor: Actor, order: Order): void {
       if (slot.status !== "reserved" || slot.reservedByOrder !== order.id) throw new DomainError("INVALID_STATE", `El perfil ${slotId} ya no está reservado para este pedido`);
       slot.status = "assigned";
       delete slot.reservedUntil;
+      delete e.s.accounts[slot.accountId]?.freeCheckedAt; // ✅ «revisada libre» se vence al vender
       const dProd = e.s.products[slot.productId].durationDays, nPer = order.periods ?? 1;
       const a: Assignment = {
         id: e.id("asg"), slotId, productId: slot.productId, customerId: order.customerId, orderId: order.id,

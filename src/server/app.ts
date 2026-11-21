@@ -1228,6 +1228,16 @@ export function createApp(cfg: AppConfig): App {
       email: b.email, password: b.password, supplierId: b.supplierId, supplierExpiresAt: b.supplierExpiresAt, cost: b.cost, costUsd: b.costUsd, notes: b.notes,
     });
   });
+  // ✅ «La revisé: está libre» (20/11/2026): el dueño confirma que los lugares libres no los tiene nadie. Se borra solo
+  // cuando la cuenta se vende o le cambian los lugares (ver inventory), así nunca queda un ✅ viejo.
+  route("POST", "/api/admin/accounts/:id/free-check", "staff", (c) => {
+    if (!["owner", "admin"].includes(String(A(c).role))) throw new HttpError(403, "FORBIDDEN", "Lo confirma el dueño o un admin");
+    const acc = store.engine.s.accounts[c.params.id];
+    if (!acc) throw new DomainError("NOT_FOUND", "Esa cuenta no existe");
+    const on = c.body?.ok !== false;
+    store.engine.tx(() => { if (on) acc.freeCheckedAt = now(); else delete acc.freeCheckedAt; store.engine.audit(A(c), "account.free_check", "account", acc.id, { ok: on }); });
+    return { id: acc.id, freeCheckedAt: acc.freeCheckedAt ?? null };
+  });
   route("POST", "/api/admin/accounts/:id/slots", "staff", (c) => store.inventory.addSlot(A(c), c.params.id, { label: String(c.body?.label ?? ""), pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id", "staff", (c) => store.inventory.updateSlot(A(c), c.params.id, { label: c.body?.label, pin: c.body?.pin }));
   route("POST", "/api/admin/slots/:id/status", "staff", (c) => (store.inventory.setSlotStatus(A(c), c.params.id, c.body?.status, String(c.body?.note ?? "")), { ok: true }));
