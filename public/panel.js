@@ -2783,10 +2783,15 @@ function sellSummary() {
   const pay = f.payStatus.value === "pendiente" ? "⏳ Pendiente" : "✅ Pagado";
   const extra = `${qty > 1 ? ` · ${qty}×` : ""}${months > 1 ? ` · ${months} meses` : ""}`;
   const code = (f.couponCode?.value || "").trim().toUpperCase();
-  const q = code && sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
-  if (code && !q) quoteSell(cid, f.productId.value, qty, code, months);
+  // 20/11: el total sale SIEMPRE del servidor (antes solo con cupón). A un revendedor el resumen decía «Bs 35»
+  // (precio de la tienda) y se le cobraba su lista (Bs 25): ahora dice lo mismo que se cobra.
+  const q = sellQuote.key === `${cid}|${f.productId.value}|${qty}|${code}|${months}` ? sellQuote.r : null;
+  if (!q) quoteSell(cid, f.productId.value, qty, code, months);
   const custom = f.priceBs?.value !== "" && f.priceBs?.value != null ? Math.round(+f.priceBs.value * 100) : null;
-  const total = custom !== null && custom >= 0 ? custom : q?.coupon ? q.total : price * qty * months;
+  const quoted = Number.isFinite(q?.total) ? q.total : null, list = price * qty * months;
+  const total = custom !== null && custom >= 0 ? custom : quoted ?? list;
+  const money = (c) => (custom === null && q?.currency === "USD" ? usd(c) : bs(c));
+  if (f.priceBs) f.priceBs.placeholder = quoted !== null && q?.currency !== "USD" ? `${(quoted / 100).toString().replace(".", ",")} (su precio)` : "precio normal";
   const until = f.until?.value ? f.until.value.split("-").reverse().join("/") : "";
   box.hidden = false;
   box.innerHTML = `<div class="sumline"><span>Le vendés a</span><b>${esc(first)}</b></div>
@@ -2794,8 +2799,10 @@ function sellSummary() {
     <div class="sumline"><span>Cobro</span><b>${method} · ${pay}</b></div>
     ${until ? `<div class="sumline"><span>📅 Vence el</span><b>${until}</b></div>` : ""}
     ${code ? `<div class="sumline"><span>🏷️ Cupón ${esc(code)}</span><b>${!q ? "revisando…" : q.coupon ? `−${bs(q.coupon.amount)}` : `<span class="cupst bad">${esc(q.couponError)}</span>`}</b></div>` : ""}
-    <div class="sumtot"><span>Total a cobrar</span><b>${bs(total)}</b></div>`;
-  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)} · ${bs(total)}`;
+    ${custom === null && quoted !== null && !q?.coupon && quoted !== list && q?.currency !== "USD" ? `<div class="sumline"><span>💲 Su precio</span><b>${bs(quoted)} <small class="muted">(en la tienda ${bs(list)})</small></b></div>` : ""}
+    ${q?.missingListPrice?.length ? `<div class="sumline"><span>⚠️ Sin precio de revendedor</span><b>paga el de la tienda</b></div>` : ""}
+    <div class="sumtot"><span>Total a cobrar</span><b>${custom === null && !q ? "…" : money(total)}</b></div>`;
+  btn.innerHTML = `${icon("cart")}Vender a ${esc(first)}${custom === null && !q ? "" : ` · ${money(total)}`}`;
 }
 document.addEventListener("input", (ev) => { if (ev.target.form?.id === "sellForm") { if (ev.target.name === "customerName") { P.tab.sellCustomer = ev.target.value; sellNewHint(ev.target.form); } sellSummary(); } });
 // Vender: «➕ Crear "<nombre>"» ahí mismo (dia.js). El cliente nuevo entra a la lista y la venta sigue.
