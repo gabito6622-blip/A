@@ -74,6 +74,8 @@ describe("día del dueño en el celular", () => {
       await open("inicio", ".sec-cta");
       await p.waitForSelector(".hm-hoy", { timeout: 20_000 });
       assert.match(await p.locator(".hm-hoy").innerText(), /Para hacer hoy/);
+      // 21/11/2026: en Inicio, «Avisar» y «Se cortaron solos» vienen plegados.
+      for (const id of ["sec-avisar", "sec-cortados"]) { const el = p.locator(`.hm-hoy #${id}`); if (await el.count()) assert.equal(await el.evaluate((x) => x.tagName === "DETAILS" && !x.open), true, `${id} plegado en Inicio`); }
       assert.ok(await p.locator(".hm-hoy #sec-actividad .audrow").count() > 0, "con los movimientos de hoy en «Lo que pasó»");
       assert.match(await p.locator(".hm-hoy #sec-actividad").textContent(), /Gabriel/, "dice quién lo hizo (vos)");
 

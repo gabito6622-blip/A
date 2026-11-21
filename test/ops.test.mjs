@@ -283,11 +283,12 @@ describe("entrar con número y PIN (sin bot de WhatsApp)", () => {
       const ck = ok.headers.get("set-cookie").split(";")[0];
       const me = await (await s.call("GET", "/api/me", ck)).json();
       assert.equal(me.name, "Ari");
-      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "9999", pin: "4321" })).status, 401, "pide el PIN actual");
-      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: pin, pin: "4321" })).status, 200);
-      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 200);
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "9999", pin: "4826" })).status, 401, "pide el PIN actual");
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: pin, pin: "4826" })).status, 200);
+      assert.equal((await s.call("POST", "/api/me/login-pin", ck, { current: "4826", pin: "1234" })).status, 400, "21/11: PIN fácil (1234) no se acepta");
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4826" })).status, 200);
       for (let i = 0; i < 5; i++) await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "0001" });
-      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4321" })).status, 429);
+      assert.equal((await s.call("POST", "/api/auth/customer/pin", "", { phone: "+59170001234", pin: "4826" })).status, 429);
     } finally { await s.stop(); }
   });
 });

@@ -745,6 +745,9 @@ const V = {
     if (canReview()) {
       let lista = "";
       try { lista = await secretaryView((l) => `<div class="sec-act">${l.map((a) => { const t = auditText(a, null); return `<div class="audrow"><div class="audtxt"><b>${esc(t.who)}</b> ${esc(t.what)}${t.detail ? ` <span class="auddet">· ${esc(t.detail)}</span>` : ""}</div><small class="muted">${fdt(a.at)}</small></div>`; }).join("")}</div>`); } catch { lista = ""; } // si falla, Inicio sigue igual (el botón «Abrir Mi secretaria» del saludo está)
+      // 21/11/2026: en Inicio, «Avisar» y «Se cortaron solos» vienen plegados (el dueño: que Inicio no quede tan largo).
+      lista = lista.replace('id="sec-avisar" open', 'id="sec-avisar"')
+        .replace(/<section class="card sec-card" id="sec-cortados"><h2>([\s\S]*?)<\/h2>([\s\S]*?)<\/section>/, (_m, h, b) => `<details class="card sec-card sec-fold" id="sec-cortados"><summary><h2>${h}</h2></summary>${b}</details>`);
       hoyTop = !lista ? "" : `<div class="hm-hoy"><h2 class="hm-hoy-t">🏠 Para hacer hoy</h2>${notif?.items?.some((n) => n.sev === "bad") ? pendCard.replace("📋 Lo que tenés pendiente", "🔴 Urgente").replace("card hm-pend", "card hm-urg") : ""}${lista}</div>`;
     }
     const topCards = canReview() ? await inicioTop(ini) : "";

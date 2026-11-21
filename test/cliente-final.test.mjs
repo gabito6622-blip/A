@@ -80,6 +80,7 @@ test("cliente final en el celular: error del pago a la vista, códigos claros, f
       /* 7 · etiquetas que no tapan el logo */
       await p.goto(base + "/tienda/#catalogo");
       await p.locator(".pc").first().waitFor();
+      assert.doesNotMatch(await p.locator("body").innerText(), /🔥 Popular|⭐ Top/, "21/11: sin «Popular»/«Top» inventados");
       const gaps = await p.evaluate(() => [...document.querySelectorAll(".pc .pimg")].map((x) => { const b = x.querySelector(".pbadges").getBoundingClientRect(), m = x.querySelector(":scope > :not(.pbadges)").getBoundingClientRect(); return m.top - b.bottom; }));
       assert.ok(gaps.length >= 3 && gaps.every((g) => g >= 0), `${where}: etiquetas sin tapar el logo (${gaps.join(",")})`);
       const hs = await p.evaluate(() => [...new Set([...document.querySelectorAll(".pc .pimg")].map((x) => Math.round(x.getBoundingClientRect().height)))]);

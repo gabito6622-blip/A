@@ -566,7 +566,13 @@ export function createApp(cfg: AppConfig): App {
     const id = c.actor!.customerId!;
     const stored = db.getSecret(`loginpin:${id}`);
     if (stored && !verifyPassword(loginPinKey(id, String(c.body?.current ?? "")), stored)) throw new HttpError(401, "BAD_PIN", "El PIN actual no es correcto");
-    setLoginPin(id, String(c.body?.pin ?? "").trim());
+    // 21/11/2026: nada de PINs fáciles de adivinar (1111, 1234, 4321, 1212…) cuando lo elige uno mismo.
+    const np = String(c.body?.pin ?? "").trim();
+    if (/^\d{4}$/.test(np)) {
+      const d = np.split("").map(Number), up = d.every((x, i) => !i || x === d[i - 1] + 1), down = d.every((x, i) => !i || x === d[i - 1] - 1);
+      if (new Set(d).size === 1 || up || down || (np.slice(0, 2) === np.slice(2) && d[0] !== d[1] && new Set(d).size === 2) || ["1004", "2000", "1990", "2580", "0852"].includes(np)) throw new HttpError(400, "WEAK_PIN", "Ese PIN es muy fácil de adivinar. Elegí otro (que no sea 1111, 1234, 4321 ni 1212)");
+    }
+    setLoginPin(id, np);
     db.setSecret(`pinby:${id}`, "self", now());
     // Cambiar el PIN deja afuera a los otros aparatos (este sigue adentro).
     const closed = db.deleteSessionsOf(id, c.session?.tokenHash);
