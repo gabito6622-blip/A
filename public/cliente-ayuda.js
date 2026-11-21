@@ -9,12 +9,14 @@ import { esc, waLink, icon } from "/common.js";
 
 /** Dónde reportar: igual en la pantalla de fallas y en la pregunta frecuente de fábrica. */
 export const REPORT_WHERE = "Reportá en Mis cuentas → ⚠️ Reportar falla; si es urgente, escribinos por WhatsApp.";
+/** En la pantalla de fallas ya estás donde se reporta: no se manda a «Mis cuentas» (20/11, confundía). */
+export const REPORT_HERE = "Contanos qué pasa con el formulario de abajo; si es urgente, escribinos por WhatsApp.";
 
 /** Recuadro de la pantalla de fallas. `h`: { from, to, open, opensAt, opensWhen } del servidor. */
 export function fallasHelp(h, st) {
   const when = h && !h.open ? ` Ahora estamos cerrados: te respondemos desde las ${esc(h.opensAt)}${h.opensWhen === "tomorrow" ? " de mañana" : ""}.` : "";
   const wa = st?.whatsapp ? `<a class="sbtn" href="${waLink(st.whatsapp, "Hola, tengo una falla con mi servicio y quiero hablar con una persona.")}" target="_blank" rel="noopener">${icon("wa")}Hablar con una persona</a>` : "";
-  return `<div class="sbox fhelp" role="note">${h ? `<p>🕒 <b>Atendemos de ${esc(h.from)} a ${esc(h.to)}.</b>${when}</p>` : ""}<p class="empty">${esc(REPORT_WHERE)}</p>${wa}</div>`;
+  return `<div class="sbox fhelp" role="note">${h ? `<p>🕒 <b>Atendemos de ${esc(h.from)} a ${esc(h.to)}.</b>${when}</p>` : ""}<p class="empty">${esc(REPORT_HERE)}</p>${wa}</div>`;
 }
 
 /** Respuesta de una pregunta frecuente con la ayuda del PIN, si la regla habla de perder la garantía por el PIN. */
