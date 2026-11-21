@@ -424,7 +424,8 @@ export function createApp(cfg: AppConfig): App {
   }
 
   route("POST", "/api/auth/staff/login", "public", (c) => {
-    const username = String(c.body?.username ?? "").toLowerCase();
+    // Sin espacios: « gabriel» y «gabriel» son el mismo usuario y comparten el freno (antes cada forma tenía el suyo).
+    const username = String(c.body?.username ?? "").trim().toLowerCase();
     if (!loginLimiter.take(`${c.ip}|${username}`)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos.");
     // Freno por usuario, aunque cambie la IP (14/11/2026): antes se podía saltar mandando otra IP en la cabecera.
     const lockKey = `staff:${username}`;
@@ -455,13 +456,15 @@ export function createApp(cfg: AppConfig): App {
     if (phone.replace(/\D/g, "").length < 7) throw new HttpError(400, "VALIDATION", "Teléfono inválido");
     if (!otpSender()) throw new HttpError(503, "OTP_DISABLED", "El ingreso por código todavía no está activo. Pedile a la tienda tu link de acceso.");
     if (!otpIpLimiter.take(c.ip) || !otpPhoneLimiter.take(phone)) throw new HttpError(429, "RATE_LIMIT", "Pediste muchos códigos. Probá en 15 minutos.");
-    const exists = !!store.catalog.findCustomerByPhone(phone);
+    const found = store.catalog.findCustomerByPhone(phone), exists = !!found;
     if (!exists) {
       const name = String(c.body?.name ?? "").trim();
       if (!name) return { needsName: true };
       pendingSignup.set(phone, { name: name.slice(0, 80), whatsappConsent: !!c.body?.whatsappConsent });
     }
-    await otpSender()!(phone, otp.issue(phone));
+    // El código va SIEMPRE al número guardado de la cuenta, no al que escribieron: «54971000001» se toma como la misma
+    // cuenta que «+59171000001» (mismos 8 últimos números) y el código no puede terminar en el celular de otro.
+    await otpSender()!(found?.phone || phone, otp.issue(phone));
     return { sent: true };
   });
 
@@ -485,6 +488,8 @@ export function createApp(cfg: AppConfig): App {
   // Probar códigos de cupón en páginas públicas: límite por IP para que no se adivinen a fuerza bruta.
   const couponLimiter = new RateLimiter(30, 10 * 60_000, now);
   const pinPhoneLimiter = new RateLimiter(10, 15 * 60_000, now);
+  // PINs fallados desde una misma IP, sumando todos los números (para que no prueben «1234» en cada cliente).
+  const pinIpLimiter = new RateLimiter(40, 15 * 60_000, now);
   const setLoginPin = (customerId: string, pin: string) => {
     if (!/^\d{4}$/.test(pin)) throw new DomainError("VALIDATION", "El PIN tiene que ser de 4 números");
     db.setSecret(`loginpin:${customerId}`, hashPassword(loginPinKey(customerId, pin)), now());
@@ -492,14 +497,18 @@ export function createApp(cfg: AppConfig): App {
   const randomPin = () => String(1000 + (randomBytes(2).readUInt16BE(0) % 9000));
   route("POST", "/api/auth/customer/pin", "public", (c) => {
     const phone = normalizePhone(c.body?.phone);
-    const k = `${phone}|${c.ip}`;
-    if (pinLoginLimiter.blocked(k) || pinPhoneLimiter.blocked(phone)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos o pedile un PIN nuevo a la tienda.");
-    const lockKey = `pin:${phone}`, wait = lockWait(lockKey);
-    if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const cust = phone.replace(/\D/g, "").length >= 7 ? store.catalog.findCustomerByPhone(phone) : undefined;
+    // Auditoría 20/11/2026: los frenos van por PERSONA, no por cómo se escribió el número. Antes «71000001»,
+    // «59171000001», «071000001», «971000001»… eran la misma cuenta pero cada forma tenía su propio contador:
+    // con 10.000 PINs posibles se podía probar todos sin que nada frenara. Además, un tope por IP para todos los números.
+    const who = cust ? `c:${cust.id}` : `p:${phone}`;
+    const k = `${who}|${c.ip}`;
+    if (pinLoginLimiter.blocked(k) || pinPhoneLimiter.blocked(who) || pinIpLimiter.blocked(c.ip)) throw new HttpError(429, "RATE_LIMIT", "Demasiados intentos. Probá en 15 minutos o pedile un PIN nuevo a la tienda.");
+    const lockKey = cust ? `pin:${cust.id}` : `pin:${phone}`, wait = lockWait(lockKey);
+    if (wait) throw new HttpError(429, "RATE_LIMIT", lockMsg(wait));
     const stored = cust ? db.getSecret(`loginpin:${cust.id}`) : undefined;
     if (!cust || !verifyPassword(loginPinKey(cust.id, String(c.body?.pin ?? "")), stored)) {
-      pinLoginLimiter.take(k); pinPhoneLimiter.take(phone);
+      pinLoginLimiter.take(k); pinPhoneLimiter.take(who); pinIpLimiter.take(c.ip);
       if (cust && stored) { failOnce(lockKey, "customer", cust.id, cust.name); logAccess(c, "customer", cust.id, "login_fail", false); }
       throw new HttpError(401, "BAD_PIN", cust && !stored ? "Todavía no tenés PIN. Pedíselo a la tienda por WhatsApp." : "Número o PIN incorrecto");
     }
@@ -543,6 +552,7 @@ export function createApp(cfg: AppConfig): App {
     sellerKeyGuard(A(c), cust);
     const pin = c.body?.pin ? String(c.body.pin).trim() : randomPin();
     setLoginPin(cust.id, pin);
+    db.failClear(`pin:${cust.id}`); // PIN nuevo de la tienda: se levanta el freno por intentos fallidos
     db.setSecret(`pinby:${cust.id}`, "owner", now()); // 20/11/2026: se lo dio la tienda → su panel le sugiere elegir uno propio
     // 14/11/2026: el PIN nuevo deja afuera a quien haya entrado con el viejo (antes seguía adentro hasta 30 días).
     const closed = db.deleteSessionsOf(cust.id);
