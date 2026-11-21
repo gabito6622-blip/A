@@ -346,7 +346,8 @@ export function createApp(cfg: AppConfig): App {
     const raw = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
     if (!raw) return {};
     const s = db.getSession(sha256(raw), now());
-    if (!s || s.kind === "link") return {};
+    // Solo sesiones de verdad: un token de link de un toque o de renovación nunca sirve como cookie de sesión.
+    if (!s || (s.kind !== "staff" && s.kind !== "customer")) return {};
     const st = store.engine.s;
     if (s.kind === "staff") {
       const u = st.staff[s.subjectId];

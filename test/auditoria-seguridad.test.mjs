@@ -7,6 +7,8 @@
 //  5. Link de cobro con «Ver mi código»: mostraba también el código para CAMBIAR EL CORREO de la cuenta.
 //  6. Atención (seller) cambiaba el correo de un revendedor y con «Olvidé mi contraseña» entraba a su cuenta.
 //  7. Atención (seller) creaba un cliente final con la lista de precios de revendedor.
+//  8. La página pública del revendedor (/api/shops/<slug>) mostraba hasta cuándo pagó GaboHub y si es prueba.
+//  9. Defensa extra: un token de link de renovación o de un toque nunca sirve como cookie de sesión.
 // Datos ficticios en carpetas temporales; nada real (sin red, sin WhatsApp, sin correos).
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -195,5 +197,40 @@ describe("auditoría · Atención no elige precios de revendedor al crear un cli
     assert.equal(ok.status, 200);
     assert.equal(ok.json.priceGroupId, "final");
     assert.equal((await w.call("POST", "/api/admin/customers", { name: "Otro", phone: "+59171000032", priceGroupId: "revendedor" }, w.ock)).status, 200, "el dueño sí");
+  });
+});
+
+describe("auditoría · página pública del revendedor y tokens que no son sesión", () => {
+  let w, rev;
+  before(async () => {
+    w = await boot();
+    rev = w.s.catalog.createCustomer(owner, { name: "Rev Página", phone: "+59171000041", kind: "reseller" });
+    w.s.shops.setPage(owner, rev.id, true);
+    w.s.shops.update({ id: "u_rev", role: "reseller", customerId: rev.id }, { slug: "revpagina", title: "Rev Página", whatsapp: "+59171000041", enabled: true });
+  });
+  after(() => w.stop());
+
+  test("/api/shops/<slug> no dice hasta cuándo pagó GaboHub, ni si es prueba o está suspendido", async () => {
+    w.s.engine.tx(() => Object.assign(w.s.engine.s.customers[rev.id].shop, { paidUntil: w.clock.t + 20 * DAY, trial: true }));
+    const r = await w.call("GET", "/api/shops/revpagina");
+    assert.equal(r.status, 200);
+    assert.equal(r.json.slug, "revpagina");
+    for (const k of ["paidUntil", "trial", "suspended"]) assert.equal(k in r.json, false, k);
+  });
+
+  test("el token de un link de renovación no abre sesión si lo ponen como cookie", async () => {
+    const s = w.s;
+    s.catalog.upsertProduct(owner, { id: "nf", name: "Netflix", kind: "profile", durationDays: 30, price: 3500, published: true });
+    s.catalog.upsertSupplier(owner, { id: "andes", name: "Andes", active: true });
+    s.inventory.addAccount(owner, { productId: "nf", supplierId: "andes", email: "nf-renov@x.lat", password: "Clave-Larga#1", supplierExpiresAt: w.clock.t + 90 * DAY, cost: 1000, profiles: [{ label: "P1" }] });
+    const cli = s.catalog.createCustomer(owner, { name: "Cliente Directo", phone: "+59171000042" });
+    const asg = s.orders.create(owner, { customerId: cli.id, items: [{ productId: "nf", qty: 1 }], paymentMethod: "cash" }).assignmentIds[0];
+    assert.equal((await w.call("POST", "/api/admin/settings", { renewLink: { enabled: true, access: "full", hours: 48 } }, w.ock)).status, 200);
+    const url = (await w.call("POST", `/api/admin/assignments/${asg}/renew-link`, {}, w.ock)).json.url;
+    const token = url.split("#renovar=")[1];
+    assert.ok(token);
+    const me = await w.call("GET", "/api/me", undefined, `gs_session=${token}`);
+    assert.equal(me.json.loggedIn, false);
+    assert.equal((await w.call("GET", "/api/me/services", undefined, `gs_session=${token}`)).status, 401);
   });
 });
