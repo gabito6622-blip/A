@@ -755,6 +755,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
    (antes eran dos etiquetas flotando que se tapaban, y la categoría se cortaba: "Inteligencia a…") */
 .pbadges{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;z-index:2;pointer-events:none}
 .pimg .pbadges .tag,.pimg .pbadges .prib{position:static;max-width:100%;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2}
+/* 20/11 (revisión «en el lugar del cliente»): en el celular, con una categoría larga en dos líneas más «Popular» o
+   «Últimas», la fila de etiquetas tapaba el logo (hasta 24 px a 360 px). Ahora las etiquetas van arriba, en su lugar, y
+   el logo debajo; todas las imágenes miden lo mismo para que la fila de tarjetas quede pareja. */
+@media (max-width:520px){
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg:has(.pbadges){height:auto;min-height:132px;padding:8px 8px 12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px}
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg .pbadges{position:static;align-self:stretch}
+  .shop:not([data-card="lista"]):not([data-card="poster"]) .pimg:has(.pbadges) > :not(.pbadges){margin-block:auto}
+}
 
 /* Portada en el celular: los logos flotantes tienen su propia franja arriba y ya no pisan la etiqueta
    "GaboHub · plataforma para revendedores" */
